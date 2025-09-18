@@ -1,0 +1,12 @@
+# build output
+.next
+dist
+coverage
+out
+playwright-report
+
+# dependencies
+node_modules
+
+# misc
+*.log
