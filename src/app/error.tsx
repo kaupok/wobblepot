@@ -1,5 +1,6 @@
 'use client'
 
+import { Button } from '@/components/ui/button'
 import { useEffect } from 'react'
 
 export default function Error({
@@ -30,12 +31,7 @@ export default function Error({
           </details>
         )}
         {error.digest && <p className="mb-6 text-sm text-gray-500">Error ID: {error.digest}</p>}
-        <button
-          onClick={reset}
-          className="rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-700"
-        >
-          Try again
-        </button>
+        <Button onClick={reset}>Try again</Button>
       </div>
     </div>
   )
