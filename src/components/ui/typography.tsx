@@ -38,7 +38,7 @@ export const Heading = React.forwardRef<HTMLHeadingElement, HeadingProps>(
     const Tag = tagMap[effectiveVariant]
     return React.createElement(Tag, {
       ref,
-      className: cn(headingVariants({ variant }), className),
+      className: cn(headingVariants({ variant: effectiveVariant }), className),
       ...props,
     })
   },
@@ -66,9 +66,16 @@ interface BodyProps
     VariantProps<typeof bodyVariants> {}
 
 export const Body = React.forwardRef<HTMLParagraphElement, BodyProps>(
-  ({ className, variant = 'default', ...props }, ref) => (
-    <p ref={ref} className={cn(bodyVariants({ variant }), className)} {...props} />
-  ),
+  ({ className, variant, ...props }, ref) => {
+    const effectiveVariant = variant ?? 'default'
+    return (
+      <p
+        ref={ref}
+        className={cn(bodyVariants({ variant: effectiveVariant }), className)}
+        {...props}
+      />
+    )
+  },
 )
 Body.displayName = 'Body'
 
@@ -127,10 +134,7 @@ export const Pre = React.forwardRef<HTMLPreElement, React.HTMLAttributes<HTMLPre
   ({ className, ...props }, ref) => (
     <pre
       ref={ref}
-      className={cn(
-        'bg-muted my-6 overflow-x-auto rounded-lg border p-4 font-mono text-sm',
-        className,
-      )}
+      className={cn('bg-muted overflow-x-auto rounded-lg border p-4 font-mono text-sm', className)}
       {...props}
     />
   ),
