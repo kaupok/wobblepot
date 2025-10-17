@@ -1,9 +1,11 @@
+import { H1, P } from '@/components/ui/typography'
+
 export default function Home() {
   return (
     <div className="grid min-h-screen place-items-center">
       <main className="flex flex-col items-center gap-[32px]">
-        <h1 className="text-2xl font-bold">Honkadori</h1>
-        <p>Honkadori all day</p>
+        <H1>Honkadori</H1>
+        <P>Honkadori all day</P>
       </main>
     </div>
   )
