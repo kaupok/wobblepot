@@ -29,10 +29,12 @@ export default function Error({
         {process.env.NODE_ENV === 'development' && (
           <details className="mt-4 mb-4 text-left">
             <summary className="cursor-pointer font-semibold">Error details</summary>
-            <Pre className="text-destructive mt-2 text-xs">
-              {error.message}
-              {error.stack && `\n\n${error.stack}`}
-            </Pre>
+            <div className="mt-2">
+              <Pre className="text-destructive text-xs">
+                {error.message}
+                {error.stack && `\n\n${error.stack}`}
+              </Pre>
+            </div>
           </details>
         )}
         {error.digest && (

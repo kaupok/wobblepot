@@ -110,10 +110,71 @@ Renders paragraph text with different text sizes and styles:
 
 #### Other Components
 
-- `Blockquote` - Semantic blockquote with left border and padding
-- `Ul`/`Ol`/`Li` - Semantic lists with built-in spacing
-- `Code` - Inline code with styling
-- `Pre` - Code blocks with scrolling and padding
+**`Blockquote`** - Semantic blockquote with left border and padding:
+
+```tsx
+<Blockquote>"This is a great quote that I found somewhere online."</Blockquote>
+```
+
+**`Ul`/`Ol`/`Li`** - Semantic lists with built-in spacing:
+
+```tsx
+<Ul>
+  <Li>First item</Li>
+  <Li>Second item</Li>
+  <Li>Third item</Li>
+</Ul>
+
+<Ol>
+  <Li>First step</Li>
+  <Li>Second step</Li>
+  <Li>Third step</Li>
+</Ol>
+```
+
+**`Code`** - Inline code with styling:
+
+```tsx
+<Body>
+  Use the <Code>npm install</Code> command to install dependencies.
+</Body>
+```
+
+**`Pre`** - Code blocks with scrolling and padding:
+
+```tsx
+<div className="my-4">
+  <Pre>
+    {`function example() {
+  return "Hello, world!";
+}`}
+  </Pre>
+</div>
+```
+
+#### Custom Classes and Type Styling
+
+All typography components accept a `className` prop that merges with component classes via the `cn()` utility. **However, only pass text-styling classes** (colors, sizes, weights, text-alignment) to maintain separation of concerns:
+
+**DO - text styling classes:**
+
+```tsx
+<Pre className="text-destructive text-xs">Error details</Pre>
+```
+
+**DON'T - layout classes on component:**
+
+```tsx
+<Pre className="mt-2 mb-4">Error details</Pre>
+```
+
+**Instead - wrap with layout:**
+
+```tsx
+<div className="mt-2 mb-4">
+  <Pre className="text-destructive text-xs">Error details</Pre>
+</div>
+```
 
 ## Review Focus
 
