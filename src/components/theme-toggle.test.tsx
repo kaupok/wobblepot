@@ -1,6 +1,5 @@
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { UseThemeProps } from 'next-themes/types'
 import * as nextThemes from 'next-themes'
 import { ThemeToggle } from './theme-toggle'
 
@@ -11,13 +10,21 @@ vi.mock('next-themes', () => ({
 
 const mockUseTheme = vi.mocked(nextThemes.useTheme)
 
+interface MockTheme {
+  theme: string | undefined
+  setTheme: ReturnType<typeof vi.fn>
+  systemTheme: 'light' | 'dark' | undefined
+  themes: string[]
+  resolvedTheme?: string
+}
+
 const createMockTheme = (
   theme: string | undefined,
   setTheme: ReturnType<typeof vi.fn> = vi.fn(),
-): UseThemeProps => ({
+): MockTheme => ({
   theme,
   setTheme,
-  systemTheme: 'light',
+  systemTheme: 'light' as const,
   themes: [],
   resolvedTheme: theme,
 })
