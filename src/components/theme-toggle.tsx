@@ -2,10 +2,16 @@
 
 import { Moon, Sun, Monitor } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const cycleTheme = () => {
     if (theme === 'system') {
@@ -15,6 +21,15 @@ export function ThemeToggle() {
     } else {
       setTheme('system')
     }
+  }
+
+  if (!mounted) {
+    return (
+      <Button variant="outline" size="icon" className="relative">
+        <Monitor className="h-[1.2rem] w-[1.2rem]" />
+        <span className="sr-only">Toggle theme</span>
+      </Button>
+    )
   }
 
   return (
