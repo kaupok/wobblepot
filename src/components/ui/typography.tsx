@@ -2,6 +2,10 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 import React from 'react'
 
+// Variant type exports for type reusability
+export type HeadingVariant = 'h1' | 'h2' | 'h3' | 'h4'
+export type BodyVariant = 'default' | 'lead' | 'large' | 'small' | 'muted'
+
 // Heading component with variants for h1-h4
 const headingVariants = cva('scroll-m-20 font-extrabold tracking-tight', {
   variants: {
@@ -30,7 +34,8 @@ const tagMap = {
 
 export const Heading = React.forwardRef<HTMLHeadingElement, HeadingProps>(
   ({ className, variant, ...props }, ref) => {
-    const Tag = tagMap[variant ?? 'h1']
+    const effectiveVariant = variant ?? 'h1'
+    const Tag = tagMap[effectiveVariant]
     return React.createElement(Tag, {
       ref,
       className: cn(headingVariants({ variant }), className),
