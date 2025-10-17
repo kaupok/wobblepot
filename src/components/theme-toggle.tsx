@@ -31,7 +31,7 @@ export function ThemeToggle() {
         className="absolute h-[1.2rem] w-[1.2rem] scale-0 transition-all data-[show=true]:scale-100"
         data-show={theme === 'system'}
       />
-      <span className="sr-only">Toggle theme (current: {theme})</span>
+      <span className="sr-only">Toggle theme</span>
     </Button>
   )
 }
