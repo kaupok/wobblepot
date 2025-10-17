@@ -21,9 +21,16 @@ interface HeadingProps
   extends React.HTMLAttributes<HTMLHeadingElement>,
     VariantProps<typeof headingVariants> {}
 
+const tagMap = {
+  h1: 'h1',
+  h2: 'h2',
+  h3: 'h3',
+  h4: 'h4',
+} as const
+
 export const Heading = React.forwardRef<HTMLHeadingElement, HeadingProps>(
   ({ className, variant = 'h1', ...props }, ref) => {
-    const Tag = (variant as 'h1' | 'h2' | 'h3' | 'h4') || 'h1'
+    const Tag = tagMap[variant || 'h1']
     return React.createElement(Tag, {
       ref,
       className: cn(headingVariants({ variant }), className),
