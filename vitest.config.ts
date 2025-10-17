@@ -1,8 +1,15 @@
 import { defineConfig } from 'vitest/config'
+import path from 'path'
 
 export default defineConfig({
   // Belt-and-suspenders so JSX never falls back to classic runtime
   esbuild: { jsx: 'automatic', jsxImportSource: 'react' },
+
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
 
   test: {
     environment: 'jsdom',
