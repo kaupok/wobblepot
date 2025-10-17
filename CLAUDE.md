@@ -43,6 +43,78 @@ A Next.js 15 project with React 19, using TypeScript, Tailwind CSS, and shadcn/u
 - Keep components focused and single-responsibility
 - Use TypeScript types for props
 
+### Typography Components
+
+We use two main variant-based components for typography:
+
+#### `Heading` Component
+
+Renders semantic heading elements (h1-h4) with consistent styling:
+
+```tsx
+<Heading>Default (h1)</Heading>
+<Heading variant="h2">Secondary heading</Heading>
+<Heading variant="h3">Tertiary heading</Heading>
+<Heading variant="h4">Quaternary heading</Heading>
+```
+
+**Available variants:** `h1` | `h2` | `h3` | `h4`
+
+#### `Body` Component
+
+Renders paragraph text with different text sizes and styles:
+
+```tsx
+<Body>Default body text</Body>
+<Body variant="lead">Lead/intro text (larger, muted)</Body>
+<Body variant="large">Large text (lg, semibold)</Body>
+<Body variant="small">Small text (sm, medium weight)</Body>
+<Body variant="muted">Muted text (sm, muted color)</Body>
+```
+
+**Available variants:** `default` | `lead` | `large` | `small` | `muted`
+
+#### Separation of Concerns
+
+**Text styling only** (in components):
+
+- Font size, weight, color, line-height, tracking
+- Components handle all text presentation concerns
+
+**Layout concerns** (via wrapper elements):
+
+- Margins, padding, display, positioning
+- Apply layout classes to a wrapper `<div>` instead of directly on typography components
+
+**Exceptions** - Built-in layout when essential:
+
+- `Blockquote`: includes `pl-6` (padding needed for border design)
+- `Ul`/`Ol`: include `my-6 ml-6` (spacing needed for list usability)
+- `Pre`: includes `p-4` (padding needed for code block presentation)
+
+**Example - DO:**
+
+```tsx
+<div className="mb-6">
+  <Body variant="muted">Error ID: 12345</Body>
+</div>
+```
+
+**Example - DON'T:**
+
+```tsx
+<Body variant="muted" className="mb-6 block">
+  Error ID: 12345
+</Body>
+```
+
+#### Other Components
+
+- `Blockquote` - Semantic blockquote with left border and padding
+- `Ul`/`Ol`/`Li` - Semantic lists with built-in spacing
+- `Code` - Inline code with styling
+- `Pre` - Code blocks with scrolling and padding
+
 ## Review Focus
 
 - Flag actual bugs and logic errors

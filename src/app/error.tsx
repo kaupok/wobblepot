@@ -1,7 +1,7 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { H2, P, Muted } from '@/components/ui/typography'
+import { Heading, Body } from '@/components/ui/typography'
 import { useEffect } from 'react'
 
 export default function Error({
@@ -20,8 +20,8 @@ export default function Error({
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
       <div className="max-w-md text-center">
-        <H2>Oops! Something went wrong</H2>
-        <P>We encountered an error while loading this page.</P>
+        <Heading variant="h2">Oops! Something went wrong</Heading>
+        <Body>We encountered an error while loading this page.</Body>
         {process.env.NODE_ENV === 'development' && (
           <details className="bg-muted mt-4 mb-4 rounded-lg p-4 text-left">
             <summary className="cursor-pointer font-semibold">Error details</summary>
@@ -33,7 +33,7 @@ export default function Error({
         )}
         {error.digest && (
           <div className="mb-6">
-            <Muted>Error ID: {error.digest}</Muted>
+            <Body variant="muted">Error ID: {error.digest}</Body>
           </div>
         )}
         <Button onClick={reset}>Try again</Button>

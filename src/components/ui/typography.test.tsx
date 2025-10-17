@@ -1,87 +1,86 @@
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
-import {
-  H1,
-  H2,
-  H3,
-  H4,
-  P,
-  Blockquote,
-  Ul,
-  Ol,
-  Li,
-  Code,
-  Pre,
-  Small,
-  Lead,
-  Muted,
-} from './typography'
+import { Heading, Body, Blockquote, Ul, Ol, Li, Code, Pre } from './typography'
 
 describe('Typography Components', () => {
-  describe('H1', () => {
-    it('renders h1 element', () => {
-      render(<H1>Heading 1</H1>)
+  describe('Heading', () => {
+    it('renders h1 by default', () => {
+      render(<Heading>Heading 1</Heading>)
       const heading = screen.getByRole('heading', { level: 1 })
       expect(heading).toBeInTheDocument()
       expect(heading).toHaveTextContent('Heading 1')
     })
 
-    it('applies heading classes', () => {
-      render(<H1>Heading 1</H1>)
+    it('renders h1 variant', () => {
+      render(<Heading variant="h1">Heading 1</Heading>)
       const heading = screen.getByRole('heading', { level: 1 })
       expect(heading).toHaveClass('text-4xl', 'font-extrabold')
     })
 
+    it('renders h2 variant', () => {
+      render(<Heading variant="h2">Heading 2</Heading>)
+      const heading = screen.getByRole('heading', { level: 2 })
+      expect(heading).toHaveClass('text-3xl', 'font-semibold', 'border-b')
+    })
+
+    it('renders h3 variant', () => {
+      render(<Heading variant="h3">Heading 3</Heading>)
+      const heading = screen.getByRole('heading', { level: 3 })
+      expect(heading).toBeInTheDocument()
+      expect(heading).toHaveClass('text-2xl', 'font-semibold')
+    })
+
+    it('renders h4 variant', () => {
+      render(<Heading variant="h4">Heading 4</Heading>)
+      const heading = screen.getByRole('heading', { level: 4 })
+      expect(heading).toBeInTheDocument()
+      expect(heading).toHaveClass('text-xl', 'font-semibold')
+    })
+
     it('accepts custom className', () => {
-      render(<H1 className="custom-class">Heading 1</H1>)
+      render(<Heading className="custom-class">Heading</Heading>)
       const heading = screen.getByRole('heading', { level: 1 })
       expect(heading).toHaveClass('custom-class')
     })
   })
 
-  describe('H2', () => {
-    it('renders h2 element', () => {
-      render(<H2>Heading 2</H2>)
-      const heading = screen.getByRole('heading', { level: 2 })
-      expect(heading).toBeInTheDocument()
-      expect(heading).toHaveTextContent('Heading 2')
+  describe('Body', () => {
+    it('renders default variant', () => {
+      render(<Body>Body text</Body>)
+      const body = screen.getByText('Body text')
+      expect(body).toBeInTheDocument()
+      expect(body.tagName).toBe('P')
+      expect(body).toHaveClass('leading-7')
     })
 
-    it('applies heading classes', () => {
-      render(<H2>Heading 2</H2>)
-      const heading = screen.getByRole('heading', { level: 2 })
-      expect(heading).toHaveClass('text-3xl', 'font-semibold', 'tracking-tight')
-    })
-  })
-
-  describe('H3', () => {
-    it('renders h3 element', () => {
-      render(<H3>Heading 3</H3>)
-      const heading = screen.getByRole('heading', { level: 3 })
-      expect(heading).toBeInTheDocument()
-    })
-  })
-
-  describe('H4', () => {
-    it('renders h4 element', () => {
-      render(<H4>Heading 4</H4>)
-      const heading = screen.getByRole('heading', { level: 4 })
-      expect(heading).toBeInTheDocument()
-    })
-  })
-
-  describe('P', () => {
-    it('renders paragraph element', () => {
-      render(<P>Paragraph text</P>)
-      const paragraph = screen.getByText('Paragraph text')
-      expect(paragraph).toBeInTheDocument()
-      expect(paragraph.tagName).toBe('P')
+    it('renders lead variant', () => {
+      render(<Body variant="lead">Lead text</Body>)
+      const body = screen.getByText('Lead text')
+      expect(body).toHaveClass('text-xl', 'text-muted-foreground')
     })
 
-    it('applies paragraph classes', () => {
-      render(<P>Paragraph text</P>)
-      const paragraph = screen.getByText('Paragraph text')
-      expect(paragraph).toHaveClass('leading-7')
+    it('renders large variant', () => {
+      render(<Body variant="large">Large text</Body>)
+      const body = screen.getByText('Large text')
+      expect(body).toHaveClass('text-lg', 'font-semibold')
+    })
+
+    it('renders small variant', () => {
+      render(<Body variant="small">Small text</Body>)
+      const body = screen.getByText('Small text')
+      expect(body).toHaveClass('text-sm', 'font-medium')
+    })
+
+    it('renders muted variant', () => {
+      render(<Body variant="muted">Muted text</Body>)
+      const body = screen.getByText('Muted text')
+      expect(body).toHaveClass('text-sm', 'text-muted-foreground')
+    })
+
+    it('accepts custom className', () => {
+      render(<Body className="custom-class">Body text</Body>)
+      const body = screen.getByText('Body text')
+      expect(body).toHaveClass('custom-class')
     })
   })
 
@@ -96,7 +95,7 @@ describe('Typography Components', () => {
     it('applies blockquote classes', () => {
       render(<Blockquote>Quote text</Blockquote>)
       const blockquote = screen.getByText('Quote text')
-      expect(blockquote).toHaveClass('border-l-2', 'italic', 'text-muted-foreground')
+      expect(blockquote).toHaveClass('border-l-2', 'italic', 'text-muted-foreground', 'pl-6')
     })
   })
 
@@ -180,51 +179,6 @@ describe('Typography Components', () => {
       render(<Pre>code block</Pre>)
       const pre = screen.getByText('code block')
       expect(pre).toHaveClass('rounded-lg', 'border', 'bg-muted')
-    })
-  })
-
-  describe('Small', () => {
-    it('renders small element', () => {
-      render(<Small>Small text</Small>)
-      const small = screen.getByText('Small text')
-      expect(small).toBeInTheDocument()
-      expect(small.tagName).toBe('SMALL')
-    })
-
-    it('applies small classes', () => {
-      render(<Small>Small text</Small>)
-      const small = screen.getByText('Small text')
-      expect(small).toHaveClass('text-sm', 'font-medium')
-    })
-  })
-
-  describe('Lead', () => {
-    it('renders lead paragraph', () => {
-      render(<Lead>Lead text</Lead>)
-      const lead = screen.getByText('Lead text')
-      expect(lead).toBeInTheDocument()
-      expect(lead.tagName).toBe('P')
-    })
-
-    it('applies lead classes', () => {
-      render(<Lead>Lead text</Lead>)
-      const lead = screen.getByText('Lead text')
-      expect(lead).toHaveClass('text-xl', 'text-muted-foreground')
-    })
-  })
-
-  describe('Muted', () => {
-    it('renders muted span', () => {
-      render(<Muted>Muted text</Muted>)
-      const muted = screen.getByText('Muted text')
-      expect(muted).toBeInTheDocument()
-      expect(muted.tagName).toBe('SPAN')
-    })
-
-    it('applies muted classes', () => {
-      render(<Muted>Muted text</Muted>)
-      const muted = screen.getByText('Muted text')
-      expect(muted).toHaveClass('text-muted-foreground')
     })
   })
 })

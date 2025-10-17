@@ -1,49 +1,64 @@
+import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 import React from 'react'
 
-// H1 - Page headings
-export const H1 = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
-  ({ className, ...props }, ref) => (
-    <h1
-      ref={ref}
-      className={cn('text-4xl font-extrabold tracking-tight lg:text-5xl', className)}
-      {...props}
-    />
-  ),
-)
-H1.displayName = 'H1'
+// Heading component with variants for h1-h4
+const headingVariants = cva('scroll-m-20 font-extrabold tracking-tight', {
+  variants: {
+    variant: {
+      h1: 'text-4xl lg:text-5xl',
+      h2: 'text-3xl font-semibold border-b pb-2 first:mt-0',
+      h3: 'text-2xl font-semibold',
+      h4: 'text-xl font-semibold',
+    },
+  },
+  defaultVariants: {
+    variant: 'h1',
+  },
+})
 
-// H2 - Major section headings
-export const H2 = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
-  ({ className, ...props }, ref) => (
-    <h2 ref={ref} className={cn('text-3xl font-semibold tracking-tight', className)} {...props} />
-  ),
-)
-H2.displayName = 'H2'
+interface HeadingProps
+  extends React.HTMLAttributes<HTMLHeadingElement>,
+    VariantProps<typeof headingVariants> {}
 
-// H3 - Subsection headings
-export const H3 = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
-  ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn('text-2xl font-semibold tracking-tight', className)} {...props} />
-  ),
+export const Heading = React.forwardRef<HTMLHeadingElement, HeadingProps>(
+  ({ className, variant = 'h1', ...props }, ref) => {
+    const Tag = (variant as 'h1' | 'h2' | 'h3' | 'h4') || 'h1'
+    return React.createElement(Tag, {
+      ref,
+      className: cn(headingVariants({ variant }), className),
+      ...props,
+    })
+  },
 )
-H3.displayName = 'H3'
+Heading.displayName = 'Heading'
 
-// H4 - Minor headings
-export const H4 = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
-  ({ className, ...props }, ref) => (
-    <h4 ref={ref} className={cn('text-xl font-semibold tracking-tight', className)} {...props} />
-  ),
-)
-H4.displayName = 'H4'
+// Body component with variants for different text styles
+const bodyVariants = cva('', {
+  variants: {
+    variant: {
+      default: 'leading-7',
+      lead: 'text-xl text-muted-foreground',
+      large: 'text-lg font-semibold',
+      small: 'text-sm font-medium leading-none',
+      muted: 'text-sm text-muted-foreground',
+    },
+  },
+  defaultVariants: {
+    variant: 'default',
+  },
+})
 
-// P - Paragraph text
-export const P = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
-  ({ className, ...props }, ref) => (
-    <p ref={ref} className={cn('leading-7', className)} {...props} />
+interface BodyProps
+  extends React.HTMLAttributes<HTMLParagraphElement>,
+    VariantProps<typeof bodyVariants> {}
+
+export const Body = React.forwardRef<HTMLParagraphElement, BodyProps>(
+  ({ className, variant = 'default', ...props }, ref) => (
+    <p ref={ref} className={cn(bodyVariants({ variant }), className)} {...props} />
   ),
 )
-P.displayName = 'P'
+Body.displayName = 'Body'
 
 // Blockquote
 export const Blockquote = React.forwardRef<
@@ -52,7 +67,7 @@ export const Blockquote = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <blockquote
     ref={ref}
-    className={cn('border-border text-muted-foreground border-l-2 italic', className)}
+    className={cn('border-border text-muted-foreground border-l-2 pl-6 italic', className)}
     {...props}
   />
 ))
@@ -109,28 +124,3 @@ export const Pre = React.forwardRef<HTMLPreElement, React.HTMLAttributes<HTMLPre
   ),
 )
 Pre.displayName = 'Pre'
-
-// Small text
-export const Small = React.forwardRef<HTMLElement, React.HTMLAttributes<HTMLElement>>(
-  ({ className, ...props }, ref) => (
-    <small ref={ref} className={cn('text-sm leading-none font-medium', className)} {...props} />
-  ),
-)
-Small.displayName = 'Small'
-
-// Lead text - Larger introductory text
-export const Lead = React.forwardRef<
-  HTMLParagraphElement,
-  React.HTMLAttributes<HTMLParagraphElement>
->(({ className, ...props }, ref) => (
-  <p ref={ref} className={cn('text-muted-foreground text-xl', className)} {...props} />
-))
-Lead.displayName = 'Lead'
-
-// Muted text
-export const Muted = React.forwardRef<HTMLElement, React.HTMLAttributes<HTMLElement>>(
-  ({ className, ...props }, ref) => (
-    <span ref={ref} className={cn('text-muted-foreground text-sm', className)} {...props} />
-  ),
-)
-Muted.displayName = 'Muted'

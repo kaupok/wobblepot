@@ -1,7 +1,7 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { H1, P, Muted } from '@/components/ui/typography'
+import { Heading, Body } from '@/components/ui/typography'
 import { useEffect } from 'react'
 
 export default function GlobalError({
@@ -22,11 +22,11 @@ export default function GlobalError({
       <body>
         <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
           <div className="max-w-md text-center">
-            <H1>Something went wrong!</H1>
-            <P>An unexpected error occurred. We apologize for the inconvenience.</P>
+            <Heading>Something went wrong!</Heading>
+            <Body>An unexpected error occurred. We apologize for the inconvenience.</Body>
             {error.digest && (
               <div className="mb-6">
-                <Muted>Error ID: {error.digest}</Muted>
+                <Body variant="muted">Error ID: {error.digest}</Body>
               </div>
             )}
             <Button onClick={reset}>Try again</Button>
