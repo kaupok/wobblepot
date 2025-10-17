@@ -133,6 +133,18 @@ describe('Button component', () => {
   })
 
   describe('HTML attributes', () => {
+    it('defaults to type="button" to prevent accidental form submission', () => {
+      render(<Button>Default Type</Button>)
+      const button = screen.getByRole('button')
+      expect(button).toHaveAttribute('type', 'button')
+    })
+
+    it('allows explicit type="submit" for form submission', () => {
+      render(<Button type="submit">Submit</Button>)
+      const button = screen.getByRole('button')
+      expect(button).toHaveAttribute('type', 'submit')
+    })
+
     it('passes through standard button attributes', () => {
       render(
         <Button type="submit" name="submit-button" value="submit">
