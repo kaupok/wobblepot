@@ -1,7 +1,7 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { Heading, Body } from '@/components/ui/typography'
+import { Heading, Body, Pre } from '@/components/ui/typography'
 import { useEffect } from 'react'
 
 export default function Error({
@@ -20,15 +20,19 @@ export default function Error({
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
       <div className="max-w-md text-center">
-        <Heading variant="h2">Oops! Something went wrong</Heading>
-        <Body>We encountered an error while loading this page.</Body>
+        <div className="mb-4">
+          <Heading variant="h2">Oops! Something went wrong</Heading>
+        </div>
+        <div className="mb-2">
+          <Body>We encountered an error while loading this page.</Body>
+        </div>
         {process.env.NODE_ENV === 'development' && (
-          <details className="bg-muted mt-4 mb-4 rounded-lg p-4 text-left">
+          <details className="mt-4 mb-4 text-left">
             <summary className="cursor-pointer font-semibold">Error details</summary>
-            <pre className="text-destructive mt-2 overflow-auto text-xs">
+            <Pre className="text-destructive mt-2 text-xs">
               {error.message}
               {error.stack && `\n\n${error.stack}`}
-            </pre>
+            </Pre>
           </details>
         )}
         {error.digest && (

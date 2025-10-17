@@ -29,8 +29,8 @@ const tagMap = {
 } as const
 
 export const Heading = React.forwardRef<HTMLHeadingElement, HeadingProps>(
-  ({ className, variant = 'h1', ...props }, ref) => {
-    const Tag = tagMap[variant || 'h1']
+  ({ className, variant, ...props }, ref) => {
+    const Tag = tagMap[variant ?? 'h1']
     return React.createElement(Tag, {
       ref,
       className: cn(headingVariants({ variant }), className),
