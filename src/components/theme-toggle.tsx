@@ -21,15 +21,15 @@ export function ThemeToggle() {
     <Button variant="outline" size="icon" onClick={cycleTheme} className="relative">
       <Sun
         className="absolute h-[1.2rem] w-[1.2rem] scale-0 rotate-90 transition-all data-[show=true]:scale-100 data-[show=true]:rotate-0"
-        data-show={theme === 'light'}
+        data-show={String(theme === 'light')}
       />
       <Moon
         className="absolute h-[1.2rem] w-[1.2rem] scale-0 -rotate-90 transition-all data-[show=true]:scale-100 data-[show=true]:rotate-0"
-        data-show={theme === 'dark'}
+        data-show={String(theme === 'dark')}
       />
       <Monitor
         className="absolute h-[1.2rem] w-[1.2rem] scale-0 transition-all data-[show=true]:scale-100"
-        data-show={theme === 'system'}
+        data-show={String(theme === 'system')}
       />
       <span className="sr-only">Toggle theme</span>
     </Button>
