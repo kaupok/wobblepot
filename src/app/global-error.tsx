@@ -22,10 +22,12 @@ export default function GlobalError({
         <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
           <div className="max-w-md text-center">
             <h1 className="mb-4 text-4xl font-bold">Something went wrong!</h1>
-            <p className="mb-2 text-gray-600">
+            <p className="text-muted-foreground mb-2">
               An unexpected error occurred. We apologize for the inconvenience.
             </p>
-            {error.digest && <p className="mb-6 text-sm text-gray-500">Error ID: {error.digest}</p>}
+            {error.digest && (
+              <p className="text-muted-foreground mb-6 text-sm">Error ID: {error.digest}</p>
+            )}
             <Button onClick={reset}>Try again</Button>
           </div>
         </div>
