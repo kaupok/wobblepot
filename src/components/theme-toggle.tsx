@@ -1,6 +1,6 @@
 'use client'
 
-import { Moon, Sun } from 'lucide-react'
+import { Moon, Sun, Monitor } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 
@@ -19,9 +19,19 @@ export function ThemeToggle() {
 
   return (
     <Button variant="outline" size="icon" onClick={cycleTheme} className="relative">
-      <Sun className="h-[1.2rem] w-[1.2rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
-      <Moon className="absolute h-[1.2rem] w-[1.2rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
-      <span className="sr-only">Toggle theme</span>
+      <Sun
+        className="absolute h-[1.2rem] w-[1.2rem] scale-0 rotate-90 transition-all data-[show=true]:scale-100 data-[show=true]:rotate-0"
+        data-show={theme === 'light'}
+      />
+      <Moon
+        className="absolute h-[1.2rem] w-[1.2rem] scale-0 -rotate-90 transition-all data-[show=true]:scale-100 data-[show=true]:rotate-0"
+        data-show={theme === 'dark'}
+      />
+      <Monitor
+        className="absolute h-[1.2rem] w-[1.2rem] scale-0 transition-all data-[show=true]:scale-100"
+        data-show={theme === 'system'}
+      />
+      <span className="sr-only">Toggle theme (current: {theme})</span>
     </Button>
   )
 }
