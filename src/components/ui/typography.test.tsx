@@ -151,6 +151,26 @@ describe('Typography Components', () => {
       expect(item).toBeInTheDocument()
       expect(item.tagName).toBe('LI')
     })
+
+    it('accepts custom className', () => {
+      render(
+        <ul>
+          <Li className="custom-class">Item text</Li>
+        </ul>,
+      )
+      const item = screen.getByText('Item text')
+      expect(item).toHaveClass('custom-class')
+    })
+
+    it('merges custom className correctly via cn()', () => {
+      render(
+        <ul>
+          <Li className="font-bold text-red-500">Custom styled item</Li>
+        </ul>,
+      )
+      const item = screen.getByText('Custom styled item')
+      expect(item).toHaveClass('text-red-500', 'font-bold')
+    })
   })
 
   describe('Code', () => {

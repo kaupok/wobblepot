@@ -110,7 +110,7 @@ Ol.displayName = 'Ol'
 
 // List item
 export const Li = React.forwardRef<HTMLLIElement, React.HTMLAttributes<HTMLLIElement>>(
-  ({ className, ...props }, ref) => <li ref={ref} className={className} {...props} />,
+  ({ className, ...props }, ref) => <li ref={ref} className={cn(className)} {...props} />,
 )
 Li.displayName = 'Li'
 
