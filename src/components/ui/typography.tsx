@@ -11,7 +11,7 @@ const headingVariants = cva('scroll-m-20 tracking-tight', {
   variants: {
     variant: {
       h1: 'text-4xl lg:text-5xl font-extrabold',
-      h2: 'text-3xl font-semibold border-b pb-2 first:mt-0',
+      h2: 'text-3xl font-semibold border-b pb-2',
       h3: 'text-2xl font-semibold',
       h4: 'text-xl font-semibold',
     },

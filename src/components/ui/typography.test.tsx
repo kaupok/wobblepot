@@ -261,4 +261,55 @@ describe('Typography Components', () => {
       expect(body).toHaveClass('leading-7', 'text-blue-500')
     })
   })
+
+  describe('Integration and class merging', () => {
+    it('allows text styling classes to override defaults in Body', () => {
+      render(<Body className="font-bold text-red-500">Custom styled</Body>)
+      const body = screen.getByText('Custom styled')
+      // Verify both default and custom classes are present
+      expect(body).toHaveClass('leading-7', 'text-red-500', 'font-bold')
+    })
+
+    it('allows adding text styling classes to Heading', () => {
+      render(<Heading className="text-green-500 underline">Custom styled</Heading>)
+      const heading = screen.getByRole('heading', { level: 1 })
+      expect(heading).toHaveClass('font-extrabold', 'text-green-500', 'underline')
+    })
+
+    it('composes Body with inline Code correctly', () => {
+      render(
+        <div>
+          <Body>
+            Run <Code>npm install</Code> to install.
+          </Body>
+        </div>,
+      )
+      const code = screen.getByText('npm install')
+      expect(code).toHaveClass('font-mono', 'bg-muted')
+    })
+
+    it('applies text styling to nested typography', () => {
+      render(
+        <div>
+          <Body variant="small">
+            Small text with <Code className="text-orange-400">code</Code>
+          </Body>
+        </div>,
+      )
+      const code = screen.getByText('code')
+      expect(code).toHaveClass('text-orange-400', 'font-mono')
+    })
+
+    it('handles multiple text styling classes without conflicts', () => {
+      render(<Body className="font-bold text-amber-600 italic">Multi-styled text</Body>)
+      const body = screen.getByText('Multi-styled text')
+      expect(body).toHaveClass('leading-7', 'text-amber-600', 'font-bold', 'italic')
+    })
+
+    it('Pre component retains text styling classes from custom className', () => {
+      render(<Pre className="text-destructive text-xs">Error details</Pre>)
+      const pre = screen.getByText('Error details')
+      expect(pre).toHaveClass('bg-muted', 'font-mono', 'text-destructive', 'text-xs')
+    })
+  })
 })

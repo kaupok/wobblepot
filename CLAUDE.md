@@ -88,9 +88,9 @@ Renders paragraph text with different text sizes and styles:
 
 **Exceptions** - Built-in layout when essential:
 
-- `Blockquote`: includes `pl-6` (padding needed for border design)
-- `Ul`/`Ol`: include `my-6 ml-6` (spacing needed for list usability)
-- `Pre`: includes `p-4` (padding needed for code block presentation)
+- `Blockquote`: includes `pl-6` (padding needed for the border design to work correctly)
+- `Ul`/`Ol`: include `my-6 ml-6` (vertical/horizontal spacing is intrinsic to list formatting; ml-6 for indentation, my-6 to match typographic rhythm of other block elements)
+- `Pre`: includes `p-4` (padding needed for code block presentation and readability)
 
 **Example - DO:**
 
