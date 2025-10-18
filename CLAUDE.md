@@ -92,13 +92,33 @@ Renders paragraph text with different text sizes and styles:
 - `Ul`/`Ol`: include `my-6 ml-6` (vertical/horizontal spacing is intrinsic to list formatting; ml-6 for indentation, my-6 to match typographic rhythm of other block elements)
 - `Pre`: includes `p-4` (padding needed for code block presentation and readability)
 
-**Example - DO:**
+**Practical Guidelines:**
 
-```tsx
-<div className="mb-6">
-  <Body variant="muted">Error ID: 12345</Body>
-</div>
-```
+1. **When wrapping would create invalid HTML** (e.g., block elements in inline contexts):
+   - Apply minimal spacing directly to the typography component
+   - Example: `<Heading className="mb-4">Title</Heading>`
+
+2. **When grouping related typography elements:**
+   - Use a flex container with `gap` when all elements need uniform spacing
+   - Use nested containers with individual spacing when different relationships need different gaps
+   - Example with uniform spacing:
+   ```tsx
+   <div className="flex flex-col gap-3">
+     <Heading variant="h2">Main heading</Heading>
+     <Body>Primary description</Body>
+   </div>
+   ```
+
+   - Example with varied spacing:
+   ```tsx
+   <div className="flex flex-col gap-6">
+     <Heading variant="h2">Main heading</Heading>
+     <div className="flex flex-col gap-2">
+       <Body>Primary description</Body>
+       <Body variant="small">Secondary note</Body>
+     </div>
+   </div>
+   ```
 
 **Example - DON'T:**
 
