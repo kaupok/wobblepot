@@ -20,27 +20,19 @@ export default function Error({
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
       <div className="max-w-md text-center">
-        <div className="mb-4">
+        <div className="flex flex-col gap-3">
           <Heading variant="h2">Oops! Something went wrong</Heading>
-        </div>
-        <div className="mb-2">
           <Body>We encountered an error while loading this page.</Body>
+          {error.digest && <Body variant="muted">Error ID: {error.digest}</Body>}
         </div>
         {process.env.NODE_ENV === 'development' && (
           <details className="mt-4 mb-4 text-left">
             <summary className="cursor-pointer font-semibold">Error details</summary>
-            <div className="mt-2">
-              <Pre className="text-destructive text-xs">
-                {error.message}
-                {error.stack && `\n\n${error.stack}`}
-              </Pre>
-            </div>
+            <Pre className="text-destructive text-xs">
+              {error.message}
+              {error.stack && `\n\n${error.stack}`}
+            </Pre>
           </details>
-        )}
-        {error.digest && (
-          <div className="mb-6">
-            <Body variant="muted">Error ID: {error.digest}</Body>
-          </div>
         )}
         <Button onClick={reset}>Try again</Button>
       </div>
