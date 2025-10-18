@@ -225,6 +225,28 @@ describe('Typography Components', () => {
       expect(ref.current?.tagName).toBe('BLOCKQUOTE')
     })
 
+    it('forwards ref to Ul element', () => {
+      const ref = React.createRef<HTMLUListElement>()
+      render(
+        <Ul ref={ref}>
+          <Li>Item</Li>
+        </Ul>,
+      )
+      expect(ref.current).toBeInstanceOf(HTMLUListElement)
+      expect(ref.current?.tagName).toBe('UL')
+    })
+
+    it('forwards ref to Ol element', () => {
+      const ref = React.createRef<HTMLOListElement>()
+      render(
+        <Ol ref={ref}>
+          <Li>Item</Li>
+        </Ol>,
+      )
+      expect(ref.current).toBeInstanceOf(HTMLOListElement)
+      expect(ref.current?.tagName).toBe('OL')
+    })
+
     it('forwards ref to Code element', () => {
       const ref = React.createRef<HTMLElement>()
       render(<Code ref={ref}>const x = 42</Code>)
