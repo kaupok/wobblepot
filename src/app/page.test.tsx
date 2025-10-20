@@ -5,6 +5,6 @@ import Home from './page' // import the component directly
 describe('Home page component', () => {
   it('renders the heading', () => {
     render(<Home />)
-    expect(screen.getByRole('heading', { name: 'Honkadori' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'TestApp' })).toBeInTheDocument()
   })
 })

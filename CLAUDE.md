@@ -102,6 +102,7 @@ Renders paragraph text with different text sizes and styles:
    - Use a flex container with `gap` when all elements need uniform spacing
    - Use nested containers with individual spacing when different relationships need different gaps
    - Example with uniform spacing:
+
    ```tsx
    <div className="flex flex-col gap-3">
      <Heading variant="h2">Main heading</Heading>
@@ -110,6 +111,7 @@ Renders paragraph text with different text sizes and styles:
    ```
 
    - Example with varied spacing:
+
    ```tsx
    <div className="flex flex-col gap-6">
      <Heading variant="h2">Main heading</Heading>
@@ -195,6 +197,65 @@ All typography components accept a `className` prop that merges with component c
   <Pre className="text-destructive text-xs">Error details</Pre>
 </div>
 ```
+
+## Environment Variables
+
+Environment variables are validated at runtime using Zod. This ensures all required configuration is present and correctly formatted before the app starts.
+
+### Setting Up Environment Variables
+
+1. Copy `.env.example` to `.env.local`:
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+2. Fill in required values in `.env.local` (never commit this file)
+
+3. Environment validation happens automatically on app startup in `src/lib/env.ts`
+
+### Using Environment Variables in Code
+
+Import the `env` object anywhere in your code:
+
+```typescript
+import { env } from '@/lib/env'
+
+// Type-safe access to env vars
+console.log(env.NEXT_PUBLIC_APP_NAME)
+
+// Optional vars are typed as string | undefined
+if (env.NEXT_PUBLIC_APP_URL) {
+  console.log(env.NEXT_PUBLIC_APP_URL)
+}
+
+// NODE_ENV is managed by Next.js, access it directly from process.env
+if (process.env.NODE_ENV === 'development') {
+  console.log('Running in development mode')
+}
+```
+
+### Adding New Environment Variables
+
+1. Add the variable to the schema in `src/lib/env.ts`:
+
+   ```typescript
+   const envSchema = z.object({
+     // ... existing vars
+     MY_NEW_VAR: z.string().optional(),
+     // or required: z.string()
+   })
+   ```
+
+2. Document it in `.env.example`:
+
+   ```bash
+   # MY_NEW_VAR=my-value
+   ```
+
+3. Use the type-safe `env` object in your code
+
+All environment variables are validated at startup with clear error messages if validation fails.
 
 ## Review Focus
 
