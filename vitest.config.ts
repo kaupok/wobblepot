@@ -21,6 +21,7 @@ export default defineConfig({
     // Set required environment variables for tests
     env: {
       NEXT_PUBLIC_APP_NAME: 'TestApp',
+      NEXT_PUBLIC_APP_ENV: 'test',
     },
     // quality-of-life defaults
     testTimeout: 10000,

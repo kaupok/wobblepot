@@ -31,8 +31,8 @@ export const envSchema = z.object({
     .describe('Public application URL (e.g., https://app.example.com)'),
 
   NEXT_PUBLIC_APP_ENV: z
-    .enum(['dev', 'preview', 'staging', 'production', 'ci'])
-    .describe('Application environment (dev, preview, staging, production, or ci)'),
+    .enum(['dev', 'preview', 'staging', 'production', 'ci', 'test'])
+    .describe('Application environment (dev, preview, staging, production, ci, or test)'),
 
   // Server-only variables (only available on server-side)
   // Add your server-only env vars here as needed
