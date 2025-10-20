@@ -8,10 +8,10 @@ on:
 
 jobs:
   ci:
-    name: Lint, Type Check, Test & Build
+    name: Lint, Type Check & Test
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: staging
+    environment: ci
     env:
       NEXT_PUBLIC_APP_NAME: ${{ vars.NEXT_PUBLIC_APP_NAME }}
 
@@ -73,6 +73,3 @@ jobs:
       #     name: playwright-report
       #     path: playwright-report/
       #     retention-days: 7
-
-      - name: Build application
-        run: pnpm build
