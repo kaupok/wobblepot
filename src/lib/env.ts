@@ -35,7 +35,8 @@ export const envSchema = z.object({
     .describe('Application environment (dev, preview, staging, production, ci, or test)'),
 
   // Server-only variables (only available on server-side)
-  // Add your server-only env vars here as needed
+  // Note: BETTER_AUTH_SECRET is read directly by Better Auth from process.env
+  // and doesn't need to be validated here
 })
 
 /**
