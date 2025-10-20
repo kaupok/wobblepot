@@ -20,6 +20,7 @@ jobs:
       actions: write
     env:
       NEXT_PUBLIC_APP_NAME: ${{ vars.NEXT_PUBLIC_APP_NAME }}
+      NEXT_PUBLIC_APP_ENV: ci
       NEXT_TELEMETRY_DISABLED: 1
       NODE_ENV: test
 
