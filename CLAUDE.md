@@ -267,4 +267,13 @@ All environment variables are validated at startup with clear error messages if 
 
 ## CI Pipeline
 
-All changes must pass: `pnpm lint && pnpm type-check && pnpm test && pnpm test:e2e`
+All changes must pass the following checks in GitHub Actions:
+
+- `pnpm lint` - ESLint rules
+- `pnpm type-check` - TypeScript type checking
+- `pnpm test` - Unit tests
+
+**Important notes:**
+
+- Build verification happens through Vercel deployment (not in CI)
+- E2E tests are currently disabled in CI but should be run locally before submitting PRs with `pnpm test:e2e`
