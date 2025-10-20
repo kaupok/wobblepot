@@ -277,3 +277,29 @@ All changes must pass the following checks in GitHub Actions:
 
 - Build verification happens through Vercel deployment (not in CI)
 - E2E tests are currently disabled in CI but should be run locally before submitting PRs with `pnpm test:e2e`
+
+## Commit Message Conventions
+
+We follow [Conventional Commits](https://www.conventionalcommits.org/) for commit messages:
+
+```
+<type>(<scope>): <subject>
+
+<body>
+```
+
+**Type:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `ci`
+
+**Scope (optional):** Component, feature, or area of the codebase affected
+
+**Subject:** Concise, imperative present tense ("add" not "added" or "adds")
+
+**Body (optional):** Detailed explanation of what and why (not how)
+
+**Examples:**
+
+- `feat(auth): Add OAuth login support`
+- `fix(ui): Resolve alignment issue in mobile header`
+- `docs: Update installation instructions`
+- `chore(deps): Update Next.js to 15.5.3`
+- `test(hooks): Add tests for useAuth hook`
