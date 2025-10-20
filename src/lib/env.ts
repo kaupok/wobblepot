@@ -41,10 +41,21 @@ export const envSchema = z.object({
  * fails fast with clear error messages if required environment variables are missing
  * or invalid.
  *
+ * Note: We explicitly destructure process.env vars before validating to ensure they
+ * survive Next.js client bundling. The Next.js compiler removes process.env references
+ * that aren't explicitly accessed, so we must reference each variable directly to
+ * preserve their values in client bundles.
+ *
  * @throws {Error} If environment validation fails
  */
 export const env = (() => {
-  const parsed = envSchema.safeParse(process.env)
+  // Explicitly reference env vars so they survive Next.js client bundling
+  const envVars = {
+    NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+  }
+
+  const parsed = envSchema.safeParse(envVars)
 
   if (!parsed.success) {
     const fieldErrors = parsed.error.flatten().fieldErrors
