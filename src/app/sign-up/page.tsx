@@ -17,6 +17,38 @@ import {
 } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 
+/**
+ * Maps API error messages to user-friendly messages
+ */
+function getUserFriendlyError(message: string): string {
+  const lowerMessage = message.toLowerCase()
+
+  if (lowerMessage.includes('already exists') || lowerMessage.includes('already registered')) {
+    return 'An account with this email address already exists. Try signing in instead.'
+  }
+  if (lowerMessage.includes('invalid email')) {
+    return 'Please enter a valid email address.'
+  }
+  if (
+    lowerMessage.includes('password') &&
+    (lowerMessage.includes('short') || lowerMessage.includes('minimum'))
+  ) {
+    return 'Password must be at least 8 characters long.'
+  }
+  if (lowerMessage.includes('password') && lowerMessage.includes('weak')) {
+    return 'Please choose a stronger password.'
+  }
+  if (lowerMessage.includes('too many')) {
+    return 'Too many sign-up attempts. Please try again later.'
+  }
+  if (lowerMessage.includes('network') || lowerMessage.includes('fetch')) {
+    return 'Unable to connect to the server. Please check your internet connection.'
+  }
+
+  // Return the original message if no mapping found
+  return message
+}
+
 export default function SignUpPage() {
   const router = useRouter()
   const [name, setName] = useState('')
@@ -43,7 +75,8 @@ export default function SignUpPage() {
             router.refresh()
           },
           onError: (ctx) => {
-            setError(ctx.error.message || 'Failed to sign up')
+            const errorMessage = ctx.error.message || 'Failed to sign up'
+            setError(getUserFriendlyError(errorMessage))
           },
         },
       )

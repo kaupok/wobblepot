@@ -35,8 +35,10 @@ export const envSchema = z.object({
     .describe('Application environment (dev, preview, staging, production, ci, or test)'),
 
   // Server-only variables (only available on server-side)
-  // Note: BETTER_AUTH_SECRET is read directly by Better Auth from process.env
-  // and doesn't need to be validated here
+  BETTER_AUTH_SECRET: z
+    .string()
+    .min(32, 'BETTER_AUTH_SECRET must be at least 32 characters for security')
+    .describe('Secret key for Better Auth (generate with: openssl rand -base64 32)'),
 })
 
 /**
@@ -59,6 +61,7 @@ export const env = (() => {
     NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_APP_ENV: process.env.NEXT_PUBLIC_APP_ENV,
+    BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
   }
 
   const parsed = envSchema.safeParse(envVars)
