@@ -18,6 +18,10 @@ export default defineConfig({
     globals: true, // or false if you prefer to import expect in tests
     include: ['**/*.{test,spec}.?(c|m)[jt]s?(x)'],
     exclude: ['**/node_modules/**', '**/dist/**', 'tests/e2e/**', 'e2e/**'],
+    // Set required environment variables for tests
+    env: {
+      NEXT_PUBLIC_APP_NAME: 'TestApp',
+    },
     // quality-of-life defaults
     testTimeout: 10000,
     reporters: ['default'],

@@ -8,17 +8,21 @@ import { z } from 'zod'
  *
  * @see {@link env} for the validated environment object
  * @see {@link Env} for the TypeScript type
+ * @see {@link envSchema} for the Zod schema (useful for testing validation behavior)
  *
  * @example
  * ```typescript
  * import { env } from '@/lib/env'
  *
- * console.log(env.NEXT_PUBLIC_APP_NAME)  // 'Honkadori'
+ * console.log(env.NEXT_PUBLIC_APP_NAME)  // 'My App'
  * ```
  */
-const envSchema = z.object({
+export const envSchema = z.object({
   // Public variables (accessible in browser, prefixed with NEXT_PUBLIC_)
-  NEXT_PUBLIC_APP_NAME: z.string().default('Honkadori').describe('Application display name'),
+  NEXT_PUBLIC_APP_NAME: z
+    .string()
+    .min(1, 'Application name must not be empty')
+    .describe('Application display name (required)'),
 
   NEXT_PUBLIC_APP_URL: z
     .string()
