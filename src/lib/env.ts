@@ -30,6 +30,10 @@ export const envSchema = z.object({
     .optional()
     .describe('Public application URL (e.g., https://app.example.com)'),
 
+  NEXT_PUBLIC_APP_ENV: z
+    .enum(['dev', 'preview', 'staging', 'production', 'ci'])
+    .describe('Application environment (dev, preview, staging, production, or ci)'),
+
   // Server-only variables (only available on server-side)
   // Add your server-only env vars here as needed
 })
@@ -53,6 +57,7 @@ export const env = (() => {
   const envVars = {
     NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    NEXT_PUBLIC_APP_ENV: process.env.NEXT_PUBLIC_APP_ENV,
   }
 
   const parsed = envSchema.safeParse(envVars)
