@@ -11,6 +11,7 @@ jobs:
     name: Lint, Type Check, Test & Build
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: staging
 
     steps:
       - name: Checkout code
