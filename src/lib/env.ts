@@ -43,7 +43,7 @@ const serverOnlyEnvSchema = z.object({
     .url()
     .describe('Database connection string for Prisma (pooled connection for Neon)'),
 
-  DIRECT_URL: z
+  DATABASE_URL_UNPOOLED: z
     .string()
     .url()
     .describe('Direct database connection string for migrations (non-pooled for Neon)'),
@@ -130,7 +130,7 @@ export const serverEnv = new Proxy(
     // Server-only vars from process.env (validated on access)
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     DATABASE_URL: process.env.DATABASE_URL,
-    DIRECT_URL: process.env.DIRECT_URL,
+    DATABASE_URL_UNPOOLED: process.env.DATABASE_URL_UNPOOLED,
   } as z.infer<typeof serverEnvSchema>,
   {
     get(target, prop) {

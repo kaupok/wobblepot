@@ -11,7 +11,7 @@ datasource db {
   // See: https://neon.tech/docs/guides/prisma
   url       = env("DATABASE_URL")
   // Direct connection for migrations
-  directUrl = env("DIRECT_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 // Better Auth models
