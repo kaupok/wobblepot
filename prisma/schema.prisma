@@ -14,8 +14,10 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// Better Auth models will be generated here using:
-// npx @better-auth/cli generate
+// Better Auth models
+// Generated with: npx @better-auth/cli generate
+// Now managed manually in this schema file
+// Run the generate command again if adding Better Auth plugins that require new tables
 
 model User {
   id            String    @id
