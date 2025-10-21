@@ -6,6 +6,7 @@
     "dev": "next dev --turbo",
     "build": "next build",
     "start": "next start",
+    "postinstall": "prisma generate",
     "lint": "eslint .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
