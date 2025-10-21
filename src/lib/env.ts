@@ -1,23 +1,14 @@
 import { z } from 'zod'
 
 /**
- * Environment variable validation schema
+ * Client environment variable validation schema
  *
- * Ensures all required and optional environment variables are properly typed and validated
- * at runtime, catching configuration errors early in the application lifecycle.
+ * Contains only NEXT_PUBLIC_* variables that are safe to use in client-side code.
+ * These variables are embedded in the client bundle and visible in the browser.
  *
- * @see {@link env} for the validated environment object
- * @see {@link Env} for the TypeScript type
- * @see {@link envSchema} for the Zod schema (useful for testing validation behavior)
- *
- * @example
- * ```typescript
- * import { env } from '@/lib/env'
- *
- * console.log(env.NEXT_PUBLIC_APP_NAME)  // 'My App'
- * ```
+ * @see {@link clientEnv} for the validated client environment object
  */
-export const envSchema = z.object({
+export const clientEnvSchema = z.object({
   // Public variables (accessible in browser, prefixed with NEXT_PUBLIC_)
   NEXT_PUBLIC_APP_NAME: z
     .string()
@@ -33,8 +24,15 @@ export const envSchema = z.object({
   NEXT_PUBLIC_APP_ENV: z
     .enum(['dev', 'preview', 'staging', 'production', 'ci', 'test'])
     .describe('Application environment (dev, preview, staging, production, ci, or test)'),
+})
 
-  // Server-only variables (only available on server-side)
+/**
+ * Server-only environment variable validation schema
+ *
+ * Contains only server-side variables (not prefixed with NEXT_PUBLIC_).
+ * These are validated lazily when accessed, not at module load time.
+ */
+const serverOnlyEnvSchema = z.object({
   BETTER_AUTH_SECRET: z
     .string()
     .min(32, 'BETTER_AUTH_SECRET must be at least 32 characters for security')
@@ -42,29 +40,38 @@ export const envSchema = z.object({
 })
 
 /**
- * Parsed and validated environment variables
+ * Complete server environment variable validation schema
  *
- * Throws an error during module load if validation fails. This ensures the application
- * fails fast with clear error messages if required environment variables are missing
- * or invalid.
+ * Combines client and server-only variables for type inference.
  *
- * Note: We explicitly destructure process.env vars before validating to ensure they
- * survive Next.js client bundling. The Next.js compiler removes process.env references
- * that aren't explicitly accessed, so we must reference each variable directly to
- * preserve their values in client bundles.
- *
- * @throws {Error} If environment validation fails
+ * @see {@link serverEnv} for the validated server environment object
  */
-export const env = (() => {
+export const serverEnvSchema = clientEnvSchema.merge(serverOnlyEnvSchema)
+
+/**
+ * Validated client-side environment variables
+ *
+ * Safe to use in client components and browser code. Only contains NEXT_PUBLIC_* variables.
+ * Throws an error during module load if validation fails.
+ *
+ * @example
+ * ```typescript
+ * import { clientEnv } from '@/lib/env'
+ *
+ * console.log(clientEnv.NEXT_PUBLIC_APP_NAME)  // 'My App'
+ * ```
+ *
+ * @throws {Error} If client environment validation fails
+ */
+export const clientEnv = (() => {
   // Explicitly reference env vars so they survive Next.js client bundling
   const envVars = {
     NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_APP_ENV: process.env.NEXT_PUBLIC_APP_ENV,
-    BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
   }
 
-  const parsed = envSchema.safeParse(envVars)
+  const parsed = clientEnvSchema.safeParse(envVars)
 
   if (!parsed.success) {
     const fieldErrors = parsed.error.flatten().fieldErrors
@@ -76,7 +83,7 @@ export const env = (() => {
       .join('\n')
 
     // eslint-disable-next-line no-console
-    console.error('❌ Invalid environment variables:\n' + errorMessages)
+    console.error('❌ Invalid client environment variables:\n' + errorMessages)
 
     throw new Error(
       `Invalid environment variables. Check your .env and .env.local files.\n${errorMessages}`,
@@ -87,13 +94,87 @@ export const env = (() => {
 })()
 
 /**
- * Type-safe environment variable object
+ * Validated server-side environment variables
  *
- * Use this type to ensure proper typing when destructuring or spreading env vars.
+ * Includes both NEXT_PUBLIC_* and server-only variables. Only use in server components,
+ * API routes, and server-side code.
+ *
+ * Uses lazy validation: server-only variables are validated when accessed, not at module
+ * load time. This allows the module to be bundled for the client without errors, while
+ * still enforcing that required variables exist when actually used on the server.
  *
  * @example
  * ```typescript
- * const { NEXT_PUBLIC_APP_NAME }: Env = env
+ * import { serverEnv } from '@/lib/env'
+ *
+ * console.log(serverEnv.BETTER_AUTH_SECRET)  // Validated on access
+ * console.log(serverEnv.NEXT_PUBLIC_APP_NAME)  // Also available
  * ```
+ *
+ * @throws {Error} If a server-only variable is undefined when accessed
  */
-export type Env = typeof env
+export const serverEnv = new Proxy(
+  {
+    // Client vars are already validated
+    ...clientEnv,
+    // Server-only vars from process.env (validated on access)
+    BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
+  } as z.infer<typeof serverEnvSchema>,
+  {
+    get(target, prop) {
+      const value = target[prop as keyof typeof target]
+
+      // For server-only variables (not NEXT_PUBLIC_*), validate when accessed
+      if (typeof prop === 'string' && !prop.startsWith('NEXT_PUBLIC_')) {
+        // Parse just this field to get validation errors
+        const fieldSchema =
+          serverOnlyEnvSchema.shape[prop as keyof typeof serverOnlyEnvSchema.shape]
+
+        if (fieldSchema) {
+          const result = fieldSchema.safeParse(value)
+
+          if (!result.success) {
+            const errorMessage = result.error.issues.map((e) => e.message).join(', ')
+            // eslint-disable-next-line no-console
+            console.error(`❌ Invalid server environment variable ${String(prop)}: ${errorMessage}`)
+
+            throw new Error(
+              `Invalid environment variable ${String(prop)}: ${errorMessage}\n` +
+                `Check your .env and .env.local files and restart the dev server.`,
+            )
+          }
+
+          return result.data
+        }
+      }
+
+      return value
+    },
+  },
+)
+
+/**
+ * Type for client environment variables
+ */
+export type ClientEnv = typeof clientEnv
+
+/**
+ * Type for server environment variables
+ */
+export type ServerEnv = z.infer<typeof serverEnvSchema>
+
+// Legacy exports for backward compatibility (deprecated)
+/**
+ * @deprecated Use `clientEnv` or `serverEnv` instead for clarity
+ */
+export const env = clientEnv
+
+/**
+ * @deprecated Use `ClientEnv` or `ServerEnv` instead
+ */
+export type Env = ClientEnv
+
+/**
+ * @deprecated Use `clientEnvSchema` or `serverEnvSchema` instead
+ */
+export const envSchema = clientEnvSchema

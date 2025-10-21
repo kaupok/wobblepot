@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth'
 import { DatabaseSync } from 'node:sqlite'
+import { serverEnv } from '@/lib/env'
 
 /**
  * Better Auth configuration
@@ -19,16 +20,22 @@ export const auth = betterAuth({
   database: new DatabaseSync('database.sqlite'),
 
   /**
+   * Secret key for encryption and signing
+   * Automatically loaded from BETTER_AUTH_SECRET environment variable
+   */
+  secret: serverEnv.BETTER_AUTH_SECRET,
+
+  /**
    * Base URL for the application
    * Used for generating absolute URLs and CSRF protection
    */
-  baseURL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  baseURL: serverEnv.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
 
   /**
    * Trusted origins for CSRF protection
    * Requests from origins not in this list will be blocked
    */
-  trustedOrigins: [process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'],
+  trustedOrigins: [serverEnv.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'],
 
   /**
    * Email and password authentication configuration

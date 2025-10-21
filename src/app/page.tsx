@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { headers } from 'next/headers'
 import { Heading, Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
-import { env } from '@/lib/env'
+import { serverEnv } from '@/lib/env'
 import { auth } from '@/lib/auth'
 
 export default async function Home() {
@@ -13,7 +13,7 @@ export default async function Home() {
   return (
     <div className="grid min-h-screen place-items-center">
       <main className="flex flex-col items-center gap-8">
-        <Heading>{env.NEXT_PUBLIC_APP_NAME}</Heading>
+        <Heading>{serverEnv.NEXT_PUBLIC_APP_NAME}</Heading>
 
         {session ? (
           <div className="flex flex-col items-center gap-4">
