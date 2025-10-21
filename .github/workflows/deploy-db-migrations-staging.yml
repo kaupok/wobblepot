@@ -32,6 +32,7 @@ jobs:
       - name: Generate Prisma client
         env:
           DATABASE_URL: postgresql://localhost:5432/placeholder
+          DATABASE_URL_UNPOOLED: postgresql://localhost:5432/placeholder
         run: pnpm prisma generate
 
       # Database secrets are scoped to migration steps only (not install/generate steps)
@@ -40,6 +41,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
           DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_STAGING }}
+        # || true makes this step informational only - shows pending migrations but never fails
         run: pnpm prisma migrate status || true
 
       - name: Deploy migrations [staging]
