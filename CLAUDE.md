@@ -206,13 +206,13 @@ Environment variables are validated at runtime using Zod. This ensures all requi
 
 ### Setting Up Environment Variables
 
-1. Copy `.env.example` to `.env.local`:
+1. Copy `.env.example` to `.env`:
 
    ```bash
-   cp .env.example .env.local
+   cp .env.example .env
    ```
 
-2. Fill in required values in `.env.local` (never commit this file)
+2. Fill in required values in `.env` (never commit this file - already in .gitignore)
 
 3. Environment validation happens automatically on app startup in `src/lib/env.ts`
 

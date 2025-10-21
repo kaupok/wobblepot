@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth'
-import { DatabaseSync } from 'node:sqlite'
+import { prismaAdapter } from 'better-auth/adapters/prisma'
+import { prisma } from '@/lib/prisma'
 import { serverEnv, getServerBaseURL } from '@/lib/env'
 
 /**
@@ -15,9 +16,11 @@ import { serverEnv, getServerBaseURL } from '@/lib/env'
 export const auth = betterAuth({
   /**
    * Database configuration
-   * Using SQLite for development. Replace with a proper database for production.
+   * Using Prisma adapter with Neon PostgreSQL
    */
-  database: new DatabaseSync('database.sqlite'),
+  database: prismaAdapter(prisma, {
+    provider: 'postgresql',
+  }),
 
   /**
    * Secret key for encryption and signing

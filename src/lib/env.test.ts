@@ -139,6 +139,8 @@ describe('Environment Validation', () => {
         NEXT_PUBLIC_APP_NAME: 'TestApp',
         NEXT_PUBLIC_APP_ENV: 'test',
         BETTER_AUTH_SECRET: 'a'.repeat(32),
+        DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
+        DIRECT_URL: 'postgresql://user:pass@localhost:5432/db',
       })
       expect(result.success).toBe(true)
     })
@@ -148,6 +150,8 @@ describe('Environment Validation', () => {
         NEXT_PUBLIC_APP_NAME: 'TestApp',
         NEXT_PUBLIC_APP_ENV: 'test',
         BETTER_AUTH_SECRET: 'a'.repeat(64),
+        DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
+        DIRECT_URL: 'postgresql://user:pass@localhost:5432/db',
       })
       expect(result.success).toBe(true)
     })
@@ -158,6 +162,8 @@ describe('Environment Validation', () => {
         NEXT_PUBLIC_APP_ENV: 'test',
         NEXT_PUBLIC_APP_URL: 'https://example.com',
         BETTER_AUTH_SECRET: 'a'.repeat(32),
+        DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
+        DIRECT_URL: 'postgresql://user:pass@localhost:5432/db',
       })
       expect(result.success).toBe(true)
       if (result.success) {
