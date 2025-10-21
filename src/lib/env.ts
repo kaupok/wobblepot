@@ -163,6 +163,52 @@ export type ClientEnv = typeof clientEnv
  */
 export type ServerEnv = z.infer<typeof serverEnvSchema>
 
+/**
+ * Gets the base URL for client-side code (browser)
+ *
+ * Priority:
+ * 1. NEXT_PUBLIC_APP_URL (explicitly set in env)
+ * 2. NEXT_PUBLIC_VERCEL_URL (automatically set by Vercel for all deployments)
+ * 3. http://localhost:3000 (local development fallback)
+ *
+ * @returns The base URL as a string
+ */
+export function getClientBaseURL(): string {
+  if (clientEnv.NEXT_PUBLIC_APP_URL) {
+    return clientEnv.NEXT_PUBLIC_APP_URL
+  }
+
+  // Vercel sets NEXT_PUBLIC_VERCEL_URL automatically for all deployments
+  if (process.env.NEXT_PUBLIC_VERCEL_URL) {
+    return `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+  }
+
+  return 'http://localhost:3000'
+}
+
+/**
+ * Gets the base URL for server-side code (Node.js)
+ *
+ * Priority:
+ * 1. NEXT_PUBLIC_APP_URL (explicitly set in env)
+ * 2. VERCEL_URL (automatically set by Vercel for all deployments)
+ * 3. http://localhost:3000 (local development fallback)
+ *
+ * @returns The base URL as a string
+ */
+export function getServerBaseURL(): string {
+  if (serverEnv.NEXT_PUBLIC_APP_URL) {
+    return serverEnv.NEXT_PUBLIC_APP_URL
+  }
+
+  // Vercel sets VERCEL_URL automatically for all deployments
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`
+  }
+
+  return 'http://localhost:3000'
+}
+
 // Legacy exports for backward compatibility (deprecated)
 /**
  * @deprecated Use `clientEnv` or `serverEnv` instead for clarity
