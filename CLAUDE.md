@@ -202,6 +202,8 @@ All typography components accept a `className` prop that merges with component c
 
 Environment variables are validated at runtime using Zod. This ensures all required configuration is present and correctly formatted before the app starts.
 
+**Important:** We use separate validation for client and server environments to prevent accidentally exposing server-only secrets to the client bundle.
+
 ### Setting Up Environment Variables
 
 1. Copy `.env.example` to `.env.local`:
@@ -216,18 +218,32 @@ Environment variables are validated at runtime using Zod. This ensures all requi
 
 ### Using Environment Variables in Code
 
-Import the `env` object anywhere in your code:
+#### Client-Side Code (Browser)
+
+Use `clientEnv` in client components and client-side code. This only includes `NEXT_PUBLIC_*` variables:
 
 ```typescript
-import { env } from '@/lib/env'
+import { clientEnv } from '@/lib/env'
 
-// Type-safe access to env vars
-console.log(env.NEXT_PUBLIC_APP_NAME)
+// Type-safe access to public env vars
+console.log(clientEnv.NEXT_PUBLIC_APP_NAME)
 
 // Optional vars are typed as string | undefined
-if (env.NEXT_PUBLIC_APP_URL) {
-  console.log(env.NEXT_PUBLIC_APP_URL)
+if (clientEnv.NEXT_PUBLIC_APP_URL) {
+  console.log(clientEnv.NEXT_PUBLIC_APP_URL)
 }
+```
+
+#### Server-Side Code (API Routes, Server Components)
+
+Use `serverEnv` in server components, API routes, and server-side code. This includes both `NEXT_PUBLIC_*` and server-only variables:
+
+```typescript
+import { serverEnv } from '@/lib/env'
+
+// Access both public and server-only vars
+console.log(serverEnv.NEXT_PUBLIC_APP_NAME) // Also available
+console.log(serverEnv.BETTER_AUTH_SECRET) // Server-only
 
 // NODE_ENV is managed by Next.js, access it directly from process.env
 if (process.env.NODE_ENV === 'development') {
@@ -235,25 +251,37 @@ if (process.env.NODE_ENV === 'development') {
 }
 ```
 
+**Never import `serverEnv` in client components** - it will throw a helpful error if accessed in the browser.
+
 ### Adding New Environment Variables
 
-1. Add the variable to the schema in `src/lib/env.ts`:
+#### Adding a Public Variable (NEXT*PUBLIC*\*)
+
+1. Add to `clientEnvSchema` in `src/lib/env.ts`:
 
    ```typescript
-   const envSchema = z.object({
+   export const clientEnvSchema = z.object({
      // ... existing vars
-     MY_NEW_VAR: z.string().optional(),
-     // or required: z.string()
+     NEXT_PUBLIC_MY_VAR: z.string().optional(),
    })
    ```
 
-2. Document it in `.env.example`:
+2. Document in `.env.example`
+3. Use via `clientEnv` in your code
 
-   ```bash
-   # MY_NEW_VAR=my-value
+#### Adding a Server-Only Variable
+
+1. Add to `serverEnvSchema` in `src/lib/env.ts`:
+
+   ```typescript
+   export const serverEnvSchema = clientEnvSchema.extend({
+     // ... existing vars
+     MY_SERVER_SECRET: z.string(),
+   })
    ```
 
-3. Use the type-safe `env` object in your code
+2. Document in `.env.example` (clearly mark as server-only)
+3. Use via `serverEnv` in server-side code only
 
 All environment variables are validated at startup with clear error messages if validation fails.
 
