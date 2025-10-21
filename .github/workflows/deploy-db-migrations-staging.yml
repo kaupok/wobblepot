@@ -6,7 +6,7 @@ on:
 
 permissions:
   contents: read
-  actions: read # so pnpm cache works
+  actions: write # so pnpm cache works
 
 jobs:
   migrate-staging:
