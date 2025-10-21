@@ -1,3 +1,18 @@
+# Production Database Migration Workflow
+#
+# IMPORTANT: This workflow must be run BEFORE deploying code to production.
+#
+# Production Deployment Process:
+# 1. Merge changes to main (staging auto-deploys)
+# 2. Test in staging environment
+# 3. Run this workflow to deploy production migrations
+# 4. After migrations succeed, manually deploy in Vercel:
+#    - Vercel Dashboard → Deployments → Deploy button
+# 5. Verify production deployment
+#
+# Note: Automatic production deployments are disabled via Vercel's Ignored Build Step
+# to prevent code from deploying before migrations complete.
+
 name: Deploy DB migrations [production]
 
 on:
@@ -48,3 +63,28 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL_PRODUCTION }}
           DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_PRODUCTION }}
         run: pnpm prisma migrate deploy
+
+      - name: Production deployment checklist
+        if: success()
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          ## ✅ Production Migrations Complete
+
+          ### Next Steps:
+
+          1. **Verify migrations succeeded** - Check logs above for any errors
+
+          2. **Deploy code to production**:
+             - Go to [Vercel Dashboard](https://vercel.com)
+             - Navigate to your project → Deployments
+             - Click "Deploy" button (top right)
+             - Select `main` branch
+             - Click "Deploy"
+
+          3. **Monitor production**:
+             - Check production site is working
+             - Monitor logs for errors
+             - Be ready to rollback if needed
+
+          **⚠️ Important**: Do not deploy code before migrations succeed!
+          EOF
