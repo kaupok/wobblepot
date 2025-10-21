@@ -5,7 +5,7 @@ on:
 
 permissions:
   contents: read
-  actions: read # so pnpm cache works
+  actions: write # so pnpm cache works
 
 jobs:
   migrate-production:
@@ -26,11 +26,15 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Generate Prisma client
+        env:
+          DATABASE_URL: postgresql://localhost:5432/placeholder
         run: pnpm prisma generate
 
+      # Database secrets are scoped to migration steps only (not install/generate steps)
+      # to prevent exposure to postinstall scripts and minimize credential leakage risk
       - name: Check migration status [production]
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_PRODUCTION }}
