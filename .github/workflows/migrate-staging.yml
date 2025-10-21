@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+      DIRECT_URL: ${{ secrets.DATABASE_URL_STAGING }}
 
     steps:
       - name: Checkout
