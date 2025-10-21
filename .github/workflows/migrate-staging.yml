@@ -1,0 +1,42 @@
+name: Migrate DB (staging)
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  actions: read # so pnpm cache works
+
+jobs:
+  migrate-staging:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm prisma generate
+
+      - name: Show migration status (debug)
+        run: pnpm prisma migrate status
+
+      - name: Deploy migrations to STAGING
+        run: pnpm prisma migrate deploy
