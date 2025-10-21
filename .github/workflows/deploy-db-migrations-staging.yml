@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false  # Don't cancel running migrations - let them queue
+
 permissions:
   contents: read
   actions: write # so pnpm cache works
