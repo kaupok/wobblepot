@@ -34,8 +34,5 @@ jobs:
       - name: Generate Prisma client
         run: pnpm prisma generate
 
-      - name: Show migration status (debug)
-        run: pnpm prisma migrate status
-
       - name: Deploy migrations to STAGING
         run: pnpm prisma migrate deploy
