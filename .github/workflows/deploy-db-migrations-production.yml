@@ -10,9 +10,6 @@ permissions:
 jobs:
   migrate-production:
     runs-on: ubuntu-latest
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL_PRODUCTION }}
-      DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_PRODUCTION }}
 
     steps:
       - name: Checkout code
@@ -34,7 +31,13 @@ jobs:
         run: pnpm prisma generate
 
       - name: Check migration status [production]
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_PRODUCTION }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_PRODUCTION }}
         run: pnpm prisma migrate status || true
 
       - name: Deploy migrations [production]
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_PRODUCTION }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_PRODUCTION }}
         run: pnpm prisma migrate deploy
