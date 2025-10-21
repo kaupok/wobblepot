@@ -2,9 +2,6 @@ name: Deploy DB migrations [production]
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - 'v*'
 
 permissions:
   contents: read
@@ -35,6 +32,9 @@ jobs:
 
       - name: Generate Prisma client
         run: pnpm prisma generate
+
+      - name: Check migration status [production]
+        run: pnpm prisma migrate status || true
 
       - name: Deploy migrations [production]
         run: pnpm prisma migrate deploy
