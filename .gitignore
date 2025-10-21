@@ -43,6 +43,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# database
-database.sqlite
-database.sqlite-*
+# database (deprecated - now using Neon PostgreSQL)
+# database.sqlite
+# database.sqlite-*
+
+# prisma
+.prisma
