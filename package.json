@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
-    "build": "pnpm run db:maybe:migrate && next build",
+    "build": "pnpm run maybe:migrate && next build",
     "maybe:migrate": "if [ \"$VERCEL_ENV\" = \"preview\" ]; then pnpm prisma migrate deploy; else echo 'skip migrate'; fi",
     "start": "next start",
     "postinstall": "prisma generate",
