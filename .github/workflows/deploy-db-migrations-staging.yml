@@ -1,0 +1,55 @@
+name: Deploy DB migrations [staging]
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false  # Don't cancel running migrations - let them queue
+
+permissions:
+  contents: read
+  actions: write # so pnpm cache works
+
+jobs:
+  migrate-staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Generate Prisma client
+        env:
+          DATABASE_URL: postgresql://localhost:5432/placeholder
+          DATABASE_URL_UNPOOLED: postgresql://localhost:5432/placeholder
+        run: pnpm prisma generate
+
+      # Database secrets are scoped to migration steps only (not install/generate steps)
+      # to prevent exposure to postinstall scripts and minimize credential leakage risk
+      - name: Check migration status [staging]
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_STAGING }}
+        # || true makes this step informational only - shows pending migrations but never fails
+        run: pnpm prisma migrate status || true
+
+      - name: Deploy migrations [staging]
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_STAGING }}
+        run: pnpm prisma migrate deploy
