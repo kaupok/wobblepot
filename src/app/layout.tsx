@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { Header } from '@/components/header'
 // Ensure environment variables are validated on app startup
 import '@/lib/env'
+import { getServerBaseURL } from '@/lib/env'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -26,8 +27,13 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const baseURL = getServerBaseURL()
+
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta name="x-server-base-url" content={baseURL} />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <Header />
