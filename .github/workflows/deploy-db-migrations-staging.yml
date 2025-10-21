@@ -1,4 +1,4 @@
-name: Migrate DB (staging)
+name: Deploy DB migrations [staging]
 
 on:
   push:
@@ -11,9 +11,6 @@ permissions:
 jobs:
   migrate-staging:
     runs-on: ubuntu-latest
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
-      DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_STAGING }}
 
     steps:
       - name: Checkout code
@@ -34,5 +31,14 @@ jobs:
       - name: Generate Prisma client
         run: pnpm prisma generate
 
-      - name: Deploy migrations to STAGING
+      - name: Check migration status [staging]
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_STAGING }}
+        run: pnpm prisma migrate status || true
+
+      - name: Deploy migrations [staging]
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_STAGING }}
         run: pnpm prisma migrate deploy
