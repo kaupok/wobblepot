@@ -1,0 +1,152 @@
+name: Claude Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    # Optional: Only run on specific file changes
+    # paths:
+    #   - "src/**/*.ts"
+    #   - "src/**/*.tsx"
+    #   - "src/**/*.js"
+    #   - "src/**/*.jsx"
+
+jobs:
+  claude-review:
+    # Optional: Filter by PR author
+    # if: |
+    #   github.event.pull_request.user.login == 'external-contributor' ||
+    #   github.event.pull_request.user.login == 'new-developer' ||
+    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read        # Read repository code
+      pull-requests: read   # Read PR details and post comments
+      issues: read          # Read issue details
+      id-token: write       # Required for Claude Code action
+      actions: read         # Read CI results to provide better feedback
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch full git history for better context on PR changes
+          fetch-depth: 0
+
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review PR #${{ github.event.pull_request.number }} for the Honkadori project.
+
+            **Reference Documentation:** Read CLAUDE.md for complete patterns and guidelines.
+
+            ## Critical Issues (Always Flag 🔴)
+
+            ### Architecture Violations
+            - ❌ Unnecessary "use client" directive (should be Server Component by default)
+            - ❌ Client Components when Server Components would work
+            - ❌ Missing "use client" when actually needed (interactivity, hooks, browser APIs)
+
+            ### Authentication Patterns
+            - ❌ Confusing Better Auth with NextAuth (they're completely different packages!)
+            - ❌ Using NextAuth patterns/imports instead of Better Auth
+            - ❌ Wrong auth import: `authClient` in server code or `auth` in client code
+            - ❌ Missing `headers: await headers()` in `auth.api.getSession()` calls
+            - ❌ Missing `router.refresh()` after auth state changes
+
+            ### Data Fetching Anti-patterns
+            - ❌ Client-side data fetching when Server Component would be better
+            - ❌ Missing loading/error states in client-side data fetching
+
+            ### Environment Variables
+            - ❌ Using `serverEnv` in client components (security risk!)
+            - ❌ Using `clientEnv` for server-only values
+            - ❌ Direct `process.env` access instead of validated env
+
+            ### Database Misuse
+            - ❌ Importing `prisma` in client components
+            - ❌ Database queries in client code
+
+            ### Typography Component Violations
+            - ❌ Layout classes (margin, padding) directly on typography components
+            - ❌ Should use wrapper divs for layout, only text-styling on components
+            - ℹ️ Exceptions: Blockquote (pl-6), Lists (my-6 ml-6), Pre (p-4)
+
+            ### Form Handling Issues
+            - ❌ Missing loading states during submission
+            - ❌ Inputs not disabled during submission
+            - ❌ Missing error states or error handling
+            - ❌ Technical error messages shown to users (should be user-friendly)
+
+            ### Testing Issues
+            - ❌ Missing tests for new functionality
+            - ❌ Implementation-detail testing instead of user behavior
+            - ❌ Missing accessibility queries (prefer getByRole, getByLabelText)
+            - ❌ Tests not colocated with source files
+
+            ### Code Quality
+            - ❌ TypeScript errors or strictness violations
+            - ❌ Actual bugs or logic errors
+            - ❌ Security vulnerabilities
+            - ❌ Performance issues
+
+            ## Suggestions (Only if Clear Value 🟡)
+            - Better error handling strategies
+            - Improved component structure or organization
+            - Better TypeScript types
+            - More comprehensive tests
+            - Performance optimizations with measurable benefit
+
+            ## What to SKIP
+            - Formatting issues (Prettier handles this)
+            - Micro-optimizations without clear benefit
+            - Alternative patterns without strong justification
+            - "Nice-to-have" refactors with minimal impact
+
+            ## Review Style
+            - **Be specific**: Reference file:line numbers
+            - **Cite guidelines**: Link to relevant CLAUDE.md sections
+            - **Be actionable**: Tell them exactly what to change
+            - **Use markers**: 🔴 Critical, 🟡 Suggestion, ℹ️ Question
+            - **Explain why**: Don't just say what's wrong, explain the impact
+
+            ## Commit Message Check
+            Verify PR title follows Conventional Commits (most important for squash-merge):
+            - Format: `<type>(<scope>): <subject>`
+            - Types: feat, fix, docs, style, refactor, perf, test, chore, ci
+            - Individual commit messages: Only flag if egregiously bad
+            - If violated: 🟡 Suggest correction (not critical)
+
+            ## Output Format
+            Use `gh pr comment` to post your review. Structure it as:
+
+            ### 🔴 Critical Issues (if any)
+            [List with file:line references]
+
+            ### 🟡 Suggestions (if any)
+            [List with justification]
+
+            ### ℹ️ Questions (if any)
+            [Clarifying questions about intent]
+
+            ### ✅ Positive Notes (optional)
+            [Good patterns you noticed]
+
+            **Always post a comment**, even if no issues found. For clean PRs, use:
+
+            ### ✅ Review Complete
+            No critical issues found. Code follows project patterns from CLAUDE.md.
+
+            [Include 🟡 Suggestions or ✅ Positive Notes if you have them]
+
+          # Allow Claude to read CI results to provide context-aware feedback
+          additional_permissions: |
+            actions: read
+
+          # Restrict Claude to read-only gh commands for security
+          # Prevents accidental modifications to PRs, issues, or repo
+          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
+
