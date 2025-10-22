@@ -330,10 +330,10 @@ Production deployments require manual coordination to ensure database migrations
    - Wait for completion and verify success
 
    **b. Deploy code**
-   - Go to: [Vercel Dashboard](https://vercel.com) → Your Project → Deployments
-   - Click "Deploy" button (top right)
-   - Select "main" branch
-   - Click "Deploy"
+   - Go to: [GitHub Actions](https://github.com/kaupok/honkadori/actions/workflows/deploy-code-production.yml)
+   - Click "Run workflow" button
+   - Wait for deployment to complete
+   - Check workflow summary for deployment URL
 
    **c. Verify production**
    - Check production site is working
