@@ -63,7 +63,7 @@ jobs:
 
       - name: Output deployment information
         run: |
-          cat >> $GITHUB_STEP_SUMMARY << EOF
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
           ## ✅ Production Code Deployed
 
           ### Deployment Information
