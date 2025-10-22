@@ -993,8 +993,17 @@ Use descriptive branch names with prefixes:
 
 9. **Create pull request:**
 
+   **IMPORTANT:** PR title must follow Conventional Commits format (same as commit messages). Since we use squash-merge, the PR title becomes the final commit message in `main`.
+
+   **Format:** `<type>(<scope>): <subject>`
+
+   **Example titles:**
+   - `feat(auth): Add password reset functionality`
+   - `fix(ui): Resolve mobile header alignment`
+   - `docs(git): Add branch workflow guardrails`
+
    ```bash
-   gh pr create --title "Title" --body "$(cat <<'EOF'
+   gh pr create --title "feat(auth): Add password reset functionality" --body "$(cat <<'EOF'
    ## Summary
    ...
 
@@ -1047,7 +1056,8 @@ Before running `git commit`, verify:
 - [ ] Currently on a feature branch (NOT `main`)
 - [ ] Changes are staged (`git status`)
 - [ ] All tests pass (`pnpm lint && pnpm type-check && pnpm test`)
-- [ ] Commit message follows conventional commits format
+- [ ] Commit message follows Conventional Commits format
+- [ ] PR title planned (must also follow Conventional Commits format)
 - [ ] Ready to push and create PR
 
 ## Pull Request Workflow
