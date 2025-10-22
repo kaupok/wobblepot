@@ -11,7 +11,7 @@ on:
     types: [submitted]
 
 jobs:
-  claude:
+  claude-assistant:
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
@@ -19,16 +19,17 @@ jobs:
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      pull-requests: read
-      issues: read
-      id-token: write
-      actions: read # Required for Claude to read CI results on PRs
+      contents: read        # Read repository code
+      pull-requests: read   # Read PR details and post comments
+      issues: read          # Read issue details
+      id-token: write       # Required for Claude Code action
+      actions: read         # Read CI results to provide better feedback on PRs
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          # Fetch full git history for better context
+          fetch-depth: 0
 
       - name: Run Claude Code
         id: claude
@@ -36,15 +37,48 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
 
-          # This is an optional setting that allows Claude to read CI results on PRs
+          # Allow Claude to read CI results to provide context-aware feedback
           additional_permissions: |
             actions: read
 
-          # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
-          # prompt: 'Update the pull request description to include a summary of changes.'
+          # Provide context-aware guidance based on where Claude was mentioned
+          prompt: |
+            You've been mentioned by a user in the Honkadori project.
 
-          # Optional: Add claude_args to customize behavior and configuration
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://docs.claude.com/en/docs/claude-code/cli-reference for available options
-          # claude_args: '--allowed-tools Bash(gh pr:*)'
+            **Important:** Always read and reference CLAUDE.md for project patterns, conventions, and guidelines.
+
+            ## Context-Specific Guidance
+
+            ### If responding to a Pull Request:
+            Follow the Review Focus guidelines from CLAUDE.md:
+            - Flag actual bugs and logic errors (highest priority)
+            - Suggest improvements only if they have clear value
+            - Skip formatting nitpicks (Prettier handles it)
+            - Ensure tests are meaningful and cover the changes
+            - Watch for TypeScript strictness violations
+            - Check adherence to architectural patterns (Server Components, auth, data fetching)
+            - Verify typography component separation of concerns
+            - Check environment variable usage (clientEnv vs serverEnv)
+
+            ### If responding to an Issue:
+            - Provide helpful, actionable guidance
+            - Reference relevant sections of CLAUDE.md when applicable
+            - Suggest concrete implementation approaches aligned with project patterns
+
+            ### If responding to a Comment:
+            - Answer the specific question or request
+            - Provide context from CLAUDE.md when relevant
+            - Be helpful and constructive
+
+            ## Key Architectural Patterns to Remember
+            - **Server Components by default** - Only use "use client" when necessary
+            - **Auth**: Use `auth` (server) vs `authClient` (client), always pass headers
+            - **Data Fetching**: Prefer Server Components over client-side fetching
+            - **Typography**: Text styling only, layout via wrappers
+            - **Environment Variables**: `clientEnv` (client) vs `serverEnv` (server only)
+            - **Database**: `prisma` only in server-side code
+
+          # Restrict Claude to safe read-only operations and gh commands
+          # Prevents accidental modifications while allowing helpful interactions
+          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
 
