@@ -18,6 +18,10 @@ name: Deploy code [production]
 on:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-production
+  cancel-in-progress: false  # Don't cancel running deployments
+
 permissions:
   contents: read
 
@@ -48,22 +52,23 @@ jobs:
         run: vercel pull --yes --environment=production --token=$VERCEL_TOKEN
 
       - name: Deploy to production
+        id: deploy
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: vercel deploy --prod --force --token=$VERCEL_TOKEN > deployment-url.txt
+        run: |
+          DEPLOYMENT_URL=$(vercel deploy --prod --force --token=$VERCEL_TOKEN)
+          echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
 
       - name: Output deployment information
         run: |
-          DEPLOYMENT_URL=$(cat deployment-url.txt)
-          echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
           cat >> $GITHUB_STEP_SUMMARY << EOF
           ## ✅ Production Code Deployed
 
           ### Deployment Information
 
-          **Deployment URL:** $DEPLOYMENT_URL
+          **Deployment URL:** ${{ steps.deploy.outputs.deployment_url }}
 
           ### Next Steps
 

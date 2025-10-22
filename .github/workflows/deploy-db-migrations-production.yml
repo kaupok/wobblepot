@@ -6,8 +6,8 @@
 # 1. Merge changes to main (staging auto-deploys)
 # 2. Test in staging environment
 # 3. Run this workflow to deploy production migrations
-# 4. After migrations succeed, manually deploy in Vercel:
-#    - Vercel Dashboard → Deployments → Deploy button
+# 4. After migrations succeed, run "Deploy code [production]" workflow:
+#    - Actions → Deploy code [production] → Run workflow
 # 5. Verify production deployment
 #
 # Note: Automatic production deployments are disabled via Vercel's Ignored Build Step
@@ -75,11 +75,10 @@ jobs:
           1. **Verify migrations succeeded** - Check logs above for any errors
 
           2. **Deploy code to production**:
-             - Go to [Vercel Dashboard](https://vercel.com)
-             - Navigate to your project → Deployments
-             - Click "Deploy" button (top right)
-             - Select `main` branch
-             - Click "Deploy"
+             - Go to [GitHub Actions](../../actions/workflows/deploy-code-production.yml)
+             - Click "Run workflow" button
+             - Wait for deployment to complete
+             - Check workflow summary for deployment URL
 
           3. **Monitor production**:
              - Check production site is working
