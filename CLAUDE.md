@@ -355,13 +355,15 @@ The manual process ensures migrations always complete before code deployment.
 **Ignored Build Step** is configured with:
 
 ```bash
-if [ "$VERCEL_ENV" = "production" ]; then exit 1; else exit 0; fi
+if [ "$VERCEL_ENV" = "production" ]; then exit 0; else exit 1; fi
 ```
 
-**Exit code logic:**
+**Vercel Ignored Build Step logic:**
 
-- `exit 1` (failure) → Vercel skips the build
-- `exit 0` (success) → Vercel proceeds with build
+- `exit 0` → "Yes, ignore this build" → Vercel **skips** the build
+- `exit 1` → "No, don't ignore this build" → Vercel **proceeds** with build
+
+The command answers "Should I ignore this build?" (not standard shell success/failure logic).
 
 This allows:
 
