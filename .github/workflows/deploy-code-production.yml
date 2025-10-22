@@ -1,0 +1,91 @@
+# Production Code Deployment Workflow
+#
+# IMPORTANT: This workflow should be run AFTER production database migrations complete.
+#
+# Production Deployment Process:
+# 1. Merge changes to main (staging auto-deploys)
+# 2. Test in staging environment
+# 3. Run "Deploy DB migrations [production]" workflow
+# 4. Verify migrations succeeded
+# 5. Run THIS workflow to deploy code
+# 6. Verify production deployment
+#
+# This workflow uses Vercel CLI to deploy, bypassing Vercel's Ignored Build Step
+# which blocks automatic git-triggered production deployments.
+
+name: Deploy code [production]
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-production
+  cancel-in-progress: false  # Don't cancel running deployments
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Pull Vercel environment information
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+
+      - name: Deploy to production
+        id: deploy
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          DEPLOYMENT_URL=$(vercel deploy --prod --force --token=$VERCEL_TOKEN)
+          echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+
+      - name: Output deployment information
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          ## ✅ Production Code Deployed
+
+          ### Deployment Information
+
+          **Deployment URL:** ${{ steps.deploy.outputs.deployment_url }}
+
+          ### Next Steps
+
+          1. **Verify deployment**:
+             - Visit the production URL
+             - Check that all features are working
+             - Monitor logs for any errors
+
+          2. **Monitor production**:
+             - Check error tracking/monitoring tools
+             - Watch for user reports
+             - Be ready to rollback if needed
+
+          3. **Rollback if needed**:
+             - Vercel Dashboard → Deployments
+             - Find previous working deployment
+             - Click "⋯" → Promote to Production
+
+          **✅ Production deployment complete!**
+          EOF
