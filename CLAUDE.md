@@ -16,6 +16,7 @@
 - [Database Patterns](#database-patterns)
 - [Testing](#testing)
 - [Review Focus](#review-focus)
+- [Pull Request Workflow](#pull-request-workflow)
 - [CI Pipeline](#ci-pipeline)
 - [Production Deployment Process](#production-deployment-process)
 - [Commit Message Conventions](#commit-message-conventions)
@@ -903,6 +904,47 @@ pnpm test:all
 - Skip nitpicking on formatting (Prettier handles it)
 - Ensure tests are meaningful and cover the changes
 - Watch for TypeScript strictness violations
+
+## Pull Request Workflow
+
+### Updating PR Descriptions
+
+When pushing additional commits to an existing PR, always check if the PR description needs updating:
+
+```bash
+# Check current PR description
+gh pr view --json title,body
+
+# Review what changed in new commits
+git log origin/main..HEAD --oneline
+```
+
+**Update the description if:**
+
+- New features or fixes were added
+- Implementation approach changed significantly
+- Test plan needs updating
+- Breaking changes were introduced
+- File renames or structural changes occurred
+- Scope of the PR expanded or changed
+
+**Update using:**
+
+```bash
+gh pr edit --body "$(cat <<'EOF'
+Updated description here...
+EOF
+)"
+```
+
+**When NOT to update:**
+
+- Minor refactoring with same outcome
+- Fixing typos or formatting
+- Addressing review comments without changing scope
+- Small bug fixes within the original scope
+
+Keeping PR descriptions current helps reviewers understand the full context and ensures accurate documentation in git history (especially important for squash-merge).
 
 ## CI Pipeline
 
