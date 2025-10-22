@@ -30,14 +30,13 @@ describe('Home page component', () => {
     expect(screen.getByRole('heading', { name: 'TestApp' })).toBeInTheDocument()
   })
 
-  it('renders sign-in and sign-up buttons when not authenticated', async () => {
+  it('renders welcome message when not authenticated', async () => {
     const { auth } = await import('@/lib/auth')
     vi.mocked(auth.api.getSession).mockResolvedValue(null)
 
     const component = await Home()
     render(component)
-    expect(screen.getByRole('link', { name: 'Sign In' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Sign Up' })).toBeInTheDocument()
+    expect(screen.getByText('Get started by signing in or creating an account')).toBeInTheDocument()
   })
 
   it('renders welcome message when authenticated', async () => {
@@ -68,6 +67,6 @@ describe('Home page component', () => {
     const component = await Home()
     render(component)
     expect(screen.getByText(/Welcome back, Test User!/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'View Profile' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'View profile' })).toBeInTheDocument()
   })
 })

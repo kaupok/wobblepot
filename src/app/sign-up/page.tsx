@@ -50,7 +50,7 @@ export default function SignUpPage() {
             try {
               router.push('/profile')
               router.refresh()
-            } catch (navError) {
+            } catch {
               setError(
                 'Account created successfully, but navigation failed. Please refresh the page.',
               )

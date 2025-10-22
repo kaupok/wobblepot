@@ -48,7 +48,7 @@ export default function SignInPage() {
             try {
               router.push('/profile')
               router.refresh()
-            } catch (navError) {
+            } catch {
               setError('Authentication successful, but navigation failed. Please refresh the page.')
             }
           },
