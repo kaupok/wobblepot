@@ -160,10 +160,11 @@ describe('HeaderActions', () => {
 
     it('calls router.push and router.refresh on successful sign-out', async () => {
       const { authClient } = await import('@/lib/auth-client')
-      vi.mocked(authClient.signOut).mockImplementation(async ({ fetchOptions }) => {
+      vi.mocked(authClient.signOut).mockImplementation(async (options) => {
         // Simulate successful sign-out by calling onSuccess
-        if (fetchOptions?.onSuccess) {
-          fetchOptions.onSuccess()
+        if (options?.fetchOptions?.onSuccess) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          options.fetchOptions.onSuccess({} as any)
         }
       })
 
@@ -181,12 +182,25 @@ describe('HeaderActions', () => {
     it('handles sign-out errors gracefully', async () => {
       const { authClient } = await import('@/lib/auth-client')
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      const testError = { message: 'Sign-out failed' }
+      const testError = {
+        message: 'Sign-out failed',
+        status: 500,
+        statusText: 'Internal Server Error',
+        error: 'Sign-out failed',
+        name: 'BetterFetchError',
+      }
 
-      vi.mocked(authClient.signOut).mockImplementation(async ({ fetchOptions }) => {
+      vi.mocked(authClient.signOut).mockImplementation(async (options) => {
         // Simulate sign-out error
-        if (fetchOptions?.onError) {
-          fetchOptions.onError({ error: testError })
+        if (options?.fetchOptions?.onError) {
+          options.fetchOptions.onError({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            error: testError as any,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            response: {} as any,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            request: {} as any,
+          })
         }
       })
 
@@ -230,9 +244,10 @@ describe('HeaderActions', () => {
         throw navError
       })
 
-      vi.mocked(authClient.signOut).mockImplementation(async ({ fetchOptions }) => {
-        if (fetchOptions?.onSuccess) {
-          fetchOptions.onSuccess()
+      vi.mocked(authClient.signOut).mockImplementation(async (options) => {
+        if (options?.fetchOptions?.onSuccess) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          options.fetchOptions.onSuccess({} as any)
         }
       })
 
