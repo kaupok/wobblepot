@@ -3,7 +3,6 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { Heading, Body } from '@/components/ui/typography'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { SignOutButton } from './sign-out-button'
 
 export default async function ProfilePage() {
   const session = await auth.api.getSession({
@@ -15,7 +14,7 @@ export default async function ProfilePage() {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center p-4">
+    <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>
@@ -38,9 +37,6 @@ export default async function ProfilePage() {
                 Email
               </Body>
               <Body>{session.user.email}</Body>
-            </div>
-            <div className="pt-4">
-              <SignOutButton />
             </div>
           </div>
         </CardContent>

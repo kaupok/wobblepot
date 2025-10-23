@@ -56,3 +56,8 @@ export const auth = betterAuth({
      */
   },
 })
+
+/**
+ * Infer the session type from Better Auth
+ */
+export type Session = typeof auth.$Infer.Session

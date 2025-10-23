@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
+import { getUserFriendlyError } from '@/lib/auth-errors'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,38 +18,6 @@ import {
 } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 
-/**
- * Maps API error messages to user-friendly messages
- */
-function getUserFriendlyError(message: string): string {
-  const lowerMessage = message.toLowerCase()
-
-  if (lowerMessage.includes('already exists') || lowerMessage.includes('already registered')) {
-    return 'An account with this email address already exists. Try signing in instead.'
-  }
-  if (lowerMessage.includes('invalid email')) {
-    return 'Please enter a valid email address.'
-  }
-  if (
-    lowerMessage.includes('password') &&
-    (lowerMessage.includes('short') || lowerMessage.includes('minimum'))
-  ) {
-    return 'Password must be at least 8 characters long.'
-  }
-  if (lowerMessage.includes('password') && lowerMessage.includes('weak')) {
-    return 'Please choose a stronger password.'
-  }
-  if (lowerMessage.includes('too many')) {
-    return 'Too many sign-up attempts. Please try again later.'
-  }
-  if (lowerMessage.includes('network') || lowerMessage.includes('fetch')) {
-    return 'Unable to connect to the server. Please check your internet connection.'
-  }
-
-  // Return the original message if no mapping found
-  return message
-}
-
 export default function SignUpPage() {
   const router = useRouter()
   const [name, setName] = useState('')
@@ -56,11 +25,18 @@ export default function SignUpPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isSlowRequest, setIsSlowRequest] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setIsLoading(true)
+    setIsSlowRequest(false)
+
+    // Start timeout detection (10 seconds)
+    const timeoutId = setTimeout(() => {
+      setIsSlowRequest(true)
+    }, 10000)
 
     try {
       await authClient.signUp.email(
@@ -71,26 +47,41 @@ export default function SignUpPage() {
         },
         {
           onSuccess: () => {
-            router.push('/profile')
-            router.refresh()
+            try {
+              router.push('/profile')
+              router.refresh()
+            } catch {
+              setError(
+                'Account created successfully, but navigation failed. Please refresh the page.',
+              )
+            }
           },
           onError: (ctx) => {
-            const errorMessage = ctx.error.message || 'Failed to sign up'
+            const errorMessage = ctx.error?.message || 'Failed to sign up'
             setError(getUserFriendlyError(errorMessage))
           },
         },
       )
+    } catch (err) {
+      // Handle exceptions thrown by authClient (e.g., network errors when offline)
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : 'Unable to connect. Please check your internet connection.'
+      setError(getUserFriendlyError(errorMessage))
     } finally {
+      clearTimeout(timeoutId)
       setIsLoading(false)
+      setIsSlowRequest(false)
     }
   }
 
   return (
-    <div className="grid min-h-screen place-items-center p-4">
+    <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>
-            <Heading variant="h2">Sign Up</Heading>
+            <Heading variant="h2">Sign up</Heading>
           </CardTitle>
           <CardDescription>
             <Body variant="muted">Create a new account to get started</Body>
@@ -134,8 +125,13 @@ export default function SignUpPage() {
                 />
               </div>
               {error && (
-                <Body variant="small" className="text-destructive">
+                <Body variant="small" className="text-destructive" role="alert">
                   {error}
+                </Body>
+              )}
+              {isSlowRequest && !error && (
+                <Body variant="small" className="text-muted-foreground">
+                  This is taking longer than expected. Please wait...
                 </Body>
               )}
             </div>
@@ -143,7 +139,7 @@ export default function SignUpPage() {
           <CardFooter className="pt-6">
             <div className="flex w-full flex-col gap-4">
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Creating account...' : 'Sign Up'}
+                {isLoading ? 'Creating account...' : 'Sign up'}
               </Button>
               <Body variant="small" className="text-muted-foreground text-center">
                 Already have an account?{' '}

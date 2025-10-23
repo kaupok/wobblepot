@@ -475,6 +475,30 @@ export default function MyForm() {
 - Keep components focused and single-responsibility
 - Use TypeScript types for props
 
+### Text Casing Convention
+
+Use **sentence case** for all UI text elements (buttons, headings, labels, links):
+
+**DO:**
+
+- Button text: "Sign in", "Sign up", "Sign out"
+- Headings: "Create account", "View profile"
+- Labels: "Email address", "Password"
+
+**DON'T:**
+
+- ❌ "Sign In", "Sign Up", "Sign Out" (Title Case)
+- ❌ "SIGN IN" (ALL CAPS)
+
+**Exception:** Single-word headings/labels don't change (e.g., "Profile", "Settings")
+
+This applies to:
+
+- Button text and loading states
+- Page headings and card titles
+- Form labels and descriptions
+- Links and navigation text
+
 ### Typography Components
 
 We use two main variant-based components for typography:

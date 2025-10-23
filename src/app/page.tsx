@@ -11,7 +11,7 @@ export default async function Home() {
   })
 
   return (
-    <div className="grid min-h-screen place-items-center">
+    <div className="grid min-h-[calc(100vh-4rem)] place-items-center">
       <main className="flex flex-col items-center gap-8">
         <Heading>{serverEnv.NEXT_PUBLIC_APP_NAME}</Heading>
 
@@ -20,22 +20,12 @@ export default async function Home() {
             <Body>Welcome back, {session.user.name}!</Body>
             <div className="flex gap-3">
               <Button asChild>
-                <Link href="/profile">View Profile</Link>
+                <Link href="/profile">View profile</Link>
               </Button>
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-4">
-            <Body variant="muted">Get started by signing in or creating an account</Body>
-            <div className="flex gap-3">
-              <Button asChild>
-                <Link href="/sign-up">Sign Up</Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link href="/sign-in">Sign In</Link>
-              </Button>
-            </div>
-          </div>
+          <Body variant="muted">Get started by signing in or creating an account</Body>
         )}
       </main>
     </div>
