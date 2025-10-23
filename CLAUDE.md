@@ -963,6 +963,7 @@ Use descriptive branch names with prefixes:
 
    - Fix any failures before proceeding
    - If tests fail, fix the issues and re-stage changes
+   - **Note:** These same checks run in CI when you create a PR. Running them locally first helps you catch issues early and speeds up the review process.
 
 6. **Verify branch AGAIN before committing:**
 
@@ -1015,6 +1016,8 @@ Use descriptive branch names with prefixes:
    )"
    ```
 
+   **Tip:** See the **Pull Request Workflow** section below for guidance on updating PR descriptions when pushing additional commits.
+
 ### If You Accidentally Commit to Main
 
 **DO NOT PANIC.** Fix it with these steps:
@@ -1059,6 +1062,28 @@ Before running `git commit`, verify:
 - [ ] Commit message follows Conventional Commits format
 - [ ] PR title planned (must also follow Conventional Commits format)
 - [ ] Ready to push and create PR
+
+### Automated Branch Protection (Optional)
+
+You can create a git hook to automatically prevent commits to `main`:
+
+```bash
+# Create .git/hooks/pre-commit file
+cat > .git/hooks/pre-commit << 'EOF'
+#!/bin/sh
+branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
+if [ "$branch" = "main" ]; then
+  echo "❌ Direct commits to main are not allowed!"
+  echo "Create a feature branch instead: git checkout -b feat/your-feature"
+  exit 1
+fi
+EOF
+chmod +x .git/hooks/pre-commit
+```
+
+This hook will block commits to main and remind you to create a feature branch.
+
+**Note:** Git hooks are local and not committed to the repository, so each developer needs to set this up individually.
 
 ## Pull Request Workflow
 
