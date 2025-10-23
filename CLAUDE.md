@@ -16,6 +16,7 @@
 - [Database Patterns](#database-patterns)
 - [Testing](#testing)
 - [Review Focus](#review-focus)
+- [Git Branch Workflow](#git-branch-workflow)
 - [Pull Request Workflow](#pull-request-workflow)
 - [CI Pipeline](#ci-pipeline)
 - [Production Deployment Process](#production-deployment-process)
@@ -928,6 +929,185 @@ pnpm test:all
 - Skip nitpicking on formatting (Prettier handles it)
 - Ensure tests are meaningful and cover the changes
 - Watch for TypeScript strictness violations
+
+## Git Branch Workflow
+
+**CRITICAL: Never commit directly to the `main` branch.** Always create a feature branch first.
+
+### Branch Naming Convention
+
+Use descriptive branch names with prefixes:
+
+- `feat/` - New features (e.g., `feat/auth-improvements`)
+- `fix/` - Bug fixes (e.g., `fix/login-error`)
+- `docs/` - Documentation only (e.g., `docs/update-readme`)
+- `refactor/` - Code refactoring (e.g., `refactor/extract-utility`)
+- `chore/` - Maintenance tasks (e.g., `chore/update-deps`)
+
+### Proper Workflow - ALWAYS Follow These Steps
+
+**BEFORE making any code changes:**
+
+1. **Check current branch:**
+
+   ```bash
+   git branch --show-current
+   ```
+
+   - If on `main`: CREATE A FEATURE BRANCH FIRST (step 2)
+   - If on a feature branch: You're good to proceed
+
+2. **Create and switch to feature branch:**
+
+   ```bash
+   git checkout -b feat/your-feature-name
+   ```
+
+3. **Verify you're on the correct branch:**
+   ```bash
+   git branch --show-current  # Should show your feature branch, NOT main
+   ```
+
+**AFTER making code changes:**
+
+4. **Stage changes:**
+
+   ```bash
+   git add -A
+   git status  # Review what will be committed
+   ```
+
+5. **Run tests to ensure nothing is broken:**
+
+   ```bash
+   pnpm lint          # Check for linting errors
+   pnpm type-check    # Verify TypeScript types
+   pnpm test          # Run unit tests
+   ```
+
+   - Fix any failures before proceeding
+   - If tests fail, fix the issues and re-stage changes
+   - **Note:** These same checks run in CI when you create a PR. Running them locally first helps you catch issues early and speeds up the review process.
+
+6. **Verify branch AGAIN before committing:**
+
+   ```bash
+   git branch --show-current  # MUST NOT be 'main'
+   ```
+
+7. **Create commit:**
+
+   ```bash
+   git commit -m "$(cat <<'EOF'
+   type(scope): Brief description
+
+   Detailed description of changes...
+
+   🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+   Co-Authored-By: Claude <noreply@anthropic.com>
+   EOF
+   )"
+   ```
+
+8. **Push to remote:**
+
+   ```bash
+   git push -u origin feat/your-feature-name
+   ```
+
+9. **Create pull request:**
+
+   **IMPORTANT:** PR title must follow Conventional Commits format (same as commit messages). Since we use squash-merge, the PR title becomes the final commit message in `main`.
+
+   **Format:** `<type>(<scope>): <subject>`
+
+   **Example titles:**
+   - `feat(auth): Add password reset functionality`
+   - `fix(ui): Resolve mobile header alignment`
+   - `docs(git): Add branch workflow guardrails`
+
+   ```bash
+   gh pr create --title "feat(auth): Add password reset functionality" --body "$(cat <<'EOF'
+   ## Summary
+   ...
+
+   ## Test plan
+   ...
+
+   🤖 Generated with [Claude Code](https://claude.com/claude-code)
+   EOF
+   )"
+   ```
+
+   **Tip:** See the **Pull Request Workflow** section below for guidance on updating PR descriptions when pushing additional commits.
+
+### If You Accidentally Commit to Main
+
+**DO NOT PANIC.** Fix it with these steps:
+
+1. **Create feature branch from current state:**
+
+   ```bash
+   git branch feat/your-feature-name  # Creates branch but doesn't switch
+   ```
+
+2. **Reset main to match origin:**
+
+   ```bash
+   git reset --hard origin/main
+   ```
+
+3. **Switch to feature branch:**
+
+   ```bash
+   git checkout feat/your-feature-name
+   ```
+
+4. **Verify your commit is on the feature branch:**
+
+   ```bash
+   git log -1 --oneline  # Should show your commit
+   ```
+
+5. **Push feature branch and create PR:**
+   ```bash
+   git push -u origin feat/your-feature-name
+   gh pr create ...
+   ```
+
+### Pre-Commit Checklist
+
+Before running `git commit`, verify:
+
+- [ ] Currently on a feature branch (NOT `main`)
+- [ ] Changes are staged (`git status`)
+- [ ] All tests pass (`pnpm lint && pnpm type-check && pnpm test`)
+- [ ] Commit message follows Conventional Commits format
+- [ ] PR title planned (must also follow Conventional Commits format)
+- [ ] Ready to push and create PR
+
+### Automated Branch Protection (Optional)
+
+You can create a git hook to automatically prevent commits to `main`:
+
+```bash
+# Create .git/hooks/pre-commit file
+cat > .git/hooks/pre-commit << 'EOF'
+#!/bin/sh
+branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
+if [ "$branch" = "main" ]; then
+  echo "❌ Direct commits to main are not allowed!"
+  echo "Create a feature branch instead: git checkout -b feat/your-feature"
+  exit 1
+fi
+EOF
+chmod +x .git/hooks/pre-commit
+```
+
+This hook will block commits to main and remind you to create a feature branch.
+
+**Note:** Git hooks are local and not committed to the repository, so each developer needs to set this up individually.
 
 ## Pull Request Workflow
 
