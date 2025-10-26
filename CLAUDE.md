@@ -15,12 +15,17 @@
 - [Environment Variables](#environment-variables)
 - [Database Patterns](#database-patterns)
 - [Testing](#testing)
+- [Performance & Optimization](#performance--optimization)
 - [Review Focus](#review-focus)
 - [Git Branch Workflow](#git-branch-workflow)
 - [Pull Request Workflow](#pull-request-workflow)
 - [CI Pipeline](#ci-pipeline)
 - [Production Deployment Process](#production-deployment-process)
 - [Commit Message Conventions](#commit-message-conventions)
+- [MCP Server Configuration](#mcp-server-configuration)
+  - [Custom Slash Commands](#custom-slash-commands)
+  - [Permission Presets](#permission-presets)
+  - [Development Environment Health Check](#development-environment-health-check)
 
 ## Project Overview
 
@@ -673,6 +678,18 @@ Environment variables are validated at runtime using Zod. This ensures all requi
 
 3. Environment validation happens automatically on app startup in `src/lib/env.ts`
 
+**Important:** Always wrap environment variable values containing special shell characters (`&`, `?`, `=`, etc.) in double quotes:
+
+```bash
+# ❌ Wrong - shell will parse & as a command separator
+DATABASE_URL=postgresql://user:pass@host/db?sslmode=require&channel_binding=require
+
+# ✅ Correct - quotes prevent shell parsing issues
+DATABASE_URL="postgresql://user:pass@host/db?sslmode=require&channel_binding=require"
+```
+
+This is critical for database URLs and other values with query parameters. Without quotes, shell scripts that source `.env` (like `health-check.sh`) will fail to parse these variables correctly.
+
 ### Using Environment Variables in Code
 
 #### Client-Side Code (Browser)
@@ -922,6 +939,236 @@ pnpm test:all
 
 **See examples**: `src/components/ui/button.test.tsx`, `src/components/theme-toggle.test.tsx`, `src/app/page.test.tsx`
 
+### E2E Testing with Playwright
+
+E2E tests validate complete user workflows in a real browser. Tests are located in `/tests` or `/e2e` directory.
+
+**Basic usage:**
+
+```bash
+# Run all E2E tests
+pnpm test:e2e
+
+# Run in headed mode (see browser)
+pnpm test:e2e --headed
+
+# Run in debug mode
+pnpm test:e2e --debug
+
+# Interactive test explorer
+pnpm playwright test --ui
+```
+
+**Filtering and targeting:**
+
+```bash
+# Run tests matching pattern
+pnpm test:e2e --grep "auth"
+pnpm test:e2e --grep "sign-in"
+
+# Run specific file
+pnpm test:e2e tests/auth.spec.ts
+
+# Specific browser
+pnpm playwright test --project=chromium
+
+# Exclude tests
+pnpm test:e2e --grep-invert "slow"
+```
+
+**Debugging failures:**
+
+```bash
+# Show browser on failures
+pnpm test:e2e --headed --retries=0
+
+# Generate trace for analysis
+pnpm test:e2e --trace on
+pnpm playwright show-trace trace.zip
+
+# Playwright Inspector
+pnpm test:e2e --debug
+```
+
+**AI-assisted testing (Playwright MCP):**
+
+With Playwright MCP server active, Claude can:
+
+- Generate tests from natural language: "Write a test that signs in and verifies profile loads"
+- Debug failures: "This test failed, analyze the screenshot"
+- Update selectors: "Use better accessibility selectors in this test"
+
+**Example E2E test:**
+
+```typescript
+import { test, expect } from '@playwright/test'
+
+test('user can sign in', async ({ page }) => {
+  await page.goto('/')
+  await page.click('text=Sign in')
+
+  await page.fill('input[type="email"]', 'test@example.com')
+  await page.fill('input[type="password"]', 'password123')
+  await page.click('button:has-text("Sign in")')
+
+  await expect(page).toHaveURL('/profile')
+  await expect(page.locator('text=Welcome')).toBeVisible()
+})
+```
+
+**Configuration:** `playwright.config.ts`
+
+**Before deploying:** Always run E2E tests before major deployments
+
+**Related:** Use `/test-auth` slash command for auth-specific test suite
+
+### Creating New Components
+
+When creating new React components, follow these patterns:
+
+**Component locations (from File Organization):**
+
+- **shadcn UI primitives** → `/components/ui` (use `npx shadcn@latest add <name>`)
+- **Feature components** → `/components` root (reusable across routes)
+- **Route-specific** → `/app/[route]/` (colocated with route)
+
+**Client component template** (with interactivity):
+
+```typescript
+'use client'
+
+import { useState } from 'react'
+
+interface MyComponentProps {
+  // Props here
+}
+
+export function MyComponent({ }: MyComponentProps) {
+  const [state, setState] = useState()
+
+  return <div>{/* Component JSX */}</div>
+}
+```
+
+**Server component template** (default):
+
+```typescript
+interface MyComponentProps {
+  // Props here
+}
+
+export function MyComponent({ }: MyComponentProps) {
+  return <div>{/* Component JSX */}</div>
+}
+```
+
+**Test template** (`MyComponent.test.tsx`):
+
+```typescript
+import { render, screen } from '@testing-library/react'
+import { describe, it, expect } from 'vitest'
+import { MyComponent } from './MyComponent'
+
+describe('MyComponent', () => {
+  it('renders correctly', () => {
+    render(<MyComponent />)
+    expect(screen.getByRole('...')).toBeInTheDocument()
+  })
+})
+```
+
+**Remember:**
+
+- Use **Server Components by default** (no "use client")
+- Only add `"use client"` if you need: interactivity, browser APIs, or React hooks
+- Follow **sentence case** for all UI text
+- Use **Typography components** (Heading, Body) for text
+- See "Code Standards" section for full guidelines
+
+## Performance & Optimization
+
+### Bundle Analysis
+
+Analyze your Next.js bundle to identify optimization opportunities.
+
+**Quick analysis:**
+
+```bash
+pnpm build
+# Next.js automatically outputs bundle analysis
+# Look for "First Load JS" in build output
+```
+
+**Detailed analysis with @next/bundle-analyzer:**
+
+```bash
+# Install
+pnpm add -D @next/bundle-analyzer
+
+# Update next.config.ts:
+# const withBundleAnalyzer = require('@next/bundle-analyzer')({
+#   enabled: process.env.ANALYZE === 'true',
+# })
+# module.exports = withBundleAnalyzer(nextConfig)
+
+# Run analysis
+ANALYZE=true pnpm build
+```
+
+Opens interactive treemap showing package sizes and duplicates.
+
+**Bundle metrics:**
+
+- **Size**: Compressed JS (what users download)
+- **First Load JS**: Total JS needed for page load
+
+**Good targets:**
+
+- First Load JS < 100 kB (excellent)
+- First Load JS < 200 kB (good)
+- First Load JS > 300 kB (needs optimization)
+
+**Common optimizations:**
+
+1. **Dynamic imports for heavy components:**
+
+```typescript
+const HeavyComponent = dynamic(() => import('@/components/HeavyComponent'))
+
+// Client-only
+const ClientOnly = dynamic(() => import('@/components/ClientOnly'), { ssr: false })
+```
+
+2. **Tree shaking:**
+
+```typescript
+// ❌ Bad - imports entire library
+import _ from 'lodash'
+
+// ✅ Good - imports specific function
+import debounce from 'lodash/debounce'
+```
+
+3. **Replace large dependencies:**
+
+- `moment` → `date-fns` or native `Intl.DateTimeFormat`
+- Use npm Package Search MCP to find lightweight alternatives
+
+4. **Check for duplicates:**
+
+```bash
+pnpm why <package-name>
+```
+
+**When to optimize:**
+
+- Adding major dependencies
+- Before deploying large features
+- Performance feels slow
+- First Load JS exceeds 200 kB
+
+**Related:** Use Next.js DevTools MCP for AI-assisted optimization suggestions
+
 ## Review Focus
 
 - Flag actual bugs and logic errors
@@ -1087,27 +1334,38 @@ Before running `git commit`, verify:
 - [ ] PR title planned (must also follow Conventional Commits format)
 - [ ] Ready to push and create PR
 
-### Automated Branch Protection (Optional)
+### Automated Branch Protection
 
-You can create a git hook to automatically prevent commits to `main`:
+We use a git pre-commit hook to automatically prevent commits to `main`. This hook is **already installed** in this project.
+
+**What it does:**
+
+- Blocks any commits to the main branch
+- Displays helpful error message with instructions
+- Reminds you to create a feature branch
+
+**For new team members or after fresh clone:**
+
+Run the setup script to install git hooks:
 
 ```bash
-# Create .git/hooks/pre-commit file
-cat > .git/hooks/pre-commit << 'EOF'
-#!/bin/sh
-branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
-if [ "$branch" = "main" ]; then
-  echo "❌ Direct commits to main are not allowed!"
-  echo "Create a feature branch instead: git checkout -b feat/your-feature"
-  exit 1
-fi
-EOF
-chmod +x .git/hooks/pre-commit
+./scripts/setup-git-hooks.sh
 ```
 
-This hook will block commits to main and remind you to create a feature branch.
+This will install:
 
-**Note:** Git hooks are local and not committed to the repository, so each developer needs to set this up individually.
+- Pre-commit hook that prevents commits to main
+- (Future hooks as we add them)
+
+**Bypassing the hook** (not recommended):
+
+If you absolutely must commit to main:
+
+```bash
+git commit --no-verify
+```
+
+**Note:** Git hooks are local (`.git/hooks/` is not version controlled), so new team members need to run the setup script after cloning the repository.
 
 ## Pull Request Workflow
 
@@ -1269,3 +1527,476 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/) for commi
 - `docs: Update installation instructions`
 - `chore(deps): Update Next.js to 15.5.3`
 - `test(hooks): Add tests for useAuth hook`
+
+## MCP Server Configuration
+
+This project uses the Model Context Protocol (MCP) to enhance Claude Code's capabilities with specialized tools and context providers optimized for our hybrid human+AI workflow.
+
+### What is MCP?
+
+MCP (Model Context Protocol) is an open protocol that standardizes how AI assistants connect to data sources and tools. Think of it as "USB-C for AI" - a universal standard that allows Claude Code to access specialized functionality through modular servers.
+
+**Key benefits for our workflow:**
+
+- **Context-aware assistance**: Servers provide domain-specific knowledge (Better Auth docs, library documentation)
+- **Enhanced capabilities**: File operations, database queries, sequential thinking, persistent memory
+- **Reduced friction**: Pre-configured servers eliminate repetitive setup and explanation
+- **Team consistency**: Shared `.mcp.json` ensures everyone has the same tools
+
+### Configured MCP Servers
+
+Our project uses the following MCP servers (configured in `.mcp.json`):
+
+#### 1. **Filesystem Server** (Official Anthropic)
+
+- **Purpose**: Secure file operations with enhanced capabilities
+- **Capabilities**: Advanced file search, directory navigation, recursive operations
+- **Scope**: Project root (configured via `PROJECT_ROOT` environment variable)
+- **When to use**: Complex file operations, bulk changes, deep directory exploration
+
+#### 2. **GitHub Server** (Official Anthropic)
+
+- **Purpose**: Direct GitHub API integration
+- **Capabilities**: Repository insights, PR management, issue tracking, workflow triggers
+- **Requirements**: `GITHUB_PERSONAL_ACCESS_TOKEN` environment variable
+- **When to use**: Complex GitHub operations beyond `gh` CLI capabilities
+
+**Setup GitHub token:**
+
+1. Go to GitHub Settings → Developer settings → Personal access tokens → Fine-grained tokens
+2. Create token with permissions: `repo`, `workflow`, `read:org`
+3. Add to `.env`: `GITHUB_PERSONAL_ACCESS_TOKEN=github_pat_...`
+
+#### 3. **Sequential Thinking Server** (Official Anthropic)
+
+- **Purpose**: Enhanced multi-step planning and problem decomposition
+- **Capabilities**: Structured reasoning, iterative refinement, complex architecture decisions
+- **When to use**: Complex features, architectural planning, debugging tricky issues
+- **Note**: No API keys required
+
+#### 4. **Memory Server** (Official Anthropic)
+
+- **Purpose**: Knowledge graph-based persistent memory across sessions
+- **Capabilities**: Store project decisions, architecture patterns, context retention
+- **When to use**: Document important decisions, track evolving patterns, maintain context
+- **Note**: Memory persists across Claude Code sessions
+
+#### 5. **Playwright Server** (Microsoft)
+
+- **Purpose**: Browser automation and E2E test generation/debugging
+- **Capabilities**:
+  - Generate tests from natural language requirements
+  - Debug test failures with AI analyzing screenshots
+  - Automate browser interactions for testing
+  - Web scraping and interaction
+- **When to use**: Writing new E2E tests, debugging test failures, automating browser tasks
+- **Note**: Works with your existing Playwright setup
+
+#### 6. **MDN Lookup Server**
+
+- **Purpose**: MDN Web Docs quick reference
+- **Capabilities**: Search and retrieve Web API documentation (fetch, localStorage, DOM APIs, etc.)
+- **When to use**: Need quick reference for web platform APIs without browser context switching
+- **Note**: Complements Context7 for web-specific documentation
+
+#### 7. **npm Package Search Server**
+
+- **Purpose**: npm registry search and package metadata
+- **Capabilities**:
+  - Search npm packages by keyword
+  - Get package metadata, versions, dependencies
+  - Compare package alternatives
+  - Check download statistics
+- **When to use**: Evaluating new dependencies, checking package versions, finding alternatives
+- **Note**: Helps make informed dependency decisions
+
+#### 8. **Next.js DevTools Server** (Vercel)
+
+- **Purpose**: Next.js-specific development assistance
+- **Capabilities**:
+  - Analyze app structure and routes
+  - Get Next.js best practice recommendations
+  - Identify optimization opportunities
+  - Future: Automated Next.js upgrades
+- **When to use**: Working on Next.js-specific features, planning upgrades, optimizing performance
+- **Note**: Particularly useful for major Next.js version upgrades
+
+#### 9. **Better Auth MCP** (HTTP server)
+
+- **Purpose**: Better Auth documentation search and AI chat
+- **Capabilities**: Search Better Auth docs, get implementation examples
+- **When to use**: Implementing auth features, troubleshooting Better Auth issues
+- **Note**: Already configured globally via HTTP
+
+#### 10. **Context7** (HTTP server)
+
+- **Purpose**: General library documentation retrieval
+- **Capabilities**: Up-to-date docs for any npm package or library
+- **When to use**: Need API docs for third-party libraries
+- **Note**: Already configured globally via HTTP
+
+### Verifying MCP Server Status
+
+Check which servers are active and their connection status:
+
+```bash
+claude mcp list
+```
+
+**Expected output:**
+
+- ✓ Connected - Server is working
+- ✗ Failed to connect - Check configuration or API keys
+
+### Adding New MCP Servers
+
+**Project-wide servers** (recommended for team-shared tools):
+
+1. Edit `.mcp.json` in project root
+2. Add server configuration:
+
+```json
+{
+  "mcpServers": {
+    "your-server-name": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-name"],
+      "env": {
+        "API_KEY": "${YOUR_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+3. Commit `.mcp.json` to share with team
+4. Restart Claude Code
+
+**Personal servers** (local experiments):
+
+Use local scope with Claude Code CLI:
+
+```bash
+claude mcp add --transport stdio your-server -- npx -y @modelcontextprotocol/server-name
+```
+
+### Troubleshooting MCP Servers
+
+**Server shows "Failed to connect":**
+
+1. Check server is properly installed: `npx -y @modelcontextprotocol/server-name --version`
+2. Verify environment variables are set (check `.env`)
+3. Restart Claude Code
+4. Check server logs: `claude mcp get server-name`
+
+**Environment variables not working:**
+
+- MCP supports `${VAR}` and `${VAR:-default}` syntax in `.mcp.json`
+- Variables are read from `.env` file in project root
+- Restart Claude Code after changing `.env`
+
+**GitHub server authentication:**
+
+- Token must have correct scopes: `repo`, `workflow`, `read:org`
+- Token must be fine-grained (not classic)
+- Add to `.env`: `GITHUB_PERSONAL_ACCESS_TOKEN=github_pat_...`
+
+### Custom Slash Commands
+
+We've created custom slash commands for common workflows. These are stored in `.claude/commands/` and provide quick access to frequent operations.
+
+Available commands:
+
+#### `/deploy-staging`
+
+Trigger staging deployment and verify success. Guides you through:
+
+- Checking git status
+- Triggering staging workflow
+- Monitoring deployment
+- Verifying staging URL
+
+#### `/deploy-production`
+
+Production deployment checklist and workflow. Ensures:
+
+- Pre-deployment verification
+- Database migrations run first
+- Code deploys after migrations
+- Production verification steps
+
+#### `/db-status`
+
+Check database migration status across all environments:
+
+- Local migration status
+- Staging workflow history
+- Production workflow history
+- Useful database commands
+
+#### `/test-auth`
+
+Run all authentication tests:
+
+- Unit tests for auth components
+- Integration tests
+- Manual testing checklist
+- Quick access to Better Auth docs via MCP
+
+#### `/review-ready`
+
+Pre-commit quality checklist:
+
+- Branch verification
+- Linting
+- Type checking
+- Unit tests
+- Commit message format guidance
+- PR creation template
+
+#### `/fix-lint`
+
+Run linter with auto-fix enabled:
+
+- Automatically fixes formatting and import issues
+- Reviews remaining issues that need manual fixes
+- Helps maintain code quality standards
+
+#### `/check-deps`
+
+Check for outdated packages and security vulnerabilities:
+
+- Lists outdated dependencies
+- Checks for security vulnerabilities
+- Provides update strategies
+- Shows dependency tree information
+
+**Using slash commands:**
+
+Type `/` in Claude Code to see available commands, then select one to execute. Commands are markdown files that provide context and guidance to Claude Code.
+
+**Creating new commands:**
+
+1. Create `.claude/commands/your-command.md`
+2. Write markdown with instructions, checklists, and bash commands
+3. Claude Code automatically detects and loads the command
+4. Test with `/your-command`
+
+### Permission Presets
+
+We've configured automatic permission approval for common operations in `.claude/settings.local.json`. This reduces friction for routine tasks.
+
+**Pre-approved operations:**
+
+**GitHub CLI:**
+
+- `gh api:*` - GitHub API calls
+- `gh pr view:*` - View pull requests
+- `gh pr create:*` - Create pull requests
+- `gh pr list:*` - List pull requests
+- `gh issue list:*` - List issues
+- `gh run view:*` - View workflow runs
+- `gh run list:*` - List workflow runs
+- `gh run watch:*` - Watch workflow execution
+- `gh workflow run:*` - Trigger workflows
+
+**Git commands:**
+
+- `git checkout:*` - Branch switching and file restoration
+  - ⚠️ **Note:** Auto-approved for workflow convenience, but can switch branches and restore files without confirmation. Use with awareness.
+- `git status:*` - Repository status
+- `git branch:*` - Branch operations
+- `git log:*` - Commit history
+- `git diff:*` - View changes
+
+**pnpm scripts:**
+
+- `pnpm lint:*` - Linting
+- `pnpm type-check:*` - Type checking
+- `pnpm test:*` - Testing
+- `pnpm db:*` - Database operations
+- `pnpm outdated:*` - Check outdated dependencies
+- `pnpm audit:*` - Security audits
+- `pnpm why:*` - Dependency tree investigation
+- `pnpm build:*` - Build commands
+- `pnpm playwright:*` - Playwright E2E tests
+
+**MCP tools:**
+
+- `mcp__better-auth__search` - Better Auth documentation search
+- `mcp__context7__resolve-library-id` - Library ID resolution
+- `mcp__context7__get-library-docs` - Library documentation retrieval
+
+**Other tools:**
+
+- `WebSearch` - Web search for up-to-date information
+
+**Why pre-approve?**
+
+These operations are:
+
+- **Safe**: Read-only or locally scoped
+- **Frequent**: Used in most development sessions
+- **Predictable**: Well-understood behavior
+- **Reversible**: Can be undone if needed
+
+**Operations requiring approval:**
+
+Operations NOT pre-approved require manual approval:
+
+- `git commit` / `git push` (intentional - review changes first)
+- Destructive git operations (`git reset --hard`, `git push --force`)
+- File modifications (Edit, Write tools)
+- Production deployments
+- Any operations outside the pre-approved list
+
+### Best Practices for MCP Usage
+
+1. **Check server status regularly**: Run `/mcp` to verify all servers are connected
+2. **Document decisions**: Use Memory MCP to store important architecture decisions
+3. **Use Sequential Thinking for complex tasks**: Invoke it explicitly for architectural planning
+4. **Leverage Better Auth MCP**: Instead of web searches, ask Better Auth MCP directly
+5. **Keep environment variables secure**: Never commit `.env` file, use `.env.example` for documentation
+6. **Share improvements**: If you add a useful MCP server, commit `.mcp.json` and document it here
+
+### Database Operations (Without Postgres MCP)
+
+We intentionally exclude the Postgres MCP server because our existing tools provide better workflows:
+
+**For data inspection and editing:**
+
+```bash
+pnpm db:studio  # Opens Prisma Studio GUI
+```
+
+- Visual interface with relationships
+- Type-safe edits
+- No SQL required
+
+**For raw SQL queries:**
+
+- **Option 1**: Neon Dashboard → SQL Editor (https://console.neon.tech)
+- **Option 2**: Prisma raw queries in code:
+  ```typescript
+  await prisma.$queryRaw`SELECT ...`
+  await prisma.$executeRaw`UPDATE ...`
+  ```
+
+**For schema operations:**
+
+```bash
+pnpm db:migrate        # Create new migration
+pnpm db:migrate status # Check migration status
+pnpm db:push          # Push schema without migration (dev only)
+pnpm db:generate      # Regenerate Prisma Client
+```
+
+**When to reconsider Postgres MCP:**
+
+- Complex analytical queries requiring EXPLAIN ANALYZE
+- Database grows to 20+ tables with complex relationships
+- Frequent database administration tasks
+- Performance optimization beyond Prisma's capabilities
+
+### MCP Resources
+
+- **Official documentation**: [modelcontextprotocol.io](https://modelcontextprotocol.io)
+- **Server repository**: [github.com/modelcontextprotocol/servers](https://github.com/modelcontextprotocol/servers)
+- **Claude Code MCP docs**: [docs.claude.com/en/docs/claude-code/mcp](https://docs.claude.com/en/docs/claude-code/mcp)
+- **MCP server directory**: [mcpserverfinder.com](https://www.mcpserverfinder.com)
+
+### Development Environment Health Check
+
+The `health-check.sh` script validates your complete development environment setup to ensure everything is configured correctly for AI-assisted development.
+
+**What it checks:**
+
+- **Required tools**: Node.js, pnpm, Claude Code CLI, Git (with correct versions)
+- **Project structure**: Git repository, hooks installation, required config files
+- **Environment variables**: All required vars are set (including `PROJECT_ROOT` for MCP)
+- **Dependencies**: node_modules exists and is in sync with lock file
+- **Code quality**: TypeScript compilation and linting pass
+- **MCP configuration**: MCP servers are properly configured
+
+**Usage:**
+
+```bash
+# Run from project root
+./scripts/health-check.sh
+```
+
+**When to use:**
+
+- **After cloning the repository** - Verify your environment is set up correctly
+- **When onboarding new team members** - Quick validation of their setup
+- **When something's not working** - Identify missing configuration or tools
+- **Before submitting a PR** - Ensure your environment is healthy
+- **After updating dependencies** - Verify everything still works
+
+**Exit codes:**
+
+- `0` - All checks passed (or only warnings)
+- `1` - One or more errors found (must be fixed)
+
+**Example output:**
+
+```
+🏥 Running development environment health check...
+
+📋 Checking required tools...
+✅ Node.js installed: v22.15.0
+✅ pnpm installed: 10.9.0
+✅ Claude Code CLI installed
+✅ Git installed: git version 2.43.0
+
+🔐 Checking environment variables...
+✅ .env file exists
+✅ BETTER_AUTH_SECRET is set
+✅ DATABASE_URL is set
+✅ PROJECT_ROOT is set (for MCP)
+
+🎉 All checks passed! Your development environment is healthy.
+```
+
+**Fixing issues:**
+
+The script provides specific error messages and suggested fixes for each issue found. Common fixes:
+
+- Install missing tools: `brew install node` or `npm install -g pnpm`
+- Set up git hooks: `./scripts/setup-git-hooks.sh`
+- Configure environment: Copy `.env.example` to `.env` and fill in values
+- Install dependencies: `pnpm install`
+- Fix code issues: `pnpm lint --fix`, then address remaining errors
+
+### Future MCP Enhancements
+
+Potential additions to consider:
+
+#### When Codebase Grows Larger
+
+- **Serena MCP** ([github.com/oraios/serena](https://github.com/oraios/serena)): Semantic code analysis via Language Server Protocol
+  - **When to add**: Codebase grows to 100+ files or 10K+ lines
+  - **Current status**: 35 files, ~3K lines (too small to benefit)
+  - **Benefits**: Symbol-level code navigation, precise editing, reduced token usage
+  - **Tools provided**: `find_symbol`, `find_referencing_symbols`, `insert_after_symbol`
+  - **Requirements**: Install `uv` tool (`brew install uv` or `pip3 install uv`)
+  - **Installation**: `claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server --context ide-assistant --project "$(pwd)"`
+  - **Note**: Works best for large codebases with complex cross-file dependencies; minimal benefit for small projects
+
+**Monitor codebase growth:**
+
+```bash
+# Check current file count
+find src -type f \( -name "*.ts" -o -name "*.tsx" \) | wc -l
+# When this hits ~100+, consider adding Serena
+```
+
+#### Other Tools
+
+- **Sentry MCP**: Error monitoring and log querying (if we add Sentry)
+- **Puppeteer MCP**: Automated browser testing and screenshots
+- **Slack MCP**: Deployment notifications (if we use Slack)
+- **Custom MCP server**: Project-specific tools (component generator, etc.)
+
+When adding new servers, update this documentation and commit `.mcp.json` to share with the team.
