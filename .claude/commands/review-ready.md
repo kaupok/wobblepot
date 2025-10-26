@@ -21,7 +21,7 @@ git branch --show-current
 # Check git status
 git status
 
-# Run all quality checks (in parallel)
+# Run all quality checks
 # Lint check
 pnpm lint
 
@@ -85,12 +85,14 @@ git commit -m "your commit message following Conventional Commits format"
 git push -u origin <feature-branch-name>
 
 # Create PR
-gh pr create --title "type(scope): subject" --body "## Summary
+gh pr create --title "type(scope): subject" --body "$(cat <<'EOF'
+## Summary
 ...
 
 ## Test plan
 ...
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
-"
+EOF
+)"
 ```

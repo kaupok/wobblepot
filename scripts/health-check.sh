@@ -23,12 +23,12 @@ NC='\033[0m' # No Color
 # Helper functions
 error() {
   echo -e "${RED}❌ ERROR: $1${NC}"
-  ((ERRORS++))
+  ((ERRORS++)) || true
 }
 
 warning() {
   echo -e "${YELLOW}⚠️  WARNING: $1${NC}"
-  ((WARNINGS++))
+  ((WARNINGS++)) || true
 }
 
 success() {
@@ -107,32 +107,47 @@ echo ""
 echo "🔐 Checking environment variables..."
 echo ""
 
+# Helper function to check if env var is set in .env file
+check_env_var() {
+  local var_name="$1"
+  if grep -q "^${var_name}=" .env 2>/dev/null; then
+    local var_value=$(grep "^${var_name}=" .env | head -1 | cut -d'=' -f2- | sed 's/^["'"'"']//' | sed 's/["'"'"']$//')
+    [ -n "$var_value" ]
+  else
+    return 1
+  fi
+}
+
 # Check for .env file
 if [ -f ".env" ]; then
   success ".env file exists"
 
   # Check required env vars
-  source .env 2>/dev/null || true
-
-  if [ -n "$BETTER_AUTH_SECRET" ]; then
+  if check_env_var "BETTER_AUTH_SECRET"; then
     success "BETTER_AUTH_SECRET is set"
   else
     error "BETTER_AUTH_SECRET not set in .env"
   fi
 
-  if [ -n "$DATABASE_URL" ]; then
+  if check_env_var "DATABASE_URL"; then
     success "DATABASE_URL is set"
   else
     error "DATABASE_URL not set in .env"
   fi
 
-  if [ -n "$DATABASE_URL_UNPOOLED" ]; then
+  if check_env_var "DATABASE_URL_UNPOOLED"; then
     success "DATABASE_URL_UNPOOLED is set"
   else
     warning "DATABASE_URL_UNPOOLED not set (required for migrations)"
   fi
 
-  if [ -n "$GITHUB_PERSONAL_ACCESS_TOKEN" ]; then
+  if check_env_var "PROJECT_ROOT"; then
+    success "PROJECT_ROOT is set (for MCP filesystem server)"
+  else
+    warning "PROJECT_ROOT not set (required for filesystem MCP server)"
+  fi
+
+  if check_env_var "GITHUB_PERSONAL_ACCESS_TOKEN"; then
     success "GITHUB_PERSONAL_ACCESS_TOKEN is set (for GitHub MCP)"
   else
     info "GITHUB_PERSONAL_ACCESS_TOKEN not set (optional - needed for GitHub MCP server)"
@@ -165,17 +180,21 @@ echo "🧪 Running quick checks..."
 echo ""
 
 # Check TypeScript compilation
-if pnpm type-check &> /dev/null; then
+if OUTPUT=$(pnpm type-check 2>&1); then
   success "TypeScript compilation passed"
 else
   error "TypeScript compilation failed. Run: pnpm type-check"
+  echo -e "${RED}First few errors:${NC}"
+  echo "$OUTPUT" | head -10
 fi
 
 # Check linting
-if pnpm lint &> /dev/null; then
+if OUTPUT=$(pnpm lint 2>&1); then
   success "Linting passed"
 else
   warning "Linting issues found. Run: pnpm lint"
+  echo -e "${YELLOW}Summary (first 5 issues):${NC}"
+  echo "$OUTPUT" | grep -E "(warning|error)" | head -5
 fi
 
 echo ""

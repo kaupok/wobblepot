@@ -1803,7 +1803,8 @@ We've configured automatic permission approval for common operations in `.claude
 
 **Git commands:**
 
-- `git checkout:*` - Branch switching
+- `git checkout:*` - Branch switching and file restoration
+  - ⚠️ **Note:** Auto-approved for workflow convenience, but can switch branches and restore files without confirmation. Use with awareness.
 - `git status:*` - Repository status
 - `git branch:*` - Branch operations
 - `git log:*` - Commit history
