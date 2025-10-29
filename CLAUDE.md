@@ -2023,7 +2023,7 @@ Cyrus enables fully automated issue processing:
 - **Linear integration**: Posts progress updates and results as Linear comments, creates PRs if needed
 - **Security controls**: Granular tool permissions control what Cyrus can do (read-only, safe mode, full access)
 
-**Current configuration**: Safe mode (can read/edit files and run git commands, but no bash/shell execution)
+**Current configuration**: Safe mode (can read/edit files, run git/gh/pnpm commands, but no arbitrary bash/shell execution)
 
 ### Initial Setup
 
@@ -2088,7 +2088,7 @@ This will:
 When prompted, use these settings:
 
 - **Repository path**: `/path/to/honkadori` (use your actual project path)
-- **Allowed tools**: `safe` (read/edit files + git commands, no bash)
+- **Allowed tools**: Custom (read/edit files + git/gh/pnpm commands, no arbitrary bash)
 - **MCP config**: `.mcp.json` (uses project's existing MCP setup)
 
 **What happens during setup:**
@@ -2120,19 +2120,41 @@ This script runs automatically when Cyrus creates a new worktree. It:
 - `LINEAR_ISSUE_TITLE` - Issue title
 - `CYRUS_REPO_PATH` - Path to the worktree
 
-**Security configuration (Safe Mode)**:
+**Security configuration**:
 
 Current permissions allow Cyrus to:
 
 - ✅ Read all project files
 - ✅ Edit and write files
 - ✅ Run git commands (checkout, commit, push, branch)
+- ✅ Run gh commands (GitHub CLI)
+- ✅ Run pnpm commands (install, test, build, db:generate, etc.)
 - ✅ Use TodoWrite for task tracking
 - ✅ Access MCP servers (Better Auth docs, Context7, etc.)
-- ❌ Execute bash/shell commands
-- ❌ Run npm/pnpm commands directly
+- ❌ Execute arbitrary bash/shell commands
+- ❌ Run system-level commands (rm -rf, etc.)
 
-This prevents accidental system changes while allowing full code development.
+This allows Cyrus to autonomously set up and develop features while preventing potentially dangerous system operations.
+
+**Allowed tools in config:**
+
+```json
+"allowedTools": [
+  "Read(**)",
+  "Edit(**)",
+  "Bash(git:*)",
+  "Bash(gh:*)",
+  "Bash(pnpm:*)",
+  "Task",
+  "WebFetch",
+  "WebSearch",
+  "TodoRead",
+  "TodoWrite",
+  "NotebookRead",
+  "NotebookEdit",
+  "Batch"
+]
+```
 
 **Editing configuration:**
 
@@ -2172,27 +2194,10 @@ Cyrus will run continuously, monitoring Linear for assigned issues.
 
 1. **Detects assignment** - Monitors Linear for issues assigned to Cyrus bot
 2. **Creates worktree** - Runs `git worktree add` for isolated development
-3. **Runs setup** - Executes `.claude/cyrus-setup.sh` to prepare environment
+3. **Runs setup** - Executes `.claude/cyrus-setup.sh` to prepare environment (installs dependencies, generates Prisma client)
 4. **Processes issue** - Uses Claude Code to understand and implement changes
 5. **Posts results** - Comments on Linear issue with progress and results
 6. **Creates PR** - Optionally creates pull request (if `gh` CLI is available)
-
-**⚠️ Important: Safe mode limitation**
-
-The current safe mode configuration blocks bash execution, which means `.claude/cyrus-setup.sh` cannot run automatically. You must either:
-
-1. **Manual setup** (recommended): After Cyrus creates a worktree, manually run the setup commands:
-
-   ```bash
-   cd /path/to/worktree
-   pnpm install
-   pnpm db:generate
-   ./scripts/health-check.sh
-   ```
-
-2. **Higher permission mode**: Switch Cyrus to a mode that allows bash execution (requires security review). Update `~/.cyrus/config.json` and change the `allowedTools` setting.
-
-Current safe mode allows: read/edit files + git commands only (no bash/shell execution).
 
 **Checking status:**
 
