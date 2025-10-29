@@ -23,6 +23,7 @@ const config = [
       'build/**',
       'coverage/**',
       'next-env.d.ts',
+      'cyrus-proxy/**', // Third-party Cyrus proxy worker code
     ],
   },
 

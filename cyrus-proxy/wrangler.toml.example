@@ -1,0 +1,46 @@
+# Cyrus Proxy Worker Configuration Template
+# Copy this file to wrangler.toml and replace placeholder values
+
+name = "cyrus-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# KV namespaces - Replace with your own IDs from: wrangler kv namespace create
+[[kv_namespaces]]
+binding = "OAUTH_TOKENS"
+id = "YOUR_OAUTH_TOKENS_ID"
+preview_id = "YOUR_OAUTH_TOKENS_PREVIEW_ID"
+
+[[kv_namespaces]]
+binding = "OAUTH_STATE"
+id = "YOUR_OAUTH_STATE_ID"
+preview_id = "YOUR_OAUTH_STATE_PREVIEW_ID"
+
+[[kv_namespaces]]
+binding = "EDGE_TOKENS"
+id = "YOUR_EDGE_TOKENS_ID"
+preview_id = "YOUR_EDGE_TOKENS_PREVIEW_ID"
+
+[[kv_namespaces]]
+binding = "WORKSPACE_METADATA"
+id = "YOUR_WORKSPACE_METADATA_ID"
+preview_id = "YOUR_WORKSPACE_METADATA_PREVIEW_ID"
+
+# Environment variables
+# Update this URL after deployment to match your actual worker URL
+[vars]
+OAUTH_REDIRECT_URI = "https://YOUR_WORKER_NAME.YOUR_SUBDOMAIN.workers.dev/oauth/callback"
+
+# Local development settings
+[miniflare]
+kv_persist = true
+
+# IMPORTANT: After copying this file to wrangler.toml and filling in your values,
+# make sure wrangler.toml is in .gitignore to prevent committing your deployment IDs.
+#
+# Required secrets (set with: wrangler secret put SECRET_NAME):
+# - LINEAR_CLIENT_ID
+# - LINEAR_CLIENT_SECRET
+# - LINEAR_WEBHOOK_SECRET
+# - ENCRYPTION_KEY
