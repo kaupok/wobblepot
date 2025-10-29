@@ -28,11 +28,6 @@
       "command": "npx",
       "args": ["-y", "@playwright/mcp"]
     },
-    "mdn-lookup": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "mdn-lookup"]
-    },
     "npm-package-search": {
       "type": "stdio",
       "command": "npx",
