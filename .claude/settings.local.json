@@ -27,7 +27,8 @@
       "mcp__better-auth__search",
       "mcp__context7__resolve-library-id",
       "mcp__context7__get-library-docs",
-      "WebSearch"
+      "WebSearch",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": []
