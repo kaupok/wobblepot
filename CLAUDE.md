@@ -1,5 +1,7 @@
 # Honkadori - Code Guidelines
 
+In conversational responses, prioritize brevity. Keep explanations concise and direct.
+
 ## Table of Contents
 
 - [Project Overview](#project-overview)
