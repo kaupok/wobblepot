@@ -2177,6 +2177,16 @@ Cyrus will run continuously, monitoring Linear for assigned issues.
 5. **Posts results** - Comments on Linear issue with progress and results
 6. **Creates PR** - Optionally creates pull request (if `gh` CLI is available)
 
+**Cyrus worktree naming convention:**
+
+Cyrus creates worktrees at: `~/.cyrus/workspaces/{project}/{issue-id}`
+
+Examples:
+- `/Users/username/.cyrus/workspaces/honkadori/HON-8`
+- `/Users/username/.cyrus/workspaces/honkadori/HON-123`
+
+This convention is used by `scripts/cyrus-status.sh` to identify active Cyrus worktrees.
+
 **⚠️ Important: Safe mode limitation**
 
 The current safe mode configuration blocks bash execution, which means `.claude/cyrus-setup.sh` cannot run automatically. You must either:
