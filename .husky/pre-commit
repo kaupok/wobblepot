@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
-pnpm exec lint-staged
+# Run type-check first to validate original files before lint-staged modifies them
 pnpm type-check
+pnpm exec lint-staged
 

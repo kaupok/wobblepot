@@ -2,6 +2,10 @@
 
 This guide will walk you through deploying the Cyrus proxy worker to Cloudflare Workers.
 
+> **⚠️ SECURITY WARNING**
+>
+> **Never commit secrets to git.** All secrets (client IDs, client secrets, webhook secrets, encryption keys) are stored securely in Cloudflare Workers and should never be committed to the repository. The `.gitignore` file is configured to prevent accidental commits of sensitive files like `wrangler.toml` and `.dev.vars`.
+
 ## Prerequisites
 
 - Cloudflare account (free tier works)

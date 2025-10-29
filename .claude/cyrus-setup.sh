@@ -15,6 +15,13 @@
 
 set -e
 
+# Validate that pnpm is available
+if ! command -v pnpm &> /dev/null; then
+  echo "❌ Error: pnpm not found"
+  echo "Please install pnpm first: npm install -g pnpm"
+  exit 1
+fi
+
 echo "🚀 Setting up Cyrus worktree for ${LINEAR_ISSUE_IDENTIFIER:-[unknown issue]}: ${LINEAR_ISSUE_TITLE:-[unknown title]}"
 
 # Note: These commands won't run automatically in safe mode
