@@ -38,7 +38,19 @@ pnpm db:generate
 # Run development environment health check
 echo "🏥 Running health check..."
 if [ -f "./scripts/health-check.sh" ]; then
-  ./scripts/health-check.sh || echo "⚠️  Health check found warnings - continuing anyway"
+  # Temporarily disable exit on error to capture health check exit code
+  set +e
+  ./scripts/health-check.sh
+  EXIT_CODE=$?
+  set -e
+
+  if [ $EXIT_CODE -eq 0 ]; then
+    echo "✅ Health check passed"
+  else
+    echo "❌ Health check failed with errors (exit code: $EXIT_CODE)"
+    echo "Please review the errors above and fix them before continuing development."
+    exit 1
+  fi
 else
   echo "⚠️  Health check script not found - skipping"
 fi
