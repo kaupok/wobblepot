@@ -24,8 +24,8 @@ echo ""
 echo "📁 Active Cyrus Worktrees:"
 echo "--------------------------"
 
-# List Cyrus-related worktrees
-WORKTREES=$(git worktree list | grep -i cyrus || echo "")
+# List Cyrus-related worktrees (matches paths containing "/cyrus-")
+WORKTREES=$(git worktree list | grep '/cyrus-' || echo "")
 
 if [ -z "$WORKTREES" ]; then
   echo "No active Cyrus worktrees found."

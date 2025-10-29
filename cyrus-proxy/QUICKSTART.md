@@ -57,9 +57,15 @@ wrangler kv:namespace create "EDGE_TOKENS" --preview
 wrangler kv:namespace create "WORKSPACE_METADATA" --preview
 ```
 
-### 3. Update wrangler.toml
+### 3. Create and Update wrangler.toml
 
-Edit `wrangler.toml` and replace all `YOUR_*_ID_HERE` placeholders with the IDs from step 2.
+First, create your deployment configuration from the template:
+
+```bash
+cp wrangler.toml.example wrangler.toml
+```
+
+Then edit `wrangler.toml` and replace all `YOUR_*_ID_HERE` placeholders with the IDs from step 2.
 
 **Important:** Leave the `OAUTH_REDIRECT_URI` as-is for now. We'll update it after deployment.
 

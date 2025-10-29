@@ -1,6 +1,12 @@
 #!/bin/bash
 # Cyrus Worktree Setup Script
-# Runs automatically when Cyrus creates a new worktree for a Linear issue
+#
+# ⚠️  IMPORTANT: This script requires manual execution or higher Cyrus permission mode
+#
+# Current safe mode configuration blocks bash execution, so Cyrus cannot run this
+# script automatically. You must either:
+# 1. Manually run this script after Cyrus creates the worktree, OR
+# 2. Switch Cyrus to a higher permission mode (with appropriate security review)
 #
 # Available environment variables:
 # - LINEAR_ISSUE_IDENTIFIER (e.g., HON-123)
@@ -9,7 +15,10 @@
 
 set -e
 
-echo "🚀 Setting up Cyrus worktree for ${LINEAR_ISSUE_IDENTIFIER}: ${LINEAR_ISSUE_TITLE}"
+echo "🚀 Setting up Cyrus worktree for ${LINEAR_ISSUE_IDENTIFIER:-[unknown issue]}: ${LINEAR_ISSUE_TITLE:-[unknown title]}"
+
+# Note: These commands won't run automatically in safe mode
+# You'll need to run them manually in the worktree directory
 
 # Install dependencies
 echo "📦 Installing dependencies..."
@@ -27,4 +36,4 @@ else
   echo "⚠️  Health check script not found - skipping"
 fi
 
-echo "✅ Worktree setup complete for ${LINEAR_ISSUE_IDENTIFIER}"
+echo "✅ Worktree setup complete for ${LINEAR_ISSUE_IDENTIFIER:-[unknown issue]}"

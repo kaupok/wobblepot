@@ -2085,7 +2085,7 @@ This will:
 
 When prompted, use these settings:
 
-- **Repository path**: `/Users/kaupo/Projects/honkadori` (or your project path)
+- **Repository path**: `/path/to/honkadori` (use your actual project path)
 - **Allowed tools**: `safe` (read/edit files + git commands, no bash)
 - **MCP config**: `.mcp.json` (uses project's existing MCP setup)
 
@@ -2174,6 +2174,23 @@ Cyrus will run continuously, monitoring Linear for assigned issues.
 4. **Processes issue** - Uses Claude Code to understand and implement changes
 5. **Posts results** - Comments on Linear issue with progress and results
 6. **Creates PR** - Optionally creates pull request (if `gh` CLI is available)
+
+**⚠️ Important: Safe mode limitation**
+
+The current safe mode configuration blocks bash execution, which means `.claude/cyrus-setup.sh` cannot run automatically. You must either:
+
+1. **Manual setup** (recommended): After Cyrus creates a worktree, manually run the setup commands:
+
+   ```bash
+   cd /path/to/worktree
+   pnpm install
+   pnpm db:generate
+   ./scripts/health-check.sh
+   ```
+
+2. **Higher permission mode**: Switch Cyrus to a mode that allows bash execution (requires security review). Update `~/.cyrus/config.json` and change the `allowedTools` setting.
+
+Current safe mode allows: read/edit files + git commands only (no bash/shell execution).
 
 **Checking status:**
 
