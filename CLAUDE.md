@@ -2097,7 +2097,7 @@ The configuration wizard will:
 
 - Ask for Linear OAuth authorization (opens browser)
 - Prompt for repository details
-- Ask about tool permissions (choose "safe")
+- Ask about tool permissions (choose "safe" initially, then manually add `Bash(pnpm:*)` to config)
 - Optionally configure MCP servers (point to `.mcp.json`)
 - Create `~/.cyrus/config.json` with your settings
 
