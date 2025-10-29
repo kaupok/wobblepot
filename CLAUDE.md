@@ -1,6 +1,6 @@
 # Honkadori - Code Guidelines
 
-In all interactions and commit messages, be extremely concise and sacrifice grammar for the sake of concision.
+In conversational responses, prioritize brevity. Keep explanations concise and direct.
 
 ## Table of Contents
 
