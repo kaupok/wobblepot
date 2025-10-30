@@ -101,9 +101,9 @@ describe('Header component', () => {
     vi.mocked(auth.api.getSession).mockResolvedValue(null)
 
     const component = await Header()
-    const { container } = render(component)
+    render(component)
 
-    const header = container.querySelector('header')
+    const header = screen.getByRole('banner')
     expect(header).toHaveClass('fixed', 'top-0', 'z-50', 'border-b')
   })
 })
