@@ -511,7 +511,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/) for commi
 
 MCP (Model Context Protocol) enhances Claude Code with specialized tools and context providers.
 
-**Configured servers** (in `.mcp.json`): filesystem, github, sequential-thinking, memory, playwright, npm-package-search, next-devtools, better-auth (HTTP), context7 (HTTP), linear-server (HTTP)
+**Configured servers**: filesystem, github, sequential-thinking, memory, playwright, npm-package-search, next-devtools (in `.mcp.json`); better-auth, context7, linear-server (HTTP, configured globally)
 
 **Key servers:** filesystem (file ops), github (API integration), sequential-thinking (complex planning), memory (session persistence), playwright (E2E tests), better-auth (auth docs), context7 (library docs), linear-server (issue management)
 

@@ -27,7 +27,13 @@ MCP (Model Context Protocol) is an open protocol that standardizes how AI assist
 
 ## Configured MCP Servers
 
-Our project uses the following MCP servers (configured in `.mcp.json`):
+Our project uses the following MCP servers:
+
+**Configuration locations:**
+- **Stdio servers** (in `.mcp.json`): filesystem, github, sequential-thinking, memory, playwright, npm-package-search, next-devtools
+- **HTTP servers** (configured globally): better-auth, context7, linear-server
+
+> **Note**: HTTP servers (better-auth, context7, linear-server) are configured globally via Claude Code and won't appear in the project's `.mcp.json` file. They connect to remote HTTP endpoints and require authentication (API keys or OAuth).
 
 ### 1. Filesystem Server (Official Anthropic)
 
@@ -52,11 +58,12 @@ Our project uses the following MCP servers (configured in `.mcp.json`):
    - **Expiration**: 90 days (or as needed)
    - **Repository access**: Select "All repositories" or specific repos
    - **Permissions** (Repository permissions):
-     - **Contents**: Read and write
-     - **Pull requests**: Read and write
-     - **Issues**: Read and write
-     - **Workflows**: Read and write
-     - **Metadata**: Read-only (auto-selected)
+     - **Minimum required**: Contents (read), Metadata (read, auto-selected)
+     - **Recommended for full functionality**:
+       - Contents: Read and write
+       - Pull requests: Read and write
+       - Issues: Read and write
+       - Workflows: Read and write
 4. Click "Generate token" and copy it immediately
 5. Add to `.claude/settings.local.json` (see [Environment Variables](#environment-variables) section below)
 
