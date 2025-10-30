@@ -2,7 +2,7 @@
   "model": "claude-haiku-4-5-20251001",
   "statusLine": {
     "type": "command",
-    "command": "~/.claude/statusline.sh",
+    "command": "./.claude/statusline.sh",
     "padding": 0
   },
   "env": {
