@@ -148,6 +148,13 @@ A Next.js 15 project with React 19, using TypeScript, Tailwind CSS, and shadcn/u
 - Prettier formatting (run `pnpm format` before committing)
 - Use `pnpm lint` to check for issues
 
+### Dependency Management
+
+- Use exact versions (no caret `^` or tilde `~`) for all dependencies
+- Example: `"next": "15.5.3"` not `"^15.5.3"`
+- This ensures consistent installations across all environments
+- Update dependencies deliberately and test thoroughly
+
 ### Styling
 
 - Tailwind CSS for styling
