@@ -30,7 +30,7 @@ input=$(cat)
 # Extract data from JSON input
 MODEL=$(echo "$input" | jq -r '.model.display_name // "unknown"')
 COST=$(echo "$input" | jq -r '.total_cost_usd // 0')
-REPO=$(echo "$input" | jq -r '.workspace.project_dir // "." | xargs basename')
+REPO=$(echo "$input" | jq -r '(.workspace.project_dir // ".") | split("/") | .[-1]')
 
 # Get current git branch
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "no-git")
