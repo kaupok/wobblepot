@@ -511,9 +511,9 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/) for commi
 
 MCP (Model Context Protocol) enhances Claude Code with specialized tools and context providers.
 
-**Configured servers** (in `.mcp.json`): filesystem, github, sequential-thinking, memory, playwright, npm-package-search, next-devtools, better-auth (HTTP), context7 (HTTP)
+**Configured servers** (in `.mcp.json`): filesystem, github, sequential-thinking, memory, playwright, npm-package-search, next-devtools, better-auth (HTTP), context7 (HTTP), linear-server (HTTP)
 
-**Key servers:** filesystem (file ops), github (API integration), sequential-thinking (complex planning), memory (session persistence), playwright (E2E tests), better-auth (auth docs), context7 (library docs)
+**Key servers:** filesystem (file ops), github (API integration), sequential-thinking (complex planning), memory (session persistence), playwright (E2E tests), better-auth (auth docs), context7 (library docs), linear-server (issue management)
 
 **Verify status:** `claude mcp list`
 
@@ -521,7 +521,7 @@ MCP (Model Context Protocol) enhances Claude Code with specialized tools and con
 
 ### Permission Presets
 
-Common operations are pre-approved in `.claude/settings.local.json`: gh commands, git (checkout/status/branch/log/diff), pnpm scripts (lint/test/db/build/playwright), MCP tools (better-auth/context7), WebSearch.
+Common operations are pre-approved in `.claude/settings.local.json`: gh commands, git (checkout/status/branch/log/diff), pnpm scripts (lint/test/db/build/playwright), MCP tools (better-auth/context7/linear-server), WebSearch.
 
 **Not pre-approved:** git commit/push, destructive git ops, file modifications, production deployments.
 

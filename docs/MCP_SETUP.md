@@ -33,21 +33,34 @@ Our project uses the following MCP servers (configured in `.mcp.json`):
 
 - **Purpose**: Secure file operations with enhanced capabilities
 - **Capabilities**: Advanced file search, directory navigation, recursive operations
-- **Scope**: Project root (configured via `PROJECT_ROOT` environment variable)
+- **Scope**: Project root (configured via `PROJECT_ROOT` in `.claude/settings.local.json`)
 - **When to use**: Complex file operations, bulk changes, deep directory exploration
 
 ### 2. GitHub Server (Official Anthropic)
 
 - **Purpose**: Direct GitHub API integration
 - **Capabilities**: Repository insights, PR management, issue tracking, workflow triggers
-- **Requirements**: `GITHUB_PERSONAL_ACCESS_TOKEN` environment variable
+- **Requirements**: `GITHUB_PERSONAL_ACCESS_TOKEN` in `.claude/settings.local.json`
 - **When to use**: Complex GitHub operations beyond `gh` CLI capabilities
 
 **Setup GitHub token:**
 
-1. Go to GitHub Settings → Developer settings → Personal access tokens → Fine-grained tokens
-2. Create token with permissions: `repo`, `workflow`, `read:org`
-3. Add to `.env`: `GITHUB_PERSONAL_ACCESS_TOKEN=github_pat_...`
+1. Go to [GitHub Settings → Developer settings → Personal access tokens → Fine-grained tokens](https://github.com/settings/tokens?type=beta)
+2. Click "Generate new token"
+3. Configure the token:
+   - **Token name**: Claude Code MCP (or similar)
+   - **Expiration**: 90 days (or as needed)
+   - **Repository access**: Select "All repositories" or specific repos
+   - **Permissions** (Repository permissions):
+     - **Contents**: Read and write
+     - **Pull requests**: Read and write
+     - **Issues**: Read and write
+     - **Workflows**: Read and write
+     - **Metadata**: Read-only (auto-selected)
+4. Click "Generate token" and copy it immediately
+5. Add to `.claude/settings.local.json` (see [Environment Variables](#environment-variables) section below)
+
+**Important:** Classic tokens (prefix `ghp_`) won't work - you must use fine-grained tokens (prefix `github_pat_`).
 
 ### 3. Sequential Thinking Server (Official Anthropic)
 
@@ -110,6 +123,39 @@ Our project uses the following MCP servers (configured in `.mcp.json`):
 - **When to use**: Need API docs for third-party libraries
 - **Note**: Already configured globally via HTTP
 
+### 10. Linear MCP (HTTP server)
+
+- **Purpose**: Linear issue and project management integration
+- **Capabilities**:
+  - List, create, and update issues
+  - Manage projects, cycles, and labels
+  - Add comments to issues
+  - Search Linear documentation
+  - List teams, users, and issue statuses
+- **Authentication**: Requires `LINEAR_API_KEY` in `.claude/settings.local.json`
+- **When to use**: Creating issues, tracking work, updating task status, managing projects
+- **Note**: Configured globally via HTTP at `https://mcp.linear.app/mcp`
+
+**Setup Linear API key:**
+
+1. Go to [Linear Settings → API](https://linear.app/settings/api)
+2. Click "Create new API key"
+3. Configure the key:
+   - **Label**: Claude Code MCP (or similar)
+   - **Scopes**: Select "read" and "write" permissions as needed
+4. Copy the generated API key
+5. Add to `.claude/settings.local.json` in the `env` section:
+   ```json
+   {
+     "env": {
+       "LINEAR_API_KEY": "lin_api_your-key-here"
+     }
+   }
+   ```
+6. Restart Claude Code
+
+**Permission presets:** All Linear MCP tools (`mcp__linear-server__*`) are pre-approved in `.claude/settings.local.json`
+
 ## Verifying MCP Server Status
 
 Check which servers are active and their connection status:
@@ -156,26 +202,75 @@ Use local scope with Claude Code CLI:
 claude mcp add --transport stdio your-server -- npx -y @modelcontextprotocol/server-name
 ```
 
+## Environment Variables
+
+MCP servers requiring environment variables (like `PROJECT_ROOT`, `GITHUB_PERSONAL_ACCESS_TOKEN`, and `LINEAR_API_KEY`) should be configured in `.claude/settings.local.json`:
+
+```json
+{
+  "env": {
+    "PROJECT_ROOT": "/absolute/path/to/honkadori",
+    "GITHUB_PERSONAL_ACCESS_TOKEN": "github_pat_your-token-here",
+    "LINEAR_API_KEY": "lin_api_your-key-here"
+  },
+  "permissions": {
+    // ... your permissions
+  }
+}
+```
+
+**Important notes:**
+
+- `.claude/settings.local.json` is gitignored (safe for secrets)
+- The `.mcp.json` uses `${VAR}` syntax to reference these variables
+- Don't put MCP secrets in `.env` (that file is for app environment variables)
+- Restart Claude Code after modifying `.claude/settings.local.json`
+
+**Setup steps:**
+
+1. Copy your existing `.claude/settings.local.json` if it exists
+2. Add the `env` section with your values:
+   - `PROJECT_ROOT`: Full absolute path to this project directory
+   - `GITHUB_PERSONAL_ACCESS_TOKEN`: Fine-grained token with `repo`, `workflow`, `read:org` scopes (see [GitHub Server setup](#2-github-server-official-anthropic))
+   - `LINEAR_API_KEY`: API key from Linear Settings → API (see [Linear MCP setup](#10-linear-mcp-http-server))
+3. Restart Claude Code
+
 ## Troubleshooting MCP Servers
 
 ### Server shows "Failed to connect"
 
 1. Check server is properly installed: `npx -y @modelcontextprotocol/server-name --version`
-2. Verify environment variables are set (check `.env`)
+2. Verify environment variables are set in `.claude/settings.local.json`
 3. Restart Claude Code
 4. Check server logs: `claude mcp get server-name`
 
 ### Environment variables not working
 
+- MCP reads variables from `.claude/settings.local.json` (not `.env`)
 - MCP supports `${VAR}` and `${VAR:-default}` syntax in `.mcp.json`
-- Variables are read from `.env` file in project root
-- Restart Claude Code after changing `.env`
+- Restart Claude Code after changing `.claude/settings.local.json`
+- Check for typos in variable names
 
-### GitHub server authentication
+### GitHub server authentication fails
 
-- Token must have correct scopes: `repo`, `workflow`, `read:org`
-- Token must be fine-grained (not classic)
-- Add to `.env`: `GITHUB_PERSONAL_ACCESS_TOKEN=github_pat_...`
+**Symptoms:** GitHub MCP server shows "Failed to connect" or authentication errors
+
+**Common causes:**
+
+1. **Using classic token instead of fine-grained**: Classic tokens (prefix `ghp_`) don't work with the GitHub MCP server
+   - **Solution**: Create a new fine-grained token at https://github.com/settings/tokens?type=beta
+   - Fine-grained tokens have prefix `github_pat_`
+
+2. **Insufficient permissions**: Token needs specific repository permissions
+   - **Required**: Contents (read/write), Pull requests (read/write), Issues (read/write), Workflows (read/write)
+   - Check permissions at: GitHub Settings → Developer settings → Personal access tokens → Fine-grained tokens → [your token]
+
+3. **Token in wrong location**: Must be in `.claude/settings.local.json`, not `.env`
+   - Check the `env` section exists in `.claude/settings.local.json`
+   - Verify variable name is exactly `GITHUB_PERSONAL_ACCESS_TOKEN`
+
+4. **Token expired**: Fine-grained tokens expire (check expiration date)
+   - Regenerate at: https://github.com/settings/tokens?type=beta
 
 ## Best Practices
 
