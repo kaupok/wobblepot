@@ -166,6 +166,13 @@ else
   warning "node_modules not found. Run: pnpm install"
 fi
 
+# Check Prisma client generation
+if [ -d "node_modules/.prisma/client" ]; then
+  success "Prisma client is generated"
+else
+  error "Prisma client not generated. Run: pnpm db:generate"
+fi
+
 # Check if dependencies are up to date
 if [ -f "pnpm-lock.yaml" ]; then
   if pnpm install --frozen-lockfile --dry-run &> /dev/null; then

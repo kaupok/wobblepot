@@ -1,12 +1,13 @@
 #!/bin/bash
 # Cyrus Worktree Setup Script
 #
-# ⚠️  IMPORTANT: This script requires manual execution or higher Cyrus permission mode
+# This script sets up a fresh worktree for Cyrus to work on a Linear issue.
+# It runs automatically when Cyrus creates a new worktree (permission presets allow it).
 #
-# Current safe mode configuration blocks bash execution, so Cyrus cannot run this
-# script automatically. You must either:
-# 1. Manually run this script after Cyrus creates the worktree, OR
-# 2. Switch Cyrus to a higher permission mode (with appropriate security review)
+# What this script does:
+# 1. Installs dependencies (pnpm install)
+# 2. Generates Prisma client (required for TypeScript type checking)
+# 3. Runs health check to validate the environment
 #
 # Available environment variables:
 # - LINEAR_ISSUE_IDENTIFIER (e.g., HON-123)
@@ -24,14 +25,12 @@ fi
 
 echo "🚀 Setting up Cyrus worktree for ${LINEAR_ISSUE_IDENTIFIER:-[unknown issue]}: ${LINEAR_ISSUE_TITLE:-[unknown title]}"
 
-# Note: These commands won't run automatically in safe mode
-# You'll need to run them manually in the worktree directory
-
-# Install dependencies
+# Install dependencies (includes postinstall hook that generates Prisma client)
 echo "📦 Installing dependencies..."
 pnpm install
 
-# Generate Prisma client (in case schema changed)
+# Generate Prisma client explicitly (redundant with postinstall but ensures it's available)
+# This is a safety check in case postinstall fails silently or the schema was updated
 echo "🔧 Generating Prisma client..."
 pnpm db:generate
 
@@ -45,10 +44,19 @@ if [ -f "./scripts/health-check.sh" ]; then
   set -e
 
   if [ $EXIT_CODE -eq 0 ]; then
-    echo "✅ Health check passed"
+    echo "✅ Health check passed - worktree is ready for development"
+  elif [ $EXIT_CODE -eq 2 ]; then
+    echo "⚠️  Health check completed with warnings (exit code: $EXIT_CODE)"
+    echo "Review the warnings above - they may not block development but should be addressed."
   else
     echo "❌ Health check failed with errors (exit code: $EXIT_CODE)"
-    echo "Please review the errors above and fix them before continuing development."
+    echo ""
+    echo "Common fixes:"
+    echo "  • Missing dependencies: pnpm install"
+    echo "  • Prisma client issues: pnpm db:generate"
+    echo "  • TypeScript errors: Check type-check output above"
+    echo ""
+    echo "Review the full error output above for specific issues."
     exit 1
   fi
 else
