@@ -40,7 +40,21 @@ export default function ForgotPasswordPage() {
             setSuccess(true)
           },
           onError: (ctx) => {
-            const errorMessage = ctx.error?.message || 'Failed to send reset email'
+            const errorMessage = ctx.error?.message || ''
+            const lowerMessage = errorMessage.toLowerCase()
+
+            // Always show success for "user not found" to prevent account enumeration
+            if (
+              lowerMessage.includes('user not found') ||
+              lowerMessage.includes('email not found') ||
+              lowerMessage.includes('no user') ||
+              lowerMessage.includes('not found')
+            ) {
+              setSuccess(true)
+              return
+            }
+
+            // Only show actual errors (network, rate limiting, etc.)
             setError(getUserFriendlyError(errorMessage))
           },
         },
