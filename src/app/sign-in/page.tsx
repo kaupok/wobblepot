@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
 import { getUserFriendlyError } from '@/lib/auth-errors'
@@ -20,11 +20,25 @@ import { Heading, Body } from '@/components/ui/typography'
 
 export default function SignInPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSlowRequest, setIsSlowRequest] = useState(false)
+
+  useEffect(() => {
+    // Check for password reset success
+    const resetSuccess = searchParams.get('reset')
+    if (resetSuccess === 'success') {
+      setSuccessMessage(
+        'Your password has been reset successfully. You can now sign in with your new password.',
+      )
+      // Clear the query parameter from URL
+      window.history.replaceState({}, '', '/sign-in')
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -86,13 +100,21 @@ export default function SignInPage() {
         <form onSubmit={handleSubmit}>
           <CardContent>
             <div className="flex flex-col gap-4">
+              {successMessage && (
+                <Body variant="small" className="text-green-600" role="status">
+                  {successMessage}
+                </Body>
+              )}
               <div className="flex flex-col gap-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    if (successMessage) setSuccessMessage('')
+                  }}
                   required
                   disabled={isLoading}
                 />
@@ -112,7 +134,10 @@ export default function SignInPage() {
                   id="password"
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    if (successMessage) setSuccessMessage('')
+                  }}
                   required
                   disabled={isLoading}
                   minLength={8}
