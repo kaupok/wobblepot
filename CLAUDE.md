@@ -495,7 +495,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/) for commi
 
 **Scope (optional):** Component, feature, or area of the codebase affected
 
-**Subject:** Concise, imperative present tense ("add" not "added" or "adds")
+**Subject:** Capitalize first word, use imperative present tense ("Add" not "add", "added", or "adds")
 
 **Body (optional):** Detailed explanation of what and why (not how)
 
