@@ -4,13 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import type { Session } from '@/lib/auth'
 
 interface MobileNavProps {
@@ -32,17 +26,17 @@ export function MobileNav({ session }: MobileNavProps) {
         <SheetHeader>
           <SheetTitle>Navigation</SheetTitle>
         </SheetHeader>
-        <nav className="flex flex-col gap-4 mt-6">
+        <nav className="mt-6 flex flex-col gap-4 px-4">
           <Link
             href="/"
-            className="text-sm font-medium transition-colors hover:text-primary"
+            className="hover:text-primary text-sm font-medium transition-colors"
             onClick={() => setOpen(false)}
           >
             Home
           </Link>
           <Link
             href="/about"
-            className="text-sm font-medium transition-colors hover:text-primary"
+            className="hover:text-primary text-sm font-medium transition-colors"
             onClick={() => setOpen(false)}
           >
             About
@@ -50,7 +44,7 @@ export function MobileNav({ session }: MobileNavProps) {
           {session && (
             <Link
               href="/profile"
-              className="text-sm font-medium transition-colors hover:text-primary"
+              className="hover:text-primary text-sm font-medium transition-colors"
               onClick={() => setOpen(false)}
             >
               Profile

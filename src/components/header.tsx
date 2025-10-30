@@ -14,15 +14,15 @@ export async function Header() {
   return (
     <header className="bg-background fixed top-0 right-0 left-0 z-50 border-b">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Link href="/" className="transition-opacity hover:opacity-70">
-          <Heading variant="h4">Honkadori</Heading>
-        </Link>
         <div className="flex items-center gap-6">
+          <Link href="/" className="transition-opacity hover:opacity-70">
+            <Heading variant="h4">Honkadori</Heading>
+          </Link>
           <Navigation session={session} />
-          <div className="flex items-center gap-4">
-            <MobileNav session={session} />
-            <HeaderActions session={session} />
-          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <HeaderActions session={session} />
+          <MobileNav session={session} />
         </div>
       </div>
     </header>
