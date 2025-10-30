@@ -1,13 +1,13 @@
 import { Suspense } from 'react'
-import { SignInForm } from './SignInForm'
+import { ResetPasswordForm } from './ResetPasswordForm'
 import { Card, CardContent } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
 
-export default function SignInPage() {
+export default function ResetPasswordPage() {
   return (
     <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
       <Suspense fallback={<LoadingFallback />}>
-        <SignInForm />
+        <ResetPasswordForm />
       </Suspense>
     </div>
   )

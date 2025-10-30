@@ -131,6 +131,61 @@ describe('getUserFriendlyError', () => {
         'Security validation failed. Please refresh the page and try again.',
       )
     })
+
+    it('prioritizes CSRF errors over token errors', () => {
+      // CSRF errors should be caught before password reset token errors
+      expect(getUserFriendlyError('CSRF token invalid')).toBe(
+        'Security validation failed. Please refresh the page and try again.',
+      )
+    })
+  })
+
+  describe('password reset errors', () => {
+    it('handles expired token error', () => {
+      expect(getUserFriendlyError('Token expired')).toBe(
+        'This password reset link has expired. Please request a new one.',
+      )
+      expect(getUserFriendlyError('Reset token has expired')).toBe(
+        'This password reset link has expired. Please request a new one.',
+      )
+      expect(getUserFriendlyError('Password reset token expired')).toBe(
+        'This password reset link has expired. Please request a new one.',
+      )
+    })
+
+    it('handles invalid token error', () => {
+      expect(getUserFriendlyError('Invalid token')).toBe(
+        'This password reset link is invalid. Please request a new one.',
+      )
+      expect(getUserFriendlyError('Token is invalid or has been used')).toBe(
+        'This password reset link is invalid. Please request a new one.',
+      )
+      expect(getUserFriendlyError('Password reset token invalid')).toBe(
+        'This password reset link is invalid. Please request a new one.',
+      )
+    })
+
+    it('handles user not found during password reset', () => {
+      expect(getUserFriendlyError('User not found for password reset')).toBe(
+        'If an account exists with this email, you will receive a reset link.',
+      )
+      expect(getUserFriendlyError('Email not found during reset attempt')).toBe(
+        'If an account exists with this email, you will receive a reset link.',
+      )
+      expect(getUserFriendlyError('No user found for reset')).toBe(
+        'If an account exists with this email, you will receive a reset link.',
+      )
+    })
+
+    it('does not match generic user not found without reset context', () => {
+      // Should return the original "No account found" message, not the reset-specific one
+      expect(getUserFriendlyError('User not found')).toBe(
+        'No account found with this email address.',
+      )
+      expect(getUserFriendlyError('No user exists')).toBe(
+        'No account found with this email address.',
+      )
+    })
   })
 
   describe('edge cases', () => {

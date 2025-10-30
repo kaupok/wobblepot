@@ -54,6 +54,27 @@ export const auth = betterAuth({
      * minPasswordLength: 8
      * maxPasswordLength: 128
      */
+    /**
+     * Password reset email handler
+     * Currently mocked with console.log for development
+     * TODO: Replace with real email provider (see separate Linear issue)
+     */
+    sendResetPassword: async ({ user, url, token }) => {
+      console.log('=== PASSWORD RESET EMAIL (MOCK) ===')
+      console.log('To:', user.email)
+      console.log('Reset URL:', url)
+      console.log('Token:', token)
+      console.log('=====================================')
+
+      // TODO: Replace with real email sending when provider is configured
+      // Example with Resend:
+      // await resend.emails.send({
+      //   from: 'noreply@honkadori.com',
+      //   to: user.email,
+      //   subject: 'Reset your password',
+      //   html: `Click here to reset your password: ${url}`
+      // })
+    },
   },
 })
 

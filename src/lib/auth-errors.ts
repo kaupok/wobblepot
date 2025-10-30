@@ -13,9 +13,6 @@ export function getUserFriendlyError(message: string): string {
   if (lowerMessage.includes('invalid') && lowerMessage.includes('credentials')) {
     return 'The email or password you entered is incorrect. Please try again.'
   }
-  if (lowerMessage.includes('user not found') || lowerMessage.includes('no user')) {
-    return 'No account found with this email address.'
-  }
   if (lowerMessage.includes('password') && lowerMessage.includes('incorrect')) {
     return 'The password you entered is incorrect. Please try again.'
   }
@@ -23,6 +20,32 @@ export function getUserFriendlyError(message: string): string {
   // Account existence errors
   if (lowerMessage.includes('already exists') || lowerMessage.includes('already registered')) {
     return 'An account with this email address already exists. Try signing in instead.'
+  }
+
+  // Security errors (must come before password reset token checks to avoid false matches)
+  if (lowerMessage.includes('csrf') || lowerMessage.includes('forbidden')) {
+    return 'Security validation failed. Please refresh the page and try again.'
+  }
+
+  // Password reset errors (must come before generic user not found check)
+  if (lowerMessage.includes('token') && lowerMessage.includes('expired')) {
+    return 'This password reset link has expired. Please request a new one.'
+  }
+  if (lowerMessage.includes('token') && lowerMessage.includes('invalid')) {
+    return 'This password reset link is invalid. Please request a new one.'
+  }
+  if (
+    (lowerMessage.includes('email not found') ||
+      lowerMessage.includes('user not found') ||
+      lowerMessage.includes('no user')) &&
+    lowerMessage.includes('reset')
+  ) {
+    return 'If an account exists with this email, you will receive a reset link.'
+  }
+
+  // Generic user not found (must come after password reset check)
+  if (lowerMessage.includes('user not found') || lowerMessage.includes('no user')) {
+    return 'No account found with this email address.'
   }
 
   // Validation errors
@@ -58,11 +81,6 @@ export function getUserFriendlyError(message: string): string {
   }
   if (lowerMessage.includes('service unavailable') || lowerMessage.includes('503')) {
     return 'Service is temporarily unavailable. Please try again later.'
-  }
-
-  // Security errors
-  if (lowerMessage.includes('csrf') || lowerMessage.includes('forbidden')) {
-    return 'Security validation failed. Please refresh the page and try again.'
   }
 
   // Return the original message if no mapping found
