@@ -4,8 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
-    "build": "pnpm run maybe:migrate && next build",
-    "maybe:migrate": "if [ \"$VERCEL_ENV\" = \"preview\" ] && [ \"$VERCEL_GIT_COMMIT_REF\" != \"main\" ] && [ -n \"$DATABASE_URL_UNPOOLED\" ]; then pnpm prisma migrate deploy; else echo 'skip migrate'; fi",
+    "build": "next build",
     "start": "next start",
     "postinstall": "prisma generate",
     "lint": "eslint .",
