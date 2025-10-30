@@ -72,7 +72,7 @@ describe('ForgotPasswordPage', () => {
       const { authClient } = await import('@/lib/auth-client')
       vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
         if (options?.onSuccess) {
-          options.onSuccess()
+          options.onSuccess({} as any)
         }
       })
 
@@ -128,7 +128,7 @@ describe('ForgotPasswordPage', () => {
       const { authClient } = await import('@/lib/auth-client')
       vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
         if (options?.onSuccess) {
-          options.onSuccess()
+          options.onSuccess({} as any)
         }
       })
 
@@ -149,7 +149,7 @@ describe('ForgotPasswordPage', () => {
       const { authClient } = await import('@/lib/auth-client')
       vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
         if (options?.onSuccess) {
-          options.onSuccess()
+          options.onSuccess({} as any)
         }
       })
 
@@ -169,7 +169,7 @@ describe('ForgotPasswordPage', () => {
       const { authClient } = await import('@/lib/auth-client')
       vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
         if (options?.onSuccess) {
-          options.onSuccess()
+          options.onSuccess({} as any)
         }
       })
 
@@ -193,8 +193,13 @@ describe('ForgotPasswordPage', () => {
       vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
         if (options?.onError) {
           options.onError({
-            error: { message: 'User not found' },
-          })
+            error: {
+              message: 'User not found',
+              status: 400,
+              statusText: 'Bad Request',
+              name: 'AuthError',
+            },
+          } as any)
         }
       })
 
@@ -216,8 +221,13 @@ describe('ForgotPasswordPage', () => {
       vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
         if (options?.onError) {
           options.onError({
-            error: { message: 'Email not found in database' },
-          })
+            error: {
+              message: 'Email not found in database',
+              status: 400,
+              statusText: 'Bad Request',
+              name: 'AuthError',
+            },
+          } as any)
         }
       })
 
@@ -238,8 +248,13 @@ describe('ForgotPasswordPage', () => {
       vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
         if (options?.onError) {
           options.onError({
-            error: { message: 'No user exists' },
-          })
+            error: {
+              message: 'No user exists',
+              status: 400,
+              statusText: 'Bad Request',
+              name: 'AuthError',
+            },
+          } as any)
         }
       })
 
@@ -260,8 +275,13 @@ describe('ForgotPasswordPage', () => {
       vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
         if (options?.onError) {
           options.onError({
-            error: { message: 'Account not found' },
-          })
+            error: {
+              message: 'Account not found',
+              status: 400,
+              statusText: 'Bad Request',
+              name: 'AuthError',
+            },
+          } as any)
         }
       })
 
@@ -284,8 +304,13 @@ describe('ForgotPasswordPage', () => {
       vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
         if (options?.onError) {
           options.onError({
-            error: { message: 'Network error occurred' },
-          })
+            error: {
+              message: 'Network error occurred',
+              status: 400,
+              statusText: 'Bad Request',
+              name: 'AuthError',
+            },
+          } as any)
         }
       })
 
@@ -305,8 +330,13 @@ describe('ForgotPasswordPage', () => {
       vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
         if (options?.onError) {
           options.onError({
-            error: { message: 'Too many requests' },
-          })
+            error: {
+              message: 'Too many requests',
+              status: 400,
+              statusText: 'Bad Request',
+              name: 'AuthError',
+            },
+          } as any)
         }
       })
 
@@ -345,8 +375,13 @@ describe('ForgotPasswordPage', () => {
       vi.mocked(authClient.forgetPassword).mockImplementationOnce(async (payload, options) => {
         if (options?.onError) {
           options.onError({
-            error: { message: 'Network error' },
-          })
+            error: {
+              message: 'Network error',
+              status: 400,
+              statusText: 'Bad Request',
+              name: 'AuthError',
+            },
+          } as any)
         }
       })
 
@@ -363,7 +398,7 @@ describe('ForgotPasswordPage', () => {
       // Second submission succeeds
       vi.mocked(authClient.forgetPassword).mockImplementationOnce(async (payload, options) => {
         if (options?.onSuccess) {
-          options.onSuccess()
+          options.onSuccess({} as any)
         }
       })
 

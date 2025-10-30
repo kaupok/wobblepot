@@ -159,7 +159,7 @@ describe('SignInForm', () => {
       const { authClient } = await import('@/lib/auth-client')
       vi.mocked(authClient.signIn.email).mockImplementation(async (creds, options) => {
         if (options?.onSuccess) {
-          options.onSuccess()
+          options.onSuccess({} as any)
         }
       })
 
@@ -249,7 +249,7 @@ describe('SignInForm', () => {
       const { authClient } = await import('@/lib/auth-client')
       vi.mocked(authClient.signIn.email).mockImplementation(async (creds, options) => {
         if (options?.onSuccess) {
-          options.onSuccess()
+          options.onSuccess({} as any)
         }
       })
 
@@ -269,7 +269,7 @@ describe('SignInForm', () => {
       const { authClient } = await import('@/lib/auth-client')
       vi.mocked(authClient.signIn.email).mockImplementation(async (creds, options) => {
         if (options?.onSuccess) {
-          options.onSuccess()
+          options.onSuccess({} as any)
         }
       })
 
@@ -293,7 +293,7 @@ describe('SignInForm', () => {
 
       vi.mocked(authClient.signIn.email).mockImplementation(async (creds, options) => {
         if (options?.onSuccess) {
-          options.onSuccess()
+          options.onSuccess({} as any)
         }
       })
 
@@ -318,8 +318,13 @@ describe('SignInForm', () => {
       vi.mocked(authClient.signIn.email).mockImplementation(async (creds, options) => {
         if (options?.onError) {
           options.onError({
-            error: { message: 'Invalid credentials' },
-          })
+            error: {
+              message: 'Invalid credentials',
+              status: 401,
+              statusText: 'Unauthorized',
+              name: 'AuthError',
+            },
+          } as any)
         }
       })
 
@@ -340,8 +345,13 @@ describe('SignInForm', () => {
       vi.mocked(authClient.signIn.email).mockImplementation(async (creds, options) => {
         if (options?.onError) {
           options.onError({
-            error: { message: 'Network error occurred' },
-          })
+            error: {
+              message: 'Network error occurred',
+              status: 500,
+              statusText: 'Internal Server Error',
+              name: 'NetworkError',
+            },
+          } as any)
         }
       })
 
@@ -378,8 +388,13 @@ describe('SignInForm', () => {
       vi.mocked(authClient.signIn.email).mockImplementation(async (creds, options) => {
         if (options?.onError) {
           options.onError({
-            error: { message: 'Error occurred' },
-          })
+            error: {
+              message: 'Error occurred',
+              status: 500,
+              statusText: 'Internal Server Error',
+              name: 'Error',
+            },
+          } as any)
         }
       })
 
@@ -403,8 +418,13 @@ describe('SignInForm', () => {
       vi.mocked(authClient.signIn.email).mockImplementationOnce(async (creds, options) => {
         if (options?.onError) {
           options.onError({
-            error: { message: 'Invalid credentials' },
-          })
+            error: {
+              message: 'Invalid credentials',
+              status: 401,
+              statusText: 'Unauthorized',
+              name: 'AuthError',
+            },
+          } as any)
         }
       })
 

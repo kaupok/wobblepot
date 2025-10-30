@@ -177,7 +177,7 @@ describe('ResetPasswordForm', () => {
       const { authClient } = await import('@/lib/auth-client')
       vi.mocked(authClient.resetPassword).mockImplementation(async (payload, options) => {
         if (options?.onSuccess) {
-          options.onSuccess()
+          options.onSuccess({} as any)
         }
       })
 
@@ -237,7 +237,7 @@ describe('ResetPasswordForm', () => {
       const { authClient } = await import('@/lib/auth-client')
       vi.mocked(authClient.resetPassword).mockImplementation(async (payload, options) => {
         if (options?.onSuccess) {
-          options.onSuccess()
+          options.onSuccess({} as any)
         }
       })
 
@@ -260,8 +260,13 @@ describe('ResetPasswordForm', () => {
       vi.mocked(authClient.resetPassword).mockImplementation(async (payload, options) => {
         if (options?.onError) {
           options.onError({
-            error: { message: 'Token expired' },
-          })
+            error: {
+              message: 'Token expired',
+              status: 400,
+              statusText: 'Bad Request',
+              name: 'AuthError',
+            },
+          } as any)
         }
       })
 
@@ -282,8 +287,13 @@ describe('ResetPasswordForm', () => {
       vi.mocked(authClient.resetPassword).mockImplementation(async (payload, options) => {
         if (options?.onError) {
           options.onError({
-            error: { message: 'Invalid token' },
-          })
+            error: {
+              message: 'Invalid token',
+              status: 400,
+              statusText: 'Bad Request',
+              name: 'AuthError',
+            },
+          } as any)
         }
       })
 
@@ -304,8 +314,13 @@ describe('ResetPasswordForm', () => {
       vi.mocked(authClient.resetPassword).mockImplementation(async (payload, options) => {
         if (options?.onError) {
           options.onError({
-            error: { message: 'Network error occurred' },
-          })
+            error: {
+              message: 'Network error occurred',
+              status: 500,
+              statusText: 'Internal Server Error',
+              name: 'NetworkError',
+            },
+          } as any)
         }
       })
 
