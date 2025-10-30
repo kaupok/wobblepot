@@ -424,26 +424,27 @@ When working on Linear issues manually (not through Cyrus automation), follow th
 
 **1. Get issue details:**
 
-```bash
-# Fetch the issue to get the suggested branch name and other details
-gh issue view HON-XX  # or use Linear MCP: mcp__linear-server__get_issue
+```typescript
+// Using Linear MCP server to fetch the issue
+mcp__linear-server__get_issue({ id: "HON-XX" })
 ```
 
 Linear provides a `gitBranchName` field with a suggested branch name that automatically links the branch to the issue.
 
-**2. Update issue status to "In progress":**
+**2. Update issue status and assign yourself:**
 
-Before starting implementation, update the Linear issue status:
+Before starting implementation, update the Linear issue status and assign yourself if unassigned:
 
 ```typescript
 // Using Linear MCP server
 mcp__linear-server__update_issue({
   id: "HON-XX",
-  state: "In progress"
+  state: "In progress",
+  assignee: "me"  // Assign to yourself if unassigned
 })
 ```
 
-This signals to the team that work has begun.
+This signals to the team that work has begun and who is working on it.
 
 **3. Create branch using Linear's suggested name:**
 
