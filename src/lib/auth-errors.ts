@@ -13,9 +13,6 @@ export function getUserFriendlyError(message: string): string {
   if (lowerMessage.includes('invalid') && lowerMessage.includes('credentials')) {
     return 'The email or password you entered is incorrect. Please try again.'
   }
-  if (lowerMessage.includes('user not found') || lowerMessage.includes('no user')) {
-    return 'No account found with this email address.'
-  }
   if (lowerMessage.includes('password') && lowerMessage.includes('incorrect')) {
     return 'The password you entered is incorrect. Please try again.'
   }
@@ -30,7 +27,7 @@ export function getUserFriendlyError(message: string): string {
     return 'Security validation failed. Please refresh the page and try again.'
   }
 
-  // Password reset errors
+  // Password reset errors (must come before generic user not found check)
   if (lowerMessage.includes('token') && lowerMessage.includes('expired')) {
     return 'This password reset link has expired. Please request a new one.'
   }
@@ -38,10 +35,17 @@ export function getUserFriendlyError(message: string): string {
     return 'This password reset link is invalid. Please request a new one.'
   }
   if (
-    (lowerMessage.includes('email not found') || lowerMessage.includes('user not found')) &&
+    (lowerMessage.includes('email not found') ||
+      lowerMessage.includes('user not found') ||
+      lowerMessage.includes('no user')) &&
     lowerMessage.includes('reset')
   ) {
     return 'If an account exists with this email, you will receive a reset link.'
+  }
+
+  // Generic user not found (must come after password reset check)
+  if (lowerMessage.includes('user not found') || lowerMessage.includes('no user')) {
+    return 'No account found with this email address.'
   }
 
   // Validation errors
