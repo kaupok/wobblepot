@@ -54,6 +54,41 @@ export const auth = betterAuth({
      * minPasswordLength: 8
      * maxPasswordLength: 128
      */
+    /**
+     * Password reset configuration
+     * Sends reset email with token to user
+     */
+    sendResetPassword: async ({ user, url }) => {
+      // For development: log the reset URL to console
+      // In production: replace with actual email service (e.g., Resend, SendGrid)
+      // eslint-disable-next-line no-console
+      console.log('='.repeat(60))
+      // eslint-disable-next-line no-console
+      console.log('PASSWORD RESET REQUESTED')
+      // eslint-disable-next-line no-console
+      console.log('='.repeat(60))
+      // eslint-disable-next-line no-console
+      console.log(`User: ${user.email}`)
+      // eslint-disable-next-line no-console
+      console.log(`Name: ${user.name}`)
+      // eslint-disable-next-line no-console
+      console.log(`Reset URL: ${url}`)
+      // eslint-disable-next-line no-console
+      console.log('='.repeat(60))
+      // eslint-disable-next-line no-console
+      console.log('\nIn production, replace this with an email service.')
+      // eslint-disable-next-line no-console
+      console.log('For now, copy the URL above to reset the password.\n')
+
+      // TODO: Implement actual email sending when email service is configured
+      // Example with Resend:
+      // await resend.emails.send({
+      //   from: 'noreply@yourdomain.com',
+      //   to: user.email,
+      //   subject: 'Reset your password',
+      //   html: `Click <a href="${url}">here</a> to reset your password.`
+      // });
+    },
   },
 })
 

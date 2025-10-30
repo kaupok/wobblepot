@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
 import { getUserFriendlyError } from '@/lib/auth-errors'
@@ -20,11 +20,20 @@ import { Heading, Body } from '@/components/ui/typography'
 
 export default function SignInPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSlowRequest, setIsSlowRequest] = useState(false)
+  const [showResetSuccess, setShowResetSuccess] = useState(false)
+
+  useEffect(() => {
+    // Show success message if redirected from password reset
+    if (searchParams.get('reset') === 'success') {
+      setShowResetSuccess(true)
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -98,7 +107,16 @@ export default function SignInPage() {
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="password">Password</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm text-primary hover:underline"
+                    tabIndex={-1}
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
                 <Input
                   id="password"
                   type="password"
@@ -109,6 +127,11 @@ export default function SignInPage() {
                   minLength={8}
                 />
               </div>
+              {showResetSuccess && (
+                <Body variant="small" className="text-green-600" role="status">
+                  Password reset successful! You can now sign in with your new password.
+                </Body>
+              )}
               {error && (
                 <Body variant="small" className="text-destructive" role="alert">
                   {error}

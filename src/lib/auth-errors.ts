@@ -65,6 +65,17 @@ export function getUserFriendlyError(message: string): string {
     return 'Security validation failed. Please refresh the page and try again.'
   }
 
+  // Password reset errors
+  if (lowerMessage.includes('token') && lowerMessage.includes('invalid')) {
+    return 'This password reset link is invalid or has expired. Please request a new one.'
+  }
+  if (lowerMessage.includes('token') && lowerMessage.includes('expired')) {
+    return 'This password reset link has expired. Please request a new one.'
+  }
+  if (lowerMessage.includes('reset') && lowerMessage.includes('failed')) {
+    return 'Failed to reset password. Please try again or request a new reset link.'
+  }
+
   // Return the original message if no mapping found
   return message
 }
