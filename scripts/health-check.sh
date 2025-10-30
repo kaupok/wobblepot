@@ -226,7 +226,7 @@ if [ $ERRORS -eq 0 ] && [ $WARNINGS -eq 0 ]; then
 elif [ $ERRORS -eq 0 ]; then
   echo -e "${YELLOW}⚠️  Health check completed with $WARNINGS warning(s).${NC}"
   echo "Your environment should work, but some optional features may be unavailable."
-  exit 0
+  exit 2
 else
   echo -e "${RED}❌ Health check failed with $ERRORS error(s) and $WARNINGS warning(s).${NC}"
   echo "Please fix the errors above before continuing development."
