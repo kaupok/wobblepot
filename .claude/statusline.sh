@@ -2,6 +2,28 @@
 
 # Claude Code Status Line Script
 # Shows: model | branch | cost | repo | auth_method
+# Dependencies: jq, bc
+
+# Check for required dependencies
+check_dependencies() {
+  local missing=()
+
+  if ! command -v jq &> /dev/null; then
+    missing+=("jq")
+  fi
+
+  if ! command -v bc &> /dev/null; then
+    missing+=("bc")
+  fi
+
+  if [ ${#missing[@]} -gt 0 ]; then
+    echo "Error: Missing required utilities: ${missing[*]}" >&2
+    echo "Install with: brew install ${missing[*]}" >&2
+    return 1
+  fi
+}
+
+check_dependencies || exit 1
 
 input=$(cat)
 
