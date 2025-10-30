@@ -1,4 +1,10 @@
 {
+  "model": "claude-haiku-4-5-20251001",
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline.sh",
+    "padding": 0
+  },
   "env": {
     "PROJECT_ROOT": "/absolute/path/to/honkadori",
     "GITHUB_PERSONAL_ACCESS_TOKEN": "github_pat_your-token-here",
