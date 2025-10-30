@@ -36,9 +36,9 @@ export function SignInForm() {
         'Your password has been reset successfully. You can now sign in with your new password.',
       )
       // Clear the query parameter from URL
-      window.history.replaceState({}, '', '/sign-in')
+      router.replace('/sign-in')
     }
-  }, [searchParams])
+  }, [searchParams, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
