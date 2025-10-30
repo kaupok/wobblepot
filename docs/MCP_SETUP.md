@@ -228,12 +228,14 @@ MCP servers requiring environment variables (like `PROJECT_ROOT`, `GITHUB_PERSON
 
 **Setup steps:**
 
-1. Copy your existing `.claude/settings.local.json` if it exists
-2. Add the `env` section with your values:
+1. Copy the example file: `cp .claude/settings.local.json.example .claude/settings.local.json`
+2. Edit `.claude/settings.local.json` and replace placeholder values:
    - `PROJECT_ROOT`: Full absolute path to this project directory
-   - `GITHUB_PERSONAL_ACCESS_TOKEN`: Fine-grained token with `repo`, `workflow`, `read:org` scopes (see [GitHub Server setup](#2-github-server-official-anthropic))
-   - `LINEAR_API_KEY`: API key from Linear Settings → API (see [Linear MCP setup](#10-linear-mcp-http-server))
+   - `GITHUB_PERSONAL_ACCESS_TOKEN`: Fine-grained token (see [GitHub Server setup](#2-github-server-official-anthropic))
+   - `LINEAR_API_KEY`: API key from Linear (see [Linear MCP setup](#10-linear-mcp-http-server))
 3. Restart Claude Code
+
+**Important:** `.claude/settings.local.json` is gitignored and contains secrets. Never commit this file.
 
 ## Troubleshooting MCP Servers
 
