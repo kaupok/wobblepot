@@ -15,6 +15,7 @@
       "Bash(git branch:*)",
       "Bash(git log:*)",
       "Bash(git diff:*)",
+      "Bash(pnpm install:*)",
       "Bash(pnpm lint:*)",
       "Bash(pnpm type-check:*)",
       "Bash(pnpm test:*)",
@@ -27,6 +28,9 @@
       "mcp__better-auth__search",
       "mcp__context7__resolve-library-id",
       "mcp__context7__get-library-docs",
+      "mcp__next-devtools__nextjs_runtime",
+      "mcp__next-devtools__browser_eval",
+      "mcp__playwright__browser_navigate",
       "WebSearch",
       "WebFetch(domain:github.com)"
     ],

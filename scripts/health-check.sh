@@ -166,6 +166,13 @@ else
   warning "node_modules not found. Run: pnpm install"
 fi
 
+# Check Prisma client generation
+if [ -d "node_modules/.prisma/client" ]; then
+  success "Prisma client is generated"
+else
+  error "Prisma client not generated. Run: pnpm db:generate"
+fi
+
 # Check if dependencies are up to date
 if [ -f "pnpm-lock.yaml" ]; then
   if pnpm install --frozen-lockfile --dry-run &> /dev/null; then
@@ -219,7 +226,7 @@ if [ $ERRORS -eq 0 ] && [ $WARNINGS -eq 0 ]; then
 elif [ $ERRORS -eq 0 ]; then
   echo -e "${YELLOW}⚠️  Health check completed with $WARNINGS warning(s).${NC}"
   echo "Your environment should work, but some optional features may be unavailable."
-  exit 0
+  exit 2
 else
   echo -e "${RED}❌ Health check failed with $ERRORS error(s) and $WARNINGS warning(s).${NC}"
   echo "Please fix the errors above before continuing development."

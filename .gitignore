@@ -55,3 +55,7 @@ next-env.d.ts
 /cyrus-proxy/.wrangler
 /cyrus-proxy/node_modules
 /cyrus-proxy/.dev.vars
+
+
+# temporary files
+/.temp
