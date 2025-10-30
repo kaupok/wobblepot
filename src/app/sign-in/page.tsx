@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 
-export default function SignInPage() {
+function SignInForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
@@ -38,6 +38,7 @@ export default function SignInPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setShowResetSuccess(false) // Clear success message when submitting
     setIsLoading(true)
     setIsSlowRequest(false)
 
@@ -160,5 +161,13 @@ export default function SignInPage() {
         </form>
       </Card>
     </div>
+  )
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div className="grid min-h-[calc(100vh-4rem)] place-items-center">Loading...</div>}>
+      <SignInForm />
+    </Suspense>
   )
 }
