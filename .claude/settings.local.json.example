@@ -1,4 +1,9 @@
 {
+  "env": {
+    "PROJECT_ROOT": "/absolute/path/to/honkadori",
+    "GITHUB_PERSONAL_ACCESS_TOKEN": "github_pat_your-token-here",
+    "LINEAR_API_KEY": "lin_api_your-key-here"
+  },
   "permissions": {
     "allow": [
       "Bash(gh api:*)",
@@ -31,6 +36,7 @@
       "mcp__next-devtools__nextjs_runtime",
       "mcp__next-devtools__browser_eval",
       "mcp__playwright__browser_navigate",
+      "mcp__linear-server__*",
       "WebSearch",
       "WebFetch(domain:github.com)"
     ],
