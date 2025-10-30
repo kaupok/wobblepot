@@ -20,6 +20,7 @@ In conversational responses, prioritize brevity. Keep explanations concise and d
 - [Performance & Optimization](#performance--optimization)
 - [Review Focus](#review-focus)
 - [Git Branch Workflow](#git-branch-workflow)
+- [Linear Issue Workflow](#linear-issue-workflow)
 - [Pull Request Workflow](#pull-request-workflow)
 - [CI Pipeline](#ci-pipeline)
 - [Production Deployment Process](#production-deployment-process)
@@ -423,6 +424,55 @@ Use `pnpm build` to analyze bundle size. Target: First Load JS < 200 kB.
 **Pre-commit hook:** Automatically prevents commits to `main`. New team members run `./scripts/setup-git-hooks.sh`
 
 **Detailed guide and recovery procedures:** See [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)
+
+## Linear Issue Workflow
+
+When working on Linear issues manually (not through Cyrus automation), follow these steps:
+
+**1. Get issue details:**
+
+```typescript
+// Using Linear MCP server to fetch the issue
+mcp__linear-server__get_issue({ id: "HON-XX" })
+```
+
+Linear provides a `gitBranchName` field with a suggested branch name that automatically links the branch to the issue.
+
+**2. Update issue status and assign yourself:**
+
+Before starting implementation, update the Linear issue status and assign yourself if unassigned:
+
+```typescript
+// Using Linear MCP server
+mcp__linear-server__update_issue({
+  id: "HON-XX",
+  state: "In progress",
+  assignee: "me"  // Assign to yourself if unassigned
+})
+```
+
+This signals to the team that work has begun and who is working on it.
+
+**3. Create branch using Linear's suggested name:**
+
+Use the `gitBranchName` from the issue instead of creating a custom branch name:
+
+```bash
+# Example: If gitBranchName is "kaupokorv/hon-11-adjust-issue-status"
+git checkout -b kaupokorv/hon-11-adjust-issue-status
+```
+
+This ensures the branch is automatically linked to the Linear issue.
+
+**4. Work on the implementation:**
+
+Follow normal development workflow (make changes, run tests, commit).
+
+**5. Create PR:**
+
+When creating the PR, the branch name will automatically link it to the Linear issue. Linear automation will then move the issue to "In review" status.
+
+**Important:** Once a PR is created, do NOT update the Linear issue status manually. Linear automation handles status transitions from that point forward.
 
 ## Pull Request Workflow
 
