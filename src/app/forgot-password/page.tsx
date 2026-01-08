@@ -30,7 +30,7 @@ export default function ForgotPasswordPage() {
     setIsLoading(true)
 
     try {
-      await authClient.forgetPassword(
+      await authClient.requestPasswordReset(
         {
           email,
           redirectTo: '/reset-password',
@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
           onSuccess: () => {
             setSuccess(true)
           },
-          onError: (ctx) => {
+          onError: (ctx: { error: { message?: string } }) => {
             const errorMessage = ctx.error?.message || ''
             const lowerMessage = errorMessage.toLowerCase()
 
