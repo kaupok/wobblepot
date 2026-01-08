@@ -37,11 +37,11 @@ In conversational responses, prioritize brevity. Keep explanations concise and d
 
 ## Project Overview
 
-A Next.js 15 project with React 19, using TypeScript, Tailwind CSS, and shadcn/ui components.
+A Next.js 16 project with React 19, using TypeScript, Tailwind CSS, and shadcn/ui components.
 
 ## Tech Stack
 
-- **Framework**: Next.js 15.5.3 with Turbopack
+- **Framework**: Next.js 16.1.1
 - **Language**: TypeScript 5.9
 - **Styling**: Tailwind CSS 4.1 with class-variance-authority
 - **Testing**: Vitest for unit tests, Playwright for E2E

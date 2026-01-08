@@ -6,7 +6,7 @@ export default function AboutPage() {
       <div className="flex flex-col gap-6">
         <Heading>About Honkadori</Heading>
         <Body>
-          Honkadori is a modern web application built with Next.js 15, React 19,
+          Honkadori is a modern web application built with Next.js 16, React 19,
           and TypeScript.
         </Body>
         <Body>
