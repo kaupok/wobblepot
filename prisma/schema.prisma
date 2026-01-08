@@ -2,16 +2,12 @@
 // Learn more about Prisma: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider  = "postgresql"
-  // Uses connection pooling for Neon
-  // See: https://neon.tech/docs/guides/prisma
-  url       = env("DATABASE_URL")
-  // Direct connection for migrations
-  directUrl = env("DATABASE_URL_UNPOOLED")
+  provider = "postgresql"
 }
 
 // Better Auth models
