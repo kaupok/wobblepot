@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import { defineConfig, env } from 'prisma/config'
+import { defineConfig } from 'prisma/config'
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
@@ -9,6 +9,7 @@ export default defineConfig({
   datasource: {
     // Use unpooled URL for CLI operations (migrations, introspection)
     // Pooled URL is used by PrismaClient adapter at runtime
-    url: env('DATABASE_URL_UNPOOLED'),
+    // Use process.env to allow prisma generate to work without database URL in CI
+    url: process.env.DATABASE_URL_UNPOOLED,
   },
 })
