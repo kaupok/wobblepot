@@ -1,31 +1,22 @@
-import { dirname } from 'path'
-import { fileURLToPath } from 'url'
-import { FlatCompat } from '@eslint/eslintrc'
+import { defineConfig, globalIgnores } from 'eslint/config'
+import nextVitals from 'eslint-config-next/core-web-vitals'
+import nextTs from 'eslint-config-next/typescript'
 import testingLibrary from 'eslint-plugin-testing-library'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-})
-
-const config = [
-  // Next.js + TypeScript base rules (via compat)
-  ...compat.extends('next/core-web-vitals', 'next/typescript'),
+const config = defineConfig([
+  // Next.js + TypeScript base rules (native flat config)
+  ...nextVitals,
+  ...nextTs,
 
   // Global ignores
-  {
-    ignores: [
-      'node_modules/**',
-      '.next/**',
-      'out/**',
-      'build/**',
-      'coverage/**',
-      'next-env.d.ts',
-      'cyrus-proxy/**', // Third-party Cyrus proxy worker code
-    ],
-  },
+  globalIgnores([
+    '.next/**',
+    'out/**',
+    'build/**',
+    'coverage/**',
+    'next-env.d.ts',
+    'cyrus-proxy/**', // Third-party Cyrus proxy worker code
+  ]),
 
   // TypeScript-specific rules
   {
@@ -58,6 +49,6 @@ const config = [
       'testing-library/no-container': 'warn',
     },
   },
-]
+])
 
 export default config

@@ -1,6 +1,6 @@
 # Honkadori
 
-A modern Next.js 15 application with React 19, TypeScript, and Better Auth authentication.
+A modern Next.js 16 application with React 19, TypeScript, and Better Auth authentication.
 
 ## Quick Start
 
@@ -20,7 +20,7 @@ pnpm dev
 
 ## Tech Stack
 
-- **Framework**: Next.js 15.5.3 with Turbopack
+- **Framework**: Next.js 16.1.1
 - **Language**: TypeScript 5.9
 - **Styling**: Tailwind CSS 4.1 + shadcn/ui
 - **Database**: PostgreSQL (Neon) with Prisma ORM
