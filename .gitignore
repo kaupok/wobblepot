@@ -49,6 +49,7 @@ next-env.d.ts
 
 # prisma
 .prisma
+/src/generated/prisma
 
 # cyrus proxy worker - deployment-specific files only
 /cyrus-proxy/wrangler.toml
