@@ -7,7 +7,7 @@ import ForgotPasswordPage from './page'
 // Mock auth client
 vi.mock('@/lib/auth-client', () => ({
   authClient: {
-    forgetPassword: vi.fn(),
+    requestPasswordReset: vi.fn(),
   },
 }))
 
@@ -69,9 +69,9 @@ describe('ForgotPasswordPage', () => {
       expect(emailInput).toHaveValue('test@example.com')
     })
 
-    it('calls authClient.forgetPassword on form submission', async () => {
+    it('calls authClient.requestPasswordReset on form submission', async () => {
       const { authClient } = await import('@/lib/auth-client')
-      vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
+      vi.mocked(authClient.requestPasswordReset).mockImplementation(async (payload, options) => {
         if (options?.onSuccess) {
           options.onSuccess({} as any)
         }
@@ -83,7 +83,7 @@ describe('ForgotPasswordPage', () => {
       await user.type(screen.getByLabelText(/email/i), 'test@example.com')
       await user.click(screen.getByRole('button', { name: /send reset link/i }))
 
-      expect(authClient.forgetPassword).toHaveBeenCalledWith(
+      expect(authClient.requestPasswordReset).toHaveBeenCalledWith(
         {
           email: 'test@example.com',
           redirectTo: '/reset-password',
@@ -102,7 +102,7 @@ describe('ForgotPasswordPage', () => {
       const submitPromise = new Promise<void>((resolve) => {
         resolveSubmit = resolve
       })
-      vi.mocked(authClient.forgetPassword).mockReturnValue(submitPromise)
+      vi.mocked(authClient.requestPasswordReset).mockReturnValue(submitPromise)
 
       const user = userEvent.setup()
       render(<ForgotPasswordPage />)
@@ -127,7 +127,7 @@ describe('ForgotPasswordPage', () => {
   describe('success state', () => {
     it('shows success message after successful submission', async () => {
       const { authClient } = await import('@/lib/auth-client')
-      vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
+      vi.mocked(authClient.requestPasswordReset).mockImplementation(async (payload, options) => {
         if (options?.onSuccess) {
           options.onSuccess({} as any)
         }
@@ -148,7 +148,7 @@ describe('ForgotPasswordPage', () => {
 
     it('hides form inputs when success state is true', async () => {
       const { authClient } = await import('@/lib/auth-client')
-      vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
+      vi.mocked(authClient.requestPasswordReset).mockImplementation(async (payload, options) => {
         if (options?.onSuccess) {
           options.onSuccess({} as any)
         }
@@ -168,7 +168,7 @@ describe('ForgotPasswordPage', () => {
 
     it('success message includes account enumeration prevention text', async () => {
       const { authClient } = await import('@/lib/auth-client')
-      vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
+      vi.mocked(authClient.requestPasswordReset).mockImplementation(async (payload, options) => {
         if (options?.onSuccess) {
           options.onSuccess({} as any)
         }
@@ -191,7 +191,7 @@ describe('ForgotPasswordPage', () => {
   describe('account enumeration prevention', () => {
     it('shows success message for user not found error', async () => {
       const { authClient } = await import('@/lib/auth-client')
-      vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
+      vi.mocked(authClient.requestPasswordReset).mockImplementation(async (payload, options) => {
         if (options?.onError) {
           options.onError({
             error: {
@@ -219,7 +219,7 @@ describe('ForgotPasswordPage', () => {
 
     it('shows success message for email not found error', async () => {
       const { authClient } = await import('@/lib/auth-client')
-      vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
+      vi.mocked(authClient.requestPasswordReset).mockImplementation(async (payload, options) => {
         if (options?.onError) {
           options.onError({
             error: {
@@ -246,7 +246,7 @@ describe('ForgotPasswordPage', () => {
 
     it('shows success message for no user error', async () => {
       const { authClient } = await import('@/lib/auth-client')
-      vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
+      vi.mocked(authClient.requestPasswordReset).mockImplementation(async (payload, options) => {
         if (options?.onError) {
           options.onError({
             error: {
@@ -273,7 +273,7 @@ describe('ForgotPasswordPage', () => {
 
     it('shows success message for not found error', async () => {
       const { authClient } = await import('@/lib/auth-client')
-      vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
+      vi.mocked(authClient.requestPasswordReset).mockImplementation(async (payload, options) => {
         if (options?.onError) {
           options.onError({
             error: {
@@ -302,7 +302,7 @@ describe('ForgotPasswordPage', () => {
   describe('error handling', () => {
     it('shows error message for network errors', async () => {
       const { authClient } = await import('@/lib/auth-client')
-      vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
+      vi.mocked(authClient.requestPasswordReset).mockImplementation(async (payload, options) => {
         if (options?.onError) {
           options.onError({
             error: {
@@ -328,7 +328,7 @@ describe('ForgotPasswordPage', () => {
 
     it('shows error message for rate limiting', async () => {
       const { authClient } = await import('@/lib/auth-client')
-      vi.mocked(authClient.forgetPassword).mockImplementation(async (payload, options) => {
+      vi.mocked(authClient.requestPasswordReset).mockImplementation(async (payload, options) => {
         if (options?.onError) {
           options.onError({
             error: {
@@ -354,7 +354,7 @@ describe('ForgotPasswordPage', () => {
 
     it('handles thrown exceptions', async () => {
       const { authClient } = await import('@/lib/auth-client')
-      vi.mocked(authClient.forgetPassword).mockRejectedValue(new Error('Connection failed'))
+      vi.mocked(authClient.requestPasswordReset).mockRejectedValue(new Error('Connection failed'))
 
       const user = userEvent.setup()
       render(<ForgotPasswordPage />)
@@ -373,7 +373,7 @@ describe('ForgotPasswordPage', () => {
       const { authClient } = await import('@/lib/auth-client')
 
       // First submission fails
-      vi.mocked(authClient.forgetPassword).mockImplementationOnce(async (payload, options) => {
+      vi.mocked(authClient.requestPasswordReset).mockImplementationOnce(async (payload, options) => {
         if (options?.onError) {
           options.onError({
             error: {
@@ -397,7 +397,7 @@ describe('ForgotPasswordPage', () => {
       })
 
       // Second submission succeeds
-      vi.mocked(authClient.forgetPassword).mockImplementationOnce(async (payload, options) => {
+      vi.mocked(authClient.requestPasswordReset).mockImplementationOnce(async (payload, options) => {
         if (options?.onSuccess) {
           options.onSuccess({} as any)
         }
