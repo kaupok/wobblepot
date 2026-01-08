@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import { useTheme } from 'next-themes'
 
 type Theme = 'light' | 'dark'
@@ -12,17 +12,19 @@ const THEME_COLORS: Record<Theme, string> = {
   dark: '#1a1a1a', // oklch(0.145 0 0) - nearly black background in dark mode
 } as const
 
+const emptySubscribe = () => () => {}
+
 /**
  * Hook to update the meta theme-color tag based on the current theme
  * This provides proper visual feedback in browser UI (tab bars, address bars, etc.)
  */
 export function useThemeColor() {
   const { theme, systemTheme } = useTheme()
-  const [isMounted, setIsMounted] = useState(false)
-
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
+  const isMounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  )
 
   useEffect(() => {
     // Only run on the client after hydration

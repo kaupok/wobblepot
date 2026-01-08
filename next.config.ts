@@ -8,10 +8,6 @@ const nextConfig: NextConfig = {
     // Type check during builds
     ignoreBuildErrors: false,
   },
-  eslint: {
-    // Lint during builds
-    ignoreDuringBuilds: false,
-  },
   async headers() {
     return [
       {
