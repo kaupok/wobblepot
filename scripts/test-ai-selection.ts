@@ -503,13 +503,21 @@ function validatePlan(
     }
   }
 
-  // Check consecutive days
+  // Check consecutive days (only flag if dates are actually 1 day apart)
   const sorted = [...plan].sort((a, b) => a.date.getTime() - b.date.getTime())
   for (let i = 1; i < sorted.length; i++) {
     const currentEntry = sorted[i]
     const previousEntry = sorted[i - 1]
-    const current = currentEntry?.meal?.primaryProteinType
-    const previous = previousEntry?.meal?.primaryProteinType
+    if (!currentEntry || !previousEntry) continue
+
+    // Verify dates are actually consecutive calendar days
+    const dayDiff = Math.round(
+      (currentEntry.date.getTime() - previousEntry.date.getTime()) / (1000 * 60 * 60 * 24),
+    )
+    if (dayDiff !== 1) continue
+
+    const current = currentEntry.meal?.primaryProteinType
+    const previous = previousEntry.meal?.primaryProteinType
     if (current && previous && current === previous && current !== 'none') {
       errors.push({
         type: 'consecutive_protein',
