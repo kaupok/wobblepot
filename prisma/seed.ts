@@ -806,6 +806,19 @@ const ingredients = [
     fiber: 0,
   },
   {
+    name: 'cottage cheese',
+    category: 'dairy',
+    subcategory: 'fresh',
+    proteinType: 'dairy',
+    defaultUnit: 'g',
+    allergens: ['dairy'],
+    calories: 98,
+    protein: 11,
+    carbs: 3.4,
+    fat: 4.3,
+    fiber: 0,
+  },
+  {
     name: 'butter',
     category: 'dairy',
     subcategory: 'fat',
@@ -3174,7 +3187,7 @@ const meals = [
     suitableFor: ['breakfast', 'lunch'],
     primaryProteinType: 'dairy',
     components: [
-      { ingredient: 'greek yogurt', quantity: 200 },
+      { ingredient: 'cottage cheese', quantity: 200 },
       { ingredient: 'cucumber', quantity: 80 },
       { ingredient: 'tomato', quantity: 80 },
       { ingredient: 'olive oil', quantity: 10 },
