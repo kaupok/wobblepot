@@ -39,6 +39,10 @@ In conversational responses, prioritize brevity. Keep explanations concise and d
 
 A Next.js 16 project with React 19, using TypeScript, Tailwind CSS, and shadcn/ui components.
 
+**Product:** Family Meal Planning App (Honkadori) - AI-powered weekly meal planning for households.
+
+**Product Spec:** The complete product specification, database schema, AI strategy, and MVP phases are documented in the [Family Meal Planning App](https://linear.app/honkadori/project/product-vision-ai-powered-family-meal-planning-app-694f025b60a4) Linear project. Reference this project for context on features, data models, and implementation decisions.
+
 ## Tech Stack
 
 - **Framework**: Next.js 16.1.1
@@ -366,7 +370,7 @@ Environment variables are validated at runtime using Zod (`src/lib/env.ts`).
 
 **Client:** `import { prisma } from '@/lib/prisma'` (server-only). See `src/lib/prisma.ts`
 
-**Schema:** `prisma/schema.prisma` - Current models: User, Session, Account, Verification (for Better Auth)
+**Schema:** `prisma/schema.prisma` - Models include Better Auth (User, Session, Account, Verification) and meal planning (Household, HouseholdMember, Ingredient, Meal, MealComponent, MealPlan, MealPlanEntry, PantryItem, etc.)
 
 **Commands:**
 

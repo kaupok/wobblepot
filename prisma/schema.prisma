@@ -10,6 +10,81 @@ datasource db {
   provider = "postgresql"
 }
 
+// ============================================
+// ENUMS
+// ============================================
+
+enum DietaryType {
+  omnivore
+  vegetarian
+  vegan
+  pescatarian
+}
+
+enum MealType {
+  breakfast
+  lunch
+  dinner
+}
+
+enum MealPlanEntryStatus {
+  planned
+  completed
+  skipped
+  eating_out
+  leftovers
+}
+
+enum Unit {
+  g
+  piece
+}
+
+enum IngredientCategory {
+  protein
+  carb
+  vegetable
+  fruit
+  dairy
+  fat
+  legume
+  condiment
+  spice
+}
+
+enum HouseholdRole {
+  owner
+  member
+}
+
+enum Allergen {
+  gluten
+  dairy
+  eggs
+  nuts
+  peanuts
+  soy
+  fish
+  shellfish
+  sesame
+}
+
+enum ProteinType {
+  poultry
+  beef
+  pork
+  lamb
+  fish
+  eggs
+  legume
+  dairy
+  none
+}
+
+// ============================================
+// BETTER AUTH MODELS
+// ============================================
+
 // Better Auth models
 // Generated with: npx @better-auth/cli generate
 // Now managed manually in this schema file
@@ -25,6 +100,7 @@ model User {
   updatedAt     DateTime  @default(now()) @updatedAt
   sessions      Session[]
   accounts      Account[]
+  householdMemberships HouseholdMember[]
 
   @@unique([email])
   @@map("user")
@@ -74,4 +150,202 @@ model Verification {
   updatedAt  DateTime @default(now()) @updatedAt
 
   @@map("verification")
+}
+
+// ============================================
+// MULTI-TENANCY & HOUSEHOLDS
+// ============================================
+
+model Household {
+  id        String   @id @default(cuid())
+  name      String
+  timezone  String   @default("Europe/Tallinn")
+  createdAt DateTime @default(now())
+
+  members     HouseholdMember[]
+  preferences HouseholdPreferences?
+  mealPlans   MealPlan[]
+  meals       Meal[]
+  pantryItems PantryItem[]
+  invites     HouseholdInvite[]
+
+  @@map("household")
+}
+
+model HouseholdMember {
+  id          String        @id @default(cuid())
+  householdId String
+  userId      String
+  role        HouseholdRole @default(member)
+  joinedAt    DateTime      @default(now())
+
+  household   Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preferences MemberPreferences?
+
+  @@unique([householdId, userId])
+  @@map("household_member")
+}
+
+model HouseholdInvite {
+  id          String   @id @default(cuid())
+  householdId String
+  code        String   @unique
+  expiresAt   DateTime
+  maxUses     Int?
+  usesCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@map("household_invite")
+}
+
+model HouseholdPreferences {
+  id                    String       @id @default(cuid())
+  householdId           String       @unique
+  dietaryType           DietaryType?
+  allergensToAvoid      Allergen[]
+  restrictions          String[]
+  excludedIngredients   String[]
+  excludedIngredientIds String[]
+  weekdayMealTypes      MealType[]   @default([dinner])
+  weekendMealTypes      MealType[]   @default([dinner])
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@map("household_preferences")
+}
+
+model MemberPreferences {
+  id                    String       @id @default(cuid())
+  memberId              String       @unique
+  displayName           String?
+  portionMultiplier     Float        @default(1.0)
+  targetCalories        Int?
+  targetProtein         Int?
+  targetCarbs           Int?
+  targetFat             Int?
+  dietaryType           DietaryType?
+  restrictions          String[]
+  excludedIngredients   String[]
+  excludedIngredientIds String[]
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  member HouseholdMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@map("member_preferences")
+}
+
+// ============================================
+// INGREDIENTS & MEALS (Templates)
+// ============================================
+
+model Ingredient {
+  id            String             @id @default(cuid())
+  name          String             @unique
+  category      IngredientCategory
+  subcategory   String?
+  proteinType   ProteinType?
+  defaultUnit   Unit
+  allergens     Allergen[]
+  calories      Float
+  protein       Float
+  carbs         Float
+  fat           Float
+  fiber         Float?
+  gramsPerPiece Float?
+  densityGPerMl Float?
+
+  components  MealComponent[]
+  pantryItems PantryItem[]
+
+  @@map("ingredient")
+}
+
+model Meal {
+  id                 String      @id @default(cuid())
+  name               String
+  description        String?
+  timeMinutes        Int?
+  kidFriendly        Boolean     @default(false)
+  primaryProteinType ProteinType @default(none)
+  suitableFor        MealType[]
+  householdId        String?
+  household          Household?  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  components  MealComponent[]
+  planEntries MealPlanEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("meal")
+}
+
+model MealComponent {
+  id                 String   @id @default(cuid())
+  mealId             String
+  ingredientId       String
+  quantityPerServing Float
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  meal       Meal       @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+
+  @@unique([mealId, ingredientId])
+  @@map("meal_component")
+}
+
+// ============================================
+// PLANNING & PANTRY (Instances)
+// ============================================
+
+model MealPlan {
+  id          String   @id @default(cuid())
+  householdId String
+  startDate   DateTime
+  endDate     DateTime
+
+  entries   MealPlanEntry[]
+  household Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([householdId, startDate])
+  @@map("meal_plan")
+}
+
+model MealPlanEntry {
+  id       String              @id @default(cuid())
+  planId   String
+  mealId   String?
+  date     DateTime
+  mealType MealType
+  status   MealPlanEntryStatus @default(planned)
+
+  plan MealPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  meal Meal?    @relation(fields: [mealId], references: [id])
+
+  @@unique([planId, date, mealType])
+  @@map("meal_plan_entry")
+}
+
+model PantryItem {
+  id           String    @id @default(cuid())
+  householdId  String
+  ingredientId String
+  quantity     Float?
+  isStaple     Boolean   @default(false)
+  expiresAt    DateTime?
+
+  household  Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([householdId, ingredientId])
+  @@map("pantry_item")
 }
