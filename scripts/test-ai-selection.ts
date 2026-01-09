@@ -48,6 +48,7 @@ interface CandidateFilters {
   excludedIngredientIds: string[]
   recentMealIds: string[]
   primaryProteinType?: ProteinType
+  dietaryType?: DietaryType
 }
 
 interface CandidateMeal {
@@ -78,11 +79,18 @@ interface HydratedPlanEntry {
 }
 
 interface ValidationError {
-  type: 'slot_violation' | 'consecutive_protein' | 'duplicate_meal' | 'invalid_meal'
+  type:
+    | 'slot_violation'
+    | 'consecutive_protein'
+    | 'duplicate_meal'
+    | 'invalid_meal'
+    | 'missing_entries'
+    | 'duplicate_date'
   date?: Date
   dates?: Date[]
   expected?: ProteinType
   mealId?: string
+  count?: number
 }
 
 interface ValidationResult {
@@ -146,9 +154,19 @@ function getNextMonday(): Date {
   return today
 }
 
+/**
+ * Gets YYYY-MM-DD string in local time (avoids UTC timezone shift issues)
+ */
+function toDateString(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function formatDate(date: Date): string {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  return `${days[date.getDay()]} ${date.toISOString().split('T')[0]}`
+  return `${days[date.getDay()]} ${toDateString(date)}`
 }
 
 type DayPosition = 'midweek' | 'weekend' | 'early' | 'late'
@@ -236,9 +254,29 @@ async function getCandidates(filters: CandidateFilters): Promise<CandidateMeal[]
     ]
   }
 
-  // Add protein type filter for slot-specific queries
-  if (filters.primaryProteinType) {
+  // Determine excluded protein types based on dietary type
+  const excludedProteins: ProteinType[] = []
+  if (filters.dietaryType === 'vegetarian') {
+    excludedProteins.push('poultry', 'beef', 'pork', 'lamb', 'fish')
+  } else if (filters.dietaryType === 'vegan') {
+    excludedProteins.push('poultry', 'beef', 'pork', 'lamb', 'fish', 'eggs', 'dairy')
+  } else if (filters.dietaryType === 'pescatarian') {
+    excludedProteins.push('poultry', 'beef', 'pork', 'lamb')
+  }
+
+  // Apply protein type filters (specific type and/or dietary exclusions)
+  if (filters.primaryProteinType && excludedProteins.length > 0) {
+    // Both specific type and dietary exclusions - use equals + notIn
+    whereClause.primaryProteinType = {
+      equals: filters.primaryProteinType,
+      notIn: excludedProteins,
+    }
+  } else if (filters.primaryProteinType) {
+    // Only specific type filter
     whereClause.primaryProteinType = filters.primaryProteinType
+  } else if (excludedProteins.length > 0) {
+    // Only dietary exclusions
+    whereClause.primaryProteinType = { notIn: excludedProteins }
   }
 
   const meals = await prisma.meal.findMany({
@@ -399,8 +437,11 @@ async function hydratePlan(entries: PlanEntry[]): Promise<HydratedPlanEntry[]> {
 
   return entries.map((e) => {
     const meal = mealMap.get(e.mealId)
+    // Parse YYYY-MM-DD as local midnight (not UTC) to avoid timezone shift
+    const parts = e.date.split('-').map(Number) as [number, number, number]
+    const [year, month, day] = parts
     return {
-      date: new Date(e.date),
+      date: new Date(year, month - 1, day),
       mealId: e.mealId,
       meal: meal
         ? {
@@ -416,9 +457,30 @@ async function hydratePlan(entries: PlanEntry[]): Promise<HydratedPlanEntry[]> {
 
 function validatePlan(
   plan: HydratedPlanEntry[],
-  requiredSlots: SlotRequirement[]
+  requiredSlots: SlotRequirement[],
+  expectedDates: Date[]
 ): ValidationResult {
   const errors: ValidationError[] = []
+
+  // Check for correct number of entries
+  if (plan.length !== expectedDates.length) {
+    errors.push({ type: 'missing_entries', count: plan.length })
+  }
+
+  // Check for duplicate dates and coverage
+  const planDateStrings = plan.map((e) => toDateString(e.date))
+  const uniquePlanDates = new Set(planDateStrings)
+  if (uniquePlanDates.size !== planDateStrings.length) {
+    errors.push({ type: 'duplicate_date' })
+  }
+
+  // Check each expected date is covered
+  for (const expectedDate of expectedDates) {
+    const expectedDateStr = toDateString(expectedDate)
+    if (!uniquePlanDates.has(expectedDateStr)) {
+      errors.push({ type: 'missing_entries', date: expectedDate })
+    }
+  }
 
   // Check for invalid meal IDs
   for (const entry of plan) {
@@ -430,7 +492,7 @@ function validatePlan(
   // Check required slots
   for (const slot of requiredSlots) {
     const entry = plan.find(
-      (e) => e.date.toISOString().split('T')[0] === slot.date.toISOString().split('T')[0]
+      (e) => toDateString(e.date) === toDateString(slot.date)
     )
     if (!entry?.meal || entry.meal.primaryProteinType !== slot.proteinType) {
       errors.push({
@@ -482,7 +544,7 @@ function repairPlan(
     if (error.type === 'slot_violation' && error.date && error.expected) {
       const errorDate = error.date
       const entryIndex = repairedPlan.findIndex(
-        (e) => e.date.toISOString().split('T')[0] === errorDate.toISOString().split('T')[0]
+        (e) => toDateString(e.date) === toDateString(errorDate)
       )
       if (entryIndex === -1) continue
 
@@ -518,9 +580,9 @@ function repairPlan(
       // Try to fix by replacing the second day
       const secondDate = error.dates[1]
       if (!secondDate) continue
-      const secondDateStr = secondDate.toISOString().split('T')[0]
+      const secondDateStr = toDateString(secondDate)
       const entryIndex = repairedPlan.findIndex(
-        (e) => e.date.toISOString().split('T')[0] === secondDateStr
+        (e) => toDateString(e.date) === secondDateStr
       )
       if (entryIndex === -1) continue
 
@@ -566,8 +628,8 @@ function findValidReplacement(
   const currentEntry = plan[entryIndex]
   if (!currentEntry) return null
 
-  const currentDate = currentEntry.date.toISOString().split('T')[0]
-  const sortedIndex = sorted.findIndex((e) => e.date.toISOString().split('T')[0] === currentDate)
+  const currentDate = toDateString(currentEntry.date)
+  const sortedIndex = sorted.findIndex((e) => toDateString(e.date) === currentDate)
 
   const prevEntry = sortedIndex > 0 ? sorted[sortedIndex - 1] : null
   const nextEntry = sortedIndex < sorted.length - 1 ? sorted[sortedIndex + 1] : null
@@ -576,7 +638,7 @@ function findValidReplacement(
 
   // Check if this is a required slot day
   const slotRequirement = requiredSlots.find(
-    (s) => s.date.toISOString().split('T')[0] === currentDate
+    (s) => toDateString(s.date) === currentDate
   )
 
   for (const candidate of pool) {
@@ -646,6 +708,7 @@ async function main() {
     allergensToAvoid: [],
     excludedIngredientIds: [],
     recentMealIds: [],
+    dietaryType,
   }
 
   const candidatePools: CandidatePools = {
@@ -671,7 +734,7 @@ async function main() {
   const remainingDates = dates.filter(
     (d) =>
       !requiredSlots.some(
-        (s) => s.date.toISOString().split('T')[0] === d.toISOString().split('T')[0]
+        (s) => toDateString(s.date) === toDateString(d)
       )
   )
 
@@ -688,7 +751,7 @@ async function main() {
   // Step 4: Hydrate and validate
   log.section('STEP 4: VALIDATION')
   let hydratedPlan = await hydratePlan(entries)
-  let validation = validatePlan(hydratedPlan, requiredSlots)
+  let validation = validatePlan(hydratedPlan, requiredSlots, dates)
 
   log.info(`Validation result: ${validation.valid ? 'PASSED' : 'FAILED'}`)
   if (!validation.valid) {
@@ -702,7 +765,7 @@ async function main() {
   if (!validation.valid) {
     log.section('STEP 5: DETERMINISTIC REPAIR')
     hydratedPlan = repairPlan(hydratedPlan, validation.errors, candidatePools, requiredSlots)
-    validation = validatePlan(hydratedPlan, requiredSlots)
+    validation = validatePlan(hydratedPlan, requiredSlots, dates)
 
     log.info(`After repair: ${validation.valid ? 'PASSED' : 'FAILED'}`)
     if (!validation.valid) {
@@ -722,7 +785,7 @@ async function main() {
           validation.errors
         )
         hydratedPlan = await hydratePlan(entries)
-        validation = validatePlan(hydratedPlan, requiredSlots)
+        validation = validatePlan(hydratedPlan, requiredSlots, dates)
 
         log.info(`After retry: ${validation.valid ? 'PASSED' : 'FAILED'}`)
       } catch (error) {
