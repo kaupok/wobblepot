@@ -23,17 +23,20 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "test:ai-selection": "npx tsx scripts/test-ai-selection.ts"
   },
   "engines": {
     "node": "22.x"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "3.0.9",
     "@prisma/adapter-pg": "7.2.0",
     "@prisma/client": "7.2.0",
     "@radix-ui/react-dialog": "1.1.15",
     "@radix-ui/react-label": "2.1.8",
     "@radix-ui/react-slot": "1.2.4",
+    "ai": "6.0.25",
     "better-auth": "1.4.10",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
@@ -56,6 +59,7 @@
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "@vitest/coverage-v8": "4.0.16",
+    "dotenv": "17.2.3",
     "eslint": "9.39.2",
     "eslint-config-next": "16.1.1",
     "eslint-plugin-testing-library": "7.15.4",
