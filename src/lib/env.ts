@@ -47,6 +47,12 @@ const serverOnlyEnvSchema = z.object({
     .string()
     .url()
     .describe('Direct database connection string for migrations (non-pooled for Neon)'),
+
+  ANTHROPIC_API_KEY: z
+    .string()
+    .min(1, 'ANTHROPIC_API_KEY is required for AI features')
+    .optional()
+    .describe('Anthropic API key for Claude AI integration'),
 })
 
 /**
@@ -131,6 +137,7 @@ export const serverEnv = new Proxy(
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     DATABASE_URL: process.env.DATABASE_URL,
     DATABASE_URL_UNPOOLED: process.env.DATABASE_URL_UNPOOLED,
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
   } as z.infer<typeof serverEnvSchema>,
   {
     get(target, prop) {
