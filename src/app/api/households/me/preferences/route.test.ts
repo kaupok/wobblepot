@@ -12,7 +12,6 @@ vi.mock('@/lib/auth', () => ({
       getSession: vi.fn(),
     },
   },
-  createHouseholdForUser: vi.fn(),
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -23,20 +22,15 @@ vi.mock('@/lib/prisma', () => ({
     householdPreferences: {
       update: vi.fn(),
     },
-    user: {
-      findUnique: vi.fn(),
-    },
   },
 }))
 
-import { auth, createHouseholdForUser } from '@/lib/auth'
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
 const mockUpdate = vi.mocked(prisma.householdPreferences.update)
-const mockFindUser = vi.mocked(prisma.user.findUnique)
-const mockCreateHousehold = vi.mocked(createHouseholdForUser)
 
 const mockPreferences = {
   id: 'prefs-123',
@@ -79,44 +73,19 @@ describe('GET /api/households/me/preferences', () => {
     expect(data.error).toBe('Unauthorized')
   })
 
-  it('returns 404 when no household exists after self-healing attempt', async () => {
+  it('returns 404 when user has no household', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
       session: { id: 'session-123' },
     } as never)
 
-    // Both calls return null - self-healing failed
     mockFindFirst.mockResolvedValue(null)
-    mockFindUser.mockResolvedValue({ name: 'John Doe' } as never)
-    mockCreateHousehold.mockResolvedValue(undefined)
 
     const response = await GET()
     const data = await response.json()
 
     expect(response.status).toBe(404)
     expect(data.error).toBe('No household found')
-    expect(mockCreateHousehold).toHaveBeenCalledWith('user-123', 'John Doe')
-  })
-
-  it('returns preferences after successful self-healing', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    // First call returns null, second call returns membership after self-healing
-    mockFindFirst
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(mockMembership as never)
-    mockFindUser.mockResolvedValue({ name: 'John Doe' } as never)
-    mockCreateHousehold.mockResolvedValue(undefined)
-
-    const response = await GET()
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.id).toBe('prefs-123')
-    expect(mockCreateHousehold).toHaveBeenCalledWith('user-123', 'John Doe')
   })
 
   it('returns preferences when authenticated', async () => {
@@ -225,47 +194,19 @@ describe('PATCH /api/households/me/preferences', () => {
     expect(data.error).toBe('Invalid JSON')
   })
 
-  it('returns 404 when no household exists after self-healing attempt', async () => {
+  it('returns 404 when user has no household', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
       session: { id: 'session-123' },
     } as never)
 
-    // Both calls return null - self-healing failed
     mockFindFirst.mockResolvedValue(null)
-    mockFindUser.mockResolvedValue({ name: 'John Doe' } as never)
-    mockCreateHousehold.mockResolvedValue(undefined)
 
     const response = await PATCH(createRequest({ dietaryType: 'vegetarian' }))
     const data = await response.json()
 
     expect(response.status).toBe(404)
     expect(data.error).toBe('No household found')
-    expect(mockCreateHousehold).toHaveBeenCalledWith('user-123', 'John Doe')
-  })
-
-  it('updates after successful self-healing', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    // First call returns null, second call returns membership after self-healing
-    mockFindFirst
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(mockMembership as never)
-    mockFindUser.mockResolvedValue({ name: 'John Doe' } as never)
-    mockCreateHousehold.mockResolvedValue(undefined)
-
-    const updatedPreferences = { ...mockPreferences, dietaryType: 'vegetarian' }
-    mockUpdate.mockResolvedValue(updatedPreferences as never)
-
-    const response = await PATCH(createRequest({ dietaryType: 'vegetarian' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.dietaryType).toBe('vegetarian')
-    expect(mockCreateHousehold).toHaveBeenCalledWith('user-123', 'John Doe')
   })
 
   it('updates single field successfully', async () => {
