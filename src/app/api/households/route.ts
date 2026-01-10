@@ -17,21 +17,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Check if user already has a household membership
-  const existingMembership = await prisma.householdMember.findFirst({
-    where: { userId: session.user.id },
-  })
-
-  if (existingMembership) {
-    return NextResponse.json(
-      {
-        error: 'already_in_household',
-        message: 'You are already a member of a household.',
-      },
-      { status: 400 },
-    )
-  }
-
   let body
   try {
     body = await request.json()
@@ -47,42 +32,64 @@ export async function POST(request: Request) {
   }
 
   // Create household, membership, and preferences in a transaction
-  const household = await prisma.$transaction(async (tx) => {
-    const newHousehold = await tx.household.create({
-      data: {
-        name: parsed.data.name,
+  try {
+    const household = await prisma.$transaction(async (tx) => {
+      // Check inside transaction to prevent race condition
+      const existingMembership = await tx.householdMember.findFirst({
+        where: { userId: session.user.id },
+      })
+
+      if (existingMembership) {
+        throw new Error('already_in_household')
+      }
+
+      const newHousehold = await tx.household.create({
+        data: {
+          name: parsed.data.name,
+        },
+      })
+
+      await tx.householdMember.create({
+        data: {
+          householdId: newHousehold.id,
+          userId: session.user.id,
+          role: 'owner',
+        },
+      })
+
+      await tx.householdPreferences.create({
+        data: {
+          householdId: newHousehold.id,
+          // Uses schema defaults: weekdayMealTypes: [dinner], weekendMealTypes: [dinner]
+        },
+      })
+
+      return tx.household.findUnique({
+        where: { id: newHousehold.id },
+        include: { preferences: true },
+      })
+    })
+
+    return NextResponse.json(
+      {
+        id: household!.id,
+        name: household!.name,
+        timezone: household!.timezone,
+        createdAt: household!.createdAt,
+        preferences: household!.preferences,
       },
-    })
-
-    await tx.householdMember.create({
-      data: {
-        householdId: newHousehold.id,
-        userId: session.user.id,
-        role: 'owner',
-      },
-    })
-
-    await tx.householdPreferences.create({
-      data: {
-        householdId: newHousehold.id,
-        // Uses schema defaults: weekdayMealTypes: [dinner], weekendMealTypes: [dinner]
-      },
-    })
-
-    return tx.household.findUnique({
-      where: { id: newHousehold.id },
-      include: { preferences: true },
-    })
-  })
-
-  return NextResponse.json(
-    {
-      id: household!.id,
-      name: household!.name,
-      timezone: household!.timezone,
-      createdAt: household!.createdAt,
-      preferences: household!.preferences,
-    },
-    { status: 201 },
-  )
+      { status: 201 },
+    )
+  } catch (error) {
+    if (error instanceof Error && error.message === 'already_in_household') {
+      return NextResponse.json(
+        {
+          error: 'already_in_household',
+          message: 'You are already a member of a household.',
+        },
+        { status: 400 },
+      )
+    }
+    throw error
+  }
 }

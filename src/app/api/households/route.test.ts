@@ -16,9 +16,6 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    householdMember: {
-      findFirst: vi.fn(),
-    },
     $transaction: vi.fn(),
   },
 }))
@@ -27,7 +24,6 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
-const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
 const mockTransaction = vi.mocked(prisma.$transaction)
 
 describe('POST /api/households', () => {
@@ -56,12 +52,20 @@ describe('POST /api/households', () => {
       session: { id: 'session-123' },
     } as never)
 
-    mockFindFirst.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-123',
-      userId: 'user-123',
-      role: 'owner',
-    } as never)
+    // Mock transaction where findFirst returns existing membership
+    mockTransaction.mockImplementation(async (callback) => {
+      const mockTx = {
+        householdMember: {
+          findFirst: vi.fn().mockResolvedValue({
+            id: 'member-123',
+            householdId: 'household-123',
+            userId: 'user-123',
+            role: 'owner',
+          }),
+        },
+      }
+      return callback(mockTx as never)
+    })
 
     const request = new Request('http://localhost/api/households', {
       method: 'POST',
@@ -82,8 +86,6 @@ describe('POST /api/households', () => {
       session: { id: 'session-123' },
     } as never)
 
-    mockFindFirst.mockResolvedValue(null)
-
     const request = new Request('http://localhost/api/households', {
       method: 'POST',
       body: 'not valid json',
@@ -101,8 +103,6 @@ describe('POST /api/households', () => {
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
       session: { id: 'session-123' },
     } as never)
-
-    mockFindFirst.mockResolvedValue(null)
 
     const request = new Request('http://localhost/api/households', {
       method: 'POST',
@@ -123,8 +123,6 @@ describe('POST /api/households', () => {
       session: { id: 'session-123' },
     } as never)
 
-    mockFindFirst.mockResolvedValue(null)
-
     const request = new Request('http://localhost/api/households', {
       method: 'POST',
       body: JSON.stringify({ name: '' }),
@@ -144,8 +142,6 @@ describe('POST /api/households', () => {
       session: { id: 'session-123' },
     } as never)
 
-    mockFindFirst.mockResolvedValue(null)
-
     const request = new Request('http://localhost/api/households', {
       method: 'POST',
       body: JSON.stringify({ name: 'a'.repeat(101) }),
@@ -164,8 +160,6 @@ describe('POST /api/households', () => {
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
       session: { id: 'session-123' },
     } as never)
-
-    mockFindFirst.mockResolvedValue(null)
 
     const mockHousehold = {
       id: 'household-123',
@@ -191,6 +185,7 @@ describe('POST /api/households', () => {
           findUnique: vi.fn().mockResolvedValue(mockHousehold),
         },
         householdMember: {
+          findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn().mockResolvedValue({ id: 'member-123' }),
         },
         householdPreferences: {
@@ -221,8 +216,6 @@ describe('POST /api/households', () => {
       session: { id: 'session-123' },
     } as never)
 
-    mockFindFirst.mockResolvedValue(null)
-
     const mockHousehold = {
       id: 'household-123',
       name: 'Valid Household',
@@ -247,6 +240,7 @@ describe('POST /api/households', () => {
           findUnique: vi.fn().mockResolvedValue(mockHousehold),
         },
         householdMember: {
+          findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn().mockResolvedValue({ id: 'member-123' }),
         },
         householdPreferences: {
