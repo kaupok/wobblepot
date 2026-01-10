@@ -126,6 +126,7 @@ describe('GET /api/households/me/members', () => {
     const data = await response.json()
 
     expect(response.status).toBe(200)
+    expect(data.householdId).toBe('household-123')
     expect(data.members).toHaveLength(2)
 
     // First member with preferences

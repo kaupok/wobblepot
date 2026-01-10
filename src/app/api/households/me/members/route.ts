@@ -36,6 +36,7 @@ export async function GET() {
   })
 
   return NextResponse.json({
+    householdId: householdMembership.householdId,
     members: members.map((member) => ({
       id: member.id,
       role: member.role,
