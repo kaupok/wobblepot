@@ -2,7 +2,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import userEvent from '@testing-library/user-event'
-import SignUpPage from './page'
+import { SignUpForm } from './SignUpForm'
 
 // Mock Next.js navigation
 const mockPush = vi.fn()
@@ -33,7 +33,7 @@ vi.mock('@/lib/auth-errors', () => ({
   getUserFriendlyError: vi.fn((msg) => msg),
 }))
 
-describe('SignUpPage', () => {
+describe('SignUpForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGet.mockReturnValue(null)
@@ -41,13 +41,13 @@ describe('SignUpPage', () => {
 
   describe('rendering', () => {
     it('renders sign up form with heading', () => {
-      render(<SignUpPage />)
+      render(<SignUpForm />)
 
       expect(screen.getByRole('heading', { name: /sign up/i })).toBeInTheDocument()
     })
 
     it('renders name input with label', () => {
-      render(<SignUpPage />)
+      render(<SignUpForm />)
 
       const input = screen.getByLabelText(/name/i)
       expect(input).toBeInTheDocument()
@@ -55,7 +55,7 @@ describe('SignUpPage', () => {
     })
 
     it('renders email input with label', () => {
-      render(<SignUpPage />)
+      render(<SignUpForm />)
 
       const input = screen.getByLabelText(/email/i)
       expect(input).toBeInTheDocument()
@@ -63,7 +63,7 @@ describe('SignUpPage', () => {
     })
 
     it('renders password input with label', () => {
-      render(<SignUpPage />)
+      render(<SignUpForm />)
 
       const input = screen.getByLabelText(/password/i)
       expect(input).toBeInTheDocument()
@@ -71,20 +71,20 @@ describe('SignUpPage', () => {
     })
 
     it('renders sign up button', () => {
-      render(<SignUpPage />)
+      render(<SignUpForm />)
 
       expect(screen.getByRole('button', { name: /sign up/i })).toBeInTheDocument()
     })
 
     it('renders sign in link without returnUrl by default', () => {
-      render(<SignUpPage />)
+      render(<SignUpForm />)
 
       const link = screen.getByRole('link', { name: /sign in/i })
       expect(link).toHaveAttribute('href', '/sign-in')
     })
 
     it('displays description text', () => {
-      render(<SignUpPage />)
+      render(<SignUpForm />)
 
       expect(screen.getByText(/create a new account to get started/i)).toBeInTheDocument()
     })
@@ -94,7 +94,7 @@ describe('SignUpPage', () => {
     it('sign-in link includes returnUrl when present', () => {
       mockGet.mockReturnValue('/settings')
 
-      render(<SignUpPage />)
+      render(<SignUpForm />)
 
       const link = screen.getByRole('link', { name: /sign in/i })
       expect(link).toHaveAttribute('href', '/sign-in?returnUrl=%2Fsettings')
@@ -103,7 +103,7 @@ describe('SignUpPage', () => {
     it('sign-in link is plain /sign-in when returnUrl is default /profile', () => {
       mockGet.mockReturnValue('/profile')
 
-      render(<SignUpPage />)
+      render(<SignUpForm />)
 
       const link = screen.getByRole('link', { name: /sign in/i })
       expect(link).toHaveAttribute('href', '/sign-in')
@@ -118,7 +118,7 @@ describe('SignUpPage', () => {
       })
 
       const user = userEvent.setup({ delay: null })
-      render(<SignUpPage />)
+      render(<SignUpForm />)
 
       await user.type(screen.getByLabelText(/name/i), 'Test User')
       await user.type(screen.getByLabelText(/email/i), 'test@example.com')
@@ -141,7 +141,7 @@ describe('SignUpPage', () => {
       })
 
       const user = userEvent.setup({ delay: null })
-      render(<SignUpPage />)
+      render(<SignUpForm />)
 
       await user.type(screen.getByLabelText(/name/i), 'Test User')
       await user.type(screen.getByLabelText(/email/i), 'test@example.com')
@@ -162,7 +162,7 @@ describe('SignUpPage', () => {
       })
 
       const user = userEvent.setup({ delay: null })
-      render(<SignUpPage />)
+      render(<SignUpForm />)
 
       await user.type(screen.getByLabelText(/name/i), 'Test User')
       await user.type(screen.getByLabelText(/email/i), 'test@example.com')
@@ -185,7 +185,7 @@ describe('SignUpPage', () => {
       })
 
       const user = userEvent.setup({ delay: null })
-      render(<SignUpPage />)
+      render(<SignUpForm />)
 
       await user.type(screen.getByLabelText(/name/i), 'Test User')
       await user.type(screen.getByLabelText(/email/i), 'test@example.com')
@@ -223,7 +223,7 @@ describe('SignUpPage', () => {
       })
 
       const user = userEvent.setup({ delay: null })
-      render(<SignUpPage />)
+      render(<SignUpForm />)
 
       await user.type(screen.getByLabelText(/name/i), 'Test User')
       await user.type(screen.getByLabelText(/email/i), 'existing@example.com')
