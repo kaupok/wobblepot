@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
-import { auth, createHouseholdForUser } from '@/lib/auth'
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getHouseholdMembership } from '@/lib/household'
 
 const updatePreferencesSchema = z.object({
   dietaryType: z
@@ -35,36 +36,6 @@ const updatePreferencesSchema = z.object({
     .optional(),
 })
 
-async function getHouseholdMembership(userId: string) {
-  let membership = await prisma.householdMember.findFirst({
-    where: { userId },
-    include: {
-      household: {
-        include: { preferences: true },
-      },
-    },
-  })
-
-  // Self-healing: create household if none exists (handles legacy users)
-  if (!membership) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { name: true },
-    })
-    await createHouseholdForUser(userId, user?.name ?? 'User')
-    membership = await prisma.householdMember.findFirst({
-      where: { userId },
-      include: {
-        household: {
-          include: { preferences: true },
-        },
-      },
-    })
-  }
-
-  return membership
-}
-
 export async function GET() {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -92,7 +63,13 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = await request.json()
+  let body
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
   const parsed = updatePreferencesSchema.safeParse(body)
 
   if (!parsed.success) {

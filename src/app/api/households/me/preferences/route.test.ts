@@ -79,12 +79,13 @@ describe('GET /api/households/me/preferences', () => {
     expect(data.error).toBe('Unauthorized')
   })
 
-  it('returns 404 when no household exists', async () => {
+  it('returns 404 when no household exists after self-healing attempt', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
       session: { id: 'session-123' },
     } as never)
 
+    // Both calls return null - self-healing failed
     mockFindFirst.mockResolvedValue(null)
     mockFindUser.mockResolvedValue({ name: 'John Doe' } as never)
     mockCreateHousehold.mockResolvedValue(undefined)
@@ -94,6 +95,28 @@ describe('GET /api/households/me/preferences', () => {
 
     expect(response.status).toBe(404)
     expect(data.error).toBe('No household found')
+    expect(mockCreateHousehold).toHaveBeenCalledWith('user-123', 'John Doe')
+  })
+
+  it('returns preferences after successful self-healing', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    // First call returns null, second call returns membership after self-healing
+    mockFindFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(mockMembership as never)
+    mockFindUser.mockResolvedValue({ name: 'John Doe' } as never)
+    mockCreateHousehold.mockResolvedValue(undefined)
+
+    const response = await GET()
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.id).toBe('prefs-123')
+    expect(mockCreateHousehold).toHaveBeenCalledWith('user-123', 'John Doe')
   })
 
   it('returns preferences when authenticated', async () => {
@@ -180,12 +203,35 @@ describe('PATCH /api/households/me/preferences', () => {
     expect(data.error).toBe('Validation failed')
   })
 
-  it('returns 404 when no household exists', async () => {
+  it('returns 400 on invalid JSON', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
       session: { id: 'session-123' },
     } as never)
 
+    const request = new Request(
+      'http://localhost/api/households/me/preferences',
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: 'invalid json{',
+      }
+    )
+
+    const response = await PATCH(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Invalid JSON')
+  })
+
+  it('returns 404 when no household exists after self-healing attempt', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    // Both calls return null - self-healing failed
     mockFindFirst.mockResolvedValue(null)
     mockFindUser.mockResolvedValue({ name: 'John Doe' } as never)
     mockCreateHousehold.mockResolvedValue(undefined)
@@ -195,6 +241,31 @@ describe('PATCH /api/households/me/preferences', () => {
 
     expect(response.status).toBe(404)
     expect(data.error).toBe('No household found')
+    expect(mockCreateHousehold).toHaveBeenCalledWith('user-123', 'John Doe')
+  })
+
+  it('updates after successful self-healing', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    // First call returns null, second call returns membership after self-healing
+    mockFindFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(mockMembership as never)
+    mockFindUser.mockResolvedValue({ name: 'John Doe' } as never)
+    mockCreateHousehold.mockResolvedValue(undefined)
+
+    const updatedPreferences = { ...mockPreferences, dietaryType: 'vegetarian' }
+    mockUpdate.mockResolvedValue(updatedPreferences as never)
+
+    const response = await PATCH(createRequest({ dietaryType: 'vegetarian' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.dietaryType).toBe('vegetarian')
+    expect(mockCreateHousehold).toHaveBeenCalledWith('user-123', 'John Doe')
   })
 
   it('updates single field successfully', async () => {
