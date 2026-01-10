@@ -20,6 +20,9 @@ vi.mock('@/lib/prisma', () => ({
     householdMember: {
       findFirst: vi.fn(),
     },
+    user: {
+      findUnique: vi.fn(),
+    },
   },
 }))
 
@@ -28,6 +31,7 @@ import { prisma } from '@/lib/prisma'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
+const mockFindUser = vi.mocked(prisma.user.findUnique)
 const mockCreateHousehold = vi.mocked(createHouseholdForUser)
 
 describe('GET /api/households/me', () => {
@@ -115,6 +119,7 @@ describe('GET /api/households/me', () => {
         household: mockHousehold,
       } as never)
 
+    mockFindUser.mockResolvedValue({ name: 'Jane Doe' } as never)
     mockCreateHousehold.mockResolvedValue(undefined)
 
     const response = await GET()
@@ -133,6 +138,7 @@ describe('GET /api/households/me', () => {
 
     // Both calls return null (household creation somehow failed)
     mockFindFirst.mockResolvedValue(null)
+    mockFindUser.mockResolvedValue({ name: 'Bob' } as never)
     mockCreateHousehold.mockResolvedValue(undefined)
 
     const response = await GET()

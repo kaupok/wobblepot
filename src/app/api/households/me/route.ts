@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
-import { auth, createHouseholdForUser } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { auth } from '@/lib/auth'
+import { getHouseholdMembership } from '@/lib/household'
 
 export async function GET() {
   const session = await auth.api.getSession({
@@ -12,27 +12,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let householdMembership = await prisma.householdMember.findFirst({
-    where: { userId: session.user.id },
-    include: {
-      household: {
-        include: { preferences: true },
-      },
-    },
-  })
-
-  // Self-healing: create household if none exists (handles legacy users)
-  if (!householdMembership) {
-    await createHouseholdForUser(session.user.id, session.user.name)
-    householdMembership = await prisma.householdMember.findFirst({
-      where: { userId: session.user.id },
-      include: {
-        household: {
-          include: { preferences: true },
-        },
-      },
-    })
-  }
+  const householdMembership = await getHouseholdMembership(session.user.id)
 
   if (!householdMembership) {
     return NextResponse.json({ error: 'No household found' }, { status: 404 })
