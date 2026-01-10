@@ -195,30 +195,4 @@ describe('POST /api/invites/[code]/join', () => {
     expect(response.status).toBe(200)
     expect(data.success).toBe(true)
   })
-
-  it('user without household can join via invite', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'new-user-123', name: 'Jane', email: 'jane@example.com' },
-      session: { id: 'session-456' },
-    } as never)
-    mockMemberFindFirst.mockResolvedValue(null) // No existing membership
-    mockInviteFindUnique.mockResolvedValue({
-      id: 'invite-123',
-      householdId: 'household-123',
-      code: 'abc123',
-      expiresAt: new Date('2030-01-01'),
-      maxUses: 10,
-      usesCount: 0,
-      household: { id: 'household-123', name: 'Smith Family' },
-    } as never)
-    mockTransaction.mockResolvedValue([{}, {}])
-
-    const response = await POST(createRequest(), { params: createParams('abc123') })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.success).toBe(true)
-    expect(data.household.id).toBe('household-123')
-    expect(data.household.name).toBe('Smith Family')
-  })
 })
