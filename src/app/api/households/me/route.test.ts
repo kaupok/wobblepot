@@ -12,7 +12,6 @@ vi.mock('@/lib/auth', () => ({
       getSession: vi.fn(),
     },
   },
-  createHouseholdForUser: vi.fn(),
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -23,20 +22,15 @@ vi.mock('@/lib/prisma', () => ({
     household: {
       update: vi.fn(),
     },
-    user: {
-      findUnique: vi.fn(),
-    },
   },
 }))
 
-import { auth, createHouseholdForUser } from '@/lib/auth'
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
 const mockHouseholdUpdate = vi.mocked(prisma.household.update)
-const mockFindUser = vi.mocked(prisma.user.findUnique)
-const mockCreateHousehold = vi.mocked(createHouseholdForUser)
 
 describe('GET /api/households/me', () => {
   beforeEach(() => {
@@ -95,55 +89,13 @@ describe('GET /api/households/me', () => {
     expect(data.preferences.dietaryType).toBe('omnivore')
   })
 
-  it('self-heals by creating household if user has none', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-456', name: 'Jane Doe', email: 'jane@example.com' },
-      session: { id: 'session-456' },
-    } as never)
-
-    const mockHousehold = {
-      id: 'household-456',
-      name: "Jane Doe's Household",
-      timezone: 'Europe/Tallinn',
-      createdAt: new Date('2024-01-01'),
-      preferences: {
-        id: 'prefs-456',
-        householdId: 'household-456',
-      },
-    }
-
-    // First call returns null, second call returns the newly created household
-    mockFindFirst
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: 'member-456',
-        householdId: 'household-456',
-        userId: 'user-456',
-        role: 'owner',
-        household: mockHousehold,
-      } as never)
-
-    mockFindUser.mockResolvedValue({ name: 'Jane Doe' } as never)
-    mockCreateHousehold.mockResolvedValue(undefined)
-
-    const response = await GET()
-    const data = await response.json()
-
-    expect(mockCreateHousehold).toHaveBeenCalledWith('user-456', 'Jane Doe')
-    expect(response.status).toBe(200)
-    expect(data.id).toBe('household-456')
-  })
-
-  it('returns 404 if household creation fails', async () => {
+  it('returns 404 when user has no household', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-789', name: 'Bob', email: 'bob@example.com' },
       session: { id: 'session-789' },
     } as never)
 
-    // Both calls return null (household creation somehow failed)
     mockFindFirst.mockResolvedValue(null)
-    mockFindUser.mockResolvedValue({ name: 'Bob' } as never)
-    mockCreateHousehold.mockResolvedValue(undefined)
 
     const response = await GET()
     const data = await response.json()
@@ -279,8 +231,6 @@ describe('PATCH /api/households/me', () => {
       session: { id: 'session-123' },
     } as never)
     mockFindFirst.mockResolvedValue(null)
-    mockFindUser.mockResolvedValue({ name: 'John Doe' } as never)
-    mockCreateHousehold.mockResolvedValue(undefined)
 
     const request = new Request('http://localhost/api/households/me', {
       method: 'PATCH',

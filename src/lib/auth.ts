@@ -74,20 +74,6 @@ export const auth = betterAuth({
   trustedOrigins: [getServerBaseURL()],
 
   /**
-   * Database hooks for lifecycle events
-   * Used to perform additional actions after core operations
-   */
-  databaseHooks: {
-    user: {
-      create: {
-        after: async (user) => {
-          await createHouseholdForUser(user.id, user.name)
-        },
-      },
-    },
-  },
-
-  /**
    * Email and password authentication configuration
    */
   emailAndPassword: {
