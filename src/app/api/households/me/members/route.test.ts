@@ -131,6 +131,7 @@ describe('GET /api/households/me/members', () => {
 
     // First member with preferences
     expect(data.members[0].id).toBe('member-123')
+    expect(data.members[0].userId).toBe('user-123')
     expect(data.members[0].role).toBe('owner')
     expect(data.members[0].user.name).toBe('John Doe')
     expect(data.members[0].user.email).toBe('john@example.com')

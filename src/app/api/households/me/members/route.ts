@@ -39,6 +39,7 @@ export async function GET() {
     householdId: householdMembership.householdId,
     members: members.map((member) => ({
       id: member.id,
+      userId: member.userId,
       role: member.role,
       joinedAt: member.joinedAt,
       user: member.user,
