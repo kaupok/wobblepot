@@ -66,6 +66,7 @@ export function MemberPreferencesForm({
   const [portionMultiplier, setPortionMultiplier] = useState(
     preferences.portionMultiplier
   )
+  const [portionError, setPortionError] = useState<string | null>(null)
 
   // Nutritional targets state
   const [targetCalories, setTargetCalories] = useState<number | null>(
@@ -143,9 +144,16 @@ export function MemberPreferencesForm({
 
   const handlePortionInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value)
-    if (!isNaN(value) && value >= 0.5 && value <= 3.0) {
-      setPortionMultiplier(Math.round(value * 10) / 10)
+    if (isNaN(value)) {
+      setPortionError(null)
+      return
     }
+    if (value < 0.5 || value > 3.0) {
+      setPortionError('Portion size must be between 0.5 and 3.0')
+      return
+    }
+    setPortionError(null)
+    setPortionMultiplier(Math.round(value * 10) / 10)
   }
 
   return (
@@ -222,6 +230,11 @@ export function MemberPreferencesForm({
                   />
                   <Body variant="muted">× standard portion</Body>
                 </div>
+                {portionError && (
+                  <Body variant="small" className="text-destructive">
+                    {portionError}
+                  </Body>
+                )}
               </div>
             </section>
 

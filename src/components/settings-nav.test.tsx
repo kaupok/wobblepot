@@ -1,0 +1,61 @@
+import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { SettingsNav } from './settings-nav'
+
+// Mock next/navigation
+const mockPathname = vi.fn()
+vi.mock('next/navigation', () => ({
+  usePathname: () => mockPathname(),
+}))
+
+describe('SettingsNav', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockPathname.mockReturnValue('/settings/household')
+  })
+
+  it('renders both navigation tabs', () => {
+    render(<SettingsNav />)
+
+    expect(screen.getByRole('link', { name: 'Household' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'My preferences' })
+    ).toBeInTheDocument()
+  })
+
+  it('Household tab links to /settings/household', () => {
+    render(<SettingsNav />)
+
+    const householdLink = screen.getByRole('link', { name: 'Household' })
+    expect(householdLink).toHaveAttribute('href', '/settings/household')
+  })
+
+  it('My preferences tab links to /settings/profile', () => {
+    render(<SettingsNav />)
+
+    const preferencesLink = screen.getByRole('link', { name: 'My preferences' })
+    expect(preferencesLink).toHaveAttribute('href', '/settings/profile')
+  })
+
+  it('applies active styling to Household tab when on household page', () => {
+    mockPathname.mockReturnValue('/settings/household')
+    render(<SettingsNav />)
+
+    const householdLink = screen.getByRole('link', { name: 'Household' })
+    const preferencesLink = screen.getByRole('link', { name: 'My preferences' })
+
+    expect(householdLink).toHaveClass('text-primary')
+    expect(preferencesLink).toHaveClass('text-muted-foreground')
+  })
+
+  it('applies active styling to My preferences tab when on profile page', () => {
+    mockPathname.mockReturnValue('/settings/profile')
+    render(<SettingsNav />)
+
+    const householdLink = screen.getByRole('link', { name: 'Household' })
+    const preferencesLink = screen.getByRole('link', { name: 'My preferences' })
+
+    expect(householdLink).toHaveClass('text-muted-foreground')
+    expect(preferencesLink).toHaveClass('text-primary')
+  })
+})
