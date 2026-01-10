@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
 import { getUserFriendlyError } from '@/lib/auth-errors'
+import { getValidReturnUrl } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,6 +21,8 @@ import { Heading, Body } from '@/components/ui/typography'
 
 export default function SignUpPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnUrl = getValidReturnUrl(searchParams.get('returnUrl'))
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -48,7 +51,7 @@ export default function SignUpPage() {
         {
           onSuccess: () => {
             try {
-              router.push('/profile')
+              router.push(returnUrl)
               router.refresh()
             } catch {
               setError(
@@ -143,7 +146,10 @@ export default function SignUpPage() {
               </Button>
               <Body variant="small" className="text-muted-foreground text-center">
                 Already have an account?{' '}
-                <Link href="/sign-in" className="text-primary hover:underline">
+                <Link
+                  href={returnUrl !== '/profile' ? `/sign-in?returnUrl=${encodeURIComponent(returnUrl)}` : '/sign-in'}
+                  className="text-primary hover:underline"
+                >
                   Sign in
                 </Link>
               </Body>
