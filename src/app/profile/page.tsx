@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
+import { getHouseholdMembership } from '@/lib/household'
 import { Heading, Body } from '@/components/ui/typography'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -11,6 +12,12 @@ export default async function ProfilePage() {
 
   if (!session) {
     redirect('/sign-in')
+  }
+
+  // Redirect users without a household to onboarding
+  const membership = await getHouseholdMembership(session.user.id)
+  if (!membership) {
+    redirect('/onboarding')
   }
 
   return (

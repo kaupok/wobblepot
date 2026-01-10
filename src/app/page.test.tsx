@@ -11,6 +11,11 @@ vi.mock('@/lib/auth', () => ({
   },
 }))
 
+// Mock the household module
+vi.mock('@/lib/household', () => ({
+  getHouseholdMembership: vi.fn(),
+}))
+
 // Mock Next.js headers
 vi.mock('next/headers', () => ({
   headers: vi.fn(async () => new Headers()),
@@ -41,6 +46,7 @@ describe('Home page component', () => {
 
   it('renders welcome message when authenticated', async () => {
     const { auth } = await import('@/lib/auth')
+    const { getHouseholdMembership } = await import('@/lib/household')
     const now = new Date()
     vi.mocked(auth.api.getSession).mockResolvedValue({
       session: {
@@ -63,6 +69,22 @@ describe('Home page component', () => {
         updatedAt: now,
       },
     })
+
+    // Mock household membership to prevent redirect to onboarding
+    vi.mocked(getHouseholdMembership).mockResolvedValue({
+      id: 'member-123',
+      householdId: 'household-123',
+      userId: '123',
+      role: 'owner',
+      household: {
+        id: 'household-123',
+        name: 'Test Household',
+        timezone: 'Europe/Tallinn',
+        createdAt: now,
+        updatedAt: now,
+        preferences: null,
+      },
+    } as never)
 
     const component = await Home()
     render(component)

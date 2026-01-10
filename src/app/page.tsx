@@ -1,14 +1,24 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { Heading, Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { serverEnv } from '@/lib/env'
 import { auth } from '@/lib/auth'
+import { getHouseholdMembership } from '@/lib/household'
 
 export default async function Home() {
   const session = await auth.api.getSession({
     headers: await headers(),
   })
+
+  // Redirect authenticated users without a household to onboarding
+  if (session) {
+    const membership = await getHouseholdMembership(session.user.id)
+    if (!membership) {
+      redirect('/onboarding')
+    }
+  }
 
   return (
     <div className="grid min-h-[calc(100vh-4rem)] place-items-center">
