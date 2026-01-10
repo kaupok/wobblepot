@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
 import { getUserFriendlyError } from '@/lib/auth-errors'
+import { getValidReturnUrl } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,6 +22,7 @@ import { Heading, Body } from '@/components/ui/typography'
 export function SignInForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const returnUrl = getValidReturnUrl(searchParams.get('returnUrl'))
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -35,8 +37,11 @@ export function SignInForm() {
       setSuccessMessage(
         'Your password has been reset successfully. You can now sign in with your new password.',
       )
-      // Clear the query parameter from URL
-      router.replace('/sign-in')
+      // Clear the reset parameter while preserving other params (like returnUrl)
+      const newParams = new URLSearchParams(searchParams.toString())
+      newParams.delete('reset')
+      const newUrl = newParams.toString() ? `/sign-in?${newParams.toString()}` : '/sign-in'
+      router.replace(newUrl)
     }
   }, [searchParams, router])
 
@@ -60,7 +65,7 @@ export function SignInForm() {
         {
           onSuccess: () => {
             try {
-              router.push('/profile')
+              router.push(returnUrl)
               router.refresh()
             } catch {
               setError('Authentication successful, but navigation failed. Please refresh the page.')
@@ -161,7 +166,10 @@ export function SignInForm() {
               </Button>
               <Body variant="small" className="text-muted-foreground text-center">
                 Don&apos;t have an account?{' '}
-                <Link href="/sign-up" className="text-primary hover:underline">
+                <Link
+                  href={returnUrl !== '/profile' ? `/sign-up?returnUrl=${encodeURIComponent(returnUrl)}` : '/sign-up'}
+                  className="text-primary hover:underline"
+                >
                   Sign up
                 </Link>
               </Body>

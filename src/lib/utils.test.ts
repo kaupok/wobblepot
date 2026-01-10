@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { cn } from './utils'
+import { cn, getValidReturnUrl } from './utils'
 
 describe('cn utility function', () => {
   it('merges multiple class names', () => {
@@ -123,6 +123,79 @@ describe('cn utility function', () => {
 
       const result = cn(defaultClasses, customClasses)
       expect(result).toBe('py-2 px-6')
+    })
+  })
+})
+
+describe('getValidReturnUrl', () => {
+  const DEFAULT_REDIRECT = '/profile'
+
+  describe('valid inputs', () => {
+    it('returns valid relative path unchanged', () => {
+      expect(getValidReturnUrl('/dashboard')).toBe('/dashboard')
+    })
+
+    it('returns nested paths unchanged', () => {
+      expect(getValidReturnUrl('/settings/household')).toBe('/settings/household')
+    })
+
+    it('returns paths with query params unchanged', () => {
+      expect(getValidReturnUrl('/search?q=test')).toBe('/search?q=test')
+    })
+
+    it('returns root path unchanged', () => {
+      expect(getValidReturnUrl('/')).toBe('/')
+    })
+  })
+
+  describe('null and empty inputs', () => {
+    it('returns default for null', () => {
+      expect(getValidReturnUrl(null)).toBe(DEFAULT_REDIRECT)
+    })
+
+    it('returns default for empty string', () => {
+      expect(getValidReturnUrl('')).toBe(DEFAULT_REDIRECT)
+    })
+  })
+
+  describe('open redirect prevention', () => {
+    it('rejects absolute URLs with https', () => {
+      expect(getValidReturnUrl('https://evil.com')).toBe(DEFAULT_REDIRECT)
+    })
+
+    it('rejects absolute URLs with http', () => {
+      expect(getValidReturnUrl('http://evil.com')).toBe(DEFAULT_REDIRECT)
+    })
+
+    it('rejects protocol-relative URLs', () => {
+      expect(getValidReturnUrl('//evil.com')).toBe(DEFAULT_REDIRECT)
+    })
+
+    it('rejects URLs not starting with /', () => {
+      expect(getValidReturnUrl('evil.com')).toBe(DEFAULT_REDIRECT)
+    })
+
+    it('rejects javascript: URLs', () => {
+      expect(getValidReturnUrl('javascript:alert(1)')).toBe(DEFAULT_REDIRECT)
+    })
+
+    it('rejects URLs with backslashes', () => {
+      expect(getValidReturnUrl('/\\evil.com')).toBe(DEFAULT_REDIRECT)
+    })
+
+    it('rejects encoded protocol-relative URLs', () => {
+      // %2F is encoded /
+      expect(getValidReturnUrl('/%2F/evil.com')).toBe(DEFAULT_REDIRECT)
+    })
+
+    it('rejects encoded backslash attacks', () => {
+      // %5C is encoded \
+      expect(getValidReturnUrl('/%5Cevil.com')).toBe(DEFAULT_REDIRECT)
+    })
+
+    it('rejects malformed encoded URLs', () => {
+      // Invalid percent encoding
+      expect(getValidReturnUrl('/%ZZ/invalid')).toBe(DEFAULT_REDIRECT)
     })
   })
 })

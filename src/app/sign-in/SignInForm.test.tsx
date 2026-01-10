@@ -10,6 +10,7 @@ const mockPush = vi.fn()
 const mockRefresh = vi.fn()
 const mockReplace = vi.fn()
 const mockGet = vi.fn()
+const mockSearchParamsToString = vi.fn()
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -19,6 +20,7 @@ vi.mock('next/navigation', () => ({
   }),
   useSearchParams: () => ({
     get: mockGet,
+    toString: mockSearchParamsToString,
   }),
 }))
 
@@ -40,6 +42,7 @@ describe('SignInForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGet.mockReturnValue(null)
+    mockSearchParamsToString.mockReturnValue('')
   })
 
   describe('rendering', () => {
@@ -115,10 +118,22 @@ describe('SignInForm', () => {
 
     it('clears URL parameter after showing message', () => {
       mockGet.mockReturnValue('success')
+      mockSearchParamsToString.mockReturnValue('reset=success')
 
       render(<SignInForm />)
 
+      // When reset is the only param, URL should be /sign-in (no query string)
       expect(mockReplace).toHaveBeenCalledWith('/sign-in')
+    })
+
+    it('preserves other query params when clearing reset', () => {
+      mockGet.mockReturnValue('success')
+      mockSearchParamsToString.mockReturnValue('reset=success&returnUrl=%2Fsettings')
+
+      render(<SignInForm />)
+
+      // returnUrl should be preserved after removing reset param
+      expect(mockReplace).toHaveBeenCalledWith('/sign-in?returnUrl=%2Fsettings')
     })
 
     it('success message has role="status" for screen readers', () => {
