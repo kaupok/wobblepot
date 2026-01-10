@@ -21,12 +21,20 @@ export function Navigation({ session }: NavigationProps) {
         About
       </Link>
       {session && (
-        <Link
-          href="/profile"
-          className="text-sm font-medium transition-colors hover:text-primary"
-        >
-          Profile
-        </Link>
+        <>
+          <Link
+            href="/profile"
+            className="text-sm font-medium transition-colors hover:text-primary"
+          >
+            Profile
+          </Link>
+          <Link
+            href="/settings/household"
+            className="text-sm font-medium transition-colors hover:text-primary"
+          >
+            Settings
+          </Link>
+        </>
       )}
     </nav>
   )

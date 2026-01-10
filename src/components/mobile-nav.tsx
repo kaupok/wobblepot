@@ -42,13 +42,22 @@ export function MobileNav({ session }: MobileNavProps) {
             About
           </Link>
           {session && (
-            <Link
-              href="/profile"
-              className="hover:text-primary text-sm font-medium transition-colors"
-              onClick={() => setOpen(false)}
-            >
-              Profile
-            </Link>
+            <>
+              <Link
+                href="/profile"
+                className="hover:text-primary text-sm font-medium transition-colors"
+                onClick={() => setOpen(false)}
+              >
+                Profile
+              </Link>
+              <Link
+                href="/settings/household"
+                className="hover:text-primary text-sm font-medium transition-colors"
+                onClick={() => setOpen(false)}
+              >
+                Settings
+              </Link>
+            </>
           )}
         </nav>
       </SheetContent>
