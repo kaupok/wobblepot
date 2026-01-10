@@ -22,6 +22,8 @@ In conversational responses, prioritize brevity. Keep explanations concise and d
 - [Review Focus](#review-focus)
 - [Git Branch Workflow](#git-branch-workflow)
 - [Linear Issue Workflow](#linear-issue-workflow)
+- [Continue Implementation Workflow](#continue-implementation-workflow)
+- [Subagent Patterns for Context Efficiency](#subagent-patterns-for-context-efficiency)
 - [Pull Request Workflow](#pull-request-workflow)
 - [CI Pipeline](#ci-pipeline)
 - [Production Deployment Process](#production-deployment-process)
@@ -501,6 +503,102 @@ Follow normal development workflow (make changes, run tests, commit).
 When creating the PR, the branch name will automatically link it to the Linear issue. Linear automation will then move the issue to "In review" status.
 
 **Important:** Once a PR is created, do NOT update the Linear issue status manually. Linear automation handles status transitions from that point forward.
+
+## Continue Implementation Workflow
+
+When the user asks to "continue implementation" without specifying an issue:
+
+**Preferred method:** Use `/next-issue` to efficiently find the next task.
+
+The `/next-issue` skill runs in an isolated subagent that:
+
+1. Queries Linear for backlog issues in the active milestone
+2. Checks dependencies to find unblocked work
+3. Does a quick codebase scan for key files
+4. Returns a concise summary (~500 words)
+
+This saves ~8k tokens compared to doing discovery in the main conversation.
+
+**Manual workflow** (if `/next-issue` unavailable or more control needed):
+
+**1. Fetch project context:**
+
+```typescript
+mcp__linear-server__get_project({ query: "5a19627a-803f-4052-83c4-b44810d17af7" })
+```
+
+Review the project description for current phase, active milestone, and any context needed.
+
+**2. Find candidate issues:**
+
+```typescript
+mcp__linear-server__list_issues({
+  project: "5a19627a-803f-4052-83c4-b44810d17af7",
+  state: "Backlog",
+  limit: 20
+})
+```
+
+**3. Check relationships for each candidate:**
+
+For promising candidates (especially in the active milestone), fetch with relations:
+
+```typescript
+mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
+```
+
+**4. Find unblocked issues:**
+
+An issue is ready to work on if:
+
+- `blockedBy` is empty, OR
+- All issues in `blockedBy` have status "Done" or "Canceled"
+
+**5. Prioritize by:**
+
+1. Active milestone (check project description for current phase)
+2. Dependency order (issues that unblock others first)
+3. Logical sequence within the milestone
+
+**6. Present recommendation:**
+
+Show the recommended issue with:
+
+- Why it's unblocked
+- What it will unblock (from `blocks` relation)
+- Brief summary of the implementation
+
+## Subagent Patterns for Context Efficiency
+
+When a task involves significant discovery/research before the real work begins, use a subagent to reduce context burn in the main conversation.
+
+**When to use subagents:**
+
+- Issue/task discovery (finding what to work on)
+- Codebase exploration for unfamiliar areas
+- Documentation lookups
+- Dependency analysis
+
+**Pattern:**
+
+1. Create a skill with `context: fork` and `agent: general-purpose`
+2. Restrict tools to only what's needed via `allowed-tools`
+3. Define a clear output format for the summary
+4. Main agent receives condensed output (~500-1000 words vs ~8-10k tokens)
+
+**Example skills:**
+
+- `/next-issue` - Find next unblocked Linear issue (see `.claude/skills/next-issue/`)
+
+**Creating a new skill:**
+
+```
+.claude/skills/
+└── your-skill/
+    └── SKILL.md
+```
+
+See [Claude Code Skills Documentation](https://docs.anthropic.com/en/docs/claude-code/skills) for full configuration options.
 
 ## Pull Request Workflow
 
