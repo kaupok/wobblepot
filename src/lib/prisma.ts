@@ -26,3 +26,8 @@ export const prisma =
   })
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+
+/**
+ * Type export for dependency injection in tests
+ */
+export type PrismaClientType = typeof prisma
