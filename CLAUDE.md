@@ -5,6 +5,7 @@ In conversational responses, prioritize brevity. Keep explanations concise and d
 ## Table of Contents
 
 - [Project Overview](#project-overview)
+- [Documentation Structure](#documentation-structure)
 - [Tech Stack](#tech-stack)
 - [Architecture Overview](#architecture-overview)
 - [File Organization](#file-organization)
@@ -41,7 +42,30 @@ A Next.js 16 project with React 19, using TypeScript, Tailwind CSS, and shadcn/u
 
 **Product:** Family Meal Planning App (Honkadori) - AI-powered weekly meal planning for households.
 
-**Product Spec:** The complete product specification, database schema, AI strategy, and MVP phases are documented in the [Family Meal Planning App](https://linear.app/honkadori/project/product-vision-ai-powered-family-meal-planning-app-694f025b60a4) Linear project. Reference this project for context on features, data models, and implementation decisions.
+**Product Spec:** The complete product specification is documented in the [Family Meal Planning App](https://linear.app/honkadori/project/family-meal-planning-app-694f025b60a4) Linear project (ID: `5a19627a-803f-4052-83c4-b44810d17af7`). This includes database schema, AI strategy, and MVP phases.
+
+**IMPORTANT - Before Implementation:** Always fetch the project spec using the Linear MCP server before starting any implementation work:
+
+```typescript
+mcp__linear-server__get_project({ query: "5a19627a-803f-4052-83c4-b44810d17af7" })
+```
+
+This ensures you have the latest context on features, data models, and implementation decisions. The spec is the source of truth for architectural decisions.
+
+## Documentation Structure
+
+| Document | Contains | When to Read |
+|----------|----------|--------------|
+| **This file (CLAUDE.md)** | Coding patterns, workflows, technical setup | Every session (auto-loaded) |
+| **Linear Project Spec** | Product vision, decisions, phase goals, domain logic | Before implementation work |
+
+**Rule:** CLAUDE.md tells you *how* to code. Linear spec tells you *what* to build and *why*.
+
+**When to update each:**
+
+- New feature → Linear spec (what), then CLAUDE.md (how) if new patterns needed
+- Architecture decision → Linear spec (decision + rationale)
+- New coding pattern → CLAUDE.md only
 
 ## Tech Stack
 
