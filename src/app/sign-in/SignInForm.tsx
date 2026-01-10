@@ -37,8 +37,11 @@ export function SignInForm() {
       setSuccessMessage(
         'Your password has been reset successfully. You can now sign in with your new password.',
       )
-      // Clear the query parameter from URL
-      router.replace('/sign-in')
+      // Clear the reset parameter while preserving other params (like returnUrl)
+      const newParams = new URLSearchParams(searchParams.toString())
+      newParams.delete('reset')
+      const newUrl = newParams.toString() ? `/sign-in?${newParams.toString()}` : '/sign-in'
+      router.replace(newUrl)
     }
   }, [searchParams, router])
 

@@ -19,5 +19,21 @@ export function getValidReturnUrl(url: string | null): string {
     return DEFAULT_REDIRECT
   }
 
+  // Block backslashes (some browsers normalize \ to /)
+  if (url.includes('\\')) {
+    return DEFAULT_REDIRECT
+  }
+
+  // Block encoded sequences that could become dangerous when decoded
+  try {
+    const decoded = decodeURIComponent(url)
+    if (decoded.startsWith('//') || decoded.includes('\\')) {
+      return DEFAULT_REDIRECT
+    }
+  } catch {
+    // If decoding fails, the URL is likely malformed - reject it
+    return DEFAULT_REDIRECT
+  }
+
   return url
 }
