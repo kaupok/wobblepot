@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 const SETTINGS_TABS = [
   { href: '/settings/household', label: 'Household' },
   { href: '/settings/profile', label: 'My preferences' },
+  { href: '/settings/invites', label: 'Invites' },
 ]
 
 export function SettingsNav() {
