@@ -23,6 +23,7 @@ In conversational responses, prioritize brevity. Keep explanations concise and d
 - [Git Branch Workflow](#git-branch-workflow)
 - [Linear Issue Workflow](#linear-issue-workflow)
 - [Continue Implementation Workflow](#continue-implementation-workflow)
+- [Skill-Based Development Workflow](#skill-based-development-workflow)
 - [Subagent Patterns for Context Efficiency](#subagent-patterns-for-context-efficiency)
 - [Pull Request Workflow](#pull-request-workflow)
 - [CI Pipeline](#ci-pipeline)
@@ -567,6 +568,83 @@ Show the recommended issue with:
 - Why it's unblocked
 - What it will unblock (from `blocks` relation)
 - Brief summary of the implementation
+
+## Skill-Based Development Workflow
+
+The following skills provide a structured workflow for implementing Linear issues.
+
+### Available Skills
+
+| Skill | Purpose | Context |
+|-------|---------|---------|
+| `/next-issue` | Find next unblocked issue in active milestone | Isolated |
+| `/plan-issue HON-XX` | Create implementation plan for an issue | Main conversation |
+| `/implement-issue HON-XX` | Execute plan, post to Linear, create branch | Main conversation |
+| `/code-review` | Review all changes on current branch | Isolated |
+| `/triage-code-review` | Categorize review findings into address/defer/skip | Main conversation |
+
+### Typical Workflow
+
+**1. Find next issue:**
+```
+/next-issue
+```
+Returns recommended issue with key files and implementation summary.
+
+**2. Plan the implementation:**
+```
+/plan-issue HON-51
+```
+- Fetches issue details and project context
+- Enters plan mode
+- Creates comprehensive plan file
+- User reviews and approves plan
+
+**3. Implement:**
+```
+/implement-issue HON-51
+```
+- Posts approved plan to Linear as comment
+- Updates issue status to "In Progress"
+- Creates branch using Linear's `gitBranchName`
+- Begins implementation following the plan
+
+For simple issues, skip planning:
+```
+/implement-issue HON-51 --no-plan
+```
+
+**4. Review before PR:**
+```
+/code-review
+```
+Returns structured review with issues categorized by severity.
+
+**5. Triage review findings:**
+```
+/triage-code-review
+```
+Categorizes issues into Address Now / Defer / Skip.
+
+**6. Create PR:**
+After fixing critical issues, create the pull request.
+
+### Session Patterns
+
+**Single session (small/medium issues):**
+```
+/next-issue → /plan-issue → [approve] → /implement-issue → /code-review → /triage → [fix] → create PR
+```
+
+**Multi-session (larger issues):**
+- Session 1: `/next-issue` → `/plan-issue` → [approve]
+- Session 2: `/implement-issue` → [implement]
+- Session 3: `/code-review` → `/triage` → [fix] → create PR
+
+### Cross-Session Context
+
+- **Plan is stored in Linear:** `/implement-issue` posts the plan as a comment, so `/code-review` can fetch it in a new session
+- **Triage needs same session:** `/triage-code-review` reads `/code-review` output from conversation history. Run both in the same session.
 
 ## Subagent Patterns for Context Efficiency
 
