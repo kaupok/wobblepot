@@ -578,8 +578,8 @@ The following skills provide a structured workflow for implementing Linear issue
 | Skill | Purpose | Context |
 |-------|---------|---------|
 | `/next-issue` | Find next unblocked issue in active milestone | Isolated |
-| `/plan-issue HON-XX` | Create implementation plan for an issue | Main conversation |
-| `/implement-issue HON-XX` | Execute plan, post to Linear, create branch | Main conversation |
+| `/plan-issue HON-XX` | Create plan, post to Linear after approval | Main conversation |
+| `/implement-issue HON-XX` | Execute plan from Linear, create branch | Main conversation |
 | `/code-review` | Review all changes on current branch | Isolated |
 | `/triage-code-review` | Categorize review findings into address/defer/skip | Main conversation |
 | `/commit` | Stage changes, run checks, create commit | Main conversation |
@@ -654,7 +654,7 @@ Analyzes all commits, drafts description, confirms push, and creates PR.
 
 ### Cross-Session Context
 
-- **Plan is stored in Linear:** `/implement-issue` posts the plan as a comment, so `/code-review` can fetch it in a new session
+- **Plan is stored in Linear:** `/plan-issue` posts the plan as a comment after approval, so `/implement-issue` and `/code-review` can fetch it in new sessions
 - **Triage needs same session:** `/triage-code-review` reads `/code-review` output from conversation history. Run both in the same session.
 
 ## Subagent Patterns for Context Efficiency

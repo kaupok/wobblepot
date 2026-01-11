@@ -113,7 +113,34 @@ Create a plan file with this structure:
 
 Call `ExitPlanMode` to request user approval of the plan.
 
-**STOP HERE.** Do not proceed to implementation. The user will manually run `/implement-issue` when ready.
+### 9. Post plan to Linear (after approval)
+
+Once the user approves the plan, fetch the issue UUID and post the plan:
+
+```
+mcp__linear-server__get_issue({ id: "HON-XX" })
+```
+
+Extract the issue UUID, then post:
+
+```
+mcp__linear-server__create_comment({
+  issueId: "issue-uuid",
+  body: "[Full plan content from plan file]"
+})
+```
+
+### 10. Output completion and STOP
+
+Output exactly this (substituting actual values):
+
+```
+✓ Plan approved and posted to HON-XX.
+
+Run `/implement-issue HON-XX` when ready to start implementation.
+```
+
+**STOP HERE.** Do not proceed to implementation, do not offer next steps, do not ask questions. The skill is complete.
 
 ## Important
 
