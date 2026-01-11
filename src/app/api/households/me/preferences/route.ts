@@ -30,9 +30,11 @@ const updatePreferencesSchema = z.object({
   excludedIngredientIds: z.array(z.string()).optional(),
   weekdayMealTypes: z
     .array(z.enum(['breakfast', 'lunch', 'dinner']))
+    .min(1, 'At least one weekday meal type required')
     .optional(),
   weekendMealTypes: z
     .array(z.enum(['breakfast', 'lunch', 'dinner']))
+    .min(1, 'At least one weekend meal type required')
     .optional(),
 })
 
