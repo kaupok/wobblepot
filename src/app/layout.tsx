@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
+import { Toaster } from 'sonner'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Header } from '@/components/header'
 // Ensure environment variables are validated on app startup
@@ -36,6 +37,7 @@ export default function RootLayout({
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <Toaster richColors closeButton duration={4000} />
           <Header />
           <div className="min-h-screen pt-16">{children}</div>
         </ThemeProvider>

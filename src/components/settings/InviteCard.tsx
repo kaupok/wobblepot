@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -30,16 +31,14 @@ function formatRelativeTime(dateString: string): string {
 }
 
 export function InviteCard({ invite, onRevoke }: InviteCardProps) {
-  const [copied, setCopied] = useState(false)
   const [isRevoking, setIsRevoking] = useState(false)
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(invite.url)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      toast.success('Link copied to clipboard')
     } catch {
-      // Silently fail - user can manually copy
+      toast.error('Failed to copy link. Please copy manually.')
     }
   }
 
@@ -59,8 +58,9 @@ export function InviteCard({ invite, onRevoke }: InviteCardProps) {
       }
 
       onRevoke(invite.id)
+      toast.success('Invite revoked')
     } catch {
-      alert('Failed to revoke invite. Please try again.')
+      toast.error('Failed to revoke invite. Please try again.')
     } finally {
       setIsRevoking(false)
     }
@@ -90,7 +90,7 @@ export function InviteCard({ invite, onRevoke }: InviteCardProps) {
           <Input value={invite.url} readOnly className="font-mono text-sm" />
           {invite.isActive && (
             <Button variant="outline" onClick={handleCopy} className="shrink-0">
-              {copied ? 'Copied!' : 'Copy'}
+              Copy
             </Button>
           )}
         </div>

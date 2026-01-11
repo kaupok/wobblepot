@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -50,6 +51,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
         return
       }
 
+      toast.success('Household created')
       router.push('/')
       router.refresh()
     } catch {

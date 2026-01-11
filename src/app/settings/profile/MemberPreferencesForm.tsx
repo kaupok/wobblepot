@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -94,7 +95,6 @@ export function MemberPreferencesForm({
   // Form state
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState(false)
 
   // Collapsible state - open by default if any nutritional target is set
   const [nutritionOpen, setNutritionOpen] = useState(
@@ -107,7 +107,6 @@ export function MemberPreferencesForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setSuccess(false)
     setIsLoading(true)
 
     try {
@@ -134,7 +133,7 @@ export function MemberPreferencesForm({
         throw new Error(errorData.error || 'Failed to save preferences')
       }
 
-      setSuccess(true)
+      toast.success('Preferences saved')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
@@ -420,11 +419,6 @@ export function MemberPreferencesForm({
             {error && (
               <Body variant="small" className="text-destructive" role="alert">
                 {error}
-              </Body>
-            )}
-            {success && (
-              <Body variant="small" className="text-green-600" role="status">
-                Preferences saved successfully.
               </Body>
             )}
             <Button type="submit" className="w-full" disabled={isLoading}>

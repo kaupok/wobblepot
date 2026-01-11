@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -117,7 +118,6 @@ export function HouseholdSettingsForm({
   // Form state
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState(false)
 
   const handleAllergenToggle = (allergen: Allergen, checked: boolean) => {
     if (checked) {
@@ -145,7 +145,6 @@ export function HouseholdSettingsForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setSuccess(false)
     setIsLoading(true)
 
     try {
@@ -188,7 +187,7 @@ export function HouseholdSettingsForm({
         }
       }
 
-      setSuccess(true)
+      toast.success('Settings saved')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
@@ -407,11 +406,6 @@ export function HouseholdSettingsForm({
             {error && (
               <Body variant="small" className="text-destructive" role="alert">
                 {error}
-              </Body>
-            )}
-            {success && (
-              <Body variant="small" className="text-green-600" role="status">
-                Settings saved successfully.
               </Body>
             )}
             <Button type="submit" className="w-full" disabled={isLoading}>
