@@ -104,16 +104,25 @@ Use descriptive branch names with prefixes:
 
    ```bash
    gh pr create --title "feat(auth): Add password reset functionality" --body "$(cat <<'EOF'
+   ## Context
+   [2-3 sentences explaining why these changes were made]
+
    ## Summary
-   ...
+   - [What changed]
 
    ## Test plan
-   ...
+   - [ ] [How to verify]
 
    🤖 Generated with [Claude Code](https://claude.com/claude-code)
    EOF
    )"
    ```
+
+   **Context section guidance:**
+   - Primary source: Linear issue description (the "why" behind the request)
+   - Supplement with: Design decisions, key tradeoffs, or implementation rationale
+   - Keep it brief: 2-3 sentences max
+   - If no Linear issue, explain the motivation from the task/conversation
 
 ## Recovery Procedures
 

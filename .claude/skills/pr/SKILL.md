@@ -30,8 +30,8 @@ If no commits ahead of main, inform the user there's nothing to create a PR for.
 
 Read `docs/GIT_WORKFLOW.md` for:
 - PR title format (must follow Conventional Commits for squash-merge)
-- PR body format (Summary, Test plan, attribution)
-- When to update PR descriptions
+- PR body format (Context, Summary, Test plan, attribution)
+- Context section guidance (why > what)
 
 Read `CLAUDE.md` section "Commit Message Conventions" for type prefixes.
 
@@ -57,14 +57,24 @@ gh pr view --json number,title,url 2>/dev/null
 
 If PR already exists, inform user and offer to update the description instead.
 
-### 6. Analyze changes
+### 6. Analyze changes and gather context
 
 Review all commits (not just the latest) to understand the full scope:
 ```bash
 git log origin/main..HEAD --format="%s%n%b"
 ```
 
-If Linear issue ID is in branch name (e.g., `hon-XX`), include `Closes HON-XX` in the PR description.
+**Gather context for the "why":**
+
+If Linear issue ID is in branch name (e.g., `hon-XX`):
+```
+mcp__linear-server__get_issue({ id: "HON-XX" })
+```
+Extract the issue description - this is the primary source for the Context section.
+
+Also note any key decisions or rationale from:
+- Implementation plan (if posted to Linear comments)
+- Conversation context (design tradeoffs, important choices made)
 
 ### 7. Draft PR title and description
 
@@ -72,6 +82,9 @@ If Linear issue ID is in branch name (e.g., `hon-XX`), include `Closes HON-XX` i
 
 **Description:** Follow the format from GIT_WORKFLOW.md:
 ```markdown
+## Context
+[2-3 sentences explaining why. Primary source: Linear issue description. Supplement with design decisions or rationale if relevant.]
+
 ## Summary
 - [1-3 bullet points describing the changes]
 
@@ -80,6 +93,8 @@ If Linear issue ID is in branch name (e.g., `hon-XX`), include `Closes HON-XX` i
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 ```
+
+If Linear issue is linked, include `Closes HON-XX` at the end of the Context section.
 
 ### 8. Confirm push
 
@@ -99,6 +114,9 @@ git push -u origin $(git branch --show-current)
 
 # Create PR using HEREDOC for body
 gh pr create --title "type(scope): Subject" --body "$(cat <<'EOF'
+## Context
+[Why these changes were made. Closes HON-XX if applicable.]
+
 ## Summary
 - ...
 
