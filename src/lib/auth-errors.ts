@@ -49,7 +49,9 @@ export function getUserFriendlyError(message: string): string {
   }
 
   // Validation errors
-  if (lowerMessage.includes('invalid email')) {
+  // Note: "invalid email or password" is handled by credentials check above
+  // This only matches standalone email validation errors
+  if (lowerMessage.includes('invalid email') && !lowerMessage.includes('password')) {
     return 'Please enter a valid email address.'
   }
   if (
