@@ -9,6 +9,7 @@ allowed-tools:
   - Grep
   - Glob
   - mcp__linear-server__get_issue
+  - mcp__linear-server__list_comments
 ---
 
 # Code Review
@@ -88,13 +89,32 @@ Extract issue ID from branch name:
 git branch --show-current | grep -oiE 'hon-[0-9]+' | head -1
 ```
 
-If an issue ID is found (e.g., `HON-11`), fetch the issue details:
+If an issue ID is found (e.g., `HON-11`):
 
+**6a. Fetch issue details:**
 ```
 mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
 ```
 
-Note the issue title, description, and any acceptance criteria. Check if the changes address the issue requirements.
+Note the issue title, description, and any acceptance criteria.
+
+**6b. Fetch implementation plan from comments:**
+```
+mcp__linear-server__list_comments({ issueId: "[issue-uuid-from-step-6a]" })
+```
+
+Look for a comment that starts with `# Plan:` - this is the implementation plan posted by `/implement-issue`.
+
+If a plan is found:
+- Note the planned implementation steps
+- Compare actual implementation to planned approach
+- Check if all planned files were modified
+- Verify planned verification steps are addressed
+
+**6c. Use context in review:**
+- Check if the changes address the issue requirements
+- If plan exists, verify implementation matches planned approach
+- Note any deviations from the plan (not necessarily bad, but worth mentioning)
 
 ### 7. Read changed files for full context
 
@@ -113,6 +133,7 @@ Use the Read tool on CLAUDE.md. Focus on: Code Standards, Typography Components,
 - **Tests**: Missing test coverage for new functionality
 - **Performance**: N+1 queries, unnecessary re-renders, large bundle imports
 - **Requirements**: If Linear issue context available, verify acceptance criteria are met
+- **Plan Compliance**: If implementation plan found, verify implementation matches planned approach
 
 ## Output Format
 
@@ -124,6 +145,7 @@ Return a structured review (under 800 words):
 ### Context
 - **PR**: [title](url) or "No PR created"
 - **Issue**: [HON-XX: title] or "No linked issue"
+- **Plan**: Found in Linear comments / Not found
 
 ### Changes Detected
 - **Committed** (vs main): X files
@@ -149,6 +171,13 @@ Return a structured review (under 800 words):
 ### Requirements Check
 [If Linear issue available: List acceptance criteria and whether they're addressed]
 [If no issue: Skip this section]
+
+### Plan Compliance
+[If implementation plan found in comments:]
+- Planned files vs actual files modified
+- Any deviations from planned approach (with rationale if apparent)
+- Verification steps from plan that should be checked
+[If no plan: Skip this section]
 
 ### Missing Tests
 - [ ] [Test case that should be added]
