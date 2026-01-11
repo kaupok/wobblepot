@@ -582,6 +582,8 @@ The following skills provide a structured workflow for implementing Linear issue
 | `/implement-issue HON-XX` | Execute plan, post to Linear, create branch | Main conversation |
 | `/code-review` | Review all changes on current branch | Isolated |
 | `/triage-code-review` | Categorize review findings into address/defer/skip | Main conversation |
+| `/commit` | Stage changes, run checks, create commit | Main conversation |
+| `/pr` | Analyze commits, create pull request | Main conversation |
 
 ### Typical Workflow
 
@@ -626,20 +628,29 @@ Returns structured review with issues categorized by severity.
 ```
 Categorizes issues into Address Now / Defer / Skip.
 
-**6. Create PR:**
-After fixing critical issues, create the pull request.
+**6. Commit changes:**
+```
+/commit
+```
+After fixing critical issues, stages all changes, runs checks, and creates commit.
+
+**7. Create PR:**
+```
+/pr
+```
+Analyzes all commits, drafts description, confirms push, and creates PR.
 
 ### Session Patterns
 
 **Single session (small/medium issues):**
 ```
-/next-issue → /plan-issue → [approve] → /implement-issue → /code-review → /triage → [fix] → create PR
+/next-issue → /plan-issue → [approve] → /implement-issue → /code-review → /triage → [fix] → /commit → /pr
 ```
 
 **Multi-session (larger issues):**
 - Session 1: `/next-issue` → `/plan-issue` → [approve]
 - Session 2: `/implement-issue` → [implement]
-- Session 3: `/code-review` → `/triage` → [fix] → create PR
+- Session 3: `/code-review` → `/triage` → [fix] → `/commit` → `/pr`
 
 ### Cross-Session Context
 
