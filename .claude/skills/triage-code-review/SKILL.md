@@ -30,33 +30,27 @@ From the conversation, identify:
 
 ### 3. Evaluate each review item
 
-For each issue/suggestion in the review, assess:
+For each issue/suggestion in the review, assess using **effort-first** thinking:
 
-**Scope fit**: Is this within the current issue/PR scope?
-- In scope → lean toward addressing now
-- Out of scope → lean toward deferring
+**Effort** (primary factor):
+- Quick fix (few lines, < 5 min) → **address now**, regardless of severity
+- Moderate fix (15-30 min, in scope) → **address now**
+- Significant work (new feature, major refactor) → defer only if truly out of scope
 
-**Severity**:
-- 🔴 Critical → must address now
-- 🟡 Suggestion → case-by-case based on scope/effort
-- 🟢 Nitpick → usually defer unless quick fix
+**Severity** (secondary factor):
+- 🔴 Critical → always address now, regardless of effort
+- 🟡 Suggestion → address if quick or moderate effort
+- 🟢 Nitpick → address if quick fix, otherwise skip
 
-**Effort**:
-- Quick fix (few lines, obvious change) → address now even if minor
-- Significant work (new logic, refactoring) → only if critical or clearly in-scope
-
-**Risk**:
-- Security issue → always address now
-- Bug that could affect users → address now
-- Tech debt / style → can defer safely
+**The bias should be toward action.** Deferred items rarely get done. If something can be fixed in a few minutes, just fix it.
 
 ### 4. Categorize
 
 Place each item in one of three buckets:
 
-- **Address Now**: Must be fixed before PR merge
-- **Defer**: Valid feedback but out of scope; suggest creating follow-up issue
-- **Skip**: Disagree with suggestion or not actionable (explain why)
+- **Address Now**: Fix before PR merge. Includes all quick fixes and anything critical.
+- **Defer**: Only for significant work (hours, not minutes) that's genuinely out of scope. Must justify why it can't be a quick fix.
+- **Skip**: Disagree with the suggestion or it's not actionable. Explain why.
 
 ## Output Format
 
@@ -82,11 +76,11 @@ Place each item in one of three buckets:
 
 ## Guidelines
 
+- **Bias toward action** - when in doubt, address it now. Deferred items rarely get done.
 - Be decisive - every item should end up in exactly one category
-- Justify each decision briefly so the user understands the reasoning
-- If disagreeing with a suggestion, explain why (the reviewer might have missed context)
-- For deferred items, summarize what a follow-up issue would cover
-- Keep output concise - focus on the decision, not re-explaining the original feedback
+- Justify decisions briefly, especially for Skip (explain disagreement)
+- **Defer is the last resort** - only for work that genuinely takes hours and is out of scope
+- Keep output concise - focus on the decision and next steps
 - If the review had no issues (APPROVE verdict), acknowledge that briefly
 
 ## Edge Cases
