@@ -155,9 +155,7 @@ describe('PATCH /api/households/me/preferences', () => {
       session: { id: 'session-123' },
     } as never)
 
-    const response = await PATCH(
-      createRequest({ allergensToAvoid: ['invalid-allergen'] })
-    )
+    const response = await PATCH(createRequest({ allergensToAvoid: ['invalid-allergen'] }))
     const data = await response.json()
 
     expect(response.status).toBe(400)
@@ -170,9 +168,7 @@ describe('PATCH /api/households/me/preferences', () => {
       session: { id: 'session-123' },
     } as never)
 
-    const response = await PATCH(
-      createRequest({ weekdayMealTypes: ['brunch'] })
-    )
+    const response = await PATCH(createRequest({ weekdayMealTypes: ['brunch'] }))
     const data = await response.json()
 
     expect(response.status).toBe(400)
@@ -185,14 +181,11 @@ describe('PATCH /api/households/me/preferences', () => {
       session: { id: 'session-123' },
     } as never)
 
-    const request = new Request(
-      'http://localhost/api/households/me/preferences',
-      {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: 'invalid json{',
-      }
-    )
+    const request = new Request('http://localhost/api/households/me/preferences', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: 'invalid json{',
+    })
 
     const response = await PATCH(request)
     const data = await response.json()
@@ -275,7 +268,7 @@ describe('PATCH /api/households/me/preferences', () => {
         dietaryType: 'vegan',
         allergensToAvoid: ['gluten', 'dairy'],
         weekdayMealTypes: ['lunch', 'dinner'],
-      })
+      }),
     )
     const data = await response.json()
 
@@ -322,7 +315,7 @@ describe('PATCH /api/households/me/preferences', () => {
     mockUpdate.mockResolvedValue(updatedPreferences as never)
 
     const response = await PATCH(
-      createRequest({ restrictions: ['low sodium', 'Mediterranean-style'] })
+      createRequest({ restrictions: ['low sodium', 'Mediterranean-style'] }),
     )
     const data = await response.json()
 
@@ -341,9 +334,7 @@ describe('PATCH /api/households/me/preferences', () => {
 
     expect(response.status).toBe(400)
     expect(data.error).toBe('Validation failed')
-    expect(data.details.weekdayMealTypes).toContain(
-      'At least one weekday meal type required'
-    )
+    expect(data.details.weekdayMealTypes).toContain('At least one weekday meal type required')
   })
 
   it('returns 400 on empty weekendMealTypes array', async () => {
@@ -357,8 +348,6 @@ describe('PATCH /api/households/me/preferences', () => {
 
     expect(response.status).toBe(400)
     expect(data.error).toBe('Validation failed')
-    expect(data.details.weekendMealTypes).toContain(
-      'At least one weekend meal type required'
-    )
+    expect(data.details.weekendMealTypes).toContain('At least one weekend meal type required')
   })
 })

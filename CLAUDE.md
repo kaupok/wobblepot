@@ -50,19 +50,19 @@ A Next.js 16 project with React 19, using TypeScript, Tailwind CSS, and shadcn/u
 **IMPORTANT - Before Implementation:** Always fetch the project spec using the Linear MCP server before starting any implementation work:
 
 ```typescript
-mcp__linear-server__get_project({ query: "5a19627a-803f-4052-83c4-b44810d17af7" })
+mcp__linear - server__get_project({ query: '5a19627a-803f-4052-83c4-b44810d17af7' })
 ```
 
 This ensures you have the latest context on features, data models, and implementation decisions. The spec is the source of truth for architectural decisions.
 
 ## Documentation Structure
 
-| Document | Contains | When to Read |
-|----------|----------|--------------|
-| **This file (CLAUDE.md)** | Coding patterns, workflows, technical setup | Every session (auto-loaded) |
-| **Linear Project Spec** | Product vision, decisions, phase goals, domain logic | Before implementation work |
+| Document                  | Contains                                             | When to Read                |
+| ------------------------- | ---------------------------------------------------- | --------------------------- |
+| **This file (CLAUDE.md)** | Coding patterns, workflows, technical setup          | Every session (auto-loaded) |
+| **Linear Project Spec**   | Product vision, decisions, phase goals, domain logic | Before implementation work  |
 
-**Rule:** CLAUDE.md tells you *how* to code. Linear spec tells you *what* to build and *why*.
+**Rule:** CLAUDE.md tells you _how_ to code. Linear spec tells you _what_ to build and _why_.
 
 **When to update each:**
 
@@ -464,7 +464,7 @@ When working on Linear issues manually (not through Cyrus automation), follow th
 
 ```typescript
 // Using Linear MCP server to fetch the issue
-mcp__linear-server__get_issue({ id: "HON-XX" })
+mcp__linear - server__get_issue({ id: 'HON-XX' })
 ```
 
 Linear provides a `gitBranchName` field with a suggested branch name that automatically links the branch to the issue.
@@ -475,11 +475,12 @@ Before starting implementation, update the Linear issue status and assign yourse
 
 ```typescript
 // Using Linear MCP server
-mcp__linear-server__update_issue({
-  id: "HON-XX",
-  state: "In progress",
-  assignee: "me"  // Assign to yourself if unassigned
-})
+mcp__linear -
+  server__update_issue({
+    id: 'HON-XX',
+    state: 'In progress',
+    assignee: 'me', // Assign to yourself if unassigned
+  })
 ```
 
 This signals to the team that work has begun and who is working on it.
@@ -525,7 +526,7 @@ This saves ~8k tokens compared to doing discovery in the main conversation.
 **1. Fetch project context:**
 
 ```typescript
-mcp__linear-server__get_project({ query: "5a19627a-803f-4052-83c4-b44810d17af7" })
+mcp__linear - server__get_project({ query: '5a19627a-803f-4052-83c4-b44810d17af7' })
 ```
 
 Review the project description for current phase, active milestone, and any context needed.
@@ -533,11 +534,12 @@ Review the project description for current phase, active milestone, and any cont
 **2. Find candidate issues:**
 
 ```typescript
-mcp__linear-server__list_issues({
-  project: "5a19627a-803f-4052-83c4-b44810d17af7",
-  state: "Backlog",
-  limit: 20
-})
+mcp__linear -
+  server__list_issues({
+    project: '5a19627a-803f-4052-83c4-b44810d17af7',
+    state: 'Backlog',
+    limit: 20,
+  })
 ```
 
 **3. Check relationships for each candidate:**
@@ -545,7 +547,7 @@ mcp__linear-server__list_issues({
 For promising candidates (especially in the active milestone), fetch with relations:
 
 ```typescript
-mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
+mcp__linear - server__get_issue({ id: 'HON-XX', includeRelations: true })
 ```
 
 **4. Find unblocked issues:**
@@ -575,79 +577,96 @@ The following skills provide a structured workflow for implementing Linear issue
 
 ### Available Skills
 
-| Skill | Purpose | Context |
-|-------|---------|---------|
-| `/next-issue` | Find next unblocked issue in active milestone | Isolated |
-| `/plan-issue HON-XX` | Create plan, post to Linear after approval | Main conversation |
-| `/implement-issue HON-XX` | Execute plan from Linear, create branch | Main conversation |
-| `/code-review` | Review all changes on current branch | Isolated |
-| `/triage-code-review` | Categorize review findings into address/defer/skip | Main conversation |
-| `/commit` | Stage changes, run checks, create commit | Main conversation |
-| `/pr` | Analyze commits, create pull request | Main conversation |
+| Skill                     | Purpose                                            | Context           |
+| ------------------------- | -------------------------------------------------- | ----------------- |
+| `/next-issue`             | Find next unblocked issue in active milestone      | Isolated          |
+| `/plan-issue HON-XX`      | Create plan, post to Linear after approval         | Main conversation |
+| `/implement-issue HON-XX` | Execute plan from Linear, create branch            | Main conversation |
+| `/code-review`            | Review all changes on current branch               | Isolated          |
+| `/triage-code-review`     | Categorize review findings into address/defer/skip | Main conversation |
+| `/commit`                 | Stage changes, run checks, create commit           | Main conversation |
+| `/pr`                     | Analyze commits, create pull request               | Main conversation |
 
 ### Typical Workflow
 
 **1. Find next issue:**
+
 ```
 /next-issue
 ```
+
 Returns recommended issue with key files and implementation summary.
 
 **2. Plan the implementation:**
+
 ```
 /plan-issue HON-51
 ```
+
 - Fetches issue details and project context
 - Enters plan mode
 - Creates comprehensive plan file
 - User reviews and approves plan
 
 **3. Implement:**
+
 ```
 /implement-issue HON-51
 ```
+
 - Posts approved plan to Linear as comment
 - Updates issue status to "In Progress"
 - Creates branch using Linear's `gitBranchName`
 - Begins implementation following the plan
 
 For simple issues, skip planning:
+
 ```
 /implement-issue HON-51 --no-plan
 ```
 
 **4. Review before PR:**
+
 ```
 /code-review
 ```
+
 Returns structured review with issues categorized by severity.
 
 **5. Triage review findings:**
+
 ```
 /triage-code-review
 ```
+
 Categorizes issues into Address Now / Defer / Skip.
 
 **6. Commit changes:**
+
 ```
 /commit
 ```
+
 After fixing critical issues, stages all changes, runs checks, and creates commit.
 
 **7. Create PR:**
+
 ```
 /pr
 ```
+
 Analyzes all commits, drafts description, confirms push, and creates PR.
 
 ### Session Patterns
 
 **Single session (small/medium issues):**
+
 ```
 /next-issue → /plan-issue → [approve] → /implement-issue → /code-review → /triage → [fix] → /commit → /pr
 ```
 
 **Multi-session (larger issues):**
+
 - Session 1: `/next-issue` → `/plan-issue` → [approve]
 - Session 2: `/implement-issue` → [implement]
 - Session 3: `/code-review` → `/triage` → [fix] → `/commit` → `/pr`

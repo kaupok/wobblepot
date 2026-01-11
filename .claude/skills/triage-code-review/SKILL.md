@@ -24,6 +24,7 @@ Scan conversation history for the most recent `/code-review` output. Look for th
 ### 2. Gather context
 
 From the conversation, identify:
+
 - The Linear issue being worked on (if mentioned)
 - The PR scope (if discussed)
 - The current task/goal
@@ -33,11 +34,13 @@ From the conversation, identify:
 For each issue/suggestion in the review, assess using **effort-first** thinking:
 
 **Effort** (primary factor):
+
 - Quick fix (few lines, < 5 min) → **address now**, regardless of severity
 - Moderate fix (15-30 min, in scope) → **address now**
 - Significant work (new feature, major refactor) → defer only if truly out of scope
 
 **Severity** (secondary factor):
+
 - 🔴 Critical → always address now, regardless of effort
 - 🟡 Suggestion → address if quick or moderate effort
 - 🟢 Nitpick → address if quick fix, otherwise skip

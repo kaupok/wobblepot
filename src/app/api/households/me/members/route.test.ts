@@ -174,7 +174,7 @@ describe('GET /api/households/me/members', () => {
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { householdId: 'household-999' },
-      })
+      }),
     )
   })
 })

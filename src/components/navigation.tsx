@@ -7,30 +7,24 @@ interface NavigationProps {
 
 export function Navigation({ session }: NavigationProps) {
   return (
-    <nav className="hidden md:flex items-center gap-6">
-      <Link
-        href="/"
-        className="text-sm font-medium transition-colors hover:text-primary"
-      >
+    <nav className="hidden items-center gap-6 md:flex">
+      <Link href="/" className="hover:text-primary text-sm font-medium transition-colors">
         Home
       </Link>
-      <Link
-        href="/about"
-        className="text-sm font-medium transition-colors hover:text-primary"
-      >
+      <Link href="/about" className="hover:text-primary text-sm font-medium transition-colors">
         About
       </Link>
       {session && (
         <>
           <Link
             href="/profile"
-            className="text-sm font-medium transition-colors hover:text-primary"
+            className="hover:text-primary text-sm font-medium transition-colors"
           >
             Profile
           </Link>
           <Link
             href="/settings/household"
-            className="text-sm font-medium transition-colors hover:text-primary"
+            className="hover:text-primary text-sm font-medium transition-colors"
           >
             Settings
           </Link>

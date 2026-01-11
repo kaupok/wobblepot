@@ -411,15 +411,9 @@ describe('HouseholdSettingsForm', () => {
         expect(mockFetch).toHaveBeenCalledTimes(1)
       })
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/households/me/preferences',
-        expect.anything(),
-      )
+      expect(mockFetch).toHaveBeenCalledWith('/api/households/me/preferences', expect.anything())
 
-      expect(mockFetch).not.toHaveBeenCalledWith(
-        '/api/households/me',
-        expect.anything(),
-      )
+      expect(mockFetch).not.toHaveBeenCalledWith('/api/households/me', expect.anything())
     })
 
     it('shows success toast on successful save', async () => {
@@ -501,11 +495,7 @@ describe('HouseholdSettingsForm', () => {
   describe('null preferences handling', () => {
     it('handles null preferences gracefully', () => {
       render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={null}
-          isOwner={true}
-        />,
+        <HouseholdSettingsForm household={defaultHousehold} preferences={null} isOwner={true} />,
       )
 
       // Should render with default values

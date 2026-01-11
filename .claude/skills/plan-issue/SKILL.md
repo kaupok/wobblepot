@@ -19,6 +19,7 @@ Requires an issue ID as argument (e.g., `/plan-issue HON-51`).
 Extract issue ID from arguments. Format: `HON-XX` or just `XX`.
 
 If no issue ID provided, inform the user:
+
 ```
 Usage: /plan-issue HON-XX
 Example: /plan-issue HON-51
@@ -31,6 +32,7 @@ mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
 ```
 
 Extract and note:
+
 - Title and description
 - `gitBranchName` for later use
 - `blockedBy` relations (check if blocked)
@@ -58,6 +60,7 @@ Review any prior discussion, decisions, or context from team members.
 ### 5. Explore codebase
 
 Using Read, Grep, and Glob tools:
+
 - Identify key files mentioned in the issue
 - Find existing patterns to follow
 - Note related components or APIs
@@ -84,9 +87,9 @@ Create a plan file with this structure:
 
 ## Design Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| [Key decision] | [Your choice] | [Why] |
+| Decision       | Choice        | Rationale |
+| -------------- | ------------- | --------- |
+| [Key decision] | [Your choice] | [Why]     |
 
 ## Files to Create
 

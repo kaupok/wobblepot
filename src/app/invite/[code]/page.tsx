@@ -57,22 +57,14 @@ export default async function InvitePage({ params }: InvitePageProps) {
   if (isExpired || isMaxedOut) {
     return (
       <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
-        <JoinHouseholdCard
-          status="invalid"
-          householdName={invite.household.name}
-          code={code}
-        />
+        <JoinHouseholdCard status="invalid" householdName={invite.household.name} code={code} />
       </div>
     )
   }
 
   return (
     <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
-      <JoinHouseholdCard
-        status="valid"
-        householdName={invite.household.name}
-        code={code}
-      />
+      <JoinHouseholdCard status="valid" householdName={invite.household.name} code={code} />
     </div>
   )
 }

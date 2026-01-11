@@ -9,6 +9,7 @@ These instructions apply when Claude Code is running within a Cyrus worktree ses
 ### Context
 
 When working on Linear issues through Cyrus:
+
 - Linear has automation that moves issues to "In review" status when a PR is created
 - Linear automation handles all subsequent status transitions (In review → Done, etc.)
 - Updating the status back to "In progress" after PR creation creates conflicts with Linear's workflow
@@ -28,6 +29,7 @@ When working on Linear issues through Cyrus:
 ### Allowed Actions After PR Creation
 
 You may still:
+
 - Create comments on the Linear issue using `mcp__linear-server__create_comment`
 - Update the PR itself using `gh` commands
 - Continue working on code improvements

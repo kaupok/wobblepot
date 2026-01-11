@@ -31,11 +31,13 @@ If no changes (staged or unstaged), inform the user and stop.
 ### 3. Review conventions
 
 Read `docs/GIT_WORKFLOW.md` for:
+
 - Pre-commit checklist
 - Commit message format
 - HEREDOC syntax for commit messages
 
 Read `CLAUDE.md` section "Commit Message Conventions" for:
+
 - Type prefixes (feat, fix, docs, etc.)
 - Scope usage
 - Subject line formatting
@@ -60,11 +62,13 @@ If any check fails, stop and report the failures. Do not proceed with commit.
 ### 6. Analyze changes and draft message
 
 Review the diff to understand what changed:
+
 ```bash
 git diff --cached
 ```
 
 Check recent commits for style consistency:
+
 ```bash
 git log --oneline -5
 ```

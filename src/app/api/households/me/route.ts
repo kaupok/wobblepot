@@ -60,10 +60,7 @@ export async function PATCH(request: Request) {
 
   if (!parsed.success) {
     const errors = parsed.error.flatten().fieldErrors
-    return NextResponse.json(
-      { error: 'Validation failed', details: errors },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
   }
 
   const membership = await getHouseholdMembership(session.user.id)

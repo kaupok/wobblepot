@@ -29,6 +29,7 @@ If no commits ahead of main, inform the user there's nothing to create a PR for.
 ### 3. Review conventions
 
 Read `docs/GIT_WORKFLOW.md` for:
+
 - PR title format (must follow Conventional Commits for squash-merge)
 - PR body format (Context, Summary, Test plan, attribution)
 - Context section guidance (why > what)
@@ -38,6 +39,7 @@ Read `CLAUDE.md` section "Commit Message Conventions" for type prefixes.
 ### 4. Gather context
 
 Run in parallel:
+
 ```bash
 # All commits on this branch
 git log origin/main..HEAD --oneline
@@ -60,6 +62,7 @@ If PR already exists, inform user and offer to update the description instead.
 ### 6. Analyze changes and gather context
 
 Review all commits (not just the latest) to understand the full scope:
+
 ```bash
 git log origin/main..HEAD --format="%s%n%b"
 ```
@@ -67,12 +70,15 @@ git log origin/main..HEAD --format="%s%n%b"
 **Gather context for the "why":**
 
 If Linear issue ID is in branch name (e.g., `hon-XX`):
+
 ```
 mcp__linear-server__get_issue({ id: "HON-XX" })
 ```
+
 Extract the issue description - this is the primary source for the Context section.
 
 Also note any key decisions or rationale from:
+
 - Implementation plan (if posted to Linear comments)
 - Conversation context (design tradeoffs, important choices made)
 
@@ -81,14 +87,18 @@ Also note any key decisions or rationale from:
 **Title:** Follow Conventional Commits format (this becomes the squash-merge commit message).
 
 **Description:** Follow the format from GIT_WORKFLOW.md:
+
 ```markdown
 ## Context
+
 [2-3 sentences explaining why. Primary source: Linear issue description. Supplement with design decisions or rationale if relevant.]
 
 ## Summary
+
 - [1-3 bullet points describing the changes]
 
 ## Test plan
+
 - [ ] [How to verify the changes work]
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
@@ -99,6 +109,7 @@ If Linear issue is linked, include `Closes HON-XX` at the end of the Context sec
 ### 8. Confirm push
 
 Check if branch needs to be pushed:
+
 ```bash
 git status -sb
 ```
@@ -108,6 +119,7 @@ If not pushed or behind remote, show the user what will be pushed and ask for co
 ### 9. Push and create PR
 
 After user confirms:
+
 ```bash
 # Push with upstream tracking
 git push -u origin $(git branch --show-current)

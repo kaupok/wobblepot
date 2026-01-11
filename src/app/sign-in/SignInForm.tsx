@@ -93,89 +93,93 @@ export function SignInForm() {
 
   return (
     <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>
-            <Heading variant="h2">Sign in</Heading>
-          </CardTitle>
-          <CardDescription>
-            <Body variant="muted">Sign in to your account</Body>
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent>
-            <div className="flex flex-col gap-4">
-              {successMessage && (
-                <Body variant="small" className="text-green-600" role="status">
-                  {successMessage}
-                </Body>
-              )}
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value)
-                    if (successMessage) setSuccessMessage('')
-                  }}
-                  required
-                  disabled={isLoading}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                  <Link
-                    href="/forgot-password"
-                    className="text-sm text-primary hover:underline"
-                    tabIndex={-1}
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value)
-                    if (successMessage) setSuccessMessage('')
-                  }}
-                  required
-                  disabled={isLoading}
-                  minLength={8}
-                />
-              </div>
-              {error && (
-                <Body variant="small" className="text-destructive" role="alert">
-                  {error}
-                </Body>
-              )}
-              {isSlowRequest && !error && (
-                <Body variant="small" className="text-muted-foreground">
-                  This is taking longer than expected. Please wait...
-                </Body>
-              )}
-            </div>
-          </CardContent>
-          <CardFooter className="pt-6">
-            <div className="flex w-full flex-col gap-4">
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Signing in...' : 'Sign in'}
-              </Button>
-              <Body variant="small" className="text-muted-foreground text-center">
-                Don&apos;t have an account?{' '}
-                <Link
-                  href={returnUrl !== '/profile' ? `/sign-up?returnUrl=${encodeURIComponent(returnUrl)}` : '/sign-up'}
-                  className="text-primary hover:underline"
-                >
-                  Sign up
-                </Link>
+      <CardHeader>
+        <CardTitle>
+          <Heading variant="h2">Sign in</Heading>
+        </CardTitle>
+        <CardDescription>
+          <Body variant="muted">Sign in to your account</Body>
+        </CardDescription>
+      </CardHeader>
+      <form onSubmit={handleSubmit}>
+        <CardContent>
+          <div className="flex flex-col gap-4">
+            {successMessage && (
+              <Body variant="small" className="text-green-600" role="status">
+                {successMessage}
               </Body>
+            )}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  if (successMessage) setSuccessMessage('')
+                }}
+                required
+                disabled={isLoading}
+              />
             </div>
-          </CardFooter>
-        </form>
-      </Card>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link
+                  href="/forgot-password"
+                  className="text-primary text-sm hover:underline"
+                  tabIndex={-1}
+                >
+                  Forgot password?
+                </Link>
+              </div>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  if (successMessage) setSuccessMessage('')
+                }}
+                required
+                disabled={isLoading}
+                minLength={8}
+              />
+            </div>
+            {error && (
+              <Body variant="small" className="text-destructive" role="alert">
+                {error}
+              </Body>
+            )}
+            {isSlowRequest && !error && (
+              <Body variant="small" className="text-muted-foreground">
+                This is taking longer than expected. Please wait...
+              </Body>
+            )}
+          </div>
+        </CardContent>
+        <CardFooter className="pt-6">
+          <div className="flex w-full flex-col gap-4">
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Signing in...' : 'Sign in'}
+            </Button>
+            <Body variant="small" className="text-muted-foreground text-center">
+              Don&apos;t have an account?{' '}
+              <Link
+                href={
+                  returnUrl !== '/profile'
+                    ? `/sign-up?returnUrl=${encodeURIComponent(returnUrl)}`
+                    : '/sign-up'
+                }
+                className="text-primary hover:underline"
+              >
+                Sign up
+              </Link>
+            </Body>
+          </div>
+        </CardFooter>
+      </form>
+    </Card>
   )
 }

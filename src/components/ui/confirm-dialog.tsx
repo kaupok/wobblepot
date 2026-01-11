@@ -20,6 +20,7 @@ interface ConfirmDialogProps {
   description: string
   confirmLabel?: string
   cancelLabel?: string
+  loadingLabel?: string
   onConfirm: () => void
   variant?: 'default' | 'destructive'
   isLoading?: boolean
@@ -32,6 +33,7 @@ export function ConfirmDialog({
   description,
   confirmLabel = 'Continue',
   cancelLabel = 'Cancel',
+  loadingLabel = 'Loading...',
   onConfirm,
   variant = 'default',
   isLoading = false,
@@ -50,7 +52,7 @@ export function ConfirmDialog({
             disabled={isLoading}
             className={cn(variant === 'destructive' && buttonVariants({ variant: 'destructive' }))}
           >
-            {isLoading ? 'Loading...' : confirmLabel}
+            {isLoading ? loadingLabel : confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

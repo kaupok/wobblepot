@@ -373,18 +373,20 @@ describe('ForgotPasswordPage', () => {
       const { authClient } = await import('@/lib/auth-client')
 
       // First submission fails
-      vi.mocked(authClient.requestPasswordReset).mockImplementationOnce(async (payload, options) => {
-        if (options?.onError) {
-          options.onError({
-            error: {
-              message: 'Network error',
-              status: 400,
-              statusText: 'Bad Request',
-              name: 'AuthError',
-            },
-          } as any)
-        }
-      })
+      vi.mocked(authClient.requestPasswordReset).mockImplementationOnce(
+        async (payload, options) => {
+          if (options?.onError) {
+            options.onError({
+              error: {
+                message: 'Network error',
+                status: 400,
+                statusText: 'Bad Request',
+                name: 'AuthError',
+              },
+            } as any)
+          }
+        },
+      )
 
       const user = userEvent.setup()
       render(<ForgotPasswordPage />)
@@ -397,11 +399,13 @@ describe('ForgotPasswordPage', () => {
       })
 
       // Second submission succeeds
-      vi.mocked(authClient.requestPasswordReset).mockImplementationOnce(async (payload, options) => {
-        if (options?.onSuccess) {
-          options.onSuccess({} as any)
-        }
-      })
+      vi.mocked(authClient.requestPasswordReset).mockImplementationOnce(
+        async (payload, options) => {
+          if (options?.onSuccess) {
+            options.onSuccess({} as any)
+          }
+        },
+      )
 
       await user.click(screen.getByRole('button', { name: /send reset link/i }))
 

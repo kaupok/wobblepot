@@ -102,9 +102,7 @@ export function HouseholdSettingsForm({
   const [allergensToAvoid, setAllergensToAvoid] = useState<Allergen[]>(
     preferences?.allergensToAvoid ?? [],
   )
-  const [restrictions, setRestrictions] = useState<string[]>(
-    preferences?.restrictions ?? [],
-  )
+  const [restrictions, setRestrictions] = useState<string[]>(preferences?.restrictions ?? [])
   const [excludedIngredients, setExcludedIngredients] = useState<string[]>(
     preferences?.excludedIngredients ?? [],
   )
@@ -127,11 +125,7 @@ export function HouseholdSettingsForm({
     }
   }
 
-  const handleMealTypeToggle = (
-    mealType: MealType,
-    checked: boolean,
-    isWeekend: boolean,
-  ) => {
+  const handleMealTypeToggle = (mealType: MealType, checked: boolean, isWeekend: boolean) => {
     const setter = isWeekend ? setWeekendMealTypes : setWeekdayMealTypes
     const current = isWeekend ? weekendMealTypes : weekdayMealTypes
 
@@ -202,9 +196,7 @@ export function HouseholdSettingsForm({
           <Heading variant="h2">Household settings</Heading>
         </CardTitle>
         <CardDescription>
-          <Body variant="muted">
-            Configure your household preferences for meal planning
-          </Body>
+          <Body variant="muted">Configure your household preferences for meal planning</Body>
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -246,9 +238,7 @@ export function HouseholdSettingsForm({
                 </Select>
               </div>
               {!isOwner && (
-                <Body variant="muted">
-                  Only the household owner can edit name and timezone.
-                </Body>
+                <Body variant="muted">Only the household owner can edit name and timezone.</Body>
               )}
             </section>
 
@@ -259,22 +249,14 @@ export function HouseholdSettingsForm({
                 <Label>Dietary type</Label>
                 <RadioGroup
                   value={dietaryType}
-                  onValueChange={(value) =>
-                    setDietaryType(value as DietaryType | 'none')
-                  }
+                  onValueChange={(value) => setDietaryType(value as DietaryType | 'none')}
                   disabled={isLoading}
                   className="flex flex-wrap gap-4"
                 >
                   {DIETARY_TYPES.map((type) => (
                     <div key={type.value} className="flex items-center gap-2">
-                      <RadioGroupItem
-                        value={type.value}
-                        id={`dietary-${type.value}`}
-                      />
-                      <Label
-                        htmlFor={`dietary-${type.value}`}
-                        className="font-normal"
-                      >
+                      <RadioGroupItem value={type.value} id={`dietary-${type.value}`} />
+                      <Label htmlFor={`dietary-${type.value}`} className="font-normal">
                         {type.label}
                       </Label>
                     </div>
@@ -285,10 +267,7 @@ export function HouseholdSettingsForm({
                 <Label>Allergens to avoid</Label>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {ALLERGENS.map((allergen) => (
-                    <div
-                      key={allergen.value}
-                      className="flex items-center gap-2"
-                    >
+                    <div key={allergen.value} className="flex items-center gap-2">
                       <Checkbox
                         id={`allergen-${allergen.value}`}
                         checked={allergensToAvoid.includes(allergen.value)}
@@ -297,10 +276,7 @@ export function HouseholdSettingsForm({
                         }
                         disabled={isLoading}
                       />
-                      <Label
-                        htmlFor={`allergen-${allergen.value}`}
-                        className="font-normal"
-                      >
+                      <Label htmlFor={`allergen-${allergen.value}`} className="font-normal">
                         {allergen.label}
                       </Label>
                     </div>
@@ -316,9 +292,7 @@ export function HouseholdSettingsForm({
                   placeholder="e.g., low sodium, halal"
                   disabled={isLoading}
                 />
-                <Body variant="muted">
-                  Add custom dietary restrictions (press Enter to add)
-                </Body>
+                <Body variant="muted">Add custom dietary restrictions (press Enter to add)</Body>
               </div>
             </section>
 
@@ -335,8 +309,7 @@ export function HouseholdSettingsForm({
                   disabled={isLoading}
                 />
                 <Body variant="muted">
-                  Add ingredients you want to avoid in meal suggestions (press
-                  Enter to add)
+                  Add ingredients you want to avoid in meal suggestions (press Enter to add)
                 </Body>
               </div>
             </section>
@@ -353,18 +326,11 @@ export function HouseholdSettingsForm({
                         id={`weekday-${meal.value}`}
                         checked={weekdayMealTypes.includes(meal.value)}
                         onCheckedChange={(checked) =>
-                          handleMealTypeToggle(
-                            meal.value,
-                            checked === true,
-                            false,
-                          )
+                          handleMealTypeToggle(meal.value, checked === true, false)
                         }
                         disabled={isLoading}
                       />
-                      <Label
-                        htmlFor={`weekday-${meal.value}`}
-                        className="font-normal"
-                      >
+                      <Label htmlFor={`weekday-${meal.value}`} className="font-normal">
                         {meal.label}
                       </Label>
                     </div>
@@ -380,18 +346,11 @@ export function HouseholdSettingsForm({
                         id={`weekend-${meal.value}`}
                         checked={weekendMealTypes.includes(meal.value)}
                         onCheckedChange={(checked) =>
-                          handleMealTypeToggle(
-                            meal.value,
-                            checked === true,
-                            true,
-                          )
+                          handleMealTypeToggle(meal.value, checked === true, true)
                         }
                         disabled={isLoading}
                       />
-                      <Label
-                        htmlFor={`weekend-${meal.value}`}
-                        className="font-normal"
-                      >
+                      <Label htmlFor={`weekend-${meal.value}`} className="font-normal">
                         {meal.label}
                       </Label>
                     </div>

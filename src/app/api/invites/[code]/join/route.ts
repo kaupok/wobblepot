@@ -3,10 +3,7 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-export async function POST(
-  _request: Request,
-  { params }: { params: Promise<{ code: string }> }
-) {
+export async function POST(_request: Request, { params }: { params: Promise<{ code: string }> }) {
   const session = await auth.api.getSession({
     headers: await headers(),
   })
@@ -27,7 +24,7 @@ export async function POST(
         message:
           'You are already a member of a household. Leave your current household to join another.',
       },
-      { status: 400 }
+      { status: 400 },
     )
   }
 
@@ -49,7 +46,7 @@ export async function POST(
         error: 'invite_not_found',
         message: 'Invite code not found.',
       },
-      { status: 404 }
+      { status: 404 },
     )
   }
 
@@ -64,7 +61,7 @@ export async function POST(
         error: 'invite_invalid',
         message: 'This invite has expired or reached its maximum uses.',
       },
-      { status: 400 }
+      { status: 400 },
     )
   }
 

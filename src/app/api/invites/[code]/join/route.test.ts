@@ -75,7 +75,7 @@ describe('POST /api/invites/[code]/join', () => {
     expect(response.status).toBe(400)
     expect(data.error).toBe('already_in_household')
     expect(data.message).toBe(
-      'You are already a member of a household. Leave your current household to join another.'
+      'You are already a member of a household. Leave your current household to join another.',
     )
   })
 

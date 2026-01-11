@@ -31,8 +31,7 @@ export default async function MemberPreferencesPage() {
     })
   }
 
-  const householdDietaryType =
-    membership.household.preferences?.dietaryType ?? null
+  const householdDietaryType = membership.household.preferences?.dietaryType ?? null
 
   return (
     <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">

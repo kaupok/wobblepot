@@ -28,10 +28,7 @@ export async function POST(request: Request) {
   }
 
   if (membership.role !== 'owner') {
-    return NextResponse.json(
-      { error: 'Only household owners can create invites' },
-      { status: 403 },
-    )
+    return NextResponse.json({ error: 'Only household owners can create invites' }, { status: 403 })
   }
 
   const baseUrl = getServerBaseURL()
@@ -96,10 +93,7 @@ export async function GET() {
   }
 
   if (membership.role !== 'owner') {
-    return NextResponse.json(
-      { error: 'Only household owners can view invites' },
-      { status: 403 },
-    )
+    return NextResponse.json({ error: 'Only household owners can view invites' }, { status: 403 })
   }
 
   const invites = await prisma.householdInvite.findMany({

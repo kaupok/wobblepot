@@ -1,18 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Button } from '@/components/ui/button'
 import { Heading, Body } from '@/components/ui/typography'
 import { SettingsNav } from '@/components/settings-nav'
@@ -83,9 +73,7 @@ export function InviteList({ isOwner }: InviteListProps) {
         <CardContent>
           <div className="flex flex-col gap-8">
             <SettingsNav />
-            <Body variant="muted">
-              Only the household owner can manage invites.
-            </Body>
+            <Body variant="muted">Only the household owner can manage invites.</Body>
           </div>
         </CardContent>
       </Card>
@@ -133,11 +121,7 @@ export function InviteList({ isOwner }: InviteListProps) {
                     Active invites
                   </Body>
                   {activeInvites.map((invite) => (
-                    <InviteCard
-                      key={invite.id}
-                      invite={invite}
-                      onRevoke={handleInviteRevoked}
-                    />
+                    <InviteCard key={invite.id} invite={invite} onRevoke={handleInviteRevoked} />
                   ))}
                 </div>
               )}
@@ -146,7 +130,7 @@ export function InviteList({ isOwner }: InviteListProps) {
                 <Collapsible open={expiredOpen} onOpenChange={setExpiredOpen}>
                   <CollapsibleTrigger asChild>
                     <Button variant="ghost" className="w-full justify-start gap-2 px-0">
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-muted-foreground text-sm">
                         {expiredOpen ? '▼' : '▶'} Expired invites ({expiredInvites.length})
                       </span>
                     </Button>

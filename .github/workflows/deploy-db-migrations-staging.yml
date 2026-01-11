@@ -6,7 +6,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false  # Don't cancel running migrations - let them queue
+  cancel-in-progress: false # Don't cancel running migrations - let them queue
 
 permissions:
   contents: read

@@ -189,7 +189,7 @@ function pickDay(dates: [Date, Date, Date, Date, Date, Date, Date], position: Da
 
 function computeRequiredSlots(
   dietaryType: DietaryType,
-  dates: [Date, Date, Date, Date, Date, Date, Date]
+  dates: [Date, Date, Date, Date, Date, Date, Date],
 ): SlotRequirement[] {
   if (dietaryType === 'omnivore') {
     return [
@@ -344,7 +344,7 @@ const mealPlanSchema = z.object({
     z.object({
       date: z.string().describe('Date in YYYY-MM-DD format'),
       mealId: z.string().describe('The meal ID from the candidates'),
-    })
+    }),
   ),
 })
 
@@ -353,7 +353,7 @@ async function generateWithAI(
   remainingDates: Date[],
   candidatePools: CandidatePools,
   restrictions: string[] = [],
-  previousErrors?: ValidationError[]
+  previousErrors?: ValidationError[],
 ): Promise<PlanEntry[]> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
@@ -381,7 +381,7 @@ async function generateWithAI(
       name: c.name,
       proteinType: c.primaryProteinType,
       kidFriendly: c.kidFriendly,
-    }))
+    })),
   )
 
   let prompt = `Select meals for this week's dinner plan.
@@ -458,7 +458,7 @@ async function hydratePlan(entries: PlanEntry[]): Promise<HydratedPlanEntry[]> {
 function validatePlan(
   plan: HydratedPlanEntry[],
   requiredSlots: SlotRequirement[],
-  expectedDates: Date[]
+  expectedDates: Date[],
 ): ValidationResult {
   const errors: ValidationError[] = []
 
@@ -491,9 +491,7 @@ function validatePlan(
 
   // Check required slots
   for (const slot of requiredSlots) {
-    const entry = plan.find(
-      (e) => toDateString(e.date) === toDateString(slot.date)
-    )
+    const entry = plan.find((e) => toDateString(e.date) === toDateString(slot.date))
     if (!entry?.meal || entry.meal.primaryProteinType !== slot.proteinType) {
       errors.push({
         type: 'slot_violation',
@@ -543,7 +541,7 @@ function repairPlan(
   plan: HydratedPlanEntry[],
   errors: ValidationError[],
   candidatePools: CandidatePools,
-  requiredSlots: SlotRequirement[]
+  requiredSlots: SlotRequirement[],
 ): HydratedPlanEntry[] {
   const repairedPlan = [...plan]
   const usedMealIds = new Set(plan.map((e) => e.mealId))
@@ -552,7 +550,7 @@ function repairPlan(
     if (error.type === 'slot_violation' && error.date && error.expected) {
       const errorDate = error.date
       const entryIndex = repairedPlan.findIndex(
-        (e) => toDateString(e.date) === toDateString(errorDate)
+        (e) => toDateString(e.date) === toDateString(errorDate),
       )
       if (entryIndex === -1) continue
 
@@ -562,7 +560,7 @@ function repairPlan(
         entryIndex,
         pool,
         usedMealIds,
-        requiredSlots
+        requiredSlots,
       )
 
       if (replacement) {
@@ -589,9 +587,7 @@ function repairPlan(
       const secondDate = error.dates[1]
       if (!secondDate) continue
       const secondDateStr = toDateString(secondDate)
-      const entryIndex = repairedPlan.findIndex(
-        (e) => toDateString(e.date) === secondDateStr
-      )
+      const entryIndex = repairedPlan.findIndex((e) => toDateString(e.date) === secondDateStr)
       if (entryIndex === -1) continue
 
       const replacement = findValidReplacement(
@@ -599,7 +595,7 @@ function repairPlan(
         entryIndex,
         candidatePools.any,
         usedMealIds,
-        requiredSlots
+        requiredSlots,
       )
 
       if (replacement) {
@@ -630,7 +626,7 @@ function findValidReplacement(
   entryIndex: number,
   pool: CandidateMeal[],
   usedMealIds: Set<string>,
-  requiredSlots: SlotRequirement[]
+  requiredSlots: SlotRequirement[],
 ): CandidateMeal | null {
   const sorted = [...plan].sort((a, b) => a.date.getTime() - b.date.getTime())
   const currentEntry = plan[entryIndex]
@@ -645,9 +641,7 @@ function findValidReplacement(
   const nextProtein = nextEntry?.meal?.primaryProteinType ?? null
 
   // Check if this is a required slot day
-  const slotRequirement = requiredSlots.find(
-    (s) => toDateString(s.date) === currentDate
-  )
+  const slotRequirement = requiredSlots.find((s) => toDateString(s.date) === currentDate)
 
   for (const candidate of pool) {
     // Skip if already used
@@ -706,7 +700,7 @@ async function main() {
     requiredSlots.map((s) => ({
       date: formatDate(s.date),
       proteinType: s.proteinType,
-    }))
+    })),
   )
 
   // Step 2: Query candidates
@@ -740,10 +734,7 @@ async function main() {
   // Step 3: AI selection
   log.section('STEP 3: AI SELECTION')
   const remainingDates = dates.filter(
-    (d) =>
-      !requiredSlots.some(
-        (s) => toDateString(s.date) === toDateString(d)
-      )
+    (d) => !requiredSlots.some((s) => toDateString(s.date) === toDateString(d)),
   )
 
   let entries: PlanEntry[]
@@ -790,7 +781,7 @@ async function main() {
           remainingDates,
           candidatePools,
           [],
-          validation.errors
+          validation.errors,
         )
         hydratedPlan = await hydratePlan(entries)
         validation = validatePlan(hydratedPlan, requiredSlots, dates)
@@ -811,7 +802,7 @@ async function main() {
       meal: e.meal?.name || 'MISSING',
       proteinType: e.meal?.primaryProteinType || 'N/A',
       kidFriendly: e.meal?.kidFriendly ? 'Yes' : 'No',
-    }))
+    })),
   )
 
   // Summary statistics

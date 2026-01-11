@@ -22,8 +22,7 @@ const headingVariants = cva('scroll-m-20 tracking-tight', {
 })
 
 interface HeadingProps
-  extends React.HTMLAttributes<HTMLHeadingElement>,
-    VariantProps<typeof headingVariants> {}
+  extends React.HTMLAttributes<HTMLHeadingElement>, VariantProps<typeof headingVariants> {}
 
 const tagMap = {
   h1: 'h1',
@@ -62,8 +61,7 @@ const bodyVariants = cva('', {
 })
 
 interface BodyProps
-  extends React.HTMLAttributes<HTMLParagraphElement>,
-    VariantProps<typeof bodyVariants> {}
+  extends React.HTMLAttributes<HTMLParagraphElement>, VariantProps<typeof bodyVariants> {}
 
 export const Body = React.forwardRef<HTMLParagraphElement, BodyProps>(
   ({ className, variant, ...props }, ref) => {
