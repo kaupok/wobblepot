@@ -329,4 +329,36 @@ describe('PATCH /api/households/me/preferences', () => {
     expect(response.status).toBe(200)
     expect(data.restrictions).toEqual(['low sodium', 'Mediterranean-style'])
   })
+
+  it('returns 400 on empty weekdayMealTypes array', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    const response = await PATCH(createRequest({ weekdayMealTypes: [] }))
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Validation failed')
+    expect(data.details.weekdayMealTypes).toContain(
+      'At least one weekday meal type required'
+    )
+  })
+
+  it('returns 400 on empty weekendMealTypes array', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    const response = await PATCH(createRequest({ weekendMealTypes: [] }))
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Validation failed')
+    expect(data.details.weekendMealTypes).toContain(
+      'At least one weekend meal type required'
+    )
+  })
 })
