@@ -109,6 +109,12 @@ Create a plan file with this structure:
 - [ ] [Edge cases to check]
 ```
 
+### 8. Request plan approval
+
+Call `ExitPlanMode` to request user approval of the plan.
+
+**STOP HERE.** Do not proceed to implementation. The user will manually run `/implement-issue` when ready.
+
 ## Important
 
 - Include the issue ID in the plan header (required for `/implement-issue` validation)
@@ -117,3 +123,4 @@ Create a plan file with this structure:
 - Order implementation steps by dependency
 - Include verification steps that can be checked after implementation
 - If the issue has acceptance criteria, map them to verification steps
+- **Never suggest or prompt to start implementation** - the skill ends after plan approval
