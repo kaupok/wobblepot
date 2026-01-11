@@ -1,6 +1,6 @@
 ---
 name: implement-issue
-description: Implement an approved plan. Posts plan to Linear, creates branch, and begins implementation.
+description: Implement an approved plan. Reads plan from Linear, creates branch, and begins implementation.
 context: inherit
 ---
 
@@ -38,35 +38,7 @@ If `--no-plan` flag is present:
 - Use issue description as implementation guide
 - Continue from step 6 (status update)
 
-### 3. Find plan file
-
-Look for recent plan files in `~/.claude/plans/` that contain the issue ID.
-
-Search pattern: Look for files containing `**Issue:** HON-XX` or `# Plan: HON-XX`.
-
-```bash
-grep -l "HON-XX" ~/.claude/plans/*.md 2>/dev/null | head -1
-```
-
-If no matching plan file found:
-```
-No plan found for HON-XX.
-
-Options:
-1. Run `/plan-issue HON-XX` to create a plan first
-2. Run `/implement-issue HON-XX --no-plan` to skip planning
-```
-
-### 4. Read and validate plan
-
-Read the plan file and verify:
-- Issue ID in header matches the requested issue
-- Plan has implementation steps
-- Plan has files to create/modify
-
-Store the plan content for posting to Linear.
-
-### 5. Fetch issue details
+### 3. Fetch issue details
 
 ```
 mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
@@ -78,22 +50,33 @@ Extract:
 - Current state
 - Current assignee
 
-### 6. Post plan to Linear (skip if --no-plan)
+### 4. Find plan from Linear comments
 
-First, check if plan was already posted:
 ```
 mcp__linear-server__list_comments({ issueId: "issue-uuid" })
 ```
 
-If no comment starts with "# Plan:", post the plan:
+Look for a comment starting with `# Plan:` - this is the plan posted by `/plan-issue`.
+
+If no plan comment found:
 ```
-mcp__linear-server__create_comment({
-  issueId: "issue-uuid",
-  body: "[Full plan content from plan file]"
-})
+No plan found for HON-XX in Linear comments.
+
+Options:
+1. Run `/plan-issue HON-XX` to create and post a plan first
+2. Run `/implement-issue HON-XX --no-plan` to skip planning
 ```
 
-### 7. Update issue status
+### 5. Validate plan
+
+Verify the plan comment:
+- Contains implementation steps
+- Contains files to create/modify
+- Issue ID in plan matches the requested issue
+
+Store the plan content for implementation guidance.
+
+### 6. Update issue status
 
 If current state is not "In Progress":
 ```
@@ -103,7 +86,7 @@ mcp__linear-server__update_issue({
 })
 ```
 
-### 8. Assign to self
+### 7. Assign to self
 
 If issue is unassigned:
 ```
@@ -115,7 +98,7 @@ mcp__linear-server__update_issue({
 
 If assigned to someone else, warn the user and ask before reassigning.
 
-### 9. Create or switch to branch
+### 8. Create or switch to branch
 
 Check if branch already exists:
 ```bash
@@ -137,7 +120,7 @@ Verify you're on the correct branch:
 git branch --show-current
 ```
 
-### 10. Begin implementation
+### 9. Begin implementation
 
 Inform the user that setup is complete:
 ```
@@ -162,16 +145,14 @@ Then begin implementing following the plan steps (or issue description if `--no-
 | Scenario | Handling |
 |----------|----------|
 | Issue doesn't exist | Error: "Issue HON-XX not found in Linear" |
-| Plan file not found | Offer to run `/plan-issue` or use `--no-plan` |
-| Plan is for different issue | Error: "Plan file is for HON-YY, not HON-XX" |
+| Plan not in Linear comments | Offer to run `/plan-issue` or use `--no-plan` |
+| Plan is for different issue | Error: "Plan in comments is for HON-YY, not HON-XX" |
 | Already on the branch | Continue without creating new branch |
 | Assigned to someone else | Warn and ask before reassigning |
-| Plan already posted | Skip posting, note "Plan already in Linear" |
 | Not on main branch | Warn if not on main when creating branch |
 
 ## Important
 
 - Always verify the branch name matches Linear's `gitBranchName`
 - Don't update issue status after PR is created (Linear automation handles it)
-- Post the full plan to Linear, not a summary
 - If implementation reveals plan issues, suggest updating the plan

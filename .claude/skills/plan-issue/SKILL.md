@@ -109,6 +109,39 @@ Create a plan file with this structure:
 - [ ] [Edge cases to check]
 ```
 
+### 8. Request plan approval
+
+Call `ExitPlanMode` to request user approval of the plan.
+
+### 9. Post plan to Linear (after approval)
+
+Once the user approves the plan, fetch the issue UUID and post the plan:
+
+```
+mcp__linear-server__get_issue({ id: "HON-XX" })
+```
+
+Extract the issue UUID, then post:
+
+```
+mcp__linear-server__create_comment({
+  issueId: "issue-uuid",
+  body: "[Full plan content from plan file]"
+})
+```
+
+### 10. Output completion and STOP
+
+Output exactly this (substituting actual values):
+
+```
+✓ Plan approved and posted to HON-XX.
+
+Run `/implement-issue HON-XX` when ready to start implementation.
+```
+
+**STOP HERE.** Do not proceed to implementation, do not offer next steps, do not ask questions. The skill is complete.
+
 ## Important
 
 - Include the issue ID in the plan header (required for `/implement-issue` validation)
@@ -117,3 +150,4 @@ Create a plan file with this structure:
 - Order implementation steps by dependency
 - Include verification steps that can be checked after implementation
 - If the issue has acceptance criteria, map them to verification steps
+- **Never suggest or prompt to start implementation** - the skill ends after plan approval
