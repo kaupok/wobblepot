@@ -6,6 +6,7 @@ import {
   signOut,
   createHousehold,
   TEST_PASSWORD,
+  TEST_NAME,
 } from './utils/test-helpers'
 
 test.describe('Authentication flows', () => {
@@ -71,13 +72,66 @@ test.describe('Authentication flows', () => {
     await expect(page.getByRole('link', { name: 'Sign up' })).toBeVisible()
   })
 
-  test('sign in with invalid credentials shows error', async ({ page }) => {
+  test('invalid credentials show error message', async ({ page }) => {
+    const email = generateUniqueEmail()
+
+    // Create a real user first
+    await signUp(page, { email })
+    await createHousehold(page)
+    await signOut(page)
+
+    // Try wrong password - should show error
     await page.goto('/sign-in')
-    await page.getByLabel('Email').fill('nonexistent@example.com')
+    await page.getByLabel('Email').fill(email)
+    await page.getByLabel('Password').fill('wrongpassword123')
+    await page.getByRole('button', { name: 'Sign in' }).click()
+
+    // Wait for error message (not the route announcer)
+    // Better Auth returns generic "Invalid email or password" for security
+    const wrongPwdAlert = page.locator('[role="alert"]').filter({ hasText: /incorrect|invalid/i })
+    await expect(wrongPwdAlert).toBeVisible()
+
+    // Try nonexistent email - should also show same generic error for security
+    // (prevents email enumeration attacks)
+    await page.getByLabel('Email').clear()
+    await page.getByLabel('Email').fill('definitely-does-not-exist@example.com')
+    await page.getByLabel('Password').clear()
     await page.getByLabel('Password').fill(TEST_PASSWORD)
     await page.getByRole('button', { name: 'Sign in' }).click()
 
-    // Should show error message
-    await expect(page.getByRole('alert')).toBeVisible()
+    // Same generic error message for nonexistent email (security best practice)
+    const noUserAlert = page.locator('[role="alert"]').filter({ hasText: /incorrect|invalid/i })
+    await expect(noUserAlert).toBeVisible()
+  })
+
+  test('password too short prevents form submission', async ({ page }) => {
+    await page.goto('/sign-up')
+    await page.getByLabel('Name').fill(TEST_NAME)
+    await page.getByLabel('Email').fill(generateUniqueEmail())
+    await page.getByLabel('Password').fill('short') // Only 5 chars, minLength is 8
+
+    await page.getByRole('button', { name: 'Sign up' }).click()
+
+    // Should stay on sign-up page (HTML5 validation prevents submission)
+    await expect(page).toHaveURL('/sign-up')
+  })
+
+  test('returnUrl redirects to specified page after sign in', async ({ page }) => {
+    const email = generateUniqueEmail()
+
+    // Create user and complete onboarding
+    await signUp(page, { email })
+    await createHousehold(page)
+    await signOut(page)
+
+    // Sign in with returnUrl pointing to settings/invites
+    await page.goto('/sign-in?returnUrl=/settings/invites')
+    await page.getByLabel('Email').fill(email)
+    await page.getByLabel('Password').fill(TEST_PASSWORD)
+    await page.getByRole('button', { name: 'Sign in' }).click()
+
+    // Wait for navigation away from sign-in page and then to settings/invites
+    await page.waitForURL((url) => !url.pathname.includes('/sign-in'))
+    await expect(page).toHaveURL('/settings/invites')
   })
 })

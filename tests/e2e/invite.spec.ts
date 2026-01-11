@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test'
-import { signUpWithHousehold, signUp } from './utils/test-helpers'
+import {
+  signUpWithHousehold,
+  signUp,
+  waitForDialog,
+  createInvite,
+} from './utils/test-helpers'
 
 test.describe('Invite flows', () => {
   test('owner creates invite and sees invite link', async ({ page }) => {
@@ -13,8 +18,8 @@ test.describe('Invite flows', () => {
     // Click create invite
     await page.getByRole('button', { name: 'Create invite' }).click()
 
-    // Dialog should open
-    await expect(page.getByRole('dialog')).toBeVisible()
+    // Wait for dialog to be visible and animation to complete
+    await waitForDialog(page)
     await expect(page.getByText('Create invite link')).toBeVisible()
 
     // Submit with default values
@@ -50,6 +55,7 @@ test.describe('Invite flows', () => {
       // Step 2: Owner creates invite
       await ownerPage.goto('/settings/invites')
       await ownerPage.getByRole('button', { name: 'Create invite' }).click()
+      await waitForDialog(ownerPage)
       await ownerPage.getByRole('button', { name: 'Create invite' }).click()
       await expect(ownerPage.getByText('Invite created')).toBeVisible()
 
@@ -103,6 +109,7 @@ test.describe('Invite flows', () => {
       // Step 2: Create invite with max uses = 1
       await ownerPage.goto('/settings/invites')
       await ownerPage.getByRole('button', { name: 'Create invite' }).click()
+      await waitForDialog(ownerPage)
       await ownerPage.getByLabel('Maximum uses').clear()
       await ownerPage.getByLabel('Maximum uses').fill('1')
       await ownerPage.getByRole('button', { name: 'Create invite' }).click()
@@ -150,6 +157,7 @@ test.describe('Invite flows', () => {
       })
       await owner1Page.goto('/settings/invites')
       await owner1Page.getByRole('button', { name: 'Create invite' }).click()
+      await waitForDialog(owner1Page)
       await owner1Page.getByRole('button', { name: 'Create invite' }).click()
       await expect(owner1Page.getByText('Invite created')).toBeVisible()
       const inviteInput = owner1Page.getByRole('dialog').locator('input[readonly]')
@@ -172,5 +180,109 @@ test.describe('Invite flows', () => {
       await ownerContext.close()
       await owner2Context.close()
     }
+  })
+
+  test('owner revokes invite before it is used', async ({ browser }) => {
+    const ownerContext = await browser.newContext()
+    const memberContext = await browser.newContext()
+
+    try {
+      const ownerPage = await ownerContext.newPage()
+      const memberPage = await memberContext.newPage()
+
+      // Owner creates household and invite
+      await signUpWithHousehold(ownerPage, {
+        name: 'Owner',
+        householdName: 'Revoke Test Household',
+      })
+      const inviteCode = await createInvite(ownerPage)
+
+      // Owner closes the success dialog and revokes the invite
+      await ownerPage.getByRole('button', { name: 'Close' }).click()
+
+      // Set up dialog handler for the confirm() prompt
+      ownerPage.on('dialog', async (dialog) => {
+        expect(dialog.type()).toBe('confirm')
+        await dialog.accept()
+      })
+
+      // Click revoke button
+      await ownerPage.getByRole('button', { name: 'Revoke' }).click()
+
+      // Wait for invite to be removed from the list
+      await expect(ownerPage.getByRole('button', { name: 'Revoke' })).not.toBeVisible()
+
+      // New user tries to use the revoked invite
+      await signUp(memberPage, { name: 'New Member' })
+      await memberPage.goto(`/invite/${inviteCode}`)
+
+      // Revoked invites are deleted from DB, so the page returns 404
+      await expect(memberPage.getByText('404')).toBeVisible()
+      await expect(memberPage.getByText('This page could not be found')).toBeVisible()
+    } finally {
+      await ownerContext.close()
+      await memberContext.close()
+    }
+  })
+
+  test('clipboard copy works correctly', async ({ browser }) => {
+    // Create context with clipboard permissions
+    const context = await browser.newContext({
+      permissions: ['clipboard-read', 'clipboard-write'],
+    })
+
+    try {
+      const page = await context.newPage()
+
+      // Create household and invite
+      await signUpWithHousehold(page, { name: 'Owner' })
+      await page.goto('/settings/invites')
+      await page.getByRole('button', { name: 'Create invite' }).click()
+      await waitForDialog(page)
+      await page.getByRole('button', { name: 'Create invite' }).click()
+      await expect(page.getByText('Invite created')).toBeVisible()
+
+      // Get the expected invite URL
+      const inviteInput = page.getByRole('dialog').locator('input[readonly]')
+      const expectedUrl = await inviteInput.inputValue()
+
+      // Close the dialog to see the invite card with Copy button
+      await page.getByRole('button', { name: 'Close' }).click()
+
+      // Click Copy button on the invite card
+      await page.getByRole('button', { name: 'Copy' }).click()
+
+      // Verify button text changes to "Copied!"
+      await expect(page.getByRole('button', { name: 'Copied!' })).toBeVisible()
+
+      // Verify clipboard content matches
+      const clipboardContent = await page.evaluate(() => navigator.clipboard.readText())
+      expect(clipboardContent).toBe(expectedUrl)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('multiple pending invites are displayed', async ({ page }) => {
+    // Create household
+    await signUpWithHousehold(page, { name: 'Owner' })
+
+    // Create first invite with max uses = 5
+    await createInvite(page, { maxUses: 5 })
+    await page.getByRole('button', { name: 'Close' }).click()
+
+    // Create second invite with max uses = 10
+    await createInvite(page, { maxUses: 10 })
+    await page.getByRole('button', { name: 'Close' }).click()
+
+    // Verify both invites appear in the active invites list
+    await expect(page.getByText('Active invites')).toBeVisible()
+
+    // Should see two invite cards with different usage limits
+    await expect(page.getByText('0/5 uses')).toBeVisible()
+    await expect(page.getByText('0/10 uses')).toBeVisible()
+
+    // Should have two Revoke buttons (one for each invite)
+    await expect(page.getByRole('button', { name: 'Revoke' })).toHaveCount(2)
   })
 })
