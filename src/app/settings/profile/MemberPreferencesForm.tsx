@@ -153,7 +153,7 @@ export function MemberPreferencesForm({
       return
     }
     setPortionError(null)
-    setPortionMultiplier(Math.round(value * 10) / 10)
+    setPortionMultiplier(Math.round(value * 100) / 100)
   }
 
   return (
@@ -222,7 +222,7 @@ export function MemberPreferencesForm({
                     type="number"
                     min={0.5}
                     max={3.0}
-                    step={0.1}
+                    step={0.05}
                     value={portionMultiplier}
                     onChange={handlePortionInputChange}
                     className="w-24"
