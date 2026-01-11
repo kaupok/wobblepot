@@ -64,7 +64,7 @@ Review all commits (not just the latest) to understand the full scope:
 git log origin/main..HEAD --format="%s%n%b"
 ```
 
-If Linear issue ID is in branch name (e.g., `hon-XX`), note it for the PR description.
+If Linear issue ID is in branch name (e.g., `hon-XX`), include `Closes HON-XX` in the PR description.
 
 ### 7. Draft PR title and description
 
@@ -88,7 +88,7 @@ Check if branch needs to be pushed:
 git status -sb
 ```
 
-If not pushed or behind remote, show the user what will be pushed and ask for confirmation before proceeding.
+If not pushed or behind remote, show the user what will be pushed and ask for confirmation before proceeding. If user declines, stop without pushing.
 
 ### 9. Push and create PR
 

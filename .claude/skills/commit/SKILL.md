@@ -81,7 +81,7 @@ type(scope): Subject line
 
 Optional body explaining what and why.
 
-Co-Authored-By: Claude <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 EOF
 )"
 ```
