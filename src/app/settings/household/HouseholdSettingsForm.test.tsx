@@ -1,7 +1,15 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { toast } from 'sonner'
 import { HouseholdSettingsForm } from './HouseholdSettingsForm'
+
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}))
 
 // Mock fetch globally
 const mockFetch = vi.fn()
@@ -45,6 +53,8 @@ const defaultPreferences: {
 describe('HouseholdSettingsForm', () => {
   beforeEach(() => {
     mockFetch.mockReset()
+    vi.mocked(toast.success).mockReset()
+    vi.mocked(toast.error).mockReset()
   })
 
   afterEach(() => {
@@ -412,7 +422,7 @@ describe('HouseholdSettingsForm', () => {
       )
     })
 
-    it('shows success message on successful save', async () => {
+    it('shows success toast on successful save', async () => {
       mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
 
       render(
@@ -426,7 +436,7 @@ describe('HouseholdSettingsForm', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
 
       await waitFor(() => {
-        expect(screen.getByText('Settings saved successfully.')).toBeInTheDocument()
+        expect(toast.success).toHaveBeenCalledWith('Settings saved')
       })
     })
 
