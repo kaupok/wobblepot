@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { TagInput } from '@/components/tag-input'
+import { SettingsNav } from '@/components/settings-nav'
 
 // Types matching Prisma enums
 type DietaryType = 'omnivore' | 'vegetarian' | 'vegan' | 'pescatarian'
@@ -210,6 +211,7 @@ export function HouseholdSettingsForm({
       <form onSubmit={handleSubmit}>
         <CardContent>
           <div className="flex flex-col gap-8">
+            <SettingsNav />
             {/* Section 1: Basic Info */}
             <section className="flex flex-col gap-4">
               <Heading variant="h4">Basic information</Heading>
