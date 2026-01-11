@@ -58,6 +58,13 @@ const mockMembership = {
   },
 }
 
+const mockNonOwnerMembership = {
+  ...mockMembership,
+  id: 'member-456',
+  userId: 'user-456',
+  role: 'member',
+}
+
 describe('GET /api/households/me/preferences', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -207,6 +214,22 @@ describe('PATCH /api/households/me/preferences', () => {
 
     expect(response.status).toBe(404)
     expect(data.error).toBe('No household found')
+  })
+
+  it('returns 403 when non-owner tries to update preferences', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-456', name: 'Jane Doe', email: 'jane@example.com' },
+      session: { id: 'session-456' },
+    } as never)
+
+    mockFindFirst.mockResolvedValue(mockNonOwnerMembership as never)
+
+    const response = await PATCH(createRequest({ dietaryType: 'vegetarian' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(403)
+    expect(data.error).toBe('Only household owners can update preferences')
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 
   it('updates single field successfully', async () => {
