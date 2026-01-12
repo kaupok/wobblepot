@@ -70,8 +70,7 @@ export function InviteCard({ invite, onRevoke }: InviteCardProps) {
       ? `${invite.usesCount} uses`
       : `${invite.usesCount}/${invite.maxUses} uses`
 
-  const isExpired = new Date(invite.expiresAt) < new Date()
-  const statusLabel = invite.isActive ? 'Active' : isExpired ? 'Expired' : 'Revoked'
+  const statusLabel = invite.isActive ? 'Active' : 'Expired'
 
   return (
     <div className={cn('rounded-lg border p-4', !invite.isActive && 'bg-muted/50 opacity-75')}>

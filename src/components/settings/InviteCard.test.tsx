@@ -78,21 +78,8 @@ describe('InviteCard', () => {
   })
 
   describe('inactive invite display', () => {
-    it('shows Revoked badge for inactive invite with future expiry', () => {
+    it('shows Expired badge for inactive invite', () => {
       render(<InviteCard invite={createInvite({ isActive: false })} onRevoke={mockOnRevoke} />)
-
-      expect(screen.getByText('Revoked')).toBeInTheDocument()
-    })
-
-    it('shows Expired badge for inactive invite with past expiry', () => {
-      const past = new Date()
-      past.setDate(past.getDate() - 3)
-      render(
-        <InviteCard
-          invite={createInvite({ isActive: false, expiresAt: past.toISOString() })}
-          onRevoke={mockOnRevoke}
-        />,
-      )
 
       expect(screen.getByText('Expired')).toBeInTheDocument()
     })
