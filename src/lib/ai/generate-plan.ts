@@ -5,6 +5,7 @@ import { serverEnv } from '@/lib/env'
 import { getCandidates, NO_REPEAT_DAYS, type CandidateMeal } from '@/lib/meal-planning/candidates'
 import { computeRequiredSlots } from '@/lib/meal-planning/slots'
 import { getWeekDates, toDateString, parseLocalDate } from '@/lib/meal-planning/dates'
+import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { buildMealPlanPrompt } from './prompts'
 import {
   MealPlanResponseSchema,
@@ -250,11 +251,12 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
         entries: {
           include: {
             meal: {
-              select: {
-                id: true,
-                name: true,
-                kidFriendly: true,
-                primaryProteinType: true,
+              include: {
+                components: {
+                  include: {
+                    ingredient: true,
+                  },
+                },
               },
             },
           },
@@ -280,6 +282,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
             name: entry.meal.name,
             kidFriendly: entry.meal.kidFriendly,
             primaryProteinType: entry.meal.primaryProteinType,
+            nutrition: computeMealNutrition(entry.meal.components),
           }
         : null,
     })),
