@@ -88,7 +88,6 @@ describe('Home page component', () => {
         name: 'Test Household',
         timezone: 'Europe/Tallinn',
         createdAt: now,
-        updatedAt: now,
         preferences: null,
       },
     } as never)

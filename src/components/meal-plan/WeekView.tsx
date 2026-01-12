@@ -27,7 +27,10 @@ interface WeekViewProps {
 
 function getTodayString(): string {
   const today = new Date()
-  return today.toISOString().slice(0, 10)
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function getDatesInRange(startDate: string, endDate: string): string[] {
@@ -36,7 +39,7 @@ function getDatesInRange(startDate: string, endDate: string): string[] {
   const end = new Date(endDate + 'T12:00:00')
 
   const current = new Date(start)
-  while (current < end) {
+  while (current <= end) {
     dates.push(current.toISOString().slice(0, 10))
     current.setDate(current.getDate() + 1)
   }
