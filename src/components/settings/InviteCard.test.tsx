@@ -77,9 +77,22 @@ describe('InviteCard', () => {
     })
   })
 
-  describe('expired invite display', () => {
-    it('shows Expired badge for expired invite', () => {
+  describe('inactive invite display', () => {
+    it('shows Revoked badge for inactive invite with future expiry', () => {
       render(<InviteCard invite={createInvite({ isActive: false })} onRevoke={mockOnRevoke} />)
+
+      expect(screen.getByText('Revoked')).toBeInTheDocument()
+    })
+
+    it('shows Expired badge for inactive invite with past expiry', () => {
+      const past = new Date()
+      past.setDate(past.getDate() - 3)
+      render(
+        <InviteCard
+          invite={createInvite({ isActive: false, expiresAt: past.toISOString() })}
+          onRevoke={mockOnRevoke}
+        />,
+      )
 
       expect(screen.getByText('Expired')).toBeInTheDocument()
     })
@@ -174,7 +187,7 @@ describe('InviteCard', () => {
       expect(screen.getByText('Expires in 5 days')).toBeInTheDocument()
     })
 
-    it('shows "Expired yesterday" for invite expired yesterday', () => {
+    it('does not show expiry text for inactive invites', () => {
       const yesterday = new Date()
       yesterday.setDate(yesterday.getDate() - 1)
 
@@ -185,21 +198,11 @@ describe('InviteCard', () => {
         />,
       )
 
-      expect(screen.getByText('Expired yesterday')).toBeInTheDocument()
-    })
-
-    it('shows "Expired X days ago" for past expiry', () => {
-      const past = new Date()
-      past.setDate(past.getDate() - 3)
-
-      render(
-        <InviteCard
-          invite={createInvite({ expiresAt: past.toISOString(), isActive: false })}
-          onRevoke={mockOnRevoke}
-        />,
-      )
-
-      expect(screen.getByText('Expired 3 days ago')).toBeInTheDocument()
+      // Expiry text is hidden for inactive invites since the badge already shows status
+      // The badge shows "Expired" but no additional expiry time text like "Expired yesterday"
+      expect(screen.queryByText(/Expired yesterday/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/Expired \d+ days ago/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/Expires/)).not.toBeInTheDocument()
     })
   })
 
