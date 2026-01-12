@@ -8,9 +8,15 @@ context: inherit
 
 Create a well-formatted commit following project conventions.
 
+Supports optional `--pr` flag to also create a pull request after successful commit.
+
 ## Workflow
 
-### 1. Verify branch
+### 1. Parse arguments
+
+Check if `--pr` flag was passed. If so, create PR after successful commit.
+
+### 2. Verify branch
 
 ```bash
 git branch --show-current
@@ -26,7 +32,7 @@ If on `main`:
    Example: `chore/husky-precommit-hooks`, `fix/login-validation`, `feat/user-preferences`
 3. Continue with the commit workflow
 
-### 2. Check for changes
+### 3. Check for changes
 
 ```bash
 git status
@@ -36,7 +42,7 @@ git diff --cached --stat
 
 If no changes (staged or unstaged), inform the user and stop.
 
-### 3. Review conventions
+### 4. Review conventions
 
 Read `docs/GIT_WORKFLOW.md` for:
 
@@ -50,7 +56,7 @@ Read `CLAUDE.md` section "Commit Message Conventions" for:
 - Scope usage
 - Subject line formatting
 
-### 4. Stage changes
+### 5. Stage changes
 
 ```bash
 git add -A
@@ -59,7 +65,7 @@ git status
 
 Review what will be committed. If there are files that shouldn't be committed (secrets, generated files, etc.), warn the user.
 
-### 5. Run pre-commit checks
+### 6. Run pre-commit checks
 
 ```bash
 pnpm lint && pnpm type-check && pnpm test
@@ -67,7 +73,7 @@ pnpm lint && pnpm type-check && pnpm test
 
 If any check fails, stop and report the failures. Do not proceed with commit.
 
-### 6. Analyze changes and draft message
+### 7. Analyze changes and draft message
 
 Review the diff to understand what changed:
 
@@ -75,9 +81,9 @@ Review the diff to understand what changed:
 git diff --cached
 ```
 
-Draft a commit message following the conventions from step 3.
+Draft a commit message following the conventions from step 4.
 
-### 7. Create commit
+### 8. Create commit
 
 Use HEREDOC format as documented in GIT_WORKFLOW.md:
 
@@ -92,7 +98,7 @@ EOF
 )"
 ```
 
-### 8. Verify success
+### 9. Verify success
 
 ```bash
 git status
@@ -100,6 +106,10 @@ git log -1 --oneline
 ```
 
 Report the commit hash and summary.
+
+### 10. Create PR (if --pr flag)
+
+If the `--pr` flag was passed in step 1, invoke the `/pr` skill to create the pull request.
 
 ## Important
 

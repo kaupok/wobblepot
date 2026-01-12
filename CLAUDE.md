@@ -585,6 +585,7 @@ The following skills provide a structured workflow for implementing Linear issue
 | `/code-review`            | Review local changes and triage into action items     | Isolated          |
 | `/pr-review`              | Fetch PR review comments and triage into action items | Main conversation |
 | `/commit`                 | Stage changes, run checks, create commit              | Main conversation |
+| `/commit --pr`            | Commit and create pull request                        | Main conversation |
 | `/pr`                     | Analyze commits, create pull request                  | Main conversation |
 | `/merge`                  | Merge approved PR and clean up local branch           | Main conversation |
 
@@ -634,23 +635,17 @@ For simple issues, skip planning:
 
 Reviews local changes (committed, staged, unstaged, untracked) and triages issues into Address Now / Defer / Skip categories.
 
-**5. Commit changes:**
+**5. Commit and create PR:**
 
 ```
-/commit
+/commit --pr
 ```
 
-After fixing critical issues, stages all changes, runs checks, and creates commit.
+After fixing critical issues, stages all changes, runs checks, creates commit, and opens PR.
 
-**6. Create PR:**
+Alternatively, run `/commit` then `/pr` separately if you need multiple commits before PR.
 
-```
-/pr
-```
-
-Analyzes all commits, drafts description, and creates PR.
-
-**7. Address external review feedback (if needed):**
+**6. Address external review feedback (if needed):**
 
 After PR is created, external reviewers (like Greptile) may leave comments.
 
@@ -664,7 +659,7 @@ Fetches PR review comments and triages them into Address Now / Defer / Skip cate
 [fix issues] → /commit → git push
 ```
 
-**8. Merge and clean up:**
+**7. Merge and clean up:**
 
 ```
 /merge
@@ -677,7 +672,7 @@ After PR is approved, merges via squash, checks out main, and deletes local bran
 **Single session (small/medium issues):**
 
 ```
-PRE-COMMIT: /code-review → [fix] → /commit → /pr
+PRE-COMMIT: /code-review → [fix] → /commit --pr
 POST-PR:    /pr-review → [fix] → /commit → push → /merge
 ```
 
@@ -685,7 +680,7 @@ POST-PR:    /pr-review → [fix] → /commit → push → /merge
 
 - Session 1: `/next-issue` → `/plan-issue` → [approve]
 - Session 2: `/implement-issue` → [implement]
-- Session 3: `/code-review` → [fix] → `/commit` → `/pr`
+- Session 3: `/code-review` → [fix] → `/commit --pr`
 - Session 4: `/pr-review` → [fix] → `/commit` → push (if review comments)
 - Session 5: `/merge` (after PR approval)
 
