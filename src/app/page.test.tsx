@@ -21,6 +21,13 @@ vi.mock('next/headers', () => ({
   headers: vi.fn(async () => new Headers()),
 }))
 
+// Mock Next.js navigation
+vi.mock('next/navigation', () => ({
+  redirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_REDIRECT:${url}`)
+  }),
+}))
+
 describe('Home page component', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -44,7 +51,7 @@ describe('Home page component', () => {
     expect(screen.getByText('Get started by signing in or creating an account')).toBeInTheDocument()
   })
 
-  it('renders welcome message when authenticated', async () => {
+  it('redirects to dashboard when authenticated with household', async () => {
     const { auth } = await import('@/lib/auth')
     const { getHouseholdMembership } = await import('@/lib/household')
     const now = new Date()
@@ -70,7 +77,7 @@ describe('Home page component', () => {
       },
     })
 
-    // Mock household membership to prevent redirect to onboarding
+    // Mock household membership - user has a household
     vi.mocked(getHouseholdMembership).mockResolvedValue({
       id: 'member-123',
       householdId: 'household-123',
@@ -81,14 +88,44 @@ describe('Home page component', () => {
         name: 'Test Household',
         timezone: 'Europe/Tallinn',
         createdAt: now,
-        updatedAt: now,
         preferences: null,
       },
     } as never)
 
-    const component = await Home()
-    render(component)
-    expect(screen.getByText(/Welcome back, Test User!/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'View profile' })).toBeInTheDocument()
+    // Should redirect to dashboard
+    await expect(Home()).rejects.toThrow('NEXT_REDIRECT:/dashboard')
+  })
+
+  it('redirects to onboarding when authenticated without household', async () => {
+    const { auth } = await import('@/lib/auth')
+    const { getHouseholdMembership } = await import('@/lib/household')
+    const now = new Date()
+    vi.mocked(auth.api.getSession).mockResolvedValue({
+      session: {
+        id: 'session-123',
+        userId: '123',
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+        token: 'test-token',
+        ipAddress: '127.0.0.1',
+        userAgent: 'test',
+        createdAt: now,
+        updatedAt: now,
+      },
+      user: {
+        id: '123',
+        email: 'test@example.com',
+        name: 'Test User',
+        emailVerified: false,
+        image: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+    })
+
+    // Mock no household membership
+    vi.mocked(getHouseholdMembership).mockResolvedValue(null)
+
+    // Should redirect to onboarding
+    await expect(Home()).rejects.toThrow('NEXT_REDIRECT:/onboarding')
   })
 })

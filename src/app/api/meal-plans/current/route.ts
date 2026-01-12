@@ -76,6 +76,7 @@ export async function GET() {
               id: entry.meal.id,
               name: entry.meal.name,
               kidFriendly: entry.meal.kidFriendly,
+              timeMinutes: entry.meal.timeMinutes,
               primaryProteinType: entry.meal.primaryProteinType,
               nutrition: computeMealNutrition(entry.meal.components),
             }
