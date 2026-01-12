@@ -57,9 +57,11 @@ export function WeekView({ plan }: WeekViewProps) {
     entriesByDate.set(date, [])
   }
   for (const entry of plan.entries) {
-    const existing = entriesByDate.get(entry.date) ?? []
-    existing.push(entry)
-    entriesByDate.set(entry.date, existing)
+    const existing = entriesByDate.get(entry.date)
+    if (existing) {
+      existing.push(entry)
+    }
+    // Silently skip entries with dates outside the plan range
   }
 
   return (

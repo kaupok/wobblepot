@@ -51,32 +51,21 @@ export async function PATCH(
   const { id: planId, entryId } = await params
 
   try {
-    // Verify plan exists and belongs to user's household
-    const plan = await prisma.mealPlan.findUnique({
-      where: { id: planId },
-      select: { householdId: true },
-    })
-
-    if (!plan) {
-      return NextResponse.json({ error: 'Meal plan not found' }, { status: 404 })
-    }
-
-    if (plan.householdId !== household.id) {
-      return NextResponse.json({ error: 'Access denied to this meal plan' }, { status: 403 })
-    }
-
-    // Verify entry exists and belongs to this plan
-    const entry = await prisma.mealPlanEntry.findUnique({
-      where: { id: entryId },
-      select: { planId: true },
+    // Verify entry exists, belongs to the plan, and plan belongs to user's household
+    // Single atomic query eliminates race conditions between separate verification steps
+    const entry = await prisma.mealPlanEntry.findFirst({
+      where: {
+        id: entryId,
+        planId: planId,
+        plan: {
+          householdId: household.id,
+        },
+      },
+      select: { id: true },
     })
 
     if (!entry) {
-      return NextResponse.json({ error: 'Entry not found' }, { status: 404 })
-    }
-
-    if (entry.planId !== planId) {
-      return NextResponse.json({ error: 'Entry does not belong to this plan' }, { status: 400 })
+      return NextResponse.json({ error: 'Entry not found or access denied' }, { status: 404 })
     }
 
     // Update entry status

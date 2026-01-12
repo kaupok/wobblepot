@@ -20,6 +20,7 @@ interface MealPlanResponse {
       id: string
       name: string
       kidFriendly: boolean
+      timeMinutes?: number | null
     } | null
   }>
 }
