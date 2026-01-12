@@ -28,15 +28,19 @@ If no PR exists, inform user: "No PR found for this branch. Create one with `/pr
 
 ### Step 2: Fetch Comments
 
-Fetch both types of comments in parallel:
+Extract the PR number from Step 1, then fetch both types of comments in parallel.
+
+**Note:** Use the repo name from the current directory context. The `gh api` command can use `:owner/:repo` shorthand which auto-fills from the current git remote, or explicitly use the values from `headRepository.owner.login` and `headRepository.name`.
 
 ```bash
 # PR-level comments (general discussion)
-gh api /repos/{owner}/{repo}/issues/{number}/comments
+gh api /repos/:owner/:repo/issues/{number}/comments
 
 # Review comments (inline code comments)
-gh api /repos/{owner}/{repo}/pulls/{number}/comments
+gh api /repos/:owner/:repo/pulls/{number}/comments
 ```
+
+Replace `{number}` with the PR number from Step 1.
 
 ### Step 3: Filter and Parse
 
