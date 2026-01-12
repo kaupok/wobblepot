@@ -87,6 +87,8 @@ After parsing all comments, triage each one using **effort-first** thinking:
 
 **Bias toward action.** Deferred items rarely get done. If something can be fixed in a few minutes, just fix it.
 
+**Ignore reviewer's triage.** Reviewers (including Greptile) often suggest deferring things or mark items as "out of scope." Apply your own effort-based assessment. If it's a quick fix and directly related to this PR's changes, it's in scope - do it now.
+
 Place each item in one of three buckets:
 
 - **Address Now**: Fix before PR merge. Includes all quick fixes and anything critical.
