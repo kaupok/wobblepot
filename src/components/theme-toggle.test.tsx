@@ -12,10 +12,7 @@ vi.mock('next-themes', () => ({
 
 const mockUseTheme = vi.mocked(nextThemes.useTheme)
 
-const createMockTheme = (
-  theme: string | undefined,
-  setTheme = vi.fn(),
-): UseThemeProps => ({
+const createMockTheme = (theme: string | undefined, setTheme = vi.fn()): UseThemeProps => ({
   theme,
   setTheme,
   systemTheme: 'light',

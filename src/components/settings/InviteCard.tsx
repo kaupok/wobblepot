@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Body } from '@/components/ui/typography'
@@ -32,6 +33,7 @@ function formatRelativeTime(dateString: string): string {
 
 export function InviteCard({ invite, onRevoke }: InviteCardProps) {
   const [isRevoking, setIsRevoking] = useState(false)
+  const [showRevokeDialog, setShowRevokeDialog] = useState(false)
 
   const handleCopy = async () => {
     try {
@@ -43,10 +45,6 @@ export function InviteCard({ invite, onRevoke }: InviteCardProps) {
   }
 
   const handleRevoke = async () => {
-    if (!confirm('Are you sure you want to revoke this invite? This action cannot be undone.')) {
-      return
-    }
-
     setIsRevoking(true)
     try {
       const response = await fetch(`/api/households/me/invites/${invite.id}`, {
@@ -57,6 +55,7 @@ export function InviteCard({ invite, onRevoke }: InviteCardProps) {
         throw new Error('Failed to revoke invite')
       }
 
+      setShowRevokeDialog(false)
       onRevoke(invite.id)
       toast.success('Invite revoked')
     } catch {
@@ -72,12 +71,7 @@ export function InviteCard({ invite, onRevoke }: InviteCardProps) {
       : `${invite.usesCount}/${invite.maxUses} uses`
 
   return (
-    <div
-      className={cn(
-        'rounded-lg border p-4',
-        !invite.isActive && 'bg-muted/50 opacity-75',
-      )}
-    >
+    <div className={cn('rounded-lg border p-4', !invite.isActive && 'bg-muted/50 opacity-75')}>
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <Badge variant={invite.isActive ? 'default' : 'secondary'}>
@@ -101,15 +95,25 @@ export function InviteCard({ invite, onRevoke }: InviteCardProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleRevoke}
-              disabled={isRevoking}
+              onClick={() => setShowRevokeDialog(true)}
               className="text-destructive hover:text-destructive"
             >
-              {isRevoking ? 'Revoking...' : 'Revoke'}
+              Revoke
             </Button>
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showRevokeDialog}
+        onOpenChange={setShowRevokeDialog}
+        title="Revoke invite"
+        description="Are you sure you want to revoke this invite? This action cannot be undone."
+        confirmLabel="Revoke"
+        variant="destructive"
+        onConfirm={handleRevoke}
+        isLoading={isRevoking}
+      />
     </div>
   )
 }

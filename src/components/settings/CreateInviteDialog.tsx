@@ -114,8 +114,8 @@ export function CreateInviteDialog({ onInviteCreated }: CreateInviteDialogProps)
                 </div>
               </div>
               <Body variant="muted">
-                This invite can be used {createdInvite.maxUses} times and expires in{' '}
-                {expiresInDays} days.
+                This invite can be used {createdInvite.maxUses} times and expires in {expiresInDays}{' '}
+                days.
               </Body>
             </div>
             <DialogFooter>

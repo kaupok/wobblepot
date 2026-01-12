@@ -225,9 +225,7 @@ describe('PATCH /api/members/me/preferences', () => {
       session: { id: 'session-123' },
     } as never)
 
-    const response = await PATCH(
-      createRequest({ displayName: 'a'.repeat(51) })
-    )
+    const response = await PATCH(createRequest({ displayName: 'a'.repeat(51) }))
     const data = await response.json()
 
     expect(response.status).toBe(400)
@@ -327,7 +325,7 @@ describe('PATCH /api/members/me/preferences', () => {
         portionMultiplier: 0.8,
         dietaryType: 'vegetarian',
         targetCalories: 1800,
-      })
+      }),
     )
     const data = await response.json()
 
@@ -396,9 +394,7 @@ describe('PATCH /api/members/me/preferences', () => {
     }
     mockUpsert.mockResolvedValue(updatedPreferences as never)
 
-    const response = await PATCH(
-      createRequest({ restrictions: ['low sodium', 'high protein'] })
-    )
+    const response = await PATCH(createRequest({ restrictions: ['low sodium', 'high protein'] }))
     const data = await response.json()
 
     expect(response.status).toBe(200)
@@ -419,9 +415,7 @@ describe('PATCH /api/members/me/preferences', () => {
     }
     mockUpsert.mockResolvedValue(updatedPreferences as never)
 
-    const response = await PATCH(
-      createRequest({ excludedIngredients: ['olives', 'anchovies'] })
-    )
+    const response = await PATCH(createRequest({ excludedIngredients: ['olives', 'anchovies'] }))
     const data = await response.json()
 
     expect(response.status).toBe(200)

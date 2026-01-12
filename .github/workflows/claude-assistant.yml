@@ -19,11 +19,11 @@ jobs:
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
     permissions:
-      contents: read        # Read repository code
-      pull-requests: read   # Read PR details and post comments
-      issues: read          # Read issue details
-      id-token: write       # Required for Claude Code action
-      actions: read         # Read CI results to provide better feedback on PRs
+      contents: read # Read repository code
+      pull-requests: read # Read PR details and post comments
+      issues: read # Read issue details
+      id-token: write # Required for Claude Code action
+      actions: read # Read CI results to provide better feedback on PRs
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -81,4 +81,3 @@ jobs:
           # Restrict Claude to safe read-only operations and gh commands
           # Prevents accidental modifications while allowing helpful interactions
           claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
-

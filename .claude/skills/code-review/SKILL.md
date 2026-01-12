@@ -92,6 +92,7 @@ git branch --show-current | grep -oiE 'hon-[0-9]+' | head -1
 If an issue ID is found (e.g., `HON-11`):
 
 **6a. Fetch issue details:**
+
 ```
 mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
 ```
@@ -99,6 +100,7 @@ mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
 Note the issue title, description, and any acceptance criteria.
 
 **6b. Fetch implementation plan from comments:**
+
 ```
 mcp__linear-server__list_comments({ issueId: "[issue-uuid-from-step-6a]" })
 ```
@@ -106,12 +108,14 @@ mcp__linear-server__list_comments({ issueId: "[issue-uuid-from-step-6a]" })
 Look for a comment that starts with `# Plan:` - this is the implementation plan posted by `/implement-issue`.
 
 If a plan is found:
+
 - Note the planned implementation steps
 - Compare actual implementation to planned approach
 - Check if all planned files were modified
 - Verify planned verification steps are addressed
 
 **6c. Use context in review:**
+
 - Check if the changes address the issue requirements
 - If plan exists, verify implementation matches planned approach
 - Note any deviations from the plan (not necessarily bad, but worth mentioning)

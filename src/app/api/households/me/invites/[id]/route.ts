@@ -4,10 +4,7 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 
-export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({
     headers: await headers(),
   })
@@ -23,10 +20,7 @@ export async function DELETE(
   }
 
   if (membership.role !== 'owner') {
-    return NextResponse.json(
-      { error: 'Only household owners can revoke invites' },
-      { status: 403 },
-    )
+    return NextResponse.json({ error: 'Only household owners can revoke invites' }, { status: 403 })
   }
 
   const { id } = await params

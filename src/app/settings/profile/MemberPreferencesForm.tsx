@@ -15,11 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Heading, Body } from '@/components/ui/typography'
 import { TagInput } from '@/components/tag-input'
 import { SettingsNav } from '@/components/settings-nav'
@@ -64,32 +60,22 @@ export function MemberPreferencesForm({
   const [displayName, setDisplayName] = useState(preferences.displayName ?? '')
 
   // Portion size state
-  const [portionMultiplier, setPortionMultiplier] = useState(
-    preferences.portionMultiplier
-  )
+  const [portionMultiplier, setPortionMultiplier] = useState(preferences.portionMultiplier)
   const [portionError, setPortionError] = useState<string | null>(null)
 
   // Nutritional targets state
-  const [targetCalories, setTargetCalories] = useState<number | null>(
-    preferences.targetCalories
-  )
-  const [targetProtein, setTargetProtein] = useState<number | null>(
-    preferences.targetProtein
-  )
-  const [targetCarbs, setTargetCarbs] = useState<number | null>(
-    preferences.targetCarbs
-  )
+  const [targetCalories, setTargetCalories] = useState<number | null>(preferences.targetCalories)
+  const [targetProtein, setTargetProtein] = useState<number | null>(preferences.targetProtein)
+  const [targetCarbs, setTargetCarbs] = useState<number | null>(preferences.targetCarbs)
   const [targetFat, setTargetFat] = useState<number | null>(preferences.targetFat)
 
   // Dietary preferences state
   const [dietaryType, setDietaryType] = useState<DietaryType | 'household'>(
-    preferences.dietaryType ?? 'household'
+    preferences.dietaryType ?? 'household',
   )
-  const [restrictions, setRestrictions] = useState<string[]>(
-    preferences.restrictions
-  )
+  const [restrictions, setRestrictions] = useState<string[]>(preferences.restrictions)
   const [excludedIngredients, setExcludedIngredients] = useState<string[]>(
-    preferences.excludedIngredients
+    preferences.excludedIngredients,
   )
 
   // Form state
@@ -101,7 +87,7 @@ export function MemberPreferencesForm({
     preferences.targetCalories !== null ||
       preferences.targetProtein !== null ||
       preferences.targetCarbs !== null ||
-      preferences.targetFat !== null
+      preferences.targetFat !== null,
   )
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -162,9 +148,7 @@ export function MemberPreferencesForm({
           <Heading variant="h2">My preferences</Heading>
         </CardTitle>
         <CardDescription>
-          <Body variant="muted">
-            Set your personal dietary needs and portion sizes
-          </Body>
+          <Body variant="muted">Set your personal dietary needs and portion sizes</Body>
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -176,9 +160,7 @@ export function MemberPreferencesForm({
             <section className="flex flex-col gap-4">
               <Heading variant="h4">Display name</Heading>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="displayName">
-                  How you appear in the household
-                </Label>
+                <Label htmlFor="displayName">How you appear in the household</Label>
                 <Input
                   id="displayName"
                   type="text"
@@ -202,9 +184,7 @@ export function MemberPreferencesForm({
                   <Button
                     key={preset.value}
                     type="button"
-                    variant={
-                      portionMultiplier === preset.value ? 'default' : 'outline'
-                    }
+                    variant={portionMultiplier === preset.value ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setPortionMultiplier(preset.value)}
                     disabled={isLoading}
@@ -247,16 +227,12 @@ export function MemberPreferencesForm({
                   >
                     <Heading variant="h4">Nutritional targets</Heading>
                     <ChevronDown
-                      className={cn(
-                        'h-5 w-5 transition-transform',
-                        nutritionOpen && 'rotate-180'
-                      )}
+                      className={cn('h-5 w-5 transition-transform', nutritionOpen && 'rotate-180')}
                     />
                   </button>
                 </CollapsibleTrigger>
                 <Body variant="muted">
-                  Set optional daily nutrition goals for personalized meal
-                  suggestions
+                  Set optional daily nutrition goals for personalized meal suggestions
                 </Body>
                 <CollapsibleContent>
                   <div className="flex flex-col gap-4 pt-2">
@@ -269,9 +245,7 @@ export function MemberPreferencesForm({
                         max={5000}
                         value={targetCalories ?? ''}
                         onChange={(e) =>
-                          setTargetCalories(
-                            e.target.value ? parseInt(e.target.value) : null
-                          )
+                          setTargetCalories(e.target.value ? parseInt(e.target.value) : null)
                         }
                         placeholder="e.g., 2000"
                         disabled={isLoading}
@@ -287,9 +261,7 @@ export function MemberPreferencesForm({
                           max={500}
                           value={targetProtein ?? ''}
                           onChange={(e) =>
-                            setTargetProtein(
-                              e.target.value ? parseInt(e.target.value) : null
-                            )
+                            setTargetProtein(e.target.value ? parseInt(e.target.value) : null)
                           }
                           placeholder="e.g., 150"
                           disabled={isLoading}
@@ -304,9 +276,7 @@ export function MemberPreferencesForm({
                           max={500}
                           value={targetCarbs ?? ''}
                           onChange={(e) =>
-                            setTargetCarbs(
-                              e.target.value ? parseInt(e.target.value) : null
-                            )
+                            setTargetCarbs(e.target.value ? parseInt(e.target.value) : null)
                           }
                           placeholder="e.g., 250"
                           disabled={isLoading}
@@ -321,9 +291,7 @@ export function MemberPreferencesForm({
                           max={500}
                           value={targetFat ?? ''}
                           onChange={(e) =>
-                            setTargetFat(
-                              e.target.value ? parseInt(e.target.value) : null
-                            )
+                            setTargetFat(e.target.value ? parseInt(e.target.value) : null)
                           }
                           placeholder="e.g., 65"
                           disabled={isLoading}
@@ -340,14 +308,11 @@ export function MemberPreferencesForm({
               <Heading variant="h4">Dietary type</Heading>
               <Body variant="muted">
                 Your personal dietary type. This overrides the household setting
-                {householdDietaryType && ` (${householdDietaryType})`} for your
-                meal suggestions.
+                {householdDietaryType && ` (${householdDietaryType})`} for your meal suggestions.
               </Body>
               <RadioGroup
                 value={dietaryType}
-                onValueChange={(value) =>
-                  setDietaryType(value as DietaryType | 'household')
-                }
+                onValueChange={(value) => setDietaryType(value as DietaryType | 'household')}
                 disabled={isLoading}
                 className="flex flex-wrap gap-4"
               >
@@ -360,14 +325,8 @@ export function MemberPreferencesForm({
                 </div>
                 {DIETARY_TYPES.map((type) => (
                   <div key={type.value} className="flex items-center gap-2">
-                    <RadioGroupItem
-                      value={type.value}
-                      id={`dietary-${type.value}`}
-                    />
-                    <Label
-                      htmlFor={`dietary-${type.value}`}
-                      className="font-normal"
-                    >
+                    <RadioGroupItem value={type.value} id={`dietary-${type.value}`} />
+                    <Label htmlFor={`dietary-${type.value}`} className="font-normal">
                       {type.label}
                     </Label>
                   </div>
@@ -387,9 +346,7 @@ export function MemberPreferencesForm({
                   placeholder="e.g., low sodium, no spicy"
                   disabled={isLoading}
                 />
-                <Body variant="muted">
-                  Add personal dietary restrictions (press Enter to add)
-                </Body>
+                <Body variant="muted">Add personal dietary restrictions (press Enter to add)</Body>
               </div>
             </section>
 
@@ -397,9 +354,7 @@ export function MemberPreferencesForm({
             <section className="flex flex-col gap-4">
               <Heading variant="h4">Excluded ingredients</Heading>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="excludedIngredients">
-                  Ingredients to avoid
-                </Label>
+                <Label htmlFor="excludedIngredients">Ingredients to avoid</Label>
                 <TagInput
                   id="excludedIngredients"
                   value={excludedIngredients}

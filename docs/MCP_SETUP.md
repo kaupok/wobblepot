@@ -30,6 +30,7 @@ MCP (Model Context Protocol) is an open protocol that standardizes how AI assist
 Our project uses the following MCP servers:
 
 **Configuration locations:**
+
 - **Stdio servers** (in `.mcp.json`): filesystem, github, sequential-thinking, memory, playwright, npm-package-search, next-devtools
 - **HTTP servers** (configured globally): better-auth, context7, linear-server
 

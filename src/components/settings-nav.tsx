@@ -21,9 +21,7 @@ export function SettingsNav() {
           href={tab.href}
           className={cn(
             'text-sm font-medium transition-colors',
-            pathname === tab.href
-              ? 'text-primary'
-              : 'text-muted-foreground hover:text-primary'
+            pathname === tab.href ? 'text-primary' : 'text-muted-foreground hover:text-primary',
           )}
         >
           {tab.label}

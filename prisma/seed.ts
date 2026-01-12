@@ -3215,7 +3215,9 @@ async function seedMeals() {
       .filter((name) => !ingredientMap.has(name))
 
     if (missingIngredients.length > 0) {
-      console.warn(`Skipping "${meal.name}" - missing ingredients: ${missingIngredients.join(', ')}`)
+      console.warn(
+        `Skipping "${meal.name}" - missing ingredients: ${missingIngredients.join(', ')}`,
+      )
       skippedCount++
       continue
     }

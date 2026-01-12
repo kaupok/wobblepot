@@ -65,11 +65,7 @@ function TagInput({
       )}
     >
       {value.map((tag) => (
-        <Badge
-          key={tag}
-          variant="secondary"
-          className="h-6 gap-1 pr-1 text-xs"
-        >
+        <Badge key={tag} variant="secondary" className="h-6 gap-1 pr-1 text-xs">
           {tag}
           {!disabled && (
             <button

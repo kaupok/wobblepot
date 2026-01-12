@@ -12,10 +12,7 @@ const updatePreferencesSchema = z.object({
   targetProtein: z.number().int().min(0).max(500).nullable().optional(),
   targetCarbs: z.number().int().min(0).max(500).nullable().optional(),
   targetFat: z.number().int().min(0).max(500).nullable().optional(),
-  dietaryType: z
-    .enum(['omnivore', 'vegetarian', 'vegan', 'pescatarian'])
-    .nullable()
-    .optional(),
+  dietaryType: z.enum(['omnivore', 'vegetarian', 'vegan', 'pescatarian']).nullable().optional(),
   restrictions: z.array(z.string()).optional(),
   excludedIngredients: z.array(z.string()).optional(),
   excludedIngredientIds: z.array(z.string()).optional(),
@@ -70,10 +67,7 @@ export async function PATCH(request: Request) {
 
   if (!parsed.success) {
     const errors = parsed.error.flatten().fieldErrors
-    return NextResponse.json(
-      { error: 'Validation failed', details: errors },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
   }
 
   const membership = await getHouseholdMembership(session.user.id)

@@ -19,12 +19,15 @@ Find the next unblocked issue in the active milestone and return a concise imple
 ## Workflow
 
 1. **Fetch project context**
+
    ```
    mcp__linear-server__get_project({ query: "5a19627a-803f-4052-83c4-b44810d17af7" })
    ```
+
    Extract: Active milestone name from the project description (look for "**Active Milestone:**")
 
 2. **List backlog issues in active milestone**
+
    ```
    mcp__linear-server__list_issues({
      project: "5a19627a-803f-4052-83c4-b44810d17af7",
@@ -35,6 +38,7 @@ Find the next unblocked issue in the active milestone and return a concise imple
 
 3. **Check dependencies for milestone issues**
    For each issue in the active milestone (check `projectMilestone.name`), fetch with relations:
+
    ```
    mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
    ```
@@ -52,7 +56,7 @@ Find the next unblocked issue in the active milestone and return a concise imple
    Read key files mentioned in the issue description to identify:
    - Files to modify
    - Existing patterns to follow
-   Only read 2-3 most relevant files, not the entire codebase.
+     Only read 2-3 most relevant files, not the entire codebase.
 
 ## Output Format
 

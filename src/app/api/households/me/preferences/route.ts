@@ -6,23 +6,10 @@ import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 
 const updatePreferencesSchema = z.object({
-  dietaryType: z
-    .enum(['omnivore', 'vegetarian', 'vegan', 'pescatarian'])
-    .nullable()
-    .optional(),
+  dietaryType: z.enum(['omnivore', 'vegetarian', 'vegan', 'pescatarian']).nullable().optional(),
   allergensToAvoid: z
     .array(
-      z.enum([
-        'gluten',
-        'dairy',
-        'eggs',
-        'nuts',
-        'peanuts',
-        'soy',
-        'fish',
-        'shellfish',
-        'sesame',
-      ])
+      z.enum(['gluten', 'dairy', 'eggs', 'nuts', 'peanuts', 'soy', 'fish', 'shellfish', 'sesame']),
     )
     .optional(),
   restrictions: z.array(z.string()).optional(),
@@ -76,10 +63,7 @@ export async function PATCH(request: Request) {
 
   if (!parsed.success) {
     const errors = parsed.error.flatten().fieldErrors
-    return NextResponse.json(
-      { error: 'Validation failed', details: errors },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
   }
 
   const membership = await getHouseholdMembership(session.user.id)
@@ -91,7 +75,7 @@ export async function PATCH(request: Request) {
   if (membership.role !== 'owner') {
     return NextResponse.json(
       { error: 'Only household owners can update preferences' },
-      { status: 403 }
+      { status: 403 },
     )
   }
 

@@ -18,9 +18,7 @@ describe('SettingsNav', () => {
     render(<SettingsNav />)
 
     expect(screen.getByRole('link', { name: 'Household' })).toBeInTheDocument()
-    expect(
-      screen.getByRole('link', { name: 'My preferences' })
-    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'My preferences' })).toBeInTheDocument()
   })
 
   it('Household tab links to /settings/household', () => {

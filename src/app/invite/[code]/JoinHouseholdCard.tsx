@@ -63,15 +63,13 @@ export function JoinHouseholdCard({ status, householdName, code }: JoinHousehold
             <Heading variant="h2">Already a member</Heading>
           </CardTitle>
           <CardDescription>
-            <Body variant="muted">
-              You are already a member of &ldquo;{householdName}&rdquo;
-            </Body>
+            <Body variant="muted">You are already a member of &ldquo;{householdName}&rdquo;</Body>
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Body>
-            You can only be a member of one household at a time. To join a different
-            household, you would need to leave your current one first.
+            You can only be a member of one household at a time. To join a different household, you
+            would need to leave your current one first.
           </Body>
         </CardContent>
         <CardFooter>
@@ -96,8 +94,8 @@ export function JoinHouseholdCard({ status, householdName, code }: JoinHousehold
         </CardHeader>
         <CardContent>
           <Body>
-            This invite link has expired or reached its maximum number of uses.
-            Please ask the household owner for a new invite.
+            This invite link has expired or reached its maximum number of uses. Please ask the
+            household owner for a new invite.
           </Body>
         </CardContent>
         <CardFooter>
@@ -125,8 +123,8 @@ export function JoinHouseholdCard({ status, householdName, code }: JoinHousehold
             You&apos;ve been invited to join <strong>{householdName}</strong>.
           </Body>
           <Body variant="muted">
-            Once you join, you&apos;ll be able to view and participate in meal planning
-            for this household.
+            Once you join, you&apos;ll be able to view and participate in meal planning for this
+            household.
           </Body>
         </div>
       </CardContent>

@@ -20,7 +20,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-production
-  cancel-in-progress: false  # Don't cancel running deployments
+  cancel-in-progress: false # Don't cancel running deployments
 
 permissions:
   contents: read

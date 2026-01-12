@@ -10,7 +10,7 @@ import { serverEnv, getServerBaseURL } from '@/lib/env'
 export async function createHouseholdForUser(
   userId: string,
   userName: string,
-  db: PrismaClientType = prisma
+  db: PrismaClientType = prisma,
 ) {
   await db.$transaction(async (tx) => {
     const household = await tx.household.create({
