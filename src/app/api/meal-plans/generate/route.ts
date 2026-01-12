@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { generateMealPlan } from '@/lib/ai/generate-plan'
-import { MealPlanValidationError } from '@/lib/ai/types'
+import { MealPlanValidationError, InsufficientCandidatesError } from '@/lib/ai/types'
 import { getNextMonday, isMonday, parseLocalDate } from '@/lib/meal-planning/dates'
 import { checkRateLimit, recordGeneration } from '@/lib/meal-planning/rate-limit'
 
@@ -107,6 +107,14 @@ export async function POST(request: Request) {
       console.error('AI response validation failed:', error.message)
       return NextResponse.json(
         { error: 'AI generated an invalid meal plan', message: error.message },
+        { status: 422 },
+      )
+    }
+
+    // Handle insufficient candidates for required protein slots
+    if (error instanceof InsufficientCandidatesError) {
+      return NextResponse.json(
+        { error: 'Insufficient meal options', message: error.message },
         { status: 422 },
       )
     }

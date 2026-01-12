@@ -9,6 +9,7 @@ import { buildMealPlanPrompt } from './prompts'
 import {
   MealPlanResponseSchema,
   MealPlanValidationError,
+  InsufficientCandidatesError,
   type CandidatePools,
   type GeneratePlanOptions,
   type GeneratePlanResult,
@@ -48,7 +49,9 @@ function capPool(candidates: CandidateMeal[], limit = CANDIDATE_POOL_LIMIT): Can
  * Get recent meal IDs used in the last NO_REPEAT_DAYS for a household.
  */
 async function getRecentMealIds(householdId: string): Promise<string[]> {
+  // Normalize to local midnight to match database date storage
   const cutoffDate = new Date()
+  cutoffDate.setHours(0, 0, 0, 0)
   cutoffDate.setDate(cutoffDate.getDate() - NO_REPEAT_DAYS)
 
   const recentEntries = await prisma.mealPlanEntry.findMany({
@@ -179,6 +182,14 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     fish: capPool(fishCandidates),
     legume: capPool(legumeCandidates),
     any: capPool(anyCandidates),
+  }
+
+  // Validate required pools have candidates
+  for (const slot of requiredSlots) {
+    const pool = slot.proteinType === 'fish' ? candidatePools.fish : candidatePools.legume
+    if (pool.length === 0) {
+      throw new InsufficientCandidatesError(slot.proteinType)
+    }
   }
 
   // Compute remaining dates (not required slots)

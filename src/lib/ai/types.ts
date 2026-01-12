@@ -112,3 +112,13 @@ export class MealPlanExistsError extends Error {
     this.name = 'MealPlanExistsError'
   }
 }
+
+/**
+ * Error thrown when there are insufficient candidates for required protein slots.
+ */
+export class InsufficientCandidatesError extends Error {
+  constructor(proteinType: string) {
+    super(`No ${proteinType} meals available matching household dietary constraints`)
+    this.name = 'InsufficientCandidatesError'
+  }
+}
