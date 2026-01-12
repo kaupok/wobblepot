@@ -62,5 +62,10 @@ export function computeRequiredSlots(dietaryType: DietaryType, dates: Date[]): S
         { date: pickDay(dates, 'early'), proteinType: 'legume' },
         { date: pickDay(dates, 'late'), proteinType: 'legume' },
       ]
+
+    default: {
+      const _exhaustive: never = dietaryType
+      throw new Error(`Unhandled dietary type: ${_exhaustive}`)
+    }
   }
 }
