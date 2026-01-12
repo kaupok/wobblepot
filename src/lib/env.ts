@@ -53,6 +53,18 @@ const serverOnlyEnvSchema = z.object({
     .min(1, 'ANTHROPIC_API_KEY is required for AI features')
     .optional()
     .describe('Anthropic API key for Claude AI integration'),
+
+  RESEND_API_KEY: z
+    .string()
+    .min(1, 'RESEND_API_KEY is required for email sending')
+    .optional()
+    .describe('Resend API key for sending emails (get from https://resend.com/api-keys)'),
+
+  RESEND_FROM_EMAIL: z
+    .string()
+    .email('RESEND_FROM_EMAIL must be a valid email address')
+    .optional()
+    .describe('Email address to send from (must be verified in Resend)'),
 })
 
 /**
@@ -138,6 +150,8 @@ export const serverEnv = new Proxy(
     DATABASE_URL: process.env.DATABASE_URL,
     DATABASE_URL_UNPOOLED: process.env.DATABASE_URL_UNPOOLED,
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
   } as z.infer<typeof serverEnvSchema>,
   {
     get(target, prop) {

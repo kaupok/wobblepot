@@ -2,6 +2,8 @@ import { betterAuth } from 'better-auth'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
 import { prisma, type PrismaClientType } from '@/lib/prisma'
 import { serverEnv, getServerBaseURL } from '@/lib/env'
+import { resend, isEmailConfigured } from '@/lib/resend'
+import { generateResetPasswordEmail } from '@/lib/emails/reset-password'
 
 /**
  * Creates a household for a new user with default preferences
@@ -89,24 +91,32 @@ export const auth = betterAuth({
      */
     /**
      * Password reset email handler
-     * Currently mocked with console.log for development
-     * TODO: Replace with real email provider (see separate Linear issue)
+     * Sends email via Resend. Errors are logged but not thrown
+     * to prevent account enumeration attacks.
      */
-    sendResetPassword: async ({ user, url, token }) => {
-      console.log('=== PASSWORD RESET EMAIL (MOCK) ===')
-      console.log('To:', user.email)
-      console.log('Reset URL:', url)
-      console.log('Token:', token)
-      console.log('=====================================')
+    sendResetPassword: async ({ user, url }) => {
+      // Check if email is configured (for CI/build environments)
+      if (!isEmailConfigured() || !resend) {
+        // eslint-disable-next-line no-console
+        console.warn('Email not configured. Password reset email not sent.')
+        // eslint-disable-next-line no-console
+        console.log('Reset URL:', url)
+        return
+      }
 
-      // TODO: Replace with real email sending when provider is configured
-      // Example with Resend:
-      // await resend.emails.send({
-      //   from: 'noreply@honkadori.com',
-      //   to: user.email,
-      //   subject: 'Reset your password',
-      //   html: `Click here to reset your password: ${url}`
-      // })
+      const emailContent = generateResetPasswordEmail({ resetUrl: url })
+
+      try {
+        await resend.emails.send({
+          from: serverEnv.RESEND_FROM_EMAIL!,
+          to: user.email,
+          ...emailContent,
+        })
+      } catch (error) {
+        // Log error but don't throw - prevents account enumeration
+        // eslint-disable-next-line no-console
+        console.error('Failed to send password reset email:', error)
+      }
     },
   },
 })
