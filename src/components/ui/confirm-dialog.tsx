@@ -48,7 +48,10 @@ export function ConfirmDialog({
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isLoading}>{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
+            onClick={(e) => {
+              e.preventDefault()
+              onConfirm()
+            }}
             disabled={isLoading}
             className={cn(variant === 'destructive' && buttonVariants({ variant: 'destructive' }))}
           >
