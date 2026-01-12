@@ -75,12 +75,6 @@ Review the diff to understand what changed:
 git diff --cached
 ```
 
-Check recent commits for style consistency:
-
-```bash
-git log --oneline -5
-```
-
 Draft a commit message following the conventions from step 3.
 
 ### 7. Create commit
