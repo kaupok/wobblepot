@@ -114,6 +114,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
 
   // Get week dates
   const dates = getWeekDates(startDate)
+  // endDate is exclusive (day after the last entry) - e.g., Mon-Sun plan has endDate of next Monday
   const endDate = new Date(startDate)
   endDate.setDate(startDate.getDate() + 7)
 
@@ -131,11 +132,17 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     recentMealIds,
   }
 
-  // Query candidate pools
+  // Query candidate pools in parallel
+  const [fishCandidates, legumeCandidates, anyCandidates] = await Promise.all([
+    getCandidates({ ...baseFilters, primaryProteinType: 'fish' }),
+    getCandidates({ ...baseFilters, primaryProteinType: 'legume' }),
+    getCandidates(baseFilters),
+  ])
+
   const candidatePools: CandidatePools = {
-    fish: capPool(await getCandidates({ ...baseFilters, primaryProteinType: 'fish' })),
-    legume: capPool(await getCandidates({ ...baseFilters, primaryProteinType: 'legume' })),
-    any: capPool(await getCandidates(baseFilters)),
+    fish: capPool(fishCandidates),
+    legume: capPool(legumeCandidates),
+    any: capPool(anyCandidates),
   }
 
   // Compute remaining dates (not required slots)

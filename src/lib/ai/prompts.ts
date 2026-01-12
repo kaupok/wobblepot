@@ -29,7 +29,12 @@ function formatRequiredSlots(slots: SlotRequirement[], pools: CandidatePools): s
     .map((slot) => {
       const pool = slot.proteinType === 'fish' ? pools.fish : pools.legume
       const formattedCandidates = JSON.stringify(
-        pool.map((c) => ({ id: c.id, name: c.name, proteinType: c.primaryProteinType })),
+        pool.map((c) => ({
+          id: c.id,
+          name: c.name,
+          proteinType: c.primaryProteinType,
+          kidFriendly: c.kidFriendly,
+        })),
       )
       return `- ${formatDateDisplay(slot.date)}: MUST be ${slot.proteinType.toUpperCase()} day
   Candidates: ${formattedCandidates}`
