@@ -1,0 +1,208 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import {
+  getNextMonday,
+  getWeekDates,
+  toDateString,
+  parseLocalDate,
+  isMonday,
+  formatDateDisplay,
+} from './dates'
+
+describe('dates utilities', () => {
+  describe('getNextMonday', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('returns next Monday when today is Sunday', () => {
+      // Sunday, January 12, 2025
+      vi.setSystemTime(new Date(2025, 0, 12, 10, 0, 0))
+      const nextMonday = getNextMonday()
+      expect(nextMonday.getDay()).toBe(1) // Monday
+      expect(toDateString(nextMonday)).toBe('2025-01-13')
+    })
+
+    it('returns next week Monday when today is Monday', () => {
+      // Monday, January 13, 2025
+      vi.setSystemTime(new Date(2025, 0, 13, 10, 0, 0))
+      const nextMonday = getNextMonday()
+      expect(nextMonday.getDay()).toBe(1)
+      expect(toDateString(nextMonday)).toBe('2025-01-20')
+    })
+
+    it('returns next Monday when today is Tuesday', () => {
+      // Tuesday, January 14, 2025
+      vi.setSystemTime(new Date(2025, 0, 14, 10, 0, 0))
+      const nextMonday = getNextMonday()
+      expect(nextMonday.getDay()).toBe(1)
+      expect(toDateString(nextMonday)).toBe('2025-01-20')
+    })
+
+    it('returns next Monday when today is Wednesday', () => {
+      // Wednesday, January 15, 2025
+      vi.setSystemTime(new Date(2025, 0, 15, 10, 0, 0))
+      const nextMonday = getNextMonday()
+      expect(nextMonday.getDay()).toBe(1)
+      expect(toDateString(nextMonday)).toBe('2025-01-20')
+    })
+
+    it('returns next Monday when today is Saturday', () => {
+      // Saturday, January 18, 2025
+      vi.setSystemTime(new Date(2025, 0, 18, 10, 0, 0))
+      const nextMonday = getNextMonday()
+      expect(nextMonday.getDay()).toBe(1)
+      expect(toDateString(nextMonday)).toBe('2025-01-20')
+    })
+
+    it('returns date at midnight', () => {
+      vi.setSystemTime(new Date(2025, 0, 15, 14, 30, 45))
+      const nextMonday = getNextMonday()
+      expect(nextMonday.getHours()).toBe(0)
+      expect(nextMonday.getMinutes()).toBe(0)
+      expect(nextMonday.getSeconds()).toBe(0)
+      expect(nextMonday.getMilliseconds()).toBe(0)
+    })
+  })
+
+  describe('getWeekDates', () => {
+    it('returns 7 consecutive dates starting from the given date', () => {
+      const startDate = new Date(2025, 0, 13) // Monday, January 13, 2025
+      const dates = getWeekDates(startDate)
+
+      expect(dates).toHaveLength(7)
+      expect(toDateString(dates[0]!)).toBe('2025-01-13')
+      expect(toDateString(dates[1]!)).toBe('2025-01-14')
+      expect(toDateString(dates[2]!)).toBe('2025-01-15')
+      expect(toDateString(dates[3]!)).toBe('2025-01-16')
+      expect(toDateString(dates[4]!)).toBe('2025-01-17')
+      expect(toDateString(dates[5]!)).toBe('2025-01-18')
+      expect(toDateString(dates[6]!)).toBe('2025-01-19')
+    })
+
+    it('handles month boundaries correctly', () => {
+      const startDate = new Date(2025, 0, 29) // Wednesday, January 29, 2025
+      const dates = getWeekDates(startDate)
+
+      expect(dates).toHaveLength(7)
+      expect(toDateString(dates[0]!)).toBe('2025-01-29')
+      expect(toDateString(dates[3]!)).toBe('2025-02-01')
+      expect(toDateString(dates[6]!)).toBe('2025-02-04')
+    })
+
+    it('handles year boundaries correctly', () => {
+      const startDate = new Date(2024, 11, 30) // Monday, December 30, 2024
+      const dates = getWeekDates(startDate)
+
+      expect(dates).toHaveLength(7)
+      expect(toDateString(dates[0]!)).toBe('2024-12-30')
+      expect(toDateString(dates[2]!)).toBe('2025-01-01')
+      expect(toDateString(dates[6]!)).toBe('2025-01-05')
+    })
+
+    it('does not mutate the original date', () => {
+      const startDate = new Date(2025, 0, 13)
+      const originalTime = startDate.getTime()
+      getWeekDates(startDate)
+      expect(startDate.getTime()).toBe(originalTime)
+    })
+  })
+
+  describe('toDateString', () => {
+    it('formats date as YYYY-MM-DD', () => {
+      const date = new Date(2025, 0, 13) // January 13, 2025
+      expect(toDateString(date)).toBe('2025-01-13')
+    })
+
+    it('pads single-digit months with zero', () => {
+      const date = new Date(2025, 0, 5) // January 5, 2025
+      expect(toDateString(date)).toBe('2025-01-05')
+    })
+
+    it('pads single-digit days with zero', () => {
+      const date = new Date(2025, 11, 9) // December 9, 2025
+      expect(toDateString(date)).toBe('2025-12-09')
+    })
+
+    it('handles double-digit months and days', () => {
+      const date = new Date(2025, 11, 25) // December 25, 2025
+      expect(toDateString(date)).toBe('2025-12-25')
+    })
+  })
+
+  describe('parseLocalDate', () => {
+    it('parses YYYY-MM-DD string as local midnight', () => {
+      const date = parseLocalDate('2025-01-13')
+      expect(date.getFullYear()).toBe(2025)
+      expect(date.getMonth()).toBe(0) // January
+      expect(date.getDate()).toBe(13)
+      expect(date.getHours()).toBe(0)
+      expect(date.getMinutes()).toBe(0)
+      expect(date.getSeconds()).toBe(0)
+    })
+
+    it('round-trips with toDateString', () => {
+      const original = '2025-06-15'
+      const parsed = parseLocalDate(original)
+      const formatted = toDateString(parsed)
+      expect(formatted).toBe(original)
+    })
+
+    it('handles edge case months correctly', () => {
+      expect(parseLocalDate('2025-01-01').getMonth()).toBe(0) // January
+      expect(parseLocalDate('2025-12-31').getMonth()).toBe(11) // December
+    })
+
+    it('throws error for invalid format - wrong number of parts', () => {
+      expect(() => parseLocalDate('2025-01')).toThrow('Invalid date format')
+      expect(() => parseLocalDate('2025')).toThrow('Invalid date format')
+      expect(() => parseLocalDate('2025-01-01-01')).toThrow('Invalid date format')
+    })
+
+    it('throws error for invalid format - non-numeric parts', () => {
+      expect(() => parseLocalDate('abc-01-01')).toThrow('Invalid date format')
+      expect(() => parseLocalDate('2025-ab-01')).toThrow('Invalid date format')
+      expect(() => parseLocalDate('2025-01-xy')).toThrow('Invalid date format')
+    })
+
+    it('throws error for empty string', () => {
+      expect(() => parseLocalDate('')).toThrow('Invalid date format')
+    })
+  })
+
+  describe('isMonday', () => {
+    it('returns true for Monday', () => {
+      const monday = new Date(2025, 0, 13) // Monday, January 13, 2025
+      expect(isMonday(monday)).toBe(true)
+    })
+
+    it('returns false for other days', () => {
+      expect(isMonday(new Date(2025, 0, 12))).toBe(false) // Sunday
+      expect(isMonday(new Date(2025, 0, 14))).toBe(false) // Tuesday
+      expect(isMonday(new Date(2025, 0, 15))).toBe(false) // Wednesday
+      expect(isMonday(new Date(2025, 0, 16))).toBe(false) // Thursday
+      expect(isMonday(new Date(2025, 0, 17))).toBe(false) // Friday
+      expect(isMonday(new Date(2025, 0, 18))).toBe(false) // Saturday
+    })
+  })
+
+  describe('formatDateDisplay', () => {
+    it('formats date with day name and YYYY-MM-DD', () => {
+      const monday = new Date(2025, 0, 13)
+      expect(formatDateDisplay(monday)).toBe('Mon 2025-01-13')
+    })
+
+    it('handles all days of the week', () => {
+      expect(formatDateDisplay(new Date(2025, 0, 12))).toBe('Sun 2025-01-12')
+      expect(formatDateDisplay(new Date(2025, 0, 13))).toBe('Mon 2025-01-13')
+      expect(formatDateDisplay(new Date(2025, 0, 14))).toBe('Tue 2025-01-14')
+      expect(formatDateDisplay(new Date(2025, 0, 15))).toBe('Wed 2025-01-15')
+      expect(formatDateDisplay(new Date(2025, 0, 16))).toBe('Thu 2025-01-16')
+      expect(formatDateDisplay(new Date(2025, 0, 17))).toBe('Fri 2025-01-17')
+      expect(formatDateDisplay(new Date(2025, 0, 18))).toBe('Sat 2025-01-18')
+    })
+  })
+})

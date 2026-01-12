@@ -51,7 +51,6 @@ const serverOnlyEnvSchema = z.object({
   ANTHROPIC_API_KEY: z
     .string()
     .min(1, 'ANTHROPIC_API_KEY is required for AI features')
-    .optional()
     .describe('Anthropic API key for Claude AI integration'),
 
   RESEND_API_KEY: z

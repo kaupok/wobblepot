@@ -23,6 +23,7 @@ export default defineConfig({
       NEXT_PUBLIC_APP_NAME: 'TestApp',
       NEXT_PUBLIC_APP_ENV: 'test',
       BETTER_AUTH_SECRET: 'test-secret-key-at-least-32-characters-long-for-testing',
+      ANTHROPIC_API_KEY: 'sk-ant-test-key-for-vitest',
     },
     // quality-of-life defaults
     testTimeout: 10000,
