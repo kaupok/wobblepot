@@ -33,6 +33,7 @@ mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
 
 Extract and note:
 
+- Issue UUID (for API calls in steps 4 and 8)
 - Title and description
 - `gitBranchName` for later use
 - `blockedBy` relations (check if blocked)
@@ -130,12 +131,12 @@ If the user wants changes, revise the plan and ask again.
 
 ### 8. Post plan to Linear
 
-Once approved, post the plan to Linear:
+Once approved, post the plan you wrote in step 6 to Linear:
 
 ```
 mcp__linear-server__create_comment({
   issueId: "issue-uuid",
-  body: "[Full plan content]"
+  body: "[The complete plan from step 6, including the markdown structure]"
 })
 ```
 
