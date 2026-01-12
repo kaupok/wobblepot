@@ -8,6 +8,7 @@ import { Heading, Body } from '@/components/ui/typography'
 import { SettingsNav } from '@/components/settings-nav'
 import { CreateInviteDialog } from './CreateInviteDialog'
 import { InviteCard } from './InviteCard'
+import { InviteCardSkeleton } from './InviteCardSkeleton'
 import type { Invite } from '@/types/invite'
 
 interface InviteListProps {
@@ -102,7 +103,10 @@ export function InviteList({ isOwner }: InviteListProps) {
           </div>
 
           {isLoading ? (
-            <Body variant="muted">Loading invites...</Body>
+            <div className="flex flex-col gap-3">
+              <InviteCardSkeleton />
+              <InviteCardSkeleton />
+            </div>
           ) : error ? (
             <Body variant="small" className="text-destructive">
               {error}

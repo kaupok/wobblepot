@@ -64,12 +64,16 @@ describe('InviteList', () => {
   })
 
   describe('owner view - loading', () => {
-    it('shows loading message while fetching', () => {
+    it('shows loading skeletons while fetching', () => {
       mockFetch.mockImplementation(() => new Promise(() => {})) // Never resolves
 
       render(<InviteList isOwner={true} />)
 
-      expect(screen.getByText('Loading invites...')).toBeInTheDocument()
+      // Should render skeleton placeholders instead of text
+      const skeletons = screen
+        .getAllByRole('generic')
+        .filter((el) => el.dataset.slot === 'skeleton')
+      expect(skeletons.length).toBeGreaterThan(0)
     })
   })
 
