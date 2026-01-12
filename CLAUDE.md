@@ -585,6 +585,7 @@ The following skills provide a structured workflow for implementing Linear issue
 | `/code-review`            | Review local changes and triage into action items     | Isolated          |
 | `/pr-review`              | Fetch PR review comments and triage into action items | Main conversation |
 | `/commit`                 | Stage changes, run checks, create commit              | Main conversation |
+| `/commit --push`          | Commit and push to remote                             | Main conversation |
 | `/commit --pr`            | Commit and create pull request                        | Main conversation |
 | `/pr`                     | Analyze commits, create pull request                  | Main conversation |
 | `/merge`                  | Merge approved PR and clean up local branch           | Main conversation |
@@ -656,7 +657,7 @@ After PR is created, external reviewers (like Greptile) may leave comments.
 Fetches PR review comments and triages them into Address Now / Defer / Skip categories. Then fix and push:
 
 ```
-[fix issues] → /commit → git push
+[fix issues] → /commit --push
 ```
 
 **7. Merge and clean up:**
@@ -673,7 +674,7 @@ After PR is approved, merges via squash, checks out main, and deletes local bran
 
 ```
 PRE-COMMIT: /code-review → [fix] → /commit --pr
-POST-PR:    /pr-review → [fix] → /commit → push → /merge
+POST-PR:    /pr-review → [fix] → /commit --push → /merge
 ```
 
 **Multi-session (larger issues):**
@@ -681,7 +682,7 @@ POST-PR:    /pr-review → [fix] → /commit → push → /merge
 - Session 1: `/next-issue` → `/plan-issue` → [approve]
 - Session 2: `/implement-issue` → [implement]
 - Session 3: `/code-review` → [fix] → `/commit --pr`
-- Session 4: `/pr-review` → [fix] → `/commit` → push (if review comments)
+- Session 4: `/pr-review` → [fix] → `/commit --push` (if review comments)
 - Session 5: `/merge` (after PR approval)
 
 ### Cross-Session Context

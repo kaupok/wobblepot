@@ -8,13 +8,19 @@ context: inherit
 
 Create a well-formatted commit following project conventions.
 
-Supports optional `--pr` flag to also create a pull request after successful commit.
+Supports optional flags:
+
+- `--pr` - Create a pull request after successful commit
+- `--push` - Push to remote after successful commit
 
 ## Workflow
 
 ### 1. Parse arguments
 
-Check if `--pr` flag was passed. If so, create PR after successful commit.
+Check for flags:
+
+- `--pr` - Will create PR after commit (implies push)
+- `--push` - Will push after commit
 
 ### 2. Verify branch
 
@@ -107,9 +113,15 @@ git log -1 --oneline
 
 Report the commit hash and summary.
 
-### 10. Create PR (if --pr flag)
+### 10. Post-commit actions (if flags passed)
 
-If the `--pr` flag was passed in step 1, invoke the `/pr` skill to create the pull request.
+**If `--pr` flag:** Invoke the `/pr` skill to create the pull request (this handles pushing).
+
+**If `--push` flag (without --pr):** Push to remote:
+
+```bash
+git push
+```
 
 ## Important
 

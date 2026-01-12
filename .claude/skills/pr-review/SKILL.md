@@ -126,7 +126,7 @@ Place each item in one of three buckets:
 
 1. Fix [specific item] in `file:line`
 2. Fix [specific item] in `file:line`
-3. Run `/commit` then `git push` when done
+3. Run `/commit --push` when done
 ```
 
 ### Step 6: Handle Edge Cases
