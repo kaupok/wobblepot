@@ -27,58 +27,63 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   // Extract plan ID from params
   const { id } = await params
 
-  // Query meal plan with nested relations
-  const plan = await prisma.mealPlan.findUnique({
-    where: { id },
-    include: {
-      entries: {
-        include: {
-          meal: {
-            include: {
-              components: {
-                include: {
-                  ingredient: true,
+  try {
+    // Query meal plan with nested relations
+    const plan = await prisma.mealPlan.findUnique({
+      where: { id },
+      include: {
+        entries: {
+          include: {
+            meal: {
+              include: {
+                components: {
+                  include: {
+                    ingredient: true,
+                  },
                 },
               },
             },
           },
+          orderBy: { date: 'asc' },
         },
-        orderBy: { date: 'asc' },
       },
-    },
-  })
+    })
 
-  // Return 404 if plan not found
-  if (!plan) {
-    return NextResponse.json({ error: 'Meal plan not found' }, { status: 404 })
+    // Return 404 if plan not found
+    if (!plan) {
+      return NextResponse.json({ error: 'Meal plan not found' }, { status: 404 })
+    }
+
+    // Return 403 if plan belongs to different household
+    if (plan.householdId !== household.id) {
+      return NextResponse.json({ error: 'Access denied to this meal plan' }, { status: 403 })
+    }
+
+    // Format response to match GeneratePlanResult type
+    const response = {
+      id: plan.id,
+      startDate: formatDate(plan.startDate),
+      endDate: formatDate(plan.endDate),
+      entries: plan.entries.map((entry) => ({
+        id: entry.id,
+        date: formatDate(entry.date),
+        mealType: entry.mealType as 'dinner', // Cast needed: GeneratePlanResult expects literal 'dinner', not MealType enum
+        status: entry.status,
+        meal: entry.meal
+          ? {
+              id: entry.meal.id,
+              name: entry.meal.name,
+              kidFriendly: entry.meal.kidFriendly,
+              primaryProteinType: entry.meal.primaryProteinType,
+              nutrition: computeMealNutrition(entry.meal.components),
+            }
+          : null,
+      })),
+    }
+
+    return NextResponse.json(response, { status: 200 })
+  } catch (error) {
+    console.error('Failed to fetch meal plan:', error)
+    return NextResponse.json({ error: 'Failed to fetch meal plan' }, { status: 500 })
   }
-
-  // Return 403 if plan belongs to different household
-  if (plan.householdId !== household.id) {
-    return NextResponse.json({ error: 'Access denied to this meal plan' }, { status: 403 })
-  }
-
-  // Format response to match GeneratePlanResult type
-  const response = {
-    id: plan.id,
-    startDate: formatDate(plan.startDate),
-    endDate: formatDate(plan.endDate),
-    entries: plan.entries.map((entry) => ({
-      id: entry.id,
-      date: formatDate(entry.date),
-      mealType: entry.mealType as 'dinner', // Cast needed: GeneratePlanResult expects literal 'dinner', not MealType enum
-      status: entry.status,
-      meal: entry.meal
-        ? {
-            id: entry.meal.id,
-            name: entry.meal.name,
-            kidFriendly: entry.meal.kidFriendly,
-            primaryProteinType: entry.meal.primaryProteinType,
-            nutrition: computeMealNutrition(entry.meal.components),
-          }
-        : null,
-    })),
-  }
-
-  return NextResponse.json(response, { status: 200 })
 }

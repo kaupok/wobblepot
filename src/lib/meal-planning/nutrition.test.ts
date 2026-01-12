@@ -125,28 +125,28 @@ describe('computeMealNutrition', () => {
 })
 
 describe('formatDate', () => {
-  it('formats date to YYYY-MM-DD', () => {
-    const date = new Date('2024-01-15T10:30:00.000Z')
+  it('formats date to YYYY-MM-DD using local time', () => {
+    const date = new Date(2024, 0, 15, 10, 30, 0) // Jan 15, 2024 at 10:30 AM local
     expect(formatDate(date)).toBe('2024-01-15')
   })
 
-  it('handles dates at midnight', () => {
-    const date = new Date('2024-12-31T00:00:00.000Z')
+  it('handles dates at midnight local time', () => {
+    const date = new Date(2024, 11, 31, 0, 0, 0) // Dec 31, 2024 at midnight local
     expect(formatDate(date)).toBe('2024-12-31')
   })
 
-  it('handles dates at end of day', () => {
-    const date = new Date('2024-06-15T23:59:59.999Z')
+  it('handles dates at end of day local time', () => {
+    const date = new Date(2024, 5, 15, 23, 59, 59, 999) // Jun 15, 2024 at 23:59:59.999 local
     expect(formatDate(date)).toBe('2024-06-15')
   })
 
   it('handles single-digit months and days with zero padding', () => {
-    const date = new Date('2024-01-05T12:00:00.000Z')
+    const date = new Date(2024, 0, 5, 12, 0, 0) // Jan 5, 2024 at noon local
     expect(formatDate(date)).toBe('2024-01-05')
   })
 
   it('handles leap year dates', () => {
-    const date = new Date('2024-02-29T12:00:00.000Z')
+    const date = new Date(2024, 1, 29, 12, 0, 0) // Feb 29, 2024 at noon local
     expect(formatDate(date)).toBe('2024-02-29')
   })
 })

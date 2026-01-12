@@ -36,13 +36,12 @@ export function computeMealNutrition(components: MealComponent[]): NutritionData
 }
 
 /**
- * Format Date to YYYY-MM-DD string.
- * ISO 8601 format always contains 'T' separator, so split()[0] is always defined.
+ * Format Date to YYYY-MM-DD string using local time.
+ * Uses local date components to avoid timezone shifts.
  */
 export function formatDate(date: Date): string {
-  const datePart = date.toISOString().split('T')[0]
-  if (!datePart) {
-    throw new Error('Invalid date format from toISOString')
-  }
-  return datePart
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }

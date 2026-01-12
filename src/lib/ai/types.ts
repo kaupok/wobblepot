@@ -75,6 +75,12 @@ export interface GeneratePlanResult {
       name: string
       kidFriendly: boolean
       primaryProteinType: ProteinType
+      nutrition: {
+        calories: number
+        protein: number
+        carbs: number
+        fat: number
+      }
     } | null
   }>
 }
