@@ -1,25 +1,32 @@
 ---
-name: triage-code-review
-description: Analyze review comments and decide what to address now vs later
+name: triage-review
+description: Triage review feedback from /code-review or /pr-review
 context: inherit
-agent: general-purpose
-allowed-tools:
-  - Read
 ---
 
-# Triage Code Review
+# Triage Review
 
-Analyze review feedback from `/code-review` and triage into actionable categories.
+Analyze review feedback and triage into actionable categories.
 
 ## Prerequisites
 
-This skill expects `/code-review` output in the conversation history. If no review output is found, inform the user to run `/code-review` first.
+This skill expects review output in the conversation history from either:
+
+- `/code-review` - Local code review (pre-commit)
+- `/pr-review` - External PR review comments (post-PR)
+
+If no review output is found, inform the user to run the appropriate review command first.
 
 ## Workflow
 
 ### 1. Locate review output
 
-Scan conversation history for the most recent `/code-review` output. Look for the structured format with "Issues" section containing 🔴 Critical, 🟡 Suggestions, and 🟢 Nitpicks.
+Scan conversation history for the most recent review output. Look for the structured format with "Issues" section containing 🔴 Critical, 🟡 Suggestions, and 🟢 Nitpicks.
+
+**Valid sources:**
+
+- `/code-review` output (local changes)
+- `/pr-review` output (GitHub PR comments)
 
 ### 2. Gather context
 
@@ -88,6 +95,6 @@ Place each item in one of three buckets:
 
 ## Edge Cases
 
-- **No review in conversation**: "No `/code-review` output found. Run `/code-review` first to generate feedback to triage."
+- **No review in conversation**: "No review output found. Run `/code-review` (for local changes) or `/pr-review` (for PR comments) first."
 - **Review was APPROVE with no issues**: "Review found no issues. Nothing to triage."
 - **All items are critical**: Address all, note there's no room for deferral
