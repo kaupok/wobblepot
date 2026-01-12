@@ -49,6 +49,7 @@ export function EmptyPlan() {
       setIsGenerating(false)
       router.refresh()
     } catch (err) {
+      clearTimeout(timeoutId)
       setIsGenerating(false)
 
       if (err instanceof Error && err.name === 'AbortError') {

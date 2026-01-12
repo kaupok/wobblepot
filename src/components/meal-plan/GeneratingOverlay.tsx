@@ -25,6 +25,7 @@ export function GeneratingOverlay() {
 
     const slowTimeout = setTimeout(() => {
       setIsSlow(true)
+      clearInterval(messageInterval)
     }, SLOW_THRESHOLD_MS)
 
     return () => {
