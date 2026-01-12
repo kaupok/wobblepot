@@ -216,6 +216,8 @@ export function HouseholdSettingsForm({
                   maxLength={100}
                   required
                   disabled={isLoading || !isOwner}
+                  aria-invalid={!!error}
+                  aria-describedby={error ? 'form-error' : undefined}
                 />
               </div>
               <div className="flex flex-col gap-2">
@@ -225,7 +227,12 @@ export function HouseholdSettingsForm({
                   onValueChange={setTimezone}
                   disabled={isLoading || !isOwner}
                 >
-                  <SelectTrigger id="timezone" className="w-full">
+                  <SelectTrigger
+                    id="timezone"
+                    className="w-full"
+                    aria-invalid={!!error}
+                    aria-describedby={error ? 'form-error' : undefined}
+                  >
                     <SelectValue placeholder="Select timezone" />
                   </SelectTrigger>
                   <SelectContent>
@@ -363,7 +370,7 @@ export function HouseholdSettingsForm({
         <CardFooter className="pt-6">
           <div className="flex w-full flex-col gap-4">
             {error && (
-              <Body variant="small" className="text-destructive" role="alert">
+              <Body id="form-error" variant="small" className="text-destructive" role="alert">
                 {error}
               </Body>
             )}

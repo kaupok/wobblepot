@@ -39,7 +39,9 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <Toaster richColors closeButton duration={4000} />
           <Header />
-          <div className="min-h-screen pt-16">{children}</div>
+          <main id="main-content" className="min-h-screen pt-16">
+            {children}
+          </main>
         </ThemeProvider>
       </body>
     </html>

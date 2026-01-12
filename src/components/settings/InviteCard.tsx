@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Check, X } from 'lucide-react'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import type { Invite } from '@/types/invite'
@@ -70,13 +71,23 @@ export function InviteCard({ invite, onRevoke }: InviteCardProps) {
       ? `${invite.usesCount} uses`
       : `${invite.usesCount}/${invite.maxUses} uses`
 
-  const statusLabel = invite.isActive ? 'Active' : 'Expired'
-
   return (
     <div className={cn('rounded-lg border p-4', !invite.isActive && 'bg-muted/50 opacity-75')}>
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
-          <Badge variant={invite.isActive ? 'default' : 'secondary'}>{statusLabel}</Badge>
+          <Badge variant={invite.isActive ? 'default' : 'secondary'}>
+            {invite.isActive ? (
+              <>
+                <Check className="mr-1 h-3 w-3" aria-hidden="true" />
+                Active
+              </>
+            ) : (
+              <>
+                <X className="mr-1 h-3 w-3" aria-hidden="true" />
+                Expired
+              </>
+            )}
+          </Badge>
           <Body variant="muted">{usageText}</Body>
         </div>
 
