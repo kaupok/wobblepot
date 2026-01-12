@@ -90,7 +90,7 @@ export default function ForgotPasswordPage() {
                 <div className="flex flex-col gap-2">
                   <Body variant="small" className="text-green-600" role="status">
                     If an account exists with this email, you will receive a password reset link
-                    shortly. Check your console for the mock email.
+                    shortly.
                   </Body>
                 </div>
               ) : (

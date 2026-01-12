@@ -97,6 +97,50 @@ Server-only variables are only accessible in server-side code (API routes, Serve
 
 **Never import `serverEnv` in client components** - it will throw a helpful error if accessed in the browser.
 
+## Email Service (Resend)
+
+Resend is used for transactional emails (password reset, etc.).
+
+### Setup
+
+1. Create an account at [resend.com](https://resend.com)
+2. Get your API key from [resend.com/api-keys](https://resend.com/api-keys)
+3. Add to `.env`:
+   ```bash
+   RESEND_API_KEY=re_xxx
+   RESEND_FROM_EMAIL=onboarding@resend.dev
+   ```
+
+### Development vs Production
+
+**Development:**
+
+- Use `onboarding@resend.dev` as the from email (Resend's test address)
+- Emails can only be sent to the account owner's email
+- No domain verification required
+
+**Production:**
+
+- Verify your domain in Resend dashboard
+- Use a verified email like `noreply@yourdomain.com`
+- Full email delivery to any recipient
+
+### Domain Verification
+
+For production use:
+
+1. Go to [resend.com/domains](https://resend.com/domains)
+2. Add your domain
+3. Add the required DNS records (MX, TXT for SPF/DKIM)
+4. Wait for verification (usually < 24 hours)
+5. Update `RESEND_FROM_EMAIL` to use your domain
+
+### Testing
+
+- Check [resend.com/emails](https://resend.com/emails) for sent email logs
+- Development emails only reach the account owner
+- Use Resend's email preview to test templates
+
 ## Validation
 
 All environment variables are validated at startup with clear error messages if validation fails.
