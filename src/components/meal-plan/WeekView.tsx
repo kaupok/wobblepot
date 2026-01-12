@@ -1,4 +1,5 @@
 import { Heading } from '@/components/ui/typography'
+import { toDateString } from '@/lib/meal-planning/dates'
 import { DayColumn } from './DayColumn'
 import type { MealStatus } from './StatusSelect'
 
@@ -25,14 +26,6 @@ interface WeekViewProps {
   plan: MealPlan
 }
 
-function getTodayString(): string {
-  const today = new Date()
-  const year = today.getFullYear()
-  const month = String(today.getMonth() + 1).padStart(2, '0')
-  const day = String(today.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
 function getDatesInRange(startDate: string, endDate: string): string[] {
   const dates: string[] = []
   const start = new Date(startDate + 'T12:00:00')
@@ -40,7 +33,7 @@ function getDatesInRange(startDate: string, endDate: string): string[] {
 
   const current = new Date(start)
   while (current <= end) {
-    dates.push(current.toISOString().slice(0, 10))
+    dates.push(toDateString(current))
     current.setDate(current.getDate() + 1)
   }
 
@@ -48,7 +41,7 @@ function getDatesInRange(startDate: string, endDate: string): string[] {
 }
 
 export function WeekView({ plan }: WeekViewProps) {
-  const today = getTodayString()
+  const today = toDateString(new Date())
   const dates = getDatesInRange(plan.startDate, plan.endDate)
 
   // Group entries by date

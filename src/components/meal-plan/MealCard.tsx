@@ -50,7 +50,7 @@ export function MealCard({ entryId, planId, meal, status: initialStatus }: MealC
 
   if (!meal) {
     return (
-      <Card className="py-4">
+      <Card>
         <CardContent className="flex items-center justify-center">
           <Body variant="muted">No meal planned</Body>
         </CardContent>
@@ -59,7 +59,7 @@ export function MealCard({ entryId, planId, meal, status: initialStatus }: MealC
   }
 
   return (
-    <Card className="py-4">
+    <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base">{meal.name}</CardTitle>
       </CardHeader>

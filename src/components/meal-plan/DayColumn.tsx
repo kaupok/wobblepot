@@ -52,7 +52,7 @@ export function DayColumn({ date, planId, entries, isToday }: DayColumnProps) {
           />
         ))}
         {entries.length === 0 && (
-          <Card className="py-4">
+          <Card>
             <CardContent className="flex items-center justify-center">
               <Body variant="muted">No meal planned</Body>
             </CardContent>
