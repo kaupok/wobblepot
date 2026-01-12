@@ -141,6 +141,7 @@ describe('Environment Validation', () => {
         BETTER_AUTH_SECRET: 'a'.repeat(32),
         DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
         DATABASE_URL_UNPOOLED: 'postgresql://user:pass@localhost:5432/db',
+        ANTHROPIC_API_KEY: 'sk-ant-test-key',
       })
       expect(result.success).toBe(true)
     })
@@ -152,6 +153,7 @@ describe('Environment Validation', () => {
         BETTER_AUTH_SECRET: 'a'.repeat(64),
         DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
         DATABASE_URL_UNPOOLED: 'postgresql://user:pass@localhost:5432/db',
+        ANTHROPIC_API_KEY: 'sk-ant-test-key',
       })
       expect(result.success).toBe(true)
     })
@@ -164,6 +166,7 @@ describe('Environment Validation', () => {
         BETTER_AUTH_SECRET: 'a'.repeat(32),
         DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
         DATABASE_URL_UNPOOLED: 'postgresql://user:pass@localhost:5432/db',
+        ANTHROPIC_API_KEY: 'sk-ant-test-key',
       })
       expect(result.success).toBe(true)
       if (result.success) {
