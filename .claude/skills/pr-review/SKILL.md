@@ -1,12 +1,12 @@
 ---
 name: pr-review
-description: Fetch PR review comments and parse into triage-ready format
+description: Fetch PR review comments and triage into actionable categories
 context: inherit
 ---
 
 # PR Review
 
-Fetches GitHub PR review comments and formats them for `/triage-review`.
+Fetches GitHub PR review comments and triages them into actionable categories.
 
 ## Usage
 
@@ -69,42 +69,67 @@ Greptile uses specific patterns in its reviews. Map these to severity levels:
 - `body`: Comment text
 - `diff_hunk`: Code context
 
-### Step 4: Format Output
+### Step 4: Triage issues
 
-Output format compatible with `/triage-review`:
+After parsing all comments, triage each one using **effort-first** thinking:
+
+**Effort** (primary factor):
+
+- Quick fix (few lines, < 5 min) → **address now**, regardless of severity
+- Moderate fix (15-30 min, in scope) → **address now**
+- Significant work (new feature, major refactor) → defer only if truly out of scope
+
+**Severity** (secondary factor):
+
+- 🔴 Critical → always address now, regardless of effort
+- 🟡 Suggestion → address if quick or moderate effort
+- 🟢 Nitpick → address if quick fix, otherwise skip
+
+**Bias toward action.** Deferred items rarely get done. If something can be fixed in a few minutes, just fix it.
+
+Place each item in one of three buckets:
+
+- **Address Now**: Fix before PR merge. Includes all quick fixes and anything critical.
+- **Defer**: Only for significant work (hours, not minutes) that's genuinely out of scope. Must justify why.
+- **Skip**: Disagree with the suggestion or it's not actionable. Explain why.
+
+### Step 5: Format Output
 
 ```markdown
-## PR Review Comments
+## PR Review: #{number} - {title}
 
-**PR:** #{number} - {title}
 **URL:** {url}
 **Reviewers:** {list of comment authors}
+**Comments:** {total} total, {actionable} actionable
 
-### Issues
+### Triage
 
-🔴 **Critical** ({count})
+#### Address Now
 
-1. [{path}#{line}] {summary of issue}
+1. [🔴/🟡/🟢] [{path}:{line}] {summary of issue} - [effort: quick/moderate]
    > {quoted comment excerpt}
+2. ...
 
-🟡 **Suggestions** ({count})
+#### Defer
 
-1. [{path}#{line}] {summary of issue}
-   > {quoted comment excerpt}
+1. [{path}:{line}] {summary} - [Why out of scope]
+2. ...
+   (If empty: "None")
 
-🟢 **Nitpicks** ({count})
+#### Skip
 
-1. [{path}#{line}] {summary of issue}
-   > {quoted comment excerpt}
+1. [{path}:{line}] {summary} - [Why disagreed or not actionable]
+2. ...
+   (If empty: "None")
 
-### Summary
+### Next Steps
 
-- Total comments: {count}
-- Actionable items: {count}
-- Files affected: {list}
+1. Fix [specific item] in `file:line`
+2. Fix [specific item] in `file:line`
+3. Run `/commit` then `git push` when done
 ```
 
-### Step 5: Handle Edge Cases
+### Step 6: Handle Edge Cases
 
 **No comments:**
 
@@ -121,10 +146,13 @@ The PR is ready for the next step:
 ```
 No actionable review comments found on PR #{number}.
 (Filtered {count} automated/noise comments)
+
+Ready to `/merge` if approved.
 ```
 
 ## Notes
 
 - This skill fetches EXTERNAL review feedback (from GitHub reviewers like Greptile)
 - For LOCAL code review before committing, use `/code-review` instead
-- Output is designed to feed directly into `/triage-review`
+- **Bias toward action** - when in doubt, put it in Address Now
+- **Defer is last resort** - only for work that genuinely takes hours and is out of scope

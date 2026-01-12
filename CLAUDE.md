@@ -577,17 +577,16 @@ The following skills provide a structured workflow for implementing Linear issue
 
 ### Available Skills
 
-| Skill                     | Purpose                                            | Context           |
-| ------------------------- | -------------------------------------------------- | ----------------- |
-| `/next-issue`             | Find next unblocked issue in active milestone      | Isolated          |
-| `/plan-issue HON-XX`      | Create plan, post to Linear after approval         | Main conversation |
-| `/implement-issue HON-XX` | Execute plan from Linear, create branch            | Main conversation |
-| `/code-review`            | Review local changes (pre-commit)                  | Isolated          |
-| `/pr-review`              | Fetch PR review comments, parse into triage format | Main conversation |
-| `/triage-review`          | Triage review feedback (local or PR)               | Main conversation |
-| `/commit`                 | Stage changes, run checks, create commit           | Main conversation |
-| `/pr`                     | Analyze commits, create pull request               | Main conversation |
-| `/merge`                  | Merge approved PR and clean up local branch        | Main conversation |
+| Skill                     | Purpose                                               | Context           |
+| ------------------------- | ----------------------------------------------------- | ----------------- |
+| `/next-issue`             | Find next unblocked issue in active milestone         | Isolated          |
+| `/plan-issue HON-XX`      | Create plan, post to Linear after approval            | Main conversation |
+| `/implement-issue HON-XX` | Execute plan from Linear, create branch               | Main conversation |
+| `/code-review`            | Review local changes and triage into action items     | Isolated          |
+| `/pr-review`              | Fetch PR review comments and triage into action items | Main conversation |
+| `/commit`                 | Stage changes, run checks, create commit              | Main conversation |
+| `/pr`                     | Analyze commits, create pull request                  | Main conversation |
+| `/merge`                  | Merge approved PR and clean up local branch           | Main conversation |
 
 ### Typical Workflow
 
@@ -627,23 +626,15 @@ For simple issues, skip planning:
 /implement-issue HON-51 --no-plan
 ```
 
-**4. Review before PR (pre-commit):**
+**4. Review and triage (pre-commit):**
 
 ```
 /code-review
 ```
 
-Reviews local changes (committed, staged, unstaged, untracked) with issues categorized by severity.
+Reviews local changes (committed, staged, unstaged, untracked) and triages issues into Address Now / Defer / Skip categories.
 
-**5. Triage review findings:**
-
-```
-/triage-review
-```
-
-Categorizes issues into Address Now / Defer / Skip.
-
-**6. Commit changes:**
+**5. Commit changes:**
 
 ```
 /commit
@@ -651,7 +642,7 @@ Categorizes issues into Address Now / Defer / Skip.
 
 After fixing critical issues, stages all changes, runs checks, and creates commit.
 
-**7. Create PR:**
+**6. Create PR:**
 
 ```
 /pr
@@ -659,7 +650,7 @@ After fixing critical issues, stages all changes, runs checks, and creates commi
 
 Analyzes all commits, drafts description, and creates PR.
 
-**8. Address external review feedback (if needed):**
+**7. Address external review feedback (if needed):**
 
 After PR is created, external reviewers (like Greptile) may leave comments.
 
@@ -667,15 +658,13 @@ After PR is created, external reviewers (like Greptile) may leave comments.
 /pr-review
 ```
 
-Fetches and parses PR review comments into triage-ready format.
-
-Then triage and fix:
+Fetches PR review comments and triages them into Address Now / Defer / Skip categories. Then fix and push:
 
 ```
-/triage-review → [fix issues] → /commit → git push
+[fix issues] → /commit → git push
 ```
 
-**9. Merge and clean up:**
+**8. Merge and clean up:**
 
 ```
 /merge
@@ -688,22 +677,21 @@ After PR is approved, merges via squash, checks out main, and deletes local bran
 **Single session (small/medium issues):**
 
 ```
-PRE-COMMIT: /code-review → /triage-review → [fix] → /commit → /pr
-POST-PR:    /pr-review → /triage-review → [fix] → /commit → push → /merge
+PRE-COMMIT: /code-review → [fix] → /commit → /pr
+POST-PR:    /pr-review → [fix] → /commit → push → /merge
 ```
 
 **Multi-session (larger issues):**
 
 - Session 1: `/next-issue` → `/plan-issue` → [approve]
 - Session 2: `/implement-issue` → [implement]
-- Session 3: `/code-review` → `/triage-review` → [fix] → `/commit` → `/pr`
-- Session 4: `/pr-review` → `/triage-review` → [fix] → `/commit` → push (if review comments)
+- Session 3: `/code-review` → [fix] → `/commit` → `/pr`
+- Session 4: `/pr-review` → [fix] → `/commit` → push (if review comments)
 - Session 5: `/merge` (after PR approval)
 
 ### Cross-Session Context
 
 - **Plan is stored in Linear:** `/plan-issue` posts the plan as a comment after approval, so `/implement-issue` and `/code-review` can fetch it in new sessions
-- **Triage needs same session:** `/triage-review` reads review output from conversation history. Run `/code-review` or `/pr-review` in the same session as `/triage-review`.
 
 ## Subagent Patterns for Context Efficiency
 
@@ -726,6 +714,7 @@ When a task involves significant discovery/research before the real work begins,
 **Example skills:**
 
 - `/next-issue` - Find next unblocked Linear issue (see `.claude/skills/next-issue/`)
+- `/code-review` - Review and triage local changes (see `.claude/skills/code-review/`)
 
 **Creating a new skill:**
 

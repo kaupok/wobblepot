@@ -14,7 +14,7 @@ allowed-tools:
 
 # Code Review
 
-Review all changes on the current branch and provide structured feedback.
+Review all changes on the current branch, provide structured feedback, and triage issues into actionable categories.
 
 Supports optional `--quick` flag to skip external context fetching (PR/Linear).
 
@@ -139,9 +139,33 @@ Use the Read tool on CLAUDE.md. Focus on: Code Standards, Typography Components,
 - **Requirements**: If Linear issue context available, verify acceptance criteria are met
 - **Plan Compliance**: If implementation plan found, verify implementation matches planned approach
 
+### 10. Triage issues
+
+After identifying all issues, triage each one using **effort-first** thinking:
+
+**Effort** (primary factor):
+
+- Quick fix (few lines, < 5 min) → **address now**, regardless of severity
+- Moderate fix (15-30 min, in scope) → **address now**
+- Significant work (new feature, major refactor) → defer only if truly out of scope
+
+**Severity** (secondary factor):
+
+- 🔴 Critical → always address now, regardless of effort
+- 🟡 Suggestion → address if quick or moderate effort
+- 🟢 Nitpick → address if quick fix, otherwise skip
+
+**Bias toward action.** Deferred items rarely get done. If something can be fixed in a few minutes, just fix it.
+
+Place each item in one of three buckets:
+
+- **Address Now**: Fix before PR merge. Includes all quick fixes and anything critical.
+- **Defer**: Only for significant work (hours, not minutes) that's genuinely out of scope. Must justify why.
+- **Skip**: Disagree with the suggestion or it's not actionable. Explain why.
+
 ## Output Format
 
-Return a structured review (under 800 words):
+Return a structured review with triage (under 1000 words):
 
 ```
 ## Code Review: [branch-name]
@@ -151,26 +175,13 @@ Return a structured review (under 800 words):
 - **Issue**: [HON-XX: title] or "No linked issue"
 - **Plan**: Found in Linear comments / Not found
 
-### Changes Detected
+### Changes Summary
 - **Committed** (vs main): X files
 - **Staged**: X files
 - **Unstaged**: X files
 - **Untracked**: X files
 
-### Files Changed
-- `path/to/file.ts` - [brief description]
-- `path/to/file2.ts` - [brief description]
-
-### Issues
-
-#### 🔴 Critical
-- [Issue description with file:line reference]
-
-#### 🟡 Suggestions
-- [Improvement suggestion with file:line reference]
-
-#### 🟢 Nitpicks
-- [Minor issues, style nits]
+Files: `file1.ts`, `file2.ts`, ...
 
 ### Requirements Check
 [If Linear issue available: List acceptance criteria and whether they're addressed]
@@ -179,9 +190,24 @@ Return a structured review (under 800 words):
 ### Plan Compliance
 [If implementation plan found in comments:]
 - Planned files vs actual files modified
-- Any deviations from planned approach (with rationale if apparent)
-- Verification steps from plan that should be checked
+- Any deviations from planned approach
 [If no plan: Skip this section]
+
+### Triage
+
+#### Address Now
+1. [🔴/🟡/🟢] [Issue description] - `file:line` - [effort: quick/moderate]
+2. ...
+
+#### Defer
+1. [Issue description] - [Why it's out of scope, suggest follow-up issue]
+2. ...
+(If empty: "None")
+
+#### Skip
+1. [Issue description] - [Why disagreed or not actionable]
+2. ...
+(If empty: "None")
 
 ### Missing Tests
 - [ ] [Test case that should be added]
@@ -194,14 +220,20 @@ Return a structured review (under 800 words):
 
 ### Verdict
 [APPROVE / REQUEST_CHANGES / NEEDS_DISCUSSION] - [one sentence rationale]
+
+### Next Steps
+1. Fix [specific item] in `file:line`
+2. Fix [specific item] in `file:line`
+3. Run `/commit` when done
 ```
 
 ## Important
 
 - Be specific - include file paths and line numbers
 - Prioritize actionable feedback over praise
-- If no issues found, say so clearly
+- If no issues found, say "No issues found" and verdict APPROVE
 - Focus on the diff, not unrelated code
 - Check for patterns from CLAUDE.md (sentence case, typography components, etc.)
 - If Linear issue has acceptance criteria, verify they're addressed in the review
-- If PR description mentions specific concerns, prioritize reviewing those areas
+- **Bias toward action** - when in doubt, put it in Address Now
+- **Defer is last resort** - only for work that genuinely takes hours and is out of scope
