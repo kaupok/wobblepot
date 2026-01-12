@@ -96,7 +96,8 @@ export const auth = betterAuth({
      */
     sendResetPassword: async ({ user, url }) => {
       // Check if email is configured (for CI/build environments)
-      if (!isEmailConfigured() || !resend) {
+      const fromEmail = serverEnv.RESEND_FROM_EMAIL
+      if (!isEmailConfigured() || !resend || !fromEmail) {
         // eslint-disable-next-line no-console
         console.warn('Email not configured. Password reset email not sent.')
         // eslint-disable-next-line no-console
@@ -108,7 +109,7 @@ export const auth = betterAuth({
 
       try {
         await resend.emails.send({
-          from: serverEnv.RESEND_FROM_EMAIL!,
+          from: fromEmail,
           to: user.email,
           ...emailContent,
         })
