@@ -30,7 +30,7 @@ git branch --show-current
 git status --porcelain
 
 # Get PR status
-gh pr view --json number,title,state,headRefName,reviewDecision,mergeable,mergeStateStatus,statusCheckRollup,url
+gh pr view --json number,title,state,headRefName,reviewDecision,mergeable,mergeStateStatus,url 2>/dev/null
 ```
 
 **Validation rules:**
@@ -40,7 +40,7 @@ gh pr view --json number,title,state,headRefName,reviewDecision,mergeable,mergeS
 | Branch      | On `main`           | "You're on main. Switch to a feature branch with `git checkout <branch>`."                |
 | PR exists   | No PR for branch    | "No PR found for this branch. Create one with `/pr` first."                               |
 | Clean state | Uncommitted changes | "You have uncommitted changes. Commit with `/commit` or stash them first."                |
-| PR state    | Not OPEN            | "PR is already {state}. Nothing to merge."                                                |
+| PR state    | State is CLOSED     | "PR is closed. Cannot merge a closed PR."                                                 |
 | Review      | Not APPROVED        | "PR requires approval. Current status: {reviewDecision}"                                  |
 | Mergeable   | Not mergeable       | "PR cannot be merged. Status: {mergeStateStatus}. Check for conflicts or failing checks." |
 
@@ -88,14 +88,8 @@ git checkout main
 # Pull latest changes (includes the merged PR)
 git pull origin main
 
-# Delete local branch (use -D if -d fails due to unmerged state)
-git branch -d {saved_branch_name}
-```
-
-If `git branch -d` fails with "not fully merged" warning (can happen with squash), use:
-
-```bash
-git branch -D {saved_branch_name}
+# Delete local branch (-d may fail after squash merge, fallback to -D)
+git branch -d {saved_branch_name} || git branch -D {saved_branch_name}
 ```
 
 ### Step 5: Confirmation
