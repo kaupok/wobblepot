@@ -147,9 +147,8 @@ describe('InviteCard', () => {
     })
 
     it('shows "Expires tomorrow" for invite expiring tomorrow', () => {
-      const tomorrow = new Date()
-      tomorrow.setDate(tomorrow.getDate() + 1)
-      tomorrow.setHours(12, 0, 0, 0)
+      // 12 hours from now gives diffDays = Math.ceil(0.5) = 1 -> "tomorrow"
+      const tomorrow = new Date(Date.now() + 12 * 60 * 60 * 1000)
 
       render(
         <InviteCard
