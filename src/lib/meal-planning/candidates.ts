@@ -1,0 +1,105 @@
+import { prisma } from '@/lib/prisma'
+import { Allergen, IngredientCategory, MealType, ProteinType } from '@/generated/prisma/enums'
+
+export const MAX_TIME_MINUTES = 60
+
+/**
+ * Number of days to look back when excluding recently used meals.
+ * Exported for callers to use when computing recentMealIds.
+ */
+export const NO_REPEAT_DAYS = 14
+
+export interface CandidateFilters {
+  mealType: MealType
+  allergensToAvoid: Allergen[]
+  excludedIngredientIds: string[]
+  recentMealIds: string[]
+  primaryProteinType?: ProteinType
+  maxTimeMinutes?: number
+}
+
+export interface CandidateMeal {
+  id: string
+  name: string
+  kidFriendly: boolean
+  primaryProteinType: ProteinType
+  topIngredients: { name: string; category: IngredientCategory }[]
+}
+
+/**
+ * Pre-filter meals by hard constraints before AI selection.
+ * Database handles: allergens, excluded ingredients, time, recent history, protein type.
+ * AI handles: variety and final selection from filtered candidates.
+ */
+export async function getCandidates(filters: CandidateFilters): Promise<CandidateMeal[]> {
+  const maxTime = filters.maxTimeMinutes ?? MAX_TIME_MINUTES
+
+  const meals = await prisma.meal.findMany({
+    where: {
+      suitableFor: { has: filters.mealType },
+      AND: [
+        // Hard filter: allergens - exclude meals with any allergen-containing ingredients
+        ...(filters.allergensToAvoid.length > 0
+          ? [
+              {
+                NOT: {
+                  components: {
+                    some: {
+                      ingredient: {
+                        allergens: { hasSome: filters.allergensToAvoid },
+                      },
+                    },
+                  },
+                },
+              },
+            ]
+          : []),
+        // Hard filter: excluded ingredients
+        ...(filters.excludedIngredientIds.length > 0
+          ? [
+              {
+                NOT: {
+                  components: {
+                    some: { ingredientId: { in: filters.excludedIngredientIds } },
+                  },
+                },
+              },
+            ]
+          : []),
+        // Recent history: exclude recently used meals
+        ...(filters.recentMealIds.length > 0 ? [{ id: { notIn: filters.recentMealIds } }] : []),
+        // Protein type filter (for slot-specific queries)
+        ...(filters.primaryProteinType ? [{ primaryProteinType: filters.primaryProteinType }] : []),
+      ],
+      // Time constraint: <= maxTime OR null (no time data)
+      OR: [{ timeMinutes: { lte: maxTime } }, { timeMinutes: null }],
+    },
+    select: {
+      id: true,
+      name: true,
+      kidFriendly: true,
+      primaryProteinType: true,
+      components: {
+        orderBy: { quantityPerServing: 'desc' },
+        take: 3,
+        select: {
+          ingredient: {
+            select: { name: true, category: true },
+          },
+        },
+      },
+    },
+  })
+
+  // Transform to CandidateMeal format
+  return meals.map((meal) => ({
+    id: meal.id,
+    name: meal.name,
+    kidFriendly: meal.kidFriendly,
+    primaryProteinType: meal.primaryProteinType,
+    topIngredients: meal.components.map((c) => ({
+      name: c.ingredient.name,
+      category: c.ingredient.category,
+    })),
+  }))
+}
