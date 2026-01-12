@@ -1,6 +1,6 @@
 ---
 name: plan-issue
-description: Create an implementation plan for a Linear issue. Enter plan mode and write a detailed plan.
+description: Create an implementation plan for a Linear issue. Explores codebase, writes plan, posts to Linear after approval.
 context: inherit
 ---
 
@@ -67,13 +67,9 @@ Using Read, Grep, and Glob tools:
 
 Focus on files directly relevant to the issue (2-5 files max).
 
-### 6. Enter plan mode
+### 6. Write plan and present to user
 
-If not already in plan mode, use `EnterPlanMode` to enter it.
-
-### 7. Write plan file
-
-Create a plan file with this structure:
+Write the plan directly in your response (not to a file). Use this structure:
 
 ```markdown
 # Plan: HON-XX - [Issue Title]
@@ -112,33 +108,43 @@ Create a plan file with this structure:
 - [ ] [Edge cases to check]
 ```
 
-### 8. Request plan approval
+### 7. Ask for approval
 
-Call `ExitPlanMode` to request user approval of the plan.
-
-### 9. Post plan to Linear (after approval)
-
-Once the user approves the plan, fetch the issue UUID and post the plan:
+Use `AskUserQuestion` to confirm the plan:
 
 ```
-mcp__linear-server__get_issue({ id: "HON-XX" })
+AskUserQuestion({
+  questions: [{
+    question: "Does this plan look good to post to Linear?",
+    header: "Plan review",
+    options: [
+      { label: "Yes, post to Linear", description: "Approve the plan and post it as a comment on the issue" },
+      { label: "No, needs changes", description: "I'll provide feedback on what to adjust" }
+    ],
+    multiSelect: false
+  }]
+})
 ```
 
-Extract the issue UUID, then post:
+If the user wants changes, revise the plan and ask again.
+
+### 8. Post plan to Linear
+
+Once approved, post the plan to Linear:
 
 ```
 mcp__linear-server__create_comment({
   issueId: "issue-uuid",
-  body: "[Full plan content from plan file]"
+  body: "[Full plan content]"
 })
 ```
 
-### 10. Output completion and STOP
+### 9. Output completion and STOP
 
 Output exactly this (substituting actual values):
 
 ```
-✓ Plan approved and posted to HON-XX.
+Plan posted to HON-XX.
 
 Run `/implement-issue HON-XX` when ready to start implementation.
 ```
@@ -153,4 +159,4 @@ Run `/implement-issue HON-XX` when ready to start implementation.
 - Order implementation steps by dependency
 - Include verification steps that can be checked after implementation
 - If the issue has acceptance criteria, map them to verification steps
-- **Never suggest or prompt to start implementation** - the skill ends after plan approval
+- **Never suggest or prompt to start implementation** - the skill ends after posting to Linear
