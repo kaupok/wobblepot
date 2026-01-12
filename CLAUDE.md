@@ -586,6 +586,7 @@ The following skills provide a structured workflow for implementing Linear issue
 | `/triage-code-review`     | Categorize review findings into address/defer/skip | Main conversation |
 | `/commit`                 | Stage changes, run checks, create commit           | Main conversation |
 | `/pr`                     | Analyze commits, create pull request               | Main conversation |
+| `/merge`                  | Merge approved PR and clean up local branch        | Main conversation |
 
 ### Typical Workflow
 
@@ -657,12 +658,20 @@ After fixing critical issues, stages all changes, runs checks, and creates commi
 
 Analyzes all commits, drafts description, and creates PR.
 
+**8. Merge and clean up:**
+
+```
+/merge
+```
+
+After PR is approved, merges via squash, checks out main, and deletes local branch.
+
 ### Session Patterns
 
 **Single session (small/medium issues):**
 
 ```
-/next-issue → /plan-issue → [approve] → /implement-issue → /code-review → /triage → [fix] → /commit → /pr
+/next-issue → /plan-issue → [approve] → /implement-issue → /code-review → /triage → [fix] → /commit → /pr → [approved] → /merge
 ```
 
 **Multi-session (larger issues):**
@@ -670,6 +679,7 @@ Analyzes all commits, drafts description, and creates PR.
 - Session 1: `/next-issue` → `/plan-issue` → [approve]
 - Session 2: `/implement-issue` → [implement]
 - Session 3: `/code-review` → `/triage` → [fix] → `/commit` → `/pr`
+- Session 4: `/merge` (after PR approval)
 
 ### Cross-Session Context
 
