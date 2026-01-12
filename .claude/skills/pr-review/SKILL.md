@@ -106,19 +106,19 @@ Place each item in one of three buckets:
 
 #### Address Now
 
-1. [🔴/🟡/🟢] [{path}:{line}] {summary of issue} - [effort: quick/moderate]
+1. [🔴/🟡/🟢] [Issue description] - `{path}:{line}` - [effort: quick/moderate]
    > {quoted comment excerpt}
 2. ...
 
 #### Defer
 
-1. [{path}:{line}] {summary} - [Why out of scope]
+1. [Issue description] - `{path}:{line}` - [Why out of scope]
 2. ...
    (If empty: "None")
 
 #### Skip
 
-1. [{path}:{line}] {summary} - [Why disagreed or not actionable]
+1. [Issue description] - [Why disagreed or not actionable]
 2. ...
    (If empty: "None")
 
