@@ -32,7 +32,7 @@ function getDatesInRange(startDate: string, endDate: string): string[] {
   const end = new Date(endDate + 'T12:00:00')
 
   const current = new Date(start)
-  while (current <= end) {
+  while (current < end) {
     dates.push(toDateString(current))
     current.setDate(current.getDate() + 1)
   }
