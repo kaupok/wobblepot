@@ -169,6 +169,8 @@ export function MemberPreferencesForm({
                   maxLength={50}
                   placeholder="e.g., Mom, Dad, Alex"
                   disabled={isLoading}
+                  aria-invalid={!!error}
+                  aria-describedby={error ? 'form-error' : undefined}
                 />
               </div>
             </section>
@@ -206,11 +208,18 @@ export function MemberPreferencesForm({
                     onChange={handlePortionInputChange}
                     className="w-24"
                     disabled={isLoading}
+                    aria-invalid={!!portionError}
+                    aria-describedby={portionError ? 'portion-error' : undefined}
                   />
                   <Body variant="muted">× standard portion</Body>
                 </div>
                 {portionError && (
-                  <Body variant="small" className="text-destructive">
+                  <Body
+                    id="portion-error"
+                    variant="small"
+                    className="text-destructive"
+                    role="alert"
+                  >
                     {portionError}
                   </Body>
                 )}
@@ -372,7 +381,7 @@ export function MemberPreferencesForm({
         <CardFooter className="pt-6">
           <div className="flex w-full flex-col gap-4">
             {error && (
-              <Body variant="small" className="text-destructive" role="alert">
+              <Body id="form-error" variant="small" className="text-destructive" role="alert">
                 {error}
               </Body>
             )}

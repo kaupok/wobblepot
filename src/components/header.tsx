@@ -13,6 +13,12 @@ export async function Header() {
 
   return (
     <header className="bg-background fixed top-0 right-0 left-0 z-50 border-b">
+      <a
+        href="#main-content"
+        className="focus:bg-background focus:text-foreground sr-only focus:not-sr-only focus:absolute focus:z-50 focus:px-4 focus:py-2 focus:ring-2 focus:ring-offset-2"
+      >
+        Skip to content
+      </a>
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-6">
           <Link href="/" className="transition-opacity hover:opacity-70">

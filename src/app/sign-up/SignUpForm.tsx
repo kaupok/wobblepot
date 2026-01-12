@@ -101,6 +101,8 @@ export function SignUpForm() {
                 onChange={(e) => setName(e.target.value)}
                 required
                 disabled={isLoading}
+                aria-invalid={!!error}
+                aria-describedby={error ? 'form-error' : undefined}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -112,6 +114,8 @@ export function SignUpForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={isLoading}
+                aria-invalid={!!error}
+                aria-describedby={error ? 'form-error' : undefined}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -124,10 +128,12 @@ export function SignUpForm() {
                 required
                 disabled={isLoading}
                 minLength={8}
+                aria-invalid={!!error}
+                aria-describedby={error ? 'form-error' : undefined}
               />
             </div>
             {error && (
-              <Body variant="small" className="text-destructive" role="alert">
+              <Body id="form-error" variant="small" className="text-destructive" role="alert">
                 {error}
               </Body>
             )}
