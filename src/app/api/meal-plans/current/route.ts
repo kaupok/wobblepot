@@ -31,7 +31,7 @@ export async function GET() {
     today.setHours(0, 0, 0, 0)
 
     // Query meal plan containing today's date
-    const plan = await prisma.mealPlan.findFirst({
+    let plan = await prisma.mealPlan.findFirst({
       where: {
         householdId: household.id,
         startDate: { lte: today },
@@ -55,6 +55,38 @@ export async function GET() {
       },
       orderBy: { startDate: 'desc' },
     })
+
+    // Fallback: find upcoming plan starting within the next 7 days.
+    // This handles the case where a new plan was just generated for next week
+    // (e.g., on Sunday for the upcoming Monday), so users can see it immediately.
+    if (!plan) {
+      const nextWeek = new Date(today)
+      nextWeek.setDate(nextWeek.getDate() + 7)
+
+      plan = await prisma.mealPlan.findFirst({
+        where: {
+          householdId: household.id,
+          startDate: { gt: today, lte: nextWeek },
+        },
+        include: {
+          entries: {
+            include: {
+              meal: {
+                include: {
+                  components: {
+                    include: {
+                      ingredient: true,
+                    },
+                  },
+                },
+              },
+            },
+            orderBy: { date: 'asc' },
+          },
+        },
+        orderBy: { startDate: 'asc' },
+      })
+    }
 
     // Return 404 if no current plan found
     if (!plan) {
