@@ -452,7 +452,7 @@ Use `pnpm build` to analyze bundle size. Target: First Load JS < 200 kB.
 5. Push: `git push -u origin feat/your-feature`
 6. Create PR: `gh pr create --title "type(scope): subject"`
 
-**Pre-commit hook:** Automatically prevents commits to `main`. New team members run `./scripts/setup-git-hooks.sh`
+**Pre-commit hook:** Husky + lint-staged auto-installs on `pnpm install`. Runs type-check, ESLint, and Prettier on staged files. Prevents commits to `main`.
 
 **Detailed guide and recovery procedures:** See [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)
 

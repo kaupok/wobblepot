@@ -183,16 +183,15 @@ We use a git pre-commit hook to automatically prevent commits to `main`. This ho
 
 **For new team members or after fresh clone:**
 
-Run the setup script to install git hooks:
+Git hooks install automatically when you run `pnpm install` (via Husky).
 
-```bash
-./scripts/setup-git-hooks.sh
-```
+The pre-commit hook:
 
-This will install:
+- Prevents commits to main branch
+- Runs type-check on all TypeScript files
+- Runs ESLint + Prettier on staged files (via lint-staged)
 
-- Pre-commit hook that prevents commits to main
-- (Future hooks as we add them)
+If hooks aren't working, try: `rm -rf .git/hooks/pre-commit && pnpm install`
 
 **Bypassing the hook** (not recommended):
 

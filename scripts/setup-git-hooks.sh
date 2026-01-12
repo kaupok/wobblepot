@@ -1,5 +1,23 @@
 #!/bin/bash
 #
+# DEPRECATED: This script is no longer needed.
+#
+# Git hooks are now managed by Husky and install automatically when you run:
+#   pnpm install
+#
+# The hook configuration lives in .husky/pre-commit
+#
+# This script remains for reference but should not be used.
+#
+
+echo "This script is deprecated."
+echo ""
+echo "Git hooks are now managed by Husky and install automatically on 'pnpm install'."
+echo "If hooks aren't working, try: rm -rf .git/hooks/pre-commit && pnpm install"
+echo ""
+exit 0
+
+# --- DEPRECATED CODE BELOW ---
 # Setup script for git hooks
 # Run this after cloning the repository to install recommended git hooks
 #

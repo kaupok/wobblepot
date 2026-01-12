@@ -8,6 +8,7 @@
     "maybe:migrate": "if [ \"$VERCEL_ENV\" = \"preview\" ] && [ \"$VERCEL_GIT_COMMIT_REF\" != \"main\" ] && [ -n \"$DATABASE_URL_UNPOOLED\" ]; then pnpm prisma migrate deploy; else echo 'skip migrate'; fi",
     "start": "next start",
     "postinstall": "prisma generate",
+    "prepare": "husky",
     "lint": "eslint .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
