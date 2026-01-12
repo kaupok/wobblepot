@@ -607,9 +607,9 @@ Returns recommended issue with key files and implementation summary.
 ```
 
 - Fetches issue details and project context
-- Enters plan mode
-- Creates comprehensive plan file
-- User reviews and approves plan
+- Explores codebase for relevant patterns
+- Presents plan inline for review
+- Posts approved plan to Linear as comment
 
 **3. Implement:**
 
@@ -617,7 +617,7 @@ Returns recommended issue with key files and implementation summary.
 /implement-issue HON-51
 ```
 
-- Posts approved plan to Linear as comment
+- Fetches plan from Linear comments
 - Updates issue status to "In Progress"
 - Creates branch using Linear's `gitBranchName`
 - Begins implementation following the plan
