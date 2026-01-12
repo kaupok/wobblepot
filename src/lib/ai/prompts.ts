@@ -46,7 +46,11 @@ function formatRequiredSlots(slots: SlotRequirement[], pools: CandidatePools): s
  * Build the complete prompt for AI meal plan generation.
  */
 export function buildMealPlanPrompt(input: PromptInput): string {
-  const { startDate, requiredSlots, remainingDates, candidatePools, restrictions } = input
+  const { startDate, endDate, requiredSlots, remainingDates, candidatePools, restrictions } = input
+
+  // Calculate last day (endDate is exclusive, so subtract 1 day)
+  const lastDay = new Date(endDate)
+  lastDay.setDate(lastDay.getDate() - 1)
 
   const slotsText = formatRequiredSlots(requiredSlots, candidatePools)
   const remainingText = remainingDates.map(formatDateDisplay).join(', ')
@@ -71,8 +75,8 @@ VARIETY RULES:
 
   prompt += `
 
-Return exactly 7 entries, one for each day of the week.
-Use YYYY-MM-DD format for dates (${toDateString(startDate)} style).`
+Return exactly 7 entries covering ${toDateString(startDate)} through ${toDateString(lastDay)}.
+Use YYYY-MM-DD format for dates.`
 
   return prompt
 }

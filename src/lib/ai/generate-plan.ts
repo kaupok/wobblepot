@@ -8,6 +8,7 @@ import { getWeekDates, toDateString, parseLocalDate } from '@/lib/meal-planning/
 import { buildMealPlanPrompt } from './prompts'
 import {
   MealPlanResponseSchema,
+  MealPlanValidationError,
   type CandidatePools,
   type GeneratePlanOptions,
   type GeneratePlanResult,
@@ -99,6 +100,41 @@ async function hydratePlan(
 }
 
 /**
+ * Validate AI response before persisting to database.
+ * Throws MealPlanValidationError if validation fails.
+ */
+function validateAIResponse(hydratedPlan: HydratedPlanEntry[], expectedDates: Date[]): void {
+  // Check entry count
+  if (hydratedPlan.length !== 7) {
+    throw new MealPlanValidationError(`Expected 7 entries, got ${hydratedPlan.length}`)
+  }
+
+  // Check for duplicate dates
+  const dateStrings = hydratedPlan.map((e) => toDateString(e.date))
+  const uniqueDates = new Set(dateStrings)
+  if (uniqueDates.size !== 7) {
+    throw new MealPlanValidationError(`Duplicate dates in response: ${dateStrings.join(', ')}`)
+  }
+
+  // Check dates match expected week
+  const expectedDateStrings = new Set(expectedDates.map(toDateString))
+  for (const dateStr of dateStrings) {
+    if (!expectedDateStrings.has(dateStr)) {
+      throw new MealPlanValidationError(
+        `Unexpected date ${dateStr}, expected dates: ${[...expectedDateStrings].join(', ')}`,
+      )
+    }
+  }
+
+  // Check all meals exist (no null meals)
+  const nullMealEntries = hydratedPlan.filter((e) => e.meal === null)
+  if (nullMealEntries.length > 0) {
+    const invalidIds = nullMealEntries.map((e) => e.mealId).join(', ')
+    throw new MealPlanValidationError(`Invalid meal IDs returned by AI: ${invalidIds}`)
+  }
+}
+
+/**
  * Generate a meal plan using AI.
  * Orchestrates: slot computation -> candidate query -> AI selection -> persist.
  */
@@ -152,6 +188,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
   // Build prompt and call AI
   const prompt = buildMealPlanPrompt({
     startDate,
+    endDate,
     requiredSlots,
     remainingDates,
     candidatePools,
@@ -169,39 +206,51 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
   // Hydrate with meal details
   const hydratedPlan = await hydratePlan(object.entries)
 
-  // TODO: HON-55 will implement validation and repair
-  // For now, we trust the AI output
+  // Validate AI response before persisting
+  validateAIResponse(hydratedPlan, dates)
 
-  // Persist to database
-  const mealPlan = await prisma.mealPlan.create({
-    data: {
-      householdId,
-      startDate,
-      endDate,
-      entries: {
-        create: hydratedPlan.map((entry) => ({
-          date: entry.date,
-          mealType: 'dinner',
-          mealId: entry.mealId,
-          status: 'planned',
-        })),
+  // Delete existing plan and create new one in a transaction
+  // This allows users to regenerate plans for the same week
+  const mealPlan = await prisma.$transaction(async (tx) => {
+    // Delete existing plan for this household+startDate if it exists
+    await tx.mealPlan.deleteMany({
+      where: {
+        householdId,
+        startDate,
       },
-    },
-    include: {
-      entries: {
-        include: {
-          meal: {
-            select: {
-              id: true,
-              name: true,
-              kidFriendly: true,
-              primaryProteinType: true,
+    })
+
+    // Create new plan
+    return tx.mealPlan.create({
+      data: {
+        householdId,
+        startDate,
+        endDate,
+        entries: {
+          create: hydratedPlan.map((entry) => ({
+            date: entry.date,
+            mealType: 'dinner',
+            mealId: entry.mealId,
+            status: 'planned',
+          })),
+        },
+      },
+      include: {
+        entries: {
+          include: {
+            meal: {
+              select: {
+                id: true,
+                name: true,
+                kidFriendly: true,
+                primaryProteinType: true,
+              },
             },
           },
+          orderBy: { date: 'asc' },
         },
-        orderBy: { date: 'asc' },
       },
-    },
+    })
   })
 
   // Format response

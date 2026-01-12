@@ -84,8 +84,31 @@ export interface GeneratePlanResult {
  */
 export interface PromptInput {
   startDate: Date
+  endDate: Date
   requiredSlots: SlotRequirement[]
   remainingDates: Date[]
   candidatePools: CandidatePools
   restrictions: string[]
+}
+
+/**
+ * Error thrown when AI response validation fails.
+ */
+export class MealPlanValidationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'MealPlanValidationError'
+  }
+}
+
+/**
+ * Error thrown when a meal plan already exists for the given week.
+ */
+export class MealPlanExistsError extends Error {
+  constructor(householdId: string, startDate: Date) {
+    super(
+      `A meal plan already exists for household ${householdId} starting ${startDate.toISOString()}`,
+    )
+    this.name = 'MealPlanExistsError'
+  }
 }
