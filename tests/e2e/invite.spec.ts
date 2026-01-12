@@ -195,14 +195,12 @@ test.describe('Invite flows', () => {
       // Owner closes the success dialog and revokes the invite
       await ownerPage.getByRole('button', { name: 'Close' }).click()
 
-      // Set up dialog handler for the confirm() prompt
-      ownerPage.on('dialog', async (dialog) => {
-        expect(dialog.type()).toBe('confirm')
-        await dialog.accept()
-      })
-
-      // Click revoke button
+      // Click revoke button to open the confirmation dialog
       await ownerPage.getByRole('button', { name: 'Revoke' }).click()
+
+      // Wait for alert dialog to appear and confirm
+      await expect(ownerPage.getByRole('alertdialog')).toBeVisible()
+      await ownerPage.getByRole('alertdialog').getByRole('button', { name: 'Revoke' }).click()
 
       // Wait for invite to be removed from the list
       await expect(ownerPage.getByRole('button', { name: 'Revoke' })).not.toBeVisible()
