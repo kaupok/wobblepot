@@ -1,4 +1,4 @@
-import { clientEnv } from '@/lib/env'
+import { serverEnv } from '@/lib/env'
 
 /**
  * Password Reset Email Template
@@ -25,7 +25,7 @@ interface EmailContent {
  */
 export function generateResetPasswordEmail(options: ResetPasswordEmailOptions): EmailContent {
   const { resetUrl } = options
-  const appName = clientEnv.NEXT_PUBLIC_APP_NAME
+  const appName = serverEnv.NEXT_PUBLIC_APP_NAME
 
   const subject = `Reset your ${appName} password`
 

@@ -3,7 +3,7 @@ import { generateResetPasswordEmail } from './reset-password'
 
 // Mock the env module
 vi.mock('@/lib/env', () => ({
-  clientEnv: {
+  serverEnv: {
     NEXT_PUBLIC_APP_NAME: 'TestApp',
   },
 }))

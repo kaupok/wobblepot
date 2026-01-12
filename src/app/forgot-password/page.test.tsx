@@ -183,7 +183,7 @@ describe('ForgotPasswordPage', () => {
       await vi.waitFor(() => {
         const message = screen.getByRole('status')
         expect(message).toHaveTextContent(/if an account exists/i)
-        expect(message).toHaveTextContent(/check your console for the mock email/i)
+        expect(message).toHaveTextContent(/password reset link shortly/i)
       })
     })
   })
