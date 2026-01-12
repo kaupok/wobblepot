@@ -655,7 +655,7 @@ After fixing critical issues, stages all changes, runs checks, and creates commi
 /pr
 ```
 
-Analyzes all commits, drafts description, confirms push, and creates PR.
+Analyzes all commits, drafts description, and creates PR.
 
 ### Session Patterns
 
