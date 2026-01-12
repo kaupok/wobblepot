@@ -106,19 +106,13 @@ pnpm build             # Production build
    pnpm db:push
    ```
 
-4. **Install git hooks:**
-
-   ```bash
-   ./scripts/setup-git-hooks.sh
-   ```
-
-5. **Run health check:**
+4. **Run health check:**
 
    ```bash
    ./scripts/health-check.sh
    ```
 
-6. **Start developing:**
+5. **Start developing:**
    ```bash
    pnpm dev
    ```

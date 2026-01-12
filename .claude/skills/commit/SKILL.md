@@ -16,7 +16,15 @@ Create a well-formatted commit following project conventions.
 git branch --show-current
 ```
 
-If on `main`, stop and inform the user to create a feature branch first.
+If on `main`:
+
+1. First analyze the changes to determine the commit type (feat, fix, chore, docs, etc.) and a short kebab-case description
+2. Create a feature branch automatically:
+   ```bash
+   git checkout -b <type>/<short-description>
+   ```
+   Example: `chore/husky-precommit-hooks`, `fix/login-validation`, `feat/user-preferences`
+3. Continue with the commit workflow
 
 ### 2. Check for changes
 

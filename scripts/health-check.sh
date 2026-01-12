@@ -83,11 +83,14 @@ echo ""
 if [ -d ".git" ]; then
   success "Git repository detected"
 
-  # Check git hooks
-  if [ -f ".git/hooks/pre-commit" ]; then
+  # Check git hooks (Husky 9 uses core.hooksPath)
+  HOOKS_PATH=$(git config core.hooksPath 2>/dev/null || echo "")
+  if [ "$HOOKS_PATH" = ".husky/_" ] && [ -f ".husky/pre-commit" ]; then
+    success "Git pre-commit hook installed (Husky)"
+  elif [ -f ".git/hooks/pre-commit" ]; then
     success "Git pre-commit hook installed"
   else
-    warning "Git pre-commit hook not installed. Run: ./scripts/setup-git-hooks.sh"
+    warning "Git pre-commit hook not installed. Run: pnpm install"
   fi
 else
   error "Not in a git repository"

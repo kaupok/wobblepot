@@ -1,8 +1,13 @@
 #!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-set -e
 
-# Run type-check first to validate original files before lint-staged modifies them
+# Prevent commits to main
+branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+if [ "$branch" = "main" ]; then
+  echo "ERROR: Direct commits to main branch are not allowed!"
+  echo "Create a feature branch: git checkout -b feat/your-feature"
+  exit 1
+fi
+
+# Run checks (tests run in CI for faster commits)
 pnpm type-check
 pnpm exec lint-staged
-
