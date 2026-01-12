@@ -106,19 +106,7 @@ Also note any key decisions or rationale from:
 
 If Linear issue is linked, include `Closes HON-XX` at the end of the Context section.
 
-### 8. Confirm push
-
-Check if branch needs to be pushed:
-
-```bash
-git status -sb
-```
-
-If not pushed or behind remote, show the user what will be pushed and ask for confirmation before proceeding. If user declines, stop without pushing.
-
-### 9. Push and create PR
-
-After user confirms:
+### 8. Push and create PR
 
 ```bash
 # Push with upstream tracking
@@ -140,7 +128,7 @@ EOF
 )"
 ```
 
-### 10. Report result
+### 9. Report result
 
 Return the PR URL to the user.
 
@@ -149,5 +137,4 @@ Return the PR URL to the user.
 - Follow conventions from docs, don't invent new rules
 - PR title is critical - it becomes the final commit message after squash-merge
 - Analyze ALL commits on the branch, not just the latest
-- Always ask for confirmation before pushing
 - If PR already exists, offer to update description instead of creating new one
