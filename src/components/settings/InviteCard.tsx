@@ -70,13 +70,13 @@ export function InviteCard({ invite, onRevoke }: InviteCardProps) {
       ? `${invite.usesCount} uses`
       : `${invite.usesCount}/${invite.maxUses} uses`
 
+  const statusLabel = invite.isActive ? 'Active' : 'Expired'
+
   return (
     <div className={cn('rounded-lg border p-4', !invite.isActive && 'bg-muted/50 opacity-75')}>
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
-          <Badge variant={invite.isActive ? 'default' : 'secondary'}>
-            {invite.isActive ? 'Active' : 'Expired'}
-          </Badge>
+          <Badge variant={invite.isActive ? 'default' : 'secondary'}>{statusLabel}</Badge>
           <Body variant="muted">{usageText}</Body>
         </div>
 
@@ -89,9 +89,9 @@ export function InviteCard({ invite, onRevoke }: InviteCardProps) {
           )}
         </div>
 
-        <div className="flex items-center justify-between">
-          <Body variant="muted">{formatRelativeTime(invite.expiresAt)}</Body>
-          {invite.isActive && (
+        {invite.isActive && (
+          <div className="flex items-center justify-between">
+            <Body variant="muted">{formatRelativeTime(invite.expiresAt)}</Body>
             <Button
               variant="ghost"
               size="sm"
@@ -100,8 +100,8 @@ export function InviteCard({ invite, onRevoke }: InviteCardProps) {
             >
               Revoke
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       <ConfirmDialog
