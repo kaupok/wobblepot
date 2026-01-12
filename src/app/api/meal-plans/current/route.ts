@@ -3,7 +3,8 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
-import { computeMealNutrition, formatDate } from '@/lib/meal-planning/nutrition'
+import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
+import { toDateString } from '@/lib/meal-planning/dates'
 
 export async function GET() {
   // Auth check
@@ -25,8 +26,9 @@ export async function GET() {
   const { household } = membership
 
   try {
-    // Get today's date
+    // Get today's date normalized to midnight
     const today = new Date()
+    today.setHours(0, 0, 0, 0)
 
     // Query meal plan containing today's date
     const plan = await prisma.mealPlan.findFirst({
@@ -62,11 +64,11 @@ export async function GET() {
     // Format response to match GeneratePlanResult type
     const response = {
       id: plan.id,
-      startDate: formatDate(plan.startDate),
-      endDate: formatDate(plan.endDate),
+      startDate: toDateString(plan.startDate),
+      endDate: toDateString(plan.endDate),
       entries: plan.entries.map((entry) => ({
         id: entry.id,
-        date: formatDate(entry.date),
+        date: toDateString(entry.date),
         mealType: entry.mealType as 'dinner', // Cast needed: GeneratePlanResult expects literal 'dinner', not MealType enum
         status: entry.status,
         meal: entry.meal

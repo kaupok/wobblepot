@@ -34,14 +34,3 @@ export function computeMealNutrition(components: MealComponent[]): NutritionData
     { calories: 0, protein: 0, carbs: 0, fat: 0 },
   )
 }
-
-/**
- * Format Date to YYYY-MM-DD string using local time.
- * Uses local date components to avoid timezone shifts.
- */
-export function formatDate(date: Date): string {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
