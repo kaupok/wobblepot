@@ -14,3 +14,13 @@ export async function getHouseholdMembership(userId: string) {
     },
   })
 }
+
+/**
+ * Get the number of members in a household.
+ * Used for scaling meal quantities.
+ */
+export async function getHouseholdMemberCount(householdId: string): Promise<number> {
+  return prisma.householdMember.count({
+    where: { householdId },
+  })
+}

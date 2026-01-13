@@ -2,25 +2,14 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { MealCard } from './MealCard'
 import { cn } from '@/lib/utils'
-import type { MealStatus } from './StatusSelect'
-
-interface PlanEntry {
-  id: string
-  date: string
-  status: MealStatus
-  meal: {
-    id: string
-    name: string
-    kidFriendly: boolean
-    timeMinutes?: number | null
-  } | null
-}
+import type { PlanEntry } from './types'
 
 interface DayColumnProps {
   date: string
   planId: string
   entries: PlanEntry[]
   isToday: boolean
+  householdSize: number
 }
 
 function formatDayHeader(dateString: string): string {
@@ -30,7 +19,7 @@ function formatDayHeader(dateString: string): string {
   return `${dayName} ${dayNumber}`
 }
 
-export function DayColumn({ date, planId, entries, isToday }: DayColumnProps) {
+export function DayColumn({ date, planId, entries, isToday, householdSize }: DayColumnProps) {
   return (
     <div
       className={cn(
@@ -49,6 +38,7 @@ export function DayColumn({ date, planId, entries, isToday }: DayColumnProps) {
             planId={planId}
             meal={entry.meal}
             status={entry.status}
+            householdSize={householdSize}
           />
         ))}
         {entries.length === 0 && (
