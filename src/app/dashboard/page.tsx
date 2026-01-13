@@ -1,29 +1,11 @@
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
+import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
 import { getServerBaseURL } from '@/lib/env'
 import { WeekView } from '@/components/meal-plan/WeekView'
 import { EmptyPlan } from '@/components/meal-plan/EmptyPlan'
-import type { MealStatus } from '@/components/meal-plan/StatusSelect'
-
-interface MealPlanResponse {
-  id: string
-  startDate: string
-  endDate: string
-  entries: Array<{
-    id: string
-    date: string
-    mealType: string
-    status: MealStatus
-    meal: {
-      id: string
-      name: string
-      kidFriendly: boolean
-      timeMinutes?: number | null
-    } | null
-  }>
-}
+import type { MealPlan } from '@/components/meal-plan/types'
 
 export default async function DashboardPage() {
   // Auth check
@@ -42,16 +24,19 @@ export default async function DashboardPage() {
     redirect('/onboarding')
   }
 
-  // Fetch current meal plan
+  // Fetch household size and current meal plan in parallel
   const requestHeaders = await headers()
   const baseURL = getServerBaseURL()
 
-  const response = await fetch(`${baseURL}/api/meal-plans/current`, {
-    headers: {
-      cookie: requestHeaders.get('cookie') ?? '',
-    },
-    cache: 'no-store',
-  })
+  const [householdSize, response] = await Promise.all([
+    getHouseholdMemberCount(membership.household.id),
+    fetch(`${baseURL}/api/meal-plans/current`, {
+      headers: {
+        cookie: requestHeaders.get('cookie') ?? '',
+      },
+      cache: 'no-store',
+    }),
+  ])
 
   // No current plan - show empty state
   if (response.status === 404) {
@@ -67,11 +52,11 @@ export default async function DashboardPage() {
     throw new Error('Failed to fetch meal plan')
   }
 
-  const plan: MealPlanResponse = await response.json()
+  const plan: MealPlan = await response.json()
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <WeekView plan={plan} />
+      <WeekView plan={plan} householdSize={householdSize} />
     </div>
   )
 }

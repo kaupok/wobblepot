@@ -111,6 +111,15 @@ export async function GET() {
               timeMinutes: entry.meal.timeMinutes,
               primaryProteinType: entry.meal.primaryProteinType,
               nutrition: computeMealNutrition(entry.meal.components),
+              components: entry.meal.components.map((comp) => ({
+                quantityPerServing: comp.quantityPerServing,
+                ingredient: {
+                  name: comp.ingredient.name,
+                  category: comp.ingredient.category,
+                  defaultUnit: comp.ingredient.defaultUnit,
+                  gramsPerPiece: comp.ingredient.gramsPerPiece,
+                },
+              })),
             }
           : null,
       })),

@@ -1,29 +1,11 @@
 import { Heading } from '@/components/ui/typography'
 import { toDateString } from '@/lib/meal-planning/dates'
 import { DayColumn } from './DayColumn'
-import type { MealStatus } from './StatusSelect'
-
-interface PlanEntry {
-  id: string
-  date: string
-  status: MealStatus
-  meal: {
-    id: string
-    name: string
-    kidFriendly: boolean
-    timeMinutes?: number | null
-  } | null
-}
-
-interface MealPlan {
-  id: string
-  startDate: string
-  endDate: string
-  entries: PlanEntry[]
-}
+import type { MealPlan, PlanEntry } from './types'
 
 interface WeekViewProps {
   plan: MealPlan
+  householdSize: number
 }
 
 function getDatesInRange(startDate: string, endDate: string): string[] {
@@ -40,7 +22,7 @@ function getDatesInRange(startDate: string, endDate: string): string[] {
   return dates
 }
 
-export function WeekView({ plan }: WeekViewProps) {
+export function WeekView({ plan, householdSize }: WeekViewProps) {
   const today = toDateString(new Date())
   const dates = getDatesInRange(plan.startDate, plan.endDate)
 
@@ -68,6 +50,7 @@ export function WeekView({ plan }: WeekViewProps) {
             planId={plan.id}
             entries={entriesByDate.get(date) ?? []}
             isToday={date === today}
+            householdSize={householdSize}
           />
         ))}
       </div>
