@@ -9,11 +9,13 @@ import { StatusSelect, type MealStatus } from './StatusSelect'
 import { MealDetailModal } from './MealDetailModal'
 import { RegenerateModal } from './RegenerateModal'
 import type { MealData } from './types'
+import type { MealType } from '@/generated/prisma/enums'
 
 interface MealCardProps {
   entryId: string
   planId: string
   meal: MealData | null
+  mealType: MealType
   status: MealStatus
   householdSize: number
 }
@@ -22,6 +24,7 @@ export function MealCard({
   entryId,
   planId,
   meal,
+  mealType,
   status: initialStatus,
   householdSize,
 }: MealCardProps) {
@@ -103,6 +106,8 @@ export function MealCard({
         onOpenChange={setIsRegenerateModalOpen}
         planId={planId}
         entryId={entryId}
+        mealType={mealType}
+        currentMealName={meal?.name}
         onSwapComplete={() => router.refresh()}
       />
     </>

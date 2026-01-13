@@ -1,4 +1,5 @@
 import type { MealStatus } from './StatusSelect'
+import type { MealType } from '@/generated/prisma/enums'
 
 export interface MealComponent {
   quantityPerServing: number
@@ -29,6 +30,7 @@ export interface MealData {
 export interface PlanEntry {
   id: string
   date: string
+  mealType: MealType
   status: MealStatus
   meal: MealData | null
 }

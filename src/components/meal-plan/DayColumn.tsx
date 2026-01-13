@@ -37,6 +37,7 @@ export function DayColumn({ date, planId, entries, isToday, householdSize }: Day
             entryId={entry.id}
             planId={planId}
             meal={entry.meal}
+            mealType={entry.mealType}
             status={entry.status}
             householdSize={householdSize}
           />

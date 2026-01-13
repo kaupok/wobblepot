@@ -9,16 +9,21 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Body } from '@/components/ui/typography'
 import { AlternativeCard } from './AlternativeCard'
+import { MealLibraryModal } from './MealLibraryModal'
 import type { AlternativeMeal } from './types'
+import type { MealType } from '@/generated/prisma/enums'
 
 interface RegenerateModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   planId: string
   entryId: string
+  mealType: MealType
+  currentMealName?: string
   onSwapComplete: () => void
 }
 
@@ -44,16 +49,21 @@ export function RegenerateModal({
   onOpenChange,
   planId,
   entryId,
+  mealType,
+  currentMealName,
   onSwapComplete,
 }: RegenerateModalProps) {
   const [alternatives, setAlternatives] = useState<AlternativeMeal[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectingId, setSelectingId] = useState<string | null>(null)
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false)
 
   useEffect(() => {
     if (!open) {
       // Reset state when modal closes
+      // Note: Don't reset isLibraryOpen here - it may have been set to true
+      // by handleBrowseLibrary before the modal closed
       setAlternatives([])
       setError(null)
       setSelectingId(null)
@@ -109,48 +119,72 @@ export function RegenerateModal({
     }
   }
 
+  function handleBrowseLibrary() {
+    onOpenChange(false)
+    setIsLibraryOpen(true)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Choose a different meal</DialogTitle>
-          <DialogDescription>
-            Select one of these alternatives that match your preferences
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-3">
-          {isLoading && (
-            <>
-              <AlternativeSkeleton />
-              <AlternativeSkeleton />
-              <AlternativeSkeleton />
-            </>
-          )}
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Choose a different meal</DialogTitle>
+            <DialogDescription>
+              Select one of these alternatives that match your preferences
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            {isLoading && (
+              <>
+                <AlternativeSkeleton />
+                <AlternativeSkeleton />
+                <AlternativeSkeleton />
+              </>
+            )}
 
-          {error && !isLoading && (
-            <Body variant="muted" className="text-center">
-              {error}
-            </Body>
-          )}
+            {error && !isLoading && (
+              <Body variant="muted" className="text-center">
+                {error}
+              </Body>
+            )}
 
-          {!isLoading &&
-            !error &&
-            alternatives.map((meal) => (
-              <AlternativeCard
-                key={meal.id}
-                meal={meal}
-                onSelect={handleSelect}
-                isSelecting={selectingId === meal.id}
-              />
-            ))}
+            {!isLoading &&
+              !error &&
+              alternatives.map((meal) => (
+                <AlternativeCard
+                  key={meal.id}
+                  meal={meal}
+                  onSelect={handleSelect}
+                  isSelecting={selectingId === meal.id}
+                />
+              ))}
 
-          {!isLoading && !error && alternatives.length === 0 && (
-            <Body variant="muted" className="text-center">
-              No alternatives available
-            </Body>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+            {!isLoading && !error && alternatives.length === 0 && (
+              <Body variant="muted" className="text-center">
+                No alternatives available
+              </Body>
+            )}
+
+            {!isLoading && (
+              <div className="border-t pt-3">
+                <Button variant="outline" className="w-full" onClick={handleBrowseLibrary}>
+                  Browse full library
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+      <MealLibraryModal
+        open={isLibraryOpen}
+        onOpenChange={setIsLibraryOpen}
+        planId={planId}
+        entryId={entryId}
+        mealType={mealType}
+        currentMealName={currentMealName}
+        onSwapComplete={onSwapComplete}
+      />
+    </>
   )
 }
