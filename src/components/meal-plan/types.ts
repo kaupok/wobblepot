@@ -39,3 +39,12 @@ export interface MealPlan {
   endDate: string
   entries: PlanEntry[]
 }
+
+export interface AlternativeMeal {
+  id: string
+  name: string
+  timeMinutes: number | null
+  kidFriendly: boolean
+  primaryProteinType: string
+  reason: string
+}

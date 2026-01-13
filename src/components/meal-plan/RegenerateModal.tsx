@@ -1,0 +1,156 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Body } from '@/components/ui/typography'
+import { AlternativeCard } from './AlternativeCard'
+import type { AlternativeMeal } from './types'
+
+interface RegenerateModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  planId: string
+  entryId: string
+  onSwapComplete: () => void
+}
+
+function AlternativeSkeleton() {
+  return (
+    <Card className="py-4">
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-4 w-20" />
+          </div>
+          <Skeleton className="h-8 w-16" />
+        </div>
+        <Skeleton className="h-4 w-40" />
+      </CardContent>
+    </Card>
+  )
+}
+
+export function RegenerateModal({
+  open,
+  onOpenChange,
+  planId,
+  entryId,
+  onSwapComplete,
+}: RegenerateModalProps) {
+  const [alternatives, setAlternatives] = useState<AlternativeMeal[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [selectingId, setSelectingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) {
+      // Reset state when modal closes
+      setAlternatives([])
+      setError(null)
+      setSelectingId(null)
+      return
+    }
+
+    async function fetchAlternatives() {
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}/regenerate`, {
+          method: 'POST',
+        })
+
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || 'Failed to fetch alternatives')
+        }
+
+        const data = await response.json()
+        setAlternatives(data.alternatives)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch alternatives')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchAlternatives()
+  }, [open, planId, entryId])
+
+  async function handleSelect(mealId: string) {
+    setSelectingId(mealId)
+
+    try {
+      const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mealId }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to update meal')
+      }
+
+      onSwapComplete()
+      onOpenChange(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update meal')
+      setSelectingId(null)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Choose a different meal</DialogTitle>
+          <DialogDescription>
+            Select one of these alternatives that match your preferences
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-3">
+          {isLoading && (
+            <>
+              <AlternativeSkeleton />
+              <AlternativeSkeleton />
+              <AlternativeSkeleton />
+            </>
+          )}
+
+          {error && !isLoading && (
+            <Body variant="muted" className="text-center">
+              {error}
+            </Body>
+          )}
+
+          {!isLoading &&
+            !error &&
+            alternatives.map((meal) => (
+              <AlternativeCard
+                key={meal.id}
+                meal={meal}
+                onSelect={handleSelect}
+                isSelecting={selectingId === meal.id}
+              />
+            ))}
+
+          {!isLoading && !error && alternatives.length === 0 && (
+            <Body variant="muted" className="text-center">
+              No alternatives available
+            </Body>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}

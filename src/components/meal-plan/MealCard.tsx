@@ -4,8 +4,10 @@ import { useState } from 'react'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
+import { useRouter } from 'next/navigation'
 import { StatusSelect, type MealStatus } from './StatusSelect'
 import { MealDetailModal } from './MealDetailModal'
+import { RegenerateModal } from './RegenerateModal'
 import type { MealData } from './types'
 
 interface MealCardProps {
@@ -23,9 +25,11 @@ export function MealCard({
   status: initialStatus,
   householdSize,
 }: MealCardProps) {
+  const router = useRouter()
   const [status, setStatus] = useState<MealStatus>(initialStatus)
   const [isUpdating, setIsUpdating] = useState(false)
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+  const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
 
   async function handleStatusChange(newStatus: MealStatus) {
     const previousStatus = status
@@ -80,10 +84,10 @@ export function MealCard({
           <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
         </CardContent>
         <CardFooter className="gap-2 pt-2">
-          <Button variant="outline" size="sm" onClick={() => setIsModalOpen(true)}>
+          <Button variant="outline" size="sm" onClick={() => setIsDetailModalOpen(true)}>
             View
           </Button>
-          <Button variant="outline" size="sm" disabled>
+          <Button variant="outline" size="sm" onClick={() => setIsRegenerateModalOpen(true)}>
             Swap
           </Button>
         </CardFooter>
@@ -91,8 +95,15 @@ export function MealCard({
       <MealDetailModal
         meal={meal}
         householdSize={householdSize}
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
+        open={isDetailModalOpen}
+        onOpenChange={setIsDetailModalOpen}
+      />
+      <RegenerateModal
+        open={isRegenerateModalOpen}
+        onOpenChange={setIsRegenerateModalOpen}
+        planId={planId}
+        entryId={entryId}
+        onSwapComplete={() => router.refresh()}
       />
     </>
   )
