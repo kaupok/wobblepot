@@ -7,7 +7,8 @@ import { prisma } from '@/lib/prisma'
 import { MealPlanEntryStatus } from '@/generated/prisma/enums'
 
 const updateEntrySchema = z.object({
-  status: z.enum(['planned', 'completed', 'skipped', 'eating_out', 'leftovers']),
+  status: z.enum(['planned', 'completed', 'skipped', 'eating_out', 'leftovers']).optional(),
+  mealId: z.string().optional(),
 })
 
 export async function PATCH(
@@ -68,17 +69,42 @@ export async function PATCH(
       return NextResponse.json({ error: 'Entry not found or access denied' }, { status: 404 })
     }
 
-    // Update entry status
+    // Build update data
+    const updateData: { status?: MealPlanEntryStatus; mealId?: string } = {}
+
+    if (parsed.data.status) {
+      updateData.status = parsed.data.status as MealPlanEntryStatus
+    }
+
+    if (parsed.data.mealId) {
+      // Verify meal exists before updating
+      const meal = await prisma.meal.findUnique({
+        where: { id: parsed.data.mealId },
+        select: { id: true },
+      })
+
+      if (!meal) {
+        return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
+      }
+
+      updateData.mealId = parsed.data.mealId
+    }
+
+    // Require at least one field to update
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+    }
+
+    // Update entry
     const updatedEntry = await prisma.mealPlanEntry.update({
       where: { id: entryId },
-      data: {
-        status: parsed.data.status as MealPlanEntryStatus,
-      },
+      data: updateData,
     })
 
     return NextResponse.json({
       id: updatedEntry.id,
       status: updatedEntry.status,
+      mealId: updatedEntry.mealId,
     })
   } catch (error) {
     console.error('Failed to update entry status:', error)
