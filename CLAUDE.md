@@ -492,6 +492,9 @@ Use `pnpm build` to analyze bundle size. Target: First Load JS < 200 kB.
 4. Commit with Conventional Commits format
 5. Push: `git push -u origin feat/your-feature`
 6. Create PR: `gh pr create --title "type(scope): subject"`
+7. **Stop and wait for user to request merge** - never merge automatically
+
+**Merging:** Never merge a PR without explicit user request. Always stop after creating the PR. When the user runs `/merge`, execute it without unnecessary confirmation prompts.
 
 **Pre-commit hook:** Husky + lint-staged auto-installs on `pnpm install`. Runs type-check, ESLint, and Prettier on staged files. Prevents commits to `main`.
 
