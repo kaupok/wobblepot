@@ -200,9 +200,12 @@ Files: `file1.ts`, `file2.ts`, ...
 2. ...
 
 #### Defer
-1. [Issue description] - [Why it's out of scope, suggest follow-up issue]
+1. [Issue description] - [Why it's out of scope]
+   → **Create issue:** [Proposed Linear issue title]
 2. ...
 (If empty: "None")
+
+**Note:** For each deferred item, propose a specific Linear issue to create. After review is complete, offer to create these issues.
 
 #### Skip
 1. [Issue description] - [Why disagreed or not actionable]
@@ -225,6 +228,10 @@ Files: `file1.ts`, `file2.ts`, ...
 1. Fix [specific item] in `file:line`
 2. Fix [specific item] in `file:line`
 3. Run `/commit` when done
+
+### Deferred Issues to Create
+[If any items were deferred, list proposed Linear issues here:]
+- [ ] [Issue title] - [Brief description]
 ```
 
 ## Important

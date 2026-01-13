@@ -6,7 +6,7 @@ context: inherit
 
 # Merge PR and Clean Up
 
-Merges an approved PR using squash merge, then cleans up local state.
+Merges a PR using squash merge, then cleans up local state.
 
 ## Usage
 
@@ -14,7 +14,7 @@ Merges an approved PR using squash merge, then cleans up local state.
 /merge
 ```
 
-Run this command while on a feature branch that has an approved PR.
+Run this command while on a feature branch that has a PR.
 
 ## Workflow
 
@@ -30,7 +30,7 @@ git branch --show-current
 git status --porcelain
 
 # Get PR status
-gh pr view --json number,title,state,headRefName,reviewDecision,mergeable,mergeStateStatus,url 2>/dev/null
+gh pr view --json number,title,state,headRefName,mergeable,mergeStateStatus,url 2>/dev/null
 ```
 
 **Validation rules:**
@@ -41,31 +41,13 @@ gh pr view --json number,title,state,headRefName,reviewDecision,mergeable,mergeS
 | PR exists   | No PR for branch    | "No PR found for this branch. Create one with `/pr` first."                               |
 | Clean state | Uncommitted changes | "You have uncommitted changes. Commit with `/commit` or stash them first."                |
 | PR state    | State is CLOSED     | "PR is closed. Cannot merge a closed PR."                                                 |
-| Review      | Not APPROVED        | "PR requires approval. Current status: {reviewDecision}"                                  |
 | Mergeable   | Not mergeable       | "PR cannot be merged. Status: {mergeStateStatus}. Check for conflicts or failing checks." |
 
-If PR is already MERGED, skip to Step 4 (local cleanup only).
+If PR is already MERGED, skip to Step 3 (local cleanup only).
 
-### Step 2: Confirm with User
+**Note:** Do NOT check for review approval. If the user asks to merge, merge it.
 
-Display the PR details and ask for confirmation:
-
-```
-Ready to merge PR #{number}: {title}
-
-Branch: {headRefName} → main
-Strategy: Squash merge
-URL: {url}
-
-Proceed with merge?
-```
-
-Use AskUserQuestion with options:
-
-- "Yes, merge it" (proceed)
-- "No, cancel" (abort)
-
-### Step 3: Merge the PR
+### Step 2: Merge the PR
 
 ```bash
 gh pr merge --squash --delete-branch
@@ -77,7 +59,7 @@ This command:
 - Deletes the remote branch
 - Handles the local branch deletion if possible
 
-### Step 4: Local Cleanup
+### Step 3: Local Cleanup
 
 Save the branch name from Step 1, then:
 
@@ -92,7 +74,7 @@ git pull origin main
 git branch -d {saved_branch_name} || git branch -D {saved_branch_name}
 ```
 
-### Step 5: Confirmation
+### Step 4: Confirmation
 
 Report success:
 
