@@ -100,7 +100,9 @@ cmd_new() {
   if [ -f "$REPO_ROOT/.claude/settings.local.json" ]; then
     echo "Copying Claude settings..."
     mkdir -p "$worktree_path/.claude"
-    cp "$REPO_ROOT/.claude/settings.local.json" "$worktree_path/.claude/settings.local.json"
+    # Copy and update PROJECT_ROOT to point to the worktree path
+    sed "s|\"PROJECT_ROOT\": \"$REPO_ROOT\"|\"PROJECT_ROOT\": \"$worktree_path\"|g" \
+      "$REPO_ROOT/.claude/settings.local.json" > "$worktree_path/.claude/settings.local.json"
   fi
 
   # Install dependencies

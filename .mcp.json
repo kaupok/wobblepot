@@ -5,14 +5,6 @@
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-filesystem@2025.7.1", "${PROJECT_ROOT}"]
     },
-    "github": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
-      }
-    },
     "sequential-thinking": {
       "type": "stdio",
       "command": "npx",
@@ -37,10 +29,6 @@
       "type": "stdio",
       "command": "npx",
       "args": ["-y", "next-devtools-mcp"]
-    },
-    "better-auth": {
-      "type": "http",
-      "url": "https://mcp.chonkie.ai/better-auth/better-auth-builder/mcp"
     },
     "context7": {
       "type": "http",
