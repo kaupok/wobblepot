@@ -13,8 +13,8 @@ interface WeekViewProps {
 export function WeekView({ plan, householdSize, weekContext }: WeekViewProps) {
   const today = toDateString(new Date())
 
-  // Get dates from plan entries (handles partial weeks correctly)
-  const entryDates = plan.entries.map((e) => e.date).sort()
+  // Get unique dates from plan entries (handles partial weeks correctly)
+  const entryDates = [...new Set(plan.entries.map((e) => e.date))].sort()
 
   // Group entries by date
   const entriesByDate = new Map<string, PlanEntry[]>()
