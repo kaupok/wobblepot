@@ -10,6 +10,7 @@ import {
   isSunday,
   getDaysRemaining,
   getRemainingWeekDates,
+  getTodayInTimezone,
 } from './dates'
 
 describe('dates utilities', () => {
@@ -359,6 +360,45 @@ describe('dates utilities', () => {
       const dates = getRemainingWeekDates(wednesday)
       expect(dates[0]!.getHours()).toBe(0)
       expect(dates[0]!.getMinutes()).toBe(0)
+    })
+  })
+
+  describe('getTodayInTimezone', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('returns date in YYYY-MM-DD format', () => {
+      vi.setSystemTime(new Date('2025-01-15T12:00:00Z'))
+      const result = getTodayInTimezone('UTC')
+      expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    })
+
+    it('returns correct date for UTC timezone', () => {
+      vi.setSystemTime(new Date('2025-01-15T12:00:00Z'))
+      expect(getTodayInTimezone('UTC')).toBe('2025-01-15')
+    })
+
+    it('returns previous day for LA when it is early morning UTC', () => {
+      // 2:00 AM UTC on Jan 15 = 6:00 PM on Jan 14 in LA (UTC-8)
+      vi.setSystemTime(new Date('2025-01-15T02:00:00Z'))
+      expect(getTodayInTimezone('America/Los_Angeles')).toBe('2025-01-14')
+    })
+
+    it('returns next day for Tokyo when it is late evening UTC', () => {
+      // 8:00 PM UTC on Jan 14 = 5:00 AM on Jan 15 in Tokyo (UTC+9)
+      vi.setSystemTime(new Date('2025-01-14T20:00:00Z'))
+      expect(getTodayInTimezone('Asia/Tokyo')).toBe('2025-01-15')
+    })
+
+    it('returns same day for Europe/Tallinn during business hours', () => {
+      // 10:00 AM UTC on Jan 15 = 12:00 PM on Jan 15 in Tallinn (UTC+2)
+      vi.setSystemTime(new Date('2025-01-15T10:00:00Z'))
+      expect(getTodayInTimezone('Europe/Tallinn')).toBe('2025-01-15')
     })
   })
 })

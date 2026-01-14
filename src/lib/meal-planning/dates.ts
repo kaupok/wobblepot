@@ -130,6 +130,21 @@ export function getDaysRemaining(): number {
 }
 
 /**
+ * Get the current date as YYYY-MM-DD string in the specified timezone.
+ * Used for "today" highlighting when the household timezone differs from browser timezone.
+ */
+export function getTodayInTimezone(timezone: string): string {
+  const now = new Date()
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+  return formatter.format(now)
+}
+
+/**
  * Get dates from a start date through the end of that week (Sunday).
  * Used for partial week planning when user signs up mid-week.
  */
