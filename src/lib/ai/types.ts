@@ -128,3 +128,31 @@ export class InsufficientCandidatesError extends Error {
     this.name = 'InsufficientCandidatesError'
   }
 }
+
+/**
+ * Types of validation errors that can occur in a meal plan.
+ */
+export type ValidationErrorType =
+  | 'wrong_protein'
+  | 'consecutive_protein'
+  | 'invalid_meal'
+  | 'duplicate_meal'
+
+/**
+ * A single validation error found in a meal plan.
+ */
+export interface ValidationError {
+  type: ValidationErrorType
+  date: string
+  expected?: ProteinType
+  actual?: ProteinType
+  message: string
+}
+
+/**
+ * Result of validating a meal plan.
+ */
+export interface ValidationResult {
+  valid: boolean
+  errors: ValidationError[]
+}

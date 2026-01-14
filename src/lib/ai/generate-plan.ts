@@ -7,6 +7,8 @@ import { computeRequiredSlots } from '@/lib/meal-planning/slots'
 import { getWeekDates, toDateString, parseLocalDate } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { buildMealPlanPrompt } from './prompts'
+import { validatePlan } from './validate-plan'
+import { repairPlan } from './repair-plan'
 import {
   MealPlanResponseSchema,
   MealPlanValidationError,
@@ -16,6 +18,7 @@ import {
   type GeneratePlanResult,
   type HydratedPlanEntry,
 } from './types'
+import type { SlotRequirement } from '@/lib/meal-planning/slots'
 
 const CANDIDATE_POOL_LIMIT = 50
 
@@ -104,10 +107,13 @@ async function hydratePlan(
 }
 
 /**
- * Validate AI response before persisting to database.
- * Throws MealPlanValidationError if validation fails.
+ * Validate AI response structure before constraint validation.
+ * Throws MealPlanValidationError if structural validation fails.
  */
-function validateAIResponse(hydratedPlan: HydratedPlanEntry[], expectedDates: Date[]): void {
+function validateAIResponseStructure(
+  hydratedPlan: HydratedPlanEntry[],
+  expectedDates: Date[],
+): void {
   // Check entry count
   if (hydratedPlan.length !== 7) {
     throw new MealPlanValidationError(`Expected 7 entries, got ${hydratedPlan.length}`)
@@ -129,13 +135,43 @@ function validateAIResponse(hydratedPlan: HydratedPlanEntry[], expectedDates: Da
       )
     }
   }
+}
 
-  // Check all meals exist (no null meals)
-  const nullMealEntries = hydratedPlan.filter((e) => e.meal === null)
-  if (nullMealEntries.length > 0) {
-    const invalidIds = nullMealEntries.map((e) => e.mealId).join(', ')
-    throw new MealPlanValidationError(`Invalid meal IDs returned by AI: ${invalidIds}`)
+/**
+ * Validate and optionally repair a hydrated plan against constraints.
+ * Returns the (possibly repaired) plan if valid, or throws MealPlanValidationError.
+ */
+function validateAndRepairPlan(
+  hydratedPlan: HydratedPlanEntry[],
+  requiredSlots: SlotRequirement[],
+  candidatePools: CandidatePools,
+): HydratedPlanEntry[] {
+  // First validation pass
+  const validation = validatePlan(hydratedPlan, requiredSlots)
+
+  if (validation.valid) {
+    return hydratedPlan
   }
+
+  // Attempt repair
+  const repaired = repairPlan(hydratedPlan, validation.errors, candidatePools)
+
+  if (!repaired) {
+    const errorSummary = validation.errors.map((e) => e.message).join('; ')
+    throw new MealPlanValidationError(
+      `Plan validation failed and repair not possible: ${errorSummary}`,
+    )
+  }
+
+  // Re-validate repaired plan
+  const revalidation = validatePlan(repaired, requiredSlots)
+
+  if (!revalidation.valid) {
+    const errorSummary = revalidation.errors.map((e) => e.message).join('; ')
+    throw new MealPlanValidationError(`Plan still invalid after repair: ${errorSummary}`)
+  }
+
+  return repaired
 }
 
 /**
@@ -218,8 +254,11 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
   // Hydrate with meal details
   const hydratedPlan = await hydratePlan(object.entries)
 
-  // Validate AI response before persisting
-  validateAIResponse(hydratedPlan, dates)
+  // Validate AI response structure (entry count, dates)
+  validateAIResponseStructure(hydratedPlan, dates)
+
+  // Validate constraints and repair if needed (protein types, consecutive days, duplicates)
+  const validatedPlan = validateAndRepairPlan(hydratedPlan, requiredSlots, candidatePools)
 
   // Delete existing plan and create new one in a transaction
   // This allows users to regenerate plans for the same week
@@ -239,7 +278,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
         startDate,
         endDate,
         entries: {
-          create: hydratedPlan.map((entry) => ({
+          create: validatedPlan.map((entry) => ({
             date: entry.date,
             mealType: 'dinner',
             mealId: entry.mealId,
