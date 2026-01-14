@@ -621,18 +621,19 @@ The following skills provide a structured workflow for implementing Linear issue
 
 ### Available Skills
 
-| Skill                     | Purpose                                               | Context           |
-| ------------------------- | ----------------------------------------------------- | ----------------- |
-| `/next-issue`             | Find next unblocked issue in active milestone         | Isolated          |
-| `/plan-issue HON-XX`      | Create plan, post to Linear after approval            | Main conversation |
-| `/implement-issue HON-XX` | Execute plan from Linear, create branch               | Main conversation |
-| `/code-review`            | Review local changes and triage into action items     | Isolated          |
-| `/pr-review`              | Fetch PR review comments and triage into action items | Main conversation |
-| `/commit`                 | Stage changes, run checks, create commit              | Main conversation |
-| `/commit --push`          | Commit and push to remote                             | Main conversation |
-| `/commit --pr`            | Commit and create pull request                        | Main conversation |
-| `/pr`                     | Analyze commits, create pull request                  | Main conversation |
-| `/merge`                  | Merge approved PR and clean up local branch           | Main conversation |
+| Skill                      | Purpose                                                | Context           |
+| -------------------------- | ------------------------------------------------------ | ----------------- |
+| `/auto-implement [HON-XX]` | Full autonomous cycle: find → plan → implement → merge | Main conversation |
+| `/next-issue`              | Find next unblocked issue in active milestone          | Isolated          |
+| `/plan-issue HON-XX`       | Create plan, post to Linear after approval             | Main conversation |
+| `/implement-issue HON-XX`  | Execute plan from Linear, create branch                | Main conversation |
+| `/code-review`             | Review local changes and triage into action items      | Isolated          |
+| `/pr-review`               | Fetch PR review comments and triage into action items  | Main conversation |
+| `/commit`                  | Stage changes, run checks, create commit               | Main conversation |
+| `/commit --push`           | Commit and push to remote                              | Main conversation |
+| `/commit --pr`             | Commit and create pull request                         | Main conversation |
+| `/pr`                      | Analyze commits, create pull request                   | Main conversation |
+| `/merge`                   | Merge approved PR and clean up local branch            | Main conversation |
 
 ### Typical Workflow
 
@@ -711,6 +712,31 @@ Fetches PR review comments and triages them into Address Now / Defer / Skip cate
 ```
 
 After PR is approved, merges via squash, checks out main, and deletes local branch.
+
+### Autonomous Workflow
+
+For fully autonomous implementation without manual checkpoints:
+
+```
+/auto-implement              # Find next unblocked issue automatically
+/auto-implement HON-51       # Use specified issue (skip discovery)
+```
+
+This skill runs the entire cycle automatically:
+
+1. **Get/Find issue** - Uses specified issue or finds next unblocked from active milestone
+2. **Plan** - Creates and posts plan to Linear (skips simple issues)
+3. **Implement** - Creates branch, writes code
+4. **Review + Fix** - Runs checks, auto-fixes failures (up to 3 attempts)
+5. **Create PR** - Commits, pushes, creates PR with context from Linear
+6. **Address reviews** - Waits for Greptile, auto-fixes actionable comments
+7. **Merge** - Squash merges and cleans up
+
+**When to use:** For straightforward issues where you trust the autonomous process.
+
+**Requirements:** Must be on `main` branch with no uncommitted changes.
+
+**Error handling:** Stops with detailed failure info if auto-fix attempts are exhausted.
 
 ### Session Patterns
 
