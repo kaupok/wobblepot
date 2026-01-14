@@ -28,33 +28,21 @@ If no PR exists, inform user: "No PR found for this branch. Create one with `/pr
 
 ### Step 2: Wait for Greptile Review
 
-Check if Greptile review exists. Greptile posts as an **issue comment**, not a PR review:
+Greptile posts both a **check** and a **comment**. Use the pre-approved `gh pr checks` command to wait for the check to complete, then fetch the comment.
 
 ```bash
-# Check for Greptile comment
-gh api /repos/:owner/:repo/issues/{number}/comments \
-  --jq '.[] | select(.user.login == "greptile-apps[bot]") | .user.login'
+gh pr checks --watch --interval 10
 ```
 
-Replace `{number}` with the PR number from Step 1.
+This command:
 
-**If Greptile comment exists:** Proceed to Step 3.
+- Watches all checks including "Greptile Review"
+- Returns when all checks complete (pass or fail)
+- Is pre-approved in settings, so no permission prompt
 
-**If no Greptile comment:**
+**After checks complete:** Proceed to Step 3 to fetch the Greptile comment.
 
-1. Inform user: "Waiting for Greptile review..."
-2. Poll every 15 seconds for up to 10 minutes (40 attempts)
-3. After each poll, report progress: "Still waiting... (X/40)"
-4. If found: "Greptile review found." → Proceed to Step 3
-
-**If timeout reached (10 minutes) without Greptile comment:**
-
-Use AskUserQuestion to prompt the user:
-
-- Question: "Greptile review not found after 10 minutes. What would you like to do?"
-- Options: "Continue without Greptile" | "Keep waiting"
-- If "Keep waiting": Repeat the polling loop
-- If "Continue without Greptile": Proceed to Step 3
+**If checks fail:** Report which checks failed, but still proceed to Step 3 to fetch any available review comments.
 
 ### Step 3: Fetch Comments
 
