@@ -26,7 +26,37 @@ gh pr view --json number,title,headRefName,url,headRepository 2>/dev/null
 
 If no PR exists, inform user: "No PR found for this branch. Create one with `/pr` first."
 
-### Step 2: Fetch Comments
+### Step 2: Wait for Greptile Review
+
+Check if Greptile review exists. Greptile posts as an **issue comment**, not a PR review:
+
+```bash
+# Check for Greptile comment
+gh api /repos/:owner/:repo/issues/{number}/comments \
+  --jq '.[] | select(.user.login == "greptile-apps[bot]") | .user.login'
+```
+
+Replace `{number}` with the PR number from Step 1.
+
+**If Greptile comment exists:** Proceed to Step 3.
+
+**If no Greptile comment:**
+
+1. Inform user: "Waiting for Greptile review..."
+2. Poll every 15 seconds for up to 10 minutes (40 attempts)
+3. After each poll, report progress: "Still waiting... (X/40)"
+4. If found: "Greptile review found." → Proceed to Step 3
+
+**If timeout reached (10 minutes) without Greptile comment:**
+
+Use AskUserQuestion to prompt the user:
+
+- Question: "Greptile review not found after 10 minutes. What would you like to do?"
+- Options: "Continue without Greptile" | "Keep waiting"
+- If "Keep waiting": Repeat the polling loop
+- If "Continue without Greptile": Proceed to Step 3
+
+### Step 3: Fetch Comments
 
 Extract the PR number from Step 1, then fetch both types of comments in parallel.
 
@@ -42,7 +72,7 @@ gh api /repos/:owner/:repo/pulls/{number}/comments
 
 Replace `{number}` with the PR number from Step 1.
 
-### Step 3: Filter and Parse
+### Step 4: Filter and Parse
 
 **Filter out noise:**
 
@@ -69,7 +99,7 @@ Greptile uses specific patterns in its reviews. Map these to severity levels:
 - `body`: Comment text
 - `diff_hunk`: Code context
 
-### Step 4: Triage issues
+### Step 5: Triage Issues
 
 After parsing all comments, triage each one using **effort-first** thinking:
 
@@ -95,7 +125,7 @@ Place each item in one of three buckets:
 - **Defer**: Only for significant work (hours, not minutes) that's genuinely out of scope. Must justify why.
 - **Skip**: Disagree with the suggestion or it's not actionable. Explain why.
 
-### Step 5: Format Output
+### Step 6: Format Output
 
 ```markdown
 ## PR Review: #{number} - {title}
@@ -131,7 +161,7 @@ Place each item in one of three buckets:
 3. Run `/commit --push` when done
 ```
 
-### Step 6: Handle Edge Cases
+### Step 7: Handle Edge Cases
 
 **No comments:**
 

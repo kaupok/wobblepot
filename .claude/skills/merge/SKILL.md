@@ -43,11 +43,29 @@ gh pr view --json number,title,state,headRefName,mergeable,mergeStateStatus,url 
 | PR state    | State is CLOSED     | "PR is closed. Cannot merge a closed PR."                                                 |
 | Mergeable   | Not mergeable       | "PR cannot be merged. Status: {mergeStateStatus}. Check for conflicts or failing checks." |
 
-If PR is already MERGED, skip to Step 3 (local cleanup only).
+If PR is already MERGED, skip to Step 4 (local cleanup only).
 
 **Note:** Do NOT check for review approval. If the user asks to merge, merge it.
 
-### Step 2: Merge the PR
+### Step 2: Wait for CI Checks
+
+Before merging, ensure all CI checks have passed:
+
+```bash
+gh pr checks --watch --fail-fast --interval 10
+```
+
+**Behavior:**
+
+- If checks already passed: Proceeds immediately
+- If checks still running: Waits and shows progress
+- If any check fails: Reports failure, stops (exit code != 0)
+
+**On failure:** Report which checks failed and stop. Do not proceed to merge.
+
+**Note:** The `--watch` flag handles all polling automatically. No custom loop needed.
+
+### Step 3: Merge the PR
 
 ```bash
 gh pr merge --squash --delete-branch
@@ -59,7 +77,7 @@ This command:
 - Deletes the remote branch
 - Handles the local branch deletion if possible
 
-### Step 3: Local Cleanup
+### Step 4: Local Cleanup
 
 Save the branch name from Step 1, then:
 
@@ -74,7 +92,7 @@ git pull origin main
 git branch -d {saved_branch_name} || git branch -D {saved_branch_name}
 ```
 
-### Step 4: Confirmation
+### Step 5: Confirmation
 
 Report success:
 
