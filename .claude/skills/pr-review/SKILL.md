@@ -28,26 +28,26 @@ If no PR exists, inform user: "No PR found for this branch. Create one with `/pr
 
 ### Step 2: Wait for Greptile Review
 
-Check if Greptile review exists. If not, poll until it appears:
+Check if Greptile review exists. Greptile posts as an **issue comment**, not a PR review:
 
 ```bash
-# Check for Greptile review
-gh api /repos/:owner/:repo/pulls/{number}/reviews \
-  --jq '.[] | select(.user.login == "greptile-apps[bot]") | .state'
+# Check for Greptile comment
+gh api /repos/:owner/:repo/issues/{number}/comments \
+  --jq '.[] | select(.user.login == "greptile-apps[bot]") | .user.login'
 ```
 
 Replace `{number}` with the PR number from Step 1.
 
-**If Greptile review exists:** Proceed to Step 3.
+**If Greptile comment exists:** Proceed to Step 3.
 
-**If no Greptile review:**
+**If no Greptile comment:**
 
 1. Inform user: "Waiting for Greptile review..."
 2. Poll every 15 seconds for up to 10 minutes (40 attempts)
 3. After each poll, report progress: "Still waiting... (X/40)"
-4. If review found: "Greptile review found." → Proceed to Step 3
+4. If found: "Greptile review found." → Proceed to Step 3
 
-**If timeout reached (10 minutes) without Greptile review:**
+**If timeout reached (10 minutes) without Greptile comment:**
 
 Use AskUserQuestion to prompt the user:
 
