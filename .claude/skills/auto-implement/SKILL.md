@@ -16,36 +16,43 @@ Fully autonomous development cycle that orchestrates existing skills: find issue
 /auto-implement 51           # Same as above (HON- prefix optional)
 ```
 
-## Critical: Autonomous Continuation
+## Critical: Single Continuous Task
 
-**YOU MUST CONTINUE THROUGH ALL 7 PHASES WITHOUT STOPPING.**
+**THIS IS ONE UNINTERRUPTED SCRIPT.** You execute from Phase 0 to Phase 7 (or error) without stopping.
 
-### Mandatory Continuation Rule
+### Mental Model
 
-When a sub-skill outputs its completion marker (e.g., `[plan-issue:complete]`, `[implement-issue:complete]`), you MUST:
+Think of this as a shell script:
 
-1. Output the phase completion message (e.g., `[auto-implement] ✓ Plan posted`)
-2. **IMMEDIATELY** output the next phase start message
-3. **IMMEDIATELY** invoke the next phase
+```bash
+phase_1  # returns issue ID
+phase_2  # returns plan
+phase_3  # returns implementation
+phase_4  # returns fixed code
+phase_5  # returns PR URL
+phase_6  # returns addressed reviews
+phase_7  # returns merge confirmation
+```
 
-**DO NOT:**
+When `phase_3` returns, you don't wait for user input. You immediately call `phase_4`.
 
-- Stop after a skill completes
-- Ask "Should I continue?" or "Ready for next phase?"
-- Wait for user input between phases
-- Output suggestions like "You can now run..."
+**Completion markers (`[skill:complete]`) mean:** "Function returned successfully. Execute next line."
 
-### Valid Stopping Points
+**Completion markers DO NOT mean:** "Stop execution" or "Await user input"
 
-The ONLY places you may stop:
+### Am I Allowed to Stop?
 
-- Phase 0: Pre-check failures (not on main in regular repo, uncommitted changes)
-- Phase 1: No unblocked issues found
-- Phase 4: Fix attempts exhausted after 3 tries
-- Phase 6: CI failing after fix attempts
-- Phase 7: Successful merge (workflow complete)
+Check this list BEFORE stopping. If not listed, **CONTINUE IMMEDIATELY**.
 
-**NEVER stop after:** Phase 1 success, Phase 2, Phase 3, Phase 5, or Phase 6 success.
+| Allowed Stop                            | Reason                                  |
+| --------------------------------------- | --------------------------------------- |
+| Phase 0 pre-check failed                | Error: not on main, uncommitted changes |
+| Phase 1 returned no issues              | Nothing to implement                    |
+| Phase 4 fix loop exhausted (3 attempts) | Error: manual intervention needed       |
+| Phase 6 CI failing after 2 fix attempts | Error: manual intervention needed       |
+| Phase 7 merge succeeded                 | **Workflow complete**                   |
+
+**Every other situation = CONTINUE TO NEXT PHASE**
 
 ## Argument Parsing
 
@@ -154,37 +161,29 @@ Otherwise, store the issue ID:
 
 ## Phase 2: Plan Implementation
 
-```
-[auto-implement] Phase 2/7: Planning implementation
-```
+Output: `[auto-implement] Phase 2/7: Planning implementation`
 
-Invoke the `/plan-issue` skill with `--auto` flag (skips approval prompt):
+Invoke: `Skill({ skill: "plan-issue", args: "HON-XX --auto" })`
 
-```
-Skill({ skill: "plan-issue", args: "HON-XX --auto" })
-```
+**→ ON RETURN:** Output `[auto-implement] ✓ Plan posted to Linear` then `[auto-implement] Phase 3/7: Implementing` then continue to Phase 3.
 
-**WHEN the skill outputs `[plan-issue:complete]`:**
-
-1. Output: `[auto-implement] ✓ Plan posted to Linear`
-2. Output: `[auto-implement] Phase 3/7: Implementing`
-3. **IMMEDIATELY invoke Phase 3** - do not stop, do not wait for user input
+───────────────────────────────────────
+CHECKPOINT: Phase 2 complete. Check "Am I Allowed to Stop?" - NO. CONTINUE NOW.
+───────────────────────────────────────
 
 ## Phase 3: Implement
 
-Invoke the `/implement-issue` skill:
+Invoke: `Skill({ skill: "implement-issue", args: "HON-XX" })`
 
-```
-Skill({ skill: "implement-issue", args: "HON-XX" })
-```
+The skill fetches plan from Linear, creates branch, implements code.
 
-The skill will fetch the plan from Linear, create branch, and implement.
+**→ ON RETURN:** Output `[auto-implement] ✓ Implementation complete` then `[auto-implement] Phase 4/7: Reviewing changes` then continue to Phase 4.
 
-**WHEN the skill outputs `[implement-issue:complete]`:**
+**DO NOT STOP HERE.** The `[implement-issue:complete]` marker means the skill finished, not that you should stop. Continue to Phase 4.
 
-1. Output: `[auto-implement] ✓ Implementation complete`
-2. Output: `[auto-implement] Phase 4/7: Reviewing changes`
-3. **IMMEDIATELY invoke Phase 4** - do not stop, do not wait for user input
+───────────────────────────────────────
+CHECKPOINT: Phase 3 complete. Check "Am I Allowed to Stop?" - NO. CONTINUE NOW.
+───────────────────────────────────────
 
 ## Phase 4: Review and Fix
 
@@ -231,33 +230,25 @@ Stop here with failure details.
 
 ### 4.2 Proceed to Phase 5
 
-**WHEN all checks pass:**
+**→ WHEN all checks pass:** Output `[auto-implement] ✓ All checks passing` then `[auto-implement] Phase 5/7: Creating PR` then continue to Phase 5.
 
-1. Output: `[auto-implement] ✓ All checks passing`
-2. Output: `[auto-implement] Phase 5/7: Creating PR`
-3. **IMMEDIATELY invoke Phase 5** - do not stop, do not wait for user input
+───────────────────────────────────────
+CHECKPOINT: Phase 4 complete. Check "Am I Allowed to Stop?" - NO. CONTINUE NOW.
+───────────────────────────────────────
 
 ## Phase 5: Commit and Create PR
 
-Invoke the `/commit` skill with `--pr` flag:
+Invoke: `Skill({ skill: "commit", args: "--pr" })`
 
-```
-Skill({ skill: "commit", args: "--pr" })
-```
+This stages changes, runs checks, commits, pushes, and creates PR.
 
-This will:
+**→ ON RETURN:** Extract PR URL from output, then output `[auto-implement] ✓ PR created: [URL]` then `[auto-implement] Phase 6/7: Addressing reviews` then continue to Phase 6.
 
-- Stage all changes
-- Run pre-commit checks
-- Create commit with proper message
-- Push and create PR
+**DO NOT STOP HERE.** The PR being created is not the end. You must wait for CI, address reviews, and merge. Continue to Phase 6.
 
-**WHEN the skill outputs `[commit:complete]` or `[pr:complete]`:**
-
-1. Extract the PR URL from the output
-2. Output: `[auto-implement] ✓ PR created: [URL]`
-3. Output: `[auto-implement] Phase 6/7: Addressing reviews`
-4. **IMMEDIATELY invoke Phase 6** - do not stop, do not wait for user input
+───────────────────────────────────────
+CHECKPOINT: Phase 5 complete. Check "Am I Allowed to Stop?" - NO. CONTINUE NOW.
+───────────────────────────────────────
 
 ## Phase 6: Wait for Reviews and Address Feedback
 
@@ -326,36 +317,21 @@ gh pr checks --watch --interval 10
 
 ### 6.4 Proceed to Phase 7
 
-**WHEN CI passes and reviews are addressed:**
+**→ WHEN CI passes and reviews are addressed:** Output `[auto-implement] ✓ Reviews addressed` then `[auto-implement] Phase 7/7: Merging` then continue to Phase 7.
 
-1. Output: `[auto-implement] ✓ Reviews addressed`
-2. Output: `[auto-implement] Phase 7/7: Merging`
-3. **IMMEDIATELY invoke Phase 7** - do not stop, do not wait for user input
+───────────────────────────────────────
+CHECKPOINT: Phase 6 complete. Check "Am I Allowed to Stop?" - NO. CONTINUE NOW.
+───────────────────────────────────────
 
 ## Phase 7: Merge
 
-Invoke the `/merge` skill:
+Invoke: `Skill({ skill: "merge" })`
 
-```
-Skill({ skill: "merge" })
-```
+This waits for CI, squash merges, deletes remote branch, and cleans up local.
 
-This will:
+**→ ON RETURN:** Output `[auto-implement] ✓ PR merged successfully` then `[auto-implement] ✓ Autonomous implementation cycle complete`
 
-- Wait for final CI checks
-- Squash merge the PR
-- Delete remote branch
-- **Regular repo:** Delete local branch, switch to main, pull
-- **Worktree:** Fetch main updates (worktree cleanup is manual)
-
-**WHEN merge completes:**
-
-```
-[auto-implement] ✓ PR merged successfully
-[auto-implement] ✓ Autonomous implementation cycle complete
-```
-
-This is a valid stopping point. The workflow is complete.
+**This is the ONLY valid stopping point after Phase 0/1.** Workflow complete.
 
 In worktree mode, remind user to clean up worktree when done:
 
