@@ -173,13 +173,16 @@ while issues remain and attempt < max_attempts:
     [auto-implement] Fix attempt {attempt}/3
 
     For each issue in "Address Now":
-        - Read the file at the specified location
-        - Apply the fix
+        - Read the file at the specified location using Read tool
+        - Analyze the issue and code context
+        - Apply the fix using Edit tool (or Write for new files)
+        - If issue spans multiple files, fix all affected files
 
     # Re-run checks
     pnpm lint && pnpm type-check && pnpm test
 
     If all pass: break
+    If same errors persist: continue with next attempt
 ```
 
 If still failing after 3 attempts:
@@ -229,10 +232,24 @@ This will:
 gh pr checks --watch --interval 10
 ```
 
-If CI fails, attempt to fix (max 2 attempts) using same logic as Phase 4, then:
+If CI fails, attempt to fix (max 2 attempts):
 
 ```
-Skill({ skill: "commit", args: "--push" })
+ci_attempts = 0
+max_ci_attempts = 2
+
+while CI failing and ci_attempts < max_ci_attempts:
+    ci_attempts += 1
+    [auto-implement] CI fix attempt {ci_attempts}/2
+
+    - Analyze CI failure output
+    - Apply fixes using Read/Edit tools
+    - Commit and push: Skill({ skill: "commit", args: "--push" })
+    - Wait for CI: gh pr checks --watch --interval 10
+
+If still failing after 2 attempts:
+    [auto-implement] ✗ Error: CI checks failing after fix attempts
+    Stop here with failure details
 ```
 
 ### 6.2 Get review feedback
@@ -243,16 +260,24 @@ Invoke the `/pr-review` skill:
 Skill({ skill: "pr-review" })
 ```
 
-This will fetch and triage external review comments.
+This will fetch and triage external review comments into "Address Now" / "Defer" / "Skip" categories.
 
 ### 6.3 Address review comments
 
-For each issue in "Address Now" from the review output:
+Parse the "Address Now" section from the `/pr-review` output. For each item (format: `[severity] [description] - path:line - [effort]`):
 
-- Apply the fix
+- Extract the file path and line number
+- Read the file at that location using Read tool
+- Analyze the comment and apply the suggested fix using Edit tool
 - Continue to next issue
 
-If fixes were made:
+Check if any fixes were made:
+
+```bash
+git status --porcelain
+```
+
+If output is not empty (fixes were made):
 
 ```
 Skill({ skill: "commit", args: "--push" })
@@ -302,6 +327,7 @@ This will:
 | 4     | Fix attempts exhausted | Stop, show failures    |
 | 5     | Commit/PR fails        | Stop, show error       |
 | 6     | CI fails after fixes   | Stop, show failures    |
+| 6     | pr-review fails        | Stop, show error       |
 | 7     | Merge fails            | Stop, show error       |
 
 ## Important
