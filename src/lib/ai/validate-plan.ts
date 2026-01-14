@@ -76,7 +76,9 @@ export function validatePlan(
         message: `Duplicate meal ${entry.meal.name} (${entry.mealId}) on ${toDateString(entry.date)}`,
       })
     }
-    seenMealIds.add(entry.mealId)
+    if (entry.meal) {
+      seenMealIds.add(entry.mealId)
+    }
   }
 
   return {
