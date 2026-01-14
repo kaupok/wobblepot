@@ -1,0 +1,295 @@
+import { describe, it, expect } from 'vitest'
+import { buildMealPlanPrompt } from './prompts'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
+import type { PromptInput } from './types'
+import type { SlotRequirement } from '@/lib/meal-planning/slots'
+import type { CandidateMeal } from '@/lib/meal-planning/candidates'
+import { ProteinType, IngredientCategory } from '@/generated/prisma/enums'
+
+// Helper to create a date
+function date(dateStr: string): Date {
+  return parseLocalDate(dateStr)
+}
+
+// Helper to create a candidate meal
+function createCandidate(overrides: {
+  id?: string
+  name?: string
+  kidFriendly?: boolean
+  primaryProteinType?: ProteinType
+}): CandidateMeal {
+  return {
+    id: overrides.id ?? 'meal-1',
+    name: overrides.name ?? 'Test Meal',
+    kidFriendly: overrides.kidFriendly ?? false,
+    primaryProteinType: overrides.primaryProteinType ?? ProteinType.poultry,
+    topIngredients: [
+      { name: 'Chicken', category: IngredientCategory.protein },
+      { name: 'Rice', category: IngredientCategory.carb },
+    ],
+  }
+}
+
+// Helper to create basic input
+function createInput(overrides: Partial<PromptInput> = {}): PromptInput {
+  const startDate = date('2026-01-12')
+  const endDate = date('2026-01-19')
+
+  return {
+    startDate,
+    endDate,
+    requiredSlots: [],
+    remainingDates: [
+      date('2026-01-12'),
+      date('2026-01-13'),
+      date('2026-01-14'),
+      date('2026-01-15'),
+      date('2026-01-16'),
+      date('2026-01-17'),
+      date('2026-01-18'),
+    ],
+    candidatePools: {
+      fish: [],
+      legume: [],
+      any: [
+        createCandidate({
+          id: 'meal-1',
+          name: 'Chicken Rice',
+          primaryProteinType: ProteinType.poultry,
+        }),
+        createCandidate({ id: 'meal-2', name: 'Beef Stew', primaryProteinType: ProteinType.beef }),
+      ],
+    },
+    restrictions: [],
+    ...overrides,
+  }
+}
+
+describe('buildMealPlanPrompt', () => {
+  describe('required slots section', () => {
+    it('shows "No required protein slots" when no slots are required', () => {
+      const input = createInput({ requiredSlots: [] })
+
+      const result = buildMealPlanPrompt(input)
+
+      expect(result).toContain('No required protein slots for this dietary type.')
+    })
+
+    it('formats fish required slot with candidates', () => {
+      const fishCandidates: CandidateMeal[] = [
+        createCandidate({
+          id: 'fish-1',
+          name: 'Salmon',
+          primaryProteinType: ProteinType.fish,
+          kidFriendly: true,
+        }),
+        createCandidate({
+          id: 'fish-2',
+          name: 'Cod',
+          primaryProteinType: ProteinType.fish,
+          kidFriendly: false,
+        }),
+      ]
+
+      const requiredSlots: SlotRequirement[] = [{ date: date('2026-01-14'), proteinType: 'fish' }]
+
+      const input = createInput({
+        requiredSlots,
+        candidatePools: {
+          fish: fishCandidates,
+          legume: [],
+          any: [],
+        },
+      })
+
+      const result = buildMealPlanPrompt(input)
+
+      expect(result).toContain('Wed 2026-01-14: MUST be FISH day')
+      expect(result).toContain('"id":"fish-1"')
+      expect(result).toContain('"name":"Salmon"')
+      expect(result).toContain('"proteinType":"fish"')
+      expect(result).toContain('"kidFriendly":true')
+    })
+
+    it('formats legume required slot with candidates', () => {
+      const legumeCandidates: CandidateMeal[] = [
+        createCandidate({
+          id: 'legume-1',
+          name: 'Lentil Soup',
+          primaryProteinType: ProteinType.legume,
+        }),
+      ]
+
+      const requiredSlots: SlotRequirement[] = [{ date: date('2026-01-17'), proteinType: 'legume' }]
+
+      const input = createInput({
+        requiredSlots,
+        candidatePools: {
+          fish: [],
+          legume: legumeCandidates,
+          any: [],
+        },
+      })
+
+      const result = buildMealPlanPrompt(input)
+
+      expect(result).toContain('Sat 2026-01-17: MUST be LEGUME day')
+      expect(result).toContain('"id":"legume-1"')
+      expect(result).toContain('"name":"Lentil Soup"')
+    })
+
+    it('formats multiple required slots', () => {
+      const requiredSlots: SlotRequirement[] = [
+        { date: date('2026-01-14'), proteinType: 'fish' },
+        { date: date('2026-01-17'), proteinType: 'legume' },
+      ]
+
+      const input = createInput({
+        requiredSlots,
+        candidatePools: {
+          fish: [createCandidate({ id: 'fish-1', primaryProteinType: ProteinType.fish })],
+          legume: [createCandidate({ id: 'legume-1', primaryProteinType: ProteinType.legume })],
+          any: [],
+        },
+      })
+
+      const result = buildMealPlanPrompt(input)
+
+      expect(result).toContain('MUST be FISH day')
+      expect(result).toContain('MUST be LEGUME day')
+    })
+  })
+
+  describe('remaining days section', () => {
+    it('lists remaining dates with any candidates', () => {
+      const input = createInput({
+        remainingDates: [date('2026-01-12'), date('2026-01-13'), date('2026-01-15')],
+      })
+
+      const result = buildMealPlanPrompt(input)
+
+      expect(result).toContain('REMAINING DAYS: Mon 2026-01-12, Tue 2026-01-13, Thu 2026-01-15')
+    })
+
+    it('includes any candidates as JSON', () => {
+      const input = createInput({
+        candidatePools: {
+          fish: [],
+          legume: [],
+          any: [
+            createCandidate({ id: 'any-1', name: 'Meal A', kidFriendly: true }),
+            createCandidate({ id: 'any-2', name: 'Meal B', kidFriendly: false }),
+          ],
+        },
+      })
+
+      const result = buildMealPlanPrompt(input)
+
+      // Check candidates are included after REMAINING DAYS
+      expect(result).toContain('"id":"any-1"')
+      expect(result).toContain('"name":"Meal A"')
+      expect(result).toContain('"id":"any-2"')
+      expect(result).toContain('"name":"Meal B"')
+    })
+  })
+
+  describe('variety rules', () => {
+    it('includes standard variety rules', () => {
+      const input = createInput()
+
+      const result = buildMealPlanPrompt(input)
+
+      expect(result).toContain('VARIETY RULES:')
+      expect(result).toContain('No same proteinType on consecutive days')
+      expect(result).toContain('Mix kid-friendly and adult meals')
+      expect(result).toContain('Each meal can only be used once (no duplicates)')
+    })
+  })
+
+  describe('restrictions', () => {
+    it('does not include dietary preferences line when restrictions are empty', () => {
+      const input = createInput({ restrictions: [] })
+
+      const result = buildMealPlanPrompt(input)
+
+      expect(result).not.toContain('Dietary preferences')
+    })
+
+    it('includes dietary preferences when restrictions are provided', () => {
+      const input = createInput({ restrictions: ['low FODMAP', 'no spicy food'] })
+
+      const result = buildMealPlanPrompt(input)
+
+      expect(result).toContain('Dietary preferences (best effort): low FODMAP, no spicy food')
+    })
+
+    it('includes single restriction', () => {
+      const input = createInput({ restrictions: ['keto-friendly'] })
+
+      const result = buildMealPlanPrompt(input)
+
+      expect(result).toContain('Dietary preferences (best effort): keto-friendly')
+    })
+  })
+
+  describe('date range', () => {
+    it('includes correct start and end dates in output instruction', () => {
+      const input = createInput({
+        startDate: date('2026-01-12'),
+        endDate: date('2026-01-19'), // endDate is exclusive
+      })
+
+      const result = buildMealPlanPrompt(input)
+
+      // endDate is exclusive, so last day is 2026-01-18
+      expect(result).toContain('Return exactly 7 entries covering 2026-01-12 through 2026-01-18')
+      expect(result).toContain('Use YYYY-MM-DD format for dates')
+    })
+
+    it('handles different week correctly', () => {
+      const input = createInput({
+        startDate: date('2026-02-02'),
+        endDate: date('2026-02-09'),
+        remainingDates: [
+          date('2026-02-02'),
+          date('2026-02-03'),
+          date('2026-02-04'),
+          date('2026-02-05'),
+          date('2026-02-06'),
+          date('2026-02-07'),
+          date('2026-02-08'),
+        ],
+      })
+
+      const result = buildMealPlanPrompt(input)
+
+      expect(result).toContain('Return exactly 7 entries covering 2026-02-02 through 2026-02-08')
+    })
+  })
+
+  describe('complete prompt structure', () => {
+    it('produces well-structured prompt with all sections', () => {
+      const input = createInput({
+        requiredSlots: [{ date: date('2026-01-14'), proteinType: 'fish' }],
+        restrictions: ['low sodium'],
+        candidatePools: {
+          fish: [createCandidate({ id: 'fish-1', primaryProteinType: ProteinType.fish })],
+          legume: [],
+          any: [createCandidate({ id: 'any-1' })],
+        },
+      })
+
+      const result = buildMealPlanPrompt(input)
+
+      // Check overall structure order
+      const requiredSlotsIndex = result.indexOf('REQUIRED SLOTS')
+      const remainingDaysIndex = result.indexOf('REMAINING DAYS')
+      const varietyRulesIndex = result.indexOf('VARIETY RULES')
+      const returnIndex = result.indexOf('Return exactly 7 entries')
+
+      expect(requiredSlotsIndex).toBeLessThan(remainingDaysIndex)
+      expect(remainingDaysIndex).toBeLessThan(varietyRulesIndex)
+      expect(varietyRulesIndex).toBeLessThan(returnIndex)
+    })
+  })
+})
