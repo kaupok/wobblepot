@@ -1,5 +1,5 @@
 import { Heading, Body } from '@/components/ui/typography'
-import { toDateString } from '@/lib/meal-planning/dates'
+import { getTodayInTimezone } from '@/lib/meal-planning/dates'
 import { shouldEnforceBalanceConstraints } from '@/lib/meal-planning/slots'
 import { DayColumn } from './DayColumn'
 import type { MealPlan, PlanEntry, WeekContext } from './types'
@@ -8,11 +8,18 @@ interface WeekViewProps {
   plan: MealPlan
   householdSize: number
   weekContext: WeekContext
+  timezone: string
   isReadOnly?: boolean
 }
 
-export function WeekView({ plan, householdSize, weekContext, isReadOnly }: WeekViewProps) {
-  const today = toDateString(new Date())
+export function WeekView({
+  plan,
+  householdSize,
+  weekContext,
+  timezone,
+  isReadOnly,
+}: WeekViewProps) {
+  const today = getTodayInTimezone(timezone)
 
   // Get unique dates from plan entries (handles partial weeks correctly)
   const entryDates = [...new Set(plan.entries.map((e) => e.date))].sort()

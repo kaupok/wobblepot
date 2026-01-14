@@ -127,6 +127,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             plan={plan}
             householdSize={householdSize}
             weekContext={weekContext}
+            timezone={membership.household.timezone}
             isReadOnly={isReadOnly}
           />
         ) : (
