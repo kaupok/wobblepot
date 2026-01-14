@@ -18,11 +18,16 @@ Fully autonomous development cycle that orchestrates existing skills: find issue
 
 ## Critical: Autonomous Mode
 
-**This skill orchestrates other skills autonomously. Override any approval prompts in invoked skills - proceed automatically without using AskUserQuestion.**
+**This skill orchestrates other skills autonomously. You MUST continue through ALL phases without stopping.**
 
-When a skill would normally ask for user confirmation, proceed with the default/recommended option instead.
+Key requirements:
 
-Report progress using `[auto-implement]` prefixed messages between skill invocations.
+1. **Never stop between phases** - When one skill completes, immediately proceed to the next phase
+2. **Override approvals** - When a skill would ask for user confirmation, proceed with the default/recommended option automatically (do not use AskUserQuestion)
+3. **Report progress** - Output `[auto-implement]` prefixed messages between skill invocations
+4. **Complete the full cycle** - The workflow is not complete until Phase 7 (Merge) succeeds or an error stops it
+
+**IMPORTANT**: After each Skill tool invocation completes, you MUST immediately continue to the next phase. Do not wait for user input. Do not ask if you should continue. Just proceed.
 
 ## Argument Parsing
 
@@ -105,6 +110,8 @@ Store the issue ID for subsequent phases.
 [auto-implement] ✓ Selected: HON-XX - [Title from output]
 ```
 
+**DO NOT STOP HERE. Immediately proceed to Phase 2.**
+
 ## Phase 2: Plan Implementation
 
 ```
@@ -122,6 +129,8 @@ Skill({ skill: "plan-issue", args: "HON-XX" })
 ```
 [auto-implement] ✓ Plan posted to Linear
 ```
+
+**DO NOT STOP HERE. Immediately proceed to Phase 3.**
 
 ## Phase 3: Implement
 
@@ -142,9 +151,13 @@ This will:
 - Create branch using Linear's `gitBranchName`
 - Implement the solution
 
+Wait for the skill to output `[implement-issue] ✓ Implementation complete for HON-XX`.
+
 ```
 [auto-implement] ✓ Implementation complete
 ```
+
+**DO NOT STOP HERE. Immediately proceed to Phase 4.**
 
 ## Phase 4: Review and Fix
 
@@ -197,6 +210,8 @@ Stop here with failure details.
 [auto-implement] ✓ All checks passing
 ```
 
+**DO NOT STOP HERE. Immediately proceed to Phase 5.**
+
 ## Phase 5: Commit and Create PR
 
 ```
@@ -219,6 +234,8 @@ This will:
 ```
 [auto-implement] ✓ PR created: [URL from output]
 ```
+
+**DO NOT STOP HERE. Immediately proceed to Phase 6.**
 
 ## Phase 6: Wait for Reviews and Address Feedback
 
@@ -293,6 +310,8 @@ gh pr checks --watch --interval 10
 [auto-implement] ✓ Reviews addressed
 ```
 
+**DO NOT STOP HERE. Immediately proceed to Phase 7.**
+
 ## Phase 7: Merge
 
 ```
@@ -332,6 +351,7 @@ This will:
 
 ## Important
 
+- **NEVER STOP MID-WORKFLOW**: After each phase completes, immediately invoke the next phase. The only valid stopping points are: (1) explicit errors, (2) no unblocked issues in Phase 1, or (3) successful merge in Phase 7
 - **Override approvals**: When invoking skills that use `AskUserQuestion`, proceed with the default/recommended option automatically
 - **Progress reporting**: Output `[auto-implement]` messages between skill invocations
 - **Error handling**: Stop cleanly on unrecoverable errors with actionable guidance
