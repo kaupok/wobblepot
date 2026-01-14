@@ -79,6 +79,15 @@ test.describe('Meal plan generation and viewing', () => {
     // Get the first meal card
     const mealCard = getMealCard(page)
 
+    // Set up response listener before triggering the status change
+    const responsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/meal-plans/') &&
+        response.url().includes('/entries/') &&
+        response.request().method() === 'PATCH' &&
+        response.status() === 200,
+    )
+
     // Change status to completed
     await changeMealStatus(page, mealCard, 'completed')
 
@@ -86,9 +95,8 @@ test.describe('Meal plan generation and viewing', () => {
     const statusTrigger = mealCard.locator('button[role="combobox"]')
     await expect(statusTrigger).toContainText('Completed')
 
-    // Wait for the optimistic update to sync with server
-    // The API call happens in the background after the optimistic UI update
-    await page.waitForTimeout(1000)
+    // Wait for the API call to complete before refreshing
+    await responsePromise
 
     // Refresh the page
     await page.reload()
