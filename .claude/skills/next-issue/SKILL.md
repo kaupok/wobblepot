@@ -84,6 +84,20 @@ Return a concise summary (under 500 words):
 **Git branch:** `[gitBranchName from Linear]`
 ```
 
+## Completion
+
+After outputting the recommendation, add the marker:
+
+```
+[next-issue:complete] Recommended HON-XX
+```
+
+If no unblocked issues found:
+
+```
+[next-issue:complete] No unblocked issues found
+```
+
 ## Important
 
 - Do NOT explore the entire codebase - only files directly relevant to the issue

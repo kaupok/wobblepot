@@ -128,9 +128,15 @@ EOF
 )"
 ```
 
-### 9. Report result
+### 9. Report result and signal completion
 
-Return the PR URL to the user.
+Return the PR URL, then output the completion marker:
+
+```
+[pr:complete] PR created: <URL>
+```
+
+Do NOT output follow-up suggestions or next steps - just the URL and marker.
 
 ## Important
 

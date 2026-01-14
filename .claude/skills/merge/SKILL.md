@@ -94,7 +94,7 @@ git branch -d {saved_branch_name} || git branch -D {saved_branch_name}
 
 ### Step 5: Confirmation
 
-Report success:
+Report success and output the completion marker:
 
 ```
 PR #{number} merged successfully.
@@ -104,6 +104,8 @@ PR #{number} merged successfully.
 - Now on main with latest changes
 
 View merged PR: {url}
+
+[merge:complete] PR #{number} merged
 ```
 
 ## Error Recovery

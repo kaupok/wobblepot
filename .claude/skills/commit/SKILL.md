@@ -123,6 +123,16 @@ Report the commit hash and summary.
 git push
 ```
 
+### 11. Signal completion
+
+Output the completion marker based on what was done:
+
+- If `--pr` was used: `[commit:complete] Commit created and PR opened`
+- If `--push` was used: `[commit:complete] Commit created and pushed`
+- Otherwise: `[commit:complete] Commit created`
+
+Do NOT output follow-up suggestions or next steps - just the marker.
+
 ## Important
 
 - Follow conventions from docs, don't invent new rules

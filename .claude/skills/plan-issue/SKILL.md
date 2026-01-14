@@ -147,17 +147,23 @@ mcp__linear-server__create_comment({
 })
 ```
 
-### 9. Output completion and STOP
+### 9. Output completion
 
-Output exactly this (substituting actual values):
+Output the completion marker:
 
 ```
-Plan posted to HON-XX.
+[plan-issue:complete] Plan posted to HON-XX
+```
 
+**If `--auto` flag was NOT used:** Also output:
+
+```
 Run `/implement-issue HON-XX` when ready to start implementation.
 ```
 
-**STOP HERE.** Do not proceed to implementation, do not offer next steps, do not ask questions. The skill is complete.
+Then STOP. Do not proceed to implementation, do not offer next steps, do not ask questions.
+
+**If `--auto` flag WAS used:** Do NOT output the "Run /implement-issue" message. Just output the completion marker. The orchestrating skill (auto-implement) will handle the next step.
 
 ## Important
 

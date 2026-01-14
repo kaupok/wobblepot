@@ -170,6 +170,14 @@ No actionable review comments found on PR #{number}.
 Ready to `/merge` if approved.
 ```
 
+## Completion
+
+After outputting the review triage, add the completion marker:
+
+```
+[pr-review:complete] Review triage finished - {X} items to address
+```
+
 ## Notes
 
 - This skill fetches EXTERNAL review feedback (from GitHub reviewers like Greptile)
