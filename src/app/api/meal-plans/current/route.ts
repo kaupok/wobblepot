@@ -7,6 +7,7 @@ import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import {
   toDateString,
   getCurrentWeekMonday,
+  getLastWeekMonday,
   getNextMonday,
   isSunday,
   getDaysRemaining,
@@ -49,9 +50,9 @@ export async function GET(request: NextRequest) {
 
   const { household } = membership
 
-  // Parse week query param: 'current' | 'next' (defaults to 'current')
+  // Parse week query param: 'last' | 'current' | 'next' (defaults to 'current')
   const weekParam = request.nextUrl.searchParams.get('week')
-  const targetWeek = weekParam === 'next' ? 'next' : 'current'
+  const targetWeek = weekParam === 'next' ? 'next' : weekParam === 'last' ? 'last' : 'current'
 
   try {
     // Get today's date normalized to midnight
@@ -59,9 +60,20 @@ export async function GET(request: NextRequest) {
     today.setHours(0, 0, 0, 0)
 
     let plan
-    let weekType: 'current' | 'next'
+    let weekType: 'last' | 'current' | 'next'
 
-    if (targetWeek === 'next') {
+    if (targetWeek === 'last') {
+      // Explicitly requesting last week's plan
+      const lastMonday = getLastWeekMonday()
+      plan = await prisma.mealPlan.findFirst({
+        where: {
+          householdId: household.id,
+          startDate: lastMonday,
+        },
+        include: mealPlanInclude,
+      })
+      weekType = 'last'
+    } else if (targetWeek === 'next') {
       // Explicitly requesting next week's plan
       const nextMonday = getNextMonday()
       plan = await prisma.mealPlan.findFirst({

@@ -10,6 +10,7 @@ interface DayColumnProps {
   entries: PlanEntry[]
   isToday: boolean
   householdSize: number
+  isReadOnly?: boolean
 }
 
 function formatDayHeader(dateString: string): string {
@@ -19,7 +20,14 @@ function formatDayHeader(dateString: string): string {
   return `${dayName} ${dayNumber}`
 }
 
-export function DayColumn({ date, planId, entries, isToday, householdSize }: DayColumnProps) {
+export function DayColumn({
+  date,
+  planId,
+  entries,
+  isToday,
+  householdSize,
+  isReadOnly,
+}: DayColumnProps) {
   return (
     <div
       className={cn(
@@ -40,6 +48,7 @@ export function DayColumn({ date, planId, entries, isToday, householdSize }: Day
             mealType={entry.mealType}
             status={entry.status}
             householdSize={householdSize}
+            isReadOnly={isReadOnly}
           />
         ))}
         {entries.length === 0 && (

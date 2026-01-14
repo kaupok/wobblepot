@@ -106,6 +106,13 @@ export async function POST(
       return NextResponse.json({ error: 'Entry not found or access denied' }, { status: 404 })
     }
 
+    // Reject regeneration for past week plans (read-only)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    if (entry.plan.endDate < today) {
+      return NextResponse.json({ error: 'Cannot regenerate past week plans' }, { status: 403 })
+    }
+
     // Get preferences with defaults
     const preferences = household.preferences
     const dietaryType = (preferences?.dietaryType ?? 'omnivore') as DietaryType

@@ -80,6 +80,16 @@ export function formatDateDisplay(date: Date): string {
 }
 
 /**
+ * Get Monday of the previous week.
+ * Returns the Monday 7 days before the current week's Monday.
+ */
+export function getLastWeekMonday(): Date {
+  const currentMonday = getCurrentWeekMonday()
+  currentMonday.setDate(currentMonday.getDate() - 7)
+  return currentMonday
+}
+
+/**
  * Get Monday of the current week.
  * If today is Sunday, returns the Monday that just passed (start of this week).
  * If today is Monday, returns today.
