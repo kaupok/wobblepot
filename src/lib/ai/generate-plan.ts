@@ -4,7 +4,12 @@ import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
 import { getCandidates, NO_REPEAT_DAYS, type CandidateMeal } from '@/lib/meal-planning/candidates'
 import { computeRequiredSlots } from '@/lib/meal-planning/slots'
-import { getWeekDates, toDateString, parseLocalDate } from '@/lib/meal-planning/dates'
+import {
+  getWeekDates,
+  getRemainingWeekDates,
+  toDateString,
+  parseLocalDate,
+} from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { buildMealPlanPrompt } from './prompts'
 import { validatePlan } from './validate-plan'
@@ -114,15 +119,19 @@ function validateAIResponseStructure(
   hydratedPlan: HydratedPlanEntry[],
   expectedDates: Date[],
 ): void {
-  // Check entry count
-  if (hydratedPlan.length !== 7) {
-    throw new MealPlanValidationError(`Expected 7 entries, got ${hydratedPlan.length}`)
+  const expectedCount = expectedDates.length
+
+  // Check entry count (supports variable-length weeks)
+  if (hydratedPlan.length !== expectedCount) {
+    throw new MealPlanValidationError(
+      `Expected ${expectedCount} entries, got ${hydratedPlan.length}`,
+    )
   }
 
   // Check for duplicate dates
   const dateStrings = hydratedPlan.map((e) => toDateString(e.date))
   const uniqueDates = new Set(dateStrings)
-  if (uniqueDates.size !== 7) {
+  if (uniqueDates.size !== expectedCount) {
     throw new MealPlanValidationError(`Duplicate dates in response: ${dateStrings.join(', ')}`)
   }
 
@@ -177,19 +186,26 @@ function validateAndRepairPlan(
 /**
  * Generate a meal plan using AI.
  * Orchestrates: slot computation -> candidate query -> AI selection -> persist.
+ *
+ * For partial weeks (mid-week signup), pass effectiveStartDate to generate
+ * entries only from that date through Sunday.
  */
 export async function generateMealPlan(options: GeneratePlanOptions): Promise<GeneratePlanResult> {
   const {
     householdId,
     startDate,
+    effectiveStartDate,
     dietaryType,
     allergensToAvoid,
     excludedIngredientIds,
     restrictions,
   } = options
 
-  // Get week dates
-  const dates = getWeekDates(startDate)
+  // Get dates for entries: full week or partial week from effectiveStartDate
+  const dates = effectiveStartDate
+    ? getRemainingWeekDates(effectiveStartDate)
+    : getWeekDates(startDate)
+
   // endDate is exclusive (day after the last entry) - e.g., Mon-Sun plan has endDate of next Monday
   const endDate = new Date(startDate)
   endDate.setDate(startDate.getDate() + 7)
