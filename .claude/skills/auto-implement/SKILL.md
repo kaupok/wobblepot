@@ -39,7 +39,7 @@ When a sub-skill outputs its completion marker (e.g., `[plan-issue:complete]`, `
 
 The ONLY places you may stop:
 
-- Phase 0: Pre-check failures (not on main, uncommitted changes)
+- Phase 0: Pre-check failures (not on main in regular repo, uncommitted changes)
 - Phase 1: No unblocked issues found
 - Phase 4: Fix attempts exhausted after 3 tries
 - Phase 6: CI failing after fix attempts
@@ -56,7 +56,21 @@ Check if an issue ID was provided as argument:
 
 ## Phase 0: Initialization
 
-### 0.1 Check branch state
+### 0.1 Detect environment (worktree vs regular repo)
+
+```bash
+git rev-parse --git-common-dir
+git rev-parse --git-dir
+```
+
+Compare the outputs:
+
+- If they differ → **worktree mode** (branch is managed by worktree)
+- If they're the same → **regular repo mode** (must be on `main`)
+
+### 0.2 Check branch state
+
+**Regular repo mode:**
 
 ```bash
 git branch --show-current
@@ -70,7 +84,15 @@ If NOT on `main`:
 
 Stop here.
 
-### 0.2 Check for uncommitted changes
+**Worktree mode:**
+
+The worktree branch is the starting point for new work. No branch check needed - the worktree isolates this work. Continue to next step.
+
+```
+[auto-implement] Detected worktree environment
+```
+
+### 0.3 Check for uncommitted changes
 
 ```bash
 git status --porcelain
@@ -84,7 +106,7 @@ If output is not empty:
 
 Stop here.
 
-### 0.3 Report start
+### 0.4 Report start
 
 ```
 [auto-implement] Starting autonomous implementation cycle
@@ -322,8 +344,9 @@ This will:
 
 - Wait for final CI checks
 - Squash merge the PR
-- Delete remote and local branches
-- Switch to main and pull
+- Delete remote branch
+- **Regular repo:** Delete local branch, switch to main, pull
+- **Worktree:** Fetch main updates (worktree cleanup is manual)
 
 **WHEN merge completes:**
 
@@ -334,18 +357,24 @@ This will:
 
 This is a valid stopping point. The workflow is complete.
 
+In worktree mode, remind user to clean up worktree when done:
+
+```bash
+git worktree remove <worktree-path>
+```
+
 ## Error Summary
 
-| Phase | Error                  | Action                 |
-| ----- | ---------------------- | ---------------------- |
-| 0     | Not on main            | Stop with instructions |
-| 0     | Uncommitted changes    | Stop with instructions |
-| 1     | No unblocked issues    | Stop (normal exit)     |
-| 4     | Fix attempts exhausted | Stop, show failures    |
-| 5     | Commit/PR fails        | Stop, show error       |
-| 6     | CI fails after fixes   | Stop, show failures    |
-| 6     | pr-review fails        | Stop, show error       |
-| 7     | Merge fails            | Stop, show error       |
+| Phase | Error                           | Action                 |
+| ----- | ------------------------------- | ---------------------- |
+| 0     | Not on main (regular repo only) | Stop with instructions |
+| 0     | Uncommitted changes             | Stop with instructions |
+| 1     | No unblocked issues             | Stop (normal exit)     |
+| 4     | Fix attempts exhausted          | Stop, show failures    |
+| 5     | Commit/PR fails                 | Stop, show error       |
+| 6     | CI fails after fixes            | Stop, show failures    |
+| 6     | pr-review fails                 | Stop, show error       |
+| 7     | Merge fails                     | Stop, show error       |
 
 ## Important
 

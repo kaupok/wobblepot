@@ -79,6 +79,18 @@ This command:
 
 ### Step 4: Local Cleanup
 
+First, detect if we're in a worktree:
+
+```bash
+git rev-parse --git-common-dir
+git rev-parse --git-dir
+```
+
+If outputs differ → **worktree mode**
+If outputs same → **regular repo mode**
+
+**Regular repo mode:**
+
 Save the branch name from Step 1, then:
 
 ```bash
@@ -92,9 +104,22 @@ git pull origin main
 git branch -d {saved_branch_name} || git branch -D {saved_branch_name}
 ```
 
+**Worktree mode:**
+
+Cannot switch branches or delete the worktree branch from within. Just pull main updates:
+
+```bash
+# Pull main updates into the worktree (for reference)
+git fetch origin main:main
+```
+
+The worktree can be removed manually later with `git worktree remove <path>` from the main repo.
+
 ### Step 5: Confirmation
 
-Report success and output the completion marker:
+Report success and output the completion marker.
+
+**Regular repo mode:**
 
 ```
 PR #{number} merged successfully.
@@ -104,6 +129,22 @@ PR #{number} merged successfully.
 - Now on main with latest changes
 
 View merged PR: {url}
+
+[merge:complete] PR #{number} merged
+```
+
+**Worktree mode:**
+
+```
+PR #{number} merged successfully.
+
+- Remote branch deleted
+- Worktree branch preserved (remove worktree manually when done)
+
+View merged PR: {url}
+
+To clean up this worktree, run from main repo:
+  git worktree remove <worktree-path>
 
 [merge:complete] PR #{number} merged
 ```
