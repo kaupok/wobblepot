@@ -14,6 +14,7 @@ function date(dateStr: string): Date {
 function createEntry(dateStr: string, mealId: string, proteinType: ProteinType): HydratedPlanEntry {
   return {
     date: date(dateStr),
+    mealType: 'dinner',
     mealId,
     meal: {
       id: mealId,
@@ -224,6 +225,7 @@ describe('repairPlan', () => {
         createEntry('2026-01-13', 'meal-2', 'beef'),
         {
           date: date('2026-01-14'),
+          mealType: 'dinner',
           mealId: 'invalid-meal',
           meal: null,
         },

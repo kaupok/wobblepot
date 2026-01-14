@@ -3,7 +3,12 @@ import { generateObject } from 'ai'
 import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
 import { getCandidates, NO_REPEAT_DAYS, type CandidateMeal } from '@/lib/meal-planning/candidates'
-import { computeRequiredSlots } from '@/lib/meal-planning/slots'
+import {
+  computeRequiredSlots,
+  computeMealSlots,
+  type MealSlot,
+  type SlotRequirement,
+} from '@/lib/meal-planning/slots'
 import {
   getWeekDates,
   getRemainingWeekDates,
@@ -23,7 +28,7 @@ import {
   type GeneratePlanResult,
   type HydratedPlanEntry,
 } from './types'
-import type { SlotRequirement } from '@/lib/meal-planning/slots'
+import type { MealType } from '@/generated/prisma/enums'
 
 const CANDIDATE_POOL_LIMIT = 50
 
@@ -79,7 +84,7 @@ async function getRecentMealIds(householdId: string): Promise<string[]> {
  * Hydrate AI response with meal details from the database.
  */
 async function hydratePlan(
-  entries: Array<{ date: string; mealId: string }>,
+  entries: Array<{ date: string; mealType: string; mealId: string }>,
 ): Promise<HydratedPlanEntry[]> {
   const mealIds = entries.map((e) => e.mealId)
   const meals = await prisma.meal.findMany({
@@ -98,6 +103,7 @@ async function hydratePlan(
     const meal = mealMap.get(e.mealId)
     return {
       date: parseLocalDate(e.date),
+      mealType: e.mealType as MealType,
       mealId: e.mealId,
       meal: meal
         ? {
@@ -112,35 +118,43 @@ async function hydratePlan(
 }
 
 /**
+ * Create a unique key for a slot (date + mealType).
+ */
+function slotKey(date: Date | string, mealType: MealType | string): string {
+  const dateStr = typeof date === 'string' ? date : toDateString(date)
+  return `${dateStr}:${mealType}`
+}
+
+/**
  * Validate AI response structure before constraint validation.
  * Throws MealPlanValidationError if structural validation fails.
  */
 function validateAIResponseStructure(
   hydratedPlan: HydratedPlanEntry[],
-  expectedDates: Date[],
+  expectedSlots: MealSlot[],
 ): void {
-  const expectedCount = expectedDates.length
+  const expectedCount = expectedSlots.length
 
-  // Check entry count (supports variable-length weeks)
+  // Check entry count (supports variable-length weeks and multiple meal types)
   if (hydratedPlan.length !== expectedCount) {
     throw new MealPlanValidationError(
       `Expected ${expectedCount} entries, got ${hydratedPlan.length}`,
     )
   }
 
-  // Check for duplicate dates
-  const dateStrings = hydratedPlan.map((e) => toDateString(e.date))
-  const uniqueDates = new Set(dateStrings)
-  if (uniqueDates.size !== expectedCount) {
-    throw new MealPlanValidationError(`Duplicate dates in response: ${dateStrings.join(', ')}`)
+  // Check for duplicate slots (date + mealType)
+  const entryKeys = hydratedPlan.map((e) => slotKey(e.date, e.mealType))
+  const uniqueKeys = new Set(entryKeys)
+  if (uniqueKeys.size !== expectedCount) {
+    throw new MealPlanValidationError(`Duplicate slots in response: ${entryKeys.join(', ')}`)
   }
 
-  // Check dates match expected week
-  const expectedDateStrings = new Set(expectedDates.map(toDateString))
-  for (const dateStr of dateStrings) {
-    if (!expectedDateStrings.has(dateStr)) {
+  // Check slots match expected slots
+  const expectedKeys = new Set(expectedSlots.map((s) => slotKey(s.date, s.mealType)))
+  for (const key of entryKeys) {
+    if (!expectedKeys.has(key)) {
       throw new MealPlanValidationError(
-        `Unexpected date ${dateStr}, expected dates: ${[...expectedDateStrings].join(', ')}`,
+        `Unexpected slot ${key}, expected slots: ${[...expectedKeys].join(', ')}`,
       )
     }
   }
@@ -199,6 +213,8 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     allergensToAvoid,
     excludedIngredientIds,
     restrictions,
+    weekdayMealTypes = ['dinner'] as MealType[],
+    weekendMealTypes = ['dinner'] as MealType[],
   } = options
 
   // Get dates for entries: full week or partial week from effectiveStartDate
@@ -210,34 +226,63 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
   const endDate = new Date(startDate)
   endDate.setDate(startDate.getDate() + 7)
 
-  // Compute required slots based on dietary type
-  const requiredSlots = computeRequiredSlots(dietaryType, dates)
+  // Expand dates into meal slots based on meal type preferences
+  const allSlots = computeMealSlots(dates, weekdayMealTypes, weekendMealTypes)
+
+  // Compute required protein slots based on dietary type (dinner only)
+  const requiredSlots = computeRequiredSlots({
+    dietaryType,
+    dates,
+    weekdayMealTypes,
+    weekendMealTypes,
+  })
 
   // Get recent meal IDs to exclude
   const recentMealIds = await getRecentMealIds(householdId)
 
-  // Base filters for all candidate queries
-  const baseFilters = {
-    mealType: 'dinner' as const,
-    allergensToAvoid,
-    excludedIngredientIds,
-    recentMealIds,
-  }
+  // Collect unique meal types to query candidates for
+  const uniqueMealTypes = [...new Set(allSlots.map((s) => s.mealType))]
 
-  // Query candidate pools in parallel
-  const [fishCandidates, legumeCandidates, anyCandidates] = await Promise.all([
-    getCandidates({ ...baseFilters, primaryProteinType: 'fish' }),
-    getCandidates({ ...baseFilters, primaryProteinType: 'legume' }),
-    getCandidates(baseFilters),
+  // Query candidate pools for each meal type in parallel
+  const candidatesByMealType = new Map<MealType, CandidateMeal[]>()
+  await Promise.all(
+    uniqueMealTypes.map(async (mealType) => {
+      const candidates = await getCandidates({
+        mealType,
+        allergensToAvoid,
+        excludedIngredientIds,
+        recentMealIds,
+      })
+      candidatesByMealType.set(mealType, capPool(candidates))
+    }),
+  )
+
+  // For dinner slots, also query protein-specific pools for balance constraints
+  const dinnerCandidates = candidatesByMealType.get('dinner') ?? []
+  const [fishCandidates, legumeCandidates] = await Promise.all([
+    getCandidates({
+      mealType: 'dinner',
+      allergensToAvoid,
+      excludedIngredientIds,
+      recentMealIds,
+      primaryProteinType: 'fish',
+    }),
+    getCandidates({
+      mealType: 'dinner',
+      allergensToAvoid,
+      excludedIngredientIds,
+      recentMealIds,
+      primaryProteinType: 'legume',
+    }),
   ])
 
   const candidatePools: CandidatePools = {
     fish: capPool(fishCandidates),
     legume: capPool(legumeCandidates),
-    any: capPool(anyCandidates),
+    any: capPool(dinnerCandidates),
   }
 
-  // Validate required pools have candidates
+  // Validate required pools have candidates (for dinner balance constraints)
   for (const slot of requiredSlots) {
     const pool = slot.proteinType === 'fish' ? candidatePools.fish : candidatePools.legume
     if (pool.length === 0) {
@@ -245,19 +290,20 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     }
   }
 
-  // Compute remaining dates (not required slots)
-  const slotDateStrings = new Set(requiredSlots.map((s) => toDateString(s.date)))
-  const remainingDates = dates.filter((d) => !slotDateStrings.has(toDateString(d)))
+  // Compute remaining slots (not required protein slots)
+  const requiredSlotKeys = new Set(requiredSlots.map((s) => slotKey(s.date, s.mealType)))
+  const remainingSlots = allSlots.filter((s) => !requiredSlotKeys.has(slotKey(s.date, s.mealType)))
 
   // Build prompt and call AI
   const prompt = buildMealPlanPrompt({
     startDate,
     endDate,
-    totalEntries: dates.length,
+    totalEntries: allSlots.length,
     requiredSlots,
-    remainingDates,
+    remainingSlots,
     candidatePools,
     restrictions,
+    candidatesByMealType,
   })
 
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
@@ -271,8 +317,8 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
   // Hydrate with meal details
   const hydratedPlan = await hydratePlan(object.entries)
 
-  // Validate AI response structure (entry count, dates)
-  validateAIResponseStructure(hydratedPlan, dates)
+  // Validate AI response structure (entry count, slots)
+  validateAIResponseStructure(hydratedPlan, allSlots)
 
   // Validate constraints and repair if needed (protein types, consecutive days, duplicates)
   const validatedPlan = validateAndRepairPlan(hydratedPlan, requiredSlots, candidatePools)
@@ -297,7 +343,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
         entries: {
           create: validatedPlan.map((entry) => ({
             date: entry.date,
-            mealType: 'dinner',
+            mealType: entry.mealType,
             mealId: entry.mealId,
             status: 'planned',
           })),
@@ -316,7 +362,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
               },
             },
           },
-          orderBy: { date: 'asc' },
+          orderBy: [{ date: 'asc' }, { mealType: 'asc' }],
         },
       },
     })
@@ -330,7 +376,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     entries: mealPlan.entries.map((entry) => ({
       id: entry.id,
       date: toDateString(entry.date),
-      mealType: entry.mealType as 'dinner',
+      mealType: entry.mealType,
       status: entry.status,
       meal: entry.meal
         ? {

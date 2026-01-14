@@ -113,6 +113,8 @@ export async function POST(request: Request) {
   const allergensToAvoid = preferences?.allergensToAvoid ?? []
   const excludedIngredientIds = preferences?.excludedIngredientIds ?? []
   const restrictions = preferences?.restrictions ?? []
+  const weekdayMealTypes = preferences?.weekdayMealTypes ?? ['dinner']
+  const weekendMealTypes = preferences?.weekendMealTypes ?? ['dinner']
 
   try {
     // Generate meal plan
@@ -124,6 +126,8 @@ export async function POST(request: Request) {
       allergensToAvoid,
       excludedIngredientIds,
       restrictions,
+      weekdayMealTypes,
+      weekendMealTypes,
     })
 
     // Record successful generation for rate limiting
@@ -139,6 +143,8 @@ export async function POST(request: Request) {
           allergensToAvoid,
           excludedIngredientIds,
           restrictions,
+          weekdayMealTypes,
+          weekendMealTypes,
         })
         recordGeneration(household.id)
       } catch (autoGenError) {

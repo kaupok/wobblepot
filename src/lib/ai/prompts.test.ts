@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { buildMealPlanPrompt } from './prompts'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import type { PromptInput } from './types'
-import type { SlotRequirement } from '@/lib/meal-planning/slots'
+import type { MealSlot, SlotRequirement } from '@/lib/meal-planning/slots'
 import type { CandidateMeal } from '@/lib/meal-planning/candidates'
 import { ProteinType, IngredientCategory } from '@/generated/prisma/enums'
 
@@ -30,11 +30,16 @@ function createCandidate(overrides: {
   }
 }
 
+// Helper to convert dates to MealSlot array (dinner only for tests)
+function datesToSlots(dates: Date[]): MealSlot[] {
+  return dates.map((d) => ({ date: d, mealType: 'dinner' as const }))
+}
+
 // Helper to create basic input
 function createInput(overrides: Partial<PromptInput> = {}): PromptInput {
   const startDate = date('2026-01-12')
   const endDate = date('2026-01-19')
-  const remainingDates = overrides.remainingDates ?? [
+  const defaultDates = [
     date('2026-01-12'),
     date('2026-01-13'),
     date('2026-01-14'),
@@ -43,16 +48,17 @@ function createInput(overrides: Partial<PromptInput> = {}): PromptInput {
     date('2026-01-17'),
     date('2026-01-18'),
   ]
+  const remainingSlots = overrides.remainingSlots ?? datesToSlots(defaultDates)
   const requiredSlots = overrides.requiredSlots ?? []
-  // Calculate totalEntries from remaining dates and required slots
-  const totalEntries = overrides.totalEntries ?? remainingDates.length + requiredSlots.length
+  // Calculate totalEntries from remaining slots and required slots
+  const totalEntries = overrides.totalEntries ?? remainingSlots.length + requiredSlots.length
 
   return {
     startDate,
     endDate,
     totalEntries,
     requiredSlots,
-    remainingDates,
+    remainingSlots,
     candidatePools: {
       fish: [],
       legume: [],
@@ -96,7 +102,9 @@ describe('buildMealPlanPrompt', () => {
         }),
       ]
 
-      const requiredSlots: SlotRequirement[] = [{ date: date('2026-01-14'), proteinType: 'fish' }]
+      const requiredSlots: SlotRequirement[] = [
+        { date: date('2026-01-14'), mealType: 'dinner', proteinType: 'fish' },
+      ]
 
       const input = createInput({
         requiredSlots,
@@ -109,7 +117,7 @@ describe('buildMealPlanPrompt', () => {
 
       const result = buildMealPlanPrompt(input)
 
-      expect(result).toContain('Wed 2026-01-14: MUST be FISH day')
+      expect(result).toContain('Wed 2026-01-14 dinner: MUST be FISH')
       expect(result).toContain('"id":"fish-1"')
       expect(result).toContain('"name":"Salmon"')
       expect(result).toContain('"proteinType":"fish"')
@@ -125,7 +133,9 @@ describe('buildMealPlanPrompt', () => {
         }),
       ]
 
-      const requiredSlots: SlotRequirement[] = [{ date: date('2026-01-17'), proteinType: 'legume' }]
+      const requiredSlots: SlotRequirement[] = [
+        { date: date('2026-01-17'), mealType: 'dinner', proteinType: 'legume' },
+      ]
 
       const input = createInput({
         requiredSlots,
@@ -138,15 +148,15 @@ describe('buildMealPlanPrompt', () => {
 
       const result = buildMealPlanPrompt(input)
 
-      expect(result).toContain('Sat 2026-01-17: MUST be LEGUME day')
+      expect(result).toContain('Sat 2026-01-17 dinner: MUST be LEGUME')
       expect(result).toContain('"id":"legume-1"')
       expect(result).toContain('"name":"Lentil Soup"')
     })
 
     it('formats multiple required slots', () => {
       const requiredSlots: SlotRequirement[] = [
-        { date: date('2026-01-14'), proteinType: 'fish' },
-        { date: date('2026-01-17'), proteinType: 'legume' },
+        { date: date('2026-01-14'), mealType: 'dinner', proteinType: 'fish' },
+        { date: date('2026-01-17'), mealType: 'dinner', proteinType: 'legume' },
       ]
 
       const input = createInput({
@@ -160,20 +170,20 @@ describe('buildMealPlanPrompt', () => {
 
       const result = buildMealPlanPrompt(input)
 
-      expect(result).toContain('MUST be FISH day')
-      expect(result).toContain('MUST be LEGUME day')
+      expect(result).toContain('MUST be FISH')
+      expect(result).toContain('MUST be LEGUME')
     })
   })
 
   describe('remaining days section', () => {
     it('lists remaining dates with any candidates', () => {
       const input = createInput({
-        remainingDates: [date('2026-01-12'), date('2026-01-13'), date('2026-01-15')],
+        remainingSlots: datesToSlots([date('2026-01-12'), date('2026-01-13'), date('2026-01-15')]),
       })
 
       const result = buildMealPlanPrompt(input)
 
-      expect(result).toContain('REMAINING DAYS: Mon 2026-01-12, Tue 2026-01-13, Thu 2026-01-15')
+      expect(result).toContain('DINNER slots: Mon 2026-01-12, Tue 2026-01-13, Thu 2026-01-15')
     })
 
     it('includes any candidates as JSON', () => {
@@ -190,7 +200,7 @@ describe('buildMealPlanPrompt', () => {
 
       const result = buildMealPlanPrompt(input)
 
-      // Check candidates are included after REMAINING DAYS
+      // Check candidates are included after REMAINING SLOTS
       expect(result).toContain('"id":"any-1"')
       expect(result).toContain('"name":"Meal A"')
       expect(result).toContain('"id":"any-2"')
@@ -205,9 +215,9 @@ describe('buildMealPlanPrompt', () => {
       const result = buildMealPlanPrompt(input)
 
       expect(result).toContain('VARIETY RULES:')
-      expect(result).toContain('No same proteinType on consecutive days')
+      expect(result).toContain('No same proteinType on consecutive days for the same meal type')
       expect(result).toContain('Mix kid-friendly and adult meals')
-      expect(result).toContain('Each meal can only be used once (no duplicates)')
+      expect(result).toContain('Each meal can only be used once across all slots (no duplicates)')
     })
   })
 
@@ -248,14 +258,14 @@ describe('buildMealPlanPrompt', () => {
 
       // endDate is exclusive, so last day is 2026-01-18
       expect(result).toContain('Return exactly 7 entries covering 2026-01-12 through 2026-01-18')
-      expect(result).toContain('Use YYYY-MM-DD format for dates')
+      expect(result).toContain('date (YYYY-MM-DD format)')
     })
 
     it('handles different week correctly', () => {
       const input = createInput({
         startDate: date('2026-02-02'),
         endDate: date('2026-02-09'),
-        remainingDates: [
+        remainingSlots: datesToSlots([
           date('2026-02-02'),
           date('2026-02-03'),
           date('2026-02-04'),
@@ -263,7 +273,7 @@ describe('buildMealPlanPrompt', () => {
           date('2026-02-06'),
           date('2026-02-07'),
           date('2026-02-08'),
-        ],
+        ]),
       })
 
       const result = buildMealPlanPrompt(input)
@@ -278,13 +288,13 @@ describe('buildMealPlanPrompt', () => {
         endDate: date('2026-01-19'), // Next Monday (exclusive)
         totalEntries: 5, // Wed-Sun
         requiredSlots: [], // No required slots for this test
-        remainingDates: [
+        remainingSlots: datesToSlots([
           date('2026-01-14'), // Wed
           date('2026-01-15'), // Thu
           date('2026-01-16'), // Fri
           date('2026-01-17'), // Sat
           date('2026-01-18'), // Sun
-        ],
+        ]),
       })
 
       const result = buildMealPlanPrompt(input)
@@ -299,13 +309,13 @@ describe('buildMealPlanPrompt', () => {
         startDate: date('2026-01-12'), // Monday
         endDate: date('2026-01-19'),
         totalEntries: 5,
-        requiredSlots: [{ date: date('2026-01-14'), proteinType: 'fish' }], // Wed
-        remainingDates: [
+        requiredSlots: [{ date: date('2026-01-14'), mealType: 'dinner', proteinType: 'fish' }], // Wed
+        remainingSlots: datesToSlots([
           date('2026-01-15'), // Thu
           date('2026-01-16'), // Fri
           date('2026-01-17'), // Sat
           date('2026-01-18'), // Sun
-        ],
+        ]),
         candidatePools: {
           fish: [createCandidate({ id: 'fish-1', primaryProteinType: ProteinType.fish })],
           legume: [],
@@ -325,15 +335,15 @@ describe('buildMealPlanPrompt', () => {
       // Use explicit totalEntries to ensure correct structure test
       const input = createInput({
         totalEntries: 7,
-        requiredSlots: [{ date: date('2026-01-14'), proteinType: 'fish' }],
-        remainingDates: [
+        requiredSlots: [{ date: date('2026-01-14'), mealType: 'dinner', proteinType: 'fish' }],
+        remainingSlots: datesToSlots([
           date('2026-01-12'),
           date('2026-01-13'),
           date('2026-01-15'),
           date('2026-01-16'),
           date('2026-01-17'),
           date('2026-01-18'),
-        ],
+        ]),
         restrictions: ['low sodium'],
         candidatePools: {
           fish: [createCandidate({ id: 'fish-1', primaryProteinType: ProteinType.fish })],
@@ -346,7 +356,7 @@ describe('buildMealPlanPrompt', () => {
 
       // Check overall structure order
       const requiredSlotsIndex = result.indexOf('REQUIRED SLOTS')
-      const remainingDaysIndex = result.indexOf('REMAINING DAYS')
+      const remainingDaysIndex = result.indexOf('REMAINING SLOTS')
       const varietyRulesIndex = result.indexOf('VARIETY RULES')
       const returnIndex = result.indexOf('Return exactly')
 
