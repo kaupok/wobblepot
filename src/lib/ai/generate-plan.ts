@@ -280,6 +280,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     fish: capPool(fishCandidates),
     legume: capPool(legumeCandidates),
     any: capPool(dinnerCandidates),
+    byMealType: candidatesByMealType,
   }
 
   // Validate required pools have candidates (for dinner balance constraints)

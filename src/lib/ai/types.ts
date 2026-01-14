@@ -27,11 +27,15 @@ export type MealPlanResponse = z.infer<typeof MealPlanResponseSchema>
 
 /**
  * Candidate pools organized by protein type for slot-specific queries.
+ * - fish/legume: Protein-specific pools for dinner balance constraints
+ * - any: General dinner pool (legacy, used as fallback)
+ * - byMealType: Pools for each meal type (used for non-dinner repairs)
  */
 export interface CandidatePools {
   fish: CandidateMeal[]
   legume: CandidateMeal[]
   any: CandidateMeal[]
+  byMealType?: Map<MealType, CandidateMeal[]>
 }
 
 /**

@@ -1,6 +1,15 @@
 import { toDateString } from '@/lib/meal-planning/dates'
 import type { CandidateMeal } from '@/lib/meal-planning/candidates'
+import type { MealType } from '@/generated/prisma/enums'
 import type { CandidatePools, HydratedPlanEntry, ValidationError } from './types'
+
+/**
+ * Get the candidate pool for a specific meal type.
+ * Falls back to candidatePools.any (dinner pool) if byMealType is not available.
+ */
+function getPoolForMealType(candidatePools: CandidatePools, mealType: MealType): CandidateMeal[] {
+  return candidatePools.byMealType?.get(mealType) ?? candidatePools.any
+}
 
 /**
  * Attempt to repair a meal plan by swapping entries to fix validation errors.
@@ -72,9 +81,12 @@ export function repairPlan(
         const currentProtein = currentEntry.meal?.primaryProteinType
         if (!currentProtein) continue
 
+        // Get the pool for this meal type (uses byMealType if available, falls back to any)
+        const mealTypePool = getPoolForMealType(candidatePools, error.mealType)
+
         // Find a replacement with different protein type
         const replacement = findReplacementWithDifferentProtein(
-          candidatePools.any,
+          mealTypePool,
           usedMealIds,
           currentProtein,
         )
@@ -87,7 +99,7 @@ export function repairPlan(
           if (!prevProtein) continue
 
           const prevReplacement = findReplacementWithDifferentProtein(
-            candidatePools.any,
+            mealTypePool,
             usedMealIds,
             prevProtein,
           )
@@ -102,18 +114,23 @@ export function repairPlan(
         const proteinType = entry.meal?.primaryProteinType
         if (!proteinType) continue
 
-        // Find a replacement with the same protein type to maintain variety
-        const pool =
-          proteinType === 'fish'
-            ? candidatePools.fish
-            : proteinType === 'legume'
-              ? candidatePools.legume
-              : candidatePools.any
+        // Get the pool for this meal type (uses byMealType if available)
+        const mealTypePool = getPoolForMealType(candidatePools, error.mealType)
 
-        const replacement = findReplacementWithSameProtein(pool, usedMealIds, proteinType)
+        // For dinner slots with fish/legume requirements, prefer protein-specific pools
+        const isDinner = error.mealType === 'dinner'
+        const proteinPool =
+          isDinner && proteinType === 'fish'
+            ? candidatePools.fish
+            : isDinner && proteinType === 'legume'
+              ? candidatePools.legume
+              : mealTypePool
+
+        // Find a replacement with the same protein type to maintain variety
+        const replacement = findReplacementWithSameProtein(proteinPool, usedMealIds, proteinType)
         if (!replacement) {
-          // Fall back to any pool
-          const anyReplacement = findReplacement(candidatePools.any, usedMealIds)
+          // Fall back to the meal type pool
+          const anyReplacement = findReplacement(mealTypePool, usedMealIds)
           if (!anyReplacement) return null
           swapEntry(plan, index, anyReplacement, usedMealIds)
         } else {
