@@ -62,11 +62,23 @@ export async function PATCH(
           householdId: household.id,
         },
       },
-      select: { id: true },
+      select: {
+        id: true,
+        plan: {
+          select: { endDate: true },
+        },
+      },
     })
 
     if (!entry) {
       return NextResponse.json({ error: 'Entry not found or access denied' }, { status: 404 })
+    }
+
+    // Reject modifications to past week plans (read-only)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    if (entry.plan.endDate < today) {
+      return NextResponse.json({ error: 'Cannot modify past week plans' }, { status: 403 })
     }
 
     // Build update data
