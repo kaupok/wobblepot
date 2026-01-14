@@ -4,18 +4,18 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
-const SETTINGS_TABS = [
-  { href: '/settings/household', label: 'Household' },
-  { href: '/settings/profile', label: 'My preferences' },
-  { href: '/settings/invites', label: 'Invites' },
+const HOUSEHOLD_TABS = [
+  { href: '/household/household', label: 'Household' },
+  { href: '/household/profile', label: 'My preferences' },
+  { href: '/household/invites', label: 'Invites' },
 ]
 
-export function SettingsNav() {
+export function HouseholdNav() {
   const pathname = usePathname()
 
   return (
     <nav className="flex gap-4 border-b pb-4">
-      {SETTINGS_TABS.map((tab) => (
+      {HOUSEHOLD_TABS.map((tab) => (
         <Link
           key={tab.href}
           href={tab.href}

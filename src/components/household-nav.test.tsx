@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { SettingsNav } from './settings-nav'
+import { HouseholdNav } from './household-nav'
 
 // Mock next/navigation
 const mockPathname = vi.fn()
@@ -8,36 +8,36 @@ vi.mock('next/navigation', () => ({
   usePathname: () => mockPathname(),
 }))
 
-describe('SettingsNav', () => {
+describe('HouseholdNav', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockPathname.mockReturnValue('/settings/household')
+    mockPathname.mockReturnValue('/household/household')
   })
 
   it('renders both navigation tabs', () => {
-    render(<SettingsNav />)
+    render(<HouseholdNav />)
 
     expect(screen.getByRole('link', { name: 'Household' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'My preferences' })).toBeInTheDocument()
   })
 
-  it('Household tab links to /settings/household', () => {
-    render(<SettingsNav />)
+  it('Household tab links to /household/household', () => {
+    render(<HouseholdNav />)
 
     const householdLink = screen.getByRole('link', { name: 'Household' })
-    expect(householdLink).toHaveAttribute('href', '/settings/household')
+    expect(householdLink).toHaveAttribute('href', '/household/household')
   })
 
-  it('My preferences tab links to /settings/profile', () => {
-    render(<SettingsNav />)
+  it('My preferences tab links to /household/profile', () => {
+    render(<HouseholdNav />)
 
     const preferencesLink = screen.getByRole('link', { name: 'My preferences' })
-    expect(preferencesLink).toHaveAttribute('href', '/settings/profile')
+    expect(preferencesLink).toHaveAttribute('href', '/household/profile')
   })
 
   it('applies active styling to Household tab when on household page', () => {
-    mockPathname.mockReturnValue('/settings/household')
-    render(<SettingsNav />)
+    mockPathname.mockReturnValue('/household/household')
+    render(<HouseholdNav />)
 
     const householdLink = screen.getByRole('link', { name: 'Household' })
     const preferencesLink = screen.getByRole('link', { name: 'My preferences' })
@@ -47,8 +47,8 @@ describe('SettingsNav', () => {
   })
 
   it('applies active styling to My preferences tab when on profile page', () => {
-    mockPathname.mockReturnValue('/settings/profile')
-    render(<SettingsNav />)
+    mockPathname.mockReturnValue('/household/profile')
+    render(<HouseholdNav />)
 
     const householdLink = screen.getByRole('link', { name: 'Household' })
     const preferencesLink = screen.getByRole('link', { name: 'My preferences' })

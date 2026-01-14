@@ -32,30 +32,23 @@ export function MobileNav({ session }: MobileNavProps) {
             className="hover:text-primary text-sm font-medium transition-colors"
             onClick={() => setOpen(false)}
           >
-            Home
-          </Link>
-          <Link
-            href="/about"
-            className="hover:text-primary text-sm font-medium transition-colors"
-            onClick={() => setOpen(false)}
-          >
-            About
+            Plan
           </Link>
           {session && (
             <>
+              <Link
+                href="/household/household"
+                className="hover:text-primary text-sm font-medium transition-colors"
+                onClick={() => setOpen(false)}
+              >
+                Household
+              </Link>
               <Link
                 href="/profile"
                 className="hover:text-primary text-sm font-medium transition-colors"
                 onClick={() => setOpen(false)}
               >
                 Profile
-              </Link>
-              <Link
-                href="/settings/household"
-                className="hover:text-primary text-sm font-medium transition-colors"
-                onClick={() => setOpen(false)}
-              >
-                Settings
               </Link>
             </>
           )}

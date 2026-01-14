@@ -136,7 +136,7 @@ describe('getValidReturnUrl', () => {
     })
 
     it('returns nested paths unchanged', () => {
-      expect(getValidReturnUrl('/settings/household')).toBe('/settings/household')
+      expect(getValidReturnUrl('/household/household')).toBe('/household/household')
     })
 
     it('returns paths with query params unchanged', () => {
