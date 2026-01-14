@@ -471,6 +471,7 @@ describe('generateMealPlan', () => {
             {
               type: 'wrong_protein',
               date: '2026-01-14',
+              mealType: 'dinner',
               expected: 'fish',
               actual: 'poultry',
               message: 'Wrong protein',
@@ -581,6 +582,7 @@ describe('generateMealPlan', () => {
           {
             type: 'wrong_protein',
             date: '2026-01-14',
+            mealType: 'dinner',
             expected: 'fish',
             actual: 'poultry',
             message: 'Wrong protein',
@@ -601,6 +603,7 @@ describe('generateMealPlan', () => {
           {
             type: 'consecutive_protein',
             date: '2026-01-13',
+            mealType: 'dinner',
             actual: 'poultry',
             message: 'Consecutive poultry',
           },

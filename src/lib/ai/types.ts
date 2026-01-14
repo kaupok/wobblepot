@@ -162,6 +162,7 @@ export type ValidationErrorType =
 export interface ValidationError {
   type: ValidationErrorType
   date: string
+  mealType: MealType
   expected?: ProteinType
   actual?: ProteinType
   message: string

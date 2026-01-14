@@ -33,6 +33,7 @@ export function validatePlan(
         errors.push({
           type: 'wrong_protein',
           date: toDateString(slot.date),
+          mealType: slot.mealType,
           expected: slot.proteinType,
           actual: actualProtein,
           message: `${toDateString(slot.date)} ${slot.mealType} requires ${slot.proteinType}, got ${actualProtein}`,
@@ -71,6 +72,7 @@ export function validatePlan(
         errors.push({
           type: 'consecutive_protein',
           date: toDateString(next.date),
+          mealType: next.mealType,
           actual: next.meal.primaryProteinType,
           message: `Consecutive ${next.meal.primaryProteinType} for ${mealType} on ${toDateString(current.date)} and ${toDateString(next.date)}`,
         })
@@ -84,6 +86,7 @@ export function validatePlan(
       errors.push({
         type: 'invalid_meal',
         date: toDateString(entry.date),
+        mealType: entry.mealType,
         message: `Invalid meal ID ${entry.mealId} on ${toDateString(entry.date)} ${entry.mealType}`,
       })
     }
@@ -102,6 +105,7 @@ export function validatePlan(
       errors.push({
         type: 'duplicate_meal',
         date: toDateString(entry.date),
+        mealType: entry.mealType,
         message: `Duplicate meal ${entry.meal.name} (${entry.mealId}) on ${toDateString(entry.date)} ${entry.mealType}`,
       })
     }

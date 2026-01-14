@@ -90,6 +90,7 @@ describe('validatePlan', () => {
       expect(result.errors[0]).toEqual({
         type: 'wrong_protein',
         date: '2026-01-14',
+        mealType: 'dinner',
         expected: 'fish',
         actual: 'poultry',
         message: '2026-01-14 dinner requires fish, got poultry',
@@ -140,6 +141,7 @@ describe('validatePlan', () => {
       expect(result.errors[0]).toEqual({
         type: 'consecutive_protein',
         date: '2026-01-13',
+        mealType: 'dinner',
         actual: 'poultry',
         message: 'Consecutive poultry for dinner on 2026-01-12 and 2026-01-13',
       })
@@ -192,6 +194,7 @@ describe('validatePlan', () => {
       expect(result.errors[0]).toEqual({
         type: 'invalid_meal',
         date: '2026-01-14',
+        mealType: 'dinner',
         message: 'Invalid meal ID invalid-meal-id on 2026-01-14 dinner',
       })
     })

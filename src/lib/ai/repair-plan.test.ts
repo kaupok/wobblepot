@@ -77,6 +77,7 @@ describe('repairPlan', () => {
         {
           type: 'wrong_protein',
           date: '2026-01-14',
+          mealType: 'dinner',
           expected: 'fish',
           actual: 'poultry',
           message: '2026-01-14 requires fish, got chicken',
@@ -107,6 +108,7 @@ describe('repairPlan', () => {
         {
           type: 'wrong_protein',
           date: '2026-01-17',
+          mealType: 'dinner',
           expected: 'legume',
           actual: 'beef',
           message: '2026-01-17 requires legume, got beef',
@@ -138,6 +140,7 @@ describe('repairPlan', () => {
         {
           type: 'consecutive_protein',
           date: '2026-01-14',
+          mealType: 'dinner',
           actual: 'poultry',
           message: 'Consecutive chicken on 2026-01-13 and 2026-01-14',
         },
@@ -172,6 +175,7 @@ describe('repairPlan', () => {
         {
           type: 'duplicate_meal',
           date: '2026-01-15',
+          mealType: 'dinner',
           message: 'Duplicate meal Meal meal-1 (meal-1) on 2026-01-15',
         },
       ]
@@ -207,6 +211,7 @@ describe('repairPlan', () => {
         {
           type: 'wrong_protein',
           date: '2026-01-14',
+          mealType: 'dinner',
           expected: 'fish',
           actual: 'poultry',
           message: '2026-01-14 requires fish, got chicken',
@@ -239,6 +244,7 @@ describe('repairPlan', () => {
         {
           type: 'invalid_meal',
           date: '2026-01-14',
+          mealType: 'dinner',
           message: 'Invalid meal ID invalid-meal on 2026-01-14',
         },
       ]
@@ -264,6 +270,7 @@ describe('repairPlan', () => {
         {
           type: 'wrong_protein',
           date: '2026-01-14',
+          mealType: 'dinner',
           expected: 'fish',
           actual: 'fish', // Actually the type is correct, but let's test with wrong_protein
           message: 'Test error',
@@ -301,6 +308,7 @@ describe('repairPlan', () => {
         {
           type: 'wrong_protein',
           date: '2026-01-14',
+          mealType: 'dinner',
           expected: 'fish',
           actual: 'poultry',
           message: '2026-01-14 requires fish, got chicken',
@@ -339,6 +347,7 @@ describe('repairPlan', () => {
         {
           type: 'wrong_protein',
           date: '2026-01-14',
+          mealType: 'dinner',
           expected: 'fish',
           actual: 'beef',
           message: '2026-01-14 requires fish, got beef',
@@ -346,6 +355,7 @@ describe('repairPlan', () => {
         {
           type: 'wrong_protein',
           date: '2026-01-17',
+          mealType: 'dinner',
           expected: 'legume',
           actual: 'poultry',
           message: '2026-01-17 requires legume, got chicken',
@@ -353,12 +363,14 @@ describe('repairPlan', () => {
         {
           type: 'consecutive_protein',
           date: '2026-01-13',
+          mealType: 'dinner',
           actual: 'poultry',
           message: 'Consecutive chicken on 2026-01-12 and 2026-01-13',
         },
         {
           type: 'duplicate_meal',
           date: '2026-01-13',
+          mealType: 'dinner',
           message: 'Duplicate meal Meal meal-1 (meal-1) on 2026-01-13',
         },
       ]
