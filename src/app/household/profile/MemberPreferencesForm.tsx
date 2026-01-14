@@ -18,7 +18,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Heading, Body } from '@/components/ui/typography'
 import { TagInput } from '@/components/tag-input'
-import { SettingsNav } from '@/components/settings-nav'
+import { HouseholdNav } from '@/components/household-nav'
 import { cn } from '@/lib/utils'
 
 type DietaryType = 'omnivore' | 'vegetarian' | 'vegan' | 'pescatarian'
@@ -154,7 +154,7 @@ export function MemberPreferencesForm({
       <form onSubmit={handleSubmit}>
         <CardContent>
           <div className="flex flex-col gap-8">
-            <SettingsNav />
+            <HouseholdNav />
 
             {/* Section 1: Display Name */}
             <section className="flex flex-col gap-4">

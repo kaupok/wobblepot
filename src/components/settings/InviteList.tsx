@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Button } from '@/components/ui/button'
 import { Heading, Body } from '@/components/ui/typography'
-import { SettingsNav } from '@/components/settings-nav'
+import { HouseholdNav } from '@/components/household-nav'
 import { CreateInviteDialog } from './CreateInviteDialog'
 import { InviteCard } from './InviteCard'
 import { InviteCardSkeleton } from './InviteCardSkeleton'
@@ -73,7 +73,7 @@ export function InviteList({ isOwner }: InviteListProps) {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-8">
-            <SettingsNav />
+            <HouseholdNav />
             <Body variant="muted">Only the household owner can manage invites.</Body>
           </div>
         </CardContent>
@@ -95,7 +95,7 @@ export function InviteList({ isOwner }: InviteListProps) {
       </CardHeader>
       <CardContent>
         <div className="flex flex-col gap-8">
-          <SettingsNav />
+          <HouseholdNav />
 
           <div className="flex items-center justify-between">
             <Heading variant="h4">Invite links</Heading>

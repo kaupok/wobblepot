@@ -92,12 +92,12 @@ describe('SignUpForm', () => {
 
   describe('returnUrl functionality', () => {
     it('sign-in link includes returnUrl when present', () => {
-      mockGet.mockReturnValue('/settings')
+      mockGet.mockReturnValue('/household')
 
       render(<SignUpForm />)
 
       const link = screen.getByRole('link', { name: /sign in/i })
-      expect(link).toHaveAttribute('href', '/sign-in?returnUrl=%2Fsettings')
+      expect(link).toHaveAttribute('href', '/sign-in?returnUrl=%2Fhousehold')
     })
 
     it('sign-in link is plain /sign-in when returnUrl is default /profile', () => {
@@ -131,7 +131,7 @@ describe('SignUpForm', () => {
     })
 
     it('navigates to returnUrl on successful sign up when provided', async () => {
-      mockGet.mockReturnValue('/settings/household')
+      mockGet.mockReturnValue('/household/household')
 
       const { authClient } = await import('@/lib/auth-client')
       vi.mocked(authClient.signUp.email).mockImplementation(async (creds, options) => {
@@ -149,7 +149,7 @@ describe('SignUpForm', () => {
       await user.click(screen.getByRole('button', { name: /sign up/i }))
 
       await vi.waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith('/settings/household')
+        expect(mockPush).toHaveBeenCalledWith('/household/household')
       })
     })
 
