@@ -91,13 +91,20 @@ cmd_new() {
   git -C "$REPO_ROOT" worktree add -b "$branch" "$worktree_path"
 
   echo ""
-  echo -e "${BLUE}Setting up worktree (installing dependencies)...${NC}"
+  echo -e "${BLUE}Setting up worktree...${NC}"
   echo ""
 
-  # Run setup script (reuse cyrus-setup.sh logic)
   cd "$worktree_path"
 
+  # Copy Claude settings from main repo (contains permissions and env vars)
+  if [ -f "$REPO_ROOT/.claude/settings.local.json" ]; then
+    echo "Copying Claude settings..."
+    mkdir -p "$worktree_path/.claude"
+    cp "$REPO_ROOT/.claude/settings.local.json" "$worktree_path/.claude/settings.local.json"
+  fi
+
   # Install dependencies
+  echo "Installing dependencies..."
   if command -v pnpm &> /dev/null; then
     pnpm install
     pnpm db:generate
