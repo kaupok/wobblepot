@@ -131,7 +131,7 @@ Output the completion marker based on what was done:
 - If `--push` was used: `[commit:complete] Commit created and pushed`
 - Otherwise: `[commit:complete] Commit created`
 
-Do NOT output follow-up suggestions or next steps - just the marker.
+The calling context will determine what happens next.
 
 ## Important
 

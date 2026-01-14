@@ -184,7 +184,7 @@ After implementing all steps, output the completion marker exactly as shown:
 [implement-issue:complete] Implementation complete for HON-XX
 ```
 
-This marker signals to orchestrating skills (like `/auto-implement`) that implementation is finished. Do NOT output any follow-up suggestions or next steps - just the marker.
+This marker signals to orchestrating skills (like `/auto-implement`) that implementation is finished. The calling context will determine what happens next.
 
 ## Edge Cases
 
