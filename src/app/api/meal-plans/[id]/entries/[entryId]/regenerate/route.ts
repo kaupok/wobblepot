@@ -10,6 +10,7 @@ import {
 } from '@/lib/meal-planning/candidates'
 import { computeRequiredSlots } from '@/lib/meal-planning/slots'
 import { getWeekDates, toDateString } from '@/lib/meal-planning/dates'
+import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import type { Allergen, DietaryType, MealType, ProteinType } from '@/generated/prisma/enums'
 import type { AlternativeMeal } from '@/components/meal-plan/types'
 
@@ -198,28 +199,44 @@ export async function POST(
       }
     }
 
-    // Fetch full meal details for selected candidates (need timeMinutes)
+    // Fetch full meal details for selected candidates
     const mealDetails = await prisma.meal.findMany({
       where: { id: { in: selected.map((s) => s.id) } },
-      select: { id: true, timeMinutes: true },
+      include: {
+        components: {
+          include: {
+            ingredient: true,
+          },
+        },
+      },
     })
 
-    const mealTimeMap = new Map(mealDetails.map((m) => [m.id, m.timeMinutes]))
+    const mealDetailsMap = new Map(mealDetails.map((m) => [m.id, m]))
 
     // Build response
-    const alternatives: AlternativeMeal[] = selected.map((candidate, index) => ({
-      id: candidate.id,
-      name: candidate.name,
-      timeMinutes: mealTimeMap.get(candidate.id) ?? null,
-      kidFriendly: candidate.kidFriendly,
-      primaryProteinType: candidate.primaryProteinType,
-      reason: generateReason(
-        candidate,
-        currentMealTime,
-        mealTimeMap.get(candidate.id) ?? null,
-        index,
-      ),
-    }))
+    const alternatives: AlternativeMeal[] = selected.map((candidate, index) => {
+      const mealDetail = mealDetailsMap.get(candidate.id)
+      const components = mealDetail?.components ?? []
+
+      return {
+        id: candidate.id,
+        name: candidate.name,
+        timeMinutes: mealDetail?.timeMinutes ?? null,
+        kidFriendly: candidate.kidFriendly,
+        primaryProteinType: candidate.primaryProteinType,
+        reason: generateReason(candidate, currentMealTime, mealDetail?.timeMinutes ?? null, index),
+        components: components.map((comp) => ({
+          quantityPerServing: comp.quantityPerServing,
+          ingredient: {
+            name: comp.ingredient.name,
+            category: comp.ingredient.category,
+            defaultUnit: comp.ingredient.defaultUnit as 'g' | 'piece',
+            gramsPerPiece: comp.ingredient.gramsPerPiece,
+          },
+        })),
+        nutrition: computeMealNutrition(components),
+      }
+    })
 
     return NextResponse.json({ alternatives }, { status: 200 })
   } catch (error) {

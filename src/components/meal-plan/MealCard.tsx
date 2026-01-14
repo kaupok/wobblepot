@@ -116,6 +116,7 @@ export function MealCard({
         planId={planId}
         entryId={entryId}
         mealType={mealType}
+        householdSize={householdSize}
         currentMealName={meal?.name}
         onSwapComplete={() => router.refresh()}
       />

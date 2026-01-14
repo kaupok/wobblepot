@@ -23,6 +23,7 @@ interface RegenerateModalProps {
   planId: string
   entryId: string
   mealType: MealType
+  householdSize: number
   currentMealName?: string
   onSwapComplete: () => void
 }
@@ -50,6 +51,7 @@ export function RegenerateModal({
   planId,
   entryId,
   mealType,
+  householdSize,
   currentMealName,
   onSwapComplete,
 }: RegenerateModalProps) {
@@ -155,6 +157,7 @@ export function RegenerateModal({
                 <AlternativeCard
                   key={meal.id}
                   meal={meal}
+                  householdSize={householdSize}
                   onSelect={handleSelect}
                   isSelecting={selectingId === meal.id}
                 />
