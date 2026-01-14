@@ -108,6 +108,29 @@ If assigned to someone else, warn the user and ask before reassigning.
 
 ### 8. Create or switch to branch
 
+First, detect if we're in a worktree:
+
+```bash
+git rev-parse --git-common-dir
+git rev-parse --git-dir
+```
+
+If outputs differ → **worktree mode**
+If outputs same → **regular repo mode**
+
+**Worktree mode:**
+
+In a worktree, the branch is already set by the worktree itself. We work directly on it:
+
+```bash
+# Just verify the current branch
+git branch --show-current
+```
+
+The worktree branch becomes the working branch. Skip branch creation/switching.
+
+**Regular repo mode:**
+
 Check if branch already exists:
 
 ```bash
@@ -172,7 +195,8 @@ This marker signals to orchestrating skills (like `/auto-implement`) that implem
 | Plan is for different issue | Error: "Plan in comments is for HON-YY, not HON-XX" |
 | Already on the branch       | Continue without creating new branch                |
 | Assigned to someone else    | Warn and ask before reassigning                     |
-| Not on main branch          | Warn if not on main when creating branch            |
+| In worktree                 | Use worktree branch directly, skip branch creation  |
+| Not on main (regular repo)  | Warn if not on main when creating branch            |
 
 ## Important
 
