@@ -14,6 +14,7 @@ function date(dateStr: string): Date {
 function createEntry(dateStr: string, mealId: string, proteinType: ProteinType): HydratedPlanEntry {
   return {
     date: date(dateStr),
+    mealType: 'dinner',
     mealId,
     meal: {
       id: mealId,
@@ -55,8 +56,8 @@ describe('validatePlan', () => {
       ]
 
       const requiredSlots: SlotRequirement[] = [
-        { date: date('2026-01-14'), proteinType: 'fish' },
-        { date: date('2026-01-17'), proteinType: 'legume' },
+        { date: date('2026-01-14'), mealType: 'dinner', proteinType: 'fish' },
+        { date: date('2026-01-17'), mealType: 'dinner', proteinType: 'legume' },
       ]
 
       const result = validatePlan(plan, requiredSlots)
@@ -78,7 +79,9 @@ describe('validatePlan', () => {
         createEntry('2026-01-18', 'meal-7', 'poultry'),
       ]
 
-      const requiredSlots: SlotRequirement[] = [{ date: date('2026-01-14'), proteinType: 'fish' }]
+      const requiredSlots: SlotRequirement[] = [
+        { date: date('2026-01-14'), mealType: 'dinner', proteinType: 'fish' },
+      ]
 
       const result = validatePlan(plan, requiredSlots)
 
@@ -87,9 +90,10 @@ describe('validatePlan', () => {
       expect(result.errors[0]).toEqual({
         type: 'wrong_protein',
         date: '2026-01-14',
+        mealType: 'dinner',
         expected: 'fish',
         actual: 'poultry',
-        message: '2026-01-14 requires fish, got poultry',
+        message: '2026-01-14 dinner requires fish, got poultry',
       })
     })
 
@@ -104,7 +108,9 @@ describe('validatePlan', () => {
         createEntry('2026-01-18', 'meal-7', 'fish'),
       ]
 
-      const requiredSlots: SlotRequirement[] = [{ date: date('2026-01-17'), proteinType: 'legume' }]
+      const requiredSlots: SlotRequirement[] = [
+        { date: date('2026-01-17'), mealType: 'dinner', proteinType: 'legume' },
+      ]
 
       const result = validatePlan(plan, requiredSlots)
 
@@ -135,8 +141,9 @@ describe('validatePlan', () => {
       expect(result.errors[0]).toEqual({
         type: 'consecutive_protein',
         date: '2026-01-13',
+        mealType: 'dinner',
         actual: 'poultry',
-        message: 'Consecutive poultry on 2026-01-12 and 2026-01-13',
+        message: 'Consecutive poultry for dinner on 2026-01-12 and 2026-01-13',
       })
     })
 
@@ -170,6 +177,7 @@ describe('validatePlan', () => {
         createEntry('2026-01-13', 'meal-2', 'beef'),
         {
           date: date('2026-01-14'),
+          mealType: 'dinner',
           mealId: 'invalid-meal-id',
           meal: null,
         },
@@ -186,7 +194,8 @@ describe('validatePlan', () => {
       expect(result.errors[0]).toEqual({
         type: 'invalid_meal',
         date: '2026-01-14',
-        message: 'Invalid meal ID invalid-meal-id on 2026-01-14',
+        mealType: 'dinner',
+        message: 'Invalid meal ID invalid-meal-id on 2026-01-14 dinner',
       })
     })
   })
@@ -221,6 +230,7 @@ describe('validatePlan', () => {
         createEntry('2026-01-14', 'meal-3', 'beef'), // Wrong - should be fish
         {
           date: date('2026-01-15'),
+          mealType: 'dinner',
           mealId: 'invalid',
           meal: null, // Invalid meal
         },
@@ -230,8 +240,8 @@ describe('validatePlan', () => {
       ]
 
       const requiredSlots: SlotRequirement[] = [
-        { date: date('2026-01-14'), proteinType: 'fish' },
-        { date: date('2026-01-17'), proteinType: 'legume' },
+        { date: date('2026-01-14'), mealType: 'dinner', proteinType: 'fish' },
+        { date: date('2026-01-17'), mealType: 'dinner', proteinType: 'legume' },
       ]
 
       const result = validatePlan(plan, requiredSlots)

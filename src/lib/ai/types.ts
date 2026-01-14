@@ -3,19 +3,21 @@ import type {
   Allergen,
   DietaryType,
   MealPlanEntryStatus,
+  MealType,
   ProteinType,
 } from '@/generated/prisma/enums'
 import type { CandidateMeal } from '@/lib/meal-planning/candidates'
-import type { SlotRequirement } from '@/lib/meal-planning/slots'
+import type { MealSlot, SlotRequirement } from '@/lib/meal-planning/slots'
 
 /**
  * Zod schema for AI structured output.
- * AI returns an array of date + mealId pairs.
+ * AI returns an array of date + mealType + mealId entries.
  */
 export const MealPlanResponseSchema = z.object({
   entries: z.array(
     z.object({
       date: z.string().describe('Date in YYYY-MM-DD format'),
+      mealType: z.enum(['breakfast', 'lunch', 'dinner']).describe('The meal type for this slot'),
       mealId: z.string().describe('The meal ID from the candidates'),
     }),
   ),
@@ -25,11 +27,15 @@ export type MealPlanResponse = z.infer<typeof MealPlanResponseSchema>
 
 /**
  * Candidate pools organized by protein type for slot-specific queries.
+ * - fish/legume: Protein-specific pools for dinner balance constraints
+ * - any: General dinner pool (legacy, used as fallback)
+ * - byMealType: Pools for each meal type (used for non-dinner repairs)
  */
 export interface CandidatePools {
   fish: CandidateMeal[]
   legume: CandidateMeal[]
   any: CandidateMeal[]
+  byMealType?: Map<MealType, CandidateMeal[]>
 }
 
 /**
@@ -37,6 +43,7 @@ export interface CandidatePools {
  */
 export interface HydratedPlanEntry {
   date: Date
+  mealType: MealType
   mealId: string
   meal: {
     id: string
@@ -63,6 +70,10 @@ export interface GeneratePlanOptions {
   allergensToAvoid: Allergen[]
   excludedIngredientIds: string[]
   restrictions: string[]
+  /** Meal types to plan for weekdays (Mon-Fri). Defaults to ['dinner'] */
+  weekdayMealTypes?: MealType[]
+  /** Meal types to plan for weekends (Sat-Sun). Defaults to ['dinner'] */
+  weekendMealTypes?: MealType[]
 }
 
 /**
@@ -75,7 +86,7 @@ export interface GeneratePlanResult {
   entries: Array<{
     id: string
     date: string
-    mealType: 'dinner'
+    mealType: MealType
     status: MealPlanEntryStatus
     meal: {
       id: string
@@ -100,8 +111,10 @@ export interface PromptInput {
   endDate: Date
   /** Total number of entries expected (supports partial weeks) */
   totalEntries: number
+  /** Slots with required protein types (dinner only) */
   requiredSlots: SlotRequirement[]
-  remainingDates: Date[]
+  /** All remaining slots without protein requirements */
+  remainingSlots: MealSlot[]
   candidatePools: CandidatePools
   restrictions: string[]
 }
@@ -153,6 +166,7 @@ export type ValidationErrorType =
 export interface ValidationError {
   type: ValidationErrorType
   date: string
+  mealType: MealType
   expected?: ProteinType
   actual?: ProteinType
   message: string

@@ -1,6 +1,15 @@
 import { toDateString } from '@/lib/meal-planning/dates'
 import type { CandidateMeal } from '@/lib/meal-planning/candidates'
+import type { MealType } from '@/generated/prisma/enums'
 import type { CandidatePools, HydratedPlanEntry, ValidationError } from './types'
+
+/**
+ * Get the candidate pool for a specific meal type.
+ * Falls back to candidatePools.any (dinner pool) if byMealType is not available.
+ */
+function getPoolForMealType(candidatePools: CandidatePools, mealType: MealType): CandidateMeal[] {
+  return candidatePools.byMealType?.get(mealType) ?? candidatePools.any
+}
 
 /**
  * Attempt to repair a meal plan by swapping entries to fix validation errors.
@@ -17,17 +26,26 @@ export function repairPlan(
   // Track used meal IDs to avoid creating new duplicates
   const usedMealIds = new Set(plan.map((e) => e.mealId))
 
-  // Build a map of date -> index for quick lookup
-  const indexByDate = new Map(plan.map((e, i) => [toDateString(e.date), i]))
+  // Build a map of slot key (date:mealType) -> index for quick lookup
+  // This correctly handles multiple meal types per day
+  const indexBySlot = new Map(plan.map((e, i) => [`${toDateString(e.date)}:${e.mealType}`, i]))
 
-  // Sort entries by date for consecutive checks
-  const sortedIndices = [...plan.keys()].sort(
-    (a, b) => plan[a]!.date.getTime() - plan[b]!.date.getTime(),
-  )
+  // Group entries by meal type and sort by date for consecutive checks
+  const sortedIndicesByMealType = new Map<string, number[]>()
+  for (const [idx, entry] of plan.entries()) {
+    const existing = sortedIndicesByMealType.get(entry.mealType) ?? []
+    existing.push(idx)
+    sortedIndicesByMealType.set(entry.mealType, existing)
+  }
+  // Sort each group by date
+  for (const [, indices] of sortedIndicesByMealType) {
+    indices.sort((a, b) => plan[a]!.date.getTime() - plan[b]!.date.getTime())
+  }
 
   // Process errors
   for (const error of errors) {
-    const index = indexByDate.get(error.date)
+    const slotKey = `${error.date}:${error.mealType}`
+    const index = indexBySlot.get(slotKey)
     if (index === undefined) continue
 
     switch (error.type) {
@@ -43,11 +61,15 @@ export function repairPlan(
       }
 
       case 'consecutive_protein': {
+        // Get the sorted indices for this meal type
+        const sortedIndices = sortedIndicesByMealType.get(error.mealType)
+        if (!sortedIndices) continue
+
         // Find which index in sorted order this is
         const sortedIdx = sortedIndices.indexOf(index)
         if (sortedIdx === -1) continue
 
-        // Get the previous entry
+        // Get the previous entry (within the same meal type)
         const prevIndex = sortedIdx > 0 ? sortedIndices[sortedIdx - 1]! : null
         if (prevIndex === null) continue
 
@@ -59,9 +81,12 @@ export function repairPlan(
         const currentProtein = currentEntry.meal?.primaryProteinType
         if (!currentProtein) continue
 
+        // Get the pool for this meal type (uses byMealType if available, falls back to any)
+        const mealTypePool = getPoolForMealType(candidatePools, error.mealType)
+
         // Find a replacement with different protein type
         const replacement = findReplacementWithDifferentProtein(
-          candidatePools.any,
+          mealTypePool,
           usedMealIds,
           currentProtein,
         )
@@ -74,7 +99,7 @@ export function repairPlan(
           if (!prevProtein) continue
 
           const prevReplacement = findReplacementWithDifferentProtein(
-            candidatePools.any,
+            mealTypePool,
             usedMealIds,
             prevProtein,
           )
@@ -89,18 +114,23 @@ export function repairPlan(
         const proteinType = entry.meal?.primaryProteinType
         if (!proteinType) continue
 
-        // Find a replacement with the same protein type to maintain variety
-        const pool =
-          proteinType === 'fish'
-            ? candidatePools.fish
-            : proteinType === 'legume'
-              ? candidatePools.legume
-              : candidatePools.any
+        // Get the pool for this meal type (uses byMealType if available)
+        const mealTypePool = getPoolForMealType(candidatePools, error.mealType)
 
-        const replacement = findReplacementWithSameProtein(pool, usedMealIds, proteinType)
+        // For dinner slots with fish/legume requirements, prefer protein-specific pools
+        const isDinner = error.mealType === 'dinner'
+        const proteinPool =
+          isDinner && proteinType === 'fish'
+            ? candidatePools.fish
+            : isDinner && proteinType === 'legume'
+              ? candidatePools.legume
+              : mealTypePool
+
+        // Find a replacement with the same protein type to maintain variety
+        const replacement = findReplacementWithSameProtein(proteinPool, usedMealIds, proteinType)
         if (!replacement) {
-          // Fall back to any pool
-          const anyReplacement = findReplacement(candidatePools.any, usedMealIds)
+          // Fall back to the meal type pool
+          const anyReplacement = findReplacement(mealTypePool, usedMealIds)
           if (!anyReplacement) return null
           swapEntry(plan, index, anyReplacement, usedMealIds)
         } else {

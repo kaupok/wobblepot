@@ -42,6 +42,7 @@ vi.mock('@/lib/meal-planning/candidates', () => ({
 
 vi.mock('@/lib/meal-planning/slots', () => ({
   computeRequiredSlots: vi.fn(),
+  computeMealSlots: vi.fn(),
 }))
 
 vi.mock('./validate-plan', () => ({
@@ -56,7 +57,7 @@ vi.mock('./repair-plan', () => ({
 import { prisma } from '@/lib/prisma'
 import { generateObject } from 'ai'
 import { getCandidates } from '@/lib/meal-planning/candidates'
-import { computeRequiredSlots } from '@/lib/meal-planning/slots'
+import { computeRequiredSlots, computeMealSlots } from '@/lib/meal-planning/slots'
 import { validatePlan } from './validate-plan'
 import { repairPlan } from './repair-plan'
 import { generateMealPlan } from './generate-plan'
@@ -64,6 +65,7 @@ import { generateMealPlan } from './generate-plan'
 // Type assertions for mocks
 const mockGetCandidates = vi.mocked(getCandidates)
 const mockComputeRequiredSlots = vi.mocked(computeRequiredSlots)
+const mockComputeMealSlots = vi.mocked(computeMealSlots)
 const mockGenerateObject = vi.mocked(generateObject)
 const mockValidatePlan = vi.mocked(validatePlan)
 const mockRepairPlan = vi.mocked(repairPlan)
@@ -117,15 +119,29 @@ const defaultOptions = {
   restrictions: [],
 }
 
+// Helper to create default meal slots for a week (Mon-Sun, dinner only)
+function createDefaultMealSlots() {
+  return [
+    { date: date('2026-01-12'), mealType: 'dinner' as const },
+    { date: date('2026-01-13'), mealType: 'dinner' as const },
+    { date: date('2026-01-14'), mealType: 'dinner' as const },
+    { date: date('2026-01-15'), mealType: 'dinner' as const },
+    { date: date('2026-01-16'), mealType: 'dinner' as const },
+    { date: date('2026-01-17'), mealType: 'dinner' as const },
+    { date: date('2026-01-18'), mealType: 'dinner' as const },
+  ]
+}
+
 describe('generateMealPlan', () => {
   beforeEach(() => {
     vi.clearAllMocks()
 
     // Default mock implementations
     mockMealPlanEntryFindMany.mockResolvedValue([])
+    mockComputeMealSlots.mockReturnValue(createDefaultMealSlots())
     mockComputeRequiredSlots.mockReturnValue([
-      { date: date('2026-01-14'), proteinType: 'fish' },
-      { date: date('2026-01-17'), proteinType: 'legume' },
+      { date: date('2026-01-14'), mealType: 'dinner', proteinType: 'fish' },
+      { date: date('2026-01-17'), mealType: 'dinner', proteinType: 'legume' },
     ])
   })
 
@@ -135,20 +151,21 @@ describe('generateMealPlan', () => {
       const legumeCandidates = createMockMeals(10, 11)
       const anyCandidates = createMockMeals(30, 21)
 
+      // Order: 1. dinner (general), 2. fish (protein-specific), 3. legume (protein-specific)
       mockGetCandidates
-        .mockResolvedValueOnce(fishCandidates) // fish
-        .mockResolvedValueOnce(legumeCandidates) // legume
-        .mockResolvedValueOnce(anyCandidates) // any
+        .mockResolvedValueOnce(anyCandidates) // dinner general
+        .mockResolvedValueOnce(fishCandidates) // fish protein-specific
+        .mockResolvedValueOnce(legumeCandidates) // legume protein-specific
 
       // Mock AI response with 7 valid entries
       const aiEntries = [
-        { date: '2026-01-12', mealId: 'meal-21' },
-        { date: '2026-01-13', mealId: 'meal-22' },
-        { date: '2026-01-14', mealId: 'meal-1' }, // fish day
-        { date: '2026-01-15', mealId: 'meal-23' },
-        { date: '2026-01-16', mealId: 'meal-24' },
-        { date: '2026-01-17', mealId: 'meal-11' }, // legume day
-        { date: '2026-01-18', mealId: 'meal-25' },
+        { date: '2026-01-12', mealType: 'dinner', mealId: 'meal-21' },
+        { date: '2026-01-13', mealType: 'dinner', mealId: 'meal-22' },
+        { date: '2026-01-14', mealType: 'dinner', mealId: 'meal-1' }, // fish day
+        { date: '2026-01-15', mealType: 'dinner', mealId: 'meal-23' },
+        { date: '2026-01-16', mealType: 'dinner', mealId: 'meal-24' },
+        { date: '2026-01-17', mealType: 'dinner', mealId: 'meal-11' }, // legume day
+        { date: '2026-01-18', mealType: 'dinner', mealId: 'meal-25' },
       ]
 
       mockGenerateObject.mockResolvedValue({ object: { entries: aiEntries } } as never)
@@ -211,23 +228,24 @@ describe('generateMealPlan', () => {
       // Verify pool is > 50
       expect(largeCandidatePool.length).toBe(100)
 
+      // Order: 1. dinner (general), 2. fish (protein-specific), 3. legume (protein-specific)
       mockGetCandidates
+        .mockResolvedValueOnce(largeCandidatePool) // dinner general
         .mockResolvedValueOnce([
           createCandidate({ id: 'fish-1', primaryProteinType: ProteinType.fish }),
         ])
         .mockResolvedValueOnce([
           createCandidate({ id: 'legume-1', primaryProteinType: ProteinType.legume }),
         ])
-        .mockResolvedValueOnce(largeCandidatePool)
 
       const aiEntries = [
-        { date: '2026-01-12', mealId: 'kf-0' },
-        { date: '2026-01-13', mealId: 'adult-0' },
-        { date: '2026-01-14', mealId: 'fish-1' },
-        { date: '2026-01-15', mealId: 'kf-1' },
-        { date: '2026-01-16', mealId: 'adult-1' },
-        { date: '2026-01-17', mealId: 'legume-1' },
-        { date: '2026-01-18', mealId: 'kf-2' },
+        { date: '2026-01-12', mealType: 'dinner', mealId: 'kf-0' },
+        { date: '2026-01-13', mealType: 'dinner', mealId: 'adult-0' },
+        { date: '2026-01-14', mealType: 'dinner', mealId: 'fish-1' },
+        { date: '2026-01-15', mealType: 'dinner', mealId: 'kf-1' },
+        { date: '2026-01-16', mealType: 'dinner', mealId: 'adult-1' },
+        { date: '2026-01-17', mealType: 'dinner', mealId: 'legume-1' },
+        { date: '2026-01-18', mealType: 'dinner', mealId: 'kf-2' },
       ]
       mockGenerateObject.mockResolvedValue({ object: { entries: aiEntries } } as never)
 
@@ -276,12 +294,13 @@ describe('generateMealPlan', () => {
 
   describe('InsufficientCandidatesError', () => {
     it('throws when fish pool is empty for omnivore', async () => {
+      // Order: 1. dinner (general), 2. fish (protein-specific), 3. legume (protein-specific)
       mockGetCandidates
+        .mockResolvedValueOnce(createMockMeals(10)) // dinner general
         .mockResolvedValueOnce([]) // Empty fish pool
         .mockResolvedValueOnce([
           createCandidate({ id: 'legume-1', primaryProteinType: ProteinType.legume }),
         ])
-        .mockResolvedValueOnce(createMockMeals(10))
 
       const error = await generateMealPlan(defaultOptions).catch((e) => e)
       expect(error).toBeInstanceOf(InsufficientCandidatesError)
@@ -289,12 +308,13 @@ describe('generateMealPlan', () => {
     })
 
     it('throws when legume pool is empty for omnivore', async () => {
+      // Order: 1. dinner (general), 2. fish (protein-specific), 3. legume (protein-specific)
       mockGetCandidates
+        .mockResolvedValueOnce(createMockMeals(10)) // dinner general
         .mockResolvedValueOnce([
           createCandidate({ id: 'fish-1', primaryProteinType: ProteinType.fish }),
         ])
         .mockResolvedValueOnce([]) // Empty legume pool
-        .mockResolvedValueOnce(createMockMeals(10))
 
       const error = await generateMealPlan(defaultOptions).catch((e) => e)
       expect(error).toBeInstanceOf(InsufficientCandidatesError)
@@ -316,8 +336,8 @@ describe('generateMealPlan', () => {
       mockGenerateObject.mockResolvedValue({
         object: {
           entries: [
-            { date: '2026-01-12', mealId: 'meal-1' },
-            { date: '2026-01-13', mealId: 'meal-1' },
+            { date: '2026-01-12', mealType: 'dinner', mealId: 'meal-1' },
+            { date: '2026-01-13', mealType: 'dinner', mealId: 'meal-1' },
             // Only 2 entries instead of 7
           ],
         },
@@ -330,6 +350,7 @@ describe('generateMealPlan', () => {
     it('throws when AI returns more than 7 entries', async () => {
       const entries = Array.from({ length: 8 }, (_, i) => ({
         date: `2026-01-${12 + i}`,
+        mealType: 'dinner',
         mealId: 'meal-1',
       }))
       mockGenerateObject.mockResolvedValue({ object: { entries } } as never)
@@ -342,13 +363,13 @@ describe('generateMealPlan', () => {
       mockGenerateObject.mockResolvedValue({
         object: {
           entries: [
-            { date: '2026-01-12', mealId: 'meal-1' },
-            { date: '2026-01-12', mealId: 'meal-2' }, // Duplicate
-            { date: '2026-01-14', mealId: 'meal-3' },
-            { date: '2026-01-15', mealId: 'meal-4' },
-            { date: '2026-01-16', mealId: 'meal-5' },
-            { date: '2026-01-17', mealId: 'meal-6' },
-            { date: '2026-01-18', mealId: 'meal-7' },
+            { date: '2026-01-12', mealType: 'dinner', mealId: 'meal-1' },
+            { date: '2026-01-12', mealType: 'dinner', mealId: 'meal-2' }, // Duplicate
+            { date: '2026-01-14', mealType: 'dinner', mealId: 'meal-3' },
+            { date: '2026-01-15', mealType: 'dinner', mealId: 'meal-4' },
+            { date: '2026-01-16', mealType: 'dinner', mealId: 'meal-5' },
+            { date: '2026-01-17', mealType: 'dinner', mealId: 'meal-6' },
+            { date: '2026-01-18', mealType: 'dinner', mealId: 'meal-7' },
           ],
         },
       } as never)
@@ -363,20 +384,20 @@ describe('generateMealPlan', () => {
       )
 
       await expect(generateMealPlan(defaultOptions)).rejects.toThrow(MealPlanValidationError)
-      await expect(generateMealPlan(defaultOptions)).rejects.toThrow('Duplicate dates')
+      await expect(generateMealPlan(defaultOptions)).rejects.toThrow('Duplicate slots')
     })
 
     it('throws when AI returns dates outside expected week', async () => {
       mockGenerateObject.mockResolvedValue({
         object: {
           entries: [
-            { date: '2026-01-12', mealId: 'meal-1' },
-            { date: '2026-01-13', mealId: 'meal-2' },
-            { date: '2026-01-14', mealId: 'meal-3' },
-            { date: '2026-01-15', mealId: 'meal-4' },
-            { date: '2026-01-16', mealId: 'meal-5' },
-            { date: '2026-01-17', mealId: 'meal-6' },
-            { date: '2026-01-20', mealId: 'meal-7' }, // Wrong date
+            { date: '2026-01-12', mealType: 'dinner', mealId: 'meal-1' },
+            { date: '2026-01-13', mealType: 'dinner', mealId: 'meal-2' },
+            { date: '2026-01-14', mealType: 'dinner', mealId: 'meal-3' },
+            { date: '2026-01-15', mealType: 'dinner', mealId: 'meal-4' },
+            { date: '2026-01-16', mealType: 'dinner', mealId: 'meal-5' },
+            { date: '2026-01-17', mealType: 'dinner', mealId: 'meal-6' },
+            { date: '2026-01-20', mealType: 'dinner', mealId: 'meal-7' }, // Wrong date
           ],
         },
       } as never)
@@ -391,7 +412,9 @@ describe('generateMealPlan', () => {
       )
 
       await expect(generateMealPlan(defaultOptions)).rejects.toThrow(MealPlanValidationError)
-      await expect(generateMealPlan(defaultOptions)).rejects.toThrow('Unexpected date 2026-01-20')
+      await expect(generateMealPlan(defaultOptions)).rejects.toThrow(
+        'Unexpected slot 2026-01-20:dinner',
+      )
     })
   })
 
@@ -400,13 +423,13 @@ describe('generateMealPlan', () => {
       mockGetCandidates.mockResolvedValue([createCandidate()])
 
       const validEntries = [
-        { date: '2026-01-12', mealId: 'meal-1' },
-        { date: '2026-01-13', mealId: 'meal-2' },
-        { date: '2026-01-14', mealId: 'meal-3' },
-        { date: '2026-01-15', mealId: 'meal-4' },
-        { date: '2026-01-16', mealId: 'meal-5' },
-        { date: '2026-01-17', mealId: 'meal-6' },
-        { date: '2026-01-18', mealId: 'meal-7' },
+        { date: '2026-01-12', mealType: 'dinner', mealId: 'meal-1' },
+        { date: '2026-01-13', mealType: 'dinner', mealId: 'meal-2' },
+        { date: '2026-01-14', mealType: 'dinner', mealId: 'meal-3' },
+        { date: '2026-01-15', mealType: 'dinner', mealId: 'meal-4' },
+        { date: '2026-01-16', mealType: 'dinner', mealId: 'meal-5' },
+        { date: '2026-01-17', mealType: 'dinner', mealId: 'meal-6' },
+        { date: '2026-01-18', mealType: 'dinner', mealId: 'meal-7' },
       ]
 
       mockGenerateObject.mockResolvedValue({ object: { entries: validEntries } } as never)
@@ -448,6 +471,7 @@ describe('generateMealPlan', () => {
             {
               type: 'wrong_protein',
               date: '2026-01-14',
+              mealType: 'dinner',
               expected: 'fish',
               actual: 'poultry',
               message: 'Wrong protein',
@@ -459,6 +483,7 @@ describe('generateMealPlan', () => {
       mockRepairPlan.mockReturnValue([
         {
           date: date('2026-01-12'),
+          mealType: 'dinner',
           mealId: 'meal-1',
           meal: {
             id: 'meal-1',
@@ -469,6 +494,7 @@ describe('generateMealPlan', () => {
         },
         {
           date: date('2026-01-13'),
+          mealType: 'dinner',
           mealId: 'meal-2',
           meal: {
             id: 'meal-2',
@@ -479,6 +505,7 @@ describe('generateMealPlan', () => {
         },
         {
           date: date('2026-01-14'),
+          mealType: 'dinner',
           mealId: 'meal-fish',
           meal: {
             id: 'meal-fish',
@@ -489,6 +516,7 @@ describe('generateMealPlan', () => {
         },
         {
           date: date('2026-01-15'),
+          mealType: 'dinner',
           mealId: 'meal-4',
           meal: {
             id: 'meal-4',
@@ -499,6 +527,7 @@ describe('generateMealPlan', () => {
         },
         {
           date: date('2026-01-16'),
+          mealType: 'dinner',
           mealId: 'meal-5',
           meal: {
             id: 'meal-5',
@@ -509,6 +538,7 @@ describe('generateMealPlan', () => {
         },
         {
           date: date('2026-01-17'),
+          mealType: 'dinner',
           mealId: 'meal-6',
           meal: {
             id: 'meal-6',
@@ -519,6 +549,7 @@ describe('generateMealPlan', () => {
         },
         {
           date: date('2026-01-18'),
+          mealType: 'dinner',
           mealId: 'meal-7',
           meal: {
             id: 'meal-7',
@@ -551,6 +582,7 @@ describe('generateMealPlan', () => {
           {
             type: 'wrong_protein',
             date: '2026-01-14',
+            mealType: 'dinner',
             expected: 'fish',
             actual: 'poultry',
             message: 'Wrong protein',
@@ -571,6 +603,7 @@ describe('generateMealPlan', () => {
           {
             type: 'consecutive_protein',
             date: '2026-01-13',
+            mealType: 'dinner',
             actual: 'poultry',
             message: 'Consecutive poultry',
           },
@@ -581,6 +614,7 @@ describe('generateMealPlan', () => {
         // Return a plan that still has issues
         {
           date: date('2026-01-12'),
+          mealType: 'dinner',
           mealId: 'meal-1',
           meal: {
             id: 'meal-1',
@@ -591,6 +625,7 @@ describe('generateMealPlan', () => {
         },
         {
           date: date('2026-01-13'),
+          mealType: 'dinner',
           mealId: 'meal-2',
           meal: {
             id: 'meal-2',
@@ -601,6 +636,7 @@ describe('generateMealPlan', () => {
         },
         {
           date: date('2026-01-14'),
+          mealType: 'dinner',
           mealId: 'meal-3',
           meal: {
             id: 'meal-3',
@@ -611,6 +647,7 @@ describe('generateMealPlan', () => {
         },
         {
           date: date('2026-01-15'),
+          mealType: 'dinner',
           mealId: 'meal-4',
           meal: {
             id: 'meal-4',
@@ -621,6 +658,7 @@ describe('generateMealPlan', () => {
         },
         {
           date: date('2026-01-16'),
+          mealType: 'dinner',
           mealId: 'meal-5',
           meal: {
             id: 'meal-5',
@@ -631,6 +669,7 @@ describe('generateMealPlan', () => {
         },
         {
           date: date('2026-01-17'),
+          mealType: 'dinner',
           mealId: 'meal-6',
           meal: {
             id: 'meal-6',
@@ -641,6 +680,7 @@ describe('generateMealPlan', () => {
         },
         {
           date: date('2026-01-18'),
+          mealType: 'dinner',
           mealId: 'meal-7',
           meal: {
             id: 'meal-7',
@@ -668,13 +708,13 @@ describe('generateMealPlan', () => {
         .mockResolvedValueOnce(createMockMeals(10))
 
       const aiEntries = [
-        { date: '2026-01-12', mealId: 'meal-1' },
-        { date: '2026-01-13', mealId: 'meal-2' },
-        { date: '2026-01-14', mealId: 'fish-1' },
-        { date: '2026-01-15', mealId: 'meal-3' },
-        { date: '2026-01-16', mealId: 'meal-4' },
-        { date: '2026-01-17', mealId: 'legume-1' },
-        { date: '2026-01-18', mealId: 'meal-5' },
+        { date: '2026-01-12', mealType: 'dinner', mealId: 'meal-1' },
+        { date: '2026-01-13', mealType: 'dinner', mealId: 'meal-2' },
+        { date: '2026-01-14', mealType: 'dinner', mealId: 'fish-1' },
+        { date: '2026-01-15', mealType: 'dinner', mealId: 'meal-3' },
+        { date: '2026-01-16', mealType: 'dinner', mealId: 'meal-4' },
+        { date: '2026-01-17', mealType: 'dinner', mealId: 'legume-1' },
+        { date: '2026-01-18', mealType: 'dinner', mealId: 'meal-5' },
       ]
 
       mockGenerateObject.mockResolvedValue({ object: { entries: aiEntries } } as never)
@@ -751,6 +791,7 @@ describe('generateMealPlan', () => {
 
       const aiEntries = Array.from({ length: 7 }, (_, i) => ({
         date: `2026-01-${12 + i}`,
+        mealType: 'dinner',
         mealId: `meal-${i + 1}`,
       }))
 

@@ -14,6 +14,7 @@ function date(dateStr: string): Date {
 function createEntry(dateStr: string, mealId: string, proteinType: ProteinType): HydratedPlanEntry {
   return {
     date: date(dateStr),
+    mealType: 'dinner',
     mealId,
     meal: {
       id: mealId,
@@ -76,6 +77,7 @@ describe('repairPlan', () => {
         {
           type: 'wrong_protein',
           date: '2026-01-14',
+          mealType: 'dinner',
           expected: 'fish',
           actual: 'poultry',
           message: '2026-01-14 requires fish, got chicken',
@@ -106,6 +108,7 @@ describe('repairPlan', () => {
         {
           type: 'wrong_protein',
           date: '2026-01-17',
+          mealType: 'dinner',
           expected: 'legume',
           actual: 'beef',
           message: '2026-01-17 requires legume, got beef',
@@ -137,6 +140,7 @@ describe('repairPlan', () => {
         {
           type: 'consecutive_protein',
           date: '2026-01-14',
+          mealType: 'dinner',
           actual: 'poultry',
           message: 'Consecutive chicken on 2026-01-13 and 2026-01-14',
         },
@@ -171,6 +175,7 @@ describe('repairPlan', () => {
         {
           type: 'duplicate_meal',
           date: '2026-01-15',
+          mealType: 'dinner',
           message: 'Duplicate meal Meal meal-1 (meal-1) on 2026-01-15',
         },
       ]
@@ -206,6 +211,7 @@ describe('repairPlan', () => {
         {
           type: 'wrong_protein',
           date: '2026-01-14',
+          mealType: 'dinner',
           expected: 'fish',
           actual: 'poultry',
           message: '2026-01-14 requires fish, got chicken',
@@ -224,6 +230,7 @@ describe('repairPlan', () => {
         createEntry('2026-01-13', 'meal-2', 'beef'),
         {
           date: date('2026-01-14'),
+          mealType: 'dinner',
           mealId: 'invalid-meal',
           meal: null,
         },
@@ -237,6 +244,7 @@ describe('repairPlan', () => {
         {
           type: 'invalid_meal',
           date: '2026-01-14',
+          mealType: 'dinner',
           message: 'Invalid meal ID invalid-meal on 2026-01-14',
         },
       ]
@@ -262,6 +270,7 @@ describe('repairPlan', () => {
         {
           type: 'wrong_protein',
           date: '2026-01-14',
+          mealType: 'dinner',
           expected: 'fish',
           actual: 'fish', // Actually the type is correct, but let's test with wrong_protein
           message: 'Test error',
@@ -299,6 +308,7 @@ describe('repairPlan', () => {
         {
           type: 'wrong_protein',
           date: '2026-01-14',
+          mealType: 'dinner',
           expected: 'fish',
           actual: 'poultry',
           message: '2026-01-14 requires fish, got chicken',
@@ -337,6 +347,7 @@ describe('repairPlan', () => {
         {
           type: 'wrong_protein',
           date: '2026-01-14',
+          mealType: 'dinner',
           expected: 'fish',
           actual: 'beef',
           message: '2026-01-14 requires fish, got beef',
@@ -344,6 +355,7 @@ describe('repairPlan', () => {
         {
           type: 'wrong_protein',
           date: '2026-01-17',
+          mealType: 'dinner',
           expected: 'legume',
           actual: 'poultry',
           message: '2026-01-17 requires legume, got chicken',
@@ -351,12 +363,14 @@ describe('repairPlan', () => {
         {
           type: 'consecutive_protein',
           date: '2026-01-13',
+          mealType: 'dinner',
           actual: 'poultry',
           message: 'Consecutive chicken on 2026-01-12 and 2026-01-13',
         },
         {
           type: 'duplicate_meal',
           date: '2026-01-13',
+          mealType: 'dinner',
           message: 'Duplicate meal Meal meal-1 (meal-1) on 2026-01-13',
         },
       ]
@@ -373,6 +387,168 @@ describe('repairPlan', () => {
       // Check legume slot is fixed
       const entry17 = result!.find((e) => toDateString(e.date) === '2026-01-17')
       expect(entry17?.meal?.primaryProteinType).toBe('legume')
+    })
+  })
+
+  describe('uses meal-type-specific pools for non-dinner repairs', () => {
+    it('uses breakfast pool for consecutive protein on breakfast slots', () => {
+      // Helper to create breakfast entry
+      function createBreakfastEntry(
+        dateStr: string,
+        mealId: string,
+        proteinType: ProteinType,
+      ): HydratedPlanEntry {
+        return {
+          date: date(dateStr),
+          mealType: 'breakfast',
+          mealId,
+          meal: {
+            id: mealId,
+            name: `Breakfast ${mealId}`,
+            primaryProteinType: proteinType,
+            kidFriendly: true,
+          },
+        }
+      }
+
+      const plan: HydratedPlanEntry[] = [
+        createBreakfastEntry('2026-01-12', 'breakfast-1', 'poultry'),
+        createBreakfastEntry('2026-01-13', 'breakfast-2', 'poultry'), // Consecutive!
+        createBreakfastEntry('2026-01-14', 'breakfast-3', 'beef'),
+      ]
+
+      const errors: ValidationError[] = [
+        {
+          type: 'consecutive_protein',
+          date: '2026-01-13',
+          mealType: 'breakfast',
+          actual: 'poultry',
+          message: 'Consecutive poultry for breakfast on 2026-01-12 and 2026-01-13',
+        },
+      ]
+
+      // Create pools with byMealType for breakfast
+      const breakfastCandidates: CandidateMeal[] = [
+        createCandidate('breakfast-beef', 'beef'),
+        createCandidate('breakfast-pork', 'pork'),
+      ]
+
+      const pools: CandidatePools = {
+        fish: [],
+        legume: [],
+        any: [], // Empty dinner pool - repair should fail if it uses this
+        byMealType: new Map([['breakfast', breakfastCandidates]]),
+      }
+
+      const result = repairPlan(plan, errors, pools)
+
+      expect(result).not.toBeNull()
+
+      // Should have used a breakfast candidate, not dinner
+      const entry13 = result!.find((e) => toDateString(e.date) === '2026-01-13')
+      expect(['breakfast-beef', 'breakfast-pork']).toContain(entry13?.mealId)
+    })
+
+    it('uses lunch pool for duplicate meal on lunch slots', () => {
+      // Helper to create lunch entry
+      function createLunchEntry(
+        dateStr: string,
+        mealId: string,
+        proteinType: ProteinType,
+      ): HydratedPlanEntry {
+        return {
+          date: date(dateStr),
+          mealType: 'lunch',
+          mealId,
+          meal: {
+            id: mealId,
+            name: `Lunch ${mealId}`,
+            primaryProteinType: proteinType,
+            kidFriendly: true,
+          },
+        }
+      }
+
+      const plan: HydratedPlanEntry[] = [
+        createLunchEntry('2026-01-12', 'lunch-1', 'poultry'),
+        createLunchEntry('2026-01-13', 'lunch-1', 'poultry'), // Duplicate!
+        createLunchEntry('2026-01-14', 'lunch-3', 'beef'),
+      ]
+
+      const errors: ValidationError[] = [
+        {
+          type: 'duplicate_meal',
+          date: '2026-01-13',
+          mealType: 'lunch',
+          message: 'Duplicate meal Lunch lunch-1 (lunch-1) on 2026-01-13 lunch',
+        },
+      ]
+
+      // Create pools with byMealType for lunch
+      const lunchCandidates: CandidateMeal[] = [
+        createCandidate('lunch-chicken-2', 'poultry'),
+        createCandidate('lunch-beef-1', 'beef'),
+      ]
+
+      const pools: CandidatePools = {
+        fish: [],
+        legume: [],
+        any: [], // Empty dinner pool - repair should fail if it uses this
+        byMealType: new Map([['lunch', lunchCandidates]]),
+      }
+
+      const result = repairPlan(plan, errors, pools)
+
+      expect(result).not.toBeNull()
+
+      // Should have used a lunch candidate, not dinner
+      const entry13 = result!.find((e) => toDateString(e.date) === '2026-01-13')
+      expect(['lunch-chicken-2', 'lunch-beef-1']).toContain(entry13?.mealId)
+      expect(entry13?.mealId).not.toBe('lunch-1') // Not the duplicate
+    })
+
+    it('falls back to any pool when byMealType is not provided', () => {
+      // Helper to create lunch entry
+      function createLunchEntry(
+        dateStr: string,
+        mealId: string,
+        proteinType: ProteinType,
+      ): HydratedPlanEntry {
+        return {
+          date: date(dateStr),
+          mealType: 'lunch',
+          mealId,
+          meal: {
+            id: mealId,
+            name: `Lunch ${mealId}`,
+            primaryProteinType: proteinType,
+            kidFriendly: true,
+          },
+        }
+      }
+
+      const plan: HydratedPlanEntry[] = [
+        createLunchEntry('2026-01-12', 'lunch-1', 'poultry'),
+        createLunchEntry('2026-01-13', 'lunch-1', 'poultry'), // Duplicate!
+      ]
+
+      const errors: ValidationError[] = [
+        {
+          type: 'duplicate_meal',
+          date: '2026-01-13',
+          mealType: 'lunch',
+          message: 'Duplicate meal',
+        },
+      ]
+
+      // Pools without byMealType - should fall back to 'any'
+      const pools = createPools()
+
+      const result = repairPlan(plan, errors, pools)
+
+      expect(result).not.toBeNull()
+      const entry13 = result!.find((e) => toDateString(e.date) === '2026-01-13')
+      expect(entry13?.mealId).not.toBe('lunch-1')
     })
   })
 })

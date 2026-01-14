@@ -121,11 +121,20 @@ export async function POST(
 
     // Compute required slots to check if this entry needs a specific protein type
     const weekDates = getWeekDates(entry.plan.startDate)
-    const requiredSlots = computeRequiredSlots(dietaryType, weekDates)
+    const weekdayMealTypes = (preferences?.weekdayMealTypes ?? ['dinner']) as MealType[]
+    const weekendMealTypes = (preferences?.weekendMealTypes ?? ['dinner']) as MealType[]
+    const requiredSlots = computeRequiredSlots({
+      dietaryType,
+      dates: weekDates,
+      weekdayMealTypes,
+      weekendMealTypes,
+    })
 
-    // Check if this entry's date is a required slot
+    // Check if this entry's date and mealType is a required slot
     const entryDateString = toDateString(entry.date)
-    const requiredSlot = requiredSlots.find((slot) => toDateString(slot.date) === entryDateString)
+    const requiredSlot = requiredSlots.find(
+      (slot) => toDateString(slot.date) === entryDateString && slot.mealType === entry.mealType,
+    )
 
     // Get recent meal IDs (entries from plans within NO_REPEAT_DAYS window)
     const cutoffDate = new Date()
