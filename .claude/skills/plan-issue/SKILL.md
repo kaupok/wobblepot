@@ -12,16 +12,21 @@ Create a comprehensive implementation plan for a Linear issue.
 
 Requires an issue ID as argument (e.g., `/plan-issue HON-51`).
 
+Supports optional `--auto` flag to skip approval prompt (used by `/auto-implement`).
+
 ## Workflow
 
-### 1. Parse issue ID
+### 1. Parse arguments
 
-Extract issue ID from arguments. Format: `HON-XX` or just `XX`.
+Extract issue ID and flags from arguments:
+
+- Issue ID: `HON-XX` or just `XX` (required)
+- `--auto`: Skip approval prompt and post directly
 
 If no issue ID provided, inform the user:
 
 ```
-Usage: /plan-issue HON-XX
+Usage: /plan-issue HON-XX [--auto]
 Example: /plan-issue HON-51
 ```
 
@@ -109,9 +114,11 @@ Write the plan directly in your response (not to a file). Use this structure:
 - [ ] [Edge cases to check]
 ```
 
-### 7. Ask for approval
+### 7. Get approval (or skip if --auto)
 
-Use `AskUserQuestion` to confirm the plan:
+**If `--auto` flag is present:** Skip approval and proceed directly to step 8.
+
+**Otherwise:** Use `AskUserQuestion` to confirm the plan:
 
 ```
 AskUserQuestion({
