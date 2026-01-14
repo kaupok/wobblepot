@@ -5,7 +5,13 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { generateMealPlan } from '@/lib/ai/generate-plan'
 import { MealPlanValidationError, InsufficientCandidatesError } from '@/lib/ai/types'
-import { getNextMonday, isMonday, parseLocalDate } from '@/lib/meal-planning/dates'
+import {
+  getNextMonday,
+  getCurrentWeekMonday,
+  isMonday,
+  isSunday,
+  parseLocalDate,
+} from '@/lib/meal-planning/dates'
 import { checkRateLimit, recordGeneration } from '@/lib/meal-planning/rate-limit'
 
 const generateRequestSchema = z.object({
@@ -13,6 +19,8 @@ const generateRequestSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format')
     .optional(),
+  targetWeek: z.enum(['current', 'next']).optional(),
+  skipAutoGenerateNext: z.boolean().optional(),
 })
 
 export async function POST(request: Request) {
@@ -68,14 +76,34 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
   }
 
-  // Determine start date
+  // Determine start date and effective start date based on targetWeek
+  const { targetWeek = 'next', skipAutoGenerateNext = false } = parsed.data
   let startDate: Date
+  let effectiveStartDate: Date | undefined
+
   if (parsed.data.startDate) {
+    // Explicit startDate provided - use it directly (backwards compatibility)
     startDate = parseLocalDate(parsed.data.startDate)
     if (!isMonday(startDate)) {
       return NextResponse.json({ error: 'Start date must be a Monday' }, { status: 400 })
     }
+  } else if (targetWeek === 'current') {
+    // Current week: startDate is this Monday, entries start from today
+    if (isSunday()) {
+      return NextResponse.json(
+        { error: 'Cannot generate current week plan on Sunday - use next week instead' },
+        { status: 400 },
+      )
+    }
+    startDate = getCurrentWeekMonday()
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    // Only set effectiveStartDate if not Monday (partial week)
+    if (!isMonday(today)) {
+      effectiveStartDate = today
+    }
   } else {
+    // Next week (default)
     startDate = getNextMonday()
   }
 
@@ -91,6 +119,7 @@ export async function POST(request: Request) {
     const result = await generateMealPlan({
       householdId: household.id,
       startDate,
+      effectiveStartDate,
       dietaryType,
       allergensToAvoid,
       excludedIngredientIds,
@@ -100,7 +129,39 @@ export async function POST(request: Request) {
     // Record successful generation for rate limiting
     recordGeneration(household.id)
 
-    return NextResponse.json(result, { status: 200 })
+    // Auto-generate next week when current week is generated (unless skipped)
+    if (targetWeek === 'current' && !skipAutoGenerateNext) {
+      try {
+        await generateMealPlan({
+          householdId: household.id,
+          startDate: getNextMonday(),
+          dietaryType,
+          allergensToAvoid,
+          excludedIngredientIds,
+          restrictions,
+        })
+        recordGeneration(household.id)
+      } catch (autoGenError) {
+        // Log but don't fail the request - current week was successfully generated
+        console.warn('Auto-generation of next week plan failed:', autoGenError)
+      }
+    }
+
+    // Add metadata about the plan
+    const daysCount = result.entries.length
+    const isPartialWeek = daysCount < 7
+
+    return NextResponse.json(
+      {
+        ...result,
+        weekContext: {
+          type: targetWeek,
+          daysCount,
+          isPartialWeek,
+        },
+      },
+      { status: 200 },
+    )
   } catch (error) {
     // Handle validation errors from AI response
     if (error instanceof MealPlanValidationError) {

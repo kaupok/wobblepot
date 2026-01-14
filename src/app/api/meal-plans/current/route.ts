@@ -1,12 +1,36 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
-import { toDateString } from '@/lib/meal-planning/dates'
+import {
+  toDateString,
+  getCurrentWeekMonday,
+  getNextMonday,
+  isSunday,
+  getDaysRemaining,
+} from '@/lib/meal-planning/dates'
 
-export async function GET() {
+// Common include pattern for meal plan queries
+const mealPlanInclude = {
+  entries: {
+    include: {
+      meal: {
+        include: {
+          components: {
+            include: {
+              ingredient: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: { date: 'asc' } as const,
+  },
+}
+
+export async function GET(request: NextRequest) {
   // Auth check
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -25,73 +49,76 @@ export async function GET() {
 
   const { household } = membership
 
+  // Parse week query param: 'current' | 'next' (defaults to 'current')
+  const weekParam = request.nextUrl.searchParams.get('week')
+  const targetWeek = weekParam === 'next' ? 'next' : 'current'
+
   try {
     // Get today's date normalized to midnight
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    // Query meal plan containing today's date
-    let plan = await prisma.mealPlan.findFirst({
-      where: {
-        householdId: household.id,
-        startDate: { lte: today },
-        endDate: { gt: today },
-      },
-      include: {
-        entries: {
-          include: {
-            meal: {
-              include: {
-                components: {
-                  include: {
-                    ingredient: true,
-                  },
-                },
-              },
-            },
-          },
-          orderBy: { date: 'asc' },
-        },
-      },
-      orderBy: { startDate: 'desc' },
-    })
+    let plan
+    let weekType: 'current' | 'next'
 
-    // Fallback: find upcoming plan starting within the next 7 days.
-    // This handles the case where a new plan was just generated for next week
-    // (e.g., on Sunday for the upcoming Monday), so users can see it immediately.
-    if (!plan) {
-      const nextWeek = new Date(today)
-      nextWeek.setDate(nextWeek.getDate() + 7)
-
+    if (targetWeek === 'next') {
+      // Explicitly requesting next week's plan
+      const nextMonday = getNextMonday()
       plan = await prisma.mealPlan.findFirst({
         where: {
           householdId: household.id,
-          startDate: { gt: today, lte: nextWeek },
+          startDate: nextMonday,
         },
-        include: {
-          entries: {
-            include: {
-              meal: {
-                include: {
-                  components: {
-                    include: {
-                      ingredient: true,
-                    },
-                  },
-                },
-              },
-            },
-            orderBy: { date: 'asc' },
-          },
-        },
-        orderBy: { startDate: 'asc' },
+        include: mealPlanInclude,
       })
+      weekType = 'next'
+    } else {
+      // Current week: find plan containing today
+      const currentMonday = getCurrentWeekMonday()
+      plan = await prisma.mealPlan.findFirst({
+        where: {
+          householdId: household.id,
+          startDate: currentMonday,
+        },
+        include: mealPlanInclude,
+      })
+      weekType = 'current'
+
+      // Fallback for Sunday or when no current week plan:
+      // Return next week's plan if it exists
+      if (!plan && isSunday()) {
+        const nextMonday = getNextMonday()
+        plan = await prisma.mealPlan.findFirst({
+          where: {
+            householdId: household.id,
+            startDate: nextMonday,
+          },
+          include: mealPlanInclude,
+        })
+        weekType = 'next'
+      }
     }
 
-    // Return 404 if no current plan found
+    // Return 404 if no plan found
     if (!plan) {
-      return NextResponse.json({ error: 'No active meal plan' }, { status: 404 })
+      // Return context even on 404 so the UI knows what week to generate
+      const daysRemaining = getDaysRemaining()
+      return NextResponse.json(
+        {
+          error: 'No active meal plan',
+          weekContext: {
+            type: weekType,
+            daysRemaining,
+            isSunday: isSunday(),
+          },
+        },
+        { status: 404 },
+      )
     }
+
+    // Calculate week context
+    const daysCount = plan.entries.length
+    const isPartialWeek = daysCount < 7
 
     // Format response to match GeneratePlanResult type
     const response = {
@@ -123,6 +150,11 @@ export async function GET() {
             }
           : null,
       })),
+      weekContext: {
+        type: weekType,
+        daysCount,
+        isPartialWeek,
+      },
     }
 
     return NextResponse.json(response, { status: 200 })

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Heading, Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { GeneratingOverlay } from './GeneratingOverlay'
+import type { WeekContext } from './types'
 
 const CLIENT_TIMEOUT_MS = 45000
 
@@ -21,7 +22,11 @@ function getErrorMessage(status: number, message?: string): string {
   }
 }
 
-export function EmptyPlan() {
+interface EmptyPlanProps {
+  weekContext: WeekContext
+}
+
+export function EmptyPlan({ weekContext }: EmptyPlanProps) {
   const router = useRouter()
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -36,6 +41,8 @@ export function EmptyPlan() {
     try {
       const response = await fetch('/api/meal-plans/generate', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetWeek: weekContext.type }),
         signal: controller.signal,
       })
 
@@ -67,13 +74,23 @@ export function EmptyPlan() {
     }
   }
 
+  // Dynamic content based on week type
+  const isCurrentWeek = weekContext.type === 'current'
+  const heading = isCurrentWeek ? 'No meal plan for this week' : 'No meal plan for next week'
+  const description = isCurrentWeek
+    ? weekContext.isPartialWeek
+      ? `Generate a plan for the remaining ${weekContext.daysCount} days of this week.`
+      : 'Generate your meal plan for this week to get started.'
+    : 'Generate your meal plan for next week.'
+  const buttonText = isCurrentWeek ? 'Generate this week' : 'Generate next week'
+
   return (
     <>
       {isGenerating && <GeneratingOverlay />}
       <div className="flex min-h-[400px] flex-col items-center justify-center gap-6">
         <div className="flex flex-col items-center gap-2 text-center">
-          <Heading variant="h2">No meal plan for this week</Heading>
-          <Body variant="muted">Generate your first meal plan to get started.</Body>
+          <Heading variant="h2">{heading}</Heading>
+          <Body variant="muted">{description}</Body>
         </div>
         {error && (
           <Body variant="small" className="text-destructive">
@@ -81,7 +98,7 @@ export function EmptyPlan() {
           </Body>
         )}
         <Button onClick={handleGenerate} disabled={isGenerating}>
-          {isGenerating ? 'Generating...' : 'Generate meal plan'}
+          {isGenerating ? 'Generating...' : buttonText}
         </Button>
       </div>
     </>

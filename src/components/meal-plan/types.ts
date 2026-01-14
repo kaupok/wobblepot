@@ -50,3 +50,13 @@ export interface AlternativeMeal {
   primaryProteinType: string
   reason: string
 }
+
+export interface WeekContext {
+  type: 'current' | 'next'
+  daysCount: number
+  isPartialWeek: boolean
+}
+
+export interface MealPlanWithContext extends MealPlan {
+  weekContext: WeekContext
+}

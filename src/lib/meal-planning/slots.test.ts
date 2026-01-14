@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeRequiredSlots, pickDay } from './slots'
+import { computeRequiredSlots, pickDay, shouldEnforceBalanceConstraints } from './slots'
 
 // Helper to create a week of dates starting from a given Monday
 function createWeek(startDate: Date): Date[] {
@@ -14,6 +14,28 @@ function createWeek(startDate: Date): Date[] {
 
 // Monday Jan 6, 2025 (good test date - starts on Monday)
 const MONDAY = new Date(2025, 0, 6)
+
+describe('shouldEnforceBalanceConstraints', () => {
+  it('returns true for 7 days', () => {
+    expect(shouldEnforceBalanceConstraints(7)).toBe(true)
+  })
+
+  it('returns true for 5 days (threshold)', () => {
+    expect(shouldEnforceBalanceConstraints(5)).toBe(true)
+  })
+
+  it('returns false for 4 days', () => {
+    expect(shouldEnforceBalanceConstraints(4)).toBe(false)
+  })
+
+  it('returns false for 1 day', () => {
+    expect(shouldEnforceBalanceConstraints(1)).toBe(false)
+  })
+
+  it('returns false for 0 days', () => {
+    expect(shouldEnforceBalanceConstraints(0)).toBe(false)
+  })
+})
 
 describe('pickDay', () => {
   const fullWeek = createWeek(MONDAY)
@@ -122,12 +144,13 @@ describe('computeRequiredSlots', () => {
     })
 
     it('handles partial week by falling back to first date', () => {
-      // Wed-Sun only (no Mon, Tue)
+      // Wed-Sun only (no Mon, Tue) - 5 days, meets threshold
       const fullWeek = createWeek(MONDAY)
       const partialWeek = fullWeek.slice(2) // Wed, Thu, Fri, Sat, Sun
 
       const result = computeRequiredSlots('pescatarian', partialWeek)
 
+      // 5 days meets the MIN_DAYS_FOR_BALANCE threshold (5)
       expect(result).toHaveLength(3)
       // Tuesday (early) not found, falls back to first date (Wed)
       expect(result[0]).toEqual({
@@ -162,21 +185,27 @@ describe('computeRequiredSlots', () => {
       expect(result[1]!.proteinType).toBe('legume')
     })
 
-    it('handles single day array', () => {
+    it('returns empty array for short weeks (less than 5 days)', () => {
       const singleDay = [new Date(2025, 0, 8)] // Wednesday
 
       const result = computeRequiredSlots('vegetarian', singleDay)
 
+      // Short weeks (<5 days) have relaxed constraints - no required slots
+      expect(result).toHaveLength(0)
+    })
+
+    it('returns slots for 5+ day weeks', () => {
+      // Create a 5-day week (Wed-Sun)
+      const fiveDays: Date[] = []
+      for (let i = 0; i < 5; i++) {
+        const date = new Date(2025, 0, 8 + i) // Wed Jan 8 through Sun Jan 12
+        fiveDays.push(date)
+      }
+
+      const result = computeRequiredSlots('vegetarian', fiveDays)
+
+      // 5+ days should still have balance constraints
       expect(result).toHaveLength(2)
-      // Both early and late fall back to the only available date
-      expect(result[0]).toEqual({
-        date: singleDay[0],
-        proteinType: 'legume',
-      })
-      expect(result[1]).toEqual({
-        date: singleDay[0],
-        proteinType: 'legume',
-      })
     })
   })
 })

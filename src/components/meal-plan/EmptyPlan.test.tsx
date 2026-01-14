@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { EmptyPlan } from './EmptyPlan'
+import type { WeekContext } from './types'
 
 // Mock next/navigation
 const mockRefresh = vi.fn()
@@ -20,6 +21,13 @@ vi.mock('./GeneratingOverlay', () => ({
   GeneratingOverlay: () => <div data-testid="generating-overlay">Generating...</div>,
 }))
 
+// Default week context for most tests
+const defaultWeekContext: WeekContext = {
+  type: 'current',
+  daysCount: 7,
+  isPartialWeek: false,
+}
+
 describe('EmptyPlan', () => {
   beforeEach(() => {
     mockFetch.mockReset()
@@ -31,25 +39,50 @@ describe('EmptyPlan', () => {
   })
 
   describe('rendering', () => {
-    it('renders heading and description', () => {
-      render(<EmptyPlan />)
+    it('renders heading and description for current week', () => {
+      render(<EmptyPlan weekContext={defaultWeekContext} />)
 
       expect(
         screen.getByRole('heading', { name: 'No meal plan for this week' }),
       ).toBeInTheDocument()
-      expect(screen.getByText('Generate your first meal plan to get started.')).toBeInTheDocument()
+      expect(
+        screen.getByText('Generate your meal plan for this week to get started.'),
+      ).toBeInTheDocument()
     })
 
-    it('renders generate button', () => {
-      render(<EmptyPlan />)
+    it('renders heading and description for next week', () => {
+      render(<EmptyPlan weekContext={{ type: 'next', daysCount: 7, isPartialWeek: false }} />)
 
-      expect(screen.getByRole('button', { name: 'Generate meal plan' })).toBeInTheDocument()
+      expect(
+        screen.getByRole('heading', { name: 'No meal plan for next week' }),
+      ).toBeInTheDocument()
+      expect(screen.getByText('Generate your meal plan for next week.')).toBeInTheDocument()
+    })
+
+    it('renders partial week description', () => {
+      render(<EmptyPlan weekContext={{ type: 'current', daysCount: 4, isPartialWeek: true }} />)
+
+      expect(
+        screen.getByText('Generate a plan for the remaining 4 days of this week.'),
+      ).toBeInTheDocument()
+    })
+
+    it('renders generate button for current week', () => {
+      render(<EmptyPlan weekContext={defaultWeekContext} />)
+
+      expect(screen.getByRole('button', { name: 'Generate this week' })).toBeInTheDocument()
+    })
+
+    it('renders generate button for next week', () => {
+      render(<EmptyPlan weekContext={{ type: 'next', daysCount: 7, isPartialWeek: false }} />)
+
+      expect(screen.getByRole('button', { name: 'Generate next week' })).toBeInTheDocument()
     })
 
     it('button is enabled by default', () => {
-      render(<EmptyPlan />)
+      render(<EmptyPlan weekContext={defaultWeekContext} />)
 
-      expect(screen.getByRole('button', { name: 'Generate meal plan' })).not.toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Generate this week' })).not.toBeDisabled()
     })
   })
 
@@ -57,9 +90,9 @@ describe('EmptyPlan', () => {
     it('shows overlay when generating', async () => {
       mockFetch.mockImplementation(() => new Promise(() => {})) // Never resolves
 
-      render(<EmptyPlan />)
+      render(<EmptyPlan weekContext={defaultWeekContext} />)
 
-      await userEvent.click(screen.getByRole('button', { name: 'Generate meal plan' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
 
       expect(screen.getByTestId('generating-overlay')).toBeInTheDocument()
     })
@@ -67,22 +100,39 @@ describe('EmptyPlan', () => {
     it('disables button during generation', async () => {
       mockFetch.mockImplementation(() => new Promise(() => {}))
 
-      render(<EmptyPlan />)
+      render(<EmptyPlan weekContext={defaultWeekContext} />)
 
-      await userEvent.click(screen.getByRole('button', { name: 'Generate meal plan' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
 
       expect(screen.getByRole('button', { name: 'Generating...' })).toBeDisabled()
     })
 
-    it('calls generate endpoint on button click', async () => {
+    it('calls generate endpoint with targetWeek on button click', async () => {
       mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
 
-      render(<EmptyPlan />)
+      render(<EmptyPlan weekContext={defaultWeekContext} />)
 
-      await userEvent.click(screen.getByRole('button', { name: 'Generate meal plan' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
 
       expect(mockFetch).toHaveBeenCalledWith('/api/meal-plans/generate', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetWeek: 'current' }),
+        signal: expect.any(AbortSignal),
+      })
+    })
+
+    it('calls generate endpoint with next week target', async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
+
+      render(<EmptyPlan weekContext={{ type: 'next', daysCount: 7, isPartialWeek: false }} />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Generate next week' }))
+
+      expect(mockFetch).toHaveBeenCalledWith('/api/meal-plans/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetWeek: 'next' }),
         signal: expect.any(AbortSignal),
       })
     })
@@ -90,9 +140,9 @@ describe('EmptyPlan', () => {
     it('calls router.refresh on success', async () => {
       mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
 
-      render(<EmptyPlan />)
+      render(<EmptyPlan weekContext={defaultWeekContext} />)
 
-      await userEvent.click(screen.getByRole('button', { name: 'Generate meal plan' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
 
       await waitFor(() => {
         expect(mockRefresh).toHaveBeenCalled()
@@ -102,9 +152,9 @@ describe('EmptyPlan', () => {
     it('hides overlay on success', async () => {
       mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
 
-      render(<EmptyPlan />)
+      render(<EmptyPlan weekContext={defaultWeekContext} />)
 
-      await userEvent.click(screen.getByRole('button', { name: 'Generate meal plan' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
 
       await waitFor(() => {
         expect(screen.queryByTestId('generating-overlay')).not.toBeInTheDocument()
@@ -120,9 +170,9 @@ describe('EmptyPlan', () => {
         json: () => Promise.resolve({}),
       })
 
-      render(<EmptyPlan />)
+      render(<EmptyPlan weekContext={defaultWeekContext} />)
 
-      await userEvent.click(screen.getByRole('button', { name: 'Generate meal plan' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
 
       await waitFor(() => {
         expect(screen.getByText('Rate limit exceeded. Please try again later.')).toBeInTheDocument()
@@ -136,9 +186,9 @@ describe('EmptyPlan', () => {
         json: () => Promise.resolve({}),
       })
 
-      render(<EmptyPlan />)
+      render(<EmptyPlan weekContext={defaultWeekContext} />)
 
-      await userEvent.click(screen.getByRole('button', { name: 'Generate meal plan' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
 
       await waitFor(() => {
         expect(screen.getByText('A meal plan already exists for this week.')).toBeInTheDocument()
@@ -152,9 +202,9 @@ describe('EmptyPlan', () => {
         json: () => Promise.resolve({ message: 'Not enough meal options' }),
       })
 
-      render(<EmptyPlan />)
+      render(<EmptyPlan weekContext={defaultWeekContext} />)
 
-      await userEvent.click(screen.getByRole('button', { name: 'Generate meal plan' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
 
       await waitFor(() => {
         expect(screen.getByText('Not enough meal options')).toBeInTheDocument()
@@ -168,9 +218,9 @@ describe('EmptyPlan', () => {
         json: () => Promise.resolve({}),
       })
 
-      render(<EmptyPlan />)
+      render(<EmptyPlan weekContext={defaultWeekContext} />)
 
-      await userEvent.click(screen.getByRole('button', { name: 'Generate meal plan' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
 
       await waitFor(() => {
         expect(screen.getByText('Something went wrong. Please try again.')).toBeInTheDocument()
@@ -184,9 +234,9 @@ describe('EmptyPlan', () => {
         json: () => Promise.resolve({}),
       })
 
-      render(<EmptyPlan />)
+      render(<EmptyPlan weekContext={defaultWeekContext} />)
 
-      await userEvent.click(screen.getByRole('button', { name: 'Generate meal plan' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
 
       await waitFor(() => {
         expect(screen.queryByTestId('generating-overlay')).not.toBeInTheDocument()
@@ -200,12 +250,12 @@ describe('EmptyPlan', () => {
         json: () => Promise.resolve({}),
       })
 
-      render(<EmptyPlan />)
+      render(<EmptyPlan weekContext={defaultWeekContext} />)
 
-      await userEvent.click(screen.getByRole('button', { name: 'Generate meal plan' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: 'Generate meal plan' })).not.toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Generate this week' })).not.toBeDisabled()
       })
     })
 
@@ -218,16 +268,16 @@ describe('EmptyPlan', () => {
         })
         .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
 
-      render(<EmptyPlan />)
+      render(<EmptyPlan weekContext={defaultWeekContext} />)
 
       // First attempt fails
-      await userEvent.click(screen.getByRole('button', { name: 'Generate meal plan' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
       await waitFor(() => {
         expect(screen.getByText('Something went wrong. Please try again.')).toBeInTheDocument()
       })
 
       // Retry succeeds
-      await userEvent.click(screen.getByRole('button', { name: 'Generate meal plan' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
       await waitFor(() => {
         expect(mockRefresh).toHaveBeenCalled()
       })
@@ -240,10 +290,10 @@ describe('EmptyPlan', () => {
         json: () => Promise.resolve({}),
       })
 
-      render(<EmptyPlan />)
+      render(<EmptyPlan weekContext={defaultWeekContext} />)
 
       // First attempt
-      await userEvent.click(screen.getByRole('button', { name: 'Generate meal plan' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
       await waitFor(() => {
         expect(screen.getByText('Something went wrong. Please try again.')).toBeInTheDocument()
       })
@@ -252,7 +302,7 @@ describe('EmptyPlan', () => {
       mockFetch.mockImplementation(() => new Promise(() => {}))
 
       // Start retry - error should clear when loading starts
-      await userEvent.click(screen.getByRole('button', { name: 'Generate meal plan' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
 
       await waitFor(() => {
         expect(

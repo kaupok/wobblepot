@@ -6,6 +6,10 @@ import {
   parseLocalDate,
   isMonday,
   formatDateDisplay,
+  getCurrentWeekMonday,
+  isSunday,
+  getDaysRemaining,
+  getRemainingWeekDates,
 } from './dates'
 
 describe('dates utilities', () => {
@@ -203,6 +207,158 @@ describe('dates utilities', () => {
       expect(formatDateDisplay(new Date(2025, 0, 16))).toBe('Thu 2025-01-16')
       expect(formatDateDisplay(new Date(2025, 0, 17))).toBe('Fri 2025-01-17')
       expect(formatDateDisplay(new Date(2025, 0, 18))).toBe('Sat 2025-01-18')
+    })
+  })
+
+  describe('getCurrentWeekMonday', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('returns today when today is Monday', () => {
+      // Monday, January 13, 2025
+      vi.setSystemTime(new Date(2025, 0, 13, 10, 0, 0))
+      const monday = getCurrentWeekMonday()
+      expect(toDateString(monday)).toBe('2025-01-13')
+    })
+
+    it('returns previous Monday when today is Tuesday', () => {
+      // Tuesday, January 14, 2025
+      vi.setSystemTime(new Date(2025, 0, 14, 10, 0, 0))
+      const monday = getCurrentWeekMonday()
+      expect(toDateString(monday)).toBe('2025-01-13')
+    })
+
+    it('returns previous Monday when today is Wednesday', () => {
+      // Wednesday, January 15, 2025
+      vi.setSystemTime(new Date(2025, 0, 15, 10, 0, 0))
+      const monday = getCurrentWeekMonday()
+      expect(toDateString(monday)).toBe('2025-01-13')
+    })
+
+    it('returns previous Monday when today is Sunday', () => {
+      // Sunday, January 19, 2025
+      vi.setSystemTime(new Date(2025, 0, 19, 10, 0, 0))
+      const monday = getCurrentWeekMonday()
+      expect(toDateString(monday)).toBe('2025-01-13')
+    })
+
+    it('returns date at midnight', () => {
+      vi.setSystemTime(new Date(2025, 0, 15, 14, 30, 45))
+      const monday = getCurrentWeekMonday()
+      expect(monday.getHours()).toBe(0)
+      expect(monday.getMinutes()).toBe(0)
+    })
+  })
+
+  describe('isSunday', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('returns true for Sunday', () => {
+      const sunday = new Date(2025, 0, 12) // Sunday, January 12, 2025
+      expect(isSunday(sunday)).toBe(true)
+    })
+
+    it('returns false for other days', () => {
+      expect(isSunday(new Date(2025, 0, 13))).toBe(false) // Monday
+      expect(isSunday(new Date(2025, 0, 14))).toBe(false) // Tuesday
+      expect(isSunday(new Date(2025, 0, 15))).toBe(false) // Wednesday
+      expect(isSunday(new Date(2025, 0, 16))).toBe(false) // Thursday
+      expect(isSunday(new Date(2025, 0, 17))).toBe(false) // Friday
+      expect(isSunday(new Date(2025, 0, 18))).toBe(false) // Saturday
+    })
+
+    it('uses current date when no argument provided', () => {
+      vi.setSystemTime(new Date(2025, 0, 12, 10, 0, 0)) // Sunday
+      expect(isSunday()).toBe(true)
+
+      vi.setSystemTime(new Date(2025, 0, 13, 10, 0, 0)) // Monday
+      expect(isSunday()).toBe(false)
+    })
+  })
+
+  describe('getDaysRemaining', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('returns 7 on Monday', () => {
+      vi.setSystemTime(new Date(2025, 0, 13, 10, 0, 0)) // Monday
+      expect(getDaysRemaining()).toBe(7)
+    })
+
+    it('returns 6 on Tuesday', () => {
+      vi.setSystemTime(new Date(2025, 0, 14, 10, 0, 0)) // Tuesday
+      expect(getDaysRemaining()).toBe(6)
+    })
+
+    it('returns 5 on Wednesday', () => {
+      vi.setSystemTime(new Date(2025, 0, 15, 10, 0, 0)) // Wednesday
+      expect(getDaysRemaining()).toBe(5)
+    })
+
+    it('returns 2 on Saturday', () => {
+      vi.setSystemTime(new Date(2025, 0, 18, 10, 0, 0)) // Saturday
+      expect(getDaysRemaining()).toBe(2)
+    })
+
+    it('returns 1 on Sunday', () => {
+      vi.setSystemTime(new Date(2025, 0, 19, 10, 0, 0)) // Sunday
+      expect(getDaysRemaining()).toBe(1)
+    })
+  })
+
+  describe('getRemainingWeekDates', () => {
+    it('returns full week when starting Monday', () => {
+      const monday = new Date(2025, 0, 13) // Monday
+      const dates = getRemainingWeekDates(monday)
+      expect(dates).toHaveLength(7)
+      expect(toDateString(dates[0]!)).toBe('2025-01-13') // Monday
+      expect(toDateString(dates[6]!)).toBe('2025-01-19') // Sunday
+    })
+
+    it('returns 5 days when starting Wednesday', () => {
+      const wednesday = new Date(2025, 0, 15) // Wednesday
+      const dates = getRemainingWeekDates(wednesday)
+      expect(dates).toHaveLength(5)
+      expect(toDateString(dates[0]!)).toBe('2025-01-15') // Wednesday
+      expect(toDateString(dates[4]!)).toBe('2025-01-19') // Sunday
+    })
+
+    it('returns 2 days when starting Saturday', () => {
+      const saturday = new Date(2025, 0, 18) // Saturday
+      const dates = getRemainingWeekDates(saturday)
+      expect(dates).toHaveLength(2)
+      expect(toDateString(dates[0]!)).toBe('2025-01-18') // Saturday
+      expect(toDateString(dates[1]!)).toBe('2025-01-19') // Sunday
+    })
+
+    it('returns 1 day when starting Sunday', () => {
+      const sunday = new Date(2025, 0, 19) // Sunday
+      const dates = getRemainingWeekDates(sunday)
+      expect(dates).toHaveLength(1)
+      expect(toDateString(dates[0]!)).toBe('2025-01-19') // Sunday
+    })
+
+    it('normalizes start date to midnight', () => {
+      const wednesday = new Date(2025, 0, 15, 14, 30, 45) // Wed with time
+      const dates = getRemainingWeekDates(wednesday)
+      expect(dates[0]!.getHours()).toBe(0)
+      expect(dates[0]!.getMinutes()).toBe(0)
     })
   })
 })

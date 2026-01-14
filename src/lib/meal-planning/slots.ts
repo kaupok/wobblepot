@@ -15,6 +15,20 @@ const dayOfWeekMap: Record<SlotType, number> = {
 }
 
 /**
+ * Minimum number of days required to enforce balance constraints.
+ * Below this threshold, we relax protein type requirements.
+ */
+const MIN_DAYS_FOR_BALANCE = 5
+
+/**
+ * Check if balance constraints should be enforced for a given number of days.
+ * Returns true if we have enough days for meaningful variety.
+ */
+export function shouldEnforceBalanceConstraints(dateCount: number): boolean {
+  return dateCount >= MIN_DAYS_FOR_BALANCE
+}
+
+/**
  * Pick a day from the dates array matching the slot type.
  * Falls back to first date if target day not found.
  * Requires non-empty dates array.
@@ -36,9 +50,16 @@ export function pickDay(dates: Date[], slot: SlotType): Date {
  * - pescatarian: fish 2x/week (early + late), legume 1x/week (midweek)
  * - vegetarian: legume 2x/week (early + late)
  * - vegan: legume 2x/week (early + late)
+ *
+ * For partial weeks (<5 days), returns empty array to relax constraints.
  */
 export function computeRequiredSlots(dietaryType: DietaryType, dates: Date[]): SlotRequirement[] {
   if (dates.length === 0) {
+    return []
+  }
+
+  // Relax constraints for partial weeks
+  if (!shouldEnforceBalanceConstraints(dates.length)) {
     return []
   }
 

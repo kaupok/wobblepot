@@ -51,7 +51,14 @@ export interface HydratedPlanEntry {
  */
 export interface GeneratePlanOptions {
   householdId: string
+  /** Week start date (always Monday) */
   startDate: Date
+  /**
+   * Effective start date for entries (defaults to startDate).
+   * For partial weeks (mid-week signup), this is today's date.
+   * Entries will only be created from this date through Sunday.
+   */
+  effectiveStartDate?: Date
   dietaryType: DietaryType
   allergensToAvoid: Allergen[]
   excludedIngredientIds: string[]
