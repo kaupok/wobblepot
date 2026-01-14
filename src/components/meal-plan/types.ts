@@ -49,6 +49,8 @@ export interface AlternativeMeal {
   kidFriendly: boolean
   primaryProteinType: string
   reason: string
+  components: MealComponent[]
+  nutrition: NutritionData
 }
 
 export interface WeekContext {
