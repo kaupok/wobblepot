@@ -34,20 +34,25 @@ function createCandidate(overrides: {
 function createInput(overrides: Partial<PromptInput> = {}): PromptInput {
   const startDate = date('2026-01-12')
   const endDate = date('2026-01-19')
+  const remainingDates = overrides.remainingDates ?? [
+    date('2026-01-12'),
+    date('2026-01-13'),
+    date('2026-01-14'),
+    date('2026-01-15'),
+    date('2026-01-16'),
+    date('2026-01-17'),
+    date('2026-01-18'),
+  ]
+  const requiredSlots = overrides.requiredSlots ?? []
+  // Calculate totalEntries from remaining dates and required slots
+  const totalEntries = overrides.totalEntries ?? remainingDates.length + requiredSlots.length
 
   return {
     startDate,
     endDate,
-    requiredSlots: [],
-    remainingDates: [
-      date('2026-01-12'),
-      date('2026-01-13'),
-      date('2026-01-14'),
-      date('2026-01-15'),
-      date('2026-01-16'),
-      date('2026-01-17'),
-      date('2026-01-18'),
-    ],
+    totalEntries,
+    requiredSlots,
+    remainingDates,
     candidatePools: {
       fish: [],
       legume: [],
@@ -265,12 +270,70 @@ describe('buildMealPlanPrompt', () => {
 
       expect(result).toContain('Return exactly 7 entries covering 2026-02-02 through 2026-02-08')
     })
+
+    it('handles partial week (mid-week signup)', () => {
+      // Wednesday through Sunday = 5 days
+      const input = createInput({
+        startDate: date('2026-01-12'), // Monday (week start)
+        endDate: date('2026-01-19'), // Next Monday (exclusive)
+        totalEntries: 5, // Wed-Sun
+        requiredSlots: [], // No required slots for this test
+        remainingDates: [
+          date('2026-01-14'), // Wed
+          date('2026-01-15'), // Thu
+          date('2026-01-16'), // Fri
+          date('2026-01-17'), // Sat
+          date('2026-01-18'), // Sun
+        ],
+      })
+
+      const result = buildMealPlanPrompt(input)
+
+      // Should use first actual entry date (Wed), not Monday
+      expect(result).toContain('Return exactly 5 entries covering 2026-01-14 through 2026-01-18')
+    })
+
+    it('uses first required slot date when earlier than remaining dates', () => {
+      // Required slot on Wed, remaining dates Thu-Sun
+      const input = createInput({
+        startDate: date('2026-01-12'), // Monday
+        endDate: date('2026-01-19'),
+        totalEntries: 5,
+        requiredSlots: [{ date: date('2026-01-14'), proteinType: 'fish' }], // Wed
+        remainingDates: [
+          date('2026-01-15'), // Thu
+          date('2026-01-16'), // Fri
+          date('2026-01-17'), // Sat
+          date('2026-01-18'), // Sun
+        ],
+        candidatePools: {
+          fish: [createCandidate({ id: 'fish-1', primaryProteinType: ProteinType.fish })],
+          legume: [],
+          any: [],
+        },
+      })
+
+      const result = buildMealPlanPrompt(input)
+
+      // Should use Wed (from required slot) as first date
+      expect(result).toContain('Return exactly 5 entries covering 2026-01-14 through 2026-01-18')
+    })
   })
 
   describe('complete prompt structure', () => {
     it('produces well-structured prompt with all sections', () => {
+      // Use explicit totalEntries to ensure correct structure test
       const input = createInput({
+        totalEntries: 7,
         requiredSlots: [{ date: date('2026-01-14'), proteinType: 'fish' }],
+        remainingDates: [
+          date('2026-01-12'),
+          date('2026-01-13'),
+          date('2026-01-15'),
+          date('2026-01-16'),
+          date('2026-01-17'),
+          date('2026-01-18'),
+        ],
         restrictions: ['low sodium'],
         candidatePools: {
           fish: [createCandidate({ id: 'fish-1', primaryProteinType: ProteinType.fish })],
@@ -285,7 +348,7 @@ describe('buildMealPlanPrompt', () => {
       const requiredSlotsIndex = result.indexOf('REQUIRED SLOTS')
       const remainingDaysIndex = result.indexOf('REMAINING DAYS')
       const varietyRulesIndex = result.indexOf('VARIETY RULES')
-      const returnIndex = result.indexOf('Return exactly 7 entries')
+      const returnIndex = result.indexOf('Return exactly')
 
       expect(requiredSlotsIndex).toBeLessThan(remainingDaysIndex)
       expect(remainingDaysIndex).toBeLessThan(varietyRulesIndex)

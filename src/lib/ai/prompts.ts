@@ -43,14 +43,31 @@ function formatRequiredSlots(slots: SlotRequirement[], pools: CandidatePools): s
 }
 
 /**
+ * Compute the actual first date from required slots and remaining dates.
+ * For partial weeks, this may be later than startDate.
+ */
+function getFirstEntryDate(requiredSlots: SlotRequirement[], remainingDates: Date[]): Date | null {
+  const slotDates = requiredSlots.map((s) => s.date)
+  const allDates = [...slotDates, ...remainingDates]
+
+  if (allDates.length === 0) return null
+
+  return allDates.reduce((earliest, d) => (d < earliest ? d : earliest))
+}
+
+/**
  * Build the complete prompt for AI meal plan generation.
  */
 export function buildMealPlanPrompt(input: PromptInput): string {
-  const { startDate, endDate, requiredSlots, remainingDates, candidatePools, restrictions } = input
+  const { endDate, totalEntries, requiredSlots, remainingDates, candidatePools, restrictions } =
+    input
 
   // Calculate last day (endDate is exclusive, so subtract 1 day)
   const lastDay = new Date(endDate)
   lastDay.setDate(lastDay.getDate() - 1)
+
+  // Get the actual first date (may differ from startDate for partial weeks)
+  const firstEntryDate = getFirstEntryDate(requiredSlots, remainingDates) ?? lastDay
 
   const slotsText = formatRequiredSlots(requiredSlots, candidatePools)
   const remainingText = remainingDates.map(formatDateDisplay).join(', ')
@@ -75,7 +92,7 @@ VARIETY RULES:
 
   prompt += `
 
-Return exactly 7 entries covering ${toDateString(startDate)} through ${toDateString(lastDay)}.
+Return exactly ${totalEntries} entries covering ${toDateString(firstEntryDate)} through ${toDateString(lastDay)}.
 Use YYYY-MM-DD format for dates.`
 
   return prompt
