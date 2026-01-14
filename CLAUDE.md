@@ -33,6 +33,7 @@ In conversational responses, prioritize brevity. Keep explanations concise and d
 - [MCP Server Configuration](#mcp-server-configuration)
   - [Permission Presets](#permission-presets)
   - [Development Environment Health Check](#development-environment-health-check)
+- [Parallel Claude Code Workflow](#parallel-claude-code-workflow)
 - [Cyrus/Linear Integration](#cyruslinear-integration)
   - [What is Cyrus](#what-is-cyrus)
   - [Initial Setup](#initial-setup)
@@ -903,6 +904,67 @@ Common operations are pre-approved in `.claude/settings.local.json`: gh commands
 ### Development Environment Health Check
 
 Run `./scripts/health-check.sh` to validate tools, environment variables, dependencies, and code quality. Use after cloning, when troubleshooting, or before submitting PRs.
+
+## Parallel Claude Code Workflow
+
+Run multiple Claude Code instances in parallel using git worktrees for increased throughput.
+
+### Quick Start
+
+```bash
+# Create new worktree and start Claude Code
+./scripts/worktree-claude.sh new feat/my-feature
+
+# In another terminal, create another parallel session
+./scripts/worktree-claude.sh new fix/some-bug
+
+# List all active worktrees
+./scripts/worktree-claude.sh list
+
+# Resume an existing worktree session
+./scripts/worktree-claude.sh resume feat/my-feature
+
+# Clean up when done
+./scripts/worktree-claude.sh cleanup feat/my-feature
+```
+
+### Workflow Patterns
+
+**Parallel feature development:**
+
+```
+Terminal 1 (main): Planning, code review, coordination
+Terminal 2: wt new feat/api-caching     → Long-running implementation
+Terminal 3: wt new fix/auth-bug         → Quick bug fix
+```
+
+**Research + implementation split:**
+
+```
+Terminal 1: Main conversation for planning (no edits, plan mode)
+Terminal 2: wt new feat/actual-impl     → Execute the plan
+```
+
+### Shell Alias (Optional)
+
+Add to `~/.zshrc` or `~/.bashrc`:
+
+```bash
+alias wt='~/Projects/honkadori/scripts/worktree-claude.sh'
+```
+
+Then use `wt new feat/my-feature` from anywhere.
+
+### Best Practices
+
+1. **Use plan mode liberally** - Safe to run 5+ parallel sessions in plan mode
+2. **Run `/init` in each worktree** - Ensures Claude understands the context
+3. **Clean up regularly** - Run `./scripts/worktree-claude.sh cleanup-all` or `git worktree prune`
+4. **Check status** - Run `./scripts/worktree-status.sh` for dashboard view
+
+### Worktree Location
+
+All parallel worktrees are created in `~/.worktrees/honkadori/<branch-name>` to keep the project directory clean.
 
 ## Cyrus/Linear Integration
 
