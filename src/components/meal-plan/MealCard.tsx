@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
@@ -50,10 +51,12 @@ export function MealCard({
       if (!response.ok) {
         // Revert on error
         setStatus(previousStatus)
+        toast.error('Failed to update status. Please try again.')
       }
     } catch {
       // Revert on error
       setStatus(previousStatus)
+      toast.error('Failed to update status. Please try again.')
     } finally {
       setIsUpdating(false)
     }
