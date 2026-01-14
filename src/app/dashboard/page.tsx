@@ -37,8 +37,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   // Determine active week from URL param
   // On Sunday with no param, default to 'next'
   // Otherwise default to 'current'
-  let activeWeek: 'current' | 'next'
-  if (params.week === 'next') {
+  let activeWeek: 'last' | 'current' | 'next'
+  if (params.week === 'last') {
+    activeWeek = 'last'
+  } else if (params.week === 'next') {
     activeWeek = 'next'
   } else if (params.week === 'current') {
     activeWeek = isCurrentlySunday ? 'next' : 'current' // Redirect Sunday to next
@@ -46,13 +48,17 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     activeWeek = isCurrentlySunday ? 'next' : 'current'
   }
 
-  // Fetch household size and both week plans in parallel
+  // Fetch household size and all week plans in parallel
   const requestHeaders = await headers()
   const baseURL = getServerBaseURL()
   const cookieHeader = requestHeaders.get('cookie') ?? ''
 
-  const [householdSize, currentResponse, nextResponse] = await Promise.all([
+  const [householdSize, lastResponse, currentResponse, nextResponse] = await Promise.all([
     getHouseholdMemberCount(membership.household.id),
+    fetch(`${baseURL}/api/meal-plans/current?week=last`, {
+      headers: { cookie: cookieHeader },
+      cache: 'no-store',
+    }),
     isCurrentlySunday
       ? Promise.resolve(null)
       : fetch(`${baseURL}/api/meal-plans/current?week=current`, {
@@ -66,11 +72,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   ])
 
   // Parse responses
+  const hasLastPlan = lastResponse.ok
   const hasCurrentPlan = currentResponse?.ok ?? false
   const hasNextPlan = nextResponse.ok
 
   // Get the active plan data
-  const activeResponse = activeWeek === 'current' ? currentResponse : nextResponse
+  const activeResponse =
+    activeWeek === 'last' ? lastResponse : activeWeek === 'current' ? currentResponse : nextResponse
   const hasPlan = activeResponse?.ok ?? false
 
   let plan: MealPlanWithContext | null = null
@@ -100,18 +108,27 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     }
   }
 
+  // Last week is always read-only
+  const isReadOnly = activeWeek === 'last'
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col gap-6">
         <WeekTabs
           activeWeek={activeWeek}
           currentWeekDays={isCurrentlySunday ? 0 : currentWeekDays}
+          hasLastPlan={hasLastPlan}
           hasCurrentPlan={hasCurrentPlan}
           hasNextPlan={hasNextPlan}
         />
 
         {plan ? (
-          <WeekView plan={plan} householdSize={householdSize} weekContext={weekContext} />
+          <WeekView
+            plan={plan}
+            householdSize={householdSize}
+            weekContext={weekContext}
+            isReadOnly={isReadOnly}
+          />
         ) : (
           <EmptyPlan weekContext={weekContext} />
         )}

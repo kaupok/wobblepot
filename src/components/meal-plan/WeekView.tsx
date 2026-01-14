@@ -8,9 +8,10 @@ interface WeekViewProps {
   plan: MealPlan
   householdSize: number
   weekContext: WeekContext
+  isReadOnly?: boolean
 }
 
-export function WeekView({ plan, householdSize, weekContext }: WeekViewProps) {
+export function WeekView({ plan, householdSize, weekContext, isReadOnly }: WeekViewProps) {
   const today = toDateString(new Date())
 
   // Get unique dates from plan entries (handles partial weeks correctly)
@@ -29,7 +30,12 @@ export function WeekView({ plan, householdSize, weekContext }: WeekViewProps) {
   }
 
   // Dynamic heading based on week context
-  const heading = weekContext.type === 'current' ? "This week's meals" : "Next week's meals"
+  const heading =
+    weekContext.type === 'last'
+      ? "Last week's meals"
+      : weekContext.type === 'current'
+        ? "This week's meals"
+        : "Next week's meals"
 
   // Show notice for partial weeks with relaxed constraints
   const showPartialWeekNotice =
@@ -54,6 +60,7 @@ export function WeekView({ plan, householdSize, weekContext }: WeekViewProps) {
             entries={entriesByDate.get(date) ?? []}
             isToday={date === today}
             householdSize={householdSize}
+            isReadOnly={isReadOnly}
           />
         ))}
       </div>

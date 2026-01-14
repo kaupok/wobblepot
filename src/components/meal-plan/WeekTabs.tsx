@@ -2,8 +2,9 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
 interface WeekTabsProps {
-  activeWeek: 'current' | 'next'
+  activeWeek: 'last' | 'current' | 'next'
   currentWeekDays: number
+  hasLastPlan: boolean
   hasCurrentPlan: boolean
   hasNextPlan: boolean
 }
@@ -11,24 +12,37 @@ interface WeekTabsProps {
 export function WeekTabs({
   activeWeek,
   currentWeekDays,
+  hasLastPlan,
   hasCurrentPlan,
   hasNextPlan,
 }: WeekTabsProps) {
   // On Sunday (0 days remaining), only show "Next week" tab
   const showCurrentTab = currentWeekDays > 0
 
+  const tabClasses = (isActive: boolean) =>
+    cn(
+      'border-b-2 px-1 py-3 text-sm font-medium transition-colors',
+      isActive
+        ? 'border-primary text-primary'
+        : 'text-muted-foreground hover:border-muted-foreground/30 hover:text-foreground border-transparent',
+    )
+
   return (
     <div className="border-border border-b">
       <nav className="-mb-px flex gap-4" aria-label="Week navigation">
+        {hasLastPlan && (
+          <Link
+            href="/dashboard?week=last"
+            className={tabClasses(activeWeek === 'last')}
+            aria-current={activeWeek === 'last' ? 'page' : undefined}
+          >
+            Last week
+          </Link>
+        )}
         {showCurrentTab && (
           <Link
             href="/dashboard?week=current"
-            className={cn(
-              'border-b-2 px-1 py-3 text-sm font-medium transition-colors',
-              activeWeek === 'current'
-                ? 'border-primary text-primary'
-                : 'text-muted-foreground hover:border-muted-foreground/30 hover:text-foreground border-transparent',
-            )}
+            className={tabClasses(activeWeek === 'current')}
             aria-current={activeWeek === 'current' ? 'page' : undefined}
           >
             This week
@@ -44,12 +58,7 @@ export function WeekTabs({
         )}
         <Link
           href="/dashboard?week=next"
-          className={cn(
-            'border-b-2 px-1 py-3 text-sm font-medium transition-colors',
-            activeWeek === 'next'
-              ? 'border-primary text-primary'
-              : 'text-muted-foreground hover:border-muted-foreground/30 hover:text-foreground border-transparent',
-          )}
+          className={tabClasses(activeWeek === 'next')}
           aria-current={activeWeek === 'next' ? 'page' : undefined}
         >
           Next week

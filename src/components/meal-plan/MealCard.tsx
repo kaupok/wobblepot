@@ -19,6 +19,7 @@ interface MealCardProps {
   mealType: MealType
   status: MealStatus
   householdSize: number
+  isReadOnly?: boolean
 }
 
 export function MealCard({
@@ -28,6 +29,7 @@ export function MealCard({
   mealType,
   status: initialStatus,
   householdSize,
+  isReadOnly,
 }: MealCardProps) {
   const router = useRouter()
   const [status, setStatus] = useState<MealStatus>(initialStatus)
@@ -87,15 +89,19 @@ export function MealCard({
               </span>
             )}
           </div>
-          <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
+          {!isReadOnly && (
+            <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
+          )}
         </CardContent>
         <CardFooter className="gap-2 pt-2">
           <Button variant="outline" size="sm" onClick={() => setIsDetailModalOpen(true)}>
             View
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setIsRegenerateModalOpen(true)}>
-            Swap
-          </Button>
+          {!isReadOnly && (
+            <Button variant="outline" size="sm" onClick={() => setIsRegenerateModalOpen(true)}>
+              Swap
+            </Button>
+          )}
         </CardFooter>
       </Card>
       <MealDetailModal

@@ -52,7 +52,7 @@ export interface AlternativeMeal {
 }
 
 export interface WeekContext {
-  type: 'current' | 'next'
+  type: 'last' | 'current' | 'next'
   daysCount: number
   isPartialWeek: boolean
 }
