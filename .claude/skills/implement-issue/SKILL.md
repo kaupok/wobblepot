@@ -151,7 +151,17 @@ Implementation steps from plan:
 Starting with step 1...
 ```
 
-Then begin implementing following the plan steps (or issue description if `--no-plan`).
+Then implement following the plan steps (or issue description if `--no-plan`).
+
+### 10. Signal completion
+
+After implementing all steps, output the completion marker:
+
+```
+[implement-issue] ✓ Implementation complete for HON-XX
+```
+
+This marker signals to orchestrating skills (like `/auto-implement`) that implementation is finished and the next phase can proceed.
 
 ## Edge Cases
 
