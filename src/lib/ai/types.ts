@@ -98,6 +98,8 @@ export interface GeneratePlanResult {
 export interface PromptInput {
   startDate: Date
   endDate: Date
+  /** Total number of entries expected (supports partial weeks) */
+  totalEntries: number
   requiredSlots: SlotRequirement[]
   remainingDates: Date[]
   candidatePools: CandidatePools

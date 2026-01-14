@@ -253,6 +253,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
   const prompt = buildMealPlanPrompt({
     startDate,
     endDate,
+    totalEntries: dates.length,
     requiredSlots,
     remainingDates,
     candidatePools,
