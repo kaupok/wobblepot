@@ -234,6 +234,14 @@ Files: `file1.ts`, `file2.ts`, ...
 - [ ] [Issue title] - [Brief description]
 ```
 
+## Completion
+
+After outputting the review, add the completion marker:
+
+```
+[code-review:complete] Review finished - [APPROVE/REQUEST_CHANGES/NEEDS_DISCUSSION]
+```
+
 ## Important
 
 - Be specific - include file paths and line numbers

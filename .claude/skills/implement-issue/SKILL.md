@@ -155,13 +155,13 @@ Then implement following the plan steps (or issue description if `--no-plan`).
 
 ### 10. Signal completion
 
-After implementing all steps, output the completion marker:
+After implementing all steps, output the completion marker exactly as shown:
 
 ```
-[implement-issue] ✓ Implementation complete for HON-XX
+[implement-issue:complete] Implementation complete for HON-XX
 ```
 
-This marker signals to orchestrating skills (like `/auto-implement`) that implementation is finished and the next phase can proceed.
+This marker signals to orchestrating skills (like `/auto-implement`) that implementation is finished. Do NOT output any follow-up suggestions or next steps - just the marker.
 
 ## Edge Cases
 
