@@ -6,7 +6,9 @@ context: inherit
 
 # Auto-Implement
 
-Fully autonomous development cycle that orchestrates existing skills: find issue → plan → implement → review → fix → create PR → address reviews → merge.
+Fully autonomous development cycle: find issue → plan → implement → review → fix → create PR → address reviews → merge.
+
+All logic is inlined to avoid nested skill context loss ([GitHub #17351](https://github.com/anthropics/claude-code/issues/17351)).
 
 ## Usage
 
@@ -18,7 +20,7 @@ Fully autonomous development cycle that orchestrates existing skills: find issue
 
 ## Execution Model
 
-Execute phases sequentially from Phase 0 to Phase 7. Stop only on error or completion.
+Execute phases 0-7 sequentially. Stop only on error or completion.
 
 ## Argument Parsing
 
@@ -26,6 +28,8 @@ Check if an issue ID was provided as argument:
 
 - If argument matches `HON-XX` or just `XX` (numbers): Store issue ID, skip Phase 1
 - If no argument: Run Phase 1 to find next unblocked issue
+
+---
 
 ## Phase 0: Initialization
 
@@ -83,7 +87,10 @@ Stop here.
 
 ```
 [auto-implement] Starting autonomous implementation cycle
+[auto-implement] Phase 0/7 complete → Proceeding to Phase 1
 ```
+
+---
 
 ## Phase 1: Get or Find Issue
 
@@ -95,19 +102,55 @@ Stop here.
 
 Store the issue ID.
 
+```
+[auto-implement] Phase 1/7 complete → Proceeding to Phase 2
+```
+
 **If no issue ID provided:**
 
 ```
-[auto-implement] Phase 1/7: Finding next issue
+[auto-implement] Phase 1/7: Finding next unblocked issue
 ```
 
-Invoke the `/next-issue` skill:
+### 1.1 Fetch project context
 
 ```
-Skill({ skill: "next-issue" })
+mcp__linear-server__get_project({ query: "5a19627a-803f-4052-83c4-b44810d17af7" })
 ```
 
-Extract the recommended issue ID from the output (look for "Recommended: HON-XX").
+Extract: Active milestone name from the project description (look for "**Active Milestone:**")
+
+### 1.2 List backlog issues
+
+```
+mcp__linear-server__list_issues({
+  project: "5a19627a-803f-4052-83c4-b44810d17af7",
+  state: "Backlog",
+  limit: 20
+})
+```
+
+### 1.3 Check dependencies for milestone issues
+
+For each issue in the active milestone (check `projectMilestone.name`), fetch with relations:
+
+```
+mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
+```
+
+### 1.4 Find unblocked issues
+
+An issue is unblocked if:
+
+- `blockedBy` is empty, OR
+- All issues in `blockedBy` have status "Done" or "Canceled"
+
+### 1.5 Prioritize by
+
+- Dependency order (issues that unblock others first - check `blocks` array)
+- Logical sequence within milestone
+
+### 1.6 Select issue
 
 If no unblocked issues found:
 
@@ -120,40 +163,250 @@ Stop here (normal exit).
 Otherwise, store the issue ID:
 
 ```
-[auto-implement] ✓ Selected: HON-XX - [Title from output]
+[auto-implement] ✓ Selected: HON-XX - [Title]
+[auto-implement] Phase 1/7 complete → Proceeding to Phase 2
 ```
+
+---
 
 ## Phase 2: Plan Implementation
 
-Output: `[auto-implement] Phase 2/7: Planning implementation`
+```
+[auto-implement] Phase 2/7: Planning implementation for HON-XX
+```
 
-Invoke: `Skill({ skill: "plan-issue", args: "HON-XX --auto" })`
+### 2.1 Fetch issue details
 
-Output: `[auto-implement] ✓ Plan posted to Linear`
+```
+mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
+```
+
+Extract and note:
+
+- Issue UUID (for API calls)
+- Title and description
+- `gitBranchName` for later use
+- `blockedBy` relations (should be empty or done)
+- `blocks` relations (what this unblocks)
+- Any labels or priority
+
+### 2.2 Fetch project context
+
+```
+mcp__linear-server__get_project({ query: "5a19627a-803f-4052-83c4-b44810d17af7" })
+```
+
+Note the current phase, active milestone, and any relevant architectural decisions.
+
+### 2.3 Fetch issue comments
+
+```
+mcp__linear-server__list_comments({ issueId: "[issue-uuid]" })
+```
+
+Review any prior discussion, decisions, or context from team members.
+
+### 2.4 Explore codebase
+
+Using Read, Grep, and Glob tools:
+
+- Identify key files mentioned in the issue
+- Find existing patterns to follow
+- Note related components or APIs
+
+Focus on files directly relevant to the issue (2-5 files max).
+
+### 2.5 Write plan
+
+Write the plan directly in your response using this structure:
+
+```markdown
+# Plan: HON-XX - [Issue Title]
+
+**Issue:** HON-XX
+**Branch:** `[gitBranchName from Linear]`
+
+## Context
+
+[2-3 sentence summary of the issue and relevant background]
+
+## Design Decisions
+
+| Decision       | Choice        | Rationale |
+| -------------- | ------------- | --------- |
+| [Key decision] | [Your choice] | [Why]     |
+
+## Files to Create
+
+- `src/path/to/new/file.tsx` - [Purpose]
+
+## Files to Modify
+
+- `src/path/to/existing/file.ts` - [What changes]
+
+## Implementation Steps
+
+1. [Specific step with details]
+2. [Specific step with details]
+3. [Specific step with details]
+
+## Verification
+
+- [ ] [How to test the implementation]
+- [ ] [What to verify works correctly]
+- [ ] [Edge cases to check]
+```
+
+### 2.6 Post plan to Linear
+
+Post the plan directly to Linear (no approval needed in auto mode):
+
+```
+mcp__linear-server__create_comment({
+  issueId: "[issue-uuid]",
+  body: "[The complete plan from step 2.5]"
+})
+```
+
+```
+[auto-implement] ✓ Plan posted to Linear
+[auto-implement] Phase 2/7 complete → Proceeding to Phase 3
+```
+
+---
 
 ## Phase 3: Implement
 
-Output: `[auto-implement] Phase 3/7: Implementing`
+```
+[auto-implement] Phase 3/7: Implementing HON-XX
+```
 
-Invoke: `Skill({ skill: "implement-issue", args: "HON-XX" })`
+### 3.1 Update issue status
 
-The skill fetches plan from Linear, creates branch, implements code.
+```
+mcp__linear-server__update_issue({
+  id: "HON-XX",
+  state: "In Progress",
+  assignee: "me"
+})
+```
 
-Output: `[auto-implement] ✓ Implementation complete`
+### 3.2 Create or switch to branch
+
+**Worktree mode:**
+
+The worktree branch is already set. Just verify:
+
+```bash
+git branch --show-current
+```
+
+**Regular repo mode:**
+
+Check if branch already exists:
+
+```bash
+git branch --list "[gitBranchName]"
+```
+
+If branch exists:
+
+```bash
+git checkout [gitBranchName]
+```
+
+If branch doesn't exist:
+
+```bash
+git checkout -b [gitBranchName]
+```
+
+### 3.3 Retrieve plan from Linear
+
+```
+mcp__linear-server__list_comments({ issueId: "[issue-uuid]" })
+```
+
+Find the comment starting with `# Plan:` - this is the plan posted in Phase 2.
+
+### 3.4 Implement following the plan
+
+For each implementation step in the plan:
+
+1. Read relevant files using Read tool
+2. Make changes using Edit or Write tools
+3. Follow patterns from CLAUDE.md
+
+```
+[auto-implement] ✓ Implementation complete
+[auto-implement] Phase 3/7 complete → Proceeding to Phase 4
+```
+
+---
 
 ## Phase 4: Review and Fix
 
-Output: `[auto-implement] Phase 4/7: Reviewing changes`
-
-Invoke the `/code-review` skill:
-
 ```
-Skill({ skill: "code-review" })
+[auto-implement] Phase 4/7: Reviewing changes
 ```
 
-Review the output for issues in "Address Now" category.
+### 4.1 Collect all changes
 
-### 4.1 Fix loop
+```bash
+# Committed changes (vs main)
+git diff --name-only origin/main...HEAD
+
+# Staged but uncommitted
+git diff --cached --name-only
+
+# Unstaged changes
+git diff --name-only
+
+# Untracked files
+git ls-files --others --exclude-standard
+```
+
+Deduplicate the file list.
+
+### 4.2 Get the diffs
+
+```bash
+# All changes combined
+git diff origin/main...HEAD
+git diff --cached
+git diff
+```
+
+For untracked files, use Read tool.
+
+### 4.3 Read CLAUDE.md for patterns
+
+Use Read tool on CLAUDE.md. Focus on: Code Standards, Typography Components, Authentication Patterns, Database Patterns, Testing sections.
+
+### 4.4 Review the changes for
+
+- **Bugs**: Logic errors, edge cases, null/undefined handling
+- **Security**: Injection risks, auth bypasses, sensitive data exposure
+- **Patterns**: Adherence to CLAUDE.md conventions (sentence case, typography components, etc.)
+- **TypeScript**: Type safety, any types, missing types
+- **Tests**: Missing test coverage for new functionality
+- **Performance**: N+1 queries, unnecessary re-renders, large bundle imports
+
+### 4.5 Triage issues
+
+Using **effort-first** thinking:
+
+- Quick fix (< 5 min) → **address now**
+- Moderate fix (15-30 min, in scope) → **address now**
+- Significant work (hours) → defer only if truly out of scope
+
+Categories:
+
+- **Address Now**: Fix before PR merge
+- **Defer**: Only for significant out-of-scope work
+- **Skip**: Disagree or not actionable
+
+### 4.6 Fix loop
 
 If there are issues to address:
 
@@ -166,10 +419,9 @@ while issues remain and attempt < max_attempts:
     [auto-implement] Fix attempt {attempt}/3
 
     For each issue in "Address Now":
-        - Read the file at the specified location using Read tool
+        - Read the file at the specified location
         - Analyze the issue and code context
-        - Apply the fix using Edit tool (or Write for new files)
-        - If issue spans multiple files, fix all affected files
+        - Apply the fix using Edit tool
 
     # Re-run checks
     pnpm lint && pnpm type-check && pnpm test
@@ -186,25 +438,104 @@ If still failing after 3 attempts:
 
 Stop here with failure details.
 
-### 4.2 Proceed to Phase 5
+### 4.7 Proceed
 
-Output: `[auto-implement] ✓ All checks passing`
+```
+[auto-implement] ✓ All checks passing
+[auto-implement] Phase 4/7 complete → Proceeding to Phase 5
+```
+
+---
 
 ## Phase 5: Commit and Create PR
 
-Output: `[auto-implement] Phase 5/7: Creating PR`
+```
+[auto-implement] Phase 5/7: Creating commit and PR
+```
 
-Invoke: `Skill({ skill: "commit", args: "--pr" })`
+### 5.1 Stage changes
 
-This stages changes, runs checks, commits, pushes, and creates PR.
+```bash
+git add -A
+git status
+```
+
+Review what will be committed. Warn if secrets detected.
+
+### 5.2 Run pre-commit checks
+
+```bash
+pnpm lint && pnpm type-check && pnpm test
+```
+
+If any check fails, stop and report.
+
+### 5.3 Create commit
+
+Read `docs/GIT_WORKFLOW.md` for commit conventions. Use HEREDOC format:
+
+```bash
+git commit -m "$(cat <<'EOF'
+type(scope): Subject line
+
+Body explaining what and why.
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+EOF
+)"
+```
+
+### 5.4 Analyze for PR description
+
+```bash
+# All commits on this branch
+git log origin/main..HEAD --format="%s%n%b"
+
+# Full diff
+git diff origin/main...HEAD --stat
+```
+
+Fetch issue description from Linear for the "Context" section.
+
+### 5.5 Push and create PR
+
+```bash
+# Push with upstream tracking
+git push -u origin $(git branch --show-current)
+
+# Create PR using HEREDOC
+gh pr create --title "type(scope): Subject" --body "$(cat <<'EOF'
+## Context
+
+[Why these changes were made. From Linear issue description. Closes HON-XX]
+
+## Summary
+
+- [Bullet points describing changes]
+
+## Test plan
+
+- [ ] [How to verify changes]
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+EOF
+)"
+```
 
 Extract PR URL from output.
 
-Output: `[auto-implement] ✓ PR created: [URL]`
+```
+[auto-implement] ✓ PR created: [URL]
+[auto-implement] Phase 5/7 complete → Proceeding to Phase 6
+```
 
-## Phase 6: Wait for Reviews and Address Feedback
+---
 
-Output: `[auto-implement] Phase 6/7: Addressing reviews`
+## Phase 6: Address Reviews
+
+```
+[auto-implement] Phase 6/7: Addressing reviews
+```
 
 ### 6.1 Wait for CI
 
@@ -223,44 +554,84 @@ while CI failing and ci_attempts < max_ci_attempts:
     [auto-implement] CI fix attempt {ci_attempts}/2
 
     - Analyze CI failure output
-    - Apply fixes using Read/Edit tools
-    - Commit and push: Skill({ skill: "commit", args: "--push" })
-    - Wait for CI: gh pr checks --watch --interval 10
+    - Apply fixes using Edit tool
+    - Stage and commit:
+      git add -A && git commit -m "fix: Address CI failures"
+    - Push: git push
+    - Wait: gh pr checks --watch --interval 10
 
 If still failing after 2 attempts:
     [auto-implement] ✗ Error: CI checks failing after fix attempts
     Stop here with failure details
 ```
 
-### 6.2 Get review feedback
+### 6.2 Get PR info
 
-Invoke the `/pr-review` skill:
-
-```
-Skill({ skill: "pr-review" })
+```bash
+gh pr view --json number,title,headRefName,url
 ```
 
-This will fetch and triage external review comments into "Address Now" / "Defer" / "Skip" categories.
+### 6.3 Fetch review comments
 
-### 6.3 Address review comments
+```bash
+# PR-level comments
+gh api /repos/:owner/:repo/issues/{number}/comments
 
-Parse the "Address Now" section from the `/pr-review` output. For each item (format: `[severity] [description] - path:line - [effort]`):
+# Inline review comments
+gh api /repos/:owner/:repo/pulls/{number}/comments
+```
 
-- Extract the file path and line number
-- Read the file at that location using Read tool
-- Analyze the comment and apply the suggested fix using Edit tool
-- Continue to next issue
+### 6.4 Parse and triage comments
 
-Check if any fixes were made:
+**Filter out noise:**
+
+- Bot messages about usage limits
+- Empty comments
+- Automated status messages
+
+**Parse Greptile severity markers:**
+
+| Greptile Pattern          | Maps To       |
+| ------------------------- | ------------- |
+| "Critical Issues" heading | 🔴 Critical   |
+| "critical" in body        | 🔴 Critical   |
+| "Improvements Needed"     | 🟡 Suggestion |
+| "suggestion" / "consider" | 🟡 Suggestion |
+| Other actionable feedback | 🟢 Nitpick    |
+
+**Triage using effort-first thinking:**
+
+- Quick fix → address now
+- Moderate fix → address now
+- Significant work → defer if out of scope
+
+### 6.5 Address review comments
+
+For each item in "Address Now":
+
+- Extract file path and line number
+- Read the file at that location
+- Apply the suggested fix using Edit tool
+
+### 6.6 Commit and push fixes
+
+If fixes were made:
 
 ```bash
 git status --porcelain
 ```
 
-If output is not empty (fixes were made):
+If changes exist:
 
-```
-Skill({ skill: "commit", args: "--push" })
+```bash
+git add -A
+git commit -m "$(cat <<'EOF'
+fix: Address review feedback
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+EOF
+)"
+git push
 ```
 
 Wait for CI again:
@@ -269,26 +640,100 @@ Wait for CI again:
 gh pr checks --watch --interval 10
 ```
 
-### 6.4 Proceed to Phase 7
+```
+[auto-implement] ✓ Reviews addressed
+[auto-implement] Phase 6/7 complete → Proceeding to Phase 7
+```
 
-Output: `[auto-implement] ✓ Reviews addressed`
+---
 
 ## Phase 7: Merge
 
-Output: `[auto-implement] Phase 7/7: Merging`
+```
+[auto-implement] Phase 7/7: Merging PR
+```
 
-Invoke: `Skill({ skill: "merge" })`
-
-This waits for CI, squash merges, deletes remote branch, and cleans up local.
-
-Output: `[auto-implement] ✓ PR merged successfully`
-Output: `[auto-implement] ✓ Autonomous implementation cycle complete`
-
-In worktree mode, remind user to clean up worktree when done:
+### 7.1 Pre-flight checks
 
 ```bash
-git worktree remove <worktree-path>
+# Check for uncommitted changes
+git status --porcelain
+
+# Get PR status
+gh pr view --json number,state,mergeable,mergeStateStatus,url
 ```
+
+Validation:
+
+| Check     | Fail Condition | Error Message                          |
+| --------- | -------------- | -------------------------------------- |
+| PR state  | CLOSED         | "PR is closed. Cannot merge."          |
+| Mergeable | Not mergeable  | "PR cannot be merged. Check conflicts" |
+
+### 7.2 Wait for CI
+
+```bash
+gh pr checks --watch --fail-fast --interval 10
+```
+
+If any check fails, report and stop.
+
+### 7.3 Merge the PR
+
+```bash
+gh pr merge --squash --delete-branch
+```
+
+### 7.4 Local cleanup
+
+**Detect environment:**
+
+```bash
+git rev-parse --git-common-dir
+git rev-parse --git-dir
+```
+
+**Regular repo mode:**
+
+```bash
+git checkout main
+git pull origin main
+git branch -d [branch-name] || git branch -D [branch-name]
+```
+
+**Worktree mode:**
+
+```bash
+git fetch origin main:main
+```
+
+### 7.5 Report completion
+
+**Regular repo mode:**
+
+```
+[auto-implement] ✓ PR merged successfully
+- Remote branch deleted
+- Local branch deleted
+- Now on main with latest changes
+
+[auto-implement] ✓ Autonomous implementation cycle complete
+```
+
+**Worktree mode:**
+
+```
+[auto-implement] ✓ PR merged successfully
+- Remote branch deleted
+- Worktree branch preserved
+
+To clean up this worktree:
+  git worktree remove <worktree-path>
+
+[auto-implement] ✓ Autonomous implementation cycle complete
+```
+
+---
 
 ## Error Summary
 
@@ -297,8 +742,8 @@ git worktree remove <worktree-path>
 | 0     | Not on main (regular repo only) | Stop with instructions |
 | 0     | Uncommitted changes             | Stop with instructions |
 | 1     | No unblocked issues             | Stop (normal exit)     |
-| 4     | Fix attempts exhausted          | Stop, show failures    |
+| 4     | Fix attempts exhausted (3)      | Stop, show failures    |
 | 5     | Commit/PR fails                 | Stop, show error       |
-| 6     | CI fails after fixes            | Stop, show failures    |
-| 6     | pr-review fails                 | Stop, show error       |
+| 6     | CI fails after fixes (2)        | Stop, show failures    |
+| 6     | Review parse fails              | Stop, show error       |
 | 7     | Merge fails                     | Stop, show error       |
