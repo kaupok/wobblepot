@@ -106,14 +106,19 @@ git branch -d {saved_branch_name} || git branch -D {saved_branch_name}
 
 **Worktree mode:**
 
-Cannot switch branches or delete the worktree branch from within. Just pull main updates:
+Cannot switch branches or delete the worktree branch from within. Fetch main updates and prepare cleanup info:
 
 ```bash
+# Get worktree info for cleanup command
+WORKTREE_PATH=$(pwd)
+BRANCH_NAME=$(git branch --show-current)
+MAIN_REPO=$(git rev-parse --git-common-dir | sed 's|/.git$||')
+
 # Pull main updates into the worktree (for reference)
 git fetch origin main:main
 ```
 
-The worktree can be removed manually later with `git worktree remove <path>` from the main repo.
+Save `WORKTREE_PATH`, `BRANCH_NAME`, and `MAIN_REPO` for the confirmation message.
 
 ### Step 5: Confirmation
 
@@ -139,12 +144,15 @@ View merged PR: {url}
 PR #{number} merged successfully.
 
 - Remote branch deleted
-- Worktree branch preserved (remove worktree manually when done)
+- Worktree branch preserved (cleanup needed)
 
 View merged PR: {url}
 
-To clean up this worktree, run from main repo:
-  git worktree remove <worktree-path>
+To clean up, exit this directory and run:
+  cd {MAIN_REPO} && ./scripts/worktree-claude.sh cleanup {BRANCH_NAME}
+
+Or if you have `wt` alias: wt cleanup {BRANCH_NAME}
+Or if you have `git bdone`: git bdone
 
 [merge:complete] PR #{number} merged
 ```

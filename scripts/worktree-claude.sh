@@ -251,10 +251,31 @@ cmd_list() {
 # Cleanup a specific worktree
 cmd_cleanup() {
   local branch="$1"
+
+  # If no branch specified and we're in a worktree, use current branch
+  if [ -z "$branch" ] && is_in_worktree; then
+    branch=$(git branch --show-current)
+    echo -e "${BLUE}Detected current worktree branch: $branch${NC}"
+    echo ""
+  fi
+
   if [ -z "$branch" ]; then
     echo -e "${RED}Error: Branch name required${NC}"
     print_usage
     exit 1
+  fi
+
+  # If running from within the worktree being cleaned up, warn
+  if is_in_worktree; then
+    local current_branch=$(git branch --show-current)
+    if [ "$current_branch" = "$branch" ]; then
+      echo -e "${RED}Error: Cannot clean up current worktree from within it${NC}"
+      echo ""
+      echo "Please exit this directory first:"
+      echo "  cd $(git rev-parse --git-common-dir | sed 's|/.git$||')"
+      echo "  ./scripts/worktree-claude.sh cleanup $branch"
+      exit 1
+    fi
   fi
 
   local worktree_path=$(get_worktree_path "$branch")
@@ -284,8 +305,27 @@ cmd_cleanup() {
   echo -e "${GREEN}Cleanup complete${NC}"
 }
 
+# Detect if we're in a worktree (returns 0 if in worktree, 1 if in main repo)
+is_in_worktree() {
+  local git_common=$(git rev-parse --git-common-dir 2>/dev/null)
+  local git_dir=$(git rev-parse --git-dir 2>/dev/null)
+  [ "$git_common" != "$git_dir" ]
+}
+
 # Cleanup all parallel worktrees
 cmd_cleanup_all() {
+  # If running from within a worktree, warn and exit
+  if is_in_worktree; then
+    echo -e "${RED}Error: Cannot run cleanup-all from within a worktree${NC}"
+    echo ""
+    echo "You're currently in: $(pwd)"
+    echo ""
+    echo "Please run from the main repo:"
+    echo "  cd $(git rev-parse --git-common-dir | sed 's|/.git$||')"
+    echo "  ./scripts/worktree-claude.sh cleanup-all"
+    exit 1
+  fi
+
   echo -e "${YELLOW}This will remove ALL parallel worktrees in $WORKTREE_BASE${NC}"
   read -p "Are you sure? (y/N) " -n 1 -r
   echo ""
