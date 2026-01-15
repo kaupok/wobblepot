@@ -364,13 +364,26 @@ has_unpushed_commits() {
   fi
 }
 
-# Check if a branch is merged into main
+# Check if a branch is merged into main (handles squash merges)
 is_branch_merged() {
   local path="$1"
   local branch=$(git -C "$path" branch --show-current 2>/dev/null)
 
-  # Check if branch is an ancestor of main (i.e., merged)
-  git -C "$REPO_ROOT" merge-base --is-ancestor "$branch" main 2>/dev/null
+  # Method 1: Check if branch is an ancestor of main (regular merge)
+  if git -C "$REPO_ROOT" merge-base --is-ancestor "$branch" main 2>/dev/null; then
+    return 0
+  fi
+
+  # Method 2: Check if PR for this branch was merged (handles squash merges)
+  # Look for a merged PR with this branch as head
+  if command -v gh &> /dev/null; then
+    local pr_state=$(gh pr list --head "$branch" --state merged --json state --jq '.[0].state' 2>/dev/null)
+    if [ "$pr_state" = "MERGED" ]; then
+      return 0
+    fi
+  fi
+
+  return 1
 }
 
 # Get worktree status summary
@@ -378,20 +391,31 @@ get_worktree_status() {
   local path="$1"
   local status=""
 
+  # Check uncommitted changes first (always relevant)
   if has_uncommitted_changes "$path"; then
     status="uncommitted changes"
   fi
 
+  # Check if merged (do this before unpushed check)
+  # Squash-merged branches will always have "unpushed" original commits
+  if is_branch_merged "$path"; then
+    if [ -n "$status" ]; then
+      # Has uncommitted changes but PR was merged - unusual state
+      status="$status (but merged)"
+    else
+      status="merged"
+    fi
+    echo "$status"
+    return
+  fi
+
+  # Only check unpushed if not merged (avoids false positives for squash merges)
   if has_unpushed_commits "$path"; then
     if [ -n "$status" ]; then
       status="$status, unpushed commits"
     else
       status="unpushed commits"
     fi
-  fi
-
-  if [ -z "$status" ] && is_branch_merged "$path"; then
-    status="merged"
   fi
 
   if [ -z "$status" ]; then
