@@ -149,7 +149,8 @@ export type MealStatus = 'planned' | 'completed' | 'skipped' | 'eating_out' | 'l
  * Clicks the generate button and waits for the week view to appear
  */
 export async function generateMealPlan(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Generate meal plan' }).click()
+  // Button text varies by week context: "Generate this week" or "Generate next week"
+  await page.getByRole('button', { name: /Generate (this|next) week/ }).click()
 
   // Wait for week view heading to appear (generation complete)
   await expect(page.getByRole('heading', { name: "This week's meals" })).toBeVisible({
@@ -210,4 +211,100 @@ export async function openSwapModal(
 ): Promise<void> {
   await mealCard.getByRole('button', { name: 'Swap' }).click()
   await waitForDialog(page)
+}
+
+// ==========================================
+// Week Navigation Helpers
+// ==========================================
+
+export type WeekType = 'last' | 'current' | 'next'
+
+/**
+ * Navigate to a specific week tab by clicking the tab link
+ */
+export async function navigateToWeek(page: Page, week: WeekType): Promise<void> {
+  const tabLabels: Record<WeekType, string> = {
+    last: 'Last week',
+    current: 'This week',
+    next: 'Next week',
+  }
+  const nav = page.getByRole('navigation', { name: 'Week navigation' })
+  await nav.getByRole('link', { name: tabLabels[week] }).click()
+  await page.waitForURL((url) => url.searchParams.get('week') === week)
+}
+
+/**
+ * Get the currently active week tab
+ * Returns the week type based on aria-current="page" attribute
+ */
+export async function getActiveWeekTab(page: Page): Promise<WeekType | null> {
+  const nav = page.getByRole('navigation', { name: 'Week navigation' })
+  const activeLink = nav.locator('a[aria-current="page"]')
+
+  if (!(await activeLink.isVisible())) {
+    return null
+  }
+
+  const text = await activeLink.textContent()
+  if (text?.includes('Last week')) return 'last'
+  if (text?.includes('This week')) return 'current'
+  if (text?.includes('Next week')) return 'next'
+  return null
+}
+
+/**
+ * Get all visible week tabs
+ * Returns array of week types that are currently visible in the navigation
+ */
+export async function getVisibleWeekTabs(page: Page): Promise<WeekType[]> {
+  const nav = page.getByRole('navigation', { name: 'Week navigation' })
+  const links = nav.locator('a')
+  const count = await links.count()
+
+  const visibleTabs: WeekType[] = []
+  for (let i = 0; i < count; i++) {
+    const text = await links.nth(i).textContent()
+    if (text?.includes('Last week')) visibleTabs.push('last')
+    else if (text?.includes('This week')) visibleTabs.push('current')
+    else if (text?.includes('Next week')) visibleTabs.push('next')
+  }
+
+  return visibleTabs
+}
+
+/**
+ * Check if a week tab shows the "No plan" badge
+ */
+export async function tabHasNoPlanBadge(page: Page, week: WeekType): Promise<boolean> {
+  const tabLabels: Record<WeekType, string> = {
+    last: 'Last week',
+    current: 'This week',
+    next: 'Next week',
+  }
+  const nav = page.getByRole('navigation', { name: 'Week navigation' })
+  const tab = nav.getByRole('link', { name: tabLabels[week] })
+
+  if (!(await tab.isVisible())) {
+    return false
+  }
+
+  const text = await tab.textContent()
+  return text?.includes('No plan') ?? false
+}
+
+/**
+ * Get the days remaining indicator from the "This week" tab
+ * Returns the number of days shown in parentheses, or null if full week or not visible
+ */
+export async function getCurrentWeekDaysIndicator(page: Page): Promise<number | null> {
+  const nav = page.getByRole('navigation', { name: 'Week navigation' })
+  const thisWeekTab = nav.getByRole('link', { name: 'This week' })
+
+  if (!(await thisWeekTab.isVisible())) {
+    return null
+  }
+
+  const text = await thisWeekTab.textContent()
+  const match = text?.match(/\((\d+) days?\)/)
+  return match?.[1] ? parseInt(match[1], 10) : null
 }
