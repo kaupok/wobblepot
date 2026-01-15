@@ -84,6 +84,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
           dietaryType: member.preferences.dietaryType,
           allergens: member.preferences.allergens,
           restrictions: member.preferences.restrictions,
+          excludedIngredients: member.preferences.excludedIngredients,
+          excludedIngredientIds: member.preferences.excludedIngredientIds,
         }
       : null,
   })
@@ -208,6 +210,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           dietaryType: updatedMember!.preferences.dietaryType,
           allergens: updatedMember!.preferences.allergens,
           restrictions: updatedMember!.preferences.restrictions,
+          excludedIngredients: updatedMember!.preferences.excludedIngredients,
+          excludedIngredientIds: updatedMember!.preferences.excludedIngredientIds,
         }
       : null,
   })
