@@ -44,7 +44,7 @@ jobs:
         run: pnpm lint
 
       - name: Check formatting
-        run: pnpm prettier --check .
+        run: pnpm format:check
 
       - name: Run type check
         run: pnpm type-check
