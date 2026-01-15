@@ -37,8 +37,10 @@ interface ShoppingListResponse {
 }
 
 export default async function ShoppingPage() {
+  const requestHeaders = await headers()
+
   const session = await auth.api.getSession({
-    headers: await headers(),
+    headers: requestHeaders,
   })
 
   if (!session) {
@@ -51,7 +53,6 @@ export default async function ShoppingPage() {
   }
 
   // Fetch current meal plan
-  const requestHeaders = await headers()
   const baseURL = getServerBaseURL()
   const cookieHeader = requestHeaders.get('cookie') ?? ''
 
@@ -80,7 +81,7 @@ export default async function ShoppingPage() {
   if (!shoppingResponse.ok) {
     return (
       <div className="container mx-auto max-w-2xl p-4">
-        <EmptyState variant="no-plan" />
+        <EmptyState variant="error" />
       </div>
     )
   }

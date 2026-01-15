@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { Heading, Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 
-export type EmptyStateVariant = 'no-plan' | 'all-purchased' | 'nothing-needed'
+export type EmptyStateVariant = 'no-plan' | 'all-purchased' | 'nothing-needed' | 'error'
 
 interface EmptyStateProps {
   variant: EmptyStateVariant
@@ -36,6 +36,12 @@ const CONTENT: Record<
     description: 'Your pantry has everything you need for this week.',
     buttonLabel: 'View pantry',
     buttonHref: '/pantry',
+  },
+  error: {
+    heading: 'Something went wrong',
+    description: "We couldn't load your shopping list. Please try again.",
+    buttonLabel: 'Go to dashboard',
+    buttonHref: '/dashboard',
   },
 }
 
