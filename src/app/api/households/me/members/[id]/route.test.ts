@@ -145,7 +145,7 @@ describe('PATCH /api/households/me/members/[id]', () => {
     expect(data.error).toBe('Unauthorized')
   })
 
-  it('returns 403 when non-owner tries to update', async () => {
+  it('returns 403 when non-owner tries to update another member', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-456', name: 'Jane Doe', email: 'jane@example.com' },
       session: { id: 'session-456' },
@@ -159,18 +159,98 @@ describe('PATCH /api/households/me/members/[id]', () => {
       household: { id: 'household-123', name: 'Test', preferences: null },
     } as never)
 
+    // Target member is different from requester
+    mockFindUnique.mockResolvedValue({
+      id: 'member-other',
+      householdId: 'household-123',
+      userId: 'user-789',
+      name: null,
+      role: 'member',
+    } as never)
+
     const request = new Request('http://localhost', {
       method: 'PATCH',
-      body: JSON.stringify({ name: 'Updated' }),
+      body: JSON.stringify({ preferences: { portionMultiplier: 1.5 } }),
     })
 
     const response = await PATCH(request, {
-      params: Promise.resolve({ id: 'member-manual' }),
+      params: Promise.resolve({ id: 'member-other' }),
     })
     const data = await response.json()
 
     expect(response.status).toBe(403)
-    expect(data.error).toBe('Only the household owner can update members')
+    expect(data.error).toBe('You can only edit your own preferences')
+  })
+
+  it('allows member to update their own preferences', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-456', name: 'Jane Doe', email: 'jane@example.com' },
+      session: { id: 'session-456' },
+    } as never)
+
+    mockFindFirst.mockResolvedValue({
+      id: 'member-456',
+      householdId: 'household-123',
+      userId: 'user-456',
+      role: 'member', // Not owner
+      household: { id: 'household-123', name: 'Test', preferences: null },
+    } as never)
+
+    // Target member is the same as requester
+    mockFindUnique.mockResolvedValue({
+      id: 'member-456',
+      householdId: 'household-123',
+      userId: 'user-456',
+      name: null,
+      role: 'member',
+    } as never)
+
+    const updatedMember = {
+      id: 'member-456',
+      householdId: 'household-123',
+      userId: 'user-456',
+      name: null,
+      role: 'member',
+      joinedAt: new Date(),
+      user: { id: 'user-456', name: 'Jane Doe', email: 'jane@example.com', image: null },
+      preferences: {
+        displayName: null,
+        portionMultiplier: 1.25,
+        dietaryType: null,
+        allergens: [],
+        restrictions: [],
+        excludedIngredients: [],
+        excludedIngredientIds: [],
+      },
+    }
+
+    mockTransaction.mockImplementation(async (fn) => {
+      const tx = {
+        householdMember: {
+          update: vi.fn().mockResolvedValue({}),
+          findUnique: vi.fn().mockResolvedValue(updatedMember),
+        },
+        memberPreferences: {
+          upsert: vi.fn().mockResolvedValue({}),
+        },
+      }
+      return fn(tx as never)
+    })
+
+    const request = new Request('http://localhost', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        preferences: { portionMultiplier: 1.25 },
+      }),
+    })
+
+    const response = await PATCH(request, {
+      params: Promise.resolve({ id: 'member-456' }),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.preferences.portionMultiplier).toBe(1.25)
   })
 
   it('returns 400 when trying to update name of linked member', async () => {
