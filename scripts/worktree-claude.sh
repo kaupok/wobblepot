@@ -252,30 +252,33 @@ cmd_list() {
 cmd_cleanup() {
   local branch="$1"
 
-  # If no branch specified and we're in a worktree, use current branch
-  if [ -z "$branch" ] && is_in_worktree; then
-    branch=$(git branch --show-current)
-    echo -e "${BLUE}Detected current worktree branch: $branch${NC}"
-    echo ""
+  # If running from within a worktree, block with helpful message
+  if is_in_worktree; then
+    local current_branch=$(git branch --show-current)
+    local main_repo=$(git rev-parse --git-common-dir | sed 's|/.git$||')
+
+    # If no branch specified, use current branch in the message
+    if [ -z "$branch" ]; then
+      branch="$current_branch"
+    fi
+
+    # Block if trying to clean up the current worktree
+    if [ "$current_branch" = "$branch" ]; then
+      echo -e "${RED}Error: Cannot clean up current worktree from within it${NC}"
+      echo ""
+      echo "Detected branch: $current_branch"
+      echo ""
+      echo "Please exit this directory first:"
+      echo "  cd $main_repo"
+      echo "  ./scripts/worktree-claude.sh cleanup $branch"
+      exit 1
+    fi
   fi
 
   if [ -z "$branch" ]; then
     echo -e "${RED}Error: Branch name required${NC}"
     print_usage
     exit 1
-  fi
-
-  # If running from within the worktree being cleaned up, warn
-  if is_in_worktree; then
-    local current_branch=$(git branch --show-current)
-    if [ "$current_branch" = "$branch" ]; then
-      echo -e "${RED}Error: Cannot clean up current worktree from within it${NC}"
-      echo ""
-      echo "Please exit this directory first:"
-      echo "  cd $(git rev-parse --git-common-dir | sed 's|/.git$||')"
-      echo "  ./scripts/worktree-claude.sh cleanup $branch"
-      exit 1
-    fi
   fi
 
   local worktree_path=$(get_worktree_path "$branch")
