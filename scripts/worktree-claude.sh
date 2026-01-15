@@ -8,8 +8,10 @@
 #   ./scripts/worktree-claude.sh new <branch-name>      # Create new worktree + start Claude
 #   ./scripts/worktree-claude.sh resume <branch-name>   # Resume existing worktree
 #   ./scripts/worktree-claude.sh list                   # List all worktrees
-#   ./scripts/worktree-claude.sh cleanup <branch-name>  # Remove worktree
-#   ./scripts/worktree-claude.sh cleanup-all            # Remove all parallel worktrees
+#   ./scripts/worktree-claude.sh sync <branch-name>     # Sync permissions to main repo
+#   ./scripts/worktree-claude.sh sync-all               # Sync permissions from all worktrees
+#   ./scripts/worktree-claude.sh cleanup <branch-name>  # Remove worktree (auto-syncs)
+#   ./scripts/worktree-claude.sh cleanup-all            # Remove all parallel worktrees (auto-syncs)
 #
 # Worktrees are created in ~/.worktrees/honkadori/<branch-name>
 
@@ -28,6 +30,59 @@ YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Get the main (non-worktree) repository path
+get_main_repo_path() {
+  # The main worktree is the first line in git worktree list (not in WORKTREE_BASE)
+  git worktree list | head -1 | awk '{print $1}'
+}
+
+# Sync permissions from worktree back to main repo
+sync_permissions() {
+  local worktree_path="$1"
+  local worktree_settings="$worktree_path/.claude/settings.local.json"
+  local main_repo_path=$(get_main_repo_path)
+  local main_settings="$main_repo_path/.claude/settings.local.json"
+
+  # Skip if syncing main repo to itself
+  if [ "$worktree_path" = "$main_repo_path" ]; then
+    return 0
+  fi
+
+  # Skip if either file doesn't exist
+  if [ ! -f "$worktree_settings" ] || [ ! -f "$main_settings" ]; then
+    return 0
+  fi
+
+  # Check for jq
+  if ! command -v jq &> /dev/null; then
+    echo -e "${YELLOW}Warning: jq not found, skipping permission sync${NC}"
+    return 0
+  fi
+
+  # Get permissions from both files
+  local worktree_perms=$(jq -r '.permissions.allow // []' "$worktree_settings" 2>/dev/null)
+  local main_perms=$(jq -r '.permissions.allow // []' "$main_settings" 2>/dev/null)
+
+  # Find new permissions (in worktree but not in main)
+  local new_perms=$(jq -n --argjson wt "$worktree_perms" --argjson main "$main_perms" \
+    '$wt - $main')
+
+  local new_count=$(echo "$new_perms" | jq 'length')
+
+  if [ "$new_count" -gt 0 ]; then
+    echo -e "${BLUE}Syncing $new_count new permission(s) to main repo...${NC}"
+    echo "$new_perms" | jq -r '.[]' | while read -r perm; do
+      echo "  + $perm"
+    done
+
+    # Merge new permissions into main settings
+    jq --argjson new "$new_perms" '.permissions.allow += $new | .permissions.allow |= unique' \
+      "$main_settings" > "$main_settings.tmp" && mv "$main_settings.tmp" "$main_settings"
+
+    echo -e "${GREEN}Permissions synced to $main_settings${NC}"
+  fi
+}
+
 print_usage() {
   echo "Usage: $0 <command> [branch-name]"
   echo ""
@@ -35,12 +90,15 @@ print_usage() {
   echo "  new <branch-name>      Create new worktree and start Claude Code"
   echo "  resume <branch-name>   Open Claude Code in existing worktree"
   echo "  list                   List all active worktrees"
-  echo "  cleanup <branch-name>  Remove a specific worktree"
-  echo "  cleanup-all            Remove all parallel worktrees"
+  echo "  sync <branch-name>     Sync permissions from worktree to main repo"
+  echo "  sync-all               Sync permissions from all worktrees"
+  echo "  cleanup <branch-name>  Remove a specific worktree (auto-syncs permissions)"
+  echo "  cleanup-all            Remove all parallel worktrees (auto-syncs permissions)"
   echo ""
   echo "Examples:"
   echo "  $0 new feat/api-caching"
   echo "  $0 resume feat/api-caching"
+  echo "  $0 sync feat/api-caching"
   echo "  $0 cleanup feat/api-caching"
 }
 
@@ -209,6 +267,9 @@ cmd_cleanup() {
   echo -e "${BLUE}Removing worktree: $branch${NC}"
   echo "Location: $worktree_path"
 
+  # Sync permissions back to main repo before cleanup
+  sync_permissions "$worktree_path"
+
   # Remove the worktree
   git -C "$REPO_ROOT" worktree remove "$worktree_path" --force
 
@@ -239,6 +300,7 @@ cmd_cleanup_all() {
     local path=$(echo "$line" | awk '{print $1}')
 
     if [[ "$path" == "$WORKTREE_BASE"* ]]; then
+      sync_permissions "$path"
       echo "Removing: $path"
       git -C "$REPO_ROOT" worktree remove "$path" --force 2>/dev/null || true
     fi
@@ -248,6 +310,55 @@ cmd_cleanup_all() {
   git -C "$REPO_ROOT" worktree prune
 
   echo -e "${GREEN}All parallel worktrees removed${NC}"
+}
+
+# Sync permissions from a specific worktree
+cmd_sync() {
+  local branch="$1"
+  if [ -z "$branch" ]; then
+    echo -e "${RED}Error: Branch name required${NC}"
+    print_usage
+    exit 1
+  fi
+
+  local worktree_path=$(get_worktree_path "$branch")
+
+  if [ ! -d "$worktree_path" ]; then
+    echo -e "${RED}Error: Worktree not found at $worktree_path${NC}"
+    echo "Use 'list' to see available worktrees."
+    exit 1
+  fi
+
+  echo -e "${BLUE}Syncing permissions from: $branch${NC}"
+  sync_permissions "$worktree_path"
+  echo -e "${GREEN}Done${NC}"
+}
+
+# Sync permissions from all worktrees
+cmd_sync_all() {
+  echo -e "${BLUE}Syncing permissions from all worktrees...${NC}"
+  echo ""
+
+  local found=false
+
+  # Get all worktrees in our managed directory
+  while read -r line; do
+    local path=$(echo "$line" | awk '{print $1}')
+    local branch=$(echo "$line" | awk '{print $3}' | tr -d '[]')
+
+    if [[ "$path" == "$WORKTREE_BASE"* ]]; then
+      found=true
+      echo "Checking: $branch"
+      sync_permissions "$path"
+    fi
+  done < <(git -C "$REPO_ROOT" worktree list)
+
+  if [ "$found" = false ]; then
+    echo "No parallel worktrees found."
+  fi
+
+  echo ""
+  echo -e "${GREEN}Sync complete${NC}"
 }
 
 # Main command router
@@ -266,6 +377,12 @@ case "${1:-}" in
     ;;
   cleanup-all)
     cmd_cleanup_all
+    ;;
+  sync)
+    cmd_sync "$2"
+    ;;
+  sync-all)
+    cmd_sync_all
     ;;
   -h|--help|help)
     print_usage
