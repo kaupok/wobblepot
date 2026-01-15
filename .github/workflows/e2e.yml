@@ -37,8 +37,25 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      - name: Check required secrets
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "❌ DATABASE_URL secret is not configured"
+            echo "Please add DATABASE_URL to your repository secrets"
+            exit 1
+          fi
+          if [ -z "$BETTER_AUTH_SECRET" ]; then
+            echo "❌ BETTER_AUTH_SECRET secret is not configured"
+            echo "Please add BETTER_AUTH_SECRET to your repository secrets"
+            exit 1
+          fi
+          echo "✓ Required secrets are configured"
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm db:generate
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
