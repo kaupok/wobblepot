@@ -14,6 +14,12 @@ export function Navigation({ session }: NavigationProps) {
       {session && (
         <>
           <Link
+            href="/shopping"
+            className="hover:text-primary text-sm font-medium transition-colors"
+          >
+            Shopping
+          </Link>
+          <Link
             href="/household/household"
             className="hover:text-primary text-sm font-medium transition-colors"
           >
