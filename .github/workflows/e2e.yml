@@ -21,7 +21,7 @@ jobs:
       NEXT_PUBLIC_APP_NAME: ${{ vars.NEXT_PUBLIC_APP_NAME }}
       NEXT_PUBLIC_APP_ENV: ci
       NEXT_TELEMETRY_DISABLED: 1
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
       BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
 
     steps:
@@ -40,8 +40,8 @@ jobs:
       - name: Check required secrets
         run: |
           if [ -z "$DATABASE_URL" ]; then
-            echo "❌ DATABASE_URL secret is not configured"
-            echo "Please add DATABASE_URL to your repository secrets"
+            echo "❌ DATABASE_URL_STAGING secret is not configured"
+            echo "Please add DATABASE_URL_STAGING to your repository secrets"
             exit 1
           fi
           if [ -z "$BETTER_AUTH_SECRET" ]; then
