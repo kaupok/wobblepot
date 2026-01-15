@@ -175,12 +175,13 @@ model Household {
 model HouseholdMember {
   id          String        @id @default(cuid())
   householdId String
-  userId      String
+  userId      String?
+  name        String?
   role        HouseholdRole @default(member)
   joinedAt    DateTime      @default(now())
 
   household   Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
   preferences MemberPreferences?
 
   @@unique([householdId, userId])
@@ -227,6 +228,7 @@ model MemberPreferences {
   targetCarbs           Int?
   targetFat             Int?
   dietaryType           DietaryType?
+  allergens             Allergen[]
   restrictions          String[]
   excludedIngredients   String[]
   excludedIngredientIds String[]
