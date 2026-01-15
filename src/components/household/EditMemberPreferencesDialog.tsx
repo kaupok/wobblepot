@@ -110,8 +110,9 @@ export function EditMemberPreferencesDialog({
       }
 
       // Only include name for manual members
-      if (isManualMember && name) {
-        payload.name = name
+      const trimmedName = name.trim()
+      if (isManualMember && trimmedName) {
+        payload.name = trimmedName
       }
 
       const response = await fetch(`/api/households/me/members/${member.id}`, {
