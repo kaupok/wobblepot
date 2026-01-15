@@ -288,8 +288,34 @@ cmd_cleanup() {
     return
   fi
 
-  echo -e "${BLUE}Removing worktree: $branch${NC}"
+  # Check worktree status before removing
+  local status=$(get_worktree_status "$worktree_path")
+
+  echo -e "${BLUE}Worktree: $branch${NC}"
   echo "Location: $worktree_path"
+  echo ""
+
+  if [ "$status" = "merged" ]; then
+    echo -e "Status: ${GREEN}$status${NC} - safe to remove"
+    echo ""
+    read -p "Remove this worktree? (y/N) " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      echo "Cancelled."
+      return
+    fi
+  else
+    echo -e "Status: ${RED}$status${NC}"
+    echo ""
+    echo -e "${YELLOW}Warning: This worktree has work that may be lost!${NC}"
+    echo ""
+    read -p "Remove anyway? (y/N) " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      echo "Cancelled."
+      return
+    fi
+  fi
 
   # Sync permissions back to main repo before cleanup
   sync_permissions "$worktree_path"
@@ -315,6 +341,66 @@ is_in_worktree() {
   [ "$git_common" != "$git_dir" ]
 }
 
+# Check if a worktree has uncommitted changes
+has_uncommitted_changes() {
+  local path="$1"
+  [ -n "$(git -C "$path" status --porcelain 2>/dev/null)" ]
+}
+
+# Check if a branch has unpushed commits
+has_unpushed_commits() {
+  local path="$1"
+  local branch=$(git -C "$path" branch --show-current 2>/dev/null)
+
+  # Check if remote tracking branch exists
+  if git -C "$path" rev-parse --verify "origin/$branch" &>/dev/null; then
+    # Has commits ahead of remote
+    local ahead=$(git -C "$path" rev-list --count "origin/$branch..$branch" 2>/dev/null || echo "0")
+    [ "$ahead" -gt 0 ]
+  else
+    # No remote tracking branch - consider unpushed if branch has commits not in main
+    local ahead=$(git -C "$path" rev-list --count "main..$branch" 2>/dev/null || echo "0")
+    [ "$ahead" -gt 0 ]
+  fi
+}
+
+# Check if a branch is merged into main
+is_branch_merged() {
+  local path="$1"
+  local branch=$(git -C "$path" branch --show-current 2>/dev/null)
+
+  # Check if branch is an ancestor of main (i.e., merged)
+  git -C "$REPO_ROOT" merge-base --is-ancestor "$branch" main 2>/dev/null
+}
+
+# Get worktree status summary
+get_worktree_status() {
+  local path="$1"
+  local status=""
+
+  if has_uncommitted_changes "$path"; then
+    status="uncommitted changes"
+  fi
+
+  if has_unpushed_commits "$path"; then
+    if [ -n "$status" ]; then
+      status="$status, unpushed commits"
+    else
+      status="unpushed commits"
+    fi
+  fi
+
+  if [ -z "$status" ] && is_branch_merged "$path"; then
+    status="merged"
+  fi
+
+  if [ -z "$status" ]; then
+    status="unmerged"
+  fi
+
+  echo "$status"
+}
+
 # Cleanup all parallel worktrees
 cmd_cleanup_all() {
   # If running from within a worktree, warn and exit
@@ -329,30 +415,144 @@ cmd_cleanup_all() {
     exit 1
   fi
 
-  echo -e "${YELLOW}This will remove ALL parallel worktrees in $WORKTREE_BASE${NC}"
-  read -p "Are you sure? (y/N) " -n 1 -r
-  echo ""
+  # Collect worktree info first
+  local safe_worktrees=()
+  local unsafe_worktrees=()
+  local all_paths=()
+  local all_branches=()
+  local all_statuses=()
 
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "Cancelled."
+  while read -r line; do
+    local path=$(echo "$line" | awk '{print $1}')
+    local branch=$(echo "$line" | awk '{print $3}' | tr -d '[]')
+
+    if [[ "$path" == "$WORKTREE_BASE"* ]]; then
+      local status=$(get_worktree_status "$path")
+      all_paths+=("$path")
+      all_branches+=("$branch")
+      all_statuses+=("$status")
+
+      if [ "$status" = "merged" ]; then
+        safe_worktrees+=("$path")
+      else
+        unsafe_worktrees+=("$path")
+      fi
+    fi
+  done < <(git -C "$REPO_ROOT" worktree list)
+
+  if [ ${#all_paths[@]} -eq 0 ]; then
+    echo "No parallel worktrees found."
     return
   fi
 
-  # Get all worktrees in our managed directory
-  git -C "$REPO_ROOT" worktree list | while read -r line; do
-    local path=$(echo "$line" | awk '{print $1}')
+  # Show status of all worktrees
+  echo -e "${BLUE}Worktree status:${NC}"
+  echo ""
+  for i in "${!all_paths[@]}"; do
+    local status="${all_statuses[$i]}"
+    local branch="${all_branches[$i]}"
+    local path="${all_paths[$i]}"
 
-    if [[ "$path" == "$WORKTREE_BASE"* ]]; then
+    if [ "$status" = "merged" ]; then
+      echo -e "  ${GREEN}✓${NC} $branch ($status)"
+    else
+      echo -e "  ${YELLOW}!${NC} $branch (${RED}$status${NC})"
+    fi
+  done
+  echo ""
+
+  # Handle based on what we found
+  if [ ${#unsafe_worktrees[@]} -eq 0 ]; then
+    # All worktrees are safe to remove
+    echo -e "${GREEN}All worktrees are merged and safe to remove.${NC}"
+    read -p "Remove all ${#safe_worktrees[@]} worktree(s)? (y/N) " -n 1 -r
+    echo ""
+
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      echo "Cancelled."
+      return
+    fi
+
+    for path in "${safe_worktrees[@]}"; do
       sync_permissions "$path"
       echo "Removing: $path"
       git -C "$REPO_ROOT" worktree remove "$path" --force 2>/dev/null || true
+    done
+  elif [ ${#safe_worktrees[@]} -eq 0 ]; then
+    # No safe worktrees, all have work in progress
+    echo -e "${YELLOW}All worktrees have work in progress.${NC}"
+    echo ""
+    echo "Options:"
+    echo "  1) Cancel - keep all worktrees"
+    echo "  2) Force remove all (will lose uncommitted/unpushed work!)"
+    echo ""
+    read -p "Choose [1-2]: " -n 1 -r
+    echo ""
+
+    if [[ $REPLY == "2" ]]; then
+      echo ""
+      echo -e "${RED}WARNING: This will permanently delete uncommitted/unpushed work!${NC}"
+      read -p "Type 'yes' to confirm: " confirm
+      if [ "$confirm" = "yes" ]; then
+        for path in "${unsafe_worktrees[@]}"; do
+          sync_permissions "$path"
+          echo "Force removing: $path"
+          git -C "$REPO_ROOT" worktree remove "$path" --force 2>/dev/null || true
+        done
+      else
+        echo "Cancelled."
+        return
+      fi
+    else
+      echo "Cancelled."
+      return
     fi
-  done
+  else
+    # Mix of safe and unsafe worktrees
+    echo "Options:"
+    echo "  1) Remove only merged worktrees (${#safe_worktrees[@]} worktree(s))"
+    echo "  2) Force remove all (will lose uncommitted/unpushed work!)"
+    echo "  3) Cancel"
+    echo ""
+    read -p "Choose [1-3]: " -n 1 -r
+    echo ""
+
+    case $REPLY in
+      1)
+        for path in "${safe_worktrees[@]}"; do
+          sync_permissions "$path"
+          echo "Removing: $path"
+          git -C "$REPO_ROOT" worktree remove "$path" --force 2>/dev/null || true
+        done
+        echo ""
+        echo -e "${YELLOW}Kept ${#unsafe_worktrees[@]} worktree(s) with work in progress.${NC}"
+        ;;
+      2)
+        echo ""
+        echo -e "${RED}WARNING: This will permanently delete uncommitted/unpushed work!${NC}"
+        read -p "Type 'yes' to confirm: " confirm
+        if [ "$confirm" = "yes" ]; then
+          for path in "${all_paths[@]}"; do
+            sync_permissions "$path"
+            echo "Force removing: $path"
+            git -C "$REPO_ROOT" worktree remove "$path" --force 2>/dev/null || true
+          done
+        else
+          echo "Cancelled."
+          return
+        fi
+        ;;
+      *)
+        echo "Cancelled."
+        return
+        ;;
+    esac
+  fi
 
   # Prune any stale worktrees
   git -C "$REPO_ROOT" worktree prune
 
-  echo -e "${GREEN}All parallel worktrees removed${NC}"
+  echo -e "${GREEN}Cleanup complete${NC}"
 }
 
 # Sync permissions from a specific worktree
