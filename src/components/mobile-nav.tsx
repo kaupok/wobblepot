@@ -37,6 +37,13 @@ export function MobileNav({ session }: MobileNavProps) {
           {session && (
             <>
               <Link
+                href="/shopping"
+                className="hover:text-primary text-sm font-medium transition-colors"
+                onClick={() => setOpen(false)}
+              >
+                Shopping
+              </Link>
+              <Link
                 href="/household/household"
                 className="hover:text-primary text-sm font-medium transition-colors"
                 onClick={() => setOpen(false)}
