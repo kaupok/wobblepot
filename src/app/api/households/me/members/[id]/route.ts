@@ -108,20 +108,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'No household found' }, { status: 404 })
   }
 
-  // Only owners can update members
-  if (householdMembership.role !== 'owner') {
-    return NextResponse.json(
-      { error: 'Only the household owner can update members' },
-      { status: 403 },
-    )
-  }
-
   const member = await prisma.householdMember.findUnique({
     where: { id: memberId },
   })
 
   if (!member || member.householdId !== householdMembership.householdId) {
     return NextResponse.json({ error: 'Member not found' }, { status: 404 })
+  }
+
+  // Allow owner OR the member themselves to update
+  const isOwner = householdMembership.role === 'owner'
+  const isSelf = householdMembership.id === memberId
+  if (!isOwner && !isSelf) {
+    return NextResponse.json({ error: 'You can only edit your own preferences' }, { status: 403 })
   }
 
   let body
