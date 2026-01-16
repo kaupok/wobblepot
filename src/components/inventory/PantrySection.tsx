@@ -277,7 +277,14 @@ function PantryItemRow({
             )}
           />
         </Button>
-        <Body>{item.ingredient.name}</Body>
+        <div className="flex flex-col">
+          <Body>{item.ingredient.name}</Body>
+          {item.neededQuantity !== undefined && item.neededQuantity > 0 && (
+            <Body variant="muted" className="text-xs">
+              {item.neededDisplayQuantity} needed in next {item.windowDays} days
+            </Body>
+          )}
+        </div>
       </div>
       <Button
         variant="ghost"

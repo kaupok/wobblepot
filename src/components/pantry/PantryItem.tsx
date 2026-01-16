@@ -19,6 +19,12 @@ export interface PantryItemData {
   quantity: number | null
   isStaple: boolean
   updatedAt: string
+  /** Raw needed quantity in grams (only present when window data is available) */
+  neededQuantity?: number
+  /** Formatted display quantity like "450g" or "3" (only present when window data is available) */
+  neededDisplayQuantity?: string
+  /** Number of days in the shopping window (7 or 14) */
+  windowDays?: number
 }
 
 interface PantryItemProps {
