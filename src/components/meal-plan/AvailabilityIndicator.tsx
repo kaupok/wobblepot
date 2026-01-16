@@ -36,17 +36,17 @@ export function computeMealAvailability(
 export function AvailabilityIndicator({ availability }: AvailabilityIndicatorProps) {
   if (availability.isReady) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400">
-        <Check className="h-3 w-3" />
-        Ready to cook
+      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+        <Check className="h-2.5 w-2.5" />
+        Ready
       </span>
     )
   }
 
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-      <AlertTriangle className="h-3 w-3" />
-      Missing {availability.missingCount} {availability.missingCount === 1 ? 'item' : 'items'}
+    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+      <AlertTriangle className="h-2.5 w-2.5" />
+      {availability.missingCount} missing
     </span>
   )
 }

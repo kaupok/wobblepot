@@ -12,6 +12,22 @@ import { RegenerateModal } from './RegenerateModal'
 import { AvailabilityIndicator, computeMealAvailability } from './AvailabilityIndicator'
 import type { MealData, PantryIngredient } from './types'
 import type { MealType } from '@/generated/prisma/enums'
+import { cn } from '@/lib/utils'
+
+const mealTypeStyles: Record<MealType, { border: string; label: string }> = {
+  breakfast: {
+    border: 'border-l-orange-400 dark:border-l-orange-500',
+    label: 'Breakfast',
+  },
+  lunch: {
+    border: 'border-l-sky-400 dark:border-l-sky-500',
+    label: 'Lunch',
+  },
+  dinner: {
+    border: 'border-l-violet-400 dark:border-l-violet-500',
+    label: 'Dinner',
+  },
+}
 
 interface MealCardProps {
   entryId: string
@@ -72,10 +88,12 @@ export function MealCard({
     }
   }
 
+  const typeStyle = mealTypeStyles[mealType]
+
   if (!meal) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center">
+      <Card className={cn('border-l-4', typeStyle.border)}>
+        <CardContent className="flex items-center justify-center py-4">
           <Body variant="muted">No meal planned</Body>
         </CardContent>
       </Card>
@@ -84,25 +102,31 @@ export function MealCard({
 
   return (
     <>
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">{meal.name}</CardTitle>
+      <Card className={cn('border-l-4', typeStyle.border)}>
+        <CardHeader className="pb-1">
+          <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+            {typeStyle.label}
+          </div>
+          <CardTitle className="text-sm leading-tight font-semibold">{meal.name}</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3 pb-2">
-          <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
+        <CardContent className="flex flex-col gap-2 pb-2">
+          <div className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
             {meal.timeMinutes && <span>{meal.timeMinutes} min</span>}
             {meal.kidFriendly && (
-              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400">
+              <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
                 Kid-friendly
               </span>
             )}
+            {availability && !availability.isReady && (
+              <AvailabilityIndicator availability={availability} />
+            )}
           </div>
-          {availability && <AvailabilityIndicator availability={availability} />}
+          {availability?.isReady && <AvailabilityIndicator availability={availability} />}
           {!isReadOnly && (
             <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
           )}
         </CardContent>
-        <CardFooter className="gap-2 pt-2">
+        <CardFooter className="gap-2 pt-1">
           <Button variant="outline" size="sm" onClick={() => setIsDetailModalOpen(true)}>
             View
           </Button>
