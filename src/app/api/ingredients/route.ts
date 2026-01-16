@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const ingredients = await prisma.ingredient.findMany({
       where: {
         name: {
-          startsWith: search,
+          contains: search,
           mode: 'insensitive',
         },
         ...(category && { category }),
