@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,6 +24,7 @@ interface ShoppingSectionProps {
   initialPurchasedIds: Set<string>
   onItemPurchased?: (item: PantryItemData) => void
   onItemUnpurchased?: (ingredientId: string) => void
+  externalUnpurchasedIds?: Set<string>
 }
 
 export function ShoppingSection({
@@ -34,9 +35,21 @@ export function ShoppingSection({
   initialPurchasedIds,
   onItemPurchased,
   onItemUnpurchased,
+  externalUnpurchasedIds,
 }: ShoppingSectionProps) {
   const [purchasedIds, setPurchasedIds] = useState<Set<string>>(initialPurchasedIds)
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
+
+  // Handle external unpurchase events (e.g., when pantry item is removed)
+  useEffect(() => {
+    if (!externalUnpurchasedIds || externalUnpurchasedIds.size === 0) return
+
+    setPurchasedIds((prev) => {
+      const next = new Set(prev)
+      externalUnpurchasedIds.forEach((id) => next.delete(id))
+      return next
+    })
+  }, [externalUnpurchasedIds])
 
   const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0)
   const purchasedCount = purchasedIds.size

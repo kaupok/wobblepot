@@ -39,6 +39,7 @@ export function InventoryPage({
   const [isMobile, setIsMobile] = useState(false)
   const [pantryItems, setPantryItems] = useState<PantryItemData[]>(initialPantryItems)
   const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(new Set())
+  const [removedIngredientIds, setRemovedIngredientIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
@@ -76,6 +77,11 @@ export function InventoryPage({
     setPantryItems((prev) => prev.filter((item) => item.ingredient.id !== ingredientId))
   }, [])
 
+  const handlePantryItemRemoved = useCallback((ingredientId: string) => {
+    // Add to removed set to trigger shopping list update
+    setRemovedIngredientIds((prev) => new Set(prev).add(ingredientId))
+  }, [])
+
   return (
     <div className="container mx-auto max-w-6xl p-4">
       <div className="mb-4 flex items-center justify-between md:hidden">
@@ -96,6 +102,7 @@ export function InventoryPage({
             newlyAddedIds={newlyAddedIds}
             defaultOpen={!isMobile}
             collapsible={isMobile}
+            onPantryItemRemoved={handlePantryItemRemoved}
           />
         </div>
 
@@ -112,6 +119,7 @@ export function InventoryPage({
               initialPurchasedIds={shoppingData.initialPurchasedIds}
               onItemPurchased={handleItemPurchased}
               onItemUnpurchased={handleItemUnpurchased}
+              externalUnpurchasedIds={removedIngredientIds}
             />
           ) : null}
         </div>
