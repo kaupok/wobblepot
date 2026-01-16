@@ -3,6 +3,13 @@ import { getTodayInTimezone } from '@/lib/meal-planning/dates'
 import { shouldEnforceBalanceConstraints } from '@/lib/meal-planning/slots'
 import { DayColumn } from './DayColumn'
 import type { MealPlan, PantryIngredient, PlanEntry, WeekContext } from './types'
+import type { MealType } from '@/generated/prisma/enums'
+
+const MEAL_TYPE_ORDER: Record<MealType, number> = {
+  breakfast: 0,
+  lunch: 1,
+  dinner: 2,
+}
 
 interface WeekViewProps {
   plan: MealPlan
@@ -36,6 +43,11 @@ export function WeekView({
     if (existing) {
       existing.push(entry)
     }
+  }
+
+  // Sort entries within each day by meal type (breakfast → lunch → dinner)
+  for (const entries of entriesByDate.values()) {
+    entries.sort((a, b) => MEAL_TYPE_ORDER[a.mealType] - MEAL_TYPE_ORDER[b.mealType])
   }
 
   // Dynamic heading based on week context
