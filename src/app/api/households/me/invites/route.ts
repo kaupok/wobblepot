@@ -8,8 +8,8 @@ import { prisma } from '@/lib/prisma'
 import { getServerBaseURL } from '@/lib/env'
 
 const createInviteSchema = z.object({
+  memberId: z.string().min(1),
   expiresInDays: z.number().int().min(1).max(30).optional().default(7),
-  maxUses: z.number().int().min(1).max(100).optional().default(5),
 })
 
 export async function POST(request: Request) {
@@ -49,17 +49,47 @@ export async function POST(request: Request) {
     )
   }
 
-  const { expiresInDays, maxUses } = parsed.data
+  const { memberId, expiresInDays } = parsed.data
+
+  // Validate the member exists, belongs to this household, and is a manual member
+  const member = await prisma.householdMember.findFirst({
+    where: {
+      id: memberId,
+      householdId: membership.householdId,
+    },
+  })
+
+  if (!member) {
+    return NextResponse.json({ error: 'Member not found' }, { status: 404 })
+  }
+
+  if (member.userId !== null) {
+    return NextResponse.json(
+      {
+        error: 'Can only create invites for manual members (members without a linked user account)',
+      },
+      { status: 400 },
+    )
+  }
+
   const code = nanoid(12)
   const expiresAt = new Date()
   expiresAt.setDate(expiresAt.getDate() + expiresInDays)
 
-  const invite = await prisma.householdInvite.create({
-    data: {
+  // Upsert: if an invite already exists for this member, replace it
+  const invite = await prisma.householdInvite.upsert({
+    where: { memberId },
+    create: {
       householdId: membership.householdId,
+      memberId,
       code,
       expiresAt,
-      maxUses,
+      maxUses: 1,
+    },
+    update: {
+      code,
+      expiresAt,
+      usesCount: 0,
     },
   })
 
@@ -68,6 +98,8 @@ export async function POST(request: Request) {
       id: invite.id,
       code: invite.code,
       url: `${baseUrl}/invite/${invite.code}`,
+      memberId: invite.memberId,
+      memberName: member.name,
       expiresAt: invite.expiresAt.toISOString(),
       maxUses: invite.maxUses,
       usesCount: invite.usesCount,
@@ -98,6 +130,11 @@ export async function GET() {
 
   const invites = await prisma.householdInvite.findMany({
     where: { householdId: membership.householdId },
+    include: {
+      member: {
+        select: { id: true, name: true },
+      },
+    },
     orderBy: { createdAt: 'desc' },
   })
 
@@ -114,6 +151,8 @@ export async function GET() {
         id: invite.id,
         code: invite.code,
         url: `${baseUrl}/invite/${invite.code}`,
+        memberId: invite.memberId,
+        memberName: invite.member?.name ?? null,
         expiresAt: invite.expiresAt.toISOString(),
         maxUses: invite.maxUses,
         usesCount: invite.usesCount,

@@ -37,6 +37,9 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
       household: {
         select: { id: true, name: true },
       },
+      member: {
+        select: { id: true, name: true },
+      },
     },
   })
 
@@ -65,18 +68,27 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
     )
   }
 
-  // Join household in a transaction
-  await prisma.$transaction([
-    prisma.householdMember.create({
-      data: {
-        householdId: invite.householdId,
-        userId: session.user.id,
-        role: 'member',
+  // Member-specific invites must have a memberId
+  if (!invite.memberId || !invite.member) {
+    return NextResponse.json(
+      {
+        error: 'invite_invalid',
+        message: 'This invite is no longer valid.',
       },
+      { status: 400 },
+    )
+  }
+
+  // Claim the existing member profile instead of creating a new one
+  await prisma.$transaction([
+    // Update the existing member to link to the user
+    prisma.householdMember.update({
+      where: { id: invite.memberId },
+      data: { userId: session.user.id },
     }),
-    prisma.householdInvite.update({
+    // Delete the invite after use
+    prisma.householdInvite.delete({
       where: { id: invite.id },
-      data: { usesCount: { increment: 1 } },
     }),
   ])
 
@@ -85,6 +97,10 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
     household: {
       id: invite.household.id,
       name: invite.household.name,
+    },
+    member: {
+      id: invite.member.id,
+      name: invite.member.name,
     },
   })
 }

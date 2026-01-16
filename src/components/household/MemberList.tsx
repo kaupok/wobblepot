@@ -8,7 +8,8 @@ import { HouseholdNav } from '@/components/household-nav'
 import { MemberCard } from './MemberCard'
 import { AddMemberDialog } from './AddMemberDialog'
 import { EditMemberPreferencesDialog } from './EditMemberPreferencesDialog'
-import type { Member, DietaryType } from '@/types/member'
+import { MemberInviteDialog } from './MemberInviteDialog'
+import type { Member, DietaryType, MemberInvite } from '@/types/member'
 
 interface MemberListProps {
   isOwner: boolean
@@ -35,6 +36,7 @@ export function MemberList({ isOwner, currentMemberId, householdDietaryType }: M
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [editingMember, setEditingMember] = useState<Member | null>(null)
+  const [invitingMember, setInvitingMember] = useState<Member | null>(null)
 
   useEffect(() => {
     async function fetchMembers() {
@@ -75,6 +77,15 @@ export function MemberList({ isOwner, currentMemberId, householdDietaryType }: M
   const canRemoveMember = (member: Member) => {
     // Only owner can remove members, and cannot remove themselves or the owner
     return isOwner && member.role !== 'owner' && member.id !== currentMemberId
+  }
+
+  const canInviteMember = (member: Member) => {
+    // Only owner can invite, and only for manual members (no linked user account)
+    return isOwner && member.userId === null
+  }
+
+  const handleInviteCreated = (memberId: string, invite: MemberInvite) => {
+    setMembers((prev) => prev.map((m) => (m.id === memberId ? { ...m, invite } : m)))
   }
 
   return (
@@ -123,8 +134,11 @@ export function MemberList({ isOwner, currentMemberId, householdDietaryType }: M
                     member={member}
                     canEdit={canEditMember(member)}
                     canRemove={canRemoveMember(member)}
+                    canInvite={canInviteMember(member)}
                     onEdit={setEditingMember}
                     onRemove={handleMemberRemoved}
+                    onInvite={setInvitingMember}
+                    onInviteUpdated={handleInviteCreated}
                   />
                 ))}
               </div>
@@ -148,6 +162,19 @@ export function MemberList({ isOwner, currentMemberId, householdDietaryType }: M
         householdDietaryType={householdDietaryType}
         isManualMember={editingMember?.userId === null}
       />
+
+      {invitingMember && (
+        <MemberInviteDialog
+          open={invitingMember !== null}
+          onOpenChange={(open) => !open && setInvitingMember(null)}
+          memberId={invitingMember.id}
+          memberName={
+            invitingMember.preferences?.displayName || invitingMember.name || 'this member'
+          }
+          existingInvite={invitingMember.invite}
+          onInviteCreated={(invite) => handleInviteCreated(invitingMember.id, invite)}
+        />
+      )}
     </>
   )
 }

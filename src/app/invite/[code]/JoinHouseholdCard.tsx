@@ -17,10 +17,16 @@ import { Heading, Body } from '@/components/ui/typography'
 interface JoinHouseholdCardProps {
   status: 'valid' | 'invalid' | 'already_member'
   householdName: string
+  memberName: string | null
   code: string
 }
 
-export function JoinHouseholdCard({ status, householdName, code }: JoinHouseholdCardProps) {
+export function JoinHouseholdCard({
+  status,
+  householdName,
+  memberName,
+  code,
+}: JoinHouseholdCardProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -111,20 +117,32 @@ export function JoinHouseholdCard({ status, householdName, code }: JoinHousehold
     <Card className="w-full max-w-md">
       <CardHeader>
         <CardTitle>
-          <Heading variant="h2">Join household</Heading>
+          <Heading variant="h2">{memberName ? `Join as ${memberName}` : 'Join household'}</Heading>
         </CardTitle>
         <CardDescription>
-          <Body variant="muted">You&apos;ve been invited to join a household</Body>
+          <Body variant="muted">
+            {memberName
+              ? 'Claim your profile and join the household'
+              : "You've been invited to join a household"}
+          </Body>
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex flex-col gap-4">
           <Body>
-            You&apos;ve been invited to join <strong>{householdName}</strong>.
+            You&apos;ve been invited to join <strong>{householdName}</strong>
+            {memberName && (
+              <>
+                {' '}
+                as <strong>{memberName}</strong>
+              </>
+            )}
+            .
           </Body>
           <Body variant="muted">
-            Once you join, you&apos;ll be able to view and participate in meal planning for this
-            household.
+            {memberName
+              ? "Your profile has already been set up with preferences. Once you join, you'll be connected to this existing profile."
+              : "Once you join, you'll be able to view and participate in meal planning for this household."}
           </Body>
         </div>
       </CardContent>
@@ -136,7 +154,7 @@ export function JoinHouseholdCard({ status, householdName, code }: JoinHousehold
             </Body>
           )}
           <Button onClick={handleJoin} disabled={isLoading} className="w-full">
-            {isLoading ? 'Joining...' : 'Join household'}
+            {isLoading ? 'Joining...' : memberName ? `Join as ${memberName}` : 'Join household'}
           </Button>
         </div>
       </CardFooter>

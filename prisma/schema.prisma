@@ -183,6 +183,7 @@ model HouseholdMember {
   household   Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   user        User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
   preferences MemberPreferences?
+  invite      HouseholdInvite?
 
   @@unique([householdId, userId])
   @@map("household_member")
@@ -191,13 +192,15 @@ model HouseholdMember {
 model HouseholdInvite {
   id          String   @id @default(cuid())
   householdId String
+  memberId    String?  @unique
   code        String   @unique
   expiresAt   DateTime
-  maxUses     Int?
+  maxUses     Int?     @default(1)
   usesCount   Int      @default(0)
   createdAt   DateTime @default(now())
 
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  household Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  member    HouseholdMember? @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@map("household_invite")
 }
