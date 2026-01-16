@@ -105,6 +105,7 @@ export default async function ShoppingPage({ searchParams }: ShoppingPageProps) 
         pantryItems={formattedPantryItems}
         shoppingData={null}
         emptyStateVariant="error"
+        windowDays={days}
       />
     )
   }
@@ -155,6 +156,7 @@ export default async function ShoppingPage({ searchParams }: ShoppingPageProps) 
       pantryItems={formattedPantryItems}
       shoppingData={emptyStateVariant ? null : shoppingData}
       emptyStateVariant={emptyStateVariant}
+      windowDays={days}
     />
   )
 }

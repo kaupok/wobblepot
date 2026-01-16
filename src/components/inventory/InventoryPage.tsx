@@ -30,12 +30,14 @@ interface InventoryPageProps {
   pantryItems: PantryItemData[]
   shoppingData: ShoppingData | null
   emptyStateVariant?: ShoppingEmptyStateVariant
+  windowDays?: number
 }
 
 export function InventoryPage({
   pantryItems: initialPantryItems,
   shoppingData,
   emptyStateVariant,
+  windowDays,
 }: InventoryPageProps) {
   const router = useRouter()
   const [isMobile, setIsMobile] = useState(false)
@@ -121,7 +123,7 @@ export function InventoryPage({
         {/* Shopping section - primary content, always first on mobile */}
         <div className="order-1 md:order-2">
           {emptyStateVariant ? (
-            <ShoppingEmptyState variant={emptyStateVariant} />
+            <ShoppingEmptyState variant={emptyStateVariant} windowDays={windowDays} />
           ) : shoppingData ? (
             <ShoppingSection
               windowDays={shoppingData.windowDays}
