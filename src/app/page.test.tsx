@@ -14,6 +14,7 @@ vi.mock('@/lib/auth', () => ({
 // Mock the household module
 vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
+  getHouseholdMemberCount: vi.fn(),
 }))
 
 // Mock Next.js headers
@@ -26,11 +27,29 @@ vi.mock('next/navigation', () => ({
   redirect: vi.fn((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`)
   }),
+  useRouter: vi.fn(() => ({
+    push: vi.fn(),
+    refresh: vi.fn(),
+  })),
 }))
+
+// Mock the TodayPage component since it requires complex client-side behavior
+vi.mock('@/components/today', () => ({
+  TodayPage: vi.fn(() => <div data-testid="today-page">Today Dashboard</div>),
+}))
+
+// Mock fetch for API calls
+const mockFetch = vi.fn()
+global.fetch = mockFetch
 
 describe('Home page component', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Default mock responses for fetch
+    mockFetch.mockResolvedValue({
+      ok: false,
+      json: async () => ({}),
+    })
   })
 
   it('renders the heading when not authenticated', async () => {
@@ -51,9 +70,9 @@ describe('Home page component', () => {
     expect(screen.getByText('Get started by signing in or creating an account')).toBeInTheDocument()
   })
 
-  it('redirects to dashboard when authenticated with household', async () => {
+  it('renders Today dashboard when authenticated with household', async () => {
     const { auth } = await import('@/lib/auth')
-    const { getHouseholdMembership } = await import('@/lib/household')
+    const { getHouseholdMembership, getHouseholdMemberCount } = await import('@/lib/household')
     const now = new Date()
     vi.mocked(auth.api.getSession).mockResolvedValue({
       session: {
@@ -92,8 +111,12 @@ describe('Home page component', () => {
       },
     } as never)
 
-    // Should redirect to dashboard
-    await expect(Home()).rejects.toThrow('NEXT_REDIRECT:/dashboard')
+    vi.mocked(getHouseholdMemberCount).mockResolvedValue(2)
+
+    // Should render the Today dashboard (mocked)
+    const component = await Home()
+    render(component)
+    expect(screen.getByTestId('today-page')).toBeInTheDocument()
   })
 
   it('redirects to onboarding when authenticated without household', async () => {

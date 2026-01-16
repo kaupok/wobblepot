@@ -59,7 +59,7 @@ export function MobileNav({ session }: MobileNavProps) {
         </SheetHeader>
         <nav className="mt-6 flex flex-col gap-4 px-4">
           <Link
-            href="/"
+            href="/dashboard"
             className="hover:text-primary text-sm font-medium transition-colors"
             onClick={() => setOpen(false)}
           >
