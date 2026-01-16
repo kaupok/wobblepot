@@ -6,6 +6,7 @@
 #
 # Usage:
 #   ./scripts/worktree-claude.sh new <branch-name>      # Create new worktree + start Claude
+#   ./scripts/worktree-claude.sh auto [issue-id]        # Create worktree + run /auto-implement autonomously
 #   ./scripts/worktree-claude.sh resume <branch-name>   # Resume existing worktree
 #   ./scripts/worktree-claude.sh list                   # List all worktrees
 #   ./scripts/worktree-claude.sh sync <branch-name>     # Sync permissions to main repo
@@ -93,10 +94,11 @@ sync_permissions() {
 }
 
 print_usage() {
-  echo "Usage: $0 <command> [branch-name]"
+  echo "Usage: $0 <command> [branch-name|issue-id]"
   echo ""
   echo "Commands:"
   echo "  new <branch-name>      Create new worktree and start Claude Code"
+  echo "  auto [issue-id]        Create worktree and run /auto-implement autonomously"
   echo "  resume <branch-name>   Open Claude Code in existing worktree"
   echo "  list                   List all active worktrees"
   echo "  sync <branch-name>     Sync permissions from worktree to main repo"
@@ -106,6 +108,8 @@ print_usage() {
   echo ""
   echo "Examples:"
   echo "  $0 new feat/api-caching"
+  echo "  $0 auto HON-51          # Autonomous implementation of specific issue"
+  echo "  $0 auto                 # Autonomous implementation of next available issue"
   echo "  $0 resume feat/api-caching"
   echo "  $0 sync feat/api-caching"
   echo "  $0 cleanup feat/api-caching"
@@ -259,6 +263,72 @@ cmd_new() {
 
   # Start Claude Code in the worktree
   exec claude
+}
+
+# Fully autonomous worktree - creates worktree and runs /auto-implement
+cmd_auto() {
+  local issue_id="$1"
+  local branch
+  local prompt
+
+  # Generate branch name and prompt based on whether issue ID is provided
+  if [ -n "$issue_id" ]; then
+    # Normalize issue ID to lowercase for branch name
+    branch="auto/$(echo "$issue_id" | tr '[:upper:]' '[:lower:]')"
+    prompt="/auto-implement $issue_id"
+  else
+    # No issue ID - use timestamp for unique branch, let /auto-implement find next issue
+    branch="auto/$(date +%Y%m%d-%H%M%S)"
+    prompt="/auto-implement"
+  fi
+
+  local worktree_path=$(get_worktree_path "$branch")
+
+  # Check if worktree already exists
+  if [ -d "$worktree_path" ]; then
+    echo -e "${YELLOW}Worktree already exists at $worktree_path${NC}"
+    echo "Use 'resume' to open it, or 'cleanup' to remove it first."
+    exit 1
+  fi
+
+  # Create worktree directory
+  mkdir -p "$WORKTREE_BASE"
+
+  echo -e "${BLUE}Creating autonomous worktree for: ${issue_id:-next issue}${NC}"
+  echo "Branch: $branch"
+  echo "Location: $worktree_path"
+  echo ""
+
+  # Create worktree with new branch from current HEAD
+  git -C "$REPO_ROOT" worktree add -b "$branch" "$worktree_path"
+
+  echo ""
+  echo -e "${BLUE}Setting up worktree...${NC}"
+  echo ""
+
+  cd "$worktree_path"
+
+  # Copy untracked files from main repo (.env, Claude settings, etc.)
+  copy_untracked_files "$worktree_path"
+
+  # Install dependencies
+  echo "Installing dependencies..."
+  if command -v pnpm &> /dev/null; then
+    pnpm install
+    pnpm db:generate
+  else
+    echo -e "${YELLOW}Warning: pnpm not found, skipping dependency installation${NC}"
+  fi
+
+  echo ""
+  echo -e "${GREEN}Worktree ready!${NC}"
+  echo ""
+  echo "Starting autonomous Claude Code with: $prompt"
+  echo "─────────────────────────────────────────"
+  echo ""
+
+  # Start Claude Code with permissions bypassed and auto-implement prompt
+  exec claude --dangerously-skip-permissions "$prompt"
 }
 
 # Resume existing worktree
@@ -718,6 +788,9 @@ cmd_sync_all() {
 case "${1:-}" in
   new)
     cmd_new "$2"
+    ;;
+  auto)
+    cmd_auto "$2"
     ;;
   resume)
     cmd_resume "$2"
