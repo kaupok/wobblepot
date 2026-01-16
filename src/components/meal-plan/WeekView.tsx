@@ -86,6 +86,7 @@ export function WeekView({
             planId={plan.id}
             entries={entriesByDate.get(date) ?? []}
             isToday={date === today}
+            isPast={date < today}
             householdSize={householdSize}
             isReadOnly={isReadOnly}
             pantryIngredients={pantryIngredients}

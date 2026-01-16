@@ -33,6 +33,7 @@ interface MealCardProps {
   status: MealStatus
   householdSize: number
   isReadOnly?: boolean
+  isPast?: boolean
   pantryIngredients?: PantryIngredient[]
 }
 
@@ -44,6 +45,7 @@ export function MealCard({
   status: initialStatus,
   householdSize,
   isReadOnly,
+  isPast,
   pantryIngredients = [],
 }: MealCardProps) {
   const router = useRouter()
@@ -108,11 +110,13 @@ export function MealCard({
         <CardContent className="flex flex-col gap-2 pb-2">
           <div className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
             {meal.timeMinutes && <span>{meal.timeMinutes} min</span>}
-            {availability && !availability.isReady && (
+            {!isPast && availability && !availability.isReady && (
               <AvailabilityIndicator availability={availability} />
             )}
           </div>
-          {availability?.isReady && <AvailabilityIndicator availability={availability} />}
+          {!isPast && availability?.isReady && (
+            <AvailabilityIndicator availability={availability} />
+          )}
           {!isReadOnly && (
             <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
           )}
@@ -121,7 +125,7 @@ export function MealCard({
           <Button variant="outline" size="sm" onClick={() => setIsDetailModalOpen(true)}>
             View
           </Button>
-          {!isReadOnly && (
+          {!isReadOnly && !isPast && (
             <Button variant="outline" size="sm" onClick={() => setIsRegenerateModalOpen(true)}>
               Swap
             </Button>

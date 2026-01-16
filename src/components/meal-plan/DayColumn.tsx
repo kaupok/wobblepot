@@ -9,6 +9,7 @@ interface DayColumnProps {
   planId: string
   entries: PlanEntry[]
   isToday: boolean
+  isPast?: boolean
   householdSize: number
   isReadOnly?: boolean
   pantryIngredients?: PantryIngredient[]
@@ -26,6 +27,7 @@ export function DayColumn({
   planId,
   entries,
   isToday,
+  isPast,
   householdSize,
   isReadOnly,
   pantryIngredients = [],
@@ -51,6 +53,7 @@ export function DayColumn({
             status={entry.status}
             householdSize={householdSize}
             isReadOnly={isReadOnly}
+            isPast={isPast}
             pantryIngredients={pantryIngredients}
           />
         ))}
