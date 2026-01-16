@@ -7,9 +7,9 @@ interface AvailabilityIndicatorProps {
 
 /**
  * Compute meal availability based on pantry contents.
- * An ingredient is considered available if:
- * - It exists in the pantry (regardless of quantity), OR
- * - It's marked as a staple (always in stock)
+ * An ingredient is considered available if it exists in the pantry
+ * (regardless of quantity). Staples are included in the pantry list
+ * when passed from the caller.
  */
 export function computeMealAvailability(
   meal: MealData,
