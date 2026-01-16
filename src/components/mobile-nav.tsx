@@ -2,9 +2,12 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Menu } from 'lucide-react'
+import { authClient } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { ThemeToggle } from '@/components/theme-toggle'
 import type { Session } from '@/lib/auth'
 
 interface MobileNavProps {
@@ -12,7 +15,35 @@ interface MobileNavProps {
 }
 
 export function MobileNav({ session }: MobileNavProps) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleSignOut = async () => {
+    setIsLoading(true)
+    try {
+      await authClient.signOut({
+        fetchOptions: {
+          onSuccess: () => {
+            try {
+              setOpen(false)
+              router.push('/')
+              router.refresh()
+            } catch (navError) {
+              console.error('Navigation failed after sign-out:', navError)
+            }
+          },
+          onError: (ctx) => {
+            console.error('Sign-out failed:', ctx.error)
+          },
+        },
+      })
+    } catch (err) {
+      console.error('Sign-out exception:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -32,16 +63,16 @@ export function MobileNav({ session }: MobileNavProps) {
             className="hover:text-primary text-sm font-medium transition-colors"
             onClick={() => setOpen(false)}
           >
-            Plan
+            Meals
           </Link>
-          {session && (
+          {session ? (
             <>
               <Link
                 href="/shopping"
                 className="hover:text-primary text-sm font-medium transition-colors"
                 onClick={() => setOpen(false)}
               >
-                Shopping
+                Pantry & shopping
               </Link>
               <Link
                 href="/household/household"
@@ -57,8 +88,35 @@ export function MobileNav({ session }: MobileNavProps) {
               >
                 Profile
               </Link>
+              <button
+                className="hover:text-primary text-left text-sm font-medium transition-colors"
+                onClick={handleSignOut}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Signing out...' : 'Sign out'}
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/sign-in"
+                className="hover:text-primary text-sm font-medium transition-colors"
+                onClick={() => setOpen(false)}
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/sign-up"
+                className="hover:text-primary text-sm font-medium transition-colors"
+                onClick={() => setOpen(false)}
+              >
+                Sign up
+              </Link>
             </>
           )}
+          <div className="pt-4">
+            <ThemeToggle />
+          </div>
         </nav>
       </SheetContent>
     </Sheet>
