@@ -1,9 +1,12 @@
 'use client'
 
+import { useState } from 'react'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Body } from '@/components/ui/typography'
-import { Pencil, User, Crown } from 'lucide-react'
+import { Pencil, Trash2, User, Crown } from 'lucide-react'
 import type { Member, DietaryType } from '@/types/member'
 
 const ALLERGEN_LABELS: Record<string, string> = {
@@ -28,14 +31,41 @@ const DIETARY_TYPE_LABELS: Record<DietaryType, string> = {
 interface MemberCardProps {
   member: Member
   canEdit: boolean
+  canRemove: boolean
   onEdit: (member: Member) => void
+  onRemove: (memberId: string) => void
 }
 
-export function MemberCard({ member, canEdit, onEdit }: MemberCardProps) {
+export function MemberCard({ member, canEdit, canRemove, onEdit, onRemove }: MemberCardProps) {
+  const [showRemoveDialog, setShowRemoveDialog] = useState(false)
+  const [isRemoving, setIsRemoving] = useState(false)
+
   const displayName =
     member.preferences?.displayName || member.user?.name || member.name || 'Unknown member'
   const isManual = member.userId === null
   const isOwner = member.role === 'owner'
+
+  const handleRemove = async () => {
+    setIsRemoving(true)
+    try {
+      const response = await fetch(`/api/households/me/members/${member.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to remove member')
+      }
+
+      setShowRemoveDialog(false)
+      onRemove(member.id)
+      toast.success('Member removed')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to remove member')
+    } finally {
+      setIsRemoving(false)
+    }
+  }
 
   return (
     <div className="rounded-lg border p-4">
@@ -71,16 +101,29 @@ export function MemberCard({ member, canEdit, onEdit }: MemberCardProps) {
               )}
             </div>
           </div>
-          {canEdit && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onEdit(member)}
-              aria-label="Edit preferences"
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onEdit(member)}
+                aria-label="Edit preferences"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            )}
+            {canRemove && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowRemoveDialog(true)}
+                aria-label="Remove member"
+                className="text-destructive hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Preferences summary */}
@@ -113,6 +156,17 @@ export function MemberCard({ member, canEdit, onEdit }: MemberCardProps) {
           </Body>
         )}
       </div>
+
+      <ConfirmDialog
+        open={showRemoveDialog}
+        onOpenChange={setShowRemoveDialog}
+        title="Remove member"
+        description={`Are you sure you want to remove ${displayName} from the household? This action cannot be undone.`}
+        confirmLabel="Remove"
+        variant="destructive"
+        onConfirm={handleRemove}
+        isLoading={isRemoving}
+      />
     </div>
   )
 }
