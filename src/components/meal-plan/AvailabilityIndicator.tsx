@@ -1,4 +1,4 @@
-import { Check, AlertTriangle } from 'lucide-react'
+import { Check } from 'lucide-react'
 import type { MealAvailability, MealData, PantryIngredient } from './types'
 
 interface AvailabilityIndicatorProps {
@@ -44,9 +44,10 @@ export function AvailabilityIndicator({ availability }: AvailabilityIndicatorPro
   }
 
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-      <AlertTriangle className="h-2.5 w-2.5" />
-      {availability.missingCount} missing
+    <span className="text-muted-foreground inline-flex items-center gap-0.5 text-[10px]">
+      <span aria-hidden="true">🛒</span>
+      <span>{availability.missingCount}</span>
+      <span className="sr-only">missing ingredients</span>
     </span>
   )
 }

@@ -5,6 +5,7 @@ import { ChevronDown } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { IngredientList } from './IngredientList'
 import { NutritionSummary } from './NutritionSummary'
@@ -51,9 +52,14 @@ export function AlternativeCard({
               <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
                 {meal.timeMinutes && <span>{meal.timeMinutes} min</span>}
                 {meal.kidFriendly && (
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                    Kid-friendly
-                  </span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-default" aria-label="Kid-friendly">
+                        👶
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Kid-friendly</TooltipContent>
+                  </Tooltip>
                 )}
                 <AvailabilityIndicator availability={availability} />
               </div>

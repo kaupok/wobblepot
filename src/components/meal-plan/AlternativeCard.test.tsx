@@ -71,7 +71,7 @@ describe('AlternativeCard', () => {
       expect(screen.getByText('30 min')).toBeInTheDocument()
     })
 
-    it('renders kid-friendly badge when true', () => {
+    it('renders kid-friendly icon when true', () => {
       render(
         <AlternativeCard
           meal={mockMeal}
@@ -81,16 +81,16 @@ describe('AlternativeCard', () => {
         />,
       )
 
-      expect(screen.getByText('Kid-friendly')).toBeInTheDocument()
+      expect(screen.getByLabelText('Kid-friendly')).toBeInTheDocument()
     })
 
-    it('does not render kid-friendly badge when false', () => {
+    it('does not render kid-friendly icon when false', () => {
       const meal = { ...mockMeal, kidFriendly: false }
       render(
         <AlternativeCard meal={meal} householdSize={3} onSelect={vi.fn()} isSelecting={false} />,
       )
 
-      expect(screen.queryByText('Kid-friendly')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Kid-friendly')).not.toBeInTheDocument()
     })
 
     it('renders reason text', () => {
