@@ -226,8 +226,10 @@ export async function POST(
         primaryProteinType: candidate.primaryProteinType,
         reason: generateReason(candidate, currentMealTime, mealDetail?.timeMinutes ?? null, index),
         components: components.map((comp) => ({
+          ingredientId: comp.ingredientId,
           quantityPerServing: comp.quantityPerServing,
           ingredient: {
+            id: comp.ingredient.id,
             name: comp.ingredient.name,
             category: comp.ingredient.category,
             defaultUnit: comp.ingredient.defaultUnit as 'g' | 'piece',

@@ -7,7 +7,11 @@ import { getDaysRemaining, isSunday } from '@/lib/meal-planning/dates'
 import { WeekView } from '@/components/meal-plan/WeekView'
 import { EmptyPlan } from '@/components/meal-plan/EmptyPlan'
 import { WeekTabs } from '@/components/meal-plan/WeekTabs'
-import type { MealPlanWithContext, WeekContext } from '@/components/meal-plan/types'
+import type {
+  MealPlanWithContext,
+  PantryIngredient,
+  WeekContext,
+} from '@/components/meal-plan/types'
 
 interface PageProps {
   searchParams: Promise<{ week?: string }>
@@ -48,28 +52,45 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     activeWeek = isCurrentlySunday ? 'next' : 'current'
   }
 
-  // Fetch household size and all week plans in parallel
+  // Fetch household size, all week plans, and pantry in parallel
   const requestHeaders = await headers()
   const baseURL = getServerBaseURL()
   const cookieHeader = requestHeaders.get('cookie') ?? ''
 
-  const [householdSize, lastResponse, currentResponse, nextResponse] = await Promise.all([
-    getHouseholdMemberCount(membership.household.id),
-    fetch(`${baseURL}/api/meal-plans/current?week=last`, {
-      headers: { cookie: cookieHeader },
-      cache: 'no-store',
-    }),
-    isCurrentlySunday
-      ? Promise.resolve(null)
-      : fetch(`${baseURL}/api/meal-plans/current?week=current`, {
-          headers: { cookie: cookieHeader },
-          cache: 'no-store',
-        }),
-    fetch(`${baseURL}/api/meal-plans/current?week=next`, {
-      headers: { cookie: cookieHeader },
-      cache: 'no-store',
-    }),
-  ])
+  const [householdSize, lastResponse, currentResponse, nextResponse, pantryResponse] =
+    await Promise.all([
+      getHouseholdMemberCount(membership.household.id),
+      fetch(`${baseURL}/api/meal-plans/current?week=last`, {
+        headers: { cookie: cookieHeader },
+        cache: 'no-store',
+      }),
+      isCurrentlySunday
+        ? Promise.resolve(null)
+        : fetch(`${baseURL}/api/meal-plans/current?week=current`, {
+            headers: { cookie: cookieHeader },
+            cache: 'no-store',
+          }),
+      fetch(`${baseURL}/api/meal-plans/current?week=next`, {
+        headers: { cookie: cookieHeader },
+        cache: 'no-store',
+      }),
+      fetch(`${baseURL}/api/pantry`, {
+        headers: { cookie: cookieHeader },
+        cache: 'no-store',
+      }),
+    ])
+
+  // Parse pantry response
+  let pantryIngredients: PantryIngredient[] = []
+  if (pantryResponse.ok) {
+    const pantryData = await pantryResponse.json()
+    pantryIngredients = pantryData.items.map(
+      (item: { ingredient: { id: string }; isStaple: boolean }) => ({
+        ingredientId: item.ingredient.id,
+        isStaple: item.isStaple,
+      }),
+    )
+  }
 
   // Parse responses
   const hasLastPlan = lastResponse.ok
@@ -129,6 +150,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             weekContext={weekContext}
             timezone={membership.household.timezone}
             isReadOnly={isReadOnly}
+            pantryIngredients={pantryIngredients}
           />
         ) : (
           <EmptyPlan weekContext={weekContext} />

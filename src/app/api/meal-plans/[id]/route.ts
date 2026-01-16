@@ -79,8 +79,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
               primaryProteinType: entry.meal.primaryProteinType,
               nutrition: computeMealNutrition(entry.meal.components),
               components: entry.meal.components.map((comp) => ({
+                ingredientId: comp.ingredientId,
                 quantityPerServing: comp.quantityPerServing,
                 ingredient: {
+                  id: comp.ingredient.id,
                   name: comp.ingredient.name,
                   category: comp.ingredient.category,
                   defaultUnit: comp.ingredient.defaultUnit,

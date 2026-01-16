@@ -2,8 +2,10 @@ import type { MealStatus } from './StatusSelect'
 import type { MealType } from '@/generated/prisma/enums'
 
 export interface MealComponent {
+  ingredientId: string
   quantityPerServing: number
   ingredient: {
+    id: string
     name: string
     category: string
     defaultUnit: 'g' | 'piece'
@@ -61,4 +63,15 @@ export interface WeekContext {
 
 export interface MealPlanWithContext extends MealPlan {
   weekContext: WeekContext
+}
+
+export interface MealAvailability {
+  isReady: boolean
+  missingCount: number
+  missingIngredients: string[]
+}
+
+export interface PantryIngredient {
+  ingredientId: string
+  isStaple: boolean
 }

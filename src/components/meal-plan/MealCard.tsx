@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,8 @@ import { useRouter } from 'next/navigation'
 import { StatusSelect, type MealStatus } from './StatusSelect'
 import { MealDetailModal } from './MealDetailModal'
 import { RegenerateModal } from './RegenerateModal'
-import type { MealData } from './types'
+import { AvailabilityIndicator, computeMealAvailability } from './AvailabilityIndicator'
+import type { MealData, PantryIngredient } from './types'
 import type { MealType } from '@/generated/prisma/enums'
 
 interface MealCardProps {
@@ -20,6 +21,7 @@ interface MealCardProps {
   status: MealStatus
   householdSize: number
   isReadOnly?: boolean
+  pantryIngredients?: PantryIngredient[]
 }
 
 export function MealCard({
@@ -30,12 +32,18 @@ export function MealCard({
   status: initialStatus,
   householdSize,
   isReadOnly,
+  pantryIngredients = [],
 }: MealCardProps) {
   const router = useRouter()
   const [status, setStatus] = useState<MealStatus>(initialStatus)
   const [isUpdating, setIsUpdating] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
+
+  const availability = useMemo(() => {
+    if (!meal) return null
+    return computeMealAvailability(meal, pantryIngredients)
+  }, [meal, pantryIngredients])
 
   async function handleStatusChange(newStatus: MealStatus) {
     const previousStatus = status
@@ -89,6 +97,7 @@ export function MealCard({
               </span>
             )}
           </div>
+          {availability && <AvailabilityIndicator availability={availability} />}
           {!isReadOnly && (
             <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
           )}
@@ -109,6 +118,7 @@ export function MealCard({
         householdSize={householdSize}
         open={isDetailModalOpen}
         onOpenChange={setIsDetailModalOpen}
+        pantryIngredients={pantryIngredients}
       />
       <RegenerateModal
         open={isRegenerateModalOpen}

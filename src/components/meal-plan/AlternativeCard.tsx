@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -8,13 +8,15 @@ import { Body } from '@/components/ui/typography'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { IngredientList } from './IngredientList'
 import { NutritionSummary } from './NutritionSummary'
-import type { AlternativeMeal } from './types'
+import { AvailabilityIndicator, computeMealAvailability } from './AvailabilityIndicator'
+import type { AlternativeMeal, PantryIngredient } from './types'
 
 interface AlternativeCardProps {
   meal: AlternativeMeal
   householdSize: number
   onSelect: (mealId: string) => void
   isSelecting: boolean
+  pantryIngredients?: PantryIngredient[]
 }
 
 export function AlternativeCard({
@@ -22,8 +24,22 @@ export function AlternativeCard({
   householdSize,
   onSelect,
   isSelecting,
+  pantryIngredients = [],
 }: AlternativeCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+
+  // AlternativeMeal has a similar structure to MealData, but we need to adapt it
+  const availability = useMemo(() => {
+    const mealForAvailability = {
+      id: meal.id,
+      name: meal.name,
+      kidFriendly: meal.kidFriendly,
+      timeMinutes: meal.timeMinutes,
+      components: meal.components,
+      nutrition: meal.nutrition,
+    }
+    return computeMealAvailability(mealForAvailability, pantryIngredients)
+  }, [meal, pantryIngredients])
 
   return (
     <Card className="py-4">
@@ -39,6 +55,7 @@ export function AlternativeCard({
                     Kid-friendly
                   </span>
                 )}
+                <AvailabilityIndicator availability={availability} />
               </div>
             </div>
             <div className="flex items-center gap-1">

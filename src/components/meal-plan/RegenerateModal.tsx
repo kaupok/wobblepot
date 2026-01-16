@@ -14,7 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Body } from '@/components/ui/typography'
 import { AlternativeCard } from './AlternativeCard'
 import { MealLibraryModal } from './MealLibraryModal'
-import type { AlternativeMeal } from './types'
+import type { AlternativeMeal, PantryIngredient } from './types'
 import type { MealType } from '@/generated/prisma/enums'
 
 interface RegenerateModalProps {
@@ -56,6 +56,7 @@ export function RegenerateModal({
   onSwapComplete,
 }: RegenerateModalProps) {
   const [alternatives, setAlternatives] = useState<AlternativeMeal[]>([])
+  const [pantryIngredients, setPantryIngredients] = useState<PantryIngredient[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectingId, setSelectingId] = useState<string | null>(null)
@@ -67,27 +68,44 @@ export function RegenerateModal({
       // Note: Don't reset isLibraryOpen here - it may have been set to true
       // by handleBrowseLibrary before the modal closed
       setAlternatives([])
+      setPantryIngredients([])
       setError(null)
       setSelectingId(null)
       return
     }
 
-    async function fetchAlternatives() {
+    async function fetchData() {
       setIsLoading(true)
       setError(null)
 
       try {
-        const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}/regenerate`, {
-          method: 'POST',
-        })
+        // Fetch alternatives and pantry in parallel
+        const [alternativesResponse, pantryResponse] = await Promise.all([
+          fetch(`/api/meal-plans/${planId}/entries/${entryId}/regenerate`, {
+            method: 'POST',
+          }),
+          fetch('/api/pantry'),
+        ])
 
-        if (!response.ok) {
-          const data = await response.json()
+        if (!alternativesResponse.ok) {
+          const data = await alternativesResponse.json()
           throw new Error(data.error || 'Failed to fetch alternatives')
         }
 
-        const data = await response.json()
-        setAlternatives(data.alternatives)
+        const alternativesData = await alternativesResponse.json()
+        setAlternatives(alternativesData.alternatives)
+
+        // Parse pantry response
+        if (pantryResponse.ok) {
+          const pantryData = await pantryResponse.json()
+          const ingredients: PantryIngredient[] = pantryData.items.map(
+            (item: { ingredient: { id: string }; isStaple: boolean }) => ({
+              ingredientId: item.ingredient.id,
+              isStaple: item.isStaple,
+            }),
+          )
+          setPantryIngredients(ingredients)
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch alternatives')
       } finally {
@@ -95,7 +113,7 @@ export function RegenerateModal({
       }
     }
 
-    fetchAlternatives()
+    fetchData()
   }, [open, planId, entryId])
 
   async function handleSelect(mealId: string) {
@@ -160,6 +178,7 @@ export function RegenerateModal({
                   householdSize={householdSize}
                   onSelect={handleSelect}
                   isSelecting={selectingId === meal.id}
+                  pantryIngredients={pantryIngredients}
                 />
               ))}
 

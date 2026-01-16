@@ -13,8 +13,10 @@ const mockMeal: AlternativeMeal = {
   reason: 'Similar prep time',
   components: [
     {
+      ingredientId: 'ingredient-1',
       quantityPerServing: 150,
       ingredient: {
+        id: 'ingredient-1',
         name: 'Chicken Breast',
         category: 'protein',
         defaultUnit: 'g',
@@ -22,8 +24,10 @@ const mockMeal: AlternativeMeal = {
       },
     },
     {
+      ingredientId: 'ingredient-2',
       quantityPerServing: 100,
       ingredient: {
+        id: 'ingredient-2',
         name: 'Rice',
         category: 'grain',
         defaultUnit: 'g',
