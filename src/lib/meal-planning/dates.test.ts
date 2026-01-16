@@ -13,6 +13,7 @@ import {
   getTodayInTimezone,
   formatRelativeDate,
   formatAbsoluteDate,
+  getStartOfTodayInTimezone,
 } from './dates'
 
 describe('dates utilities', () => {
@@ -471,6 +472,55 @@ describe('dates utilities', () => {
 
     it('handles single digit days', () => {
       expect(formatAbsoluteDate(new Date('2026-03-05'))).toBe('Mar 5')
+    })
+  })
+
+  describe('getStartOfTodayInTimezone', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('returns a Date object at midnight', () => {
+      vi.setSystemTime(new Date('2026-01-15T12:00:00Z'))
+      const result = getStartOfTodayInTimezone('UTC')
+      expect(result).toBeInstanceOf(Date)
+      expect(result.getHours()).toBe(0)
+      expect(result.getMinutes()).toBe(0)
+      expect(result.getSeconds()).toBe(0)
+    })
+
+    it('returns correct date for UTC timezone', () => {
+      vi.setSystemTime(new Date('2026-01-15T12:00:00Z'))
+      const result = getStartOfTodayInTimezone('UTC')
+      expect(toDateString(result)).toBe('2026-01-15')
+    })
+
+    it('returns previous day for LA when it is early morning UTC', () => {
+      // 2:00 AM UTC on Jan 15 = 6:00 PM on Jan 14 in LA (UTC-8)
+      vi.setSystemTime(new Date('2026-01-15T02:00:00Z'))
+      const result = getStartOfTodayInTimezone('America/Los_Angeles')
+      expect(toDateString(result)).toBe('2026-01-14')
+    })
+
+    it('returns next day for Tokyo when it is late evening UTC', () => {
+      // 8:00 PM UTC on Jan 14 = 5:00 AM on Jan 15 in Tokyo (UTC+9)
+      vi.setSystemTime(new Date('2026-01-14T20:00:00Z'))
+      const result = getStartOfTodayInTimezone('Asia/Tokyo')
+      expect(toDateString(result)).toBe('2026-01-15')
+    })
+
+    it('returns Date suitable for database comparison', () => {
+      vi.setSystemTime(new Date('2026-01-15T10:00:00Z'))
+      const result = getStartOfTodayInTimezone('Europe/Tallinn')
+      // Should be usable in date comparisons
+      const futureDate = new Date('2026-01-16')
+      const pastDate = new Date('2026-01-14')
+      expect(futureDate >= result).toBe(true)
+      expect(pastDate >= result).toBe(false)
     })
   })
 })

@@ -219,3 +219,15 @@ export function formatRelativeDate(date: Date, referenceDate?: Date): string {
 export function formatAbsoluteDate(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
+
+/**
+ * Get the start of today (midnight) as a Date in the specified timezone.
+ * Returns a Date object that represents midnight in the given timezone,
+ * suitable for database date comparisons.
+ *
+ * @param timezone - IANA timezone string (e.g., 'Europe/Tallinn')
+ */
+export function getStartOfTodayInTimezone(timezone: string): Date {
+  const todayString = getTodayInTimezone(timezone)
+  return parseLocalDate(todayString)
+}
