@@ -22,6 +22,7 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     householdMember: {
       findFirst: vi.fn(),
+      count: vi.fn(),
     },
     pantryItem: {
       findMany: vi.fn(),
@@ -31,6 +32,9 @@ vi.mock('@/lib/prisma', () => ({
     ingredient: {
       findUnique: vi.fn(),
     },
+    mealPlanEntry: {
+      findMany: vi.fn(),
+    },
   },
 }))
 
@@ -39,10 +43,12 @@ import { prisma } from '@/lib/prisma'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
+const mockMemberCount = vi.mocked(prisma.householdMember.count)
 const mockFindMany = vi.mocked(prisma.pantryItem.findMany)
 const mockFindUniquePantry = vi.mocked(prisma.pantryItem.findUnique)
 const mockCreatePantry = vi.mocked(prisma.pantryItem.create)
 const mockFindUniqueIngredient = vi.mocked(prisma.ingredient.findUnique)
+const mockFindManyEntries = vi.mocked(prisma.mealPlanEntry.findMany)
 
 const mockHousehold = {
   id: 'household-123',
@@ -156,6 +162,153 @@ describe('GET /api/pantry', () => {
 
     expect(response.status).toBe(200)
     expect(data.items).toEqual([])
+  })
+
+  it('returns needed quantities when days param is provided', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockMemberCount.mockResolvedValue(2)
+
+    const mockItems = [
+      {
+        id: 'pantry-1',
+        householdId: 'household-123',
+        ingredientId: 'ing-1',
+        quantity: null,
+        isStaple: false,
+        updatedAt: new Date('2024-01-01'),
+        ingredient: {
+          id: 'ing-1',
+          name: 'Chicken breast',
+          category: 'protein',
+          defaultUnit: 'g',
+          gramsPerPiece: null,
+        },
+      },
+    ]
+    mockFindMany.mockResolvedValue(mockItems as never)
+
+    // Mock meal plan entries with components
+    const mockEntries = [
+      {
+        id: 'entry-1',
+        date: new Date(),
+        status: 'planned',
+        meal: {
+          components: [
+            { ingredientId: 'ing-1', quantityPerServing: 150 },
+            { ingredientId: 'ing-2', quantityPerServing: 100 },
+          ],
+        },
+      },
+      {
+        id: 'entry-2',
+        date: new Date(),
+        status: 'planned',
+        meal: {
+          components: [{ ingredientId: 'ing-1', quantityPerServing: 200 }],
+        },
+      },
+    ]
+    mockFindManyEntries.mockResolvedValue(mockEntries as never)
+
+    const response = await GET(createMockRequest('http://localhost/api/pantry?days=7'))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.windowDays).toBe(7)
+    expect(data.items).toHaveLength(1)
+    // Household size 2, so (150 + 200) * 2 = 700g
+    expect(data.items[0].neededQuantity).toBe(700)
+    expect(data.items[0].neededDisplayQuantity).toBe('700g')
+    expect(data.items[0].windowDays).toBe(7)
+  })
+
+  it('does not include needed quantities when days param is not provided', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+
+    const mockItems = [
+      {
+        id: 'pantry-1',
+        householdId: 'household-123',
+        ingredientId: 'ing-1',
+        quantity: null,
+        isStaple: false,
+        updatedAt: new Date('2024-01-01'),
+        ingredient: {
+          id: 'ing-1',
+          name: 'Chicken breast',
+          category: 'protein',
+          defaultUnit: 'g',
+          gramsPerPiece: null,
+        },
+      },
+    ]
+    mockFindMany.mockResolvedValue(mockItems as never)
+
+    const response = await GET(createMockRequest())
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.windowDays).toBeNull()
+    expect(data.items[0].neededQuantity).toBeUndefined()
+    expect(data.items[0].neededDisplayQuantity).toBeUndefined()
+    expect(data.items[0].windowDays).toBeUndefined()
+  })
+
+  it('formats piece-based ingredients correctly', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockMemberCount.mockResolvedValue(2)
+
+    const mockItems = [
+      {
+        id: 'pantry-1',
+        householdId: 'household-123',
+        ingredientId: 'ing-1',
+        quantity: null,
+        isStaple: false,
+        updatedAt: new Date('2024-01-01'),
+        ingredient: {
+          id: 'ing-1',
+          name: 'Eggs',
+          category: 'protein',
+          defaultUnit: 'piece',
+          gramsPerPiece: 60,
+        },
+      },
+    ]
+    mockFindMany.mockResolvedValue(mockItems as never)
+
+    // Mock meal plan entries - needs 180g which is 3 eggs at 60g each
+    const mockEntries = [
+      {
+        id: 'entry-1',
+        date: new Date(),
+        status: 'planned',
+        meal: {
+          components: [{ ingredientId: 'ing-1', quantityPerServing: 90 }],
+        },
+      },
+    ]
+    mockFindManyEntries.mockResolvedValue(mockEntries as never)
+
+    const response = await GET(createMockRequest('http://localhost/api/pantry?days=7'))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    // Household size 2, so 90 * 2 = 180g, divided by 60g per piece = 3 eggs
+    expect(data.items[0].neededDisplayQuantity).toBe('3')
   })
 })
 
