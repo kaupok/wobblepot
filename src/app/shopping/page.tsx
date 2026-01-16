@@ -1,10 +1,11 @@
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { getServerBaseURL } from '@/lib/env'
-import { ShoppingList } from '@/components/shopping/ShoppingList'
-import { EmptyState } from '@/components/shopping/EmptyState'
+import { InventoryPage } from '@/components/inventory/InventoryPage'
+import type { ShoppingEmptyStateVariant } from '@/components/inventory/ShoppingEmptyState'
 import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
 
 interface ShoppingListItem {
@@ -52,6 +53,30 @@ export default async function ShoppingPage() {
     redirect('/onboarding')
   }
 
+  // Fetch pantry items
+  const pantryItems = await prisma.pantryItem.findMany({
+    where: { householdId: membership.householdId },
+    include: {
+      ingredient: {
+        select: {
+          id: true,
+          name: true,
+          category: true,
+          defaultUnit: true,
+        },
+      },
+    },
+    orderBy: [{ isStaple: 'desc' }, { ingredient: { name: 'asc' } }],
+  })
+
+  const formattedPantryItems = pantryItems.map((item) => ({
+    id: item.id,
+    ingredient: item.ingredient,
+    quantity: item.quantity,
+    isStaple: item.isStaple,
+    updatedAt: item.updatedAt.toISOString(),
+  }))
+
   // Fetch current meal plan
   const baseURL = getServerBaseURL()
   const cookieHeader = requestHeaders.get('cookie') ?? ''
@@ -61,12 +86,14 @@ export default async function ShoppingPage() {
     cache: 'no-store',
   })
 
-  // No current plan - show empty state
+  // No current plan - show empty state for shopping, but still show pantry
   if (!planResponse.ok) {
     return (
-      <div className="container mx-auto max-w-2xl p-4">
-        <EmptyState variant="no-plan" />
-      </div>
+      <InventoryPage
+        pantryItems={formattedPantryItems}
+        shoppingData={null}
+        emptyStateVariant="no-plan"
+      />
     )
   }
 
@@ -80,21 +107,20 @@ export default async function ShoppingPage() {
 
   if (!shoppingResponse.ok) {
     return (
-      <div className="container mx-auto max-w-2xl p-4">
-        <EmptyState variant="error" />
-      </div>
+      <InventoryPage
+        pantryItems={formattedPantryItems}
+        shoppingData={null}
+        emptyStateVariant="error"
+      />
     )
   }
 
   const shoppingList: ShoppingListResponse = await shoppingResponse.json()
 
   // Check for nothing-needed state (empty groups)
+  let emptyStateVariant: ShoppingEmptyStateVariant | undefined
   if (shoppingList.groups.length === 0 || shoppingList.summary.totalItems === 0) {
-    return (
-      <div className="container mx-auto max-w-2xl p-4">
-        <EmptyState variant="nothing-needed" />
-      </div>
-    )
+    emptyStateVariant = 'nothing-needed'
   }
 
   // Extract initially purchased IDs
@@ -107,7 +133,7 @@ export default async function ShoppingPage() {
     }
   }
 
-  // Transform data for ShoppingList component
+  // Transform data for shopping section
   const groups = shoppingList.groups.map((group) => ({
     category: group.category,
     categoryLabel: group.categoryLabel,
@@ -119,15 +145,19 @@ export default async function ShoppingPage() {
     })),
   }))
 
+  const shoppingData = {
+    planId: shoppingList.planId,
+    planStartDate: shoppingList.planStartDate,
+    planEndDate: shoppingList.planEndDate,
+    groups,
+    initialPurchasedIds,
+  }
+
   return (
-    <div className="container mx-auto max-w-2xl p-4">
-      <ShoppingList
-        planId={shoppingList.planId}
-        planStartDate={shoppingList.planStartDate}
-        planEndDate={shoppingList.planEndDate}
-        groups={groups}
-        initialPurchasedIds={initialPurchasedIds}
-      />
-    </div>
+    <InventoryPage
+      pantryItems={formattedPantryItems}
+      shoppingData={emptyStateVariant ? null : shoppingData}
+      emptyStateVariant={emptyStateVariant}
+    />
   )
 }
