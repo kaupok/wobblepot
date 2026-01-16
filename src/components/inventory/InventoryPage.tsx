@@ -18,9 +18,9 @@ interface ShoppingListGroup {
 }
 
 interface ShoppingData {
-  planId: string
-  planStartDate: string
-  planEndDate: string
+  windowDays: number
+  startDate: string
+  endDate: string
   groups: ShoppingListGroup[]
   initialPurchasedIds: Set<string>
 }
@@ -117,9 +117,9 @@ export function InventoryPage({
             <ShoppingEmptyState variant={emptyStateVariant} />
           ) : shoppingData ? (
             <ShoppingSection
-              planId={shoppingData.planId}
-              planStartDate={shoppingData.planStartDate}
-              planEndDate={shoppingData.planEndDate}
+              windowDays={shoppingData.windowDays}
+              startDate={shoppingData.startDate}
+              endDate={shoppingData.endDate}
               groups={shoppingData.groups}
               initialPurchasedIds={shoppingData.initialPurchasedIds}
               onItemPurchased={handleItemPurchased}

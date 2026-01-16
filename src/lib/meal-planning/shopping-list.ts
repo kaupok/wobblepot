@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { IngredientCategory, Unit } from '@/generated/prisma/enums'
-import { getStartOfTodayInTimezone } from './dates'
+import { getStartOfTodayInTimezone, toDateString } from './dates'
 
 /**
  * Category configuration for shopping list grouping.
@@ -256,4 +256,181 @@ export async function computeShoppingList(
 
   // 6. Group by category
   return groupByCategory(shoppingList)
+}
+
+/**
+ * Result of computing a rolling window shopping list.
+ */
+export interface RollingWindowResult {
+  groups: GroupedShoppingList[]
+  startDate: string // YYYY-MM-DD
+  endDate: string // YYYY-MM-DD
+  windowDays: number
+  earliestPlanCreatedAt: Date | null // For purchase tracking
+}
+
+/**
+ * Compute shopping list for a rolling window from today.
+ *
+ * Unlike computeShoppingList which is tied to a single plan, this function
+ * queries across all meal plans that overlap with the date window, aggregating
+ * ingredients from any planned meals within the window.
+ *
+ * @param householdId - The household ID
+ * @param days - Number of days in the window (7 or 14)
+ * @param householdTimezone - IANA timezone string for determining "today"
+ * @returns Grouped shopping list with window metadata
+ */
+export async function computeRollingWindowShoppingList(
+  householdId: string,
+  days: number,
+  householdTimezone: string,
+): Promise<RollingWindowResult> {
+  // Get start of today in household timezone
+  const startOfToday = getStartOfTodayInTimezone(householdTimezone)
+
+  // Calculate end date (exclusive) - days from today
+  const endDate = new Date(startOfToday)
+  endDate.setDate(endDate.getDate() + days)
+
+  // 1. Get all entries across any plans for this household within the window
+  // Only PLANNED status, today through endDate (exclusive)
+  const planEntries = await prisma.mealPlanEntry.findMany({
+    where: {
+      plan: {
+        householdId,
+      },
+      status: 'planned',
+      date: {
+        gte: startOfToday,
+        lt: endDate,
+      },
+    },
+    include: {
+      plan: {
+        select: {
+          createdAt: true,
+        },
+      },
+      meal: {
+        include: {
+          components: {
+            include: {
+              ingredient: {
+                select: {
+                  id: true,
+                  name: true,
+                  category: true,
+                  defaultUnit: true,
+                  gramsPerPiece: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+
+  // Track earliest plan creation date for purchase tracking
+  let earliestPlanCreatedAt: Date | null = null
+  for (const entry of planEntries) {
+    if (!earliestPlanCreatedAt || entry.plan.createdAt < earliestPlanCreatedAt) {
+      earliestPlanCreatedAt = entry.plan.createdAt
+    }
+  }
+
+  // 2. Get household size for quantity calculation
+  const householdSize = await getHouseholdSize(householdId)
+
+  // 3. Aggregate quantities per ingredient
+  const needed = new Map<string, NeededIngredient>()
+
+  for (const entry of planEntries) {
+    // Skip entries without a meal (e.g., eating_out entries before status change)
+    if (!entry.meal) continue
+
+    for (const component of entry.meal.components) {
+      const ingredientId = component.ingredientId
+      const qty = component.quantityPerServing * householdSize
+      const existing = needed.get(ingredientId)
+
+      if (existing) {
+        existing.quantity += qty
+        existing.mealCount += 1
+        // Track earliest date this ingredient is needed
+        if (entry.date < existing.earliestNeededDate) {
+          existing.earliestNeededDate = entry.date
+        }
+      } else {
+        needed.set(ingredientId, {
+          ingredient: component.ingredient,
+          quantity: qty,
+          mealCount: 1,
+          earliestNeededDate: entry.date,
+        })
+      }
+    }
+  }
+
+  // 4. Get pantry items
+  const pantryItems = await prisma.pantryItem.findMany({
+    where: { householdId },
+  })
+  const pantryMap = new Map(pantryItems.map((p) => [p.ingredientId, p]))
+
+  // 5. Calculate shopping quantities
+  const shoppingList: ShoppingListItem[] = []
+
+  for (const [
+    ingredientId,
+    { ingredient, quantity: neededQty, mealCount, earliestNeededDate },
+  ] of needed) {
+    const pantry = pantryMap.get(ingredientId)
+
+    let shoppingQty: number
+
+    if (pantry?.isStaple) {
+      // Staple - always skip (don't include in list at all)
+      continue
+    } else if (!pantry) {
+      // Not in pantry - need full amount
+      shoppingQty = neededQty
+    } else if (pantry.quantity === null) {
+      // Have some, assume sufficient
+      shoppingQty = 0
+    } else if (pantry.quantity === 0) {
+      // Ran out - need full amount
+      shoppingQty = neededQty
+    } else {
+      // Have partial - calculate difference
+      shoppingQty = Math.max(0, neededQty - pantry.quantity)
+    }
+
+    // Only include if need to buy something
+    if (shoppingQty > 0) {
+      shoppingList.push({
+        ingredientId,
+        ingredient,
+        neededQuantity: neededQty,
+        pantryQuantity: pantry?.quantity ?? null,
+        shoppingQuantity: shoppingQty,
+        mealCount,
+        earliestNeededDate,
+      })
+    }
+  }
+
+  // Calculate actual end date for display (last day of window, inclusive)
+  const displayEndDate = new Date(startOfToday)
+  displayEndDate.setDate(displayEndDate.getDate() + days - 1)
+
+  // 6. Group by category and return with metadata
+  return {
+    groups: groupByCategory(shoppingList),
+    startDate: toDateString(startOfToday),
+    endDate: toDateString(displayEndDate),
+    windowDays: days,
+    earliestPlanCreatedAt,
+  }
 }

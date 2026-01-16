@@ -28,10 +28,10 @@ interface ShoppingListGroup {
 }
 
 interface ShoppingListResponse {
-  planId: string
-  planStartDate: string
-  planEndDate: string
-  generatedAt: string
+  windowDays: number
+  startDate: string
+  endDate: string
+  generatedAt: string | null
   groups: ShoppingListGroup[]
   summary: {
     totalItems: number
@@ -40,8 +40,13 @@ interface ShoppingListResponse {
   }
 }
 
-export default async function ShoppingPage() {
+interface ShoppingPageProps {
+  searchParams: Promise<{ days?: string }>
+}
+
+export default async function ShoppingPage({ searchParams }: ShoppingPageProps) {
   const requestHeaders = await headers()
+  const params = await searchParams
 
   const session = await auth.api.getSession({
     headers: requestHeaders,
@@ -80,30 +85,16 @@ export default async function ShoppingPage() {
     updatedAt: item.updatedAt.toISOString(),
   }))
 
-  // Fetch current meal plan
+  // Parse days from query param (used when client preference differs from default)
+  // Default to 7 days if not specified or invalid
+  const daysParam = params.days
+  const days = daysParam === '14' ? 14 : 7
+
+  // Fetch rolling window shopping list
   const baseURL = getServerBaseURL()
   const cookieHeader = requestHeaders.get('cookie') ?? ''
 
-  const planResponse = await fetch(`${baseURL}/api/meal-plans/current`, {
-    headers: { cookie: cookieHeader },
-    cache: 'no-store',
-  })
-
-  // No current plan - show empty state for shopping, but still show pantry
-  if (!planResponse.ok) {
-    return (
-      <InventoryPage
-        pantryItems={formattedPantryItems}
-        shoppingData={null}
-        emptyStateVariant="no-plan"
-      />
-    )
-  }
-
-  const plan = await planResponse.json()
-
-  // Fetch shopping list for this plan
-  const shoppingResponse = await fetch(`${baseURL}/api/meal-plans/${plan.id}/shopping-list`, {
+  const shoppingResponse = await fetch(`${baseURL}/api/shopping-list?days=${days}`, {
     headers: { cookie: cookieHeader },
     cache: 'no-store',
   })
@@ -152,9 +143,9 @@ export default async function ShoppingPage() {
   }))
 
   const shoppingData = {
-    planId: shoppingList.planId,
-    planStartDate: shoppingList.planStartDate,
-    planEndDate: shoppingList.planEndDate,
+    windowDays: shoppingList.windowDays,
+    startDate: shoppingList.startDate,
+    endDate: shoppingList.endDate,
     groups,
     initialPurchasedIds,
   }

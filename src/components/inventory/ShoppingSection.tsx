@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,8 +21,10 @@ import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { getUrgencyBucket, type UrgencyBucket } from '@/lib/meal-planning/dates'
 
 type SortMode = 'category' | 'urgency'
+type WindowDays = 7 | 14
 
 const SORT_STORAGE_KEY = 'shopping-list-sort-mode'
+const WINDOW_STORAGE_KEY = 'shopping-list-window-days'
 
 interface ShoppingListGroup {
   category: IngredientCategory
@@ -30,9 +33,9 @@ interface ShoppingListGroup {
 }
 
 interface ShoppingSectionProps {
-  planId: string
-  planStartDate: string
-  planEndDate: string
+  windowDays: number
+  startDate: string
+  endDate: string
   groups: ShoppingListGroup[]
   initialPurchasedIds: Set<string>
   onItemPurchased?: (item: PantryItemData) => void
@@ -47,10 +50,16 @@ function getInitialSortMode(): SortMode {
   return stored === 'urgency' ? 'urgency' : 'category'
 }
 
+function getStoredWindowDays(): WindowDays {
+  if (typeof window === 'undefined') return 7
+  const stored = localStorage.getItem(WINDOW_STORAGE_KEY)
+  return stored === '14' ? 14 : 7
+}
+
 export function ShoppingSection({
-  planId,
-  planStartDate,
-  planEndDate,
+  windowDays,
+  startDate: _startDate,
+  endDate: _endDate,
   groups,
   initialPurchasedIds,
   onItemPurchased,
@@ -58,16 +67,25 @@ export function ShoppingSection({
   externalUnpurchasedIds,
   onExternalUnpurchaseProcessed,
 }: ShoppingSectionProps) {
+  const router = useRouter()
   const [purchasedIds, setPurchasedIds] = useState<Set<string>>(initialPurchasedIds)
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
   const [sortMode, setSortMode] = useState<SortMode>('category')
   const [mounted, setMounted] = useState(false)
 
   // Initialize sort mode from localStorage after mount (SSR-safe)
+  // Also check if stored window preference differs from server-rendered value
   useEffect(() => {
     setSortMode(getInitialSortMode())
     setMounted(true)
-  }, [])
+
+    // Check if stored window days differs from what was rendered
+    const storedDays = getStoredWindowDays()
+    if (storedDays !== windowDays) {
+      // Redirect to update the page with the stored preference
+      router.push(`/shopping?days=${storedDays}`)
+    }
+  }, [windowDays, router])
 
   // Handle external unpurchase events (e.g., when pantry item is removed)
   useEffect(() => {
@@ -86,6 +104,12 @@ export function ShoppingSection({
   const handleSortModeChange = (value: SortMode) => {
     setSortMode(value)
     localStorage.setItem(SORT_STORAGE_KEY, value)
+  }
+
+  const handleWindowChange = (value: string) => {
+    const days = value === '14' ? 14 : 7
+    localStorage.setItem(WINDOW_STORAGE_KEY, String(days))
+    router.push(`/shopping?days=${days}`)
   }
 
   const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0)
@@ -135,16 +159,8 @@ export function ShoppingSection({
       }))
   }, [enhancedGroups, sortMode])
 
-  const formatDateRange = (start: string, end: string) => {
-    const startDate = new Date(start + 'T00:00:00')
-    const endDate = new Date(end + 'T00:00:00')
-    const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
-
-    const startStr = startDate.toLocaleDateString('en-US', options)
-    const endStr = endDate.toLocaleDateString('en-US', options)
-    const year = endDate.getFullYear()
-
-    return `${startStr} - ${endStr}, ${year}`
+  const getWindowLabel = () => {
+    return windowDays === 14 ? 'Next 14 days' : 'Next 7 days'
   }
 
   const handleToggle = async (ingredientId: string, purchased: boolean) => {
@@ -163,7 +179,7 @@ export function ShoppingSection({
 
     try {
       const endpoint = purchased ? 'purchase' : 'unpurchase'
-      const response = await fetch(`/api/meal-plans/${planId}/shopping-list/${endpoint}`, {
+      const response = await fetch(`/api/shopping-list/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ingredientId }),
@@ -211,13 +227,26 @@ export function ShoppingSection({
   return (
     <Card className="w-full">
       <CardHeader>
-        <div className="flex flex-col gap-1">
-          <CardTitle>
-            <Heading variant="h2">Shopping list</Heading>
-          </CardTitle>
-          <CardDescription>
-            <Body variant="muted">For: {formatDateRange(planStartDate, planEndDate)}</Body>
-          </CardDescription>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-1">
+            <CardTitle>
+              <Heading variant="h2">Shopping list</Heading>
+            </CardTitle>
+            <CardDescription>
+              <Body variant="muted">{getWindowLabel()}</Body>
+            </CardDescription>
+          </div>
+          {mounted && (
+            <Select value={String(windowDays)} onValueChange={handleWindowChange}>
+              <SelectTrigger size="sm" className="w-[100px]" aria-label="Time window">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">7 days</SelectItem>
+                <SelectItem value="14">14 days</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </CardHeader>
       <CardContent>
