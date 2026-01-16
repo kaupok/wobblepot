@@ -18,6 +18,11 @@ const updatePreferencesSchema = z.object({
   targetCarbs: z.number().int().min(0).max(500).nullable().optional(),
   targetFat: z.number().int().min(0).max(500).nullable().optional(),
   dietaryType: z.enum(['omnivore', 'vegetarian', 'vegan', 'pescatarian']).nullable().optional(),
+  allergens: z
+    .array(
+      z.enum(['gluten', 'dairy', 'eggs', 'nuts', 'peanuts', 'soy', 'fish', 'shellfish', 'sesame']),
+    )
+    .optional(),
   restrictions: z.array(z.string()).optional(),
   excludedIngredients: z.array(z.string()).optional(),
   excludedIngredientIds: z.array(z.string()).optional(),

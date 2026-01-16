@@ -44,6 +44,7 @@ export default async function MemberPreferencesPage() {
           targetCarbs: preferences.targetCarbs,
           targetFat: preferences.targetFat,
           dietaryType: preferences.dietaryType,
+          allergens: preferences.allergens,
           restrictions: preferences.restrictions,
           excludedIngredients: preferences.excludedIngredients,
         }}
