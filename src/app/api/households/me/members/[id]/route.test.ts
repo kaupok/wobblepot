@@ -364,6 +364,45 @@ describe('PATCH /api/households/me/members/[id]', () => {
     expect(data.preferences.portionMultiplier).toBe(0.75)
     expect(data.preferences.allergens).toEqual(['dairy'])
   })
+
+  it('returns 400 when manual member tries to clear display name', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    mockFindFirst.mockResolvedValue({
+      id: 'member-123',
+      householdId: 'household-123',
+      userId: 'user-123',
+      role: 'owner',
+      household: { id: 'household-123', name: 'Test', preferences: null },
+    } as never)
+
+    // Manual member (no userId)
+    mockFindUnique.mockResolvedValue({
+      id: 'member-manual',
+      householdId: 'household-123',
+      userId: null,
+      name: 'Child Name',
+      role: 'member',
+    } as never)
+
+    const request = new Request('http://localhost', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        preferences: { displayName: '' }, // Empty string converts to null
+      }),
+    })
+
+    const response = await PATCH(request, {
+      params: Promise.resolve({ id: 'member-manual' }),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Display name is required for manual members')
+  })
 })
 
 describe('DELETE /api/households/me/members/[id]', () => {
