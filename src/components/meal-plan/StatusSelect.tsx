@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
-export type MealStatus = 'planned' | 'completed' | 'skipped' | 'eating_out' | 'leftovers'
+export type MealStatus = 'planned' | 'completed' | 'skipped'
 
 interface StatusConfig {
   label: string
@@ -32,16 +32,6 @@ const STATUS_CONFIG: Record<MealStatus, StatusConfig> = {
     label: 'Skipped',
     icon: '\u23ED\uFE0F',
     className: 'text-yellow-600 dark:text-yellow-400',
-  },
-  eating_out: {
-    label: 'Eating out',
-    icon: '\u{1F37D}\uFE0F',
-    className: 'text-blue-600 dark:text-blue-400',
-  },
-  leftovers: {
-    label: 'Leftovers',
-    icon: '\u{1F371}',
-    className: 'text-purple-600 dark:text-purple-400',
   },
 }
 
