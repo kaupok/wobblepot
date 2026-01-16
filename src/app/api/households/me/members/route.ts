@@ -9,7 +9,7 @@ const createManualMemberSchema = z.object({
   name: z.string().min(1).max(100),
   preferences: z
     .object({
-      displayName: z.string().min(1).max(50).optional(),
+      displayName: z.string().max(50).nullable().optional(),
       portionMultiplier: z.number().min(0.5).max(3.0).optional(),
       dietaryType: z.enum(['omnivore', 'vegetarian', 'vegan', 'pescatarian']).nullable().optional(),
       allergens: z
