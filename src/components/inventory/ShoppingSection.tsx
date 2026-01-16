@@ -25,6 +25,7 @@ interface ShoppingSectionProps {
   onItemPurchased?: (item: PantryItemData) => void
   onItemUnpurchased?: (ingredientId: string) => void
   externalUnpurchasedIds?: Set<string>
+  onExternalUnpurchaseProcessed?: () => void
 }
 
 export function ShoppingSection({
@@ -36,6 +37,7 @@ export function ShoppingSection({
   onItemPurchased,
   onItemUnpurchased,
   externalUnpurchasedIds,
+  onExternalUnpurchaseProcessed,
 }: ShoppingSectionProps) {
   const [purchasedIds, setPurchasedIds] = useState<Set<string>>(initialPurchasedIds)
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
@@ -49,7 +51,10 @@ export function ShoppingSection({
       externalUnpurchasedIds.forEach((id) => next.delete(id))
       return next
     })
-  }, [externalUnpurchasedIds])
+
+    // Clear the external set after processing to prevent stale reruns
+    onExternalUnpurchaseProcessed?.()
+  }, [externalUnpurchasedIds, onExternalUnpurchaseProcessed])
 
   const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0)
   const purchasedCount = purchasedIds.size

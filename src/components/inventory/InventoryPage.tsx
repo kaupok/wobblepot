@@ -82,6 +82,11 @@ export function InventoryPage({
     setRemovedIngredientIds((prev) => new Set(prev).add(ingredientId))
   }, [])
 
+  const handleExternalUnpurchaseProcessed = useCallback(() => {
+    // Clear the set after ShoppingSection has processed it
+    setRemovedIngredientIds(new Set())
+  }, [])
+
   return (
     <div className="container mx-auto max-w-6xl p-4">
       <div className="mb-4 flex items-center justify-between md:hidden">
@@ -120,6 +125,7 @@ export function InventoryPage({
               onItemPurchased={handleItemPurchased}
               onItemUnpurchased={handleItemUnpurchased}
               externalUnpurchasedIds={removedIngredientIds}
+              onExternalUnpurchaseProcessed={handleExternalUnpurchaseProcessed}
             />
           ) : null}
         </div>
