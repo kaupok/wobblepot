@@ -19,6 +19,7 @@ interface PantrySectionProps {
   newlyAddedIds?: Set<string>
   defaultOpen?: boolean
   collapsible?: boolean
+  onPantryItemRemoved?: (ingredientId: string) => void
 }
 
 export function PantrySection({
@@ -27,6 +28,7 @@ export function PantrySection({
   newlyAddedIds = new Set(),
   defaultOpen = true,
   collapsible = false,
+  onPantryItemRemoved,
 }: PantrySectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
 
@@ -70,6 +72,11 @@ export function PantrySection({
       }
 
       toast.success('Item removed from pantry')
+
+      // Notify parent so shopping list can uncheck this item
+      if (removedItem && onPantryItemRemoved) {
+        onPantryItemRemoved(removedItem.ingredient.id)
+      }
     } catch {
       if (removedItem) {
         onItemsChange((prev) => [...prev, removedItem])
