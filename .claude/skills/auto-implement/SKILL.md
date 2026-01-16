@@ -680,18 +680,30 @@ If any check fails, report and stop.
 
 ### 7.3 Merge the PR
 
-```bash
-gh pr merge --squash --delete-branch
-```
-
-### 7.4 Local cleanup
-
-**Detect environment:**
+**Detect environment first** (reuse from Phase 0):
 
 ```bash
 git rev-parse --git-common-dir
 git rev-parse --git-dir
 ```
+
+**Regular repo mode:**
+
+```bash
+gh pr merge --squash --delete-branch
+```
+
+**Worktree mode:**
+
+`gh pr merge --delete-branch` fails in worktrees because `gh` tries to checkout main internally, which conflicts with the parent worktree. Use without `--delete-branch`:
+
+```bash
+gh pr merge --squash
+```
+
+The remote branch is still deleted by GitHub. The local worktree branch is preserved (user cleans up worktree manually).
+
+### 7.4 Local cleanup
 
 **Regular repo mode:**
 
@@ -703,9 +715,7 @@ git branch -d [branch-name] || git branch -D [branch-name]
 
 **Worktree mode:**
 
-```bash
-git fetch origin main:main
-```
+Cannot fetch into main (already checked out in parent worktree). Skip local cleanup - the worktree will be removed by the user.
 
 ### 7.5 Report completion
 
