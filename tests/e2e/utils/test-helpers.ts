@@ -142,7 +142,7 @@ export async function signUpWithHousehold(
 // Meal Plan Helpers
 // ==========================================
 
-export type MealStatus = 'planned' | 'completed' | 'skipped' | 'eating_out' | 'leftovers'
+export type MealStatus = 'planned' | 'completed' | 'skipped'
 
 /**
  * Generates a meal plan from the empty state
@@ -196,8 +196,6 @@ export async function changeMealStatus(
     planned: 'Planned',
     completed: 'Completed',
     skipped: 'Skipped',
-    eating_out: 'Eating out',
-    leftovers: 'Leftovers',
   }
   await page.getByRole('option', { name: statusLabels[status] }).click()
 }

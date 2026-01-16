@@ -31,8 +31,6 @@ enum MealPlanEntryStatus {
   planned
   completed
   skipped
-  eating_out
-  leftovers
 }
 
 enum Unit {

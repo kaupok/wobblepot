@@ -558,7 +558,7 @@ describe('computeShoppingList', () => {
     expect(result[0]!.items[0]!.mealCount).toBe(2)
   })
 
-  it('only includes planned entries from today or future (excludes completed, skipped, eating_out, and past)', async () => {
+  it('only includes planned entries from today or future (excludes completed, skipped, and past)', async () => {
     // The mock will only return planned entries because the query filters by status and date
     mockFindManyEntries.mockResolvedValue([
       {

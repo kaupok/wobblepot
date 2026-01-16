@@ -7,7 +7,7 @@ import { prisma } from '@/lib/prisma'
 import { MealPlanEntryStatus } from '@/generated/prisma/enums'
 
 const updateEntrySchema = z.object({
-  status: z.enum(['planned', 'completed', 'skipped', 'eating_out', 'leftovers']).optional(),
+  status: z.enum(['planned', 'completed', 'skipped']).optional(),
   mealId: z.string().optional(),
 })
 

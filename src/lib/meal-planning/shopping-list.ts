@@ -118,7 +118,7 @@ export function groupByCategory(items: ShoppingListItem[]): GroupedShoppingList[
  * Compute what ingredients to buy based on meal plan minus pantry stock.
  *
  * Algorithm:
- * 1. Get all planned entries for the meal plan (excludes completed, skipped, eating_out)
+ * 1. Get all planned entries for the meal plan (excludes completed, skipped)
  *    Also excludes meals before today (past meals don't need shopping)
  * 2. Aggregate ingredient quantities across all planned meals
  * 3. Compare against pantry stock
