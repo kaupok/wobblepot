@@ -6,7 +6,12 @@ import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 
 const updatePreferencesSchema = z.object({
-  displayName: z.string().min(1).max(50).optional(),
+  displayName: z
+    .string()
+    .max(50)
+    .transform((v) => (v === '' ? null : v))
+    .nullable()
+    .optional(),
   portionMultiplier: z.number().min(0.5).max(3.0).optional(),
   targetCalories: z.number().int().min(500).max(5000).nullable().optional(),
   targetProtein: z.number().int().min(0).max(500).nullable().optional(),

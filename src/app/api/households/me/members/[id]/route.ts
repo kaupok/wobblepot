@@ -9,7 +9,12 @@ const updateMemberSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   preferences: z
     .object({
-      displayName: z.string().min(1).max(50).optional(),
+      displayName: z
+        .string()
+        .max(50)
+        .transform((v) => (v === '' ? null : v))
+        .nullable()
+        .optional(),
       portionMultiplier: z.number().min(0.5).max(3.0).optional(),
       dietaryType: z.enum(['omnivore', 'vegetarian', 'vegan', 'pescatarian']).nullable().optional(),
       allergens: z
@@ -142,6 +147,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   // Only allow updating name for manual members (those without userId)
   if (name !== undefined && member.userId !== null) {
     return NextResponse.json({ error: 'Cannot update name for linked members' }, { status: 400 })
+  }
+
+  // Manual members (no linked user) require a display name since there's no fallback
+  if (preferences?.displayName === null && member.userId === null) {
+    return NextResponse.json(
+      { error: 'Display name is required for manual members' },
+      { status: 400 },
+    )
   }
 
   const updatedMember = await prisma.$transaction(async (tx) => {
