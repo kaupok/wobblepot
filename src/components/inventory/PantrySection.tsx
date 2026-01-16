@@ -1,5 +1,6 @@
 'use client'
 
+import type { Dispatch, SetStateAction } from 'react'
 import { useState } from 'react'
 import { ChevronDown, Star, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -13,24 +14,27 @@ import { cn } from '@/lib/utils'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 
 interface PantrySectionProps {
-  initialItems: PantryItemData[]
+  items: PantryItemData[]
+  onItemsChange: Dispatch<SetStateAction<PantryItemData[]>>
+  newlyAddedIds?: Set<string>
   defaultOpen?: boolean
   collapsible?: boolean
 }
 
 export function PantrySection({
-  initialItems,
+  items,
+  onItemsChange,
+  newlyAddedIds = new Set(),
   defaultOpen = true,
   collapsible = false,
 }: PantrySectionProps) {
-  const [items, setItems] = useState<PantryItemData[]>(initialItems)
   const [isOpen, setIsOpen] = useState(defaultOpen)
 
   const staples = items.filter((item) => item.isStaple)
   const onHand = items.filter((item) => !item.isStaple)
 
   const handleToggleStaple = async (id: string, currentIsStaple: boolean) => {
-    setItems((prev) =>
+    onItemsChange((prev) =>
       prev.map((item) => (item.id === id ? { ...item, isStaple: !currentIsStaple } : item)),
     )
 
@@ -45,7 +49,7 @@ export function PantrySection({
         throw new Error('Failed to update item')
       }
     } catch {
-      setItems((prev) =>
+      onItemsChange((prev) =>
         prev.map((item) => (item.id === id ? { ...item, isStaple: currentIsStaple } : item)),
       )
       toast.error('Failed to update item')
@@ -54,7 +58,7 @@ export function PantrySection({
 
   const handleRemove = async (id: string) => {
     const removedItem = items.find((item) => item.id === id)
-    setItems((prev) => prev.filter((item) => item.id !== id))
+    onItemsChange((prev) => prev.filter((item) => item.id !== id))
 
     try {
       const response = await fetch(`/api/pantry/${id}`, {
@@ -68,14 +72,14 @@ export function PantrySection({
       toast.success('Item removed from pantry')
     } catch {
       if (removedItem) {
-        setItems((prev) => [...prev, removedItem])
+        onItemsChange((prev) => [...prev, removedItem])
       }
       toast.error('Failed to remove item')
     }
   }
 
   const handleItemAdded = (newItem: PantryItemData) => {
-    setItems((prev) => [...prev, newItem])
+    onItemsChange((prev) => [...prev, newItem])
     toast.success('Item added to pantry')
   }
 
@@ -106,6 +110,7 @@ export function PantrySection({
                   <PantryItemRow
                     key={item.id}
                     item={item}
+                    isNewlyAdded={newlyAddedIds.has(item.id)}
                     onToggleStaple={handleToggleStaple}
                     onRemove={handleRemove}
                   />
@@ -129,6 +134,7 @@ export function PantrySection({
                   <PantryItemRow
                     key={item.id}
                     item={item}
+                    isNewlyAdded={newlyAddedIds.has(item.id)}
                     onToggleStaple={handleToggleStaple}
                     onRemove={handleRemove}
                   />
@@ -208,11 +214,17 @@ export function PantrySection({
 
 interface PantryItemRowProps {
   item: PantryItemData
+  isNewlyAdded?: boolean
   onToggleStaple: (id: string, currentIsStaple: boolean) => Promise<void>
   onRemove: (id: string) => Promise<void>
 }
 
-function PantryItemRow({ item, onToggleStaple, onRemove }: PantryItemRowProps) {
+function PantryItemRow({
+  item,
+  isNewlyAdded = false,
+  onToggleStaple,
+  onRemove,
+}: PantryItemRowProps) {
   const [isToggling, setIsToggling] = useState(false)
   const [isRemoving, setIsRemoving] = useState(false)
   const [showRemoveDialog, setShowRemoveDialog] = useState(false)
@@ -237,7 +249,12 @@ function PantryItemRow({ item, onToggleStaple, onRemove }: PantryItemRowProps) {
   }
 
   return (
-    <div className="flex items-center justify-between rounded-lg border p-3">
+    <div
+      className={cn(
+        'flex items-center justify-between rounded-lg border p-3',
+        isNewlyAdded && 'animate-in fade-in slide-in-from-top-2 duration-300',
+      )}
+    >
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"

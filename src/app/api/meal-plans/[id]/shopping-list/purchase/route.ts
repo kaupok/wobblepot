@@ -17,7 +17,18 @@ const purchaseSchema = z
 type PurchaseResult = {
   ingredientId: string
   action: 'created' | 'updated'
-  pantryItemId: string
+  pantryItem: {
+    id: string
+    ingredient: {
+      id: string
+      name: string
+      category: string
+      defaultUnit: string
+    }
+    quantity: number | null
+    isStaple: boolean
+    updatedAt: string
+  }
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -122,13 +133,32 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         update: {
           // Touch updatedAt to mark as recently acquired
         },
-        select: { id: true },
+        select: {
+          id: true,
+          quantity: true,
+          isStaple: true,
+          updatedAt: true,
+          ingredient: {
+            select: {
+              id: true,
+              name: true,
+              category: true,
+              defaultUnit: true,
+            },
+          },
+        },
       })
 
       upsertResults.push({
         ingredientId,
         action,
-        pantryItemId: pantryItem.id,
+        pantryItem: {
+          id: pantryItem.id,
+          ingredient: pantryItem.ingredient,
+          quantity: pantryItem.quantity,
+          isStaple: pantryItem.isStaple,
+          updatedAt: pantryItem.updatedAt.toISOString(),
+        },
       })
     }
 

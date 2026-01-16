@@ -8,6 +8,7 @@ import { Heading, Body } from '@/components/ui/typography'
 import { CategoryGroup } from '@/components/shopping/CategoryGroup'
 import { ShoppingEmptyState } from './ShoppingEmptyState'
 import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
+import type { PantryItemData } from '@/components/pantry/PantryItem'
 
 interface ShoppingListGroup {
   category: IngredientCategory
@@ -21,6 +22,7 @@ interface ShoppingSectionProps {
   planEndDate: string
   groups: ShoppingListGroup[]
   initialPurchasedIds: Set<string>
+  onItemPurchased?: (item: PantryItemData) => void
 }
 
 export function ShoppingSection({
@@ -29,6 +31,7 @@ export function ShoppingSection({
   planEndDate,
   groups,
   initialPurchasedIds,
+  onItemPurchased,
 }: ShoppingSectionProps) {
   const [purchasedIds, setPurchasedIds] = useState<Set<string>>(initialPurchasedIds)
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
@@ -70,9 +73,15 @@ export function ShoppingSection({
         body: JSON.stringify({ ingredientId }),
       })
 
+      const data = await response.json().catch(() => ({}))
+
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}))
         throw new Error(data.error || 'Failed to update item')
+      }
+
+      // Notify parent about newly purchased item (for real-time pantry update)
+      if (purchased && onItemPurchased && data.results?.[0]?.pantryItem) {
+        onItemPurchased(data.results[0].pantryItem)
       }
     } catch (error) {
       setPurchasedIds((prev) => {

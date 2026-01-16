@@ -203,10 +203,22 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
     mockFindUniquePlan.mockResolvedValue(mockPlan as never)
     mockFindManyIngredient.mockResolvedValue([{ id: 'ing-1' }] as never)
     mockFindManyPantry.mockResolvedValue([])
+    const mockDate = new Date('2024-01-15T10:00:00Z')
     mockTransaction.mockImplementation(async (callback) => {
       const mockTx = {
         pantryItem: {
-          upsert: vi.fn().mockResolvedValue({ id: 'pantry-new' }),
+          upsert: vi.fn().mockResolvedValue({
+            id: 'pantry-new',
+            quantity: null,
+            isStaple: false,
+            updatedAt: mockDate,
+            ingredient: {
+              id: 'ing-1',
+              name: 'Test Ingredient',
+              category: 'PRODUCE',
+              defaultUnit: 'g',
+            },
+          }),
         },
       }
       return callback(mockTx as never)
@@ -223,7 +235,18 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
     expect(data.results[0]).toEqual({
       ingredientId: 'ing-1',
       action: 'created',
-      pantryItemId: 'pantry-new',
+      pantryItem: {
+        id: 'pantry-new',
+        quantity: null,
+        isStaple: false,
+        updatedAt: mockDate.toISOString(),
+        ingredient: {
+          id: 'ing-1',
+          name: 'Test Ingredient',
+          category: 'PRODUCE',
+          defaultUnit: 'g',
+        },
+      },
     })
   })
 
@@ -238,10 +261,22 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
     mockFindManyPantry.mockResolvedValue([
       { id: 'existing-pantry', ingredientId: 'ing-1' },
     ] as never)
+    const mockDate = new Date('2024-01-15T10:00:00Z')
     mockTransaction.mockImplementation(async (callback) => {
       const mockTx = {
         pantryItem: {
-          upsert: vi.fn().mockResolvedValue({ id: 'existing-pantry' }),
+          upsert: vi.fn().mockResolvedValue({
+            id: 'existing-pantry',
+            quantity: 500,
+            isStaple: true,
+            updatedAt: mockDate,
+            ingredient: {
+              id: 'ing-1',
+              name: 'Test Ingredient',
+              category: 'PRODUCE',
+              defaultUnit: 'g',
+            },
+          }),
         },
       }
       return callback(mockTx as never)
@@ -255,7 +290,7 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
     expect(response.status).toBe(200)
     expect(data.success).toBe(true)
     expect(data.results[0].action).toBe('updated')
-    expect(data.results[0].pantryItemId).toBe('existing-pantry')
+    expect(data.results[0].pantryItem.id).toBe('existing-pantry')
   })
 
   it('processes batch ingredientIds in transaction', async () => {
@@ -272,13 +307,26 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
     ] as never)
     mockFindManyPantry.mockResolvedValue([{ id: 'existing-1', ingredientId: 'ing-2' }] as never)
 
+    const mockDate = new Date('2024-01-15T10:00:00Z')
     let upsertCallCount = 0
+    const ingredientNames = ['Ingredient 1', 'Ingredient 2', 'Ingredient 3']
     mockTransaction.mockImplementation(async (callback) => {
       const mockTx = {
         pantryItem: {
           upsert: vi.fn().mockImplementation(() => {
             upsertCallCount++
-            return Promise.resolve({ id: `pantry-${upsertCallCount}` })
+            return Promise.resolve({
+              id: `pantry-${upsertCallCount}`,
+              quantity: null,
+              isStaple: false,
+              updatedAt: mockDate,
+              ingredient: {
+                id: `ing-${upsertCallCount}`,
+                name: ingredientNames[upsertCallCount - 1],
+                category: 'PRODUCE',
+                defaultUnit: 'g',
+              },
+            })
           }),
         },
       }
@@ -293,21 +341,15 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
     expect(response.status).toBe(200)
     expect(data.success).toBe(true)
     expect(data.results).toHaveLength(3)
-    expect(data.results[0]).toEqual({
-      ingredientId: 'ing-1',
-      action: 'created',
-      pantryItemId: 'pantry-1',
-    })
-    expect(data.results[1]).toEqual({
-      ingredientId: 'ing-2',
-      action: 'updated',
-      pantryItemId: 'pantry-2',
-    })
-    expect(data.results[2]).toEqual({
-      ingredientId: 'ing-3',
-      action: 'created',
-      pantryItemId: 'pantry-3',
-    })
+    expect(data.results[0].ingredientId).toBe('ing-1')
+    expect(data.results[0].action).toBe('created')
+    expect(data.results[0].pantryItem.id).toBe('pantry-1')
+    expect(data.results[1].ingredientId).toBe('ing-2')
+    expect(data.results[1].action).toBe('updated')
+    expect(data.results[1].pantryItem.id).toBe('pantry-2')
+    expect(data.results[2].ingredientId).toBe('ing-3')
+    expect(data.results[2].action).toBe('created')
+    expect(data.results[2].pantryItem.id).toBe('pantry-3')
   })
 
   it('returns 400 when some ingredients in batch do not exist', async () => {
