@@ -10,6 +10,7 @@ import { WeekTabs } from '@/components/meal-plan/WeekTabs'
 import type {
   MealPlanWithContext,
   PantryIngredient,
+  PantryItemFull,
   WeekContext,
 } from '@/components/meal-plan/types'
 
@@ -82,8 +83,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   // Parse pantry response
   let pantryIngredients: PantryIngredient[] = []
+  let pantryItems: PantryItemFull[] = []
   if (pantryResponse.ok) {
     const pantryData = await pantryResponse.json()
+    pantryItems = pantryData.items
     pantryIngredients = pantryData.items.map(
       (item: { ingredient: { id: string }; isStaple: boolean }) => ({
         ingredientId: item.ingredient.id,
@@ -151,6 +154,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             timezone={membership.household.timezone}
             isReadOnly={isReadOnly}
             pantryIngredients={pantryIngredients}
+            pantryItems={pantryItems}
           />
         ) : (
           <EmptyPlan weekContext={weekContext} />

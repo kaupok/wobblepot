@@ -7,7 +7,7 @@ import {
 } from '@/lib/meal-planning/dates'
 import { shouldEnforceBalanceConstraints } from '@/lib/meal-planning/slots'
 import { DayColumn } from './DayColumn'
-import type { MealPlan, PantryIngredient, PlanEntry, WeekContext } from './types'
+import type { MealPlan, PantryIngredient, PantryItemFull, PlanEntry, WeekContext } from './types'
 import type { MealType } from '@/generated/prisma/enums'
 
 const MEAL_TYPE_ORDER: Record<MealType, number> = {
@@ -23,6 +23,7 @@ interface WeekViewProps {
   timezone: string
   isReadOnly?: boolean
   pantryIngredients?: PantryIngredient[]
+  pantryItems?: PantryItemFull[]
 }
 
 export function WeekView({
@@ -32,6 +33,7 @@ export function WeekView({
   timezone,
   isReadOnly,
   pantryIngredients = [],
+  pantryItems = [],
 }: WeekViewProps) {
   const today = getTodayInTimezone(timezone)
 
@@ -90,6 +92,7 @@ export function WeekView({
             householdSize={householdSize}
             isReadOnly={isReadOnly}
             pantryIngredients={pantryIngredients}
+            pantryItems={pantryItems}
           />
         ))}
       </div>
