@@ -108,8 +108,19 @@ normalize_branch() {
 }
 
 # Get worktree path for a branch
+# First checks git worktree list for actual path, falls back to derived path
 get_worktree_path() {
   local branch="$1"
+
+  # Look up actual path from git worktree list (using -F for literal matching)
+  local actual_path=$(git -C "$REPO_ROOT" worktree list | grep -F "[$branch]" | awk '{print $1}')
+
+  if [ -n "$actual_path" ] && [[ "$actual_path" == "$WORKTREE_BASE"* ]]; then
+    echo "$actual_path"
+    return
+  fi
+
+  # Fall back to derived path (for new worktrees)
   local normalized=$(normalize_branch "$branch")
   echo "$WORKTREE_BASE/$normalized"
 }
