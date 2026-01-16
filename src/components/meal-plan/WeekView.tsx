@@ -2,7 +2,7 @@ import { Heading, Body } from '@/components/ui/typography'
 import { getTodayInTimezone } from '@/lib/meal-planning/dates'
 import { shouldEnforceBalanceConstraints } from '@/lib/meal-planning/slots'
 import { DayColumn } from './DayColumn'
-import type { MealPlan, PlanEntry, WeekContext } from './types'
+import type { MealPlan, PantryIngredient, PlanEntry, WeekContext } from './types'
 
 interface WeekViewProps {
   plan: MealPlan
@@ -10,6 +10,7 @@ interface WeekViewProps {
   weekContext: WeekContext
   timezone: string
   isReadOnly?: boolean
+  pantryIngredients?: PantryIngredient[]
 }
 
 export function WeekView({
@@ -18,6 +19,7 @@ export function WeekView({
   weekContext,
   timezone,
   isReadOnly,
+  pantryIngredients = [],
 }: WeekViewProps) {
   const today = getTodayInTimezone(timezone)
 
@@ -68,6 +70,7 @@ export function WeekView({
             isToday={date === today}
             householdSize={householdSize}
             isReadOnly={isReadOnly}
+            pantryIngredients={pantryIngredients}
           />
         ))}
       </div>

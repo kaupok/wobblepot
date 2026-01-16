@@ -2,7 +2,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { MealCard } from './MealCard'
 import { cn } from '@/lib/utils'
-import type { PlanEntry } from './types'
+import type { PantryIngredient, PlanEntry } from './types'
 
 interface DayColumnProps {
   date: string
@@ -11,6 +11,7 @@ interface DayColumnProps {
   isToday: boolean
   householdSize: number
   isReadOnly?: boolean
+  pantryIngredients?: PantryIngredient[]
 }
 
 function formatDayHeader(dateString: string): string {
@@ -27,6 +28,7 @@ export function DayColumn({
   isToday,
   householdSize,
   isReadOnly,
+  pantryIngredients = [],
 }: DayColumnProps) {
   return (
     <div
@@ -49,6 +51,7 @@ export function DayColumn({
             status={entry.status}
             householdSize={householdSize}
             isReadOnly={isReadOnly}
+            pantryIngredients={pantryIngredients}
           />
         ))}
         {entries.length === 0 && (
