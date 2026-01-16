@@ -11,6 +11,8 @@ import {
   getDaysRemaining,
   getRemainingWeekDates,
   getTodayInTimezone,
+  formatRelativeDate,
+  formatAbsoluteDate,
 } from './dates'
 
 describe('dates utilities', () => {
@@ -399,6 +401,76 @@ describe('dates utilities', () => {
       // 10:00 AM UTC on Jan 15 = 12:00 PM on Jan 15 in Tallinn (UTC+2)
       vi.setSystemTime(new Date('2025-01-15T10:00:00Z'))
       expect(getTodayInTimezone('Europe/Tallinn')).toBe('2025-01-15')
+    })
+  })
+
+  describe('formatRelativeDate', () => {
+    it('returns "Today" for same day', () => {
+      const today = new Date('2026-01-20')
+      const reference = new Date('2026-01-20')
+      expect(formatRelativeDate(today, reference)).toBe('Today')
+    })
+
+    it('returns "Tomorrow" for next day', () => {
+      const tomorrow = new Date('2026-01-21')
+      const reference = new Date('2026-01-20')
+      expect(formatRelativeDate(tomorrow, reference)).toBe('Tomorrow')
+    })
+
+    it('returns day name for dates 2-7 days away', () => {
+      const reference = new Date('2026-01-20') // Tuesday
+
+      // 2 days away (Thursday, Jan 22)
+      expect(formatRelativeDate(new Date('2026-01-22'), reference)).toBe('Thursday')
+      // 3 days away (Friday, Jan 23)
+      expect(formatRelativeDate(new Date('2026-01-23'), reference)).toBe('Friday')
+      // 7 days away (Tuesday, Jan 27)
+      expect(formatRelativeDate(new Date('2026-01-27'), reference)).toBe('Tuesday')
+    })
+
+    it('returns "In X days" for dates more than 7 days away', () => {
+      const reference = new Date('2026-01-20')
+      // 8 days away
+      expect(formatRelativeDate(new Date('2026-01-28'), reference)).toBe('In 8 days')
+      // 14 days away
+      expect(formatRelativeDate(new Date('2026-02-03'), reference)).toBe('In 14 days')
+    })
+
+    it('returns "Past" for dates in the past', () => {
+      const past = new Date('2026-01-18')
+      const reference = new Date('2026-01-20')
+      expect(formatRelativeDate(past, reference)).toBe('Past')
+    })
+
+    it('uses current date as reference when not provided', () => {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      expect(formatRelativeDate(tomorrow)).toBe('Tomorrow')
+    })
+
+    it('handles time differences within same day', () => {
+      // Both are Jan 20, regardless of time
+      const morning = new Date('2026-01-20T08:00:00')
+      const evening = new Date('2026-01-20T20:00:00')
+      expect(formatRelativeDate(evening, morning)).toBe('Today')
+    })
+  })
+
+  describe('formatAbsoluteDate', () => {
+    it('formats date as "Jan 20" style', () => {
+      const date = new Date('2026-01-20')
+      expect(formatAbsoluteDate(date)).toBe('Jan 20')
+    })
+
+    it('handles different months', () => {
+      expect(formatAbsoluteDate(new Date('2026-02-15'))).toBe('Feb 15')
+      expect(formatAbsoluteDate(new Date('2026-12-25'))).toBe('Dec 25')
+    })
+
+    it('handles single digit days', () => {
+      expect(formatAbsoluteDate(new Date('2026-03-05'))).toBe('Mar 5')
     })
   })
 })

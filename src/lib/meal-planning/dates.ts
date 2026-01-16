@@ -165,3 +165,57 @@ export function getRemainingWeekDates(startDate: Date): Date[] {
 
   return dates
 }
+
+/**
+ * Format a date as a relative string for display in shopping lists.
+ * - "Today" if same day
+ * - "Tomorrow" if next day
+ * - Day name ("Monday", "Tuesday", etc.) if within 7 days
+ * - "In X days" if beyond 7 days
+ *
+ * @param date - The date to format
+ * @param referenceDate - The date to compare against (defaults to today)
+ */
+export function formatRelativeDate(date: Date, referenceDate?: Date): string {
+  const today = referenceDate ?? new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const target = new Date(date)
+  target.setHours(0, 0, 0, 0)
+
+  const diffMs = target.getTime() - today.getTime()
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffDays === 0) {
+    return 'Today'
+  }
+  if (diffDays === 1) {
+    return 'Tomorrow'
+  }
+  if (diffDays > 1 && diffDays <= 7) {
+    const days = [
+      'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+    ] as const
+    return days[target.getDay()] as string
+  }
+  if (diffDays > 7) {
+    return `In ${diffDays} days`
+  }
+  // Past dates (shouldn't happen for shopping list but handle gracefully)
+  return 'Past'
+}
+
+/**
+ * Format a date as an absolute short date for tooltips (e.g., "Jan 20").
+ *
+ * @param date - The date to format
+ */
+export function formatAbsoluteDate(date: Date): string {
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}

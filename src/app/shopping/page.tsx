@@ -16,6 +16,9 @@ interface ShoppingListItem {
   displayQuantity: string
   mealCount: number
   purchased: boolean
+  neededByDate: string
+  neededByRelative: string
+  neededByAbsolute: string
 }
 
 interface ShoppingListGroup {
@@ -142,6 +145,9 @@ export default async function ShoppingPage() {
       name: item.name,
       displayQuantity: item.displayQuantity,
       purchased: item.purchased,
+      neededByDate: item.neededByDate,
+      neededByRelative: item.neededByRelative,
+      neededByAbsolute: item.neededByAbsolute,
     })),
   }))
 

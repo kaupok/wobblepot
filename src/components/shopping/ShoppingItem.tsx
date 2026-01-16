@@ -2,6 +2,7 @@
 
 import { Checkbox } from '@/components/ui/checkbox'
 import { Body } from '@/components/ui/typography'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 export interface ShoppingItemData {
@@ -9,6 +10,9 @@ export interface ShoppingItemData {
   name: string
   displayQuantity: string
   purchased: boolean
+  neededByDate: string
+  neededByRelative: string
+  neededByAbsolute: string
 }
 
 interface ShoppingItemProps {
@@ -49,12 +53,26 @@ export function ShoppingItem({ item, onToggle, disabled }: ShoppingItemProps) {
           {item.name}
         </Body>
       </div>
-      <Body
-        variant="muted"
-        className={cn('shrink-0', item.purchased && 'text-muted-foreground/60')}
-      >
-        {item.displayQuantity}
-      </Body>
+      <div className="flex shrink-0 items-center gap-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className={cn(
+                'text-xs',
+                item.purchased ? 'text-muted-foreground/60' : 'text-muted-foreground',
+              )}
+            >
+              {item.neededByRelative}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Needed by {item.neededByAbsolute}</p>
+          </TooltipContent>
+        </Tooltip>
+        <Body variant="muted" className={cn(item.purchased && 'text-muted-foreground/60')}>
+          {item.displayQuantity}
+        </Body>
+      </div>
     </label>
   )
 }
