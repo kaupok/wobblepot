@@ -12,19 +12,15 @@ import { RegenerateModal } from './RegenerateModal'
 import { AvailabilityIndicator, computeMealAvailability } from './AvailabilityIndicator'
 import type { MealData, PantryIngredient } from './types'
 import type { MealType } from '@/generated/prisma/enums'
-import { cn } from '@/lib/utils'
 
-const mealTypeStyles: Record<MealType, { border: string; label: string }> = {
+const mealTypeStyles: Record<MealType, { label: string }> = {
   breakfast: {
-    border: 'border-l-orange-400 dark:border-l-orange-500',
     label: 'Breakfast',
   },
   lunch: {
-    border: 'border-l-sky-400 dark:border-l-sky-500',
     label: 'Lunch',
   },
   dinner: {
-    border: 'border-l-violet-400 dark:border-l-violet-500',
     label: 'Dinner',
   },
 }
@@ -92,7 +88,7 @@ export function MealCard({
 
   if (!meal) {
     return (
-      <Card className={cn('border-l-4', typeStyle.border)}>
+      <Card>
         <CardContent className="flex items-center justify-center py-4">
           <Body variant="muted">No meal planned</Body>
         </CardContent>
@@ -102,7 +98,7 @@ export function MealCard({
 
   return (
     <>
-      <Card className={cn('border-l-4', typeStyle.border)}>
+      <Card>
         <CardHeader className="pb-1">
           <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
             {typeStyle.label}
