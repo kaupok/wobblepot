@@ -5,7 +5,6 @@ import { toast } from 'sonner'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useRouter } from 'next/navigation'
 import { StatusSelect, type MealStatus } from './StatusSelect'
 import { MealDetailModal } from './MealDetailModal'
@@ -109,16 +108,6 @@ export function MealCard({
         <CardContent className="flex flex-col gap-2 pb-2">
           <div className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
             {meal.timeMinutes && <span>{meal.timeMinutes} min</span>}
-            {meal.kidFriendly && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="cursor-default" aria-label="Kid-friendly">
-                    👶
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>Kid-friendly</TooltipContent>
-              </Tooltip>
-            )}
             {availability && !availability.isReady && (
               <AvailabilityIndicator availability={availability} />
             )}
