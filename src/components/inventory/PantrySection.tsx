@@ -9,7 +9,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Button } from '@/components/ui/button'
 import { Body, Heading } from '@/components/ui/typography'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { AddItemDialog } from '@/components/pantry/AddItemDialog'
+import { InlineAddItem } from '@/components/pantry/InlineAddItem'
 import { cn } from '@/lib/utils'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 
@@ -93,15 +93,19 @@ export function PantrySection({
   const content = (
     <>
       {items.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-dashed p-6 text-center">
-          <Body variant="muted">
-            Your pantry is empty. Add staples like olive oil, salt, and rice to exclude them from
-            shopping lists.
-          </Body>
-          <AddItemDialog onItemAdded={handleItemAdded} buttonLabel="Add staples" />
+        <div className="flex flex-col gap-4">
+          <InlineAddItem onItemAdded={handleItemAdded} />
+          <div className="rounded-lg border border-dashed p-6 text-center">
+            <Body variant="muted">
+              Your pantry is empty. Add staples like olive oil, salt, and rice to exclude them from
+              shopping lists.
+            </Body>
+          </div>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
+          <InlineAddItem onItemAdded={handleItemAdded} />
+
           {staples.length > 0 && (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
@@ -187,12 +191,7 @@ export function PantrySection({
             </CollapsibleTrigger>
           </CardHeader>
           <CollapsibleContent>
-            <CardContent className="pt-0">
-              <div className="mb-4 flex justify-end">
-                <AddItemDialog onItemAdded={handleItemAdded} />
-              </div>
-              {content}
-            </CardContent>
+            <CardContent className="pt-0">{content}</CardContent>
           </CollapsibleContent>
         </Collapsible>
       </Card>
@@ -202,17 +201,12 @@ export function PantrySection({
   return (
     <Card className="w-full">
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col gap-1">
-            <CardTitle>
-              <Heading variant="h2">Your pantry</Heading>
-            </CardTitle>
-            <CardDescription>
-              <Body variant="muted">Manage your household inventory</Body>
-            </CardDescription>
-          </div>
-          <AddItemDialog onItemAdded={handleItemAdded} />
-        </div>
+        <CardTitle>
+          <Heading variant="h2">Your pantry</Heading>
+        </CardTitle>
+        <CardDescription>
+          <Body variant="muted">Manage your household inventory</Body>
+        </CardDescription>
       </CardHeader>
       <CardContent>{content}</CardContent>
     </Card>
