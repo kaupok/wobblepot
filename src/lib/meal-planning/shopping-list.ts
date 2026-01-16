@@ -38,6 +38,7 @@ export interface ShoppingListItem {
   pantryQuantity: number | null // What's in pantry (null = have some)
   shoppingQuantity: number // What to buy (0 = don't need)
   mealCount: number // Number of meals using this ingredient
+  earliestNeededDate: Date // Earliest date this ingredient is needed
 }
 
 /**
@@ -62,6 +63,7 @@ interface NeededIngredient {
   }
   quantity: number
   mealCount: number
+  earliestNeededDate: Date
 }
 
 /**
@@ -77,6 +79,7 @@ async function getHouseholdSize(householdId: string): Promise<number> {
 
 /**
  * Group shopping list items by category and sort by configured order.
+ * Items within each category are sorted by earliest needed date.
  */
 export function groupByCategory(items: ShoppingListItem[]): GroupedShoppingList[] {
   // Group items by category
@@ -92,13 +95,15 @@ export function groupByCategory(items: ShoppingListItem[]): GroupedShoppingList[
     }
   }
 
-  // Convert to array and sort by category order
+  // Convert to array and sort items within each category by earliest needed date
   const result: GroupedShoppingList[] = []
   for (const [category, categoryItems] of grouped) {
     result.push({
       category,
       categoryLabel: categoryConfig[category].label,
-      items: categoryItems.sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name)),
+      items: categoryItems.sort(
+        (a, b) => a.earliestNeededDate.getTime() - b.earliestNeededDate.getTime(),
+      ),
     })
   }
 
@@ -176,11 +181,16 @@ export async function computeShoppingList(
       if (existing) {
         existing.quantity += qty
         existing.mealCount += 1
+        // Track earliest date this ingredient is needed
+        if (entry.date < existing.earliestNeededDate) {
+          existing.earliestNeededDate = entry.date
+        }
       } else {
         needed.set(ingredientId, {
           ingredient: component.ingredient,
           quantity: qty,
           mealCount: 1,
+          earliestNeededDate: entry.date,
         })
       }
     }
@@ -195,7 +205,10 @@ export async function computeShoppingList(
   // 5. Calculate shopping quantities
   const shoppingList: ShoppingListItem[] = []
 
-  for (const [ingredientId, { ingredient, quantity: neededQty, mealCount }] of needed) {
+  for (const [
+    ingredientId,
+    { ingredient, quantity: neededQty, mealCount, earliestNeededDate },
+  ] of needed) {
     const pantry = pantryMap.get(ingredientId)
 
     let shoppingQty: number
@@ -226,6 +239,7 @@ export async function computeShoppingList(
         pantryQuantity: pantry?.quantity ?? null,
         shoppingQuantity: shoppingQty,
         mealCount,
+        earliestNeededDate,
       })
     }
   }

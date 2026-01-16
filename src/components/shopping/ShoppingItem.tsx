@@ -2,6 +2,7 @@
 
 import { Checkbox } from '@/components/ui/checkbox'
 import { Body } from '@/components/ui/typography'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 export interface ShoppingItemData {
@@ -9,6 +10,9 @@ export interface ShoppingItemData {
   name: string
   displayQuantity: string
   purchased: boolean
+  neededByDate: string
+  neededByRelative: string
+  neededByAbsolute: string
 }
 
 interface ShoppingItemProps {
@@ -24,37 +28,53 @@ export function ShoppingItem({ item, onToggle, disabled }: ShoppingItemProps) {
   }
 
   return (
-    <label
-      className={cn(
-        'flex min-h-[44px] cursor-pointer items-center justify-between gap-3 rounded-lg border p-3 transition-colors',
-        'hover:bg-muted/50',
-        item.purchased && 'bg-muted/30',
-        disabled && 'pointer-events-none opacity-50',
-      )}
-    >
-      <div className="flex items-center gap-3">
-        <Checkbox
-          checked={item.purchased}
-          onCheckedChange={handleCheckedChange}
-          disabled={disabled}
-          className="h-5 w-5"
-          aria-label={`Mark ${item.name} as ${item.purchased ? 'not purchased' : 'purchased'}`}
-        />
-        <Body
-          className={cn(
-            'transition-colors',
-            item.purchased && 'text-muted-foreground line-through',
-          )}
-        >
-          {item.name}
-        </Body>
-      </div>
-      <Body
-        variant="muted"
-        className={cn('shrink-0', item.purchased && 'text-muted-foreground/60')}
+    <TooltipProvider>
+      <label
+        className={cn(
+          'flex min-h-[44px] cursor-pointer items-center justify-between gap-3 rounded-lg border p-3 transition-colors',
+          'hover:bg-muted/50',
+          item.purchased && 'bg-muted/30',
+          disabled && 'pointer-events-none opacity-50',
+        )}
       >
-        {item.displayQuantity}
-      </Body>
-    </label>
+        <div className="flex items-center gap-3">
+          <Checkbox
+            checked={item.purchased}
+            onCheckedChange={handleCheckedChange}
+            disabled={disabled}
+            className="h-5 w-5"
+            aria-label={`Mark ${item.name} as ${item.purchased ? 'not purchased' : 'purchased'}`}
+          />
+          <Body
+            className={cn(
+              'transition-colors',
+              item.purchased && 'text-muted-foreground line-through',
+            )}
+          >
+            {item.name}
+          </Body>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className={cn(
+                  'text-xs',
+                  item.purchased ? 'text-muted-foreground/60' : 'text-muted-foreground',
+                )}
+              >
+                {item.neededByRelative}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Needed by {item.neededByAbsolute}</p>
+            </TooltipContent>
+          </Tooltip>
+          <Body variant="muted" className={cn(item.purchased && 'text-muted-foreground/60')}>
+            {item.displayQuantity}
+          </Body>
+        </div>
+      </label>
+    </TooltipProvider>
   )
 }

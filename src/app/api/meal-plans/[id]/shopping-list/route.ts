@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { computeShoppingList } from '@/lib/meal-planning/shopping-list'
-import { toDateString } from '@/lib/meal-planning/dates'
+import { toDateString, formatRelativeDate, formatAbsoluteDate } from '@/lib/meal-planning/dates'
 import { Unit } from '@/generated/prisma/enums'
 
 /**
@@ -96,10 +96,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     let totalItems = 0
     let purchasedItems = 0
 
-    const groups = groupedList.map((group) => ({
-      category: group.category,
-      categoryLabel: group.categoryLabel,
-      items: group.items.map((item) => {
+    const groups = groupedList.map((group) => {
+      // Map items with purchase status and needed-by date
+      const mappedItems = group.items.map((item) => {
         const pantryItem = pantryMap.get(item.ingredientId)
         // Item is purchased if it exists in pantry and was updated after plan was created
         const purchased = pantryItem ? pantryItem.updatedAt >= plan.createdAt : false
@@ -119,9 +118,28 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           ),
           mealCount: item.mealCount,
           purchased,
+          neededByDate: toDateString(item.earliestNeededDate),
+          neededByRelative: formatRelativeDate(item.earliestNeededDate),
+          neededByAbsolute: formatAbsoluteDate(item.earliestNeededDate),
         }
-      }),
-    }))
+      })
+
+      // Sort items: unpurchased by date ASC, then purchased at bottom
+      mappedItems.sort((a, b) => {
+        // Purchased items go to bottom
+        if (a.purchased !== b.purchased) {
+          return a.purchased ? 1 : -1
+        }
+        // Within same purchase status, sort by date (earliest first)
+        return a.neededByDate.localeCompare(b.neededByDate)
+      })
+
+      return {
+        category: group.category,
+        categoryLabel: group.categoryLabel,
+        items: mappedItems,
+      }
+    })
 
     const response = {
       planId: plan.id,

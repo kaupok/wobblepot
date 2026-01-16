@@ -46,6 +46,7 @@ function createShoppingListItem(overrides: Partial<ShoppingListItem> = {}): Shop
     pantryQuantity: null,
     shoppingQuantity: 500,
     mealCount: 2,
+    earliestNeededDate: new Date('2026-01-20'),
     ...overrides,
   }
 }
@@ -115,24 +116,31 @@ describe('groupByCategory', () => {
     expect(result[2]!.category).toBe('spice')
   })
 
-  it('sorts items within a category alphabetically', () => {
+  it('sorts items within a category by earliest needed date', () => {
     const items: ShoppingListItem[] = [
       createShoppingListItem({
+        ingredientId: 'ing-1',
         ingredient: createIngredient({ id: 'ing-1', name: 'Zucchini', category: 'vegetable' }),
+        earliestNeededDate: new Date('2026-01-22'), // Latest
       }),
       createShoppingListItem({
+        ingredientId: 'ing-2',
         ingredient: createIngredient({ id: 'ing-2', name: 'Asparagus', category: 'vegetable' }),
+        earliestNeededDate: new Date('2026-01-20'), // Earliest
       }),
       createShoppingListItem({
+        ingredientId: 'ing-3',
         ingredient: createIngredient({ id: 'ing-3', name: 'Carrot', category: 'vegetable' }),
+        earliestNeededDate: new Date('2026-01-21'), // Middle
       }),
     ]
 
     const result = groupByCategory(items)
 
-    expect(result[0]!.items[0]!.ingredient.name).toBe('Asparagus')
-    expect(result[0]!.items[1]!.ingredient.name).toBe('Carrot')
-    expect(result[0]!.items[2]!.ingredient.name).toBe('Zucchini')
+    // Should be sorted by date, not alphabetically
+    expect(result[0]!.items[0]!.ingredient.name).toBe('Asparagus') // Jan 20
+    expect(result[0]!.items[1]!.ingredient.name).toBe('Carrot') // Jan 21
+    expect(result[0]!.items[2]!.ingredient.name).toBe('Zucchini') // Jan 22
   })
 
   it('includes correct category labels', () => {
@@ -690,5 +698,125 @@ describe('computeShoppingList', () => {
     // Should only include ingredients from the entry with a meal
     expect(result).toHaveLength(1)
     expect(result[0]!.items[0]!.neededQuantity).toBe(200)
+  })
+
+  it('tracks the earliest needed date for single-meal ingredients', async () => {
+    const mealDate = new Date('2026-01-22')
+    mockFindManyEntries.mockResolvedValue([
+      {
+        id: 'entry-1',
+        planId: 'plan-1',
+        mealId: 'meal-1',
+        date: mealDate,
+        mealType: 'dinner',
+        status: 'planned',
+        meal: {
+          id: 'meal-1',
+          name: 'Test Meal',
+          components: [
+            {
+              id: 'comp-1',
+              mealId: 'meal-1',
+              ingredientId: 'ing-1',
+              quantityPerServing: 100,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              ingredient: {
+                id: 'ing-1',
+                name: 'Chicken breast',
+                category: 'protein',
+                defaultUnit: 'g',
+                gramsPerPiece: null,
+              },
+            },
+          ],
+        },
+      },
+    ] as never)
+
+    mockCountMembers.mockResolvedValue(2)
+    mockFindManyPantry.mockResolvedValue([])
+
+    const result = await computeShoppingList('plan-1', 'household-1')
+
+    expect(result).toHaveLength(1)
+    expect(result[0]!.items[0]!.earliestNeededDate).toEqual(mealDate)
+  })
+
+  it('tracks the earliest needed date when ingredient appears in multiple meals', async () => {
+    const earlierDate = new Date('2026-01-20')
+    const laterDate = new Date('2026-01-25')
+
+    mockFindManyEntries.mockResolvedValue([
+      {
+        id: 'entry-1',
+        planId: 'plan-1',
+        mealId: 'meal-1',
+        date: laterDate, // Later meal
+        mealType: 'dinner',
+        status: 'planned',
+        meal: {
+          id: 'meal-1',
+          name: 'Chicken Stir Fry',
+          components: [
+            {
+              id: 'comp-1',
+              mealId: 'meal-1',
+              ingredientId: 'ing-chicken',
+              quantityPerServing: 150,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              ingredient: {
+                id: 'ing-chicken',
+                name: 'Chicken breast',
+                category: 'protein',
+                defaultUnit: 'g',
+                gramsPerPiece: null,
+              },
+            },
+          ],
+        },
+      },
+      {
+        id: 'entry-2',
+        planId: 'plan-1',
+        mealId: 'meal-2',
+        date: earlierDate, // Earlier meal
+        mealType: 'dinner',
+        status: 'planned',
+        meal: {
+          id: 'meal-2',
+          name: 'Chicken Salad',
+          components: [
+            {
+              id: 'comp-2',
+              mealId: 'meal-2',
+              ingredientId: 'ing-chicken',
+              quantityPerServing: 100,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              ingredient: {
+                id: 'ing-chicken',
+                name: 'Chicken breast',
+                category: 'protein',
+                defaultUnit: 'g',
+                gramsPerPiece: null,
+              },
+            },
+          ],
+        },
+      },
+    ] as never)
+
+    mockCountMembers.mockResolvedValue(2)
+    mockFindManyPantry.mockResolvedValue([])
+
+    const result = await computeShoppingList('plan-1', 'household-1')
+
+    expect(result).toHaveLength(1)
+    // Should use the earlier date
+    expect(result[0]!.items[0]!.earliestNeededDate).toEqual(earlierDate)
+    // Should aggregate quantities from both meals
+    expect(result[0]!.items[0]!.mealCount).toBe(2)
   })
 })
