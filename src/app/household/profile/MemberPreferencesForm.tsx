@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -23,11 +24,34 @@ import { cn } from '@/lib/utils'
 
 type DietaryType = 'omnivore' | 'vegetarian' | 'vegan' | 'pescatarian'
 
+type Allergen =
+  | 'gluten'
+  | 'dairy'
+  | 'eggs'
+  | 'nuts'
+  | 'peanuts'
+  | 'soy'
+  | 'fish'
+  | 'shellfish'
+  | 'sesame'
+
 const DIETARY_TYPES: { value: DietaryType; label: string }[] = [
   { value: 'omnivore', label: 'Omnivore' },
   { value: 'vegetarian', label: 'Vegetarian' },
   { value: 'vegan', label: 'Vegan' },
   { value: 'pescatarian', label: 'Pescatarian' },
+]
+
+const ALLERGENS: { value: Allergen; label: string }[] = [
+  { value: 'gluten', label: 'Gluten' },
+  { value: 'dairy', label: 'Dairy' },
+  { value: 'eggs', label: 'Eggs' },
+  { value: 'nuts', label: 'Tree nuts' },
+  { value: 'peanuts', label: 'Peanuts' },
+  { value: 'soy', label: 'Soy' },
+  { value: 'fish', label: 'Fish' },
+  { value: 'shellfish', label: 'Shellfish' },
+  { value: 'sesame', label: 'Sesame' },
 ]
 
 const PORTION_PRESETS = [
@@ -46,6 +70,7 @@ interface MemberPreferencesFormProps {
     targetCarbs: number | null
     targetFat: number | null
     dietaryType: DietaryType | null
+    allergens: Allergen[]
     restrictions: string[]
     excludedIngredients: string[]
   }
@@ -73,6 +98,7 @@ export function MemberPreferencesForm({
   const [dietaryType, setDietaryType] = useState<DietaryType | 'household'>(
     preferences.dietaryType ?? 'household',
   )
+  const [allergens, setAllergens] = useState<Allergen[]>(preferences.allergens)
   const [restrictions, setRestrictions] = useState<string[]>(preferences.restrictions)
   const [excludedIngredients, setExcludedIngredients] = useState<string[]>(
     preferences.excludedIngredients,
@@ -104,6 +130,7 @@ export function MemberPreferencesForm({
         targetCarbs,
         targetFat,
         dietaryType: dietaryType === 'household' ? null : dietaryType,
+        allergens,
         restrictions,
         excludedIngredients,
       }
@@ -139,6 +166,12 @@ export function MemberPreferencesForm({
     }
     setPortionError(null)
     setPortionMultiplier(Math.round(value * 100) / 100)
+  }
+
+  const toggleAllergen = (allergen: Allergen) => {
+    setAllergens((prev) =>
+      prev.includes(allergen) ? prev.filter((a) => a !== allergen) : [...prev, allergen],
+    )
   }
 
   return (
@@ -343,7 +376,28 @@ export function MemberPreferencesForm({
               </RadioGroup>
             </section>
 
-            {/* Section 5: Personal Restrictions */}
+            {/* Section 5: Allergens */}
+            <section className="flex flex-col gap-4">
+              <Heading variant="h4">Allergens</Heading>
+              <Body variant="muted">Select any food allergies</Body>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {ALLERGENS.map((allergen) => (
+                  <div key={allergen.value} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`allergen-${allergen.value}`}
+                      checked={allergens.includes(allergen.value)}
+                      onCheckedChange={() => toggleAllergen(allergen.value)}
+                      disabled={isLoading}
+                    />
+                    <Label htmlFor={`allergen-${allergen.value}`} className="font-normal">
+                      {allergen.label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Section 6: Personal Restrictions */}
             <section className="flex flex-col gap-4">
               <Heading variant="h4">Personal restrictions</Heading>
               <div className="flex flex-col gap-2">
@@ -359,7 +413,7 @@ export function MemberPreferencesForm({
               </div>
             </section>
 
-            {/* Section 6: Excluded Ingredients */}
+            {/* Section 7: Excluded Ingredients */}
             <section className="flex flex-col gap-4">
               <Heading variant="h4">Excluded ingredients</Heading>
               <div className="flex flex-col gap-2">

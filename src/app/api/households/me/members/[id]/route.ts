@@ -16,6 +16,10 @@ const updateMemberSchema = z.object({
         .nullable()
         .optional(),
       portionMultiplier: z.number().min(0.5).max(3.0).optional(),
+      targetCalories: z.number().int().min(500).max(5000).nullable().optional(),
+      targetProtein: z.number().int().min(0).max(500).nullable().optional(),
+      targetCarbs: z.number().int().min(0).max(500).nullable().optional(),
+      targetFat: z.number().int().min(0).max(500).nullable().optional(),
       dietaryType: z.enum(['omnivore', 'vegetarian', 'vegan', 'pescatarian']).nullable().optional(),
       allergens: z
         .array(
@@ -86,6 +90,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       ? {
           displayName: member.preferences.displayName,
           portionMultiplier: member.preferences.portionMultiplier,
+          targetCalories: member.preferences.targetCalories,
+          targetProtein: member.preferences.targetProtein,
+          targetCarbs: member.preferences.targetCarbs,
+          targetFat: member.preferences.targetFat,
           dietaryType: member.preferences.dietaryType,
           allergens: member.preferences.allergens,
           restrictions: member.preferences.restrictions,
@@ -174,6 +182,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           memberId,
           displayName: preferences.displayName,
           portionMultiplier: preferences.portionMultiplier,
+          targetCalories: preferences.targetCalories,
+          targetProtein: preferences.targetProtein,
+          targetCarbs: preferences.targetCarbs,
+          targetFat: preferences.targetFat,
           dietaryType: preferences.dietaryType,
           allergens: preferences.allergens,
           restrictions: preferences.restrictions,
@@ -183,6 +195,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         update: {
           displayName: preferences.displayName,
           portionMultiplier: preferences.portionMultiplier,
+          targetCalories: preferences.targetCalories,
+          targetProtein: preferences.targetProtein,
+          targetCarbs: preferences.targetCarbs,
+          targetFat: preferences.targetFat,
           dietaryType: preferences.dietaryType,
           allergens: preferences.allergens,
           restrictions: preferences.restrictions,
@@ -219,6 +235,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       ? {
           displayName: updatedMember!.preferences.displayName,
           portionMultiplier: updatedMember!.preferences.portionMultiplier,
+          targetCalories: updatedMember!.preferences.targetCalories,
+          targetProtein: updatedMember!.preferences.targetProtein,
+          targetCarbs: updatedMember!.preferences.targetCarbs,
+          targetFat: updatedMember!.preferences.targetFat,
           dietaryType: updatedMember!.preferences.dietaryType,
           allergens: updatedMember!.preferences.allergens,
           restrictions: updatedMember!.preferences.restrictions,

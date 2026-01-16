@@ -14,9 +14,15 @@ export type Allergen =
 export interface MemberPreferences {
   displayName: string | null
   portionMultiplier: number
+  targetCalories: number | null
+  targetProtein: number | null
+  targetCarbs: number | null
+  targetFat: number | null
   dietaryType: DietaryType | null
   allergens: Allergen[]
   restrictions: string[]
+  excludedIngredients: string[]
+  excludedIngredientIds: string[]
 }
 
 export interface MemberUser {

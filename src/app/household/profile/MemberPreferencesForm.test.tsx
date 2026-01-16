@@ -17,6 +17,17 @@ global.fetch = mockFetch
 
 type DietaryType = 'omnivore' | 'vegetarian' | 'vegan' | 'pescatarian'
 
+type Allergen =
+  | 'gluten'
+  | 'dairy'
+  | 'eggs'
+  | 'nuts'
+  | 'peanuts'
+  | 'soy'
+  | 'fish'
+  | 'shellfish'
+  | 'sesame'
+
 const defaultPreferences = {
   displayName: null as string | null,
   portionMultiplier: 1.0,
@@ -25,6 +36,7 @@ const defaultPreferences = {
   targetCarbs: null as number | null,
   targetFat: null as number | null,
   dietaryType: null as DietaryType | null,
+  allergens: [] as Allergen[],
   restrictions: [] as string[],
   excludedIngredients: [] as string[],
 }
@@ -274,6 +286,7 @@ describe('MemberPreferencesForm', () => {
               targetCarbs: null,
               targetFat: null,
               dietaryType: null,
+              allergens: [],
               restrictions: [],
               excludedIngredients: [],
             }),
