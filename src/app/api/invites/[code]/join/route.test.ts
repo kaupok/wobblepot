@@ -17,11 +17,11 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     householdMember: {
       findFirst: vi.fn(),
-      create: vi.fn(),
+      update: vi.fn(),
     },
     householdInvite: {
       findUnique: vi.fn(),
-      update: vi.fn(),
+      delete: vi.fn(),
     },
     $transaction: vi.fn(),
   },
@@ -104,11 +104,13 @@ describe('POST /api/invites/[code]/join', () => {
     mockInviteFindUnique.mockResolvedValue({
       id: 'invite-123',
       householdId: 'household-123',
+      memberId: 'member-456',
       code: 'abc123',
       expiresAt: new Date('2020-01-01'), // Expired
-      maxUses: 5,
+      maxUses: 1,
       usesCount: 0,
       household: { id: 'household-123', name: 'Smith Family' },
+      member: { id: 'member-456', name: 'Baby' },
     } as never)
 
     const response = await POST(createRequest(), { params: createParams('abc123') })
@@ -128,11 +130,13 @@ describe('POST /api/invites/[code]/join', () => {
     mockInviteFindUnique.mockResolvedValue({
       id: 'invite-123',
       householdId: 'household-123',
+      memberId: 'member-456',
       code: 'abc123',
       expiresAt: new Date('2030-01-01'), // Not expired
-      maxUses: 5,
-      usesCount: 5, // Max uses reached
+      maxUses: 1,
+      usesCount: 1, // Max uses reached
       household: { id: 'household-123', name: 'Smith Family' },
+      member: { id: 'member-456', name: 'Baby' },
     } as never)
 
     const response = await POST(createRequest(), { params: createParams('abc123') })
@@ -143,7 +147,7 @@ describe('POST /api/invites/[code]/join', () => {
     expect(data.message).toBe('This invite has expired or reached its maximum uses.')
   })
 
-  it('successfully joins household with valid invite', async () => {
+  it('returns 400 when invite has no member (invalid invite)', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John', email: 'john@example.com' },
       session: { id: 'session-123' },
@@ -152,11 +156,39 @@ describe('POST /api/invites/[code]/join', () => {
     mockInviteFindUnique.mockResolvedValue({
       id: 'invite-123',
       householdId: 'household-123',
+      memberId: null,
       code: 'abc123',
       expiresAt: new Date('2030-01-01'),
-      maxUses: 5,
-      usesCount: 2,
+      maxUses: 1,
+      usesCount: 0,
       household: { id: 'household-123', name: 'Smith Family' },
+      member: null,
+    } as never)
+
+    const response = await POST(createRequest(), { params: createParams('abc123') })
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('invite_invalid')
+    expect(data.message).toBe('This invite is no longer valid.')
+  })
+
+  it('successfully claims member profile with valid invite', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockMemberFindFirst.mockResolvedValue(null)
+    mockInviteFindUnique.mockResolvedValue({
+      id: 'invite-123',
+      householdId: 'household-123',
+      memberId: 'member-456',
+      code: 'abc123',
+      expiresAt: new Date('2030-01-01'),
+      maxUses: 1,
+      usesCount: 0,
+      household: { id: 'household-123', name: 'Smith Family' },
+      member: { id: 'member-456', name: 'Baby' },
     } as never)
     mockTransaction.mockResolvedValue([{}, {}])
 
@@ -167,32 +199,10 @@ describe('POST /api/invites/[code]/join', () => {
     expect(data.success).toBe(true)
     expect(data.household.id).toBe('household-123')
     expect(data.household.name).toBe('Smith Family')
+    expect(data.member.id).toBe('member-456')
+    expect(data.member.name).toBe('Baby')
 
-    // Verify transaction was called
+    // Verify transaction was called to update member and delete invite
     expect(mockTransaction).toHaveBeenCalledTimes(1)
-  })
-
-  it('works with unlimited uses invite (maxUses is null)', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockMemberFindFirst.mockResolvedValue(null)
-    mockInviteFindUnique.mockResolvedValue({
-      id: 'invite-123',
-      householdId: 'household-123',
-      code: 'abc123',
-      expiresAt: new Date('2030-01-01'),
-      maxUses: null, // Unlimited uses
-      usesCount: 100, // Already used 100 times
-      household: { id: 'household-123', name: 'Smith Family' },
-    } as never)
-    mockTransaction.mockResolvedValue([{}, {}])
-
-    const response = await POST(createRequest(), { params: createParams('abc123') })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.success).toBe(true)
   })
 })

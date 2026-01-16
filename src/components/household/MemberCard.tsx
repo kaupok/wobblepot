@@ -6,8 +6,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Body } from '@/components/ui/typography'
-import { Pencil, Trash2, User, Crown } from 'lucide-react'
-import type { Member, DietaryType } from '@/types/member'
+import { Pencil, Trash2, User, Crown, Mail } from 'lucide-react'
+import type { Member, DietaryType, MemberInvite } from '@/types/member'
 
 const ALLERGEN_LABELS: Record<string, string> = {
   gluten: 'Gluten',
@@ -32,11 +32,22 @@ interface MemberCardProps {
   member: Member
   canEdit: boolean
   canRemove: boolean
+  canInvite: boolean
   onEdit: (member: Member) => void
   onRemove: (memberId: string) => void
+  onInvite: (member: Member) => void
+  onInviteUpdated: (memberId: string, invite: MemberInvite) => void
 }
 
-export function MemberCard({ member, canEdit, canRemove, onEdit, onRemove }: MemberCardProps) {
+export function MemberCard({
+  member,
+  canEdit,
+  canRemove,
+  canInvite,
+  onEdit,
+  onRemove,
+  onInvite,
+}: MemberCardProps) {
   const [showRemoveDialog, setShowRemoveDialog] = useState(false)
   const [isRemoving, setIsRemoving] = useState(false)
 
@@ -88,9 +99,14 @@ export function MemberCard({ member, canEdit, canRemove, onEdit, onRemove }: Mem
                     Owner
                   </Badge>
                 )}
-                {isManual && (
+                {isManual && !member.invite?.isActive && (
                   <Badge variant="outline" className="text-xs">
                     Manual
+                  </Badge>
+                )}
+                {member.invite?.isActive && (
+                  <Badge variant="secondary" className="text-xs">
+                    Invite pending
                   </Badge>
                 )}
               </div>
@@ -102,6 +118,16 @@ export function MemberCard({ member, canEdit, canRemove, onEdit, onRemove }: Mem
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {canInvite && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onInvite(member)}
+                aria-label="Invite to join"
+              >
+                <Mail className="h-4 w-4" />
+              </Button>
+            )}
             {canEdit && (
               <Button
                 variant="ghost"

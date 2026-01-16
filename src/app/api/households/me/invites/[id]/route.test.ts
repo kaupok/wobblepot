@@ -129,9 +129,10 @@ describe('DELETE /api/households/me/invites/[id]', () => {
     mockInviteFindFirst.mockResolvedValue({
       id: 'invite-123',
       householdId: 'household-123',
+      memberId: 'member-456',
       code: 'abc123',
       expiresAt: new Date(),
-      maxUses: 5,
+      maxUses: 1,
       usesCount: 0,
       createdAt: new Date(),
     })

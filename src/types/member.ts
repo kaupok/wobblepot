@@ -26,6 +26,12 @@ export interface MemberUser {
   image: string | null
 }
 
+export interface MemberInvite {
+  url: string
+  expiresAt: string
+  isActive: boolean
+}
+
 export interface Member {
   id: string
   userId: string | null
@@ -34,4 +40,5 @@ export interface Member {
   joinedAt: string
   user: MemberUser | null
   preferences: MemberPreferences | null
+  invite: MemberInvite | null
 }

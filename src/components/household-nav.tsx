@@ -8,7 +8,6 @@ const HOUSEHOLD_TABS = [
   { href: '/household/household', label: 'Household' },
   { href: '/household/members', label: 'Members' },
   { href: '/household/profile', label: 'My preferences' },
-  { href: '/household/invites', label: 'Invites' },
 ]
 
 export function HouseholdNav() {

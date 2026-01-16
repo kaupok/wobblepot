@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
+import { getServerBaseURL } from '@/lib/env'
 
 const createManualMemberSchema = z.object({
   name: z.string().min(1).max(100),
@@ -61,29 +62,49 @@ export async function GET() {
         },
       },
       preferences: true,
+      invite: true,
     },
     orderBy: { joinedAt: 'asc' },
   })
 
+  const baseUrl = getServerBaseURL()
+  const now = new Date()
+
   return NextResponse.json({
     householdId: householdMembership.householdId,
-    members: members.map((member) => ({
-      id: member.id,
-      userId: member.userId,
-      name: member.name,
-      role: member.role,
-      joinedAt: member.joinedAt,
-      user: member.user,
-      preferences: member.preferences
-        ? {
-            displayName: member.preferences.displayName,
-            portionMultiplier: member.preferences.portionMultiplier,
-            dietaryType: member.preferences.dietaryType,
-            allergens: member.preferences.allergens,
-            restrictions: member.preferences.restrictions,
-          }
-        : null,
-    })),
+    members: members.map((member) => {
+      // Compute invite status
+      let invite = null
+      if (member.invite) {
+        const isExpired = member.invite.expiresAt < now
+        const isMaxedOut =
+          member.invite.maxUses !== null && member.invite.usesCount >= member.invite.maxUses
+        invite = {
+          url: `${baseUrl}/invite/${member.invite.code}`,
+          expiresAt: member.invite.expiresAt.toISOString(),
+          isActive: !isExpired && !isMaxedOut,
+        }
+      }
+
+      return {
+        id: member.id,
+        userId: member.userId,
+        name: member.name,
+        role: member.role,
+        joinedAt: member.joinedAt,
+        user: member.user,
+        preferences: member.preferences
+          ? {
+              displayName: member.preferences.displayName,
+              portionMultiplier: member.preferences.portionMultiplier,
+              dietaryType: member.preferences.dietaryType,
+              allergens: member.preferences.allergens,
+              restrictions: member.preferences.restrictions,
+            }
+          : null,
+        invite,
+      }
+    }),
   })
 }
 
@@ -173,6 +194,7 @@ export async function POST(request: Request) {
             restrictions: member!.preferences.restrictions,
           }
         : null,
+      invite: null,
     },
     { status: 201 },
   )

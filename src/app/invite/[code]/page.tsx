@@ -29,6 +29,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
         <JoinHouseholdCard
           status="already_member"
           householdName={existingMembership.household.name}
+          memberName={null}
           code={code}
         />
       </div>
@@ -40,6 +41,9 @@ export default async function InvitePage({ params }: InvitePageProps) {
     where: { code },
     include: {
       household: {
+        select: { name: true },
+      },
+      member: {
         select: { name: true },
       },
     },
@@ -57,14 +61,38 @@ export default async function InvitePage({ params }: InvitePageProps) {
   if (isExpired || isMaxedOut) {
     return (
       <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
-        <JoinHouseholdCard status="invalid" householdName={invite.household.name} code={code} />
+        <JoinHouseholdCard
+          status="invalid"
+          householdName={invite.household.name}
+          memberName={invite.member?.name ?? null}
+          code={code}
+        />
+      </div>
+    )
+  }
+
+  // Member-specific invites require a member
+  if (!invite.member) {
+    return (
+      <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
+        <JoinHouseholdCard
+          status="invalid"
+          householdName={invite.household.name}
+          memberName={null}
+          code={code}
+        />
       </div>
     )
   }
 
   return (
     <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
-      <JoinHouseholdCard status="valid" householdName={invite.household.name} code={code} />
+      <JoinHouseholdCard
+        status="valid"
+        householdName={invite.household.name}
+        memberName={invite.member.name}
+        code={code}
+      />
     </div>
   )
 }
