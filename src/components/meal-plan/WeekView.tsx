@@ -1,5 +1,10 @@
 import { Heading, Body } from '@/components/ui/typography'
-import { getTodayInTimezone } from '@/lib/meal-planning/dates'
+import {
+  getTodayInTimezone,
+  getWeekDates,
+  parseLocalDate,
+  toDateString,
+} from '@/lib/meal-planning/dates'
 import { shouldEnforceBalanceConstraints } from '@/lib/meal-planning/slots'
 import { DayColumn } from './DayColumn'
 import type { MealPlan, PantryIngredient, PlanEntry, WeekContext } from './types'
@@ -30,12 +35,13 @@ export function WeekView({
 }: WeekViewProps) {
   const today = getTodayInTimezone(timezone)
 
-  // Get unique dates from plan entries (handles partial weeks correctly)
-  const entryDates = [...new Set(plan.entries.map((e) => e.date))].sort()
+  // Always generate all 7 days of the week (Mon-Sun) for consistent layout
+  const startDate = parseLocalDate(plan.startDate)
+  const weekDates = getWeekDates(startDate).map(toDateString)
 
-  // Group entries by date
+  // Group entries by date - days without entries will have empty arrays
   const entriesByDate = new Map<string, PlanEntry[]>()
-  for (const date of entryDates) {
+  for (const date of weekDates) {
     entriesByDate.set(date, [])
   }
   for (const entry of plan.entries) {
@@ -73,7 +79,7 @@ export function WeekView({
         )}
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
-        {entryDates.map((date) => (
+        {weekDates.map((date) => (
           <DayColumn
             key={date}
             date={date}
