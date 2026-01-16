@@ -9,6 +9,7 @@ import { MealPlanEntryStatus } from '@/generated/prisma/enums'
 const updateEntrySchema = z.object({
   status: z.enum(['planned', 'completed', 'skipped']).optional(),
   mealId: z.string().optional(),
+  deductPantry: z.boolean().optional(),
 })
 
 export async function PATCH(
@@ -53,7 +54,7 @@ export async function PATCH(
 
   try {
     // Verify entry exists, belongs to the plan, and plan belongs to user's household
-    // Single atomic query eliminates race conditions between separate verification steps
+    // Include meal components for pantry deduction
     const entry = await prisma.mealPlanEntry.findFirst({
       where: {
         id: entryId,
@@ -64,8 +65,28 @@ export async function PATCH(
       },
       select: {
         id: true,
+        mealId: true,
         plan: {
-          select: { endDate: true },
+          select: {
+            endDate: true,
+            household: {
+              select: {
+                members: {
+                  select: { id: true },
+                },
+              },
+            },
+          },
+        },
+        meal: {
+          select: {
+            components: {
+              select: {
+                ingredientId: true,
+                quantityPerServing: true,
+              },
+            },
+          },
         },
       },
     })
@@ -107,7 +128,88 @@ export async function PATCH(
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
     }
 
-    // Update entry
+    // Handle pantry deduction when marking as completed
+    const shouldDeductPantry =
+      parsed.data.deductPantry === true &&
+      parsed.data.status === 'completed' &&
+      entry.meal?.components.length
+
+    if (shouldDeductPantry) {
+      const householdSize = entry.plan.household.members.length
+      const components = entry.meal!.components
+
+      // Fetch pantry items for the household
+      const pantryItems = await prisma.pantryItem.findMany({
+        where: {
+          householdId: household.id,
+          ingredientId: { in: components.map((c) => c.ingredientId) },
+        },
+      })
+
+      const pantryMap = new Map(pantryItems.map((item) => [item.ingredientId, item]))
+
+      // Prepare deduction operations
+      const itemsToDelete: string[] = []
+      const itemsToUpdate: { id: string; newQuantity: number }[] = []
+
+      for (const component of components) {
+        const pantryItem = pantryMap.get(component.ingredientId)
+
+        // Skip if not in pantry or is a staple
+        if (!pantryItem || pantryItem.isStaple) continue
+
+        const deductionAmount = component.quantityPerServing * householdSize
+
+        // If quantity is null, remove from pantry (treat as fully consumed)
+        if (pantryItem.quantity === null) {
+          itemsToDelete.push(pantryItem.id)
+          continue
+        }
+
+        const newQuantity = pantryItem.quantity - deductionAmount
+
+        if (newQuantity <= 0) {
+          // Remove item if depleted
+          itemsToDelete.push(pantryItem.id)
+        } else {
+          // Update with new quantity
+          itemsToUpdate.push({ id: pantryItem.id, newQuantity })
+        }
+      }
+
+      // Execute all operations in a transaction
+      await prisma.$transaction([
+        // Update the entry status
+        prisma.mealPlanEntry.update({
+          where: { id: entryId },
+          data: updateData,
+        }),
+        // Delete depleted items
+        ...(itemsToDelete.length > 0
+          ? [
+              prisma.pantryItem.deleteMany({
+                where: { id: { in: itemsToDelete } },
+              }),
+            ]
+          : []),
+        // Update quantities
+        ...itemsToUpdate.map((item) =>
+          prisma.pantryItem.update({
+            where: { id: item.id },
+            data: { quantity: item.newQuantity },
+          }),
+        ),
+      ])
+
+      return NextResponse.json({
+        id: entryId,
+        status: updateData.status,
+        mealId: updateData.mealId ?? entry.mealId,
+        pantryDeducted: true,
+      })
+    }
+
+    // Standard update without pantry deduction
     const updatedEntry = await prisma.mealPlanEntry.update({
       where: { id: entryId },
       data: updateData,

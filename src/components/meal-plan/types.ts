@@ -75,3 +75,26 @@ export interface PantryIngredient {
   ingredientId: string
   isStaple: boolean
 }
+
+export interface PantryItemFull {
+  id: string
+  ingredientId: string
+  quantity: number | null
+  isStaple: boolean
+  ingredient: {
+    id: string
+    name: string
+    category: string
+    defaultUnit: 'g' | 'piece'
+  }
+}
+
+export interface PantryDeductionItem {
+  ingredientId: string
+  ingredientName: string
+  unit: 'g' | 'piece'
+  currentQuantity: number | null
+  deductionAmount: number
+  newQuantity: number | null // null means "will be removed"
+  willBeRemoved: boolean
+}

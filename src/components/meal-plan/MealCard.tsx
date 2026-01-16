@@ -9,8 +9,9 @@ import { useRouter } from 'next/navigation'
 import { StatusSelect, type MealStatus } from './StatusSelect'
 import { MealDetailModal } from './MealDetailModal'
 import { RegenerateModal } from './RegenerateModal'
+import { PantryDeductionModal } from './PantryDeductionModal'
 import { AvailabilityIndicator, computeMealAvailability } from './AvailabilityIndicator'
-import type { MealData, PantryIngredient } from './types'
+import type { MealData, PantryIngredient, PantryItemFull } from './types'
 import type { MealType } from '@/generated/prisma/enums'
 
 const mealTypeStyles: Record<MealType, { label: string }> = {
@@ -35,6 +36,7 @@ interface MealCardProps {
   isReadOnly?: boolean
   isPast?: boolean
   pantryIngredients?: PantryIngredient[]
+  pantryItems?: PantryItemFull[]
 }
 
 export function MealCard({
@@ -47,19 +49,21 @@ export function MealCard({
   isReadOnly,
   isPast,
   pantryIngredients = [],
+  pantryItems = [],
 }: MealCardProps) {
   const router = useRouter()
   const [status, setStatus] = useState<MealStatus>(initialStatus)
   const [isUpdating, setIsUpdating] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
+  const [isDeductionModalOpen, setIsDeductionModalOpen] = useState(false)
 
   const availability = useMemo(() => {
     if (!meal) return null
     return computeMealAvailability(meal, pantryIngredients)
   }, [meal, pantryIngredients])
 
-  async function handleStatusChange(newStatus: MealStatus) {
+  async function updateStatus(newStatus: MealStatus, deductPantry: boolean = false) {
     const previousStatus = status
     // Optimistic update
     setStatus(newStatus)
@@ -69,20 +73,43 @@ export function MealCard({
       const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, deductPantry }),
       })
 
       if (!response.ok) {
         // Revert on error
         setStatus(previousStatus)
         toast.error('Failed to update status. Please try again.')
+        return false
       }
+      return true
     } catch {
       // Revert on error
       setStatus(previousStatus)
       toast.error('Failed to update status. Please try again.')
+      return false
     } finally {
       setIsUpdating(false)
+    }
+  }
+
+  function handleStatusChange(newStatus: MealStatus) {
+    // Intercept "completed" status to show deduction modal
+    if (newStatus === 'completed' && meal) {
+      setIsDeductionModalOpen(true)
+      return
+    }
+
+    // For other statuses, update directly
+    updateStatus(newStatus)
+  }
+
+  async function handleDeductionConfirm() {
+    const success = await updateStatus('completed', true)
+    if (success) {
+      setIsDeductionModalOpen(false)
+      // Refresh to update pantry data
+      router.refresh()
     }
   }
 
@@ -148,6 +175,16 @@ export function MealCard({
         householdSize={householdSize}
         currentMealName={meal?.name}
         onSwapComplete={() => router.refresh()}
+      />
+      <PantryDeductionModal
+        open={isDeductionModalOpen}
+        onOpenChange={setIsDeductionModalOpen}
+        mealName={meal.name}
+        components={meal.components}
+        householdSize={householdSize}
+        pantryItems={pantryItems}
+        onConfirm={handleDeductionConfirm}
+        isLoading={isUpdating}
       />
     </>
   )
