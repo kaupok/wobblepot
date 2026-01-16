@@ -18,12 +18,22 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
+// Mock dates module to control "today" in tests
+vi.mock('./dates', () => ({
+  getStartOfTodayInTimezone: vi.fn(),
+}))
+
 // Import mocked prisma for test setup
 import { prisma } from '@/lib/prisma'
+import { getStartOfTodayInTimezone } from './dates'
 
 const mockFindManyEntries = vi.mocked(prisma.mealPlanEntry.findMany)
 const mockCountMembers = vi.mocked(prisma.householdMember.count)
 const mockFindManyPantry = vi.mocked(prisma.pantryItem.findMany)
+const mockGetStartOfToday = vi.mocked(getStartOfTodayInTimezone)
+
+// Test timezone constant
+const TEST_TIMEZONE = 'Europe/Tallinn'
 
 // Helper to create ingredient data
 function createIngredient(overrides: Partial<ShoppingListItem['ingredient']> = {}) {
@@ -164,6 +174,8 @@ describe('groupByCategory', () => {
 describe('computeShoppingList', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Default: set "today" to a fixed date for consistent testing
+    mockGetStartOfToday.mockReturnValue(new Date('2026-01-20'))
   })
 
   it('returns full amount for ingredients not in pantry', async () => {
@@ -202,7 +214,7 @@ describe('computeShoppingList', () => {
     mockCountMembers.mockResolvedValue(2)
     mockFindManyPantry.mockResolvedValue([])
 
-    const result = await computeShoppingList('plan-1', 'household-1')
+    const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
 
     expect(result).toHaveLength(1)
     expect(result[0]!.items[0]!.shoppingQuantity).toBe(300) // 150g * 2 people
@@ -256,7 +268,7 @@ describe('computeShoppingList', () => {
       },
     ])
 
-    const result = await computeShoppingList('plan-1', 'household-1')
+    const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
 
     expect(result).toHaveLength(0)
   })
@@ -307,7 +319,7 @@ describe('computeShoppingList', () => {
       },
     ])
 
-    const result = await computeShoppingList('plan-1', 'household-1')
+    const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
 
     expect(result).toHaveLength(0)
   })
@@ -358,7 +370,7 @@ describe('computeShoppingList', () => {
       },
     ])
 
-    const result = await computeShoppingList('plan-1', 'household-1')
+    const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
 
     expect(result).toHaveLength(1)
     expect(result[0]!.items[0]!.shoppingQuantity).toBe(4) // 2 * 2 people
@@ -411,7 +423,7 @@ describe('computeShoppingList', () => {
       },
     ])
 
-    const result = await computeShoppingList('plan-1', 'household-1')
+    const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
 
     expect(result).toHaveLength(1)
     // Need 400g (200 * 2), have 100g, so need 300g
@@ -466,7 +478,7 @@ describe('computeShoppingList', () => {
       },
     ])
 
-    const result = await computeShoppingList('plan-1', 'household-1')
+    const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
 
     // Need 100g, have 1000g - nothing to buy
     expect(result).toHaveLength(0)
@@ -537,7 +549,7 @@ describe('computeShoppingList', () => {
     mockCountMembers.mockResolvedValue(2)
     mockFindManyPantry.mockResolvedValue([])
 
-    const result = await computeShoppingList('plan-1', 'household-1')
+    const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
 
     expect(result).toHaveLength(1)
     // (150 + 200) * 2 = 700g
@@ -546,14 +558,14 @@ describe('computeShoppingList', () => {
     expect(result[0]!.items[0]!.mealCount).toBe(2)
   })
 
-  it('only includes planned entries (excludes completed, skipped, eating_out)', async () => {
-    // The mock will only return planned entries because the query filters by status
+  it('only includes planned entries from today or future (excludes completed, skipped, eating_out, and past)', async () => {
+    // The mock will only return planned entries because the query filters by status and date
     mockFindManyEntries.mockResolvedValue([
       {
         id: 'entry-1',
         planId: 'plan-1',
         mealId: 'meal-1',
-        date: new Date(),
+        date: new Date('2026-01-20'), // Today
         mealType: 'dinner',
         status: 'planned',
         meal: {
@@ -583,14 +595,17 @@ describe('computeShoppingList', () => {
     mockCountMembers.mockResolvedValue(2)
     mockFindManyPantry.mockResolvedValue([])
 
-    await computeShoppingList('plan-1', 'household-1')
+    await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
 
-    // Verify the query filtered by planned status
+    // Verify the query filtered by planned status AND date >= today
     expect(mockFindManyEntries).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           planId: 'plan-1',
           status: 'planned',
+          date: {
+            gte: new Date('2026-01-20'),
+          },
         },
       }),
     )
@@ -601,7 +616,7 @@ describe('computeShoppingList', () => {
     mockCountMembers.mockResolvedValue(2)
     mockFindManyPantry.mockResolvedValue([])
 
-    const result = await computeShoppingList('plan-1', 'household-1')
+    const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
 
     expect(result).toHaveLength(0)
   })
@@ -642,7 +657,7 @@ describe('computeShoppingList', () => {
     mockCountMembers.mockResolvedValue(0) // No members
     mockFindManyPantry.mockResolvedValue([])
 
-    const result = await computeShoppingList('plan-1', 'household-1')
+    const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
 
     // Default size is 2, so 100 * 2 = 200g
     expect(result[0]!.items[0]!.neededQuantity).toBe(200)
@@ -693,7 +708,7 @@ describe('computeShoppingList', () => {
     mockCountMembers.mockResolvedValue(2)
     mockFindManyPantry.mockResolvedValue([])
 
-    const result = await computeShoppingList('plan-1', 'household-1')
+    const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
 
     // Should only include ingredients from the entry with a meal
     expect(result).toHaveLength(1)
@@ -737,7 +752,7 @@ describe('computeShoppingList', () => {
     mockCountMembers.mockResolvedValue(2)
     mockFindManyPantry.mockResolvedValue([])
 
-    const result = await computeShoppingList('plan-1', 'household-1')
+    const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
 
     expect(result).toHaveLength(1)
     expect(result[0]!.items[0]!.earliestNeededDate).toEqual(mealDate)
@@ -811,12 +826,22 @@ describe('computeShoppingList', () => {
     mockCountMembers.mockResolvedValue(2)
     mockFindManyPantry.mockResolvedValue([])
 
-    const result = await computeShoppingList('plan-1', 'household-1')
+    const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
 
     expect(result).toHaveLength(1)
     // Should use the earlier date
     expect(result[0]!.items[0]!.earliestNeededDate).toEqual(earlierDate)
     // Should aggregate quantities from both meals
     expect(result[0]!.items[0]!.mealCount).toBe(2)
+  })
+
+  it('passes the timezone to getStartOfTodayInTimezone', async () => {
+    mockFindManyEntries.mockResolvedValue([])
+    mockCountMembers.mockResolvedValue(2)
+    mockFindManyPantry.mockResolvedValue([])
+
+    await computeShoppingList('plan-1', 'household-1', 'America/New_York')
+
+    expect(mockGetStartOfToday).toHaveBeenCalledWith('America/New_York')
   })
 })

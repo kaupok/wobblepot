@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { IngredientCategory, Unit } from '@/generated/prisma/enums'
+import { getStartOfTodayInTimezone } from './dates'
 
 /**
  * Category configuration for shopping list grouping.
@@ -118,6 +119,7 @@ export function groupByCategory(items: ShoppingListItem[]): GroupedShoppingList[
  *
  * Algorithm:
  * 1. Get all planned entries for the meal plan (excludes completed, skipped, eating_out)
+ *    Also excludes meals before today (past meals don't need shopping)
  * 2. Aggregate ingredient quantities across all planned meals
  * 3. Compare against pantry stock
  * 4. Return grouped list of items to buy
@@ -130,17 +132,25 @@ export function groupByCategory(items: ShoppingListItem[]): GroupedShoppingList[
  *
  * @param planId - The meal plan ID
  * @param householdId - The household ID for pantry lookup
+ * @param householdTimezone - IANA timezone string for determining "today"
  * @returns Grouped shopping list sorted by category
  */
 export async function computeShoppingList(
   planId: string,
   householdId: string,
+  householdTimezone: string,
 ): Promise<GroupedShoppingList[]> {
-  // 1. Get all entries for plan (only PLANNED status)
+  // Get start of today in household timezone to filter out past meals
+  const startOfToday = getStartOfTodayInTimezone(householdTimezone)
+
+  // 1. Get all entries for plan (only PLANNED status, today or future)
   const planEntries = await prisma.mealPlanEntry.findMany({
     where: {
       planId,
       status: 'planned',
+      date: {
+        gte: startOfToday,
+      },
     },
     include: {
       meal: {

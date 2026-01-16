@@ -80,7 +80,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 
     // Compute shopping list using HON-64 logic
-    const groupedList = await computeShoppingList(plan.id, household.id)
+    // Pass timezone to filter out past meals (users don't need ingredients for missed meals)
+    const groupedList = await computeShoppingList(plan.id, household.id, household.timezone)
 
     // Fetch pantry items for purchase tracking
     const pantryItems = await prisma.pantryItem.findMany({
