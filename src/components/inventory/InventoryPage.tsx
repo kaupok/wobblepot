@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { Button } from '@/components/ui/button'
@@ -36,6 +37,7 @@ export function InventoryPage({
   shoppingData,
   emptyStateVariant,
 }: InventoryPageProps) {
+  const router = useRouter()
   const [isMobile, setIsMobile] = useState(false)
   const [pantryItems, setPantryItems] = useState<PantryItemData[]>(initialPantryItems)
   const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(new Set())
@@ -77,10 +79,15 @@ export function InventoryPage({
     setPantryItems((prev) => prev.filter((item) => item.ingredient.id !== ingredientId))
   }, [])
 
-  const handlePantryItemRemoved = useCallback((ingredientId: string) => {
-    // Add to removed set to trigger shopping list update
-    setRemovedIngredientIds((prev) => new Set(prev).add(ingredientId))
-  }, [])
+  const handlePantryItemRemoved = useCallback(
+    (ingredientId: string) => {
+      // Add to removed set to trigger shopping list update (for visual uncheck)
+      setRemovedIngredientIds((prev) => new Set(prev).add(ingredientId))
+      // Refresh the page data to recompute shopping list (item may now be needed)
+      router.refresh()
+    },
+    [router],
+  )
 
   const handleExternalUnpurchaseProcessed = useCallback(() => {
     // Clear the set after ShoppingSection has processed it
