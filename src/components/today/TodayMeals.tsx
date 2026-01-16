@@ -22,7 +22,8 @@ export function TodayMeals({
   pantryIngredients,
   pantryItems,
 }: TodayMealsProps) {
-  if (entries.length === 0) {
+  // Show empty state if no entries or no plan
+  if (entries.length === 0 || !planId) {
     return (
       <Card>
         <CardHeader>
@@ -51,7 +52,7 @@ export function TodayMeals({
             <MealCard
               key={entry.id}
               entryId={entry.id}
-              planId={planId!}
+              planId={planId}
               meal={entry.meal}
               mealType={entry.mealType}
               status={entry.status}
