@@ -3,8 +3,16 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { User } from 'lucide-react'
 import { authClient } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { ThemeToggle } from '@/components/theme-toggle'
 import type { Session } from '@/lib/auth'
 
@@ -42,11 +50,25 @@ export function HeaderActions({ session }: HeaderActionsProps) {
   }
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="hidden items-center gap-4 md:flex">
       {session ? (
-        <Button onClick={handleSignOut} size="sm" variant="outline" disabled={isLoading}>
-          {isLoading ? 'Signing out...' : 'Sign out'}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-9 w-9">
+              <User className="h-5 w-5" />
+              <span className="sr-only">User menu</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link href="/profile">Profile</Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleSignOut} disabled={isLoading}>
+              {isLoading ? 'Signing out...' : 'Sign out'}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       ) : (
         <div className="flex gap-2">
           <Button asChild variant="outline" size="sm">

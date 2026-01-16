@@ -23,6 +23,22 @@ vi.mock('./header-actions', () => ({
   ),
 }))
 
+// Mock Navigation component
+vi.mock('./navigation', () => ({
+  Navigation: ({ session }: { session: unknown }) => (
+    <nav data-testid="navigation">{session ? 'authenticated-nav' : 'unauthenticated-nav'}</nav>
+  ),
+}))
+
+// Mock MobileNav component
+vi.mock('./mobile-nav', () => ({
+  MobileNav: ({ session }: { session: unknown }) => (
+    <div data-testid="mobile-nav">
+      {session ? 'authenticated-mobile' : 'unauthenticated-mobile'}
+    </div>
+  ),
+}))
+
 describe('Header component', () => {
   beforeEach(() => {
     vi.clearAllMocks()
