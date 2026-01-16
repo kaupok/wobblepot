@@ -1,0 +1,56 @@
+name: Fix failed migration [staging]
+
+on:
+  workflow_dispatch: # Manual trigger only
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  fix-migration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Generate Prisma client
+        env:
+          DATABASE_URL: postgresql://localhost:5432/placeholder
+          DATABASE_URL_UNPOOLED: postgresql://localhost:5432/placeholder
+        run: pnpm prisma generate
+
+      - name: Clean up partial migration state
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_STAGING }}
+        run: |
+          pnpm prisma db execute --stdin <<'EOF'
+          DROP TYPE IF EXISTS "MealPlanEntryStatus_new";
+          EOF
+
+      - name: Mark migration as rolled back
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_STAGING }}
+        run: pnpm prisma migrate resolve --rolled-back 20260116200000_simplify_meal_statuses
+
+      - name: Deploy migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_STAGING }}
+        run: pnpm prisma migrate deploy
