@@ -233,18 +233,30 @@ describe('PATCH /api/members/me/preferences', () => {
     expect(data.details.displayName).toBeDefined()
   })
 
-  it('returns 400 on empty displayName', async () => {
+  it('converts empty displayName to null for linked members', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
       session: { id: 'session-123' },
     } as never)
 
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+
+    const updatedPreferences = { ...mockMemberPreferences, displayName: null }
+    mockUpsert.mockResolvedValue(updatedPreferences as never)
+
     const response = await PATCH(createRequest({ displayName: '' }))
     const data = await response.json()
 
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.displayName).toBeDefined()
+    expect(response.status).toBe(200)
+    expect(data.displayName).toBeNull()
+    expect(mockUpsert).toHaveBeenCalledWith({
+      where: { memberId: 'member-123' },
+      create: {
+        memberId: 'member-123',
+        displayName: null,
+      },
+      update: { displayName: null },
+    })
   })
 
   it('returns 400 on targetCalories out of range', async () => {
