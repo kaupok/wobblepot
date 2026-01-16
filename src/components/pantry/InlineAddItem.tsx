@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Search, Plus, Loader2 } from 'lucide-react'
+import { Search, Plus, Loader2, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
@@ -18,13 +18,17 @@ interface IngredientResult {
 
 interface InlineAddItemProps {
   onItemAdded: (item: PantryItemData) => void
+  pantryIngredientIds?: Set<string>
 }
 
 function formatCategory(category: IngredientCategory): string {
   return category.charAt(0).toUpperCase() + category.slice(1)
 }
 
-export function InlineAddItem({ onItemAdded }: InlineAddItemProps) {
+export function InlineAddItem({
+  onItemAdded,
+  pantryIngredientIds = new Set(),
+}: InlineAddItemProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<IngredientResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -170,26 +174,37 @@ export function InlineAddItem({ onItemAdded }: InlineAddItemProps) {
           ref={dropdownRef}
           className="bg-popover absolute top-full z-10 mt-1 w-full rounded-md border shadow-md"
         >
-          {results.map((ingredient, index) => (
-            <button
-              key={ingredient.id}
-              type="button"
-              onClick={() => addItem(ingredient)}
-              disabled={isAdding}
-              className={cn(
-                'flex w-full items-center justify-between px-3 py-2 text-left transition-colors',
-                'hover:bg-muted focus:bg-muted focus:outline-none',
-                index > 0 && 'border-t',
-                highlightedIndex === index && 'bg-muted',
-              )}
-            >
-              <div className="flex items-center gap-2">
-                <Body>{ingredient.name}</Body>
-                <Body variant="muted">({formatCategory(ingredient.category)})</Body>
-              </div>
-              <Plus className="text-muted-foreground h-4 w-4" />
-            </button>
-          ))}
+          {results.map((ingredient, index) => {
+            const isInPantry = pantryIngredientIds.has(ingredient.id)
+            return (
+              <button
+                key={ingredient.id}
+                type="button"
+                onClick={() => addItem(ingredient)}
+                disabled={isAdding}
+                className={cn(
+                  'flex w-full items-center justify-between px-3 py-2 text-left transition-colors',
+                  'hover:bg-muted focus:bg-muted focus:outline-none',
+                  index > 0 && 'border-t',
+                  highlightedIndex === index && 'bg-muted',
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <Body className={isInPantry ? 'text-muted-foreground' : undefined}>
+                    {ingredient.name}
+                  </Body>
+                  <Body variant="muted">({formatCategory(ingredient.category)})</Body>
+                  {isInPantry && (
+                    <span className="text-muted-foreground flex items-center gap-1 text-xs">
+                      <Check className="h-3 w-3" />
+                      In pantry
+                    </span>
+                  )}
+                </div>
+                <Plus className="text-muted-foreground h-4 w-4" />
+              </button>
+            )
+          })}
         </div>
       )}
 
