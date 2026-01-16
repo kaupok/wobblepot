@@ -33,14 +33,21 @@ export function DayColumn({
   return (
     <div
       className={cn(
-        'flex min-w-[160px] flex-col gap-3 rounded-lg p-3',
-        isToday && 'ring-primary ring-2 ring-offset-2',
+        'flex min-w-[140px] flex-col gap-2 rounded-lg p-2',
+        isToday && 'bg-primary/5 ring-primary/30 ring-1',
       )}
     >
-      <Heading variant="h4" className={cn('text-center', isToday && 'text-primary')}>
-        {formatDayHeader(date)}
-      </Heading>
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col items-center gap-0.5">
+        <Heading variant="h4" className={cn('text-center text-sm', isToday && 'text-primary')}>
+          {formatDayHeader(date)}
+        </Heading>
+        {isToday && (
+          <span className="bg-primary text-primary-foreground rounded px-1.5 py-0.5 text-[10px] font-medium">
+            Today
+          </span>
+        )}
+      </div>
+      <div className="flex flex-col gap-2">
         {entries.map((entry) => (
           <MealCard
             key={entry.id}
