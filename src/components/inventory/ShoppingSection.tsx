@@ -13,9 +13,11 @@ import {
 } from '@/components/ui/select'
 import { Heading, Body } from '@/components/ui/typography'
 import { CategoryGroup } from '@/components/shopping/CategoryGroup'
-import { ShoppingItem, type ShoppingItemData } from '@/components/shopping/ShoppingItem'
+import { UrgencyGroup } from '@/components/shopping/UrgencyGroup'
+import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
 import { ShoppingEmptyState } from './ShoppingEmptyState'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
+import { getUrgencyBucket, type UrgencyBucket } from '@/lib/meal-planning/dates'
 
 type SortMode = 'category' | 'urgency'
 
@@ -102,17 +104,35 @@ export function ShoppingSection({
     [groups, purchasedIds],
   )
 
-  // For urgency mode: flatten all items and sort by date
-  const urgencySortedItems = useMemo(() => {
+  // For urgency mode: group all items by urgency bucket
+  const urgencyGroups = useMemo(() => {
     if (sortMode !== 'urgency') return []
+
     const allItems = enhancedGroups.flatMap((group) => group.items)
-    // Sort by: unpurchased first, then by neededByDate ASC
-    return [...allItems].sort((a, b) => {
-      if (a.purchased !== b.purchased) {
-        return a.purchased ? 1 : -1
-      }
-      return a.neededByDate.localeCompare(b.neededByDate)
-    })
+
+    // Sort items by date (purchased items stay in their date position, not moved to bottom)
+    const sortedItems = [...allItems].sort((a, b) => a.neededByDate.localeCompare(b.neededByDate))
+
+    // Group by urgency bucket
+    const bucketOrder: UrgencyBucket[] = ['today', 'tomorrow', 'this-week', 'later']
+    const grouped = new Map<UrgencyBucket, ShoppingItemData[]>()
+
+    for (const bucket of bucketOrder) {
+      grouped.set(bucket, [])
+    }
+
+    for (const item of sortedItems) {
+      const bucket = getUrgencyBucket(item.neededByDate)
+      grouped.get(bucket)!.push(item)
+    }
+
+    // Return only non-empty groups in order
+    return bucketOrder
+      .filter((bucket) => grouped.get(bucket)!.length > 0)
+      .map((bucket) => ({
+        bucket,
+        items: grouped.get(bucket)!,
+      }))
   }, [enhancedGroups, sortMode])
 
   const formatDateRange = (start: string, end: string) => {
@@ -233,12 +253,13 @@ export function ShoppingSection({
               ))}
             </div>
           ) : (
-            <div className="flex flex-col gap-1">
-              {urgencySortedItems.map((item) => (
-                <ShoppingItem
-                  key={item.ingredientId}
-                  item={item}
-                  onToggle={handleToggle}
+            <div className="flex flex-col gap-6">
+              {urgencyGroups.map((group) => (
+                <UrgencyGroup
+                  key={group.bucket}
+                  bucket={group.bucket}
+                  items={group.items}
+                  onToggleItem={handleToggle}
                   disabled={pendingIds.size > 0}
                 />
               ))}
