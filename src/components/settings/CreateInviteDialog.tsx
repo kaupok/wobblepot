@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -83,9 +84,10 @@ export function CreateInviteDialog({ onInviteCreated }: CreateInviteDialogProps)
     try {
       await navigator.clipboard.writeText(createdInvite.url)
       setCopied(true)
+      toast.success('Link copied to clipboard')
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      setError('Failed to copy to clipboard')
+      toast.error('Failed to copy link. Please copy manually.')
     }
   }
 

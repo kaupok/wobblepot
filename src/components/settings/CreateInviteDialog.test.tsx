@@ -1,8 +1,16 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { toast } from 'sonner'
 import { CreateInviteDialog } from './CreateInviteDialog'
 import type { Invite } from '@/types/invite'
+
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}))
 
 // Mock fetch globally
 const mockFetch = vi.fn()
@@ -33,6 +41,8 @@ describe('CreateInviteDialog', () => {
     mockFetch.mockReset()
     mockWriteText.mockReset()
     mockOnInviteCreated.mockReset()
+    vi.mocked(toast.success).mockReset()
+    vi.mocked(toast.error).mockReset()
   })
 
   afterEach(() => {
@@ -205,7 +215,7 @@ describe('CreateInviteDialog', () => {
   })
 
   describe('copy link', () => {
-    it('copies link to clipboard', async () => {
+    it('copies link to clipboard and shows success toast', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockInviteResponse),
@@ -224,6 +234,7 @@ describe('CreateInviteDialog', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Copy' }))
 
       expect(mockWriteText).toHaveBeenCalledWith('https://example.com/invite/NEWCODE')
+      expect(toast.success).toHaveBeenCalledWith('Link copied to clipboard')
     })
 
     it('shows Copied! feedback after copying', async () => {
@@ -247,7 +258,7 @@ describe('CreateInviteDialog', () => {
       expect(screen.getByRole('button', { name: 'Copied!' })).toBeInTheDocument()
     })
 
-    it('handles clipboard failure gracefully', async () => {
+    it('shows error toast when copy fails', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockInviteResponse),
@@ -263,13 +274,14 @@ describe('CreateInviteDialog', () => {
         expect(screen.getByText('Invite created')).toBeInTheDocument()
       })
 
-      // Should not throw when copy fails
       await userEvent.click(screen.getByRole('button', { name: 'Copy' }))
 
-      // Button should still say 'Copy' (not 'Copied!') after failure
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument()
+        expect(toast.error).toHaveBeenCalledWith('Failed to copy link. Please copy manually.')
       })
+
+      // Button should still say 'Copy' (not 'Copied!') after failure
+      expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument()
     })
   })
 
