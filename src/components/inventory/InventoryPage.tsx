@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import type { IngredientCategory } from '@/generated/prisma/enums'
@@ -32,17 +32,44 @@ interface InventoryPageProps {
 }
 
 export function InventoryPage({
-  pantryItems,
+  pantryItems: initialPantryItems,
   shoppingData,
   emptyStateVariant,
 }: InventoryPageProps) {
   const [isMobile, setIsMobile] = useState(false)
+  const [pantryItems, setPantryItems] = useState<PantryItemData[]>(initialPantryItems)
+  const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
     checkMobile()
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  const handleItemPurchased = useCallback((newItem: PantryItemData) => {
+    setPantryItems((prev) => {
+      // Check if item already exists
+      const existingIndex = prev.findIndex((item) => item.ingredient.id === newItem.ingredient.id)
+      if (existingIndex !== -1) {
+        // Update existing item
+        const updated = [...prev]
+        updated[existingIndex] = newItem
+        return updated
+      }
+      // Add new item
+      return [...prev, newItem]
+    })
+    // Track new items for animation
+    setNewlyAddedIds((prev) => new Set(prev).add(newItem.id))
+    // Remove from animation set after animation completes
+    setTimeout(() => {
+      setNewlyAddedIds((prev) => {
+        const next = new Set(prev)
+        next.delete(newItem.id)
+        return next
+      })
+    }, 500)
   }, [])
 
   return (
@@ -60,7 +87,9 @@ export function InventoryPage({
         {/* Pantry section - on mobile it's collapsible and comes second, on desktop it's first */}
         <div className="order-2 md:order-1">
           <PantrySection
-            initialItems={pantryItems}
+            items={pantryItems}
+            onItemsChange={setPantryItems}
+            newlyAddedIds={newlyAddedIds}
             defaultOpen={!isMobile}
             collapsible={isMobile}
           />
@@ -77,6 +106,7 @@ export function InventoryPage({
               planEndDate={shoppingData.planEndDate}
               groups={shoppingData.groups}
               initialPurchasedIds={shoppingData.initialPurchasedIds}
+              onItemPurchased={handleItemPurchased}
             />
           ) : null}
         </div>
