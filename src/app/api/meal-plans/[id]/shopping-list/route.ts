@@ -9,21 +9,29 @@ import { Unit } from '@/generated/prisma/enums'
 
 /**
  * Format quantity for display.
- * - Pieces: round to 1 decimal, remove .0 for whole numbers
+ * - Pieces: convert grams to pieces using gramsPerPiece, round up for shopping
  * - Grams: show as "Xg" or "X.Xkg" for >= 1000g
+ *
+ * Note: Quantities are stored in grams for all ingredients.
+ * When defaultUnit is 'piece', we convert using gramsPerPiece.
  */
-function formatQuantity(qty: number, unit: Unit): string {
+function formatQuantity(qtyInGrams: number, unit: Unit, gramsPerPiece: number | null): string {
   if (unit === 'piece') {
-    const rounded = Math.round(qty * 10) / 10
-    return rounded % 1 === 0 ? `${Math.floor(rounded)}` : `${rounded}`
+    // Convert grams to pieces, round up to ensure sufficient quantity for shopping
+    if (gramsPerPiece && gramsPerPiece > 0) {
+      const pieces = Math.ceil(qtyInGrams / gramsPerPiece)
+      return String(pieces)
+    }
+    // Fallback: if no gramsPerPiece, show as grams
+    return `${Math.round(qtyInGrams)}g`
   }
   // Grams
-  if (qty >= 1000) {
-    const kg = qty / 1000
+  if (qtyInGrams >= 1000) {
+    const kg = qtyInGrams / 1000
     // Remove trailing .0 for whole kg values
     return kg % 1 === 0 ? `${Math.floor(kg)}kg` : `${kg.toFixed(1)}kg`
   }
-  return `${Math.round(qty)}g`
+  return `${Math.round(qtyInGrams)}g`
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -104,7 +112,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           name: item.ingredient.name,
           quantity: item.shoppingQuantity,
           unit: item.ingredient.defaultUnit,
-          displayQuantity: formatQuantity(item.shoppingQuantity, item.ingredient.defaultUnit),
+          displayQuantity: formatQuantity(
+            item.shoppingQuantity,
+            item.ingredient.defaultUnit,
+            item.ingredient.gramsPerPiece,
+          ),
           mealCount: item.mealCount,
           purchased,
         }

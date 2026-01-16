@@ -6,21 +6,34 @@ interface IngredientListProps {
   householdSize: number
 }
 
+/**
+ * Format quantity for display in meal detail view.
+ *
+ * Note: Quantities are stored in grams for all ingredients.
+ * When defaultUnit is 'piece', we convert using gramsPerPiece.
+ */
 function formatQuantity(
-  quantityPerServing: number,
+  quantityPerServingInGrams: number,
   householdSize: number,
   unit: 'g' | 'piece',
+  gramsPerPiece: number | null | undefined,
 ): string {
-  const totalQuantity = quantityPerServing * householdSize
+  const totalQuantityInGrams = quantityPerServingInGrams * householdSize
 
   if (unit === 'piece') {
-    // For pieces, round to one decimal if not whole
-    const rounded = Math.round(totalQuantity * 10) / 10
-    return rounded % 1 === 0 ? String(rounded) : rounded.toFixed(1)
+    // Convert grams to pieces
+    if (gramsPerPiece && gramsPerPiece > 0) {
+      const pieces = totalQuantityInGrams / gramsPerPiece
+      // Round to one decimal for display, remove .0 for whole numbers
+      const rounded = Math.round(pieces * 10) / 10
+      return rounded % 1 === 0 ? String(Math.floor(rounded)) : rounded.toFixed(1)
+    }
+    // Fallback: if no gramsPerPiece, show as grams
+    return `${Math.round(totalQuantityInGrams)}g`
   }
 
   // For grams, round to nearest integer and add unit
-  return `${Math.round(totalQuantity)}g`
+  return `${Math.round(totalQuantityInGrams)}g`
 }
 
 export function IngredientList({ components, householdSize }: IngredientListProps) {
@@ -34,7 +47,12 @@ export function IngredientList({ components, householdSize }: IngredientListProp
           <Li key={comp.ingredient.name} className="flex justify-between gap-4">
             <span>{comp.ingredient.name}</span>
             <span className="text-muted-foreground whitespace-nowrap">
-              {formatQuantity(comp.quantityPerServing, householdSize, comp.ingredient.defaultUnit)}
+              {formatQuantity(
+                comp.quantityPerServing,
+                householdSize,
+                comp.ingredient.defaultUnit,
+                comp.ingredient.gramsPerPiece,
+              )}
             </span>
           </Li>
         ))}

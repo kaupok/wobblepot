@@ -32,6 +32,7 @@ export interface ShoppingListItem {
     name: string
     category: IngredientCategory
     defaultUnit: Unit
+    gramsPerPiece: number | null
   }
   neededQuantity: number // Total needed for all planned meals
   pantryQuantity: number | null // What's in pantry (null = have some)
@@ -57,6 +58,7 @@ interface NeededIngredient {
     name: string
     category: IngredientCategory
     defaultUnit: Unit
+    gramsPerPiece: number | null
   }
   quantity: number
   mealCount: number
@@ -146,6 +148,7 @@ export async function computeShoppingList(
                   name: true,
                   category: true,
                   defaultUnit: true,
+                  gramsPerPiece: true,
                 },
               },
             },
