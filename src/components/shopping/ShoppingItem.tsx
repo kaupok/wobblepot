@@ -44,35 +44,41 @@ export function ShoppingItem({ item, onToggle, disabled }: ShoppingItemProps) {
           className="h-5 w-5"
           aria-label={`Mark ${item.name} as ${item.purchased ? 'not purchased' : 'purchased'}`}
         />
-        <Body
-          className={cn(
-            'transition-colors',
-            item.purchased && 'text-muted-foreground line-through',
-          )}
-        >
-          {item.name}
-        </Body>
+        <div className="flex items-baseline gap-2">
+          <Body
+            className={cn(
+              'transition-colors',
+              item.purchased && 'text-muted-foreground line-through',
+            )}
+          >
+            {item.name}
+          </Body>
+          <Body
+            variant="muted"
+            className={cn(
+              'transition-colors',
+              item.purchased && 'text-muted-foreground/60 line-through',
+            )}
+          >
+            {item.displayQuantity}
+          </Body>
+        </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span
-              className={cn(
-                'text-xs',
-                item.purchased ? 'text-muted-foreground/60' : 'text-muted-foreground',
-              )}
-            >
-              {item.neededByRelative}
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Needed by {item.neededByAbsolute}</p>
-          </TooltipContent>
-        </Tooltip>
-        <Body variant="muted" className={cn(item.purchased && 'text-muted-foreground/60')}>
-          {item.displayQuantity}
-        </Body>
-      </div>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className={cn(
+              'shrink-0 text-xs',
+              item.purchased ? 'text-muted-foreground/60' : 'text-muted-foreground',
+            )}
+          >
+            {item.neededByRelative}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Needed by {item.neededByAbsolute}</p>
+        </TooltipContent>
+      </Tooltip>
     </label>
   )
 }
