@@ -37,16 +37,9 @@ export function DayColumn({
         isToday && 'bg-primary/5 ring-primary/30 ring-1',
       )}
     >
-      <div className="flex flex-col items-center gap-0.5">
-        <Heading variant="h4" className={cn('text-center text-sm', isToday && 'text-primary')}>
-          {formatDayHeader(date)}
-        </Heading>
-        {isToday && (
-          <span className="bg-primary text-primary-foreground rounded px-1.5 py-0.5 text-[10px] font-medium">
-            Today
-          </span>
-        )}
-      </div>
+      <Heading variant="h4" className={cn('text-center text-sm', isToday && 'text-primary')}>
+        {formatDayHeader(date)}
+      </Heading>
       <div className="flex flex-col gap-2">
         {entries.map((entry) => (
           <MealCard
