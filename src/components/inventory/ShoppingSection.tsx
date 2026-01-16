@@ -1,14 +1,25 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Heading, Body } from '@/components/ui/typography'
 import { CategoryGroup } from '@/components/shopping/CategoryGroup'
+import { ShoppingItem, type ShoppingItemData } from '@/components/shopping/ShoppingItem'
 import { ShoppingEmptyState } from './ShoppingEmptyState'
-import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
+
+type SortMode = 'category' | 'urgency'
+
+const SORT_STORAGE_KEY = 'shopping-list-sort-mode'
 
 interface ShoppingListGroup {
   category: IngredientCategory
@@ -28,6 +39,12 @@ interface ShoppingSectionProps {
   onExternalUnpurchaseProcessed?: () => void
 }
 
+function getInitialSortMode(): SortMode {
+  if (typeof window === 'undefined') return 'category'
+  const stored = localStorage.getItem(SORT_STORAGE_KEY)
+  return stored === 'urgency' ? 'urgency' : 'category'
+}
+
 export function ShoppingSection({
   planId,
   planStartDate,
@@ -41,6 +58,14 @@ export function ShoppingSection({
 }: ShoppingSectionProps) {
   const [purchasedIds, setPurchasedIds] = useState<Set<string>>(initialPurchasedIds)
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
+  const [sortMode, setSortMode] = useState<SortMode>('category')
+  const [mounted, setMounted] = useState(false)
+
+  // Initialize sort mode from localStorage after mount (SSR-safe)
+  useEffect(() => {
+    setSortMode(getInitialSortMode())
+    setMounted(true)
+  }, [])
 
   // Handle external unpurchase events (e.g., when pantry item is removed)
   useEffect(() => {
@@ -56,8 +81,39 @@ export function ShoppingSection({
     onExternalUnpurchaseProcessed?.()
   }, [externalUnpurchasedIds, onExternalUnpurchaseProcessed])
 
+  const handleSortModeChange = (value: SortMode) => {
+    setSortMode(value)
+    localStorage.setItem(SORT_STORAGE_KEY, value)
+  }
+
   const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0)
   const purchasedCount = purchasedIds.size
+
+  // Enhance items with current purchased state
+  const enhancedGroups = useMemo(
+    () =>
+      groups.map((group) => ({
+        ...group,
+        items: group.items.map((item) => ({
+          ...item,
+          purchased: purchasedIds.has(item.ingredientId),
+        })),
+      })),
+    [groups, purchasedIds],
+  )
+
+  // For urgency mode: flatten all items and sort by date
+  const urgencySortedItems = useMemo(() => {
+    if (sortMode !== 'urgency') return []
+    const allItems = enhancedGroups.flatMap((group) => group.items)
+    // Sort by: unpurchased first, then by neededByDate ASC
+    return [...allItems].sort((a, b) => {
+      if (a.purchased !== b.purchased) {
+        return a.purchased ? 1 : -1
+      }
+      return a.neededByDate.localeCompare(b.neededByDate)
+    })
+  }, [enhancedGroups, sortMode])
 
   const formatDateRange = (start: string, end: string) => {
     const startDate = new Date(start + 'T00:00:00')
@@ -132,14 +188,6 @@ export function ShoppingSection({
     return <ShoppingEmptyState variant="all-purchased" />
   }
 
-  const enhancedGroups = groups.map((group) => ({
-    ...group,
-    items: group.items.map((item) => ({
-      ...item,
-      purchased: purchasedIds.has(item.ingredientId),
-    })),
-  }))
-
   return (
     <Card className="w-full">
       <CardHeader>
@@ -154,24 +202,48 @@ export function ShoppingSection({
       </CardHeader>
       <CardContent>
         <div className="flex flex-col gap-6">
-          <div className="bg-muted/50 flex items-center justify-between rounded-lg px-4 py-3">
+          <div className="bg-muted/50 flex flex-wrap items-center justify-between gap-2 rounded-lg px-4 py-3">
             <Body variant="muted">
               {totalItems} {totalItems === 1 ? 'item' : 'items'} • {purchasedCount} purchased
             </Body>
+            {mounted && (
+              <Select value={sortMode} onValueChange={handleSortModeChange}>
+                <SelectTrigger size="sm" className="w-[140px]" aria-label="Sort items">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="category">By category</SelectItem>
+                  <SelectItem value="urgency">By urgency</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
-          <div className="flex flex-col gap-6">
-            {enhancedGroups.map((group) => (
-              <CategoryGroup
-                key={group.category}
-                category={group.category}
-                categoryLabel={group.categoryLabel}
-                items={group.items}
-                onToggleItem={handleToggle}
-                disabled={pendingIds.size > 0}
-              />
-            ))}
-          </div>
+          {sortMode === 'category' ? (
+            <div className="flex flex-col gap-6">
+              {enhancedGroups.map((group) => (
+                <CategoryGroup
+                  key={group.category}
+                  category={group.category}
+                  categoryLabel={group.categoryLabel}
+                  items={group.items}
+                  onToggleItem={handleToggle}
+                  disabled={pendingIds.size > 0}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {urgencySortedItems.map((item) => (
+                <ShoppingItem
+                  key={item.ingredientId}
+                  item={item}
+                  onToggle={handleToggle}
+                  disabled={pendingIds.size > 0}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
