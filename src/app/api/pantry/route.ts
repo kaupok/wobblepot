@@ -1,9 +1,11 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
+import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
+import { Unit } from '@/generated/prisma/enums'
 
 const createPantryItemSchema = z.object({
   ingredientId: z.string().min(1),
@@ -11,7 +13,30 @@ const createPantryItemSchema = z.object({
   isStaple: z.boolean().optional().default(false),
 })
 
-export async function GET() {
+/**
+ * Format quantity for display in pantry needed quantities.
+ * - Pieces: convert grams to pieces using gramsPerPiece, round up
+ * - Grams: show as "Xg" or "X.Xkg" for >= 1000g
+ */
+function formatQuantity(qtyInGrams: number, unit: Unit, gramsPerPiece: number | null): string {
+  if (unit === 'piece') {
+    // Convert grams to pieces, round up to ensure sufficient quantity
+    if (gramsPerPiece && gramsPerPiece > 0) {
+      const pieces = Math.ceil(qtyInGrams / gramsPerPiece)
+      return String(pieces)
+    }
+    // Fallback: if no gramsPerPiece, show as grams
+    return `${Math.round(qtyInGrams)}g`
+  }
+  // Grams
+  if (qtyInGrams >= 1000) {
+    const kg = qtyInGrams / 1000
+    return kg % 1 === 0 ? `${Math.floor(kg)}kg` : `${kg.toFixed(1)}kg`
+  }
+  return `${Math.round(qtyInGrams)}g`
+}
+
+export async function GET(request: NextRequest) {
   const session = await auth.api.getSession({
     headers: await headers(),
   })
@@ -26,8 +51,14 @@ export async function GET() {
     return NextResponse.json({ error: 'No household found' }, { status: 404 })
   }
 
+  const { household } = membership
+
+  // Parse optional days param for needed quantity calculation
+  const daysParam = request.nextUrl.searchParams.get('days')
+  const days = daysParam === '7' || daysParam === '14' ? parseInt(daysParam, 10) : null
+
   const pantryItems = await prisma.pantryItem.findMany({
-    where: { householdId: membership.householdId },
+    where: { householdId: household.id },
     include: {
       ingredient: {
         select: {
@@ -35,22 +66,93 @@ export async function GET() {
           name: true,
           category: true,
           defaultUnit: true,
+          gramsPerPiece: true,
         },
       },
     },
     orderBy: [{ isStaple: 'desc' }, { ingredient: { name: 'asc' } }],
   })
 
-  const items = pantryItems.map((item) => ({
-    id: item.id,
-    ingredientId: item.ingredientId,
-    ingredient: item.ingredient,
-    quantity: item.quantity,
-    isStaple: item.isStaple,
-    updatedAt: item.updatedAt,
-  }))
+  // If days param is provided, compute needed quantities from meal plans
+  const neededQuantities: Map<string, number> = new Map()
 
-  return NextResponse.json({ items })
+  if (days) {
+    const startOfToday = getStartOfTodayInTimezone(household.timezone)
+    const endDate = new Date(startOfToday)
+    endDate.setDate(endDate.getDate() + days)
+
+    // Get all planned meal entries in the window
+    const planEntries = await prisma.mealPlanEntry.findMany({
+      where: {
+        plan: {
+          householdId: household.id,
+        },
+        status: 'planned',
+        date: {
+          gte: startOfToday,
+          lt: endDate,
+        },
+      },
+      include: {
+        meal: {
+          include: {
+            components: {
+              select: {
+                ingredientId: true,
+                quantityPerServing: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    // Get household size
+    const memberCount = await prisma.householdMember.count({
+      where: { householdId: household.id },
+    })
+    const householdSize = memberCount > 0 ? memberCount : 2
+
+    // Aggregate quantities per ingredient
+    for (const entry of planEntries) {
+      if (!entry.meal) continue
+      for (const component of entry.meal.components) {
+        const qty = component.quantityPerServing * householdSize
+        const existing = neededQuantities.get(component.ingredientId) ?? 0
+        neededQuantities.set(component.ingredientId, existing + qty)
+      }
+    }
+  }
+
+  const items = pantryItems.map((item) => {
+    const neededQty = neededQuantities.get(item.ingredientId)
+    return {
+      id: item.id,
+      ingredientId: item.ingredientId,
+      ingredient: {
+        id: item.ingredient.id,
+        name: item.ingredient.name,
+        category: item.ingredient.category,
+        defaultUnit: item.ingredient.defaultUnit,
+      },
+      quantity: item.quantity,
+      isStaple: item.isStaple,
+      updatedAt: item.updatedAt,
+      ...(days && neededQty !== undefined && neededQty > 0
+        ? {
+            neededQuantity: neededQty,
+            neededDisplayQuantity: formatQuantity(
+              neededQty,
+              item.ingredient.defaultUnit,
+              item.ingredient.gramsPerPiece,
+            ),
+            windowDays: days,
+          }
+        : {}),
+    }
+  })
+
+  return NextResponse.json({ items, windowDays: days })
 }
 
 export async function POST(request: Request) {

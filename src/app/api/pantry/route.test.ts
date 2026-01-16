@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { NextRequest } from 'next/server'
 import { GET, POST } from './route'
+
+function createMockRequest(url: string = 'http://localhost/api/pantry') {
+  return new NextRequest(url)
+}
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
@@ -69,7 +74,7 @@ describe('GET /api/pantry', () => {
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await GET()
+    const response = await GET(createMockRequest())
     const data = await response.json()
 
     expect(response.status).toBe(401)
@@ -83,7 +88,7 @@ describe('GET /api/pantry', () => {
     } as never)
     mockFindFirst.mockResolvedValue(null)
 
-    const response = await GET()
+    const response = await GET(createMockRequest())
     const data = await response.json()
 
     expect(response.status).toBe(404)
@@ -119,7 +124,7 @@ describe('GET /api/pantry', () => {
     ]
     mockFindMany.mockResolvedValue(mockItems as never)
 
-    const response = await GET()
+    const response = await GET(createMockRequest())
     const data = await response.json()
 
     expect(response.status).toBe(200)
@@ -131,7 +136,7 @@ describe('GET /api/pantry', () => {
       where: { householdId: 'household-123' },
       include: {
         ingredient: {
-          select: { id: true, name: true, category: true, defaultUnit: true },
+          select: { id: true, name: true, category: true, defaultUnit: true, gramsPerPiece: true },
         },
       },
       orderBy: [{ isStaple: 'desc' }, { ingredient: { name: 'asc' } }],
@@ -146,7 +151,7 @@ describe('GET /api/pantry', () => {
     mockFindFirst.mockResolvedValue(mockMembership as never)
     mockFindMany.mockResolvedValue([])
 
-    const response = await GET()
+    const response = await GET(createMockRequest())
     const data = await response.json()
 
     expect(response.status).toBe(200)

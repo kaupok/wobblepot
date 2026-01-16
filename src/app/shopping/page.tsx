@@ -1,11 +1,11 @@
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { getServerBaseURL } from '@/lib/env'
 import { InventoryPage } from '@/components/inventory/InventoryPage'
 import type { ShoppingEmptyStateVariant } from '@/components/inventory/ShoppingEmptyState'
+import type { PantryItemData } from '@/components/pantry/PantryItem'
 import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
 
 interface ShoppingListItem {
@@ -61,39 +61,38 @@ export default async function ShoppingPage({ searchParams }: ShoppingPageProps) 
     redirect('/onboarding')
   }
 
-  // Fetch pantry items
-  const pantryItems = await prisma.pantryItem.findMany({
-    where: { householdId: membership.householdId },
-    include: {
-      ingredient: {
-        select: {
-          id: true,
-          name: true,
-          category: true,
-          defaultUnit: true,
-        },
-      },
-    },
-    orderBy: [{ isStaple: 'desc' }, { ingredient: { name: 'asc' } }],
-  })
-
-  const formattedPantryItems = pantryItems.map((item) => ({
-    id: item.id,
-    ingredient: item.ingredient,
-    quantity: item.quantity,
-    isStaple: item.isStaple,
-    updatedAt: item.updatedAt.toISOString(),
-  }))
-
   // Parse days from query param (used when client preference differs from default)
   // Default to 7 days if not specified or invalid
   const daysParam = params.days
   const days = daysParam === '14' ? 14 : 7
 
-  // Fetch rolling window shopping list
   const baseURL = getServerBaseURL()
   const cookieHeader = requestHeaders.get('cookie') ?? ''
 
+  // Fetch pantry items with needed quantities for the window
+  const pantryResponse = await fetch(`${baseURL}/api/pantry?days=${days}`, {
+    headers: { cookie: cookieHeader },
+    cache: 'no-store',
+  })
+
+  let formattedPantryItems: PantryItemData[] = []
+  if (pantryResponse.ok) {
+    const pantryData = await pantryResponse.json()
+    formattedPantryItems = pantryData.items.map(
+      (item: PantryItemData & { updatedAt: string | Date }) => ({
+        id: item.id,
+        ingredient: item.ingredient,
+        quantity: item.quantity,
+        isStaple: item.isStaple,
+        updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt : item.updatedAt,
+        neededQuantity: item.neededQuantity,
+        neededDisplayQuantity: item.neededDisplayQuantity,
+        windowDays: item.windowDays,
+      }),
+    )
+  }
+
+  // Fetch rolling window shopping list
   const shoppingResponse = await fetch(`${baseURL}/api/shopping-list?days=${days}`, {
     headers: { cookie: cookieHeader },
     cache: 'no-store',
