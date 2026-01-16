@@ -90,11 +90,14 @@ export function PantrySection({
     toast.success('Item added to pantry')
   }
 
+  // Create a set of ingredient IDs currently in pantry for the search indicator
+  const pantryIngredientIds = new Set(items.map((item) => item.ingredient.id))
+
   const content = (
     <>
       {items.length === 0 ? (
         <div className="flex flex-col gap-4">
-          <InlineAddItem onItemAdded={handleItemAdded} />
+          <InlineAddItem onItemAdded={handleItemAdded} pantryIngredientIds={pantryIngredientIds} />
           <div className="rounded-lg border border-dashed p-6 text-center">
             <Body variant="muted">
               Your pantry is empty. Add staples like olive oil, salt, and rice to exclude them from
@@ -104,7 +107,7 @@ export function PantrySection({
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          <InlineAddItem onItemAdded={handleItemAdded} />
+          <InlineAddItem onItemAdded={handleItemAdded} pantryIngredientIds={pantryIngredientIds} />
 
           {staples.length > 0 && (
             <div className="flex flex-col gap-2">
