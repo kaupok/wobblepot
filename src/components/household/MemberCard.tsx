@@ -118,7 +118,7 @@ export function MemberCard({ member, canEdit, canRemove, onEdit, onRemove }: Mem
                 size="icon"
                 onClick={() => setShowRemoveDialog(true)}
                 aria-label="Remove member"
-                className="text-destructive hover:text-destructive"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
