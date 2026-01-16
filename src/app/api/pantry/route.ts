@@ -43,6 +43,7 @@ export async function GET() {
 
   const items = pantryItems.map((item) => ({
     id: item.id,
+    ingredientId: item.ingredientId,
     ingredient: item.ingredient,
     quantity: item.quantity,
     isStaple: item.isStaple,
@@ -130,6 +131,7 @@ export async function POST(request: Request) {
   return NextResponse.json(
     {
       id: pantryItem.id,
+      ingredientId: pantryItem.ingredientId,
       ingredient: pantryItem.ingredient,
       quantity: pantryItem.quantity,
       isStaple: pantryItem.isStaple,
