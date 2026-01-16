@@ -69,7 +69,7 @@ export function InventoryPage({
         next.delete(newItem.id)
         return next
       })
-    }, 500)
+    }, 300)
   }, [])
 
   return (
