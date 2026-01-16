@@ -231,3 +231,40 @@ export function getStartOfTodayInTimezone(timezone: string): Date {
   const todayString = getTodayInTimezone(timezone)
   return parseLocalDate(todayString)
 }
+
+export type UrgencyBucket = 'today' | 'tomorrow' | 'this-week' | 'later'
+
+/**
+ * Determine the urgency bucket for a given date string.
+ * Used for grouping shopping list items by urgency.
+ *
+ * @param dateString - The date in YYYY-MM-DD format
+ * @param referenceDate - The date to compare against (defaults to today)
+ * @returns The urgency bucket: 'today', 'tomorrow', 'this-week', or 'later'
+ */
+export function getUrgencyBucket(dateString: string, referenceDate?: Date): UrgencyBucket {
+  const today = referenceDate ?? new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const target = parseLocalDate(dateString)
+
+  const diffMs = target.getTime() - today.getTime()
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffDays <= 0) {
+    return 'today'
+  }
+  if (diffDays === 1) {
+    return 'tomorrow'
+  }
+
+  // Calculate days until end of week (Sunday)
+  const dayOfWeek = today.getDay()
+  const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek
+
+  if (diffDays <= daysUntilSunday) {
+    return 'this-week'
+  }
+
+  return 'later'
+}
