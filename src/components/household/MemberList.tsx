@@ -6,6 +6,7 @@ import { Heading, Body } from '@/components/ui/typography'
 import { Skeleton } from '@/components/ui/skeleton'
 import { HouseholdNav } from '@/components/household-nav'
 import { MemberCard } from './MemberCard'
+import { AddMemberDialog } from './AddMemberDialog'
 import { EditMemberPreferencesDialog } from './EditMemberPreferencesDialog'
 import type { Member, DietaryType } from '@/types/member'
 
@@ -54,13 +55,26 @@ export function MemberList({ isOwner, currentMemberId, householdDietaryType }: M
     fetchMembers()
   }, [])
 
+  const handleMemberAdded = (newMember: Member) => {
+    setMembers((prev) => [...prev, newMember])
+  }
+
   const handleMemberSaved = (updatedMember: Member) => {
     setMembers((prev) => prev.map((m) => (m.id === updatedMember.id ? updatedMember : m)))
+  }
+
+  const handleMemberRemoved = (memberId: string) => {
+    setMembers((prev) => prev.filter((m) => m.id !== memberId))
   }
 
   const canEditMember = (member: Member) => {
     // Owner can edit anyone, members can only edit themselves
     return isOwner || member.id === currentMemberId
+  }
+
+  const canRemoveMember = (member: Member) => {
+    // Only owner can remove members, and cannot remove themselves or the owner
+    return isOwner && member.role !== 'owner' && member.id !== currentMemberId
   }
 
   return (
@@ -77,6 +91,16 @@ export function MemberList({ isOwner, currentMemberId, householdDietaryType }: M
         <CardContent>
           <div className="flex flex-col gap-8">
             <HouseholdNav />
+
+            {isOwner && (
+              <div className="flex items-center justify-between">
+                <Heading variant="h4">Members</Heading>
+                <AddMemberDialog
+                  onMemberAdded={handleMemberAdded}
+                  householdDietaryType={householdDietaryType}
+                />
+              </div>
+            )}
 
             {isLoading ? (
               <div className="flex flex-col gap-3">
@@ -98,7 +122,9 @@ export function MemberList({ isOwner, currentMemberId, householdDietaryType }: M
                     key={member.id}
                     member={member}
                     canEdit={canEditMember(member)}
+                    canRemove={canRemoveMember(member)}
                     onEdit={setEditingMember}
+                    onRemove={handleMemberRemoved}
                   />
                 ))}
               </div>
