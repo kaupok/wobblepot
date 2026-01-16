@@ -63,6 +63,9 @@ export function MealCard({
     return computeMealAvailability(meal, pantryIngredients)
   }, [meal, pantryIngredients])
 
+  // Hide availability badge for completed/skipped meals (ingredient status no longer relevant)
+  const shouldShowAvailability = status !== 'completed' && status !== 'skipped'
+
   async function updateStatus(newStatus: MealStatus, deductPantry: boolean = false) {
     const previousStatus = status
     // Optimistic update
@@ -137,11 +140,11 @@ export function MealCard({
         <CardContent className="flex flex-col gap-2 pb-2">
           <div className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
             {meal.timeMinutes && <span>{meal.timeMinutes} min</span>}
-            {!isPast && availability && !availability.isReady && (
+            {!isPast && shouldShowAvailability && availability && !availability.isReady && (
               <AvailabilityIndicator availability={availability} />
             )}
           </div>
-          {!isPast && availability?.isReady && (
+          {!isPast && shouldShowAvailability && availability?.isReady && (
             <AvailabilityIndicator availability={availability} />
           )}
           {!isReadOnly && (
