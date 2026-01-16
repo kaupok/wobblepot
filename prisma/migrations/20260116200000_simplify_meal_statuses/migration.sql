@@ -8,8 +8,15 @@ UPDATE "meal_plan_entry" SET "status" = 'skipped' WHERE "status" IN ('eating_out
 -- PostgreSQL requires creating a new enum type, updating the column, then dropping the old type
 CREATE TYPE "MealPlanEntryStatus_new" AS ENUM ('planned', 'completed', 'skipped');
 
+-- Step 3: Drop the default before changing the column type
+ALTER TABLE "meal_plan_entry" ALTER COLUMN "status" DROP DEFAULT;
+
+-- Step 4: Change the column type
 ALTER TABLE "meal_plan_entry" ALTER COLUMN "status" TYPE "MealPlanEntryStatus_new" USING ("status"::text::"MealPlanEntryStatus_new");
 
-DROP TYPE "MealPlanEntryStatus";
+-- Step 5: Re-add the default
+ALTER TABLE "meal_plan_entry" ALTER COLUMN "status" SET DEFAULT 'planned'::"MealPlanEntryStatus_new";
 
+-- Step 6: Swap the enum types
+DROP TYPE "MealPlanEntryStatus";
 ALTER TYPE "MealPlanEntryStatus_new" RENAME TO "MealPlanEntryStatus";
