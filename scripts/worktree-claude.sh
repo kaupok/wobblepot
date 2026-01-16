@@ -447,6 +447,14 @@ is_branch_merged() {
   local path="$1"
   local branch=$(git -C "$path" branch --show-current 2>/dev/null)
 
+  # First, check if the branch has any commits ahead of main
+  # A branch with no commits ahead is NOT merged - it just hasn't diverged yet
+  local ahead=$(git -C "$REPO_ROOT" rev-list --count "main..$branch" 2>/dev/null || echo "0")
+  if [ "$ahead" = "0" ]; then
+    # No commits ahead of main - this is a fresh branch, not a merged one
+    return 1
+  fi
+
   # Method 1: Check if branch is an ancestor of main (regular merge)
   if git -C "$REPO_ROOT" merge-base --is-ancestor "$branch" main 2>/dev/null; then
     return 0
