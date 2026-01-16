@@ -23,6 +23,15 @@ WORKTREE_BASE="$HOME/.worktrees/$REPO_NAME"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 
+# Untracked files to copy to worktrees
+# Format: "source_path:needs_path_update"
+# - source_path: path relative to repo root
+# - needs_path_update: "true" if PROJECT_ROOT should be updated to worktree path
+UNTRACKED_FILES=(
+  ".env:true"
+  ".claude/settings.local.json:true"
+)
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -102,6 +111,70 @@ print_usage() {
   echo "  $0 cleanup feat/api-caching"
 }
 
+# Copy a single untracked file to worktree with optional PROJECT_ROOT substitution
+# Args: $1=source_repo, $2=source_path, $3=dest_dir, $4=needs_path_update ("true"/"false")
+copy_untracked_file() {
+  local source_repo="$1"
+  local source_path="$2"
+  local dest_dir="$3"
+  local needs_path_update="$4"
+  local source_file="$source_repo/$source_path"
+  local dest_file="$dest_dir/$source_path"
+
+  # Skip if source doesn't exist
+  if [ ! -f "$source_file" ]; then
+    return 1
+  fi
+
+  # Create destination directory if needed
+  mkdir -p "$(dirname "$dest_file")"
+
+  if [ "$needs_path_update" = "true" ]; then
+    # Update PROJECT_ROOT to point to the worktree path
+    # Handles both JSON format ("PROJECT_ROOT": "/path") and env format (PROJECT_ROOT=/path)
+    sed -e "s|\"PROJECT_ROOT\": \"$source_repo\"|\"PROJECT_ROOT\": \"$dest_dir\"|g" \
+        -e "s|^PROJECT_ROOT=$source_repo$|PROJECT_ROOT=$dest_dir|g" \
+        -e "s|^PROJECT_ROOT=\"$source_repo\"$|PROJECT_ROOT=\"$dest_dir\"|g" \
+        "$source_file" > "$dest_file"
+  else
+    cp "$source_file" "$dest_file"
+  fi
+
+  return 0
+}
+
+# Copy all configured untracked files to worktree
+# Args: $1=worktree_path
+copy_untracked_files() {
+  local worktree_path="$1"
+  local main_repo=$(get_main_repo_path)
+  local copied=()
+  local skipped=()
+
+  for entry in "${UNTRACKED_FILES[@]}"; do
+    local source_path="${entry%%:*}"
+    local needs_path_update="${entry##*:}"
+
+    if copy_untracked_file "$main_repo" "$source_path" "$worktree_path" "$needs_path_update"; then
+      copied+=("$source_path")
+    else
+      skipped+=("$source_path")
+    fi
+  done
+
+  # Log results
+  if [ ${#copied[@]} -gt 0 ]; then
+    echo "Copied untracked files: ${copied[*]}"
+  fi
+
+  # Warn specifically about .env since it's critical
+  for path in "${skipped[@]}"; do
+    if [ "$path" = ".env" ]; then
+      echo -e "${YELLOW}Warning: .env not found in main repo - worktree will lack environment variables${NC}"
+    fi
+  done
+}
+
 # Normalize branch name to filesystem-safe path
 normalize_branch() {
   echo "$1" | tr '/' '-'
@@ -165,14 +238,8 @@ cmd_new() {
 
   cd "$worktree_path"
 
-  # Copy Claude settings from main repo (contains permissions and env vars)
-  if [ -f "$REPO_ROOT/.claude/settings.local.json" ]; then
-    echo "Copying Claude settings..."
-    mkdir -p "$worktree_path/.claude"
-    # Copy and update PROJECT_ROOT to point to the worktree path
-    sed "s|\"PROJECT_ROOT\": \"$REPO_ROOT\"|\"PROJECT_ROOT\": \"$worktree_path\"|g" \
-      "$REPO_ROOT/.claude/settings.local.json" > "$worktree_path/.claude/settings.local.json"
-  fi
+  # Copy untracked files from main repo (.env, Claude settings, etc.)
+  copy_untracked_files "$worktree_path"
 
   # Install dependencies
   echo "Installing dependencies..."

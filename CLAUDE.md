@@ -966,6 +966,19 @@ Then use `wt new feat/my-feature` from anywhere.
 
 All parallel worktrees are created in `~/.worktrees/honkadori/<branch-name>` to keep the project directory clean.
 
+### Untracked Files
+
+When creating a worktree, the script automatically copies these gitignored files from the main repo:
+
+| File                          | Purpose                                              |
+| ----------------------------- | ---------------------------------------------------- |
+| `.env`                        | Environment variables (DATABASE_URL, API keys, etc.) |
+| `.claude/settings.local.json` | Claude Code permissions and settings                 |
+
+`PROJECT_ROOT` paths in these files are automatically updated to point to the worktree location.
+
+**To add more files:** Edit the `UNTRACKED_FILES` array in `scripts/worktree-claude.sh`.
+
 ## Cyrus/Linear Integration
 
 **Cyrus** is an autonomous AI agent that monitors Linear issues, creates isolated Git worktrees, and processes tasks using Claude Code.
