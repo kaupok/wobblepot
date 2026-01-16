@@ -72,6 +72,10 @@ export function InventoryPage({
     }, 300)
   }, [])
 
+  const handleItemUnpurchased = useCallback((ingredientId: string) => {
+    setPantryItems((prev) => prev.filter((item) => item.ingredient.id !== ingredientId))
+  }, [])
+
   return (
     <div className="container mx-auto max-w-6xl p-4">
       <div className="mb-4 flex items-center justify-between md:hidden">
@@ -107,6 +111,7 @@ export function InventoryPage({
               groups={shoppingData.groups}
               initialPurchasedIds={shoppingData.initialPurchasedIds}
               onItemPurchased={handleItemPurchased}
+              onItemUnpurchased={handleItemUnpurchased}
             />
           ) : null}
         </div>

@@ -23,6 +23,7 @@ interface ShoppingSectionProps {
   groups: ShoppingListGroup[]
   initialPurchasedIds: Set<string>
   onItemPurchased?: (item: PantryItemData) => void
+  onItemUnpurchased?: (ingredientId: string) => void
 }
 
 export function ShoppingSection({
@@ -32,6 +33,7 @@ export function ShoppingSection({
   groups,
   initialPurchasedIds,
   onItemPurchased,
+  onItemUnpurchased,
 }: ShoppingSectionProps) {
   const [purchasedIds, setPurchasedIds] = useState<Set<string>>(initialPurchasedIds)
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
@@ -79,9 +81,11 @@ export function ShoppingSection({
         throw new Error(data.error || 'Failed to update item')
       }
 
-      // Notify parent about newly purchased item (for real-time pantry update)
+      // Notify parent about pantry changes (for real-time update)
       if (purchased && onItemPurchased && data.results?.[0]?.pantryItem) {
         onItemPurchased(data.results[0].pantryItem)
+      } else if (!purchased && onItemUnpurchased && data.success) {
+        onItemUnpurchased(ingredientId)
       }
     } catch (error) {
       setPurchasedIds((prev) => {
