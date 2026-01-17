@@ -62,8 +62,8 @@ export function InventoryPage({
         updated[existingIndex] = newItem
         return updated
       }
-      // Add new item
-      return [...prev, newItem]
+      // Add new item and sort alphabetically by ingredient name
+      return [...prev, newItem].sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name))
     })
     // Track new items for animation
     setNewlyAddedIds((prev) => new Set(prev).add(newItem.id))
