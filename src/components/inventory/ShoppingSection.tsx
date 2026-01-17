@@ -193,7 +193,21 @@ export function ShoppingSection({
 
       // Notify parent about pantry changes (for real-time update)
       if (purchased && onItemPurchased && data.results?.[0]?.pantryItem) {
-        onItemPurchased(data.results[0].pantryItem)
+        // Find the shopping item to get its quantity info
+        const shoppingItem = groups
+          .flatMap((g) => g.items)
+          .find((item) => item.ingredientId === ingredientId)
+
+        // Enhance pantry item with needed quantity data from shopping list
+        const enhancedPantryItem = {
+          ...data.results[0].pantryItem,
+          ...(shoppingItem && {
+            neededQuantity: 1, // Actual value doesn't matter for display, just needs to be > 0
+            neededDisplayQuantity: shoppingItem.displayQuantity,
+            windowDays,
+          }),
+        }
+        onItemPurchased(enhancedPantryItem)
       } else if (!purchased && onItemUnpurchased && data.success) {
         onItemUnpurchased(ingredientId)
       }
