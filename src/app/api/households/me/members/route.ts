@@ -12,6 +12,10 @@ const createManualMemberSchema = z.object({
     .object({
       displayName: z.string().max(50).nullable().optional(),
       portionMultiplier: z.number().min(0.5).max(3.0).optional(),
+      targetCalories: z.number().int().min(500).max(5000).nullable().optional(),
+      targetProtein: z.number().int().min(0).max(500).nullable().optional(),
+      targetCarbs: z.number().int().min(0).max(500).nullable().optional(),
+      targetFat: z.number().int().min(0).max(500).nullable().optional(),
       dietaryType: z.enum(['omnivore', 'vegetarian', 'vegan', 'pescatarian']).nullable().optional(),
       allergens: z
         .array(
@@ -97,9 +101,14 @@ export async function GET() {
           ? {
               displayName: member.preferences.displayName,
               portionMultiplier: member.preferences.portionMultiplier,
+              targetCalories: member.preferences.targetCalories,
+              targetProtein: member.preferences.targetProtein,
+              targetCarbs: member.preferences.targetCarbs,
+              targetFat: member.preferences.targetFat,
               dietaryType: member.preferences.dietaryType,
               allergens: member.preferences.allergens,
               restrictions: member.preferences.restrictions,
+              excludedIngredients: member.preferences.excludedIngredients,
             }
           : null,
         invite,
@@ -160,6 +169,10 @@ export async function POST(request: Request) {
           memberId: newMember.id,
           displayName: preferences.displayName,
           portionMultiplier: preferences.portionMultiplier,
+          targetCalories: preferences.targetCalories,
+          targetProtein: preferences.targetProtein,
+          targetCarbs: preferences.targetCarbs,
+          targetFat: preferences.targetFat,
           dietaryType: preferences.dietaryType,
           allergens: preferences.allergens,
           restrictions: preferences.restrictions,
@@ -189,9 +202,14 @@ export async function POST(request: Request) {
         ? {
             displayName: member!.preferences.displayName,
             portionMultiplier: member!.preferences.portionMultiplier,
+            targetCalories: member!.preferences.targetCalories,
+            targetProtein: member!.preferences.targetProtein,
+            targetCarbs: member!.preferences.targetCarbs,
+            targetFat: member!.preferences.targetFat,
             dietaryType: member!.preferences.dietaryType,
             allergens: member!.preferences.allergens,
             restrictions: member!.preferences.restrictions,
+            excludedIngredients: member!.preferences.excludedIngredients,
           }
         : null,
       invite: null,
