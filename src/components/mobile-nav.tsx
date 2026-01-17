@@ -58,6 +58,15 @@ export function MobileNav({ session }: MobileNavProps) {
           <SheetTitle>Navigation</SheetTitle>
         </SheetHeader>
         <nav className="mt-6 flex flex-col gap-4 px-4">
+          {session && (
+            <Link
+              href="/"
+              className="hover:text-primary text-sm font-medium transition-colors"
+              onClick={() => setOpen(false)}
+            >
+              Today
+            </Link>
+          )}
           <Link
             href="/dashboard"
             className="hover:text-primary text-sm font-medium transition-colors"
