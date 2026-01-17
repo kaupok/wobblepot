@@ -24,6 +24,7 @@ interface UrgentShoppingProps {
 
 export function UrgentShopping({ items }: UrgentShoppingProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [isPurchasedExpanded, setIsPurchasedExpanded] = useState(false)
 
   // Filter to only today and tomorrow items
   const urgentItems = useMemo(() => {
@@ -31,7 +32,9 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
   }, [items])
 
   const unpurchasedItems = urgentItems.filter((item) => !item.purchased)
-  const purchasedItems = urgentItems.filter((item) => item.purchased)
+  const purchasedItems = useMemo(() => {
+    return urgentItems.filter((item) => item.purchased).sort((a, b) => a.name.localeCompare(b.name))
+  }, [urgentItems])
 
   const todayCount = unpurchasedItems.filter((item) => item.urgency === 'today').length
   const tomorrowCount = unpurchasedItems.filter((item) => item.urgency === 'tomorrow').length
@@ -130,9 +133,35 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
             </Button>
           )}
           {purchasedItems.length > 0 && (
-            <Body variant="muted" className="text-xs">
-              {purchasedItems.length} item{purchasedItems.length === 1 ? '' : 's'} already purchased
-            </Body>
+            <div className="border-t pt-3">
+              <button
+                onClick={() => setIsPurchasedExpanded(!isPurchasedExpanded)}
+                className="flex w-full items-center justify-between text-xs"
+              >
+                <span className="text-muted-foreground flex items-center gap-1">
+                  <Check className="h-3 w-3" />
+                  {purchasedItems.length} item{purchasedItems.length === 1 ? '' : 's'} purchased
+                </span>
+                {isPurchasedExpanded ? (
+                  <ChevronUp className="text-muted-foreground h-3 w-3" />
+                ) : (
+                  <ChevronDown className="text-muted-foreground h-3 w-3" />
+                )}
+              </button>
+              {isPurchasedExpanded && (
+                <ul className="mt-2 flex flex-col gap-1">
+                  {purchasedItems.map((item) => (
+                    <li
+                      key={item.ingredientId}
+                      className="text-muted-foreground flex items-center justify-between gap-2 text-sm line-through"
+                    >
+                      <span className="min-w-0 truncate">{item.name}</span>
+                      <span className="shrink-0">{item.displayQuantity}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
         </div>
       </CardContent>
