@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, type KeyboardEvent } from 'react'
+import { useState, useCallback, useImperativeHandle, forwardRef, type KeyboardEvent } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -14,14 +14,14 @@ interface TagInputProps {
   id?: string
 }
 
-function TagInput({
-  value,
-  onChange,
-  placeholder = 'Type and press Enter',
-  disabled = false,
-  className,
-  id,
-}: TagInputProps) {
+interface TagInputRef {
+  commitPendingValue: () => void
+}
+
+const TagInput = forwardRef<TagInputRef, TagInputProps>(function TagInput(
+  { value, onChange, placeholder = 'Type and press Enter', disabled = false, className, id },
+  ref,
+) {
   const [inputValue, setInputValue] = useState('')
 
   const addTag = useCallback(
@@ -41,6 +41,15 @@ function TagInput({
     [value, onChange],
   )
 
+  const commitPendingValue = useCallback(() => {
+    if (inputValue.trim()) {
+      addTag(inputValue)
+      setInputValue('')
+    }
+  }, [inputValue, addTag])
+
+  useImperativeHandle(ref, () => ({ commitPendingValue }), [commitPendingValue])
+
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault()
@@ -52,6 +61,10 @@ function TagInput({
         removeTag(lastTag)
       }
     }
+  }
+
+  const handleBlur = () => {
+    commitPendingValue()
   }
 
   return (
@@ -85,13 +98,14 @@ function TagInput({
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
         placeholder={value.length === 0 ? placeholder : ''}
         disabled={disabled}
         className="placeholder:text-muted-foreground min-w-[120px] flex-1 bg-transparent text-sm outline-none disabled:cursor-not-allowed"
       />
     </div>
   )
-}
+})
 
 export { TagInput }
-export type { TagInputProps }
+export type { TagInputProps, TagInputRef }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Body, Heading } from '@/components/ui/typography'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
-import { TagInput } from '@/components/tag-input'
+import { TagInput, type TagInputRef } from '@/components/tag-input'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
   Dialog,
@@ -84,6 +84,10 @@ export function EditMemberPreferencesDialog({
   // Collapsible state
   const [nutritionOpen, setNutritionOpen] = useState(false)
 
+  // Refs for tag inputs
+  const restrictionsRef = useRef<TagInputRef>(null)
+  const excludedIngredientsRef = useRef<TagInputRef>(null)
+
   // Form state
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -117,6 +121,10 @@ export function EditMemberPreferencesDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!member) return
+
+    // Commit any pending tag input values before submitting
+    restrictionsRef.current?.commitPendingValue()
+    excludedIngredientsRef.current?.commitPendingValue()
 
     setError('')
     setIsLoading(true)
@@ -417,6 +425,7 @@ export function EditMemberPreferencesDialog({
             <div className="flex flex-col gap-2">
               <Label htmlFor="edit-restrictions">Dietary restrictions</Label>
               <TagInput
+                ref={restrictionsRef}
                 id="edit-restrictions"
                 value={restrictions}
                 onChange={setRestrictions}
@@ -424,7 +433,7 @@ export function EditMemberPreferencesDialog({
                 disabled={isLoading}
               />
               <Body variant="muted" className="text-sm">
-                Add dietary restrictions (press Enter to add)
+                Type a restriction and press Enter or click away to add
               </Body>
             </div>
 
@@ -432,6 +441,7 @@ export function EditMemberPreferencesDialog({
             <div className="flex flex-col gap-2">
               <Label htmlFor="edit-excludedIngredients">Excluded ingredients</Label>
               <TagInput
+                ref={excludedIngredientsRef}
                 id="edit-excludedIngredients"
                 value={excludedIngredients}
                 onChange={setExcludedIngredients}
@@ -439,7 +449,7 @@ export function EditMemberPreferencesDialog({
                 disabled={isLoading}
               />
               <Body variant="muted" className="text-sm">
-                Ingredients this member dislikes (press Enter to add)
+                Ingredients this member dislikes
               </Body>
             </div>
 
