@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
@@ -26,10 +26,13 @@ export function EmptySlotCard({ planId, date, mealType }: EmptySlotCardProps) {
   const [isLibraryOpen, setIsLibraryOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [entryId, setEntryId] = useState<string | null>(null)
+  // Track if a meal was selected (onSwapComplete called)
+  const hasSelectedRef = useRef(false)
 
   async function handleAddMeal() {
     // First create an empty entry, then open the library modal
     setIsCreating(true)
+    hasSelectedRef.current = false
 
     try {
       const response = await fetch(`/api/meal-plans/${planId}/entries`, {
@@ -54,14 +57,21 @@ export function EmptySlotCard({ planId, date, mealType }: EmptySlotCardProps) {
   }
 
   function handleSwapComplete() {
+    hasSelectedRef.current = true
     router.refresh()
   }
 
-  function handleLibraryClose(open: boolean) {
-    if (!open && entryId) {
-      // If modal was closed without selecting a meal, we still want to refresh
-      // to show the empty entry (user can fill it later)
-      router.refresh()
+  async function handleLibraryClose(open: boolean) {
+    if (!open && entryId && !hasSelectedRef.current) {
+      // Modal was closed without selecting a meal - delete the empty entry
+      try {
+        await fetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
+          method: 'DELETE',
+        })
+      } catch {
+        // Silently ignore delete errors - the entry will be orphaned but harmless
+      }
+      setEntryId(null)
     }
     setIsLibraryOpen(open)
   }
