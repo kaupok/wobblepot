@@ -3,9 +3,19 @@ import type { NutritionData } from './types'
 
 interface NutritionSummaryProps {
   nutrition: NutritionData
+  compact?: boolean
 }
 
-export function NutritionSummary({ nutrition }: NutritionSummaryProps) {
+export function NutritionSummary({ nutrition, compact }: NutritionSummaryProps) {
+  if (compact) {
+    return (
+      <div className="text-muted-foreground text-xs">
+        {Math.round(nutrition.calories)} kcal • {Math.round(nutrition.protein)}g protein •{' '}
+        {Math.round(nutrition.carbs)}g carbs • {Math.round(nutrition.fat)}g fat
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <Body variant="small" className="font-semibold">
