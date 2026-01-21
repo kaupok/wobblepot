@@ -115,7 +115,7 @@ Format each section with the exact headers shown above (Equipment needed:, Steps
     const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
 
     const { text } = await generateText({
-      model: anthropic('claude-3-5-haiku-20241022'),
+      model: anthropic('claude-haiku-4-5-20251001'),
       prompt,
       maxOutputTokens: 500,
     })
