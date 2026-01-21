@@ -1,10 +1,18 @@
+'use client'
+
+import { Checkbox } from '@/components/ui/checkbox'
 import { Body, Ul, Li } from '@/components/ui/typography'
+import { cn } from '@/lib/utils'
 import type { MealComponent, PantryIngredient } from './types'
 
 interface IngredientListProps {
   components: MealComponent[]
   householdSize: number
   pantryIngredients?: PantryIngredient[]
+  /** If provided, renders checkboxes to toggle ingredient availability */
+  onToggleAvailability?: (ingredientId: string, hasIt: boolean) => void
+  /** Ingredient IDs currently being toggled (for loading state) */
+  togglingIds?: Set<string>
 }
 
 /**
@@ -41,11 +49,18 @@ export function IngredientList({
   components,
   householdSize,
   pantryIngredients,
+  onToggleAvailability,
+  togglingIds,
 }: IngredientListProps) {
   // Build set of available ingredient IDs for missing item highlighting
   const availableIds = pantryIngredients
     ? new Set(pantryIngredients.map((p) => p.ingredientId))
     : null
+
+  const handleCheckedChange = (ingredientId: string, checked: boolean | 'indeterminate') => {
+    if (checked === 'indeterminate' || !onToggleAvailability) return
+    onToggleAvailability(ingredientId, checked)
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -54,15 +69,35 @@ export function IngredientList({
       </Body>
       <Ul className="my-0 ml-4">
         {components.map((comp) => {
-          const isMissing = availableIds && !availableIds.has(comp.ingredientId)
+          const hasIt = availableIds ? availableIds.has(comp.ingredientId) : true
+          const isMissing = !hasIt
+          const isToggling = togglingIds?.has(comp.ingredientId) ?? false
+
           return (
             <Li
               key={comp.ingredient.name}
-              className={`flex justify-between gap-4 ${isMissing ? 'text-amber-600 dark:text-amber-400' : ''}`}
+              className={cn(
+                'flex items-center justify-between gap-4',
+                isMissing && 'text-amber-600 dark:text-amber-400',
+              )}
             >
-              <span>{comp.ingredient.name}</span>
+              <span className="flex items-center gap-2">
+                {onToggleAvailability && (
+                  <Checkbox
+                    checked={hasIt}
+                    onCheckedChange={(checked) => handleCheckedChange(comp.ingredientId, checked)}
+                    disabled={isToggling}
+                    className="h-4 w-4"
+                    aria-label={`Mark ${comp.ingredient.name} as ${hasIt ? 'not available' : 'available'}`}
+                  />
+                )}
+                <span>{comp.ingredient.name}</span>
+              </span>
               <span
-                className={`whitespace-nowrap ${isMissing ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}
+                className={cn(
+                  'whitespace-nowrap',
+                  isMissing ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground',
+                )}
               >
                 {formatQuantity(
                   comp.quantityPerServing,
