@@ -7,19 +7,24 @@ interface AvailabilityIndicatorProps {
 /**
  * Compute meal availability based on pantry contents.
  * An ingredient is considered available if it exists in the pantry
- * (regardless of quantity). Staples are included in the pantry list
- * when passed from the caller.
+ * (regardless of quantity). Staples are always considered available
+ * and are excluded from missing ingredient counts.
  */
 export function computeMealAvailability(
   meal: MealData,
   pantryIngredients: PantryIngredient[],
 ): MealAvailability {
-  // Build a set of available ingredient IDs (including staples)
+  // Build sets for available ingredient IDs and staple IDs
   const availableIds = new Set(pantryIngredients.map((p) => p.ingredientId))
+  const stapleIds = new Set(pantryIngredients.filter((p) => p.isStaple).map((p) => p.ingredientId))
 
   const missingIngredients: string[] = []
 
   for (const component of meal.components) {
+    // Staples are always assumed in stock, skip them
+    if (stapleIds.has(component.ingredientId)) {
+      continue
+    }
     if (!availableIds.has(component.ingredientId)) {
       missingIngredients.push(component.ingredient.name)
     }
