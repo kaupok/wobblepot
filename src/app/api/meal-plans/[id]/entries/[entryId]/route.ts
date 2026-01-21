@@ -12,6 +12,74 @@ const updateEntrySchema = z.object({
   deductPantry: z.boolean().optional(),
 })
 
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string; entryId: string }> },
+) {
+  // Auth check
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  })
+
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Get household membership
+  const membership = await getHouseholdMembership(session.user.id)
+
+  if (!membership) {
+    return NextResponse.json({ error: 'No household found' }, { status: 404 })
+  }
+
+  const { household } = membership
+
+  // Extract params
+  const { id: planId, entryId } = await params
+
+  try {
+    // Verify entry exists, belongs to the plan, and plan belongs to user's household
+    const entry = await prisma.mealPlanEntry.findFirst({
+      where: {
+        id: entryId,
+        planId: planId,
+        plan: {
+          householdId: household.id,
+        },
+      },
+      select: {
+        id: true,
+        plan: {
+          select: {
+            endDate: true,
+          },
+        },
+      },
+    })
+
+    if (!entry) {
+      return NextResponse.json({ error: 'Entry not found or access denied' }, { status: 404 })
+    }
+
+    // Reject deletion of past week plan entries (read-only)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    if (entry.plan.endDate < today) {
+      return NextResponse.json({ error: 'Cannot modify past week plans' }, { status: 403 })
+    }
+
+    // Delete the entry
+    await prisma.mealPlanEntry.delete({
+      where: { id: entryId },
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Failed to delete entry:', error)
+    return NextResponse.json({ error: 'Failed to delete entry' }, { status: 500 })
+  }
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string; entryId: string }> },
