@@ -1,13 +1,15 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { MealCard } from './MealCard'
+import { EmptySlotCard } from './EmptySlotCard'
 import { cn } from '@/lib/utils'
-import type { PantryIngredient, PantryItemFull, PlanEntry } from './types'
+import type { EmptySlot, PantryIngredient, PantryItemFull, PlanEntry } from './types'
 
 interface DayColumnProps {
   date: string
   planId: string
   entries: PlanEntry[]
+  emptySlots?: EmptySlot[]
   isToday: boolean
   isPast?: boolean
   householdSize: number
@@ -27,6 +29,7 @@ export function DayColumn({
   date,
   planId,
   entries,
+  emptySlots = [],
   isToday,
   isPast,
   householdSize,
@@ -60,7 +63,16 @@ export function DayColumn({
             pantryItems={pantryItems}
           />
         ))}
-        {entries.length === 0 && (
+        {!isPast &&
+          emptySlots.map((slot) => (
+            <EmptySlotCard
+              key={`empty-${slot.mealType}`}
+              planId={planId}
+              date={slot.date}
+              mealType={slot.mealType}
+            />
+          ))}
+        {entries.length === 0 && emptySlots.length === 0 && (
           <Card>
             <CardContent className="flex items-center justify-center">
               <Body variant="muted">No meal planned</Body>
