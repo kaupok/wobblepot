@@ -21,6 +21,7 @@ function createMockMeal(overrides: {
   name?: string
   kidFriendly?: boolean
   primaryProteinType?: ProteinType
+  householdId?: string | null
   components?: { ingredient: { name: string; category: IngredientCategory } }[]
 }) {
   return {
@@ -28,6 +29,7 @@ function createMockMeal(overrides: {
     name: overrides.name ?? 'Test Meal',
     kidFriendly: overrides.kidFriendly ?? false,
     primaryProteinType: overrides.primaryProteinType ?? ProteinType.none,
+    householdId: overrides.householdId ?? null,
     components: overrides.components ?? [
       { ingredient: { name: 'Chicken', category: IngredientCategory.protein } },
       { ingredient: { name: 'Rice', category: IngredientCategory.carb } },
@@ -56,6 +58,7 @@ describe('getCandidates', () => {
         name: 'Grilled Chicken',
         kidFriendly: true,
         primaryProteinType: ProteinType.poultry,
+        householdId: 'household-1', // Custom meal
         components: [
           { ingredient: { name: 'Chicken breast', category: IngredientCategory.protein } },
           { ingredient: { name: 'Olive oil', category: IngredientCategory.fat } },
@@ -77,6 +80,8 @@ describe('getCandidates', () => {
           { name: 'Chicken breast', category: IngredientCategory.protein },
           { name: 'Olive oil', category: IngredientCategory.fat },
         ],
+        isFavorite: false,
+        isCustom: true,
       })
     })
 
@@ -426,6 +431,7 @@ describe('getCandidates', () => {
             name: true,
             kidFriendly: true,
             primaryProteinType: true,
+            householdId: true,
             components: {
               orderBy: { quantityPerServing: 'desc' },
               take: 3,

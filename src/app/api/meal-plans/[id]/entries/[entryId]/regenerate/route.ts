@@ -152,6 +152,13 @@ export async function POST(
 
     const recentMealIds = [...new Set(recentEntries.map((e) => e.mealId!).filter(Boolean))]
 
+    // Get favorite meal IDs for this household
+    const favorites = await prisma.favoriteMeal.findMany({
+      where: { householdId: household.id },
+      select: { mealId: true },
+    })
+    const favoriteMealIds = favorites.map((f) => f.mealId)
+
     // Build candidate filters
     const filters: CandidateFilters = {
       mealType: entry.mealType as MealType,
@@ -159,6 +166,8 @@ export async function POST(
       excludedIngredientIds,
       recentMealIds,
       primaryProteinType: requiredSlot?.proteinType,
+      householdId: household.id,
+      favoriteMealIds,
     }
 
     // Get candidates
