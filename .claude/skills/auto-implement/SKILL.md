@@ -120,7 +120,23 @@ mcp__linear-server__get_project({ query: "5a19627a-803f-4052-83c4-b44810d17af7" 
 
 Extract: Active milestone name from the project description (look for "**Active Milestone:**")
 
-### 1.2 List backlog issues
+### 1.2 Search for issues (priority order)
+
+Search in this order, stopping when unblocked issues are found:
+
+**a) Todo/Active in active milestone (highest priority):**
+
+```
+mcp__linear-server__list_issues({
+  project: "5a19627a-803f-4052-83c4-b44810d17af7",
+  state: "Todo",
+  limit: 20
+})
+```
+
+Filter results by active milestone (`projectMilestone.name`).
+
+**b) Backlog in active milestone:**
 
 ```
 mcp__linear-server__list_issues({
@@ -130,9 +146,23 @@ mcp__linear-server__list_issues({
 })
 ```
 
-### 1.3 Check dependencies for milestone issues
+Filter results by active milestone.
 
-For each issue in the active milestone (check `projectMilestone.name`), fetch with relations:
+**c) Todo/Active in other milestones (fallback):**
+If nothing found in active milestone, check Todo issues in other milestones.
+
+**d) Backlog in other milestones:**
+Check Backlog issues in other milestones.
+
+**e) Todo/Active without milestone:**
+Check Todo issues that have no milestone assigned (`projectMilestone` is null).
+
+**f) Backlog without milestone (last resort):**
+Check Backlog issues that have no milestone assigned.
+
+### 1.3 Check dependencies for candidate issues
+
+For each promising issue, fetch with relations:
 
 ```
 mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
@@ -147,6 +177,8 @@ An issue is unblocked if:
 
 ### 1.5 Prioritize by
 
+- Status: Todo/Active before Backlog
+- Milestone: Active milestone → other milestones → no milestone
 - Dependency order (issues that unblock others first - check `blocks` array)
 - Logical sequence within milestone
 
