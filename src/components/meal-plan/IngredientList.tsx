@@ -3,7 +3,8 @@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Body, Ul, Li } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
-import type { MealComponent, PantryIngredient } from './types'
+import { AvailabilityIndicator } from './AvailabilityIndicator'
+import type { MealAvailability, MealComponent, PantryIngredient } from './types'
 
 interface IngredientListProps {
   components: MealComponent[]
@@ -13,6 +14,8 @@ interface IngredientListProps {
   onToggleAvailability?: (ingredientId: string, hasIt: boolean) => void
   /** Ingredient IDs currently being toggled (for loading state) */
   togglingIds?: Set<string>
+  /** If provided, renders availability badge inline with header */
+  availability?: MealAvailability | null
 }
 
 /**
@@ -51,6 +54,7 @@ export function IngredientList({
   pantryIngredients,
   onToggleAvailability,
   togglingIds,
+  availability,
 }: IngredientListProps) {
   // Build set of available ingredient IDs for missing item highlighting
   const availableIds = pantryIngredients
@@ -64,9 +68,12 @@ export function IngredientList({
 
   return (
     <div className="flex flex-col gap-3">
-      <Body variant="small" className="font-semibold">
-        Ingredients (serves {householdSize})
-      </Body>
+      <div className="flex items-center gap-2">
+        <Body variant="small" className="font-semibold">
+          Ingredients (serves {householdSize})
+        </Body>
+        {availability && <AvailabilityIndicator availability={availability} />}
+      </div>
       <Ul className="my-0 ml-4">
         {components.map((comp) => {
           const hasIt = availableIds ? availableIds.has(comp.ingredientId) : true
