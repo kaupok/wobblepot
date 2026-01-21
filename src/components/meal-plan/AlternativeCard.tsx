@@ -49,6 +49,7 @@ export function AlternativeCard({
           <div className="flex items-start justify-between gap-2">
             <div className="flex flex-col gap-1">
               <span className="font-medium">{meal.name}</span>
+              <AvailabilityIndicator availability={availability} />
               <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
                 {meal.timeMinutes && <span>{meal.timeMinutes} min</span>}
                 {meal.nutrition && (
@@ -67,7 +68,6 @@ export function AlternativeCard({
                     <TooltipContent>Kid-friendly</TooltipContent>
                   </Tooltip>
                 )}
-                <AvailabilityIndicator availability={availability} />
               </div>
             </div>
             <div className="flex items-center gap-1">
