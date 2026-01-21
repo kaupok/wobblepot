@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Body, Ul, Li } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
@@ -56,15 +57,54 @@ export function IngredientList({
   togglingIds,
   availability,
 }: IngredientListProps) {
-  // Build set of available ingredient IDs for missing item highlighting
-  const availableIds = pantryIngredients
-    ? new Set(pantryIngredients.map((p) => p.ingredientId))
-    : null
+  // Build maps for availability and staple status
+  const { availableIds, stapleIds } = useMemo(() => {
+    if (!pantryIngredients) {
+      return { availableIds: null, stapleIds: new Set<string>() }
+    }
+    return {
+      availableIds: new Set(pantryIngredients.map((p) => p.ingredientId)),
+      stapleIds: new Set(pantryIngredients.filter((p) => p.isStaple).map((p) => p.ingredientId)),
+    }
+  }, [pantryIngredients])
+
+  // Separate regular ingredients from staples
+  const { regularComponents, stapleComponents } = useMemo(() => {
+    const regular: MealComponent[] = []
+    const staples: MealComponent[] = []
+
+    for (const comp of components) {
+      if (stapleIds.has(comp.ingredientId)) {
+        staples.push(comp)
+      } else {
+        regular.push(comp)
+      }
+    }
+
+    return { regularComponents: regular, stapleComponents: staples }
+  }, [components, stapleIds])
 
   const handleCheckedChange = (ingredientId: string, checked: boolean | 'indeterminate') => {
     if (checked === 'indeterminate' || !onToggleAvailability) return
     onToggleAvailability(ingredientId, checked)
   }
+
+  // Format staples line: "Staples: garlic (15g), olive oil (45g)"
+  const staplesLine = useMemo(() => {
+    if (stapleComponents.length === 0) return null
+
+    const items = stapleComponents.map((comp) => {
+      const qty = formatQuantity(
+        comp.quantityPerServing,
+        householdSize,
+        comp.ingredient.defaultUnit,
+        comp.ingredient.gramsPerPiece,
+      )
+      return `${comp.ingredient.name} (${qty})`
+    })
+
+    return `Staples: ${items.join(', ')}`
+  }, [stapleComponents, householdSize])
 
   return (
     <div className="flex flex-col gap-3">
@@ -75,7 +115,7 @@ export function IngredientList({
         {availability && <AvailabilityIndicator availability={availability} />}
       </div>
       <Ul className="my-0 ml-4">
-        {components.map((comp) => {
+        {regularComponents.map((comp) => {
           const hasIt = availableIds ? availableIds.has(comp.ingredientId) : true
           const isMissing = !hasIt
           const isToggling = togglingIds?.has(comp.ingredientId) ?? false
@@ -117,6 +157,7 @@ export function IngredientList({
           )
         })}
       </Ul>
+      {staplesLine && <Body variant="muted">{staplesLine}</Body>}
     </div>
   )
 }
