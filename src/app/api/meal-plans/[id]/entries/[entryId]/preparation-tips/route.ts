@@ -90,6 +90,13 @@ Provide 4-6 numbered steps covering:
 - Timing tips
 - One helpful cooking tip at the end
 
+IMPORTANT: Use metric units for ALL measurements:
+- Temperatures: °C (e.g., "190°C")
+- Weights: g or kg (e.g., "500g", "1.5kg")
+- Volumes: ml or L (e.g., "250ml", "1L")
+- Lengths: cm (e.g., "2cm")
+Never use Fahrenheit, cups, ounces, pounds, or inches.
+
 Keep it brief and practical. Not a full recipe - just order of operations and key tips. Do not repeat ingredient quantities.
 
 Format: numbered list, then a single "Tip:" line at the end.`
