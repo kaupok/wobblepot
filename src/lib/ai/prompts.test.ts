@@ -17,6 +17,8 @@ function createCandidate(overrides: {
   name?: string
   kidFriendly?: boolean
   primaryProteinType?: ProteinType
+  isFavorite?: boolean
+  isCustom?: boolean
 }): CandidateMeal {
   return {
     id: overrides.id ?? 'meal-1',
@@ -27,6 +29,8 @@ function createCandidate(overrides: {
       { name: 'Chicken', category: IngredientCategory.protein },
       { name: 'Rice', category: IngredientCategory.carb },
     ],
+    isFavorite: overrides.isFavorite ?? false,
+    isCustom: overrides.isCustom ?? false,
   }
 }
 

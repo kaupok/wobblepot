@@ -81,6 +81,18 @@ async function getRecentMealIds(householdId: string): Promise<string[]> {
 }
 
 /**
+ * Get favorite meal IDs for a household.
+ */
+async function getFavoriteMealIds(householdId: string): Promise<string[]> {
+  const favorites = await prisma.favoriteMeal.findMany({
+    where: { householdId },
+    select: { mealId: true },
+  })
+
+  return favorites.map((f) => f.mealId)
+}
+
+/**
  * Hydrate AI response with meal details from the database.
  */
 async function hydratePlan(
@@ -237,13 +249,17 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     weekendMealTypes,
   })
 
-  // Get recent meal IDs to exclude
-  const recentMealIds = await getRecentMealIds(householdId)
+  // Get recent meal IDs to exclude and favorite meal IDs for prioritization
+  const [recentMealIds, favoriteMealIds] = await Promise.all([
+    getRecentMealIds(householdId),
+    getFavoriteMealIds(householdId),
+  ])
 
   // Collect unique meal types to query candidates for
   const uniqueMealTypes = [...new Set(allSlots.map((s) => s.mealType))]
 
   // Query candidate pools for each meal type in parallel
+  // Include both system meals and household's custom meals
   const candidatesByMealType = new Map<MealType, CandidateMeal[]>()
   await Promise.all(
     uniqueMealTypes.map(async (mealType) => {
@@ -252,6 +268,8 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
         allergensToAvoid,
         excludedIngredientIds,
         recentMealIds,
+        householdId,
+        favoriteMealIds,
       })
       candidatesByMealType.set(mealType, capPool(candidates))
     }),
@@ -266,6 +284,8 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
       excludedIngredientIds,
       recentMealIds,
       primaryProteinType: 'fish',
+      householdId,
+      favoriteMealIds,
     }),
     getCandidates({
       mealType: 'dinner',
@@ -273,6 +293,8 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
       excludedIngredientIds,
       recentMealIds,
       primaryProteinType: 'legume',
+      householdId,
+      favoriteMealIds,
     }),
   ])
 

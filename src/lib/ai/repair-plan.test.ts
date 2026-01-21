@@ -33,6 +33,8 @@ function createCandidate(id: string, proteinType: ProteinType): CandidateMeal {
     primaryProteinType: proteinType,
     kidFriendly: true,
     topIngredients: [],
+    isFavorite: false,
+    isCustom: false,
   }
 }
 

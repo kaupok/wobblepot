@@ -16,6 +16,8 @@ export interface CandidateFilters {
   recentMealIds: string[]
   primaryProteinType?: ProteinType
   maxTimeMinutes?: number
+  householdId?: string
+  favoriteMealIds?: string[]
 }
 
 export interface CandidateMeal {
@@ -24,19 +26,31 @@ export interface CandidateMeal {
   kidFriendly: boolean
   primaryProteinType: ProteinType
   topIngredients: { name: string; category: IngredientCategory }[]
+  isFavorite: boolean
+  isCustom: boolean
 }
 
 /**
  * Pre-filter meals by hard constraints before AI selection.
  * Database handles: allergens, excluded ingredients, time, recent history, protein type.
  * AI handles: variety and final selection from filtered candidates.
+ *
+ * When householdId is provided, includes both system meals (householdId: null)
+ * and custom meals belonging to that household.
  */
 export async function getCandidates(filters: CandidateFilters): Promise<CandidateMeal[]> {
   const maxTime = filters.maxTimeMinutes ?? MAX_TIME_MINUTES
+  const favoriteMealIds = new Set(filters.favoriteMealIds ?? [])
 
   const meals = await prisma.meal.findMany({
     where: {
       suitableFor: { has: filters.mealType },
+      // Only non-deleted meals
+      deletedAt: null,
+      // Include system meals + household's custom meals if householdId provided
+      ...(filters.householdId
+        ? { OR: [{ householdId: null }, { householdId: filters.householdId }] }
+        : { householdId: null }),
       AND: [
         // Hard filter: allergens - exclude meals with any allergen-containing ingredients
         ...(filters.allergensToAvoid.length > 0
@@ -79,6 +93,7 @@ export async function getCandidates(filters: CandidateFilters): Promise<Candidat
       name: true,
       kidFriendly: true,
       primaryProteinType: true,
+      householdId: true,
       components: {
         orderBy: { quantityPerServing: 'desc' },
         take: 3,
@@ -101,5 +116,7 @@ export async function getCandidates(filters: CandidateFilters): Promise<Candidat
       name: c.ingredient.name,
       category: c.ingredient.category,
     })),
+    isFavorite: favoriteMealIds.has(meal.id),
+    isCustom: meal.householdId !== null,
   }))
 }

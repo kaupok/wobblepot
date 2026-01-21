@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Heart } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   Dialog,
   DialogContent,
@@ -25,6 +27,8 @@ import {
 } from '@/components/ui/select'
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
 
+type MealSource = 'all' | 'system' | 'custom' | 'favorites'
+
 interface LibraryMeal {
   id: string
   name: string
@@ -33,6 +37,8 @@ interface LibraryMeal {
   kidFriendly: boolean
   primaryProteinType: ProteinType
   calories: number
+  isFavorite: boolean
+  isCustom: boolean
 }
 
 interface MealLibraryModalProps {
@@ -99,6 +105,7 @@ export function MealLibraryModal({
   const [search, setSearch] = useState('')
   const [proteinType, setProteinType] = useState<ProteinType | 'all'>('all')
   const [kidFriendlyOnly, setKidFriendlyOnly] = useState(false)
+  const [source, setSource] = useState<MealSource>('all')
 
   // Track if initial load has happened to prevent double-fetch
   const isInitialLoad = useRef(true)
@@ -120,6 +127,7 @@ export function MealLibraryModal({
         if (search.trim()) params.set('search', search.trim())
         if (proteinType !== 'all') params.set('proteinType', proteinType)
         if (kidFriendlyOnly) params.set('kidFriendly', 'true')
+        if (source !== 'all') params.set('source', source)
 
         const response = await fetch(`/api/meals?${params.toString()}`)
 
@@ -144,7 +152,7 @@ export function MealLibraryModal({
         setIsLoadingMore(false)
       }
     },
-    [mealType, search, proteinType, kidFriendlyOnly],
+    [mealType, search, proteinType, kidFriendlyOnly, source],
   )
 
   // Reset and fetch on modal open
@@ -158,6 +166,7 @@ export function MealLibraryModal({
       setSearch('')
       setProteinType('all')
       setKidFriendlyOnly(false)
+      setSource('all')
       isInitialLoad.current = true
       return
     }
@@ -176,10 +185,38 @@ export function MealLibraryModal({
     }, 300)
 
     return () => clearTimeout(timeoutId)
-  }, [search, proteinType, kidFriendlyOnly, open, fetchMeals])
+  }, [search, proteinType, kidFriendlyOnly, source, open, fetchMeals])
 
   function handleSelectClick(meal: LibraryMeal) {
     setConfirmMeal(meal)
+  }
+
+  async function handleToggleFavorite(meal: LibraryMeal) {
+    const newFavoriteState = !meal.isFavorite
+    // Optimistic update
+    setMeals((prev) =>
+      prev.map((m) => (m.id === meal.id ? { ...m, isFavorite: newFavoriteState } : m)),
+    )
+
+    try {
+      const response = await fetch(`/api/meals/${meal.id}/favorite`, {
+        method: newFavoriteState ? 'POST' : 'DELETE',
+      })
+
+      if (!response.ok) {
+        // Revert on failure
+        setMeals((prev) =>
+          prev.map((m) => (m.id === meal.id ? { ...m, isFavorite: !newFavoriteState } : m)),
+        )
+        toast.error('Failed to update favorite')
+      }
+    } catch {
+      // Revert on failure
+      setMeals((prev) =>
+        prev.map((m) => (m.id === meal.id ? { ...m, isFavorite: !newFavoriteState } : m)),
+      )
+      toast.error('Failed to update favorite')
+    }
   }
 
   async function handleConfirmSwap() {
@@ -231,6 +268,17 @@ export function MealLibraryModal({
             onChange={(e) => setSearch(e.target.value)}
           />
           <div className="flex flex-wrap items-center gap-3">
+            <Select value={source} onValueChange={(value) => setSource(value as MealSource)}>
+              <SelectTrigger size="sm" className="w-[140px]">
+                <SelectValue placeholder="All meals" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All meals</SelectItem>
+                <SelectItem value="system">System meals</SelectItem>
+                <SelectItem value="custom">Our meals</SelectItem>
+                <SelectItem value="favorites">Favorites</SelectItem>
+              </SelectContent>
+            </Select>
             <Select
               value={proteinType}
               onValueChange={(value) => setProteinType(value as ProteinType | 'all')}
@@ -283,7 +331,25 @@ export function MealLibraryModal({
                   <Card key={meal.id} className="py-3">
                     <CardContent className="flex flex-col gap-2">
                       <div className="flex flex-col gap-1">
-                        <span className="text-sm leading-tight font-medium">{meal.name}</span>
+                        <div className="flex items-start justify-between gap-1">
+                          <span className="text-sm leading-tight font-medium">{meal.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleFavorite(meal)}
+                            className="flex-shrink-0 p-0.5"
+                            aria-label={
+                              meal.isFavorite ? 'Remove from favorites' : 'Add to favorites'
+                            }
+                          >
+                            <Heart
+                              className={`h-4 w-4 ${
+                                meal.isFavorite
+                                  ? 'fill-red-500 text-red-500'
+                                  : 'text-muted-foreground hover:text-red-500'
+                              }`}
+                            />
+                          </button>
+                        </div>
                         <div className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
                           {meal.timeMinutes && <span>{meal.timeMinutes} min</span>}
                           <span>
@@ -293,6 +359,11 @@ export function MealLibraryModal({
                           {meal.kidFriendly && (
                             <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                               Kid-friendly
+                            </span>
+                          )}
+                          {meal.isCustom && (
+                            <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                              Custom
                             </span>
                           )}
                         </div>

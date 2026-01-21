@@ -17,6 +17,9 @@ vi.mock('@/lib/prisma', () => ({
       deleteMany: vi.fn(),
       create: vi.fn(),
     },
+    favoriteMeal: {
+      findMany: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }))
@@ -73,6 +76,7 @@ const mockMealPlanEntryFindMany = vi.mocked(prisma.mealPlanEntry.findMany)
 const mockMealFindMany = vi.mocked(prisma.meal.findMany)
 const mockMealPlanDeleteMany = vi.mocked(prisma.mealPlan.deleteMany)
 const mockMealPlanCreate = vi.mocked(prisma.mealPlan.create)
+const mockFavoriteMealFindMany = vi.mocked(prisma.favoriteMeal.findMany)
 const mockTransaction = vi.mocked(prisma.$transaction)
 
 // Create mock prisma object to pass to transaction callbacks
@@ -80,6 +84,7 @@ const mockPrisma = {
   mealPlanEntry: { findMany: mockMealPlanEntryFindMany },
   meal: { findMany: mockMealFindMany },
   mealPlan: { deleteMany: mockMealPlanDeleteMany, create: mockMealPlanCreate },
+  favoriteMeal: { findMany: mockFavoriteMealFindMany },
 }
 
 // Helper functions
@@ -96,6 +101,8 @@ function createCandidate(overrides: Partial<CandidateMeal> = {}): CandidateMeal 
     topIngredients: overrides.topIngredients ?? [
       { name: 'Chicken', category: IngredientCategory.protein },
     ],
+    isFavorite: overrides.isFavorite ?? false,
+    isCustom: overrides.isCustom ?? false,
   }
 }
 
@@ -138,6 +145,7 @@ describe('generateMealPlan', () => {
 
     // Default mock implementations
     mockMealPlanEntryFindMany.mockResolvedValue([])
+    mockFavoriteMealFindMany.mockResolvedValue([])
     mockComputeMealSlots.mockReturnValue(createDefaultMealSlots())
     mockComputeRequiredSlots.mockReturnValue([
       { date: date('2026-01-14'), mealType: 'dinner', proteinType: 'fish' },

@@ -160,12 +160,13 @@ model Household {
   timezone  String   @default("Europe/Tallinn")
   createdAt DateTime @default(now())
 
-  members     HouseholdMember[]
-  preferences HouseholdPreferences?
-  mealPlans   MealPlan[]
-  meals       Meal[]
-  pantryItems PantryItem[]
-  invites     HouseholdInvite[]
+  members       HouseholdMember[]
+  preferences   HouseholdPreferences?
+  mealPlans     MealPlan[]
+  meals         Meal[]
+  pantryItems   PantryItem[]
+  invites       HouseholdInvite[]
+  favoriteMeals FavoriteMeal[]
 
   @@map("household")
 }
@@ -275,16 +276,32 @@ model Meal {
   kidFriendly        Boolean     @default(false)
   primaryProteinType ProteinType @default(none)
   suitableFor        MealType[]
+  servings           Int         @default(4)
   householdId        String?
+  deletedAt          DateTime?
   household          Household?  @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
-  components  MealComponent[]
-  planEntries MealPlanEntry[]
+  components    MealComponent[]
+  planEntries   MealPlanEntry[]
+  favoritedBy   FavoriteMeal[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("meal")
+}
+
+model FavoriteMeal {
+  id          String   @id @default(cuid())
+  householdId String
+  mealId      String
+  createdAt   DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  meal      Meal      @relation(fields: [mealId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, mealId])
+  @@map("favorite_meal")
 }
 
 model MealComponent {

@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
   const kidFriendly =
     kidFriendlyParam === 'true' ? true : kidFriendlyParam === 'false' ? false : null
   const search = searchParams.get('search')?.trim() || null
+  const source = searchParams.get('source') as 'all' | 'system' | 'custom' | 'favorites' | null
   const limit = Math.min(
     Math.max(1, parseInt(searchParams.get('limit') || String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT),
     MAX_LIMIT,
@@ -48,9 +49,35 @@ export async function GET(request: NextRequest) {
   const excludedIngredientIds = preferences?.excludedIngredientIds ?? []
 
   try {
+    // Get favorite meal IDs for this household
+    const favoriteMealIds =
+      source === 'favorites'
+        ? (
+            await prisma.favoriteMeal.findMany({
+              where: { householdId: household.id },
+              select: { mealId: true },
+            })
+          ).map((f) => f.mealId)
+        : []
+
+    // Build source filter
+    const sourceFilter: Prisma.MealWhereInput =
+      source === 'system'
+        ? { householdId: null }
+        : source === 'custom'
+          ? { householdId: household.id }
+          : source === 'favorites'
+            ? { id: { in: favoriteMealIds } }
+            : // 'all' or null: show system meals + this household's custom meals
+              { OR: [{ householdId: null }, { householdId: household.id }] }
+
     // Build where clause
     const where: Prisma.MealWhereInput = {
       AND: [
+        // Only show non-deleted meals
+        { deletedAt: null },
+        // Source filter
+        sourceFilter,
         // Filter by meal type if specified
         ...(mealType ? [{ suitableFor: { has: mealType } }] : []),
         // Filter by protein type if specified
@@ -103,6 +130,7 @@ export async function GET(request: NextRequest) {
         timeMinutes: true,
         kidFriendly: true,
         primaryProteinType: true,
+        householdId: true,
         components: {
           select: {
             ingredientId: true,
@@ -121,6 +149,10 @@ export async function GET(request: NextRequest) {
               },
             },
           },
+        },
+        favoritedBy: {
+          where: { householdId: household.id },
+          select: { id: true },
         },
       },
       orderBy: { name: 'asc' },
@@ -163,6 +195,8 @@ export async function GET(request: NextRequest) {
         timeMinutes: meal.timeMinutes,
         kidFriendly: meal.kidFriendly,
         primaryProteinType: meal.primaryProteinType,
+        isCustom: meal.householdId !== null,
+        isFavorite: meal.favoritedBy.length > 0,
         components,
         nutrition: {
           calories: Math.round(nutrition.calories),
