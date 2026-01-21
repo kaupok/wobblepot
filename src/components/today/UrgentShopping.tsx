@@ -23,18 +23,24 @@ interface UrgentShoppingProps {
 }
 
 export function UrgentShopping({ items }: UrgentShoppingProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
   const [isPurchasedExpanded, setIsPurchasedExpanded] = useState(false)
 
-  // Filter to only today and tomorrow items
+  // Filter to only today and tomorrow items, sorted by urgency (today first)
   const urgentItems = useMemo(() => {
-    return items.filter((item) => item.urgency === 'today' || item.urgency === 'tomorrow')
+    return items
+      .filter((item) => item.urgency === 'today' || item.urgency === 'tomorrow')
+      .sort((a, b) => {
+        // Today items come first
+        if (a.urgency === 'today' && b.urgency !== 'today') return -1
+        if (a.urgency !== 'today' && b.urgency === 'today') return 1
+        // Within same urgency, sort by name
+        return a.name.localeCompare(b.name)
+      })
   }, [items])
 
+  // Purchased items are already sorted by name since urgentItems sorts by urgency then name
   const unpurchasedItems = urgentItems.filter((item) => !item.purchased)
-  const purchasedItems = useMemo(() => {
-    return urgentItems.filter((item) => item.purchased).sort((a, b) => a.name.localeCompare(b.name))
-  }, [urgentItems])
+  const purchasedItems = urgentItems.filter((item) => item.purchased)
 
   const todayCount = unpurchasedItems.filter((item) => item.urgency === 'today').length
   const tomorrowCount = unpurchasedItems.filter((item) => item.urgency === 'tomorrow').length
@@ -72,10 +78,6 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
   }
   const summary = `Need ${summaryParts.join(', ')}`
 
-  // Show first 5 items in collapsed view
-  const displayItems = isExpanded ? unpurchasedItems : unpurchasedItems.slice(0, 5)
-  const hasMore = unpurchasedItems.length > 5
-
   return (
     <Card>
       <CardHeader>
@@ -93,7 +95,7 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
             {summary}
           </Body>
           <ul className="flex flex-col gap-2">
-            {displayItems.map((item) => (
+            {unpurchasedItems.map((item) => (
               <li
                 key={item.ingredientId}
                 className="flex items-center justify-between gap-2 text-sm"
@@ -114,24 +116,6 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
               </li>
             ))}
           </ul>
-          {hasMore && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="mt-1 w-full"
-            >
-              {isExpanded ? (
-                <>
-                  Show less <ChevronUp className="ml-1 h-4 w-4" />
-                </>
-              ) : (
-                <>
-                  Show {unpurchasedItems.length - 5} more <ChevronDown className="ml-1 h-4 w-4" />
-                </>
-              )}
-            </Button>
-          )}
           {purchasedItems.length > 0 && (
             <div className="border-t pt-3">
               <button
