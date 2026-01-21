@@ -35,6 +35,7 @@ export interface PlanEntry {
   mealType: MealType
   status: MealStatus
   meal: MealData | null
+  preparationTips: string | null
 }
 
 export interface MealPlan {

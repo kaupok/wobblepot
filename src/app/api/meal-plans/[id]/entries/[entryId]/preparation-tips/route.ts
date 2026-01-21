@@ -63,6 +63,11 @@ export async function POST(
       return NextResponse.json({ error: 'No meal assigned to this entry' }, { status: 400 })
     }
 
+    // Return cached tips if available
+    if (entry.preparationTips) {
+      return NextResponse.json({ tips: entry.preparationTips }, { status: 200 })
+    }
+
     const householdSize = await getHouseholdMemberCount(household.id)
     const mealName = entry.meal.name
     const timeMinutes = entry.meal.timeMinutes
@@ -109,7 +114,15 @@ Format: numbered list, then a single "Tip:" line at the end.`
       maxOutputTokens: 300,
     })
 
-    return NextResponse.json({ tips: text.trim() }, { status: 200 })
+    const tips = text.trim()
+
+    // Cache tips in the database
+    await prisma.mealPlanEntry.update({
+      where: { id: entryId },
+      data: { preparationTips: tips },
+    })
+
+    return NextResponse.json({ tips }, { status: 200 })
   } catch (error) {
     console.error('Failed to generate preparation tips:', error)
     return NextResponse.json({ error: "Couldn't generate tips. Try again." }, { status: 500 })

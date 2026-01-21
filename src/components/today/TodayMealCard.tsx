@@ -41,6 +41,7 @@ interface TodayMealCardProps {
   pantryIngredients: PantryIngredient[]
   pantryItems: PantryItemFull[]
   showStatusPrompt?: boolean
+  initialTips?: string | null
 }
 
 export function TodayMealCard({
@@ -53,6 +54,7 @@ export function TodayMealCard({
   pantryIngredients,
   pantryItems,
   showStatusPrompt = false,
+  initialTips = null,
 }: TodayMealCardProps) {
   const router = useRouter()
   const [status, setStatus] = useState<MealStatus>(initialStatus)
@@ -61,7 +63,7 @@ export function TodayMealCard({
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
   const [isDeductionModalOpen, setIsDeductionModalOpen] = useState(false)
   const [togglingIngredientIds, setTogglingIngredientIds] = useState<Set<string>>(new Set())
-  const [tips, setTips] = useState<string | null>(null)
+  const [tips, setTips] = useState<string | null>(initialTips)
   const [isLoadingTips, setIsLoadingTips] = useState(false)
   const [tipsError, setTipsError] = useState<string | null>(null)
   const [isTipsExpanded, setIsTipsExpanded] = useState(false)

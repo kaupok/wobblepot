@@ -322,12 +322,13 @@ model MealPlan {
 }
 
 model MealPlanEntry {
-  id       String              @id @default(cuid())
-  planId   String
-  mealId   String?
-  date     DateTime
-  mealType MealType
-  status   MealPlanEntryStatus @default(planned)
+  id              String              @id @default(cuid())
+  planId          String
+  mealId          String?
+  date            DateTime
+  mealType        MealType
+  status          MealPlanEntryStatus @default(planned)
+  preparationTips String?
 
   plan MealPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
   meal Meal?    @relation(fields: [mealId], references: [id])
