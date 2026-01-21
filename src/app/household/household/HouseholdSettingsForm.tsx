@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,7 +23,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
-import { TagInput } from '@/components/tag-input'
+import { TagInput, type TagInputRef } from '@/components/tag-input'
 import { HouseholdNav } from '@/components/household-nav'
 
 // Types matching Prisma enums
@@ -113,6 +113,10 @@ export function HouseholdSettingsForm({
     preferences?.weekendMealTypes ?? ['dinner'],
   )
 
+  // Refs for tag inputs
+  const restrictionsRef = useRef<TagInputRef>(null)
+  const excludedIngredientsRef = useRef<TagInputRef>(null)
+
   // Form state
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -138,6 +142,11 @@ export function HouseholdSettingsForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Commit any pending tag input values before submitting
+    restrictionsRef.current?.commitPendingValue()
+    excludedIngredientsRef.current?.commitPendingValue()
+
     setError('')
     setIsLoading(true)
 
@@ -293,13 +302,14 @@ export function HouseholdSettingsForm({
               <div className="flex flex-col gap-2">
                 <Label htmlFor="restrictions">Dietary restrictions</Label>
                 <TagInput
+                  ref={restrictionsRef}
                   id="restrictions"
                   value={restrictions}
                   onChange={setRestrictions}
                   placeholder="e.g., low sodium, halal"
                   disabled={isLoading}
                 />
-                <Body variant="muted">Add custom dietary restrictions (press Enter to add)</Body>
+                <Body variant="muted">Type a restriction and press Enter or click away to add</Body>
               </div>
             </section>
 
@@ -309,15 +319,14 @@ export function HouseholdSettingsForm({
               <div className="flex flex-col gap-2">
                 <Label htmlFor="excluded">Ingredients to exclude</Label>
                 <TagInput
+                  ref={excludedIngredientsRef}
                   id="excluded"
                   value={excludedIngredients}
                   onChange={setExcludedIngredients}
                   placeholder="e.g., cilantro, mushrooms"
                   disabled={isLoading}
                 />
-                <Body variant="muted">
-                  Add ingredients you want to avoid in meal suggestions (press Enter to add)
-                </Body>
+                <Body variant="muted">Ingredients you want to avoid in meal suggestions</Body>
               </div>
             </section>
 

@@ -1,7 +1,8 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
-import { TagInput } from './tag-input'
+import { useRef } from 'react'
+import { TagInput, type TagInputRef } from './tag-input'
 
 describe('TagInput component', () => {
   it('renders with placeholder when empty', () => {
@@ -69,6 +70,39 @@ describe('TagInput component', () => {
       await userEvent.type(input, 'existing{enter}')
 
       expect(onChange).not.toHaveBeenCalled()
+    })
+
+    it('adds a tag on blur', async () => {
+      const onChange = vi.fn()
+      render(<TagInput value={[]} onChange={onChange} />)
+
+      const input = screen.getByRole('textbox')
+      await userEvent.type(input, 'blurTag')
+      fireEvent.blur(input)
+
+      expect(onChange).toHaveBeenCalledWith(['blurTag'])
+    })
+
+    it('does not add empty tag on blur', async () => {
+      const onChange = vi.fn()
+      render(<TagInput value={[]} onChange={onChange} />)
+
+      const input = screen.getByRole('textbox')
+      await userEvent.type(input, '   ')
+      fireEvent.blur(input)
+
+      expect(onChange).not.toHaveBeenCalled()
+    })
+
+    it('clears input after blur commits tag', async () => {
+      const onChange = vi.fn()
+      render(<TagInput value={[]} onChange={onChange} />)
+
+      const input = screen.getByRole('textbox')
+      await userEvent.type(input, 'blurTag')
+      fireEvent.blur(input)
+
+      expect(input).toHaveValue('')
     })
 
     it('prevents form submission on Enter', async () => {
@@ -159,6 +193,57 @@ describe('TagInput component', () => {
     it('has accessible remove buttons', () => {
       render(<TagInput value={['gluten']} onChange={() => {}} />)
       expect(screen.getByRole('button', { name: 'Remove gluten' })).toBeInTheDocument()
+    })
+  })
+
+  describe('commitPendingValue via ref', () => {
+    function RefTestWrapper({
+      onChange,
+      value = [],
+    }: {
+      onChange: (value: string[]) => void
+      value?: string[]
+    }) {
+      const ref = useRef<TagInputRef>(null)
+      return (
+        <>
+          <TagInput ref={ref} value={value} onChange={onChange} />
+          <button type="button" onClick={() => ref.current?.commitPendingValue()}>
+            Commit
+          </button>
+        </>
+      )
+    }
+
+    it('commits pending value when called', async () => {
+      const onChange = vi.fn()
+      render(<RefTestWrapper onChange={onChange} />)
+
+      const input = screen.getByRole('textbox')
+      await userEvent.type(input, 'refTag')
+      await userEvent.click(screen.getByText('Commit'))
+
+      expect(onChange).toHaveBeenCalledWith(['refTag'])
+    })
+
+    it('does not add empty value when commitPendingValue called', async () => {
+      const onChange = vi.fn()
+      render(<RefTestWrapper onChange={onChange} />)
+
+      await userEvent.click(screen.getByText('Commit'))
+
+      expect(onChange).not.toHaveBeenCalled()
+    })
+
+    it('clears input after commitPendingValue', async () => {
+      const onChange = vi.fn()
+      render(<RefTestWrapper onChange={onChange} />)
+
+      const input = screen.getByRole('textbox')
+      await userEvent.type(input, 'refTag')
+      await userEvent.click(screen.getByText('Commit'))
+
+      expect(input).toHaveValue('')
     })
   })
 })

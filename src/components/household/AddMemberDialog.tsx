@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { toast } from 'sonner'
 import { ChevronDown, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Body, Heading } from '@/components/ui/typography'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
-import { TagInput } from '@/components/tag-input'
+import { TagInput, type TagInputRef } from '@/components/tag-input'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
   Dialog,
@@ -72,6 +72,10 @@ export function AddMemberDialog({ onMemberAdded, householdDietaryType }: AddMemb
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Refs for tag inputs
+  const restrictionsRef = useRef<TagInputRef>(null)
+  const excludedIngredientsRef = useRef<TagInputRef>(null)
+
   const resetForm = () => {
     setName('')
     setDisplayName('')
@@ -99,6 +103,10 @@ export function AddMemberDialog({ onMemberAdded, householdDietaryType }: AddMemb
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    // Commit any pending tag input values before submitting
+    restrictionsRef.current?.commitPendingValue()
+    excludedIngredientsRef.current?.commitPendingValue()
 
     const trimmedName = name.trim()
     if (!trimmedName) {
@@ -393,6 +401,7 @@ export function AddMemberDialog({ onMemberAdded, householdDietaryType }: AddMemb
             <div className="flex flex-col gap-2">
               <Label htmlFor="add-restrictions">Dietary restrictions</Label>
               <TagInput
+                ref={restrictionsRef}
                 id="add-restrictions"
                 value={restrictions}
                 onChange={setRestrictions}
@@ -400,7 +409,7 @@ export function AddMemberDialog({ onMemberAdded, householdDietaryType }: AddMemb
                 disabled={isLoading}
               />
               <Body variant="muted" className="text-sm">
-                Add dietary restrictions (press Enter to add)
+                Type a restriction and press Enter or click away to add
               </Body>
             </div>
 
@@ -408,6 +417,7 @@ export function AddMemberDialog({ onMemberAdded, householdDietaryType }: AddMemb
             <div className="flex flex-col gap-2">
               <Label htmlFor="add-excludedIngredients">Excluded ingredients</Label>
               <TagInput
+                ref={excludedIngredientsRef}
                 id="add-excludedIngredients"
                 value={excludedIngredients}
                 onChange={setExcludedIngredients}
@@ -415,7 +425,7 @@ export function AddMemberDialog({ onMemberAdded, householdDietaryType }: AddMemb
                 disabled={isLoading}
               />
               <Body variant="muted" className="text-sm">
-                Ingredients this member dislikes (press Enter to add)
+                Ingredients this member dislikes
               </Body>
             </div>
 
