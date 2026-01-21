@@ -8,11 +8,13 @@ import { WeekView } from '@/components/meal-plan/WeekView'
 import { EmptyPlan } from '@/components/meal-plan/EmptyPlan'
 import { WeekTabs } from '@/components/meal-plan/WeekTabs'
 import type {
+  ExpectedMealTypes,
   MealPlanWithContext,
   PantryIngredient,
   PantryItemFull,
   WeekContext,
 } from '@/components/meal-plan/types'
+import type { MealType } from '@/generated/prisma/enums'
 
 interface PageProps {
   searchParams: Promise<{ week?: string }>
@@ -135,6 +137,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   // Last week is always read-only
   const isReadOnly = activeWeek === 'last'
 
+  // Get expected meal types from household preferences
+  const preferences = membership.household.preferences
+  const expectedMealTypes: ExpectedMealTypes = {
+    weekdayMealTypes: (preferences?.weekdayMealTypes ?? ['dinner']) as MealType[],
+    weekendMealTypes: (preferences?.weekendMealTypes ?? ['dinner']) as MealType[],
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col gap-6">
@@ -155,6 +164,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             isReadOnly={isReadOnly}
             pantryIngredients={pantryIngredients}
             pantryItems={pantryItems}
+            expectedMealTypes={expectedMealTypes}
           />
         ) : (
           <EmptyPlan weekContext={weekContext} />

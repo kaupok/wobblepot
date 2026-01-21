@@ -72,6 +72,14 @@ export function isMonday(date: Date): boolean {
 }
 
 /**
+ * Check if a date is a weekday (Monday-Friday).
+ */
+export function isWeekday(date: Date): boolean {
+  const day = date.getDay()
+  return day >= 1 && day <= 5
+}
+
+/**
  * Format a date for display (e.g., "Mon 2026-01-12").
  */
 export function formatDateDisplay(date: Date): string {

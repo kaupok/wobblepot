@@ -4,10 +4,19 @@ import {
   getWeekDates,
   parseLocalDate,
   toDateString,
+  isWeekday,
 } from '@/lib/meal-planning/dates'
 import { shouldEnforceBalanceConstraints } from '@/lib/meal-planning/slots'
 import { DayColumn } from './DayColumn'
-import type { MealPlan, PantryIngredient, PantryItemFull, PlanEntry, WeekContext } from './types'
+import type {
+  EmptySlot,
+  ExpectedMealTypes,
+  MealPlan,
+  PantryIngredient,
+  PantryItemFull,
+  PlanEntry,
+  WeekContext,
+} from './types'
 import type { MealType } from '@/generated/prisma/enums'
 
 const MEAL_TYPE_ORDER: Record<MealType, number> = {
@@ -24,6 +33,7 @@ interface WeekViewProps {
   isReadOnly?: boolean
   pantryIngredients?: PantryIngredient[]
   pantryItems?: PantryItemFull[]
+  expectedMealTypes?: ExpectedMealTypes
 }
 
 export function WeekView({
@@ -34,6 +44,7 @@ export function WeekView({
   isReadOnly,
   pantryIngredients = [],
   pantryItems = [],
+  expectedMealTypes,
 }: WeekViewProps) {
   const today = getTodayInTimezone(timezone)
 
@@ -56,6 +67,30 @@ export function WeekView({
   // Sort entries within each day by meal type (breakfast → lunch → dinner)
   for (const entries of entriesByDate.values()) {
     entries.sort((a, b) => MEAL_TYPE_ORDER[a.mealType] - MEAL_TYPE_ORDER[b.mealType])
+  }
+
+  // Compute empty slots for missing meal types (if preferences provided)
+  const emptySlotsByDate = new Map<string, EmptySlot[]>()
+  if (expectedMealTypes && !isReadOnly) {
+    for (const date of weekDates) {
+      const dateObj = parseLocalDate(date)
+      const expectedTypes = isWeekday(dateObj)
+        ? expectedMealTypes.weekdayMealTypes
+        : expectedMealTypes.weekendMealTypes
+
+      const existingTypes = new Set((entriesByDate.get(date) ?? []).map((e) => e.mealType))
+      const missingTypes = expectedTypes.filter((type) => !existingTypes.has(type))
+
+      if (missingTypes.length > 0) {
+        const emptySlots: EmptySlot[] = missingTypes.map((mealType) => ({
+          date,
+          mealType,
+        }))
+        // Sort empty slots by meal type order
+        emptySlots.sort((a, b) => MEAL_TYPE_ORDER[a.mealType] - MEAL_TYPE_ORDER[b.mealType])
+        emptySlotsByDate.set(date, emptySlots)
+      }
+    }
   }
 
   // Dynamic heading based on week context
@@ -87,6 +122,7 @@ export function WeekView({
             date={date}
             planId={plan.id}
             entries={entriesByDate.get(date) ?? []}
+            emptySlots={emptySlotsByDate.get(date) ?? []}
             isToday={date === today}
             isPast={date < today}
             householdSize={householdSize}

@@ -98,3 +98,13 @@ export interface PantryDeductionItem {
   newQuantity: number | null // null means "will be removed"
   willBeRemoved: boolean
 }
+
+export interface ExpectedMealTypes {
+  weekdayMealTypes: MealType[]
+  weekendMealTypes: MealType[]
+}
+
+export interface EmptySlot {
+  date: string
+  mealType: MealType
+}
