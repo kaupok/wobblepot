@@ -51,6 +51,12 @@ export function AlternativeCard({
               <span className="font-medium">{meal.name}</span>
               <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
                 {meal.timeMinutes && <span>{meal.timeMinutes} min</span>}
+                {meal.nutrition && (
+                  <span>
+                    {meal.timeMinutes && '• '}
+                    {Math.round(meal.nutrition.calories)} kcal
+                  </span>
+                )}
                 {meal.kidFriendly && (
                   <Tooltip>
                     <TooltipTrigger asChild>

@@ -140,6 +140,12 @@ export function MealCard({
         <CardContent className="flex flex-col gap-2 pb-2">
           <div className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
             {meal.timeMinutes && <span>{meal.timeMinutes} min</span>}
+            {meal.nutrition && (
+              <span>
+                {meal.timeMinutes && '• '}
+                {Math.round(meal.nutrition.calories)} kcal
+              </span>
+            )}
             {!isPast && shouldShowAvailability && availability && !availability.isReady && (
               <AvailabilityIndicator availability={availability} />
             )}
