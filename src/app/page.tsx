@@ -170,13 +170,13 @@ export default async function Home() {
 
   // Build catch-up entries from past 7 days that are still "planned"
   // Collect entries from both current and last week's plans
-  const catchUpEntries: (PlanEntry & { label: string })[] = []
+  const catchUpEntries: (PlanEntry & { label: string; planId: string })[] = []
   const sevenDaysAgo = new Date(todayParsed)
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
   const sevenDaysAgoStr = toDateString(sevenDaysAgo)
 
   // Helper to add catch-up entries from a plan
-  function addCatchUpEntries(entries: PlanEntry[]) {
+  function addCatchUpEntries(entries: PlanEntry[], planId: string) {
     for (const entry of entries) {
       // Only include entries that:
       // 1. Are before today
@@ -191,6 +191,7 @@ export default async function Home() {
       ) {
         catchUpEntries.push({
           ...entry,
+          planId,
           label: formatCatchUpLabel(entry.date, entry.mealType, todayParsed),
         })
       }
@@ -199,13 +200,13 @@ export default async function Home() {
 
   // Add from current plan
   if (plan) {
-    addCatchUpEntries(plan.entries)
+    addCatchUpEntries(plan.entries, plan.id)
   }
 
   // Add from last week's plan
   if (lastPlanResponse.ok) {
     const lastPlan: MealPlanWithContext = await lastPlanResponse.json()
-    addCatchUpEntries(lastPlan.entries)
+    addCatchUpEntries(lastPlan.entries, lastPlan.id)
   }
 
   // Sort by date (most recent first) then by meal type

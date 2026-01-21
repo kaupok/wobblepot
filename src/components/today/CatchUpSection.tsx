@@ -13,35 +13,30 @@ import type { MealStatus } from '@/components/meal-plan/StatusSelect'
 
 interface CatchUpEntry extends PlanEntry {
   label: string
+  planId: string
 }
 
 interface CatchUpSectionProps {
   entries: CatchUpEntry[]
-  planId: string
   pantryItems: PantryItemFull[]
   householdSize: number
 }
 
-export function CatchUpSection({
-  entries,
-  planId,
-  pantryItems,
-  householdSize,
-}: CatchUpSectionProps) {
+export function CatchUpSection({ entries, pantryItems, householdSize }: CatchUpSectionProps) {
   const router = useRouter()
   const [updatingEntryId, setUpdatingEntryId] = useState<string | null>(null)
   const [deductionEntry, setDeductionEntry] = useState<CatchUpEntry | null>(null)
   const [locallyUpdatedIds, setLocallyUpdatedIds] = useState<Set<string>>(new Set())
 
   async function updateStatus(
-    entryId: string,
+    entry: CatchUpEntry,
     newStatus: MealStatus,
     deductPantry: boolean = false,
   ) {
-    setUpdatingEntryId(entryId)
+    setUpdatingEntryId(entry.id)
 
     try {
-      const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
+      const response = await fetch(`/api/meal-plans/${entry.planId}/entries/${entry.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus, deductPantry }),
@@ -53,7 +48,7 @@ export function CatchUpSection({
       }
 
       // Mark as locally updated to hide from list
-      setLocallyUpdatedIds((prev) => new Set(prev).add(entryId))
+      setLocallyUpdatedIds((prev) => new Set(prev).add(entry.id))
       return true
     } catch {
       toast.error('Failed to update status. Please try again.')
@@ -67,14 +62,14 @@ export function CatchUpSection({
     setDeductionEntry(entry)
   }
 
-  function handleSkipped(entryId: string) {
-    updateStatus(entryId, 'skipped')
+  function handleSkipped(entry: CatchUpEntry) {
+    updateStatus(entry, 'skipped')
   }
 
   async function handleDeductionConfirm() {
     if (!deductionEntry) return
 
-    const success = await updateStatus(deductionEntry.id, 'completed', true)
+    const success = await updateStatus(deductionEntry, 'completed', true)
     if (success) {
       setDeductionEntry(null)
       router.refresh()
@@ -105,7 +100,7 @@ export function CatchUpSection({
                 <MealStatusPrompt
                   mealName={entry.meal.name}
                   onMadeIt={() => handleMadeIt(entry)}
-                  onSkipped={() => handleSkipped(entry.id)}
+                  onSkipped={() => handleSkipped(entry)}
                   disabled={updatingEntryId === entry.id}
                 />
               )}

@@ -25,6 +25,7 @@ interface ShoppingItem {
 
 interface CatchUpEntry extends PlanEntry {
   label: string
+  planId: string
 }
 
 interface TodayPageProps {
@@ -62,18 +63,14 @@ export function TodayPage({
     return { todayEntries: today, tomorrowEntries: tomorrow }
   }, [plan, todayDate, tomorrowDate])
 
-  // Get the plan ID for catch-up section (may come from a different plan)
-  const catchUpPlanId = catchUpEntries.length > 0 ? plan?.id : null
-
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         {/* Left column: Meals */}
         <div className="flex flex-col gap-6">
-          {catchUpEntries.length > 0 && catchUpPlanId && (
+          {catchUpEntries.length > 0 && (
             <CatchUpSection
               entries={catchUpEntries}
-              planId={catchUpPlanId}
               pantryItems={pantryItems}
               householdSize={householdSize}
             />
