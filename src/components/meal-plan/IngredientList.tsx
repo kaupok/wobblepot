@@ -17,6 +17,8 @@ interface IngredientListProps {
   togglingIds?: Set<string>
   /** If provided, renders availability badge inline with header */
   availability?: MealAvailability | null
+  /** If true, hides checkboxes and missing ingredient styling (for completed/skipped meals) */
+  hideAvailability?: boolean
 }
 
 /**
@@ -56,6 +58,7 @@ export function IngredientList({
   onToggleAvailability,
   togglingIds,
   availability,
+  hideAvailability = false,
 }: IngredientListProps) {
   // Build maps for availability and staple status
   const { availableIds, stapleIds } = useMemo(() => {
@@ -120,15 +123,19 @@ export function IngredientList({
           const isMissing = !hasIt
           const isToggling = togglingIds?.has(comp.ingredientId) ?? false
 
+          // When hideAvailability is true, don't show checkboxes or missing styling
+          const showMissingStyle = isMissing && !hideAvailability
+          const showCheckbox = onToggleAvailability && !hideAvailability
+
           return (
             <Li
               key={comp.ingredient.name}
               className={cn(
                 'flex items-center gap-2',
-                isMissing && 'text-amber-600 dark:text-amber-400',
+                showMissingStyle && 'text-amber-600 dark:text-amber-400',
               )}
             >
-              {onToggleAvailability && (
+              {showCheckbox && (
                 <Checkbox
                   checked={hasIt}
                   onCheckedChange={(checked) => handleCheckedChange(comp.ingredientId, checked)}
@@ -141,7 +148,7 @@ export function IngredientList({
               <span
                 className={cn(
                   'whitespace-nowrap',
-                  isMissing ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground',
+                  showMissingStyle ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground',
                 )}
               >
                 {formatQuantity(

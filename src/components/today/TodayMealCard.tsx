@@ -65,6 +65,7 @@ export function TodayMealCard({
   const [isLoadingTips, setIsLoadingTips] = useState(false)
   const [tipsError, setTipsError] = useState<string | null>(null)
   const [isTipsExpanded, setIsTipsExpanded] = useState(false)
+  const [isChangingStatus, setIsChangingStatus] = useState(false)
 
   const availability = useMemo(() => {
     if (!meal) return null
@@ -73,6 +74,7 @@ export function TodayMealCard({
 
   // Hide availability badge for completed/skipped meals (ingredient status no longer relevant)
   const shouldShowAvailability = status !== 'completed' && status !== 'skipped'
+  const isFinished = status === 'completed' || status === 'skipped'
 
   async function updateStatus(newStatus: MealStatus, deductPantry: boolean = false) {
     const previousStatus = status
@@ -111,14 +113,22 @@ export function TodayMealCard({
     }
   }
 
-  function handleSkipped() {
-    updateStatus('skipped')
+  async function handleSkipped() {
+    const success = await updateStatus('skipped')
+    if (success) {
+      setIsChangingStatus(false)
+    }
+  }
+
+  function handleCancelStatusChange() {
+    setIsChangingStatus(false)
   }
 
   async function handleDeductionConfirm() {
     const success = await updateStatus('completed', true)
     if (success) {
       setIsDeductionModalOpen(false)
+      setIsChangingStatus(false)
       // Refresh to update pantry data
       router.refresh()
     }
@@ -239,12 +249,33 @@ export function TodayMealCard({
 
   return (
     <>
-      <Card>
+      <Card className={status === 'skipped' ? 'opacity-60' : undefined}>
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between gap-2">
             <div className="flex flex-col gap-1">
-              <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
-                {typeStyle.label}
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+                  {typeStyle.label}
+                </span>
+                {status === 'completed' && (
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                    ✓ Made it
+                  </span>
+                )}
+                {status === 'skipped' && (
+                  <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                    Skipped
+                  </span>
+                )}
+                {isFinished && !isChangingStatus && (
+                  <button
+                    type="button"
+                    onClick={() => setIsChangingStatus(true)}
+                    className="text-muted-foreground hover:text-foreground text-xs underline underline-offset-2"
+                  >
+                    Change
+                  </button>
+                )}
               </div>
               <CardTitle className="text-base leading-tight font-semibold">{meal.name}</CardTitle>
               {meal.nutrition && <NutritionSummary nutrition={meal.nutrition} compact />}
@@ -266,9 +297,10 @@ export function TodayMealCard({
             components={meal.components}
             householdSize={householdSize}
             pantryIngredients={pantryIngredients}
-            onToggleAvailability={handleToggleAvailability}
+            onToggleAvailability={isFinished ? undefined : handleToggleAvailability}
             togglingIds={togglingIngredientIds}
             availability={shouldShowAvailability ? availability : null}
+            hideAvailability={isFinished}
           />
           {showStatusPrompt && status === 'planned' && (
             <MealStatusPrompt
@@ -276,6 +308,16 @@ export function TodayMealCard({
               onMadeIt={handleMadeIt}
               onSkipped={handleSkipped}
               disabled={isUpdating}
+            />
+          )}
+          {isChangingStatus && (
+            <MealStatusPrompt
+              mealName={meal.name}
+              onMadeIt={handleMadeIt}
+              onSkipped={handleSkipped}
+              onCancel={handleCancelStatusChange}
+              disabled={isUpdating}
+              currentStatus={status}
             />
           )}
           {isTipsExpanded && (
