@@ -4,6 +4,17 @@ import { MealCard } from './MealCard'
 import { EmptySlotCard } from './EmptySlotCard'
 import { cn } from '@/lib/utils'
 import type { EmptySlot, PantryIngredient, PantryItemFull, PlanEntry } from './types'
+import type { MealType } from '@/generated/prisma/enums'
+
+const MEAL_TYPE_ORDER: Record<MealType, number> = {
+  breakfast: 0,
+  lunch: 1,
+  dinner: 2,
+}
+
+type FilledSlot = { type: 'filled'; entry: PlanEntry }
+type EmptySlotItem = { type: 'empty'; slot: EmptySlot }
+type SlotItem = FilledSlot | EmptySlotItem
 
 interface DayColumnProps {
   date: string
@@ -37,6 +48,19 @@ export function DayColumn({
   pantryIngredients = [],
   pantryItems = [],
 }: DayColumnProps) {
+  // Combine entries and empty slots (if not past) into a sorted list
+  const slots: SlotItem[] = [
+    ...entries.map((entry): FilledSlot => ({ type: 'filled', entry })),
+    ...(!isPast ? emptySlots.map((slot): EmptySlotItem => ({ type: 'empty', slot })) : []),
+  ]
+
+  // Sort by meal type order (breakfast → lunch → dinner)
+  slots.sort((a, b) => {
+    const mealTypeA = a.type === 'filled' ? a.entry.mealType : a.slot.mealType
+    const mealTypeB = b.type === 'filled' ? b.entry.mealType : b.slot.mealType
+    return MEAL_TYPE_ORDER[mealTypeA] - MEAL_TYPE_ORDER[mealTypeB]
+  })
+
   return (
     <div
       className={cn(
@@ -48,31 +72,31 @@ export function DayColumn({
         {formatDayHeader(date)}
       </Heading>
       <div className="flex flex-col gap-2">
-        {entries.map((entry) => (
-          <MealCard
-            key={entry.id}
-            entryId={entry.id}
-            planId={planId}
-            meal={entry.meal}
-            mealType={entry.mealType}
-            status={entry.status}
-            householdSize={householdSize}
-            isReadOnly={isReadOnly}
-            isPast={isPast}
-            pantryIngredients={pantryIngredients}
-            pantryItems={pantryItems}
-          />
-        ))}
-        {!isPast &&
-          emptySlots.map((slot) => (
-            <EmptySlotCard
-              key={`empty-${slot.mealType}`}
+        {slots.map((item) =>
+          item.type === 'filled' ? (
+            <MealCard
+              key={item.entry.id}
+              entryId={item.entry.id}
               planId={planId}
-              date={slot.date}
-              mealType={slot.mealType}
+              meal={item.entry.meal}
+              mealType={item.entry.mealType}
+              status={item.entry.status}
+              householdSize={householdSize}
+              isReadOnly={isReadOnly}
+              isPast={isPast}
+              pantryIngredients={pantryIngredients}
+              pantryItems={pantryItems}
             />
-          ))}
-        {entries.length === 0 && emptySlots.length === 0 && (
+          ) : (
+            <EmptySlotCard
+              key={`empty-${item.slot.mealType}`}
+              planId={planId}
+              date={item.slot.date}
+              mealType={item.slot.mealType}
+            />
+          ),
+        )}
+        {slots.length === 0 && (
           <Card>
             <CardContent className="flex items-center justify-center">
               <Body variant="muted">No meal planned</Body>
