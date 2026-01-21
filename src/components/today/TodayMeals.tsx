@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { MealCard } from '@/components/meal-plan/MealCard'
+import { TodayMealCard } from './TodayMealCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
@@ -42,27 +42,21 @@ export function TodayMeals({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Today</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-col gap-4">
-          {entries.map((entry) => (
-            <MealCard
-              key={entry.id}
-              entryId={entry.id}
-              planId={planId}
-              meal={entry.meal}
-              mealType={entry.mealType}
-              status={entry.status}
-              householdSize={householdSize}
-              pantryIngredients={pantryIngredients}
-              pantryItems={pantryItems}
-            />
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-4">
+      <CardTitle>Today</CardTitle>
+      {entries.map((entry) => (
+        <TodayMealCard
+          key={entry.id}
+          entryId={entry.id}
+          planId={planId}
+          meal={entry.meal}
+          mealType={entry.mealType}
+          status={entry.status}
+          householdSize={householdSize}
+          pantryIngredients={pantryIngredients}
+          pantryItems={pantryItems}
+        />
+      ))}
+    </div>
   )
 }
