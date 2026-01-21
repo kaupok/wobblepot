@@ -6,12 +6,13 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { useRouter } from 'next/navigation'
-import { StatusSelect, type MealStatus } from '@/components/meal-plan/StatusSelect'
+import type { MealStatus } from '@/components/meal-plan/StatusSelect'
 import { MealDetailModal } from '@/components/meal-plan/MealDetailModal'
 import { RegenerateModal } from '@/components/meal-plan/RegenerateModal'
 import { PantryDeductionModal } from '@/components/meal-plan/PantryDeductionModal'
 import { MealLibraryModal } from '@/components/meal-plan/MealLibraryModal'
 import { PreparationTips } from './PreparationTips'
+import { MealStatusPrompt } from './MealStatusPrompt'
 import { computeMealAvailability } from '@/components/meal-plan/AvailabilityIndicator'
 import { IngredientList } from '@/components/meal-plan/IngredientList'
 import { NutritionSummary } from '@/components/meal-plan/NutritionSummary'
@@ -39,6 +40,7 @@ interface TodayMealCardProps {
   householdSize: number
   pantryIngredients: PantryIngredient[]
   pantryItems: PantryItemFull[]
+  showStatusPrompt?: boolean
 }
 
 export function TodayMealCard({
@@ -50,6 +52,7 @@ export function TodayMealCard({
   householdSize,
   pantryIngredients,
   pantryItems,
+  showStatusPrompt = false,
 }: TodayMealCardProps) {
   const router = useRouter()
   const [status, setStatus] = useState<MealStatus>(initialStatus)
@@ -101,15 +104,15 @@ export function TodayMealCard({
     }
   }
 
-  function handleStatusChange(newStatus: MealStatus) {
-    // Intercept "completed" status to show deduction modal
-    if (newStatus === 'completed' && meal) {
+  function handleMadeIt() {
+    // Show deduction modal before marking as completed
+    if (meal) {
       setIsDeductionModalOpen(true)
-      return
     }
+  }
 
-    // For other statuses, update directly
-    updateStatus(newStatus)
+  function handleSkipped() {
+    updateStatus('skipped')
   }
 
   async function handleDeductionConfirm() {
@@ -267,7 +270,14 @@ export function TodayMealCard({
             togglingIds={togglingIngredientIds}
             availability={shouldShowAvailability ? availability : null}
           />
-          <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
+          {showStatusPrompt && status === 'planned' && (
+            <MealStatusPrompt
+              mealName={meal.name}
+              onMadeIt={handleMadeIt}
+              onSkipped={handleSkipped}
+              disabled={isUpdating}
+            />
+          )}
           {isTipsExpanded && (
             <PreparationTips
               tips={tips}

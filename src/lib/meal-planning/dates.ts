@@ -276,3 +276,68 @@ export function getUrgencyBucket(dateString: string, referenceDate?: Date): Urge
 
   return 'later'
 }
+
+/**
+ * Meal time window cutoffs in hours (24-hour format).
+ * After these times, we prompt users if they made the meal.
+ */
+export const MEAL_TIME_CUTOFFS = {
+  breakfast: 10, // 10:00 AM
+  lunch: 14, // 2:00 PM
+  dinner: 20, // 8:00 PM
+} as const
+
+export type MealType = keyof typeof MEAL_TIME_CUTOFFS
+
+/**
+ * Check if a meal's time window has passed for today.
+ * Used to determine when to show the "Did you make it?" prompt.
+ *
+ * @param mealType - The type of meal (breakfast, lunch, dinner)
+ * @param timezone - IANA timezone string (e.g., 'Europe/Tallinn')
+ * @returns true if the meal's time window has passed
+ */
+export function hasMealTimePassed(mealType: MealType, timezone: string): boolean {
+  const now = new Date()
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: 'numeric',
+    hour12: false,
+  })
+  const currentHour = parseInt(formatter.format(now), 10)
+  return currentHour >= MEAL_TIME_CUTOFFS[mealType]
+}
+
+/**
+ * Format a relative date label for catch-up prompts.
+ * Returns "Yesterday's", "2 days ago", etc.
+ *
+ * @param dateString - The date in YYYY-MM-DD format
+ * @param mealType - The type of meal
+ * @param referenceDate - The date to compare against (defaults to today)
+ */
+export function formatCatchUpLabel(
+  dateString: string,
+  mealType: string,
+  referenceDate?: Date,
+): string {
+  const today = referenceDate ?? new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const target = parseLocalDate(dateString)
+  const diffMs = today.getTime() - target.getTime()
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
+
+  const mealLabel = mealType.toLowerCase()
+
+  if (diffDays === 1) {
+    return `Yesterday's ${mealLabel}`
+  }
+  if (diffDays === 2) {
+    return `2 days ago - ${mealLabel}`
+  }
+
+  // For older dates, show the day name
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  return `${days[target.getDay()]}'s ${mealLabel}`
+}

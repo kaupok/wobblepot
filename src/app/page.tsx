@@ -9,12 +9,14 @@ import {
   getUrgencyBucket,
   parseLocalDate,
   toDateString,
+  formatCatchUpLabel,
 } from '@/lib/meal-planning/dates'
 import { TodayPage } from '@/components/today'
 import type {
   MealPlanWithContext,
   PantryIngredient,
   PantryItemFull,
+  PlanEntry,
 } from '@/components/meal-plan/types'
 import type { UrgencyBucket } from '@/lib/meal-planning/dates'
 import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
@@ -94,26 +96,36 @@ export default async function Home() {
   const baseURL = getServerBaseURL()
   const cookieHeader = requestHeaders.get('cookie') ?? ''
 
-  const [householdSize, currentPlanResponse, nextPlanResponse, pantryResponse, shoppingResponse] =
-    await Promise.all([
-      getHouseholdMemberCount(household.id),
-      fetch(`${baseURL}/api/meal-plans/current?week=current`, {
-        headers: { cookie: cookieHeader },
-        cache: 'no-store',
-      }),
-      fetch(`${baseURL}/api/meal-plans/current?week=next`, {
-        headers: { cookie: cookieHeader },
-        cache: 'no-store',
-      }),
-      fetch(`${baseURL}/api/pantry`, {
-        headers: { cookie: cookieHeader },
-        cache: 'no-store',
-      }),
-      fetch(`${baseURL}/api/shopping-list?days=7`, {
-        headers: { cookie: cookieHeader },
-        cache: 'no-store',
-      }),
-    ])
+  const [
+    householdSize,
+    currentPlanResponse,
+    nextPlanResponse,
+    lastPlanResponse,
+    pantryResponse,
+    shoppingResponse,
+  ] = await Promise.all([
+    getHouseholdMemberCount(household.id),
+    fetch(`${baseURL}/api/meal-plans/current?week=current`, {
+      headers: { cookie: cookieHeader },
+      cache: 'no-store',
+    }),
+    fetch(`${baseURL}/api/meal-plans/current?week=next`, {
+      headers: { cookie: cookieHeader },
+      cache: 'no-store',
+    }),
+    fetch(`${baseURL}/api/meal-plans/current?week=last`, {
+      headers: { cookie: cookieHeader },
+      cache: 'no-store',
+    }),
+    fetch(`${baseURL}/api/pantry`, {
+      headers: { cookie: cookieHeader },
+      cache: 'no-store',
+    }),
+    fetch(`${baseURL}/api/shopping-list?days=7`, {
+      headers: { cookie: cookieHeader },
+      cache: 'no-store',
+    }),
+  ])
 
   // Parse pantry response
   let pantryIngredients: PantryIngredient[] = []
@@ -156,6 +168,57 @@ export default async function Home() {
     }
   }
 
+  // Build catch-up entries from past 7 days that are still "planned"
+  // Collect entries from both current and last week's plans
+  const catchUpEntries: (PlanEntry & { label: string })[] = []
+  const sevenDaysAgo = new Date(todayParsed)
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+  const sevenDaysAgoStr = toDateString(sevenDaysAgo)
+
+  // Helper to add catch-up entries from a plan
+  function addCatchUpEntries(entries: PlanEntry[]) {
+    for (const entry of entries) {
+      // Only include entries that:
+      // 1. Are before today
+      // 2. Are within 7 days
+      // 3. Are still "planned" (not completed/skipped)
+      // 4. Have a meal assigned
+      if (
+        entry.date < todayDate &&
+        entry.date >= sevenDaysAgoStr &&
+        entry.status === 'planned' &&
+        entry.meal
+      ) {
+        catchUpEntries.push({
+          ...entry,
+          label: formatCatchUpLabel(entry.date, entry.mealType, todayParsed),
+        })
+      }
+    }
+  }
+
+  // Add from current plan
+  if (plan) {
+    addCatchUpEntries(plan.entries)
+  }
+
+  // Add from last week's plan
+  if (lastPlanResponse.ok) {
+    const lastPlan: MealPlanWithContext = await lastPlanResponse.json()
+    addCatchUpEntries(lastPlan.entries)
+  }
+
+  // Sort by date (most recent first) then by meal type
+  const mealTypeOrder = { dinner: 0, lunch: 1, breakfast: 2 }
+  catchUpEntries.sort((a, b) => {
+    const dateCompare = b.date.localeCompare(a.date)
+    if (dateCompare !== 0) return dateCompare
+    return (
+      (mealTypeOrder[a.mealType as keyof typeof mealTypeOrder] ?? 3) -
+      (mealTypeOrder[b.mealType as keyof typeof mealTypeOrder] ?? 3)
+    )
+  })
+
   // Parse shopping response and add urgency
   const shoppingItems: ShoppingItem[] = []
   if (shoppingResponse.ok) {
@@ -184,6 +247,8 @@ export default async function Home() {
       pantryIngredients={pantryIngredients}
       pantryItems={pantryItems}
       shoppingItems={shoppingItems}
+      catchUpEntries={catchUpEntries}
+      timezone={household.timezone}
     />
   )
 }
