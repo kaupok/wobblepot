@@ -18,7 +18,7 @@ mcp__linear - server__get_project({ query: '5a19627a-803f-4052-83c4-b44810d17af7
 
 Review the project description for:
 
-- Current phase and active milestone
+- Current phase
 - Product vision and decisions
 - Technical architecture context
 
@@ -59,7 +59,7 @@ Display:
 - Title (with [DRAFT] marker)
 - Description (if any)
 - Current relationships (blockedBy, blocks, relatedTo)
-- Milestone/cycle assignment
+- Priority if set
 
 ### Step 6: Collaborative refinement
 
@@ -162,7 +162,6 @@ A well-refined issue should have:
 - [ ] Description explaining the "what" and "why"
 - [ ] Acceptance criteria (what does done look like?)
 - [ ] Appropriate relationships (blockedBy, blocks, relatedTo)
-- [ ] Correct milestone/cycle assignment
 - [ ] Priority set if important
 
 ## Relationship Guidelines

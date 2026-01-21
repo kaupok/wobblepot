@@ -118,13 +118,13 @@ Store the issue ID.
 mcp__linear-server__get_project({ query: "5a19627a-803f-4052-83c4-b44810d17af7" })
 ```
 
-Extract: Active milestone name from the project description (look for "**Active Milestone:**")
+Review project description for current phase and relevant context.
 
 ### 1.2 Search for issues (priority order)
 
 Search in this order, stopping when unblocked issues are found:
 
-**a) Todo/Active in active milestone (highest priority):**
+**a) Todo/Active issues (highest priority):**
 
 ```
 mcp__linear-server__list_issues({
@@ -134,9 +134,7 @@ mcp__linear-server__list_issues({
 })
 ```
 
-Filter results by active milestone (`projectMilestone.name`).
-
-**b) Backlog in active milestone:**
+**b) Backlog issues:**
 
 ```
 mcp__linear-server__list_issues({
@@ -145,20 +143,6 @@ mcp__linear-server__list_issues({
   limit: 20
 })
 ```
-
-Filter results by active milestone.
-
-**c) Todo/Active in other milestones (fallback):**
-If nothing found in active milestone, check Todo issues in other milestones.
-
-**d) Backlog in other milestones:**
-Check Backlog issues in other milestones.
-
-**e) Todo/Active without milestone:**
-Check Todo issues that have no milestone assigned (`projectMilestone` is null).
-
-**f) Backlog without milestone (last resort):**
-Check Backlog issues that have no milestone assigned.
 
 ### 1.3 Check dependencies for candidate issues
 
@@ -178,9 +162,8 @@ An issue is unblocked if:
 ### 1.5 Prioritize by
 
 - Status: Todo/Active before Backlog
-- Milestone: Active milestone → other milestones → no milestone
 - Dependency order (issues that unblock others first - check `blocks` array)
-- Logical sequence within milestone
+- Priority field if set
 
 ### 1.6 Select issue
 
@@ -228,7 +211,7 @@ Extract and note:
 mcp__linear-server__get_project({ query: "5a19627a-803f-4052-83c4-b44810d17af7" })
 ```
 
-Note the current phase, active milestone, and any relevant architectural decisions.
+Note the current phase and any relevant architectural decisions.
 
 ### 2.3 Fetch issue comments
 
