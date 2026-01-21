@@ -292,6 +292,9 @@ export function MemberPreferencesForm({
                         placeholder="e.g., 2000"
                         disabled={isLoading}
                       />
+                      <Body variant="muted" className="text-sm">
+                        Leave empty to use default (2000 kcal × portion size)
+                      </Body>
                     </div>
                     <div className="grid gap-4 sm:grid-cols-3">
                       <div className="flex flex-col gap-2">
@@ -308,6 +311,9 @@ export function MemberPreferencesForm({
                           placeholder="e.g., 150"
                           disabled={isLoading}
                         />
+                        <Body variant="muted" className="text-sm">
+                          Default: 50g × portion
+                        </Body>
                       </div>
                       <div className="flex flex-col gap-2">
                         <Label htmlFor="targetCarbs">Carbs (g)</Label>

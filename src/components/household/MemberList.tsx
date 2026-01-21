@@ -9,6 +9,7 @@ import { MemberCard } from './MemberCard'
 import { AddMemberDialog } from './AddMemberDialog'
 import { EditMemberPreferencesDialog } from './EditMemberPreferencesDialog'
 import { MemberInviteDialog } from './MemberInviteDialog'
+import { getHouseholdAggregate } from '@/lib/nutrition-defaults'
 import type { Member, DietaryType, MemberInvite } from '@/types/member'
 
 interface MemberListProps {
@@ -88,6 +89,9 @@ export function MemberList({ isOwner, currentMemberId, householdDietaryType }: M
     setMembers((prev) => prev.map((m) => (m.id === memberId ? { ...m, invite } : m)))
   }
 
+  // Calculate household aggregate nutrition totals
+  const aggregate = getHouseholdAggregate(members)
+
   return (
     <>
       <Card className="w-full max-w-2xl">
@@ -102,6 +106,26 @@ export function MemberList({ isOwner, currentMemberId, householdDietaryType }: M
         <CardContent>
           <div className="flex flex-col gap-8">
             <HouseholdNav />
+
+            {/* Household aggregate summary */}
+            {!isLoading && members.length > 0 && (
+              <div className="bg-muted/50 rounded-lg border p-4">
+                <div className="flex flex-col gap-1">
+                  <Body className="font-medium">Household daily targets</Body>
+                  <Body variant="muted">
+                    {aggregate.memberCount} member{aggregate.memberCount !== 1 ? 's' : ''} ·{' '}
+                    {aggregate.totalCalories.toLocaleString()} kcal · {aggregate.totalProtein}g
+                    protein
+                  </Body>
+                  {aggregate.defaultCount > 0 && (
+                    <Body variant="muted" className="text-sm">
+                      (includes defaults for {aggregate.defaultCount} member
+                      {aggregate.defaultCount !== 1 ? 's' : ''})
+                    </Body>
+                  )}
+                </div>
+              </div>
+            )}
 
             {isOwner && (
               <div className="flex items-center justify-between">

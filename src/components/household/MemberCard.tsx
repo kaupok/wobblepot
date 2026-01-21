@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Body } from '@/components/ui/typography'
 import { Pencil, Trash2, User, Crown, Mail } from 'lucide-react'
+import { getEffectiveCalories, getEffectiveProtein } from '@/lib/nutrition-defaults'
 import type { Member, DietaryType, MemberInvite } from '@/types/member'
 
 const ALLERGEN_LABELS: Record<string, string> = {
@@ -55,6 +56,12 @@ export function MemberCard({
     member.preferences?.displayName || member.user?.name || member.name || 'Unknown member'
   const isManual = member.userId === null
   const isOwner = member.role === 'owner'
+
+  // Get effective nutrition values with default indicators
+  const calories = getEffectiveCalories(member.preferences)
+  const protein = getEffectiveProtein(member.preferences)
+  const portionMultiplier = member.preferences?.portionMultiplier ?? 1.0
+  const usesDefaults = calories.isDefault || protein.isDefault
 
   const handleRemove = async () => {
     setIsRemoving(true)
@@ -115,6 +122,12 @@ export function MemberCard({
                   {member.user.email}
                 </Body>
               )}
+              {/* Nutrition targets summary */}
+              <Body variant="muted" className="text-sm">
+                {portionMultiplier}x · {calories.value.toLocaleString()} kcal · {protein.value}g
+                protein
+                {usesDefaults && ' (default)'}
+              </Body>
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -152,16 +165,13 @@ export function MemberCard({
           </div>
         </div>
 
-        {/* Preferences summary */}
+        {/* Dietary badges */}
         {member.preferences && (
           <div className="flex flex-wrap gap-2">
             {member.preferences.dietaryType && (
               <Badge variant="secondary">
                 {DIETARY_TYPE_LABELS[member.preferences.dietaryType]}
               </Badge>
-            )}
-            {member.preferences.portionMultiplier !== 1.0 && (
-              <Badge variant="outline">{member.preferences.portionMultiplier}x portion</Badge>
             )}
             {member.preferences.allergens.map((allergen) => (
               <Badge key={allergen} variant="destructive" className="text-xs">
@@ -174,12 +184,6 @@ export function MemberCard({
               </Badge>
             ))}
           </div>
-        )}
-
-        {!member.preferences && (
-          <Body variant="muted" className="text-sm">
-            No preferences set
-          </Body>
         )}
       </div>
 
