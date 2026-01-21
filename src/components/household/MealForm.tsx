@@ -525,7 +525,7 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
                             updateQuantity(comp.ingredientId, parseFloat(e.target.value) || 0)
                           }
                           min={0.1}
-                          step={comp.ingredient.defaultUnit === 'piece' ? 1 : 10}
+                          step="any"
                           className="w-24"
                           disabled={isSubmitting}
                         />
