@@ -6,11 +6,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Body } from '@/components/ui/typography'
-import { Pencil, Trash2, User, Crown, Mail } from 'lucide-react'
+import { Pencil, Trash2, User, Crown, Mail, Ban } from 'lucide-react'
 import { getEffectiveCalories, getEffectiveProtein } from '@/lib/nutrition-defaults'
-import type { Member, DietaryType, MemberInvite } from '@/types/member'
+import type { Member, DietaryType, Allergen, MemberInvite } from '@/types/member'
 
-const ALLERGEN_LABELS: Record<string, string> = {
+const ALLERGEN_LABELS: Record<Allergen, string> = {
   gluten: 'Gluten',
   dairy: 'Dairy',
   eggs: 'Eggs',
@@ -85,52 +85,47 @@ export function MemberCard({
     }
   }
 
+  // Determine dietary preferences content
+  const prefs = member.preferences
+  const hasDietaryType = prefs?.dietaryType != null
+  const hasAllergens = prefs && prefs.allergens.length > 0
+  const hasRestrictions = prefs && prefs.restrictions.length > 0
+  const hasExcludedIngredients = prefs && prefs.excludedIngredients.length > 0
+  const hasDietaryPreferences = hasDietaryType || hasAllergens || hasRestrictions
+
   return (
     <div className="rounded-lg border p-4">
-      <div className="flex flex-col gap-3">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-col gap-2">
+        {/* Header row: avatar, name, badges, actions */}
+        <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
-            <div className="bg-muted flex h-10 w-10 items-center justify-center rounded-full">
+            <div className="bg-muted flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
               {isOwner ? (
                 <Crown className="text-primary h-5 w-5" aria-hidden="true" />
               ) : (
                 <User className="text-muted-foreground h-5 w-5" aria-hidden="true" />
               )}
             </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <Body className="font-medium">{displayName}</Body>
-                {isOwner && (
-                  <Badge variant="secondary" className="text-xs">
-                    Owner
-                  </Badge>
-                )}
-                {isManual && !member.invite?.isActive && (
-                  <Badge variant="outline" className="text-xs">
-                    Manual
-                  </Badge>
-                )}
-                {member.invite?.isActive && (
-                  <Badge variant="secondary" className="text-xs">
-                    Invite pending
-                  </Badge>
-                )}
-              </div>
-              {member.user?.email && (
-                <Body variant="muted" className="text-sm">
-                  {member.user.email}
-                </Body>
+            <div className="flex items-center gap-2">
+              <Body className="font-medium">{displayName}</Body>
+              {isOwner && (
+                <Badge variant="secondary" className="text-xs">
+                  Owner
+                </Badge>
               )}
-              {/* Nutrition targets summary */}
-              <Body variant="muted" className="text-sm">
-                {portionMultiplier}x · {calories.value.toLocaleString()} kcal · {protein.value}g
-                protein
-                {usesDefaults && ' (default)'}
-              </Body>
+              {isManual && !member.invite?.isActive && (
+                <Badge variant="outline" className="text-xs">
+                  Manual
+                </Badge>
+              )}
+              {member.invite?.isActive && (
+                <Badge variant="secondary" className="text-xs">
+                  Invite pending
+                </Badge>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             {canInvite && (
               <Button
                 variant="ghost"
@@ -165,26 +160,47 @@ export function MemberCard({
           </div>
         </div>
 
-        {/* Dietary badges */}
-        {member.preferences && (
-          <div className="flex flex-wrap gap-2">
-            {member.preferences.dietaryType && (
-              <Badge variant="secondary">
-                {DIETARY_TYPE_LABELS[member.preferences.dietaryType]}
-              </Badge>
-            )}
-            {member.preferences.allergens.map((allergen) => (
-              <Badge key={allergen} variant="destructive" className="text-xs">
-                {ALLERGEN_LABELS[allergen] || allergen}
-              </Badge>
-            ))}
-            {member.preferences.restrictions.map((restriction) => (
-              <Badge key={restriction} variant="outline" className="text-xs">
-                {restriction}
-              </Badge>
-            ))}
-          </div>
-        )}
+        {/* Details section - indented to align with name */}
+        <div className="flex flex-col gap-1 pl-12">
+          {/* Line 1: Nutrition targets */}
+          <Body variant="muted" className="text-sm">
+            {portionMultiplier}x · {calories.value.toLocaleString()} kcal · {protein.value}g protein
+            {usesDefaults && ' (default)'}
+          </Body>
+
+          {/* Line 2: Dietary type, allergens, restrictions */}
+          {hasDietaryPreferences ? (
+            <Body variant="muted" className="text-sm">
+              {hasDietaryType && prefs && <span>{DIETARY_TYPE_LABELS[prefs.dietaryType!]}</span>}
+              {hasAllergens && prefs && (
+                <>
+                  {hasDietaryType && ' · '}
+                  <span className="text-destructive inline-flex items-center gap-1">
+                    <Ban className="inline h-3 w-3" aria-hidden="true" />
+                    {prefs.allergens.map((a) => ALLERGEN_LABELS[a]).join(', ')}
+                  </span>
+                </>
+              )}
+              {hasRestrictions && prefs && (
+                <>
+                  {(hasDietaryType || hasAllergens) && ' · '}
+                  <span>{prefs.restrictions.join(', ')}</span>
+                </>
+              )}
+            </Body>
+          ) : (
+            <Body variant="muted" className="text-sm">
+              No dietary preferences set
+            </Body>
+          )}
+
+          {/* Line 3: Excluded ingredients */}
+          {hasExcludedIngredients && prefs && (
+            <Body variant="muted" className="text-sm">
+              Excludes: {prefs.excludedIngredients.join(', ')}
+            </Body>
+          )}
+        </div>
       </div>
 
       <ConfirmDialog
