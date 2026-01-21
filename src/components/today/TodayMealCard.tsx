@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { toast } from 'sonner'
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { useRouter } from 'next/navigation'
@@ -232,17 +232,17 @@ export function TodayMealCard({
     return (
       <>
         <Card>
-          <CardHeader className="pb-2">
-            <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
-              {typeStyle.label}
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+                {typeStyle.label}
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setIsLibraryOpen(true)}>
+                Add meal
+              </Button>
             </div>
-          </CardHeader>
-          <CardContent className="flex items-center justify-between pb-3">
             <Body variant="muted">No meal planned</Body>
-            <Button variant="outline" size="sm" onClick={() => setIsLibraryOpen(true)}>
-              Add meal
-            </Button>
-          </CardContent>
+          </CardHeader>
         </Card>
         <MealLibraryModal
           open={isLibraryOpen}
@@ -262,7 +262,8 @@ export function TodayMealCard({
   return (
     <>
       <Card className={status === 'skipped' ? 'opacity-60' : undefined}>
-        <CardHeader className={showSimplifiedView ? 'pb-4' : 'pb-2'}>
+        {/* TOP SECTION: Status prompt, title, nutrition, time, badges + Swap button */}
+        <CardHeader className={showSimplifiedView ? 'pb-4' : 'pb-0'}>
           {/* Status prompt at top for planned meals when time has passed */}
           {showStatusPrompt && status === 'planned' && (
             <div className="mb-3">
@@ -316,23 +317,36 @@ export function TodayMealCard({
               </div>
               <CardTitle className="text-base leading-tight font-semibold">{meal.name}</CardTitle>
               {meal.nutrition && <NutritionSummary nutrition={meal.nutrition} compact />}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {meal.timeMinutes && (
+                  <span className="text-muted-foreground text-xs">{meal.timeMinutes} min</span>
+                )}
+                {meal.kidFriendly && (
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                    Kid-friendly
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {meal.timeMinutes && (
-                <span className="text-muted-foreground text-xs">{meal.timeMinutes} min</span>
-              )}
-              {meal.kidFriendly && (
-                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                  Kid-friendly
-                </span>
-              )}
-            </div>
+            {/* Swap button in top-right - hide for finished meals */}
+            {!showSimplifiedView && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsRegenerateModalOpen(true)}
+                className="shrink-0"
+              >
+                Swap
+              </Button>
+            )}
           </div>
         </CardHeader>
-        {/* Hide content and footer for finished meals */}
+
+        {/* BOTTOM SECTION: Two-column layout (Ingredients | Preparation) */}
         {!showSimplifiedView && (
-          <>
-            <CardContent className="flex flex-col gap-4 pb-3">
+          <div className="grid grid-cols-1 gap-4 px-6 pt-4 pb-6 md:grid-cols-2">
+            {/* Left column: Ingredients */}
+            <div className="flex flex-col gap-4">
               <IngredientList
                 components={meal.components}
                 householdSize={householdSize}
@@ -342,24 +356,33 @@ export function TodayMealCard({
                 availability={shouldShowAvailability ? availability : null}
                 hideAvailability={isFinished}
               />
-              {isTipsExpanded && (
-                <PreparationTips
-                  tips={tips}
-                  isLoading={isLoadingTips}
-                  error={tipsError}
-                  onRetry={fetchTips}
-                />
+            </div>
+
+            {/* Right column: Preparation */}
+            <div className="bg-muted/50 flex flex-col items-center justify-center gap-4 rounded-lg p-4">
+              {isTipsExpanded ? (
+                <div className="w-full">
+                  <PreparationTips
+                    tips={tips}
+                    isLoading={isLoadingTips}
+                    error={tipsError}
+                    onRetry={fetchTips}
+                  />
+                  {tips && (
+                    <div className="mt-3 flex justify-center">
+                      <Button variant="ghost" size="sm" onClick={() => setIsTipsExpanded(false)}>
+                        Hide tips
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Button variant="outline" size="sm" onClick={handleHowToPrepare}>
+                  How to prepare
+                </Button>
               )}
-            </CardContent>
-            <CardFooter className="gap-2 pt-1">
-              <Button variant="outline" size="sm" onClick={handleHowToPrepare}>
-                {tips && isTipsExpanded ? 'Hide tips' : 'How to prepare'}
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setIsRegenerateModalOpen(true)}>
-                Swap
-              </Button>
-            </CardFooter>
-          </>
+            </div>
+          </div>
         )}
       </Card>
       <RegenerateModal
