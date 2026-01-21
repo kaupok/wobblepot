@@ -323,17 +323,21 @@ export function TodayMealCard({
                 )}
               </div>
               <CardTitle className="text-base leading-tight font-semibold">{meal.name}</CardTitle>
-              {meal.nutrition && <NutritionSummary nutrition={meal.nutrition} compact />}
-              <div className="flex flex-wrap items-center gap-1.5">
-                {meal.timeMinutes && (
-                  <span className="text-muted-foreground text-xs">{meal.timeMinutes} min</span>
-                )}
-                {meal.kidFriendly && (
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                    Kid-friendly
-                  </span>
-                )}
-              </div>
+              {!showSimplifiedView && (
+                <>
+                  {meal.nutrition && <NutritionSummary nutrition={meal.nutrition} compact />}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {meal.timeMinutes && (
+                      <span className="text-muted-foreground text-xs">{meal.timeMinutes} min</span>
+                    )}
+                    {meal.kidFriendly && (
+                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                        Kid-friendly
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
             {/* Swap button in top-right - hide for finished meals */}
             {!showSimplifiedView && (
