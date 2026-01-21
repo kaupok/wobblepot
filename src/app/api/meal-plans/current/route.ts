@@ -142,6 +142,7 @@ export async function GET(request: NextRequest) {
         date: toDateString(entry.date),
         mealType: entry.mealType as 'dinner', // Cast needed: GeneratePlanResult expects literal 'dinner', not MealType enum
         status: entry.status,
+        preparationTips: entry.preparationTips,
         meal: entry.meal
           ? {
               id: entry.meal.id,

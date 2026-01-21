@@ -171,7 +171,11 @@ export async function PATCH(
     }
 
     // Build update data
-    const updateData: { status?: MealPlanEntryStatus; mealId?: string } = {}
+    const updateData: {
+      status?: MealPlanEntryStatus
+      mealId?: string
+      preparationTips?: null
+    } = {}
 
     if (parsed.data.status) {
       updateData.status = parsed.data.status as MealPlanEntryStatus
@@ -189,6 +193,8 @@ export async function PATCH(
       }
 
       updateData.mealId = parsed.data.mealId
+      // Clear cached preparation tips when meal is swapped
+      updateData.preparationTips = null
     }
 
     // Require at least one field to update
