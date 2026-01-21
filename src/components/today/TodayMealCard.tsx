@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -66,6 +66,13 @@ export function TodayMealCard({
   const [tipsError, setTipsError] = useState<string | null>(null)
   const [isTipsExpanded, setIsTipsExpanded] = useState(false)
   const [isChangingStatus, setIsChangingStatus] = useState(false)
+
+  // Sync tips state when initialTips prop changes (e.g., after meal swap)
+  useEffect(() => {
+    setTips(initialTips)
+    setIsTipsExpanded(false)
+    setTipsError(null)
+  }, [initialTips])
 
   const availability = useMemo(() => {
     if (!meal) return null
