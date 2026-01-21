@@ -20,7 +20,6 @@ const generateRequestSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format')
     .optional(),
   targetWeek: z.enum(['current', 'next']).optional(),
-  skipAutoGenerateNext: z.boolean().optional(),
 })
 
 export async function POST(request: Request) {
@@ -77,7 +76,7 @@ export async function POST(request: Request) {
   }
 
   // Determine start date and effective start date based on targetWeek
-  const { targetWeek = 'next', skipAutoGenerateNext = false } = parsed.data
+  const { targetWeek = 'next' } = parsed.data
   let startDate: Date
   let effectiveStartDate: Date | undefined
 
@@ -132,26 +131,6 @@ export async function POST(request: Request) {
 
     // Record successful generation for rate limiting
     recordGeneration(household.id)
-
-    // Auto-generate next week when current week is generated (unless skipped)
-    if (targetWeek === 'current' && !skipAutoGenerateNext) {
-      try {
-        await generateMealPlan({
-          householdId: household.id,
-          startDate: getNextMonday(),
-          dietaryType,
-          allergensToAvoid,
-          excludedIngredientIds,
-          restrictions,
-          weekdayMealTypes,
-          weekendMealTypes,
-        })
-        recordGeneration(household.id)
-      } catch (autoGenError) {
-        // Log but don't fail the request - current week was successfully generated
-        console.warn('Auto-generation of next week plan failed:', autoGenError)
-      }
-    }
 
     // Add metadata about the plan
     const daysCount = result.entries.length
