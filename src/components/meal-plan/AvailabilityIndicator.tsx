@@ -41,7 +41,7 @@ export function AvailabilityIndicator({ availability }: AvailabilityIndicatorPro
   if (availability.isReady) {
     return (
       <span className="inline-flex items-center justify-center rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
-        Ready
+        Have ingredients
       </span>
     )
   }
