@@ -70,7 +70,7 @@ export async function POST(
     const ingredientsList = entry.meal.components
       .map((comp) => {
         const quantity = comp.quantityPerServing * householdSize
-        const unit = comp.ingredient.defaultUnit === 'piece' ? 'pcs' : 'g'
+        const unit = comp.ingredient.defaultUnit === 'piece' ? 'pcs' : comp.ingredient.defaultUnit
         return `- ${comp.ingredient.name}: ${Math.round(quantity)}${unit}`
       })
       .join('\n')
