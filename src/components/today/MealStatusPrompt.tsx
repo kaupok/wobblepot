@@ -9,6 +9,7 @@ interface MealStatusPromptProps {
   onMadeIt: () => void
   onSkipped: () => void
   onCancel?: () => void
+  onReset?: () => void
   disabled?: boolean
   /** Current status when changing (shows different prompt text) */
   currentStatus?: MealStatus
@@ -19,6 +20,7 @@ export function MealStatusPrompt({
   onMadeIt,
   onSkipped,
   onCancel,
+  onReset,
   disabled,
   currentStatus,
 }: MealStatusPromptProps) {
@@ -26,15 +28,20 @@ export function MealStatusPrompt({
   const promptText = isChanging ? `Change status for ${mealName}?` : `Did you make ${mealName}?`
 
   return (
-    <div className="bg-muted/50 flex flex-col gap-2 rounded-lg p-3">
+    <div className="flex flex-col gap-2 rounded-lg bg-yellow-50 p-3 dark:bg-yellow-900/20">
       <Body variant="small">{promptText}</Body>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button variant="default" size="sm" onClick={onMadeIt} disabled={disabled}>
-          {currentStatus === 'completed' ? '✓ Made it' : 'Yes, made it'}
+          {currentStatus === 'completed' ? '✓ Made it' : 'Made it'}
         </Button>
         <Button variant="outline" size="sm" onClick={onSkipped} disabled={disabled}>
-          {currentStatus === 'skipped' ? 'Skipped' : 'No, skipped'}
+          Skipped
         </Button>
+        {isChanging && onReset && (
+          <Button variant="outline" size="sm" onClick={onReset} disabled={disabled}>
+            Reset to planned
+          </Button>
+        )}
         {isChanging && onCancel && (
           <Button variant="ghost" size="sm" onClick={onCancel} disabled={disabled}>
             Cancel
