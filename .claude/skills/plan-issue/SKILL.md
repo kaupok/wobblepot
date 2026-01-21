@@ -53,7 +53,7 @@ Extract and note:
 mcp__linear-server__get_project({ query: "5a19627a-803f-4052-83c4-b44810d17af7" })
 ```
 
-Note the current phase, active milestone, and any relevant architectural decisions.
+Note the current phase and any relevant architectural decisions.
 
 ### 4. Fetch issue comments
 

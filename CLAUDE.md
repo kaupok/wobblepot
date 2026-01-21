@@ -559,7 +559,7 @@ When the user asks to "continue implementation" without specifying an issue:
 
 The `/next-issue` skill runs in an isolated subagent that:
 
-1. Searches Linear for issues (prioritizing Todo/Active over Backlog, active milestone first, then fallback to other milestones)
+1. Searches Linear for issues (prioritizing Todo/Active over Backlog)
 2. Checks dependencies to find unblocked work
 3. Does a quick codebase scan for key files
 4. Returns a concise summary (~500 words)
@@ -574,7 +574,7 @@ This saves ~8k tokens compared to doing discovery in the main conversation.
 mcp__linear - server__get_project({ query: '5a19627a-803f-4052-83c4-b44810d17af7' })
 ```
 
-Review the project description for current phase, active milestone, and any context needed.
+Review the project description for current phase and any context needed.
 
 **2. Find candidate issues:**
 
@@ -589,7 +589,7 @@ mcp__linear -
 
 **3. Check relationships for each candidate:**
 
-For promising candidates (especially in the active milestone), fetch with relations:
+For promising candidates, fetch with relations:
 
 ```typescript
 mcp__linear - server__get_issue({ id: 'HON-XX', includeRelations: true })
@@ -604,9 +604,9 @@ An issue is ready to work on if:
 
 **5. Prioritize by:**
 
-1. Active milestone (check project description for current phase)
+1. Status: Todo/Active before Backlog
 2. Dependency order (issues that unblock others first)
-3. Logical sequence within the milestone
+3. Priority field if set
 
 **6. Present recommendation:**
 
@@ -725,7 +725,7 @@ For fully autonomous implementation without manual checkpoints:
 
 This skill runs the entire cycle automatically:
 
-1. **Get/Find issue** - Uses specified issue or finds next unblocked from active milestone
+1. **Get/Find issue** - Uses specified issue or finds next unblocked issue
 2. **Plan** - Creates and posts plan to Linear (skips simple issues)
 3. **Implement** - Creates branch, writes code
 4. **Review + Fix** - Runs checks, auto-fixes failures (up to 3 attempts)
