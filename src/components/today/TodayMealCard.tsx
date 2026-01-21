@@ -122,6 +122,15 @@ export function TodayMealCard({
     }
   }
 
+  async function handleReset() {
+    const success = await updateStatus('planned')
+    if (success) {
+      setIsChangingStatus(false)
+      // Refresh to update ingredient availability indicators
+      router.refresh()
+    }
+  }
+
   function handleCancelStatusChange() {
     setIsChangingStatus(false)
   }
@@ -295,15 +304,6 @@ export function TodayMealCard({
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4 pb-3">
-          <IngredientList
-            components={meal.components}
-            householdSize={householdSize}
-            pantryIngredients={pantryIngredients}
-            onToggleAvailability={isFinished ? undefined : handleToggleAvailability}
-            togglingIds={togglingIngredientIds}
-            availability={shouldShowAvailability ? availability : null}
-            hideAvailability={isFinished}
-          />
           {showStatusPrompt && status === 'planned' && (
             <MealStatusPrompt
               mealName={meal.name}
@@ -318,10 +318,20 @@ export function TodayMealCard({
               onMadeIt={handleMadeIt}
               onSkipped={handleSkipped}
               onCancel={handleCancelStatusChange}
+              onReset={handleReset}
               disabled={isUpdating}
               currentStatus={status}
             />
           )}
+          <IngredientList
+            components={meal.components}
+            householdSize={householdSize}
+            pantryIngredients={pantryIngredients}
+            onToggleAvailability={isFinished ? undefined : handleToggleAvailability}
+            togglingIds={togglingIngredientIds}
+            availability={shouldShowAvailability ? availability : null}
+            hideAvailability={isFinished}
+          />
           {isTipsExpanded && (
             <PreparationTips
               tips={tips}
