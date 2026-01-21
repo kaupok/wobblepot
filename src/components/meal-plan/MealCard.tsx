@@ -10,6 +10,7 @@ import { StatusSelect, type MealStatus } from './StatusSelect'
 import { MealDetailModal } from './MealDetailModal'
 import { RegenerateModal } from './RegenerateModal'
 import { PantryDeductionModal } from './PantryDeductionModal'
+import { MealLibraryModal } from './MealLibraryModal'
 import { AvailabilityIndicator, computeMealAvailability } from './AvailabilityIndicator'
 import type { MealData, PantryIngredient, PantryItemFull } from './types'
 import type { MealType } from '@/generated/prisma/enums'
@@ -117,14 +118,41 @@ export function MealCard({
   }
 
   const typeStyle = mealTypeStyles[mealType]
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false)
 
   if (!meal) {
+    const canEdit = !isReadOnly && !isPast
+
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-4">
-          <Body variant="muted">No meal planned</Body>
-        </CardContent>
-      </Card>
+      <>
+        <Card>
+          <CardHeader className="pb-1">
+            <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+              {typeStyle.label}
+            </div>
+          </CardHeader>
+          <CardContent className="pb-2">
+            <Body variant="muted">No meal planned</Body>
+          </CardContent>
+          {canEdit && (
+            <CardFooter className="pt-1">
+              <Button variant="outline" size="sm" onClick={() => setIsLibraryOpen(true)}>
+                Add meal
+              </Button>
+            </CardFooter>
+          )}
+        </Card>
+        {canEdit && (
+          <MealLibraryModal
+            open={isLibraryOpen}
+            onOpenChange={setIsLibraryOpen}
+            planId={planId}
+            entryId={entryId}
+            mealType={mealType}
+            onSwapComplete={() => router.refresh()}
+          />
+        )}
+      </>
     )
   }
 
