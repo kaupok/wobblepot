@@ -19,6 +19,7 @@ export interface MealData {
   kidFriendly: boolean
   primaryProteinType: ProteinType
   suitableFor: MealType[]
+  servings: number
   isCustom: boolean
   isFavorite: boolean
   createdAt: string

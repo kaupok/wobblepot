@@ -86,6 +86,7 @@ export function MealsPageClient() {
             timeMinutes: editingMeal.timeMinutes,
             kidFriendly: editingMeal.kidFriendly,
             suitableFor: editingMeal.suitableFor,
+            servings: editingMeal.servings,
             components: editingMeal.components,
           }}
           onSuccess={handleEditSuccess}

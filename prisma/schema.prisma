@@ -276,6 +276,7 @@ model Meal {
   kidFriendly        Boolean     @default(false)
   primaryProteinType ProteinType @default(none)
   suitableFor        MealType[]
+  servings           Int         @default(4)
   householdId        String?
   deletedAt          DateTime?
   household          Household?  @relation(fields: [householdId], references: [id], onDelete: Cascade)

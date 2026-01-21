@@ -49,6 +49,7 @@ interface MealFormData {
   timeMinutes?: number | null
   kidFriendly: boolean
   suitableFor: MealType[]
+  servings?: number
   components: {
     ingredientId: string
     quantityPerServing: number
@@ -88,14 +89,15 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
   const [suitableFor, setSuitableFor] = useState<MealTypeValue[]>(
     (meal?.suitableFor as MealTypeValue[]) ?? ['dinner'],
   )
-  const [servings, setServings] = useState<string>('4')
+  const editServings = meal?.servings ?? 4
+  const [servings, setServings] = useState<string>(String(editServings))
   const [components, setComponents] = useState<MealComponent[]>(() => {
     if (!meal?.components) return []
-    // Convert from per-serving to total (assume 4 servings for editing)
+    // Convert from per-serving to total using actual servings count
     return meal.components.map((c) => ({
       ingredientId: c.ingredientId,
       ingredient: c.ingredient,
-      totalQuantity: c.quantityPerServing * 4,
+      totalQuantity: c.quantityPerServing * editServings,
     }))
   })
 
