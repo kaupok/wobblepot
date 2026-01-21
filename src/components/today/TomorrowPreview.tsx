@@ -124,12 +124,12 @@ function TomorrowMealItem({ entry, pantryIngredients, onViewDetails }: TomorrowM
           {mealTypeLabels[entry.mealType]}
         </span>
         <span className="text-sm font-medium">{entry.meal.name}</span>
+        {availability && <AvailabilityIndicator availability={availability} />}
       </div>
       <div className="flex items-center gap-2">
         {entry.meal.timeMinutes && (
           <span className="text-muted-foreground text-xs">{entry.meal.timeMinutes} min</span>
         )}
-        {availability && <AvailabilityIndicator availability={availability} />}
       </div>
     </button>
   )

@@ -136,6 +136,9 @@ export function MealCard({
             {typeStyle.label}
           </div>
           <CardTitle className="text-sm leading-tight font-semibold">{meal.name}</CardTitle>
+          {!isPast && shouldShowAvailability && availability && (
+            <AvailabilityIndicator availability={availability} />
+          )}
         </CardHeader>
         <CardContent className="flex flex-col gap-2 pb-2">
           <div className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
@@ -146,13 +149,7 @@ export function MealCard({
                 {Math.round(meal.nutrition.calories)} kcal
               </span>
             )}
-            {!isPast && shouldShowAvailability && availability && !availability.isReady && (
-              <AvailabilityIndicator availability={availability} />
-            )}
           </div>
-          {!isPast && shouldShowAvailability && availability?.isReady && (
-            <AvailabilityIndicator availability={availability} />
-          )}
           {!isReadOnly && (
             <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
           )}
