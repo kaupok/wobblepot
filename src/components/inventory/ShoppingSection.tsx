@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,10 +20,8 @@ import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { getUrgencyBucket, type UrgencyBucket } from '@/lib/meal-planning/dates'
 
 type SortMode = 'category' | 'urgency'
-type WindowDays = 7 | 14
 
 const SORT_STORAGE_KEY = 'shopping-list-sort-mode'
-const WINDOW_STORAGE_KEY = 'shopping-list-window-days'
 
 interface ShoppingListGroup {
   category: IngredientCategory
@@ -50,12 +47,6 @@ function getInitialSortMode(): SortMode {
   return stored === 'urgency' ? 'urgency' : 'category'
 }
 
-function getStoredWindowDays(): WindowDays {
-  if (typeof window === 'undefined') return 7
-  const stored = localStorage.getItem(WINDOW_STORAGE_KEY)
-  return stored === '14' ? 14 : 7
-}
-
 export function ShoppingSection({
   windowDays,
   startDate: _startDate,
@@ -67,25 +58,16 @@ export function ShoppingSection({
   externalUnpurchasedIds,
   onExternalUnpurchaseProcessed,
 }: ShoppingSectionProps) {
-  const router = useRouter()
   const [purchasedIds, setPurchasedIds] = useState<Set<string>>(initialPurchasedIds)
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
   const [sortMode, setSortMode] = useState<SortMode>('category')
   const [mounted, setMounted] = useState(false)
 
   // Initialize sort mode from localStorage after mount (SSR-safe)
-  // Also check if stored window preference differs from server-rendered value
   useEffect(() => {
     setSortMode(getInitialSortMode())
     setMounted(true)
-
-    // Check if stored window days differs from what was rendered
-    const storedDays = getStoredWindowDays()
-    if (storedDays !== windowDays) {
-      // Redirect to update the page with the stored preference
-      router.push(`/shopping?days=${storedDays}`)
-    }
-  }, [windowDays, router])
+  }, [])
 
   // Handle external unpurchase events (e.g., when pantry item is removed)
   useEffect(() => {
@@ -104,12 +86,6 @@ export function ShoppingSection({
   const handleSortModeChange = (value: SortMode) => {
     setSortMode(value)
     localStorage.setItem(SORT_STORAGE_KEY, value)
-  }
-
-  const handleWindowChange = (value: string) => {
-    const days = value === '14' ? 14 : 7
-    localStorage.setItem(WINDOW_STORAGE_KEY, String(days))
-    router.push(`/shopping?days=${days}`)
   }
 
   const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0)
@@ -247,17 +223,20 @@ export function ShoppingSection({
               <Heading variant="h2">Shopping list</Heading>
             </CardTitle>
             <CardDescription>
-              <Body variant="muted">{getWindowLabel()}</Body>
+              <Body variant="muted">
+                {getWindowLabel()} · {totalItems} {totalItems === 1 ? 'item' : 'items'} ·{' '}
+                {purchasedCount} purchased
+              </Body>
             </CardDescription>
           </div>
           {mounted && (
-            <Select value={String(windowDays)} onValueChange={handleWindowChange}>
-              <SelectTrigger size="sm" className="w-[100px]" aria-label="Time window">
+            <Select value={sortMode} onValueChange={handleSortModeChange}>
+              <SelectTrigger size="sm" className="w-[140px]" aria-label="Sort items">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="7">7 days</SelectItem>
-                <SelectItem value="14">14 days</SelectItem>
+                <SelectItem value="category">By category</SelectItem>
+                <SelectItem value="urgency">By urgency</SelectItem>
               </SelectContent>
             </Select>
           )}
@@ -265,23 +244,6 @@ export function ShoppingSection({
       </CardHeader>
       <CardContent>
         <div className="flex flex-col gap-6">
-          <div className="bg-muted/50 flex flex-wrap items-center justify-between gap-2 rounded-lg px-4 py-3">
-            <Body variant="muted">
-              {totalItems} {totalItems === 1 ? 'item' : 'items'} • {purchasedCount} purchased
-            </Body>
-            {mounted && (
-              <Select value={sortMode} onValueChange={handleSortModeChange}>
-                <SelectTrigger size="sm" className="w-[140px]" aria-label="Sort items">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="category">By category</SelectItem>
-                  <SelectItem value="urgency">By urgency</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-
           {sortMode === 'category' ? (
             <div className="flex flex-col gap-6">
               {enhancedGroups.map((group) => (
