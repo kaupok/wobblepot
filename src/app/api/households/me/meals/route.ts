@@ -8,8 +8,8 @@ import { deriveProteinType } from '@/lib/meal-planning/protein'
 
 const createMealSchema = z.object({
   name: z.string().min(1).max(200),
-  description: z.string().max(1000).optional(),
-  timeMinutes: z.number().int().positive().max(480).optional(),
+  description: z.string().max(1000).nullish(),
+  timeMinutes: z.number().int().positive().max(480).nullish(),
   kidFriendly: z.boolean().optional().default(false),
   suitableFor: z.array(z.enum(['breakfast', 'lunch', 'dinner'])).min(1),
   servings: z.number().int().positive().max(50),
