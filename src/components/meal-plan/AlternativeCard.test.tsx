@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
 import { AlternativeCard } from './AlternativeCard'
@@ -71,7 +71,7 @@ describe('AlternativeCard', () => {
       expect(screen.getByText('30 min')).toBeInTheDocument()
     })
 
-    it('renders kid-friendly icon when true', () => {
+    it('renders calories prominently', () => {
       render(
         <AlternativeCard
           meal={mockMeal}
@@ -81,29 +81,29 @@ describe('AlternativeCard', () => {
         />,
       )
 
-      expect(screen.getByLabelText('Kid-friendly')).toBeInTheDocument()
+      expect(screen.getByText('450 kcal')).toBeInTheDocument()
     })
 
-    it('does not render kid-friendly icon when false', () => {
+    it('renders kid-friendly badge when true', () => {
+      render(
+        <AlternativeCard
+          meal={mockMeal}
+          householdSize={3}
+          onSelect={vi.fn()}
+          isSelecting={false}
+        />,
+      )
+
+      expect(screen.getByText('Kid-friendly')).toBeInTheDocument()
+    })
+
+    it('does not render kid-friendly badge when false', () => {
       const meal = { ...mockMeal, kidFriendly: false }
       render(
         <AlternativeCard meal={meal} householdSize={3} onSelect={vi.fn()} isSelecting={false} />,
       )
 
-      expect(screen.queryByLabelText('Kid-friendly')).not.toBeInTheDocument()
-    })
-
-    it('renders reason text', () => {
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdSize={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-        />,
-      )
-
-      expect(screen.getByText('Similar prep time')).toBeInTheDocument()
+      expect(screen.queryByText('Kid-friendly')).not.toBeInTheDocument()
     })
 
     it('renders Select button', () => {
@@ -118,23 +118,10 @@ describe('AlternativeCard', () => {
 
       expect(screen.getByRole('button', { name: 'Select' })).toBeInTheDocument()
     })
-
-    it('renders expand/collapse button', () => {
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdSize={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-        />,
-      )
-
-      expect(screen.getByRole('button', { name: 'Expand details' })).toBeInTheDocument()
-    })
   })
 
-  describe('expand/collapse behavior', () => {
-    it('hides details by default (collapsed state)', () => {
+  describe('ingredients display', () => {
+    it('shows ingredients heading with household size', () => {
       render(
         <AlternativeCard
           meal={mockMeal}
@@ -144,12 +131,10 @@ describe('AlternativeCard', () => {
         />,
       )
 
-      // Ingredients should not be visible when collapsed
-      expect(screen.queryByText('Ingredients (serves 3)')).not.toBeInTheDocument()
-      expect(screen.queryByText('Nutrition (per serving)')).not.toBeInTheDocument()
+      expect(screen.getByText('Ingredients (serves 3)')).toBeInTheDocument()
     })
 
-    it('shows details when expanded', async () => {
+    it('shows all ingredient names', () => {
       render(
         <AlternativeCard
           meal={mockMeal}
@@ -159,90 +144,21 @@ describe('AlternativeCard', () => {
         />,
       )
 
-      await userEvent.click(screen.getByRole('button', { name: 'Expand details' }))
-
-      await waitFor(() => {
-        expect(screen.getByText('Ingredients (serves 3)')).toBeInTheDocument()
-        expect(screen.getByText('Nutrition (per serving)')).toBeInTheDocument()
-      })
+      expect(screen.getByText('Chicken Breast')).toBeInTheDocument()
+      expect(screen.getByText('Rice')).toBeInTheDocument()
     })
 
-    it('shows ingredient names when expanded', async () => {
+    it('updates heading when household size changes', () => {
       render(
         <AlternativeCard
           meal={mockMeal}
-          householdSize={3}
+          householdSize={5}
           onSelect={vi.fn()}
           isSelecting={false}
         />,
       )
 
-      await userEvent.click(screen.getByRole('button', { name: 'Expand details' }))
-
-      await waitFor(() => {
-        expect(screen.getByText('Chicken Breast')).toBeInTheDocument()
-        expect(screen.getByText('Rice')).toBeInTheDocument()
-      })
-    })
-
-    it('shows nutrition values when expanded', async () => {
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdSize={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-        />,
-      )
-
-      await userEvent.click(screen.getByRole('button', { name: 'Expand details' }))
-
-      await waitFor(() => {
-        expect(screen.getByText('450 kcal')).toBeInTheDocument()
-        expect(screen.getByText('35g')).toBeInTheDocument() // protein
-      })
-    })
-
-    it('changes button label to Collapse when expanded', async () => {
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdSize={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-        />,
-      )
-
-      await userEvent.click(screen.getByRole('button', { name: 'Expand details' }))
-
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: 'Collapse details' })).toBeInTheDocument()
-      })
-    })
-
-    it('hides details when collapsed again', async () => {
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdSize={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-        />,
-      )
-
-      // Expand
-      await userEvent.click(screen.getByRole('button', { name: 'Expand details' }))
-
-      await waitFor(() => {
-        expect(screen.getByText('Ingredients (serves 3)')).toBeInTheDocument()
-      })
-
-      // Collapse
-      await userEvent.click(screen.getByRole('button', { name: 'Collapse details' }))
-
-      await waitFor(() => {
-        expect(screen.queryByText('Ingredients (serves 3)')).not.toBeInTheDocument()
-      })
+      expect(screen.getByText('Ingredients (serves 5)')).toBeInTheDocument()
     })
   })
 

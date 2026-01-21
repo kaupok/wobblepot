@@ -30,16 +30,21 @@ interface RegenerateModalProps {
 
 function AlternativeSkeleton() {
   return (
-    <Card className="py-4">
-      <CardContent className="flex flex-col gap-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex flex-col gap-2">
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="h-4 w-20" />
-          </div>
-          <Skeleton className="h-8 w-16" />
+    <Card className="flex h-full flex-col">
+      <CardContent className="flex flex-col gap-3 pt-6">
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-5 w-20" />
         </div>
-        <Skeleton className="h-4 w-40" />
+        <div className="flex flex-col gap-1">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="ml-4 h-3 w-20" />
+          <Skeleton className="ml-4 h-3 w-24" />
+          <Skeleton className="ml-4 h-3 w-16" />
+          <Skeleton className="ml-4 h-3 w-22" />
+        </div>
+        <Skeleton className="mt-auto h-9 w-full" />
       </CardContent>
     </Card>
   )
@@ -147,20 +152,20 @@ export function RegenerateModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>Choose a different meal</DialogTitle>
             <DialogDescription>
               Select one of these alternatives that match your preferences
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-4">
             {isLoading && (
-              <>
+              <div className="grid gap-4 md:grid-cols-3">
                 <AlternativeSkeleton />
                 <AlternativeSkeleton />
                 <AlternativeSkeleton />
-              </>
+              </div>
             )}
 
             {error && !isLoading && (
@@ -169,18 +174,20 @@ export function RegenerateModal({
               </Body>
             )}
 
-            {!isLoading &&
-              !error &&
-              alternatives.map((meal) => (
-                <AlternativeCard
-                  key={meal.id}
-                  meal={meal}
-                  householdSize={householdSize}
-                  onSelect={handleSelect}
-                  isSelecting={selectingId === meal.id}
-                  pantryIngredients={pantryIngredients}
-                />
-              ))}
+            {!isLoading && !error && alternatives.length > 0 && (
+              <div className="grid gap-4 md:grid-cols-3">
+                {alternatives.map((meal) => (
+                  <AlternativeCard
+                    key={meal.id}
+                    meal={meal}
+                    householdSize={householdSize}
+                    onSelect={handleSelect}
+                    isSelecting={selectingId === meal.id}
+                    pantryIngredients={pantryIngredients}
+                  />
+                ))}
+              </div>
+            )}
 
             {!isLoading && !error && alternatives.length === 0 && (
               <Body variant="muted" className="text-center">
