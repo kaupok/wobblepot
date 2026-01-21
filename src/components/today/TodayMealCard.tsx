@@ -184,16 +184,11 @@ export function TodayMealCard({
                 {typeStyle.label}
               </div>
               <CardTitle className="text-base leading-tight font-semibold">{meal.name}</CardTitle>
+              {meal.nutrition && <NutritionSummary nutrition={meal.nutrition} compact />}
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {meal.timeMinutes && (
                 <span className="text-muted-foreground text-xs">{meal.timeMinutes} min</span>
-              )}
-              {meal.nutrition && (
-                <span className="text-muted-foreground text-xs">
-                  {meal.timeMinutes && '• '}
-                  {Math.round(meal.nutrition.calories)} kcal
-                </span>
               )}
               {meal.kidFriendly && (
                 <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400">
@@ -212,7 +207,6 @@ export function TodayMealCard({
             togglingIds={togglingIngredientIds}
             availability={shouldShowAvailability ? availability : null}
           />
-          <NutritionSummary nutrition={meal.nutrition} compact />
           <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
         </CardContent>
         <CardFooter className="gap-2 pt-1">
