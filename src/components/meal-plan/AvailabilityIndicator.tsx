@@ -1,4 +1,3 @@
-import { Check } from 'lucide-react'
 import type { MealAvailability, MealData, PantryIngredient } from './types'
 
 interface AvailabilityIndicatorProps {
@@ -37,16 +36,14 @@ export function AvailabilityIndicator({ availability }: AvailabilityIndicatorPro
   if (availability.isReady) {
     return (
       <span className="inline-flex items-center justify-center rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
-        <Check className="h-2.5 w-2.5" />
-        <span className="sr-only">All ingredients available</span>
+        Ready
       </span>
     )
   }
 
   return (
     <span className="inline-flex items-center justify-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-      <span>{availability.missingCount}</span>
-      <span className="sr-only">missing ingredients</span>
+      {availability.missingCount} missing
     </span>
   )
 }
