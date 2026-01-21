@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -58,6 +58,7 @@ export function TodayMealCard({
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
   const [isDeductionModalOpen, setIsDeductionModalOpen] = useState(false)
+  const [togglingIngredientIds, setTogglingIngredientIds] = useState<Set<string>>(new Set())
 
   const availability = useMemo(() => {
     if (!meal) return null
@@ -117,6 +118,53 @@ export function TodayMealCard({
     }
   }
 
+  const handleToggleAvailability = useCallback(
+    async (ingredientId: string, hasIt: boolean) => {
+      setTogglingIngredientIds((prev) => new Set(prev).add(ingredientId))
+
+      try {
+        if (hasIt) {
+          // Add to pantry
+          const response = await fetch('/api/pantry', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ingredientId }),
+          })
+
+          if (!response.ok) {
+            const data = await response.json()
+            // 409 means already in pantry - treat as success
+            if (response.status !== 409) {
+              throw new Error(data.error || 'Failed to add to pantry')
+            }
+          }
+        } else {
+          // Remove from pantry
+          const response = await fetch(`/api/pantry/by-ingredient/${ingredientId}`, {
+            method: 'DELETE',
+          })
+
+          if (!response.ok && response.status !== 404) {
+            const data = await response.json()
+            throw new Error(data.error || 'Failed to remove from pantry')
+          }
+        }
+
+        // Refresh to update pantry data across all components
+        router.refresh()
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Failed to update pantry')
+      } finally {
+        setTogglingIngredientIds((prev) => {
+          const next = new Set(prev)
+          next.delete(ingredientId)
+          return next
+        })
+      }
+    },
+    [router],
+  )
+
   const typeStyle = mealTypeStyles[mealType]
 
   if (!meal) {
@@ -168,6 +216,8 @@ export function TodayMealCard({
             components={meal.components}
             householdSize={householdSize}
             pantryIngredients={pantryIngredients}
+            onToggleAvailability={handleToggleAvailability}
+            togglingIds={togglingIngredientIds}
           />
           <NutritionSummary nutrition={meal.nutrition} compact />
           <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
