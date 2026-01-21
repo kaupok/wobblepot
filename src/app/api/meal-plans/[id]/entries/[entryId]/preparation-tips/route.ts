@@ -75,7 +75,7 @@ export async function POST(
       })
       .join('\n')
 
-    const prompt = `You are a helpful cooking assistant. Generate brief, actionable preparation tips for the following meal.
+    const prompt = `You are a helpful cooking assistant. Generate brief, actionable preparation guidance for the following meal.
 
 Meal: ${mealName}
 Servings: ${householdSize}
@@ -84,11 +84,22 @@ ${timeMinutes ? `Time budget: ${timeMinutes} minutes` : ''}
 Ingredients:
 ${ingredientsList}
 
-Provide 4-6 numbered steps covering:
+Provide the following sections:
+
+**Equipment needed:**
+List 3-5 essential equipment items (pans, bowls, utensils) needed for this specific meal. Be specific (e.g., "Large oven-safe skillet" not just "pan").
+
+**Steps:**
+4-6 numbered steps covering:
 - What to start first (longest cooking items)
 - Parallel prep suggestions
 - Timing tips
-- One helpful cooking tip at the end
+
+**Watch out for:**
+2-3 common mistakes or pitfalls specific to this dish. Focus on things that could go wrong and how to avoid them.
+
+**Tip:**
+One helpful cooking tip at the end.
 
 IMPORTANT: Use metric units for ALL measurements:
 - Temperatures: °C (e.g., "190°C")
@@ -99,14 +110,14 @@ Never use Fahrenheit, cups, ounces, pounds, or inches.
 
 Keep it brief and practical. Not a full recipe - just order of operations and key tips. Do not repeat ingredient quantities.
 
-Format: numbered list, then a single "Tip:" line at the end.`
+Format each section with the exact headers shown above (Equipment needed:, Steps:, Watch out for:, Tip:).`
 
     const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
 
     const { text } = await generateText({
       model: anthropic('claude-3-5-haiku-20241022'),
       prompt,
-      maxOutputTokens: 300,
+      maxOutputTokens: 500,
     })
 
     return NextResponse.json({ tips: text.trim() }, { status: 200 })
