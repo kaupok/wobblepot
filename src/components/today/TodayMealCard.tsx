@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { useRouter } from 'next/navigation'
 import type { MealStatus } from '@/components/meal-plan/StatusSelect'
-import { MealDetailModal } from '@/components/meal-plan/MealDetailModal'
 import { RegenerateModal } from '@/components/meal-plan/RegenerateModal'
 import { PantryDeductionModal } from '@/components/meal-plan/PantryDeductionModal'
 import { MealLibraryModal } from '@/components/meal-plan/MealLibraryModal'
@@ -59,7 +58,6 @@ export function TodayMealCard({
   const router = useRouter()
   const [status, setStatus] = useState<MealStatus>(initialStatus)
   const [isUpdating, setIsUpdating] = useState(false)
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
   const [isDeductionModalOpen, setIsDeductionModalOpen] = useState(false)
   const [togglingIngredientIds, setTogglingIngredientIds] = useState<Set<string>>(new Set())
@@ -258,10 +256,38 @@ export function TodayMealCard({
     )
   }
 
+  // Show simplified card for finished meals (unless changing status)
+  const showSimplifiedView = isFinished && !isChangingStatus
+
   return (
     <>
       <Card className={status === 'skipped' ? 'opacity-60' : undefined}>
-        <CardHeader className="pb-2">
+        <CardHeader className={showSimplifiedView ? 'pb-4' : 'pb-2'}>
+          {/* Status prompt at top for planned meals when time has passed */}
+          {showStatusPrompt && status === 'planned' && (
+            <div className="mb-3">
+              <MealStatusPrompt
+                mealName={meal.name}
+                onMadeIt={handleMadeIt}
+                onSkipped={handleSkipped}
+                disabled={isUpdating}
+              />
+            </div>
+          )}
+          {/* Status change prompt when editing finished meal status */}
+          {isChangingStatus && (
+            <div className="mb-3">
+              <MealStatusPrompt
+                mealName={meal.name}
+                onMadeIt={handleMadeIt}
+                onSkipped={handleSkipped}
+                onCancel={handleCancelStatusChange}
+                onReset={handleReset}
+                disabled={isUpdating}
+                currentStatus={status}
+              />
+            </div>
+          )}
           <div className="flex items-start justify-between gap-2">
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
@@ -303,63 +329,39 @@ export function TodayMealCard({
             </div>
           </div>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4 pb-3">
-          {showStatusPrompt && status === 'planned' && (
-            <MealStatusPrompt
-              mealName={meal.name}
-              onMadeIt={handleMadeIt}
-              onSkipped={handleSkipped}
-              disabled={isUpdating}
-            />
-          )}
-          {isChangingStatus && (
-            <MealStatusPrompt
-              mealName={meal.name}
-              onMadeIt={handleMadeIt}
-              onSkipped={handleSkipped}
-              onCancel={handleCancelStatusChange}
-              onReset={handleReset}
-              disabled={isUpdating}
-              currentStatus={status}
-            />
-          )}
-          <IngredientList
-            components={meal.components}
-            householdSize={householdSize}
-            pantryIngredients={pantryIngredients}
-            onToggleAvailability={isFinished ? undefined : handleToggleAvailability}
-            togglingIds={togglingIngredientIds}
-            availability={shouldShowAvailability ? availability : null}
-            hideAvailability={isFinished}
-          />
-          {isTipsExpanded && (
-            <PreparationTips
-              tips={tips}
-              isLoading={isLoadingTips}
-              error={tipsError}
-              onRetry={fetchTips}
-            />
-          )}
-        </CardContent>
-        <CardFooter className="gap-2 pt-1">
-          <Button variant="outline" size="sm" onClick={handleHowToPrepare}>
-            {tips && isTipsExpanded ? 'Hide tips' : 'How to prepare'}
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setIsDetailModalOpen(true)}>
-            View
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setIsRegenerateModalOpen(true)}>
-            Swap
-          </Button>
-        </CardFooter>
+        {/* Hide content and footer for finished meals */}
+        {!showSimplifiedView && (
+          <>
+            <CardContent className="flex flex-col gap-4 pb-3">
+              <IngredientList
+                components={meal.components}
+                householdSize={householdSize}
+                pantryIngredients={pantryIngredients}
+                onToggleAvailability={isFinished ? undefined : handleToggleAvailability}
+                togglingIds={togglingIngredientIds}
+                availability={shouldShowAvailability ? availability : null}
+                hideAvailability={isFinished}
+              />
+              {isTipsExpanded && (
+                <PreparationTips
+                  tips={tips}
+                  isLoading={isLoadingTips}
+                  error={tipsError}
+                  onRetry={fetchTips}
+                />
+              )}
+            </CardContent>
+            <CardFooter className="gap-2 pt-1">
+              <Button variant="outline" size="sm" onClick={handleHowToPrepare}>
+                {tips && isTipsExpanded ? 'Hide tips' : 'How to prepare'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setIsRegenerateModalOpen(true)}>
+                Swap
+              </Button>
+            </CardFooter>
+          </>
+        )}
       </Card>
-      <MealDetailModal
-        meal={meal}
-        householdSize={householdSize}
-        open={isDetailModalOpen}
-        onOpenChange={setIsDetailModalOpen}
-        pantryIngredients={pantryIngredients}
-      />
       <RegenerateModal
         open={isRegenerateModalOpen}
         onOpenChange={setIsRegenerateModalOpen}
