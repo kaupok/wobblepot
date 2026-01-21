@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
     const total = await prisma.meal.count({ where })
 
     // Fetch meals with pagination
-    const meals = await prisma.meal.findMany({
+    const mealsRaw = await prisma.meal.findMany({
       where,
       select: {
         id: true,
@@ -103,10 +103,31 @@ export async function GET(request: NextRequest) {
         timeMinutes: true,
         kidFriendly: true,
         primaryProteinType: true,
+        components: {
+          select: {
+            quantityPerServing: true,
+            ingredient: {
+              select: {
+                calories: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { name: 'asc' },
       skip: offset,
       take: limit,
+    })
+
+    // Compute calories per serving for each meal
+    const meals = mealsRaw.map((meal) => {
+      const calories = meal.components.reduce(
+        (sum, comp) => sum + (comp.ingredient.calories * comp.quantityPerServing) / 100,
+        0,
+      )
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { components, ...rest } = meal
+      return { ...rest, calories: Math.round(calories) }
     })
 
     return NextResponse.json({

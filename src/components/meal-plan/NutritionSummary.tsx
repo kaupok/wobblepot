@@ -10,8 +10,8 @@ export function NutritionSummary({ nutrition, compact }: NutritionSummaryProps) 
   if (compact) {
     return (
       <div className="text-muted-foreground text-xs">
-        {Math.round(nutrition.calories)} kcal • {Math.round(nutrition.protein)}g protein •{' '}
-        {Math.round(nutrition.carbs)}g carbs • {Math.round(nutrition.fat)}g fat
+        Per serving: {Math.round(nutrition.calories)} kcal • {Math.round(nutrition.protein)}g
+        protein • {Math.round(nutrition.carbs)}g carbs • {Math.round(nutrition.fat)}g fat
       </div>
     )
   }

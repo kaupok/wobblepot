@@ -32,6 +32,7 @@ interface LibraryMeal {
   timeMinutes: number | null
   kidFriendly: boolean
   primaryProteinType: ProteinType
+  calories: number
 }
 
 interface MealLibraryModalProps {
@@ -285,6 +286,10 @@ export function MealLibraryModal({
                         <span className="text-sm leading-tight font-medium">{meal.name}</span>
                         <div className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
                           {meal.timeMinutes && <span>{meal.timeMinutes} min</span>}
+                          <span>
+                            {meal.timeMinutes && '• '}
+                            {meal.calories} kcal
+                          </span>
                           {meal.kidFriendly && (
                             <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                               Kid-friendly

@@ -144,6 +144,12 @@ export function TodayMealCard({
               {meal.timeMinutes && (
                 <span className="text-muted-foreground text-xs">{meal.timeMinutes} min</span>
               )}
+              {meal.nutrition && (
+                <span className="text-muted-foreground text-xs">
+                  {meal.timeMinutes && '• '}
+                  {Math.round(meal.nutrition.calories)} kcal
+                </span>
+              )}
               {meal.kidFriendly && (
                 <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400">
                   Kid-friendly
