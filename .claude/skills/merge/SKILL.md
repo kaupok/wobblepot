@@ -65,7 +65,21 @@ gh pr checks --watch --fail-fast --interval 10
 
 **Note:** The `--watch` flag handles all polling automatically. No custom loop needed.
 
-### Step 3: Merge the PR
+### Step 3: Detect Environment
+
+Before merging, detect if we're in a worktree:
+
+```bash
+git rev-parse --git-common-dir
+git rev-parse --git-dir
+```
+
+If outputs differ → **worktree mode**
+If outputs same → **regular repo mode**
+
+### Step 4: Merge the PR
+
+**Regular repo mode:**
 
 ```bash
 gh pr merge --squash --delete-branch
@@ -77,17 +91,17 @@ This command:
 - Deletes the remote branch
 - Handles the local branch deletion if possible
 
-### Step 4: Local Cleanup
-
-First, detect if we're in a worktree:
+**Worktree mode:**
 
 ```bash
-git rev-parse --git-common-dir
-git rev-parse --git-dir
+gh pr merge --squash
 ```
 
-If outputs differ → **worktree mode**
-If outputs same → **regular repo mode**
+Omit `--delete-branch` because `gh` tries to checkout main internally, which conflicts with the parent worktree. The remote branch is still deleted by GitHub. The local worktree branch is preserved (user cleans up worktree manually).
+
+### Step 5: Local Cleanup
+
+Use the environment detected in Step 3.
 
 **Regular repo mode:**
 
@@ -120,7 +134,7 @@ git fetch origin main:main
 
 Save `WORKTREE_PATH`, `BRANCH_NAME`, and `MAIN_REPO` for the confirmation message.
 
-### Step 5: Confirmation
+### Step 6: Confirmation
 
 Report success and output the completion marker.
 

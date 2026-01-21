@@ -559,7 +559,7 @@ When the user asks to "continue implementation" without specifying an issue:
 
 The `/next-issue` skill runs in an isolated subagent that:
 
-1. Queries Linear for backlog issues in the active milestone
+1. Searches Linear for issues (prioritizing Todo/Active over Backlog, active milestone first, then fallback to other milestones)
 2. Checks dependencies to find unblocked work
 3. Does a quick codebase scan for key files
 4. Returns a concise summary (~500 words)
@@ -625,7 +625,7 @@ The following skills provide a structured workflow for implementing Linear issue
 | Skill                      | Purpose                                                | Context           |
 | -------------------------- | ------------------------------------------------------ | ----------------- |
 | `/auto-implement [HON-XX]` | Full autonomous cycle: find → plan → implement → merge | Main conversation |
-| `/next-issue`              | Find next unblocked issue in active milestone          | Isolated          |
+| `/next-issue`              | Find next unblocked issue to work on                   | Isolated          |
 | `/plan-issue HON-XX`       | Create plan, post to Linear after approval             | Main conversation |
 | `/implement-issue HON-XX`  | Execute plan from Linear, create branch                | Main conversation |
 | `/code-review`             | Review local changes and triage into action items      | Isolated          |
@@ -912,25 +912,37 @@ Run multiple Claude Code instances in parallel using git worktrees for increased
 ### Quick Start
 
 ```bash
-# Create new worktree and start Claude Code
-./scripts/worktree-claude.sh new feat/my-feature
+# Interactive: Create worktree and start Claude Code
+wt new feat/my-feature
 
-# In another terminal, create another parallel session
-./scripts/worktree-claude.sh new fix/some-bug
+# Autonomous: Create worktree and run /auto-implement
+wt auto kaupokorv/hon-51-feature-name   # Branch name from Linear
+wt auto HON-51                           # Issue ID
+wt auto                                  # Find next available issue
 
-# List all active worktrees
-./scripts/worktree-claude.sh list
-
-# Resume an existing worktree session
-./scripts/worktree-claude.sh resume feat/my-feature
-
-# Clean up when done
-./scripts/worktree-claude.sh cleanup feat/my-feature
+# Management
+wt list                                  # List all active worktrees
+wt resume feat/my-feature                # Resume existing session
+wt cleanup feat/my-feature               # Remove worktree
+wt cleanup-all                           # Remove all merged worktrees
 ```
 
 ### Workflow Patterns
 
-**Parallel feature development:**
+**Parallel autonomous implementation (recommended):**
+
+```
+Terminal 1: /next-issue
+→ Shows 3 candidates with copy-paste commands
+
+Terminal 2: wt auto kaupokorv/hon-51-feature-x
+Terminal 3: wt auto kaupokorv/hon-52-feature-y
+Terminal 4: wt auto kaupokorv/hon-53-feature-z
+```
+
+Each worktree runs `/auto-implement` autonomously. The branch name from Linear ensures proper issue linking.
+
+**Interactive parallel development:**
 
 ```
 Terminal 1 (main): Planning, code review, coordination
@@ -957,10 +969,10 @@ Then use `wt new feat/my-feature` from anywhere.
 
 ### Best Practices
 
-1. **Use plan mode liberally** - Safe to run 5+ parallel sessions in plan mode
-2. **Run `/init` in each worktree** - Ensures Claude understands the context
-3. **Clean up regularly** - Run `./scripts/worktree-claude.sh cleanup-all` or `git worktree prune`
-4. **Check status** - Run `./scripts/worktree-status.sh` for dashboard view
+1. **Use `/next-issue` first** - Get 3 candidates with ready-to-copy commands before spawning worktrees
+2. **Use branch names from Linear** - `wt auto kaupokorv/hon-51-...` creates properly named worktrees
+3. **Clean up regularly** - Run `wt cleanup-all` to remove merged worktrees
+4. **Check status** - Run `wt list` or `./scripts/worktree-status.sh` for dashboard view
 
 ### Worktree Location
 

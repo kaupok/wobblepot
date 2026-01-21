@@ -26,7 +26,23 @@ Find the next unblocked issue in the active milestone and return a concise imple
 
    Extract: Active milestone name from the project description (look for "**Active Milestone:**")
 
-2. **List backlog issues in active milestone**
+2. **Search for issues (priority order)**
+
+   Search in this order, stopping when unblocked issues are found:
+
+   **a) Todo/Active in active milestone (highest priority):**
+
+   ```
+   mcp__linear-server__list_issues({
+     project: "5a19627a-803f-4052-83c4-b44810d17af7",
+     state: "Todo",
+     limit: 20
+   })
+   ```
+
+   Filter results by active milestone (`projectMilestone.name`).
+
+   **b) Backlog in active milestone:**
 
    ```
    mcp__linear-server__list_issues({
@@ -36,8 +52,22 @@ Find the next unblocked issue in the active milestone and return a concise imple
    })
    ```
 
-3. **Check dependencies for milestone issues**
-   For each issue in the active milestone (check `projectMilestone.name`), fetch with relations:
+   Filter results by active milestone.
+
+   **c) Todo/Active in other milestones (fallback):**
+   If nothing found in active milestone, check Todo issues in other milestones.
+
+   **d) Backlog in other milestones:**
+   Check Backlog issues in other milestones.
+
+   **e) Todo/Active without milestone:**
+   Check Todo issues that have no milestone assigned (`projectMilestone` is null).
+
+   **f) Backlog without milestone (last resort):**
+   Check Backlog issues that have no milestone assigned.
+
+3. **Check dependencies for candidate issues**
+   For each promising issue, fetch with relations:
 
    ```
    mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
@@ -49,6 +79,8 @@ Find the next unblocked issue in the active milestone and return a concise imple
    - All issues in `blockedBy` have status "Done" or "Canceled"
 
 5. **Prioritize by**
+   - Status: Todo/Active before Backlog
+   - Milestone: Active milestone → other milestones → no milestone
    - Dependency order (issues that unblock others first - check `blocks` array)
    - Logical sequence within milestone
 
@@ -60,36 +92,49 @@ Find the next unblocked issue in the active milestone and return a concise imple
 
 ## Output Format
 
-Return a concise summary (under 500 words):
+Return up to 3 unblocked candidates, ranked by priority. Keep total output under 600 words.
 
 ```
-## Recommended: HON-XX - [Title]
+## Top Candidates
 
-**Why this issue:**
-- Unblocked (no dependencies / dependencies complete)
-- Unblocks: HON-YY, HON-ZZ
+### 1. HON-XX - [Title]
+**Why:** Unblocks HON-YY, HON-ZZ | [Brief rationale]
+**Files:** `file1.ts`, `file2.ts`
+**Summary:** [1-2 sentences]
 
-**Summary:**
-[2-3 sentence description of what to implement]
+### 2. HON-AA - [Title]
+**Why:** [Brief rationale]
+**Files:** `file1.ts`, `file2.ts`
+**Summary:** [1-2 sentences]
 
-**Key files:**
-- `path/to/file.ts` - [what to modify]
-- `path/to/file2.ts` - [what to modify]
+### 3. HON-BB - [Title]
+**Why:** [Brief rationale]
+**Files:** `file1.ts`, `file2.ts`
+**Summary:** [1-2 sentences]
 
-**Implementation approach:**
-1. [Step 1]
-2. [Step 2]
-3. [Step 3]
+---
 
-**Git branch:** `[gitBranchName from Linear]`
+## Parallel Commands
+
+Run in separate terminals for parallel implementation:
+
+\`\`\`bash
+wt auto [gitBranchName-1]
+wt auto [gitBranchName-2]
+wt auto [gitBranchName-3]
+\`\`\`
 ```
+
+The "Parallel Commands" section provides ready-to-copy commands using the `gitBranchName` from Linear. Each command creates a worktree and runs autonomous implementation.
+
+If fewer than 3 unblocked issues exist, return only what's available.
 
 ## Completion
 
-After outputting the recommendation, add the marker:
+After outputting candidates, add the marker:
 
 ```
-[next-issue:complete] Recommended HON-XX
+[next-issue:complete] Found N candidates: HON-XX, HON-AA, HON-BB
 ```
 
 If no unblocked issues found:
@@ -100,7 +145,9 @@ If no unblocked issues found:
 
 ## Important
 
-- Do NOT explore the entire codebase - only files directly relevant to the issue
-- Keep output concise - main agent will do detailed planning
-- If multiple issues are unblocked, recommend the one that unblocks the most others
-- Always include the `gitBranchName` from Linear for easy branch creation
+- Return up to 3 candidates to enable parallel worktree sessions
+- Do NOT explore the entire codebase - only files directly relevant to each issue
+- Keep each candidate summary brief - main agent will do detailed planning
+- Prioritize issues that unblock others
+- Always include the `gitBranchName` from Linear in the parallel commands
+- The `wt auto` command accepts branch names and extracts the issue ID automatically

@@ -6,7 +6,7 @@
 #
 # Usage:
 #   ./scripts/worktree-claude.sh new <branch-name>      # Create new worktree + start Claude
-#   ./scripts/worktree-claude.sh auto [issue-id]        # Create worktree + run /auto-implement autonomously
+#   ./scripts/worktree-claude.sh auto [issue-id|branch] # Create worktree + run /auto-implement autonomously
 #   ./scripts/worktree-claude.sh resume <branch-name>   # Resume existing worktree
 #   ./scripts/worktree-claude.sh list                   # List all worktrees
 #   ./scripts/worktree-claude.sh sync <branch-name>     # Sync permissions to main repo
@@ -98,7 +98,7 @@ print_usage() {
   echo ""
   echo "Commands:"
   echo "  new <branch-name>      Create new worktree and start Claude Code"
-  echo "  auto [issue-id]        Create worktree and run /auto-implement autonomously"
+  echo "  auto [issue-id|branch] Create worktree and run /auto-implement autonomously"
   echo "  resume <branch-name>   Open Claude Code in existing worktree"
   echo "  list                   List all active worktrees"
   echo "  sync <branch-name>     Sync permissions from worktree to main repo"
@@ -108,10 +108,11 @@ print_usage() {
   echo ""
   echo "Examples:"
   echo "  $0 new feat/api-caching"
-  echo "  $0 auto HON-51          # Autonomous implementation of specific issue"
-  echo "  $0 auto                 # Autonomous implementation of next available issue"
+  echo "  $0 auto HON-51                        # Issue ID - creates auto/hon-51 branch"
+  echo "  $0 auto 51                            # Just number - same as HON-51"
+  echo "  $0 auto user/hon-51-feature-name      # Branch name from Linear (preferred)"
+  echo "  $0 auto                               # Find next available issue"
   echo "  $0 resume feat/api-caching"
-  echo "  $0 sync feat/api-caching"
   echo "  $0 cleanup feat/api-caching"
 }
 
@@ -267,17 +268,37 @@ cmd_new() {
 
 # Fully autonomous worktree - creates worktree and runs /auto-implement
 cmd_auto() {
-  local issue_id="$1"
+  local arg="$1"
   local branch
+  local issue_id
   local prompt
 
-  # Generate branch name and prompt based on whether issue ID is provided
-  if [ -n "$issue_id" ]; then
-    # Normalize issue ID to lowercase for branch name
-    branch="auto/$(echo "$issue_id" | tr '[:upper:]' '[:lower:]')"
-    prompt="/auto-implement $issue_id"
+  # Parse argument - could be issue ID (HON-XX), branch name, or empty
+  if [ -n "$arg" ]; then
+    # Check if it looks like a branch name (contains / or starts with user/)
+    if [[ "$arg" == *"/"* ]]; then
+      # It's a branch name - extract issue ID from it
+      branch="$arg"
+      # Extract HON-XX pattern from branch name (case insensitive)
+      issue_id=$(echo "$arg" | grep -oiE 'hon-[0-9]+' | head -1 | tr '[:lower:]' '[:upper:]')
+      if [ -z "$issue_id" ]; then
+        echo -e "${RED}Error: Could not extract issue ID from branch name: $arg${NC}"
+        echo "Branch name should contain 'HON-XX' pattern (e.g., 'user/hon-51-feature-name')"
+        exit 1
+      fi
+      prompt="/auto-implement $issue_id"
+    else
+      # It's an issue ID - normalize and create auto/ branch
+      issue_id=$(echo "$arg" | tr '[:lower:]' '[:upper:]')
+      # Add HON- prefix if just a number
+      if [[ "$issue_id" =~ ^[0-9]+$ ]]; then
+        issue_id="HON-$issue_id"
+      fi
+      branch="auto/$(echo "$issue_id" | tr '[:upper:]' '[:lower:]')"
+      prompt="/auto-implement $issue_id"
+    fi
   else
-    # No issue ID - use timestamp for unique branch, let /auto-implement find next issue
+    # No argument - use timestamp for unique branch, let /auto-implement find next issue
     branch="auto/$(date +%Y%m%d-%H%M%S)"
     prompt="/auto-implement"
   fi
