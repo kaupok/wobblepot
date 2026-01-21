@@ -11,6 +11,7 @@ import { MealDetailModal } from '@/components/meal-plan/MealDetailModal'
 import { RegenerateModal } from '@/components/meal-plan/RegenerateModal'
 import { PantryDeductionModal } from '@/components/meal-plan/PantryDeductionModal'
 import { MealLibraryModal } from '@/components/meal-plan/MealLibraryModal'
+import { PreparationTips } from './PreparationTips'
 import { computeMealAvailability } from '@/components/meal-plan/AvailabilityIndicator'
 import { IngredientList } from '@/components/meal-plan/IngredientList'
 import { NutritionSummary } from '@/components/meal-plan/NutritionSummary'
@@ -57,6 +58,10 @@ export function TodayMealCard({
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
   const [isDeductionModalOpen, setIsDeductionModalOpen] = useState(false)
   const [togglingIngredientIds, setTogglingIngredientIds] = useState<Set<string>>(new Set())
+  const [tips, setTips] = useState<string | null>(null)
+  const [isLoadingTips, setIsLoadingTips] = useState(false)
+  const [tipsError, setTipsError] = useState<string | null>(null)
+  const [isTipsExpanded, setIsTipsExpanded] = useState(false)
 
   const availability = useMemo(() => {
     if (!meal) return null
@@ -163,6 +168,41 @@ export function TodayMealCard({
     [router],
   )
 
+  const fetchTips = useCallback(async () => {
+    setIsLoadingTips(true)
+    setTipsError(null)
+    setIsTipsExpanded(true)
+
+    try {
+      const response = await fetch(
+        `/api/meal-plans/${planId}/entries/${entryId}/preparation-tips`,
+        {
+          method: 'POST',
+        },
+      )
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Couldn't generate tips")
+      }
+
+      const data = await response.json()
+      setTips(data.tips)
+    } catch (error) {
+      setTipsError(error instanceof Error ? error.message : "Couldn't generate tips. Try again.")
+    } finally {
+      setIsLoadingTips(false)
+    }
+  }, [planId, entryId])
+
+  function handleHowToPrepare() {
+    if (tips) {
+      setIsTipsExpanded((prev) => !prev)
+    } else {
+      fetchTips()
+    }
+  }
+
   const typeStyle = mealTypeStyles[mealType]
   const [isLibraryOpen, setIsLibraryOpen] = useState(false)
 
@@ -228,8 +268,19 @@ export function TodayMealCard({
             availability={shouldShowAvailability ? availability : null}
           />
           <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
+          {isTipsExpanded && (
+            <PreparationTips
+              tips={tips}
+              isLoading={isLoadingTips}
+              error={tipsError}
+              onRetry={fetchTips}
+            />
+          )}
         </CardContent>
         <CardFooter className="gap-2 pt-1">
+          <Button variant="outline" size="sm" onClick={handleHowToPrepare}>
+            {tips && isTipsExpanded ? 'Hide tips' : 'How to prepare'}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setIsDetailModalOpen(true)}>
             View
           </Button>
