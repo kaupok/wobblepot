@@ -45,11 +45,6 @@ export async function DELETE() {
     })
 
     for (const membership of memberships) {
-      // Delete member preferences first (references memberId)
-      await tx.memberPreferences.deleteMany({
-        where: { memberId: membership.id },
-      })
-
       // If user is owner and only member, delete the entire household
       // (cascade will handle household preferences, invites, pantry items, meal plans)
       if (membership.role === 'owner') {
