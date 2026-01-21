@@ -105,10 +105,19 @@ export async function GET(request: NextRequest) {
         primaryProteinType: true,
         components: {
           select: {
+            ingredientId: true,
             quantityPerServing: true,
             ingredient: {
               select: {
+                id: true,
+                name: true,
+                category: true,
+                defaultUnit: true,
+                gramsPerPiece: true,
                 calories: true,
+                protein: true,
+                carbs: true,
+                fat: true,
               },
             },
           },
@@ -119,15 +128,49 @@ export async function GET(request: NextRequest) {
       take: limit,
     })
 
-    // Compute calories per serving for each meal
+    // Compute nutrition per serving for each meal and format components
     const meals = mealsRaw.map((meal) => {
-      const calories = meal.components.reduce(
-        (sum, comp) => sum + (comp.ingredient.calories * comp.quantityPerServing) / 100,
-        0,
+      const nutrition = meal.components.reduce(
+        (acc, comp) => {
+          const factor = comp.quantityPerServing / 100
+          return {
+            calories: acc.calories + comp.ingredient.calories * factor,
+            protein: acc.protein + comp.ingredient.protein * factor,
+            carbs: acc.carbs + comp.ingredient.carbs * factor,
+            fat: acc.fat + comp.ingredient.fat * factor,
+          }
+        },
+        { calories: 0, protein: 0, carbs: 0, fat: 0 },
       )
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { components, ...rest } = meal
-      return { ...rest, calories: Math.round(calories) }
+
+      // Format components for AlternativeCard compatibility
+      const components = meal.components.map((comp) => ({
+        ingredientId: comp.ingredientId,
+        quantityPerServing: comp.quantityPerServing,
+        ingredient: {
+          id: comp.ingredient.id,
+          name: comp.ingredient.name,
+          category: comp.ingredient.category,
+          defaultUnit: comp.ingredient.defaultUnit,
+          gramsPerPiece: comp.ingredient.gramsPerPiece,
+        },
+      }))
+
+      return {
+        id: meal.id,
+        name: meal.name,
+        description: meal.description,
+        timeMinutes: meal.timeMinutes,
+        kidFriendly: meal.kidFriendly,
+        primaryProteinType: meal.primaryProteinType,
+        components,
+        nutrition: {
+          calories: Math.round(nutrition.calories),
+          protein: Math.round(nutrition.protein),
+          carbs: Math.round(nutrition.carbs),
+          fat: Math.round(nutrition.fat),
+        },
+      }
     })
 
     return NextResponse.json({
