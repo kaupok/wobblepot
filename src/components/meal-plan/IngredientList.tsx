@@ -124,22 +124,20 @@ export function IngredientList({
             <Li
               key={comp.ingredient.name}
               className={cn(
-                'flex items-center justify-between gap-4',
+                'flex items-center gap-2',
                 isMissing && 'text-amber-600 dark:text-amber-400',
               )}
             >
-              <span className="flex items-center gap-2">
-                {onToggleAvailability && (
-                  <Checkbox
-                    checked={hasIt}
-                    onCheckedChange={(checked) => handleCheckedChange(comp.ingredientId, checked)}
-                    disabled={isToggling}
-                    className="h-4 w-4"
-                    aria-label={`Mark ${comp.ingredient.name} as ${hasIt ? 'not available' : 'available'}`}
-                  />
-                )}
-                <span>{comp.ingredient.name}</span>
-              </span>
+              {onToggleAvailability && (
+                <Checkbox
+                  checked={hasIt}
+                  onCheckedChange={(checked) => handleCheckedChange(comp.ingredientId, checked)}
+                  disabled={isToggling}
+                  className="h-4 w-4"
+                  aria-label={`Mark ${comp.ingredient.name} as ${hasIt ? 'not available' : 'available'}`}
+                />
+              )}
+              <span>{comp.ingredient.name}</span>
               <span
                 className={cn(
                   'whitespace-nowrap',
