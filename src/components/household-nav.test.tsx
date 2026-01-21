@@ -18,7 +18,7 @@ describe('HouseholdNav', () => {
     render(<HouseholdNav />)
 
     expect(screen.getByRole('link', { name: 'Household' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'My preferences' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Members' })).toBeInTheDocument()
   })
 
   it('Household tab links to /household/household', () => {
@@ -28,11 +28,11 @@ describe('HouseholdNav', () => {
     expect(householdLink).toHaveAttribute('href', '/household/household')
   })
 
-  it('My preferences tab links to /household/profile', () => {
+  it('Members tab links to /household/members', () => {
     render(<HouseholdNav />)
 
-    const preferencesLink = screen.getByRole('link', { name: 'My preferences' })
-    expect(preferencesLink).toHaveAttribute('href', '/household/profile')
+    const membersLink = screen.getByRole('link', { name: 'Members' })
+    expect(membersLink).toHaveAttribute('href', '/household/members')
   })
 
   it('applies active styling to Household tab when on household page', () => {
@@ -40,20 +40,20 @@ describe('HouseholdNav', () => {
     render(<HouseholdNav />)
 
     const householdLink = screen.getByRole('link', { name: 'Household' })
-    const preferencesLink = screen.getByRole('link', { name: 'My preferences' })
+    const membersLink = screen.getByRole('link', { name: 'Members' })
 
     expect(householdLink).toHaveClass('text-primary')
-    expect(preferencesLink).toHaveClass('text-muted-foreground')
+    expect(membersLink).toHaveClass('text-muted-foreground')
   })
 
-  it('applies active styling to My preferences tab when on profile page', () => {
-    mockPathname.mockReturnValue('/household/profile')
+  it('applies active styling to Members tab when on members page', () => {
+    mockPathname.mockReturnValue('/household/members')
     render(<HouseholdNav />)
 
     const householdLink = screen.getByRole('link', { name: 'Household' })
-    const preferencesLink = screen.getByRole('link', { name: 'My preferences' })
+    const membersLink = screen.getByRole('link', { name: 'Members' })
 
     expect(householdLink).toHaveClass('text-muted-foreground')
-    expect(preferencesLink).toHaveClass('text-primary')
+    expect(membersLink).toHaveClass('text-primary')
   })
 })
