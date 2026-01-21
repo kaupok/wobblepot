@@ -10,10 +10,7 @@ import { StatusSelect, type MealStatus } from '@/components/meal-plan/StatusSele
 import { MealDetailModal } from '@/components/meal-plan/MealDetailModal'
 import { RegenerateModal } from '@/components/meal-plan/RegenerateModal'
 import { PantryDeductionModal } from '@/components/meal-plan/PantryDeductionModal'
-import {
-  AvailabilityIndicator,
-  computeMealAvailability,
-} from '@/components/meal-plan/AvailabilityIndicator'
+import { computeMealAvailability } from '@/components/meal-plan/AvailabilityIndicator'
 import { IngredientList } from '@/components/meal-plan/IngredientList'
 import { NutritionSummary } from '@/components/meal-plan/NutritionSummary'
 import type { MealData, PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
@@ -205,11 +202,6 @@ export function TodayMealCard({
               )}
             </div>
           </div>
-          {shouldShowAvailability && availability && (
-            <div className="mt-2">
-              <AvailabilityIndicator availability={availability} />
-            </div>
-          )}
         </CardHeader>
         <CardContent className="flex flex-col gap-4 pb-3">
           <IngredientList
@@ -218,6 +210,7 @@ export function TodayMealCard({
             pantryIngredients={pantryIngredients}
             onToggleAvailability={handleToggleAvailability}
             togglingIds={togglingIngredientIds}
+            availability={shouldShowAvailability ? availability : null}
           />
           <NutritionSummary nutrition={meal.nutrition} compact />
           <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
