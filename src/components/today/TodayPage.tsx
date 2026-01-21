@@ -66,6 +66,7 @@ export function TodayPage({
           />
           <TomorrowPreview
             entries={tomorrowEntries}
+            planId={plan?.id ?? null}
             householdSize={householdSize}
             pantryIngredients={pantryIngredients}
           />

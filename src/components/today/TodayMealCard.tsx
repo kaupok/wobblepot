@@ -10,6 +10,7 @@ import { StatusSelect, type MealStatus } from '@/components/meal-plan/StatusSele
 import { MealDetailModal } from '@/components/meal-plan/MealDetailModal'
 import { RegenerateModal } from '@/components/meal-plan/RegenerateModal'
 import { PantryDeductionModal } from '@/components/meal-plan/PantryDeductionModal'
+import { MealLibraryModal } from '@/components/meal-plan/MealLibraryModal'
 import { computeMealAvailability } from '@/components/meal-plan/AvailabilityIndicator'
 import { IngredientList } from '@/components/meal-plan/IngredientList'
 import { NutritionSummary } from '@/components/meal-plan/NutritionSummary'
@@ -163,14 +164,33 @@ export function TodayMealCard({
   )
 
   const typeStyle = mealTypeStyles[mealType]
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false)
 
   if (!meal) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-4">
-          <Body variant="muted">No meal planned</Body>
-        </CardContent>
-      </Card>
+      <>
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+              {typeStyle.label}
+            </div>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between pb-3">
+            <Body variant="muted">No meal planned</Body>
+            <Button variant="outline" size="sm" onClick={() => setIsLibraryOpen(true)}>
+              Add meal
+            </Button>
+          </CardContent>
+        </Card>
+        <MealLibraryModal
+          open={isLibraryOpen}
+          onOpenChange={setIsLibraryOpen}
+          planId={planId}
+          entryId={entryId}
+          mealType={mealType}
+          onSwapComplete={() => router.refresh()}
+        />
+      </>
     )
   }
 

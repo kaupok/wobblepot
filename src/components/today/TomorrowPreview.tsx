@@ -2,10 +2,12 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { MealDetailModal } from '@/components/meal-plan/MealDetailModal'
+import { MealLibraryModal } from '@/components/meal-plan/MealLibraryModal'
 import {
   AvailabilityIndicator,
   computeMealAvailability,
@@ -21,16 +23,22 @@ const mealTypeLabels: Record<MealType, string> = {
 
 interface TomorrowPreviewProps {
   entries: PlanEntry[]
+  planId: string | null
   householdSize: number
   pantryIngredients: PantryIngredient[]
 }
 
 export function TomorrowPreview({
   entries,
+  planId,
   householdSize,
   pantryIngredients,
 }: TomorrowPreviewProps) {
+  const router = useRouter()
   const [selectedMeal, setSelectedMeal] = useState<MealData | null>(null)
+  // Track which entry is having a meal added
+  const [addingMealEntryId, setAddingMealEntryId] = useState<string | null>(null)
+  const addingEntry = addingMealEntryId ? entries.find((e) => e.id === addingMealEntryId) : null
 
   if (entries.length === 0) {
     return (
@@ -64,6 +72,7 @@ export function TomorrowPreview({
                 entry={entry}
                 pantryIngredients={pantryIngredients}
                 onViewDetails={() => entry.meal && setSelectedMeal(entry.meal)}
+                onAddMeal={() => setAddingMealEntryId(entry.id)}
               />
             ))}
           </div>
@@ -83,6 +92,19 @@ export function TomorrowPreview({
           pantryIngredients={pantryIngredients}
         />
       )}
+      {addingEntry && planId && (
+        <MealLibraryModal
+          open={true}
+          onOpenChange={(open) => !open && setAddingMealEntryId(null)}
+          planId={planId}
+          entryId={addingEntry.id}
+          mealType={addingEntry.mealType}
+          onSwapComplete={() => {
+            setAddingMealEntryId(null)
+            router.refresh()
+          }}
+        />
+      )}
     </>
   )
 }
@@ -91,9 +113,15 @@ interface TomorrowMealItemProps {
   entry: PlanEntry
   pantryIngredients: PantryIngredient[]
   onViewDetails: () => void
+  onAddMeal: () => void
 }
 
-function TomorrowMealItem({ entry, pantryIngredients, onViewDetails }: TomorrowMealItemProps) {
+function TomorrowMealItem({
+  entry,
+  pantryIngredients,
+  onViewDetails,
+  onAddMeal,
+}: TomorrowMealItemProps) {
   const availability = useMemo(() => {
     if (!entry.meal) return null
     return computeMealAvailability(entry.meal, pantryIngredients)
@@ -102,14 +130,17 @@ function TomorrowMealItem({ entry, pantryIngredients, onViewDetails }: TomorrowM
   if (!entry.meal) {
     return (
       <div className="bg-muted/50 flex items-center justify-between rounded-lg px-3 py-2">
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground text-xs font-medium">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
             {mealTypeLabels[entry.mealType]}
           </span>
           <Body variant="muted" className="text-sm">
             No meal planned
           </Body>
         </div>
+        <Button variant="outline" size="sm" onClick={onAddMeal}>
+          Add
+        </Button>
       </div>
     )
   }
