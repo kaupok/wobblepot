@@ -128,6 +128,23 @@ describe('validatePlan', () => {
   })
 
   describe('detects consecutive same protein types', () => {
+    it('allows consecutive none protein for dinner (vegan meals)', () => {
+      const plan: HydratedPlanEntry[] = [
+        createEntry('2026-01-12', 'meal-1', 'none'),
+        createEntry('2026-01-13', 'meal-2', 'none'), // Consecutive none - OK for vegan
+        createEntry('2026-01-14', 'meal-3', 'none'),
+        createEntry('2026-01-15', 'meal-4', 'none'),
+        createEntry('2026-01-16', 'meal-5', 'none'),
+        createEntry('2026-01-17', 'meal-6', 'none'),
+        createEntry('2026-01-18', 'meal-7', 'none'),
+      ]
+
+      const result = validatePlan(plan, [])
+
+      expect(result.valid).toBe(true)
+      expect(result.errors).toHaveLength(0)
+    })
+
     it('returns error when two consecutive days have chicken', () => {
       const plan: HydratedPlanEntry[] = [
         createEntry('2026-01-12', 'meal-1', 'poultry'),

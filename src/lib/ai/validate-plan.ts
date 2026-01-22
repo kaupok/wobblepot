@@ -59,8 +59,12 @@ export function validatePlan(
     const nextDay = next.date.getTime()
     const dayDiff = (nextDay - currentDay) / (1000 * 60 * 60 * 24)
 
-    // Only check consecutive days
-    if (dayDiff === 1 && current.meal.primaryProteinType === next.meal.primaryProteinType) {
+    // Only check consecutive days, skip 'none' protein (vegan meals)
+    if (
+      dayDiff === 1 &&
+      current.meal.primaryProteinType === next.meal.primaryProteinType &&
+      current.meal.primaryProteinType !== 'none'
+    ) {
       errors.push({
         type: 'consecutive_protein',
         date: toDateString(next.date),
