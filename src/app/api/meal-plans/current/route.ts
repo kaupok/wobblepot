@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
     // Return 404 if no plan found
     if (!plan) {
       // Return context even on 404 so the UI knows what week to generate
-      const daysRemaining = getDaysRemaining()
+      const daysRemaining = getDaysRemaining(household.timezone)
       return NextResponse.json(
         {
           error: 'No active meal plan',
