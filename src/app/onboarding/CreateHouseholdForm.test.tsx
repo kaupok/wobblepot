@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { CreateHouseholdForm } from './CreateHouseholdForm'
@@ -17,6 +17,11 @@ vi.mock('next/navigation', () => ({
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
+// Mock crypto.randomUUID for consistent test results
+vi.stubGlobal('crypto', {
+  randomUUID: () => 'test-uuid',
+})
+
 describe('CreateHouseholdForm', () => {
   beforeEach(() => {
     mockFetch.mockReset()
@@ -28,12 +33,13 @@ describe('CreateHouseholdForm', () => {
     vi.clearAllMocks()
   })
 
-  describe('rendering', () => {
-    it('renders form with heading and description', () => {
+  describe('Step 1: Household name', () => {
+    it('renders first step with heading and progress indicator', () => {
       render(<CreateHouseholdForm userName="John" />)
 
+      expect(screen.getByText('Step 1 of 4')).toBeInTheDocument()
       expect(screen.getByText('Create your household')).toBeInTheDocument()
-      expect(screen.getByText('Set up your household to start planning meals')).toBeInTheDocument()
+      expect(screen.getByText('Give your household a name to get started')).toBeInTheDocument()
     })
 
     it('renders name input with default value based on userName', () => {
@@ -43,14 +49,13 @@ describe('CreateHouseholdForm', () => {
       expect(nameInput).toHaveValue("John's Household")
     })
 
-    it('renders submit button', () => {
+    it('renders Continue button on first step', () => {
       render(<CreateHouseholdForm userName="John" />)
 
-      expect(screen.getByRole('button', { name: 'Create household' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument()
     })
-  })
 
-  describe('form interactions', () => {
     it('allows editing the household name', async () => {
       render(<CreateHouseholdForm userName="John" />)
 
@@ -60,10 +65,230 @@ describe('CreateHouseholdForm', () => {
 
       expect(nameInput).toHaveValue('The Smith Family')
     })
+
+    it('shows error when trying to continue with empty name', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      const nameInput = screen.getByLabelText('Household name')
+      await userEvent.clear(nameInput)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      expect(screen.getByRole('alert')).toHaveTextContent('Household name is required')
+      expect(screen.getByText('Step 1 of 4')).toBeInTheDocument()
+    })
   })
 
-  describe('form submission', () => {
-    it('submits form with the entered name', async () => {
+  describe('Step 2: Meal types', () => {
+    it('navigates to step 2 when continuing from step 1', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      expect(screen.getByText('Step 2 of 4')).toBeInTheDocument()
+      expect(screen.getByText('Meals to plan')).toBeInTheDocument()
+      expect(screen.getByText('Which meals do you want to plan?')).toBeInTheDocument()
+    })
+
+    it('shows all meal types checked by default', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      // There are 6 checkboxes (3 weekday + 3 weekend), all should be checked
+      const checkboxes = screen.getAllByRole('checkbox')
+      expect(checkboxes).toHaveLength(6)
+      checkboxes.forEach((checkbox) => {
+        expect(checkbox).toBeChecked()
+      })
+    })
+
+    it('allows toggling meal types', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      const breakfastCheckboxes = screen.getAllByRole('checkbox', { name: 'Breakfast' })
+      const weekdayBreakfast = breakfastCheckboxes[0]
+      if (!weekdayBreakfast) throw new Error('Weekday breakfast checkbox not found')
+      await userEvent.click(weekdayBreakfast)
+
+      expect(weekdayBreakfast).not.toBeChecked()
+    })
+
+    it('shows Back button on step 2', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument()
+    })
+
+    it('navigates back to step 1', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Back' }))
+
+      expect(screen.getByText('Step 1 of 4')).toBeInTheDocument()
+    })
+  })
+
+  describe('Step 3: Dietary preferences', () => {
+    it('navigates to step 3', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      // Step 1 -> 2
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      // Step 2 -> 3
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      expect(screen.getByText('Step 3 of 4')).toBeInTheDocument()
+      expect(screen.getByText('Dietary preferences')).toBeInTheDocument()
+      expect(screen.getByText('Help us find the right meals for you')).toBeInTheDocument()
+    })
+
+    it('shows dietary type radio buttons with no preference selected', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      expect(screen.getByRole('radio', { name: 'No preference' })).toBeChecked()
+      expect(screen.getByRole('radio', { name: 'Omnivore' })).not.toBeChecked()
+      expect(screen.getByRole('radio', { name: 'Vegetarian' })).not.toBeChecked()
+      expect(screen.getByRole('radio', { name: 'Vegan' })).not.toBeChecked()
+      expect(screen.getByRole('radio', { name: 'Pescatarian' })).not.toBeChecked()
+    })
+
+    it('allows selecting dietary type', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      await userEvent.click(screen.getByRole('radio', { name: 'Vegetarian' }))
+
+      expect(screen.getByRole('radio', { name: 'Vegetarian' })).toBeChecked()
+    })
+
+    it('shows allergen checkboxes all unchecked by default', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      expect(screen.getByRole('checkbox', { name: 'Gluten' })).not.toBeChecked()
+      expect(screen.getByRole('checkbox', { name: 'Dairy' })).not.toBeChecked()
+      expect(screen.getByRole('checkbox', { name: 'Tree nuts' })).not.toBeChecked()
+    })
+
+    it('allows selecting allergens', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      await userEvent.click(screen.getByRole('checkbox', { name: 'Gluten' }))
+      await userEvent.click(screen.getByRole('checkbox', { name: 'Dairy' }))
+
+      expect(screen.getByRole('checkbox', { name: 'Gluten' })).toBeChecked()
+      expect(screen.getByRole('checkbox', { name: 'Dairy' })).toBeChecked()
+    })
+  })
+
+  describe('Step 4: Household members', () => {
+    it('navigates to step 4', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      expect(screen.getByText('Step 4 of 4')).toBeInTheDocument()
+      expect(screen.getByText('Household members')).toBeInTheDocument()
+      expect(screen.getByText('Add other family members (optional)')).toBeInTheDocument()
+    })
+
+    it('shows Create household button on final step', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      expect(screen.getByRole('button', { name: 'Create household' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument()
+    })
+
+    it('allows adding a member', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      const nameInput = screen.getByPlaceholderText('Enter name')
+      await userEvent.type(nameInput, 'Emma')
+      await userEvent.click(screen.getByRole('button', { name: 'Add member' }))
+
+      expect(screen.getByText('Emma')).toBeInTheDocument()
+      expect(nameInput).toHaveValue('')
+    })
+
+    it('allows adding member by pressing Enter', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      const nameInput = screen.getByPlaceholderText('Enter name')
+      await userEvent.type(nameInput, 'Emma{enter}')
+
+      expect(screen.getByText('Emma')).toBeInTheDocument()
+    })
+
+    it('allows removing a member', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      const nameInput = screen.getByPlaceholderText('Enter name')
+      await userEvent.type(nameInput, 'Emma{enter}')
+
+      const membersList = screen.getByRole('list')
+      const removeButton = within(membersList).getByRole('button', { name: 'Remove Emma' })
+      await userEvent.click(removeButton)
+
+      expect(screen.queryByText('Emma')).not.toBeInTheDocument()
+    })
+
+    it('does not add empty member names', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      const nameInput = screen.getByPlaceholderText('Enter name')
+      await userEvent.type(nameInput, '   ')
+      await userEvent.click(screen.getByRole('button', { name: 'Add member' }))
+
+      expect(screen.queryByRole('list')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('Form submission', () => {
+    async function navigateToFinalStep() {
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    }
+
+    it('submits form with all collected data', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: () =>
@@ -75,9 +300,27 @@ describe('CreateHouseholdForm', () => {
 
       render(<CreateHouseholdForm userName="John" />)
 
+      // Step 1: Edit name
       const nameInput = screen.getByLabelText('Household name')
       await userEvent.clear(nameInput)
       await userEvent.type(nameInput, 'My Household')
+
+      // Step 2: Uncheck lunch on weekdays
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      const lunchCheckboxes = screen.getAllByRole('checkbox', { name: 'Lunch' })
+      const weekdayLunch = lunchCheckboxes[0]
+      if (!weekdayLunch) throw new Error('Weekday lunch checkbox not found')
+      await userEvent.click(weekdayLunch)
+
+      // Step 3: Select vegetarian and gluten allergen
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('radio', { name: 'Vegetarian' }))
+      await userEvent.click(screen.getByRole('checkbox', { name: 'Gluten' }))
+
+      // Step 4: Add a member and submit
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      const memberInput = screen.getByPlaceholderText('Enter name')
+      await userEvent.type(memberInput, 'Emma{enter}')
 
       await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
 
@@ -85,12 +328,21 @@ describe('CreateHouseholdForm', () => {
         expect(mockFetch).toHaveBeenCalledWith('/api/households', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: 'My Household' }),
+          body: JSON.stringify({
+            name: 'My Household',
+            preferences: {
+              dietaryType: 'vegetarian',
+              allergensToAvoid: ['gluten'],
+              weekdayMealTypes: ['breakfast', 'dinner'],
+              weekendMealTypes: ['breakfast', 'lunch', 'dinner'],
+            },
+            members: [{ name: 'Emma' }],
+          }),
         })
       })
     })
 
-    it('redirects to home on successful creation', async () => {
+    it('submits form with defaults when no changes made', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: () =>
@@ -102,10 +354,44 @@ describe('CreateHouseholdForm', () => {
 
       render(<CreateHouseholdForm userName="John" />)
 
+      await navigateToFinalStep()
       await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
 
       await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith('/')
+        expect(mockFetch).toHaveBeenCalledWith('/api/households', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: "John's Household",
+            preferences: {
+              dietaryType: null,
+              allergensToAvoid: [],
+              weekdayMealTypes: ['breakfast', 'lunch', 'dinner'],
+              weekendMealTypes: ['breakfast', 'lunch', 'dinner'],
+            },
+            members: [],
+          }),
+        })
+      })
+    })
+
+    it('redirects to meal-plan on successful creation', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            id: 'household-123',
+            name: "John's Household",
+          }),
+      })
+
+      render(<CreateHouseholdForm userName="John" />)
+
+      await navigateToFinalStep()
+      await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
+
+      await waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith('/meal-plan')
         expect(mockRefresh).toHaveBeenCalled()
       })
     })
@@ -127,31 +413,10 @@ describe('CreateHouseholdForm', () => {
 
       render(<CreateHouseholdForm userName="John" />)
 
+      await navigateToFinalStep()
       await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
 
       expect(screen.getByRole('button', { name: 'Creating...' })).toBeDisabled()
-    })
-
-    it('disables input during submission', async () => {
-      mockFetch.mockImplementation(
-        () =>
-          new Promise((resolve) =>
-            setTimeout(
-              () =>
-                resolve({
-                  ok: true,
-                  json: () => Promise.resolve({ id: 'household-123' }),
-                }),
-              100,
-            ),
-          ),
-      )
-
-      render(<CreateHouseholdForm userName="John" />)
-
-      await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
-
-      expect(screen.getByLabelText('Household name')).toBeDisabled()
     })
 
     it('shows error message on API failure', async () => {
@@ -160,38 +425,21 @@ describe('CreateHouseholdForm', () => {
         json: () =>
           Promise.resolve({
             error: 'Validation failed',
-            message: 'Name is required',
+            message: 'Invalid data',
           }),
       })
 
       render(<CreateHouseholdForm userName="John" />)
 
+      await navigateToFinalStep()
       await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
 
       await waitFor(() => {
-        expect(screen.getByRole('alert')).toHaveTextContent('Name is required')
+        expect(screen.getByRole('alert')).toHaveTextContent('Invalid data')
       })
     })
 
-    it('shows generic error message when no message provided', async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        json: () =>
-          Promise.resolve({
-            error: 'Validation failed',
-          }),
-      })
-
-      render(<CreateHouseholdForm userName="John" />)
-
-      await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
-
-      await waitFor(() => {
-        expect(screen.getByRole('alert')).toHaveTextContent('Validation failed')
-      })
-    })
-
-    it('redirects to home if user already has household', async () => {
+    it('redirects to meal-plan if user already has household', async () => {
       mockFetch.mockResolvedValue({
         ok: false,
         json: () =>
@@ -203,10 +451,11 @@ describe('CreateHouseholdForm', () => {
 
       render(<CreateHouseholdForm userName="John" />)
 
+      await navigateToFinalStep()
       await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
 
       await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith('/')
+        expect(mockPush).toHaveBeenCalledWith('/meal-plan')
         expect(mockRefresh).toHaveBeenCalled()
       })
     })
@@ -216,6 +465,7 @@ describe('CreateHouseholdForm', () => {
 
       render(<CreateHouseholdForm userName="John" />)
 
+      await navigateToFinalStep()
       await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
 
       await waitFor(() => {

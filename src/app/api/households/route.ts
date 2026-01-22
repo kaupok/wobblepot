@@ -3,9 +3,25 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { Allergen, DietaryType, MealType } from '@/generated/prisma/enums'
 
 const createHouseholdSchema = z.object({
   name: z.string().min(1).max(100),
+  preferences: z
+    .object({
+      dietaryType: z.nativeEnum(DietaryType).nullable().optional(),
+      allergensToAvoid: z.array(z.nativeEnum(Allergen)).optional(),
+      weekdayMealTypes: z.array(z.nativeEnum(MealType)).optional(),
+      weekendMealTypes: z.array(z.nativeEnum(MealType)).optional(),
+    })
+    .optional(),
+  members: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(100),
+      }),
+    )
+    .optional(),
 })
 
 export async function POST(request: Request) {
@@ -31,8 +47,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
   }
 
-  // Create household, membership, and preferences in a transaction
+  // Create household, membership, preferences, and optional members in a transaction
   try {
+    const { name, preferences, members } = parsed.data
+
     const household = await prisma.$transaction(async (tx) => {
       // Check inside transaction to prevent race condition
       const existingMembership = await tx.householdMember.findFirst({
@@ -45,7 +63,7 @@ export async function POST(request: Request) {
 
       const newHousehold = await tx.household.create({
         data: {
-          name: parsed.data.name,
+          name,
         },
       })
 
@@ -60,13 +78,29 @@ export async function POST(request: Request) {
       await tx.householdPreferences.create({
         data: {
           householdId: newHousehold.id,
-          // Uses schema defaults: weekdayMealTypes: [dinner], weekendMealTypes: [dinner]
+          dietaryType: preferences?.dietaryType ?? null,
+          allergensToAvoid: preferences?.allergensToAvoid ?? [],
+          weekdayMealTypes: preferences?.weekdayMealTypes ?? [MealType.dinner],
+          weekendMealTypes: preferences?.weekendMealTypes ?? [MealType.dinner],
         },
       })
 
+      // Create any additional household members (e.g., kids)
+      if (members && members.length > 0) {
+        for (const member of members) {
+          await tx.householdMember.create({
+            data: {
+              householdId: newHousehold.id,
+              name: member.name,
+              role: 'member',
+            },
+          })
+        }
+      }
+
       return tx.household.findUnique({
         where: { id: newHousehold.id },
-        include: { preferences: true },
+        include: { preferences: true, members: true },
       })
     })
 
