@@ -7,11 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { useRouter } from 'next/navigation'
 import { StatusSelect, type MealStatus } from './StatusSelect'
-import { MealDetailModal } from './MealDetailModal'
 import { RegenerateModal } from './RegenerateModal'
 import { PantryDeductionModal } from './PantryDeductionModal'
 import { MealLibraryModal } from './MealLibraryModal'
 import { AvailabilityIndicator, computeMealAvailability } from './AvailabilityIndicator'
+import { IngredientList } from './IngredientList'
+import { NutritionSummary } from './NutritionSummary'
 import type { MealData, PantryIngredient, PantryItemFull } from './types'
 import type { MealType } from '@/generated/prisma/enums'
 
@@ -55,7 +56,7 @@ export function MealCard({
   const router = useRouter()
   const [status, setStatus] = useState<MealStatus>(initialStatus)
   const [isUpdating, setIsUpdating] = useState(false)
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
   const [isDeductionModalOpen, setIsDeductionModalOpen] = useState(false)
 
@@ -171,35 +172,33 @@ export function MealCard({
         <CardContent className="flex flex-col gap-2 pb-2">
           <div className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
             {meal.timeMinutes && <span>{meal.timeMinutes} min</span>}
-            {meal.nutrition && (
-              <span>
-                {meal.timeMinutes && '• '}
-                {Math.round(meal.nutrition.calories)} kcal
-              </span>
-            )}
           </div>
-          {!isReadOnly && (
+          {!isReadOnly && isPast && (
             <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
+          )}
+          {isExpanded && (
+            <div className="mt-2 flex flex-col gap-4">
+              <IngredientList
+                components={meal.components}
+                householdSize={householdSize}
+                pantryIngredients={pantryIngredients}
+                hideAvailability={status === 'completed' || status === 'skipped'}
+              />
+              {meal.nutrition && <NutritionSummary nutrition={meal.nutrition} compact />}
+            </div>
           )}
         </CardContent>
         <CardFooter className="gap-2 pt-1">
-          <Button variant="outline" size="sm" onClick={() => setIsDetailModalOpen(true)}>
-            View
-          </Button>
           {!isReadOnly && !isPast && (
             <Button variant="outline" size="sm" onClick={() => setIsRegenerateModalOpen(true)}>
               Swap
             </Button>
           )}
+          <Button variant="outline" size="sm" onClick={() => setIsExpanded(!isExpanded)}>
+            {isExpanded ? 'Hide' : 'Details'}
+          </Button>
         </CardFooter>
       </Card>
-      <MealDetailModal
-        meal={meal}
-        householdSize={householdSize}
-        open={isDetailModalOpen}
-        onOpenChange={setIsDetailModalOpen}
-        pantryIngredients={pantryIngredients}
-      />
       <RegenerateModal
         open={isRegenerateModalOpen}
         onOpenChange={setIsRegenerateModalOpen}

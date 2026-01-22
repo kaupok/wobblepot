@@ -10,8 +10,8 @@ export function NutritionSummary({ nutrition, compact }: NutritionSummaryProps) 
   if (compact) {
     return (
       <div className="text-muted-foreground text-xs">
-        Per serving: {Math.round(nutrition.calories)} kcal • {Math.round(nutrition.protein)}g
-        protein • {Math.round(nutrition.carbs)}g carbs • {Math.round(nutrition.fat)}g fat
+        {Math.round(nutrition.calories)} kcal · {Math.round(nutrition.protein)}g protein ·{' '}
+        {Math.round(nutrition.carbs)}g carbs · {Math.round(nutrition.fat)}g fat
       </div>
     )
   }
@@ -31,9 +31,6 @@ export function NutritionSummary({ nutrition, compact }: NutritionSummaryProps) 
         <span className="text-muted-foreground">Fat</span>
         <span>{Math.round(nutrition.fat)}g</span>
       </div>
-      <Body variant="muted" className="text-xs">
-        Nutritional values are estimates based on ingredient data.
-      </Body>
     </div>
   )
 }
