@@ -1,10 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { Skeleton } from '@/components/ui/skeleton'
-import { HouseholdNav } from '@/components/household-nav'
 import { MemberCard } from './MemberCard'
 import { AddMemberDialog } from './AddMemberDialog'
 import { EditMemberPreferencesDialog } from './EditMemberPreferencesDialog'
@@ -94,89 +92,79 @@ export function MemberList({ isOwner, currentMemberId, householdDietaryType }: M
 
   return (
     <>
-      <Card className="w-full max-w-2xl">
-        <CardHeader>
-          <CardTitle>
-            <Heading variant="h2">Household members</Heading>
-          </CardTitle>
-          <CardDescription>
-            <Body variant="muted">View and manage preferences for all household members</Body>
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-8">
-            <HouseholdNav />
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-1">
+          <Heading variant="h2">Members</Heading>
+          <Body variant="muted">View and manage preferences for all household members</Body>
+        </div>
 
-            {/* Household aggregate summary */}
-            {!isLoading && members.length > 0 && (
-              <div className="bg-muted/50 rounded-lg border p-4">
-                <div className="flex flex-col gap-1">
-                  <Body className="font-medium">Household daily targets</Body>
-                  <Body variant="muted">
-                    {aggregate.memberCount} member{aggregate.memberCount !== 1 ? 's' : ''} ·{' '}
-                    {aggregate.totalCalories.toLocaleString()} kcal · {aggregate.totalProtein}g
-                    protein
+        <div className="flex flex-col gap-6">
+          {/* Household aggregate summary */}
+          {!isLoading && members.length > 0 && (
+            <div className="bg-muted/50 rounded-lg border p-4">
+              <div className="flex flex-col gap-1">
+                <Body className="font-medium">Household daily targets</Body>
+                <Body variant="muted">
+                  {aggregate.memberCount} member{aggregate.memberCount !== 1 ? 's' : ''} ·{' '}
+                  {aggregate.totalCalories.toLocaleString()} kcal · {aggregate.totalProtein}g
+                  protein
+                </Body>
+                {aggregate.defaultCount > 0 && (
+                  <Body variant="muted" className="text-sm">
+                    (includes defaults for {aggregate.defaultCount} member
+                    {aggregate.defaultCount !== 1 ? 's' : ''})
                   </Body>
-                  {aggregate.defaultCount > 0 && (
-                    <Body variant="muted" className="text-sm">
-                      (includes defaults for {aggregate.defaultCount} member
-                      {aggregate.defaultCount !== 1 ? 's' : ''})
-                    </Body>
-                  )}
-                </div>
+                )}
               </div>
-            )}
+            </div>
+          )}
 
-            {isOwner && (
-              <div className="flex items-center justify-between">
-                <Heading variant="h4">Members</Heading>
-                <AddMemberDialog
-                  onMemberAdded={handleMemberAdded}
-                  householdDietaryType={householdDietaryType}
+          {isOwner && (
+            <AddMemberDialog
+              onMemberAdded={handleMemberAdded}
+              householdDietaryType={householdDietaryType}
+            />
+          )}
+
+          {isLoading ? (
+            <div className="flex flex-col gap-3">
+              <MemberCardSkeleton />
+              <MemberCardSkeleton />
+            </div>
+          ) : error ? (
+            <Body variant="small" className="text-destructive">
+              {error}
+            </Body>
+          ) : members.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-8 text-center">
+              <Body variant="muted">No members found.</Body>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {members.map((member) => (
+                <MemberCard
+                  key={member.id}
+                  member={member}
+                  canEdit={canEditMember(member)}
+                  canRemove={canRemoveMember(member)}
+                  canInvite={canInviteMember(member)}
+                  onEdit={setEditingMember}
+                  onRemove={handleMemberRemoved}
+                  onInvite={setInvitingMember}
+                  onInviteUpdated={handleInviteCreated}
                 />
-              </div>
-            )}
+              ))}
+            </div>
+          )}
 
-            {isLoading ? (
-              <div className="flex flex-col gap-3">
-                <MemberCardSkeleton />
-                <MemberCardSkeleton />
-              </div>
-            ) : error ? (
-              <Body variant="small" className="text-destructive">
-                {error}
-              </Body>
-            ) : members.length === 0 ? (
-              <div className="rounded-lg border border-dashed p-8 text-center">
-                <Body variant="muted">No members found.</Body>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {members.map((member) => (
-                  <MemberCard
-                    key={member.id}
-                    member={member}
-                    canEdit={canEditMember(member)}
-                    canRemove={canRemoveMember(member)}
-                    canInvite={canInviteMember(member)}
-                    onEdit={setEditingMember}
-                    onRemove={handleMemberRemoved}
-                    onInvite={setInvitingMember}
-                    onInviteUpdated={handleInviteCreated}
-                  />
-                ))}
-              </div>
-            )}
-
-            {!isOwner && (
-              <Body variant="muted" className="text-sm">
-                You can only edit your own preferences. Contact the household owner to update other
-                members.
-              </Body>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          {!isOwner && (
+            <Body variant="muted" className="text-sm">
+              You can only edit your own preferences. Contact the household owner to update other
+              members.
+            </Body>
+          )}
+        </div>
+      </div>
 
       <EditMemberPreferencesDialog
         member={editingMember}
