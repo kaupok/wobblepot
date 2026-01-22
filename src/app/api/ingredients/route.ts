@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import type { IngredientCategory } from '@/generated/prisma/enums'
+import { Prisma } from '@/generated/prisma/client'
+import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
 
 const DEFAULT_LIMIT = 10
 const MAX_LIMIT = 50
+const SIMILARITY_THRESHOLD = 0.3
+
+interface IngredientSearchResult {
+  id: string
+  name: string
+  category: IngredientCategory
+  defaultUnit: Unit
+  similarity: number
+}
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -20,23 +30,26 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const ingredients = await prisma.ingredient.findMany({
-      where: {
-        name: {
-          contains: search,
-          mode: 'insensitive',
-        },
-        ...(category && { category }),
-      },
-      select: {
-        id: true,
-        name: true,
-        category: true,
-        defaultUnit: true,
-      },
-      orderBy: { name: 'asc' },
-      take: limit,
-    })
+    // Use pg_trgm similarity search for fuzzy matching
+    // The similarity() function returns a value between 0 and 1
+    // We filter results with similarity >= threshold and order by relevance
+    const categoryFilter = category
+      ? Prisma.sql`AND category = ${category}::"IngredientCategory"`
+      : Prisma.empty
+
+    const ingredients = await prisma.$queryRaw<IngredientSearchResult[]>`
+      SELECT
+        id,
+        name,
+        category,
+        "defaultUnit",
+        similarity(name, ${search}) as similarity
+      FROM "ingredient"
+      WHERE similarity(name, ${search}) >= ${SIMILARITY_THRESHOLD}
+      ${categoryFilter}
+      ORDER BY similarity DESC, name ASC
+      LIMIT ${limit}
+    `
 
     return NextResponse.json({ ingredients })
   } catch (error) {

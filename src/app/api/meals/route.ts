@@ -3,11 +3,17 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
-import type { Prisma } from '@/generated/prisma/client'
+import { Prisma } from '@/generated/prisma/client'
 import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
 
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 50
+const SIMILARITY_THRESHOLD = 0.3
+
+interface FuzzyMealMatch {
+  id: string
+  similarity: number
+}
 
 export async function GET(request: NextRequest) {
   // Auth check
@@ -71,6 +77,35 @@ export async function GET(request: NextRequest) {
             : // 'all' or null: show system meals + this household's custom meals
               { OR: [{ householdId: null }, { householdId: household.id }] }
 
+    // When search is provided, use fuzzy matching to get meal IDs
+    // Searches both meal name AND ingredient names
+    let fuzzyMealMatches: FuzzyMealMatch[] | null = null
+    if (search) {
+      fuzzyMealMatches = await prisma.$queryRaw<FuzzyMealMatch[]>`
+        SELECT DISTINCT m.id,
+          GREATEST(
+            similarity(m.name, ${search}),
+            COALESCE((
+              SELECT MAX(similarity(i.name, ${search}))
+              FROM "meal_component" mc
+              JOIN "ingredient" i ON i.id = mc."ingredientId"
+              WHERE mc."mealId" = m.id
+            ), 0)
+          ) as similarity
+        FROM "meal" m
+        WHERE (
+          similarity(m.name, ${search}) >= ${SIMILARITY_THRESHOLD}
+          OR EXISTS (
+            SELECT 1 FROM "meal_component" mc
+            JOIN "ingredient" i ON i.id = mc."ingredientId"
+            WHERE mc."mealId" = m.id
+            AND similarity(i.name, ${search}) >= ${SIMILARITY_THRESHOLD}
+          )
+        )
+        ORDER BY similarity DESC
+      `
+    }
+
     // Build where clause
     const where: Prisma.MealWhereInput = {
       AND: [
@@ -84,8 +119,8 @@ export async function GET(request: NextRequest) {
         ...(proteinType ? [{ primaryProteinType: proteinType }] : []),
         // Filter by kid-friendly if specified
         ...(kidFriendly !== null ? [{ kidFriendly }] : []),
-        // Search by name (case-insensitive)
-        ...(search ? [{ name: { contains: search, mode: 'insensitive' as const } }] : []),
+        // Fuzzy search filter: only include meals matching the search
+        ...(fuzzyMealMatches ? [{ id: { in: fuzzyMealMatches.map((m) => m.id) } }] : []),
         // Hard filter: allergens - exclude meals with any allergen-containing ingredients
         ...(allergensToAvoid.length > 0
           ? [
@@ -119,6 +154,11 @@ export async function GET(request: NextRequest) {
 
     // Get total count for pagination
     const total = await prisma.meal.count({ where })
+
+    // Build orderBy - use similarity ordering when searching, otherwise alphabetical
+    const fuzzyOrderMap = fuzzyMealMatches
+      ? new Map(fuzzyMealMatches.map((m) => [m.id, m.similarity]))
+      : null
 
     // Fetch meals with pagination
     const mealsRaw = await prisma.meal.findMany({
@@ -155,13 +195,26 @@ export async function GET(request: NextRequest) {
           select: { id: true },
         },
       },
-      orderBy: { name: 'asc' },
-      skip: offset,
-      take: limit,
+      // When searching, we need to fetch all matching meals and sort in memory
+      // because Prisma doesn't support ordering by a computed value from raw SQL
+      ...(fuzzyOrderMap ? {} : { orderBy: { name: 'asc' } }),
+      skip: fuzzyOrderMap ? 0 : offset,
+      take: fuzzyOrderMap ? undefined : limit,
     })
 
+    // Sort by similarity if searching, then apply pagination
+    let sortedMeals = mealsRaw
+    if (fuzzyOrderMap) {
+      sortedMeals = [...mealsRaw].sort((a, b) => {
+        const simA = fuzzyOrderMap.get(a.id) ?? 0
+        const simB = fuzzyOrderMap.get(b.id) ?? 0
+        return simB - simA // Descending similarity
+      })
+      sortedMeals = sortedMeals.slice(offset, offset + limit)
+    }
+
     // Compute nutrition per serving for each meal and format components
-    const meals = mealsRaw.map((meal) => {
+    const meals = sortedMeals.map((meal) => {
       const nutrition = meal.components.reduce(
         (acc, comp) => {
           const factor = comp.quantityPerServing / 100
