@@ -46,11 +46,6 @@ export function WeekTabs({
             aria-current={activeWeek === 'current' ? 'page' : undefined}
           >
             This week
-            {currentWeekDays < 7 && (
-              <span className="text-muted-foreground ml-1.5 text-xs">
-                ({currentWeekDays} {currentWeekDays === 1 ? 'day' : 'days'})
-              </span>
-            )}
             {!hasCurrentPlan && (
               <span className="bg-muted ml-1.5 rounded-full px-1.5 py-0.5 text-xs">No plan</span>
             )}

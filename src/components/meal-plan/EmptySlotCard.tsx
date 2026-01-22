@@ -93,7 +93,7 @@ export function EmptySlotCard({ planId, date, mealType }: EmptySlotCardProps) {
           <Button
             variant="outline"
             size="sm"
-            className="h-7 text-xs"
+            className="h-7 w-full text-xs"
             onClick={handleAddMeal}
             disabled={isCreating}
           >
