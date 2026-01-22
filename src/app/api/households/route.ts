@@ -87,15 +87,13 @@ export async function POST(request: Request) {
 
       // Create any additional household members (e.g., kids)
       if (members && members.length > 0) {
-        for (const member of members) {
-          await tx.householdMember.create({
-            data: {
-              householdId: newHousehold.id,
-              name: member.name,
-              role: 'member',
-            },
-          })
-        }
+        await tx.householdMember.createMany({
+          data: members.map((member) => ({
+            householdId: newHousehold.id,
+            name: member.name,
+            role: 'member',
+          })),
+        })
       }
 
       return tx.household.findUnique({
