@@ -71,7 +71,7 @@ describe('AlternativeCard', () => {
       expect(screen.getByText('30 min')).toBeInTheDocument()
     })
 
-    it('renders calories prominently', () => {
+    it('renders full nutrition summary', () => {
       render(
         <AlternativeCard
           meal={mockMeal}
@@ -81,7 +81,7 @@ describe('AlternativeCard', () => {
         />,
       )
 
-      expect(screen.getByText('450 kcal')).toBeInTheDocument()
+      expect(screen.getByText('450 kcal · 35g protein · 40g carbs · 12g fat')).toBeInTheDocument()
     })
 
     it('renders kid-friendly badge when true', () => {
