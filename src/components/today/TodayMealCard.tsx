@@ -296,50 +296,32 @@ export function TodayMealCard({
               />
             </div>
           )}
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
-                  {typeStyle.label}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+                {typeStyle.label}
+              </span>
+              {status === 'completed' && (
+                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                  ✓ Made it
                 </span>
-                {status === 'completed' && (
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                    ✓ Made it
-                  </span>
-                )}
-                {status === 'skipped' && (
-                  <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
-                    Skipped
-                  </span>
-                )}
-                {isFinished && !isChangingStatus && (
-                  <button
-                    type="button"
-                    onClick={() => setIsChangingStatus(true)}
-                    className="text-muted-foreground hover:text-foreground text-xs underline underline-offset-2"
-                  >
-                    Change
-                  </button>
-                )}
-              </div>
-              <CardTitle className="text-base leading-tight font-semibold">{meal.name}</CardTitle>
-              {!showSimplifiedView && (
-                <>
-                  {meal.nutrition && <NutritionSummary nutrition={meal.nutrition} compact />}
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {meal.timeMinutes && (
-                      <span className="text-muted-foreground text-xs">{meal.timeMinutes} min</span>
-                    )}
-                    {meal.kidFriendly && (
-                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                        Kid-friendly
-                      </span>
-                    )}
-                  </div>
-                </>
+              )}
+              {status === 'skipped' && (
+                <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                  Skipped
+                </span>
+              )}
+              {isFinished && !isChangingStatus && (
+                <button
+                  type="button"
+                  onClick={() => setIsChangingStatus(true)}
+                  className="text-muted-foreground hover:text-foreground text-xs underline underline-offset-2"
+                >
+                  Change
+                </button>
               )}
             </div>
-            {/* Swap button in top-right - hide for finished meals */}
+            {/* Swap button on meal type row - hide for finished meals */}
             {!showSimplifiedView && (
               <Button
                 variant="outline"
@@ -351,6 +333,22 @@ export function TodayMealCard({
               </Button>
             )}
           </div>
+          <CardTitle className="text-base leading-tight font-semibold">{meal.name}</CardTitle>
+          {!showSimplifiedView && (
+            <div className="flex flex-col gap-1">
+              {meal.nutrition && <NutritionSummary nutrition={meal.nutrition} compact />}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {meal.timeMinutes && (
+                  <span className="text-muted-foreground text-xs">{meal.timeMinutes} min</span>
+                )}
+                {meal.kidFriendly && (
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                    Kid-friendly
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </CardHeader>
 
         {/* BOTTOM SECTION: Two-column layout (Ingredients | Preparation) */}
