@@ -334,6 +334,114 @@ describe('repairPlan', () => {
   })
 
   describe('handles multiple errors', () => {
+    it('does not undo required slot fix when processing consecutive error', () => {
+      // Reproduces bug: wrong_protein fixes 01-30 to legume, but consecutive_protein
+      // then tries to "fix" 01-31 (which was consecutive 'none' with 01-30), potentially
+      // undoing the required slot fix or failing to repair properly
+      const plan: HydratedPlanEntry[] = [
+        createEntry('2026-01-26', 'meal-1', 'poultry'),
+        createEntry('2026-01-27', 'meal-2', 'beef'),
+        createEntry('2026-01-28', 'meal-3', 'fish'),
+        createEntry('2026-01-29', 'meal-4', 'pork'),
+        createEntry('2026-01-30', 'meal-5', 'none'), // Required legume slot, got none
+        createEntry('2026-01-31', 'meal-6', 'none'), // Consecutive 'none' with 01-30
+        createEntry('2026-02-01', 'meal-7', 'poultry'),
+      ]
+
+      const errors: ValidationError[] = [
+        // wrong_protein comes first (from required slot check)
+        {
+          type: 'wrong_protein',
+          date: '2026-01-30',
+          mealType: 'dinner',
+          expected: 'legume',
+          actual: 'none',
+          message: '2026-01-30 dinner requires legume, got none',
+        },
+        // consecutive_protein comes second (error.date = second day of the pair)
+        {
+          type: 'consecutive_protein',
+          date: '2026-01-31',
+          mealType: 'dinner',
+          actual: 'none',
+          message: 'Consecutive none for dinner on 2026-01-30 and 2026-01-31',
+        },
+      ]
+
+      const pools = createPools()
+      const result = repairPlan(plan, errors, pools)
+
+      expect(result).not.toBeNull()
+
+      // The required legume slot MUST be preserved
+      const entry30 = result!.find((e) => toDateString(e.date) === '2026-01-30')
+      expect(entry30?.meal?.primaryProteinType).toBe('legume')
+
+      // The consecutive error should also be resolved (proteins should differ)
+      const entry31 = result!.find((e) => toDateString(e.date) === '2026-01-31')
+      expect(entry30?.meal?.primaryProteinType).not.toBe(entry31?.meal?.primaryProteinType)
+    })
+
+    it('skips consecutive error when previous wrong_protein fix already resolved it', () => {
+      // When wrong_protein fixes a slot from 'none' to 'legume', the consecutive_protein
+      // error for that pair is already resolved and should be skipped
+      const plan: HydratedPlanEntry[] = [
+        createEntry('2026-01-26', 'meal-1', 'poultry'),
+        createEntry('2026-01-27', 'meal-2', 'beef'),
+        createEntry('2026-01-28', 'meal-3', 'fish'),
+        createEntry('2026-01-29', 'meal-4', 'pork'),
+        createEntry('2026-01-30', 'meal-5', 'none'), // Required legume slot, got none
+        createEntry('2026-01-31', 'meal-6', 'none'), // Consecutive 'none' with 01-30
+        createEntry('2026-02-01', 'meal-7', 'poultry'),
+      ]
+
+      const errors: ValidationError[] = [
+        {
+          type: 'wrong_protein',
+          date: '2026-01-30',
+          mealType: 'dinner',
+          expected: 'legume',
+          actual: 'none',
+          message: '2026-01-30 dinner requires legume, got none',
+        },
+        {
+          type: 'consecutive_protein',
+          date: '2026-01-31',
+          mealType: 'dinner',
+          actual: 'none',
+          message: 'Consecutive none for dinner on 2026-01-30 and 2026-01-31',
+        },
+      ]
+
+      // Pools where 'any' only has 'none' proteins - simulates production scenario
+      // where most dinner candidates have primaryProteinType: 'none'
+      const pools: CandidatePools = {
+        fish: [createCandidate('fish-1', 'fish')],
+        legume: [createCandidate('legume-1', 'legume')],
+        any: [
+          createCandidate('any-none-1', 'none'),
+          createCandidate('any-none-2', 'none'),
+          createCandidate('any-none-3', 'none'),
+        ],
+      }
+
+      const result = repairPlan(plan, errors, pools)
+
+      expect(result).not.toBeNull()
+
+      // The required legume slot MUST be preserved
+      const entry30 = result!.find((e) => toDateString(e.date) === '2026-01-30')
+      expect(entry30?.meal?.primaryProteinType).toBe('legume')
+
+      // 01-31 stays 'none' because:
+      // 1. wrong_protein fixed 01-30 from 'none' to 'legume'
+      // 2. consecutive error is now resolved (legume != none)
+      // 3. No need to modify 01-31
+      const entry31 = result!.find((e) => toDateString(e.date) === '2026-01-31')
+      // The proteins should be different (consecutive resolved)
+      expect(entry30?.meal?.primaryProteinType).not.toBe(entry31?.meal?.primaryProteinType)
+    })
+
     it('repairs multiple issues in a single pass', () => {
       const plan: HydratedPlanEntry[] = [
         createEntry('2026-01-12', 'meal-1', 'poultry'),
