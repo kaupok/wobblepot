@@ -373,8 +373,8 @@ export async function matchIngredients(
 
       // Calculate total grams for validation (estimate if not in grams)
       let totalGrams = convertedQuantity
-      if (match.defaultUnit === 'piece' && match.gramsPerPiece) {
-        totalGrams = convertedQuantity * match.gramsPerPiece
+      if (match.defaultUnit === 'piece') {
+        totalGrams = convertedQuantity * (match.gramsPerPiece ?? DEFAULT_GRAMS_PER_PIECE)
       }
 
       // Check if quantity seems unreasonable
