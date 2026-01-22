@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { Plus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -8,14 +10,40 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Heading, Body } from '@/components/ui/typography'
 import { MealForm } from '@/components/household/MealForm'
 import { MealList, type MealData } from '@/components/household/MealList'
+import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
 
 type ViewMode = 'list' | 'create' | 'edit'
 
+interface PrefilledMealData {
+  name: string
+  description: string | null
+  timeMinutes: number | null
+  servings: number
+  mealTypes: MealType[]
+  kidFriendly: boolean
+  ingredients: Array<{
+    type: 'matched' | 'unmatched'
+    ingredient?: {
+      id: string
+      name: string
+      category: IngredientCategory
+      defaultUnit: Unit
+    }
+    convertedQuantity?: number
+  }>
+}
+
 export function RecipesPageClient() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const mode = searchParams.get('mode')
+  const prefilled = searchParams.get('prefilled')
+
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [meals, setMeals] = useState<MealData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [editingMeal, setEditingMeal] = useState<MealData | null>(null)
+  const [prefilledData, setPrefilledData] = useState<PrefilledMealData | null>(null)
 
   const fetchMeals = useCallback(async () => {
     try {
@@ -32,12 +60,37 @@ export function RecipesPageClient() {
     }
   }, [])
 
+  // Handle URL params for mode=create with prefilled data
+  useEffect(() => {
+    if (mode === 'create') {
+      setViewMode('create')
+
+      if (prefilled === 'true') {
+        const stored = sessionStorage.getItem('prefilled-meal')
+        if (stored) {
+          try {
+            const data = JSON.parse(stored) as PrefilledMealData
+            setPrefilledData(data)
+          } catch {
+            // Invalid data, ignore
+          }
+          // Clean up after reading
+          sessionStorage.removeItem('prefilled-meal')
+        }
+      }
+
+      // Clear URL params
+      router.replace('/recipes', { scroll: false })
+    }
+  }, [mode, prefilled, router])
+
   useEffect(() => {
     fetchMeals()
   }, [fetchMeals])
 
   const handleCreateSuccess = () => {
     setViewMode('list')
+    setPrefilledData(null)
     fetchMeals()
   }
 
@@ -63,13 +116,42 @@ export function RecipesPageClient() {
   const handleCancel = () => {
     setViewMode('list')
     setEditingMeal(null)
+    setPrefilledData(null)
+  }
+
+  // Build prefilled meal data for MealForm
+  const getPrefilledMeal = () => {
+    if (!prefilledData) return undefined
+
+    // Only include matched ingredients
+    const matchedComponents = prefilledData.ingredients
+      .filter((i) => i.type === 'matched' && i.ingredient && i.convertedQuantity !== undefined)
+      .map((i) => ({
+        ingredientId: i.ingredient!.id,
+        quantityPerServing: i.convertedQuantity!,
+        ingredient: i.ingredient!,
+      }))
+
+    return {
+      name: prefilledData.name,
+      description: prefilledData.description,
+      timeMinutes: prefilledData.timeMinutes,
+      kidFriendly: prefilledData.kidFriendly,
+      suitableFor: prefilledData.mealTypes,
+      servings: prefilledData.servings,
+      components: matchedComponents,
+    }
   }
 
   // Show form view
   if (viewMode === 'create') {
     return (
       <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
-        <MealForm onSuccess={handleCreateSuccess} onCancel={handleCancel} />
+        <MealForm
+          meal={getPrefilledMeal()}
+          onSuccess={handleCreateSuccess}
+          onCancel={handleCancel}
+        />
       </div>
     )
   }
@@ -115,9 +197,11 @@ export function RecipesPageClient() {
                   ? 'Loading...'
                   : `${meals.length} recipe${meals.length === 1 ? '' : 's'}`}
               </Body>
-              <Button onClick={() => setViewMode('create')}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add recipe
+              <Button asChild>
+                <Link href="/recipes/import">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add recipe
+                </Link>
               </Button>
             </div>
 
