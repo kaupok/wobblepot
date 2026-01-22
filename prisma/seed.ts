@@ -13,7 +13,7 @@ const prisma = new PrismaClient({ adapter })
 // Categories: protein, carb, vegetable, fruit, dairy, fat, legume, condiment, spice
 // Units: g (grams) or piece (count-based items)
 
-const baseIngredients = [
+export const baseIngredients = [
   // ============================================
   // PROTEINS
   // ============================================
@@ -1886,7 +1886,7 @@ async function seedIngredients() {
 
 // Meal data with components (ingredients + quantities per serving)
 // Components reference ingredients by name, quantities are per 1 serving
-const baseMeals = [
+export const baseMeals = [
   // ============================================
   // POULTRY MEALS
   // ============================================
@@ -3663,11 +3663,18 @@ async function main() {
   await seedMeals()
 }
 
-main()
-  .catch((e) => {
-    console.error(e)
-    process.exit(1)
-  })
-  .finally(async () => {
-    await prisma.$disconnect()
-  })
+// Only run main() when executed directly (not when imported)
+const isMainModule =
+  (process.argv[1] && import.meta.url === new URL(process.argv[1], 'file://').href) ||
+  process.argv[1]?.endsWith('seed.ts')
+
+if (isMainModule) {
+  main()
+    .catch((e) => {
+      console.error(e)
+      process.exit(1)
+    })
+    .finally(async () => {
+      await prisma.$disconnect()
+    })
+}
