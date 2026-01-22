@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import { PrismaClient } from '../src/generated/prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
+import { newIngredients, newMeals } from './seed-expansion'
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL!,
@@ -12,7 +13,7 @@ const prisma = new PrismaClient({ adapter })
 // Categories: protein, carb, vegetable, fruit, dairy, fat, legume, condiment, spice
 // Units: g (grams) or piece (count-based items)
 
-const ingredients = [
+const baseIngredients = [
   // ============================================
   // PROTEINS
   // ============================================
@@ -1841,7 +1842,11 @@ const ingredients = [
     fat: 42,
     fiber: 27,
   },
-] as const
+]
+
+// Merge base ingredients with new expansion ingredients
+type IngredientInput = (typeof baseIngredients)[number]
+const ingredients = [...baseIngredients, ...(newIngredients as unknown as IngredientInput[])]
 
 async function seedIngredients() {
   console.log('Seeding ingredients...')
@@ -1852,11 +1857,19 @@ async function seedIngredients() {
       update: {},
       create: {
         name: ingredient.name,
-        category: ingredient.category,
+        category: ingredient.category as Parameters<
+          typeof prisma.ingredient.create
+        >[0]['data']['category'],
         subcategory: ingredient.subcategory,
-        proteinType: 'proteinType' in ingredient ? ingredient.proteinType : null,
-        defaultUnit: ingredient.defaultUnit,
-        allergens: [...ingredient.allergens],
+        proteinType: ('proteinType' in ingredient ? ingredient.proteinType : null) as Parameters<
+          typeof prisma.ingredient.create
+        >[0]['data']['proteinType'],
+        defaultUnit: ingredient.defaultUnit as Parameters<
+          typeof prisma.ingredient.create
+        >[0]['data']['defaultUnit'],
+        allergens: ingredient.allergens as Parameters<
+          typeof prisma.ingredient.create
+        >[0]['data']['allergens'],
         calories: ingredient.calories,
         protein: ingredient.protein,
         carbs: ingredient.carbs,
@@ -1873,7 +1886,7 @@ async function seedIngredients() {
 
 // Meal data with components (ingredients + quantities per serving)
 // Components reference ingredients by name, quantities are per 1 serving
-const meals = [
+const baseMeals = [
   // ============================================
   // POULTRY MEALS
   // ============================================
@@ -2023,7 +2036,7 @@ const meals = [
     primaryProteinType: 'beef',
     components: [
       { ingredient: 'ground beef', quantity: 120 },
-      { ingredient: 'tortilla', quantity: 60 },
+      { ingredient: 'tortilla', quantity: 2 },
       { ingredient: 'tomato', quantity: 50 },
       { ingredient: 'lettuce', quantity: 30 },
       { ingredient: 'cheese', quantity: 30 },
@@ -2092,7 +2105,7 @@ const meals = [
     primaryProteinType: 'pork',
     components: [
       { ingredient: 'pork chop', quantity: 180 },
-      { ingredient: 'apple', quantity: 100 },
+      { ingredient: 'apple', quantity: 1 },
       { ingredient: 'butter', quantity: 15 },
       { ingredient: 'honey', quantity: 10 },
       { ingredient: 'rosemary', quantity: 2 },
@@ -2107,8 +2120,8 @@ const meals = [
     primaryProteinType: 'pork',
     components: [
       { ingredient: 'bacon', quantity: 60 },
-      { ingredient: 'egg', quantity: 100 },
-      { ingredient: 'bread', quantity: 60 },
+      { ingredient: 'egg', quantity: 2 },
+      { ingredient: 'bread', quantity: 2 },
       { ingredient: 'butter', quantity: 10 },
     ],
   },
@@ -2122,7 +2135,7 @@ const meals = [
     components: [
       { ingredient: 'pork tenderloin', quantity: 100 },
       { ingredient: 'white rice', quantity: 150 },
-      { ingredient: 'egg', quantity: 50 },
+      { ingredient: 'egg', quantity: 1 },
       { ingredient: 'peas', quantity: 50 },
       { ingredient: 'carrot', quantity: 40 },
       { ingredient: 'soy sauce', quantity: 15 },
@@ -2179,7 +2192,7 @@ const meals = [
     components: [
       { ingredient: 'salmon fillet', quantity: 150 },
       { ingredient: 'asparagus', quantity: 120 },
-      { ingredient: 'lemon', quantity: 30 },
+      { ingredient: 'lemon', quantity: 0.5 },
       { ingredient: 'olive oil', quantity: 15 },
       { ingredient: 'garlic', quantity: 5 },
     ],
@@ -2195,7 +2208,7 @@ const meals = [
       { ingredient: 'cod fillet', quantity: 180 },
       { ingredient: 'potato', quantity: 200 },
       { ingredient: 'vegetable oil', quantity: 30 },
-      { ingredient: 'lemon', quantity: 20 },
+      { ingredient: 'lemon', quantity: 0.33 },
     ],
   },
   {
@@ -2211,7 +2224,7 @@ const meals = [
       { ingredient: 'tomato', quantity: 80 },
       { ingredient: 'cucumber', quantity: 60 },
       { ingredient: 'olive oil', quantity: 15 },
-      { ingredient: 'lemon', quantity: 15 },
+      { ingredient: 'lemon', quantity: 0.25 },
     ],
   },
   {
@@ -2259,7 +2272,7 @@ const meals = [
       { ingredient: 'tomato', quantity: 60 },
       { ingredient: 'cucumber', quantity: 60 },
       { ingredient: 'olive oil', quantity: 15 },
-      { ingredient: 'lemon', quantity: 20 },
+      { ingredient: 'lemon', quantity: 0.33 },
     ],
   },
 
@@ -2274,7 +2287,7 @@ const meals = [
     suitableFor: ['breakfast', 'lunch'],
     primaryProteinType: 'eggs',
     components: [
-      { ingredient: 'egg', quantity: 150 },
+      { ingredient: 'egg', quantity: 3 },
       { ingredient: 'bell pepper', quantity: 50 },
       { ingredient: 'onion', quantity: 30 },
       { ingredient: 'cheese', quantity: 30 },
@@ -2289,7 +2302,7 @@ const meals = [
     suitableFor: ['breakfast', 'lunch', 'dinner'],
     primaryProteinType: 'eggs',
     components: [
-      { ingredient: 'egg', quantity: 150 },
+      { ingredient: 'egg', quantity: 3 },
       { ingredient: 'tomato', quantity: 200 },
       { ingredient: 'bell pepper', quantity: 80 },
       { ingredient: 'onion', quantity: 60 },
@@ -2306,7 +2319,7 @@ const meals = [
     suitableFor: ['lunch', 'dinner'],
     primaryProteinType: 'eggs',
     components: [
-      { ingredient: 'egg', quantity: 100 },
+      { ingredient: 'egg', quantity: 2 },
       { ingredient: 'white rice', quantity: 150 },
       { ingredient: 'peas', quantity: 50 },
       { ingredient: 'carrot', quantity: 40 },
@@ -2322,8 +2335,8 @@ const meals = [
     suitableFor: ['breakfast'],
     primaryProteinType: 'eggs',
     components: [
-      { ingredient: 'egg', quantity: 150 },
-      { ingredient: 'bread', quantity: 60 },
+      { ingredient: 'egg', quantity: 3 },
+      { ingredient: 'bread', quantity: 2 },
       { ingredient: 'butter', quantity: 15 },
       { ingredient: 'milk', quantity: 30 },
     ],
@@ -2336,7 +2349,7 @@ const meals = [
     suitableFor: ['breakfast', 'lunch', 'dinner'],
     primaryProteinType: 'eggs',
     components: [
-      { ingredient: 'egg', quantity: 150 },
+      { ingredient: 'egg', quantity: 3 },
       { ingredient: 'potato', quantity: 100 },
       { ingredient: 'onion', quantity: 50 },
       { ingredient: 'cheese', quantity: 40 },
@@ -2373,10 +2386,10 @@ const meals = [
     primaryProteinType: 'legume',
     components: [
       { ingredient: 'black beans', quantity: 150 },
-      { ingredient: 'tortilla', quantity: 60 },
+      { ingredient: 'tortilla', quantity: 2 },
       { ingredient: 'tomato', quantity: 50 },
       { ingredient: 'lettuce', quantity: 30 },
-      { ingredient: 'avocado', quantity: 50 },
+      { ingredient: 'avocado', quantity: 0.5 },
       { ingredient: 'cumin', quantity: 3 },
     ],
   },
@@ -2518,7 +2531,7 @@ const meals = [
     suitableFor: ['lunch'],
     primaryProteinType: 'dairy',
     components: [
-      { ingredient: 'tortilla', quantity: 90 },
+      { ingredient: 'tortilla', quantity: 2 },
       { ingredient: 'cheese', quantity: 80 },
       { ingredient: 'bell pepper', quantity: 40 },
       { ingredient: 'onion', quantity: 30 },
@@ -2638,7 +2651,7 @@ const meals = [
     components: [
       { ingredient: 'oats', quantity: 50 },
       { ingredient: 'milk', quantity: 150 },
-      { ingredient: 'banana', quantity: 60 },
+      { ingredient: 'banana', quantity: 0.5 },
       { ingredient: 'blueberry', quantity: 40 },
       { ingredient: 'honey', quantity: 15 },
     ],
@@ -2651,8 +2664,8 @@ const meals = [
     suitableFor: ['breakfast', 'lunch'],
     primaryProteinType: 'none',
     components: [
-      { ingredient: 'bread', quantity: 60 },
-      { ingredient: 'avocado', quantity: 100 },
+      { ingredient: 'bread', quantity: 2 },
+      { ingredient: 'avocado', quantity: 1 },
       { ingredient: 'tomato', quantity: 50 },
       { ingredient: 'olive oil', quantity: 5 },
       { ingredient: 'salt', quantity: 1 },
@@ -2668,7 +2681,7 @@ const meals = [
     components: [
       { ingredient: 'greek yogurt', quantity: 200 },
       { ingredient: 'strawberry', quantity: 60 },
-      { ingredient: 'banana', quantity: 60 },
+      { ingredient: 'banana', quantity: 0.5 },
       { ingredient: 'honey', quantity: 15 },
       { ingredient: 'almonds', quantity: 20 },
     ],
@@ -2681,8 +2694,8 @@ const meals = [
     suitableFor: ['breakfast'],
     primaryProteinType: 'eggs',
     components: [
-      { ingredient: 'egg', quantity: 50 },
-      { ingredient: 'banana', quantity: 120 },
+      { ingredient: 'egg', quantity: 1 },
+      { ingredient: 'banana', quantity: 1 },
       { ingredient: 'oats', quantity: 40 },
       { ingredient: 'milk', quantity: 50 },
       { ingredient: 'maple syrup', quantity: 30 },
@@ -2821,7 +2834,7 @@ const meals = [
       { ingredient: 'sweet potato', quantity: 150 },
       { ingredient: 'quinoa', quantity: 80 },
       { ingredient: 'kale', quantity: 60 },
-      { ingredient: 'avocado', quantity: 50 },
+      { ingredient: 'avocado', quantity: 0.33 },
       { ingredient: 'olive oil', quantity: 15 },
       { ingredient: 'tahini', quantity: 20 },
     ],
@@ -3024,7 +3037,7 @@ const meals = [
       { ingredient: 'pinto beans', quantity: 150 },
       { ingredient: 'brown rice', quantity: 100 },
       { ingredient: 'tomato', quantity: 80 },
-      { ingredient: 'avocado', quantity: 50 },
+      { ingredient: 'avocado', quantity: 0.33 },
       { ingredient: 'corn', quantity: 50 },
       { ingredient: 'cumin', quantity: 3 },
       { ingredient: 'cilantro', quantity: 5 },
@@ -3080,7 +3093,7 @@ const meals = [
       { ingredient: 'parsley', quantity: 10 },
       { ingredient: 'garlic', quantity: 5 },
       { ingredient: 'olive oil', quantity: 15 },
-      { ingredient: 'lemon', quantity: 20 },
+      { ingredient: 'lemon', quantity: 0.33 },
     ],
   },
   {
@@ -3111,7 +3124,7 @@ const meals = [
       { ingredient: 'brown rice', quantity: 100 },
       { ingredient: 'black beans', quantity: 80 },
       { ingredient: 'tomato', quantity: 60 },
-      { ingredient: 'avocado', quantity: 50 },
+      { ingredient: 'avocado', quantity: 0.33 },
       { ingredient: 'cumin', quantity: 3 },
       { ingredient: 'sour cream', quantity: 30 },
     ],
@@ -3125,7 +3138,7 @@ const meals = [
     primaryProteinType: 'poultry',
     components: [
       { ingredient: 'chicken thigh', quantity: 200 },
-      { ingredient: 'lemon', quantity: 40 },
+      { ingredient: 'lemon', quantity: 0.67 },
       { ingredient: 'potato', quantity: 150 },
       { ingredient: 'garlic', quantity: 10 },
       { ingredient: 'rosemary', quantity: 3 },
@@ -3172,7 +3185,7 @@ const meals = [
     suitableFor: ['breakfast', 'lunch', 'dinner'],
     primaryProteinType: 'eggs',
     components: [
-      { ingredient: 'egg', quantity: 150 },
+      { ingredient: 'egg', quantity: 3 },
       { ingredient: 'spinach', quantity: 100 },
       { ingredient: 'feta cheese', quantity: 40 },
       { ingredient: 'onion', quantity: 40 },
@@ -3210,9 +3223,9 @@ const meals = [
       { ingredient: 'lettuce', quantity: 120 },
       { ingredient: 'parmesan', quantity: 25 },
       { ingredient: 'olive oil', quantity: 15 },
-      { ingredient: 'lemon', quantity: 15 },
+      { ingredient: 'lemon', quantity: 0.25 },
       { ingredient: 'garlic', quantity: 5 },
-      { ingredient: 'bread', quantity: 30 },
+      { ingredient: 'bread', quantity: 1 },
     ],
   },
   {
@@ -3225,7 +3238,7 @@ const meals = [
     components: [
       { ingredient: 'chicken thigh', quantity: 180 },
       { ingredient: 'white rice', quantity: 100 },
-      { ingredient: 'orange', quantity: 80 },
+      { ingredient: 'orange', quantity: 0.6 },
       { ingredient: 'soy sauce', quantity: 20 },
       { ingredient: 'honey', quantity: 20 },
       { ingredient: 'garlic', quantity: 5 },
@@ -3241,7 +3254,7 @@ const meals = [
     primaryProteinType: 'poultry',
     components: [
       { ingredient: 'turkey breast', quantity: 150 },
-      { ingredient: 'bread', quantity: 80 },
+      { ingredient: 'bread', quantity: 2 },
       { ingredient: 'lettuce', quantity: 30 },
       { ingredient: 'tomato', quantity: 50 },
       { ingredient: 'onion', quantity: 30 },
@@ -3274,7 +3287,7 @@ const meals = [
     primaryProteinType: 'poultry',
     components: [
       { ingredient: 'chicken breast', quantity: 120 },
-      { ingredient: 'tortilla', quantity: 80 },
+      { ingredient: 'tortilla', quantity: 2 },
       { ingredient: 'cheese', quantity: 60 },
       { ingredient: 'bell pepper', quantity: 50 },
       { ingredient: 'onion', quantity: 30 },
@@ -3309,7 +3322,7 @@ const meals = [
       { ingredient: 'chicken breast', quantity: 180 },
       { ingredient: 'bell pepper', quantity: 100 },
       { ingredient: 'onion', quantity: 80 },
-      { ingredient: 'tortilla', quantity: 60 },
+      { ingredient: 'tortilla', quantity: 2 },
       { ingredient: 'cumin', quantity: 3 },
       { ingredient: 'vegetable oil', quantity: 15 },
       { ingredient: 'sour cream', quantity: 30 },
@@ -3327,8 +3340,8 @@ const meals = [
       { ingredient: 'tomato sauce', quantity: 100 },
       { ingredient: 'mozzarella', quantity: 60 },
       { ingredient: 'parmesan', quantity: 20 },
-      { ingredient: 'bread', quantity: 40 },
-      { ingredient: 'egg', quantity: 50 },
+      { ingredient: 'breadcrumbs', quantity: 40 },
+      { ingredient: 'egg', quantity: 1 },
       { ingredient: 'basil', quantity: 3 },
     ],
   },
@@ -3361,8 +3374,8 @@ const meals = [
       { ingredient: 'white rice', quantity: 60 },
       { ingredient: 'carrot', quantity: 60 },
       { ingredient: 'celery', quantity: 40 },
-      { ingredient: 'lemon', quantity: 30 },
-      { ingredient: 'egg', quantity: 50 },
+      { ingredient: 'lemon', quantity: 0.5 },
+      { ingredient: 'egg', quantity: 1 },
       { ingredient: 'parsley', quantity: 5 },
     ],
   },
@@ -3414,7 +3427,7 @@ const meals = [
     primaryProteinType: 'beef',
     components: [
       { ingredient: 'ground beef', quantity: 150 },
-      { ingredient: 'tortilla', quantity: 80 },
+      { ingredient: 'tortilla', quantity: 2 },
       { ingredient: 'cheese', quantity: 80 },
       { ingredient: 'tomato sauce', quantity: 120 },
       { ingredient: 'onion', quantity: 40 },
@@ -3485,7 +3498,7 @@ const meals = [
     primaryProteinType: 'pork',
     components: [
       { ingredient: 'pork tenderloin', quantity: 150 },
-      { ingredient: 'bread', quantity: 80 },
+      { ingredient: 'bread', quantity: 2 },
       { ingredient: 'tomato sauce', quantity: 50 },
       { ingredient: 'honey', quantity: 15 },
       { ingredient: 'vinegar', quantity: 10 },
@@ -3501,9 +3514,9 @@ const meals = [
     primaryProteinType: 'pork',
     components: [
       { ingredient: 'pork chop', quantity: 180 },
-      { ingredient: 'bread', quantity: 50 },
-      { ingredient: 'egg', quantity: 50 },
-      { ingredient: 'lemon', quantity: 20 },
+      { ingredient: 'breadcrumbs', quantity: 50 },
+      { ingredient: 'egg', quantity: 1 },
+      { ingredient: 'lemon', quantity: 0.5 },
       { ingredient: 'potato', quantity: 150 },
       { ingredient: 'vegetable oil', quantity: 30 },
     ],
@@ -3522,7 +3535,7 @@ const meals = [
     components: [
       { ingredient: 'cod fillet', quantity: 180 },
       { ingredient: 'butter', quantity: 25 },
-      { ingredient: 'lemon', quantity: 30 },
+      { ingredient: 'lemon', quantity: 0.5 },
       { ingredient: 'garlic', quantity: 5 },
       { ingredient: 'parsley', quantity: 5 },
       { ingredient: 'white rice', quantity: 100 },
@@ -3560,12 +3573,14 @@ const meals = [
       { ingredient: 'garlic', quantity: 10 },
       { ingredient: 'olive oil', quantity: 20 },
       { ingredient: 'oregano', quantity: 3 },
-      { ingredient: 'lemon', quantity: 20 },
+      { ingredient: 'lemon', quantity: 0.33 },
     ],
   },
-] as const
+]
 
-type MealInput = (typeof meals)[number]
+// Merge base meals with new expansion meals
+type MealInput = (typeof baseMeals)[number]
+const meals = [...baseMeals, ...(newMeals as unknown as MealInput[])]
 
 async function seedMeals() {
   console.log('Seeding meals...')
@@ -3604,8 +3619,12 @@ async function seedMeals() {
           description: meal.description,
           timeMinutes: meal.timeMinutes,
           kidFriendly: meal.kidFriendly,
-          suitableFor: [...meal.suitableFor],
-          primaryProteinType: meal.primaryProteinType,
+          suitableFor: meal.suitableFor as Parameters<
+            typeof prisma.meal.update
+          >[0]['data']['suitableFor'],
+          primaryProteinType: meal.primaryProteinType as Parameters<
+            typeof prisma.meal.update
+          >[0]['data']['primaryProteinType'],
         },
       })
       seededCount++
@@ -3617,8 +3636,12 @@ async function seedMeals() {
           description: meal.description,
           timeMinutes: meal.timeMinutes,
           kidFriendly: meal.kidFriendly,
-          suitableFor: [...meal.suitableFor],
-          primaryProteinType: meal.primaryProteinType,
+          suitableFor: meal.suitableFor as Parameters<
+            typeof prisma.meal.create
+          >[0]['data']['suitableFor'],
+          primaryProteinType: meal.primaryProteinType as Parameters<
+            typeof prisma.meal.create
+          >[0]['data']['primaryProteinType'],
           householdId: null, // Global meal, not household-specific
           components: {
             create: meal.components.map((c) => ({
