@@ -78,17 +78,25 @@ export function EmptySlotCard({ planId, date, mealType }: EmptySlotCardProps) {
 
   return (
     <>
-      <Card className="border-dashed">
-        <CardHeader className="pb-1">
-          <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+      <Card className="gap-2 border-dashed py-2">
+        <CardHeader className="px-3 pb-0">
+          <div className="text-muted-foreground text-[9px] font-medium tracking-wide uppercase">
             {mealTypeLabels[mealType]}
           </div>
         </CardHeader>
-        <CardContent className="pb-2">
-          <Body variant="muted">No meal selected</Body>
+        <CardContent className="px-3 pb-1">
+          <Body variant="muted" className="text-xs">
+            No meal selected
+          </Body>
         </CardContent>
-        <CardFooter className="pt-1">
-          <Button variant="outline" size="sm" onClick={handleAddMeal} disabled={isCreating}>
+        <CardFooter className="px-3 pt-0">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={handleAddMeal}
+            disabled={isCreating}
+          >
             {isCreating ? 'Adding...' : 'Add meal'}
           </Button>
         </CardFooter>

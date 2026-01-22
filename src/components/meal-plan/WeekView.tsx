@@ -115,7 +115,7 @@ export function WeekView({
           </Body>
         )}
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
         {weekDates.map((date) => (
           <DayColumn
             key={date}

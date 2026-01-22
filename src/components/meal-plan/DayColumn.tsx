@@ -62,16 +62,17 @@ export function DayColumn({
   })
 
   return (
-    <div
-      className={cn(
-        'flex min-w-[140px] flex-col gap-2 rounded-lg p-2',
-        isToday && 'bg-primary/5 ring-primary/30 ring-1',
-      )}
-    >
-      <Heading variant="h4" className={cn('text-center text-sm', isToday && 'text-primary')}>
+    <div className="flex min-w-[120px] flex-col gap-1.5">
+      <Heading
+        variant="h4"
+        className={cn(
+          'text-center text-xs',
+          isToday && 'text-primary bg-primary/10 rounded py-0.5 font-bold',
+        )}
+      >
         {formatDayHeader(date)}
       </Heading>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1.5">
         {slots.map((item) =>
           item.type === 'filled' ? (
             <MealCard
@@ -97,9 +98,11 @@ export function DayColumn({
           ),
         )}
         {slots.length === 0 && (
-          <Card>
-            <CardContent className="flex items-center justify-center">
-              <Body variant="muted">No meal planned</Body>
+          <Card className="gap-2 py-2">
+            <CardContent className="flex items-center justify-center px-3">
+              <Body variant="muted" className="text-xs">
+                No meal planned
+              </Body>
             </CardContent>
           </Card>
         )}
