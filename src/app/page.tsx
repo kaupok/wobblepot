@@ -1,7 +1,10 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import { CheckCircle2 } from 'lucide-react'
 import { Heading, Body } from '@/components/ui/typography'
-import { serverEnv, getServerBaseURL } from '@/lib/env'
+import { Button } from '@/components/ui/button'
+import { getServerBaseURL } from '@/lib/env'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
 import {
@@ -67,10 +70,34 @@ export default async function Home() {
   // Landing page for unauthenticated users
   if (!session) {
     return (
-      <div className="grid min-h-[calc(100vh-4rem)] place-items-center">
-        <main className="flex flex-col items-center gap-8">
-          <Heading>{serverEnv.NEXT_PUBLIC_APP_NAME}</Heading>
-          <Body variant="muted">Get started by signing in or creating an account</Body>
+      <div className="grid min-h-[calc(100vh-4rem)] place-items-center px-4">
+        <main className="flex max-w-2xl flex-col items-center gap-8 text-center">
+          <div className="flex flex-col gap-4">
+            <Heading>Meal planning for busy families</Heading>
+            <Body variant="lead">
+              AI-powered weekly meal plans tailored to your household&apos;s preferences, dietary
+              needs, and what&apos;s already in your pantry.
+            </Body>
+          </div>
+
+          <Button asChild size="lg">
+            <Link href="/sign-up">Get started - it&apos;s free</Link>
+          </Button>
+
+          <ul className="flex flex-col gap-3 text-left">
+            <li className="flex items-center gap-2">
+              <CheckCircle2 className="text-primary h-5 w-5 shrink-0" />
+              <Body>Personalized for your household</Body>
+            </li>
+            <li className="flex items-center gap-2">
+              <CheckCircle2 className="text-primary h-5 w-5 shrink-0" />
+              <Body>Smart shopping lists</Body>
+            </li>
+            <li className="flex items-center gap-2">
+              <CheckCircle2 className="text-primary h-5 w-5 shrink-0" />
+              <Body>Tracks what you have on hand</Body>
+            </li>
+          </ul>
         </main>
       </div>
     )
