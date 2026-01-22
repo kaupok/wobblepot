@@ -8,9 +8,13 @@ import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { RegenerateModal } from '@/components/meal-plan/RegenerateModal'
 import { MealLibraryModal } from '@/components/meal-plan/MealLibraryModal'
-import { computeMealAvailability } from '@/components/meal-plan/AvailabilityIndicator'
+import {
+  computeMealAvailability,
+  AvailabilityIndicator,
+} from '@/components/meal-plan/AvailabilityIndicator'
 import { IngredientList } from '@/components/meal-plan/IngredientList'
 import { NutritionSummary } from '@/components/meal-plan/NutritionSummary'
+import { PreparationTips } from './PreparationTips'
 import type { MealData, PantryIngredient } from '@/components/meal-plan/types'
 import type { MealType } from '@/generated/prisma/enums'
 
@@ -41,6 +45,11 @@ export function TomorrowMealCard({
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
   const [isLibraryOpen, setIsLibraryOpen] = useState(false)
   const [togglingIngredientIds, setTogglingIngredientIds] = useState<Set<string>>(new Set())
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [tips, setTips] = useState<string | null>(null)
+  const [isLoadingTips, setIsLoadingTips] = useState(false)
+  const [tipsError, setTipsError] = useState<string | null>(null)
+  const [isTipsExpanded, setIsTipsExpanded] = useState(false)
 
   const availability = useMemo(() => {
     if (!meal) return null
@@ -90,6 +99,41 @@ export function TomorrowMealCard({
     [router],
   )
 
+  const fetchTips = useCallback(async () => {
+    setIsLoadingTips(true)
+    setTipsError(null)
+    setIsTipsExpanded(true)
+
+    try {
+      const response = await fetch(
+        `/api/meal-plans/${planId}/entries/${entryId}/preparation-tips`,
+        {
+          method: 'POST',
+        },
+      )
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Couldn't generate tips")
+      }
+
+      const data = await response.json()
+      setTips(data.tips)
+    } catch (error) {
+      setTipsError(error instanceof Error ? error.message : "Couldn't generate tips. Try again.")
+    } finally {
+      setIsLoadingTips(false)
+    }
+  }, [planId, entryId])
+
+  function handleHowToPrepare() {
+    if (tips) {
+      setIsTipsExpanded((prev) => !prev)
+    } else {
+      fetchTips()
+    }
+  }
+
   // Empty state - no meal planned
   if (!meal) {
     return (
@@ -122,7 +166,8 @@ export function TomorrowMealCard({
   return (
     <>
       <Card>
-        <CardHeader className="pb-0">
+        <CardHeader className={isExpanded ? 'pb-0' : 'pb-4'}>
+          {/* Top row: Meal type label + Swap button (matching main's new layout) */}
           <div className="flex items-center justify-between">
             <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
               {mealTypeLabels[mealType]}
@@ -136,6 +181,8 @@ export function TomorrowMealCard({
               Swap
             </Button>
           </div>
+
+          {/* Meal info */}
           <CardTitle className="text-base leading-tight font-semibold">{meal.name}</CardTitle>
           {meal.nutrition && <NutritionSummary nutrition={meal.nutrition} compact />}
           <div className="flex flex-wrap items-center gap-1.5">
@@ -148,18 +195,75 @@ export function TomorrowMealCard({
               </span>
             )}
           </div>
+
+          {/* Collapsed view: Show availability badge and Details button */}
+          {!isExpanded && (
+            <div className="mt-3 flex flex-col gap-3">
+              {availability && (
+                <div className="flex justify-center">
+                  <AvailabilityIndicator availability={availability} />
+                </div>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsExpanded(true)}
+                className="w-full"
+              >
+                Details
+              </Button>
+            </div>
+          )}
         </CardHeader>
 
-        <div className="px-6 pt-4 pb-6">
-          <IngredientList
-            components={meal.components}
-            householdSize={householdSize}
-            pantryIngredients={pantryIngredients}
-            onToggleAvailability={handleToggleAvailability}
-            togglingIds={togglingIngredientIds}
-            availability={availability}
-          />
-        </div>
+        {/* Expanded view: Ingredients list and prep tips */}
+        {isExpanded && (
+          <div className="flex flex-col gap-4 px-6 pt-4 pb-6">
+            <IngredientList
+              components={meal.components}
+              householdSize={householdSize}
+              pantryIngredients={pantryIngredients}
+              onToggleAvailability={handleToggleAvailability}
+              togglingIds={togglingIngredientIds}
+              availability={availability}
+            />
+
+            {/* Prep tips section */}
+            <div className="bg-muted/50 flex flex-col items-center justify-center gap-4 rounded-lg p-4">
+              {isTipsExpanded ? (
+                <div className="w-full">
+                  <PreparationTips
+                    tips={tips}
+                    isLoading={isLoadingTips}
+                    error={tipsError}
+                    onRetry={fetchTips}
+                  />
+                  {tips && (
+                    <div className="mt-3 flex justify-center">
+                      <Button variant="ghost" size="sm" onClick={() => setIsTipsExpanded(false)}>
+                        Hide tips
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Button variant="outline" size="sm" onClick={handleHowToPrepare}>
+                  How to prepare
+                </Button>
+              )}
+            </div>
+
+            {/* Hide button to collapse */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsExpanded(false)}
+              className="w-full"
+            >
+              Hide
+            </Button>
+          </div>
+        )}
       </Card>
       <RegenerateModal
         open={isRegenerateModalOpen}
