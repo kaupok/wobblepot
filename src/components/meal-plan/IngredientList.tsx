@@ -26,31 +26,24 @@ interface IngredientListProps {
 /**
  * Format quantity for display in meal detail view.
  *
- * Note: Quantities are stored in grams for all ingredients.
- * When defaultUnit is 'piece', we convert using gramsPerPiece.
+ * Quantities are stored in native units (pieces for piece-based ingredients,
+ * grams for weight-based ingredients). No conversion needed.
  */
 function formatQuantity(
-  quantityPerServingInGrams: number,
+  quantityPerServing: number,
   householdSize: number,
   unit: 'g' | 'piece',
-  gramsPerPiece: number | null | undefined,
 ): string {
-  const totalQuantityInGrams = quantityPerServingInGrams * householdSize
+  const totalQuantity = quantityPerServing * householdSize
 
   if (unit === 'piece') {
-    // Convert grams to pieces
-    if (gramsPerPiece && gramsPerPiece > 0) {
-      const pieces = totalQuantityInGrams / gramsPerPiece
-      // Round to one decimal for display, remove .0 for whole numbers
-      const rounded = Math.round(pieces * 10) / 10
-      return rounded % 1 === 0 ? String(Math.floor(rounded)) : rounded.toFixed(1)
-    }
-    // Fallback: if no gramsPerPiece, show as grams
-    return `${Math.round(totalQuantityInGrams)}g`
+    // Quantity is already in pieces
+    const rounded = Math.round(totalQuantity * 10) / 10
+    return rounded % 1 === 0 ? String(Math.floor(rounded)) : rounded.toFixed(1)
   }
 
   // For grams, round to nearest integer and add unit
-  return `${Math.round(totalQuantityInGrams)}g`
+  return `${Math.round(totalQuantity)}g`
 }
 
 export function IngredientList({
@@ -104,7 +97,6 @@ export function IngredientList({
         comp.quantityPerServing,
         householdSize,
         comp.ingredient.defaultUnit,
-        comp.ingredient.gramsPerPiece,
       )
       return `${comp.ingredient.name} (${qty})`
     })
@@ -158,7 +150,6 @@ export function IngredientList({
                   comp.quantityPerServing,
                   householdSize,
                   comp.ingredient.defaultUnit,
-                  comp.ingredient.gramsPerPiece,
                 )}
               </span>
             </Li>

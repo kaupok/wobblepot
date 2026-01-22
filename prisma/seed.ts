@@ -192,13 +192,13 @@ export const baseIngredients = [
     subcategory: 'eggs',
     proteinType: 'eggs',
     defaultUnit: 'piece',
+    gramsPerPiece: 50, // 1 medium egg ≈ 50g
     allergens: ['eggs'],
     calories: 155,
     protein: 13,
     carbs: 1.1,
     fat: 11,
     fiber: 0,
-    gramsPerPiece: 50,
   },
 
   // ============================================
@@ -269,6 +269,7 @@ export const baseIngredients = [
     category: 'carb',
     subcategory: 'root',
     defaultUnit: 'g',
+    gramsPerPiece: 150, // 1 medium potato ≈ 150g
     allergens: [],
     calories: 77,
     protein: 2,
@@ -281,6 +282,7 @@ export const baseIngredients = [
     category: 'carb',
     subcategory: 'root',
     defaultUnit: 'g',
+    gramsPerPiece: 130, // 1 medium sweet potato ≈ 130g
     allergens: [],
     calories: 86,
     protein: 1.6,
@@ -370,6 +372,7 @@ export const baseIngredients = [
     category: 'vegetable',
     subcategory: 'root',
     defaultUnit: 'g',
+    gramsPerPiece: 60, // 1 medium carrot ≈ 60g
     allergens: [],
     calories: 41,
     protein: 0.9,
@@ -394,6 +397,7 @@ export const baseIngredients = [
     category: 'vegetable',
     subcategory: 'fruit-vegetable',
     defaultUnit: 'g',
+    gramsPerPiece: 120, // 1 medium tomato ≈ 120g
     allergens: [],
     calories: 18,
     protein: 0.9,
@@ -402,10 +406,23 @@ export const baseIngredients = [
     fiber: 1.2,
   },
   {
+    name: 'canned diced tomatoes',
+    category: 'vegetable',
+    subcategory: 'fruit-vegetable',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 17,
+    protein: 0.8,
+    carbs: 3.5,
+    fat: 0.1,
+    fiber: 1.0,
+  },
+  {
     name: 'onion',
     category: 'vegetable',
     subcategory: 'allium',
     defaultUnit: 'g',
+    gramsPerPiece: 110, // 1 medium onion ≈ 110g
     allergens: [],
     calories: 40,
     protein: 1.1,
@@ -418,6 +435,7 @@ export const baseIngredients = [
     category: 'vegetable',
     subcategory: 'allium',
     defaultUnit: 'g',
+    gramsPerPiece: 5, // 1 garlic clove ≈ 5g
     allergens: [],
     calories: 149,
     protein: 6.4,
@@ -1645,6 +1663,45 @@ export const baseIngredients = [
     densityGPerMl: 1.0,
   },
   {
+    name: 'chicken broth',
+    category: 'condiment',
+    subcategory: 'liquid',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 5,
+    protein: 0.5,
+    carbs: 0.5,
+    fat: 0,
+    fiber: 0,
+    densityGPerMl: 1.0,
+  },
+  {
+    name: 'vegetable broth',
+    category: 'condiment',
+    subcategory: 'liquid',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 6,
+    protein: 0.2,
+    carbs: 1.1,
+    fat: 0,
+    fiber: 0,
+    densityGPerMl: 1.0,
+  },
+  {
+    name: 'beef broth',
+    category: 'condiment',
+    subcategory: 'liquid',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 8,
+    protein: 1.1,
+    carbs: 0.1,
+    fat: 0.3,
+    fiber: 0,
+    densityGPerMl: 1.0,
+  },
+  {
     name: 'miso paste',
     category: 'condiment',
     subcategory: 'paste',
@@ -1854,7 +1911,10 @@ async function seedIngredients() {
   for (const ingredient of ingredients) {
     await prisma.ingredient.upsert({
       where: { name: ingredient.name },
-      update: {},
+      update: {
+        // Update gramsPerPiece if it's defined in the seed data
+        gramsPerPiece: 'gramsPerPiece' in ingredient ? ingredient.gramsPerPiece : undefined,
+      },
       create: {
         name: ingredient.name,
         category: ingredient.category as Parameters<
@@ -2105,7 +2165,7 @@ export const baseMeals = [
     primaryProteinType: 'pork',
     components: [
       { ingredient: 'pork chop', quantity: 180 },
-      { ingredient: 'apple', quantity: 1 },
+      { ingredient: 'apple', quantity: 180 },
       { ingredient: 'butter', quantity: 15 },
       { ingredient: 'honey', quantity: 10 },
       { ingredient: 'rosemary', quantity: 2 },
@@ -3238,7 +3298,7 @@ export const baseMeals = [
     components: [
       { ingredient: 'chicken thigh', quantity: 180 },
       { ingredient: 'white rice', quantity: 100 },
-      { ingredient: 'orange', quantity: 0.6 },
+      { ingredient: 'orange', quantity: 78 },
       { ingredient: 'soy sauce', quantity: 20 },
       { ingredient: 'honey', quantity: 20 },
       { ingredient: 'garlic', quantity: 5 },
