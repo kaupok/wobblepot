@@ -19,6 +19,8 @@ interface IngredientListProps {
   availability?: MealAvailability | null
   /** If true, hides checkboxes and missing ingredient styling (for completed/skipped meals) */
   hideAvailability?: boolean
+  /** If true, uses smaller typography for compact layouts */
+  compact?: boolean
 }
 
 /**
@@ -59,6 +61,7 @@ export function IngredientList({
   togglingIds,
   availability,
   hideAvailability = false,
+  compact = false,
 }: IngredientListProps) {
   // Build maps for availability and staple status
   const { availableIds, stapleIds } = useMemo(() => {
@@ -110,14 +113,14 @@ export function IngredientList({
   }, [stapleComponents, householdSize])
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className={cn('flex flex-col', compact ? 'gap-1.5' : 'gap-3')}>
       <div className="flex items-center gap-2">
-        <Body variant="small" className="font-semibold">
+        <Body variant="small" className={cn('font-semibold', compact && 'text-[10px]')}>
           Ingredients (serves {householdSize})
         </Body>
         {availability && <AvailabilityIndicator availability={availability} />}
       </div>
-      <Ul className="my-0 ml-4">
+      <Ul className={cn('my-0 ml-4', compact && 'text-[10px] leading-tight')}>
         {regularComponents.map((comp) => {
           const hasIt = availableIds ? availableIds.has(comp.ingredientId) : true
           const isMissing = !hasIt
@@ -140,7 +143,7 @@ export function IngredientList({
                   checked={hasIt}
                   onCheckedChange={(checked) => handleCheckedChange(comp.ingredientId, checked)}
                   disabled={isToggling}
-                  className="h-4 w-4"
+                  className={cn('h-4 w-4', compact && 'h-3 w-3')}
                   aria-label={`Mark ${comp.ingredient.name} as ${hasIt ? 'not available' : 'available'}`}
                 />
               )}
@@ -162,7 +165,11 @@ export function IngredientList({
           )
         })}
       </Ul>
-      {staplesLine && <Body variant="muted">{staplesLine}</Body>}
+      {staplesLine && (
+        <Body variant="muted" className={cn(compact && 'text-[10px]')}>
+          {staplesLine}
+        </Body>
+      )}
     </div>
   )
 }

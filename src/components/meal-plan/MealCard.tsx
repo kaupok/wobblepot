@@ -126,18 +126,25 @@ export function MealCard({
 
     return (
       <>
-        <Card>
-          <CardHeader className="pb-1">
-            <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+        <Card className="gap-2 py-2">
+          <CardHeader className="px-3 pb-0">
+            <div className="text-muted-foreground text-[9px] font-medium tracking-wide uppercase">
               {typeStyle.label}
             </div>
           </CardHeader>
-          <CardContent className="pb-2">
-            <Body variant="muted">No meal planned</Body>
+          <CardContent className="px-3 pb-1">
+            <Body variant="muted" className="text-xs">
+              No meal planned
+            </Body>
           </CardContent>
           {canEdit && (
-            <CardFooter className="pt-1">
-              <Button variant="outline" size="sm" onClick={() => setIsLibraryOpen(true)}>
+            <CardFooter className="px-3 pt-0">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setIsLibraryOpen(true)}
+              >
                 Add meal
               </Button>
             </CardFooter>
@@ -159,42 +166,53 @@ export function MealCard({
 
   return (
     <>
-      <Card>
-        <CardHeader className="pb-1">
-          <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+      <Card className="gap-2 py-2">
+        <CardHeader className="px-3 pb-0">
+          <div className="text-muted-foreground text-[9px] font-medium tracking-wide uppercase">
             {typeStyle.label}
           </div>
-          <CardTitle className="text-sm leading-tight font-semibold">{meal.name}</CardTitle>
+          <CardTitle className="text-xs leading-tight font-semibold">{meal.name}</CardTitle>
           {!isPast && shouldShowAvailability && availability && (
             <AvailabilityIndicator availability={availability} />
           )}
         </CardHeader>
-        <CardContent className="flex flex-col gap-2 pb-2">
-          <div className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
+        <CardContent className="flex flex-col gap-1.5 px-3 pb-1">
+          <div className="text-muted-foreground flex flex-wrap items-center gap-1 text-[10px]">
             {meal.timeMinutes && <span>{meal.timeMinutes} min</span>}
           </div>
           {!isReadOnly && isPast && (
             <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
           )}
           {isExpanded && (
-            <div className="mt-2 flex flex-col gap-4">
+            <div className="mt-1.5 flex flex-col gap-2">
               <IngredientList
                 components={meal.components}
                 householdSize={householdSize}
                 pantryIngredients={pantryIngredients}
                 hideAvailability={status === 'completed' || status === 'skipped'}
+                compact
               />
               {meal.nutrition && <NutritionSummary nutrition={meal.nutrition} compact />}
             </div>
           )}
         </CardContent>
-        <CardFooter className="gap-2 pt-1">
+        <CardFooter className="gap-1.5 px-3 pt-0">
           {!isReadOnly && !isPast && (
-            <Button variant="outline" size="sm" onClick={() => setIsRegenerateModalOpen(true)}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setIsRegenerateModalOpen(true)}
+            >
               Swap
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => setIsExpanded(!isExpanded)}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
             {isExpanded ? 'Hide' : 'Details'}
           </Button>
         </CardFooter>
