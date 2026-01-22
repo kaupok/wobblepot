@@ -84,11 +84,13 @@ export function RecipePreview({ recipe, onConfirm, onEdit, onBack }: RecipePrevi
 
     try {
       // Build the components array from matched ingredients
+      // convertedQuantity is already the total for the whole recipe (all servings),
+      // so we pass it directly as totalQuantity
       const components = recipe.ingredients
         .filter((i): i is MatchedIngredient => i.type === 'matched')
         .map((i) => ({
           ingredientId: i.ingredient.id,
-          totalQuantity: i.convertedQuantity * recipe.servings,
+          totalQuantity: i.convertedQuantity,
         }))
 
       const response = await fetch('/api/households/me/meals', {
@@ -210,7 +212,7 @@ export function RecipePreview({ recipe, onConfirm, onEdit, onBack }: RecipePrevi
                       <div className="flex flex-col gap-0.5">
                         <Body>{ingredient.ingredient.name}</Body>
                         <Body variant="muted">
-                          {Math.round(ingredient.convertedQuantity * 10) / 10}
+                          {Math.round((ingredient.convertedQuantity / recipe.servings) * 10) / 10}
                           {formatUnit(ingredient.ingredient.defaultUnit)} per serving
                         </Body>
                       </div>
