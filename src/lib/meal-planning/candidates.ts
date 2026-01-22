@@ -1,7 +1,37 @@
 import { prisma } from '@/lib/prisma'
-import { Allergen, IngredientCategory, MealType, ProteinType } from '@/generated/prisma/enums'
+import {
+  Allergen,
+  DietaryType,
+  IngredientCategory,
+  MealType,
+  ProteinType,
+} from '@/generated/prisma/enums'
 
 export const MAX_TIME_MINUTES = 60
+
+/**
+ * Map dietary type to protein types that should be excluded.
+ * These are hard filters - meals with these protein types will never appear.
+ */
+export function getExcludedProteinTypes(dietaryType: DietaryType): ProteinType[] {
+  switch (dietaryType) {
+    case 'omnivore':
+      return []
+    case 'vegetarian':
+      // Exclude all meat, poultry, and fish
+      return ['poultry', 'beef', 'pork', 'lamb', 'fish']
+    case 'vegan':
+      // Exclude all animal products
+      return ['poultry', 'beef', 'pork', 'lamb', 'fish', 'eggs', 'dairy']
+    case 'pescatarian':
+      // Exclude meat/poultry but allow fish
+      return ['poultry', 'beef', 'pork', 'lamb']
+    default: {
+      const _exhaustive: never = dietaryType
+      throw new Error(`Unhandled dietary type: ${_exhaustive}`)
+    }
+  }
+}
 
 /**
  * Number of days to look back when excluding recently used meals.
@@ -14,6 +44,7 @@ export interface CandidateFilters {
   allergensToAvoid: Allergen[]
   excludedIngredientIds: string[]
   recentMealIds: string[]
+  dietaryType?: DietaryType
   primaryProteinType?: ProteinType
   maxTimeMinutes?: number
   householdId?: string
@@ -41,6 +72,9 @@ export interface CandidateMeal {
 export async function getCandidates(filters: CandidateFilters): Promise<CandidateMeal[]> {
   const maxTime = filters.maxTimeMinutes ?? MAX_TIME_MINUTES
   const favoriteMealIds = new Set(filters.favoriteMealIds ?? [])
+  const excludedProteinTypes = filters.dietaryType
+    ? getExcludedProteinTypes(filters.dietaryType)
+    : []
 
   const meals = await prisma.meal.findMany({
     where: {
@@ -52,6 +86,10 @@ export async function getCandidates(filters: CandidateFilters): Promise<Candidat
         ? { OR: [{ householdId: null }, { householdId: filters.householdId }] }
         : { householdId: null }),
       AND: [
+        // Hard filter: dietary type - exclude meals with protein types not allowed
+        ...(excludedProteinTypes.length > 0
+          ? [{ primaryProteinType: { notIn: excludedProteinTypes } }]
+          : []),
         // Hard filter: allergens - exclude meals with any allergen-containing ingredients
         ...(filters.allergensToAvoid.length > 0
           ? [
