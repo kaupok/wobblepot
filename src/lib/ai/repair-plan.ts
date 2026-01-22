@@ -42,6 +42,10 @@ export function repairPlan(
     indices.sort((a, b) => plan[a]!.date.getTime() - plan[b]!.date.getTime())
   }
 
+  // Track indices that were fixed by required protein repairs (wrong_protein).
+  // These slots must NOT be modified by subsequent repairs (e.g., consecutive_protein).
+  const protectedIndices = new Set<number>()
+
   // Process errors
   for (const error of errors) {
     const slotKey = `${error.date}:${error.mealType}`
@@ -57,6 +61,8 @@ export function repairPlan(
         )
         if (!replacement) return null
         swapEntry(plan, index, replacement, usedMealIds)
+        // Mark this index as protected - it satisfies a required protein constraint
+        protectedIndices.add(index)
         break
       }
 
@@ -76,35 +82,50 @@ export function repairPlan(
         const currentEntry = plan[index]!
         const prevEntry = plan[prevIndex]!
 
-        // Determine which entry to swap (prefer swapping current unless it's a required slot)
-        // We'll swap current and try to find a different protein type
+        // Check if this consecutive error is already resolved by a previous fix.
+        // This happens when wrong_protein changed one of the entries to a different protein.
         const currentProtein = currentEntry.meal?.primaryProteinType
-        if (!currentProtein) continue
+        const prevProtein = prevEntry.meal?.primaryProteinType
+        if (!currentProtein || !prevProtein) continue
+        if (currentProtein !== prevProtein) {
+          // Already resolved by a previous fix (e.g., wrong_protein)
+          continue
+        }
 
         // Get the pool for this meal type (uses byMealType if available, falls back to any)
         const mealTypePool = getPoolForMealType(candidatePools, error.mealType)
 
-        // Find a replacement with different protein type
-        const replacement = findReplacementWithDifferentProtein(
-          mealTypePool,
-          usedMealIds,
-          currentProtein,
-        )
+        // Try swapping current entry first (if not protected)
+        if (!protectedIndices.has(index)) {
+          const replacement = findReplacementWithDifferentProtein(
+            mealTypePool,
+            usedMealIds,
+            currentProtein,
+          )
+          if (replacement) {
+            swapEntry(plan, index, replacement, usedMealIds)
+            break
+          }
+        }
 
-        if (replacement) {
-          swapEntry(plan, index, replacement, usedMealIds)
-        } else {
-          // Try swapping the previous entry instead
-          const prevProtein = prevEntry.meal?.primaryProteinType
-          if (!prevProtein) continue
-
+        // Try swapping previous entry (if not protected)
+        if (!protectedIndices.has(prevIndex)) {
           const prevReplacement = findReplacementWithDifferentProtein(
             mealTypePool,
             usedMealIds,
             prevProtein,
           )
-          if (!prevReplacement) return null
-          swapEntry(plan, prevIndex, prevReplacement, usedMealIds)
+          if (prevReplacement) {
+            swapEntry(plan, prevIndex, prevReplacement, usedMealIds)
+            break
+          }
+        }
+
+        // Both entries are protected or no suitable replacements found
+        // If both are protected, the consecutive issue should have been resolved above
+        // If no replacements found, repair is not possible
+        if (!protectedIndices.has(index) || !protectedIndices.has(prevIndex)) {
+          return null
         }
         break
       }
