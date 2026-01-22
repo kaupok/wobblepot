@@ -79,9 +79,27 @@ export async function PATCH(request: Request) {
     )
   }
 
+  // Resolve excluded ingredient names to IDs for filtering
+  let excludedIngredientIds: string[] | undefined
+  if (parsed.data.excludedIngredients) {
+    const ingredients = await prisma.ingredient.findMany({
+      where: {
+        name: {
+          in: parsed.data.excludedIngredients,
+          mode: 'insensitive',
+        },
+      },
+      select: { id: true },
+    })
+    excludedIngredientIds = ingredients.map((i) => i.id)
+  }
+
   const preferences = await prisma.householdPreferences.update({
     where: { householdId: membership.household.id },
-    data: parsed.data,
+    data: {
+      ...parsed.data,
+      ...(excludedIngredientIds !== undefined && { excludedIngredientIds }),
+    },
   })
 
   return NextResponse.json(preferences)
