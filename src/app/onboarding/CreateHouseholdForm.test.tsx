@@ -282,10 +282,20 @@ describe('CreateHouseholdForm', () => {
   })
 
   describe('Form submission', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
     async function navigateToFinalStep() {
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      // Wait for transition guard to clear (100ms timeout in handleNext)
+      await vi.advanceTimersByTimeAsync(150)
     }
 
     it('submits form with all collected data', async () => {

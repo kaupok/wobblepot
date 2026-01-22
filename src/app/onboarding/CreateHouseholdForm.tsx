@@ -75,6 +75,9 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  // Guard against race condition when transitioning from step 3 to 4
+  // where Enter key event can inadvertently submit the form
+  const [justTransitioned, setJustTransitioned] = useState(false)
 
   // Step 1: Household name
   const [name, setName] = useState(`${userName}'s Household`)
@@ -146,7 +149,12 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
     }
 
     if (currentStep < TOTAL_STEPS) {
+      // Set transition guard to prevent race condition where Enter key
+      // from "Continue" button inadvertently submits the form after
+      // the submit button appears on step 4
+      setJustTransitioned(true)
       setCurrentStep(currentStep + 1)
+      setTimeout(() => setJustTransitioned(false), 100)
     }
   }
 
@@ -159,6 +167,12 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Ignore submissions triggered by race condition during step transition
+    if (justTransitioned) {
+      return
+    }
+
     setError('')
     setIsLoading(true)
 
