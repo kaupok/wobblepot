@@ -32,7 +32,7 @@ export function WeekTabs({
       <nav className="-mb-px flex gap-4" aria-label="Week navigation">
         {hasLastPlan && (
           <Link
-            href="/dashboard?week=last"
+            href="/meal-plan?week=last"
             className={tabClasses(activeWeek === 'last')}
             aria-current={activeWeek === 'last' ? 'page' : undefined}
           >
@@ -41,7 +41,7 @@ export function WeekTabs({
         )}
         {showCurrentTab && (
           <Link
-            href="/dashboard?week=current"
+            href="/meal-plan?week=current"
             className={tabClasses(activeWeek === 'current')}
             aria-current={activeWeek === 'current' ? 'page' : undefined}
           >
@@ -57,7 +57,7 @@ export function WeekTabs({
           </Link>
         )}
         <Link
-          href="/dashboard?week=next"
+          href="/meal-plan?week=next"
           className={tabClasses(activeWeek === 'next')}
           aria-current={activeWeek === 'next' ? 'page' : undefined}
         >

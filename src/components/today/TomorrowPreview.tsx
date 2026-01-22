@@ -27,7 +27,7 @@ export function TomorrowPreview({
         <div className="flex flex-col items-center gap-4 py-6 text-center">
           <Body variant="muted">No meals planned for tomorrow</Body>
           <Button variant="outline" asChild>
-            <Link href="/dashboard">View meal plan</Link>
+            <Link href="/meal-plan">View meal plan</Link>
           </Button>
         </div>
       </div>
@@ -50,7 +50,7 @@ export function TomorrowPreview({
         />
       ))}
       <Button variant="ghost" size="sm" className="self-start" asChild>
-        <Link href="/dashboard?week=current">View full week</Link>
+        <Link href="/meal-plan?week=current">View full week</Link>
       </Button>
     </div>
   )

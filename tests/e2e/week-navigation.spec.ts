@@ -13,7 +13,7 @@ test.describe('Dashboard week navigation', () => {
   test.describe('URL parameter handling', () => {
     test('navigating to ?week=current shows This week tab as active', async ({ page }) => {
       await signUpWithHousehold(page)
-      await page.goto('/dashboard?week=current')
+      await page.goto('/meal-plan?week=current')
 
       const activeTab = await getActiveWeekTab(page)
       expect(activeTab).toBe('current')
@@ -21,7 +21,7 @@ test.describe('Dashboard week navigation', () => {
 
     test('navigating to ?week=next shows Next week tab as active', async ({ page }) => {
       await signUpWithHousehold(page)
-      await page.goto('/dashboard?week=next')
+      await page.goto('/meal-plan?week=next')
 
       const activeTab = await getActiveWeekTab(page)
       expect(activeTab).toBe('next')
@@ -29,7 +29,7 @@ test.describe('Dashboard week navigation', () => {
 
     test('navigating without param defaults to This week (non-Sunday)', async ({ page }) => {
       await signUpWithHousehold(page)
-      await page.goto('/dashboard')
+      await page.goto('/meal-plan')
 
       // On non-Sunday, default should be 'current'
       // On Sunday, it would be 'next' but we can't control the date in E2E
@@ -41,7 +41,7 @@ test.describe('Dashboard week navigation', () => {
   test.describe('Tab visibility and state', () => {
     test('new user sees This week and Next week tabs (no Last week)', async ({ page }) => {
       await signUpWithHousehold(page)
-      await page.goto('/dashboard')
+      await page.goto('/meal-plan')
 
       const visibleTabs = await getVisibleWeekTabs(page)
 
@@ -53,7 +53,7 @@ test.describe('Dashboard week navigation', () => {
 
     test('tabs show No plan badge when week has no plan', async ({ page }) => {
       await signUpWithHousehold(page)
-      await page.goto('/dashboard')
+      await page.goto('/meal-plan')
 
       // New user has no plans, so both tabs should show "No plan" badge
       const visibleTabs = await getVisibleWeekTabs(page)
@@ -70,7 +70,7 @@ test.describe('Dashboard week navigation', () => {
 
     test('partial week shows days remaining indicator', async ({ page }) => {
       await signUpWithHousehold(page)
-      await page.goto('/dashboard')
+      await page.goto('/meal-plan')
 
       const visibleTabs = await getVisibleWeekTabs(page)
 
@@ -91,7 +91,7 @@ test.describe('Dashboard week navigation', () => {
   test.describe('Tab navigation', () => {
     test('clicking Next week tab updates URL to ?week=next', async ({ page }) => {
       await signUpWithHousehold(page)
-      await page.goto('/dashboard?week=current')
+      await page.goto('/meal-plan?week=current')
 
       await navigateToWeek(page, 'next')
 
@@ -102,7 +102,7 @@ test.describe('Dashboard week navigation', () => {
 
     test('clicking This week tab updates URL to ?week=current', async ({ page }) => {
       await signUpWithHousehold(page)
-      await page.goto('/dashboard?week=next')
+      await page.goto('/meal-plan?week=next')
 
       // Only navigate if This week tab is visible (not Sunday)
       const visibleTabs = await getVisibleWeekTabs(page)
@@ -119,7 +119,7 @@ test.describe('Dashboard week navigation', () => {
   test.describe('Empty state content by week', () => {
     test('This week empty state shows correct heading and button', async ({ page }) => {
       await signUpWithHousehold(page)
-      await page.goto('/dashboard?week=current')
+      await page.goto('/meal-plan?week=current')
 
       const visibleTabs = await getVisibleWeekTabs(page)
 
@@ -136,7 +136,7 @@ test.describe('Dashboard week navigation', () => {
 
     test('Next week empty state shows correct heading and button', async ({ page }) => {
       await signUpWithHousehold(page)
-      await page.goto('/dashboard?week=next')
+      await page.goto('/meal-plan?week=next')
 
       // Verify empty state heading
       await expect(page.getByRole('heading', { name: 'No meal plan for next week' })).toBeVisible()
@@ -147,7 +147,7 @@ test.describe('Dashboard week navigation', () => {
 
     test('partial week shows remaining days in description', async ({ page }) => {
       await signUpWithHousehold(page)
-      await page.goto('/dashboard?week=current')
+      await page.goto('/meal-plan?week=current')
 
       const visibleTabs = await getVisibleWeekTabs(page)
       const daysIndicator = await getCurrentWeekDaysIndicator(page)
@@ -171,13 +171,13 @@ test.describe('Dashboard week navigation', () => {
 
     test('generating plan removes No plan badge from tab', async ({ page }) => {
       await signUpWithHousehold(page)
-      await page.goto('/dashboard')
+      await page.goto('/meal-plan')
 
       const visibleTabs = await getVisibleWeekTabs(page)
       const targetWeek = visibleTabs.includes('current') ? 'current' : 'next'
 
       // Navigate to target week
-      await page.goto(`/dashboard?week=${targetWeek}`)
+      await page.goto(`/meal-plan?week=${targetWeek}`)
 
       // Verify No plan badge is shown before generation
       const hadNoPlanBefore = await tabHasNoPlanBadge(page, targetWeek)
@@ -193,14 +193,14 @@ test.describe('Dashboard week navigation', () => {
 
     test('switching tabs preserves generated plan', async ({ page }) => {
       await signUpWithHousehold(page)
-      await page.goto('/dashboard')
+      await page.goto('/meal-plan')
 
       const visibleTabs = await getVisibleWeekTabs(page)
       const targetWeek = visibleTabs.includes('current') ? 'current' : 'next'
       const otherWeek = targetWeek === 'current' ? 'next' : 'current'
 
       // Navigate to target week and generate plan
-      await page.goto(`/dashboard?week=${targetWeek}`)
+      await page.goto(`/meal-plan?week=${targetWeek}`)
       await generateMealPlan(page)
 
       // Verify week view is showing

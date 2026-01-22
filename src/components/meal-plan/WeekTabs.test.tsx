@@ -176,7 +176,7 @@ describe('WeekTabs', () => {
 
       expect(screen.getByRole('link', { name: /last week/i })).toHaveAttribute(
         'href',
-        '/dashboard?week=last',
+        '/meal-plan?week=last',
       )
     })
 
@@ -185,7 +185,7 @@ describe('WeekTabs', () => {
 
       expect(screen.getByRole('link', { name: /this week/i })).toHaveAttribute(
         'href',
-        '/dashboard?week=current',
+        '/meal-plan?week=current',
       )
     })
 
@@ -194,7 +194,7 @@ describe('WeekTabs', () => {
 
       expect(screen.getByRole('link', { name: /next week/i })).toHaveAttribute(
         'href',
-        '/dashboard?week=next',
+        '/meal-plan?week=next',
       )
     })
   })

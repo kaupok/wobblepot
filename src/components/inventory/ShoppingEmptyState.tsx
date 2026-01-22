@@ -44,7 +44,7 @@ const CONTENT: Record<
     heading: 'No meal plan yet',
     description: 'Generate a meal plan to see your shopping list.',
     buttonLabel: 'Generate plan',
-    buttonHref: '/dashboard',
+    buttonHref: '/meal-plan',
   },
   'all-purchased': {
     heading: 'All done!',
@@ -59,7 +59,7 @@ const CONTENT: Record<
     heading: 'Something went wrong',
     description: "We couldn't load your shopping list. Please try again.",
     buttonLabel: 'Go to dashboard',
-    buttonHref: '/dashboard',
+    buttonHref: '/meal-plan',
   },
 }
 

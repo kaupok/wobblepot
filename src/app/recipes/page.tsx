@@ -2,9 +2,9 @@ import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { MealsPageClient } from './MealsPageClient'
+import { RecipesPageClient } from './RecipesPageClient'
 
-export default async function MealsPage() {
+export default async function RecipesPage() {
   const session = await auth.api.getSession({
     headers: await headers(),
   })
@@ -19,5 +19,5 @@ export default async function MealsPage() {
     redirect('/')
   }
 
-  return <MealsPageClient />
+  return <RecipesPageClient />
 }

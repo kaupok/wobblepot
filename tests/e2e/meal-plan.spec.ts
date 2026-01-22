@@ -21,7 +21,7 @@ test.describe('Meal plan generation and viewing', () => {
     await signUpWithHousehold(page)
 
     // After onboarding, user is redirected to home which redirects to dashboard
-    await page.goto('/dashboard')
+    await page.goto('/meal-plan')
 
     // Verify empty state
     await expect(page.getByRole('heading', { name: 'No meal plan for this week' })).toBeVisible()
@@ -31,7 +31,7 @@ test.describe('Meal plan generation and viewing', () => {
 
   test('generate first meal plan', async ({ page }) => {
     await signUpWithHousehold(page)
-    await page.goto('/dashboard')
+    await page.goto('/meal-plan')
 
     // Generate the meal plan
     await generateMealPlan(page)
@@ -46,7 +46,7 @@ test.describe('Meal plan generation and viewing', () => {
 
   test('view meal details', async ({ page }) => {
     await signUpWithHousehold(page)
-    await page.goto('/dashboard')
+    await page.goto('/meal-plan')
     await generateMealPlan(page)
 
     // Get the first meal card and note its name
@@ -73,7 +73,7 @@ test.describe('Meal plan generation and viewing', () => {
 
   test('change meal status persists after refresh', async ({ page }) => {
     await signUpWithHousehold(page)
-    await page.goto('/dashboard')
+    await page.goto('/meal-plan')
     await generateMealPlan(page)
 
     // Get the first meal card
@@ -112,7 +112,7 @@ test.describe('Meal plan generation and viewing', () => {
 
   test('swap meal via AI alternatives', async ({ page }) => {
     await signUpWithHousehold(page)
-    await page.goto('/dashboard')
+    await page.goto('/meal-plan')
     await generateMealPlan(page)
 
     // Get the first meal card
@@ -147,7 +147,7 @@ test.describe('Meal plan generation and viewing', () => {
 
   test('swap meal via library browse', async ({ page }) => {
     await signUpWithHousehold(page)
-    await page.goto('/dashboard')
+    await page.goto('/meal-plan')
     await generateMealPlan(page)
 
     // Get a meal card (use second one if available to test different card)

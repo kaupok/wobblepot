@@ -37,7 +37,7 @@ export function TodayMeals({
           <div className="flex flex-col items-center gap-4 py-6 text-center">
             <Body variant="muted">No meals planned for today</Body>
             <Button variant="outline" asChild>
-              <Link href="/dashboard">View meal plan</Link>
+              <Link href="/meal-plan">View meal plan</Link>
             </Button>
           </div>
         </CardContent>

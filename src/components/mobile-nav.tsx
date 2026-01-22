@@ -58,24 +58,29 @@ export function MobileNav({ session }: MobileNavProps) {
           <SheetTitle>Navigation</SheetTitle>
         </SheetHeader>
         <nav className="mt-6 flex flex-col gap-4 px-4">
-          {session && (
-            <Link
-              href="/"
-              className="hover:text-primary text-sm font-medium transition-colors"
-              onClick={() => setOpen(false)}
-            >
-              Today
-            </Link>
-          )}
-          <Link
-            href="/dashboard"
-            className="hover:text-primary text-sm font-medium transition-colors"
-            onClick={() => setOpen(false)}
-          >
-            Meals
-          </Link>
           {session ? (
             <>
+              <Link
+                href="/"
+                className="hover:text-primary text-sm font-medium transition-colors"
+                onClick={() => setOpen(false)}
+              >
+                Today
+              </Link>
+              <Link
+                href="/meal-plan"
+                className="hover:text-primary text-sm font-medium transition-colors"
+                onClick={() => setOpen(false)}
+              >
+                Meal plan
+              </Link>
+              <Link
+                href="/recipes"
+                className="hover:text-primary text-sm font-medium transition-colors"
+                onClick={() => setOpen(false)}
+              >
+                My recipes
+              </Link>
               <Link
                 href="/shopping"
                 className="hover:text-primary text-sm font-medium transition-colors"

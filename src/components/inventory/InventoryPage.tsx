@@ -100,7 +100,7 @@ export function InventoryPage({
     <div className="container mx-auto max-w-6xl p-4">
       <div className="mb-4 flex items-center justify-between md:hidden">
         <Button variant="outline" size="sm" asChild>
-          <Link href="/dashboard">
+          <Link href="/meal-plan">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to plan
           </Link>
