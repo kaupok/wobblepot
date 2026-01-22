@@ -128,10 +128,10 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Calculate week context - count unique dates, not total entries
-    // (a day with breakfast + dinner = 1 day, not 2)
-    const uniqueDates = new Set(plan.entries.map((e) => toDateString(e.date)))
-    const daysCount = uniqueDates.size
+    // Calculate week context
+    // Current week: use actual days remaining (today through Sunday)
+    // Past/future weeks: always 7 (full week)
+    const daysCount = weekType === 'current' ? getDaysRemaining(household.timezone) : 7
     const isPartialWeek = daysCount < 7
 
     // Format response to match GeneratePlanResult type
