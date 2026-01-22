@@ -53,3 +53,9 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
           DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_STAGING }}
         run: pnpm prisma migrate deploy
+
+      - name: Seed database [staging]
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_STAGING }}
+        run: pnpm db:seed
