@@ -120,7 +120,7 @@ export function IngredientList({
         </Body>
         {availability && <AvailabilityIndicator availability={availability} />}
       </div>
-      <Ul className={cn('my-0 ml-4', compact && 'text-[10px] leading-tight')}>
+      <Ul className={cn('my-0 ml-0', compact && 'text-xs leading-tight')}>
         {regularComponents.map((comp) => {
           const hasIt = availableIds ? availableIds.has(comp.ingredientId) : true
           const isMissing = !hasIt

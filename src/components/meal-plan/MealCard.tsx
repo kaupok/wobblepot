@@ -142,7 +142,7 @@ export function MealCard({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 text-xs"
+                className="h-7 w-full text-xs"
                 onClick={() => setIsLibraryOpen(true)}
               >
                 Add meal
@@ -171,18 +171,27 @@ export function MealCard({
           <div className="text-muted-foreground text-[9px] font-medium tracking-wide uppercase">
             {typeStyle.label}
           </div>
-          <CardTitle className="text-xs leading-tight font-semibold">{meal.name}</CardTitle>
+          <div className="flex flex-wrap items-center gap-1">
+            <CardTitle className="text-xs leading-tight font-semibold">{meal.name}</CardTitle>
+            {!isReadOnly && !isPast && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 px-1.5 text-[10px]"
+                onClick={() => setIsRegenerateModalOpen(true)}
+              >
+                Swap
+              </Button>
+            )}
+            {meal.timeMinutes && (
+              <span className="text-muted-foreground text-[10px]">· {meal.timeMinutes} min</span>
+            )}
+          </div>
           {!isPast && shouldShowAvailability && availability && (
             <AvailabilityIndicator availability={availability} />
           )}
         </CardHeader>
         <CardContent className="flex flex-col gap-1.5 px-3 pb-1">
-          <div className="text-muted-foreground flex flex-wrap items-center gap-1 text-[10px]">
-            {meal.timeMinutes && <span>{meal.timeMinutes} min</span>}
-          </div>
-          {!isReadOnly && isPast && (
-            <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
-          )}
           {isExpanded && (
             <div className="mt-1.5 flex flex-col gap-2">
               <IngredientList
@@ -195,22 +204,15 @@ export function MealCard({
               {meal.nutrition && <NutritionSummary nutrition={meal.nutrition} compact />}
             </div>
           )}
-        </CardContent>
-        <CardFooter className="gap-1.5 px-3 pt-0">
-          {!isReadOnly && !isPast && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={() => setIsRegenerateModalOpen(true)}
-            >
-              Swap
-            </Button>
+          {!isReadOnly && isPast && (
+            <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
           )}
+        </CardContent>
+        <CardFooter className="flex-col gap-1.5 px-3 pt-0">
           <Button
             variant="outline"
             size="sm"
-            className="h-7 text-xs"
+            className="h-7 w-full text-xs"
             onClick={() => setIsExpanded(!isExpanded)}
           >
             {isExpanded ? 'Hide' : 'Details'}

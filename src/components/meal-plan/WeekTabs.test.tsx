@@ -73,28 +73,17 @@ describe('WeekTabs', () => {
   })
 
   describe('days badge display', () => {
-    it('does not show days badge when currentWeekDays is 7 (full week)', () => {
-      render(<WeekTabs {...defaultProps} currentWeekDays={7} />)
+    it('does not show days badge for partial week', () => {
+      render(<WeekTabs {...defaultProps} currentWeekDays={3} />)
 
+      // Days badge was removed - should not show day count
       expect(screen.queryByText(/\d+ days?\)/)).not.toBeInTheDocument()
     })
 
-    it('shows days badge with plural when currentWeekDays < 7 and > 1', () => {
-      render(<WeekTabs {...defaultProps} currentWeekDays={3} />)
+    it('does not show days badge for full week', () => {
+      render(<WeekTabs {...defaultProps} currentWeekDays={7} />)
 
-      expect(screen.getByText('(3 days)')).toBeInTheDocument()
-    })
-
-    it('shows days badge with singular when currentWeekDays is 1', () => {
-      render(<WeekTabs {...defaultProps} currentWeekDays={1} />)
-
-      expect(screen.getByText('(1 day)')).toBeInTheDocument()
-    })
-
-    it('shows days badge for 6 days', () => {
-      render(<WeekTabs {...defaultProps} currentWeekDays={6} />)
-
-      expect(screen.getByText('(6 days)')).toBeInTheDocument()
+      expect(screen.queryByText(/\d+ days?\)/)).not.toBeInTheDocument()
     })
   })
 
@@ -216,11 +205,12 @@ describe('WeekTabs', () => {
       expect(screen.getByRole('link', { name: /next week/i })).toBeInTheDocument()
     })
 
-    it('handles partial week with days badge and no plan badge together', () => {
+    it('handles partial week with no plan badge (no days badge shown)', () => {
       render(<WeekTabs {...defaultProps} currentWeekDays={3} hasCurrentPlan={false} />)
 
       const thisWeekTab = screen.getByRole('link', { name: /this week/i })
-      expect(thisWeekTab).toHaveTextContent('(3 days)')
+      // Days badge was removed - only "No plan" badge should be shown
+      expect(thisWeekTab).not.toHaveTextContent('(3 days)')
       expect(thisWeekTab).toHaveTextContent('No plan')
     })
   })
