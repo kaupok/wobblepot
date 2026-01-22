@@ -268,6 +268,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
         allergensToAvoid,
         excludedIngredientIds,
         recentMealIds,
+        dietaryType,
         householdId,
         favoriteMealIds,
       })
@@ -283,6 +284,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
       allergensToAvoid,
       excludedIngredientIds,
       recentMealIds,
+      dietaryType,
       primaryProteinType: 'fish',
       householdId,
       favoriteMealIds,
@@ -292,6 +294,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
       allergensToAvoid,
       excludedIngredientIds,
       recentMealIds,
+      dietaryType,
       primaryProteinType: 'legume',
       householdId,
       favoriteMealIds,

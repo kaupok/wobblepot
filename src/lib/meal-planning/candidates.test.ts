@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getCandidates, MAX_TIME_MINUTES, NO_REPEAT_DAYS } from './candidates'
+import {
+  getCandidates,
+  getExcludedProteinTypes,
+  MAX_TIME_MINUTES,
+  NO_REPEAT_DAYS,
+} from './candidates'
 import type { CandidateFilters } from './candidates'
-import { IngredientCategory, ProteinType } from '@/generated/prisma/enums'
+import { DietaryType, IngredientCategory, ProteinType } from '@/generated/prisma/enums'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -372,6 +377,90 @@ describe('getCandidates', () => {
     })
   })
 
+  describe('dietary type filter', () => {
+    it('does not filter by protein type for omnivore', async () => {
+      mockFindMany.mockResolvedValue([])
+
+      await getCandidates({ ...baseFilters, dietaryType: 'omnivore' })
+
+      const calledWith = mockFindMany.mock.calls[0]?.[0]
+      const andClause = calledWith?.where?.AND as unknown[]
+      // Should not contain protein type notIn filter for omnivore
+      expect(andClause).not.toContainEqual(
+        expect.objectContaining({
+          primaryProteinType: expect.objectContaining({ notIn: expect.anything() }),
+        }),
+      )
+    })
+
+    it('excludes meat, poultry, and fish for vegetarian', async () => {
+      mockFindMany.mockResolvedValue([])
+
+      await getCandidates({ ...baseFilters, dietaryType: 'vegetarian' })
+
+      expect(mockFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              { primaryProteinType: { notIn: ['poultry', 'beef', 'pork', 'lamb', 'fish'] } },
+            ]),
+          }),
+        }),
+      )
+    })
+
+    it('excludes all animal products for vegan', async () => {
+      mockFindMany.mockResolvedValue([])
+
+      await getCandidates({ ...baseFilters, dietaryType: 'vegan' })
+
+      expect(mockFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              {
+                primaryProteinType: {
+                  notIn: ['poultry', 'beef', 'pork', 'lamb', 'fish', 'eggs', 'dairy'],
+                },
+              },
+            ]),
+          }),
+        }),
+      )
+    })
+
+    it('excludes meat and poultry but allows fish for pescatarian', async () => {
+      mockFindMany.mockResolvedValue([])
+
+      await getCandidates({ ...baseFilters, dietaryType: 'pescatarian' })
+
+      expect(mockFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              { primaryProteinType: { notIn: ['poultry', 'beef', 'pork', 'lamb'] } },
+            ]),
+          }),
+        }),
+      )
+    })
+
+    it('does not filter by dietary type when not specified', async () => {
+      mockFindMany.mockResolvedValue([])
+
+      await getCandidates(baseFilters)
+
+      const calledWith = mockFindMany.mock.calls[0]?.[0]
+      const andClause = calledWith?.where?.AND as unknown[]
+      // Should not contain protein type notIn filter when dietary type not specified
+      expect(andClause).not.toContainEqual(
+        expect.objectContaining({
+          primaryProteinType: expect.objectContaining({ notIn: expect.anything() }),
+        }),
+      )
+    })
+  })
+
   describe('combined filters', () => {
     it('applies all filters together', async () => {
       mockFindMany.mockResolvedValue([])
@@ -487,5 +576,48 @@ describe('constants', () => {
 
   it('exports NO_REPEAT_DAYS as 14', () => {
     expect(NO_REPEAT_DAYS).toBe(14)
+  })
+})
+
+describe('getExcludedProteinTypes', () => {
+  it('returns empty array for omnivore', () => {
+    expect(getExcludedProteinTypes('omnivore')).toEqual([])
+  })
+
+  it('excludes meat, poultry, and fish for vegetarian', () => {
+    const excluded = getExcludedProteinTypes('vegetarian')
+    expect(excluded).toEqual(['poultry', 'beef', 'pork', 'lamb', 'fish'])
+    // Verify allowed types are not excluded
+    expect(excluded).not.toContain('eggs')
+    expect(excluded).not.toContain('dairy')
+    expect(excluded).not.toContain('legume')
+    expect(excluded).not.toContain('none')
+  })
+
+  it('excludes all animal products for vegan', () => {
+    const excluded = getExcludedProteinTypes('vegan')
+    expect(excluded).toEqual(['poultry', 'beef', 'pork', 'lamb', 'fish', 'eggs', 'dairy'])
+    // Verify allowed types are not excluded
+    expect(excluded).not.toContain('legume')
+    expect(excluded).not.toContain('none')
+  })
+
+  it('excludes meat and poultry but allows fish for pescatarian', () => {
+    const excluded = getExcludedProteinTypes('pescatarian')
+    expect(excluded).toEqual(['poultry', 'beef', 'pork', 'lamb'])
+    // Verify fish is allowed
+    expect(excluded).not.toContain('fish')
+    // Verify other allowed types
+    expect(excluded).not.toContain('eggs')
+    expect(excluded).not.toContain('dairy')
+    expect(excluded).not.toContain('legume')
+    expect(excluded).not.toContain('none')
+  })
+
+  it('handles all DietaryType values', () => {
+    const dietaryTypes: DietaryType[] = ['omnivore', 'vegetarian', 'vegan', 'pescatarian']
+    for (const type of dietaryTypes) {
+      expect(() => getExcludedProteinTypes(type)).not.toThrow()
+    }
   })
 })
