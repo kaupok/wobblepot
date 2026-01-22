@@ -7,9 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { useRouter } from 'next/navigation'
 import type { MealStatus } from '@/components/meal-plan/StatusSelect'
-import { RegenerateModal } from '@/components/meal-plan/RegenerateModal'
+import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
 import { PantryDeductionModal } from '@/components/meal-plan/PantryDeductionModal'
-import { MealLibraryModal } from '@/components/meal-plan/MealLibraryModal'
 import { PreparationTips } from './PreparationTips'
 import { MealStatusPrompt } from './MealStatusPrompt'
 import { computeMealAvailability } from '@/components/meal-plan/AvailabilityIndicator'
@@ -233,7 +232,7 @@ export function TodayMealCard({
   }
 
   const typeStyle = mealTypeStyles[mealType]
-  const [isLibraryOpen, setIsLibraryOpen] = useState(false)
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false)
 
   if (!meal) {
     return (
@@ -244,20 +243,22 @@ export function TodayMealCard({
               <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
                 {typeStyle.label}
               </div>
-              <Button variant="outline" size="sm" onClick={() => setIsLibraryOpen(true)}>
+              <Button variant="outline" size="sm" onClick={() => setIsSelectorOpen(true)}>
                 Add meal
               </Button>
             </div>
             <Body variant="muted">No meal planned</Body>
           </CardHeader>
         </Card>
-        <MealLibraryModal
-          open={isLibraryOpen}
-          onOpenChange={setIsLibraryOpen}
+        <MealSelectorModal
+          open={isSelectorOpen}
+          onOpenChange={setIsSelectorOpen}
           planId={planId}
           entryId={entryId}
           mealType={mealType}
+          householdSize={householdSize}
           onSwapComplete={() => router.refresh()}
+          mode="add"
         />
       </>
     )
@@ -394,7 +395,7 @@ export function TodayMealCard({
           </div>
         )}
       </Card>
-      <RegenerateModal
+      <MealSelectorModal
         open={isRegenerateModalOpen}
         onOpenChange={setIsRegenerateModalOpen}
         planId={planId}
@@ -403,6 +404,7 @@ export function TodayMealCard({
         householdSize={householdSize}
         currentMealName={meal?.name}
         onSwapComplete={() => router.refresh()}
+        mode="swap"
       />
       <PantryDeductionModal
         open={isDeductionModalOpen}

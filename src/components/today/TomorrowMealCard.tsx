@@ -6,8 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
-import { RegenerateModal } from '@/components/meal-plan/RegenerateModal'
-import { MealLibraryModal } from '@/components/meal-plan/MealLibraryModal'
+import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
 import {
   computeMealAvailability,
   AvailabilityIndicator,
@@ -42,8 +41,7 @@ export function TomorrowMealCard({
   pantryIngredients,
 }: TomorrowMealCardProps) {
   const router = useRouter()
-  const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
-  const [isLibraryOpen, setIsLibraryOpen] = useState(false)
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const [togglingIngredientIds, setTogglingIngredientIds] = useState<Set<string>>(new Set())
   const [isExpanded, setIsExpanded] = useState(false)
   const [tips, setTips] = useState<string | null>(null)
@@ -144,20 +142,22 @@ export function TomorrowMealCard({
               <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
                 {mealTypeLabels[mealType]}
               </div>
-              <Button variant="outline" size="sm" onClick={() => setIsLibraryOpen(true)}>
+              <Button variant="outline" size="sm" onClick={() => setIsSelectorOpen(true)}>
                 Add meal
               </Button>
             </div>
             <Body variant="muted">No meal planned</Body>
           </CardHeader>
         </Card>
-        <MealLibraryModal
-          open={isLibraryOpen}
-          onOpenChange={setIsLibraryOpen}
+        <MealSelectorModal
+          open={isSelectorOpen}
+          onOpenChange={setIsSelectorOpen}
           planId={planId}
           entryId={entryId}
           mealType={mealType}
+          householdSize={householdSize}
           onSwapComplete={() => router.refresh()}
+          mode="add"
         />
       </>
     )
@@ -175,7 +175,7 @@ export function TomorrowMealCard({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setIsRegenerateModalOpen(true)}
+              onClick={() => setIsSelectorOpen(true)}
               className="shrink-0"
             >
               Swap
@@ -265,15 +265,16 @@ export function TomorrowMealCard({
           </div>
         )}
       </Card>
-      <RegenerateModal
-        open={isRegenerateModalOpen}
-        onOpenChange={setIsRegenerateModalOpen}
+      <MealSelectorModal
+        open={isSelectorOpen}
+        onOpenChange={setIsSelectorOpen}
         planId={planId}
         entryId={entryId}
         mealType={mealType}
         householdSize={householdSize}
         currentMealName={meal.name}
         onSwapComplete={() => router.refresh()}
+        mode="swap"
       />
     </>
   )

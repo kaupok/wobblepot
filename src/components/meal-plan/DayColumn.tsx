@@ -94,6 +94,7 @@ export function DayColumn({
               planId={planId}
               date={item.slot.date}
               mealType={item.slot.mealType}
+              householdSize={householdSize}
             />
           ),
         )}
