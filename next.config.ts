@@ -8,6 +8,20 @@ const nextConfig: NextConfig = {
     // Type check during builds
     ignoreBuildErrors: false,
   },
+  async redirects() {
+    return [
+      {
+        source: '/household/household',
+        destination: '/household',
+        permanent: true,
+      },
+      {
+        source: '/household/members',
+        destination: '/household',
+        permanent: true,
+      },
+    ]
+  },
   async headers() {
     return [
       {

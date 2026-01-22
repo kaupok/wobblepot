@@ -89,7 +89,7 @@ export function MobileNav({ session }: MobileNavProps) {
                 Pantry & shopping
               </Link>
               <Link
-                href="/household/household"
+                href="/household"
                 className="hover:text-primary text-sm font-medium transition-colors"
                 onClick={() => setOpen(false)}
               >

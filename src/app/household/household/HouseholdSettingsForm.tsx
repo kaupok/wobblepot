@@ -14,17 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { TagInput, type TagInputRef } from '@/components/tag-input'
-import { HouseholdNav } from '@/components/household-nav'
 
 // Types matching Prisma enums
 type DietaryType = 'omnivore' | 'vegetarian' | 'vegan' | 'pescatarian'
@@ -199,185 +190,174 @@ export function HouseholdSettingsForm({
   }
 
   return (
-    <Card className="w-full max-w-2xl">
-      <CardHeader>
-        <CardTitle>
-          <Heading variant="h2">Household settings</Heading>
-        </CardTitle>
-        <CardDescription>
-          <Body variant="muted">Configure your household preferences for meal planning</Body>
-        </CardDescription>
-      </CardHeader>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-1">
+        <Heading variant="h2">Household settings</Heading>
+        <Body variant="muted">Configure your household preferences for meal planning</Body>
+      </div>
       <form onSubmit={handleSubmit}>
-        <CardContent>
-          <div className="flex flex-col gap-8">
-            <HouseholdNav />
-            {/* Section 1: Basic Info */}
-            <section className="flex flex-col gap-4">
-              <Heading variant="h4">Basic information</Heading>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="name">Household name</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  maxLength={100}
-                  required
-                  disabled={isLoading || !isOwner}
+        <div className="flex flex-col gap-8">
+          {/* Section 1: Basic Info */}
+          <section className="flex flex-col gap-4">
+            <Heading variant="h4">Basic information</Heading>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="name">Household name</Label>
+              <Input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={100}
+                required
+                disabled={isLoading || !isOwner}
+                aria-invalid={!!error}
+                aria-describedby={error ? 'form-error' : undefined}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="timezone">Timezone</Label>
+              <Select value={timezone} onValueChange={setTimezone} disabled={isLoading || !isOwner}>
+                <SelectTrigger
+                  id="timezone"
+                  className="w-full"
                   aria-invalid={!!error}
                   aria-describedby={error ? 'form-error' : undefined}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="timezone">Timezone</Label>
-                <Select
-                  value={timezone}
-                  onValueChange={setTimezone}
-                  disabled={isLoading || !isOwner}
                 >
-                  <SelectTrigger
-                    id="timezone"
-                    className="w-full"
-                    aria-invalid={!!error}
-                    aria-describedby={error ? 'form-error' : undefined}
-                  >
-                    <SelectValue placeholder="Select timezone" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TIMEZONES.map((tz) => (
-                      <SelectItem key={tz} value={tz}>
-                        {tz.replace(/_/g, ' ')}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {!isOwner && (
-                <Body variant="muted">Only the household owner can edit name and timezone.</Body>
-              )}
-            </section>
+                  <SelectValue placeholder="Select timezone" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIMEZONES.map((tz) => (
+                    <SelectItem key={tz} value={tz}>
+                      {tz.replace(/_/g, ' ')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {!isOwner && (
+              <Body variant="muted">Only the household owner can edit name and timezone.</Body>
+            )}
+          </section>
 
-            {/* Section 2: Dietary Preferences */}
-            <section className="flex flex-col gap-4">
-              <Heading variant="h4">Dietary preferences</Heading>
-              <div className="flex flex-col gap-2">
-                <Label>Dietary type</Label>
-                <RadioGroup
-                  value={dietaryType}
-                  onValueChange={(value) => setDietaryType(value as DietaryType | 'none')}
-                  disabled={isLoading}
-                  className="flex flex-wrap gap-4"
-                >
-                  {DIETARY_TYPES.map((type) => (
-                    <div key={type.value} className="flex items-center gap-2">
-                      <RadioGroupItem value={type.value} id={`dietary-${type.value}`} />
-                      <Label htmlFor={`dietary-${type.value}`} className="font-normal">
-                        {type.label}
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
+          {/* Section 2: Dietary Preferences */}
+          <section className="flex flex-col gap-4">
+            <Heading variant="h4">Dietary preferences</Heading>
+            <div className="flex flex-col gap-2">
+              <Label>Dietary type</Label>
+              <RadioGroup
+                value={dietaryType}
+                onValueChange={(value) => setDietaryType(value as DietaryType | 'none')}
+                disabled={isLoading}
+                className="flex flex-wrap gap-4"
+              >
+                {DIETARY_TYPES.map((type) => (
+                  <div key={type.value} className="flex items-center gap-2">
+                    <RadioGroupItem value={type.value} id={`dietary-${type.value}`} />
+                    <Label htmlFor={`dietary-${type.value}`} className="font-normal">
+                      {type.label}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label>Allergens to avoid</Label>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {ALLERGENS.map((allergen) => (
+                  <div key={allergen.value} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`allergen-${allergen.value}`}
+                      checked={allergensToAvoid.includes(allergen.value)}
+                      onCheckedChange={(checked) =>
+                        handleAllergenToggle(allergen.value, checked === true)
+                      }
+                      disabled={isLoading}
+                    />
+                    <Label htmlFor={`allergen-${allergen.value}`} className="font-normal">
+                      {allergen.label}
+                    </Label>
+                  </div>
+                ))}
               </div>
-              <div className="flex flex-col gap-2">
-                <Label>Allergens to avoid</Label>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {ALLERGENS.map((allergen) => (
-                    <div key={allergen.value} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`allergen-${allergen.value}`}
-                        checked={allergensToAvoid.includes(allergen.value)}
-                        onCheckedChange={(checked) =>
-                          handleAllergenToggle(allergen.value, checked === true)
-                        }
-                        disabled={isLoading}
-                      />
-                      <Label htmlFor={`allergen-${allergen.value}`} className="font-normal">
-                        {allergen.label}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="restrictions">Dietary restrictions</Label>
-                <TagInput
-                  ref={restrictionsRef}
-                  id="restrictions"
-                  value={restrictions}
-                  onChange={setRestrictions}
-                  placeholder="e.g., low sodium, halal"
-                  disabled={isLoading}
-                />
-                <Body variant="muted">Type a restriction and press Enter or click away to add</Body>
-              </div>
-            </section>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="restrictions">Dietary restrictions</Label>
+              <TagInput
+                ref={restrictionsRef}
+                id="restrictions"
+                value={restrictions}
+                onChange={setRestrictions}
+                placeholder="e.g., low sodium, halal"
+                disabled={isLoading}
+              />
+              <Body variant="muted">Type a restriction and press Enter or click away to add</Body>
+            </div>
+          </section>
 
-            {/* Section 3: Excluded Ingredients */}
-            <section className="flex flex-col gap-4">
-              <Heading variant="h4">Excluded ingredients</Heading>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="excluded">Ingredients to exclude</Label>
-                <TagInput
-                  ref={excludedIngredientsRef}
-                  id="excluded"
-                  value={excludedIngredients}
-                  onChange={setExcludedIngredients}
-                  placeholder="e.g., cilantro, mushrooms"
-                  disabled={isLoading}
-                />
-                <Body variant="muted">Ingredients you want to avoid in meal suggestions</Body>
-              </div>
-            </section>
+          {/* Section 3: Excluded Ingredients */}
+          <section className="flex flex-col gap-4">
+            <Heading variant="h4">Excluded ingredients</Heading>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="excluded">Ingredients to exclude</Label>
+              <TagInput
+                ref={excludedIngredientsRef}
+                id="excluded"
+                value={excludedIngredients}
+                onChange={setExcludedIngredients}
+                placeholder="e.g., cilantro, mushrooms"
+                disabled={isLoading}
+              />
+              <Body variant="muted">Ingredients you want to avoid in meal suggestions</Body>
+            </div>
+          </section>
 
-            {/* Section 4: Meal Scheduling */}
-            <section className="flex flex-col gap-4">
-              <Heading variant="h4">Meal scheduling</Heading>
-              <div className="flex flex-col gap-2">
-                <Label>Weekday meals to plan</Label>
-                <div className="flex gap-4">
-                  {MEAL_TYPES.map((meal) => (
-                    <div key={meal.value} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`weekday-${meal.value}`}
-                        checked={weekdayMealTypes.includes(meal.value)}
-                        onCheckedChange={(checked) =>
-                          handleMealTypeToggle(meal.value, checked === true, false)
-                        }
-                        disabled={isLoading}
-                      />
-                      <Label htmlFor={`weekday-${meal.value}`} className="font-normal">
-                        {meal.label}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
+          {/* Section 4: Meal Scheduling */}
+          <section className="flex flex-col gap-4">
+            <Heading variant="h4">Meal scheduling</Heading>
+            <div className="flex flex-col gap-2">
+              <Label>Weekday meals to plan</Label>
+              <div className="flex gap-4">
+                {MEAL_TYPES.map((meal) => (
+                  <div key={meal.value} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`weekday-${meal.value}`}
+                      checked={weekdayMealTypes.includes(meal.value)}
+                      onCheckedChange={(checked) =>
+                        handleMealTypeToggle(meal.value, checked === true, false)
+                      }
+                      disabled={isLoading}
+                    />
+                    <Label htmlFor={`weekday-${meal.value}`} className="font-normal">
+                      {meal.label}
+                    </Label>
+                  </div>
+                ))}
               </div>
-              <div className="flex flex-col gap-2">
-                <Label>Weekend meals to plan</Label>
-                <div className="flex gap-4">
-                  {MEAL_TYPES.map((meal) => (
-                    <div key={meal.value} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`weekend-${meal.value}`}
-                        checked={weekendMealTypes.includes(meal.value)}
-                        onCheckedChange={(checked) =>
-                          handleMealTypeToggle(meal.value, checked === true, true)
-                        }
-                        disabled={isLoading}
-                      />
-                      <Label htmlFor={`weekend-${meal.value}`} className="font-normal">
-                        {meal.label}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label>Weekend meals to plan</Label>
+              <div className="flex gap-4">
+                {MEAL_TYPES.map((meal) => (
+                  <div key={meal.value} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`weekend-${meal.value}`}
+                      checked={weekendMealTypes.includes(meal.value)}
+                      onCheckedChange={(checked) =>
+                        handleMealTypeToggle(meal.value, checked === true, true)
+                      }
+                      disabled={isLoading}
+                    />
+                    <Label htmlFor={`weekend-${meal.value}`} className="font-normal">
+                      {meal.label}
+                    </Label>
+                  </div>
+                ))}
               </div>
-            </section>
-          </div>
-        </CardContent>
-        <CardFooter className="pt-6">
-          <div className="flex w-full flex-col gap-4">
+            </div>
+          </section>
+
+          {/* Submit */}
+          <div className="flex flex-col gap-4 pt-2">
             {error && (
               <Body id="form-error" variant="small" className="text-destructive" role="alert">
                 {error}
@@ -387,8 +367,8 @@ export function HouseholdSettingsForm({
               {isLoading ? 'Saving...' : 'Save settings'}
             </Button>
           </div>
-        </CardFooter>
+        </div>
       </form>
-    </Card>
+    </div>
   )
 }
