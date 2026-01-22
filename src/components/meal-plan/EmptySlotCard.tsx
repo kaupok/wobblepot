@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
-import { MealLibraryModal } from './MealLibraryModal'
+import { MealSelectorModal } from './MealSelectorModal'
 import type { MealType } from '@/generated/prisma/enums'
 
 const mealTypeLabels: Record<MealType, string> = {
@@ -19,11 +19,12 @@ interface EmptySlotCardProps {
   planId: string
   date: string
   mealType: MealType
+  householdSize: number
 }
 
-export function EmptySlotCard({ planId, date, mealType }: EmptySlotCardProps) {
+export function EmptySlotCard({ planId, date, mealType, householdSize }: EmptySlotCardProps) {
   const router = useRouter()
-  const [isLibraryOpen, setIsLibraryOpen] = useState(false)
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [entryId, setEntryId] = useState<string | null>(null)
   // Track if a meal was selected (onSwapComplete called)
@@ -48,7 +49,7 @@ export function EmptySlotCard({ planId, date, mealType }: EmptySlotCardProps) {
 
       const data = await response.json()
       setEntryId(data.id)
-      setIsLibraryOpen(true)
+      setIsSelectorOpen(true)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to add meal slot')
     } finally {
@@ -61,7 +62,7 @@ export function EmptySlotCard({ planId, date, mealType }: EmptySlotCardProps) {
     router.refresh()
   }
 
-  async function handleLibraryClose(open: boolean) {
+  async function handleSelectorClose(open: boolean) {
     if (!open && entryId && !hasSelectedRef.current) {
       // Modal was closed without selecting a meal - delete the empty entry
       try {
@@ -73,7 +74,7 @@ export function EmptySlotCard({ planId, date, mealType }: EmptySlotCardProps) {
       }
       setEntryId(null)
     }
-    setIsLibraryOpen(open)
+    setIsSelectorOpen(open)
   }
 
   return (
@@ -102,13 +103,15 @@ export function EmptySlotCard({ planId, date, mealType }: EmptySlotCardProps) {
         </CardFooter>
       </Card>
       {entryId && (
-        <MealLibraryModal
-          open={isLibraryOpen}
-          onOpenChange={handleLibraryClose}
+        <MealSelectorModal
+          open={isSelectorOpen}
+          onOpenChange={handleSelectorClose}
           planId={planId}
           entryId={entryId}
           mealType={mealType}
+          householdSize={householdSize}
           onSwapComplete={handleSwapComplete}
+          mode="add"
         />
       )}
     </>

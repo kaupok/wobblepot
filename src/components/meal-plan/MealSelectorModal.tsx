@@ -14,11 +14,10 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Body } from '@/components/ui/typography'
 import { AlternativeCard } from './AlternativeCard'
-import { MealLibraryModal } from './MealLibraryModal'
 import type { AlternativeMeal, MealComponent, NutritionData, PantryIngredient } from './types'
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
 
-interface RegenerateModalProps {
+interface MealSelectorModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   planId: string
@@ -27,6 +26,8 @@ interface RegenerateModalProps {
   householdSize: number
   currentMealName?: string
   onSwapComplete: () => void
+  /** 'swap' = replacing existing meal (suggestions based on current meal), 'add' = empty slot (suggestions based on slot context) */
+  mode: 'swap' | 'add'
 }
 
 // Type for the /api/meals response
@@ -63,7 +64,7 @@ function AlternativeSkeleton() {
   )
 }
 
-export function RegenerateModal({
+export function MealSelectorModal({
   open,
   onOpenChange,
   planId,
@@ -72,40 +73,44 @@ export function RegenerateModal({
   householdSize,
   currentMealName,
   onSwapComplete,
-}: RegenerateModalProps) {
-  // AI alternatives state
-  const [alternatives, setAlternatives] = useState<AlternativeMeal[]>([])
-  const [isLoadingAlternatives, setIsLoadingAlternatives] = useState(false)
+  mode,
+}: MealSelectorModalProps) {
+  // AI suggestions state
+  const [suggestions, setSuggestions] = useState<AlternativeMeal[]>([])
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false)
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<AlternativeMeal[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
+  const [searchHasMore, setSearchHasMore] = useState(false)
+  const [searchTotal, setSearchTotal] = useState(0)
 
   // Shared state
   const [pantryIngredients, setPantryIngredients] = useState<PantryIngredient[]>([])
   const [error, setError] = useState<string | null>(null)
   const [selectingId, setSelectingId] = useState<string | null>(null)
-  const [isLibraryOpen, setIsLibraryOpen] = useState(false)
 
   // Track initial load
   const isInitialLoad = useRef(true)
 
   // Determine if we're in search mode
   const isSearchMode = searchQuery.trim().length > 0
-  const displayedMeals = isSearchMode ? searchResults : alternatives
-  const isLoading = isSearchMode ? isSearching : isLoadingAlternatives
+  const displayedMeals = isSearchMode ? searchResults : suggestions
+  const isLoading = isSearchMode ? isSearching : isLoadingSuggestions
 
-  // Fetch AI alternatives and pantry on modal open
+  // Fetch AI suggestions and pantry on modal open
   useEffect(() => {
     if (!open) {
       // Reset state when modal closes
-      setAlternatives([])
+      setSuggestions([])
       setPantryIngredients([])
       setSearchQuery('')
       setSearchResults([])
       setHasSearched(false)
+      setSearchHasMore(false)
+      setSearchTotal(0)
       setError(null)
       setSelectingId(null)
       isInitialLoad.current = true
@@ -113,25 +118,34 @@ export function RegenerateModal({
     }
 
     async function fetchData() {
-      setIsLoadingAlternatives(true)
+      setIsLoadingSuggestions(true)
       setError(null)
 
       try {
-        // Fetch alternatives and pantry in parallel
-        const [alternativesResponse, pantryResponse] = await Promise.all([
-          fetch(`/api/meal-plans/${planId}/entries/${entryId}/regenerate`, {
+        // Different endpoint based on mode:
+        // - swap: uses /regenerate which considers current meal
+        // - add: uses /suggestions which considers slot context
+        const suggestionsEndpoint =
+          mode === 'swap'
+            ? `/api/meal-plans/${planId}/entries/${entryId}/regenerate`
+            : `/api/meal-plans/${planId}/entries/${entryId}/suggestions`
+
+        // Fetch suggestions and pantry in parallel
+        const [suggestionsResponse, pantryResponse] = await Promise.all([
+          fetch(suggestionsEndpoint, {
             method: 'POST',
           }),
           fetch('/api/pantry'),
         ])
 
-        if (!alternativesResponse.ok) {
-          const data = await alternativesResponse.json()
-          throw new Error(data.error || 'Failed to fetch alternatives')
+        if (!suggestionsResponse.ok) {
+          const data = await suggestionsResponse.json()
+          throw new Error(data.error || 'Failed to fetch suggestions')
         }
 
-        const alternativesData = await alternativesResponse.json()
-        setAlternatives(alternativesData.alternatives)
+        const suggestionsData = await suggestionsResponse.json()
+        // Both endpoints return { alternatives: [...] } or { suggestions: [...] }
+        setSuggestions(suggestionsData.alternatives || suggestionsData.suggestions || [])
 
         // Parse pantry response
         if (pantryResponse.ok) {
@@ -145,22 +159,24 @@ export function RegenerateModal({
           setPantryIngredients(ingredients)
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch alternatives')
+        setError(err instanceof Error ? err.message : 'Failed to fetch suggestions')
       } finally {
-        setIsLoadingAlternatives(false)
+        setIsLoadingSuggestions(false)
         isInitialLoad.current = false
       }
     }
 
     fetchData()
-  }, [open, planId, entryId])
+  }, [open, planId, entryId, mode])
 
   // Search library meals with debounce
   const searchMeals = useCallback(
-    async (query: string) => {
+    async (query: string, offset: number = 0, append: boolean = false) => {
       if (!query.trim()) {
         setSearchResults([])
         setHasSearched(false)
+        setSearchHasMore(false)
+        setSearchTotal(0)
         return
       }
 
@@ -172,6 +188,7 @@ export function RegenerateModal({
         params.set('mealType', mealType)
         params.set('search', query.trim())
         params.set('limit', '20')
+        params.set('offset', String(offset))
 
         const response = await fetch(`/api/meals?${params.toString()}`)
 
@@ -194,8 +211,14 @@ export function RegenerateModal({
           nutrition: meal.nutrition,
         }))
 
-        setSearchResults(results)
+        if (append) {
+          setSearchResults((prev) => [...prev, ...results])
+        } else {
+          setSearchResults(results)
+        }
         setHasSearched(true)
+        setSearchHasMore(data.hasMore)
+        setSearchTotal(data.total)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to search meals')
       } finally {
@@ -239,50 +262,62 @@ export function RegenerateModal({
     }
   }
 
-  function handleBrowseLibrary() {
-    onOpenChange(false)
-    setIsLibraryOpen(true)
+  function handleLoadMore() {
+    searchMeals(searchQuery, searchResults.length, true)
   }
 
+  const title = mode === 'swap' ? 'Choose a different meal' : 'Add a meal'
+  const description =
+    mode === 'swap'
+      ? currentMealName
+        ? `Replace "${currentMealName}" with something else`
+        : 'Select one of these alternatives that match your preferences'
+      : 'Select a meal for this slot'
+
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Choose a different meal</DialogTitle>
-            <DialogDescription>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-4">
+          {/* Search input */}
+          <Input
+            type="search"
+            placeholder="Search meal library..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+
+          {/* Section header */}
+          {!isLoading && !error && (
+            <Body variant="small" className="text-muted-foreground">
               {isSearchMode
-                ? 'Search results from meal library'
-                : 'Select one of these alternatives that match your preferences'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-4">
-            {/* Search input */}
-            <Input
-              type="search"
-              placeholder="Search meal library..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+                ? `Search results${hasSearched ? ` (${searchTotal})` : ''}`
+                : 'Suggestions'}
+            </Body>
+          )}
 
-            {/* Loading state */}
-            {isLoading && (
-              <div className="grid gap-4 md:grid-cols-3">
-                <AlternativeSkeleton />
-                <AlternativeSkeleton />
-                <AlternativeSkeleton />
-              </div>
-            )}
+          {/* Loading state */}
+          {isLoading && (
+            <div className="grid gap-4 md:grid-cols-3">
+              <AlternativeSkeleton />
+              <AlternativeSkeleton />
+              <AlternativeSkeleton />
+            </div>
+          )}
 
-            {/* Error state */}
-            {error && !isLoading && (
-              <Body variant="muted" className="text-center">
-                {error}
-              </Body>
-            )}
+          {/* Error state */}
+          {error && !isLoading && (
+            <Body variant="muted" className="text-center">
+              {error}
+            </Body>
+          )}
 
-            {/* Results grid */}
-            {!isLoading && !error && displayedMeals.length > 0 && (
+          {/* Results grid */}
+          {!isLoading && !error && displayedMeals.length > 0 && (
+            <div className="flex flex-col gap-4">
               <div className="grid gap-4 md:grid-cols-3">
                 {displayedMeals.map((meal) => (
                   <AlternativeCard
@@ -295,42 +330,35 @@ export function RegenerateModal({
                   />
                 ))}
               </div>
-            )}
 
-            {/* Empty state for search */}
-            {!isLoading && !error && isSearchMode && hasSearched && searchResults.length === 0 && (
-              <Body variant="muted" className="text-center">
-                No meals found matching &quot;{searchQuery}&quot;
-              </Body>
-            )}
+              {/* Load more button for search results */}
+              {isSearchMode && searchHasMore && (
+                <div className="flex justify-center">
+                  <Button variant="outline" onClick={handleLoadMore} disabled={isSearching}>
+                    {isSearching
+                      ? 'Loading...'
+                      : `Load more (${searchResults.length} of ${searchTotal})`}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
 
-            {/* Empty state for alternatives */}
-            {!isLoading && !error && !isSearchMode && alternatives.length === 0 && (
-              <Body variant="muted" className="text-center">
-                No alternatives available
-              </Body>
-            )}
+          {/* Empty state for search */}
+          {!isLoading && !error && isSearchMode && hasSearched && searchResults.length === 0 && (
+            <Body variant="muted" className="text-center">
+              No meals found matching &quot;{searchQuery}&quot;
+            </Body>
+          )}
 
-            {/* Browse full library button - only show when not searching */}
-            {!isLoading && !isSearchMode && (
-              <div className="border-t pt-3">
-                <Button variant="outline" className="w-full" onClick={handleBrowseLibrary}>
-                  Browse full library
-                </Button>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-      <MealLibraryModal
-        open={isLibraryOpen}
-        onOpenChange={setIsLibraryOpen}
-        planId={planId}
-        entryId={entryId}
-        mealType={mealType}
-        currentMealName={currentMealName}
-        onSwapComplete={onSwapComplete}
-      />
-    </>
+          {/* Empty state for suggestions */}
+          {!isLoading && !error && !isSearchMode && suggestions.length === 0 && (
+            <Body variant="muted" className="text-center">
+              No suggestions available. Try searching for a meal.
+            </Body>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
