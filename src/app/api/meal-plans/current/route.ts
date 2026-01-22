@@ -128,8 +128,10 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Calculate week context
-    const daysCount = plan.entries.length
+    // Calculate week context - count unique dates, not total entries
+    // (a day with breakfast + dinner = 1 day, not 2)
+    const uniqueDates = new Set(plan.entries.map((e) => toDateString(e.date)))
+    const daysCount = uniqueDates.size
     const isPartialWeek = daysCount < 7
 
     // Format response to match GeneratePlanResult type

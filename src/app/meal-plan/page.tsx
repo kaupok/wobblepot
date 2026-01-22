@@ -38,7 +38,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   }
 
   const params = await searchParams
-  const currentWeekDays = getDaysRemaining()
+  const timezone = membership.household.timezone
+  const currentWeekDays = getDaysRemaining(timezone)
   const isCurrentlySunday = isSunday()
 
   // Determine active week from URL param

@@ -325,6 +325,32 @@ describe('dates utilities', () => {
       vi.setSystemTime(new Date(2025, 0, 19, 10, 0, 0)) // Sunday
       expect(getDaysRemaining()).toBe(1)
     })
+
+    it('respects timezone parameter when provided', () => {
+      // Set system time to Thursday midnight UTC (2025-01-16 00:00:00 UTC)
+      // In Europe/Tallinn (UTC+2), this is Thursday 02:00
+      // In America/Los_Angeles (UTC-8), this is still Wednesday 16:00
+      vi.setSystemTime(new Date(Date.UTC(2025, 0, 16, 0, 0, 0)))
+
+      // In Tallinn, it's Thursday -> 4 days remaining (Thu-Sun)
+      expect(getDaysRemaining('Europe/Tallinn')).toBe(4)
+
+      // In LA, it's still Wednesday -> 5 days remaining (Wed-Sun)
+      expect(getDaysRemaining('America/Los_Angeles')).toBe(5)
+    })
+
+    it('handles timezone around midnight correctly', () => {
+      // Set system time to Monday 01:00 UTC (2025-01-13 01:00:00 UTC)
+      // In Europe/Tallinn (UTC+2), this is Monday 03:00
+      // In America/Los_Angeles (UTC-8), this is still Sunday 17:00
+      vi.setSystemTime(new Date(Date.UTC(2025, 0, 13, 1, 0, 0)))
+
+      // In Tallinn, it's Monday -> 7 days remaining
+      expect(getDaysRemaining('Europe/Tallinn')).toBe(7)
+
+      // In LA, it's still Sunday -> 1 day remaining
+      expect(getDaysRemaining('America/Los_Angeles')).toBe(1)
+    })
   })
 
   describe('getRemainingWeekDates', () => {
