@@ -11,10 +11,15 @@ function date(dateStr: string): Date {
 }
 
 // Helper to create a valid plan entry
-function createEntry(dateStr: string, mealId: string, proteinType: ProteinType): HydratedPlanEntry {
+function createEntry(
+  dateStr: string,
+  mealId: string,
+  proteinType: ProteinType,
+  mealType: 'breakfast' | 'lunch' | 'dinner' = 'dinner',
+): HydratedPlanEntry {
   return {
     date: date(dateStr),
-    mealType: 'dinner',
+    mealType,
     mealId,
     meal: {
       id: mealId,
@@ -219,6 +224,92 @@ describe('validatePlan', () => {
       const duplicateErrors = result.errors.filter((e) => e.type === 'duplicate_meal')
       expect(duplicateErrors).toHaveLength(1)
       expect(duplicateErrors[0]!.date).toBe('2026-01-15')
+    })
+  })
+
+  describe('ignores balance rules for breakfast/lunch', () => {
+    it('allows consecutive same protein for breakfast', () => {
+      const plan: HydratedPlanEntry[] = [
+        createEntry('2026-01-12', 'meal-1', 'none', 'breakfast'),
+        createEntry('2026-01-13', 'meal-2', 'none', 'breakfast'), // Consecutive none - OK for breakfast
+        createEntry('2026-01-14', 'meal-3', 'none', 'breakfast'),
+        createEntry('2026-01-15', 'meal-4', 'none', 'breakfast'),
+        createEntry('2026-01-16', 'meal-5', 'none', 'breakfast'),
+        createEntry('2026-01-17', 'meal-6', 'none', 'breakfast'),
+        createEntry('2026-01-18', 'meal-7', 'none', 'breakfast'),
+      ]
+
+      const result = validatePlan(plan, [])
+
+      expect(result.valid).toBe(true)
+      expect(result.errors).toHaveLength(0)
+    })
+
+    it('allows duplicate meals for breakfast', () => {
+      const plan: HydratedPlanEntry[] = [
+        createEntry('2026-01-12', 'oatmeal', 'none', 'breakfast'),
+        createEntry('2026-01-13', 'oatmeal', 'none', 'breakfast'), // Duplicate - OK for breakfast
+        createEntry('2026-01-14', 'toast', 'none', 'breakfast'),
+        createEntry('2026-01-15', 'oatmeal', 'none', 'breakfast'), // Duplicate again - OK
+        createEntry('2026-01-16', 'toast', 'none', 'breakfast'),
+        createEntry('2026-01-17', 'oatmeal', 'none', 'breakfast'),
+        createEntry('2026-01-18', 'toast', 'none', 'breakfast'),
+      ]
+
+      const result = validatePlan(plan, [])
+
+      expect(result.valid).toBe(true)
+      expect(result.errors).toHaveLength(0)
+    })
+
+    it('allows consecutive same protein for lunch', () => {
+      const plan: HydratedPlanEntry[] = [
+        createEntry('2026-01-12', 'meal-1', 'poultry', 'lunch'),
+        createEntry('2026-01-13', 'meal-2', 'poultry', 'lunch'), // Consecutive poultry - OK for lunch
+        createEntry('2026-01-14', 'meal-3', 'poultry', 'lunch'),
+      ]
+
+      const result = validatePlan(plan, [])
+
+      expect(result.valid).toBe(true)
+      expect(result.errors).toHaveLength(0)
+    })
+
+    it('still enforces consecutive protein rule for dinner', () => {
+      const plan: HydratedPlanEntry[] = [
+        // Breakfast is fine with consecutive none
+        createEntry('2026-01-12', 'oats-1', 'none', 'breakfast'),
+        createEntry('2026-01-13', 'oats-2', 'none', 'breakfast'),
+        // But dinner must have variety
+        createEntry('2026-01-12', 'meal-1', 'poultry', 'dinner'),
+        createEntry('2026-01-13', 'meal-2', 'poultry', 'dinner'), // Error: consecutive poultry
+      ]
+
+      const result = validatePlan(plan, [])
+
+      expect(result.valid).toBe(false)
+      expect(result.errors).toHaveLength(1)
+      expect(result.errors[0]!.type).toBe('consecutive_protein')
+      expect(result.errors[0]!.mealType).toBe('dinner')
+    })
+
+    it('still enforces duplicate meal rule for dinner', () => {
+      const plan: HydratedPlanEntry[] = [
+        // Breakfast allows duplicates
+        createEntry('2026-01-12', 'oatmeal', 'none', 'breakfast'),
+        createEntry('2026-01-13', 'oatmeal', 'none', 'breakfast'),
+        // But dinner does not
+        createEntry('2026-01-12', 'dinner-1', 'poultry', 'dinner'),
+        createEntry('2026-01-13', 'dinner-2', 'beef', 'dinner'),
+        createEntry('2026-01-14', 'dinner-1', 'poultry', 'dinner'), // Error: duplicate dinner
+      ]
+
+      const result = validatePlan(plan, [])
+
+      expect(result.valid).toBe(false)
+      const duplicateErrors = result.errors.filter((e) => e.type === 'duplicate_meal')
+      expect(duplicateErrors).toHaveLength(1)
+      expect(duplicateErrors[0]!.mealType).toBe('dinner')
     })
   })
 
