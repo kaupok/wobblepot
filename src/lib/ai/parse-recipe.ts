@@ -77,18 +77,30 @@ function buildRecipeExtractionPrompt(recipeText: string): string {
 IMPORTANT GUIDELINES:
 1. Extract the recipe name, description, cooking time, servings, and ingredients
 2. For ingredients, extract the quantity, unit, and ingredient name separately
-3. Convert all quantities to standard units (g for weight, ml for volume, piece for countable items)
-4. Common conversions:
-   - 1 cup = 240ml (for liquids) or 120g (for flour) or 200g (for rice/grains)
-   - 1 tbsp = 15ml or 15g
-   - 1 tsp = 5ml or 5g
-   - 1 oz = 28g
-   - 1 lb = 454g
-5. For "piece" items (eggs, chicken breasts, onions), use "piece" as unit
-6. Determine meal types based on the recipe content (breakfast items like eggs/pancakes, lunch/dinner for mains)
-7. Mark as kid-friendly if: no spicy ingredients, familiar foods, mild flavors
-8. If servings aren't specified, default to 4
-9. If cooking time isn't specified, leave it as null
+3. Use these units: "g" for weight, "ml" for volume, "piece" for countable items, or keep original units ("cup", "tbsp", "tsp", "oz", "lb") if conversion would be inaccurate
+
+CRITICAL QUANTITY RULES:
+- For countable items (eggs, garlic cloves, chicken breasts, onions), use "piece" as unit with the COUNT as quantity
+  Example: "4 cloves garlic" → quantity: 4, unit: "piece", name: "garlic"
+  Example: "2 chicken breasts" → quantity: 2, unit: "piece", name: "chicken breast"
+- For herbs/leaves measured in cups, convert to grams (1 cup fresh herbs ≈ 20-30g)
+  Example: "2 cups basil leaves" → quantity: 50, unit: "g", name: "basil"
+- For liquids in cups, keep as cups OR convert (1 cup liquid = 240ml)
+- For weight measurements, always use grams: 1 oz = 28g, 1 lb = 454g
+- For small measurements: 1 tbsp = 15g, 1 tsp = 5g
+
+SANITY CHECKS - Typical per-serving quantities:
+- Herbs/spices: 5-20g per serving
+- Garlic: 1-3 cloves (5-15g) per serving
+- Main protein: 100-200g per serving
+- Vegetables: 50-150g per serving
+- Grains/pasta: 75-125g (dry) per serving
+If your calculated quantities exceed these by 5x+, you likely made a conversion error.
+
+4. Determine meal types based on the recipe content (breakfast items like eggs/pancakes, lunch/dinner for mains)
+5. Mark as kid-friendly if: no spicy ingredients, familiar foods, mild flavors
+6. If servings aren't specified, default to 4
+7. If cooking time isn't specified, leave it as null
 
 RECIPE TEXT:
 ${recipeText}
@@ -127,6 +139,24 @@ export async function parseRecipeText(recipeText: string): Promise<RecipeExtract
       )
     }
 
+    // Check for placeholder/invalid ingredient names
+    const invalidIngredients = object.ingredients.filter((ing) => {
+      const name = ing.name.toLowerCase().trim()
+      return (
+        name.includes('<unknown>') ||
+        name.includes('unknown') ||
+        name === '' ||
+        name === 'ingredient' ||
+        name === 'item'
+      )
+    })
+
+    if (invalidIngredients.length > 0 || object.ingredients.length === invalidIngredients.length) {
+      throw new RecipeParseError(
+        "Couldn't identify specific ingredients from this text. Please paste a recipe with a clear list of ingredients.",
+      )
+    }
+
     return object
   } catch (error) {
     if (error instanceof RecipeParseError) {
@@ -157,6 +187,8 @@ export interface MatchedIngredient {
   }
   /** Quantity converted to the ingredient's default unit */
   convertedQuantity: number
+  /** Warning if quantity seems unusually high */
+  quantityWarning?: string
 }
 
 export interface UnmatchedIngredient {
@@ -183,7 +215,41 @@ export interface ParsedRecipe {
   allMatched: boolean
 }
 
-const SIMILARITY_THRESHOLD = 0.3
+/**
+ * Minimum similarity score for fuzzy ingredient matching.
+ * Raised from 0.3 to 0.45 to prevent false positives like "baking powder" → "curry powder".
+ */
+const SIMILARITY_THRESHOLD = 0.45
+
+/**
+ * Maximum reasonable quantity per serving for any ingredient (in grams).
+ * Anything above this is likely a parsing error.
+ */
+const MAX_GRAMS_PER_SERVING = 500
+
+/**
+ * Default grams per piece when not specified in the database.
+ * Using 30g as a reasonable middle-ground (e.g., small tomato, egg, etc.)
+ * Much better than 100g which caused absurd quantities for small items like garlic.
+ */
+const DEFAULT_GRAMS_PER_PIECE = 30
+
+/**
+ * Category-specific cup-to-gram conversions.
+ * Different ingredient types have vastly different densities.
+ */
+const CUP_CONVERSIONS: Record<IngredientCategory | 'default', number> = {
+  spice: 30, // Herbs and spices are very light (1 cup basil ≈ 20-30g)
+  dairy: 240, // Liquids like milk (1 cup ≈ 240g)
+  carb: 180, // Rice, oats, pasta, etc. (1 cup ≈ 150-200g)
+  protein: 150, // Shredded/diced meat (1 cup ≈ 140-160g)
+  vegetable: 150, // Diced vegetables (1 cup ≈ 130-170g)
+  fruit: 150, // Diced fruit (1 cup ≈ 140-170g)
+  fat: 220, // Oils, butter (1 cup ≈ 220g)
+  legume: 180, // Beans, lentils (1 cup ≈ 170-190g)
+  condiment: 240, // Sauces, liquids (1 cup ≈ 240g)
+  default: 150, // Fallback for unknown categories
+}
 
 /**
  * Convert an extracted quantity and unit to the ingredient's default unit.
@@ -191,9 +257,9 @@ const SIMILARITY_THRESHOLD = 0.3
 function convertQuantity(
   quantity: number,
   fromUnit: string,
-  ingredient: { defaultUnit: Unit; gramsPerPiece: number | null },
+  ingredient: { defaultUnit: Unit; gramsPerPiece: number | null; category?: IngredientCategory },
 ): number {
-  const { defaultUnit, gramsPerPiece } = ingredient
+  const { defaultUnit, gramsPerPiece, category } = ingredient
 
   // Already in the right unit
   if (fromUnit === defaultUnit) {
@@ -212,7 +278,8 @@ function convertQuantity(
       grams = quantity
       break
     case 'piece':
-      grams = gramsPerPiece ? quantity * gramsPerPiece : quantity * 100 // fallback
+      // Use gramsPerPiece if available, otherwise use a reasonable default
+      grams = gramsPerPiece ? quantity * gramsPerPiece : quantity * DEFAULT_GRAMS_PER_PIECE
       break
     case 'tbsp':
       grams = quantity * 15
@@ -221,7 +288,8 @@ function convertQuantity(
       grams = quantity * 5
       break
     case 'cup':
-      grams = quantity * 240 // liquid approximation
+      // Use category-specific cup conversion for accuracy
+      grams = quantity * (category ? CUP_CONVERSIONS[category] : CUP_CONVERSIONS.default)
       break
     case 'oz':
       grams = quantity * 28
@@ -252,10 +320,22 @@ function convertQuantity(
 }
 
 /**
+ * Validate that a quantity is reasonable for a recipe.
+ * Returns true if the quantity seems reasonable, false if it's suspiciously high.
+ */
+function isReasonableQuantity(totalGrams: number, servings: number): boolean {
+  const gramsPerServing = totalGrams / servings
+  return gramsPerServing <= MAX_GRAMS_PER_SERVING
+}
+
+/**
  * Match extracted ingredients against the database using fuzzy search.
+ * @param extractedIngredients - The ingredients extracted by AI
+ * @param servings - Number of servings for quantity validation
  */
 export async function matchIngredients(
   extractedIngredients: ExtractedIngredient[],
+  servings: number,
 ): Promise<IngredientMatchResult[]> {
   const results: IngredientMatchResult[] = []
 
@@ -291,6 +371,19 @@ export async function matchIngredients(
       const match = matches[0]
       const convertedQuantity = convertQuantity(extracted.quantity, extracted.unit, match)
 
+      // Calculate total grams for validation (estimate if not in grams)
+      let totalGrams = convertedQuantity
+      if (match.defaultUnit === 'piece') {
+        totalGrams = convertedQuantity * (match.gramsPerPiece ?? DEFAULT_GRAMS_PER_PIECE)
+      }
+
+      // Check if quantity seems unreasonable
+      let quantityWarning: string | undefined
+      if (!isReasonableQuantity(totalGrams, servings)) {
+        const gramsPerServing = Math.round(totalGrams / servings)
+        quantityWarning = `Unusually high: ${gramsPerServing}g per serving. Please verify this amount.`
+      }
+
       results.push({
         type: 'matched',
         extractedName: extracted.name,
@@ -305,6 +398,7 @@ export async function matchIngredients(
           gramsPerPiece: match.gramsPerPiece,
         },
         convertedQuantity,
+        quantityWarning,
       })
     } else {
       results.push({
@@ -328,8 +422,8 @@ export async function parseAndMatchRecipe(recipeText: string): Promise<ParsedRec
   // Step 1: Extract structured data from text
   const extraction = await parseRecipeText(recipeText)
 
-  // Step 2: Match ingredients against database
-  const ingredientResults = await matchIngredients(extraction.ingredients)
+  // Step 2: Match ingredients against database (pass servings for validation)
+  const ingredientResults = await matchIngredients(extraction.ingredients, extraction.servings)
 
   // Step 3: Check if all ingredients matched
   const allMatched = ingredientResults.every((r) => r.type === 'matched')

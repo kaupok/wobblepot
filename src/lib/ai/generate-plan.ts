@@ -301,10 +301,20 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     }),
   ])
 
+  // Build protein-specific pools first
+  const fishPool = capPool(fishCandidates)
+  const legumePool = capPool(legumeCandidates)
+
+  // Exclude protein-specific pool meals from "any" pool to reserve them for required slots.
+  // This prevents the AI from using fish/legume meals for non-required slots, which would
+  // deplete them and cause repair to fail when fixing required protein slot violations.
+  const reservedMealIds = new Set([...fishPool.map((m) => m.id), ...legumePool.map((m) => m.id)])
+  const anyPool = capPool(dinnerCandidates.filter((m) => !reservedMealIds.has(m.id)))
+
   const candidatePools: CandidatePools = {
-    fish: capPool(fishCandidates),
-    legume: capPool(legumeCandidates),
-    any: capPool(dinnerCandidates),
+    fish: fishPool,
+    legume: legumePool,
+    any: anyPool,
     byMealType: candidatesByMealType,
   }
 
