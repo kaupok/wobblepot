@@ -9,6 +9,9 @@ import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 50
 const SIMILARITY_THRESHOLD = 0.3
+// Cap fuzzy search results to prevent loading too many meals into memory
+// This is generous enough for any realistic search pagination needs
+const FUZZY_SEARCH_CAP = 200
 
 interface FuzzyMealMatch {
   id: string
@@ -79,6 +82,7 @@ export async function GET(request: NextRequest) {
 
     // When search is provided, use fuzzy matching to get meal IDs
     // Searches both meal name AND ingredient names
+    // Limited to FUZZY_SEARCH_CAP results to prevent loading too many into memory
     let fuzzyMealMatches: FuzzyMealMatch[] | null = null
     if (search) {
       fuzzyMealMatches = await prisma.$queryRaw<FuzzyMealMatch[]>`
@@ -103,6 +107,7 @@ export async function GET(request: NextRequest) {
           )
         )
         ORDER BY similarity DESC
+        LIMIT ${FUZZY_SEARCH_CAP}
       `
     }
 
