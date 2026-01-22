@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { CardTitle } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
-import { CollapsibleMealCard } from './CollapsibleMealCard'
+import { TomorrowMealCard } from './TomorrowMealCard'
 import type { PlanEntry, PantryIngredient } from '@/components/meal-plan/types'
 
 interface TomorrowPreviewProps {
@@ -38,7 +38,7 @@ export function TomorrowPreview({
     <div className="flex flex-col gap-4">
       <CardTitle>Tomorrow</CardTitle>
       {entries.map((entry) => (
-        <CollapsibleMealCard
+        <TomorrowMealCard
           key={entry.id}
           entryId={entry.id}
           planId={planId}
@@ -46,7 +46,6 @@ export function TomorrowPreview({
           mealType={entry.mealType}
           householdSize={householdSize}
           pantryIngredients={pantryIngredients}
-          defaultExpanded={false}
         />
       ))}
       <Button variant="ghost" size="sm" className="self-start" asChild>
