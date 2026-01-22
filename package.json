@@ -25,6 +25,7 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
+    "db:validate": "npx tsx prisma/seed-validator.ts",
     "test:ai-selection": "npx tsx scripts/test-ai-selection.ts"
   },
   "engines": {
