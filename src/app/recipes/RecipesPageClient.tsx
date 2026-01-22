@@ -6,13 +6,12 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
-import { HouseholdNav } from '@/components/household-nav'
 import { MealForm } from '@/components/household/MealForm'
 import { MealList, type MealData } from '@/components/household/MealList'
 
 type ViewMode = 'list' | 'create' | 'edit'
 
-export function MealsPageClient() {
+export function RecipesPageClient() {
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [meals, setMeals] = useState<MealData[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -102,23 +101,23 @@ export function MealsPageClient() {
       <Card className="w-full max-w-2xl">
         <CardHeader>
           <CardTitle>
-            <Heading variant="h2">Our meals</Heading>
+            <Heading variant="h2">My recipes</Heading>
           </CardTitle>
           <CardDescription>
-            <Body variant="muted">Create and manage your household&apos;s custom meals</Body>
+            <Body variant="muted">Create and manage your household&apos;s custom recipes</Body>
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-6">
-            <HouseholdNav />
-
             <div className="flex items-center justify-between">
               <Body variant="muted">
-                {isLoading ? 'Loading...' : `${meals.length} meal${meals.length === 1 ? '' : 's'}`}
+                {isLoading
+                  ? 'Loading...'
+                  : `${meals.length} recipe${meals.length === 1 ? '' : 's'}`}
               </Body>
               <Button onClick={() => setViewMode('create')}>
                 <Plus className="mr-2 h-4 w-4" />
-                Add meal
+                Add recipe
               </Button>
             </div>
 

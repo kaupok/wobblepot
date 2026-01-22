@@ -132,7 +132,7 @@ describe('getValidReturnUrl', () => {
 
   describe('valid inputs', () => {
     it('returns valid relative path unchanged', () => {
-      expect(getValidReturnUrl('/dashboard')).toBe('/dashboard')
+      expect(getValidReturnUrl('/meal-plan')).toBe('/meal-plan')
     })
 
     it('returns nested paths unchanged', () => {

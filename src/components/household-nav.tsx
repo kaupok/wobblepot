@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils'
 const HOUSEHOLD_TABS = [
   { href: '/household/household', label: 'Household' },
   { href: '/household/members', label: 'Members' },
-  { href: '/household/meals', label: 'Our meals' },
 ]
 
 export function HouseholdNav() {
