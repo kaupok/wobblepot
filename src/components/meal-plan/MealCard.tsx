@@ -168,11 +168,10 @@ export function MealCard({
     <>
       <Card className="gap-2 py-2">
         <CardHeader className="px-3 pb-0">
-          <div className="text-muted-foreground text-[9px] font-medium tracking-wide uppercase">
-            {typeStyle.label}
-          </div>
-          <div className="flex flex-wrap items-center gap-1">
-            <CardTitle className="text-xs leading-tight font-semibold">{meal.name}</CardTitle>
+          <div className="flex items-center justify-between">
+            <div className="text-muted-foreground text-[9px] font-medium tracking-wide uppercase">
+              {typeStyle.label}
+            </div>
             {!isReadOnly && !isPast && (
               <Button
                 variant="ghost"
@@ -183,6 +182,9 @@ export function MealCard({
                 Swap
               </Button>
             )}
+          </div>
+          <div className="flex flex-wrap items-center gap-1">
+            <CardTitle className="text-xs leading-tight font-semibold">{meal.name}</CardTitle>
             {meal.timeMinutes && (
               <span className="text-muted-foreground text-[10px]">· {meal.timeMinutes} min</span>
             )}
