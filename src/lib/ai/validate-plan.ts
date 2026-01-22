@@ -42,41 +42,32 @@ export function validatePlan(
     }
   }
 
-  // Check 2: No consecutive days with same protein type (within same meal type)
-  // Group entries by meal type, then check consecutiveness within each group
-  const entriesByMealType = new Map<string, HydratedPlanEntry[]>()
-  for (const entry of hydratedPlan) {
-    const existing = entriesByMealType.get(entry.mealType) ?? []
-    existing.push(entry)
-    entriesByMealType.set(entry.mealType, existing)
-  }
+  // Check 2: No consecutive days with same protein type (dinner only)
+  // Per project spec: "Balance constraints via protein type slots (dinner only)"
+  const dinnerEntries = hydratedPlan.filter((e) => e.mealType === 'dinner')
+  const sortedDinnerEntries = [...dinnerEntries].sort((a, b) => a.date.getTime() - b.date.getTime())
 
-  for (const [mealType, entries] of entriesByMealType) {
-    // Sort by date within each meal type
-    const sorted = [...entries].sort((a, b) => a.date.getTime() - b.date.getTime())
+  for (let i = 0; i < sortedDinnerEntries.length - 1; i++) {
+    const current = sortedDinnerEntries[i]!
+    const next = sortedDinnerEntries[i + 1]!
 
-    for (let i = 0; i < sorted.length - 1; i++) {
-      const current = sorted[i]!
-      const next = sorted[i + 1]!
+    // Skip if either meal is null (will be caught by invalid_meal check)
+    if (!current.meal || !next.meal) continue
 
-      // Skip if either meal is null (will be caught by invalid_meal check)
-      if (!current.meal || !next.meal) continue
+    // Check if days are consecutive
+    const currentDay = current.date.getTime()
+    const nextDay = next.date.getTime()
+    const dayDiff = (nextDay - currentDay) / (1000 * 60 * 60 * 24)
 
-      // Check if days are consecutive
-      const currentDay = current.date.getTime()
-      const nextDay = next.date.getTime()
-      const dayDiff = (nextDay - currentDay) / (1000 * 60 * 60 * 24)
-
-      // Only check consecutive days (not same day with different meal types)
-      if (dayDiff === 1 && current.meal.primaryProteinType === next.meal.primaryProteinType) {
-        errors.push({
-          type: 'consecutive_protein',
-          date: toDateString(next.date),
-          mealType: next.mealType,
-          actual: next.meal.primaryProteinType,
-          message: `Consecutive ${next.meal.primaryProteinType} for ${mealType} on ${toDateString(current.date)} and ${toDateString(next.date)}`,
-        })
-      }
+    // Only check consecutive days
+    if (dayDiff === 1 && current.meal.primaryProteinType === next.meal.primaryProteinType) {
+      errors.push({
+        type: 'consecutive_protein',
+        date: toDateString(next.date),
+        mealType: next.mealType,
+        actual: next.meal.primaryProteinType,
+        message: `Consecutive ${next.meal.primaryProteinType} for dinner on ${toDateString(current.date)} and ${toDateString(next.date)}`,
+      })
     }
   }
 
@@ -92,16 +83,15 @@ export function validatePlan(
     }
   }
 
-  // Check 4: No duplicate meals (across all meal types)
-  const seenMealIds = new Set<string>()
-  const sortedEntries = [...hydratedPlan].sort((a, b) => {
-    const dateDiff = a.date.getTime() - b.date.getTime()
-    if (dateDiff !== 0) return dateDiff
-    return a.mealType.localeCompare(b.mealType)
-  })
+  // Check 4: No duplicate meals (dinner only)
+  // Breakfast/lunch can repeat (e.g., toast daily), but dinner needs variety
+  const seenDinnerMealIds = new Set<string>()
+  const sortedDinnerForDuplicates = [...dinnerEntries].sort(
+    (a, b) => a.date.getTime() - b.date.getTime(),
+  )
 
-  for (const entry of sortedEntries) {
-    if (entry.meal && seenMealIds.has(entry.mealId)) {
+  for (const entry of sortedDinnerForDuplicates) {
+    if (entry.meal && seenDinnerMealIds.has(entry.mealId)) {
       errors.push({
         type: 'duplicate_meal',
         date: toDateString(entry.date),
@@ -110,7 +100,7 @@ export function validatePlan(
       })
     }
     if (entry.meal) {
-      seenMealIds.add(entry.mealId)
+      seenDinnerMealIds.add(entry.mealId)
     }
   }
 
