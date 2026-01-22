@@ -52,22 +52,48 @@ describe('Home page component', () => {
     })
   })
 
-  it('renders the heading when not authenticated', async () => {
+  it('renders landing page heading when not authenticated', async () => {
     const { auth } = await import('@/lib/auth')
     vi.mocked(auth.api.getSession).mockResolvedValue(null)
 
     const component = await Home()
     render(component)
-    expect(screen.getByRole('heading', { name: 'TestApp' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Meal planning for busy families' }),
+    ).toBeInTheDocument()
   })
 
-  it('renders welcome message when not authenticated', async () => {
+  it('renders value proposition when not authenticated', async () => {
     const { auth } = await import('@/lib/auth')
     vi.mocked(auth.api.getSession).mockResolvedValue(null)
 
     const component = await Home()
     render(component)
-    expect(screen.getByText('Get started by signing in or creating an account')).toBeInTheDocument()
+    expect(
+      screen.getByText(/AI-powered weekly meal plans tailored to your household/),
+    ).toBeInTheDocument()
+  })
+
+  it('renders feature bullets when not authenticated', async () => {
+    const { auth } = await import('@/lib/auth')
+    vi.mocked(auth.api.getSession).mockResolvedValue(null)
+
+    const component = await Home()
+    render(component)
+    expect(screen.getByText('Personalized for your household')).toBeInTheDocument()
+    expect(screen.getByText('Smart shopping lists')).toBeInTheDocument()
+    expect(screen.getByText('Tracks what you have on hand')).toBeInTheDocument()
+  })
+
+  it('renders CTA button linking to sign-up when not authenticated', async () => {
+    const { auth } = await import('@/lib/auth')
+    vi.mocked(auth.api.getSession).mockResolvedValue(null)
+
+    const component = await Home()
+    render(component)
+    const ctaLink = screen.getByRole('link', { name: "Get started - it's free" })
+    expect(ctaLink).toBeInTheDocument()
+    expect(ctaLink).toHaveAttribute('href', '/sign-up')
   })
 
   it('renders Today dashboard when authenticated with household', async () => {
