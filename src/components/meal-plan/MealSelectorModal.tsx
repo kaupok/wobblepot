@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Body } from '@/components/ui/typography'
 import { AlternativeCard } from './AlternativeCard'
-import type { AlternativeMeal, MealComponent, NutritionData, PantryIngredient } from './types'
+import type { AlternativeMeal, MealComponent, NutritionData } from './types'
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
 
 interface MealSelectorModalProps {
@@ -88,7 +88,6 @@ export function MealSelectorModal({
   const [searchTotal, setSearchTotal] = useState(0)
 
   // Shared state
-  const [pantryIngredients, setPantryIngredients] = useState<PantryIngredient[]>([])
   const [error, setError] = useState<string | null>(null)
   const [selectingId, setSelectingId] = useState<string | null>(null)
 
@@ -100,12 +99,11 @@ export function MealSelectorModal({
   const displayedMeals = isSearchMode ? searchResults : suggestions
   const isLoading = isSearchMode ? isSearching : isLoadingSuggestions
 
-  // Fetch AI suggestions and pantry on modal open
+  // Fetch AI suggestions on modal open
   useEffect(() => {
     if (!open) {
       // Reset state when modal closes
       setSuggestions([])
-      setPantryIngredients([])
       setSearchQuery('')
       setSearchResults([])
       setHasSearched(false)
@@ -130,34 +128,18 @@ export function MealSelectorModal({
             ? `/api/meal-plans/${planId}/entries/${entryId}/regenerate`
             : `/api/meal-plans/${planId}/entries/${entryId}/suggestions`
 
-        // Fetch suggestions and pantry in parallel
-        const [suggestionsResponse, pantryResponse] = await Promise.all([
-          fetch(suggestionsEndpoint, {
-            method: 'POST',
-          }),
-          fetch('/api/pantry'),
-        ])
+        const response = await fetch(suggestionsEndpoint, {
+          method: 'POST',
+        })
 
-        if (!suggestionsResponse.ok) {
-          const data = await suggestionsResponse.json()
+        if (!response.ok) {
+          const data = await response.json()
           throw new Error(data.error || 'Failed to fetch suggestions')
         }
 
-        const suggestionsData = await suggestionsResponse.json()
+        const suggestionsData = await response.json()
         // Both endpoints return { alternatives: [...] } or { suggestions: [...] }
         setSuggestions(suggestionsData.alternatives || suggestionsData.suggestions || [])
-
-        // Parse pantry response
-        if (pantryResponse.ok) {
-          const pantryData = await pantryResponse.json()
-          const ingredients: PantryIngredient[] = pantryData.items.map(
-            (item: { ingredient: { id: string }; isStaple: boolean }) => ({
-              ingredientId: item.ingredient.id,
-              isStaple: item.isStaple,
-            }),
-          )
-          setPantryIngredients(ingredients)
-        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch suggestions')
       } finally {
@@ -326,7 +308,6 @@ export function MealSelectorModal({
                     householdSize={householdSize}
                     onSelect={handleSelect}
                     isSelecting={selectingId === meal.id}
-                    pantryIngredients={pantryIngredients}
                   />
                 ))}
               </div>
