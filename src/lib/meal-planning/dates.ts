@@ -126,10 +126,22 @@ export function isSunday(date?: Date): boolean {
 /**
  * Get the number of days remaining in the current week, including today.
  * Sunday = 1 (only Sunday left), Monday = 7 (full week), Saturday = 2, etc.
+ *
+ * @param timezone - Optional IANA timezone string (e.g., 'Europe/Tallinn').
+ *                   If provided, calculates based on today in that timezone.
+ *                   If omitted, uses server/local time.
  */
-export function getDaysRemaining(): number {
-  const today = new Date()
-  const dayOfWeek = today.getDay()
+export function getDaysRemaining(timezone?: string): number {
+  let dayOfWeek: number
+  if (timezone) {
+    // Get today's date string in the specified timezone, then parse it
+    const todayString = getTodayInTimezone(timezone)
+    const todayDate = parseLocalDate(todayString)
+    dayOfWeek = todayDate.getDay()
+  } else {
+    const today = new Date()
+    dayOfWeek = today.getDay()
+  }
   // Sunday = 0 -> 1 day remaining (just Sunday)
   // Monday = 1 -> 7 days remaining
   // Tuesday = 2 -> 6 days remaining
