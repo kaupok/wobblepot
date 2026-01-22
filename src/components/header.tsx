@@ -3,7 +3,7 @@ import { headers } from 'next/headers'
 import { Heading } from '@/components/ui/typography'
 import { auth } from '@/lib/auth'
 import { HeaderActions } from './header-actions'
-import { Navigation } from './navigation'
+import { NavigationLeft, NavigationRight } from './navigation'
 import { MobileNav } from './mobile-nav'
 
 export async function Header() {
@@ -20,13 +20,14 @@ export async function Header() {
         Skip to content
       </a>
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-8">
           <Link href="/" className="transition-opacity hover:opacity-70">
             <Heading variant="h4">Honkadori</Heading>
           </Link>
-          <Navigation session={session} />
+          <NavigationLeft session={session} />
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-8">
+          <NavigationRight session={session} />
           <HeaderActions session={session} />
           <MobileNav session={session} />
         </div>

@@ -23,10 +23,17 @@ vi.mock('./header-actions', () => ({
   ),
 }))
 
-// Mock Navigation component
+// Mock Navigation components
 vi.mock('./navigation', () => ({
-  Navigation: ({ session }: { session: unknown }) => (
-    <nav data-testid="navigation">{session ? 'authenticated-nav' : 'unauthenticated-nav'}</nav>
+  NavigationLeft: ({ session }: { session: unknown }) => (
+    <nav data-testid="navigation-left">
+      {session ? 'authenticated-nav-left' : 'unauthenticated-nav-left'}
+    </nav>
+  ),
+  NavigationRight: ({ session }: { session: unknown }) => (
+    <nav data-testid="navigation-right">
+      {session ? 'authenticated-nav-right' : 'unauthenticated-nav-right'}
+    </nav>
   ),
 }))
 

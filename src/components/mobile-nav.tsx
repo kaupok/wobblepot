@@ -57,61 +57,72 @@ export function MobileNav({ session }: MobileNavProps) {
         <SheetHeader>
           <SheetTitle>Navigation</SheetTitle>
         </SheetHeader>
-        <nav className="mt-6 flex flex-col gap-4 px-4">
+        <nav className="mt-6 flex flex-col px-4">
           {session ? (
             <>
-              <Link
-                href="/"
-                className="hover:text-primary text-sm font-medium transition-colors"
-                onClick={() => setOpen(false)}
-              >
-                Today
-              </Link>
-              <Link
-                href="/meal-plan"
-                className="hover:text-primary text-sm font-medium transition-colors"
-                onClick={() => setOpen(false)}
-              >
-                Meal plan
-              </Link>
-              <Link
-                href="/recipes"
-                className="hover:text-primary text-sm font-medium transition-colors"
-                onClick={() => setOpen(false)}
-              >
-                My recipes
-              </Link>
-              <Link
-                href="/shopping"
-                className="hover:text-primary text-sm font-medium transition-colors"
-                onClick={() => setOpen(false)}
-              >
-                Pantry & shopping
-              </Link>
-              <Link
-                href="/household"
-                className="hover:text-primary text-sm font-medium transition-colors"
-                onClick={() => setOpen(false)}
-              >
-                Household
-              </Link>
-              <Link
-                href="/profile"
-                className="hover:text-primary text-sm font-medium transition-colors"
-                onClick={() => setOpen(false)}
-              >
-                Profile
-              </Link>
-              <button
-                className="hover:text-primary text-left text-sm font-medium transition-colors"
-                onClick={handleSignOut}
-                disabled={isLoading}
-              >
-                {isLoading ? 'Signing out...' : 'Sign out'}
-              </button>
+              {/* Daily operational views */}
+              <div className="flex flex-col gap-4">
+                <Link
+                  href="/"
+                  className="hover:text-primary text-sm font-medium transition-colors"
+                  onClick={() => setOpen(false)}
+                >
+                  Today
+                </Link>
+                <Link
+                  href="/meal-plan"
+                  className="hover:text-primary text-sm font-medium transition-colors"
+                  onClick={() => setOpen(false)}
+                >
+                  Meal plan
+                </Link>
+                <Link
+                  href="/shopping"
+                  className="hover:text-primary text-sm font-medium transition-colors"
+                  onClick={() => setOpen(false)}
+                >
+                  Pantry & shopping
+                </Link>
+              </div>
+
+              {/* Settings/configuration views */}
+              <div className="mt-6 flex flex-col gap-4 border-t pt-6">
+                <Link
+                  href="/recipes"
+                  className="hover:text-primary text-sm font-medium transition-colors"
+                  onClick={() => setOpen(false)}
+                >
+                  My recipes
+                </Link>
+                <Link
+                  href="/household"
+                  className="hover:text-primary text-sm font-medium transition-colors"
+                  onClick={() => setOpen(false)}
+                >
+                  Household
+                </Link>
+              </div>
+
+              {/* Account */}
+              <div className="mt-6 flex flex-col gap-4 border-t pt-6">
+                <Link
+                  href="/profile"
+                  className="hover:text-primary text-sm font-medium transition-colors"
+                  onClick={() => setOpen(false)}
+                >
+                  Profile
+                </Link>
+                <button
+                  className="hover:text-primary text-left text-sm font-medium transition-colors"
+                  onClick={handleSignOut}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Signing out...' : 'Sign out'}
+                </button>
+              </div>
             </>
           ) : (
-            <>
+            <div className="flex flex-col gap-4">
               <Link
                 href="/sign-in"
                 className="hover:text-primary text-sm font-medium transition-colors"
@@ -126,9 +137,9 @@ export function MobileNav({ session }: MobileNavProps) {
               >
                 Sign up
               </Link>
-            </>
+            </div>
           )}
-          <div className="pt-4">
+          <div className="pt-6">
             <ThemeToggle />
           </div>
         </nav>
