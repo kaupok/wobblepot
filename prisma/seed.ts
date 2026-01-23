@@ -2165,7 +2165,7 @@ export const baseMeals = [
     primaryProteinType: 'pork',
     components: [
       { ingredient: 'pork chop', quantity: 180 },
-      { ingredient: 'apple', quantity: 180 },
+      { ingredient: 'apple', quantity: 1 },
       { ingredient: 'butter', quantity: 15 },
       { ingredient: 'honey', quantity: 10 },
       { ingredient: 'rosemary', quantity: 2 },
@@ -3298,7 +3298,7 @@ export const baseMeals = [
     components: [
       { ingredient: 'chicken thigh', quantity: 180 },
       { ingredient: 'white rice', quantity: 100 },
-      { ingredient: 'orange', quantity: 78 },
+      { ingredient: 'orange', quantity: 1 },
       { ingredient: 'soy sauce', quantity: 20 },
       { ingredient: 'honey', quantity: 20 },
       { ingredient: 'garlic', quantity: 5 },
