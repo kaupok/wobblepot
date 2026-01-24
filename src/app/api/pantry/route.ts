@@ -15,10 +15,22 @@ const createPantryItemSchema = z.object({
 
 /**
  * Format quantity for display in pantry needed quantities.
+ * - Vague: show original phrase (e.g., "to taste")
  * - Pieces: convert grams to pieces using gramsPerPiece, round up
  * - Grams: show as "Xg" or "X.Xkg" for >= 1000g
  */
-function formatQuantity(qtyInGrams: number, unit: Unit, gramsPerPiece: number | null): string {
+function formatQuantity(
+  qtyInGrams: number,
+  unit: Unit,
+  gramsPerPiece: number | null,
+  isVague?: boolean,
+  originalPhrase?: string | null,
+): string {
+  // For vague quantities, show the original phrase
+  if (isVague && originalPhrase) {
+    return originalPhrase
+  }
+
   if (unit === 'piece') {
     // Convert grams to pieces, round up to ensure sufficient quantity
     if (gramsPerPiece && gramsPerPiece > 0) {
@@ -74,7 +86,13 @@ export async function GET(request: NextRequest) {
   })
 
   // If days param is provided, compute needed quantities from meal plans
-  const neededQuantities: Map<string, number> = new Map()
+  // Track quantity and vague status per ingredient
+  interface NeededInfo {
+    quantity: number
+    isVague: boolean
+    originalPhrase: string | null
+  }
+  const neededQuantities: Map<string, NeededInfo> = new Map()
 
   if (days) {
     const startOfToday = getStartOfTodayInTimezone(household.timezone)
@@ -100,6 +118,8 @@ export async function GET(request: NextRequest) {
               select: {
                 ingredientId: true,
                 quantityPerServing: true,
+                isVague: true,
+                originalPhrase: true,
               },
             },
           },
@@ -113,19 +133,33 @@ export async function GET(request: NextRequest) {
     })
     const householdSize = memberCount > 0 ? memberCount : 2
 
-    // Aggregate quantities per ingredient
+    // Aggregate quantities per ingredient, tracking vague status
     for (const entry of planEntries) {
       if (!entry.meal) continue
       for (const component of entry.meal.components) {
         const qty = component.quantityPerServing * householdSize
-        const existing = neededQuantities.get(component.ingredientId) ?? 0
-        neededQuantities.set(component.ingredientId, existing + qty)
+        const existing = neededQuantities.get(component.ingredientId)
+
+        if (existing) {
+          existing.quantity += qty
+          // If any component is vague, mark the whole item as vague
+          if (component.isVague && !existing.isVague) {
+            existing.isVague = true
+            existing.originalPhrase = component.originalPhrase
+          }
+        } else {
+          neededQuantities.set(component.ingredientId, {
+            quantity: qty,
+            isVague: component.isVague,
+            originalPhrase: component.originalPhrase,
+          })
+        }
       }
     }
   }
 
   const items = pantryItems.map((item) => {
-    const neededQty = neededQuantities.get(item.ingredientId)
+    const neededInfo = neededQuantities.get(item.ingredientId)
     return {
       id: item.id,
       ingredientId: item.ingredientId,
@@ -138,15 +172,18 @@ export async function GET(request: NextRequest) {
       quantity: item.quantity,
       isStaple: item.isStaple,
       updatedAt: item.updatedAt,
-      ...(days && neededQty !== undefined && neededQty > 0
+      ...(days && neededInfo !== undefined && neededInfo.quantity > 0
         ? {
-            neededQuantity: neededQty,
+            neededQuantity: neededInfo.quantity,
             neededDisplayQuantity: formatQuantity(
-              neededQty,
+              neededInfo.quantity,
               item.ingredient.defaultUnit,
               item.ingredient.gramsPerPiece,
+              neededInfo.isVague,
+              neededInfo.originalPhrase,
             ),
             windowDays: days,
+            isVague: neededInfo.isVague,
           }
         : {}),
     }
