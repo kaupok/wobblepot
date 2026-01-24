@@ -237,6 +237,8 @@ export async function POST(
         components: components.map((comp) => ({
           ingredientId: comp.ingredientId,
           quantityPerServing: comp.quantityPerServing,
+          isVague: comp.isVague,
+          originalPhrase: comp.originalPhrase,
           ingredient: {
             id: comp.ingredient.id,
             name: comp.ingredient.name,
