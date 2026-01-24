@@ -153,8 +153,13 @@ export function RecipePreview({ recipe, onConfirm, onEdit, onBack }: RecipePrevi
           // Check if this ingredient was disambiguated to a different option
           const disambiguationSelection = disambiguationSelections[index]
 
-          // If disambiguation was resolved, use the selected alternative
-          if (disambiguationSelection && disambiguationSelection !== 'none') {
+          // If user selected "none", skip this ingredient
+          if (disambiguationSelection === 'none') {
+            return null
+          }
+
+          // If disambiguation was resolved to an alternative, use the selected alternative
+          if (disambiguationSelection) {
             const selectedAlt = ingredient.alternatives?.find(
               (alt) => alt.id === disambiguationSelection,
             )
@@ -168,7 +173,7 @@ export function RecipePreview({ recipe, onConfirm, onEdit, onBack }: RecipePrevi
             }
           }
 
-          // Use original match
+          // Use original match (for high confidence or when user confirmed best match)
           return {
             ingredientId: ingredient.ingredient.id,
             totalQuantity: ingredient.convertedQuantity,
@@ -387,7 +392,7 @@ export function RecipePreview({ recipe, onConfirm, onEdit, onBack }: RecipePrevi
                           onValueChange={(value) => handleDisambiguationSelect(index, value)}
                           className="flex flex-col gap-1.5"
                         >
-                          {ingredient.alternatives.map((alt) => (
+                          {ingredient.alternatives.map((alt, altIndex) => (
                             <div key={alt.id} className="flex items-center space-x-2">
                               <RadioGroupItem value={alt.id} id={`${index}-${alt.id}`} />
                               <Label
@@ -395,6 +400,9 @@ export function RecipePreview({ recipe, onConfirm, onEdit, onBack }: RecipePrevi
                                 className="cursor-pointer text-sm font-normal"
                               >
                                 {alt.name}
+                                {altIndex === 0 && (
+                                  <span className="text-muted-foreground ml-1">(best match)</span>
+                                )}
                               </Label>
                             </div>
                           ))}
