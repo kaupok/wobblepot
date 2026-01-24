@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { toast } from 'sonner'
-import { Search, Plus, X, Loader2 } from 'lucide-react'
+import { Search, Plus, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,6 +19,7 @@ import {
 import { Heading, Body } from '@/components/ui/typography'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { IngredientRow, type IngredientRowData } from '@/components/recipes/IngredientRow'
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
 
 type MealTypeValue = 'breakfast' | 'lunch' | 'dinner'
@@ -36,6 +37,14 @@ interface IngredientResult {
   defaultUnit: Unit
 }
 
+interface IngredientAlternative {
+  id: string
+  name: string
+  category: IngredientCategory
+  similarity: number
+}
+
+// Internal component for resolved ingredients (matched, high-confidence)
 interface MealComponent {
   ingredientId: string
   ingredient: IngredientResult
@@ -44,7 +53,30 @@ interface MealComponent {
   originalPhrase?: string | null
 }
 
-interface MealFormData {
+// Enhanced prefilled data that includes match states
+export interface PrefilledIngredient {
+  type: 'matched' | 'low-confidence' | 'unmatched'
+  // For matched and low-confidence
+  ingredient?: {
+    id: string
+    name: string
+    category: IngredientCategory
+    defaultUnit: Unit
+  }
+  convertedQuantity?: number
+  isVague?: boolean
+  originalPhrase?: string | null
+  // For low-confidence
+  lowConfidence?: boolean
+  alternatives?: IngredientAlternative[]
+  extractedName?: string
+  // For unmatched
+  originalText?: string
+  extractedQuantity?: number
+  extractedUnit?: string
+}
+
+export interface MealFormData {
   id?: string
   name: string
   description?: string | null
@@ -52,7 +84,8 @@ interface MealFormData {
   kidFriendly: boolean
   suitableFor: MealType[]
   servings?: number
-  components: {
+  // Standard components (for editing existing meals)
+  components?: {
     ingredientId: string
     quantityPerServing: number
     isVague?: boolean
@@ -64,6 +97,8 @@ interface MealFormData {
       defaultUnit: Unit
     }
   }[]
+  // Enhanced prefilled ingredients (for recipe import with match states)
+  prefilledIngredients?: PrefilledIngredient[]
 }
 
 interface MealFormProps {
@@ -82,6 +117,7 @@ function formatCategory(category: IngredientCategory): string {
 
 export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
   const isEditing = !!meal?.id
+  const hasPrefilledIngredients = !!meal?.prefilledIngredients?.length
 
   // Form state
   const [name, setName] = useState(meal?.name ?? '')
@@ -95,6 +131,8 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
   )
   const editServings = meal?.servings ?? 4
   const [servings, setServings] = useState<string>(String(editServings))
+
+  // Standard components (for plain ingredient rows when editing)
   const [components, setComponents] = useState<MealComponent[]>(() => {
     if (!meal?.components) return []
     // Convert from per-serving to total using actual servings count
@@ -107,7 +145,58 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
     }))
   })
 
-  // Ingredient search state
+  // Enhanced ingredient rows (for import flow with match states)
+  const [ingredientRows, setIngredientRows] = useState<IngredientRowData[]>(() => {
+    if (!meal?.prefilledIngredients) return []
+
+    return meal.prefilledIngredients.map((prefilled): IngredientRowData => {
+      if (prefilled.type === 'unmatched') {
+        return {
+          type: 'unmatched',
+          extractedName: prefilled.extractedName ?? '',
+          originalText: prefilled.originalText ?? '',
+          extractedQuantity: prefilled.extractedQuantity ?? 0,
+          extractedUnit: prefilled.extractedUnit ?? '',
+          isVague: prefilled.isVague,
+          originalPhrase: prefilled.originalPhrase,
+        }
+      }
+
+      if (prefilled.type === 'low-confidence' && prefilled.ingredient && prefilled.alternatives) {
+        return {
+          type: 'low-confidence',
+          extractedName: prefilled.extractedName ?? prefilled.ingredient.name,
+          ingredient: prefilled.ingredient,
+          alternatives: prefilled.alternatives,
+          totalQuantity: prefilled.convertedQuantity ?? 100,
+          isVague: prefilled.isVague,
+          originalPhrase: prefilled.originalPhrase,
+        }
+      }
+
+      // Default: matched (high-confidence)
+      if (prefilled.ingredient) {
+        return {
+          type: 'matched',
+          ingredient: prefilled.ingredient,
+          totalQuantity: prefilled.convertedQuantity ?? 100,
+          isVague: prefilled.isVague,
+          originalPhrase: prefilled.originalPhrase,
+        }
+      }
+
+      // Fallback for invalid data
+      return {
+        type: 'unmatched',
+        extractedName: prefilled.extractedName ?? 'Unknown',
+        originalText: prefilled.originalText ?? '',
+        extractedQuantity: 0,
+        extractedUnit: '',
+      }
+    })
+  })
+
+  // Ingredient search state (for adding new ingredients)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<IngredientResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
@@ -120,6 +209,13 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
   // Form state
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+
+  // Determine if we're in import mode (with ingredient rows) or regular mode (with components)
+  const isImportMode = hasPrefilledIngredients || ingredientRows.length > 0
+
+  // Calculate unresolved count
+  const unresolvedCount = ingredientRows.filter((row) => row.type === 'unmatched').length
+  const lowConfidenceCount = ingredientRows.filter((row) => row.type === 'low-confidence').length
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -187,45 +283,96 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
     }
   }
 
+  // Get all ingredient IDs currently in use
+  const getAllIngredientIds = useCallback((): string[] => {
+    const fromComponents = components.map((c) => c.ingredientId)
+    const fromRows = ingredientRows
+      .filter(
+        (r): r is Extract<IngredientRowData, { type: 'matched' | 'low-confidence' }> =>
+          r.type === 'matched' || r.type === 'low-confidence',
+      )
+      .map((r) => r.ingredient.id)
+    return [...fromComponents, ...fromRows]
+  }, [components, ingredientRows])
+
   const addIngredient = useCallback(
     (ingredient: IngredientResult) => {
-      // Check if already added
-      if (components.some((c) => c.ingredientId === ingredient.id)) {
+      const existingIds = getAllIngredientIds()
+      if (existingIds.includes(ingredient.id)) {
         toast.error(`${ingredient.name} is already added`)
         return
       }
 
-      setComponents([
-        ...components,
-        {
-          ingredientId: ingredient.id,
-          ingredient,
-          totalQuantity: ingredient.defaultUnit === 'piece' ? 1 : 100,
-        },
-      ])
+      if (isImportMode) {
+        // Add as a matched ingredient row
+        setIngredientRows([
+          ...ingredientRows,
+          {
+            type: 'matched',
+            ingredient,
+            totalQuantity: ingredient.defaultUnit === 'piece' ? 1 : 100,
+          },
+        ])
+      } else {
+        // Add as component
+        setComponents([
+          ...components,
+          {
+            ingredientId: ingredient.id,
+            ingredient,
+            totalQuantity: ingredient.defaultUnit === 'piece' ? 1 : 100,
+          },
+        ])
+      }
       setSearchQuery('')
       setShowDropdown(false)
       setSearchResults([])
     },
-    [components],
+    [getAllIngredientIds, isImportMode, ingredientRows, components],
   )
 
-  const removeIngredient = (ingredientId: string) => {
+  const removeComponent = (ingredientId: string) => {
     setComponents(components.filter((c) => c.ingredientId !== ingredientId))
   }
 
-  const updateQuantity = (ingredientId: string, quantity: number) => {
+  const updateComponentQuantity = (ingredientId: string, quantity: number) => {
     setComponents(
       components.map((c) =>
         c.ingredientId === ingredientId
           ? {
               ...c,
               totalQuantity: quantity,
-              // User editing a vague quantity converts it to precise
               isVague: false,
               originalPhrase: null,
             }
           : c,
+      ),
+    )
+  }
+
+  const handleIngredientRowUpdate = (index: number, updatedData: IngredientRowData) => {
+    setIngredientRows(ingredientRows.map((row, i) => (i === index ? updatedData : row)))
+  }
+
+  const handleIngredientRowRemove = (index: number) => {
+    setIngredientRows(ingredientRows.filter((_, i) => i !== index))
+  }
+
+  const handleIngredientRowResolve = (
+    index: number,
+    ingredient: IngredientResult,
+    totalQuantity: number,
+  ) => {
+    // Convert unmatched to matched
+    setIngredientRows(
+      ingredientRows.map((row, i) =>
+        i === index
+          ? {
+              type: 'matched' as const,
+              ingredient,
+              totalQuantity,
+            }
+          : row,
       ),
     )
   }
@@ -272,15 +419,60 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
       return
     }
 
-    if (components.length === 0) {
+    // Build final components list
+    let finalComponents: {
+      ingredientId: string
+      totalQuantity: number
+      isVague: boolean
+      originalPhrase: string | null
+    }[]
+
+    if (isImportMode) {
+      // Check for unresolved ingredients
+      const unresolved = ingredientRows.filter((r) => r.type === 'unmatched')
+      if (unresolved.length > 0) {
+        setError(
+          `${unresolved.length} ingredient${unresolved.length === 1 ? '' : 's'} still need${unresolved.length === 1 ? 's' : ''} to be matched or dropped`,
+        )
+        return
+      }
+
+      // Check for unconfirmed low-confidence matches
+      const lowConfidence = ingredientRows.filter((r) => r.type === 'low-confidence')
+      if (lowConfidence.length > 0) {
+        setError(
+          `${lowConfidence.length} ingredient${lowConfidence.length === 1 ? '' : 's'} need${lowConfidence.length === 1 ? 's' : ''} verification`,
+        )
+        return
+      }
+
+      // Only matched ingredients at this point
+      finalComponents = ingredientRows
+        .filter((r): r is Extract<IngredientRowData, { type: 'matched' }> => r.type === 'matched')
+        .map((r) => ({
+          ingredientId: r.ingredient.id,
+          totalQuantity: r.totalQuantity,
+          isVague: r.isVague ?? false,
+          originalPhrase: r.originalPhrase ?? null,
+        }))
+    } else {
+      finalComponents = components.map((c) => ({
+        ingredientId: c.ingredientId,
+        totalQuantity: c.totalQuantity,
+        isVague: c.isVague ?? false,
+        originalPhrase: c.originalPhrase ?? null,
+      }))
+    }
+
+    if (finalComponents.length === 0) {
       setError('Add at least one ingredient')
       return
     }
 
     // Validate all quantities are positive
-    const invalidComponent = components.find((c) => c.totalQuantity <= 0)
+    const invalidComponent = finalComponents.find((c) => c.totalQuantity <= 0)
     if (invalidComponent) {
-      setError(`Quantity for ${invalidComponent.ingredient.name} must be greater than 0`)
+      setError('All ingredient quantities must be greater than 0')
       return
     }
 
@@ -294,12 +486,7 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
         kidFriendly,
         suitableFor,
         servings: servingsNum,
-        components: components.map((c) => ({
-          ingredientId: c.ingredientId,
-          totalQuantity: c.totalQuantity,
-          isVague: c.isVague ?? false,
-          originalPhrase: c.originalPhrase ?? null,
-        })),
+        components: finalComponents,
       }
 
       const url = isEditing ? `/api/households/me/meals/${meal.id}` : '/api/households/me/meals'
@@ -327,6 +514,16 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
 
   // Calculate per-serving preview
   const servingsNum = parseInt(servings, 10) || 1
+
+  // Get all matched ingredients for preview
+  const matchedIngredients = isImportMode
+    ? ingredientRows.filter(
+        (r): r is Extract<IngredientRowData, { type: 'matched' }> => r.type === 'matched',
+      )
+    : []
+
+  const totalIngredientCount = isImportMode ? ingredientRows.length : components.length
+  const hasIngredients = totalIngredientCount > 0
 
   return (
     <Card className="w-full max-w-2xl">
@@ -379,18 +576,18 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
               <div className="flex flex-col gap-2">
                 <Label>Suitable for</Label>
                 <div className="flex gap-4">
-                  {MEAL_TYPES.map((meal) => (
-                    <div key={meal.value} className="flex items-center gap-2">
+                  {MEAL_TYPES.map((mealType) => (
+                    <div key={mealType.value} className="flex items-center gap-2">
                       <Checkbox
-                        id={`mealtype-${meal.value}`}
-                        checked={suitableFor.includes(meal.value)}
+                        id={`mealtype-${mealType.value}`}
+                        checked={suitableFor.includes(mealType.value)}
                         onCheckedChange={(checked) =>
-                          handleMealTypeToggle(meal.value, checked === true)
+                          handleMealTypeToggle(mealType.value, checked === true)
                         }
                         disabled={isSubmitting}
                       />
-                      <Label htmlFor={`mealtype-${meal.value}`} className="font-normal">
-                        {meal.label}
+                      <Label htmlFor={`mealtype-${mealType.value}`} className="font-normal">
+                        {mealType.label}
                       </Label>
                     </div>
                   ))}
@@ -442,13 +639,104 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
 
             {/* Ingredients Section */}
             <section className="flex flex-col gap-4">
-              <Heading variant="h4">Ingredients</Heading>
+              <div className="flex items-center justify-between">
+                <Heading variant="h4">Ingredients</Heading>
+                {isImportMode && (unresolvedCount > 0 || lowConfidenceCount > 0) && (
+                  <div className="flex gap-2">
+                    {lowConfidenceCount > 0 && (
+                      <Badge variant="outline" className="text-blue-600">
+                        {lowConfidenceCount} to verify
+                      </Badge>
+                    )}
+                    {unresolvedCount > 0 && (
+                      <Badge variant="outline" className="text-amber-600">
+                        {unresolvedCount} unmatched
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </div>
               <Body variant="muted">
                 Enter the total quantity needed for the entire recipe ({servingsNum} servings). We
                 will calculate per-serving amounts automatically.
               </Body>
 
-              {/* Ingredient search */}
+              {/* Import mode: show ingredient rows with match states */}
+              {isImportMode && ingredientRows.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  {ingredientRows.map((row, index) => (
+                    <IngredientRow
+                      key={index}
+                      data={row}
+                      servings={servingsNum}
+                      disabled={isSubmitting}
+                      onUpdate={(updatedData) => handleIngredientRowUpdate(index, updatedData)}
+                      onRemove={() => handleIngredientRowRemove(index)}
+                      onResolve={(ingredient, totalQuantity) =>
+                        handleIngredientRowResolve(index, ingredient, totalQuantity)
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Regular mode: show plain ingredient list */}
+              {!isImportMode && components.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  {components.map((comp) => (
+                    <div
+                      key={comp.ingredientId}
+                      className="flex items-center gap-3 rounded-md border p-3"
+                    >
+                      <div className="flex-1">
+                        <Body>{comp.ingredient.name}</Body>
+                        <Body variant="muted">
+                          {comp.isVague && comp.originalPhrase ? (
+                            <span className="italic">{comp.originalPhrase}</span>
+                          ) : (
+                            <>
+                              {Math.round((comp.totalQuantity / servingsNum) * 10) / 10}
+                              {formatUnit(comp.ingredient.defaultUnit)} per serving
+                            </>
+                          )}
+                        </Body>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!comp.isVague && (
+                          <>
+                            <Input
+                              type="number"
+                              value={comp.totalQuantity}
+                              onChange={(e) =>
+                                updateComponentQuantity(
+                                  comp.ingredientId,
+                                  parseFloat(e.target.value) || 0,
+                                )
+                              }
+                              min={0.1}
+                              step="any"
+                              className="w-24"
+                              disabled={isSubmitting}
+                            />
+                            <Body variant="muted">{formatUnit(comp.ingredient.defaultUnit)}</Body>
+                          </>
+                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeComponent(comp.ingredientId)}
+                          disabled={isSubmitting}
+                        >
+                          ×
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Ingredient search (always available to add more) */}
               <div className="relative">
                 <div className="relative">
                   <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
@@ -462,7 +750,7 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
                       }
                     }}
                     onKeyDown={handleSearchKeyDown}
-                    placeholder="Search ingredients..."
+                    placeholder="Search to add more ingredients..."
                     className="pr-9 pl-9"
                     disabled={isSubmitting}
                   />
@@ -477,7 +765,8 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
                     className="bg-popover absolute top-full z-10 mt-1 w-full rounded-md border shadow-md"
                   >
                     {searchResults.map((ingredient, index) => {
-                      const isAdded = components.some((c) => c.ingredientId === ingredient.id)
+                      const existingIds = getAllIngredientIds()
+                      const isAdded = existingIds.includes(ingredient.id)
                       return (
                         <button
                           key={ingredient.id}
@@ -518,50 +807,7 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
                 )}
               </div>
 
-              {/* Added ingredients */}
-              {components.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  {components.map((comp) => (
-                    <div
-                      key={comp.ingredientId}
-                      className="flex items-center gap-3 rounded-md border p-3"
-                    >
-                      <div className="flex-1">
-                        <Body>{comp.ingredient.name}</Body>
-                        <Body variant="muted">
-                          {Math.round((comp.totalQuantity / servingsNum) * 10) / 10}
-                          {formatUnit(comp.ingredient.defaultUnit)} per serving
-                        </Body>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          value={comp.totalQuantity}
-                          onChange={(e) =>
-                            updateQuantity(comp.ingredientId, parseFloat(e.target.value) || 0)
-                          }
-                          min={0.1}
-                          step="any"
-                          className="w-24"
-                          disabled={isSubmitting}
-                        />
-                        <Body variant="muted">{formatUnit(comp.ingredient.defaultUnit)}</Body>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeIngredient(comp.ingredientId)}
-                          disabled={isSubmitting}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {components.length === 0 && (
+              {!hasIngredients && (
                 <div className="border-muted rounded-md border border-dashed p-6 text-center">
                   <Body variant="muted">No ingredients added yet. Search above to add some.</Body>
                 </div>
@@ -569,17 +815,27 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
             </section>
 
             {/* Per-Serving Preview */}
-            {components.length > 0 && (
+            {hasIngredients && (
               <section className="flex flex-col gap-2">
                 <Heading variant="h4">Per serving</Heading>
                 <div className="flex flex-wrap gap-2">
-                  {components.map((comp) => (
-                    <Badge key={comp.ingredientId} variant="secondary">
-                      {comp.ingredient.name}:{' '}
-                      {Math.round((comp.totalQuantity / servingsNum) * 10) / 10}
-                      {formatUnit(comp.ingredient.defaultUnit)}
-                    </Badge>
-                  ))}
+                  {isImportMode
+                    ? matchedIngredients.map((row, index) => (
+                        <Badge key={index} variant="secondary">
+                          {row.ingredient.name}:{' '}
+                          {row.isVague && row.originalPhrase
+                            ? row.originalPhrase
+                            : `${Math.round((row.totalQuantity / servingsNum) * 10) / 10}${formatUnit(row.ingredient.defaultUnit)}`}
+                        </Badge>
+                      ))
+                    : components.map((comp) => (
+                        <Badge key={comp.ingredientId} variant="secondary">
+                          {comp.ingredient.name}:{' '}
+                          {comp.isVague && comp.originalPhrase
+                            ? comp.originalPhrase
+                            : `${Math.round((comp.totalQuantity / servingsNum) * 10) / 10}${formatUnit(comp.ingredient.defaultUnit)}`}
+                        </Badge>
+                      ))}
                 </div>
               </section>
             )}

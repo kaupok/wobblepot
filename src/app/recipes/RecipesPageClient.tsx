@@ -8,31 +8,25 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
-import { MealForm } from '@/components/household/MealForm'
+import {
+  MealForm,
+  type MealFormData,
+  type PrefilledIngredient,
+} from '@/components/household/MealForm'
 import { MealList, type MealData } from '@/components/household/MealList'
-import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
+import type { MealType } from '@/generated/prisma/enums'
 
 type ViewMode = 'list' | 'create' | 'edit'
 
-interface PrefilledMealData {
+// Enhanced prefilled data from recipe import (includes match states)
+interface EnhancedPrefilledData {
   name: string
   description: string | null
   timeMinutes: number | null
   servings: number
   mealTypes: MealType[]
   kidFriendly: boolean
-  ingredients: Array<{
-    type: 'matched' | 'unmatched'
-    ingredient?: {
-      id: string
-      name: string
-      category: IngredientCategory
-      defaultUnit: Unit
-    }
-    convertedQuantity?: number
-    isVague?: boolean
-    originalPhrase?: string
-  }>
+  prefilledIngredients: PrefilledIngredient[]
 }
 
 export function RecipesPageClient() {
@@ -45,7 +39,7 @@ export function RecipesPageClient() {
   const [meals, setMeals] = useState<MealData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [editingMeal, setEditingMeal] = useState<MealData | null>(null)
-  const [prefilledData, setPrefilledData] = useState<PrefilledMealData | null>(null)
+  const [prefilledData, setPrefilledData] = useState<EnhancedPrefilledData | null>(null)
 
   const fetchMeals = useCallback(async () => {
     try {
@@ -71,7 +65,7 @@ export function RecipesPageClient() {
         const stored = sessionStorage.getItem('prefilled-meal')
         if (stored) {
           try {
-            const data = JSON.parse(stored) as PrefilledMealData
+            const data = JSON.parse(stored) as EnhancedPrefilledData
             setPrefilledData(data)
           } catch {
             // Invalid data, ignore
@@ -122,20 +116,8 @@ export function RecipesPageClient() {
   }
 
   // Build prefilled meal data for MealForm
-  const getPrefilledMeal = () => {
+  const getPrefilledMeal = (): MealFormData | undefined => {
     if (!prefilledData) return undefined
-
-    // Only include matched ingredients
-    const matchedComponents = prefilledData.ingredients
-      .filter((i) => i.type === 'matched' && i.ingredient && i.convertedQuantity !== undefined)
-      .map((i) => ({
-        ingredientId: i.ingredient!.id,
-        // convertedQuantity is the total for all servings, divide to get per-serving
-        quantityPerServing: i.convertedQuantity! / prefilledData.servings,
-        ingredient: i.ingredient!,
-        isVague: i.isVague,
-        originalPhrase: i.originalPhrase,
-      }))
 
     return {
       name: prefilledData.name,
@@ -144,7 +126,7 @@ export function RecipesPageClient() {
       kidFriendly: prefilledData.kidFriendly,
       suitableFor: prefilledData.mealTypes,
       servings: prefilledData.servings,
-      components: matchedComponents,
+      prefilledIngredients: prefilledData.prefilledIngredients,
     }
   }
 

@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, ArrowLeft, Sparkles } from 'lucide-react'
-import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -16,17 +15,134 @@ import {
 } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Heading, Body } from '@/components/ui/typography'
-import { RecipePreview, type ParsedRecipeData } from '@/components/recipes/RecipePreview'
+import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
+import type { PrefilledIngredient } from '@/components/household/MealForm'
 
-type ViewMode = 'input' | 'preview'
+// Types for the parsed recipe response from the API
+interface IngredientAlternative {
+  id: string
+  name: string
+  category: IngredientCategory
+  similarity: number
+}
+
+interface MatchedIngredient {
+  type: 'matched'
+  extractedName: string
+  extractedQuantity: number
+  extractedUnit: string
+  originalText: string
+  ingredient: {
+    id: string
+    name: string
+    category: IngredientCategory
+    defaultUnit: Unit
+    gramsPerPiece: number | null
+  }
+  convertedQuantity: number
+  isVague: boolean
+  originalPhrase?: string
+  similarityScore?: number
+  lowConfidence?: boolean
+  alternatives?: IngredientAlternative[]
+}
+
+interface UnmatchedIngredient {
+  type: 'unmatched'
+  extractedName: string
+  extractedQuantity: number
+  extractedUnit: string
+  originalText: string
+  isVague: boolean
+  originalPhrase?: string
+}
+
+type IngredientMatchResult = MatchedIngredient | UnmatchedIngredient
+
+interface ParsedRecipeData {
+  name: string
+  description: string | null
+  timeMinutes: number | null
+  servings: number
+  mealTypes: MealType[]
+  kidFriendly: boolean
+  ingredients: IngredientMatchResult[]
+  allMatched: boolean
+}
+
+// Convert parsed recipe to prefilled format for MealForm
+function convertToPrefilledData(recipe: ParsedRecipeData): {
+  name: string
+  description: string | null
+  timeMinutes: number | null
+  servings: number
+  mealTypes: MealType[]
+  kidFriendly: boolean
+  prefilledIngredients: PrefilledIngredient[]
+} {
+  const prefilledIngredients: PrefilledIngredient[] = recipe.ingredients.map((ingredient) => {
+    if (ingredient.type === 'unmatched') {
+      return {
+        type: 'unmatched' as const,
+        extractedName: ingredient.extractedName,
+        originalText: ingredient.originalText,
+        extractedQuantity: ingredient.extractedQuantity,
+        extractedUnit: ingredient.extractedUnit,
+        isVague: ingredient.isVague,
+        originalPhrase: ingredient.originalPhrase,
+      }
+    }
+
+    // Low-confidence match with alternatives
+    if (ingredient.lowConfidence && ingredient.alternatives) {
+      return {
+        type: 'low-confidence' as const,
+        ingredient: {
+          id: ingredient.ingredient.id,
+          name: ingredient.ingredient.name,
+          category: ingredient.ingredient.category,
+          defaultUnit: ingredient.ingredient.defaultUnit,
+        },
+        convertedQuantity: ingredient.convertedQuantity,
+        isVague: ingredient.isVague,
+        originalPhrase: ingredient.originalPhrase,
+        lowConfidence: true,
+        alternatives: ingredient.alternatives,
+        extractedName: ingredient.extractedName,
+      }
+    }
+
+    // High-confidence match
+    return {
+      type: 'matched' as const,
+      ingredient: {
+        id: ingredient.ingredient.id,
+        name: ingredient.ingredient.name,
+        category: ingredient.ingredient.category,
+        defaultUnit: ingredient.ingredient.defaultUnit,
+      },
+      convertedQuantity: ingredient.convertedQuantity,
+      isVague: ingredient.isVague,
+      originalPhrase: ingredient.originalPhrase,
+    }
+  })
+
+  return {
+    name: recipe.name,
+    description: recipe.description,
+    timeMinutes: recipe.timeMinutes,
+    servings: recipe.servings,
+    mealTypes: recipe.mealTypes,
+    kidFriendly: recipe.kidFriendly,
+    prefilledIngredients,
+  }
+}
 
 export function RecipeImportClient() {
   const router = useRouter()
-  const [viewMode, setViewMode] = useState<ViewMode>('input')
   const [recipeText, setRecipeText] = useState('')
   const [isParsing, setIsParsing] = useState(false)
   const [error, setError] = useState('')
-  const [parsedRecipe, setParsedRecipe] = useState<ParsedRecipeData | null>(null)
 
   const handleParse = async () => {
     if (!recipeText.trim()) {
@@ -51,8 +167,10 @@ export function RecipeImportClient() {
         return
       }
 
-      setParsedRecipe(data.recipe)
-      setViewMode('preview')
+      // Convert to enhanced prefilled format and navigate directly to edit form
+      const prefilledData = convertToPrefilledData(data.recipe)
+      sessionStorage.setItem('prefilled-meal', JSON.stringify(prefilledData))
+      router.push('/recipes?mode=create&prefilled=true')
     } catch {
       setError('Failed to parse recipe. Please try again.')
     } finally {
@@ -60,38 +178,6 @@ export function RecipeImportClient() {
     }
   }
 
-  const handleBack = () => {
-    setViewMode('input')
-    setParsedRecipe(null)
-    setError('')
-  }
-
-  const handleSuccess = () => {
-    toast.success('Recipe created')
-    router.push('/recipes')
-  }
-
-  const handleEdit = (data: ParsedRecipeData) => {
-    // Store parsed data in sessionStorage for MealForm to read
-    sessionStorage.setItem('prefilled-meal', JSON.stringify(data))
-    router.push('/recipes?mode=create&prefilled=true')
-  }
-
-  // Preview mode
-  if (viewMode === 'preview' && parsedRecipe) {
-    return (
-      <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
-        <RecipePreview
-          recipe={parsedRecipe}
-          onConfirm={handleSuccess}
-          onEdit={handleEdit}
-          onBack={handleBack}
-        />
-      </div>
-    )
-  }
-
-  // Input mode
   return (
     <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
       <Card className="w-full max-w-2xl">
