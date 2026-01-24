@@ -143,9 +143,18 @@ export async function GET(request: NextRequest) {
         if (existing) {
           existing.quantity += qty
           // If any component is vague, mark the whole item as vague
-          if (component.isVague && !existing.isVague) {
-            existing.isVague = true
-            existing.originalPhrase = component.originalPhrase
+          if (component.isVague) {
+            if (!existing.isVague) {
+              // First vague component encountered
+              existing.isVague = true
+              existing.originalPhrase = component.originalPhrase
+            } else if (
+              existing.originalPhrase !== 'some' &&
+              component.originalPhrase?.toLowerCase() !== existing.originalPhrase?.toLowerCase()
+            ) {
+              // Different vague phrase encountered - use "some" instead
+              existing.originalPhrase = 'some'
+            }
           }
         } else {
           neededQuantities.set(component.ingredientId, {
