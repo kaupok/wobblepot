@@ -273,6 +273,7 @@ export interface MatchedIngredient {
     id: string
     name: string
     category: IngredientCategory
+    defaultUnit: Unit
     similarity: number
   }>
 }
@@ -473,6 +474,7 @@ export async function matchIngredients(
             id: m.id,
             name: m.name,
             category: m.category,
+            defaultUnit: m.defaultUnit,
             similarity: m.similarity,
           }))
         : undefined
