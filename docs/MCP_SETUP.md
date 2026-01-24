@@ -31,8 +31,9 @@ Our project uses the following MCP servers:
 
 **Configuration locations:**
 
-- **Stdio servers** (in `.mcp.json`): filesystem, github, sequential-thinking, memory, playwright, npm-package-search, next-devtools
-- **HTTP servers** (configured globally): better-auth, context7, linear-server
+- **Stdio servers** (in `.mcp.json`): filesystem, sequential-thinking, memory, playwright, npm-package-search, next-devtools
+- **HTTP servers** (in `.mcp.json`): context7, linear-server
+- **HTTP servers** (configured globally): better-auth
 
 > **Note**: HTTP servers (better-auth, context7, linear-server) are configured globally via Claude Code and won't appear in the project's `.mcp.json` file. They connect to remote HTTP endpoints and require authentication (API keys or OAuth).
 
@@ -43,8 +44,9 @@ Our project uses the following MCP servers:
 - **Scope**: Project root (configured via `PROJECT_ROOT` in `.claude/settings.local.json`)
 - **When to use**: Complex file operations, bulk changes, deep directory exploration
 
-### 2. GitHub Server (Official Anthropic)
+### 2. GitHub Server (Official Anthropic) - Optional
 
+- **Status**: Not configured by default (we use `gh` CLI instead)
 - **Purpose**: Direct GitHub API integration
 - **Capabilities**: Repository insights, PR management, issue tracking, workflow triggers
 - **Requirements**: `GITHUB_PERSONAL_ACCESS_TOKEN` in `.claude/settings.local.json`
