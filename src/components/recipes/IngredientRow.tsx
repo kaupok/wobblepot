@@ -26,6 +26,7 @@ interface IngredientAlternative {
   id: string
   name: string
   category: IngredientCategory
+  defaultUnit: Unit
   similarity: number
 }
 
@@ -226,7 +227,7 @@ export function IngredientRow({
         id: selectedAlt.id,
         name: selectedAlt.name,
         category: selectedAlt.category,
-        defaultUnit: data.ingredient.defaultUnit,
+        defaultUnit: selectedAlt.defaultUnit,
       },
       totalQuantity: data.totalQuantity,
       isVague: data.isVague,

@@ -41,6 +41,7 @@ interface IngredientAlternative {
   id: string
   name: string
   category: IngredientCategory
+  defaultUnit: Unit
   similarity: number
 }
 
