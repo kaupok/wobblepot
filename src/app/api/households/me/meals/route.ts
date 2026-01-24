@@ -18,6 +18,8 @@ const createMealSchema = z.object({
       z.object({
         ingredientId: z.string().min(1),
         totalQuantity: z.number().positive(),
+        isVague: z.boolean().optional().default(false),
+        originalPhrase: z.string().nullish(),
       }),
     )
     .min(1),
@@ -64,6 +66,8 @@ export async function GET(request: NextRequest) {
         select: {
           ingredientId: true,
           quantityPerServing: true,
+          isVague: true,
+          originalPhrase: true,
           ingredient: {
             select: {
               id: true,
@@ -122,6 +126,8 @@ export async function GET(request: NextRequest) {
       components: meal.components.map((comp) => ({
         ingredientId: comp.ingredientId,
         quantityPerServing: comp.quantityPerServing,
+        isVague: comp.isVague,
+        originalPhrase: comp.originalPhrase,
         ingredient: {
           id: comp.ingredient.id,
           name: comp.ingredient.name,
@@ -215,6 +221,8 @@ export async function POST(request: Request) {
         create: components.map((c) => ({
           ingredientId: c.ingredientId,
           quantityPerServing: c.totalQuantity / servings,
+          isVague: c.isVague ?? false,
+          originalPhrase: c.originalPhrase ?? null,
         })),
       },
     },
@@ -233,6 +241,8 @@ export async function POST(request: Request) {
         select: {
           ingredientId: true,
           quantityPerServing: true,
+          isVague: true,
+          originalPhrase: true,
           ingredient: {
             select: {
               id: true,
@@ -284,6 +294,8 @@ export async function POST(request: Request) {
       components: meal.components.map((comp) => ({
         ingredientId: comp.ingredientId,
         quantityPerServing: comp.quantityPerServing,
+        isVague: comp.isVague,
+        originalPhrase: comp.originalPhrase,
         ingredient: {
           id: comp.ingredient.id,
           name: comp.ingredient.name,

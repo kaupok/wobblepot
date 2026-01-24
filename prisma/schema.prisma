@@ -309,6 +309,8 @@ model MealComponent {
   mealId             String
   ingredientId       String
   quantityPerServing Float
+  isVague            Boolean  @default(false)
+  originalPhrase     String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

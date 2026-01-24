@@ -40,6 +40,8 @@ export interface ShoppingListItem {
   shoppingQuantity: number // What to buy (0 = don't need)
   mealCount: number // Number of meals using this ingredient
   earliestNeededDate: Date // Earliest date this ingredient is needed
+  isVague: boolean // True if any component contributing to this item was vague
+  originalPhrase: string | null // The vague phrase if isVague is true
 }
 
 /**
@@ -65,6 +67,8 @@ interface NeededIngredient {
   quantity: number
   mealCount: number
   earliestNeededDate: Date
+  isVague: boolean // True if any component was vague
+  originalPhrase: string | null // First vague phrase encountered
 }
 
 /**
@@ -156,7 +160,11 @@ export async function computeShoppingList(
       meal: {
         include: {
           components: {
-            include: {
+            select: {
+              ingredientId: true,
+              quantityPerServing: true,
+              isVague: true,
+              originalPhrase: true,
               ingredient: {
                 select: {
                   id: true,
@@ -195,12 +203,19 @@ export async function computeShoppingList(
         if (entry.date < existing.earliestNeededDate) {
           existing.earliestNeededDate = entry.date
         }
+        // If any component is vague, mark the whole item as vague
+        if (component.isVague && !existing.isVague) {
+          existing.isVague = true
+          existing.originalPhrase = component.originalPhrase
+        }
       } else {
         needed.set(ingredientId, {
           ingredient: component.ingredient,
           quantity: qty,
           mealCount: 1,
           earliestNeededDate: entry.date,
+          isVague: component.isVague,
+          originalPhrase: component.originalPhrase,
         })
       }
     }
@@ -217,7 +232,7 @@ export async function computeShoppingList(
 
   for (const [
     ingredientId,
-    { ingredient, quantity: neededQty, mealCount, earliestNeededDate },
+    { ingredient, quantity: neededQty, mealCount, earliestNeededDate, isVague, originalPhrase },
   ] of needed) {
     const pantry = pantryMap.get(ingredientId)
 
@@ -250,6 +265,8 @@ export async function computeShoppingList(
         shoppingQuantity: shoppingQty,
         mealCount,
         earliestNeededDate,
+        isVague,
+        originalPhrase,
       })
     }
   }
@@ -315,7 +332,11 @@ export async function computeRollingWindowShoppingList(
       meal: {
         include: {
           components: {
-            include: {
+            select: {
+              ingredientId: true,
+              quantityPerServing: true,
+              isVague: true,
+              originalPhrase: true,
               ingredient: {
                 select: {
                   id: true,
@@ -362,12 +383,19 @@ export async function computeRollingWindowShoppingList(
         if (entry.date < existing.earliestNeededDate) {
           existing.earliestNeededDate = entry.date
         }
+        // If any component is vague, mark the whole item as vague
+        if (component.isVague && !existing.isVague) {
+          existing.isVague = true
+          existing.originalPhrase = component.originalPhrase
+        }
       } else {
         needed.set(ingredientId, {
           ingredient: component.ingredient,
           quantity: qty,
           mealCount: 1,
           earliestNeededDate: entry.date,
+          isVague: component.isVague,
+          originalPhrase: component.originalPhrase,
         })
       }
     }
@@ -384,7 +412,7 @@ export async function computeRollingWindowShoppingList(
 
   for (const [
     ingredientId,
-    { ingredient, quantity: neededQty, mealCount, earliestNeededDate },
+    { ingredient, quantity: neededQty, mealCount, earliestNeededDate, isVague, originalPhrase },
   ] of needed) {
     const pantry = pantryMap.get(ingredientId)
 
@@ -417,6 +445,8 @@ export async function computeRollingWindowShoppingList(
         shoppingQuantity: shoppingQty,
         mealCount,
         earliestNeededDate,
+        isVague,
+        originalPhrase,
       })
     }
   }

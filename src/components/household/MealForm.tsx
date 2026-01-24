@@ -40,6 +40,8 @@ interface MealComponent {
   ingredientId: string
   ingredient: IngredientResult
   totalQuantity: number
+  isVague?: boolean
+  originalPhrase?: string | null
 }
 
 interface MealFormData {
@@ -53,6 +55,8 @@ interface MealFormData {
   components: {
     ingredientId: string
     quantityPerServing: number
+    isVague?: boolean
+    originalPhrase?: string | null
     ingredient: {
       id: string
       name: string
@@ -98,6 +102,8 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
       ingredientId: c.ingredientId,
       ingredient: c.ingredient,
       totalQuantity: c.quantityPerServing * editServings,
+      isVague: c.isVague,
+      originalPhrase: c.originalPhrase,
     }))
   })
 
@@ -211,7 +217,15 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
   const updateQuantity = (ingredientId: string, quantity: number) => {
     setComponents(
       components.map((c) =>
-        c.ingredientId === ingredientId ? { ...c, totalQuantity: quantity } : c,
+        c.ingredientId === ingredientId
+          ? {
+              ...c,
+              totalQuantity: quantity,
+              // User editing a vague quantity converts it to precise
+              isVague: false,
+              originalPhrase: null,
+            }
+          : c,
       ),
     )
   }
@@ -283,6 +297,8 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
         components: components.map((c) => ({
           ingredientId: c.ingredientId,
           totalQuantity: c.totalQuantity,
+          isVague: c.isVague ?? false,
+          originalPhrase: c.originalPhrase ?? null,
         })),
       }
 
