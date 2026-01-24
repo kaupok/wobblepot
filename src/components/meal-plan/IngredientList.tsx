@@ -28,12 +28,21 @@ interface IngredientListProps {
  *
  * Quantities are stored in native units (pieces for piece-based ingredients,
  * grams for weight-based ingredients). No conversion needed.
+ *
+ * For vague quantities, returns the original phrase (e.g., "to taste").
  */
 function formatQuantity(
   quantityPerServing: number,
   householdSize: number,
   unit: 'g' | 'piece',
+  isVague?: boolean,
+  originalPhrase?: string | null,
 ): string {
+  // For vague quantities, show the phrase instead of calculated amount
+  if (isVague && originalPhrase) {
+    return originalPhrase
+  }
+
   const totalQuantity = quantityPerServing * householdSize
 
   if (unit === 'piece') {
@@ -88,7 +97,7 @@ export function IngredientList({
     onToggleAvailability(ingredientId, checked)
   }
 
-  // Format staples line: "Staples: garlic (15g), olive oil (45g)"
+  // Format staples line: "Staples: garlic (15g), olive oil (45g)" or "garlic (to taste)"
   const staplesLine = useMemo(() => {
     if (stapleComponents.length === 0) return null
 
@@ -97,6 +106,8 @@ export function IngredientList({
         comp.quantityPerServing,
         householdSize,
         comp.ingredient.defaultUnit,
+        comp.isVague,
+        comp.originalPhrase,
       )
       return `${comp.ingredient.name} (${qty})`
     })
@@ -144,12 +155,15 @@ export function IngredientList({
                 className={cn(
                   'whitespace-nowrap',
                   showMissingStyle ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground',
+                  comp.isVague && 'italic',
                 )}
               >
                 {formatQuantity(
                   comp.quantityPerServing,
                   householdSize,
                   comp.ingredient.defaultUnit,
+                  comp.isVague,
+                  comp.originalPhrase,
                 )}
               </span>
             </Li>

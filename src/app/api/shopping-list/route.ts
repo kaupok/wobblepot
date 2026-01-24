@@ -9,13 +9,25 @@ import { Unit } from '@/generated/prisma/enums'
 
 /**
  * Format quantity for display.
+ * - Vague: show original phrase (e.g., "to taste")
  * - Pieces: convert grams to pieces using gramsPerPiece, round up for shopping
  * - Grams: show as "Xg" or "X.Xkg" for >= 1000g
  *
  * Note: Quantities are stored in grams for all ingredients.
  * When defaultUnit is 'piece', we convert using gramsPerPiece.
  */
-function formatQuantity(qtyInGrams: number, unit: Unit, gramsPerPiece: number | null): string {
+function formatQuantity(
+  qtyInGrams: number,
+  unit: Unit,
+  gramsPerPiece: number | null,
+  isVague?: boolean,
+  originalPhrase?: string | null,
+): string {
+  // For vague quantities, show the original phrase
+  if (isVague && originalPhrase) {
+    return originalPhrase
+  }
+
   if (unit === 'piece') {
     // Convert grams to pieces, round up to ensure sufficient quantity for shopping
     if (gramsPerPiece && gramsPerPiece > 0) {
@@ -111,12 +123,15 @@ export async function GET(request: NextRequest) {
             item.shoppingQuantity,
             item.ingredient.defaultUnit,
             item.ingredient.gramsPerPiece,
+            item.isVague,
+            item.originalPhrase,
           ),
           mealCount: item.mealCount,
           purchased,
           neededByDate: toDateString(item.earliestNeededDate),
           neededByRelative: formatRelativeDate(item.earliestNeededDate),
           neededByAbsolute: formatAbsoluteDate(item.earliestNeededDate),
+          isVague: item.isVague,
         }
       })
 

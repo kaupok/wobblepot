@@ -4,19 +4,41 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
+import {
+  VAGUE_PHRASES,
+  getVagueDefault,
+  checkGuardrail,
+  type VagueQuantityResult,
+} from '@/lib/vague-quantities'
 
 /**
  * Schema for a single extracted ingredient from recipe text.
  */
 const ExtractedIngredientSchema = z.object({
   name: z.string().describe('The ingredient name without quantity (e.g., "chicken breast")'),
-  quantity: z.number().positive().describe('The numeric quantity'),
+  quantity: z
+    .number()
+    .positive()
+    .nullable()
+    .describe('The numeric quantity, or null if vague (e.g., "to taste")'),
   unit: z
     .enum(['g', 'piece', 'ml', 'tbsp', 'tsp', 'cup', 'oz', 'lb'])
-    .describe('The unit of measurement'),
+    .nullable()
+    .describe('The unit of measurement, or null if vague'),
   originalText: z
     .string()
     .describe('The original text from the recipe (e.g., "2 chicken breasts")'),
+  isVague: z
+    .boolean()
+    .describe('True if quantity is vague (e.g., "to taste", "a pinch", "for garnish", "optional")'),
+  vaguePhrase: z
+    .string()
+    .nullable()
+    .describe('The vague phrase if isVague is true (e.g., "to taste", "a pinch")'),
+  isDried: z
+    .boolean()
+    .nullable()
+    .describe('For herbs, whether the ingredient is dried (e.g., "dried basil")'),
 })
 
 /**
@@ -72,6 +94,8 @@ export class RecipeParseError extends Error {
  * Build the prompt for recipe extraction.
  */
 function buildRecipeExtractionPrompt(recipeText: string): string {
+  const vaguePhrasesList = VAGUE_PHRASES.join(', ')
+
   return `You are a recipe parsing assistant. Extract structured data from the following recipe text.
 
 IMPORTANT GUIDELINES:
@@ -79,7 +103,27 @@ IMPORTANT GUIDELINES:
 2. For ingredients, extract the quantity, unit, and ingredient name separately
 3. Use these units: "g" for weight, "ml" for volume, "piece" for countable items, or keep original units ("cup", "tbsp", "tsp", "oz", "lb") if conversion would be inaccurate
 
-CRITICAL QUANTITY RULES:
+VAGUE QUANTITY DETECTION:
+Some ingredients have imprecise quantities. Detect these vague phrases:
+${vaguePhrasesList}
+
+When you detect a vague phrase:
+- Set isVague: true
+- Set vaguePhrase to the detected phrase (e.g., "to taste", "a pinch")
+- Set quantity: null and unit: null
+- Keep the ingredient name clean (without the vague phrase)
+
+Examples:
+- "salt to taste" → name: "salt", isVague: true, vaguePhrase: "to taste", quantity: null, unit: null
+- "a pinch of paprika" → name: "paprika", isVague: true, vaguePhrase: "a pinch", quantity: null, unit: null
+- "fresh parsley for garnish" → name: "parsley", isVague: true, vaguePhrase: "for garnish", quantity: null, unit: null
+- "dried basil (optional)" → name: "basil", isVague: true, vaguePhrase: "optional", quantity: null, unit: null, isDried: true
+
+DRIED HERBS:
+If an herb is explicitly "dried" (e.g., "dried oregano", "1 tsp dried basil"), set isDried: true.
+If not specified or clearly fresh (e.g., "fresh basil", "basil leaves"), set isDried: false or null.
+
+CRITICAL QUANTITY RULES (for non-vague ingredients):
 - For countable items (eggs, garlic cloves, chicken breasts, onions), use "piece" as unit with the COUNT as quantity
   Example: "4 cloves garlic" → quantity: 4, unit: "piece", name: "garlic"
   Example: "2 chicken breasts" → quantity: 2, unit: "piece", name: "chicken breast"
@@ -182,6 +226,7 @@ export interface MatchedIngredient {
     id: string
     name: string
     category: IngredientCategory
+    subcategory: string | null
     defaultUnit: Unit
     gramsPerPiece: number | null
   }
@@ -189,6 +234,10 @@ export interface MatchedIngredient {
   convertedQuantity: number
   /** Warning if quantity seems unusually high */
   quantityWarning?: string
+  /** True if quantity was vague (e.g., "to taste") */
+  isVague: boolean
+  /** The original vague phrase if isVague is true */
+  originalPhrase?: string
 }
 
 export interface UnmatchedIngredient {
@@ -197,6 +246,10 @@ export interface UnmatchedIngredient {
   extractedQuantity: number
   extractedUnit: string
   originalText: string
+  /** True if quantity was vague (e.g., "to taste") */
+  isVague: boolean
+  /** The original vague phrase if isVague is true */
+  originalPhrase?: string
 }
 
 export type IngredientMatchResult = MatchedIngredient | UnmatchedIngredient
@@ -343,12 +396,13 @@ export async function matchIngredients(
     // Normalize the name for searching
     const searchName = extracted.name.toLowerCase().trim()
 
-    // Use pg_trgm similarity search
+    // Use pg_trgm similarity search, include subcategory for vague quantity rules
     const matches = await prisma.$queryRaw<
       Array<{
         id: string
         name: string
         category: IngredientCategory
+        subcategory: string | null
         defaultUnit: Unit
         gramsPerPiece: number | null
         similarity: number
@@ -358,6 +412,7 @@ export async function matchIngredients(
         id,
         name,
         category,
+        subcategory,
         "defaultUnit",
         "gramsPerPiece",
         similarity(name, ${searchName}) as similarity
@@ -369,44 +424,88 @@ export async function matchIngredients(
 
     if (matches.length > 0 && matches[0]) {
       const match = matches[0]
-      const convertedQuantity = convertQuantity(extracted.quantity, extracted.unit, match)
 
-      // Calculate total grams for validation (estimate if not in grams)
-      let totalGrams = convertedQuantity
-      if (match.defaultUnit === 'piece') {
-        totalGrams = convertedQuantity * (match.gramsPerPiece ?? DEFAULT_GRAMS_PER_PIECE)
-      }
-
-      // Check if quantity seems unreasonable
+      // Handle vague quantities
+      let convertedQuantity: number
+      let isVague = extracted.isVague
+      let originalPhrase = extracted.vaguePhrase ?? undefined
       let quantityWarning: string | undefined
-      if (!isReasonableQuantity(totalGrams, servings)) {
-        const gramsPerServing = Math.round(totalGrams / servings)
-        quantityWarning = `Unusually high: ${gramsPerServing}g per serving. Please verify this amount.`
+      let vagueResult: VagueQuantityResult | null = null
+
+      if (isVague && originalPhrase) {
+        // Apply rule-based default for vague quantity
+        vagueResult = getVagueDefault(
+          match.category,
+          match.subcategory,
+          originalPhrase,
+          extracted.isDried ?? undefined,
+        )
+
+        if (vagueResult) {
+          // Quantity from vagueResult is per-serving, but we store total quantity for recipe
+          // The convertedQuantity here represents total for the recipe (all servings)
+          convertedQuantity = vagueResult.quantity * servings
+        } else {
+          // Fallback: use 10g per serving as default
+          convertedQuantity = 10 * servings
+        }
+      } else if (extracted.quantity !== null && extracted.unit !== null) {
+        // Normal quantity conversion
+        convertedQuantity = convertQuantity(extracted.quantity, extracted.unit, match)
+
+        // Calculate per-serving for validation
+        const quantityPerServing = convertedQuantity / servings
+
+        // Check guardrails for non-vague quantities
+        quantityWarning = checkGuardrail(quantityPerServing, match.category, match.subcategory)
+
+        // Also check general reasonableness
+        if (!quantityWarning) {
+          let totalGrams = convertedQuantity
+          if (match.defaultUnit === 'piece') {
+            totalGrams = convertedQuantity * (match.gramsPerPiece ?? DEFAULT_GRAMS_PER_PIECE)
+          }
+
+          if (!isReasonableQuantity(totalGrams, servings)) {
+            const gramsPerServing = Math.round(totalGrams / servings)
+            quantityWarning = `Unusually high: ${gramsPerServing}g per serving. Please verify this amount.`
+          }
+        }
+      } else {
+        // Shouldn't happen, but fallback
+        convertedQuantity = 10 * servings
+        isVague = true
+        originalPhrase = 'some'
       }
 
       results.push({
         type: 'matched',
         extractedName: extracted.name,
-        extractedQuantity: extracted.quantity,
-        extractedUnit: extracted.unit,
+        extractedQuantity: extracted.quantity ?? 0,
+        extractedUnit: extracted.unit ?? 'g',
         originalText: extracted.originalText,
         ingredient: {
           id: match.id,
           name: match.name,
           category: match.category,
+          subcategory: match.subcategory,
           defaultUnit: match.defaultUnit,
           gramsPerPiece: match.gramsPerPiece,
         },
         convertedQuantity,
         quantityWarning,
+        isVague,
+        originalPhrase,
       })
     } else {
       results.push({
         type: 'unmatched',
         extractedName: extracted.name,
-        extractedQuantity: extracted.quantity,
-        extractedUnit: extracted.unit,
+        extractedQuantity: extracted.quantity ?? 0,
+        extractedUnit: extracted.unit ?? 'g',
         originalText: extracted.originalText,
+        isVague: extracted.isVague,
+        originalPhrase: extracted.vaguePhrase ?? undefined,
       })
     }
   }

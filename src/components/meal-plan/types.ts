@@ -4,6 +4,8 @@ import type { MealType } from '@/generated/prisma/enums'
 export interface MealComponent {
   ingredientId: string
   quantityPerServing: number
+  isVague?: boolean
+  originalPhrase?: string | null
   ingredient: {
     id: string
     name: string

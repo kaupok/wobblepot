@@ -29,6 +29,8 @@ interface MatchedIngredient {
     gramsPerPiece: number | null
   }
   convertedQuantity: number
+  isVague: boolean
+  originalPhrase?: string
 }
 
 interface UnmatchedIngredient {
@@ -37,6 +39,8 @@ interface UnmatchedIngredient {
   extractedQuantity: number
   extractedUnit: string
   originalText: string
+  isVague: boolean
+  originalPhrase?: string
 }
 
 type IngredientMatchResult = MatchedIngredient | UnmatchedIngredient
@@ -91,6 +95,8 @@ export function RecipePreview({ recipe, onConfirm, onEdit, onBack }: RecipePrevi
         .map((i) => ({
           ingredientId: i.ingredient.id,
           totalQuantity: i.convertedQuantity,
+          isVague: i.isVague,
+          originalPhrase: i.originalPhrase ?? null,
         }))
 
       const response = await fetch('/api/households/me/meals', {
@@ -212,8 +218,15 @@ export function RecipePreview({ recipe, onConfirm, onEdit, onBack }: RecipePrevi
                       <div className="flex flex-col gap-0.5">
                         <Body>{ingredient.ingredient.name}</Body>
                         <Body variant="muted">
-                          {Math.round((ingredient.convertedQuantity / recipe.servings) * 10) / 10}
-                          {formatUnit(ingredient.ingredient.defaultUnit)} per serving
+                          {ingredient.isVague && ingredient.originalPhrase ? (
+                            <span className="italic">{ingredient.originalPhrase}</span>
+                          ) : (
+                            <>
+                              {Math.round((ingredient.convertedQuantity / recipe.servings) * 10) /
+                                10}
+                              {formatUnit(ingredient.ingredient.defaultUnit)} per serving
+                            </>
+                          )}
                         </Body>
                       </div>
                     ) : (
@@ -221,7 +234,13 @@ export function RecipePreview({ recipe, onConfirm, onEdit, onBack }: RecipePrevi
                         <Body className="text-amber-700 dark:text-amber-400">
                           {ingredient.extractedName}
                         </Body>
-                        <Body variant="muted">Original: {ingredient.originalText}</Body>
+                        <Body variant="muted">
+                          {ingredient.isVague && ingredient.originalPhrase ? (
+                            <span className="italic">{ingredient.originalPhrase}</span>
+                          ) : (
+                            <>Original: {ingredient.originalText}</>
+                          )}
+                        </Body>
                       </div>
                     )}
                   </div>

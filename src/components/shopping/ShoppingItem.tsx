@@ -13,6 +13,7 @@ export interface ShoppingItemData {
   neededByDate: string
   neededByRelative: string
   neededByAbsolute: string
+  isVague?: boolean
 }
 
 interface ShoppingItemProps {
@@ -58,6 +59,7 @@ export function ShoppingItem({ item, onToggle, disabled }: ShoppingItemProps) {
             className={cn(
               'transition-colors',
               item.purchased && 'text-muted-foreground/60 line-through',
+              item.isVague && 'italic',
             )}
           >
             {item.displayQuantity}

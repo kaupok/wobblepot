@@ -57,6 +57,8 @@ function createShoppingListItem(overrides: Partial<ShoppingListItem> = {}): Shop
     shoppingQuantity: 500,
     mealCount: 2,
     earliestNeededDate: new Date('2026-01-20'),
+    isVague: false,
+    originalPhrase: null,
     ...overrides,
   }
 }
