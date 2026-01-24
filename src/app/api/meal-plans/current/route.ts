@@ -156,6 +156,8 @@ export async function GET(request: NextRequest) {
               components: entry.meal.components.map((comp) => ({
                 ingredientId: comp.ingredientId,
                 quantityPerServing: comp.quantityPerServing,
+                isVague: comp.isVague,
+                originalPhrase: comp.originalPhrase,
                 ingredient: {
                   id: comp.ingredient.id,
                   name: comp.ingredient.name,
