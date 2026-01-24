@@ -337,7 +337,9 @@ export function TodayMealCard({
           <CardTitle className="text-base leading-tight font-semibold">{meal.name}</CardTitle>
           {!showSimplifiedView && (
             <div className="flex flex-col gap-1">
-              {meal.nutrition && <NutritionSummary nutrition={meal.nutrition} compact />}
+              {meal.nutrition && (
+                <NutritionSummary nutrition={meal.nutrition} components={meal.components} compact />
+              )}
               <div className="flex flex-wrap items-center gap-1.5">
                 {meal.timeMinutes && (
                   <span className="text-muted-foreground text-xs">{meal.timeMinutes} min</span>

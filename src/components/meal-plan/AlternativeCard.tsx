@@ -24,7 +24,9 @@ export function AlternativeCard({
       <CardHeader className="pb-2">
         <div className="flex flex-col gap-1">
           <span className="leading-tight font-medium">{meal.name}</span>
-          {meal.nutrition && <NutritionSummary nutrition={meal.nutrition} compact />}
+          {meal.nutrition && (
+            <NutritionSummary nutrition={meal.nutrition} components={meal.components} compact />
+          )}
           <div className="flex flex-wrap items-center gap-1.5">
             {meal.timeMinutes && (
               <span className="text-muted-foreground text-xs">{meal.timeMinutes} min</span>

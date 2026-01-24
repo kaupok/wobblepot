@@ -53,7 +53,7 @@ export function MealDetailModal({
         </DialogHeader>
         <div className="flex flex-col gap-6">
           <IngredientList components={meal.components} householdSize={householdSize} />
-          <NutritionSummary nutrition={meal.nutrition} />
+          <NutritionSummary nutrition={meal.nutrition} components={meal.components} />
         </div>
       </DialogContent>
     </Dialog>

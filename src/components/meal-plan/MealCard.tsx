@@ -204,7 +204,9 @@ export function MealCard({
                 hideAvailability={status === 'completed' || status === 'skipped'}
                 compact
               />
-              {meal.nutrition && <NutritionSummary nutrition={meal.nutrition} compact />}
+              {meal.nutrition && (
+                <NutritionSummary nutrition={meal.nutrition} components={meal.components} compact />
+              )}
             </div>
           )}
           {!isReadOnly && isPast && (
