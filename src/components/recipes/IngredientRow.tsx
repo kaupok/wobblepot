@@ -397,13 +397,7 @@ export function IngredientRow({
               </Body>
               <Select
                 value={data.ingredient.id}
-                onValueChange={(value) => {
-                  if (value === data.ingredient.id) {
-                    handleConfirmBestMatch()
-                  } else {
-                    handleAlternativeSelect(value)
-                  }
-                }}
+                onValueChange={handleAlternativeSelect}
                 disabled={disabled}
               >
                 <SelectTrigger className="w-[200px]">
@@ -422,6 +416,9 @@ export function IngredientRow({
                     ))}
                 </SelectContent>
               </Select>
+              <Button type="button" size="sm" onClick={handleConfirmBestMatch} disabled={disabled}>
+                Confirm
+              </Button>
             </div>
           </div>
         </div>
