@@ -128,7 +128,8 @@ export function RecipesPageClient() {
       .filter((i) => i.type === 'matched' && i.ingredient && i.convertedQuantity !== undefined)
       .map((i) => ({
         ingredientId: i.ingredient!.id,
-        quantityPerServing: i.convertedQuantity!,
+        // convertedQuantity is the total for all servings, divide to get per-serving
+        quantityPerServing: i.convertedQuantity! / prefilledData.servings,
         ingredient: i.ingredient!,
       }))
 
