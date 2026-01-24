@@ -30,6 +30,8 @@ interface PrefilledMealData {
       defaultUnit: Unit
     }
     convertedQuantity?: number
+    isVague?: boolean
+    originalPhrase?: string
   }>
 }
 
@@ -131,6 +133,8 @@ export function RecipesPageClient() {
         // convertedQuantity is the total for all servings, divide to get per-serving
         quantityPerServing: i.convertedQuantity! / prefilledData.servings,
         ingredient: i.ingredient!,
+        isVague: i.isVague,
+        originalPhrase: i.originalPhrase,
       }))
 
     return {
