@@ -1,7 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, AlertTriangle, ArrowLeft, Loader2, Clock, Users, Utensils } from 'lucide-react'
+import {
+  Check,
+  AlertTriangle,
+  ArrowLeft,
+  Loader2,
+  Clock,
+  Users,
+  Utensils,
+  HelpCircle,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -13,7 +22,16 @@ import {
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Heading, Body } from '@/components/ui/typography'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Label } from '@/components/ui/label'
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
+
+interface IngredientAlternative {
+  id: string
+  name: string
+  category: IngredientCategory
+  similarity: number
+}
 
 interface MatchedIngredient {
   type: 'matched'
@@ -31,6 +49,9 @@ interface MatchedIngredient {
   convertedQuantity: number
   isVague: boolean
   originalPhrase?: string
+  similarityScore?: number
+  lowConfidence?: boolean
+  alternatives?: IngredientAlternative[]
 }
 
 interface UnmatchedIngredient {
@@ -74,12 +95,48 @@ function formatMealType(mealType: MealType): string {
 export function RecipePreview({ recipe, onConfirm, onEdit, onBack }: RecipePreviewProps) {
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState('')
+  // Track disambiguation selections: index -> selected ingredient id (or 'none')
+  const [disambiguationSelections, setDisambiguationSelections] = useState<
+    Record<number, string | null>
+  >({})
 
   const matchedCount = recipe.ingredients.filter((i) => i.type === 'matched').length
   const unmatchedCount = recipe.ingredients.filter((i) => i.type === 'unmatched').length
+  const lowConfidenceCount = recipe.ingredients.filter(
+    (i) => i.type === 'matched' && i.lowConfidence,
+  ).length
+
+  // Check if all low-confidence matches have been resolved
+  const unresolvedDisambiguations = recipe.ingredients
+    .map((ingredient, index) => ({ ingredient, index }))
+    .filter(
+      ({ ingredient, index }) =>
+        ingredient.type === 'matched' &&
+        ingredient.lowConfidence &&
+        disambiguationSelections[index] === undefined,
+    )
+
+  const hasUnresolvedDisambiguations = unresolvedDisambiguations.length > 0
+
+  // Check if any disambiguation was set to "none" (marking as unmatched)
+  const disambiguatedAsUnmatched = Object.entries(disambiguationSelections).filter(
+    ([, value]) => value === 'none',
+  ).length
+
+  // Recipe can be confirmed if all matched, no unresolved disambiguations,
+  // and no ingredients marked as "none"
+  const canConfirm =
+    recipe.allMatched && !hasUnresolvedDisambiguations && disambiguatedAsUnmatched === 0
+
+  const handleDisambiguationSelect = (ingredientIndex: number, selectedId: string) => {
+    setDisambiguationSelections((prev) => ({
+      ...prev,
+      [ingredientIndex]: selectedId,
+    }))
+  }
 
   const handleConfirm = async () => {
-    if (!recipe.allMatched) {
+    if (!canConfirm) {
       return
     }
 
@@ -88,16 +145,38 @@ export function RecipePreview({ recipe, onConfirm, onEdit, onBack }: RecipePrevi
 
     try {
       // Build the components array from matched ingredients
-      // convertedQuantity is already the total for the whole recipe (all servings),
-      // so we pass it directly as totalQuantity
+      // Apply disambiguation selections where applicable
       const components = recipe.ingredients
-        .filter((i): i is MatchedIngredient => i.type === 'matched')
-        .map((i) => ({
-          ingredientId: i.ingredient.id,
-          totalQuantity: i.convertedQuantity,
-          isVague: i.isVague,
-          originalPhrase: i.originalPhrase ?? null,
-        }))
+        .map((ingredient, index) => {
+          if (ingredient.type !== 'matched') return null
+
+          // Check if this ingredient was disambiguated to a different option
+          const disambiguationSelection = disambiguationSelections[index]
+
+          // If disambiguation was resolved, use the selected alternative
+          if (disambiguationSelection && disambiguationSelection !== 'none') {
+            const selectedAlt = ingredient.alternatives?.find(
+              (alt) => alt.id === disambiguationSelection,
+            )
+            if (selectedAlt) {
+              return {
+                ingredientId: selectedAlt.id,
+                totalQuantity: ingredient.convertedQuantity,
+                isVague: ingredient.isVague,
+                originalPhrase: ingredient.originalPhrase ?? null,
+              }
+            }
+          }
+
+          // Use original match
+          return {
+            ingredientId: ingredient.ingredient.id,
+            totalQuantity: ingredient.convertedQuantity,
+            isVague: ingredient.isVague,
+            originalPhrase: ingredient.originalPhrase ?? null,
+          }
+        })
+        .filter((c): c is NonNullable<typeof c> => c !== null)
 
       const response = await fetch('/api/households/me/meals', {
         method: 'POST',
@@ -126,6 +205,17 @@ export function RecipePreview({ recipe, onConfirm, onEdit, onBack }: RecipePrevi
     }
   }
 
+  const getIngredientDisplayName = (ingredient: MatchedIngredient, index: number): string => {
+    const disambiguationSelection = disambiguationSelections[index]
+    if (disambiguationSelection && disambiguationSelection !== 'none') {
+      const selectedAlt = ingredient.alternatives?.find((alt) => alt.id === disambiguationSelection)
+      if (selectedAlt) {
+        return selectedAlt.name
+      }
+    }
+    return ingredient.ingredient.name
+  }
+
   return (
     <Card className="w-full max-w-2xl">
       <CardHeader>
@@ -145,7 +235,7 @@ export function RecipePreview({ recipe, onConfirm, onEdit, onBack }: RecipePrevi
         </div>
         <CardDescription>
           <Body variant="muted">
-            Check the extracted information before {recipe.allMatched ? 'confirming' : 'editing'}
+            Check the extracted information before {canConfirm ? 'confirming' : 'editing'}
           </Body>
         </CardDescription>
       </CardHeader>
@@ -189,6 +279,12 @@ export function RecipePreview({ recipe, onConfirm, onEdit, onBack }: RecipePrevi
                   <Check className="mr-1 h-3 w-3" />
                   {matchedCount} matched
                 </Badge>
+                {lowConfidenceCount > 0 && (
+                  <Badge variant="outline" className="text-blue-600">
+                    <HelpCircle className="mr-1 h-3 w-3" />
+                    {lowConfidenceCount} to verify
+                  </Badge>
+                )}
                 {unmatchedCount > 0 && (
                   <Badge variant="outline" className="text-amber-600">
                     <AlertTriangle className="mr-1 h-3 w-3" />
@@ -199,53 +295,124 @@ export function RecipePreview({ recipe, onConfirm, onEdit, onBack }: RecipePrevi
             </div>
 
             <div className="flex flex-col gap-2">
-              {recipe.ingredients.map((ingredient, index) => (
-                <div
-                  key={index}
-                  className={`flex items-center gap-3 rounded-md border p-3 ${
-                    ingredient.type === 'matched'
-                      ? 'border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/20'
-                      : 'border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20'
-                  }`}
-                >
-                  {ingredient.type === 'matched' ? (
-                    <Check className="h-4 w-4 shrink-0 text-green-600" />
-                  ) : (
-                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
-                  )}
-                  <div className="flex-1">
-                    {ingredient.type === 'matched' ? (
-                      <div className="flex flex-col gap-0.5">
-                        <Body>{ingredient.ingredient.name}</Body>
-                        <Body variant="muted">
-                          {ingredient.isVague && ingredient.originalPhrase ? (
-                            <span className="italic">{ingredient.originalPhrase}</span>
-                          ) : (
-                            <>
-                              {Math.round((ingredient.convertedQuantity / recipe.servings) * 10) /
-                                10}
-                              {formatUnit(ingredient.ingredient.defaultUnit)} per serving
-                            </>
-                          )}
-                        </Body>
+              {recipe.ingredients.map((ingredient, index) => {
+                // Determine the styling based on state
+                const isMatched = ingredient.type === 'matched'
+                const isLowConfidence = isMatched && ingredient.lowConfidence
+                const isDisambiguated = disambiguationSelections[index] !== undefined
+                const isDisambiguatedAsNone = disambiguationSelections[index] === 'none'
+
+                let borderClass = ''
+                let bgClass = ''
+
+                if (isDisambiguatedAsNone) {
+                  // User selected "none" - treat as unmatched
+                  borderClass = 'border-amber-200 dark:border-amber-900'
+                  bgClass = 'bg-amber-50/50 dark:bg-amber-950/20'
+                } else if (!isMatched) {
+                  // Unmatched
+                  borderClass = 'border-amber-200 dark:border-amber-900'
+                  bgClass = 'bg-amber-50/50 dark:bg-amber-950/20'
+                } else if (isLowConfidence && !isDisambiguated) {
+                  // Low confidence, needs disambiguation
+                  borderClass = 'border-blue-200 dark:border-blue-900'
+                  bgClass = 'bg-blue-50/50 dark:bg-blue-950/20'
+                } else {
+                  // Matched (high confidence or disambiguated)
+                  borderClass = 'border-green-200 dark:border-green-900'
+                  bgClass = 'bg-green-50/50 dark:bg-green-950/20'
+                }
+
+                return (
+                  <div
+                    key={index}
+                    className={`flex flex-col gap-2 rounded-md border p-3 ${borderClass} ${bgClass}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {isDisambiguatedAsNone ? (
+                        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+                      ) : !isMatched ? (
+                        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+                      ) : isLowConfidence && !isDisambiguated ? (
+                        <HelpCircle className="h-4 w-4 shrink-0 text-blue-600" />
+                      ) : (
+                        <Check className="h-4 w-4 shrink-0 text-green-600" />
+                      )}
+                      <div className="flex-1">
+                        {ingredient.type === 'matched' ? (
+                          <div className="flex flex-col gap-0.5">
+                            <Body
+                              className={isDisambiguatedAsNone ? 'text-amber-700 line-through' : ''}
+                            >
+                              {getIngredientDisplayName(ingredient, index)}
+                            </Body>
+                            <Body variant="muted">
+                              {ingredient.isVague && ingredient.originalPhrase ? (
+                                <span className="italic">{ingredient.originalPhrase}</span>
+                              ) : (
+                                <>
+                                  {Math.round(
+                                    (ingredient.convertedQuantity / recipe.servings) * 10,
+                                  ) / 10}
+                                  {formatUnit(ingredient.ingredient.defaultUnit)} per serving
+                                </>
+                              )}
+                            </Body>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-0.5">
+                            <Body className="text-amber-700 dark:text-amber-400">
+                              {ingredient.extractedName}
+                            </Body>
+                            <Body variant="muted">
+                              {ingredient.isVague && ingredient.originalPhrase ? (
+                                <span className="italic">{ingredient.originalPhrase}</span>
+                              ) : (
+                                <>Original: {ingredient.originalText}</>
+                              )}
+                            </Body>
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <div className="flex flex-col gap-0.5">
-                        <Body className="text-amber-700 dark:text-amber-400">
-                          {ingredient.extractedName}
+                    </div>
+
+                    {/* Disambiguation UI for low-confidence matches */}
+                    {isMatched && isLowConfidence && ingredient.alternatives && (
+                      <div className="mt-2 ml-7">
+                        <Body variant="small" className="mb-2 text-blue-700 dark:text-blue-400">
+                          Which ingredient did you mean by &quot;{ingredient.extractedName}&quot;?
                         </Body>
-                        <Body variant="muted">
-                          {ingredient.isVague && ingredient.originalPhrase ? (
-                            <span className="italic">{ingredient.originalPhrase}</span>
-                          ) : (
-                            <>Original: {ingredient.originalText}</>
-                          )}
-                        </Body>
+                        <RadioGroup
+                          value={disambiguationSelections[index] ?? ''}
+                          onValueChange={(value) => handleDisambiguationSelect(index, value)}
+                          className="flex flex-col gap-1.5"
+                        >
+                          {ingredient.alternatives.map((alt) => (
+                            <div key={alt.id} className="flex items-center space-x-2">
+                              <RadioGroupItem value={alt.id} id={`${index}-${alt.id}`} />
+                              <Label
+                                htmlFor={`${index}-${alt.id}`}
+                                className="cursor-pointer text-sm font-normal"
+                              >
+                                {alt.name}
+                              </Label>
+                            </div>
+                          ))}
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="none" id={`${index}-none`} />
+                            <Label
+                              htmlFor={`${index}-none`}
+                              className="text-muted-foreground cursor-pointer text-sm font-normal"
+                            >
+                              None of these — skip this ingredient
+                            </Label>
+                          </div>
+                        </RadioGroup>
                       </div>
                     )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             {unmatchedCount > 0 && (
@@ -253,6 +420,26 @@ export function RecipePreview({ recipe, onConfirm, onEdit, onBack }: RecipePrevi
                 <Body variant="small" className="text-amber-700 dark:text-amber-400">
                   {unmatchedCount} ingredient{unmatchedCount === 1 ? '' : 's'} couldn&apos;t be
                   matched to our database. Click &quot;Edit recipe&quot; to resolve.
+                </Body>
+              </div>
+            )}
+
+            {hasUnresolvedDisambiguations && (
+              <div className="rounded-md bg-blue-50 p-3 dark:bg-blue-950/30">
+                <Body variant="small" className="text-blue-700 dark:text-blue-400">
+                  {unresolvedDisambiguations.length} ingredient
+                  {unresolvedDisambiguations.length === 1 ? ' needs' : 's need'} verification.
+                  Please select the correct option above.
+                </Body>
+              </div>
+            )}
+
+            {disambiguatedAsUnmatched > 0 && (
+              <div className="rounded-md bg-amber-50 p-3 dark:bg-amber-950/30">
+                <Body variant="small" className="text-amber-700 dark:text-amber-400">
+                  {disambiguatedAsUnmatched} ingredient
+                  {disambiguatedAsUnmatched === 1 ? ' was' : 's were'} marked as &quot;none of
+                  these&quot;. Click &quot;Edit recipe&quot; to search for the correct ingredient.
                 </Body>
               </div>
             )}
@@ -275,17 +462,13 @@ export function RecipePreview({ recipe, onConfirm, onEdit, onBack }: RecipePrevi
           >
             Edit recipe
           </Button>
-          <Button
-            onClick={handleConfirm}
-            disabled={!recipe.allMatched || isCreating}
-            className="flex-1"
-          >
+          <Button onClick={handleConfirm} disabled={!canConfirm || isCreating} className="flex-1">
             {isCreating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Creating...
               </>
-            ) : recipe.allMatched ? (
+            ) : canConfirm ? (
               'Confirm & create'
             ) : (
               'Resolve issues first'
