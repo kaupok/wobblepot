@@ -143,7 +143,7 @@ This ensures you have the latest context on features, data models, and implement
 
 **Protected routes:** Check session with `auth.api.getSession({ headers: await headers() })`, redirect if null. See `src/app/profile/page.tsx:8-15`
 
-**Client-side auth:** Use `authClient.signIn.email()` with `onSuccess`/`onError` callbacks. See `src/app/sign-in/page.tsx:59-74`
+**Client-side auth:** Use `authClient.signIn.email()` with `onSuccess`/`onError` callbacks. See `src/app/sign-in/SignInForm.tsx:60-78`
 
 **Sign out:** Call `authClient.signOut()` + `router.push()` + `router.refresh()`
 
@@ -153,7 +153,7 @@ This ensures you have the latest context on features, data models, and implement
 
 **Server Components (preferred):** Fetch data directly in async Server Components. Benefits: no loading states, better performance, SEO-friendly, automatic deduplication. See `src/app/page.tsx:8-11`
 
-**Client Components:** Use native React `useState` for loading/error states. For auth mutations, use Better Auth client methods. See `src/app/sign-in/page.tsx:46-78`
+**Client Components:** Use native React `useState` for loading/error states. For auth mutations, use Better Auth client methods. See `src/app/sign-in/SignInForm.tsx:48-92`
 
 **Note:** We use native patterns (no SWR/React Query).
 
@@ -161,13 +161,13 @@ This ensures you have the latest context on features, data models, and implement
 
 **Route-level error boundaries:** Next.js provides automatic error boundaries via `error.tsx`. Use Typography components (Heading, Body, Pre) for error UI. Show detailed errors only in development mode using `process.env.NODE_ENV`. See `src/app/error.tsx`
 
-**User-friendly error messages:** Map technical errors to user-friendly messages. Example: "invalid credentials" → "The email or password you entered is incorrect." See `src/app/sign-in/page.tsx:23-44`
+**User-friendly error messages:** Map technical errors to user-friendly messages. Example: "invalid credentials" → "The email or password you entered is incorrect." See `src/lib/auth-errors.ts:5-90`
 
 ## Form Handling Patterns
 
 **Native HTML forms** with controlled inputs (no form library).
 
-**Pattern:** Use `useState` for form state, `onSubmit` handler with `e.preventDefault()`, disable inputs during submission. See `src/app/sign-in/page.tsx:46-141`
+**Pattern:** Use `useState` for form state, `onSubmit` handler with `e.preventDefault()`, disable inputs during submission. See `src/app/sign-in/SignInForm.tsx:22-92`
 
 **Validation:** HTML5 (`required`, `type="email"`, `minLength`), custom validation in submit handler, server-side via Better Auth
 
@@ -887,7 +887,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/) for commi
 
 MCP (Model Context Protocol) enhances Claude Code with specialized tools and context providers.
 
-**Configured servers**: filesystem, github, sequential-thinking, memory, playwright, npm-package-search, next-devtools (in `.mcp.json`); better-auth, context7, linear-server (HTTP, configured globally)
+**Configured servers**: filesystem, sequential-thinking, memory, playwright, npm-package-search, next-devtools, context7, linear-server (in `.mcp.json`); better-auth (HTTP, configured globally)
 
 **Key servers:** filesystem (file ops), github (API integration), sequential-thinking (complex planning), memory (session persistence), playwright (E2E tests), better-auth (auth docs), context7 (library docs), linear-server (issue management)
 
