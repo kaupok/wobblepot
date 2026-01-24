@@ -10,6 +10,7 @@ import {
   checkGuardrail,
   type VagueQuantityResult,
 } from '@/lib/vague-quantities'
+import { applyIngredientAlias } from '@/lib/ingredient-aliases'
 
 /**
  * Schema for a single extracted ingredient from recipe text.
@@ -102,6 +103,25 @@ IMPORTANT GUIDELINES:
 1. Extract the recipe name, description, cooking time, servings, and ingredients
 2. For ingredients, extract the quantity, unit, and ingredient name separately
 3. Use these units: "g" for weight, "ml" for volume, "piece" for countable items, or keep original units ("cup", "tbsp", "tsp", "oz", "lb") if conversion would be inaccurate
+
+INGREDIENT NAME SPECIFICITY (CRITICAL):
+Always use full, specific ingredient names. Use recipe context to determine the exact ingredient.
+
+| Ambiguous Text | Correct Output | Rationale |
+|----------------|----------------|-----------|
+| "salt and pepper to taste" | "black pepper" | Spice pairing context |
+| "1 red pepper, diced" | "red bell pepper" | Color + vegetable context |
+| "sauté the onion" | "yellow onion" | Default cooking onion |
+| "2 cups flour" | "all-purpose flour" | Default baking flour |
+| "add the oil" | "vegetable oil" | Default cooking oil |
+| "1 cup milk" | "whole milk" | Default dairy milk |
+| "butter for greasing" | "unsalted butter" | Default cooking butter |
+| "1 cup rice" | "white rice" | Default rice variety |
+| "a splash of vinegar" | "white vinegar" | Default vinegar |
+| "top with cream" | "heavy cream" | Default cooking cream |
+
+DO NOT output generic terms like "pepper", "onion", "flour", "oil", "milk", etc.
+Always expand to the specific variety based on culinary context.
 
 VAGUE QUANTITY DETECTION:
 Some ingredients have imprecise quantities. Detect these vague phrases:
@@ -214,6 +234,12 @@ export async function parseRecipeText(recipeText: string): Promise<RecipeExtract
 }
 
 /**
+ * Minimum similarity score for a match to be considered "confident".
+ * Below this threshold, we show disambiguation UI to the user.
+ */
+const LOW_CONFIDENCE_THRESHOLD = 0.6
+
+/**
  * Result of matching an ingredient against the database.
  */
 export interface MatchedIngredient {
@@ -238,6 +264,17 @@ export interface MatchedIngredient {
   isVague: boolean
   /** The original vague phrase if isVague is true */
   originalPhrase?: string
+  /** Similarity score from trigram matching (0-1) */
+  similarityScore: number
+  /** True if match confidence is low and needs user disambiguation */
+  lowConfidence: boolean
+  /** Alternative ingredient candidates for disambiguation (only when lowConfidence is true) */
+  alternatives?: Array<{
+    id: string
+    name: string
+    category: IngredientCategory
+    similarity: number
+  }>
 }
 
 export interface UnmatchedIngredient {
@@ -383,6 +420,8 @@ function isReasonableQuantity(totalGrams: number, servings: number): boolean {
 
 /**
  * Match extracted ingredients against the database using fuzzy search.
+ * Applies alias expansion for ambiguous terms before searching.
+ *
  * @param extractedIngredients - The ingredients extracted by AI
  * @param servings - Number of servings for quantity validation
  */
@@ -393,10 +432,11 @@ export async function matchIngredients(
   const results: IngredientMatchResult[] = []
 
   for (const extracted of extractedIngredients) {
-    // Normalize the name for searching
-    const searchName = extracted.name.toLowerCase().trim()
+    // Layer 2: Apply alias expansion for ambiguous terms
+    const expandedName = applyIngredientAlias(extracted.name)
+    const searchName = expandedName.toLowerCase().trim()
 
-    // Use pg_trgm similarity search, include subcategory for vague quantity rules
+    // Use pg_trgm similarity search, get top 4 matches for potential disambiguation
     const matches = await prisma.$queryRaw<
       Array<{
         id: string
@@ -419,11 +459,23 @@ export async function matchIngredients(
       FROM "ingredient"
       WHERE similarity(name, ${searchName}) >= ${SIMILARITY_THRESHOLD}
       ORDER BY similarity DESC
-      LIMIT 1
+      LIMIT 4
     `
 
     if (matches.length > 0 && matches[0]) {
       const match = matches[0]
+      const similarityScore = match.similarity
+      const lowConfidence = similarityScore < LOW_CONFIDENCE_THRESHOLD
+
+      // Get alternatives for disambiguation if low confidence
+      const alternatives = lowConfidence
+        ? matches.slice(0, 3).map((m) => ({
+            id: m.id,
+            name: m.name,
+            category: m.category,
+            similarity: m.similarity,
+          }))
+        : undefined
 
       // Handle vague quantities
       let convertedQuantity: number
@@ -496,6 +548,9 @@ export async function matchIngredients(
         quantityWarning,
         isVague,
         originalPhrase,
+        similarityScore,
+        lowConfidence,
+        alternatives,
       })
     } else {
       results.push({
