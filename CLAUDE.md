@@ -889,7 +889,7 @@ MCP (Model Context Protocol) enhances Claude Code with specialized tools and con
 
 **Configured servers**: filesystem, sequential-thinking, memory, playwright, npm-package-search, next-devtools, context7, linear-server (in `.mcp.json`); better-auth (HTTP, configured globally)
 
-**Key servers:** filesystem (file ops), github (API integration), sequential-thinking (complex planning), memory (session persistence), playwright (E2E tests), better-auth (auth docs), context7 (library docs), linear-server (issue management)
+**Key servers:** filesystem (file ops), sequential-thinking (complex planning), memory (session persistence), playwright (E2E tests), better-auth (auth docs), context7 (library docs), linear-server (issue management)
 
 **Verify status:** `claude mcp list`
 
