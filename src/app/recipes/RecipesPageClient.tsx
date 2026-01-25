@@ -27,6 +27,7 @@ interface EnhancedPrefilledData {
   mealTypes: MealType[]
   kidFriendly: boolean
   prefilledIngredients: PrefilledIngredient[]
+  originalRecipeText?: string
 }
 
 export function RecipesPageClient() {
@@ -127,6 +128,7 @@ export function RecipesPageClient() {
       suitableFor: prefilledData.mealTypes,
       servings: prefilledData.servings,
       prefilledIngredients: prefilledData.prefilledIngredients,
+      originalRecipeText: prefilledData.originalRecipeText,
     }
   }
 

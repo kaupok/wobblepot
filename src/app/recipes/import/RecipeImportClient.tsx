@@ -170,7 +170,10 @@ export function RecipeImportClient() {
 
       // Convert to enhanced prefilled format and navigate directly to edit form
       const prefilledData = convertToPrefilledData(data.recipe)
-      sessionStorage.setItem('prefilled-meal', JSON.stringify(prefilledData))
+      sessionStorage.setItem(
+        'prefilled-meal',
+        JSON.stringify({ ...prefilledData, originalRecipeText: recipeText }),
+      )
       router.push('/recipes?mode=create&prefilled=true')
     } catch {
       setError('Failed to parse recipe. Please try again.')
