@@ -9,6 +9,8 @@ import type { WeekContext } from './types'
 
 const CLIENT_TIMEOUT_MS = 45000
 
+type GenerateMode = 'generate' | 'empty'
+
 function getErrorMessage(status: number, message?: string): string {
   switch (status) {
     case 429:
@@ -31,7 +33,7 @@ export function EmptyPlan({ weekContext }: EmptyPlanProps) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (mode: GenerateMode) => {
     setIsGenerating(true)
     setError(null)
 
@@ -42,7 +44,7 @@ export function EmptyPlan({ weekContext }: EmptyPlanProps) {
       const response = await fetch('/api/meal-plans/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetWeek: weekContext.type }),
+        body: JSON.stringify({ targetWeek: weekContext.type, mode }),
         signal: controller.signal,
       })
 
@@ -97,9 +99,18 @@ export function EmptyPlan({ weekContext }: EmptyPlanProps) {
             {error}
           </Body>
         )}
-        <Button onClick={handleGenerate} disabled={isGenerating}>
-          {isGenerating ? 'Generating...' : buttonText}
-        </Button>
+        <div className="flex flex-col items-center gap-3">
+          <Button onClick={() => handleGenerate('generate')} disabled={isGenerating}>
+            {isGenerating ? 'Generating...' : buttonText}
+          </Button>
+          <button
+            onClick={() => handleGenerate('empty')}
+            disabled={isGenerating}
+            className="text-muted-foreground hover:text-foreground text-sm underline disabled:opacity-50"
+          >
+            or create empty week
+          </button>
+        </div>
       </div>
     </>
   )

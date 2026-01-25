@@ -8,6 +8,7 @@ import {
 } from '@/lib/meal-planning/dates'
 import { shouldEnforceBalanceConstraints } from '@/lib/meal-planning/slots'
 import { DayColumn } from './DayColumn'
+import { WeekViewActions } from './WeekViewActions'
 import type {
   EmptySlot,
   ExpectedMealTypes,
@@ -108,7 +109,10 @@ export function WeekView({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <Heading variant="h2">{heading}</Heading>
+        <div className="flex items-center justify-between">
+          <Heading variant="h2">{heading}</Heading>
+          {!isReadOnly && <WeekViewActions planId={plan.id} weekContext={weekContext} />}
+        </div>
         {showPartialWeekNotice && (
           <Body variant="muted">
             Shorter week ({weekContext.daysCount} days) - meal variety may be limited

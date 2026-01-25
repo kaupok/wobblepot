@@ -23,10 +23,13 @@ import {
   MealPlanResponseSchema,
   MealPlanValidationError,
   InsufficientCandidatesError,
+  NoEmptySlotsError,
   type CandidatePools,
   type GeneratePlanOptions,
   type GeneratePlanResult,
   type HydratedPlanEntry,
+  type CreateEmptyPlanOptions,
+  type FillEmptySlotsOptions,
 } from './types'
 import type { MealType } from '@/generated/prisma/enums'
 
@@ -410,6 +413,286 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     startDate: toDateString(mealPlan.startDate),
     endDate: toDateString(mealPlan.endDate),
     entries: mealPlan.entries.map((entry) => ({
+      id: entry.id,
+      date: toDateString(entry.date),
+      mealType: entry.mealType,
+      status: entry.status,
+      meal: entry.meal
+        ? {
+            id: entry.meal.id,
+            name: entry.meal.name,
+            kidFriendly: entry.meal.kidFriendly,
+            primaryProteinType: entry.meal.primaryProteinType,
+            nutrition: computeMealNutrition(entry.meal.components),
+          }
+        : null,
+    })),
+  }
+}
+
+/**
+ * Create an empty meal plan (no entries).
+ * Deletes any existing plan for the same week.
+ */
+export async function createEmptyPlan(
+  options: CreateEmptyPlanOptions,
+): Promise<GeneratePlanResult> {
+  const { householdId, startDate } = options
+
+  // endDate is exclusive (day after the last entry)
+  const endDate = new Date(startDate)
+  endDate.setDate(startDate.getDate() + 7)
+
+  // Delete existing plan and create empty one in a transaction
+  const mealPlan = await prisma.$transaction(async (tx) => {
+    // Delete existing plan for this household+startDate if it exists
+    await tx.mealPlan.deleteMany({
+      where: {
+        householdId,
+        startDate,
+      },
+    })
+
+    // Create new plan with no entries
+    return tx.mealPlan.create({
+      data: {
+        householdId,
+        startDate,
+        endDate,
+      },
+      include: {
+        entries: true,
+      },
+    })
+  })
+
+  return {
+    id: mealPlan.id,
+    startDate: toDateString(mealPlan.startDate),
+    endDate: toDateString(mealPlan.endDate),
+    entries: [],
+  }
+}
+
+/**
+ * Fill empty slots in an existing meal plan with AI-generated meals.
+ * Does NOT delete existing entries - only adds new ones for empty slots.
+ * Throws NoEmptySlotsError if there are no empty slots to fill.
+ */
+export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<GeneratePlanResult> {
+  const {
+    planId,
+    householdId,
+    dietaryType,
+    allergensToAvoid,
+    excludedIngredientIds,
+    restrictions,
+    weekdayMealTypes,
+    weekendMealTypes,
+  } = options
+
+  // Fetch existing plan with entries
+  const existingPlan = await prisma.mealPlan.findUnique({
+    where: { id: planId },
+    include: {
+      entries: {
+        include: {
+          meal: {
+            include: {
+              components: {
+                include: {
+                  ingredient: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+
+  if (!existingPlan || existingPlan.householdId !== householdId) {
+    throw new Error('Plan not found')
+  }
+
+  // Calculate expected slots based on plan dates and meal type preferences
+  const startDate = existingPlan.startDate
+  const dates = getWeekDates(startDate)
+
+  // Find existing entry slots
+  const existingSlotKeys = new Set(
+    existingPlan.entries.map((e) => slotKey(toDateString(e.date), e.mealType)),
+  )
+
+  // Compute all expected slots
+  const allSlots = computeMealSlots(dates, weekdayMealTypes, weekendMealTypes)
+
+  // Find empty slots (expected minus existing)
+  const emptySlots = allSlots.filter(
+    (slot) => !existingSlotKeys.has(slotKey(slot.date, slot.mealType)),
+  )
+
+  if (emptySlots.length === 0) {
+    throw new NoEmptySlotsError()
+  }
+
+  // Compute required protein slots for empty dinner slots only
+  const emptyDinnerDates = emptySlots.filter((s) => s.mealType === 'dinner').map((s) => s.date)
+
+  const requiredSlots = computeRequiredSlots({
+    dietaryType,
+    dates: emptyDinnerDates,
+    weekdayMealTypes,
+    weekendMealTypes,
+  })
+
+  // Get recent meal IDs to exclude and favorite meal IDs for prioritization
+  const [recentMealIds, favoriteMealIds] = await Promise.all([
+    getRecentMealIds(householdId),
+    getFavoriteMealIds(householdId),
+  ])
+
+  // Collect unique meal types from empty slots
+  const uniqueMealTypes = [...new Set(emptySlots.map((s) => s.mealType))]
+
+  // Query candidate pools for each meal type
+  const candidatesByMealType = new Map<MealType, CandidateMeal[]>()
+  await Promise.all(
+    uniqueMealTypes.map(async (mealType) => {
+      const candidates = await getCandidates({
+        mealType,
+        allergensToAvoid,
+        excludedIngredientIds,
+        recentMealIds,
+        dietaryType,
+        householdId,
+        favoriteMealIds,
+      })
+      candidatesByMealType.set(mealType, capPool(candidates))
+    }),
+  )
+
+  // For dinner slots, also query protein-specific pools for balance constraints
+  const dinnerCandidates = candidatesByMealType.get('dinner') ?? []
+  const [fishCandidates, legumeCandidates] = await Promise.all([
+    getCandidates({
+      mealType: 'dinner',
+      allergensToAvoid,
+      excludedIngredientIds,
+      recentMealIds,
+      dietaryType,
+      primaryProteinType: 'fish',
+      householdId,
+      favoriteMealIds,
+    }),
+    getCandidates({
+      mealType: 'dinner',
+      allergensToAvoid,
+      excludedIngredientIds,
+      recentMealIds,
+      dietaryType,
+      primaryProteinType: 'legume',
+      householdId,
+      favoriteMealIds,
+    }),
+  ])
+
+  const fishPool = capPool(fishCandidates)
+  const legumePool = capPool(legumeCandidates)
+  const reservedMealIds = new Set([...fishPool.map((m) => m.id), ...legumePool.map((m) => m.id)])
+  const anyPool = capPool(dinnerCandidates.filter((m) => !reservedMealIds.has(m.id)))
+
+  const candidatePools: CandidatePools = {
+    fish: fishPool,
+    legume: legumePool,
+    any: anyPool,
+    byMealType: candidatesByMealType,
+  }
+
+  // Validate required pools have candidates
+  for (const slot of requiredSlots) {
+    const pool = slot.proteinType === 'fish' ? candidatePools.fish : candidatePools.legume
+    if (pool.length === 0) {
+      throw new InsufficientCandidatesError(slot.proteinType)
+    }
+  }
+
+  // Compute remaining slots (not required protein slots)
+  const requiredSlotKeys = new Set(requiredSlots.map((s) => slotKey(s.date, s.mealType)))
+  const remainingSlots = emptySlots.filter(
+    (s) => !requiredSlotKeys.has(slotKey(s.date, s.mealType)),
+  )
+
+  // Build prompt and call AI for empty slots only
+  const prompt = buildMealPlanPrompt({
+    startDate,
+    endDate: existingPlan.endDate,
+    totalEntries: emptySlots.length,
+    requiredSlots,
+    remainingSlots,
+    candidatePools,
+    restrictions,
+    candidatesByMealType,
+  })
+
+  const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
+
+  const { object } = await generateObject({
+    model: anthropic('claude-sonnet-4-20250514'),
+    schema: MealPlanResponseSchema,
+    prompt,
+  })
+
+  // Hydrate with meal details
+  const hydratedPlan = await hydratePlan(object.entries)
+
+  // Validate AI response structure
+  validateAIResponseStructure(hydratedPlan, emptySlots)
+
+  // Validate constraints and repair if needed
+  const validatedPlan = validateAndRepairPlan(hydratedPlan, requiredSlots, candidatePools)
+
+  // Create new entries (do NOT delete existing)
+  await prisma.mealPlanEntry.createMany({
+    data: validatedPlan.map((entry) => ({
+      planId,
+      date: entry.date,
+      mealType: entry.mealType,
+      mealId: entry.mealId,
+      status: 'planned',
+    })),
+  })
+
+  // Fetch all entries for the plan with meal details
+  const updatedPlan = await prisma.mealPlan.findUnique({
+    where: { id: planId },
+    include: {
+      entries: {
+        include: {
+          meal: {
+            include: {
+              components: {
+                include: {
+                  ingredient: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: [{ date: 'asc' }, { mealType: 'asc' }],
+      },
+    },
+  })
+
+  if (!updatedPlan) {
+    throw new Error('Plan not found after update')
+  }
+
+  return {
+    id: updatedPlan.id,
+    startDate: toDateString(updatedPlan.startDate),
+    endDate: toDateString(updatedPlan.endDate),
+    entries: updatedPlan.entries.map((entry) => ({
       id: entry.id,
       date: toDateString(entry.date),
       mealType: entry.mealType,

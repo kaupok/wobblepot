@@ -77,6 +77,29 @@ export interface GeneratePlanOptions {
 }
 
 /**
+ * Options for creating an empty meal plan (no entries).
+ */
+export interface CreateEmptyPlanOptions {
+  householdId: string
+  /** Week start date (always Monday) */
+  startDate: Date
+}
+
+/**
+ * Options for filling empty slots in an existing meal plan.
+ */
+export interface FillEmptySlotsOptions {
+  planId: string
+  householdId: string
+  dietaryType: DietaryType
+  allergensToAvoid: Allergen[]
+  excludedIngredientIds: string[]
+  restrictions: string[]
+  weekdayMealTypes: MealType[]
+  weekendMealTypes: MealType[]
+}
+
+/**
  * The result of meal plan generation.
  */
 export interface GeneratePlanResult {
@@ -148,6 +171,16 @@ export class InsufficientCandidatesError extends Error {
   constructor(proteinType: string) {
     super(`No ${proteinType} meals available matching household dietary constraints`)
     this.name = 'InsufficientCandidatesError'
+  }
+}
+
+/**
+ * Error thrown when fill-empty is requested but there are no empty slots.
+ */
+export class NoEmptySlotsError extends Error {
+  constructor() {
+    super('No empty slots to fill')
+    this.name = 'NoEmptySlotsError'
   }
 }
 
