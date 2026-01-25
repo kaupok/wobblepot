@@ -184,12 +184,7 @@ export function MealCard({
               </Button>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-1">
-            <CardTitle className="text-xs leading-tight font-semibold">{meal.name}</CardTitle>
-            {meal.timeMinutes && (
-              <span className="text-muted-foreground text-[10px]">· {meal.timeMinutes} min</span>
-            )}
-          </div>
+          <CardTitle className="text-xs leading-tight font-semibold">{meal.name}</CardTitle>
           {!isPast && shouldShowAvailability && availability && (
             <AvailabilityIndicator availability={availability} />
           )}
