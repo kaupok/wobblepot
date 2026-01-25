@@ -3,8 +3,12 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { generateMealPlan } from '@/lib/ai/generate-plan'
-import { MealPlanValidationError, InsufficientCandidatesError } from '@/lib/ai/types'
+import { generateMealPlan, createEmptyPlan, fillEmptySlots } from '@/lib/ai/generate-plan'
+import {
+  MealPlanValidationError,
+  InsufficientCandidatesError,
+  NoEmptySlotsError,
+} from '@/lib/ai/types'
 import {
   getNextMonday,
   getCurrentWeekMonday,
@@ -20,6 +24,8 @@ const generateRequestSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format')
     .optional(),
   targetWeek: z.enum(['current', 'next']).optional(),
+  planId: z.string().optional(),
+  mode: z.enum(['generate', 'empty', 'fill-empty']).default('generate'),
 })
 
 export async function POST(request: Request) {
@@ -75,8 +81,72 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
   }
 
+  const { targetWeek = 'next', mode = 'generate', planId } = parsed.data
+
+  // Get household preferences
+  const preferences = household.preferences
+  const dietaryType = preferences?.dietaryType ?? 'omnivore'
+  const allergensToAvoid = preferences?.allergensToAvoid ?? []
+  const excludedIngredientIds = preferences?.excludedIngredientIds ?? []
+  const restrictions = preferences?.restrictions ?? []
+  const weekdayMealTypes = preferences?.weekdayMealTypes ?? ['dinner']
+  const weekendMealTypes = preferences?.weekendMealTypes ?? ['dinner']
+
+  // Handle fill-empty mode
+  if (mode === 'fill-empty') {
+    if (!planId) {
+      return NextResponse.json({ error: 'planId is required for fill-empty mode' }, { status: 400 })
+    }
+
+    try {
+      const result = await fillEmptySlots({
+        planId,
+        householdId: household.id,
+        dietaryType,
+        allergensToAvoid,
+        excludedIngredientIds,
+        restrictions,
+        weekdayMealTypes,
+        weekendMealTypes,
+      })
+
+      // Record successful generation for rate limiting
+      recordGeneration(household.id)
+
+      return NextResponse.json(result, { status: 200 })
+    } catch (error) {
+      if (error instanceof NoEmptySlotsError) {
+        return NextResponse.json(
+          { error: 'No empty slots to fill', message: error.message },
+          { status: 400 },
+        )
+      }
+
+      if (error instanceof MealPlanValidationError) {
+        console.error('AI response validation failed:', error.message)
+        return NextResponse.json(
+          { error: 'AI generated an invalid meal plan', message: error.message },
+          { status: 422 },
+        )
+      }
+
+      if (error instanceof InsufficientCandidatesError) {
+        return NextResponse.json(
+          { error: 'Insufficient meal options', message: error.message },
+          { status: 422 },
+        )
+      }
+
+      if (error instanceof Error && error.message === 'Plan not found') {
+        return NextResponse.json({ error: 'Plan not found' }, { status: 404 })
+      }
+
+      console.error('Fill empty slots failed:', error)
+      return NextResponse.json({ error: 'Failed to fill empty slots' }, { status: 500 })
+    }
+  }
+
   // Determine start date and effective start date based on targetWeek
-  const { targetWeek = 'next' } = parsed.data
   let startDate: Date
   let effectiveStartDate: Date | undefined
 
@@ -106,17 +176,49 @@ export async function POST(request: Request) {
     startDate = getNextMonday()
   }
 
-  // Get household preferences
-  const preferences = household.preferences
-  const dietaryType = preferences?.dietaryType ?? 'omnivore'
-  const allergensToAvoid = preferences?.allergensToAvoid ?? []
-  const excludedIngredientIds = preferences?.excludedIngredientIds ?? []
-  const restrictions = preferences?.restrictions ?? []
-  const weekdayMealTypes = preferences?.weekdayMealTypes ?? ['dinner']
-  const weekendMealTypes = preferences?.weekendMealTypes ?? ['dinner']
+  // Handle empty mode - create plan with no entries
+  if (mode === 'empty') {
+    try {
+      const result = await createEmptyPlan({
+        householdId: household.id,
+        startDate,
+      })
+
+      // Record successful generation for rate limiting
+      recordGeneration(household.id)
+
+      return NextResponse.json(
+        {
+          ...result,
+          weekContext: {
+            type: targetWeek,
+            daysCount: 0,
+            isPartialWeek: false,
+          },
+        },
+        { status: 200 },
+      )
+    } catch (error) {
+      // Handle Prisma unique constraint violation
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'P2002'
+      ) {
+        return NextResponse.json(
+          { error: 'A meal plan already exists for this week' },
+          { status: 409 },
+        )
+      }
+
+      console.error('Empty plan creation failed:', error)
+      return NextResponse.json({ error: 'Failed to create empty plan' }, { status: 500 })
+    }
+  }
 
   try {
-    // Generate meal plan
+    // Generate meal plan (default mode)
     const result = await generateMealPlan({
       householdId: household.id,
       startDate,

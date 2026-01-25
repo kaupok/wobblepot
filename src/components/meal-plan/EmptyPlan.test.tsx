@@ -84,6 +84,12 @@ describe('EmptyPlan', () => {
 
       expect(screen.getByRole('button', { name: 'Generate this week' })).not.toBeDisabled()
     })
+
+    it('renders create empty week link', () => {
+      render(<EmptyPlan weekContext={defaultWeekContext} />)
+
+      expect(screen.getByText('or create empty week')).toBeInTheDocument()
+    })
   })
 
   describe('generation flow', () => {
@@ -117,7 +123,7 @@ describe('EmptyPlan', () => {
       expect(mockFetch).toHaveBeenCalledWith('/api/meal-plans/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetWeek: 'current' }),
+        body: JSON.stringify({ targetWeek: 'current', mode: 'generate' }),
         signal: expect.any(AbortSignal),
       })
     })
@@ -132,7 +138,22 @@ describe('EmptyPlan', () => {
       expect(mockFetch).toHaveBeenCalledWith('/api/meal-plans/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetWeek: 'next' }),
+        body: JSON.stringify({ targetWeek: 'next', mode: 'generate' }),
+        signal: expect.any(AbortSignal),
+      })
+    })
+
+    it('calls generate endpoint with empty mode when creating empty week', async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
+
+      render(<EmptyPlan weekContext={defaultWeekContext} />)
+
+      await userEvent.click(screen.getByText('or create empty week'))
+
+      expect(mockFetch).toHaveBeenCalledWith('/api/meal-plans/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetWeek: 'current', mode: 'empty' }),
         signal: expect.any(AbortSignal),
       })
     })
