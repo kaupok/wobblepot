@@ -100,6 +100,8 @@ export function IngredientRow({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  // Preserve the last quantity when toggling between vague and specific
+  const lastQuantityRef = useRef<number | null>(null)
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -215,21 +217,40 @@ export function IngredientRow({
 
   const handleSetQuantity = () => {
     if (data.type === 'matched') {
-      // Set a reasonable default quantity based on unit type
-      const defaultQuantity = data.ingredient.defaultUnit === 'piece' ? 1 : 5
+      // Use preserved quantity if available, otherwise set a reasonable default
+      const quantity = lastQuantityRef.current ?? (data.ingredient.defaultUnit === 'piece' ? 1 : 5)
       onUpdate({
         ...data,
-        totalQuantity: defaultQuantity,
+        totalQuantity: quantity,
         isVague: false,
         originalPhrase: null,
       })
     } else if (data.type === 'low-confidence') {
-      const defaultQuantity = data.ingredient.defaultUnit === 'piece' ? 1 : 5
+      const quantity = lastQuantityRef.current ?? (data.ingredient.defaultUnit === 'piece' ? 1 : 5)
       onUpdate({
         ...data,
-        totalQuantity: defaultQuantity,
+        totalQuantity: quantity,
         isVague: false,
         originalPhrase: null,
+      })
+    }
+  }
+
+  const handleMarkAsVague = () => {
+    if (data.type === 'matched') {
+      // Preserve the current quantity for potential restoration
+      lastQuantityRef.current = data.totalQuantity
+      onUpdate({
+        ...data,
+        isVague: true,
+        originalPhrase: 'to taste',
+      })
+    } else if (data.type === 'low-confidence') {
+      lastQuantityRef.current = data.totalQuantity
+      onUpdate({
+        ...data,
+        isVague: true,
+        originalPhrase: 'to taste',
       })
     }
   }
@@ -375,32 +396,46 @@ export function IngredientRow({
             <div className="flex items-center justify-between gap-3">
               <div className="flex flex-col gap-0.5">
                 <Body className="text-blue-700 dark:text-blue-400">{data.extractedName}</Body>
-                <Body variant="muted">
-                  {data.isVague && data.originalPhrase ? (
-                    <span className="italic">{data.originalPhrase}</span>
-                  ) : isInvalidQuantity ? (
-                    <span className="text-destructive">Quantity must be greater than 0</span>
+                <div className="flex items-center gap-2">
+                  <Body variant="muted">
+                    {data.isVague && data.originalPhrase ? (
+                      <span className="italic">{data.originalPhrase}</span>
+                    ) : isInvalidQuantity ? (
+                      <span className="text-destructive">Quantity must be greater than 0</span>
+                    ) : (
+                      <>
+                        {perServing}
+                        {unitLabel} per serving
+                      </>
+                    )}
+                  </Body>
+                  {data.isVague ? (
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      onClick={handleSetQuantity}
+                      disabled={disabled}
+                      className="text-muted-foreground hover:text-foreground h-auto p-0"
+                    >
+                      Set quantity
+                    </Button>
                   ) : (
-                    <>
-                      {perServing}
-                      {unitLabel} per serving
-                    </>
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      onClick={handleMarkAsVague}
+                      disabled={disabled}
+                      className="text-muted-foreground hover:text-foreground h-auto p-0"
+                    >
+                      to taste
+                    </Button>
                   )}
-                </Body>
+                </div>
               </div>
               <div className="flex items-center gap-2">
-                {data.isVague ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleSetQuantity}
-                    disabled={disabled}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    Set quantity
-                  </Button>
-                ) : (
+                {!data.isVague && (
                   <div
                     className={cn(
                       'flex items-center rounded-md border',
@@ -481,32 +516,46 @@ export function IngredientRow({
       <Check className="h-4 w-4 shrink-0 text-green-600" />
       <div className="flex-1">
         <Body>{data.ingredient.name}</Body>
-        <Body variant="muted">
-          {data.isVague && data.originalPhrase ? (
-            <span className="italic">{data.originalPhrase}</span>
-          ) : isInvalidQuantity ? (
-            <span className="text-destructive">Quantity must be greater than 0</span>
+        <div className="flex items-center gap-2">
+          <Body variant="muted">
+            {data.isVague && data.originalPhrase ? (
+              <span className="italic">{data.originalPhrase}</span>
+            ) : isInvalidQuantity ? (
+              <span className="text-destructive">Quantity must be greater than 0</span>
+            ) : (
+              <>
+                {perServing}
+                {unitLabel} per serving
+              </>
+            )}
+          </Body>
+          {data.isVague ? (
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              onClick={handleSetQuantity}
+              disabled={disabled}
+              className="text-muted-foreground hover:text-foreground h-auto p-0"
+            >
+              Set quantity
+            </Button>
           ) : (
-            <>
-              {perServing}
-              {unitLabel} per serving
-            </>
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              onClick={handleMarkAsVague}
+              disabled={disabled}
+              className="text-muted-foreground hover:text-foreground h-auto p-0"
+            >
+              to taste
+            </Button>
           )}
-        </Body>
+        </div>
       </div>
       <div className="flex items-center gap-2">
-        {data.isVague ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={handleSetQuantity}
-            disabled={disabled}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            Set quantity
-          </Button>
-        ) : (
+        {!data.isVague && (
           <div
             className={cn(
               'flex items-center rounded-md border',
