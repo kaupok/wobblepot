@@ -12,6 +12,62 @@ const createEntrySchema = z.object({
   mealId: z.string().optional(),
 })
 
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  // Auth check
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  })
+
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Get household membership
+  const membership = await getHouseholdMembership(session.user.id)
+
+  if (!membership) {
+    return NextResponse.json({ error: 'No household found' }, { status: 404 })
+  }
+
+  const { household } = membership
+  const { id: planId } = await params
+
+  try {
+    // Verify plan exists and belongs to user's household
+    const plan = await prisma.mealPlan.findFirst({
+      where: {
+        id: planId,
+        householdId: household.id,
+      },
+      select: {
+        id: true,
+        endDate: true,
+      },
+    })
+
+    if (!plan) {
+      return NextResponse.json({ error: 'Meal plan not found' }, { status: 404 })
+    }
+
+    // Reject modifications to past week plans
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    if (plan.endDate < today) {
+      return NextResponse.json({ error: 'Cannot modify past week plans' }, { status: 403 })
+    }
+
+    // Delete all entries for this plan
+    const result = await prisma.mealPlanEntry.deleteMany({
+      where: { planId },
+    })
+
+    return NextResponse.json({ success: true, deletedCount: result.count })
+  } catch (error) {
+    console.error('Failed to delete entries:', error)
+    return NextResponse.json({ error: 'Failed to delete entries' }, { status: 500 })
+  }
+}
+
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   // Auth check
   const session = await auth.api.getSession({
