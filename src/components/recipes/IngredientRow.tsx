@@ -351,7 +351,7 @@ export function IngredientRow({
           <div className="flex flex-1 flex-col gap-2">
             <div className="flex items-center justify-between gap-3">
               <div className="flex flex-col gap-0.5">
-                <Body>{data.ingredient.name}</Body>
+                <Body className="text-blue-700 dark:text-blue-400">{data.extractedName}</Body>
                 <Body variant="muted">
                   {data.isVague && data.originalPhrase ? (
                     <span className="italic">{data.originalPhrase}</span>
