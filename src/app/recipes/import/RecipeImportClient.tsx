@@ -110,6 +110,7 @@ function convertToPrefilledData(recipe: ParsedRecipeData): {
         lowConfidence: true,
         alternatives: ingredient.alternatives,
         extractedName: ingredient.extractedName,
+        originalText: ingredient.originalText,
       }
     }
 

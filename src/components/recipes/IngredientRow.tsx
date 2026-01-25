@@ -43,6 +43,7 @@ interface MatchedIngredientData {
 interface LowConfidenceIngredientData {
   type: 'low-confidence'
   extractedName: string
+  originalText?: string
   ingredient: IngredientResult
   alternatives: IngredientAlternative[]
   totalQuantity: number
@@ -396,6 +397,7 @@ export function IngredientRow({
             <div className="flex items-center justify-between gap-3">
               <div className="flex flex-col gap-0.5">
                 <Body className="text-blue-700 dark:text-blue-400">{data.extractedName}</Body>
+                {data.originalText && <Body variant="muted">Original: {data.originalText}</Body>}
                 <div className="flex items-center gap-2">
                   <Body variant="muted">
                     {data.isVague && data.originalPhrase ? (
