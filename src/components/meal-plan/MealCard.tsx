@@ -55,6 +55,7 @@ export function MealCard({
   const router = useRouter()
   const [status, setStatus] = useState<MealStatus>(initialStatus)
   const [isUpdating, setIsUpdating] = useState(false)
+  const [isClearing, setIsClearing] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
   const [isDeductionModalOpen, setIsDeductionModalOpen] = useState(false)
@@ -117,6 +118,26 @@ export function MealCard({
     }
   }
 
+  async function handleClear() {
+    setIsClearing(true)
+    try {
+      const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        toast.error('Failed to clear meal. Please try again.')
+        return
+      }
+
+      router.refresh()
+    } catch {
+      toast.error('Failed to clear meal. Please try again.')
+    } finally {
+      setIsClearing(false)
+    }
+  }
+
   const typeStyle = mealTypeStyles[mealType]
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
 
@@ -174,14 +195,25 @@ export function MealCard({
               {typeStyle.label}
             </div>
             {!isReadOnly && !isPast && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-5 px-1.5 text-[10px]"
-                onClick={() => setIsRegenerateModalOpen(true)}
-              >
-                Swap
-              </Button>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 px-1.5 text-[10px]"
+                  onClick={() => setIsRegenerateModalOpen(true)}
+                >
+                  Swap
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 px-1.5 text-[10px]"
+                  onClick={handleClear}
+                  disabled={isClearing}
+                >
+                  Clear
+                </Button>
+              </div>
             )}
           </div>
           <CardTitle className="text-xs leading-tight font-semibold">{meal.name}</CardTitle>
