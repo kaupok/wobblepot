@@ -483,10 +483,23 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
     }
 
     // Validate all quantities are positive
-    const invalidComponent = finalComponents.find((c) => c.totalQuantity <= 0)
-    if (invalidComponent) {
-      setError('All ingredient quantities must be greater than 0')
-      return
+    if (isImportMode) {
+      const invalidRows = ingredientRows.filter(
+        (r): r is Extract<IngredientRowData, { type: 'matched' }> =>
+          r.type === 'matched' && !r.isVague && r.totalQuantity <= 0,
+      )
+      if (invalidRows.length > 0) {
+        const names = invalidRows.map((r) => r.ingredient.name)
+        setError(`Quantity must be greater than 0: ${formatIngredientList(names)}`)
+        return
+      }
+    } else {
+      const invalidComps = components.filter((c) => !c.isVague && c.totalQuantity <= 0)
+      if (invalidComps.length > 0) {
+        const names = invalidComps.map((c) => c.ingredient.name)
+        setError(`Quantity must be greater than 0: ${formatIngredientList(names)}`)
+        return
+      }
     }
 
     setIsSubmitting(true)
@@ -697,56 +710,63 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
               {/* Regular mode: show plain ingredient list */}
               {!isImportMode && components.length > 0 && (
                 <div className="flex flex-col gap-2">
-                  {components.map((comp) => (
-                    <div
-                      key={comp.ingredientId}
-                      className="flex items-center gap-3 rounded-md border p-3"
-                    >
-                      <div className="flex-1">
-                        <Body>{comp.ingredient.name}</Body>
-                        <Body variant="muted">
-                          {comp.isVague && comp.originalPhrase ? (
-                            <span className="italic">{comp.originalPhrase}</span>
-                          ) : (
+                  {components.map((comp) => {
+                    const isInvalidQuantity = !comp.isVague && comp.totalQuantity <= 0
+                    return (
+                      <div
+                        key={comp.ingredientId}
+                        className="flex items-center gap-3 rounded-md border p-3"
+                      >
+                        <div className="flex-1">
+                          <Body>{comp.ingredient.name}</Body>
+                          <Body variant="muted">
+                            {comp.isVague && comp.originalPhrase ? (
+                              <span className="italic">{comp.originalPhrase}</span>
+                            ) : isInvalidQuantity ? (
+                              <span className="text-destructive">
+                                Quantity must be greater than 0
+                              </span>
+                            ) : (
+                              <>
+                                {Math.round((comp.totalQuantity / servingsNum) * 10) / 10}
+                                {formatUnit(comp.ingredient.defaultUnit)} per serving
+                              </>
+                            )}
+                          </Body>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {!comp.isVague && (
                             <>
-                              {Math.round((comp.totalQuantity / servingsNum) * 10) / 10}
-                              {formatUnit(comp.ingredient.defaultUnit)} per serving
+                              <Input
+                                type="number"
+                                value={comp.totalQuantity}
+                                onChange={(e) =>
+                                  updateComponentQuantity(
+                                    comp.ingredientId,
+                                    parseFloat(e.target.value) || 0,
+                                  )
+                                }
+                                min={0.1}
+                                step="any"
+                                className={cn('w-24', isInvalidQuantity && 'border-destructive')}
+                                disabled={isSubmitting}
+                              />
+                              <Body variant="muted">{formatUnit(comp.ingredient.defaultUnit)}</Body>
                             </>
                           )}
-                        </Body>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeComponent(comp.ingredientId)}
+                            disabled={isSubmitting}
+                          >
+                            ×
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {!comp.isVague && (
-                          <>
-                            <Input
-                              type="number"
-                              value={comp.totalQuantity}
-                              onChange={(e) =>
-                                updateComponentQuantity(
-                                  comp.ingredientId,
-                                  parseFloat(e.target.value) || 0,
-                                )
-                              }
-                              min={0.1}
-                              step="any"
-                              className="w-24"
-                              disabled={isSubmitting}
-                            />
-                            <Body variant="muted">{formatUnit(comp.ingredient.defaultUnit)}</Body>
-                          </>
-                        )}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeComponent(comp.ingredientId)}
-                          disabled={isSubmitting}
-                        >
-                          ×
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
 
