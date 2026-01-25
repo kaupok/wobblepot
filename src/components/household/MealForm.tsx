@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { toast } from 'sonner'
-import { Search, Plus, Loader2 } from 'lucide-react'
+import { Search, Plus, Loader2, ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { Badge } from '@/components/ui/badge'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 import { IngredientRow, type IngredientRowData } from '@/components/recipes/IngredientRow'
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
@@ -100,6 +101,8 @@ export interface MealFormData {
   }[]
   // Enhanced prefilled ingredients (for recipe import with match states)
   prefilledIngredients?: PrefilledIngredient[]
+  // Original recipe text (for import mode - allows user to reference while editing)
+  originalRecipeText?: string
 }
 
 interface MealFormProps {
@@ -128,6 +131,10 @@ function formatIngredientList(names: string[], maxDisplay: number = 3): string {
 export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
   const isEditing = !!meal?.id
   const hasPrefilledIngredients = !!meal?.prefilledIngredients?.length
+  const originalRecipeText = meal?.originalRecipeText
+
+  // Collapsible state for original recipe text
+  const [isOriginalTextOpen, setIsOriginalTextOpen] = useState(false)
 
   // Form state
   const [name, setName] = useState(meal?.name ?? '')
@@ -588,6 +595,34 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
       <form onSubmit={handleSubmit}>
         <CardContent>
           <div className="flex flex-col gap-6">
+            {/* Original Recipe Text Section (import mode only) */}
+            {originalRecipeText && (
+              <Collapsible open={isOriginalTextOpen} onOpenChange={setIsOriginalTextOpen}>
+                <CollapsibleTrigger asChild>
+                  <button
+                    type="button"
+                    className="bg-muted/50 hover:bg-muted flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left transition-colors"
+                  >
+                    {isOriginalTextOpen ? (
+                      <ChevronDown className="text-muted-foreground h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="text-muted-foreground h-4 w-4" />
+                    )}
+                    <Body variant="small" className="font-medium">
+                      Original recipe text
+                    </Body>
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="bg-muted/30 mt-2 max-h-64 overflow-y-auto rounded-md border p-3">
+                    <Body variant="small" className="whitespace-pre-wrap">
+                      {originalRecipeText}
+                    </Body>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+
             {/* Basic Info Section */}
             <section className="flex flex-col gap-4">
               <Heading variant="h4">Basic information</Heading>
