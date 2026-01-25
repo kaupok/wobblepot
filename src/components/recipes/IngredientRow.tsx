@@ -343,6 +343,7 @@ export function IngredientRow({
 
   if (data.type === 'low-confidence') {
     const perServing = Math.round((data.totalQuantity / servings) * 10) / 10
+    const isInvalidQuantity = !data.isVague && data.totalQuantity <= 0
 
     return (
       <div className="flex flex-col gap-2 rounded-md border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-900 dark:bg-blue-950/20">
@@ -355,6 +356,8 @@ export function IngredientRow({
                 <Body variant="muted">
                   {data.isVague && data.originalPhrase ? (
                     <span className="italic">{data.originalPhrase}</span>
+                  ) : isInvalidQuantity ? (
+                    <span className="text-destructive">Quantity must be greater than 0</span>
                   ) : (
                     <>
                       {perServing}
@@ -372,7 +375,7 @@ export function IngredientRow({
                       onChange={(e) => handleQuantityChange(parseFloat(e.target.value) || 0)}
                       min={0.1}
                       step="any"
-                      className="w-24"
+                      className={cn('w-24', isInvalidQuantity && 'border-destructive')}
                       disabled={disabled}
                     />
                     <Body variant="muted">{formatUnit(data.ingredient.defaultUnit)}</Body>
@@ -428,6 +431,7 @@ export function IngredientRow({
 
   // Matched (high confidence)
   const perServing = Math.round((data.totalQuantity / servings) * 10) / 10
+  const isInvalidQuantity = !data.isVague && data.totalQuantity <= 0
 
   return (
     <div className="flex items-center gap-3 rounded-md border border-green-200 bg-green-50/50 p-3 dark:border-green-900 dark:bg-green-950/20">
@@ -437,6 +441,8 @@ export function IngredientRow({
         <Body variant="muted">
           {data.isVague && data.originalPhrase ? (
             <span className="italic">{data.originalPhrase}</span>
+          ) : isInvalidQuantity ? (
+            <span className="text-destructive">Quantity must be greater than 0</span>
           ) : (
             <>
               {perServing}
@@ -454,7 +460,7 @@ export function IngredientRow({
               onChange={(e) => handleQuantityChange(parseFloat(e.target.value) || 0)}
               min={0.1}
               step="any"
-              className="w-24"
+              className={cn('w-24', isInvalidQuantity && 'border-destructive')}
               disabled={disabled}
             />
             <Body variant="muted">{formatUnit(data.ingredient.defaultUnit)}</Body>
