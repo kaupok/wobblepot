@@ -116,6 +116,15 @@ function formatCategory(category: IngredientCategory): string {
   return category.charAt(0).toUpperCase() + category.slice(1)
 }
 
+function formatIngredientList(names: string[], maxDisplay: number = 3): string {
+  if (names.length <= maxDisplay) {
+    return names.join(', ')
+  }
+  const displayed = names.slice(0, maxDisplay)
+  const remaining = names.length - maxDisplay
+  return `${displayed.join(', ')} +${remaining} more`
+}
+
 export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
   const isEditing = !!meal?.id
   const hasPrefilledIngredients = !!meal?.prefilledIngredients?.length
@@ -430,20 +439,23 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
 
     if (isImportMode) {
       // Check for unresolved ingredients
-      const unresolved = ingredientRows.filter((r) => r.type === 'unmatched')
+      const unresolved = ingredientRows.filter(
+        (r): r is Extract<IngredientRowData, { type: 'unmatched' }> => r.type === 'unmatched',
+      )
       if (unresolved.length > 0) {
-        setError(
-          `${unresolved.length} ingredient${unresolved.length === 1 ? '' : 's'} still need${unresolved.length === 1 ? 's' : ''} to be matched or dropped`,
-        )
+        const names = unresolved.map((r) => r.extractedName)
+        setError(`Cannot find: ${formatIngredientList(names)}`)
         return
       }
 
       // Check for unconfirmed low-confidence matches
-      const lowConfidence = ingredientRows.filter((r) => r.type === 'low-confidence')
+      const lowConfidence = ingredientRows.filter(
+        (r): r is Extract<IngredientRowData, { type: 'low-confidence' }> =>
+          r.type === 'low-confidence',
+      )
       if (lowConfidence.length > 0) {
-        setError(
-          `${lowConfidence.length} ingredient${lowConfidence.length === 1 ? '' : 's'} need${lowConfidence.length === 1 ? 's' : ''} verification`,
-        )
+        const names = lowConfidence.map((r) => r.extractedName)
+        setError(`Verify match for: ${formatIngredientList(names)}`)
         return
       }
 
