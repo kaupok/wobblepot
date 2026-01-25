@@ -516,10 +516,11 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
   // Calculate per-serving preview
   const servingsNum = parseInt(servings, 10) || 1
 
-  // Get all matched ingredients for preview
-  const matchedIngredients = isImportMode
+  // Get all resolved ingredients for preview (matched + low-confidence)
+  const resolvedIngredients = isImportMode
     ? ingredientRows.filter(
-        (r): r is Extract<IngredientRowData, { type: 'matched' }> => r.type === 'matched',
+        (r): r is Extract<IngredientRowData, { type: 'matched' | 'low-confidence' }> =>
+          r.type === 'matched' || r.type === 'low-confidence',
       )
     : []
 
@@ -821,8 +822,14 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
                 <Heading variant="h4">Per serving</Heading>
                 <div className="flex flex-wrap gap-2">
                   {isImportMode
-                    ? matchedIngredients.map((row, index) => (
-                        <Badge key={index} variant="secondary">
+                    ? resolvedIngredients.map((row, index) => (
+                        <Badge
+                          key={index}
+                          variant={row.type === 'low-confidence' ? 'outline' : 'secondary'}
+                          className={
+                            row.type === 'low-confidence' ? 'text-blue-600 dark:text-blue-400' : ''
+                          }
+                        >
                           {row.ingredient.name}:{' '}
                           {row.isVague && row.originalPhrase
                             ? row.originalPhrase
