@@ -51,6 +51,7 @@ export function GenerateMealsModal({
   const handleGenerate = async (mode: 'fill-empty' | 'generate') => {
     setIsGenerating(true)
     setError(null)
+    onOpenChange(false) // Close modal immediately to show overlay
 
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS)
@@ -73,7 +74,6 @@ export function GenerateMealsModal({
       }
 
       setIsGenerating(false)
-      onOpenChange(false)
       router.refresh()
     } catch (err) {
       clearTimeout(timeoutId)
@@ -81,16 +81,19 @@ export function GenerateMealsModal({
 
       if (err instanceof Error && err.name === 'AbortError') {
         setError('Generation timed out. Please try again.')
+        onOpenChange(true) // Reopen modal to show error
         return
       }
 
       if (typeof err === 'object' && err !== null && 'status' in err) {
         const e = err as { status: number; message?: string }
         setError(getErrorMessage(e.status, e.message))
+        onOpenChange(true) // Reopen modal to show error
         return
       }
 
       setError('Something went wrong. Please try again.')
+      onOpenChange(true) // Reopen modal to show error
     }
   }
 
