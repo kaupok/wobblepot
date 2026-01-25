@@ -213,6 +213,27 @@ export function IngredientRow({
     }
   }
 
+  const handleSetQuantity = () => {
+    if (data.type === 'matched') {
+      // Set a reasonable default quantity based on unit type
+      const defaultQuantity = data.ingredient.defaultUnit === 'piece' ? 1 : 5
+      onUpdate({
+        ...data,
+        totalQuantity: defaultQuantity,
+        isVague: false,
+        originalPhrase: null,
+      })
+    } else if (data.type === 'low-confidence') {
+      const defaultQuantity = data.ingredient.defaultUnit === 'piece' ? 1 : 5
+      onUpdate({
+        ...data,
+        totalQuantity: defaultQuantity,
+        isVague: false,
+        originalPhrase: null,
+      })
+    }
+  }
+
   const handleAlternativeSelect = (selectedId: string) => {
     if (data.type !== 'low-confidence') return
 
@@ -344,6 +365,7 @@ export function IngredientRow({
   if (data.type === 'low-confidence') {
     const perServing = Math.round((data.totalQuantity / servings) * 10) / 10
     const isInvalidQuantity = !data.isVague && data.totalQuantity <= 0
+    const unitLabel = formatUnit(data.ingredient.defaultUnit)
 
     return (
       <div className="flex flex-col gap-2 rounded-md border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-900 dark:bg-blue-950/20">
@@ -361,25 +383,45 @@ export function IngredientRow({
                   ) : (
                     <>
                       {perServing}
-                      {formatUnit(data.ingredient.defaultUnit)} per serving
+                      {unitLabel} per serving
                     </>
                   )}
                 </Body>
               </div>
               <div className="flex items-center gap-2">
-                {!data.isVague && (
-                  <>
+                {data.isVague ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSetQuantity}
+                    disabled={disabled}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    Set quantity
+                  </Button>
+                ) : (
+                  <div
+                    className={cn(
+                      'flex items-center rounded-md border',
+                      isInvalidQuantity ? 'border-destructive' : 'border-input',
+                    )}
+                  >
                     <Input
                       type="number"
                       value={data.totalQuantity}
                       onChange={(e) => handleQuantityChange(parseFloat(e.target.value) || 0)}
                       min={0.1}
                       step="any"
-                      className={cn('w-24', isInvalidQuantity && 'border-destructive')}
+                      className="w-20 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                       disabled={disabled}
                     />
-                    <Body variant="muted">{formatUnit(data.ingredient.defaultUnit)}</Body>
-                  </>
+                    {unitLabel && (
+                      <span className="text-muted-foreground bg-muted border-l px-2 py-1.5 text-sm">
+                        {unitLabel}
+                      </span>
+                    )}
+                  </div>
                 )}
                 <Button
                   type="button"
@@ -432,6 +474,7 @@ export function IngredientRow({
   // Matched (high confidence)
   const perServing = Math.round((data.totalQuantity / servings) * 10) / 10
   const isInvalidQuantity = !data.isVague && data.totalQuantity <= 0
+  const unitLabel = formatUnit(data.ingredient.defaultUnit)
 
   return (
     <div className="flex items-center gap-3 rounded-md border border-green-200 bg-green-50/50 p-3 dark:border-green-900 dark:bg-green-950/20">
@@ -446,25 +489,45 @@ export function IngredientRow({
           ) : (
             <>
               {perServing}
-              {formatUnit(data.ingredient.defaultUnit)} per serving
+              {unitLabel} per serving
             </>
           )}
         </Body>
       </div>
       <div className="flex items-center gap-2">
-        {!data.isVague && (
-          <>
+        {data.isVague ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleSetQuantity}
+            disabled={disabled}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            Set quantity
+          </Button>
+        ) : (
+          <div
+            className={cn(
+              'flex items-center rounded-md border',
+              isInvalidQuantity ? 'border-destructive' : 'border-input',
+            )}
+          >
             <Input
               type="number"
               value={data.totalQuantity}
               onChange={(e) => handleQuantityChange(parseFloat(e.target.value) || 0)}
               min={0.1}
               step="any"
-              className={cn('w-24', isInvalidQuantity && 'border-destructive')}
+              className="w-20 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               disabled={disabled}
             />
-            <Body variant="muted">{formatUnit(data.ingredient.defaultUnit)}</Body>
-          </>
+            {unitLabel && (
+              <span className="text-muted-foreground bg-muted border-l px-2 py-1.5 text-sm">
+                {unitLabel}
+              </span>
+            )}
+          </div>
         )}
         <Button type="button" variant="ghost" size="sm" onClick={onRemove} disabled={disabled}>
           <X className="h-4 w-4" />
