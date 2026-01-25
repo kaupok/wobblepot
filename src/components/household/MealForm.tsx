@@ -184,6 +184,7 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
         return {
           type: 'low-confidence',
           extractedName: prefilled.extractedName ?? prefilled.ingredient.name,
+          originalText: prefilled.originalText,
           ingredient: prefilled.ingredient,
           alternatives: prefilled.alternatives,
           totalQuantity: prefilled.convertedQuantity ?? 100,
