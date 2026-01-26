@@ -28,21 +28,47 @@ If no PR exists, inform user: "No PR found for this branch. Create one with `/pr
 
 ### Step 2: Wait for Greptile Review
 
-Greptile posts both a **check** and a **comment**. Use the pre-approved `gh pr checks` command to wait for the check to complete, then fetch the comment.
+**IMPORTANT:** Greptile does NOT post a GitHub check. It posts comments asynchronously after CI completes. You must poll for Greptile comments explicitly.
+
+**First, wait for CI:**
 
 ```bash
 gh pr checks --watch --interval 10
 ```
 
-This command:
+**If CI fails:** Report which checks failed, but still proceed to wait for Greptile.
 
-- Watches all checks including "Greptile Review"
-- Returns when all checks complete (pass or fail)
-- Is pre-approved in settings, so no permission prompt
+**Then, poll for Greptile comment with timeout:**
 
-**After checks complete:** Proceed to Step 3 to fetch the Greptile comment.
+```
+max_wait_seconds = 600  # 10 minutes
+poll_interval = 15
+elapsed = 0
 
-**If checks fail:** Report which checks failed, but still proceed to Step 3 to fetch any available review comments.
+[pr-review] Waiting for Greptile review...
+
+while elapsed < max_wait_seconds:
+    # Check PR-level comments for Greptile
+    gh api /repos/:owner/:repo/issues/{number}/comments
+
+    # Check inline review comments for Greptile
+    gh api /repos/:owner/:repo/pulls/{number}/comments
+
+    # Look for comments from "greptile-apps[bot]"
+    If Greptile comment found:
+        [pr-review] ✓ Greptile review received
+        break
+
+    sleep {poll_interval}
+    elapsed += poll_interval
+    [pr-review] Waiting for Greptile... ({elapsed}s/{max_wait_seconds}s)
+
+If no Greptile comment after timeout:
+    [pr-review] ⚠ Greptile review not received after {max_wait_seconds}s
+    [pr-review] Proceeding with available comments (manual Greptile check recommended)
+```
+
+**After Greptile received (or timeout):** Proceed to Step 3 to parse all comments.
 
 ### Step 3: Fetch Comments
 
