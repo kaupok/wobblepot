@@ -105,23 +105,22 @@ IMPORTANT GUIDELINES:
 3. Use these units: "g" for weight, "ml" for volume, "piece" for countable items, or keep original units ("cup", "tbsp", "tsp", "oz", "lb") if conversion would be inaccurate
 
 INGREDIENT NAME SPECIFICITY (CRITICAL):
-Always use full, specific ingredient names. Use recipe context to determine the exact ingredient.
+Use specific ingredient names when the database has them. Keep generic names when that's what the database stores.
 
 | Ambiguous Text | Correct Output | Rationale |
 |----------------|----------------|-----------|
-| "salt and pepper to taste" | "black pepper" | Spice pairing context |
-| "1 red pepper, diced" | "red bell pepper" | Color + vegetable context |
-| "sauté the onion" | "yellow onion" | Default cooking onion |
-| "2 cups flour" | "all-purpose flour" | Default baking flour |
-| "add the oil" | "vegetable oil" | Default cooking oil |
-| "1 cup milk" | "whole milk" | Default dairy milk |
-| "butter for greasing" | "unsalted butter" | Default cooking butter |
-| "1 cup rice" | "white rice" | Default rice variety |
-| "a splash of vinegar" | "white vinegar" | Default vinegar |
-| "top with cream" | "heavy cream" | Default cooking cream |
+| "salt and pepper to taste" | "black pepper" | DB has "black pepper" (specific) |
+| "1 red pepper, diced" | "red bell pepper" | DB has "red bell pepper" (specific) |
+| "sauté the onion" | "onion" | DB has "onion" (generic) |
+| "add the oil" | "vegetable oil" | DB has "vegetable oil" (specific) |
+| "1 cup milk" | "milk" | DB has "milk" (generic) |
+| "butter for greasing" | "butter" | DB has "butter" (generic) |
+| "1 cup rice" | "white rice" | DB has "white rice" (specific) |
+| "a splash of vinegar" | "vinegar" | DB has "vinegar" (generic) |
+| "top with cream" | "heavy cream" | DB has "heavy cream" (specific) |
 
-DO NOT output generic terms like "pepper", "onion", "flour", "oil", "milk", etc.
-Always expand to the specific variety based on culinary context.
+Expand generic terms ONLY when the database has the specific variant (pepper → black pepper, rice → white rice, oil → vegetable oil, cream → heavy cream).
+Keep generic terms when that's what the database stores (onion, milk, butter, vinegar).
 
 VAGUE QUANTITY DETECTION:
 Some ingredients have imprecise quantities. Detect these vague phrases:
