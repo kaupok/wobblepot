@@ -468,27 +468,23 @@ export async function matchIngredients(
 
     // Step 1: Try direct fuzzy search with the original name
     let matches = await fuzzySearchIngredient(directName)
-
-    // Step 2: If no good direct match, try alias expansion
     const directMatch = matches[0]
-    const hasGoodDirectMatch =
-      directMatch !== undefined && directMatch.similarity >= LOW_CONFIDENCE_THRESHOLD
-    if (!hasGoodDirectMatch) {
-      const expandedName = applyIngredientAlias(extracted.name)
-      const aliasName = expandedName.toLowerCase().trim()
 
-      // Only search with alias if it's different from direct name
-      if (aliasName !== directName) {
-        const aliasMatches = await fuzzySearchIngredient(aliasName)
+    // Step 2: Also try alias expansion to find best match
+    const expandedName = applyIngredientAlias(extracted.name)
+    const aliasName = expandedName.toLowerCase().trim()
 
-        // Use alias matches if they're better than direct matches
-        const aliasMatch = aliasMatches[0]
-        if (aliasMatch !== undefined) {
-          const bestDirect = directMatch?.similarity ?? 0
-          const bestAlias = aliasMatch.similarity
-          if (bestAlias > bestDirect) {
-            matches = aliasMatches
-          }
+    // Only search with alias if it's different from direct name
+    if (aliasName !== directName) {
+      const aliasMatches = await fuzzySearchIngredient(aliasName)
+
+      // Use alias matches if they're better than direct matches
+      const aliasMatch = aliasMatches[0]
+      if (aliasMatch !== undefined) {
+        const bestDirect = directMatch?.similarity ?? 0
+        const bestAlias = aliasMatch.similarity
+        if (bestAlias > bestDirect) {
+          matches = aliasMatches
         }
       }
     }
