@@ -586,14 +586,38 @@ If still failing after 2 attempts:
 gh pr view --json number,title,headRefName,url
 ```
 
-### 6.3 Fetch review comments
+### 6.3 Wait for Greptile review
 
-```bash
-# PR-level comments
-gh api /repos/:owner/:repo/issues/{number}/comments
+**IMPORTANT:** Greptile does NOT show up as a GitHub check. It posts comments asynchronously after CI completes. You MUST wait for Greptile before proceeding to merge.
 
-# Inline review comments
-gh api /repos/:owner/:repo/pulls/{number}/comments
+Poll for Greptile comment with timeout:
+
+```
+max_wait_seconds = 600  # 10 minutes
+poll_interval = 15
+elapsed = 0
+
+[auto-implement] Waiting for Greptile review...
+
+while elapsed < max_wait_seconds:
+    # Check PR-level comments for Greptile
+    gh api /repos/:owner/:repo/issues/{number}/comments
+
+    # Check inline review comments for Greptile
+    gh api /repos/:owner/:repo/pulls/{number}/comments
+
+    # Look for comments from "greptile-apps[bot]"
+    If Greptile comment found:
+        [auto-implement] ✓ Greptile review received
+        break
+
+    sleep {poll_interval}
+    elapsed += poll_interval
+    [auto-implement] Waiting for Greptile... ({elapsed}s/{max_wait_seconds}s)
+
+If no Greptile comment after timeout:
+    [auto-implement] ⚠ Greptile review not received after {max_wait_seconds}s
+    [auto-implement] Proceeding with available comments (manual review recommended)
 ```
 
 ### 6.4 Parse and triage comments
