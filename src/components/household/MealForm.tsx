@@ -656,66 +656,17 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label>Suitable for</Label>
-                <div className="flex gap-4">
-                  {MEAL_TYPES.map((mealType) => (
-                    <div key={mealType.value} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`mealtype-${mealType.value}`}
-                        checked={suitableFor.includes(mealType.value)}
-                        onCheckedChange={(checked) =>
-                          handleMealTypeToggle(mealType.value, checked === true)
-                        }
-                        disabled={isSubmitting}
-                      />
-                      <Label htmlFor={`mealtype-${mealType.value}`} className="font-normal">
-                        {mealType.label}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="timeMinutes">Prep time (minutes)</Label>
-                  <Input
-                    id="timeMinutes"
-                    type="number"
-                    value={timeMinutes}
-                    onChange={(e) => setTimeMinutes(e.target.value)}
-                    min={1}
-                    max={480}
-                    disabled={isSubmitting}
-                    placeholder="e.g., 30"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="servings">Recipe makes (servings)</Label>
-                  <Input
-                    id="servings"
-                    type="number"
-                    value={servings}
-                    onChange={(e) => setServings(e.target.value)}
-                    min={1}
-                    max={50}
-                    required
-                    disabled={isSubmitting}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="kidFriendly"
-                  checked={kidFriendly}
-                  onCheckedChange={(checked) => setKidFriendly(checked === true)}
+                <Label htmlFor="servings">Recipe makes (servings)</Label>
+                <Input
+                  id="servings"
+                  type="number"
+                  value={servings}
+                  onChange={(e) => setServings(e.target.value)}
+                  min={1}
+                  max={50}
+                  required
                   disabled={isSubmitting}
                 />
-                <Label htmlFor="kidFriendly" className="font-normal">
-                  Kid-friendly
-                </Label>
               </div>
             </section>
 
@@ -924,6 +875,58 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
                   <Body variant="muted">No ingredients added yet. Search above to add some.</Body>
                 </div>
               )}
+            </section>
+
+            {/* Additional Details Section */}
+            <section className="flex flex-col gap-4">
+              <Heading variant="h4">Additional details</Heading>
+
+              <div className="flex flex-col gap-2">
+                <Label>Suitable for</Label>
+                <div className="flex gap-4">
+                  {MEAL_TYPES.map((mealType) => (
+                    <div key={mealType.value} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`mealtype-${mealType.value}`}
+                        checked={suitableFor.includes(mealType.value)}
+                        onCheckedChange={(checked) =>
+                          handleMealTypeToggle(mealType.value, checked === true)
+                        }
+                        disabled={isSubmitting}
+                      />
+                      <Label htmlFor={`mealtype-${mealType.value}`} className="font-normal">
+                        {mealType.label}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="timeMinutes">Prep time (minutes)</Label>
+                <Input
+                  id="timeMinutes"
+                  type="number"
+                  value={timeMinutes}
+                  onChange={(e) => setTimeMinutes(e.target.value)}
+                  min={1}
+                  max={480}
+                  disabled={isSubmitting}
+                  placeholder="e.g., 30"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="kidFriendly"
+                  checked={kidFriendly}
+                  onCheckedChange={(checked) => setKidFriendly(checked === true)}
+                  disabled={isSubmitting}
+                />
+                <Label htmlFor="kidFriendly" className="font-normal">
+                  Kid-friendly
+                </Label>
+              </div>
             </section>
           </div>
         </CardContent>
