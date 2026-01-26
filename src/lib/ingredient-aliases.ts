@@ -5,71 +5,42 @@
  * a sensible default before database search. This improves matching
  * accuracy for common terms like "pepper" → "black pepper".
  *
+ * IMPORTANT: All alias targets MUST exist in the database (prisma/seed.ts
+ * or prisma/seed-expansion.ts). Run `pnpm db:validate` to verify.
+ *
  * Rules:
  * - Keys should be lowercase
- * - Values should match ingredient names in the database
+ * - Values MUST match ingredient names in the database exactly
  * - Expand based on most common culinary usage
+ * - Only add aliases when the target is MORE specific than the key
  */
 export const INGREDIENT_ALIASES: Record<string, string> = {
-  // Spices and seasonings
+  // Spices and seasonings - "pepper" alone usually means black pepper
   pepper: 'black pepper',
-  salt: 'salt', // Already specific, but including for completeness
 
-  // Vegetables - default to most common variety
-  onion: 'yellow onion',
-  potato: 'russet potato',
-  tomato: 'roma tomato',
-  lettuce: 'romaine lettuce',
-  mushroom: 'white mushroom',
-  'bell pepper': 'green bell pepper',
+  // Vegetables - only expand when target exists in DB
+  lettuce: 'romaine lettuce', // DB has romaine lettuce
 
-  // Pantry staples
-  flour: 'all-purpose flour',
-  sugar: 'white sugar',
-  rice: 'white rice',
-  pasta: 'spaghetti',
-  bread: 'white bread',
+  // Pantry staples - expand to DB names
+  rice: 'white rice', // DB has white rice
+  pasta: 'spaghetti', // DB has spaghetti
 
-  // Dairy
-  milk: 'whole milk',
-  butter: 'unsalted butter',
-  cream: 'heavy cream',
-  cheese: 'cheddar cheese',
-  yogurt: 'plain yogurt',
+  // Dairy - expand to specific variants that exist in DB
+  cream: 'heavy cream', // DB has heavy cream
 
-  // Oils and fats
-  oil: 'vegetable oil',
-  'cooking oil': 'vegetable oil',
-  vinegar: 'white vinegar',
+  // Oils and fats - expand to DB names
+  oil: 'vegetable oil', // DB has vegetable oil
+  'cooking oil': 'vegetable oil', // DB has vegetable oil
 
-  // Proteins
-  chicken: 'chicken breast',
-  beef: 'ground beef',
-  pork: 'pork loin',
-  fish: 'salmon fillet',
+  // Proteins - expand to specific cuts that exist in DB
+  chicken: 'chicken breast', // DB has chicken breast
+  beef: 'ground beef', // DB has ground beef
+  pork: 'pork loin', // DB has pork loin
+  fish: 'salmon fillet', // DB has salmon fillet
 
-  // Herbs - default to fresh unless specified
-  basil: 'fresh basil',
-  parsley: 'fresh parsley',
-  cilantro: 'fresh cilantro',
-  mint: 'fresh mint',
-  dill: 'fresh dill',
-  thyme: 'fresh thyme',
-  rosemary: 'fresh rosemary',
-
-  // Citrus
-  lemon: 'lemon',
-  lime: 'lime',
-  orange: 'orange',
-
-  // Nuts
-  nuts: 'mixed nuts',
-  almonds: 'almonds',
-  walnuts: 'walnuts',
-
-  // Legumes
-  beans: 'black beans',
-  lentils: 'green lentils',
+  // Legumes - expand to specific types that exist in DB
+  beans: 'black beans', // DB has black beans
+  lentils: 'green lentils', // DB has green lentils (in seed-expansion)
 }
 
 /**

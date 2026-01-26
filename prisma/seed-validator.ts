@@ -10,6 +10,7 @@
 
 import { baseIngredients, baseMeals } from './seed'
 import { newIngredients, newMeals } from './seed-expansion'
+import { INGREDIENT_ALIASES } from '../src/lib/ingredient-aliases'
 
 // ============================================
 // TYPES
@@ -370,6 +371,22 @@ function findUnusedIngredients(ingredients: Ingredient[], meals: Meal[]): Valida
   return { errors, warnings }
 }
 
+function validateIngredientAliases(ingredientNames: Set<string>): ValidationResult {
+  const errors: string[] = []
+  const warnings: string[] = []
+
+  for (const [from, to] of Object.entries(INGREDIENT_ALIASES)) {
+    if (!ingredientNames.has(to)) {
+      errors.push(
+        `Ingredient alias "${from}" → "${to}" points to non-existent ingredient. ` +
+          `Either add "${to}" to seed data or remove this alias.`,
+      )
+    }
+  }
+
+  return { errors, warnings }
+}
+
 // ============================================
 // MAIN
 // ============================================
@@ -386,6 +403,9 @@ async function main() {
     ingredientMap.set(ing.name, ing)
   }
 
+  // Build ingredient name set for alias validation
+  const ingredientNames = new Set(allIngredients.map((ing) => ing.name))
+
   // Run all validations
   const results: ValidationResult[] = [
     validateIngredientFields(allIngredients),
@@ -396,6 +416,7 @@ async function main() {
     checkPieceUnitQuantities(allMeals, ingredientMap),
     checkMealComponentCounts(allMeals),
     findUnusedIngredients(allIngredients, allMeals),
+    validateIngredientAliases(ingredientNames),
   ]
 
   // Aggregate results
@@ -410,6 +431,7 @@ async function main() {
   console.log(
     `   ${allMeals.length} meals (${baseMeals.length} base + ${newMeals.length} expansion)`,
   )
+  console.log(`   ${Object.keys(INGREDIENT_ALIASES).length} ingredient aliases`)
 
   // Report warnings
   if (warnings.length > 0) {

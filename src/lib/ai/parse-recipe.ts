@@ -420,8 +420,39 @@ function isReasonableQuantity(totalGrams: number, servings: number): boolean {
 }
 
 /**
+ * Perform fuzzy search for an ingredient name using pg_trgm.
+ * Returns top 4 matches above the similarity threshold.
+ */
+async function fuzzySearchIngredient(searchName: string) {
+  return prisma.$queryRaw<
+    Array<{
+      id: string
+      name: string
+      category: IngredientCategory
+      subcategory: string | null
+      defaultUnit: Unit
+      gramsPerPiece: number | null
+      similarity: number
+    }>
+  >`
+    SELECT
+      id,
+      name,
+      category,
+      subcategory,
+      "defaultUnit",
+      "gramsPerPiece",
+      similarity(name, ${searchName}) as similarity
+    FROM "ingredient"
+    WHERE similarity(name, ${searchName}) >= ${SIMILARITY_THRESHOLD}
+    ORDER BY similarity DESC
+    LIMIT 4
+  `
+}
+
+/**
  * Match extracted ingredients against the database using fuzzy search.
- * Applies alias expansion for ambiguous terms before searching.
+ * Tries direct match first, then falls back to alias expansion if needed.
  *
  * @param extractedIngredients - The ingredients extracted by AI
  * @param servings - Number of servings for quantity validation
@@ -433,35 +464,34 @@ export async function matchIngredients(
   const results: IngredientMatchResult[] = []
 
   for (const extracted of extractedIngredients) {
-    // Layer 2: Apply alias expansion for ambiguous terms
-    const expandedName = applyIngredientAlias(extracted.name)
-    const searchName = expandedName.toLowerCase().trim()
+    const directName = extracted.name.toLowerCase().trim()
 
-    // Use pg_trgm similarity search, get top 4 matches for potential disambiguation
-    const matches = await prisma.$queryRaw<
-      Array<{
-        id: string
-        name: string
-        category: IngredientCategory
-        subcategory: string | null
-        defaultUnit: Unit
-        gramsPerPiece: number | null
-        similarity: number
-      }>
-    >`
-      SELECT
-        id,
-        name,
-        category,
-        subcategory,
-        "defaultUnit",
-        "gramsPerPiece",
-        similarity(name, ${searchName}) as similarity
-      FROM "ingredient"
-      WHERE similarity(name, ${searchName}) >= ${SIMILARITY_THRESHOLD}
-      ORDER BY similarity DESC
-      LIMIT 4
-    `
+    // Step 1: Try direct fuzzy search with the original name
+    let matches = await fuzzySearchIngredient(directName)
+
+    // Step 2: If no good direct match, try alias expansion
+    const directMatch = matches[0]
+    const hasGoodDirectMatch =
+      directMatch !== undefined && directMatch.similarity >= LOW_CONFIDENCE_THRESHOLD
+    if (!hasGoodDirectMatch) {
+      const expandedName = applyIngredientAlias(extracted.name)
+      const aliasName = expandedName.toLowerCase().trim()
+
+      // Only search with alias if it's different from direct name
+      if (aliasName !== directName) {
+        const aliasMatches = await fuzzySearchIngredient(aliasName)
+
+        // Use alias matches if they're better than direct matches
+        const aliasMatch = aliasMatches[0]
+        if (aliasMatch !== undefined) {
+          const bestDirect = directMatch?.similarity ?? 0
+          const bestAlias = aliasMatch.similarity
+          if (bestAlias > bestDirect) {
+            matches = aliasMatches
+          }
+        }
+      }
+    }
 
     if (matches.length > 0 && matches[0]) {
       const match = matches[0]
