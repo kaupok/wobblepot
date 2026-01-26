@@ -398,67 +398,63 @@ export function IngredientRow({
               <div className="flex flex-col gap-0.5">
                 <Body className="text-blue-700 dark:text-blue-400">{data.extractedName}</Body>
                 {data.originalText && <Body variant="muted">Original: {data.originalText}</Body>}
-                <div className="flex items-center gap-2">
-                  <Body variant="muted">
-                    {data.isVague && data.originalPhrase ? (
-                      <span className="italic">{data.originalPhrase}</span>
-                    ) : isInvalidQuantity ? (
-                      <span className="text-destructive">Quantity must be greater than 0</span>
-                    ) : (
-                      <>
-                        {perServing}
-                        {unitLabel} per serving
-                      </>
-                    )}
-                  </Body>
-                  {data.isVague ? (
-                    <Button
-                      type="button"
-                      variant="link"
-                      size="sm"
-                      onClick={handleSetQuantity}
-                      disabled={disabled}
-                      className="text-muted-foreground hover:text-foreground h-auto p-0"
-                    >
-                      Set quantity
-                    </Button>
+                <Body variant="muted">
+                  {data.isVague && data.originalPhrase ? (
+                    <span className="italic">{data.originalPhrase}</span>
+                  ) : isInvalidQuantity ? (
+                    <span className="text-destructive">Quantity must be greater than 0</span>
                   ) : (
+                    <>
+                      {perServing}
+                      {unitLabel} per serving
+                    </>
+                  )}
+                </Body>
+              </div>
+              <div className="flex items-center gap-2">
+                {data.isVague ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSetQuantity}
+                    disabled={disabled}
+                  >
+                    Set quantity
+                  </Button>
+                ) : (
+                  <>
+                    <div
+                      className={cn(
+                        'flex items-center rounded-md border',
+                        isInvalidQuantity ? 'border-destructive' : 'border-input',
+                      )}
+                    >
+                      <Input
+                        type="number"
+                        value={data.totalQuantity}
+                        onChange={(e) => handleQuantityChange(parseFloat(e.target.value) || 0)}
+                        min={0.1}
+                        step="any"
+                        className="w-20 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        disabled={disabled}
+                      />
+                      {unitLabel && (
+                        <span className="text-muted-foreground bg-muted border-l px-2 py-1.5 text-sm">
+                          {unitLabel}
+                        </span>
+                      )}
+                    </div>
                     <Button
                       type="button"
-                      variant="link"
+                      variant="outline"
                       size="sm"
                       onClick={handleMarkAsVague}
                       disabled={disabled}
-                      className="text-muted-foreground hover:text-foreground h-auto p-0"
                     >
-                      to taste
+                      To taste
                     </Button>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {!data.isVague && (
-                  <div
-                    className={cn(
-                      'flex items-center rounded-md border',
-                      isInvalidQuantity ? 'border-destructive' : 'border-input',
-                    )}
-                  >
-                    <Input
-                      type="number"
-                      value={data.totalQuantity}
-                      onChange={(e) => handleQuantityChange(parseFloat(e.target.value) || 0)}
-                      min={0.1}
-                      step="any"
-                      className="w-20 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                      disabled={disabled}
-                    />
-                    {unitLabel && (
-                      <span className="text-muted-foreground bg-muted border-l px-2 py-1.5 text-sm">
-                        {unitLabel}
-                      </span>
-                    )}
-                  </div>
+                  </>
                 )}
                 <Button
                   type="button"
@@ -518,67 +514,63 @@ export function IngredientRow({
       <Check className="h-4 w-4 shrink-0 text-green-600" />
       <div className="flex-1">
         <Body>{data.ingredient.name}</Body>
-        <div className="flex items-center gap-2">
-          <Body variant="muted">
-            {data.isVague && data.originalPhrase ? (
-              <span className="italic">{data.originalPhrase}</span>
-            ) : isInvalidQuantity ? (
-              <span className="text-destructive">Quantity must be greater than 0</span>
-            ) : (
-              <>
-                {perServing}
-                {unitLabel} per serving
-              </>
-            )}
-          </Body>
-          {data.isVague ? (
-            <Button
-              type="button"
-              variant="link"
-              size="sm"
-              onClick={handleSetQuantity}
-              disabled={disabled}
-              className="text-muted-foreground hover:text-foreground h-auto p-0"
-            >
-              Set quantity
-            </Button>
+        <Body variant="muted">
+          {data.isVague && data.originalPhrase ? (
+            <span className="italic">{data.originalPhrase}</span>
+          ) : isInvalidQuantity ? (
+            <span className="text-destructive">Quantity must be greater than 0</span>
           ) : (
+            <>
+              {perServing}
+              {unitLabel} per serving
+            </>
+          )}
+        </Body>
+      </div>
+      <div className="flex items-center gap-2">
+        {data.isVague ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleSetQuantity}
+            disabled={disabled}
+          >
+            Set quantity
+          </Button>
+        ) : (
+          <>
+            <div
+              className={cn(
+                'flex items-center rounded-md border',
+                isInvalidQuantity ? 'border-destructive' : 'border-input',
+              )}
+            >
+              <Input
+                type="number"
+                value={data.totalQuantity}
+                onChange={(e) => handleQuantityChange(parseFloat(e.target.value) || 0)}
+                min={0.1}
+                step="any"
+                className="w-20 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                disabled={disabled}
+              />
+              {unitLabel && (
+                <span className="text-muted-foreground bg-muted border-l px-2 py-1.5 text-sm">
+                  {unitLabel}
+                </span>
+              )}
+            </div>
             <Button
               type="button"
-              variant="link"
+              variant="outline"
               size="sm"
               onClick={handleMarkAsVague}
               disabled={disabled}
-              className="text-muted-foreground hover:text-foreground h-auto p-0"
             >
-              to taste
+              To taste
             </Button>
-          )}
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        {!data.isVague && (
-          <div
-            className={cn(
-              'flex items-center rounded-md border',
-              isInvalidQuantity ? 'border-destructive' : 'border-input',
-            )}
-          >
-            <Input
-              type="number"
-              value={data.totalQuantity}
-              onChange={(e) => handleQuantityChange(parseFloat(e.target.value) || 0)}
-              min={0.1}
-              step="any"
-              className="w-20 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-              disabled={disabled}
-            />
-            {unitLabel && (
-              <span className="text-muted-foreground bg-muted border-l px-2 py-1.5 text-sm">
-                {unitLabel}
-              </span>
-            )}
-          </div>
+          </>
         )}
         <Button type="button" variant="ghost" size="sm" onClick={onRemove} disabled={disabled}>
           <X className="h-4 w-4" />
