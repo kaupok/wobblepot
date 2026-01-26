@@ -118,9 +118,17 @@ Use specific ingredient names when the database has them. Keep generic names whe
 | "1 cup rice" | "white rice" | DB has "white rice" (specific) |
 | "a splash of vinegar" | "vinegar" | DB has "vinegar" (generic) |
 | "top with cream" | "heavy cream" | DB has "heavy cream" (specific) |
+| "2 tbsp extra virgin olive oil" | "olive oil" | DB has "olive oil" (strip quality grade) |
+| "1 tbsp virgin olive oil" | "olive oil" | DB has "olive oil" (strip quality grade) |
+| "light olive oil" | "olive oil" | DB has "olive oil" (strip quality grade) |
+
+QUALITY/PROCESSING QUALIFIERS TO STRIP:
+Some ingredients have quality grades or processing descriptors that should be stripped because the DB stores only the base ingredient:
+- Olive oil: "extra virgin", "virgin", "light", "pure", "cold pressed" → output "olive oil"
+- These describe quality grades, not different products
 
 Expand generic terms ONLY when the database has the specific variant (pepper → black pepper, rice → white rice, oil → vegetable oil, cream → heavy cream).
-Keep generic terms when that's what the database stores (onion, milk, butter, vinegar).
+Keep generic terms when that's what the database stores (onion, milk, butter, vinegar, olive oil).
 
 VAGUE QUANTITY DETECTION:
 Some ingredients have imprecise quantities. Detect these vague phrases:
