@@ -6,8 +6,9 @@
 
 We're past the foundation phases and into continuous improvement. No fixed remaining issue list - we iterate until it feels right.
 
+<!-- prettier-ignore -->
 ```typescript
-mcp__linear - server__list_issues({ project: '5a19627a-803f-4052-83c4-b44810d17af7' })
+mcp__linear-server__list_issues({ project: "5a19627a-803f-4052-83c4-b44810d17af7" })
 ```
 
 ---
