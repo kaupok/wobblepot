@@ -2,8 +2,9 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { MealCard } from './MealCard'
 import { EmptySlotCard } from './EmptySlotCard'
+import { NutritionSummary } from './NutritionSummary'
 import { cn } from '@/lib/utils'
-import type { EmptySlot, PantryIngredient, PantryItemFull, PlanEntry } from './types'
+import type { EmptySlot, NutritionData, PantryIngredient, PantryItemFull, PlanEntry } from './types'
 import type { MealType } from '@/generated/prisma/enums'
 
 const MEAL_TYPE_ORDER: Record<MealType, number> = {
@@ -61,6 +62,24 @@ export function DayColumn({
     return MEAL_TYPE_ORDER[mealTypeA] - MEAL_TYPE_ORDER[mealTypeB]
   })
 
+  // Compute daily nutrition total from entries with meals
+  const mealsWithNutrition = entries.filter((e) => e.meal?.nutrition)
+  const dailyNutrition: NutritionData | null =
+    mealsWithNutrition.length > 0
+      ? mealsWithNutrition.reduce(
+          (acc, entry) => ({
+            calories: acc.calories + entry.meal!.nutrition.calories,
+            protein: acc.protein + entry.meal!.nutrition.protein,
+            carbs: acc.carbs + entry.meal!.nutrition.carbs,
+            fat: acc.fat + entry.meal!.nutrition.fat,
+          }),
+          { calories: 0, protein: 0, carbs: 0, fat: 0 } as NutritionData,
+        )
+      : null
+  const hasVagueComponents = mealsWithNutrition.some((e) =>
+    e.meal!.components.some((c) => c.isVague),
+  )
+
   return (
     <div className="flex min-w-[120px] flex-col gap-1.5">
       <Heading
@@ -108,6 +127,15 @@ export function DayColumn({
           </Card>
         )}
       </div>
+      {dailyNutrition && (
+        <div className="border-t px-1 pt-1.5">
+          <NutritionSummary
+            nutrition={dailyNutrition}
+            compact
+            components={hasVagueComponents ? [{ isVague: true }] : undefined}
+          />
+        </div>
+      )}
     </div>
   )
 }
