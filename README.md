@@ -1,151 +1,53 @@
 # Honkadori
 
-A modern Next.js 16 application with React 19, TypeScript, and Better Auth authentication.
+AI-powered weekly meal planning for families. Generates personalized ingredient-based meal plans with nutritional transparency, shopping lists, and pantry tracking.
 
-## Quick Start
+## Getting Started
 
 ```bash
-# Install dependencies
 pnpm install
-
-# Copy environment variables
-cp .env.example .env
-# Edit .env and fill in required values
-
-# Run development server
-pnpm dev
-
-# Open http://localhost:3000
+cp .env.example .env   # Edit with your values
+pnpm db:push
+pnpm dev               # http://localhost:3000
 ```
+
+See [docs/ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md) for environment variable details.
 
 ## Tech Stack
 
-- **Framework**: Next.js 16.1.1
-- **Language**: TypeScript 5.9
+- **Framework**: Next.js 16 / React 19 / TypeScript 5.9
 - **Styling**: Tailwind CSS 4.1 + shadcn/ui
-- **Database**: PostgreSQL (Neon) with Prisma ORM
-- **Authentication**: Better Auth
+- **Database**: PostgreSQL (Neon) + Prisma ORM
+- **Auth**: Better Auth
 - **Testing**: Vitest + Playwright
 - **Package Manager**: pnpm 10.9
-
-## Project Structure
-
-```
-/app              - Next.js App Router (routes, layouts, pages)
-/components       - Reusable UI components
-  /ui             - shadcn/ui primitives
-/lib              - Shared utilities and configuration
-/hooks            - Custom React hooks
-/prisma           - Database schema and migrations
-/e2e              - Playwright E2E tests
-/docs             - Detailed documentation
-/scripts          - Automation scripts
-/.claude          - Claude Code configuration
-```
-
-## Documentation
-
-- **[CLAUDE.md](CLAUDE.md)** - Coding guidelines for AI-assisted development (optimized for Claude Code)
-- **[docs/](docs/)** - Comprehensive documentation for human contributors
-  - [Deployment](docs/DEPLOYMENT.md) - Staging and production deployment
-  - [Git Workflow](docs/GIT_WORKFLOW.md) - Branching, commits, and PRs
-  - [Environment Setup](docs/ENVIRONMENT_SETUP.md) - Environment variables
-  - [MCP Setup](docs/MCP_SETUP.md) - Model Context Protocol configuration
-  - [Performance](docs/PERFORMANCE.md) - Bundle optimization
-  - [Cyrus Guide](docs/CYRUS_GUIDE.md) - AI agent integration
 
 ## Development
 
 ```bash
-# Development server
-pnpm dev
-
-# Linting
-pnpm lint
-pnpm lint --fix
-
-# Type checking
-pnpm type-check
-
-# Testing
+pnpm dev               # Development server
+pnpm lint              # Linting
+pnpm type-check        # Type checking
 pnpm test              # Unit tests
-pnpm test:coverage     # With coverage
-pnpm test:e2e          # End-to-end tests
-pnpm test:all          # All tests
-
-# Database
-pnpm db:studio         # Open Prisma Studio
+pnpm test:e2e          # E2E tests
+pnpm db:studio         # Prisma Studio GUI
 pnpm db:migrate        # Create and apply migration
-pnpm db:push           # Push schema without migration
-pnpm db:generate       # Regenerate Prisma Client
-
-# Build
-pnpm build             # Production build
 ```
 
-## Getting Started
+Always run `pnpm lint && pnpm type-check && pnpm test` before committing. Never commit directly to `main` - use feature branches. See [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md) for the full workflow.
 
-1. **Clone and install:**
+## Documentation
 
-   ```bash
-   git clone <repository-url>
-   cd honkadori
-   pnpm install
-   ```
-
-2. **Set up environment:**
-
-   ```bash
-   cp .env.example .env
-   # Edit .env with your values
-   ```
-
-3. **Set up database:**
-
-   ```bash
-   pnpm db:push
-   ```
-
-4. **Run health check:**
-
-   ```bash
-   ./scripts/health-check.sh
-   ```
-
-5. **Start developing:**
-   ```bash
-   pnpm dev
-   ```
-
-## Contributing
-
-1. **Never commit directly to `main`** - Always use feature branches
-2. **Branch naming**: `feat/`, `fix/`, `docs/`, `refactor/`, `chore/`
-3. **Commit format**: Follow [Conventional Commits](https://www.conventionalcommits.org/)
-4. **Before committing**: Run `pnpm lint && pnpm type-check && pnpm test`
-5. **Create PR**: Use descriptive titles following Conventional Commits format
-
-See [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md) for detailed workflow.
-
-## AI-Assisted Development
-
-This project is optimized for AI-assisted development with Claude Code:
-
-- **CLAUDE.md**: Concise coding guidelines for Claude
-- **MCP Servers**: Enhanced capabilities via Model Context Protocol
-- **Templates**: Component and test templates (`.claude/templates/`)
-- **Cyrus Integration**: Autonomous AI agent for Linear issue processing
-
-See [docs/MCP_SETUP.md](docs/MCP_SETUP.md) for setup.
-
-## License
-
-[Add your license here]
-
-## Support
-
-For issues and questions:
-
-- Check the [documentation](docs/)
-- Review [CLAUDE.md](CLAUDE.md) for coding patterns
-- Run `./scripts/health-check.sh` for environment validation
+| Document                                               | Contents                                      |
+| ------------------------------------------------------ | --------------------------------------------- |
+| [CLAUDE.md](CLAUDE.md)                                 | Coding guidelines (optimized for Claude Code) |
+| [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md)           | Product vision, decisions, domain logic       |
+| [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)           | Branching, commits, PRs                       |
+| [docs/ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md) | Environment variables                         |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)               | Staging and production deployment             |
+| [docs/TYPOGRAPHY.md](docs/TYPOGRAPHY.md)               | Typography component guide                    |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)             | Bundle optimization                           |
+| [docs/MCP_SETUP.md](docs/MCP_SETUP.md)                 | MCP server configuration                      |
+| [docs/PARALLEL_WORKFLOW.md](docs/PARALLEL_WORKFLOW.md) | Parallel Claude Code with git worktrees       |
+| [docs/CHROME_TESTING.md](docs/CHROME_TESTING.md)       | Browser testing with Chrome extension         |
+| [docs/CYRUS_GUIDE.md](docs/CYRUS_GUIDE.md)             | Autonomous AI agent setup                     |

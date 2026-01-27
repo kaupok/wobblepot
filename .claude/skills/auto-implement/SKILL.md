@@ -112,13 +112,13 @@ Store the issue ID.
 [auto-implement] Phase 1/7: Finding next unblocked issue
 ```
 
-### 1.1 Fetch project context
+### 1.1 Read project context
 
 ```
-mcp__linear-server__get_project({ query: "5a19627a-803f-4052-83c4-b44810d17af7" })
+Read docs/PROJECT_SPEC.md
 ```
 
-Review project description for current phase and relevant context.
+Review for current phase and relevant context.
 
 ### 1.2 Search for issues (priority order)
 
@@ -205,10 +205,10 @@ Extract and note:
 - `blocks` relations (what this unblocks)
 - Any labels or priority
 
-### 2.2 Fetch project context
+### 2.2 Read project context
 
 ```
-mcp__linear-server__get_project({ query: "5a19627a-803f-4052-83c4-b44810d17af7" })
+Read docs/PROJECT_SPEC.md
 ```
 
 Note the current phase and any relevant architectural decisions.
@@ -394,9 +394,11 @@ git diff
 
 For untracked files, use Read tool.
 
-### 4.3 Read CLAUDE.md for patterns
+### 4.3 Read CLAUDE.md and Typography guide for patterns
 
 Use Read tool on CLAUDE.md. Focus on: Code Standards, Typography Components, Authentication Patterns, Database Patterns, Testing sections.
+
+Also read `docs/TYPOGRAPHY.md` for the full typography component guide (separation of concerns, DO/DON'T examples, all component variants).
 
 ### 4.4 Review the changes for
 

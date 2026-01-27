@@ -4,7 +4,6 @@ description: Find the next unblocked Linear issue to work on. Use when user says
 context: fork
 agent: general-purpose
 allowed-tools:
-  - mcp__linear-server__get_project
   - mcp__linear-server__list_issues
   - mcp__linear-server__get_issue
   - Read
@@ -18,13 +17,13 @@ Find the next unblocked issue and return a concise implementation summary.
 
 ## Workflow
 
-1. **Fetch project context**
+1. **Read project context**
 
    ```
-   mcp__linear-server__get_project({ query: "5a19627a-803f-4052-83c4-b44810d17af7" })
+   Read docs/PROJECT_SPEC.md
    ```
 
-   Review project description for current phase and relevant context.
+   Review for current phase and relevant context.
 
 2. **Search for issues (priority order)**
 
