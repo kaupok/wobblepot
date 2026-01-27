@@ -121,6 +121,10 @@ Use specific ingredient names when the database has them. Keep generic names whe
 | "2 tbsp extra virgin olive oil" | "olive oil" | DB has "olive oil" (strip quality grade) |
 | "1 tbsp virgin olive oil" | "olive oil" | DB has "olive oil" (strip quality grade) |
 | "light olive oil" | "olive oil" | DB has "olive oil" (strip quality grade) |
+| "2 cans peeled tomatoes" | "canned whole peeled tomatoes" | DB has "canned whole peeled tomatoes" (specific) |
+| "1 can whole tomatoes" | "canned whole peeled tomatoes" | DB has "canned whole peeled tomatoes" (specific) |
+| "1 can diced tomatoes" | "canned diced tomatoes" | DB has "canned diced tomatoes" (specific) |
+| "1 can chopped tomatoes" | "canned diced tomatoes" | DB has "canned diced tomatoes" (specific) |
 
 QUALITY/PROCESSING QUALIFIERS TO STRIP:
 Some ingredients have quality grades or processing descriptors that should be stripped because the DB stores only the base ingredient:
@@ -154,6 +158,10 @@ CRITICAL QUANTITY RULES (for non-vague ingredients):
 - For countable items (eggs, garlic cloves, chicken breasts, onions), use "piece" as unit with the COUNT as quantity
   Example: "4 cloves garlic" → quantity: 4, unit: "piece", name: "garlic"
   Example: "2 chicken breasts" → quantity: 2, unit: "piece", name: "chicken breast"
+- For canned items: "can" is NOT a supported unit. Convert to grams: 1 standard can ≈ 400g
+  Example: "2 cans peeled tomatoes" → quantity: 800, unit: "g", name: "canned whole peeled tomatoes"
+  Example: "1 can diced tomatoes" → quantity: 400, unit: "g", name: "canned diced tomatoes"
+  Example: "1 can coconut milk" → quantity: 400, unit: "g", name: "coconut milk"
 - For herbs/leaves measured in cups, convert to grams (1 cup fresh herbs ≈ 20-30g)
   Example: "2 cups basil leaves" → quantity: 50, unit: "g", name: "basil"
 - For liquids in cups, keep as cups OR convert (1 cup liquid = 240ml)
