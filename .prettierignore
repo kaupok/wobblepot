@@ -9,8 +9,9 @@ playwright-report
 node_modules
 pnpm-lock.yaml
 
-# claude skills (prompts, not code)
+# agent skills (prompts, not code)
 .claude/
+.agents/
 
 # misc
 *.log
