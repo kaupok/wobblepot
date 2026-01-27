@@ -228,6 +228,8 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **Fully autonomous:** `/auto-implement HON-XX` runs the entire cycle unattended.
 
+**Staging review:** `/chrome-review` — Interactive exploration of staging (`honkadori.xyz`) using Chrome. Discuss findings and create Linear issues collaboratively. Requires `claude --chrome` or `/chrome`.
+
 **Cross-session context:** Plans are stored as Linear comments by `/plan-issue`, so `/implement-issue` and `/code-review` can fetch them in new sessions.
 
 ## Review Focus
