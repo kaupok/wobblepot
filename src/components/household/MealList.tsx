@@ -2,12 +2,12 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Pencil, Trash2, Heart, Clock, Users } from 'lucide-react'
+import { Pencil, Trash2, Heart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Body, Heading } from '@/components/ui/typography'
+import { Body } from '@/components/ui/typography'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { MealCardBase } from '@/components/meal-plan/MealCardBase'
 import { cn } from '@/lib/utils'
 import type { IngredientCategory, MealType, ProteinType, Unit } from '@/generated/prisma/enums'
 
@@ -49,15 +49,6 @@ interface MealListProps {
   onEdit: (meal: MealData) => void
   onDelete: (mealId: string) => void
   onToggleFavorite: (mealId: string, isFavorite: boolean) => void
-}
-
-function formatMealTypes(types: MealType[]): string {
-  return types.map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join(', ')
-}
-
-function formatProteinType(type: ProteinType): string {
-  if (type === 'none') return 'No protein'
-  return type.charAt(0).toUpperCase() + type.slice(1)
 }
 
 export function MealList({ meals, onEdit, onDelete, onToggleFavorite }: MealListProps) {
@@ -124,72 +115,10 @@ export function MealList({ meals, onEdit, onDelete, onToggleFavorite }: MealList
           <CardContent className="p-4">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <Heading variant="h4">{meal.name}</Heading>
-                  {meal.kidFriendly && (
-                    <Badge variant="secondary" className="text-xs">
-                      <Users className="mr-1 h-3 w-3" />
-                      Kid-friendly
-                    </Badge>
-                  )}
-                </div>
-
-                {meal.description && (
-                  <Body variant="muted" className="mt-1">
-                    {meal.description}
-                  </Body>
-                )}
-
-                <div className="mt-2 flex flex-wrap items-center gap-3">
-                  {meal.timeMinutes && (
-                    <Body variant="small" className="text-muted-foreground flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {meal.timeMinutes} min
-                    </Body>
-                  )}
-                  <Body variant="small" className="text-muted-foreground">
-                    {formatMealTypes(meal.suitableFor)}
-                  </Body>
-                  <Body variant="small" className="text-muted-foreground">
-                    {formatProteinType(meal.primaryProteinType)}
-                  </Body>
-                </div>
-
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {meal.components.slice(0, 5).map((comp) => (
-                    <Badge key={comp.ingredientId} variant="outline" className="text-xs">
-                      {comp.ingredient.name}
-                    </Badge>
-                  ))}
-                  {meal.components.length > 5 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{meal.components.length - 5} more
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="mt-2 flex items-center gap-4 text-xs">
-                  <span className="text-muted-foreground">{meal.nutrition.calories} kcal</span>
-                  <span className="text-muted-foreground">{meal.nutrition.protein}g protein</span>
-                  <span className="text-muted-foreground">{meal.nutrition.carbs}g carbs</span>
-                  <span className="text-muted-foreground">{meal.nutrition.fat}g fat</span>
-                </div>
-
-                {meal.allergens.length > 0 && (
-                  <div className="mt-2 flex items-center gap-1">
-                    <Body variant="small" className="text-destructive">
-                      Contains:
-                    </Body>
-                    {meal.allergens.map((allergen) => (
-                      <Badge key={allergen} variant="destructive" className="text-xs">
-                        {allergen}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+                <MealCardBase meal={meal} />
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1">
                 <Button
                   variant="ghost"
                   size="sm"

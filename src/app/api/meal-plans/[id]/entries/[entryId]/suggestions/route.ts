@@ -224,9 +224,11 @@ export async function POST(
       return {
         id: candidate.id,
         name: candidate.name,
+        description: mealDetail?.description ?? null,
         timeMinutes: mealDetail?.timeMinutes ?? null,
         kidFriendly: candidate.kidFriendly,
         primaryProteinType: candidate.primaryProteinType,
+        suitableFor: mealDetail?.suitableFor as MealType[] | undefined,
         reason: generateReason(candidate, entry.mealType as MealType, index),
         components: components.map((comp) => ({
           ingredientId: comp.ingredientId,

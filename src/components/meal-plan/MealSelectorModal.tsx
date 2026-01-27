@@ -40,6 +40,7 @@ interface LibraryMeal {
   timeMinutes: number | null
   kidFriendly: boolean
   primaryProteinType: ProteinType
+  suitableFor: MealType[]
   components: MealComponent[]
   nutrition: NutritionData
 }
@@ -178,9 +179,11 @@ export function MealSelectorModal({
     (meal: LibraryMeal): AlternativeMeal => ({
       id: meal.id,
       name: meal.name,
+      description: meal.description,
       timeMinutes: meal.timeMinutes,
       kidFriendly: meal.kidFriendly,
       primaryProteinType: meal.primaryProteinType,
+      suitableFor: meal.suitableFor,
       reason: '',
       components: meal.components,
       nutrition: meal.nutrition,

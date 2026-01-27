@@ -50,9 +50,11 @@ export interface MealPlan {
 export interface AlternativeMeal {
   id: string
   name: string
+  description?: string | null
   timeMinutes: number | null
   kidFriendly: boolean
   primaryProteinType: string
+  suitableFor?: MealType[]
   reason: string
   components: MealComponent[]
   nutrition: NutritionData
