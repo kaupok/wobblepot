@@ -2129,18 +2129,6 @@ export const newIngredients = [
     fiber: 0,
   },
   {
-    name: 'heavy cream',
-    category: 'dairy',
-    subcategory: 'cream',
-    defaultUnit: 'g',
-    allergens: ['dairy'],
-    calories: 340,
-    protein: 2,
-    carbs: 3,
-    fat: 36,
-    fiber: 0,
-  },
-  {
     name: 'whipping cream',
     category: 'dairy',
     subcategory: 'cream',
