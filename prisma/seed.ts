@@ -2,6 +2,7 @@ import 'dotenv/config'
 import { PrismaClient } from '../src/generated/prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { newIngredients, newMeals } from './seed-expansion'
+import { comprehensiveIngredients } from './seed-comprehensive'
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL!,
@@ -1929,7 +1930,11 @@ export const baseIngredients = [
 
 // Merge base ingredients with new expansion ingredients
 type IngredientInput = (typeof baseIngredients)[number]
-const ingredients = [...baseIngredients, ...(newIngredients as unknown as IngredientInput[])]
+const ingredients = [
+  ...baseIngredients,
+  ...(newIngredients as unknown as IngredientInput[]),
+  ...(comprehensiveIngredients as unknown as IngredientInput[]),
+]
 
 async function seedIngredients() {
   console.log('Seeding ingredients...')

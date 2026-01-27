@@ -27,11 +27,22 @@ describe('INGREDIENT_ALIASES', () => {
     expect(INGREDIENT_ALIASES['cooking oil']).toBe('vegetable oil')
   })
 
+  it('contains baking and condiment aliases', () => {
+    expect(INGREDIENT_ALIASES['flour']).toBe('all-purpose flour')
+    expect(INGREDIENT_ALIASES['sugar']).toBe('granulated sugar')
+    expect(INGREDIENT_ALIASES['yeast']).toBe('active dry yeast')
+    expect(INGREDIENT_ALIASES['chocolate']).toBe('chocolate chips')
+    expect(INGREDIENT_ALIASES['wine']).toBe('red wine')
+    expect(INGREDIENT_ALIASES['mustard']).toBe('yellow mustard')
+    expect(INGREDIENT_ALIASES['yogurt']).toBe('plain yogurt')
+    expect(INGREDIENT_ALIASES['miso']).toBe('white miso paste')
+    expect(INGREDIENT_ALIASES['vinegar']).toBe('white vinegar')
+    expect(INGREDIENT_ALIASES['soy sauce']).toBe('light soy sauce')
+  })
+
   it('does not contain aliases that would degrade direct matches', () => {
-    // These were removed because they pointed to non-existent DB ingredients
-    // and would make direct matches worse (e.g., "onion" -> "yellow onion" when DB has "onion")
+    // These ingredients exist in the DB directly, so no alias needed
     expect(INGREDIENT_ALIASES['onion']).toBeUndefined()
-    expect(INGREDIENT_ALIASES['flour']).toBeUndefined()
     expect(INGREDIENT_ALIASES['milk']).toBeUndefined()
     expect(INGREDIENT_ALIASES['butter']).toBeUndefined()
     expect(INGREDIENT_ALIASES['basil']).toBeUndefined()
@@ -62,10 +73,16 @@ describe('applyIngredientAlias', () => {
     expect(applyIngredientAlias('some random ingredient')).toBe('some random ingredient')
   })
 
+  it('expands baking and condiment aliases', () => {
+    expect(applyIngredientAlias('flour')).toBe('all-purpose flour')
+    expect(applyIngredientAlias('sugar')).toBe('granulated sugar')
+    expect(applyIngredientAlias('mustard')).toBe('yellow mustard')
+    expect(applyIngredientAlias('vinegar')).toBe('white vinegar')
+  })
+
   it('returns original name for ingredients that should match directly', () => {
     // These ingredients exist in the DB, so they should pass through unchanged
     expect(applyIngredientAlias('onion')).toBe('onion')
-    expect(applyIngredientAlias('flour')).toBe('flour')
     expect(applyIngredientAlias('milk')).toBe('milk')
     expect(applyIngredientAlias('butter')).toBe('butter')
   })
@@ -89,10 +106,16 @@ describe('hasIngredientAlias', () => {
     expect(hasIngredientAlias('black pepper')).toBe(false) // This is the expanded form, not an alias
   })
 
+  it('returns true for new baking/condiment aliases', () => {
+    expect(hasIngredientAlias('flour')).toBe(true)
+    expect(hasIngredientAlias('sugar')).toBe(true)
+    expect(hasIngredientAlias('vinegar')).toBe(true)
+    expect(hasIngredientAlias('miso')).toBe(true)
+  })
+
   it('returns false for ingredients that should match directly', () => {
-    // These are not aliases anymore - they should match directly in DB
+    // These ingredients exist in the DB directly, so no alias needed
     expect(hasIngredientAlias('onion')).toBe(false)
-    expect(hasIngredientAlias('flour')).toBe(false)
     expect(hasIngredientAlias('milk')).toBe(false)
     expect(hasIngredientAlias('butter')).toBe(false)
   })

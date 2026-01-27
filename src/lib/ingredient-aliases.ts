@@ -5,8 +5,9 @@
  * a sensible default before database search. This improves matching
  * accuracy for common terms like "pepper" → "black pepper".
  *
- * IMPORTANT: All alias targets MUST exist in the database (prisma/seed.ts
- * or prisma/seed-expansion.ts). Run `pnpm db:validate` to verify.
+ * IMPORTANT: All alias targets MUST exist in the database (prisma/seed.ts,
+ * prisma/seed-expansion.ts, or prisma/seed-comprehensive.ts).
+ * Run `pnpm db:validate` to verify.
  *
  * Rules:
  * - Keys should be lowercase
@@ -41,6 +42,25 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   // Legumes - expand to specific types that exist in DB
   beans: 'black beans', // DB has black beans
   lentils: 'green lentils', // DB has green lentils (in seed-expansion)
+
+  // Baking - expand to DB names (seed-comprehensive)
+  flour: 'all-purpose flour', // DB has all-purpose flour
+  sugar: 'granulated sugar', // DB has granulated sugar
+  yeast: 'active dry yeast', // DB has active dry yeast
+  chocolate: 'chocolate chips', // DB has chocolate chips
+
+  // Wines - expand to DB names (seed-comprehensive)
+  wine: 'red wine', // DB has red wine
+  sherry: 'dry sherry', // DB has dry sherry
+
+  // Dairy alternatives
+  yogurt: 'plain yogurt', // DB has plain yogurt
+
+  // Condiments - expand to DB names
+  mustard: 'yellow mustard', // DB has yellow mustard
+  'soy sauce': 'light soy sauce', // DB has light soy sauce
+  miso: 'white miso paste', // DB has white miso paste
+  vinegar: 'white vinegar', // DB has white vinegar
 }
 
 /**
