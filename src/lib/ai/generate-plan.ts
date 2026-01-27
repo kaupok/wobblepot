@@ -527,9 +527,6 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
       .map((e) => slotKey(toDateString(e.date), e.mealType)),
   )
 
-  // Track entries with null mealId so we can delete them before creating new ones
-  const nullMealEntryIds = existingPlan.entries.filter((e) => e.mealId === null).map((e) => e.id)
-
   // Compute all expected slots
   const allSlots = computeMealSlots(dates, weekdayMealTypes, weekendMealTypes)
 
@@ -537,6 +534,15 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
   const emptySlots = allSlots.filter(
     (slot) => !filledSlotKeys.has(slotKey(slot.date, slot.mealType)),
   )
+
+  // Track null-mealId entries only for slots we'll attempt to fill.
+  // Don't delete orphaned entries for slots outside the expected set.
+  const emptySlotKeys = new Set(emptySlots.map((s) => slotKey(toDateString(s.date), s.mealType)))
+  const nullMealEntryIds = existingPlan.entries
+    .filter(
+      (e) => e.mealId === null && emptySlotKeys.has(slotKey(toDateString(e.date), e.mealType)),
+    )
+    .map((e) => e.id)
 
   if (emptySlots.length === 0) {
     throw new NoEmptySlotsError()
@@ -677,7 +683,7 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
 
   // Delete orphaned entries (mealId=null) and create new entries in a transaction
   await prisma.$transaction(async (tx) => {
-    // Delete orphaned null-mealId entries for slots we're about to fill
+    // Delete orphaned null-mealId entries that overlap with fillable slots
     if (nullMealEntryIds.length > 0) {
       await tx.mealPlanEntry.deleteMany({
         where: { id: { in: nullMealEntryIds } },
