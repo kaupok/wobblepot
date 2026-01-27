@@ -47,10 +47,12 @@ export function GenerateMealsModal({
   const router = useRouter()
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [warnings, setWarnings] = useState<string[]>([])
 
   const handleGenerate = async (mode: 'fill-empty' | 'generate') => {
     setIsGenerating(true)
     setError(null)
+    setWarnings([])
     onOpenChange(false) // Close modal immediately to show overlay
 
     const controller = new AbortController()
@@ -73,7 +75,16 @@ export function GenerateMealsModal({
         throw { status: response.status, message: data.message }
       }
 
+      const data = await response.json().catch(() => ({}))
+
       setIsGenerating(false)
+
+      // Show warnings if any slots couldn't be filled
+      if (data.warnings?.length > 0) {
+        setWarnings(data.warnings)
+        onOpenChange(true)
+      }
+
       router.refresh()
     } catch (err) {
       clearTimeout(timeoutId)
@@ -111,6 +122,20 @@ export function GenerateMealsModal({
               <Body variant="small" className="text-destructive">
                 {error}
               </Body>
+            )}
+            {warnings.length > 0 && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950">
+                <Body variant="small" className="font-medium text-amber-800 dark:text-amber-200">
+                  Some slots could not be filled:
+                </Body>
+                <ul className="mt-1 list-inside list-disc">
+                  {warnings.map((warning) => (
+                    <li key={warning} className="text-xs text-amber-700 dark:text-amber-300">
+                      {warning}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
             <div className="flex flex-col gap-3">
               <Button onClick={() => handleGenerate('fill-empty')} disabled={isGenerating}>
