@@ -124,6 +124,8 @@ export interface GeneratePlanResult {
       }
     } | null
   }>
+  /** Warnings about slots that could not be filled (e.g., no candidates for a meal type). */
+  warnings?: string[]
 }
 
 /**

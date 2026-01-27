@@ -519,18 +519,30 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
   const startDate = existingPlan.startDate
   const dates = getWeekDates(startDate)
 
-  // Find existing entry slots
-  const existingSlotKeys = new Set(
-    existingPlan.entries.map((e) => slotKey(toDateString(e.date), e.mealType)),
+  // Find existing entry slots that actually have a meal assigned.
+  // Entries with mealId=null are treated as empty (they show "No meal planned" in the UI).
+  const filledSlotKeys = new Set(
+    existingPlan.entries
+      .filter((e) => e.mealId !== null)
+      .map((e) => slotKey(toDateString(e.date), e.mealType)),
   )
 
   // Compute all expected slots
   const allSlots = computeMealSlots(dates, weekdayMealTypes, weekendMealTypes)
 
-  // Find empty slots (expected minus existing)
+  // Find empty slots (expected minus filled)
   const emptySlots = allSlots.filter(
-    (slot) => !existingSlotKeys.has(slotKey(slot.date, slot.mealType)),
+    (slot) => !filledSlotKeys.has(slotKey(slot.date, slot.mealType)),
   )
+
+  // Track null-mealId entries only for slots we'll attempt to fill.
+  // Don't delete orphaned entries for slots outside the expected set.
+  const emptySlotKeys = new Set(emptySlots.map((s) => slotKey(toDateString(s.date), s.mealType)))
+  const nullMealEntryIds = existingPlan.entries
+    .filter(
+      (e) => e.mealId === null && emptySlotKeys.has(slotKey(toDateString(e.date), e.mealType)),
+    )
+    .map((e) => e.id)
 
   if (emptySlots.length === 0) {
     throw new NoEmptySlotsError()
@@ -617,17 +629,34 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     }
   }
 
+  // Check for unfillable slots (empty candidate pool for a meal type) and collect warnings
+  const warnings: string[] = []
+  const fillableSlots = emptySlots.filter((slot) => {
+    const pool = candidatesByMealType.get(slot.mealType)
+    if (!pool || pool.length === 0) {
+      const dateStr = toDateString(slot.date)
+      warnings.push(`No ${slot.mealType} candidates available for ${dateStr}`)
+      return false
+    }
+    return true
+  })
+
+  // If no fillable slots remain, throw with warnings context
+  if (fillableSlots.length === 0) {
+    throw new NoEmptySlotsError()
+  }
+
   // Compute remaining slots (not required protein slots)
   const requiredSlotKeys = new Set(requiredSlots.map((s) => slotKey(s.date, s.mealType)))
-  const remainingSlots = emptySlots.filter(
+  const remainingSlots = fillableSlots.filter(
     (s) => !requiredSlotKeys.has(slotKey(s.date, s.mealType)),
   )
 
-  // Build prompt and call AI for empty slots only
+  // Build prompt and call AI for fillable slots only
   const prompt = buildMealPlanPrompt({
     startDate,
     endDate: existingPlan.endDate,
-    totalEntries: emptySlots.length,
+    totalEntries: fillableSlots.length,
     requiredSlots,
     remainingSlots,
     candidatePools,
@@ -647,20 +676,30 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
   const hydratedPlan = await hydratePlan(object.entries)
 
   // Validate AI response structure
-  validateAIResponseStructure(hydratedPlan, emptySlots)
+  validateAIResponseStructure(hydratedPlan, fillableSlots)
 
   // Validate constraints and repair if needed
   const validatedPlan = validateAndRepairPlan(hydratedPlan, requiredSlots, candidatePools)
 
-  // Create new entries (do NOT delete existing)
-  await prisma.mealPlanEntry.createMany({
-    data: validatedPlan.map((entry) => ({
-      planId,
-      date: entry.date,
-      mealType: entry.mealType,
-      mealId: entry.mealId,
-      status: 'planned',
-    })),
+  // Delete orphaned entries (mealId=null) and create new entries in a transaction
+  await prisma.$transaction(async (tx) => {
+    // Delete orphaned null-mealId entries that overlap with fillable slots
+    if (nullMealEntryIds.length > 0) {
+      await tx.mealPlanEntry.deleteMany({
+        where: { id: { in: nullMealEntryIds } },
+      })
+    }
+
+    // Create new entries
+    await tx.mealPlanEntry.createMany({
+      data: validatedPlan.map((entry) => ({
+        planId,
+        date: entry.date,
+        mealType: entry.mealType,
+        mealId: entry.mealId,
+        status: 'planned',
+      })),
+    })
   })
 
   // Fetch all entries for the plan with meal details
@@ -707,5 +746,6 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
           }
         : null,
     })),
+    ...(warnings.length > 0 ? { warnings } : {}),
   }
 }

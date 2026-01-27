@@ -70,7 +70,9 @@ export function EmptySlotCard({ planId, date, mealType, householdSize }: EmptySl
           method: 'DELETE',
         })
       } catch {
-        // Silently ignore delete errors - the entry will be orphaned but harmless
+        // Delete failed - refresh to ensure UI reflects actual state.
+        // The orphaned entry (mealId=null) will be treated as empty by fill-empty.
+        router.refresh()
       }
       setEntryId(null)
     }
