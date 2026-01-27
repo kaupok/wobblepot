@@ -124,9 +124,11 @@ If a plan is found:
 
 Use the Read tool to read each changed file to understand the full context.
 
-### 8. Read CLAUDE.md for project patterns
+### 8. Read CLAUDE.md and Typography guide for project patterns
 
 Use the Read tool on CLAUDE.md. Focus on: Code Standards, Typography Components, Authentication Patterns, Database Patterns, Testing sections.
+
+Also read `docs/TYPOGRAPHY.md` for the full typography component guide (separation of concerns, DO/DON'T examples, all component variants).
 
 ### 9. Review the changes for:
 

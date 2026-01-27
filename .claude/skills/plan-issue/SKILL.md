@@ -47,10 +47,10 @@ Extract and note:
 
 **If issue is blocked:** Warn the user and list the blocking issues. Ask if they want to proceed anyway or work on the blockers first.
 
-### 3. Fetch project context
+### 3. Read project context
 
 ```
-mcp__linear-server__get_project({ query: "5a19627a-803f-4052-83c4-b44810d17af7" })
+Read docs/PROJECT_SPEC.md
 ```
 
 Note the current phase and any relevant architectural decisions.

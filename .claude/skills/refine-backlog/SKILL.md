@@ -10,13 +10,13 @@ You are assisting CPO+CTO in fleshing out draft ideas, features, and issues into
 
 ## Phase 1: Context Gathering
 
-### Step 1: Fetch project context
+### Step 1: Read project context
 
-```typescript
-mcp__linear - server__get_project({ query: '5a19627a-803f-4052-83c4-b44810d17af7' })
+```
+Read docs/PROJECT_SPEC.md
 ```
 
-Review the project description for:
+Review for:
 
 - Current phase
 - Product vision and decisions

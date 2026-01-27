@@ -155,7 +155,13 @@ Verify you're on the correct branch:
 git branch --show-current
 ```
 
-### 9. Begin implementation
+### 9. Read project patterns
+
+Use the Read tool on CLAUDE.md. Focus on: Code Standards, Typography Components, Authentication Patterns, Database Patterns, Testing sections.
+
+Also read `docs/TYPOGRAPHY.md` for the full typography component guide (separation of concerns, DO/DON'T examples, all component variants).
+
+### 10. Begin implementation
 
 Inform the user that setup is complete:
 
@@ -176,7 +182,7 @@ Starting with step 1...
 
 Then implement following the plan steps (or issue description if `--no-plan`).
 
-### 10. Signal completion
+### 11. Signal completion
 
 After implementing all steps, output the completion marker exactly as shown:
 
