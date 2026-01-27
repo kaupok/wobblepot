@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -9,11 +9,8 @@ import { useRouter } from 'next/navigation'
 import type { MealStatus } from '@/components/meal-plan/StatusSelect'
 import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
 import { PantryDeductionModal } from '@/components/meal-plan/PantryDeductionModal'
-import { PreparationTips } from './PreparationTips'
+import { MealDetail } from '@/components/meal-plan/MealDetail'
 import { MealStatusPrompt } from './MealStatusPrompt'
-import { computeMealAvailability } from '@/components/meal-plan/AvailabilityIndicator'
-import { IngredientList } from '@/components/meal-plan/IngredientList'
-import { NutritionSummary } from '@/components/meal-plan/NutritionSummary'
 import type { MealData, PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
 import type { MealType } from '@/generated/prisma/enums'
 
@@ -73,13 +70,6 @@ export function TodayMealCard({
     setTipsError(null)
   }, [initialTips])
 
-  const availability = useMemo(() => {
-    if (!meal) return null
-    return computeMealAvailability(meal, pantryIngredients)
-  }, [meal, pantryIngredients])
-
-  // Hide availability badge for completed/skipped meals (ingredient status no longer relevant)
-  const shouldShowAvailability = status !== 'completed' && status !== 'skipped'
   const isFinished = status === 'completed' || status === 'skipped'
 
   async function updateStatus(newStatus: MealStatus, deductPantry: boolean = false) {
@@ -270,7 +260,7 @@ export function TodayMealCard({
   return (
     <>
       <Card className={status === 'skipped' ? 'opacity-60' : undefined}>
-        {/* TOP SECTION: Status prompt, title, nutrition, time, badges + Swap button */}
+        {/* TOP SECTION: Status prompt, title, swap button */}
         <CardHeader className={showSimplifiedView ? 'pb-4' : 'pb-0'}>
           {/* Status prompt at top for planned meals when time has passed */}
           {showStatusPrompt && status === 'planned' && (
@@ -335,65 +325,27 @@ export function TodayMealCard({
             )}
           </div>
           <CardTitle className="text-base leading-tight font-semibold">{meal.name}</CardTitle>
-          {!showSimplifiedView && (
-            <div className="flex flex-col gap-1">
-              {meal.nutrition && (
-                <NutritionSummary nutrition={meal.nutrition} components={meal.components} compact />
-              )}
-              <div className="flex flex-wrap items-center gap-1.5">
-                {meal.timeMinutes && (
-                  <span className="text-muted-foreground text-xs">{meal.timeMinutes} min</span>
-                )}
-                {meal.kidFriendly && (
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                    Kid-friendly
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
         </CardHeader>
 
-        {/* BOTTOM SECTION: Two-column layout (Ingredients | Preparation) */}
+        {/* BOTTOM SECTION: Meal detail (nutrition, ingredients, prep tips) */}
         {!showSimplifiedView && (
-          <div className="grid grid-cols-1 gap-4 px-6 pt-4 pb-6 md:grid-cols-2">
-            {/* Left column: Ingredients */}
-            <div className="flex flex-col gap-4">
-              <IngredientList
-                components={meal.components}
-                householdSize={householdSize}
-                pantryIngredients={pantryIngredients}
-                onToggleAvailability={isFinished ? undefined : handleToggleAvailability}
-                togglingIds={togglingIngredientIds}
-                availability={shouldShowAvailability ? availability : null}
-                hideAvailability={isFinished}
-              />
-            </div>
-
-            {/* Right column: Preparation */}
-            <div className="bg-muted/50 flex flex-col items-center justify-center gap-4 rounded-lg p-4">
-              {isTipsExpanded ? (
-                <div className="w-full">
-                  <PreparationTips
-                    tips={tips}
-                    isLoading={isLoadingTips}
-                    error={tipsError}
-                    onRetry={fetchTips}
-                  />
-                  {tips && (
-                    <div className="mt-3 flex justify-center">
-                      <Button variant="ghost" size="sm" onClick={() => setIsTipsExpanded(false)}>
-                        Hide tips
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <Button variant="outline" size="sm" onClick={handleHowToPrepare}>
-                  How to prepare
-                </Button>
-              )}
-            </div>
+          <div className="px-6 pt-4 pb-6">
+            <MealDetail
+              meal={meal}
+              householdSize={householdSize}
+              pantryIngredients={pantryIngredients}
+              onToggleAvailability={isFinished ? undefined : handleToggleAvailability}
+              togglingIds={togglingIngredientIds}
+              hideAvailability={isFinished}
+              hideAvailabilityBadge={isFinished}
+              tips={tips}
+              isLoadingTips={isLoadingTips}
+              tipsError={tipsError}
+              onRetryTips={fetchTips}
+              isTipsExpanded={isTipsExpanded}
+              onHowToPrepare={handleHowToPrepare}
+              onHideTips={() => setIsTipsExpanded(false)}
+            />
           </div>
         )}
       </Card>

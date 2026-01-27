@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,9 +11,8 @@ import {
   computeMealAvailability,
   AvailabilityIndicator,
 } from '@/components/meal-plan/AvailabilityIndicator'
-import { IngredientList } from '@/components/meal-plan/IngredientList'
 import { NutritionSummary } from '@/components/meal-plan/NutritionSummary'
-import { PreparationTips } from './PreparationTips'
+import { MealDetail } from '@/components/meal-plan/MealDetail'
 import type { MealData, PantryIngredient } from '@/components/meal-plan/types'
 import type { MealType } from '@/generated/prisma/enums'
 
@@ -49,10 +48,7 @@ export function TomorrowMealCard({
   const [tipsError, setTipsError] = useState<string | null>(null)
   const [isTipsExpanded, setIsTipsExpanded] = useState(false)
 
-  const availability = useMemo(() => {
-    if (!meal) return null
-    return computeMealAvailability(meal, pantryIngredients)
-  }, [meal, pantryIngredients])
+  const availability = meal ? computeMealAvailability(meal, pantryIngredients) : null
 
   const handleToggleAvailability = useCallback(
     async (ingredientId: string, hasIt: boolean) => {
@@ -167,7 +163,7 @@ export function TomorrowMealCard({
     <>
       <Card>
         <CardHeader className={isExpanded ? 'pb-0' : 'pb-4'}>
-          {/* Top row: Meal type label + Swap button (matching main's new layout) */}
+          {/* Top row: Meal type label + Swap button */}
           <div className="flex items-center justify-between">
             <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
               {mealTypeLabels[mealType]}
@@ -184,19 +180,24 @@ export function TomorrowMealCard({
 
           {/* Meal info */}
           <CardTitle className="text-base leading-tight font-semibold">{meal.name}</CardTitle>
-          {meal.nutrition && (
-            <NutritionSummary nutrition={meal.nutrition} components={meal.components} compact />
+          {/* Show inline nutrition + badges only when collapsed (MealDetail handles them when expanded) */}
+          {!isExpanded && (
+            <>
+              {meal.nutrition && (
+                <NutritionSummary nutrition={meal.nutrition} components={meal.components} compact />
+              )}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {meal.timeMinutes && (
+                  <span className="text-muted-foreground text-xs">{meal.timeMinutes} min</span>
+                )}
+                {meal.kidFriendly && (
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                    Kid-friendly
+                  </span>
+                )}
+              </div>
+            </>
           )}
-          <div className="flex flex-wrap items-center gap-1.5">
-            {meal.timeMinutes && (
-              <span className="text-muted-foreground text-xs">{meal.timeMinutes} min</span>
-            )}
-            {meal.kidFriendly && (
-              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                Kid-friendly
-              </span>
-            )}
-          </div>
 
           {/* Collapsed view: Show availability badge and Details button */}
           {!isExpanded && (
@@ -218,42 +219,23 @@ export function TomorrowMealCard({
           )}
         </CardHeader>
 
-        {/* Expanded view: Ingredients list and prep tips */}
+        {/* Expanded view: Full meal detail */}
         {isExpanded && (
           <div className="flex flex-col gap-4 px-6 pt-4 pb-6">
-            <IngredientList
-              components={meal.components}
+            <MealDetail
+              meal={meal}
               householdSize={householdSize}
               pantryIngredients={pantryIngredients}
               onToggleAvailability={handleToggleAvailability}
               togglingIds={togglingIngredientIds}
-              availability={availability}
+              tips={tips}
+              isLoadingTips={isLoadingTips}
+              tipsError={tipsError}
+              onRetryTips={fetchTips}
+              isTipsExpanded={isTipsExpanded}
+              onHowToPrepare={handleHowToPrepare}
+              onHideTips={() => setIsTipsExpanded(false)}
             />
-
-            {/* Prep tips section */}
-            <div className="bg-muted/50 flex flex-col items-center justify-center gap-4 rounded-lg p-4">
-              {isTipsExpanded ? (
-                <div className="w-full">
-                  <PreparationTips
-                    tips={tips}
-                    isLoading={isLoadingTips}
-                    error={tipsError}
-                    onRetry={fetchTips}
-                  />
-                  {tips && (
-                    <div className="mt-3 flex justify-center">
-                      <Button variant="ghost" size="sm" onClick={() => setIsTipsExpanded(false)}>
-                        Hide tips
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <Button variant="outline" size="sm" onClick={handleHowToPrepare}>
-                  How to prepare
-                </Button>
-              )}
-            </div>
 
             {/* Hide button to collapse */}
             <Button
