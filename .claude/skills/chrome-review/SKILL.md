@@ -27,8 +27,7 @@ Read docs/PROJECT_SPEC.md
 ```
 
 ```typescript
-mcp__linear -
-  server__list_issues({
+mcp__linear-server__list_issues({
     project: '5a19627a-803f-4052-83c4-b44810d17af7',
     includeArchived: false,
     limit: 250,
@@ -114,8 +113,7 @@ When the user agrees a finding is worth tracking:
 ### Step 7: Create in Linear
 
 ```typescript
-mcp__linear -
-  server__create_issue({
+mcp__linear-server__create_issue({
     title: 'Agreed title in sentence case',
     team: 'Honkadori',
     project: '5a19627a-803f-4052-83c4-b44810d17af7',

@@ -25,13 +25,12 @@ Review for:
 ### Step 2: Find draft issues
 
 ```typescript
-mcp__linear -
-  server__list_issues({
-    project: '5a19627a-803f-4052-83c4-b44810d17af7',
-    query: '[DRAFT]',
-    includeArchived: false,
-    limit: 50,
-  })
+mcp__linear-server__list_issues({
+  project: '5a19627a-803f-4052-83c4-b44810d17af7',
+  query: '[DRAFT]',
+  includeArchived: false,
+  limit: 50,
+})
 ```
 
 ### Step 3: Present summary
@@ -49,7 +48,7 @@ For each draft issue:
 ### Step 4: Fetch full issue details
 
 ```typescript
-mcp__linear - server__get_issue({ id: 'HON-XX', includeRelations: true })
+mcp__linear-server__get_issue({ id: 'HON-XX', includeRelations: true })
 ```
 
 ### Step 5: Present current state
@@ -76,40 +75,37 @@ Discuss with user:
 **For refinements:**
 
 ```typescript
-mcp__linear -
-  server__update_issue({
-    id: 'issue-uuid',
-    title: 'Refined title without [DRAFT]',
-    description: 'Full description with acceptance criteria',
-    // Add relationships as needed:
-    // blockedBy: ['HON-XX'],
-    // blocks: ['HON-YY'],
-    // relatedTo: ['HON-ZZ']
-  })
+mcp__linear-server__update_issue({
+  id: 'issue-uuid',
+  title: 'Refined title without [DRAFT]',
+  description: 'Full description with acceptance criteria',
+  // Add relationships as needed:
+  // blockedBy: ['HON-XX'],
+  // blocks: ['HON-YY'],
+  // relatedTo: ['HON-ZZ']
+})
 ```
 
 **For splits (create new issues):**
 
 ```typescript
-mcp__linear -
-  server__create_issue({
-    title: 'New issue title',
-    team: 'Honkadori',
-    project: '5a19627a-803f-4052-83c4-b44810d17af7',
-    description: 'Description',
-    blockedBy: ['parent-issue-id'], // if applicable
-  })
+mcp__linear-server__create_issue({
+  title: 'New issue title',
+  team: 'Honkadori',
+  project: '5a19627a-803f-4052-83c4-b44810d17af7',
+  description: 'Description',
+  blockedBy: ['parent-issue-id'], // if applicable
+})
 ```
 
 **For duplicates:**
 
 ```typescript
-mcp__linear -
-  server__update_issue({
-    id: 'duplicate-issue-id',
-    duplicateOf: 'original-issue-id',
-    state: 'Duplicate',
-  })
+mcp__linear-server__update_issue({
+  id: 'duplicate-issue-id',
+  duplicateOf: 'original-issue-id',
+  state: 'Duplicate',
+})
 ```
 
 ### Step 8: Confirm and proceed
@@ -131,13 +127,12 @@ Discuss with user:
 ### Step 10: Create in Linear
 
 ```typescript
-mcp__linear -
-  server__create_issue({
-    title: '[DRAFT] Initial idea title', // Keep [DRAFT] if not fully refined
-    team: 'Honkadori',
-    project: '5a19627a-803f-4052-83c4-b44810d17af7',
-    description: 'Initial description - to be refined',
-  })
+mcp__linear-server__create_issue({
+  title: '[DRAFT] Initial idea title', // Keep [DRAFT] if not fully refined
+  team: 'Honkadori',
+  project: '5a19627a-803f-4052-83c4-b44810d17af7',
+  description: 'Initial description - to be refined',
+})
 ```
 
 Or create as fully refined if discussion was thorough enough.
