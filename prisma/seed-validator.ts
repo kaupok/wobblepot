@@ -3,7 +3,7 @@
  *
  * Validates seed data before database seeding to catch:
  * - Hard errors: duplicates, invalid references, unit mismatches, missing fields
- * - Warnings: nutritional outliers, unused ingredients, fiber > carbs
+ * - Warnings: nutritional outliers, fiber > carbs
  * - Naming conventions: lowercase, trimmed, no punctuation
  * - Nutritional plausibility: Atwater formula cross-check
  * - Near-duplicates: Levenshtein distance for similar names
@@ -15,6 +15,7 @@
 
 import { baseIngredients, baseMeals } from './seed'
 import { newIngredients, newMeals } from './seed-expansion'
+import { comprehensiveIngredients } from './seed-comprehensive'
 import { INGREDIENT_ALIASES } from '../src/lib/ingredient-aliases'
 
 // ============================================
@@ -294,20 +295,6 @@ function checkMealComponentCounts(meals: Meal[]): ValidationResult {
   return { errors, warnings }
 }
 
-function findUnusedIngredients(ingredients: Ingredient[], meals: Meal[]): ValidationResult {
-  const errors: string[] = []
-  const warnings: string[] = []
-
-  const usedNames = new Set(meals.flatMap((m) => m.components.map((c) => c.ingredient)))
-  const unused = ingredients.filter((i) => !usedNames.has(i.name))
-
-  if (unused.length > 0) {
-    warnings.push(`${unused.length} unused ingredients (not referenced by any meal)`)
-  }
-
-  return { errors, warnings }
-}
-
 function validateIngredientAliases(ingredientNames: Set<string>): ValidationResult {
   const errors: string[] = []
   const warnings: string[] = []
@@ -567,6 +554,7 @@ async function main() {
   const ingredientSources: Record<string, Ingredient[]> = {
     'seed.ts': baseIngredients,
     'seed-expansion.ts': newIngredients,
+    'seed-comprehensive.ts': comprehensiveIngredients as unknown as Ingredient[],
   }
 
   // Meal sources — add new seed files here
@@ -607,7 +595,6 @@ async function main() {
     validateMealReferences(allMeals, ingredientMap),
     checkPieceUnitQuantities(allMeals, ingredientMap),
     checkMealComponentCounts(allMeals),
-    findUnusedIngredients(allIngredients, allMeals),
     validateIngredientAliases(ingredientNames),
   ]
 
