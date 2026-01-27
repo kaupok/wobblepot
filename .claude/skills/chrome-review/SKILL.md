@@ -26,15 +26,19 @@ Read project context and existing backlog in parallel:
 Read docs/PROJECT_SPEC.md
 ```
 
+Fetch open and recently completed issues in parallel (split by state to avoid payload limits):
+
 ```typescript
-mcp__linear-server__list_issues({
-    project: '5a19627a-803f-4052-83c4-b44810d17af7',
-    includeArchived: false,
-    limit: 250,
-  })
+// All open states — run these 4 calls in parallel
+mcp__linear-server__list_issues({ project: '5a19627a-803f-4052-83c4-b44810d17af7', state: 'Backlog', limit: 50 })
+mcp__linear-server__list_issues({ project: '5a19627a-803f-4052-83c4-b44810d17af7', state: 'Todo', limit: 50 })
+mcp__linear-server__list_issues({ project: '5a19627a-803f-4052-83c4-b44810d17af7', state: 'In Progress', limit: 50 })
+mcp__linear-server__list_issues({ project: '5a19627a-803f-4052-83c4-b44810d17af7', state: 'In Review', limit: 50 })
+// Recent completions for context
+mcp__linear-server__list_issues({ project: '5a19627a-803f-4052-83c4-b44810d17af7', state: 'Done', orderBy: 'updatedAt', limit: 20 })
 ```
 
-Keep the backlog in mind throughout the session to avoid creating duplicate issues. If a finding overlaps with an existing issue, mention it to the user.
+Keep the backlog and recent completions in mind throughout the session to avoid creating duplicate issues. If a finding overlaps with an existing issue, mention it to the user.
 
 ### Step 3: Handle authentication
 
