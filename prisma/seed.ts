@@ -419,6 +419,18 @@ export const baseIngredients = [
     fiber: 1.0,
   },
   {
+    name: 'canned whole peeled tomatoes',
+    category: 'vegetable',
+    subcategory: 'fruit-vegetable',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 18,
+    protein: 0.9,
+    carbs: 3.6,
+    fat: 0.1,
+    fiber: 1.1,
+  },
+  {
     name: 'onion',
     category: 'vegetable',
     subcategory: 'allium',
