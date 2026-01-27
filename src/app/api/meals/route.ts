@@ -183,6 +183,7 @@ export async function GET(request: NextRequest) {
         timeMinutes: true,
         kidFriendly: true,
         primaryProteinType: true,
+        suitableFor: true,
         householdId: true,
         components: {
           select: {
@@ -261,6 +262,7 @@ export async function GET(request: NextRequest) {
         timeMinutes: meal.timeMinutes,
         kidFriendly: meal.kidFriendly,
         primaryProteinType: meal.primaryProteinType,
+        suitableFor: meal.suitableFor,
         isCustom: meal.householdId !== null,
         isFavorite: meal.favoritedBy.length > 0,
         components,

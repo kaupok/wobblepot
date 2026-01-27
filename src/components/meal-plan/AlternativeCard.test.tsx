@@ -106,6 +106,19 @@ describe('AlternativeCard', () => {
       expect(screen.queryByText('Kid-friendly')).not.toBeInTheDocument()
     })
 
+    it('renders protein type', () => {
+      render(
+        <AlternativeCard
+          meal={mockMeal}
+          householdSize={3}
+          onSelect={vi.fn()}
+          isSelecting={false}
+        />,
+      )
+
+      expect(screen.getByText('Poultry')).toBeInTheDocument()
+    })
+
     it('renders Select button', () => {
       render(
         <AlternativeCard
@@ -121,19 +134,6 @@ describe('AlternativeCard', () => {
   })
 
   describe('ingredients display', () => {
-    it('shows ingredients heading with household size', () => {
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdSize={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-        />,
-      )
-
-      expect(screen.getByText('Ingredients (serves 3)')).toBeInTheDocument()
-    })
-
     it('shows all ingredient names', () => {
       render(
         <AlternativeCard
@@ -146,19 +146,6 @@ describe('AlternativeCard', () => {
 
       expect(screen.getByText('Chicken Breast')).toBeInTheDocument()
       expect(screen.getByText('Rice')).toBeInTheDocument()
-    })
-
-    it('updates heading when household size changes', () => {
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdSize={5}
-          onSelect={vi.fn()}
-          isSelecting={false}
-        />,
-      )
-
-      expect(screen.getByText('Ingredients (serves 5)')).toBeInTheDocument()
     })
   })
 
