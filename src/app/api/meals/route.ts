@@ -8,7 +8,7 @@ import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
 
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 50
-const SIMILARITY_THRESHOLD = 0.3
+const SIMILARITY_THRESHOLD = 0.25
 // Cap fuzzy search results to prevent loading too many meals into memory
 // This is generous enough for any realistic search pagination needs
 const FUZZY_SEARCH_CAP = 200
@@ -89,8 +89,12 @@ export async function GET(request: NextRequest) {
         SELECT DISTINCT m.id,
           GREATEST(
             similarity(m.name, ${search}),
+            word_similarity(${search}, m.name),
             COALESCE((
-              SELECT MAX(similarity(i.name, ${search}))
+              SELECT MAX(GREATEST(
+                similarity(i.name, ${search}),
+                word_similarity(${search}, i.name)
+              ))
               FROM "meal_component" mc
               JOIN "ingredient" i ON i.id = mc."ingredientId"
               WHERE mc."mealId" = m.id
@@ -99,11 +103,15 @@ export async function GET(request: NextRequest) {
         FROM "meal" m
         WHERE (
           similarity(m.name, ${search}) >= ${SIMILARITY_THRESHOLD}
+          OR word_similarity(${search}, m.name) >= ${SIMILARITY_THRESHOLD}
           OR EXISTS (
             SELECT 1 FROM "meal_component" mc
             JOIN "ingredient" i ON i.id = mc."ingredientId"
             WHERE mc."mealId" = m.id
-            AND similarity(i.name, ${search}) >= ${SIMILARITY_THRESHOLD}
+            AND (
+              similarity(i.name, ${search}) >= ${SIMILARITY_THRESHOLD}
+              OR word_similarity(${search}, i.name) >= ${SIMILARITY_THRESHOLD}
+            )
           )
         )
         ORDER BY similarity DESC
