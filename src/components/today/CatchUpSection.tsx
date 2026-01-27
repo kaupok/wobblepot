@@ -3,9 +3,8 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
-import { MealStatusPrompt } from './MealStatusPrompt'
 import { PantryDeductionModal } from '@/components/meal-plan/PantryDeductionModal'
 import { formatCatchUpLabel } from '@/lib/meal-planning/dates'
 import type { PlanEntry, PantryItemFull } from '@/components/meal-plan/types'
@@ -85,28 +84,46 @@ export function CatchUpSection({ entries, pantryItems, householdSize }: CatchUpS
 
   return (
     <>
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <Body variant="muted">Catch up on past meals</Body>
-        {visibleEntries.map((entry) => (
-          <Card key={entry.id}>
-            <CardHeader className="pb-2">
-              <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
-                {entry.label}
+        <div className="divide-border rounded-lg border">
+          {visibleEntries.map((entry) => {
+            const isUpdating = updatingEntryId === entry.id
+            return (
+              <div
+                key={entry.id}
+                className="flex items-center justify-between gap-3 border-b px-4 py-3 last:border-b-0"
+              >
+                <div className="min-w-0">
+                  <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+                    {entry.label}
+                  </div>
+                  <div className="truncate text-sm font-semibold">{entry.meal?.name}</div>
+                </div>
+                {entry.meal && (
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleMadeIt(entry)}
+                      disabled={isUpdating}
+                    >
+                      Made it
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSkipped(entry)}
+                      disabled={isUpdating}
+                    >
+                      Skipped
+                    </Button>
+                  </div>
+                )}
               </div>
-              <div className="text-sm leading-tight font-semibold">{entry.meal?.name}</div>
-            </CardHeader>
-            <CardContent className="pb-3">
-              {entry.meal && (
-                <MealStatusPrompt
-                  mealName={entry.meal.name}
-                  onMadeIt={() => handleMadeIt(entry)}
-                  onSkipped={() => handleSkipped(entry)}
-                  disabled={updatingEntryId === entry.id}
-                />
-              )}
-            </CardContent>
-          </Card>
-        ))}
+            )
+          })}
+        </div>
       </div>
       {deductionEntry?.meal && (
         <PantryDeductionModal
