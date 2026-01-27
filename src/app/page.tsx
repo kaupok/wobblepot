@@ -236,10 +236,10 @@ export default async function Home() {
     addCatchUpEntries(lastPlan.entries, lastPlan.id)
   }
 
-  // Sort by date (most recent first) then by meal type
-  const mealTypeOrder = { dinner: 0, lunch: 1, breakfast: 2 }
+  // Sort chronologically: oldest date first, then breakfast → lunch → dinner
+  const mealTypeOrder = { breakfast: 0, lunch: 1, dinner: 2 }
   catchUpEntries.sort((a, b) => {
-    const dateCompare = b.date.localeCompare(a.date)
+    const dateCompare = a.date.localeCompare(b.date)
     if (dateCompare !== 0) return dateCompare
     return (
       (mealTypeOrder[a.mealType as keyof typeof mealTypeOrder] ?? 3) -
