@@ -11,6 +11,8 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Body } from '@/components/ui/typography'
 import { AlternativeCard } from './AlternativeCard'
@@ -87,6 +89,13 @@ export function MealSelectorModal({
   const [searchHasMore, setSearchHasMore] = useState(false)
   const [searchTotal, setSearchTotal] = useState(0)
 
+  // Filter state
+  const [myRecipesOnly, setMyRecipesOnly] = useState(false)
+  const [myRecipes, setMyRecipes] = useState<AlternativeMeal[]>([])
+  const [isLoadingMyRecipes, setIsLoadingMyRecipes] = useState(false)
+  const [myRecipesHasMore, setMyRecipesHasMore] = useState(false)
+  const [myRecipesTotal, setMyRecipesTotal] = useState(0)
+
   // Shared state
   const [error, setError] = useState<string | null>(null)
   const [selectingId, setSelectingId] = useState<string | null>(null)
@@ -94,10 +103,19 @@ export function MealSelectorModal({
   // Track initial load
   const isInitialLoad = useRef(true)
 
-  // Determine if we're in search mode
+  // Determine display mode
   const isSearchMode = searchQuery.trim().length > 0
-  const displayedMeals = isSearchMode ? searchResults : suggestions
-  const isLoading = isSearchMode ? isSearching : isLoadingSuggestions
+  const isMyRecipesBrowseMode = myRecipesOnly && !isSearchMode
+  const displayedMeals = isMyRecipesBrowseMode
+    ? myRecipes
+    : isSearchMode
+      ? searchResults
+      : suggestions
+  const isLoading = isMyRecipesBrowseMode
+    ? isLoadingMyRecipes
+    : isSearchMode
+      ? isSearching
+      : isLoadingSuggestions
 
   // Fetch AI suggestions on modal open
   useEffect(() => {
@@ -109,6 +127,10 @@ export function MealSelectorModal({
       setHasSearched(false)
       setSearchHasMore(false)
       setSearchTotal(0)
+      setMyRecipesOnly(false)
+      setMyRecipes([])
+      setMyRecipesHasMore(false)
+      setMyRecipesTotal(0)
       setError(null)
       setSelectingId(null)
       isInitialLoad.current = true
@@ -151,6 +173,21 @@ export function MealSelectorModal({
     fetchData()
   }, [open, planId, entryId, mode])
 
+  // Transform API meal to AlternativeMeal format
+  const toAlternativeMeal = useCallback(
+    (meal: LibraryMeal): AlternativeMeal => ({
+      id: meal.id,
+      name: meal.name,
+      timeMinutes: meal.timeMinutes,
+      kidFriendly: meal.kidFriendly,
+      primaryProteinType: meal.primaryProteinType,
+      reason: '',
+      components: meal.components,
+      nutrition: meal.nutrition,
+    }),
+    [],
+  )
+
   // Search library meals with debounce
   const searchMeals = useCallback(
     async (query: string, offset: number = 0, append: boolean = false) => {
@@ -171,6 +208,9 @@ export function MealSelectorModal({
         params.set('search', query.trim())
         params.set('limit', '20')
         params.set('offset', String(offset))
+        if (myRecipesOnly) {
+          params.set('source', 'custom')
+        }
 
         const response = await fetch(`/api/meals?${params.toString()}`)
 
@@ -180,18 +220,7 @@ export function MealSelectorModal({
         }
 
         const data = await response.json()
-
-        // Transform library meals to AlternativeMeal format
-        const results: AlternativeMeal[] = data.meals.map((meal: LibraryMeal) => ({
-          id: meal.id,
-          name: meal.name,
-          timeMinutes: meal.timeMinutes,
-          kidFriendly: meal.kidFriendly,
-          primaryProteinType: meal.primaryProteinType,
-          reason: '', // No AI reason for search results
-          components: meal.components,
-          nutrition: meal.nutrition,
-        }))
+        const results: AlternativeMeal[] = data.meals.map(toAlternativeMeal)
 
         if (append) {
           setSearchResults((prev) => [...prev, ...results])
@@ -207,7 +236,46 @@ export function MealSelectorModal({
         setIsSearching(false)
       }
     },
-    [mealType],
+    [mealType, myRecipesOnly, toAlternativeMeal],
+  )
+
+  // Fetch household recipes (when myRecipesOnly is checked and no search term)
+  const fetchMyRecipes = useCallback(
+    async (offset: number = 0, append: boolean = false) => {
+      setIsLoadingMyRecipes(true)
+      setError(null)
+
+      try {
+        const params = new URLSearchParams()
+        params.set('mealType', mealType)
+        params.set('source', 'custom')
+        params.set('limit', '20')
+        params.set('offset', String(offset))
+
+        const response = await fetch(`/api/meals?${params.toString()}`)
+
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || 'Failed to fetch recipes')
+        }
+
+        const data = await response.json()
+        const results: AlternativeMeal[] = data.meals.map(toAlternativeMeal)
+
+        if (append) {
+          setMyRecipes((prev) => [...prev, ...results])
+        } else {
+          setMyRecipes(results)
+        }
+        setMyRecipesHasMore(data.hasMore)
+        setMyRecipesTotal(data.total)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch recipes')
+      } finally {
+        setIsLoadingMyRecipes(false)
+      }
+    },
+    [mealType, toAlternativeMeal],
   )
 
   // Debounced search effect
@@ -220,6 +288,13 @@ export function MealSelectorModal({
 
     return () => clearTimeout(timeoutId)
   }, [searchQuery, open, searchMeals])
+
+  // Fetch my recipes when filter is toggled on (and no search term)
+  useEffect(() => {
+    if (!open || !myRecipesOnly || isSearchMode) return
+
+    fetchMyRecipes()
+  }, [open, myRecipesOnly, isSearchMode, fetchMyRecipes])
 
   async function handleSelect(mealId: string) {
     setSelectingId(mealId)
@@ -245,7 +320,11 @@ export function MealSelectorModal({
   }
 
   function handleLoadMore() {
-    searchMeals(searchQuery, searchResults.length, true)
+    if (isMyRecipesBrowseMode) {
+      fetchMyRecipes(myRecipes.length, true)
+    } else {
+      searchMeals(searchQuery, searchResults.length, true)
+    }
   }
 
   const title = mode === 'swap' ? 'Choose a different meal' : 'Add a meal'
@@ -272,12 +351,26 @@ export function MealSelectorModal({
             onChange={(e) => setSearchQuery(e.target.value)}
           />
 
+          {/* My recipes filter */}
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="my-recipes-only"
+              checked={myRecipesOnly}
+              onCheckedChange={(checked) => setMyRecipesOnly(checked === true)}
+            />
+            <Label htmlFor="my-recipes-only" className="cursor-pointer text-sm font-normal">
+              My recipes only
+            </Label>
+          </div>
+
           {/* Section header */}
           {!isLoading && !error && (
             <Body variant="small" className="text-muted-foreground">
-              {isSearchMode
-                ? `Search results${hasSearched ? ` (${searchTotal})` : ''}`
-                : 'Suggestions'}
+              {isMyRecipesBrowseMode
+                ? `My recipes${myRecipesTotal > 0 ? ` (${myRecipesTotal})` : ''}`
+                : isSearchMode
+                  ? `Search results${hasSearched ? ` (${searchTotal})` : ''}`
+                  : 'Suggestions'}
             </Body>
           )}
 
@@ -312,32 +405,60 @@ export function MealSelectorModal({
                 ))}
               </div>
 
-              {/* Load more button for search results */}
-              {isSearchMode && searchHasMore && (
+              {/* Load more button */}
+              {((isSearchMode && searchHasMore) || (isMyRecipesBrowseMode && myRecipesHasMore)) && (
                 <div className="flex justify-center">
-                  <Button variant="outline" onClick={handleLoadMore} disabled={isSearching}>
-                    {isSearching
+                  <Button
+                    variant="outline"
+                    onClick={handleLoadMore}
+                    disabled={isSearching || isLoadingMyRecipes}
+                  >
+                    {isSearching || isLoadingMyRecipes
                       ? 'Loading...'
-                      : `Load more (${searchResults.length} of ${searchTotal})`}
+                      : isMyRecipesBrowseMode
+                        ? `Load more (${myRecipes.length} of ${myRecipesTotal})`
+                        : `Load more (${searchResults.length} of ${searchTotal})`}
                   </Button>
                 </div>
               )}
             </div>
           )}
 
-          {/* Empty state for search */}
-          {!isLoading && !error && isSearchMode && hasSearched && searchResults.length === 0 && (
+          {/* Empty state for my recipes browse */}
+          {!isLoading && !error && isMyRecipesBrowseMode && myRecipes.length === 0 && (
             <Body variant="muted" className="text-center">
-              No meals found matching &quot;{searchQuery}&quot;
+              No custom recipes yet. Try{' '}
+              <a href="/recipes/import" className="text-primary underline">
+                importing a recipe
+              </a>{' '}
+              first.
             </Body>
           )}
 
+          {/* Empty state for search */}
+          {!isLoading &&
+            !error &&
+            isSearchMode &&
+            !isMyRecipesBrowseMode &&
+            hasSearched &&
+            searchResults.length === 0 && (
+              <Body variant="muted" className="text-center">
+                {myRecipesOnly
+                  ? `No custom recipes found matching "${searchQuery}"`
+                  : `No meals found matching "${searchQuery}"`}
+              </Body>
+            )}
+
           {/* Empty state for suggestions */}
-          {!isLoading && !error && !isSearchMode && suggestions.length === 0 && (
-            <Body variant="muted" className="text-center">
-              No suggestions available. Try searching for a meal.
-            </Body>
-          )}
+          {!isLoading &&
+            !error &&
+            !isSearchMode &&
+            !isMyRecipesBrowseMode &&
+            suggestions.length === 0 && (
+              <Body variant="muted" className="text-center">
+                No suggestions available. Try searching for a meal.
+              </Body>
+            )}
         </div>
       </DialogContent>
     </Dialog>
