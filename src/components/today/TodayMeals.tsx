@@ -67,6 +67,7 @@ export function TodayMeals({
             showStatusPrompt={showStatusPrompt}
             initialTips={entry.preparationTips}
             initialNote={entry.note}
+            initialServingOverride={entry.servingOverride}
           />
         )
       })}

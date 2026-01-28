@@ -39,6 +39,7 @@ export interface PlanEntry {
   meal: MealData | null
   preparationTips: string | null
   note: string | null
+  servingOverride: number | null
 }
 
 export interface MealPlan {

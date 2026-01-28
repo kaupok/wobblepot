@@ -107,6 +107,7 @@ export function DayColumn({
               pantryIngredients={pantryIngredients}
               pantryItems={pantryItems}
               note={item.entry.note}
+              servingOverride={item.entry.servingOverride}
             />
           ) : (
             <EmptySlotCard

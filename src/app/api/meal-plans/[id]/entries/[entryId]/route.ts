@@ -11,6 +11,7 @@ const updateEntrySchema = z.object({
   mealId: z.string().optional(),
   deductPantry: z.boolean().optional(),
   note: z.string().max(200).nullable().optional(),
+  servingOverride: z.number().int().min(1).max(20).nullable().optional(),
 })
 
 export async function DELETE(
@@ -135,6 +136,7 @@ export async function PATCH(
       select: {
         id: true,
         mealId: true,
+        servingOverride: true,
         plan: {
           select: {
             endDate: true,
@@ -181,6 +183,7 @@ export async function PATCH(
       mealId?: string
       preparationTips?: null
       note?: string | null
+      servingOverride?: number | null
     } = {}
 
     if (parsed.data.status) {
@@ -201,11 +204,18 @@ export async function PATCH(
       updateData.mealId = parsed.data.mealId
       // Clear cached preparation tips when meal is swapped
       updateData.preparationTips = null
+      // Reset serving override when meal is swapped
+      updateData.servingOverride = null
     }
 
     // Handle note updates (including explicit null to clear)
     if ('note' in parsed.data) {
       updateData.note = parsed.data.note ?? null
+    }
+
+    // Handle servingOverride updates (including explicit null to reset to household default)
+    if ('servingOverride' in parsed.data) {
+      updateData.servingOverride = parsed.data.servingOverride ?? null
     }
 
     // Require at least one field to update
@@ -221,6 +231,8 @@ export async function PATCH(
 
     if (shouldDeductPantry) {
       const householdSize = entry.plan.household.members.length
+      // Use servingOverride if set, otherwise use household size
+      const effectiveServings = entry.servingOverride ?? householdSize
       const components = entry.meal!.components
 
       // Fetch pantry items for the household
@@ -243,7 +255,7 @@ export async function PATCH(
         // Skip if not in pantry or is a staple
         if (!pantryItem || pantryItem.isStaple) continue
 
-        const deductionAmount = component.quantityPerServing * householdSize
+        const deductionAmount = component.quantityPerServing * effectiveServings
 
         // If quantity is null, remove from pantry (treat as fully consumed)
         if (pantryItem.quantity === null) {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -41,6 +41,7 @@ interface TodayMealCardProps {
   showStatusPrompt?: boolean
   initialTips?: string | null
   initialNote?: string | null
+  initialServingOverride?: number | null
 }
 
 export function TodayMealCard({
@@ -55,14 +56,19 @@ export function TodayMealCard({
   showStatusPrompt = false,
   initialTips = null,
   initialNote = null,
+  initialServingOverride = null,
 }: TodayMealCardProps) {
   const router = useRouter()
   const [status, setStatus] = useState<MealStatus>(initialStatus)
   const [note, setNote] = useState<string | null>(initialNote)
+  const [servingOverride, setServingOverride] = useState<number | null>(initialServingOverride)
   const [isUpdating, setIsUpdating] = useState(false)
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
   const [isDeductionModalOpen, setIsDeductionModalOpen] = useState(false)
   const [isChangingStatus, setIsChangingStatus] = useState(false)
+
+  const effectiveServings = servingOverride ?? householdSize
+  const hasServingOverride = servingOverride !== null && servingOverride !== householdSize
 
   const { togglingIngredientIds, handleToggleAvailability } = useIngredientAvailability({
     onRefresh: () => router.refresh(),
@@ -88,6 +94,36 @@ export function TodayMealCard({
   }, [initialTips, setTips, setIsTipsExpanded, setTipsError])
 
   const isFinished = status === 'completed' || status === 'skipped'
+
+  const handleServingsChange = useCallback(
+    async (newServings: number | null): Promise<boolean> => {
+      const previousServings = servingOverride
+
+      // Optimistic update
+      setServingOverride(newServings)
+
+      try {
+        const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ servingOverride: newServings }),
+        })
+
+        if (!response.ok) {
+          setServingOverride(previousServings)
+          toast.error('Failed to update servings')
+          return false
+        }
+
+        return true
+      } catch {
+        setServingOverride(previousServings)
+        toast.error('Failed to update servings')
+        return false
+      }
+    },
+    [planId, entryId, servingOverride],
+  )
 
   async function updateStatus(newStatus: MealStatus, deductPantry: boolean = false) {
     const previousStatus = status
@@ -266,7 +302,14 @@ export function TodayMealCard({
               </Button>
             )}
           </div>
-          <CardTitle className="text-base leading-tight font-semibold">{meal.name}</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-base leading-tight font-semibold">{meal.name}</CardTitle>
+            {hasServingOverride && (
+              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                {effectiveServings} servings
+              </span>
+            )}
+          </div>
           {/* Note section - shown for both simplified and full view */}
           {!showSimplifiedView && (
             <NoteEditor planId={planId} entryId={entryId} note={note} onNoteChange={setNote} />
@@ -285,6 +328,8 @@ export function TodayMealCard({
             <MealDetail
               meal={meal}
               householdSize={householdSize}
+              servings={effectiveServings}
+              onServingsChange={isFinished ? undefined : handleServingsChange}
               pantryIngredients={pantryIngredients}
               onToggleAvailability={isFinished ? undefined : handleToggleAvailability}
               togglingIds={togglingIngredientIds}
@@ -317,7 +362,7 @@ export function TodayMealCard({
         onOpenChange={setIsDeductionModalOpen}
         mealName={meal.name}
         components={meal.components}
-        householdSize={householdSize}
+        householdSize={effectiveServings}
         pantryItems={pantryItems}
         onConfirm={handleDeductionConfirm}
         isLoading={isUpdating}

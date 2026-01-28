@@ -1,6 +1,8 @@
 'use client'
 
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import {
   Dialog,
   DialogContent,
@@ -24,6 +26,8 @@ interface MealDetailModalProps {
   entryId: string
   note?: string | null
   onNoteChange?: (note: string | null) => void
+  servingOverride?: number | null
+  onServingOverrideChange?: (servingOverride: number | null) => void
 }
 
 export function MealDetailModal({
@@ -36,8 +40,11 @@ export function MealDetailModal({
   entryId,
   note,
   onNoteChange,
+  servingOverride,
+  onServingOverrideChange,
 }: MealDetailModalProps) {
   const router = useRouter()
+  const [localServings, setLocalServings] = useState(servingOverride ?? householdSize)
   const { togglingIngredientIds, handleToggleAvailability } = useIngredientAvailability({
     onRefresh: () => router.refresh(),
   })
@@ -50,6 +57,45 @@ export function MealDetailModal({
     handleHowToPrepare,
     hideTips,
   } = useMealTips({ planId, entryId })
+
+  // Sync local state when prop changes
+  const effectiveServings = servingOverride ?? householdSize
+  if (localServings !== effectiveServings && !open) {
+    setLocalServings(effectiveServings)
+  }
+
+  const handleServingsChange = useCallback(
+    async (newServings: number | null): Promise<boolean> => {
+      const previousServings = localServings
+
+      // Optimistic update
+      const displayServings = newServings ?? householdSize
+      setLocalServings(displayServings)
+
+      try {
+        const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ servingOverride: newServings }),
+        })
+
+        if (!response.ok) {
+          setLocalServings(previousServings)
+          toast.error('Failed to update servings')
+          return false
+        }
+
+        // Notify parent of change
+        onServingOverrideChange?.(newServings)
+        return true
+      } catch {
+        setLocalServings(previousServings)
+        toast.error('Failed to update servings')
+        return false
+      }
+    },
+    [planId, entryId, householdSize, localServings, onServingOverrideChange],
+  )
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -70,6 +116,8 @@ export function MealDetailModal({
         <MealDetail
           meal={meal}
           householdSize={householdSize}
+          servings={localServings}
+          onServingsChange={handleServingsChange}
           pantryIngredients={pantryIngredients}
           onToggleAvailability={handleToggleAvailability}
           togglingIds={togglingIngredientIds}
