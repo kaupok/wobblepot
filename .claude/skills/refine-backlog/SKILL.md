@@ -26,7 +26,6 @@ Review for:
 
 ```typescript
 mcp__linear-server__list_issues({
-  project: '5a19627a-803f-4052-83c4-b44810d17af7',
   query: '[DRAFT]',
   includeArchived: false,
   limit: 50,
@@ -92,7 +91,6 @@ mcp__linear-server__update_issue({
 mcp__linear-server__create_issue({
   title: 'New issue title',
   team: 'Honkadori',
-  project: '5a19627a-803f-4052-83c4-b44810d17af7',
   description: 'Description',
   blockedBy: ['parent-issue-id'], // if applicable
 })
@@ -130,7 +128,6 @@ Discuss with user:
 mcp__linear-server__create_issue({
   title: '[DRAFT] Initial idea title', // Keep [DRAFT] if not fully refined
   team: 'Honkadori',
-  project: '5a19627a-803f-4052-83c4-b44810d17af7',
   description: 'Initial description - to be refined',
 })
 ```
