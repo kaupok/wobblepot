@@ -240,6 +240,8 @@ export function MealCard({
         open={isDetailModalOpen}
         onOpenChange={setIsDetailModalOpen}
         pantryIngredients={pantryIngredients}
+        planId={planId}
+        entryId={entryId}
       />
       <MealSelectorModal
         open={isRegenerateModalOpen}

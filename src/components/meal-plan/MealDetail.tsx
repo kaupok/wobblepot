@@ -77,43 +77,46 @@ export function MealDetail({
         )}
       </div>
 
-      {/* Ingredients */}
-      <IngredientList
-        components={meal.components}
-        householdSize={householdSize}
-        pantryIngredients={pantryIngredients}
-        onToggleAvailability={hideAvailability ? undefined : onToggleAvailability}
-        togglingIds={togglingIds}
-        availability={hideAvailabilityBadge ? null : availability}
-        hideAvailability={hideAvailability}
-      />
+      {/* Ingredients + Preparation tips side-by-side on md+ */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {/* Ingredients (left) */}
+        <IngredientList
+          components={meal.components}
+          householdSize={householdSize}
+          pantryIngredients={pantryIngredients}
+          onToggleAvailability={hideAvailability ? undefined : onToggleAvailability}
+          togglingIds={togglingIds}
+          availability={hideAvailabilityBadge ? null : availability}
+          hideAvailability={hideAvailability}
+        />
 
-      {/* Preparation tips section */}
-      {showPreparationSection && (
-        <div className="bg-muted/50 flex flex-col items-center justify-center gap-4 rounded-lg p-4">
-          {isTipsExpanded ? (
-            <div className="w-full">
-              <PreparationTips
-                tips={tips ?? null}
-                isLoading={isLoadingTips}
-                error={tipsError ?? null}
-                onRetry={onRetryTips ?? (() => {})}
-              />
-              {tips && onHideTips && (
-                <div className="mt-3 flex justify-center">
-                  <Button variant="ghost" size="sm" onClick={onHideTips}>
-                    Hide tips
-                  </Button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <Button variant="outline" size="sm" onClick={onHowToPrepare}>
-              How to prepare
-            </Button>
-          )}
-        </div>
-      )}
+        {/* Preparation tips (right) */}
+        {showPreparationSection && (
+          <div className="bg-muted/50 flex flex-col items-center justify-center gap-4 rounded-lg p-4">
+            {isTipsExpanded ? (
+              <div className="w-full">
+                <PreparationTips
+                  tips={tips ?? null}
+                  isLoading={isLoadingTips}
+                  error={tipsError ?? null}
+                  onRetry={onRetryTips ?? (() => {})}
+                />
+                {tips && onHideTips && (
+                  <div className="mt-3 flex justify-center">
+                    <Button variant="ghost" size="sm" onClick={onHideTips}>
+                      Hide tips
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Button variant="outline" size="sm" onClick={onHowToPrepare}>
+                How to prepare
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
