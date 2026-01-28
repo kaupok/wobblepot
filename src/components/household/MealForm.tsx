@@ -769,10 +769,7 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
                       ? duplicateIndices.filter((i) => i !== index)
                       : []
                     return (
-                      <div
-                        key={comp.ingredientId}
-                        className="flex items-center gap-3 rounded-md border p-3"
-                      >
+                      <div key={index} className="flex items-center gap-3 rounded-md border p-3">
                         <div className="flex-1">
                           <Body>{comp.ingredient.name}</Body>
                           <Body variant="muted">
