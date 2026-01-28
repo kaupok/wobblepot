@@ -39,6 +39,7 @@ interface MealCardProps {
   pantryIngredients?: PantryIngredient[]
   pantryItems?: PantryItemFull[]
   note?: string | null
+  servingOverride?: number | null
 }
 
 export function MealCard({
@@ -53,15 +54,22 @@ export function MealCard({
   pantryIngredients = [],
   pantryItems = [],
   note: initialNote,
+  servingOverride: initialServingOverride,
 }: MealCardProps) {
   const router = useRouter()
   const [status, setStatus] = useState<MealStatus>(initialStatus)
   const [note, setNote] = useState<string | null>(initialNote ?? null)
+  const [servingOverride, setServingOverride] = useState<number | null>(
+    initialServingOverride ?? null,
+  )
   const [isUpdating, setIsUpdating] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
   const [isDeductionModalOpen, setIsDeductionModalOpen] = useState(false)
+
+  const effectiveServings = servingOverride ?? householdSize
+  const hasServingOverride = servingOverride !== null && servingOverride !== householdSize
 
   const availability = useMemo(() => {
     if (!meal) return null
@@ -243,9 +251,16 @@ export function MealCard({
               {meal.name}
             </button>
           </CardTitle>
-          {!isPast && shouldShowAvailability && availability && (
-            <AvailabilityIndicator availability={availability} />
-          )}
+          <div className="flex flex-wrap items-center gap-1">
+            {!isPast && shouldShowAvailability && availability && (
+              <AvailabilityIndicator availability={availability} />
+            )}
+            {hasServingOverride && (
+              <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                {effectiveServings} servings
+              </span>
+            )}
+          </div>
           {/* Show note or add note control */}
           {!isReadOnly && !isPast && (
             <NoteEditor
@@ -279,6 +294,8 @@ export function MealCard({
         entryId={entryId}
         note={note}
         onNoteChange={setNote}
+        servingOverride={servingOverride}
+        onServingOverrideChange={setServingOverride}
       />
       <MealSelectorModal
         open={isRegenerateModalOpen}
@@ -296,7 +313,7 @@ export function MealCard({
         onOpenChange={setIsDeductionModalOpen}
         mealName={meal.name}
         components={meal.components}
-        householdSize={householdSize}
+        householdSize={effectiveServings}
         pantryItems={pantryItems}
         onConfirm={handleDeductionConfirm}
         isLoading={isUpdating}

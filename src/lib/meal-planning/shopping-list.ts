@@ -156,7 +156,9 @@ export async function computeShoppingList(
         gte: startOfToday,
       },
     },
-    include: {
+    select: {
+      date: true,
+      servingOverride: true,
       meal: {
         include: {
           components: {
@@ -191,9 +193,12 @@ export async function computeShoppingList(
     // Skip entries without a meal (e.g., eating_out entries before status change)
     if (!entry.meal) continue
 
+    // Use servingOverride if set, otherwise use household size
+    const effectiveServings = entry.servingOverride ?? householdSize
+
     for (const component of entry.meal.components) {
       const ingredientId = component.ingredientId
-      const qty = component.quantityPerServing * householdSize
+      const qty = component.quantityPerServing * effectiveServings
       const existing = needed.get(ingredientId)
 
       if (existing) {
@@ -332,7 +337,9 @@ export async function computeRollingWindowShoppingList(
         lt: endDate,
       },
     },
-    include: {
+    select: {
+      date: true,
+      servingOverride: true,
       plan: {
         select: {
           createdAt: true,
@@ -380,9 +387,12 @@ export async function computeRollingWindowShoppingList(
     // Skip entries without a meal (e.g., eating_out entries before status change)
     if (!entry.meal) continue
 
+    // Use servingOverride if set, otherwise use household size
+    const effectiveServings = entry.servingOverride ?? householdSize
+
     for (const component of entry.meal.components) {
       const ingredientId = component.ingredientId
-      const qty = component.quantityPerServing * householdSize
+      const qty = component.quantityPerServing * effectiveServings
       const existing = needed.get(ingredientId)
 
       if (existing) {

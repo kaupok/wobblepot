@@ -146,6 +146,7 @@ export async function GET(request: NextRequest) {
         status: entry.status,
         preparationTips: entry.preparationTips,
         note: entry.note,
+        servingOverride: entry.servingOverride,
         meal: entry.meal
           ? {
               id: entry.meal.id,

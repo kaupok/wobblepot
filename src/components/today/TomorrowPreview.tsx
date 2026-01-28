@@ -47,6 +47,7 @@ export function TomorrowPreview({
           householdSize={householdSize}
           pantryIngredients={pantryIngredients}
           initialNote={entry.note}
+          initialServingOverride={entry.servingOverride}
         />
       ))}
       <Button variant="ghost" size="sm" className="self-start" asChild>

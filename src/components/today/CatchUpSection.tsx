@@ -131,7 +131,7 @@ export function CatchUpSection({ entries, pantryItems, householdSize }: CatchUpS
           onOpenChange={(open) => !open && setDeductionEntry(null)}
           mealName={deductionEntry.meal.name}
           components={deductionEntry.meal.components}
-          householdSize={householdSize}
+          householdSize={deductionEntry.servingOverride ?? householdSize}
           pantryItems={pantryItems}
           onConfirm={handleDeductionConfirm}
           isLoading={updatingEntryId === deductionEntry.id}

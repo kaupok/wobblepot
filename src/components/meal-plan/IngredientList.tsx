@@ -9,7 +9,10 @@ import type { MealAvailability, MealComponent, PantryIngredient } from './types'
 
 interface IngredientListProps {
   components: MealComponent[]
-  householdSize: number
+  /** Number of servings to calculate quantities for */
+  servings: number
+  /** Household size (for display label reference) */
+  householdSize?: number
   pantryIngredients?: PantryIngredient[]
   /** If provided, renders checkboxes to toggle ingredient availability */
   onToggleAvailability?: (ingredientId: string, hasIt: boolean) => void
@@ -21,6 +24,8 @@ interface IngredientListProps {
   hideAvailability?: boolean
   /** If true, uses smaller typography for compact layouts */
   compact?: boolean
+  /** Custom header element (e.g., ServingControl) - overrides default "Ingredients (serves X)" */
+  headerElement?: React.ReactNode
 }
 
 /**
@@ -57,13 +62,15 @@ function formatQuantity(
 
 export function IngredientList({
   components,
-  householdSize,
+  servings,
+  householdSize: _householdSize,
   pantryIngredients,
   onToggleAvailability,
   togglingIds,
   availability,
   hideAvailability = false,
   compact = false,
+  headerElement,
 }: IngredientListProps) {
   // Build maps for availability and staple status
   const { availableIds, stapleIds } = useMemo(() => {
@@ -104,7 +111,7 @@ export function IngredientList({
     const items = stapleComponents.map((comp) => {
       const qty = formatQuantity(
         comp.quantityPerServing,
-        householdSize,
+        servings,
         comp.ingredient.defaultUnit,
         comp.isVague,
         comp.originalPhrase,
@@ -113,14 +120,19 @@ export function IngredientList({
     })
 
     return `Staples: ${items.join(', ')}`
-  }, [stapleComponents, householdSize])
+  }, [stapleComponents, servings])
+
+  // Default header label
+  const defaultHeader = (
+    <Body variant="small" className={cn('font-semibold', compact && 'text-[10px]')}>
+      Ingredients (serves {servings})
+    </Body>
+  )
 
   return (
     <div className={cn('flex flex-col', compact ? 'gap-1.5' : 'gap-3')}>
       <div className="flex items-center gap-2">
-        <Body variant="small" className={cn('font-semibold', compact && 'text-[10px]')}>
-          Ingredients (serves {householdSize})
-        </Body>
+        {headerElement ?? defaultHeader}
         {availability && <AvailabilityIndicator availability={availability} />}
       </div>
       <Ul className={cn('my-0 ml-0', compact && 'text-xs leading-tight')}>
@@ -160,7 +172,7 @@ export function IngredientList({
               >
                 {formatQuantity(
                   comp.quantityPerServing,
-                  householdSize,
+                  servings,
                   comp.ingredient.defaultUnit,
                   comp.isVague,
                   comp.originalPhrase,

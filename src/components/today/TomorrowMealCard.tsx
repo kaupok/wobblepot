@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
+import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -27,6 +28,7 @@ interface TomorrowMealCardProps {
   householdSize: number
   pantryIngredients: PantryIngredient[]
   initialNote?: string | null
+  initialServingOverride?: number | null
 }
 
 export function TomorrowMealCard({
@@ -37,10 +39,45 @@ export function TomorrowMealCard({
   householdSize,
   pantryIngredients,
   initialNote = null,
+  initialServingOverride = null,
 }: TomorrowMealCardProps) {
   const router = useRouter()
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const [note, setNote] = useState<string | null>(initialNote)
+  const [servingOverride, setServingOverride] = useState<number | null>(initialServingOverride)
+
+  const effectiveServings = servingOverride ?? householdSize
+  const hasServingOverride = servingOverride !== null && servingOverride !== householdSize
+
+  const handleServingsChange = useCallback(
+    async (newServings: number | null): Promise<boolean> => {
+      const previousServings = servingOverride
+
+      // Optimistic update
+      setServingOverride(newServings)
+
+      try {
+        const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ servingOverride: newServings }),
+        })
+
+        if (!response.ok) {
+          setServingOverride(previousServings)
+          toast.error('Failed to update servings')
+          return false
+        }
+
+        return true
+      } catch {
+        setServingOverride(previousServings)
+        toast.error('Failed to update servings')
+        return false
+      }
+    },
+    [planId, entryId, servingOverride],
+  )
   const { togglingIngredientIds, handleToggleAvailability } = useIngredientAvailability({
     onRefresh: () => router.refresh(),
   })
@@ -112,7 +149,14 @@ export function TomorrowMealCard({
           </div>
 
           {/* Meal name */}
-          <CardTitle className="text-base leading-tight font-semibold">{meal.name}</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-base leading-tight font-semibold">{meal.name}</CardTitle>
+            {hasServingOverride && (
+              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                {effectiveServings} servings
+              </span>
+            )}
+          </div>
           {/* Note section */}
           <NoteEditor planId={planId} entryId={entryId} note={note} onNoteChange={setNote} />
         </CardHeader>
@@ -122,6 +166,8 @@ export function TomorrowMealCard({
           <MealDetail
             meal={meal}
             householdSize={householdSize}
+            servings={effectiveServings}
+            onServingsChange={handleServingsChange}
             pantryIngredients={pantryIngredients}
             onToggleAvailability={handleToggleAvailability}
             togglingIds={togglingIngredientIds}
