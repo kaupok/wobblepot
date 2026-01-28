@@ -145,7 +145,7 @@ export async function getCandidates(filters: CandidateFilters): Promise<Candidat
   })
 
   // Transform to CandidateMeal format
-  return meals.map((meal) => ({
+  const candidates = meals.map((meal) => ({
     id: meal.id,
     name: meal.name,
     kidFriendly: meal.kidFriendly,
@@ -157,4 +157,19 @@ export async function getCandidates(filters: CandidateFilters): Promise<Candidat
     isFavorite: favoriteMealIds.has(meal.id),
     isCustom: meal.householdId !== null,
   }))
+
+  // Sort by preference priority: favorites first, then household meals, then system meals
+  // This ensures preferred meals are included when capPool truncates to CANDIDATE_POOL_LIMIT
+  return candidates.sort((a, b) => {
+    // Favorites have highest priority
+    if (a.isFavorite !== b.isFavorite) {
+      return a.isFavorite ? -1 : 1
+    }
+    // Household meals next
+    if (a.isCustom !== b.isCustom) {
+      return a.isCustom ? -1 : 1
+    }
+    // Keep original order for ties
+    return 0
+  })
 }

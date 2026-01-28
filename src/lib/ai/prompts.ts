@@ -6,16 +6,23 @@ import type { MealType } from '@/generated/prisma/enums'
 
 /**
  * Format a candidate pool for the AI prompt.
- * Only includes essential info to minimize token usage.
+ * Includes personalization flags to help AI prefer household favorites.
  */
-function formatCandidates(
-  candidates: CandidateMeal[],
-): Array<{ id: string; name: string; proteinType: string; kidFriendly: boolean }> {
+function formatCandidates(candidates: CandidateMeal[]): Array<{
+  id: string
+  name: string
+  proteinType: string
+  kidFriendly: boolean
+  isFavorite: boolean
+  isCustom: boolean
+}> {
   return candidates.map((c) => ({
     id: c.id,
     name: c.name,
     proteinType: c.primaryProteinType,
     kidFriendly: c.kidFriendly,
+    isFavorite: c.isFavorite,
+    isCustom: c.isCustom,
   }))
 }
 
@@ -30,14 +37,7 @@ function formatRequiredSlots(slots: SlotRequirement[], pools: CandidatePools): s
   return slots
     .map((slot) => {
       const pool = slot.proteinType === 'fish' ? pools.fish : pools.legume
-      const formattedCandidates = JSON.stringify(
-        pool.map((c) => ({
-          id: c.id,
-          name: c.name,
-          proteinType: c.primaryProteinType,
-          kidFriendly: c.kidFriendly,
-        })),
-      )
+      const formattedCandidates = JSON.stringify(formatCandidates(pool))
       return `- ${formatDateDisplay(slot.date)} ${slot.mealType}: MUST be ${slot.proteinType.toUpperCase()}
   Candidates: ${formattedCandidates}`
     })
@@ -149,7 +149,12 @@ ${remainingText}
 VARIETY RULES:
 - No same proteinType on consecutive days for the same meal type
 - Mix kid-friendly and adult meals
-- Each meal can only be used once across all slots (no duplicates)`
+- Each meal can only be used once across all slots (no duplicates)
+
+PERSONALIZATION:
+- Prefer meals marked isFavorite=true (household explicitly favorited these)
+- Prefer meals marked isCustom=true (household created/imported these)
+- Balance personalization with variety - don't only pick favorites`
 
   if (restrictions.length > 0) {
     prompt += `\n- Dietary preferences (best effort): ${restrictions.join(', ')}`

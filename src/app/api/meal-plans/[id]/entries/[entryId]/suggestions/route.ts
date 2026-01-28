@@ -15,44 +15,48 @@ import type { Allergen, DietaryType, MealType, ProteinType } from '@/generated/p
 import type { AlternativeMeal } from '@/components/meal-plan/types'
 
 /**
- * Generate a reason string for why this meal is suggested.
- * For add flow (no current meal), we focus on slot-relevant attributes.
+ * Score a candidate for personalization and variety.
+ * Higher score = better match.
  */
-function generateReason(
-  meal: {
-    kidFriendly: boolean
-    primaryProteinType: ProteinType
-    topIngredients: { name: string }[]
-  },
-  mealType: MealType,
-  index: number,
-): string {
-  // First suggestion: highlight protein type fit
-  if (index === 0) {
-    const proteinLabel = meal.primaryProteinType !== 'none' ? meal.primaryProteinType : null
-    if (proteinLabel) {
-      return `${proteinLabel.charAt(0).toUpperCase() + proteinLabel.slice(1)}-based`
-    }
-    return 'Balanced option'
-  }
+function scoreCandidate(candidate: {
+  isFavorite: boolean
+  isCustom: boolean
+  kidFriendly: boolean
+}): number {
+  let score = 0
+  if (candidate.isFavorite) score += 3 // Explicit preference signal
+  if (candidate.isCustom) score += 2 // Household created/imported
+  // Kid-friendly gives slight boost for family households
+  if (candidate.kidFriendly) score += 1
+  return score
+}
 
-  // Second suggestion: highlight kid-friendly if applicable
-  if (index === 1 && meal.kidFriendly) {
-    return 'Kid-friendly option'
+/**
+ * Generate a reason string for why this meal is suggested.
+ * Prioritizes personalization reasons (favorite, household meal).
+ */
+function generateReason(meal: {
+  isFavorite: boolean
+  isCustom: boolean
+  kidFriendly: boolean
+  primaryProteinType: ProteinType
+  topIngredients: { name: string }[]
+}): string {
+  // Personalization reasons take priority
+  if (meal.isFavorite) {
+    return 'One of your favorites'
   }
-
-  // Third suggestion: highlight variety
-  if (index === 2) {
-    const mainIngredient = meal.topIngredients[0]?.name
-    if (mainIngredient) {
-      return `Features ${mainIngredient.toLowerCase()}`
-    }
-    return 'Different style'
+  if (meal.isCustom) {
+    return 'From your recipes'
   }
-
-  // Default reasons based on attributes
   if (meal.kidFriendly) {
     return 'Kid-friendly option'
+  }
+
+  // Fall back to protein type
+  const proteinLabel = meal.primaryProteinType !== 'none' ? meal.primaryProteinType : null
+  if (proteinLabel) {
+    return `${proteinLabel.charAt(0).toUpperCase() + proteinLabel.slice(1)}-based`
   }
 
   return 'Matches your preferences'
@@ -182,25 +186,16 @@ export async function POST(
       )
     }
 
-    // Select up to 3 diverse suggestions
-    // Simple diversity: shuffle and pick first 3, prioritizing kid-friendly variety
-    const shuffled = [...candidates].sort(() => Math.random() - 0.5)
+    // Score and sort candidates by personalization priority
+    // Add small random factor (0-0.5) for variety among equal-scored items
+    const scored = candidates.map((c) => ({
+      candidate: c,
+      score: scoreCandidate(c) + Math.random() * 0.5,
+    }))
+    scored.sort((a, b) => b.score - a.score)
 
-    // Try to get a mix: one kid-friendly, one not (if available), then fill
-    const kidFriendly = shuffled.filter((c) => c.kidFriendly)
-    const notKidFriendly = shuffled.filter((c) => !c.kidFriendly)
-
-    const selected: typeof shuffled = []
-    if (kidFriendly.length > 0) selected.push(kidFriendly[0]!)
-    if (notKidFriendly.length > 0 && selected.length < 3) selected.push(notKidFriendly[0]!)
-
-    // Fill remaining slots
-    for (const candidate of shuffled) {
-      if (selected.length >= 3) break
-      if (!selected.includes(candidate)) {
-        selected.push(candidate)
-      }
-    }
+    // Take top 3
+    const selected = scored.slice(0, 3).map((s) => s.candidate)
 
     // Fetch full meal details for selected candidates
     const mealDetails = await prisma.meal.findMany({
@@ -217,7 +212,7 @@ export async function POST(
     const mealDetailsMap = new Map(mealDetails.map((m) => [m.id, m]))
 
     // Build response (using 'alternatives' key for compatibility with existing frontend)
-    const alternatives: AlternativeMeal[] = selected.map((candidate, index) => {
+    const alternatives: AlternativeMeal[] = selected.map((candidate) => {
       const mealDetail = mealDetailsMap.get(candidate.id)
       const components = mealDetail?.components ?? []
 
@@ -229,7 +224,7 @@ export async function POST(
         kidFriendly: candidate.kidFriendly,
         primaryProteinType: candidate.primaryProteinType,
         suitableFor: mealDetail?.suitableFor as MealType[] | undefined,
-        reason: generateReason(candidate, entry.mealType as MealType, index),
+        reason: generateReason(candidate),
         components: components.map((comp) => ({
           ingredientId: comp.ingredientId,
           quantityPerServing: comp.quantityPerServing,
