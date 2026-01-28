@@ -7,11 +7,6 @@ import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
-import {
-  computeMealAvailability,
-  AvailabilityIndicator,
-} from '@/components/meal-plan/AvailabilityIndicator'
-import { NutritionSummary } from '@/components/meal-plan/NutritionSummary'
 import { MealDetail } from '@/components/meal-plan/MealDetail'
 import type { MealData, PantryIngredient } from '@/components/meal-plan/types'
 import type { MealType } from '@/generated/prisma/enums'
@@ -42,13 +37,10 @@ export function TomorrowMealCard({
   const router = useRouter()
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const [togglingIngredientIds, setTogglingIngredientIds] = useState<Set<string>>(new Set())
-  const [isExpanded, setIsExpanded] = useState(false)
   const [tips, setTips] = useState<string | null>(null)
   const [isLoadingTips, setIsLoadingTips] = useState(false)
   const [tipsError, setTipsError] = useState<string | null>(null)
   const [isTipsExpanded, setIsTipsExpanded] = useState(false)
-
-  const availability = meal ? computeMealAvailability(meal, pantryIngredients) : null
 
   const handleToggleAvailability = useCallback(
     async (ingredientId: string, hasIt: boolean) => {
@@ -162,7 +154,7 @@ export function TomorrowMealCard({
   return (
     <>
       <Card>
-        <CardHeader className={isExpanded ? 'pb-0' : 'pb-4'}>
+        <CardHeader className="pb-0">
           {/* Top row: Meal type label + Swap button */}
           <div className="flex items-center justify-between">
             <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
@@ -178,76 +170,27 @@ export function TomorrowMealCard({
             </Button>
           </div>
 
-          {/* Meal info */}
+          {/* Meal name */}
           <CardTitle className="text-base leading-tight font-semibold">{meal.name}</CardTitle>
-          {/* Show inline nutrition + badges only when collapsed (MealDetail handles them when expanded) */}
-          {!isExpanded && (
-            <>
-              {meal.nutrition && (
-                <NutritionSummary nutrition={meal.nutrition} components={meal.components} compact />
-              )}
-              <div className="flex flex-wrap items-center gap-1.5">
-                {meal.timeMinutes && (
-                  <span className="text-muted-foreground text-xs">{meal.timeMinutes} min</span>
-                )}
-                {meal.kidFriendly && (
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                    Kid-friendly
-                  </span>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* Collapsed view: Show availability badge and Details button */}
-          {!isExpanded && (
-            <div className="mt-3 flex flex-col gap-3">
-              {availability && (
-                <div className="flex justify-center">
-                  <AvailabilityIndicator availability={availability} />
-                </div>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsExpanded(true)}
-                className="w-full"
-              >
-                Details
-              </Button>
-            </div>
-          )}
         </CardHeader>
 
-        {/* Expanded view: Full meal detail */}
-        {isExpanded && (
-          <div className="flex flex-col gap-4 px-6 pt-4 pb-6">
-            <MealDetail
-              meal={meal}
-              householdSize={householdSize}
-              pantryIngredients={pantryIngredients}
-              onToggleAvailability={handleToggleAvailability}
-              togglingIds={togglingIngredientIds}
-              tips={tips}
-              isLoadingTips={isLoadingTips}
-              tipsError={tipsError}
-              onRetryTips={fetchTips}
-              isTipsExpanded={isTipsExpanded}
-              onHowToPrepare={handleHowToPrepare}
-              onHideTips={() => setIsTipsExpanded(false)}
-            />
-
-            {/* Hide button to collapse */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsExpanded(false)}
-              className="w-full"
-            >
-              Hide
-            </Button>
-          </div>
-        )}
+        {/* Full meal detail - always shown */}
+        <div className="px-6 pt-4 pb-6">
+          <MealDetail
+            meal={meal}
+            householdSize={householdSize}
+            pantryIngredients={pantryIngredients}
+            onToggleAvailability={handleToggleAvailability}
+            togglingIds={togglingIngredientIds}
+            tips={tips}
+            isLoadingTips={isLoadingTips}
+            tipsError={tipsError}
+            onRetryTips={fetchTips}
+            isTipsExpanded={isTipsExpanded}
+            onHowToPrepare={handleHowToPrepare}
+            onHideTips={() => setIsTipsExpanded(false)}
+          />
+        </div>
       </Card>
       <MealSelectorModal
         open={isSelectorOpen}
