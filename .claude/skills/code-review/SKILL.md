@@ -124,13 +124,9 @@ If a plan is found:
 
 Use the Read tool to read each changed file to understand the full context.
 
-### 8. Read CLAUDE.md and Typography guide for project patterns
+### 8. Review the changes for:
 
-Use the Read tool on CLAUDE.md. Focus on: Code Standards, Typography Components, Authentication Patterns, Database Patterns, Testing sections.
-
-Also read `docs/TYPOGRAPHY.md` for the full typography component guide (separation of concerns, DO/DON'T examples, all component variants).
-
-### 9. Review the changes for:
+CLAUDE.md is already loaded as project instructions — do not re-read it. Read `docs/TYPOGRAPHY.md` only if the changes involve typography components.
 
 - **Bugs**: Logic errors, edge cases, null/undefined handling
 - **Security**: Injection risks, auth bypasses, sensitive data exposure
@@ -141,7 +137,7 @@ Also read `docs/TYPOGRAPHY.md` for the full typography component guide (separati
 - **Requirements**: If Linear issue context available, verify acceptance criteria are met
 - **Plan Compliance**: If implementation plan found, verify implementation matches planned approach
 
-### 10. Triage issues
+### 9. Triage issues
 
 After identifying all issues, triage each one using **effort-first** thinking:
 

@@ -54,6 +54,9 @@ while elapsed < max_wait_seconds:
     # Check inline review comments for Greptile
     gh api /repos/:owner/:repo/pulls/{number}/comments
 
+    # Check review summaries for Greptile
+    gh api /repos/:owner/:repo/pulls/{number}/reviews
+
     # Look for comments from "greptile-apps[bot]"
     If Greptile comment found:
         [pr-review] ✓ Greptile review received
@@ -82,6 +85,9 @@ gh api /repos/:owner/:repo/issues/{number}/comments
 
 # Review comments (inline code comments)
 gh api /repos/:owner/:repo/pulls/{number}/comments
+
+# Review summaries (top-level text submitted with Approve/Request Changes)
+gh api /repos/:owner/:repo/pulls/{number}/reviews
 ```
 
 Replace `{number}` with the PR number from Step 1.

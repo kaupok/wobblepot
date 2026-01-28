@@ -26,17 +26,9 @@ git log origin/main..HEAD --oneline
 
 If no commits ahead of main, inform the user there's nothing to create a PR for.
 
-### 3. Review conventions
+### 3. Gather context
 
-Read `docs/GIT_WORKFLOW.md` for:
-
-- PR title format (must follow Conventional Commits for squash-merge)
-- PR body format (Context, Summary, Test plan, attribution)
-- Context section guidance (why > what)
-
-Read `CLAUDE.md` section "Commit Message Conventions" for type prefixes.
-
-### 4. Gather context
+PR conventions are in CLAUDE.md (already loaded as project instructions). PR title must follow Conventional Commits (becomes the squash-merge commit message).
 
 Run in parallel:
 
@@ -51,7 +43,7 @@ git diff origin/main...HEAD --stat
 git status -sb
 ```
 
-### 5. Check for existing PR
+### 4. Check for existing PR
 
 ```bash
 gh pr view --json number,title,url 2>/dev/null
@@ -59,7 +51,7 @@ gh pr view --json number,title,url 2>/dev/null
 
 If PR already exists, inform user and offer to update the description instead.
 
-### 6. Analyze changes and gather context
+### 5. Analyze changes and gather context
 
 Review all commits (not just the latest) to understand the full scope:
 
@@ -82,11 +74,11 @@ Also note any key decisions or rationale from:
 - Implementation plan (if posted to Linear comments)
 - Conversation context (design tradeoffs, important choices made)
 
-### 7. Draft PR title and description
+### 6. Draft PR title and description
 
 **Title:** Follow Conventional Commits format (this becomes the squash-merge commit message).
 
-**Description:** Follow the format from GIT_WORKFLOW.md:
+**Description:**
 
 ```markdown
 ## Context
@@ -106,7 +98,7 @@ Also note any key decisions or rationale from:
 
 If Linear issue is linked, include `Closes HON-XX` at the end of the Context section.
 
-### 8. Push and create PR
+### 7. Push and create PR
 
 ```bash
 # Push with upstream tracking
@@ -128,7 +120,7 @@ EOF
 )"
 ```
 
-### 9. Report result and signal completion
+### 8. Report result and signal completion
 
 Return the PR URL, then output the completion marker:
 

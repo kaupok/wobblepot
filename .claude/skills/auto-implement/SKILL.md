@@ -205,7 +205,11 @@ Extract and note:
 - `blocks` relations (what this unblocks)
 - Any labels or priority
 
-### 2.2 Read project context
+### 2.2 Read project context (if not already loaded)
+
+If Phase 1 ran (no issue ID provided), `docs/PROJECT_SPEC.md` is already in context — skip this step.
+
+If Phase 1 was skipped (issue ID provided as argument):
 
 ```
 Read docs/PROJECT_SPEC.md
@@ -264,6 +268,10 @@ Write the plan directly in your response using this structure:
 1. [Specific step with details]
 2. [Specific step with details]
 3. [Specific step with details]
+
+## Tests
+
+- `src/path/to/file.test.ts` - [What to test]
 
 ## Verification
 
@@ -336,21 +344,16 @@ If branch doesn't exist:
 git checkout -b [gitBranchName]
 ```
 
-### 3.3 Retrieve plan from Linear
+### 3.3 Implement following the plan
 
-```
-mcp__linear-server__list_comments({ issueId: "[issue-uuid]" })
-```
-
-Find the comment starting with `# Plan:` - this is the plan posted in Phase 2.
-
-### 3.4 Implement following the plan
+The plan from Phase 2.5 is already in context — do not re-fetch it from Linear.
 
 For each implementation step in the plan:
 
 1. Read relevant files using Read tool
 2. Make changes using Edit or Write tools
-3. Follow patterns from CLAUDE.md
+3. Write tests for new functionality (unit tests colocated with source files)
+4. Follow patterns from CLAUDE.md
 
 ```
 [auto-implement] ✓ Implementation complete
@@ -394,13 +397,9 @@ git diff
 
 For untracked files, use Read tool.
 
-### 4.3 Read CLAUDE.md and Typography guide for patterns
+### 4.3 Review the changes for
 
-Use Read tool on CLAUDE.md. Focus on: Code Standards, Typography Components, Authentication Patterns, Database Patterns, Testing sections.
-
-Also read `docs/TYPOGRAPHY.md` for the full typography component guide (separation of concerns, DO/DON'T examples, all component variants).
-
-### 4.4 Review the changes for
+CLAUDE.md is already loaded as project instructions — do not re-read it. Read `docs/TYPOGRAPHY.md` only if the changes involve typography components.
 
 - **Bugs**: Logic errors, edge cases, null/undefined handling
 - **Security**: Injection risks, auth bypasses, sensitive data exposure
@@ -409,7 +408,7 @@ Also read `docs/TYPOGRAPHY.md` for the full typography component guide (separati
 - **Tests**: Missing test coverage for new functionality
 - **Performance**: N+1 queries, unnecessary re-renders, large bundle imports
 
-### 4.5 Triage issues
+### 4.4 Triage issues
 
 Using **effort-first** thinking:
 
@@ -423,7 +422,7 @@ Categories:
 - **Defer**: Only for significant out-of-scope work
 - **Skip**: Disagree or not actionable
 
-### 4.6 Fix loop
+### 4.5 Fix loop
 
 If there are issues to address:
 
@@ -455,7 +454,7 @@ If still failing after 3 attempts:
 
 Stop here with failure details.
 
-### 4.7 Proceed
+### 4.6 Proceed
 
 ```
 [auto-implement] ✓ All checks passing
@@ -472,24 +471,23 @@ Stop here with failure details.
 
 ### 5.1 Stage changes
 
-```bash
-git add -A
-git status
-```
-
-Review what will be committed. Warn if secrets detected.
-
-### 5.2 Run pre-commit checks
+List changed/untracked files and stage them by name. Do NOT use `git add -A` or `git add .`.
 
 ```bash
-pnpm lint && pnpm type-check && pnpm test
+git status --porcelain
 ```
 
-If any check fails, stop and report.
+Stage specific files (example):
 
-### 5.3 Create commit
+```bash
+git add src/components/MyComponent.tsx src/components/MyComponent.test.tsx
+```
 
-Read `docs/GIT_WORKFLOW.md` for commit conventions. Use HEREDOC format:
+Review what will be committed. Warn and exclude if secrets detected (`.env`, credentials, etc.).
+
+### 5.2 Create commit
+
+Follow commit conventions from CLAUDE.md. Use HEREDOC format:
 
 ```bash
 git commit -m "$(cat <<'EOF'
@@ -502,7 +500,7 @@ EOF
 )"
 ```
 
-### 5.4 Analyze for PR description
+### 5.3 Analyze for PR description
 
 ```bash
 # All commits on this branch
@@ -514,7 +512,7 @@ git diff origin/main...HEAD --stat
 
 Fetch issue description from Linear for the "Context" section.
 
-### 5.5 Push and create PR
+### 5.4 Push and create PR
 
 ```bash
 # Push with upstream tracking
@@ -557,8 +555,10 @@ Extract PR URL from output.
 ### 6.1 Wait for CI
 
 ```bash
-gh pr checks --watch --interval 10
+timeout 600 gh pr checks --watch --interval 10
 ```
+
+If timeout expires, report and stop.
 
 If CI fails, attempt to fix (max 2 attempts):
 
@@ -572,10 +572,10 @@ while CI failing and ci_attempts < max_ci_attempts:
 
     - Analyze CI failure output
     - Apply fixes using Edit tool
-    - Stage and commit:
-      git add -A && git commit -m "fix: Address CI failures"
+    - Stage specific changed files by name and commit:
+      git add [changed files] && git commit -m "fix: Address CI failures"
     - Push: git push
-    - Wait: gh pr checks --watch --interval 10
+    - Wait: timeout 600 gh pr checks --watch --interval 10
 
 If still failing after 2 attempts:
     [auto-implement] ✗ Error: CI checks failing after fix attempts
@@ -607,6 +607,9 @@ while elapsed < max_wait_seconds:
 
     # Check inline review comments for Greptile
     gh api /repos/:owner/:repo/pulls/{number}/comments
+
+    # Check review summaries for Greptile
+    gh api /repos/:owner/:repo/pulls/{number}/reviews
 
     # Look for comments from "greptile-apps[bot]"
     If Greptile comment found:
@@ -662,10 +665,10 @@ If fixes were made:
 git status --porcelain
 ```
 
-If changes exist:
+If changes exist, stage specific changed files by name:
 
 ```bash
-git add -A
+git add [changed files]
 git commit -m "$(cat <<'EOF'
 fix: Address review feedback
 
@@ -678,7 +681,7 @@ git push
 Wait for CI again:
 
 ```bash
-gh pr checks --watch --interval 10
+timeout 600 gh pr checks --watch --interval 10
 ```
 
 ```
@@ -714,10 +717,10 @@ Validation:
 ### 7.2 Wait for CI
 
 ```bash
-gh pr checks --watch --fail-fast --interval 10
+timeout 600 gh pr checks --watch --fail-fast --interval 10
 ```
 
-If any check fails, report and stop.
+If timeout expires or any check fails, report and stop.
 
 ### 7.3 Merge the PR
 
@@ -744,7 +747,59 @@ gh pr merge --squash
 
 The remote branch is still deleted by GitHub. The local worktree branch is preserved (user cleans up worktree manually).
 
-### 7.4 Local cleanup
+### 7.4 Post summary to Linear
+
+After merging but before local cleanup, post a work summary to the Linear issue.
+
+The issue UUID is already in context from Phase 2.1. The PR number and URL are available from Phase 5.4 / Phase 6.2.
+
+**Gather PR data:**
+
+```bash
+# PR details and files (works after merge — does not depend on branch)
+gh pr view --json number,title,url,commits,files
+
+# Review comments: inline comments + review-level summaries
+gh api /repos/{owner}/{repo}/pulls/{number}/comments
+gh api /repos/{owner}/{repo}/pulls/{number}/reviews
+```
+
+Extract owner/repo from `gh repo view --json nameWithOwner --jq .nameWithOwner`.
+
+**Post comment to Linear:**
+
+```
+mcp__linear-server__create_comment({
+  issueId: "[issue-uuid]",
+  body: "[summary comment]"
+})
+```
+
+**Comment template:**
+
+```markdown
+## Merged: PR #XX — type(scope): Title
+
+**PR:** [#XX](url)
+
+### Changes
+- X files changed
+- [file list with +/- stats from gh pr view --json files]
+
+### Commits
+- [commit messages from gh pr view --json commits]
+
+### Review feedback addressed
+- [summary of review comments that were addressed, or "No review feedback" if none]
+```
+
+**After posting**, print the summary to the terminal as well so the user can see it inline.
+
+**Rules:**
+- If Linear API calls fail, still print the summary to terminal — don't block the merge flow
+- Keep the summary concise — list files and stats, don't dump full diffs
+
+### 7.5 Local cleanup
 
 **Regular repo mode:**
 
@@ -758,7 +813,7 @@ git branch -d [branch-name] || git branch -D [branch-name]
 
 Cannot fetch into main (already checked out in parent worktree). Skip local cleanup - the worktree will be removed by the user.
 
-### 7.5 Report completion
+### 7.6 Report completion
 
 **Regular repo mode:**
 
