@@ -164,9 +164,13 @@ export async function PATCH(
     }
 
     // Reject modifications to past week plans (read-only)
+    // Exception: status changes (completed/skipped) are allowed for catch-up flow
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    if (entry.plan.endDate < today) {
+    const isPastPlan = entry.plan.endDate < today
+    const isStatusOnlyUpdate = parsed.data.status && !parsed.data.mealId
+
+    if (isPastPlan && !isStatusOnlyUpdate) {
       return NextResponse.json({ error: 'Cannot modify past week plans' }, { status: 403 })
     }
 
