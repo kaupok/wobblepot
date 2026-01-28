@@ -11,6 +11,7 @@ import { MealSelectorModal } from './MealSelectorModal'
 import { MealDetailModal } from './MealDetailModal'
 import { PantryDeductionModal } from './PantryDeductionModal'
 import { AvailabilityIndicator, computeMealAvailability } from './AvailabilityIndicator'
+import { NoteEditor } from './NoteEditor'
 import type { MealData, PantryIngredient, PantryItemFull } from './types'
 import type { MealType } from '@/generated/prisma/enums'
 
@@ -37,6 +38,7 @@ interface MealCardProps {
   isPast?: boolean
   pantryIngredients?: PantryIngredient[]
   pantryItems?: PantryItemFull[]
+  note?: string | null
 }
 
 export function MealCard({
@@ -50,9 +52,11 @@ export function MealCard({
   isPast,
   pantryIngredients = [],
   pantryItems = [],
+  note: initialNote,
 }: MealCardProps) {
   const router = useRouter()
   const [status, setStatus] = useState<MealStatus>(initialStatus)
+  const [note, setNote] = useState<string | null>(initialNote ?? null)
   const [isUpdating, setIsUpdating] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
@@ -151,10 +155,25 @@ export function MealCard({
               {typeStyle.label}
             </div>
           </CardHeader>
-          <CardContent className="px-3 pb-1">
-            <Body variant="muted" className="text-xs">
-              No meal planned
-            </Body>
+          <CardContent className="flex flex-col gap-1.5 px-3 pb-1">
+            {note ? (
+              <Body variant="muted" className="text-xs italic">
+                {note}
+              </Body>
+            ) : (
+              <Body variant="muted" className="text-xs">
+                No meal planned
+              </Body>
+            )}
+            {canEdit && (
+              <NoteEditor
+                planId={planId}
+                entryId={entryId}
+                note={note}
+                onNoteChange={setNote}
+                compact
+              />
+            )}
           </CardContent>
           {canEdit && (
             <CardFooter className="px-3 pt-0">
@@ -227,6 +246,22 @@ export function MealCard({
           {!isPast && shouldShowAvailability && availability && (
             <AvailabilityIndicator availability={availability} />
           )}
+          {/* Show note or add note control */}
+          {!isReadOnly && !isPast && (
+            <NoteEditor
+              planId={planId}
+              entryId={entryId}
+              note={note}
+              onNoteChange={setNote}
+              compact
+            />
+          )}
+          {/* Display note for past/readonly slots */}
+          {(isReadOnly || isPast) && note && (
+            <Body variant="muted" className="text-xs italic">
+              {note}
+            </Body>
+          )}
         </CardHeader>
         {!isReadOnly && isPast && (
           <CardContent className="px-3 pb-1">
@@ -242,6 +277,8 @@ export function MealCard({
         pantryIngredients={pantryIngredients}
         planId={planId}
         entryId={entryId}
+        note={note}
+        onNoteChange={setNote}
       />
       <MealSelectorModal
         open={isRegenerateModalOpen}

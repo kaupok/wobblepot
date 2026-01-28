@@ -10,6 +10,7 @@ const createEntrySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
   mealType: z.enum(['breakfast', 'lunch', 'dinner']),
   mealId: z.string().optional(),
+  note: z.string().max(200).nullable().optional(),
 })
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -103,7 +104,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id: planId } = await params
-  const { date, mealType, mealId } = parsed.data
+  const { date, mealType, mealId, note } = parsed.data
 
   try {
     // Verify plan exists and belongs to user's household
@@ -172,6 +173,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         mealType,
         mealId: mealId ?? null,
         status: 'planned',
+        note: note ?? null,
       },
     })
 
@@ -181,6 +183,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       mealType: entry.mealType,
       status: entry.status,
       mealId: entry.mealId,
+      note: entry.note,
     })
   } catch (error) {
     console.error('Failed to create entry:', error)

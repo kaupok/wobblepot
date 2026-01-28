@@ -66,6 +66,7 @@ export function TodayMeals({
             pantryItems={pantryItems}
             showStatusPrompt={showStatusPrompt}
             initialTips={entry.preparationTips}
+            initialNote={entry.note}
           />
         )
       })}

@@ -348,6 +348,7 @@ model MealPlanEntry {
   mealType        MealType
   status          MealPlanEntryStatus @default(planned)
   preparationTips String?
+  note            String?
 
   plan MealPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
   meal Meal?    @relation(fields: [mealId], references: [id])

@@ -10,6 +10,7 @@ const updateEntrySchema = z.object({
   status: z.enum(['planned', 'completed', 'skipped']).optional(),
   mealId: z.string().optional(),
   deductPantry: z.boolean().optional(),
+  note: z.string().max(200).nullable().optional(),
 })
 
 export async function DELETE(
@@ -179,6 +180,7 @@ export async function PATCH(
       status?: MealPlanEntryStatus
       mealId?: string
       preparationTips?: null
+      note?: string | null
     } = {}
 
     if (parsed.data.status) {
@@ -199,6 +201,11 @@ export async function PATCH(
       updateData.mealId = parsed.data.mealId
       // Clear cached preparation tips when meal is swapped
       updateData.preparationTips = null
+    }
+
+    // Handle note updates (including explicit null to clear)
+    if ('note' in parsed.data) {
+      updateData.note = parsed.data.note ?? null
     }
 
     // Require at least one field to update
