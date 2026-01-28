@@ -10,6 +10,7 @@ import type { MealStatus } from '@/components/meal-plan/StatusSelect'
 import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
 import { PantryDeductionModal } from '@/components/meal-plan/PantryDeductionModal'
 import { MealDetail } from '@/components/meal-plan/MealDetail'
+import { NoteEditor } from '@/components/meal-plan/NoteEditor'
 import { MealStatusPrompt } from './MealStatusPrompt'
 import { useIngredientAvailability } from '@/hooks/use-ingredient-availability'
 import { useMealTips } from '@/hooks/use-meal-tips'
@@ -39,6 +40,7 @@ interface TodayMealCardProps {
   pantryItems: PantryItemFull[]
   showStatusPrompt?: boolean
   initialTips?: string | null
+  initialNote?: string | null
 }
 
 export function TodayMealCard({
@@ -52,9 +54,11 @@ export function TodayMealCard({
   pantryItems,
   showStatusPrompt = false,
   initialTips = null,
+  initialNote = null,
 }: TodayMealCardProps) {
   const router = useRouter()
   const [status, setStatus] = useState<MealStatus>(initialStatus)
+  const [note, setNote] = useState<string | null>(initialNote)
   const [isUpdating, setIsUpdating] = useState(false)
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
   const [isDeductionModalOpen, setIsDeductionModalOpen] = useState(false)
@@ -168,7 +172,14 @@ export function TodayMealCard({
                 Add meal
               </Button>
             </div>
-            <Body variant="muted">No meal planned</Body>
+            {note ? (
+              <Body variant="muted" className="italic">
+                {note}
+              </Body>
+            ) : (
+              <Body variant="muted">No meal planned</Body>
+            )}
+            <NoteEditor planId={planId} entryId={entryId} note={note} onNoteChange={setNote} />
           </CardHeader>
         </Card>
         <MealSelectorModal
@@ -256,6 +267,16 @@ export function TodayMealCard({
             )}
           </div>
           <CardTitle className="text-base leading-tight font-semibold">{meal.name}</CardTitle>
+          {/* Note section - shown for both simplified and full view */}
+          {!showSimplifiedView && (
+            <NoteEditor planId={planId} entryId={entryId} note={note} onNoteChange={setNote} />
+          )}
+          {/* Display-only note for simplified view */}
+          {showSimplifiedView && note && (
+            <Body variant="muted" className="italic">
+              {note}
+            </Body>
+          )}
         </CardHeader>
 
         {/* BOTTOM SECTION: Meal detail (nutrition, ingredients, prep tips) */}

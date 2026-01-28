@@ -46,6 +46,7 @@ export function TomorrowPreview({
           mealType={entry.mealType}
           householdSize={householdSize}
           pantryIngredients={pantryIngredients}
+          initialNote={entry.note}
         />
       ))}
       <Button variant="ghost" size="sm" className="self-start" asChild>

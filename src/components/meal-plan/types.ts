@@ -38,6 +38,7 @@ export interface PlanEntry {
   status: MealStatus
   meal: MealData | null
   preparationTips: string | null
+  note: string | null
 }
 
 export interface MealPlan {

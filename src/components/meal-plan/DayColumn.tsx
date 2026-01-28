@@ -106,6 +106,7 @@ export function DayColumn({
               isPast={isPast}
               pantryIngredients={pantryIngredients}
               pantryItems={pantryItems}
+              note={item.entry.note}
             />
           ) : (
             <EmptySlotCard

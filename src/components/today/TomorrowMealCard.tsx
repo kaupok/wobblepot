@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
 import { MealDetail } from '@/components/meal-plan/MealDetail'
+import { NoteEditor } from '@/components/meal-plan/NoteEditor'
 import { useIngredientAvailability } from '@/hooks/use-ingredient-availability'
 import { useMealTips } from '@/hooks/use-meal-tips'
 import type { MealData, PantryIngredient } from '@/components/meal-plan/types'
@@ -25,6 +26,7 @@ interface TomorrowMealCardProps {
   mealType: MealType
   householdSize: number
   pantryIngredients: PantryIngredient[]
+  initialNote?: string | null
 }
 
 export function TomorrowMealCard({
@@ -34,9 +36,11 @@ export function TomorrowMealCard({
   mealType,
   householdSize,
   pantryIngredients,
+  initialNote = null,
 }: TomorrowMealCardProps) {
   const router = useRouter()
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
+  const [note, setNote] = useState<string | null>(initialNote)
   const { togglingIngredientIds, handleToggleAvailability } = useIngredientAvailability({
     onRefresh: () => router.refresh(),
   })
@@ -64,7 +68,14 @@ export function TomorrowMealCard({
                 Add meal
               </Button>
             </div>
-            <Body variant="muted">No meal planned</Body>
+            {note ? (
+              <Body variant="muted" className="italic">
+                {note}
+              </Body>
+            ) : (
+              <Body variant="muted">No meal planned</Body>
+            )}
+            <NoteEditor planId={planId} entryId={entryId} note={note} onNoteChange={setNote} />
           </CardHeader>
         </Card>
         <MealSelectorModal
@@ -102,6 +113,8 @@ export function TomorrowMealCard({
 
           {/* Meal name */}
           <CardTitle className="text-base leading-tight font-semibold">{meal.name}</CardTitle>
+          {/* Note section */}
+          <NoteEditor planId={planId} entryId={entryId} note={note} onNoteChange={setNote} />
         </CardHeader>
 
         {/* Full meal detail - always shown */}

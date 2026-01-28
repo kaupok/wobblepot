@@ -11,6 +11,7 @@ import {
 import { useIngredientAvailability } from '@/hooks/use-ingredient-availability'
 import { useMealTips } from '@/hooks/use-meal-tips'
 import { MealDetail } from './MealDetail'
+import { NoteEditor } from './NoteEditor'
 import type { MealData, PantryIngredient } from './types'
 
 interface MealDetailModalProps {
@@ -21,6 +22,8 @@ interface MealDetailModalProps {
   pantryIngredients?: PantryIngredient[]
   planId: string
   entryId: string
+  note?: string | null
+  onNoteChange?: (note: string | null) => void
 }
 
 export function MealDetailModal({
@@ -31,6 +34,8 @@ export function MealDetailModal({
   pantryIngredients = [],
   planId,
   entryId,
+  note,
+  onNoteChange,
 }: MealDetailModalProps) {
   const router = useRouter()
   const { togglingIngredientIds, handleToggleAvailability } = useIngredientAvailability({
@@ -53,6 +58,15 @@ export function MealDetailModal({
           <DialogTitle>{meal.name}</DialogTitle>
           <DialogDescription className="sr-only">Details for {meal.name}</DialogDescription>
         </DialogHeader>
+        {/* Note section at top of modal */}
+        <div className="border-muted mb-2 border-b pb-3">
+          <NoteEditor
+            planId={planId}
+            entryId={entryId}
+            note={note ?? null}
+            onNoteChange={onNoteChange}
+          />
+        </div>
         <MealDetail
           meal={meal}
           householdSize={householdSize}
