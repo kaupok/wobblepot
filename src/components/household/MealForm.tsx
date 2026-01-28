@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
-import { Search, Plus, Loader2, ChevronDown, ChevronRight } from 'lucide-react'
+import { Search, Plus, Loader2, ChevronDown, ChevronRight, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -240,6 +240,41 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
   // Calculate unresolved count
   const unresolvedCount = ingredientRows.filter((row) => row.type === 'unmatched').length
   const lowConfidenceCount = ingredientRows.filter((row) => row.type === 'low-confidence').length
+
+  // Detect duplicate ingredients by ID
+  const duplicateMap = useMemo(() => {
+    const map = new Map<string, number[]>()
+
+    if (isImportMode) {
+      // Check ingredient rows (import mode)
+      ingredientRows.forEach((row, index) => {
+        if (row.type === 'matched' || row.type === 'low-confidence') {
+          const id = row.ingredient.id
+          const indices = map.get(id) ?? []
+          indices.push(index)
+          map.set(id, indices)
+        }
+      })
+    } else {
+      // Check components (regular mode)
+      components.forEach((comp, index) => {
+        const id = comp.ingredientId
+        const indices = map.get(id) ?? []
+        indices.push(index)
+        map.set(id, indices)
+      })
+    }
+
+    // Keep only duplicates (2+ occurrences)
+    const duplicates = new Map<string, number[]>()
+    map.forEach((indices, id) => {
+      if (indices.length > 1) {
+        duplicates.set(id, indices)
+      }
+    })
+
+    return duplicates
+  }, [isImportMode, ingredientRows, components])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -697,33 +732,44 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
               {/* Import mode: show ingredient rows with match states */}
               {isImportMode && ingredientRows.length > 0 && (
                 <div ref={ingredientRowsRef} className="flex flex-col gap-2">
-                  {ingredientRows.map((row, index) => (
-                    <IngredientRow
-                      key={index}
-                      data={row}
-                      servings={servingsNum}
-                      disabled={isSubmitting}
-                      onUpdate={(updatedData) => handleIngredientRowUpdate(index, updatedData)}
-                      onRemove={() => handleIngredientRowRemove(index)}
-                      onResolve={(ingredient, totalQuantity) =>
-                        handleIngredientRowResolve(index, ingredient, totalQuantity)
-                      }
-                    />
-                  ))}
+                  {ingredientRows.map((row, index) => {
+                    // Get duplicate indices for this row (if it's matched or low-confidence)
+                    const duplicateIndices =
+                      row.type === 'matched' || row.type === 'low-confidence'
+                        ? duplicateMap.get(row.ingredient.id)?.filter((i) => i !== index)
+                        : undefined
+
+                    return (
+                      <IngredientRow
+                        key={index}
+                        data={row}
+                        servings={servingsNum}
+                        disabled={isSubmitting}
+                        duplicateIndices={duplicateIndices}
+                        onUpdate={(updatedData) => handleIngredientRowUpdate(index, updatedData)}
+                        onRemove={() => handleIngredientRowRemove(index)}
+                        onResolve={(ingredient, totalQuantity) =>
+                          handleIngredientRowResolve(index, ingredient, totalQuantity)
+                        }
+                      />
+                    )
+                  })}
                 </div>
               )}
 
               {/* Regular mode: show plain ingredient list */}
               {!isImportMode && components.length > 0 && (
                 <div className="flex flex-col gap-2">
-                  {components.map((comp) => {
+                  {components.map((comp, index) => {
                     const isInvalidQuantity = !comp.isVague && comp.totalQuantity <= 0
                     const unitLabel = formatUnit(comp.ingredient.defaultUnit)
+                    const duplicateIndices = duplicateMap.get(comp.ingredientId)
+                    const isDuplicate = duplicateIndices && duplicateIndices.length > 1
+                    const otherIndices = isDuplicate
+                      ? duplicateIndices.filter((i) => i !== index)
+                      : []
                     return (
-                      <div
-                        key={comp.ingredientId}
-                        className="flex items-center gap-3 rounded-md border p-3"
-                      >
+                      <div key={index} className="flex items-center gap-3 rounded-md border p-3">
                         <div className="flex-1">
                           <Body>{comp.ingredient.name}</Body>
                           <Body variant="muted">
@@ -740,6 +786,15 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
                               </>
                             )}
                           </Body>
+                          {isDuplicate && (
+                            <div className="mt-1 flex items-center gap-1.5">
+                              <Info className="h-3 w-3 shrink-0 text-amber-600" />
+                              <Body variant="small" className="text-amber-700 dark:text-amber-400">
+                                Also used in row{otherIndices.length > 1 ? 's' : ''}{' '}
+                                {otherIndices.map((i) => i + 1).join(', ')}
+                              </Body>
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-2">
                           {comp.isVague ? (

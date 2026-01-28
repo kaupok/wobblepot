@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Check, AlertTriangle, HelpCircle, Search, X, Loader2 } from 'lucide-react'
+import { Check, AlertTriangle, HelpCircle, Search, X, Loader2, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
@@ -71,6 +71,7 @@ interface IngredientRowProps {
   data: IngredientRowData
   servings: number
   disabled?: boolean
+  duplicateIndices?: number[]
   onUpdate: (data: IngredientRowData) => void
   onRemove: () => void
   onResolve?: (ingredient: IngredientResult, totalQuantity: number) => void
@@ -88,6 +89,7 @@ export function IngredientRow({
   data,
   servings,
   disabled = false,
+  duplicateIndices,
   onUpdate,
   onRemove,
   onResolve,
@@ -388,6 +390,7 @@ export function IngredientRow({
     const perServing = Math.round((data.totalQuantity / servings) * 10) / 10
     const isInvalidQuantity = !data.isVague && data.totalQuantity <= 0
     const unitLabel = formatUnit(data.ingredient.defaultUnit)
+    const isDuplicate = duplicateIndices && duplicateIndices.length > 0
 
     return (
       <div className="flex flex-col gap-2 rounded-md border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-900 dark:bg-blue-950/20">
@@ -410,6 +413,15 @@ export function IngredientRow({
                     </>
                   )}
                 </Body>
+                {isDuplicate && (
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <Info className="h-3 w-3 shrink-0 text-amber-600" />
+                    <Body variant="small" className="text-amber-700 dark:text-amber-400">
+                      Also used in row{duplicateIndices.length > 1 ? 's' : ''}{' '}
+                      {duplicateIndices.map((i) => i + 1).join(', ')}
+                    </Body>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 {data.isVague ? (
@@ -508,6 +520,7 @@ export function IngredientRow({
   const perServing = Math.round((data.totalQuantity / servings) * 10) / 10
   const isInvalidQuantity = !data.isVague && data.totalQuantity <= 0
   const unitLabel = formatUnit(data.ingredient.defaultUnit)
+  const isDuplicate = duplicateIndices && duplicateIndices.length > 0
 
   return (
     <div className="flex items-center gap-3 rounded-md border border-green-200 bg-green-50/50 p-3 dark:border-green-900 dark:bg-green-950/20">
@@ -526,6 +539,15 @@ export function IngredientRow({
             </>
           )}
         </Body>
+        {isDuplicate && (
+          <div className="mt-1 flex items-center gap-1.5">
+            <Info className="h-3 w-3 shrink-0 text-amber-600" />
+            <Body variant="small" className="text-amber-700 dark:text-amber-400">
+              Also used in row{duplicateIndices.length > 1 ? 's' : ''}{' '}
+              {duplicateIndices.map((i) => i + 1).join(', ')}
+            </Body>
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-2">
         {data.isVague ? (
