@@ -569,6 +569,109 @@ describe('getCandidates', () => {
   })
 })
 
+describe('preference sorting', () => {
+  it('sorts favorites before non-favorites', async () => {
+    const systemMeal = createMockMeal({ id: 'system-1', name: 'System Meal', householdId: null })
+    const favoriteMeal = createMockMeal({
+      id: 'favorite-1',
+      name: 'Favorite Meal',
+      householdId: null,
+    })
+
+    mockFindMany.mockResolvedValue([systemMeal, favoriteMeal] as never)
+
+    const result = await getCandidates({
+      ...baseFilters,
+      favoriteMealIds: ['favorite-1'],
+    })
+
+    expect(result[0]!.name).toBe('Favorite Meal')
+    expect(result[0]!.isFavorite).toBe(true)
+    expect(result[1]!.name).toBe('System Meal')
+    expect(result[1]!.isFavorite).toBe(false)
+  })
+
+  it('sorts household meals before system meals', async () => {
+    const systemMeal = createMockMeal({ id: 'system-1', name: 'System Meal', householdId: null })
+    const customMeal = createMockMeal({
+      id: 'custom-1',
+      name: 'Custom Meal',
+      householdId: 'household-1',
+    })
+
+    mockFindMany.mockResolvedValue([systemMeal, customMeal] as never)
+
+    const result = await getCandidates({
+      ...baseFilters,
+      householdId: 'household-1',
+    })
+
+    expect(result[0]!.name).toBe('Custom Meal')
+    expect(result[0]!.isCustom).toBe(true)
+    expect(result[1]!.name).toBe('System Meal')
+    expect(result[1]!.isCustom).toBe(false)
+  })
+
+  it('sorts favorites first, then household meals, then system meals', async () => {
+    const systemMeal = createMockMeal({ id: 'system-1', name: 'System Meal', householdId: null })
+    const customMeal = createMockMeal({
+      id: 'custom-1',
+      name: 'Custom Meal',
+      householdId: 'household-1',
+    })
+    const favoriteMeal = createMockMeal({
+      id: 'favorite-1',
+      name: 'Favorite Meal',
+      householdId: null,
+    })
+
+    // Return in "wrong" order to test sorting
+    mockFindMany.mockResolvedValue([systemMeal, favoriteMeal, customMeal] as never)
+
+    const result = await getCandidates({
+      ...baseFilters,
+      householdId: 'household-1',
+      favoriteMealIds: ['favorite-1'],
+    })
+
+    // Favorites first (regardless of system vs custom)
+    expect(result[0]!.name).toBe('Favorite Meal')
+    expect(result[0]!.isFavorite).toBe(true)
+    // Then custom meals
+    expect(result[1]!.name).toBe('Custom Meal')
+    expect(result[1]!.isCustom).toBe(true)
+    // Then system meals
+    expect(result[2]!.name).toBe('System Meal')
+    expect(result[2]!.isCustom).toBe(false)
+    expect(result[2]!.isFavorite).toBe(false)
+  })
+
+  it('prioritizes favorite custom meals over favorite system meals', async () => {
+    const favoriteSystemMeal = createMockMeal({
+      id: 'fav-system',
+      name: 'Favorite System',
+      householdId: null,
+    })
+    const favoriteCustomMeal = createMockMeal({
+      id: 'fav-custom',
+      name: 'Favorite Custom',
+      householdId: 'household-1',
+    })
+
+    mockFindMany.mockResolvedValue([favoriteSystemMeal, favoriteCustomMeal] as never)
+
+    const result = await getCandidates({
+      ...baseFilters,
+      householdId: 'household-1',
+      favoriteMealIds: ['fav-system', 'fav-custom'],
+    })
+
+    // Both are favorites, but custom should come first
+    expect(result[0]!.name).toBe('Favorite Custom')
+    expect(result[1]!.name).toBe('Favorite System')
+  })
+})
+
 describe('constants', () => {
   it('exports MAX_TIME_MINUTES as 60', () => {
     expect(MAX_TIME_MINUTES).toBe(60)

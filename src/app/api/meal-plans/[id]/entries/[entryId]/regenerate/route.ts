@@ -14,44 +14,90 @@ import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import type { Allergen, DietaryType, MealType, ProteinType } from '@/generated/prisma/enums'
 import type { AlternativeMeal } from '@/components/meal-plan/types'
 
-/**
- * Generate a reason string for why this meal is suggested.
- */
-function generateReason(
-  meal: {
+interface ScoredCandidate {
+  candidate: {
+    id: string
+    name: string
     kidFriendly: boolean
     primaryProteinType: ProteinType
     topIngredients: { name: string }[]
+    isFavorite: boolean
+    isCustom: boolean
+  }
+  score: number
+  timeMinutes: number | null
+  reasons: string[]
+}
+
+/**
+ * Score a candidate for similarity and personalization.
+ * Returns score and reasons for the suggestion.
+ */
+function scoreCandidate(
+  candidate: {
+    kidFriendly: boolean
+    primaryProteinType: ProteinType
+    isFavorite: boolean
+    isCustom: boolean
   },
-  currentMealTime: number | null,
-  mealTime: number | null,
-  index: number,
+  timeMinutes: number | null,
+  currentProteinType: ProteinType | null,
+  currentTimeMinutes: number | null,
+): { score: number; reasons: string[] } {
+  let score = 0
+  const reasons: string[] = []
+
+  // Similarity scoring (for swaps, similarity to current meal matters)
+  if (currentProteinType && candidate.primaryProteinType === currentProteinType) {
+    score += 3
+    reasons.push('Same protein type')
+  }
+  if (currentTimeMinutes && timeMinutes) {
+    const timeDiff = Math.abs(timeMinutes - currentTimeMinutes)
+    if (timeDiff <= 15) {
+      score += 2
+      reasons.push('Similar prep time')
+    }
+  }
+
+  // Personalization scoring
+  if (candidate.isFavorite) {
+    score += 2
+    reasons.push('One of your favorites')
+  }
+  if (candidate.isCustom) {
+    score += 1
+    reasons.push('From your recipes')
+  }
+
+  // Kid-friendly is a minor boost
+  if (candidate.kidFriendly) {
+    score += 0.5
+  }
+
+  return { score, reasons }
+}
+
+/**
+ * Generate a reason string from scored reasons.
+ */
+function generateReason(
+  reasons: string[],
+  candidate: { kidFriendly: boolean; primaryProteinType: ProteinType },
 ): string {
-  // First suggestion: highlight time similarity if applicable
-  if (index === 0 && currentMealTime && mealTime) {
-    const timeDiff = Math.abs(mealTime - currentMealTime)
-    if (timeDiff <= 10) {
-      return 'Similar prep time'
-    }
+  // Use the most relevant reason from scoring
+  if (reasons.length > 0) {
+    return reasons[0]!
   }
 
-  // Second suggestion: highlight kid-friendly if applicable
-  if (index === 1 && meal.kidFriendly) {
+  // Fallback reasons
+  if (candidate.kidFriendly) {
     return 'Kid-friendly option'
   }
 
-  // Third suggestion: highlight different style
-  if (index === 2) {
-    const mainIngredient = meal.topIngredients[0]?.name
-    if (mainIngredient) {
-      return `Features ${mainIngredient.toLowerCase()}`
-    }
-    return 'Different style'
-  }
-
-  // Default reasons based on attributes
-  if (meal.kidFriendly) {
-    return 'Kid-friendly option'
+  const proteinLabel = candidate.primaryProteinType !== 'none' ? candidate.primaryProteinType : null
+  if (proteinLabel) {
+    return `${proteinLabel.charAt(0).toUpperCase() + proteinLabel.slice(1)}-based`
   }
 
   return 'Matches your preferences'
@@ -83,7 +129,7 @@ export async function POST(
   const { id: planId, entryId } = await params
 
   try {
-    // Fetch entry with plan and meal details
+    // Fetch entry with plan and meal details (including protein type for similarity scoring)
     const entry = await prisma.mealPlanEntry.findFirst({
       where: {
         id: entryId,
@@ -98,6 +144,7 @@ export async function POST(
           select: {
             id: true,
             timeMinutes: true,
+            primaryProteinType: true,
           },
         },
       },
@@ -185,32 +232,42 @@ export async function POST(
       )
     }
 
-    // Get current meal time for comparison
+    // Get current meal attributes for similarity scoring
     const currentMealTime = entry.meal?.timeMinutes ?? null
+    const currentProteinType = entry.meal?.primaryProteinType ?? null
 
-    // Select up to 3 diverse alternatives
-    // Simple diversity: shuffle and pick first 3, prioritizing kid-friendly variety
-    const shuffled = [...filteredCandidates].sort(() => Math.random() - 0.5)
+    // Fetch timeMinutes for all candidates (needed for similarity scoring)
+    const candidateMealDetails = await prisma.meal.findMany({
+      where: { id: { in: filteredCandidates.map((c) => c.id) } },
+      select: { id: true, timeMinutes: true },
+    })
+    const timeMap = new Map(candidateMealDetails.map((m) => [m.id, m.timeMinutes]))
 
-    // Try to get a mix: one kid-friendly, one not (if available), then fill
-    const kidFriendly = shuffled.filter((c) => c.kidFriendly)
-    const notKidFriendly = shuffled.filter((c) => !c.kidFriendly)
-
-    const selected: typeof shuffled = []
-    if (kidFriendly.length > 0) selected.push(kidFriendly[0]!)
-    if (notKidFriendly.length > 0 && selected.length < 3) selected.push(notKidFriendly[0]!)
-
-    // Fill remaining slots
-    for (const candidate of shuffled) {
-      if (selected.length >= 3) break
-      if (!selected.includes(candidate)) {
-        selected.push(candidate)
+    // Score candidates by similarity and personalization
+    const scored: ScoredCandidate[] = filteredCandidates.map((candidate) => {
+      const timeMinutes = timeMap.get(candidate.id) ?? null
+      const { score, reasons } = scoreCandidate(
+        candidate,
+        timeMinutes,
+        currentProteinType,
+        currentMealTime,
+      )
+      // Add small random factor (0-0.5) for variety among equal-scored items
+      return {
+        candidate,
+        score: score + Math.random() * 0.5,
+        timeMinutes,
+        reasons,
       }
-    }
+    })
+
+    // Sort by score descending and take top 3
+    scored.sort((a, b) => b.score - a.score)
+    const selected = scored.slice(0, 3)
 
     // Fetch full meal details for selected candidates
     const mealDetails = await prisma.meal.findMany({
-      where: { id: { in: selected.map((s) => s.id) } },
+      where: { id: { in: selected.map((s) => s.candidate.id) } },
       include: {
         components: {
           include: {
@@ -223,7 +280,8 @@ export async function POST(
     const mealDetailsMap = new Map(mealDetails.map((m) => [m.id, m]))
 
     // Build response
-    const alternatives: AlternativeMeal[] = selected.map((candidate, index) => {
+    const alternatives: AlternativeMeal[] = selected.map((scoredItem) => {
+      const { candidate, reasons } = scoredItem
       const mealDetail = mealDetailsMap.get(candidate.id)
       const components = mealDetail?.components ?? []
 
@@ -235,7 +293,7 @@ export async function POST(
         kidFriendly: candidate.kidFriendly,
         primaryProteinType: candidate.primaryProteinType,
         suitableFor: mealDetail?.suitableFor as MealType[] | undefined,
-        reason: generateReason(candidate, currentMealTime, mealDetail?.timeMinutes ?? null, index),
+        reason: generateReason(reasons, candidate),
         components: components.map((comp) => ({
           ingredientId: comp.ingredientId,
           quantityPerServing: comp.quantityPerServing,
