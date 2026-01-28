@@ -107,6 +107,10 @@ Write the plan directly in your response (not to a file). Use this structure:
 2. [Specific step with details]
 3. [Specific step with details]
 
+## Tests
+
+- `src/path/to/file.test.ts` - [What to test]
+
 ## Verification
 
 - [ ] [How to test the implementation]

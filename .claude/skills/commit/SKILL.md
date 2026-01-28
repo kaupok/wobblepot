@@ -48,21 +48,7 @@ git diff --cached --stat
 
 If no changes (staged or unstaged), inform the user and stop.
 
-### 4. Review conventions
-
-Read `docs/GIT_WORKFLOW.md` for:
-
-- Pre-commit checklist
-- Commit message format
-- HEREDOC syntax for commit messages
-
-Read `CLAUDE.md` section "Commit Message Conventions" for:
-
-- Type prefixes (feat, fix, docs, etc.)
-- Scope usage
-- Subject line formatting
-
-### 5. Stage changes
+### 4. Stage changes
 
 ```bash
 git add -A
@@ -71,7 +57,7 @@ git status
 
 Review what will be committed. If there are files that shouldn't be committed (secrets, generated files, etc.), warn the user.
 
-### 6. Run pre-commit checks
+### 5. Run pre-commit checks
 
 ```bash
 pnpm lint && pnpm type-check && pnpm test
@@ -79,7 +65,7 @@ pnpm lint && pnpm type-check && pnpm test
 
 If any check fails, stop and report the failures. Do not proceed with commit.
 
-### 7. Analyze changes and draft message
+### 6. Analyze changes and draft message
 
 Review the diff to understand what changed:
 
@@ -87,11 +73,11 @@ Review the diff to understand what changed:
 git diff --cached
 ```
 
-Draft a commit message following the conventions from step 4.
+Draft a commit message following conventions from CLAUDE.md (already loaded as project instructions).
 
-### 8. Create commit
+### 7. Create commit
 
-Use HEREDOC format as documented in GIT_WORKFLOW.md:
+Use HEREDOC format:
 
 ```bash
 git commit -m "$(cat <<'EOF'
@@ -104,7 +90,7 @@ EOF
 )"
 ```
 
-### 9. Verify success
+### 8. Verify success
 
 ```bash
 git status
@@ -113,7 +99,7 @@ git log -1 --oneline
 
 Report the commit hash and summary.
 
-### 10. Post-commit actions (if flags passed)
+### 9. Post-commit actions (if flags passed)
 
 **If `--pr` flag:** Invoke the `/pr` skill to create the pull request (this handles pushing).
 
@@ -123,7 +109,7 @@ Report the commit hash and summary.
 git push
 ```
 
-### 11. Signal completion
+### 10. Signal completion
 
 Output the completion marker based on what was done:
 
