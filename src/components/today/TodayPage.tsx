@@ -51,14 +51,19 @@ export function TodayPage({
   catchUpEntries,
   timezone,
 }: TodayPageProps) {
-  // Filter entries for today and tomorrow
+  // Filter entries for today and tomorrow, sorted by meal type
   const { todayEntries, tomorrowEntries } = useMemo(() => {
     if (!plan) {
       return { todayEntries: [], tomorrowEntries: [] }
     }
 
-    const today = plan.entries.filter((entry) => entry.date === todayDate)
-    const tomorrow = plan.entries.filter((entry) => entry.date === tomorrowDate)
+    const mealTypeOrder = { breakfast: 0, lunch: 1, dinner: 2 }
+    const byMealType = (a: PlanEntry, b: PlanEntry) =>
+      (mealTypeOrder[a.mealType as keyof typeof mealTypeOrder] ?? 3) -
+      (mealTypeOrder[b.mealType as keyof typeof mealTypeOrder] ?? 3)
+
+    const today = plan.entries.filter((entry) => entry.date === todayDate).sort(byMealType)
+    const tomorrow = plan.entries.filter((entry) => entry.date === tomorrowDate).sort(byMealType)
 
     return { todayEntries: today, tomorrowEntries: tomorrow }
   }, [plan, todayDate, tomorrowDate])
