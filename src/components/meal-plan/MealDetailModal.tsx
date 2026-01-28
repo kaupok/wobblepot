@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Dialog,
   DialogContent,
@@ -8,6 +8,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
+import { useIngredientAvailability } from '@/hooks/use-ingredient-availability'
+import { useMealTips } from '@/hooks/use-meal-tips'
 import { MealDetail } from './MealDetail'
 import type { MealData, PantryIngredient } from './types'
 
@@ -30,45 +32,19 @@ export function MealDetailModal({
   planId,
   entryId,
 }: MealDetailModalProps) {
-  const [tips, setTips] = useState<string | null>(null)
-  const [isLoadingTips, setIsLoadingTips] = useState(false)
-  const [tipsError, setTipsError] = useState<string | null>(null)
-  const [isTipsExpanded, setIsTipsExpanded] = useState(false)
-
-  const fetchTips = useCallback(async () => {
-    setIsLoadingTips(true)
-    setTipsError(null)
-    setIsTipsExpanded(true)
-
-    try {
-      const response = await fetch(
-        `/api/meal-plans/${planId}/entries/${entryId}/preparation-tips`,
-        {
-          method: 'POST',
-        },
-      )
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "Couldn't generate tips")
-      }
-
-      const data = await response.json()
-      setTips(data.tips)
-    } catch (error) {
-      setTipsError(error instanceof Error ? error.message : "Couldn't generate tips. Try again.")
-    } finally {
-      setIsLoadingTips(false)
-    }
-  }, [planId, entryId])
-
-  function handleHowToPrepare() {
-    if (tips) {
-      setIsTipsExpanded((prev) => !prev)
-    } else {
-      fetchTips()
-    }
-  }
+  const router = useRouter()
+  const { togglingIngredientIds, handleToggleAvailability } = useIngredientAvailability({
+    onRefresh: () => router.refresh(),
+  })
+  const {
+    tips,
+    isLoadingTips,
+    tipsError,
+    isTipsExpanded,
+    fetchTips,
+    handleHowToPrepare,
+    hideTips,
+  } = useMealTips({ planId, entryId })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -81,13 +57,15 @@ export function MealDetailModal({
           meal={meal}
           householdSize={householdSize}
           pantryIngredients={pantryIngredients}
+          onToggleAvailability={handleToggleAvailability}
+          togglingIds={togglingIngredientIds}
           tips={tips}
           isLoadingTips={isLoadingTips}
           tipsError={tipsError}
           onRetryTips={fetchTips}
           isTipsExpanded={isTipsExpanded}
           onHowToPrepare={handleHowToPrepare}
-          onHideTips={() => setIsTipsExpanded(false)}
+          onHideTips={hideTips}
         />
       </DialogContent>
     </Dialog>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,8 @@ import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
 import { PantryDeductionModal } from '@/components/meal-plan/PantryDeductionModal'
 import { MealDetail } from '@/components/meal-plan/MealDetail'
 import { MealStatusPrompt } from './MealStatusPrompt'
+import { useIngredientAvailability } from '@/hooks/use-ingredient-availability'
+import { useMealTips } from '@/hooks/use-meal-tips'
 import type { MealData, PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
 import type { MealType } from '@/generated/prisma/enums'
 
@@ -56,19 +58,30 @@ export function TodayMealCard({
   const [isUpdating, setIsUpdating] = useState(false)
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
   const [isDeductionModalOpen, setIsDeductionModalOpen] = useState(false)
-  const [togglingIngredientIds, setTogglingIngredientIds] = useState<Set<string>>(new Set())
-  const [tips, setTips] = useState<string | null>(initialTips)
-  const [isLoadingTips, setIsLoadingTips] = useState(false)
-  const [tipsError, setTipsError] = useState<string | null>(null)
-  const [isTipsExpanded, setIsTipsExpanded] = useState(false)
   const [isChangingStatus, setIsChangingStatus] = useState(false)
+
+  const { togglingIngredientIds, handleToggleAvailability } = useIngredientAvailability({
+    onRefresh: () => router.refresh(),
+  })
+  const {
+    tips,
+    isLoadingTips,
+    tipsError,
+    isTipsExpanded,
+    fetchTips,
+    handleHowToPrepare,
+    hideTips,
+    setTips,
+    setIsTipsExpanded,
+    setTipsError,
+  } = useMealTips({ planId, entryId, initialTips })
 
   // Sync tips state when initialTips prop changes (e.g., after meal swap)
   useEffect(() => {
     setTips(initialTips)
     setIsTipsExpanded(false)
     setTipsError(null)
-  }, [initialTips])
+  }, [initialTips, setTips, setIsTipsExpanded, setTipsError])
 
   const isFinished = status === 'completed' || status === 'skipped'
 
@@ -136,88 +149,6 @@ export function TodayMealCard({
       setIsChangingStatus(false)
       // Refresh to update pantry data
       router.refresh()
-    }
-  }
-
-  const handleToggleAvailability = useCallback(
-    async (ingredientId: string, hasIt: boolean) => {
-      setTogglingIngredientIds((prev) => new Set(prev).add(ingredientId))
-
-      try {
-        if (hasIt) {
-          // Add to pantry
-          const response = await fetch('/api/pantry', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ingredientId }),
-          })
-
-          if (!response.ok) {
-            const data = await response.json()
-            // 409 means already in pantry - treat as success
-            if (response.status !== 409) {
-              throw new Error(data.error || 'Failed to add to pantry')
-            }
-          }
-        } else {
-          // Remove from pantry
-          const response = await fetch(`/api/pantry/by-ingredient/${ingredientId}`, {
-            method: 'DELETE',
-          })
-
-          if (!response.ok && response.status !== 404) {
-            const data = await response.json()
-            throw new Error(data.error || 'Failed to remove from pantry')
-          }
-        }
-
-        // Refresh to update pantry data across all components
-        router.refresh()
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Failed to update pantry')
-      } finally {
-        setTogglingIngredientIds((prev) => {
-          const next = new Set(prev)
-          next.delete(ingredientId)
-          return next
-        })
-      }
-    },
-    [router],
-  )
-
-  const fetchTips = useCallback(async () => {
-    setIsLoadingTips(true)
-    setTipsError(null)
-    setIsTipsExpanded(true)
-
-    try {
-      const response = await fetch(
-        `/api/meal-plans/${planId}/entries/${entryId}/preparation-tips`,
-        {
-          method: 'POST',
-        },
-      )
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "Couldn't generate tips")
-      }
-
-      const data = await response.json()
-      setTips(data.tips)
-    } catch (error) {
-      setTipsError(error instanceof Error ? error.message : "Couldn't generate tips. Try again.")
-    } finally {
-      setIsLoadingTips(false)
-    }
-  }, [planId, entryId])
-
-  function handleHowToPrepare() {
-    if (tips) {
-      setIsTipsExpanded((prev) => !prev)
-    } else {
-      fetchTips()
     }
   }
 
@@ -344,7 +275,7 @@ export function TodayMealCard({
               onRetryTips={fetchTips}
               isTipsExpanded={isTipsExpanded}
               onHowToPrepare={handleHowToPrepare}
-              onHideTips={() => setIsTipsExpanded(false)}
+              onHideTips={hideTips}
             />
           </div>
         )}
