@@ -52,7 +52,7 @@ If PR is already MERGED, skip to Step 6 (local cleanup only).
 Before merging, ensure all CI checks have passed:
 
 ```bash
-timeout 600 gh pr checks --watch --fail-fast --interval 10
+gh pr checks --watch --fail-fast --interval 10  # Use 600s Bash timeout
 ```
 
 **Behavior:**

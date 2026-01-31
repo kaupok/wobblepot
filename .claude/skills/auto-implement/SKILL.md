@@ -555,7 +555,7 @@ Extract PR URL from output.
 ### 6.1 Wait for CI
 
 ```bash
-timeout 600 gh pr checks --watch --interval 10
+gh pr checks --watch --interval 10  # Use 600s Bash timeout
 ```
 
 If timeout expires, report and stop.
@@ -575,7 +575,7 @@ while CI failing and ci_attempts < max_ci_attempts:
     - Stage specific changed files by name and commit:
       git add [changed files] && git commit -m "fix: Address CI failures"
     - Push: git push
-    - Wait: timeout 600 gh pr checks --watch --interval 10
+    - Wait: gh pr checks --watch --interval 10  # Use 600s Bash timeout
 
 If still failing after 2 attempts:
     [auto-implement] ✗ Error: CI checks failing after fix attempts
@@ -681,7 +681,7 @@ git push
 Wait for CI again:
 
 ```bash
-timeout 600 gh pr checks --watch --interval 10
+gh pr checks --watch --interval 10  # Use 600s Bash timeout
 ```
 
 ```
@@ -717,7 +717,7 @@ Validation:
 ### 7.2 Wait for CI
 
 ```bash
-timeout 600 gh pr checks --watch --fail-fast --interval 10
+gh pr checks --watch --fail-fast --interval 10  # Use 600s Bash timeout
 ```
 
 If timeout expires or any check fails, report and stop.
