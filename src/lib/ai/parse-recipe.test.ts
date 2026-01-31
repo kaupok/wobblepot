@@ -1,0 +1,805 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    $queryRaw: vi.fn(),
+  },
+}))
+
+vi.mock('ai', () => ({
+  generateObject: vi.fn(),
+}))
+
+vi.mock('@ai-sdk/anthropic', () => ({
+  createAnthropic: vi.fn(() => vi.fn(() => 'mock-model')),
+}))
+
+vi.mock('@/lib/env', () => ({
+  serverEnv: { ANTHROPIC_API_KEY: 'test-key' },
+}))
+
+import { prisma } from '@/lib/prisma'
+import { generateObject } from 'ai'
+import {
+  convertQuantity,
+  isReasonableQuantity,
+  buildRecipeExtractionPrompt,
+  parseRecipeText,
+  matchIngredients,
+  parseAndMatchRecipe,
+  RecipeParseError,
+  RecipeExtractionSchema,
+  LOW_CONFIDENCE_THRESHOLD,
+  SIMILARITY_THRESHOLD,
+  MAX_GRAMS_PER_SERVING,
+  DEFAULT_GRAMS_PER_PIECE,
+  CUP_CONVERSIONS,
+  fuzzySearchIngredient,
+} from './parse-recipe'
+import type { ExtractedIngredient } from './parse-recipe'
+
+const mockQueryRaw = vi.mocked(prisma.$queryRaw)
+const mockGenerateObject = vi.mocked(generateObject)
+
+describe('RecipeParseError', () => {
+  it('creates error with correct name and message', () => {
+    const error = new RecipeParseError('Test error')
+    expect(error.name).toBe('RecipeParseError')
+    expect(error.message).toBe('Test error')
+    expect(error).toBeInstanceOf(Error)
+  })
+})
+
+describe('convertQuantity', () => {
+  const makeIngredient = (
+    defaultUnit: 'g' | 'piece',
+    gramsPerPiece: number | null = null,
+    category?: string,
+  ) => ({
+    defaultUnit: defaultUnit as 'g' | 'piece',
+    gramsPerPiece,
+    category: category as 'spice' | 'dairy' | 'protein' | 'vegetable' | undefined,
+  })
+
+  it('returns same quantity when units match', () => {
+    expect(convertQuantity(100, 'g', makeIngredient('g'))).toBe(100)
+    expect(convertQuantity(3, 'piece', makeIngredient('piece'))).toBe(3)
+  })
+
+  it('converts grams to grams (passthrough)', () => {
+    expect(convertQuantity(500, 'g', makeIngredient('g'))).toBe(500)
+  })
+
+  it('converts ml to grams (1:1 density)', () => {
+    expect(convertQuantity(250, 'ml', makeIngredient('g'))).toBe(250)
+  })
+
+  it('converts pieces to grams using gramsPerPiece', () => {
+    expect(convertQuantity(3, 'piece', makeIngredient('g', 60))).toBe(180)
+  })
+
+  it('converts pieces to grams using DEFAULT_GRAMS_PER_PIECE when not specified', () => {
+    expect(convertQuantity(3, 'piece', makeIngredient('g', null))).toBe(3 * DEFAULT_GRAMS_PER_PIECE)
+  })
+
+  it('converts tbsp to grams (1 tbsp = 15g)', () => {
+    expect(convertQuantity(2, 'tbsp', makeIngredient('g'))).toBe(30)
+  })
+
+  it('converts tsp to grams (1 tsp = 5g)', () => {
+    expect(convertQuantity(3, 'tsp', makeIngredient('g'))).toBe(15)
+  })
+
+  it('converts cups to grams using category-specific conversion for spice', () => {
+    expect(convertQuantity(1, 'cup', makeIngredient('g', null, 'spice'))).toBe(
+      CUP_CONVERSIONS.spice,
+    )
+  })
+
+  it('converts cups to grams using category-specific conversion for dairy', () => {
+    expect(convertQuantity(1, 'cup', makeIngredient('g', null, 'dairy'))).toBe(
+      CUP_CONVERSIONS.dairy,
+    )
+  })
+
+  it('converts cups to grams using default when no category', () => {
+    expect(convertQuantity(1, 'cup', makeIngredient('g'))).toBe(CUP_CONVERSIONS.default)
+  })
+
+  it('converts oz to grams (1 oz = 28g)', () => {
+    expect(convertQuantity(4, 'oz', makeIngredient('g'))).toBe(112)
+  })
+
+  it('converts lb to grams (1 lb = 454g)', () => {
+    expect(convertQuantity(2, 'lb', makeIngredient('g'))).toBe(908)
+  })
+
+  it('converts grams to pieces using gramsPerPiece', () => {
+    expect(convertQuantity(180, 'g', makeIngredient('piece', 60))).toBe(3)
+  })
+
+  it('converts grams to pieces rounding to 1 decimal', () => {
+    // 100g / 60g per piece = 1.666... → 1.7
+    expect(convertQuantity(100, 'g', makeIngredient('piece', 60))).toBe(1.7)
+  })
+
+  it('returns original quantity for piece conversion without gramsPerPiece', () => {
+    expect(convertQuantity(200, 'g', makeIngredient('piece', null))).toBe(200)
+  })
+
+  it('handles unknown fromUnit as passthrough', () => {
+    expect(convertQuantity(100, 'unknown', makeIngredient('g'))).toBe(100)
+  })
+})
+
+describe('isReasonableQuantity', () => {
+  it('returns true for reasonable quantities', () => {
+    // 400g total for 4 servings = 100g per serving
+    expect(isReasonableQuantity(400, 4)).toBe(true)
+  })
+
+  it('returns true at the boundary', () => {
+    // 2000g for 4 servings = 500g per serving (exactly at MAX_GRAMS_PER_SERVING)
+    expect(isReasonableQuantity(MAX_GRAMS_PER_SERVING * 4, 4)).toBe(true)
+  })
+
+  it('returns false for unreasonable quantities', () => {
+    // 4000g for 4 servings = 1000g per serving
+    expect(isReasonableQuantity(4000, 4)).toBe(false)
+  })
+
+  it('handles single serving', () => {
+    expect(isReasonableQuantity(MAX_GRAMS_PER_SERVING, 1)).toBe(true)
+    expect(isReasonableQuantity(MAX_GRAMS_PER_SERVING + 1, 1)).toBe(false)
+  })
+})
+
+describe('buildRecipeExtractionPrompt', () => {
+  it('includes the recipe text', () => {
+    const prompt = buildRecipeExtractionPrompt('My delicious recipe')
+    expect(prompt).toContain('My delicious recipe')
+  })
+
+  it('includes vague phrases list', () => {
+    const prompt = buildRecipeExtractionPrompt('test')
+    expect(prompt).toContain('to taste')
+    expect(prompt).toContain('a pinch')
+    expect(prompt).toContain('for garnish')
+  })
+
+  it('includes unit conversion guidelines', () => {
+    const prompt = buildRecipeExtractionPrompt('test')
+    expect(prompt).toContain('tbsp')
+    expect(prompt).toContain('tsp')
+    expect(prompt).toContain('cup')
+  })
+
+  it('includes ingredient specificity guidelines', () => {
+    const prompt = buildRecipeExtractionPrompt('test')
+    expect(prompt).toContain('black pepper')
+    expect(prompt).toContain('olive oil')
+  })
+})
+
+describe('parseRecipeText', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('throws RecipeParseError for text shorter than 20 characters', async () => {
+    await expect(parseRecipeText('too short')).rejects.toThrow(RecipeParseError)
+    await expect(parseRecipeText('too short')).rejects.toThrow(
+      'The text is too short to be a recipe',
+    )
+  })
+
+  it('throws RecipeParseError for whitespace-only short text', async () => {
+    await expect(parseRecipeText('   short   ')).rejects.toThrow(RecipeParseError)
+  })
+
+  it('returns parsed recipe on successful AI extraction', async () => {
+    const mockExtraction = {
+      name: 'Chicken Stir Fry',
+      description: 'A quick weeknight dinner',
+      timeMinutes: 30,
+      servings: 4,
+      mealTypes: ['dinner'],
+      kidFriendly: true,
+      ingredients: [
+        {
+          name: 'chicken breast',
+          quantity: 500,
+          unit: 'g',
+          originalText: '500g chicken breast',
+          isVague: false,
+          vaguePhrase: null,
+          isDried: null,
+        },
+      ],
+    }
+
+    mockGenerateObject.mockResolvedValue({
+      object: mockExtraction,
+    } as never)
+
+    const result = await parseRecipeText(
+      'A full recipe with chicken breast and vegetables for dinner',
+    )
+    expect(result.name).toBe('Chicken Stir Fry')
+    expect(result.ingredients).toHaveLength(1)
+    expect(result.servings).toBe(4)
+  })
+
+  it('throws RecipeParseError when name is empty', async () => {
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        name: '',
+        description: null,
+        timeMinutes: null,
+        servings: 4,
+        mealTypes: ['dinner'],
+        kidFriendly: false,
+        ingredients: [
+          {
+            name: 'chicken',
+            quantity: 500,
+            unit: 'g',
+            originalText: '500g chicken',
+            isVague: false,
+            vaguePhrase: null,
+            isDried: null,
+          },
+        ],
+      },
+    } as never)
+
+    await expect(parseRecipeText('Some recipe text that is long enough')).rejects.toThrow(
+      RecipeParseError,
+    )
+  })
+
+  it('throws RecipeParseError when ingredients are empty', async () => {
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        name: 'Test Recipe',
+        description: null,
+        timeMinutes: null,
+        servings: 4,
+        mealTypes: ['dinner'],
+        kidFriendly: false,
+        ingredients: [],
+      },
+    } as never)
+
+    await expect(parseRecipeText('Some recipe text that is long enough')).rejects.toThrow(
+      RecipeParseError,
+    )
+  })
+
+  it('throws RecipeParseError when all ingredients are invalid', async () => {
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        name: 'Test Recipe',
+        description: null,
+        timeMinutes: null,
+        servings: 4,
+        mealTypes: ['dinner'],
+        kidFriendly: false,
+        ingredients: [
+          {
+            name: 'unknown',
+            quantity: 100,
+            unit: 'g',
+            originalText: 'unknown',
+            isVague: false,
+            vaguePhrase: null,
+            isDried: null,
+          },
+        ],
+      },
+    } as never)
+
+    await expect(parseRecipeText('Some recipe text that is long enough')).rejects.toThrow(
+      "Couldn't identify specific ingredients",
+    )
+  })
+
+  it('throws RecipeParseError when ingredients contain <unknown> placeholder', async () => {
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        name: 'Test Recipe',
+        description: null,
+        timeMinutes: null,
+        servings: 4,
+        mealTypes: ['dinner'],
+        kidFriendly: false,
+        ingredients: [
+          {
+            name: '<unknown>',
+            quantity: 100,
+            unit: 'g',
+            originalText: 'mystery ingredient',
+            isVague: false,
+            vaguePhrase: null,
+            isDried: null,
+          },
+          {
+            name: 'chicken breast',
+            quantity: 500,
+            unit: 'g',
+            originalText: '500g chicken breast',
+            isVague: false,
+            vaguePhrase: null,
+            isDried: null,
+          },
+        ],
+      },
+    } as never)
+
+    await expect(parseRecipeText('Some recipe text that is long enough')).rejects.toThrow(
+      "Couldn't identify specific ingredients",
+    )
+  })
+
+  it('wraps non-RecipeParseError exceptions', async () => {
+    mockGenerateObject.mockRejectedValue(new Error('AI service unavailable'))
+
+    await expect(parseRecipeText('Some recipe text that is long enough')).rejects.toThrow(
+      'Failed to parse the recipe',
+    )
+  })
+})
+
+describe('fuzzySearchIngredient', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('calls prisma.$queryRaw with the search name', async () => {
+    mockQueryRaw.mockResolvedValue([])
+    await fuzzySearchIngredient('chicken breast')
+    expect(mockQueryRaw).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns results from the database', async () => {
+    const mockResults = [
+      {
+        id: 'ing-1',
+        name: 'chicken breast',
+        category: 'protein',
+        subcategory: null,
+        defaultUnit: 'g',
+        gramsPerPiece: null,
+        similarity: 0.9,
+      },
+    ]
+    mockQueryRaw.mockResolvedValue(mockResults)
+
+    const results = await fuzzySearchIngredient('chicken breast')
+    expect(results).toEqual(mockResults)
+  })
+})
+
+describe('matchIngredients', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  const makeExtracted = (overrides: Partial<ExtractedIngredient> = {}): ExtractedIngredient => ({
+    name: 'chicken breast',
+    quantity: 500,
+    unit: 'g',
+    originalText: '500g chicken breast',
+    isVague: false,
+    vaguePhrase: null,
+    isDried: null,
+    ...overrides,
+  })
+
+  const makeDbMatch = (overrides: Record<string, unknown> = {}) => ({
+    id: 'ing-1',
+    name: 'chicken breast',
+    category: 'protein' as const,
+    subcategory: null,
+    defaultUnit: 'g' as const,
+    gramsPerPiece: null,
+    similarity: 0.9,
+    ...overrides,
+  })
+
+  it('returns matched ingredient with high confidence', async () => {
+    mockQueryRaw.mockResolvedValue([makeDbMatch()])
+
+    const results = await matchIngredients([makeExtracted()], 4)
+
+    expect(results).toHaveLength(1)
+    expect(results[0]!.type).toBe('matched')
+    const matched = results[0] as {
+      type: 'matched'
+      ingredient: { name: string }
+      convertedQuantity: number
+      similarityScore: number
+      lowConfidence: boolean
+    }
+    expect(matched.ingredient.name).toBe('chicken breast')
+    expect(matched.convertedQuantity).toBe(500)
+    expect(matched.similarityScore).toBe(0.9)
+    expect(matched.lowConfidence).toBe(false)
+  })
+
+  it('returns unmatched ingredient when no DB results', async () => {
+    mockQueryRaw.mockResolvedValue([])
+
+    const results = await matchIngredients([makeExtracted({ name: 'mystery spice' })], 4)
+
+    expect(results).toHaveLength(1)
+    expect(results[0]!.type).toBe('unmatched')
+    expect(results[0]!.extractedName).toBe('mystery spice')
+  })
+
+  it('marks low confidence matches with alternatives', async () => {
+    const lowConfidenceMatches = [
+      makeDbMatch({ similarity: 0.5, name: 'chicken breast' }),
+      makeDbMatch({ id: 'ing-2', similarity: 0.48, name: 'chicken thigh' }),
+      makeDbMatch({ id: 'ing-3', similarity: 0.46, name: 'chicken wing' }),
+    ]
+    mockQueryRaw.mockResolvedValue(lowConfidenceMatches)
+
+    const results = await matchIngredients([makeExtracted()], 4)
+
+    expect(results).toHaveLength(1)
+    const matched = results[0] as {
+      type: 'matched'
+      lowConfidence: boolean
+      alternatives: unknown[]
+    }
+    expect(matched.type).toBe('matched')
+    expect(matched.lowConfidence).toBe(true)
+    expect(matched.alternatives).toHaveLength(3)
+  })
+
+  it('handles vague quantities with known phrase', async () => {
+    mockQueryRaw.mockResolvedValue([
+      makeDbMatch({ category: 'spice', subcategory: 'mineral', name: 'salt' }),
+    ])
+
+    const results = await matchIngredients(
+      [
+        makeExtracted({
+          name: 'salt',
+          quantity: null,
+          unit: null,
+          isVague: true,
+          vaguePhrase: 'to taste',
+          originalText: 'salt to taste',
+        }),
+      ],
+      4,
+    )
+
+    expect(results).toHaveLength(1)
+    const matched = results[0] as {
+      type: 'matched'
+      isVague: boolean
+      originalPhrase: string
+      convertedQuantity: number
+    }
+    expect(matched.type).toBe('matched')
+    expect(matched.isVague).toBe(true)
+    expect(matched.originalPhrase).toBe('to taste')
+    // Vague quantity should be > 0 (per-serving * servings)
+    expect(matched.convertedQuantity).toBeGreaterThan(0)
+  })
+
+  it('falls back to 10g per serving for vague with no rule match', async () => {
+    mockQueryRaw.mockResolvedValue([makeDbMatch()])
+
+    const results = await matchIngredients(
+      [
+        makeExtracted({
+          name: 'chicken',
+          quantity: null,
+          unit: null,
+          isVague: true,
+          vaguePhrase: 'unrecognized phrase',
+          originalText: 'chicken, unrecognized phrase',
+        }),
+      ],
+      4,
+    )
+
+    const matched = results[0] as { type: 'matched'; convertedQuantity: number }
+    expect(matched.type).toBe('matched')
+    // Fallback: 10g * 4 servings = 40
+    expect(matched.convertedQuantity).toBe(40)
+  })
+
+  it('handles null quantity and unit as vague fallback', async () => {
+    mockQueryRaw.mockResolvedValue([makeDbMatch()])
+
+    const results = await matchIngredients(
+      [
+        makeExtracted({
+          quantity: null,
+          unit: null,
+          isVague: false,
+          vaguePhrase: null,
+        }),
+      ],
+      4,
+    )
+
+    const matched = results[0] as {
+      type: 'matched'
+      isVague: boolean
+      originalPhrase: string
+      convertedQuantity: number
+    }
+    expect(matched.type).toBe('matched')
+    // Falls into the else branch: 10 * servings
+    expect(matched.isVague).toBe(true)
+    expect(matched.originalPhrase).toBe('some')
+    expect(matched.convertedQuantity).toBe(40)
+  })
+
+  it('adds quantity warning for unreasonable quantities', async () => {
+    mockQueryRaw.mockResolvedValue([makeDbMatch()])
+
+    const results = await matchIngredients([makeExtracted({ quantity: 10000, unit: 'g' })], 4)
+
+    const matched = results[0] as { type: 'matched'; quantityWarning: string }
+    expect(matched.type).toBe('matched')
+    expect(matched.quantityWarning).toContain('Unusually high')
+  })
+
+  it('performs unit conversion during matching', async () => {
+    mockQueryRaw.mockResolvedValue([makeDbMatch({ defaultUnit: 'g' })])
+
+    const results = await matchIngredients([makeExtracted({ quantity: 2, unit: 'tbsp' })], 4)
+
+    const matched = results[0] as { type: 'matched'; convertedQuantity: number }
+    expect(matched.type).toBe('matched')
+    // 2 tbsp = 30g
+    expect(matched.convertedQuantity).toBe(30)
+  })
+
+  it('tries alias expansion for better matches', async () => {
+    // First call (direct search for "pepper") returns low similarity
+    // Second call (alias search for "black pepper") returns higher
+    mockQueryRaw
+      .mockResolvedValueOnce([makeDbMatch({ similarity: 0.4, name: 'red bell pepper' })])
+      .mockResolvedValueOnce([makeDbMatch({ similarity: 0.95, name: 'black pepper' })])
+
+    const results = await matchIngredients(
+      [makeExtracted({ name: 'pepper', quantity: 5, unit: 'g' })],
+      4,
+    )
+
+    const matched = results[0] as {
+      type: 'matched'
+      ingredient: { name: string }
+      similarityScore: number
+    }
+    expect(matched.type).toBe('matched')
+    // Should use the alias match (black pepper) because it has higher similarity
+    expect(matched.ingredient.name).toBe('black pepper')
+    expect(matched.similarityScore).toBe(0.95)
+  })
+
+  it('keeps direct match when alias does not improve', async () => {
+    // Direct search returns good match
+    // Alias search returns worse match
+    mockQueryRaw
+      .mockResolvedValueOnce([makeDbMatch({ similarity: 0.9, name: 'olive oil' })])
+      .mockResolvedValueOnce([makeDbMatch({ similarity: 0.5, name: 'vegetable oil' })])
+
+    const results = await matchIngredients(
+      [makeExtracted({ name: 'oil', quantity: 15, unit: 'ml' })],
+      4,
+    )
+
+    const matched = results[0] as { type: 'matched'; ingredient: { name: string } }
+    expect(matched.type).toBe('matched')
+    expect(matched.ingredient.name).toBe('olive oil')
+  })
+
+  it('processes multiple ingredients', async () => {
+    mockQueryRaw
+      .mockResolvedValueOnce([makeDbMatch({ name: 'chicken breast' })])
+      .mockResolvedValueOnce([]) // no match for second ingredient
+
+    const results = await matchIngredients(
+      [
+        makeExtracted({ name: 'chicken breast' }),
+        makeExtracted({
+          name: 'zxywvut spice',
+          quantity: 10,
+          unit: 'g',
+          originalText: '10g zxywvut spice',
+        }),
+      ],
+      4,
+    )
+
+    expect(results).toHaveLength(2)
+    expect(results[0]!.type).toBe('matched')
+    expect(results[1]!.type).toBe('unmatched')
+  })
+
+  it('adds guardrail warning for category-specific thresholds', async () => {
+    // Spice with 5g per serving (threshold is 2g for spice)
+    mockQueryRaw.mockResolvedValue([
+      makeDbMatch({ category: 'spice', subcategory: 'spice', name: 'paprika', defaultUnit: 'g' }),
+    ])
+
+    const results = await matchIngredients(
+      [makeExtracted({ name: 'paprika', quantity: 20, unit: 'g', originalText: '20g paprika' })],
+      4,
+    )
+
+    const matched = results[0] as { type: 'matched'; quantityWarning: string }
+    expect(matched.type).toBe('matched')
+    // 20g / 4 servings = 5g per serving, exceeds 2g spice threshold
+    expect(matched.quantityWarning).toContain('Unusually high')
+  })
+})
+
+describe('parseAndMatchRecipe', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('parses text and matches ingredients end-to-end', async () => {
+    const mockExtraction = {
+      name: 'Simple Pasta',
+      description: 'Easy weeknight pasta',
+      timeMinutes: 20,
+      servings: 4,
+      mealTypes: ['dinner'],
+      kidFriendly: true,
+      ingredients: [
+        {
+          name: 'spaghetti',
+          quantity: 400,
+          unit: 'g',
+          originalText: '400g spaghetti',
+          isVague: false,
+          vaguePhrase: null,
+          isDried: null,
+        },
+        {
+          name: 'olive oil',
+          quantity: 2,
+          unit: 'tbsp',
+          originalText: '2 tbsp olive oil',
+          isVague: false,
+          vaguePhrase: null,
+          isDried: null,
+        },
+      ],
+    }
+
+    mockGenerateObject.mockResolvedValue({ object: mockExtraction } as never)
+    mockQueryRaw
+      .mockResolvedValueOnce([
+        {
+          id: 'ing-1',
+          name: 'spaghetti',
+          category: 'carb',
+          subcategory: null,
+          defaultUnit: 'g',
+          gramsPerPiece: null,
+          similarity: 0.95,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 'ing-2',
+          name: 'olive oil',
+          category: 'fat',
+          subcategory: 'oil',
+          defaultUnit: 'g',
+          gramsPerPiece: null,
+          similarity: 0.98,
+        },
+      ])
+
+    const result = await parseAndMatchRecipe(
+      'Simple pasta recipe: 400g spaghetti, 2 tbsp olive oil',
+    )
+
+    expect(result.name).toBe('Simple Pasta')
+    expect(result.description).toBe('Easy weeknight pasta')
+    expect(result.timeMinutes).toBe(20)
+    expect(result.servings).toBe(4)
+    expect(result.mealTypes).toEqual(['dinner'])
+    expect(result.kidFriendly).toBe(true)
+    expect(result.ingredients).toHaveLength(2)
+    expect(result.allMatched).toBe(true)
+  })
+
+  it('sets allMatched to false when some ingredients are unmatched', async () => {
+    const mockExtraction = {
+      name: 'Mystery Dish',
+      description: null,
+      timeMinutes: null,
+      servings: 2,
+      mealTypes: ['dinner'],
+      kidFriendly: false,
+      ingredients: [
+        {
+          name: 'chicken breast',
+          quantity: 300,
+          unit: 'g',
+          originalText: '300g chicken breast',
+          isVague: false,
+          vaguePhrase: null,
+          isDried: null,
+        },
+        {
+          name: 'zarkleberry',
+          quantity: 50,
+          unit: 'g',
+          originalText: '50g zarkleberry',
+          isVague: false,
+          vaguePhrase: null,
+          isDried: null,
+        },
+      ],
+    }
+
+    mockGenerateObject.mockResolvedValue({ object: mockExtraction } as never)
+    mockQueryRaw
+      .mockResolvedValueOnce([
+        {
+          id: 'ing-1',
+          name: 'chicken breast',
+          category: 'protein',
+          subcategory: null,
+          defaultUnit: 'g',
+          gramsPerPiece: null,
+          similarity: 0.95,
+        },
+      ])
+      .mockResolvedValueOnce([]) // zarkleberry not found
+
+    const result = await parseAndMatchRecipe('Mystery dish: 300g chicken breast, 50g zarkleberry')
+
+    expect(result.allMatched).toBe(false)
+    expect(result.ingredients[0]!.type).toBe('matched')
+    expect(result.ingredients[1]!.type).toBe('unmatched')
+  })
+})
+
+describe('exported constants', () => {
+  it('has valid LOW_CONFIDENCE_THRESHOLD', () => {
+    expect(LOW_CONFIDENCE_THRESHOLD).toBeGreaterThan(0)
+    expect(LOW_CONFIDENCE_THRESHOLD).toBeLessThan(1)
+  })
+
+  it('has valid SIMILARITY_THRESHOLD', () => {
+    expect(SIMILARITY_THRESHOLD).toBeGreaterThan(0)
+    expect(SIMILARITY_THRESHOLD).toBeLessThan(1)
+    expect(SIMILARITY_THRESHOLD).toBeLessThan(LOW_CONFIDENCE_THRESHOLD)
+  })
+
+  it('has valid MAX_GRAMS_PER_SERVING', () => {
+    expect(MAX_GRAMS_PER_SERVING).toBeGreaterThan(0)
+  })
+
+  it('has valid DEFAULT_GRAMS_PER_PIECE', () => {
+    expect(DEFAULT_GRAMS_PER_PIECE).toBeGreaterThan(0)
+  })
+
+  it('has CUP_CONVERSIONS for all expected categories', () => {
+    expect(CUP_CONVERSIONS.spice).toBeDefined()
+    expect(CUP_CONVERSIONS.dairy).toBeDefined()
+    expect(CUP_CONVERSIONS.protein).toBeDefined()
+    expect(CUP_CONVERSIONS.default).toBeDefined()
+  })
+
+  it('exports RecipeExtractionSchema as a Zod schema', () => {
+    expect(RecipeExtractionSchema).toBeDefined()
+    expect(RecipeExtractionSchema.parse).toBeDefined()
+  })
+})

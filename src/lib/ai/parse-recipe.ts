@@ -94,7 +94,7 @@ export class RecipeParseError extends Error {
 /**
  * Build the prompt for recipe extraction.
  */
-function buildRecipeExtractionPrompt(recipeText: string): string {
+export function buildRecipeExtractionPrompt(recipeText: string): string {
   const vaguePhrasesList = VAGUE_PHRASES.join(', ')
 
   return `You are a recipe parsing assistant. Extract structured data from the following recipe text.
@@ -252,7 +252,7 @@ export async function parseRecipeText(recipeText: string): Promise<RecipeExtract
  * Minimum similarity score for a match to be considered "confident".
  * Below this threshold, we show disambiguation UI to the user.
  */
-const LOW_CONFIDENCE_THRESHOLD = 0.6
+export const LOW_CONFIDENCE_THRESHOLD = 0.6
 
 /**
  * Result of matching an ingredient against the database.
@@ -325,26 +325,26 @@ export interface ParsedRecipe {
  * Minimum similarity score for fuzzy ingredient matching.
  * Raised from 0.3 to 0.45 to prevent false positives like "baking powder" → "curry powder".
  */
-const SIMILARITY_THRESHOLD = 0.45
+export const SIMILARITY_THRESHOLD = 0.45
 
 /**
  * Maximum reasonable quantity per serving for any ingredient (in grams).
  * Anything above this is likely a parsing error.
  */
-const MAX_GRAMS_PER_SERVING = 500
+export const MAX_GRAMS_PER_SERVING = 500
 
 /**
  * Default grams per piece when not specified in the database.
  * Using 30g as a reasonable middle-ground (e.g., small tomato, egg, etc.)
  * Much better than 100g which caused absurd quantities for small items like garlic.
  */
-const DEFAULT_GRAMS_PER_PIECE = 30
+export const DEFAULT_GRAMS_PER_PIECE = 30
 
 /**
  * Category-specific cup-to-gram conversions.
  * Different ingredient types have vastly different densities.
  */
-const CUP_CONVERSIONS: Record<IngredientCategory | 'default', number> = {
+export const CUP_CONVERSIONS: Record<IngredientCategory | 'default', number> = {
   spice: 30, // Herbs and spices are very light (1 cup basil ≈ 20-30g)
   dairy: 240, // Liquids like milk (1 cup ≈ 240g)
   carb: 180, // Rice, oats, pasta, etc. (1 cup ≈ 150-200g)
@@ -360,7 +360,7 @@ const CUP_CONVERSIONS: Record<IngredientCategory | 'default', number> = {
 /**
  * Convert an extracted quantity and unit to the ingredient's default unit.
  */
-function convertQuantity(
+export function convertQuantity(
   quantity: number,
   fromUnit: string,
   ingredient: { defaultUnit: Unit; gramsPerPiece: number | null; category?: IngredientCategory },
@@ -429,7 +429,7 @@ function convertQuantity(
  * Validate that a quantity is reasonable for a recipe.
  * Returns true if the quantity seems reasonable, false if it's suspiciously high.
  */
-function isReasonableQuantity(totalGrams: number, servings: number): boolean {
+export function isReasonableQuantity(totalGrams: number, servings: number): boolean {
   const gramsPerServing = totalGrams / servings
   return gramsPerServing <= MAX_GRAMS_PER_SERVING
 }
@@ -438,7 +438,7 @@ function isReasonableQuantity(totalGrams: number, servings: number): boolean {
  * Perform fuzzy search for an ingredient name using pg_trgm.
  * Returns top 4 matches above the similarity threshold.
  */
-async function fuzzySearchIngredient(searchName: string) {
+export async function fuzzySearchIngredient(searchName: string) {
   return prisma.$queryRaw<
     Array<{
       id: string
