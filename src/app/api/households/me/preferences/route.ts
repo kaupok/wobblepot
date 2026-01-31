@@ -34,13 +34,18 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const membership = await getHouseholdMembership(session.user.id)
+  try {
+    const membership = await getHouseholdMembership(session.user.id)
 
-  if (!membership) {
-    return NextResponse.json({ error: 'No household found' }, { status: 404 })
+    if (!membership) {
+      return NextResponse.json({ error: 'No household found' }, { status: 404 })
+    }
+
+    return NextResponse.json(membership.household.preferences)
+  } catch (error) {
+    console.error('Failed to fetch household preferences:', error)
+    return NextResponse.json({ error: 'Failed to fetch household preferences' }, { status: 500 })
   }
-
-  return NextResponse.json(membership.household.preferences)
 }
 
 export async function PATCH(request: Request) {

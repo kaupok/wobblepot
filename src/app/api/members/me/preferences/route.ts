@@ -37,24 +37,29 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const membership = await getHouseholdMembership(session.user.id)
+  try {
+    const membership = await getHouseholdMembership(session.user.id)
 
-  if (!membership) {
-    return NextResponse.json({ error: 'No household found' }, { status: 404 })
-  }
+    if (!membership) {
+      return NextResponse.json({ error: 'No household found' }, { status: 404 })
+    }
 
-  // Get or create member preferences
-  let preferences = await prisma.memberPreferences.findUnique({
-    where: { memberId: membership.id },
-  })
-
-  if (!preferences) {
-    preferences = await prisma.memberPreferences.create({
-      data: { memberId: membership.id },
+    // Get or create member preferences
+    let preferences = await prisma.memberPreferences.findUnique({
+      where: { memberId: membership.id },
     })
-  }
 
-  return NextResponse.json(preferences)
+    if (!preferences) {
+      preferences = await prisma.memberPreferences.create({
+        data: { memberId: membership.id },
+      })
+    }
+
+    return NextResponse.json(preferences)
+  } catch (error) {
+    console.error('Failed to fetch member preferences:', error)
+    return NextResponse.json({ error: 'Failed to fetch member preferences' }, { status: 500 })
+  }
 }
 
 export async function PATCH(request: Request) {

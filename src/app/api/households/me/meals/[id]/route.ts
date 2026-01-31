@@ -38,106 +38,111 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const membership = await getHouseholdMembership(session.user.id)
+  try {
+    const membership = await getHouseholdMembership(session.user.id)
 
-  if (!membership) {
-    return NextResponse.json({ error: 'No household found' }, { status: 404 })
-  }
+    if (!membership) {
+      return NextResponse.json({ error: 'No household found' }, { status: 404 })
+    }
 
-  const meal = await prisma.meal.findFirst({
-    where: {
-      id,
-      householdId: membership.household.id,
-    },
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      timeMinutes: true,
-      kidFriendly: true,
-      primaryProteinType: true,
-      suitableFor: true,
-      deletedAt: true,
-      createdAt: true,
-      updatedAt: true,
-      components: {
-        select: {
-          ingredientId: true,
-          quantityPerServing: true,
-          ingredient: {
-            select: {
-              id: true,
-              name: true,
-              category: true,
-              defaultUnit: true,
-              gramsPerPiece: true,
-              calories: true,
-              protein: true,
-              carbs: true,
-              fat: true,
-              allergens: true,
+    const meal = await prisma.meal.findFirst({
+      where: {
+        id,
+        householdId: membership.household.id,
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        timeMinutes: true,
+        kidFriendly: true,
+        primaryProteinType: true,
+        suitableFor: true,
+        deletedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        components: {
+          select: {
+            ingredientId: true,
+            quantityPerServing: true,
+            ingredient: {
+              select: {
+                id: true,
+                name: true,
+                category: true,
+                defaultUnit: true,
+                gramsPerPiece: true,
+                calories: true,
+                protein: true,
+                carbs: true,
+                fat: true,
+                allergens: true,
+              },
             },
           },
         },
+        favoritedBy: {
+          where: { householdId: membership.household.id },
+          select: { id: true },
+        },
       },
-      favoritedBy: {
-        where: { householdId: membership.household.id },
-        select: { id: true },
-      },
-    },
-  })
+    })
 
-  if (!meal) {
-    return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
+    if (!meal) {
+      return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
+    }
+
+    const nutrition = meal.components.reduce(
+      (acc, comp) => {
+        const factor = comp.quantityPerServing / 100
+        return {
+          calories: acc.calories + comp.ingredient.calories * factor,
+          protein: acc.protein + comp.ingredient.protein * factor,
+          carbs: acc.carbs + comp.ingredient.carbs * factor,
+          fat: acc.fat + comp.ingredient.fat * factor,
+        }
+      },
+      { calories: 0, protein: 0, carbs: 0, fat: 0 },
+    )
+
+    const allergens = [...new Set(meal.components.flatMap((comp) => comp.ingredient.allergens))]
+
+    return NextResponse.json({
+      id: meal.id,
+      name: meal.name,
+      description: meal.description,
+      timeMinutes: meal.timeMinutes,
+      kidFriendly: meal.kidFriendly,
+      primaryProteinType: meal.primaryProteinType,
+      suitableFor: meal.suitableFor,
+      isCustom: true,
+      isFavorite: meal.favoritedBy.length > 0,
+      deletedAt: meal.deletedAt,
+      createdAt: meal.createdAt,
+      updatedAt: meal.updatedAt,
+      components: meal.components.map((comp) => ({
+        ingredientId: comp.ingredientId,
+        quantityPerServing: comp.quantityPerServing,
+        ingredient: {
+          id: comp.ingredient.id,
+          name: comp.ingredient.name,
+          category: comp.ingredient.category,
+          defaultUnit: comp.ingredient.defaultUnit,
+          gramsPerPiece: comp.ingredient.gramsPerPiece,
+        },
+      })),
+      nutrition: {
+        calories: Math.round(nutrition.calories),
+        protein: Math.round(nutrition.protein),
+        carbs: Math.round(nutrition.carbs),
+        fat: Math.round(nutrition.fat),
+      },
+      allergens,
+    })
+  } catch (error) {
+    console.error('Failed to fetch meal:', error)
+    return NextResponse.json({ error: 'Failed to fetch meal' }, { status: 500 })
   }
-
-  const nutrition = meal.components.reduce(
-    (acc, comp) => {
-      const factor = comp.quantityPerServing / 100
-      return {
-        calories: acc.calories + comp.ingredient.calories * factor,
-        protein: acc.protein + comp.ingredient.protein * factor,
-        carbs: acc.carbs + comp.ingredient.carbs * factor,
-        fat: acc.fat + comp.ingredient.fat * factor,
-      }
-    },
-    { calories: 0, protein: 0, carbs: 0, fat: 0 },
-  )
-
-  const allergens = [...new Set(meal.components.flatMap((comp) => comp.ingredient.allergens))]
-
-  return NextResponse.json({
-    id: meal.id,
-    name: meal.name,
-    description: meal.description,
-    timeMinutes: meal.timeMinutes,
-    kidFriendly: meal.kidFriendly,
-    primaryProteinType: meal.primaryProteinType,
-    suitableFor: meal.suitableFor,
-    isCustom: true,
-    isFavorite: meal.favoritedBy.length > 0,
-    deletedAt: meal.deletedAt,
-    createdAt: meal.createdAt,
-    updatedAt: meal.updatedAt,
-    components: meal.components.map((comp) => ({
-      ingredientId: comp.ingredientId,
-      quantityPerServing: comp.quantityPerServing,
-      ingredient: {
-        id: comp.ingredient.id,
-        name: comp.ingredient.name,
-        category: comp.ingredient.category,
-        defaultUnit: comp.ingredient.defaultUnit,
-        gramsPerPiece: comp.ingredient.gramsPerPiece,
-      },
-    })),
-    nutrition: {
-      calories: Math.round(nutrition.calories),
-      protein: Math.round(nutrition.protein),
-      carbs: Math.round(nutrition.carbs),
-      fat: Math.round(nutrition.fat),
-    },
-    allergens,
-  })
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {

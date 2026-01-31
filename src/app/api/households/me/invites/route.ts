@@ -118,47 +118,52 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const membership = await getHouseholdMembership(session.user.id)
+  try {
+    const membership = await getHouseholdMembership(session.user.id)
 
-  if (!membership) {
-    return NextResponse.json({ error: 'No household found' }, { status: 404 })
-  }
+    if (!membership) {
+      return NextResponse.json({ error: 'No household found' }, { status: 404 })
+    }
 
-  if (membership.role !== 'owner') {
-    return NextResponse.json({ error: 'Only household owners can view invites' }, { status: 403 })
-  }
+    if (membership.role !== 'owner') {
+      return NextResponse.json({ error: 'Only household owners can view invites' }, { status: 403 })
+    }
 
-  const invites = await prisma.householdInvite.findMany({
-    where: { householdId: membership.householdId },
-    include: {
-      member: {
-        select: { id: true, name: true },
+    const invites = await prisma.householdInvite.findMany({
+      where: { householdId: membership.householdId },
+      include: {
+        member: {
+          select: { id: true, name: true },
+        },
       },
-    },
-    orderBy: { createdAt: 'desc' },
-  })
+      orderBy: { createdAt: 'desc' },
+    })
 
-  const baseUrl = getServerBaseURL()
-  const now = new Date()
+    const baseUrl = getServerBaseURL()
+    const now = new Date()
 
-  return NextResponse.json({
-    invites: invites.map((invite) => {
-      const isExpired = invite.expiresAt < now
-      // null maxUses means unlimited uses
-      const isMaxedOut = invite.maxUses !== null && invite.usesCount >= invite.maxUses
+    return NextResponse.json({
+      invites: invites.map((invite) => {
+        const isExpired = invite.expiresAt < now
+        // null maxUses means unlimited uses
+        const isMaxedOut = invite.maxUses !== null && invite.usesCount >= invite.maxUses
 
-      return {
-        id: invite.id,
-        code: invite.code,
-        url: `${baseUrl}/invite/${invite.code}`,
-        memberId: invite.memberId,
-        memberName: invite.member?.name ?? null,
-        expiresAt: invite.expiresAt.toISOString(),
-        maxUses: invite.maxUses,
-        usesCount: invite.usesCount,
-        isActive: !isExpired && !isMaxedOut,
-        createdAt: invite.createdAt.toISOString(),
-      }
-    }),
-  })
+        return {
+          id: invite.id,
+          code: invite.code,
+          url: `${baseUrl}/invite/${invite.code}`,
+          memberId: invite.memberId,
+          memberName: invite.member?.name ?? null,
+          expiresAt: invite.expiresAt.toISOString(),
+          maxUses: invite.maxUses,
+          usesCount: invite.usesCount,
+          isActive: !isExpired && !isMaxedOut,
+          createdAt: invite.createdAt.toISOString(),
+        }
+      }),
+    })
+  } catch (error) {
+    console.error('Failed to fetch invites:', error)
+    return NextResponse.json({ error: 'Failed to fetch invites' }, { status: 500 })
+  }
 }
