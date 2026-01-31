@@ -54,54 +54,59 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const householdMembership = await getHouseholdMembership(session.user.id)
+  try {
+    const householdMembership = await getHouseholdMembership(session.user.id)
 
-  if (!householdMembership) {
-    return NextResponse.json({ error: 'No household found' }, { status: 404 })
-  }
+    if (!householdMembership) {
+      return NextResponse.json({ error: 'No household found' }, { status: 404 })
+    }
 
-  const member = await prisma.householdMember.findUnique({
-    where: { id: memberId },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          image: true,
+    const member = await prisma.householdMember.findUnique({
+      where: { id: memberId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
         },
+        preferences: true,
       },
-      preferences: true,
-    },
-  })
+    })
 
-  if (!member || member.householdId !== householdMembership.householdId) {
-    return NextResponse.json({ error: 'Member not found' }, { status: 404 })
+    if (!member || member.householdId !== householdMembership.householdId) {
+      return NextResponse.json({ error: 'Member not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({
+      id: member.id,
+      userId: member.userId,
+      name: member.name,
+      role: member.role,
+      joinedAt: member.joinedAt,
+      user: member.user,
+      preferences: member.preferences
+        ? {
+            displayName: member.preferences.displayName,
+            portionMultiplier: member.preferences.portionMultiplier,
+            targetCalories: member.preferences.targetCalories,
+            targetProtein: member.preferences.targetProtein,
+            targetCarbs: member.preferences.targetCarbs,
+            targetFat: member.preferences.targetFat,
+            dietaryType: member.preferences.dietaryType,
+            allergens: member.preferences.allergens,
+            restrictions: member.preferences.restrictions,
+            excludedIngredients: member.preferences.excludedIngredients,
+            excludedIngredientIds: member.preferences.excludedIngredientIds,
+          }
+        : null,
+    })
+  } catch (error) {
+    console.error('Failed to fetch member:', error)
+    return NextResponse.json({ error: 'Failed to fetch member' }, { status: 500 })
   }
-
-  return NextResponse.json({
-    id: member.id,
-    userId: member.userId,
-    name: member.name,
-    role: member.role,
-    joinedAt: member.joinedAt,
-    user: member.user,
-    preferences: member.preferences
-      ? {
-          displayName: member.preferences.displayName,
-          portionMultiplier: member.preferences.portionMultiplier,
-          targetCalories: member.preferences.targetCalories,
-          targetProtein: member.preferences.targetProtein,
-          targetCarbs: member.preferences.targetCarbs,
-          targetFat: member.preferences.targetFat,
-          dietaryType: member.preferences.dietaryType,
-          allergens: member.preferences.allergens,
-          restrictions: member.preferences.restrictions,
-          excludedIngredients: member.preferences.excludedIngredients,
-          excludedIngredientIds: member.preferences.excludedIngredientIds,
-        }
-      : null,
-  })
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {

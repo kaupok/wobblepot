@@ -48,73 +48,78 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const householdMembership = await getHouseholdMembership(session.user.id)
+  try {
+    const householdMembership = await getHouseholdMembership(session.user.id)
 
-  if (!householdMembership) {
-    return NextResponse.json({ error: 'No household found' }, { status: 404 })
-  }
+    if (!householdMembership) {
+      return NextResponse.json({ error: 'No household found' }, { status: 404 })
+    }
 
-  const members = await prisma.householdMember.findMany({
-    where: { householdId: householdMembership.householdId },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          image: true,
+    const members = await prisma.householdMember.findMany({
+      where: { householdId: householdMembership.householdId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
         },
+        preferences: true,
+        invite: true,
       },
-      preferences: true,
-      invite: true,
-    },
-    orderBy: { joinedAt: 'asc' },
-  })
+      orderBy: { joinedAt: 'asc' },
+    })
 
-  const baseUrl = getServerBaseURL()
-  const now = new Date()
+    const baseUrl = getServerBaseURL()
+    const now = new Date()
 
-  return NextResponse.json({
-    householdId: householdMembership.householdId,
-    members: members.map((member) => {
-      // Compute invite status
-      let invite = null
-      if (member.invite) {
-        const isExpired = member.invite.expiresAt < now
-        const isMaxedOut =
-          member.invite.maxUses !== null && member.invite.usesCount >= member.invite.maxUses
-        invite = {
-          url: `${baseUrl}/invite/${member.invite.code}`,
-          expiresAt: member.invite.expiresAt.toISOString(),
-          isActive: !isExpired && !isMaxedOut,
+    return NextResponse.json({
+      householdId: householdMembership.householdId,
+      members: members.map((member) => {
+        // Compute invite status
+        let invite = null
+        if (member.invite) {
+          const isExpired = member.invite.expiresAt < now
+          const isMaxedOut =
+            member.invite.maxUses !== null && member.invite.usesCount >= member.invite.maxUses
+          invite = {
+            url: `${baseUrl}/invite/${member.invite.code}`,
+            expiresAt: member.invite.expiresAt.toISOString(),
+            isActive: !isExpired && !isMaxedOut,
+          }
         }
-      }
 
-      return {
-        id: member.id,
-        userId: member.userId,
-        name: member.name,
-        role: member.role,
-        joinedAt: member.joinedAt,
-        user: member.user,
-        preferences: member.preferences
-          ? {
-              displayName: member.preferences.displayName,
-              portionMultiplier: member.preferences.portionMultiplier,
-              targetCalories: member.preferences.targetCalories,
-              targetProtein: member.preferences.targetProtein,
-              targetCarbs: member.preferences.targetCarbs,
-              targetFat: member.preferences.targetFat,
-              dietaryType: member.preferences.dietaryType,
-              allergens: member.preferences.allergens,
-              restrictions: member.preferences.restrictions,
-              excludedIngredients: member.preferences.excludedIngredients,
-            }
-          : null,
-        invite,
-      }
-    }),
-  })
+        return {
+          id: member.id,
+          userId: member.userId,
+          name: member.name,
+          role: member.role,
+          joinedAt: member.joinedAt,
+          user: member.user,
+          preferences: member.preferences
+            ? {
+                displayName: member.preferences.displayName,
+                portionMultiplier: member.preferences.portionMultiplier,
+                targetCalories: member.preferences.targetCalories,
+                targetProtein: member.preferences.targetProtein,
+                targetCarbs: member.preferences.targetCarbs,
+                targetFat: member.preferences.targetFat,
+                dietaryType: member.preferences.dietaryType,
+                allergens: member.preferences.allergens,
+                restrictions: member.preferences.restrictions,
+                excludedIngredients: member.preferences.excludedIngredients,
+              }
+            : null,
+          invite,
+        }
+      }),
+    })
+  } catch (error) {
+    console.error('Failed to fetch members:', error)
+    return NextResponse.json({ error: 'Failed to fetch members' }, { status: 500 })
+  }
 }
 
 export async function POST(request: Request) {

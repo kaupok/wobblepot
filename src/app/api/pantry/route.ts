@@ -65,140 +65,145 @@ export async function GET(request: NextRequest) {
 
   const { household } = membership
 
-  // Parse optional days param for needed quantity calculation
-  const daysParam = request.nextUrl.searchParams.get('days')
-  const days = daysParam === '7' || daysParam === '14' ? parseInt(daysParam, 10) : null
+  try {
+    // Parse optional days param for needed quantity calculation
+    const daysParam = request.nextUrl.searchParams.get('days')
+    const days = daysParam === '7' || daysParam === '14' ? parseInt(daysParam, 10) : null
 
-  const pantryItems = await prisma.pantryItem.findMany({
-    where: { householdId: household.id },
-    include: {
-      ingredient: {
-        select: {
-          id: true,
-          name: true,
-          category: true,
-          defaultUnit: true,
-          gramsPerPiece: true,
-        },
-      },
-    },
-    orderBy: [{ isStaple: 'desc' }, { ingredient: { name: 'asc' } }],
-  })
-
-  // If days param is provided, compute needed quantities from meal plans
-  // Track quantity and vague status per ingredient
-  interface NeededInfo {
-    quantity: number
-    isVague: boolean
-    originalPhrase: string | null
-  }
-  const neededQuantities: Map<string, NeededInfo> = new Map()
-
-  if (days) {
-    const startOfToday = getStartOfTodayInTimezone(household.timezone)
-    const endDate = new Date(startOfToday)
-    endDate.setDate(endDate.getDate() + days)
-
-    // Get all planned meal entries in the window
-    const planEntries = await prisma.mealPlanEntry.findMany({
-      where: {
-        plan: {
-          householdId: household.id,
-        },
-        status: 'planned',
-        date: {
-          gte: startOfToday,
-          lt: endDate,
-        },
-      },
+    const pantryItems = await prisma.pantryItem.findMany({
+      where: { householdId: household.id },
       include: {
-        meal: {
-          include: {
-            components: {
-              select: {
-                ingredientId: true,
-                quantityPerServing: true,
-                isVague: true,
-                originalPhrase: true,
+        ingredient: {
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            defaultUnit: true,
+            gramsPerPiece: true,
+          },
+        },
+      },
+      orderBy: [{ isStaple: 'desc' }, { ingredient: { name: 'asc' } }],
+    })
+
+    // If days param is provided, compute needed quantities from meal plans
+    // Track quantity and vague status per ingredient
+    interface NeededInfo {
+      quantity: number
+      isVague: boolean
+      originalPhrase: string | null
+    }
+    const neededQuantities: Map<string, NeededInfo> = new Map()
+
+    if (days) {
+      const startOfToday = getStartOfTodayInTimezone(household.timezone)
+      const endDate = new Date(startOfToday)
+      endDate.setDate(endDate.getDate() + days)
+
+      // Get all planned meal entries in the window
+      const planEntries = await prisma.mealPlanEntry.findMany({
+        where: {
+          plan: {
+            householdId: household.id,
+          },
+          status: 'planned',
+          date: {
+            gte: startOfToday,
+            lt: endDate,
+          },
+        },
+        include: {
+          meal: {
+            include: {
+              components: {
+                select: {
+                  ingredientId: true,
+                  quantityPerServing: true,
+                  isVague: true,
+                  originalPhrase: true,
+                },
               },
             },
           },
         },
-      },
-    })
+      })
 
-    // Get household size
-    const memberCount = await prisma.householdMember.count({
-      where: { householdId: household.id },
-    })
-    const householdSize = memberCount > 0 ? memberCount : 2
+      // Get household size
+      const memberCount = await prisma.householdMember.count({
+        where: { householdId: household.id },
+      })
+      const householdSize = memberCount > 0 ? memberCount : 2
 
-    // Aggregate quantities per ingredient, tracking vague status
-    for (const entry of planEntries) {
-      if (!entry.meal) continue
-      for (const component of entry.meal.components) {
-        const qty = component.quantityPerServing * householdSize
-        const existing = neededQuantities.get(component.ingredientId)
+      // Aggregate quantities per ingredient, tracking vague status
+      for (const entry of planEntries) {
+        if (!entry.meal) continue
+        for (const component of entry.meal.components) {
+          const qty = component.quantityPerServing * householdSize
+          const existing = neededQuantities.get(component.ingredientId)
 
-        if (existing) {
-          existing.quantity += qty
-          // If any component is vague, mark the whole item as vague
-          if (component.isVague) {
-            if (!existing.isVague) {
-              // First vague component encountered
-              existing.isVague = true
-              existing.originalPhrase = component.originalPhrase
-            } else if (
-              existing.originalPhrase !== 'some' &&
-              component.originalPhrase?.toLowerCase() !== existing.originalPhrase?.toLowerCase()
-            ) {
-              // Different vague phrase encountered - use "some" instead
-              existing.originalPhrase = 'some'
+          if (existing) {
+            existing.quantity += qty
+            // If any component is vague, mark the whole item as vague
+            if (component.isVague) {
+              if (!existing.isVague) {
+                // First vague component encountered
+                existing.isVague = true
+                existing.originalPhrase = component.originalPhrase
+              } else if (
+                existing.originalPhrase !== 'some' &&
+                component.originalPhrase?.toLowerCase() !== existing.originalPhrase?.toLowerCase()
+              ) {
+                // Different vague phrase encountered - use "some" instead
+                existing.originalPhrase = 'some'
+              }
             }
+          } else {
+            neededQuantities.set(component.ingredientId, {
+              quantity: qty,
+              isVague: component.isVague,
+              originalPhrase: component.originalPhrase,
+            })
           }
-        } else {
-          neededQuantities.set(component.ingredientId, {
-            quantity: qty,
-            isVague: component.isVague,
-            originalPhrase: component.originalPhrase,
-          })
         }
       }
     }
+
+    const items = pantryItems.map((item) => {
+      const neededInfo = neededQuantities.get(item.ingredientId)
+      return {
+        id: item.id,
+        ingredientId: item.ingredientId,
+        ingredient: {
+          id: item.ingredient.id,
+          name: item.ingredient.name,
+          category: item.ingredient.category,
+          defaultUnit: item.ingredient.defaultUnit,
+        },
+        quantity: item.quantity,
+        isStaple: item.isStaple,
+        updatedAt: item.updatedAt,
+        ...(days && neededInfo !== undefined && neededInfo.quantity > 0
+          ? {
+              neededQuantity: neededInfo.quantity,
+              neededDisplayQuantity: formatQuantity(
+                neededInfo.quantity,
+                item.ingredient.defaultUnit,
+                item.ingredient.gramsPerPiece,
+                neededInfo.isVague,
+                neededInfo.originalPhrase,
+              ),
+              windowDays: days,
+              isVague: neededInfo.isVague,
+            }
+          : {}),
+      }
+    })
+
+    return NextResponse.json({ items, windowDays: days })
+  } catch (error) {
+    console.error('Failed to fetch pantry items:', error)
+    return NextResponse.json({ error: 'Failed to fetch pantry items' }, { status: 500 })
   }
-
-  const items = pantryItems.map((item) => {
-    const neededInfo = neededQuantities.get(item.ingredientId)
-    return {
-      id: item.id,
-      ingredientId: item.ingredientId,
-      ingredient: {
-        id: item.ingredient.id,
-        name: item.ingredient.name,
-        category: item.ingredient.category,
-        defaultUnit: item.ingredient.defaultUnit,
-      },
-      quantity: item.quantity,
-      isStaple: item.isStaple,
-      updatedAt: item.updatedAt,
-      ...(days && neededInfo !== undefined && neededInfo.quantity > 0
-        ? {
-            neededQuantity: neededInfo.quantity,
-            neededDisplayQuantity: formatQuantity(
-              neededInfo.quantity,
-              item.ingredient.defaultUnit,
-              item.ingredient.gramsPerPiece,
-              neededInfo.isVague,
-              neededInfo.originalPhrase,
-            ),
-            windowDays: days,
-            isVague: neededInfo.isVague,
-          }
-        : {}),
-    }
-  })
-
-  return NextResponse.json({ items, windowDays: days })
 }
 
 export async function POST(request: Request) {
