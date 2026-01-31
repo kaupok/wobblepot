@@ -230,6 +230,8 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **Staging review:** `/chrome-review` — Interactive exploration of staging (`honkadori.xyz`) using Chrome. Discuss findings and create Linear issues collaboratively. Requires `claude --chrome` or `/chrome`.
 
+**Codebase audit:** `/tech-audit` — Scan for outdated deps, type issues, code quality, test coverage, security patterns, database health, bundle concerns, and pattern adherence. Use `--focus <area>` to audit a single area.
+
 **Cross-session context:** Plans are stored as Linear comments by `/plan-issue`, so `/implement-issue` and `/code-review` can fetch them in new sessions.
 
 ## Review Focus
