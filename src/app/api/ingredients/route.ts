@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { headers } from 'next/headers'
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
@@ -16,6 +18,14 @@ interface IngredientSearchResult {
 }
 
 export async function GET(request: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  })
+
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const searchParams = request.nextUrl.searchParams
   const search = searchParams.get('search')?.trim() || ''
   const category = searchParams.get('category') as IngredientCategory | null
