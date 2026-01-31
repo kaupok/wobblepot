@@ -109,7 +109,7 @@ Scan for:
 
 ```bash
 # Hardcoded secrets or API keys (common patterns)
-grep -rn 'apiKey\|api_key\|secret\|password\|token' src/ --include='*.ts' --include='*.tsx' -l || echo "No potential secrets found"
+grep -rn 'apiKey\s*=\s*["'"'"']\|api_key\s*=\s*["'"'"']\|secret\s*=\s*["'"'"']\|password\s*=\s*["'"'"']' src/ --include='*.ts' --include='*.tsx' || echo "No potential secrets found"
 
 # Raw SQL queries (should use Prisma)
 grep -rn '\$queryRaw\|\$executeRaw\|\.query(' src/ --include='*.ts' --include='*.tsx' || echo "No raw SQL found"
@@ -235,7 +235,7 @@ Record findings: pages missing loading.tsx (especially async ones), pages missin
 
 ```bash
 # Find source files over 300 lines
-find src/ -name '*.ts' -o -name '*.tsx' | grep -v node_modules | grep -v '.test.' | xargs wc -l | sort -rn | head -20
+find src/ \( -name '*.ts' -o -name '*.tsx' \) | grep -v node_modules | grep -v '.test.' | xargs wc -l | sort -rn | head -20
 ```
 
 For the top files, note:
