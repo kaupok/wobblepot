@@ -69,11 +69,17 @@ export default async function ShoppingPage({ searchParams }: ShoppingPageProps) 
   const baseURL = getServerBaseURL()
   const cookieHeader = requestHeaders.get('cookie') ?? ''
 
-  // Fetch pantry items with needed quantities for the window
-  const pantryResponse = await fetch(`${baseURL}/api/pantry?days=${days}`, {
-    headers: { cookie: cookieHeader },
-    cache: 'no-store',
-  })
+  // Fetch pantry items and shopping list concurrently (independent requests)
+  const [pantryResponse, shoppingResponse] = await Promise.all([
+    fetch(`${baseURL}/api/pantry?days=${days}`, {
+      headers: { cookie: cookieHeader },
+      cache: 'no-store',
+    }),
+    fetch(`${baseURL}/api/shopping-list?days=${days}`, {
+      headers: { cookie: cookieHeader },
+      cache: 'no-store',
+    }),
+  ])
 
   let formattedPantryItems: PantryItemData[] = []
   if (pantryResponse.ok) {
@@ -91,12 +97,6 @@ export default async function ShoppingPage({ searchParams }: ShoppingPageProps) 
       }),
     )
   }
-
-  // Fetch rolling window shopping list
-  const shoppingResponse = await fetch(`${baseURL}/api/shopping-list?days=${days}`, {
-    headers: { cookie: cookieHeader },
-    cache: 'no-store',
-  })
 
   if (!shoppingResponse.ok) {
     return (
