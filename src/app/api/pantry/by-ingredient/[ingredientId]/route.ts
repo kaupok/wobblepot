@@ -16,31 +16,36 @@ export async function DELETE(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const membership = await getHouseholdMembership(session.user.id)
+  try {
+    const membership = await getHouseholdMembership(session.user.id)
 
-  if (!membership) {
-    return NextResponse.json({ error: 'No household found' }, { status: 404 })
-  }
+    if (!membership) {
+      return NextResponse.json({ error: 'No household found' }, { status: 404 })
+    }
 
-  const { ingredientId } = await params
+    const { ingredientId } = await params
 
-  // Find and delete the pantry item by ingredientId for this household
-  const pantryItem = await prisma.pantryItem.findUnique({
-    where: {
-      householdId_ingredientId: {
-        householdId: membership.householdId,
-        ingredientId,
+    // Find and delete the pantry item by ingredientId for this household
+    const pantryItem = await prisma.pantryItem.findUnique({
+      where: {
+        householdId_ingredientId: {
+          householdId: membership.householdId,
+          ingredientId,
+        },
       },
-    },
-  })
+    })
 
-  if (!pantryItem) {
-    return NextResponse.json({ error: 'Pantry item not found' }, { status: 404 })
+    if (!pantryItem) {
+      return NextResponse.json({ error: 'Pantry item not found' }, { status: 404 })
+    }
+
+    await prisma.pantryItem.delete({
+      where: { id: pantryItem.id },
+    })
+
+    return new NextResponse(null, { status: 204 })
+  } catch (error) {
+    console.error('Failed to delete pantry item:', error)
+    return NextResponse.json({ error: 'Failed to delete pantry item' }, { status: 500 })
   }
-
-  await prisma.pantryItem.delete({
-    where: { id: pantryItem.id },
-  })
-
-  return new NextResponse(null, { status: 204 })
 }

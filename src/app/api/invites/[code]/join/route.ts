@@ -12,95 +12,100 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Check if user already has a household membership
-  const existingMembership = await prisma.householdMember.findFirst({
-    where: { userId: session.user.id },
-  })
+  try {
+    // Check if user already has a household membership
+    const existingMembership = await prisma.householdMember.findFirst({
+      where: { userId: session.user.id },
+    })
 
-  if (existingMembership) {
-    return NextResponse.json(
-      {
-        error: 'already_in_household',
-        message:
-          'You are already a member of a household. Leave your current household to join another.',
+    if (existingMembership) {
+      return NextResponse.json(
+        {
+          error: 'already_in_household',
+          message:
+            'You are already a member of a household. Leave your current household to join another.',
+        },
+        { status: 400 },
+      )
+    }
+
+    const { code } = await params
+
+    // Find invite by code
+    const invite = await prisma.householdInvite.findUnique({
+      where: { code },
+      include: {
+        household: {
+          select: { id: true, name: true },
+        },
+        member: {
+          select: { id: true, name: true },
+        },
       },
-      { status: 400 },
-    )
-  }
+    })
 
-  const { code } = await params
+    if (!invite) {
+      return NextResponse.json(
+        {
+          error: 'invite_not_found',
+          message: 'Invite code not found.',
+        },
+        { status: 404 },
+      )
+    }
 
-  // Find invite by code
-  const invite = await prisma.householdInvite.findUnique({
-    where: { code },
-    include: {
+    // Validate invite is still active
+    const now = new Date()
+    const isExpired = invite.expiresAt < now
+    const isMaxedOut = invite.maxUses !== null && invite.usesCount >= invite.maxUses
+
+    if (isExpired || isMaxedOut) {
+      return NextResponse.json(
+        {
+          error: 'invite_invalid',
+          message: 'This invite has expired or reached its maximum uses.',
+        },
+        { status: 400 },
+      )
+    }
+
+    // Member-specific invites must have a memberId
+    if (!invite.memberId || !invite.member) {
+      return NextResponse.json(
+        {
+          error: 'invite_invalid',
+          message: 'This invite is no longer valid.',
+        },
+        { status: 400 },
+      )
+    }
+
+    // Claim the existing member profile instead of creating a new one
+    await prisma.$transaction([
+      // Update the existing member to link to the user
+      prisma.householdMember.update({
+        where: { id: invite.memberId },
+        data: { userId: session.user.id },
+      }),
+      // Delete the invite after use
+      prisma.householdInvite.delete({
+        where: { id: invite.id },
+      }),
+    ])
+
+    return NextResponse.json({
+      success: true,
       household: {
-        select: { id: true, name: true },
+        id: invite.household.id,
+        name: invite.household.name,
       },
       member: {
-        select: { id: true, name: true },
+        id: invite.member.id,
+        name: invite.member.name,
       },
-    },
-  })
-
-  if (!invite) {
-    return NextResponse.json(
-      {
-        error: 'invite_not_found',
-        message: 'Invite code not found.',
-      },
-      { status: 404 },
-    )
+    })
+  } catch (error) {
+    console.error('Failed to join household via invite:', error)
+    return NextResponse.json({ error: 'Failed to join household' }, { status: 500 })
   }
-
-  // Validate invite is still active
-  const now = new Date()
-  const isExpired = invite.expiresAt < now
-  const isMaxedOut = invite.maxUses !== null && invite.usesCount >= invite.maxUses
-
-  if (isExpired || isMaxedOut) {
-    return NextResponse.json(
-      {
-        error: 'invite_invalid',
-        message: 'This invite has expired or reached its maximum uses.',
-      },
-      { status: 400 },
-    )
-  }
-
-  // Member-specific invites must have a memberId
-  if (!invite.memberId || !invite.member) {
-    return NextResponse.json(
-      {
-        error: 'invite_invalid',
-        message: 'This invite is no longer valid.',
-      },
-      { status: 400 },
-    )
-  }
-
-  // Claim the existing member profile instead of creating a new one
-  await prisma.$transaction([
-    // Update the existing member to link to the user
-    prisma.householdMember.update({
-      where: { id: invite.memberId },
-      data: { userId: session.user.id },
-    }),
-    // Delete the invite after use
-    prisma.householdInvite.delete({
-      where: { id: invite.id },
-    }),
-  ])
-
-  return NextResponse.json({
-    success: true,
-    household: {
-      id: invite.household.id,
-      name: invite.household.name,
-    },
-    member: {
-      id: invite.member.id,
-      name: invite.member.name,
-    },
-  })
 }
