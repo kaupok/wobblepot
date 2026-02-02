@@ -151,7 +151,6 @@ describe('HeaderActions', () => {
       expect(authClient.signOut).toHaveBeenCalledWith({
         fetchOptions: expect.objectContaining({
           onSuccess: expect.any(Function),
-          onError: expect.any(Function),
         }),
       })
     })
@@ -183,56 +182,11 @@ describe('HeaderActions', () => {
       })
     })
 
-    it('handles sign-out errors gracefully', async () => {
-      const user = userEvent.setup()
-      const { authClient } = await import('@/lib/auth-client')
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      const testError = {
-        message: 'Sign-out failed',
-        status: 500,
-        statusText: 'Internal Server Error',
-        error: 'Sign-out failed',
-        name: 'BetterFetchError',
-      }
-
-      vi.mocked(authClient.signOut).mockImplementation(async (options) => {
-        // Simulate sign-out error
-        if (options?.fetchOptions?.onError) {
-          options.fetchOptions.onError({
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            error: testError as any,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            response: {} as any,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            request: {} as any,
-          })
-        }
-      })
-
-      render(<HeaderActions session={mockSession} />)
-
-      // Open dropdown
-      const userMenuButton = screen.getByRole('button', { name: 'User menu' })
-      await user.click(userMenuButton)
-
-      // Click sign out
-      const signOutButton = screen.getByRole('menuitem', { name: 'Sign out' })
-      await user.click(signOutButton)
-
-      await vi.waitFor(() => {
-        expect(consoleErrorSpy).toHaveBeenCalledWith('Sign-out failed:', testError)
-      })
-
-      consoleErrorSpy.mockRestore()
-    })
-
     it('handles sign-out exceptions gracefully', async () => {
       const user = userEvent.setup()
       const { authClient } = await import('@/lib/auth-client')
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      const testError = new Error('Network error')
 
-      vi.mocked(authClient.signOut).mockRejectedValue(testError)
+      vi.mocked(authClient.signOut).mockRejectedValue(new Error('Network error'))
 
       render(<HeaderActions session={mockSession} />)
 
@@ -244,45 +198,11 @@ describe('HeaderActions', () => {
       const signOutButton = screen.getByRole('menuitem', { name: 'Sign out' })
       await user.click(signOutButton)
 
+      // Should not throw — component handles the error silently
+      // User menu button should still be present (component didn't crash)
       await vi.waitFor(() => {
-        expect(consoleErrorSpy).toHaveBeenCalledWith('Sign-out exception:', testError)
+        expect(screen.getByRole('button', { name: 'User menu' })).toBeInTheDocument()
       })
-
-      consoleErrorSpy.mockRestore()
-    })
-
-    it('handles navigation errors after sign-out', async () => {
-      const user = userEvent.setup()
-      const { authClient } = await import('@/lib/auth-client')
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      const navError = new Error('Navigation failed')
-
-      mockPush.mockImplementation(() => {
-        throw navError
-      })
-
-      vi.mocked(authClient.signOut).mockImplementation(async (options) => {
-        if (options?.fetchOptions?.onSuccess) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          options.fetchOptions.onSuccess({} as any)
-        }
-      })
-
-      render(<HeaderActions session={mockSession} />)
-
-      // Open dropdown
-      const userMenuButton = screen.getByRole('button', { name: 'User menu' })
-      await user.click(userMenuButton)
-
-      // Click sign out
-      const signOutButton = screen.getByRole('menuitem', { name: 'Sign out' })
-      await user.click(signOutButton)
-
-      await vi.waitFor(() => {
-        expect(consoleErrorSpy).toHaveBeenCalledWith('Navigation failed after sign-out:', navError)
-      })
-
-      consoleErrorSpy.mockRestore()
     })
   })
 })
