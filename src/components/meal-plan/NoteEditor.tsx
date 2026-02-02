@@ -94,6 +94,7 @@ export function NoteEditor({
           value={editValue}
           onChange={(e) => setEditValue(e.target.value.slice(0, MAX_NOTE_LENGTH))}
           onKeyDown={handleKeyDown}
+          aria-label="Meal note"
           placeholder="Add a note..."
           rows={compact ? 1 : 2}
           className={cn(

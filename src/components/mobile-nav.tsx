@@ -25,21 +25,13 @@ export function MobileNav({ session }: MobileNavProps) {
       await authClient.signOut({
         fetchOptions: {
           onSuccess: () => {
-            try {
-              setOpen(false)
-              router.push('/')
-              router.refresh()
-            } catch (navError) {
-              console.error('Navigation failed after sign-out:', navError)
-            }
-          },
-          onError: (ctx) => {
-            console.error('Sign-out failed:', ctx.error)
+            setOpen(false)
+            router.push('/')
+            router.refresh()
           },
         },
       })
-    } catch (err) {
-      console.error('Sign-out exception:', err)
+    } catch {
     } finally {
       setIsLoading(false)
     }

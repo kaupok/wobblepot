@@ -30,20 +30,12 @@ export function HeaderActions({ session }: HeaderActionsProps) {
       await authClient.signOut({
         fetchOptions: {
           onSuccess: () => {
-            try {
-              router.push('/')
-              router.refresh()
-            } catch (navError) {
-              console.error('Navigation failed after sign-out:', navError)
-            }
-          },
-          onError: (ctx) => {
-            console.error('Sign-out failed:', ctx.error)
+            router.push('/')
+            router.refresh()
           },
         },
       })
-    } catch (err) {
-      console.error('Sign-out exception:', err)
+    } catch {
     } finally {
       setIsLoading(false)
     }

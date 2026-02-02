@@ -240,19 +240,3 @@ export function getServerBaseURL(): string {
 
   return 'http://localhost:3000'
 }
-
-// Legacy exports for backward compatibility (deprecated)
-/**
- * @deprecated Use `clientEnv` or `serverEnv` instead for clarity
- */
-export const env = clientEnv
-
-/**
- * @deprecated Use `ClientEnv` or `ServerEnv` instead
- */
-export type Env = ClientEnv
-
-/**
- * @deprecated Use `clientEnvSchema` or `serverEnvSchema` instead
- */
-export const envSchema = clientEnvSchema
