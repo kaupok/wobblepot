@@ -30,12 +30,12 @@ Fetch open and recently completed issues in parallel (split by state to avoid pa
 
 ```typescript
 // All open states — run these 4 calls in parallel
-mcp__linear-server__list_issues({ project: '5a19627a-803f-4052-83c4-b44810d17af7', state: 'Backlog', limit: 50 })
-mcp__linear-server__list_issues({ project: '5a19627a-803f-4052-83c4-b44810d17af7', state: 'Todo', limit: 50 })
-mcp__linear-server__list_issues({ project: '5a19627a-803f-4052-83c4-b44810d17af7', state: 'In Progress', limit: 50 })
-mcp__linear-server__list_issues({ project: '5a19627a-803f-4052-83c4-b44810d17af7', state: 'In Review', limit: 50 })
+mcp__linear-server__list_issues({ state: 'Backlog', limit: 50 })
+mcp__linear-server__list_issues({ state: 'Todo', limit: 50 })
+mcp__linear-server__list_issues({ state: 'In Progress', limit: 50 })
+mcp__linear-server__list_issues({ state: 'In Review', limit: 50 })
 // Recent completions for context
-mcp__linear-server__list_issues({ project: '5a19627a-803f-4052-83c4-b44810d17af7', state: 'Done', orderBy: 'updatedAt', limit: 20 })
+mcp__linear-server__list_issues({ state: 'Done', orderBy: 'updatedAt', limit: 20 })
 ```
 
 Keep the backlog and recent completions in mind throughout the session to avoid creating duplicate issues. If a finding overlaps with an existing issue, mention it to the user.
@@ -120,7 +120,6 @@ When the user agrees a finding is worth tracking:
 mcp__linear-server__create_issue({
     title: 'Agreed title in sentence case',
     team: 'Honkadori',
-    project: '5a19627a-803f-4052-83c4-b44810d17af7',
     description: `## What
 Description of the finding.
 

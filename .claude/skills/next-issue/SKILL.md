@@ -33,7 +33,6 @@ Find the next unblocked issue and return a concise implementation summary.
 
    ```
    mcp__linear-server__list_issues({
-     project: "5a19627a-803f-4052-83c4-b44810d17af7",
      state: "Todo",
      limit: 20
    })
@@ -43,7 +42,6 @@ Find the next unblocked issue and return a concise implementation summary.
 
    ```
    mcp__linear-server__list_issues({
-     project: "5a19627a-803f-4052-83c4-b44810d17af7",
      state: "Backlog",
      limit: 20
    })
