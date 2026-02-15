@@ -111,9 +111,11 @@ export default async function ShoppingPage({ searchParams }: ShoppingPageProps) 
 
   const shoppingList: ShoppingListResponse = await shoppingResponse.json()
 
-  // Check for nothing-needed state (empty groups)
+  // Check for empty states
   let emptyStateVariant: ShoppingEmptyStateVariant | undefined
-  if (shoppingList.groups.length === 0 || shoppingList.summary.totalItems === 0) {
+  if (shoppingList.generatedAt === null) {
+    emptyStateVariant = 'no-plan'
+  } else if (shoppingList.groups.length === 0 || shoppingList.summary.totalItems === 0) {
     emptyStateVariant = 'nothing-needed'
   }
 
