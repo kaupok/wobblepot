@@ -13,6 +13,8 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { IngredientRow, type IngredientRowData } from '@/components/recipes/IngredientRow'
@@ -42,6 +44,7 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
   // Form state
   const [name, setName] = useState(meal?.name ?? '')
   const [description, setDescription] = useState(meal?.description ?? '')
+  const [preparationNotes, setPreparationNotes] = useState(meal?.preparationNotes ?? '')
   const [timeMinutes, setTimeMinutes] = useState<string>(
     meal?.timeMinutes ? String(meal.timeMinutes) : '',
   )
@@ -291,6 +294,7 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
       const payload = {
         name: name.trim(),
         description: description.trim() || null,
+        preparationNotes: preparationNotes.trim() || null,
         timeMinutes: timeMinutes ? parseInt(timeMinutes, 10) : null,
         kidFriendly,
         suitableFor,
@@ -466,6 +470,24 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
               onKidFriendlyChange={setKidFriendly}
               disabled={isSubmitting}
             />
+
+            {/* Preparation Notes Section */}
+            <section className="flex flex-col gap-2">
+              <Label htmlFor="preparationNotes">Preparation notes</Label>
+              <Body variant="muted">
+                How do you prepare this meal? Steps, tips, or a link to the recipe.
+              </Body>
+              <Textarea
+                id="preparationNotes"
+                value={preparationNotes}
+                onChange={(e) => setPreparationNotes(e.target.value)}
+                placeholder="Optional — e.g., steps, cooking tips, or a recipe URL"
+                rows={5}
+                maxLength={5000}
+                disabled={isSubmitting}
+                className="resize-y"
+              />
+            </section>
           </div>
         </CardContent>
         <CardFooter className="pt-6">

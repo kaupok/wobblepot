@@ -71,6 +71,7 @@ export async function POST(
     const householdSize = await getHouseholdMemberCount(household.id)
     const mealName = entry.meal.name
     const timeMinutes = entry.meal.timeMinutes
+    const preparationNotes = entry.meal.preparationNotes
 
     const ingredientsList = entry.meal.components
       .map((comp) => {
@@ -80,7 +81,46 @@ export async function POST(
       })
       .join('\n')
 
-    const prompt = `You are a helpful cooking assistant. Generate brief, actionable preparation guidance for the following meal.
+    const hasNotes = !!preparationNotes?.trim()
+
+    const prompt = hasNotes
+      ? `You are a helpful cooking assistant. The user has their own preparation notes for this meal. Generate supplementary tips that ENHANCE their method — do NOT repeat what they already wrote.
+
+Meal: ${mealName}
+Servings: ${householdSize}
+${timeMinutes ? `Time budget: ${timeMinutes} minutes` : ''}
+
+Ingredients:
+${ingredientsList}
+
+User's preparation notes:
+${preparationNotes}
+
+Based on the user's method above, provide ONLY supplementary guidance they might find useful:
+
+**Equipment needed:**
+List 3-5 essential equipment items specific to their method. Skip anything obvious from their notes.
+
+**Steps:**
+2-4 additional tips covering timing optimization, parallel prep, or technique improvements NOT already in their notes.
+
+**Watch out for:**
+2-3 common mistakes specific to their approach. Focus on pitfalls they didn't mention.
+
+**Tip:**
+One helpful cooking tip relevant to their method.
+
+IMPORTANT: Do NOT repeat or rephrase what the user already wrote. Only add new, supplementary information.
+
+IMPORTANT: Use metric units for ALL measurements:
+- Temperatures: °C (e.g., "190°C")
+- Weights: g or kg (e.g., "500g", "1.5kg")
+- Volumes: ml or L (e.g., "250ml", "1L")
+- Lengths: cm (e.g., "2cm")
+Never use Fahrenheit, cups, ounces, pounds, or inches.
+
+Keep it brief and practical. Format each section with the exact headers shown above (Equipment needed:, Steps:, Watch out for:, Tip:).`
+      : `You are a helpful cooking assistant. Generate brief, actionable preparation guidance for the following meal.
 
 Meal: ${mealName}
 Servings: ${householdSize}
@@ -122,7 +162,7 @@ Format each section with the exact headers shown above (Equipment needed:, Steps
     const { text } = await generateText({
       model: anthropic('claude-haiku-4-5'),
       prompt,
-      maxOutputTokens: 500,
+      maxOutputTokens: hasNotes ? 600 : 500,
     })
 
     const tips = text.trim()

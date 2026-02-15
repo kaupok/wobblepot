@@ -9,6 +9,7 @@ import { deriveProteinType } from '@/lib/meal-planning/protein'
 const createMealSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().max(1000).nullish(),
+  preparationNotes: z.string().max(5000).nullish(),
   timeMinutes: z.number().int().positive().max(480).nullish(),
   kidFriendly: z.boolean().optional().default(false),
   suitableFor: z.array(z.enum(['breakfast', 'lunch', 'dinner'])).min(1),
@@ -55,6 +56,7 @@ export async function GET(request: NextRequest) {
         id: true,
         name: true,
         description: true,
+        preparationNotes: true,
         timeMinutes: true,
         kidFriendly: true,
         primaryProteinType: true,
@@ -114,6 +116,7 @@ export async function GET(request: NextRequest) {
         id: meal.id,
         name: meal.name,
         description: meal.description,
+        preparationNotes: meal.preparationNotes,
         timeMinutes: meal.timeMinutes,
         kidFriendly: meal.kidFriendly,
         primaryProteinType: meal.primaryProteinType,
@@ -183,8 +186,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'No household found' }, { status: 404 })
   }
 
-  const { name, description, timeMinutes, kidFriendly, suitableFor, servings, components } =
-    parsed.data
+  const {
+    name,
+    description,
+    preparationNotes,
+    timeMinutes,
+    kidFriendly,
+    suitableFor,
+    servings,
+    components,
+  } = parsed.data
 
   // Verify all ingredients exist and fetch their protein types
   const ingredientIds = components.map((c) => c.ingredientId)
@@ -216,6 +227,7 @@ export async function POST(request: Request) {
     data: {
       name,
       description,
+      preparationNotes,
       timeMinutes,
       kidFriendly,
       suitableFor,
@@ -235,6 +247,7 @@ export async function POST(request: Request) {
       id: true,
       name: true,
       description: true,
+      preparationNotes: true,
       timeMinutes: true,
       kidFriendly: true,
       primaryProteinType: true,
@@ -287,6 +300,7 @@ export async function POST(request: Request) {
       id: meal.id,
       name: meal.name,
       description: meal.description,
+      preparationNotes: meal.preparationNotes,
       timeMinutes: meal.timeMinutes,
       kidFriendly: meal.kidFriendly,
       primaryProteinType: meal.primaryProteinType,

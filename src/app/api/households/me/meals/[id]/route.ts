@@ -9,6 +9,7 @@ import { deriveProteinType } from '@/lib/meal-planning/protein'
 const updateMealSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   description: z.string().max(1000).nullable().optional(),
+  preparationNotes: z.string().max(5000).nullable().optional(),
   timeMinutes: z.number().int().positive().max(480).nullable().optional(),
   kidFriendly: z.boolean().optional(),
   suitableFor: z
@@ -54,6 +55,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         id: true,
         name: true,
         description: true,
+        preparationNotes: true,
         timeMinutes: true,
         kidFriendly: true,
         primaryProteinType: true,
@@ -111,6 +113,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       id: meal.id,
       name: meal.name,
       description: meal.description,
+      preparationNotes: meal.preparationNotes,
       timeMinutes: meal.timeMinutes,
       kidFriendly: meal.kidFriendly,
       primaryProteinType: meal.primaryProteinType,
@@ -189,8 +192,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
   }
 
-  const { name, description, timeMinutes, kidFriendly, suitableFor, servings, components } =
-    parsed.data
+  const {
+    name,
+    description,
+    preparationNotes,
+    timeMinutes,
+    kidFriendly,
+    suitableFor,
+    servings,
+    components,
+  } = parsed.data
 
   // If components are being updated, verify all ingredients exist and recalculate protein type
   let primaryProteinType = existingMeal.primaryProteinType
@@ -224,6 +235,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const updateData: {
     name?: string
     description?: string | null
+    preparationNotes?: string | null
     timeMinutes?: number | null
     kidFriendly?: boolean
     suitableFor?: ('breakfast' | 'lunch' | 'dinner')[]
@@ -232,6 +244,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   if (name !== undefined) updateData.name = name
   if (description !== undefined) updateData.description = description
+  if (preparationNotes !== undefined) updateData.preparationNotes = preparationNotes
   if (timeMinutes !== undefined) updateData.timeMinutes = timeMinutes
   if (kidFriendly !== undefined) updateData.kidFriendly = kidFriendly
   if (suitableFor !== undefined) updateData.suitableFor = suitableFor
@@ -267,6 +280,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         id: true,
         name: true,
         description: true,
+        preparationNotes: true,
         timeMinutes: true,
         kidFriendly: true,
         primaryProteinType: true,
@@ -320,6 +334,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     id: meal.id,
     name: meal.name,
     description: meal.description,
+    preparationNotes: meal.preparationNotes,
     timeMinutes: meal.timeMinutes,
     kidFriendly: meal.kidFriendly,
     primaryProteinType: meal.primaryProteinType,

@@ -153,6 +153,7 @@ export async function GET(request: NextRequest) {
               name: entry.meal.name,
               kidFriendly: entry.meal.kidFriendly,
               timeMinutes: entry.meal.timeMinutes,
+              preparationNotes: entry.meal.preparationNotes,
               primaryProteinType: entry.meal.primaryProteinType,
               nutrition: computeMealNutrition(entry.meal.components),
               components: entry.meal.components.map((comp) => ({

@@ -60,6 +60,7 @@ export interface MealFormData {
   id?: string
   name: string
   description?: string | null
+  preparationNotes?: string | null
   timeMinutes?: number | null
   kidFriendly: boolean
   suitableFor: MealType[]

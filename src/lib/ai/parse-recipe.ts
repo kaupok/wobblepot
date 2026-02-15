@@ -52,6 +52,13 @@ export const RecipeExtractionSchema = z.object({
     .max(1000)
     .nullable()
     .describe('A brief description of the dish, or null if not found'),
+  preparationNotes: z
+    .string()
+    .max(5000)
+    .nullable()
+    .describe(
+      'Distilled preparation steps from the recipe text. Strip noise (ads, life stories, navigation) and return only essential cooking steps in a clean, numbered format. Null if no preparation steps found.',
+    ),
   timeMinutes: z
     .number()
     .int()
@@ -100,7 +107,7 @@ export function buildRecipeExtractionPrompt(recipeText: string): string {
   return `You are a recipe parsing assistant. Extract structured data from the following recipe text.
 
 IMPORTANT GUIDELINES:
-1. Extract the recipe name, description, cooking time, servings, and ingredients
+1. Extract the recipe name, description, cooking time, servings, ingredients, and preparation steps
 2. For ingredients, extract the quantity, unit, and ingredient name separately
 3. Use these units: "g" for weight, "ml" for volume, "piece" for countable items, or keep original units ("cup", "tbsp", "tsp", "oz", "lb") if conversion would be inaccurate
 
@@ -180,6 +187,7 @@ If your calculated quantities exceed these by 5x+, you likely made a conversion 
 5. Mark as kid-friendly if: no spicy ingredients, familiar foods, mild flavors
 6. If servings aren't specified, default to 4
 7. If cooking time isn't specified, leave it as null
+8. PREPARATION NOTES: If the recipe contains preparation/cooking steps or instructions, extract and distill them into clean, numbered steps. Strip away any noise (blog content, personal stories, ads, navigation text). Focus on actionable cooking instructions only. If no preparation steps are found, set preparationNotes to null.
 
 RECIPE TEXT:
 ${recipeText}
@@ -313,6 +321,7 @@ export type IngredientMatchResult = MatchedIngredient | UnmatchedIngredient
 export interface ParsedRecipe {
   name: string
   description: string | null
+  preparationNotes: string | null
   timeMinutes: number | null
   servings: number
   mealTypes: MealType[]
@@ -628,6 +637,7 @@ export async function parseAndMatchRecipe(recipeText: string): Promise<ParsedRec
   return {
     name: extraction.name,
     description: extraction.description,
+    preparationNotes: extraction.preparationNotes,
     timeMinutes: extraction.timeMinutes,
     servings: extraction.servings,
     mealTypes: extraction.mealTypes as MealType[],
