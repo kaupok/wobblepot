@@ -378,7 +378,7 @@ describe('CreateHouseholdForm', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
 
       await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith('/meal-plan')
+        expect(mockPush).toHaveBeenCalledWith('/')
         expect(mockRefresh).toHaveBeenCalled()
       })
     })
@@ -442,7 +442,7 @@ describe('CreateHouseholdForm', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
 
       await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith('/meal-plan')
+        expect(mockPush).toHaveBeenCalledWith('/')
         expect(mockRefresh).toHaveBeenCalled()
       })
     })
