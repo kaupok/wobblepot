@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2 } from 'lucide-react'
+import { Minus, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -64,9 +64,11 @@ interface CreateHouseholdFormProps {
   userName: string
 }
 
-interface MemberToAdd {
-  id: string
+type PortionType = 'adult' | 'child'
+
+interface MemberRow {
   name: string
+  portionType: PortionType
 }
 
 export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
@@ -98,8 +100,10 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
   const [allergensToAvoid, setAllergensToAvoid] = useState<Allergen[]>([])
 
   // Step 4: Members
-  const [members, setMembers] = useState<MemberToAdd[]>([])
-  const [newMemberName, setNewMemberName] = useState('')
+  const [householdSize, setHouseholdSize] = useState(1)
+  const [memberRows, setMemberRows] = useState<MemberRow[]>([
+    { name: userName, portionType: 'adult' },
+  ])
 
   const handleMealTypeToggle = (mealType: MealType, checked: boolean, isWeekend: boolean) => {
     const setter = isWeekend ? setWeekendMealTypes : setWeekdayMealTypes
@@ -120,23 +124,45 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
     }
   }
 
-  const handleAddMember = () => {
-    const trimmedName = newMemberName.trim()
-    if (!trimmedName) return
+  const handleHouseholdSizeChange = (newSize: number) => {
+    const clampedSize = Math.max(1, Math.min(10, newSize))
+    setHouseholdSize(clampedSize)
 
-    setMembers([...members, { id: crypto.randomUUID(), name: trimmedName }])
-    setNewMemberName('')
+    setMemberRows((prev) => {
+      if (clampedSize > prev.length) {
+        // Add new rows with defaults
+        const newRows = Array.from({ length: clampedSize - prev.length }, () => ({
+          name: '',
+          portionType: 'adult' as PortionType,
+        }))
+        return [...prev, ...newRows]
+      }
+      // Trim rows (keep first N, never remove row 0)
+      return prev.slice(0, clampedSize)
+    })
   }
 
-  const handleRemoveMember = (id: string) => {
-    setMembers(members.filter((m) => m.id !== id))
+  const handleMemberNameChange = (index: number, newName: string) => {
+    setMemberRows((prev) => prev.map((row, i) => (i === index ? { ...row, name: newName } : row)))
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      handleAddMember()
+  const handlePortionTypeChange = (index: number, portionType: PortionType) => {
+    setMemberRows((prev) => prev.map((row, i) => (i === index ? { ...row, portionType } : row)))
+  }
+
+  const generateDefaultName = (index: number, row: MemberRow): string => {
+    if (row.name.trim()) return row.name.trim()
+
+    // Count how many of this type come before this index (for numbering)
+    let typeCount = 0
+    for (let i = 0; i <= index; i++) {
+      if (memberRows[i]?.portionType === row.portionType) {
+        typeCount++
+      }
     }
+
+    const typeLabel = row.portionType === 'child' ? 'Child' : 'Adult'
+    return `${typeLabel} ${typeCount}`
   }
 
   const handleNext = () => {
@@ -186,7 +212,10 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
             weekdayMealTypes,
             weekendMealTypes,
           },
-          members: members.map((m) => ({ name: m.name })),
+          members: memberRows.slice(1).map((row, index) => ({
+            name: generateDefaultName(index + 1, row),
+            portionType: row.portionType,
+          })),
         }),
       })
 
@@ -325,61 +354,87 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
 
       case 4:
         return (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="memberName">Add household members</Label>
-              <Body variant="muted">
-                Add family members like kids who don&apos;t have their own account. You can skip
-                this step and add members later.
-              </Body>
-              <div className="flex gap-2">
+              <Label htmlFor="householdSize">How many people in your household?</Label>
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleHouseholdSizeChange(householdSize - 1)}
+                  disabled={isLoading || householdSize <= 1}
+                  className="h-9 w-9 p-0"
+                  aria-label="Decrease household size"
+                >
+                  <Minus className="h-4 w-4" aria-hidden="true" />
+                </Button>
                 <Input
-                  id="memberName"
-                  type="text"
-                  value={newMemberName}
-                  onChange={(e) => setNewMemberName(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Enter name"
+                  id="householdSize"
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={householdSize}
+                  onChange={(e) => handleHouseholdSizeChange(parseInt(e.target.value) || 1)}
                   disabled={isLoading}
-                  maxLength={100}
+                  className="w-16 text-center"
                 />
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={handleAddMember}
-                  disabled={isLoading || !newMemberName.trim()}
+                  size="sm"
+                  onClick={() => handleHouseholdSizeChange(householdSize + 1)}
+                  disabled={isLoading || householdSize >= 10}
+                  className="h-9 w-9 p-0"
+                  aria-label="Increase household size"
                 >
                   <Plus className="h-4 w-4" aria-hidden="true" />
-                  <span className="sr-only">Add member</span>
                 </Button>
               </div>
             </div>
-            {members.length > 0 && (
+
+            <div className="flex flex-col gap-3">
+              <Label>Members</Label>
+              <Body variant="muted">You can edit names and types later in settings.</Body>
               <div className="flex flex-col gap-2">
-                <Label>Members to add</Label>
-                <ul className="flex flex-col gap-2">
-                  {members.map((member) => (
-                    <li
-                      key={member.id}
-                      className="bg-muted flex items-center justify-between rounded-md px-3 py-2"
-                    >
-                      <span>{member.name}</span>
+                {memberRows.map((row, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      value={row.name}
+                      onChange={(e) => handleMemberNameChange(index, e.target.value)}
+                      placeholder={generateDefaultName(index, row)}
+                      disabled={isLoading || index === 0}
+                      maxLength={100}
+                      className="flex-1"
+                      aria-label={`Member ${index + 1} name`}
+                    />
+                    <div className="flex gap-1">
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant={row.portionType === 'adult' ? 'default' : 'outline'}
                         size="sm"
-                        onClick={() => handleRemoveMember(member.id)}
-                        disabled={isLoading}
-                        className="h-8 w-8 p-0"
+                        onClick={() => handlePortionTypeChange(index, 'adult')}
+                        disabled={isLoading || index === 0}
+                        className="h-9 px-3 text-xs"
                       >
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                        <span className="sr-only">Remove {member.name}</span>
+                        Adult
                       </Button>
-                    </li>
-                  ))}
-                </ul>
+                      <Button
+                        type="button"
+                        variant={row.portionType === 'child' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => handlePortionTypeChange(index, 'child')}
+                        disabled={isLoading || index === 0}
+                        className="h-9 px-3 text-xs"
+                      >
+                        Child
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
           </div>
         )
 
@@ -412,7 +467,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
       case 3:
         return 'Help us find the right meals for you'
       case 4:
-        return 'Add other family members (optional)'
+        return 'Tell us about your household'
       default:
         return ''
     }

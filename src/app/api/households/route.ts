@@ -19,6 +19,7 @@ const createHouseholdSchema = z.object({
     .array(
       z.object({
         name: z.string().min(1).max(100),
+        portionType: z.enum(['adult', 'child']).default('adult'),
       }),
     )
     .optional(),
@@ -85,15 +86,24 @@ export async function POST(request: Request) {
         },
       })
 
-      // Create any additional household members (e.g., kids)
+      // Create any additional household members with portion preferences
       if (members && members.length > 0) {
-        await tx.householdMember.createMany({
-          data: members.map((member) => ({
-            householdId: newHousehold.id,
-            name: member.name,
-            role: 'member',
-          })),
-        })
+        for (const member of members) {
+          const newMember = await tx.householdMember.create({
+            data: {
+              householdId: newHousehold.id,
+              name: member.name,
+              role: 'member',
+            },
+          })
+
+          await tx.memberPreferences.create({
+            data: {
+              memberId: newMember.id,
+              portionMultiplier: member.portionType === 'child' ? 0.5 : 1.0,
+            },
+          })
+        }
       }
 
       return tx.household.findUnique({
