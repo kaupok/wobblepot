@@ -149,7 +149,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
 
       if (!response.ok) {
         if (data.error === 'already_in_household') {
-          router.push('/meal-plan')
+          router.push('/')
           router.refresh()
           return
         }
@@ -158,7 +158,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
       }
 
       toast.success('Household created')
-      router.push('/meal-plan')
+      router.push('/')
       router.refresh()
     } catch {
       setError('Unable to connect. Please check your internet connection.')

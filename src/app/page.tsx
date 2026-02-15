@@ -154,6 +154,28 @@ export default async function Home() {
     }),
   ])
 
+  // Check if this is a first-time user (no meal plans at all)
+  const isFirstGeneration = !currentPlanResponse.ok && !nextPlanResponse.ok && !lastPlanResponse.ok
+
+  // For first-time users, skip unnecessary data parsing
+  if (isFirstGeneration) {
+    return (
+      <TodayPage
+        todayDate={todayDate}
+        tomorrowDate={tomorrowDate}
+        plan={null}
+        householdSize={householdSize}
+        pantryIngredients={[]}
+        pantryItems={[]}
+        shoppingItems={[]}
+        catchUpEntries={[]}
+        timezone={household.timezone}
+        isFirstGeneration
+        userName={session.user.name}
+      />
+    )
+  }
+
   // Parse pantry response
   let pantryIngredients: PantryIngredient[] = []
   let pantryItems: PantryItemFull[] = []
