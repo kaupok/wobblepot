@@ -12,9 +12,10 @@ import type { Session } from '@/lib/auth'
 
 interface MobileNavProps {
   session: Session | null
+  hasHousehold: boolean
 }
 
-export function MobileNav({ session }: MobileNavProps) {
+export function MobileNav({ session, hasHousehold }: MobileNavProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -52,58 +53,64 @@ export function MobileNav({ session }: MobileNavProps) {
         <nav className="mt-6 flex flex-col px-4">
           {session ? (
             <>
-              {/* Daily operational views */}
-              <div className="flex flex-col gap-4">
-                <Link
-                  href="/"
-                  className="hover:text-primary text-sm font-medium transition-colors"
-                  onClick={() => setOpen(false)}
-                >
-                  Today
-                </Link>
-                <Link
-                  href="/meal-plan"
-                  className="hover:text-primary text-sm font-medium transition-colors"
-                  onClick={() => setOpen(false)}
-                >
-                  Meal plan
-                </Link>
-                <Link
-                  href="/shopping"
-                  className="hover:text-primary text-sm font-medium transition-colors"
-                  onClick={() => setOpen(false)}
-                >
-                  Pantry & shopping
-                </Link>
-              </div>
+              {hasHousehold && (
+                <>
+                  {/* Daily operational views */}
+                  <div className="flex flex-col gap-4">
+                    <Link
+                      href="/"
+                      className="hover:text-primary text-sm font-medium transition-colors"
+                      onClick={() => setOpen(false)}
+                    >
+                      Today
+                    </Link>
+                    <Link
+                      href="/meal-plan"
+                      className="hover:text-primary text-sm font-medium transition-colors"
+                      onClick={() => setOpen(false)}
+                    >
+                      Meal plan
+                    </Link>
+                    <Link
+                      href="/shopping"
+                      className="hover:text-primary text-sm font-medium transition-colors"
+                      onClick={() => setOpen(false)}
+                    >
+                      Pantry & shopping
+                    </Link>
+                  </div>
 
-              {/* Settings/configuration views */}
-              <div className="mt-6 flex flex-col gap-4 border-t pt-6">
-                <Link
-                  href="/recipes"
-                  className="hover:text-primary text-sm font-medium transition-colors"
-                  onClick={() => setOpen(false)}
-                >
-                  My recipes
-                </Link>
-                <Link
-                  href="/household"
-                  className="hover:text-primary text-sm font-medium transition-colors"
-                  onClick={() => setOpen(false)}
-                >
-                  Household
-                </Link>
-              </div>
+                  {/* Settings/configuration views */}
+                  <div className="mt-6 flex flex-col gap-4 border-t pt-6">
+                    <Link
+                      href="/recipes"
+                      className="hover:text-primary text-sm font-medium transition-colors"
+                      onClick={() => setOpen(false)}
+                    >
+                      My recipes
+                    </Link>
+                    <Link
+                      href="/household"
+                      className="hover:text-primary text-sm font-medium transition-colors"
+                      onClick={() => setOpen(false)}
+                    >
+                      Household
+                    </Link>
+                  </div>
+                </>
+              )}
 
               {/* Account */}
-              <div className="mt-6 flex flex-col gap-4 border-t pt-6">
-                <Link
-                  href="/profile"
-                  className="hover:text-primary text-sm font-medium transition-colors"
-                  onClick={() => setOpen(false)}
-                >
-                  Profile
-                </Link>
+              <div className={`flex flex-col gap-4 ${hasHousehold ? 'mt-6 border-t pt-6' : ''}`}>
+                {hasHousehold && (
+                  <Link
+                    href="/profile"
+                    className="hover:text-primary text-sm font-medium transition-colors"
+                    onClick={() => setOpen(false)}
+                  >
+                    Profile
+                  </Link>
+                )}
                 <button
                   className="hover:text-primary text-left text-sm font-medium transition-colors"
                   onClick={handleSignOut}

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { headers } from 'next/headers'
 import { Heading } from '@/components/ui/typography'
 import { auth } from '@/lib/auth'
+import { hasHouseholdMembership } from '@/lib/household'
 import { HeaderActions } from './header-actions'
 import { NavigationLeft, NavigationRight } from './navigation'
 import { MobileNav } from './mobile-nav'
@@ -10,6 +11,8 @@ export async function Header() {
   const session = await auth.api.getSession({
     headers: await headers(),
   })
+
+  const hasHousehold = session ? await hasHouseholdMembership(session.user.id) : false
 
   return (
     <header className="bg-background fixed top-0 right-0 left-0 z-50 border-b">
@@ -24,12 +27,12 @@ export async function Header() {
           <Link href="/" className="transition-opacity hover:opacity-70">
             <Heading variant="h4">Honkadori</Heading>
           </Link>
-          <NavigationLeft session={session} />
+          <NavigationLeft session={session} hasHousehold={hasHousehold} />
         </div>
         <div className="flex items-center gap-8">
-          <NavigationRight session={session} />
-          <HeaderActions session={session} />
-          <MobileNav session={session} />
+          <NavigationRight session={session} hasHousehold={hasHousehold} />
+          <HeaderActions session={session} hasHousehold={hasHousehold} />
+          <MobileNav session={session} hasHousehold={hasHousehold} />
         </div>
       </div>
     </header>
