@@ -116,15 +116,27 @@ export function PreparationTips({
 
   if (error) {
     return (
-      <div className="flex flex-col gap-2 border-t pt-4">
-        <Body variant="small" className="font-medium">
-          Preparation tips
-        </Body>
-        <div className="flex items-center gap-2">
-          <Body variant="muted">{error}</Body>
-          <Button variant="outline" size="sm" onClick={onRetry}>
-            Retry
-          </Button>
+      <div className="flex flex-col gap-4">
+        {hasNotes && (
+          <div className="flex flex-col gap-2 border-t pt-4">
+            <Body variant="small" className="font-medium">
+              Your notes
+            </Body>
+            <Body variant="small" className="text-muted-foreground whitespace-pre-line">
+              {preparationNotes}
+            </Body>
+          </div>
+        )}
+        <div className="flex flex-col gap-2 border-t pt-4">
+          <Body variant="small" className="font-medium">
+            Preparation tips
+          </Body>
+          <div className="flex items-center gap-2">
+            <Body variant="muted">{error}</Body>
+            <Button variant="outline" size="sm" onClick={onRetry}>
+              Retry
+            </Button>
+          </div>
         </div>
       </div>
     )

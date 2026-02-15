@@ -258,6 +258,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       data: updateData,
     })
 
+    // Invalidate cached preparation tips when notes change
+    if (preparationNotes !== undefined) {
+      await tx.mealPlanEntry.updateMany({
+        where: { mealId: id, preparationTips: { not: null } },
+        data: { preparationTips: null },
+      })
+    }
+
     // If components are provided, delete old and create new
     if (components && servings) {
       await tx.mealComponent.deleteMany({
