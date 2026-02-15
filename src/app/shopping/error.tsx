@@ -25,13 +25,15 @@ export default function ShoppingError({
           {error.digest && <Body variant="muted">Error ID: {error.digest}</Body>}
         </div>
         {process.env.NODE_ENV === 'development' && (
-          <details className="mt-4 mb-4 text-left">
-            <summary className="cursor-pointer font-semibold">Error details</summary>
-            <Pre className="text-destructive text-xs">
-              {error.message}
-              {error.stack && `\n\n${error.stack}`}
-            </Pre>
-          </details>
+          <div className="mt-4 mb-4">
+            <details className="text-left">
+              <summary className="cursor-pointer font-semibold">Error details</summary>
+              <Pre className="text-destructive text-xs">
+                {error.message}
+                {error.stack && `\n\n${error.stack}`}
+              </Pre>
+            </details>
+          </div>
         )}
         <Button onClick={reset}>Try again</Button>
       </div>
