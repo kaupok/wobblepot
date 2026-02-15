@@ -1,16 +1,12 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
-import { ChevronDown, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Body, Heading } from '@/components/ui/typography'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Checkbox } from '@/components/ui/checkbox'
-import { TagInput, type TagInputRef } from '@/components/tag-input'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Body } from '@/components/ui/typography'
 import {
   Dialog,
   DialogContent,
@@ -20,14 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { cn } from '@/lib/utils'
-import type { Member, DietaryType, Allergen } from '@/types/member'
-
-const DIETARY_TYPES: { value: DietaryType; label: string }[] = [
-  { value: 'vegetarian', label: 'Vegetarian' },
-  { value: 'vegan', label: 'Vegan' },
-  { value: 'pescatarian', label: 'Pescatarian' },
-]
+import type { Member } from '@/types/member'
 
 const PORTION_PRESETS = [
   { label: 'Small', value: 0.75 },
@@ -36,59 +25,24 @@ const PORTION_PRESETS = [
   { label: 'Extra large', value: 2.0 },
 ]
 
-const ALLERGENS: { value: Allergen; label: string }[] = [
-  { value: 'gluten', label: 'Gluten' },
-  { value: 'dairy', label: 'Dairy' },
-  { value: 'eggs', label: 'Eggs' },
-  { value: 'nuts', label: 'Tree nuts' },
-  { value: 'peanuts', label: 'Peanuts' },
-  { value: 'soy', label: 'Soy' },
-  { value: 'fish', label: 'Fish' },
-  { value: 'shellfish', label: 'Shellfish' },
-  { value: 'sesame', label: 'Sesame' },
-]
-
 interface AddMemberDialogProps {
   onMemberAdded: (member: Member) => void
-  householdDietaryType: DietaryType | null
 }
 
-export function AddMemberDialog({ onMemberAdded, householdDietaryType }: AddMemberDialogProps) {
+export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [portionMultiplier, setPortionMultiplier] = useState(1.0)
   const [portionError, setPortionError] = useState<string | null>(null)
-  const [targetCalories, setTargetCalories] = useState<number | null>(null)
-  const [targetProtein, setTargetProtein] = useState<number | null>(null)
-  const [targetCarbs, setTargetCarbs] = useState<number | null>(null)
-  const [targetFat, setTargetFat] = useState<number | null>(null)
-  const [dietaryType, setDietaryType] = useState<DietaryType | 'household'>('household')
-  const [allergens, setAllergens] = useState<Allergen[]>([])
-  const [restrictions, setRestrictions] = useState<string[]>([])
-  const [excludedIngredients, setExcludedIngredients] = useState<string[]>([])
-  const [nutritionOpen, setNutritionOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-
-  // Refs for tag inputs
-  const restrictionsRef = useRef<TagInputRef>(null)
-  const excludedIngredientsRef = useRef<TagInputRef>(null)
 
   const resetForm = () => {
     setName('')
     setDisplayName('')
     setPortionMultiplier(1.0)
     setPortionError(null)
-    setTargetCalories(null)
-    setTargetProtein(null)
-    setTargetCarbs(null)
-    setTargetFat(null)
-    setDietaryType('household')
-    setAllergens([])
-    setRestrictions([])
-    setExcludedIngredients([])
-    setNutritionOpen(false)
     setError('')
   }
 
@@ -102,10 +56,6 @@ export function AddMemberDialog({ onMemberAdded, householdDietaryType }: AddMemb
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-
-    // Commit any pending tag input values before submitting
-    restrictionsRef.current?.commitPendingValue()
-    excludedIngredientsRef.current?.commitPendingValue()
 
     const trimmedName = name.trim()
     if (!trimmedName) {
@@ -124,14 +74,6 @@ export function AddMemberDialog({ onMemberAdded, householdDietaryType }: AddMemb
           preferences: {
             displayName: displayName.trim() || null,
             portionMultiplier,
-            targetCalories,
-            targetProtein,
-            targetCarbs,
-            targetFat,
-            dietaryType: dietaryType === 'household' ? null : dietaryType,
-            allergens,
-            restrictions,
-            excludedIngredients,
           },
         }),
       })
@@ -166,12 +108,6 @@ export function AddMemberDialog({ onMemberAdded, householdDietaryType }: AddMemb
     setPortionMultiplier(Math.round(value * 100) / 100)
   }
 
-  const toggleAllergen = (allergen: Allergen) => {
-    setAllergens((prev) =>
-      prev.includes(allergen) ? prev.filter((a) => a !== allergen) : [...prev, allergen],
-    )
-  }
-
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
@@ -180,7 +116,7 @@ export function AddMemberDialog({ onMemberAdded, householdDietaryType }: AddMemb
           Add member
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Add household member</DialogTitle>
@@ -258,174 +194,6 @@ export function AddMemberDialog({ onMemberAdded, householdDietaryType }: AddMemb
                   {portionError}
                 </Body>
               )}
-            </div>
-
-            {/* Nutritional targets (Collapsible) */}
-            <Collapsible open={nutritionOpen} onOpenChange={setNutritionOpen}>
-              <div className="flex flex-col gap-2">
-                <CollapsibleTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between text-left"
-                  >
-                    <Heading variant="h4">Nutritional targets</Heading>
-                    <ChevronDown
-                      className={cn('h-5 w-5 transition-transform', nutritionOpen && 'rotate-180')}
-                    />
-                  </button>
-                </CollapsibleTrigger>
-                <Body variant="muted" className="text-sm">
-                  Optional daily nutrition goals
-                </Body>
-                <CollapsibleContent>
-                  <div className="flex flex-col gap-4 pt-2">
-                    <div className="flex flex-col gap-2">
-                      <Label htmlFor="add-targetCalories">Daily calories</Label>
-                      <Input
-                        id="add-targetCalories"
-                        type="number"
-                        min={500}
-                        max={5000}
-                        value={targetCalories ?? ''}
-                        onChange={(e) =>
-                          setTargetCalories(e.target.value ? parseInt(e.target.value) : null)
-                        }
-                        placeholder="e.g., 2000"
-                        disabled={isLoading}
-                      />
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <div className="flex flex-col gap-2">
-                        <Label htmlFor="add-targetProtein">Protein (g)</Label>
-                        <Input
-                          id="add-targetProtein"
-                          type="number"
-                          min={0}
-                          max={500}
-                          value={targetProtein ?? ''}
-                          onChange={(e) =>
-                            setTargetProtein(e.target.value ? parseInt(e.target.value) : null)
-                          }
-                          placeholder="e.g., 150"
-                          disabled={isLoading}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <Label htmlFor="add-targetCarbs">Carbs (g)</Label>
-                        <Input
-                          id="add-targetCarbs"
-                          type="number"
-                          min={0}
-                          max={500}
-                          value={targetCarbs ?? ''}
-                          onChange={(e) =>
-                            setTargetCarbs(e.target.value ? parseInt(e.target.value) : null)
-                          }
-                          placeholder="e.g., 250"
-                          disabled={isLoading}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <Label htmlFor="add-targetFat">Fat (g)</Label>
-                        <Input
-                          id="add-targetFat"
-                          type="number"
-                          min={0}
-                          max={500}
-                          value={targetFat ?? ''}
-                          onChange={(e) =>
-                            setTargetFat(e.target.value ? parseInt(e.target.value) : null)
-                          }
-                          placeholder="e.g., 65"
-                          disabled={isLoading}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </CollapsibleContent>
-              </div>
-            </Collapsible>
-
-            {/* Dietary type */}
-            <div className="flex flex-col gap-2">
-              <Label>Dietary type</Label>
-              <RadioGroup
-                value={dietaryType}
-                onValueChange={(value) => setDietaryType(value as DietaryType | 'household')}
-                disabled={isLoading}
-                className="flex flex-wrap gap-3"
-              >
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="household" id="add-dietary-household" />
-                  <Label htmlFor="add-dietary-household" className="font-normal">
-                    Use household setting
-                    {householdDietaryType && ` (${householdDietaryType})`}
-                  </Label>
-                </div>
-                {DIETARY_TYPES.map((type) => (
-                  <div key={type.value} className="flex items-center gap-2">
-                    <RadioGroupItem value={type.value} id={`add-dietary-${type.value}`} />
-                    <Label htmlFor={`add-dietary-${type.value}`} className="font-normal">
-                      {type.label}
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            </div>
-
-            {/* Allergens */}
-            <div className="flex flex-col gap-2">
-              <Label>Allergens</Label>
-              <Body variant="muted" className="text-sm">
-                Select any food allergies
-              </Body>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {ALLERGENS.map((allergen) => (
-                  <div key={allergen.value} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`add-allergen-${allergen.value}`}
-                      checked={allergens.includes(allergen.value)}
-                      onCheckedChange={() => toggleAllergen(allergen.value)}
-                      disabled={isLoading}
-                    />
-                    <Label htmlFor={`add-allergen-${allergen.value}`} className="font-normal">
-                      {allergen.label}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Restrictions */}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="add-restrictions">Dietary restrictions</Label>
-              <TagInput
-                ref={restrictionsRef}
-                id="add-restrictions"
-                value={restrictions}
-                onChange={setRestrictions}
-                placeholder="e.g., low sodium, no spicy"
-                disabled={isLoading}
-              />
-              <Body variant="muted" className="text-sm">
-                Type a restriction and press Enter or click away to add
-              </Body>
-            </div>
-
-            {/* Excluded ingredients */}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="add-excludedIngredients">Excluded ingredients</Label>
-              <TagInput
-                ref={excludedIngredientsRef}
-                id="add-excludedIngredients"
-                value={excludedIngredients}
-                onChange={setExcludedIngredients}
-                placeholder="e.g., cilantro, olives"
-                disabled={isLoading}
-              />
-              <Body variant="muted" className="text-sm">
-                Ingredients this member dislikes
-              </Body>
             </div>
 
             {error && (

@@ -23,7 +23,6 @@ export default async function HouseholdPage() {
 
   const isOwner = membership.role === 'owner'
   const { household } = membership
-  const householdDietaryType = household.preferences?.dietaryType ?? null
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -58,11 +57,7 @@ export default async function HouseholdPage() {
 
         {/* Right column: Members */}
         <div>
-          <MemberList
-            isOwner={isOwner}
-            currentMemberId={membership.id}
-            householdDietaryType={householdDietaryType}
-          />
+          <MemberList isOwner={isOwner} currentMemberId={membership.id} />
         </div>
       </div>
     </div>
