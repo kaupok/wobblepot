@@ -15,7 +15,7 @@ permissions:
 jobs:
   migrate-staging:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -47,16 +47,6 @@ jobs:
           DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_STAGING }}
         # || true makes this step informational only - shows pending migrations but never fails
         run: pnpm prisma migrate status || true
-
-      - name: Reset staging database [one-time fix]
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
-          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_STAGING }}
-        # One-time fix: staging DB schema is out of sync with migration history
-        # (tables missing despite migrations recorded as applied). Full reset
-        # drops everything and reapplies all migrations from scratch.
-        # Safe to remove this step after the next successful run.
-        run: pnpm prisma migrate reset --force
 
       - name: Deploy migrations [staging]
         env:
