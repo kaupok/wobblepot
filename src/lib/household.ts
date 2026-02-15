@@ -16,6 +16,17 @@ export async function getHouseholdMembership(userId: string) {
 }
 
 /**
+ * Check if a user has any household membership.
+ * Lightweight existence check (no data loaded).
+ */
+export async function hasHouseholdMembership(userId: string): Promise<boolean> {
+  const count = await prisma.householdMember.count({
+    where: { userId },
+  })
+  return count > 0
+}
+
+/**
  * Get the number of members in a household.
  * Used for scaling meal quantities.
  */

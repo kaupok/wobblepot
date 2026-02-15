@@ -18,9 +18,10 @@ import type { Session } from '@/lib/auth'
 
 interface HeaderActionsProps {
   session: Session | null
+  hasHousehold: boolean
 }
 
-export function HeaderActions({ session }: HeaderActionsProps) {
+export function HeaderActions({ session, hasHousehold }: HeaderActionsProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
@@ -52,10 +53,14 @@ export function HeaderActions({ session }: HeaderActionsProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem asChild>
-              <Link href="/profile">Profile</Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
+            {hasHousehold && (
+              <>
+                <DropdownMenuItem asChild>
+                  <Link href="/profile">Profile</Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuItem onClick={handleSignOut} disabled={isLoading}>
               {isLoading ? 'Signing out...' : 'Sign out'}
             </DropdownMenuItem>

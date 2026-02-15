@@ -3,14 +3,15 @@ import type { Session } from '@/lib/auth'
 
 interface NavigationProps {
   session: Session | null
+  hasHousehold: boolean
 }
 
 /**
  * Left navigation - daily operational views
  * (Today, Meal plan, Pantry & shopping)
  */
-export function NavigationLeft({ session }: NavigationProps) {
-  if (!session) return null
+export function NavigationLeft({ session, hasHousehold }: NavigationProps) {
+  if (!session || !hasHousehold) return null
 
   return (
     <nav className="hidden items-center gap-6 md:flex">
@@ -31,8 +32,8 @@ export function NavigationLeft({ session }: NavigationProps) {
  * Right navigation - settings/configuration views
  * (My recipes, Household)
  */
-export function NavigationRight({ session }: NavigationProps) {
-  if (!session) return null
+export function NavigationRight({ session, hasHousehold }: NavigationProps) {
+  if (!session || !hasHousehold) return null
 
   return (
     <nav className="hidden items-center gap-6 md:flex">
