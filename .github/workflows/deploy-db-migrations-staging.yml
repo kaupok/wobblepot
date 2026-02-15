@@ -48,13 +48,15 @@ jobs:
         # || true makes this step informational only - shows pending migrations but never fails
         run: pnpm prisma migrate status || true
 
-      - name: Resolve failed migration [staging]
+      - name: Reset staging database [one-time fix]
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
           DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_STAGING }}
-        # One-time fix: mark the failed migration as rolled-back so deploy can retry it.
+        # One-time fix: staging DB schema is out of sync with migration history
+        # (tables missing despite migrations recorded as applied). Full reset
+        # drops everything and reapplies all migrations from scratch.
         # Safe to remove this step after the next successful run.
-        run: pnpm prisma migrate resolve --rolled-back 20260215121900_remove_omnivore_dietary_type || true
+        run: pnpm prisma migrate reset --force --skip-seed
 
       - name: Deploy migrations [staging]
         env:
