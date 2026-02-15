@@ -167,6 +167,10 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **Adding models:** Edit schema → `pnpm db:migrate` → Commit schema + migration files
 
+**Migration SQL:** Always use actual PostgreSQL table names (from `@@map`) in migration SQL, NOT Prisma model names. Example: `"household_preferences"` not `"HouseholdPreferences"`.
+
+**CRITICAL: Never run destructive database commands (`migrate reset`, `db push --force-reset`, `DROP`, etc.) on staging or production.** These destroy real data. Always ask the user before taking any destructive action on shared environments — even to fix migration issues. Prefer `migrate resolve` or manual SQL fixes instead.
+
 ## Testing
 
 **Unit/Component Tests** (Vitest + Testing Library): Colocate with source files. Use `describe`/`it`, accessibility queries (`getByRole`), focus on user-facing behavior. See `src/components/ui/button.test.tsx`
