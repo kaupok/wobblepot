@@ -48,6 +48,14 @@ jobs:
         # || true makes this step informational only - shows pending migrations but never fails
         run: pnpm prisma migrate status || true
 
+      - name: Resolve failed migration [staging]
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_STAGING }}
+        # One-time fix: mark the failed migration as rolled-back so deploy can retry it.
+        # Safe to remove this step after the next successful run.
+        run: pnpm prisma migrate resolve --rolled-back 20260215121900_remove_omnivore_dietary_type || true
+
       - name: Deploy migrations [staging]
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
