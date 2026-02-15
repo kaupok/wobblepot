@@ -56,7 +56,7 @@ jobs:
         # (tables missing despite migrations recorded as applied). Full reset
         # drops everything and reapplies all migrations from scratch.
         # Safe to remove this step after the next successful run.
-        run: pnpm prisma migrate reset --force --skip-seed
+        run: pnpm prisma migrate reset --force
 
       - name: Deploy migrations [staging]
         env:
