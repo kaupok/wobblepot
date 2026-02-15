@@ -91,16 +91,8 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
   const [name, setName] = useState(`${userName}'s Household`)
 
   // Step 2: Meal types
-  const [weekdayMealTypes, setWeekdayMealTypes] = useState<MealType[]>([
-    'breakfast',
-    'lunch',
-    'dinner',
-  ])
-  const [weekendMealTypes, setWeekendMealTypes] = useState<MealType[]>([
-    'breakfast',
-    'lunch',
-    'dinner',
-  ])
+  const [weekdayMealTypes, setWeekdayMealTypes] = useState<MealType[]>(['dinner'])
+  const [weekendMealTypes, setWeekendMealTypes] = useState<MealType[]>(['dinner'])
 
   // Step 3: Dietary preferences
   const [dietaryType, setDietaryType] = useState<DietaryType | 'none'>('none')

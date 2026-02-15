@@ -90,16 +90,29 @@ describe('CreateHouseholdForm', () => {
       expect(screen.getByText('Which meals do you want to plan?')).toBeInTheDocument()
     })
 
-    it('shows all meal types checked by default', async () => {
+    it('shows only dinner checked by default', async () => {
       render(<CreateHouseholdForm userName="John" />)
 
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
-      // There are 6 checkboxes (3 weekday + 3 weekend), all should be checked
+      // There are 6 checkboxes (3 weekday + 3 weekend)
       const checkboxes = screen.getAllByRole('checkbox')
       expect(checkboxes).toHaveLength(6)
-      checkboxes.forEach((checkbox) => {
+
+      // Only dinner should be checked for both weekday and weekend
+      const dinnerCheckboxes = screen.getAllByRole('checkbox', { name: 'Dinner' })
+      dinnerCheckboxes.forEach((checkbox) => {
         expect(checkbox).toBeChecked()
+      })
+
+      const breakfastCheckboxes = screen.getAllByRole('checkbox', { name: 'Breakfast' })
+      breakfastCheckboxes.forEach((checkbox) => {
+        expect(checkbox).not.toBeChecked()
+      })
+
+      const lunchCheckboxes = screen.getAllByRole('checkbox', { name: 'Lunch' })
+      lunchCheckboxes.forEach((checkbox) => {
+        expect(checkbox).not.toBeChecked()
       })
     })
 
@@ -108,12 +121,19 @@ describe('CreateHouseholdForm', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
+      // Uncheck dinner (checked by default)
+      const dinnerCheckboxes = screen.getAllByRole('checkbox', { name: 'Dinner' })
+      const weekdayDinner = dinnerCheckboxes[0]
+      if (!weekdayDinner) throw new Error('Weekday dinner checkbox not found')
+      await userEvent.click(weekdayDinner)
+      expect(weekdayDinner).not.toBeChecked()
+
+      // Check breakfast (unchecked by default)
       const breakfastCheckboxes = screen.getAllByRole('checkbox', { name: 'Breakfast' })
       const weekdayBreakfast = breakfastCheckboxes[0]
       if (!weekdayBreakfast) throw new Error('Weekday breakfast checkbox not found')
       await userEvent.click(weekdayBreakfast)
-
-      expect(weekdayBreakfast).not.toBeChecked()
+      expect(weekdayBreakfast).toBeChecked()
     })
 
     it('shows Back button on step 2', async () => {
@@ -315,12 +335,12 @@ describe('CreateHouseholdForm', () => {
       await userEvent.clear(nameInput)
       await userEvent.type(nameInput, 'My Household')
 
-      // Step 2: Uncheck lunch on weekdays
+      // Step 2: Check breakfast on weekdays (only dinner is checked by default)
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      const lunchCheckboxes = screen.getAllByRole('checkbox', { name: 'Lunch' })
-      const weekdayLunch = lunchCheckboxes[0]
-      if (!weekdayLunch) throw new Error('Weekday lunch checkbox not found')
-      await userEvent.click(weekdayLunch)
+      const breakfastCheckboxes = screen.getAllByRole('checkbox', { name: 'Breakfast' })
+      const weekdayBreakfast = breakfastCheckboxes[0]
+      if (!weekdayBreakfast) throw new Error('Weekday breakfast checkbox not found')
+      await userEvent.click(weekdayBreakfast)
 
       // Step 3: Select vegetarian and gluten allergen
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
@@ -343,8 +363,8 @@ describe('CreateHouseholdForm', () => {
             preferences: {
               dietaryType: 'vegetarian',
               allergensToAvoid: ['gluten'],
-              weekdayMealTypes: ['breakfast', 'dinner'],
-              weekendMealTypes: ['breakfast', 'lunch', 'dinner'],
+              weekdayMealTypes: ['dinner', 'breakfast'],
+              weekendMealTypes: ['dinner'],
             },
             members: [{ name: 'Emma' }],
           }),
@@ -376,8 +396,8 @@ describe('CreateHouseholdForm', () => {
             preferences: {
               dietaryType: null,
               allergensToAvoid: [],
-              weekdayMealTypes: ['breakfast', 'lunch', 'dinner'],
-              weekendMealTypes: ['breakfast', 'lunch', 'dinner'],
+              weekdayMealTypes: ['dinner'],
+              weekendMealTypes: ['dinner'],
             },
             members: [],
           }),
