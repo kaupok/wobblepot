@@ -12,11 +12,14 @@ export const MAX_TIME_MINUTES = 60
 /**
  * Map dietary type to protein types that should be excluded.
  * These are hard filters - meals with these protein types will never appear.
+ * When dietaryType is null (no preference), no protein types are excluded.
  */
-export function getExcludedProteinTypes(dietaryType: DietaryType): ProteinType[] {
+export function getExcludedProteinTypes(dietaryType: DietaryType | null): ProteinType[] {
+  if (dietaryType === null) {
+    return []
+  }
+
   switch (dietaryType) {
-    case 'omnivore':
-      return []
     case 'vegetarian':
       // Exclude all meat, poultry, and fish
       return ['poultry', 'beef', 'pork', 'lamb', 'fish']
@@ -44,7 +47,7 @@ export interface CandidateFilters {
   allergensToAvoid: Allergen[]
   excludedIngredientIds: string[]
   recentMealIds: string[]
-  dietaryType?: DietaryType
+  dietaryType?: DietaryType | null
   primaryProteinType?: ProteinType
   maxTimeMinutes?: number
   householdId?: string

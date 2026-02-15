@@ -16,7 +16,7 @@ const createManualMemberSchema = z.object({
       targetProtein: z.number().int().min(0).max(500).nullable().optional(),
       targetCarbs: z.number().int().min(0).max(500).nullable().optional(),
       targetFat: z.number().int().min(0).max(500).nullable().optional(),
-      dietaryType: z.enum(['omnivore', 'vegetarian', 'vegan', 'pescatarian']).nullable().optional(),
+      dietaryType: z.enum(['vegetarian', 'vegan', 'pescatarian']).nullable().optional(),
       allergens: z
         .array(
           z.enum([

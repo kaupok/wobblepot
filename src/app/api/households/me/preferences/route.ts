@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 
 const updatePreferencesSchema = z.object({
-  dietaryType: z.enum(['omnivore', 'vegetarian', 'vegan', 'pescatarian']).nullable().optional(),
+  dietaryType: z.enum(['vegetarian', 'vegan', 'pescatarian']).nullable().optional(),
   allergensToAvoid: z
     .array(
       z.enum(['gluten', 'dairy', 'eggs', 'nuts', 'peanuts', 'soy', 'fish', 'shellfish', 'sesame']),

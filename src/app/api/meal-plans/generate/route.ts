@@ -85,7 +85,7 @@ export async function POST(request: Request) {
 
   // Get household preferences
   const preferences = household.preferences
-  const dietaryType = preferences?.dietaryType ?? 'omnivore'
+  const dietaryType = preferences?.dietaryType ?? null
   const allergensToAvoid = preferences?.allergensToAvoid ?? []
   const excludedIngredientIds = preferences?.excludedIngredientIds ?? []
   const restrictions = preferences?.restrictions ?? []

@@ -66,7 +66,7 @@ export interface GeneratePlanOptions {
    * Entries will only be created from this date through Sunday.
    */
   effectiveStartDate?: Date
-  dietaryType: DietaryType
+  dietaryType: DietaryType | null
   allergensToAvoid: Allergen[]
   excludedIngredientIds: string[]
   restrictions: string[]
@@ -91,7 +91,7 @@ export interface CreateEmptyPlanOptions {
 export interface FillEmptySlotsOptions {
   planId: string
   householdId: string
-  dietaryType: DietaryType
+  dietaryType: DietaryType | null
   allergensToAvoid: Allergen[]
   excludedIngredientIds: string[]
   restrictions: string[]

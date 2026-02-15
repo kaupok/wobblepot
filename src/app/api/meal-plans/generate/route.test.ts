@@ -63,7 +63,7 @@ const mockHousehold = {
   name: 'Test Household',
   timezone: 'Europe/Tallinn',
   preferences: {
-    dietaryType: 'omnivore',
+    dietaryType: null,
     allergensToAvoid: [],
     excludedIngredientIds: [],
     restrictions: [],

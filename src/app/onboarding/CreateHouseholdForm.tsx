@@ -20,7 +20,7 @@ import {
 import { Heading, Body } from '@/components/ui/typography'
 
 // Types matching Prisma enums
-type DietaryType = 'omnivore' | 'vegetarian' | 'vegan' | 'pescatarian'
+type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian'
 type Allergen =
   | 'gluten'
   | 'dairy'
@@ -35,7 +35,6 @@ type MealType = 'breakfast' | 'lunch' | 'dinner'
 
 const DIETARY_TYPES: { value: DietaryType | 'none'; label: string }[] = [
   { value: 'none', label: 'No preference' },
-  { value: 'omnivore', label: 'Omnivore' },
   { value: 'vegetarian', label: 'Vegetarian' },
   { value: 'vegan', label: 'Vegan' },
   { value: 'pescatarian', label: 'Pescatarian' },

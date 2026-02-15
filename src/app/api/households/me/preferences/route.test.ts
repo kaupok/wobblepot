@@ -35,7 +35,7 @@ const mockUpdate = vi.mocked(prisma.householdPreferences.update)
 const mockPreferences = {
   id: 'prefs-123',
   householdId: 'household-123',
-  dietaryType: 'omnivore',
+  dietaryType: null,
   allergensToAvoid: [],
   restrictions: [],
   excludedIngredients: [],
@@ -108,7 +108,7 @@ describe('GET /api/households/me/preferences', () => {
 
     expect(response.status).toBe(200)
     expect(data.id).toBe('prefs-123')
-    expect(data.dietaryType).toBe('omnivore')
+    expect(data.dietaryType).toBeNull()
     expect(data.weekdayMealTypes).toEqual(['dinner'])
   })
 })

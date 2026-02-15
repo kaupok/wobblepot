@@ -378,14 +378,14 @@ describe('getCandidates', () => {
   })
 
   describe('dietary type filter', () => {
-    it('does not filter by protein type for omnivore', async () => {
+    it('does not filter by protein type for no preference', async () => {
       mockFindMany.mockResolvedValue([])
 
-      await getCandidates({ ...baseFilters, dietaryType: 'omnivore' })
+      await getCandidates({ ...baseFilters, dietaryType: null })
 
       const calledWith = mockFindMany.mock.calls[0]?.[0]
       const andClause = calledWith?.where?.AND as unknown[]
-      // Should not contain protein type notIn filter for omnivore
+      // Should not contain protein type notIn filter for no preference
       expect(andClause).not.toContainEqual(
         expect.objectContaining({
           primaryProteinType: expect.objectContaining({ notIn: expect.anything() }),
@@ -683,8 +683,8 @@ describe('constants', () => {
 })
 
 describe('getExcludedProteinTypes', () => {
-  it('returns empty array for omnivore', () => {
-    expect(getExcludedProteinTypes('omnivore')).toEqual([])
+  it('returns empty array for no preference', () => {
+    expect(getExcludedProteinTypes(null)).toEqual([])
   })
 
   it('excludes meat, poultry, and fish for vegetarian', () => {
@@ -718,7 +718,7 @@ describe('getExcludedProteinTypes', () => {
   })
 
   it('handles all DietaryType values', () => {
-    const dietaryTypes: DietaryType[] = ['omnivore', 'vegetarian', 'vegan', 'pescatarian']
+    const dietaryTypes: (DietaryType | null)[] = [null, 'vegetarian', 'vegan', 'pescatarian']
     for (const type of dietaryTypes) {
       expect(() => getExcludedProteinTypes(type)).not.toThrow()
     }

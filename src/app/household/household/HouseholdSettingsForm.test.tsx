@@ -15,7 +15,7 @@ vi.mock('sonner', () => ({
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
-type DietaryType = 'omnivore' | 'vegetarian' | 'vegan' | 'pescatarian'
+type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian'
 type Allergen =
   | 'gluten'
   | 'dairy'
@@ -100,7 +100,6 @@ describe('HouseholdSettingsForm', () => {
       )
 
       expect(screen.getByLabelText('No preference')).toBeInTheDocument()
-      expect(screen.getByLabelText('Omnivore')).toBeInTheDocument()
       expect(screen.getByLabelText('Vegetarian')).toBeInTheDocument()
       expect(screen.getByLabelText('Vegan')).toBeInTheDocument()
       expect(screen.getByLabelText('Pescatarian')).toBeInTheDocument()

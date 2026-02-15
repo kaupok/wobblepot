@@ -23,7 +23,6 @@ const ALLERGEN_LABELS: Record<Allergen, string> = {
 }
 
 const DIETARY_TYPE_LABELS: Record<DietaryType, string> = {
-  omnivore: 'Omnivore',
   vegetarian: 'Vegetarian',
   vegan: 'Vegan',
   pescatarian: 'Pescatarian',

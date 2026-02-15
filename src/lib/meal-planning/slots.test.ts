@@ -153,9 +153,9 @@ describe('computeRequiredSlots', () => {
   describe('with full week (Mon-Sun)', () => {
     const fullWeek = createWeek(MONDAY)
 
-    it('returns fish midweek + legume weekend for omnivore with dinner', () => {
+    it('returns fish midweek + legume weekend for no preference with dinner', () => {
       const result = computeRequiredSlots({
-        dietaryType: 'omnivore',
+        dietaryType: null,
         dates: fullWeek,
         weekdayMealTypes: DEFAULT_WEEKDAY_MEALS,
         weekendMealTypes: DEFAULT_WEEKEND_MEALS,
@@ -249,7 +249,7 @@ describe('computeRequiredSlots', () => {
     it('returns slots only when dinner is in preferences', () => {
       // No dinner in preferences - no balance constraints
       const result = computeRequiredSlots({
-        dietaryType: 'omnivore',
+        dietaryType: null,
         dates: fullWeek,
         weekdayMealTypes: ['lunch'],
         weekendMealTypes: ['breakfast', 'lunch'],
@@ -260,7 +260,7 @@ describe('computeRequiredSlots', () => {
 
     it('applies constraints when dinner is only on weekdays', () => {
       const result = computeRequiredSlots({
-        dietaryType: 'omnivore',
+        dietaryType: null,
         dates: fullWeek,
         weekdayMealTypes: ['dinner'],
         weekendMealTypes: ['breakfast'], // No dinner on weekends
@@ -280,7 +280,7 @@ describe('computeRequiredSlots', () => {
   describe('edge cases', () => {
     it('returns empty array for empty dates', () => {
       const result = computeRequiredSlots({
-        dietaryType: 'omnivore',
+        dietaryType: null,
         dates: [],
         weekdayMealTypes: DEFAULT_WEEKDAY_MEALS,
         weekendMealTypes: DEFAULT_WEEKEND_MEALS,
@@ -328,7 +328,7 @@ describe('computeRequiredSlots', () => {
       const midWeekStart = createWeek(wednesday) // Wed, Thu, Fri, Sat, Sun, Mon, Tue
 
       const result = computeRequiredSlots({
-        dietaryType: 'omnivore',
+        dietaryType: null,
         dates: midWeekStart,
         weekdayMealTypes: DEFAULT_WEEKDAY_MEALS,
         weekendMealTypes: DEFAULT_WEEKEND_MEALS,
