@@ -1,4 +1,4 @@
-export type DietaryType = 'omnivore' | 'vegetarian' | 'vegan' | 'pescatarian'
+export type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian'
 
 export type Allergen =
   | 'gluten'

@@ -93,7 +93,7 @@ export function pickDay(dates: Date[], slot: SlotType): Date {
  * Options for computing required protein type slots.
  */
 export interface ComputeRequiredSlotsOptions {
-  dietaryType: DietaryType
+  dietaryType: DietaryType | null
   dates: Date[]
   weekdayMealTypes: MealType[]
   weekendMealTypes: MealType[]
@@ -104,7 +104,7 @@ export interface ComputeRequiredSlotsOptions {
  * These slots ensure nutritional variety in the meal plan.
  *
  * Logic by dietary type:
- * - omnivore: fish 1x/week (midweek), legume 1x/week (weekend)
+ * - null (no preference): fish 1x/week (midweek), legume 1x/week (weekend)
  * - pescatarian: fish 2x/week (early + late), legume 1x/week (midweek)
  * - vegetarian: legume 2x/week (early + late)
  * - vegan: legume 2x/week (early + late)
@@ -130,13 +130,15 @@ export function computeRequiredSlots(options: ComputeRequiredSlotsOptions): Slot
     return []
   }
 
-  switch (dietaryType) {
-    case 'omnivore':
-      return [
-        { date: pickDay(dinnerDates, 'midweek'), mealType: 'dinner', proteinType: 'fish' },
-        { date: pickDay(dinnerDates, 'weekend'), mealType: 'dinner', proteinType: 'legume' },
-      ]
+  if (dietaryType === null) {
+    // No preference: fish 1x/week (midweek), legume 1x/week (weekend)
+    return [
+      { date: pickDay(dinnerDates, 'midweek'), mealType: 'dinner', proteinType: 'fish' },
+      { date: pickDay(dinnerDates, 'weekend'), mealType: 'dinner', proteinType: 'legume' },
+    ]
+  }
 
+  switch (dietaryType) {
     case 'pescatarian':
       return [
         { date: pickDay(dinnerDates, 'early'), mealType: 'dinner', proteinType: 'fish' },

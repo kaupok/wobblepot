@@ -11,7 +11,7 @@ import {
 import { computeRequiredSlots } from '@/lib/meal-planning/slots'
 import { getWeekDates, toDateString } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
-import type { Allergen, DietaryType, MealType, ProteinType } from '@/generated/prisma/enums'
+import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
 import type { AlternativeMeal } from '@/components/meal-plan/types'
 
 interface ScoredCandidate {
@@ -163,7 +163,7 @@ export async function POST(
 
     // Get preferences with defaults
     const preferences = household.preferences
-    const dietaryType = (preferences?.dietaryType ?? 'omnivore') as DietaryType
+    const dietaryType = preferences?.dietaryType ?? null
     const allergensToAvoid = (preferences?.allergensToAvoid ?? []) as Allergen[]
     const excludedIngredientIds = preferences?.excludedIngredientIds ?? []
 

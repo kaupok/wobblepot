@@ -24,7 +24,6 @@ import { cn } from '@/lib/utils'
 import type { Member, DietaryType, Allergen } from '@/types/member'
 
 const DIETARY_TYPES: { value: DietaryType; label: string }[] = [
-  { value: 'omnivore', label: 'Omnivore' },
   { value: 'vegetarian', label: 'Vegetarian' },
   { value: 'vegan', label: 'Vegan' },
   { value: 'pescatarian', label: 'Pescatarian' },

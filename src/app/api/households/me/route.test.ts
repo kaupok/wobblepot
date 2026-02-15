@@ -61,7 +61,7 @@ describe('GET /api/households/me', () => {
       preferences: {
         id: 'prefs-123',
         householdId: 'household-123',
-        dietaryType: 'omnivore',
+        dietaryType: null,
         allergensToAvoid: [],
         restrictions: [],
         excludedIngredients: [],
@@ -86,7 +86,7 @@ describe('GET /api/households/me', () => {
     expect(data.name).toBe("John Doe's Household")
     expect(data.timezone).toBe('Europe/Tallinn')
     expect(data.preferences).toBeDefined()
-    expect(data.preferences.dietaryType).toBe('omnivore')
+    expect(data.preferences.dietaryType).toBeNull()
   })
 
   it('returns 404 when user has no household', async () => {
@@ -114,7 +114,7 @@ describe('PATCH /api/households/me', () => {
     preferences: {
       id: 'prefs-123',
       householdId: 'household-123',
-      dietaryType: 'omnivore',
+      dietaryType: null,
       allergensToAvoid: [],
       restrictions: [],
       excludedIngredients: [],

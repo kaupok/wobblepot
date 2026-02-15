@@ -5,7 +5,7 @@
  * Tests the complete generation pipeline: slot computation → candidate query →
  * AI selection → validation → deterministic repair.
  *
- * Usage: npx tsx scripts/test-ai-selection.ts [--dietary-type=omnivore|vegetarian|vegan|pescatarian]
+ * Usage: npx tsx scripts/test-ai-selection.ts [--dietary-type=vegetarian|vegan|pescatarian]
  */
 
 import 'dotenv/config'
@@ -25,7 +25,7 @@ const CANDIDATE_POOL_LIMIT = 50
 // TYPES
 // ============================================
 
-type DietaryType = 'omnivore' | 'vegetarian' | 'vegan' | 'pescatarian'
+type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian' | null
 type ProteinType =
   | 'poultry'
   | 'beef'
@@ -191,7 +191,7 @@ function computeRequiredSlots(
   dietaryType: DietaryType,
   dates: [Date, Date, Date, Date, Date, Date, Date],
 ): SlotRequirement[] {
-  if (dietaryType === 'omnivore') {
+  if (dietaryType === null) {
     return [
       { date: pickDay(dates, 'midweek'), proteinType: 'fish' }, // fish 1x/week (Wed)
       { date: pickDay(dates, 'weekend'), proteinType: 'legume' }, // legume 1x/week (Sat)
@@ -670,7 +670,10 @@ async function main() {
   // Parse command line arguments
   const args = process.argv.slice(2)
   const dietaryTypeArg = args.find((a) => a.startsWith('--dietary-type='))
-  const dietaryType: DietaryType = (dietaryTypeArg?.split('=')[1] as DietaryType) || 'omnivore'
+  const dietaryTypeValue = dietaryTypeArg?.split('=')[1]
+  const dietaryType: DietaryType = dietaryTypeValue
+    ? (dietaryTypeValue as Exclude<DietaryType, null>)
+    : null
 
   log.section('AI MEAL SELECTION TEST')
   log.info(`Dietary type: ${dietaryType}`)

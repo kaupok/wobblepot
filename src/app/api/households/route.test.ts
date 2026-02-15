@@ -169,7 +169,7 @@ describe('POST /api/households', () => {
       preferences: {
         id: 'prefs-123',
         householdId: 'household-123',
-        dietaryType: 'omnivore',
+        dietaryType: null,
         allergensToAvoid: [],
         restrictions: [],
         excludedIngredients: [],
@@ -224,7 +224,7 @@ describe('POST /api/households', () => {
       preferences: {
         id: 'prefs-123',
         householdId: 'household-123',
-        dietaryType: 'omnivore',
+        dietaryType: null,
         allergensToAvoid: [],
         restrictions: [],
         excludedIngredients: [],

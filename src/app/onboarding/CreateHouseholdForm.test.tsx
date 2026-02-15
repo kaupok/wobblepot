@@ -175,7 +175,6 @@ describe('CreateHouseholdForm', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
       expect(screen.getByRole('radio', { name: 'No preference' })).toBeChecked()
-      expect(screen.getByRole('radio', { name: 'Omnivore' })).not.toBeChecked()
       expect(screen.getByRole('radio', { name: 'Vegetarian' })).not.toBeChecked()
       expect(screen.getByRole('radio', { name: 'Vegan' })).not.toBeChecked()
       expect(screen.getByRole('radio', { name: 'Pescatarian' })).not.toBeChecked()

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ProteinType, IngredientCategory, DietaryType } from '@/generated/prisma/enums'
+import { ProteinType, IngredientCategory } from '@/generated/prisma/enums'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import type { CandidateMeal } from '@/lib/meal-planning/candidates'
 import { MealPlanValidationError, InsufficientCandidatesError } from './types'
@@ -120,7 +120,7 @@ function createMockMeals(count: number, startIndex = 1): CandidateMeal[] {
 const defaultOptions = {
   householdId: 'household-1',
   startDate: date('2026-01-12'),
-  dietaryType: 'omnivore' as DietaryType,
+  dietaryType: null,
   allergensToAvoid: [],
   excludedIngredientIds: [],
   restrictions: [],
@@ -301,7 +301,7 @@ describe('generateMealPlan', () => {
   })
 
   describe('InsufficientCandidatesError', () => {
-    it('throws when fish pool is empty for omnivore', async () => {
+    it('throws when fish pool is empty for no preference', async () => {
       // Order: 1. dinner (general), 2. fish (protein-specific), 3. legume (protein-specific)
       mockGetCandidates
         .mockResolvedValueOnce(createMockMeals(10)) // dinner general
@@ -315,7 +315,7 @@ describe('generateMealPlan', () => {
       expect(error.message).toContain('No fish meals available')
     })
 
-    it('throws when legume pool is empty for omnivore', async () => {
+    it('throws when legume pool is empty for no preference', async () => {
       // Order: 1. dinner (general), 2. fish (protein-specific), 3. legume (protein-specific)
       mockGetCandidates
         .mockResolvedValueOnce(createMockMeals(10)) // dinner general
