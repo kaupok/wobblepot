@@ -32,7 +32,7 @@ describe('CreateHouseholdForm', () => {
     it('renders first step with heading and progress indicator', () => {
       render(<CreateHouseholdForm userName="John" />)
 
-      expect(screen.getByText('Step 1 of 4')).toBeInTheDocument()
+      expect(screen.getByText('Step 1 of 2')).toBeInTheDocument()
       expect(screen.getByText('Create your household')).toBeInTheDocument()
       expect(screen.getByText('Give your household a name to get started')).toBeInTheDocument()
     })
@@ -70,65 +70,28 @@ describe('CreateHouseholdForm', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
       expect(screen.getByRole('alert')).toHaveTextContent('Household name is required')
-      expect(screen.getByText('Step 1 of 4')).toBeInTheDocument()
+      expect(screen.getByText('Step 1 of 2')).toBeInTheDocument()
     })
   })
 
-  describe('Step 2: Meal types', () => {
+  describe('Step 2: Household members', () => {
     it('navigates to step 2 when continuing from step 1', async () => {
       render(<CreateHouseholdForm userName="John" />)
 
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
-      expect(screen.getByText('Step 2 of 4')).toBeInTheDocument()
-      expect(screen.getByText('Meals to plan')).toBeInTheDocument()
-      expect(screen.getByText('Which meals do you want to plan?')).toBeInTheDocument()
+      expect(screen.getByText('Step 2 of 2')).toBeInTheDocument()
+      expect(screen.getByText('Household members')).toBeInTheDocument()
+      expect(screen.getByText('Tell us about your household')).toBeInTheDocument()
     })
 
-    it('shows only dinner checked by default', async () => {
+    it('shows Create household button on final step', async () => {
       render(<CreateHouseholdForm userName="John" />)
 
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
-      // There are 6 checkboxes (3 weekday + 3 weekend)
-      const checkboxes = screen.getAllByRole('checkbox')
-      expect(checkboxes).toHaveLength(6)
-
-      // Only dinner should be checked for both weekday and weekend
-      const dinnerCheckboxes = screen.getAllByRole('checkbox', { name: 'Dinner' })
-      dinnerCheckboxes.forEach((checkbox) => {
-        expect(checkbox).toBeChecked()
-      })
-
-      const breakfastCheckboxes = screen.getAllByRole('checkbox', { name: 'Breakfast' })
-      breakfastCheckboxes.forEach((checkbox) => {
-        expect(checkbox).not.toBeChecked()
-      })
-
-      const lunchCheckboxes = screen.getAllByRole('checkbox', { name: 'Lunch' })
-      lunchCheckboxes.forEach((checkbox) => {
-        expect(checkbox).not.toBeChecked()
-      })
-    })
-
-    it('allows toggling meal types', async () => {
-      render(<CreateHouseholdForm userName="John" />)
-
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-
-      // Uncheck dinner (checked by default)
-      const dinnerCheckboxes = screen.getAllByRole('checkbox', { name: 'Dinner' })
-      const weekdayDinner = dinnerCheckboxes[0]
-      if (!weekdayDinner) throw new Error('Weekday dinner checkbox not found')
-      await userEvent.click(weekdayDinner)
-      expect(weekdayDinner).not.toBeChecked()
-
-      // Check breakfast (unchecked by default)
-      const breakfastCheckboxes = screen.getAllByRole('checkbox', { name: 'Breakfast' })
-      const weekdayBreakfast = breakfastCheckboxes[0]
-      if (!weekdayBreakfast) throw new Error('Weekday breakfast checkbox not found')
-      await userEvent.click(weekdayBreakfast)
-      expect(weekdayBreakfast).toBeChecked()
+      expect(screen.getByRole('button', { name: 'Create household' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument()
     })
 
     it('shows Back button on step 2', async () => {
@@ -145,90 +108,12 @@ describe('CreateHouseholdForm', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
       await userEvent.click(screen.getByRole('button', { name: 'Back' }))
 
-      expect(screen.getByText('Step 1 of 4')).toBeInTheDocument()
-    })
-  })
-
-  describe('Step 3: Dietary preferences', () => {
-    it('navigates to step 3', async () => {
-      render(<CreateHouseholdForm userName="John" />)
-
-      // Step 1 -> 2
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      // Step 2 -> 3
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-
-      expect(screen.getByText('Step 3 of 4')).toBeInTheDocument()
-      expect(screen.getByText('Dietary preferences')).toBeInTheDocument()
-      expect(screen.getByText('Help us find the right meals for you')).toBeInTheDocument()
-    })
-
-    it('shows dietary type radio buttons with no preference selected', async () => {
-      render(<CreateHouseholdForm userName="John" />)
-
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-
-      expect(screen.getByRole('radio', { name: 'No preference' })).toBeChecked()
-      expect(screen.getByRole('radio', { name: 'Vegetarian' })).not.toBeChecked()
-      expect(screen.getByRole('radio', { name: 'Vegan' })).not.toBeChecked()
-      expect(screen.getByRole('radio', { name: 'Pescatarian' })).not.toBeChecked()
-    })
-
-    it('allows selecting dietary type', async () => {
-      render(<CreateHouseholdForm userName="John" />)
-
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-
-      await userEvent.click(screen.getByRole('radio', { name: 'Vegetarian' }))
-
-      expect(screen.getByRole('radio', { name: 'Vegetarian' })).toBeChecked()
-    })
-
-    it('shows allergen checkboxes all unchecked by default', async () => {
-      render(<CreateHouseholdForm userName="John" />)
-
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-
-      expect(screen.getByRole('checkbox', { name: 'Gluten' })).not.toBeChecked()
-      expect(screen.getByRole('checkbox', { name: 'Dairy' })).not.toBeChecked()
-      expect(screen.getByRole('checkbox', { name: 'Tree nuts' })).not.toBeChecked()
-    })
-
-    it('allows selecting allergens', async () => {
-      render(<CreateHouseholdForm userName="John" />)
-
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-
-      await userEvent.click(screen.getByRole('checkbox', { name: 'Gluten' }))
-      await userEvent.click(screen.getByRole('checkbox', { name: 'Dairy' }))
-
-      expect(screen.getByRole('checkbox', { name: 'Gluten' })).toBeChecked()
-      expect(screen.getByRole('checkbox', { name: 'Dairy' })).toBeChecked()
-    })
-  })
-
-  describe('Step 4: Household members', () => {
-    it('navigates to step 4', async () => {
-      render(<CreateHouseholdForm userName="John" />)
-
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-
-      expect(screen.getByText('Step 4 of 4')).toBeInTheDocument()
-      expect(screen.getByText('Household members')).toBeInTheDocument()
-      expect(screen.getByText('Tell us about your household')).toBeInTheDocument()
+      expect(screen.getByText('Step 1 of 2')).toBeInTheDocument()
     })
 
     it('shows household size input with default value 1', async () => {
       render(<CreateHouseholdForm userName="John" />)
 
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
       const sizeInput = screen.getByLabelText('How many people in your household?')
@@ -239,8 +124,6 @@ describe('CreateHouseholdForm', () => {
       render(<CreateHouseholdForm userName="John" />)
 
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
       const firstMemberInput = screen.getByLabelText('Member 1 name')
       expect(firstMemberInput).toHaveValue('John')
@@ -250,8 +133,6 @@ describe('CreateHouseholdForm', () => {
     it('expands member rows when increasing household size', async () => {
       render(<CreateHouseholdForm userName="John" />)
 
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
       // Increase to 3
@@ -266,8 +147,6 @@ describe('CreateHouseholdForm', () => {
     it('collapses member rows when decreasing household size', async () => {
       render(<CreateHouseholdForm userName="John" />)
 
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
       // Increase to 3, then decrease to 2
@@ -284,8 +163,6 @@ describe('CreateHouseholdForm', () => {
       render(<CreateHouseholdForm userName="John" />)
 
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
       expect(screen.getByRole('button', { name: 'Decrease household size' })).toBeDisabled()
     })
@@ -293,8 +170,6 @@ describe('CreateHouseholdForm', () => {
     it('allows toggling Adult/Child for additional members', async () => {
       render(<CreateHouseholdForm userName="John" />)
 
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
       // Add a second member
@@ -308,15 +183,12 @@ describe('CreateHouseholdForm', () => {
       await userEvent.click(member2ChildBtn)
 
       // The Child button for member 2 should now be the "default" variant
-      // (which means it's selected)
       expect(member2ChildBtn).toHaveClass('text-xs')
     })
 
     it('allows entering names for additional members', async () => {
       render(<CreateHouseholdForm userName="John" />)
 
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
       await userEvent.click(screen.getByRole('button', { name: 'Increase household size' }))
@@ -325,17 +197,6 @@ describe('CreateHouseholdForm', () => {
       await userEvent.type(member2Input, 'Emma')
 
       expect(member2Input).toHaveValue('Emma')
-    })
-
-    it('shows Create household button on final step', async () => {
-      render(<CreateHouseholdForm userName="John" />)
-
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-
-      expect(screen.getByRole('button', { name: 'Create household' })).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument()
     })
   })
 
@@ -350,13 +211,11 @@ describe('CreateHouseholdForm', () => {
 
     async function navigateToFinalStep() {
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
       // Wait for transition guard to clear (100ms timeout in handleNext)
       await vi.advanceTimersByTimeAsync(150)
     }
 
-    it('submits form with all collected data including members', async () => {
+    it('submits form with name and members', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: () =>
@@ -373,21 +232,8 @@ describe('CreateHouseholdForm', () => {
       await userEvent.clear(nameInput)
       await userEvent.type(nameInput, 'My Household')
 
-      // Step 2: Check breakfast on weekdays (only dinner is checked by default)
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      const breakfastCheckboxes = screen.getAllByRole('checkbox', { name: 'Breakfast' })
-      const weekdayBreakfast = breakfastCheckboxes[0]
-      if (!weekdayBreakfast) throw new Error('Weekday breakfast checkbox not found')
-      await userEvent.click(weekdayBreakfast)
-
-      // Step 3: Select vegetarian and gluten allergen
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('radio', { name: 'Vegetarian' }))
-      await userEvent.click(screen.getByRole('checkbox', { name: 'Gluten' }))
-
-      // Step 4: Add a member named Emma as child
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await vi.advanceTimersByTimeAsync(150)
+      // Step 2: Add a member named Emma as child
+      await navigateToFinalStep()
 
       await userEvent.click(screen.getByRole('button', { name: 'Increase household size' }))
       const member2Input = screen.getByLabelText('Member 2 name')
@@ -407,12 +253,6 @@ describe('CreateHouseholdForm', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: 'My Household',
-            preferences: {
-              dietaryType: 'vegetarian',
-              allergensToAvoid: ['gluten'],
-              weekdayMealTypes: ['dinner', 'breakfast'],
-              weekendMealTypes: ['dinner'],
-            },
             members: [{ name: 'Emma', portionType: 'child' }],
           }),
         })
@@ -440,12 +280,6 @@ describe('CreateHouseholdForm', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: "John's Household",
-            preferences: {
-              dietaryType: null,
-              allergensToAvoid: [],
-              weekdayMealTypes: ['dinner'],
-              weekendMealTypes: ['dinner'],
-            },
             members: [],
           }),
         })
@@ -478,12 +312,6 @@ describe('CreateHouseholdForm', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: "John's Household",
-            preferences: {
-              dietaryType: null,
-              allergensToAvoid: [],
-              weekdayMealTypes: ['dinner'],
-              weekendMealTypes: ['dinner'],
-            },
             members: [
               { name: 'Adult 2', portionType: 'adult' },
               { name: 'Adult 3', portionType: 'adult' },
@@ -525,12 +353,6 @@ describe('CreateHouseholdForm', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: "John's Household",
-            preferences: {
-              dietaryType: null,
-              allergensToAvoid: [],
-              weekdayMealTypes: ['dinner'],
-              weekendMealTypes: ['dinner'],
-            },
             members: [
               { name: 'Child 1', portionType: 'child' },
               { name: 'Adult 2', portionType: 'adult' },

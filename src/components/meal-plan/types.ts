@@ -115,3 +115,23 @@ export interface EmptySlot {
   date: string
   mealType: MealType
 }
+
+export type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian'
+export type Allergen =
+  | 'gluten'
+  | 'dairy'
+  | 'eggs'
+  | 'nuts'
+  | 'peanuts'
+  | 'soy'
+  | 'fish'
+  | 'shellfish'
+  | 'sesame'
+
+export interface HouseholdPreferencesData {
+  dietaryType: DietaryType | null
+  allergensToAvoid: Allergen[]
+  restrictions: string[]
+  weekdayMealTypes: MealType[]
+  weekendMealTypes: MealType[]
+}

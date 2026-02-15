@@ -3,18 +3,10 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { Allergen, DietaryType, MealType } from '@/generated/prisma/enums'
+import { MealType } from '@/generated/prisma/enums'
 
 const createHouseholdSchema = z.object({
   name: z.string().min(1).max(100),
-  preferences: z
-    .object({
-      dietaryType: z.nativeEnum(DietaryType).nullable().optional(),
-      allergensToAvoid: z.array(z.nativeEnum(Allergen)).optional(),
-      weekdayMealTypes: z.array(z.nativeEnum(MealType)).optional(),
-      weekendMealTypes: z.array(z.nativeEnum(MealType)).optional(),
-    })
-    .optional(),
   members: z
     .array(
       z.object({
@@ -50,7 +42,7 @@ export async function POST(request: Request) {
 
   // Create household, membership, preferences, and optional members in a transaction
   try {
-    const { name, preferences, members } = parsed.data
+    const { name, members } = parsed.data
 
     const household = await prisma.$transaction(async (tx) => {
       // Check inside transaction to prevent race condition
@@ -79,10 +71,8 @@ export async function POST(request: Request) {
       await tx.householdPreferences.create({
         data: {
           householdId: newHousehold.id,
-          dietaryType: preferences?.dietaryType ?? null,
-          allergensToAvoid: preferences?.allergensToAvoid ?? [],
-          weekdayMealTypes: preferences?.weekdayMealTypes ?? [MealType.dinner],
-          weekendMealTypes: preferences?.weekendMealTypes ?? [MealType.dinner],
+          weekdayMealTypes: [MealType.dinner],
+          weekendMealTypes: [MealType.dinner],
         },
       })
 

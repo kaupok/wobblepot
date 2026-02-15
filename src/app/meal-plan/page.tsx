@@ -9,6 +9,7 @@ import { EmptyPlan } from '@/components/meal-plan/EmptyPlan'
 import { WeekTabs } from '@/components/meal-plan/WeekTabs'
 import type {
   ExpectedMealTypes,
+  HouseholdPreferencesData,
   MealPlanWithContext,
   PantryIngredient,
   PantryItemFull,
@@ -145,6 +146,19 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     weekendMealTypes: (preferences?.weekendMealTypes ?? ['dinner']) as MealType[],
   }
 
+  // Check if this is the first-ever generation (no plans exist for any week)
+  const isFirstGeneration = !hasLastPlan && !hasCurrentPlan && !hasNextPlan
+
+  // Preferences data for the generation screen
+  const preferencesData: HouseholdPreferencesData = {
+    dietaryType: (preferences?.dietaryType as HouseholdPreferencesData['dietaryType']) ?? null,
+    allergensToAvoid:
+      (preferences?.allergensToAvoid as HouseholdPreferencesData['allergensToAvoid']) ?? [],
+    restrictions: preferences?.restrictions ?? [],
+    weekdayMealTypes: (preferences?.weekdayMealTypes ?? ['dinner']) as MealType[],
+    weekendMealTypes: (preferences?.weekendMealTypes ?? ['dinner']) as MealType[],
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col gap-6">
@@ -168,7 +182,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             expectedMealTypes={expectedMealTypes}
           />
         ) : (
-          <EmptyPlan weekContext={weekContext} />
+          <EmptyPlan
+            weekContext={weekContext}
+            isFirstGeneration={isFirstGeneration}
+            preferences={preferencesData}
+            timezone={membership.household.timezone}
+          />
         )}
       </div>
     </div>
