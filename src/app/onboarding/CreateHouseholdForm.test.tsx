@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { CreateHouseholdForm } from './CreateHouseholdForm'
@@ -16,11 +16,6 @@ vi.mock('next/navigation', () => ({
 // Mock fetch globally
 const mockFetch = vi.fn()
 global.fetch = mockFetch
-
-// Mock crypto.randomUUID for consistent test results
-vi.stubGlobal('crypto', {
-  randomUUID: () => 'test-uuid',
-})
 
 describe('CreateHouseholdForm', () => {
   beforeEach(() => {
@@ -226,7 +221,110 @@ describe('CreateHouseholdForm', () => {
 
       expect(screen.getByText('Step 4 of 4')).toBeInTheDocument()
       expect(screen.getByText('Household members')).toBeInTheDocument()
-      expect(screen.getByText('Add other family members (optional)')).toBeInTheDocument()
+      expect(screen.getByText('Tell us about your household')).toBeInTheDocument()
+    })
+
+    it('shows household size input with default value 1', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      const sizeInput = screen.getByLabelText('How many people in your household?')
+      expect(sizeInput).toHaveValue(1)
+    })
+
+    it('shows first member row pre-filled with user name and disabled', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      const firstMemberInput = screen.getByLabelText('Member 1 name')
+      expect(firstMemberInput).toHaveValue('John')
+      expect(firstMemberInput).toBeDisabled()
+    })
+
+    it('expands member rows when increasing household size', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      // Increase to 3
+      await userEvent.click(screen.getByRole('button', { name: 'Increase household size' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Increase household size' }))
+
+      expect(screen.getByLabelText('Member 1 name')).toBeInTheDocument()
+      expect(screen.getByLabelText('Member 2 name')).toBeInTheDocument()
+      expect(screen.getByLabelText('Member 3 name')).toBeInTheDocument()
+    })
+
+    it('collapses member rows when decreasing household size', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      // Increase to 3, then decrease to 2
+      await userEvent.click(screen.getByRole('button', { name: 'Increase household size' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Increase household size' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Decrease household size' }))
+
+      expect(screen.getByLabelText('Member 1 name')).toBeInTheDocument()
+      expect(screen.getByLabelText('Member 2 name')).toBeInTheDocument()
+      expect(screen.queryByLabelText('Member 3 name')).not.toBeInTheDocument()
+    })
+
+    it('does not allow decreasing below 1', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      expect(screen.getByRole('button', { name: 'Decrease household size' })).toBeDisabled()
+    })
+
+    it('allows toggling Adult/Child for additional members', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      // Add a second member
+      await userEvent.click(screen.getByRole('button', { name: 'Increase household size' }))
+
+      // Find the Child buttons (there are 2: one for member 1 disabled, one for member 2)
+      const childButtons = screen.getAllByRole('button', { name: 'Child' })
+      // Click the second Child button (for member 2)
+      const member2ChildBtn = childButtons[1]
+      if (!member2ChildBtn) throw new Error('Member 2 Child button not found')
+      await userEvent.click(member2ChildBtn)
+
+      // The Child button for member 2 should now be the "default" variant
+      // (which means it's selected)
+      expect(member2ChildBtn).toHaveClass('text-xs')
+    })
+
+    it('allows entering names for additional members', async () => {
+      render(<CreateHouseholdForm userName="John" />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      await userEvent.click(screen.getByRole('button', { name: 'Increase household size' }))
+
+      const member2Input = screen.getByLabelText('Member 2 name')
+      await userEvent.type(member2Input, 'Emma')
+
+      expect(member2Input).toHaveValue('Emma')
     })
 
     it('shows Create household button on final step', async () => {
@@ -238,65 +336,6 @@ describe('CreateHouseholdForm', () => {
 
       expect(screen.getByRole('button', { name: 'Create household' })).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument()
-    })
-
-    it('allows adding a member', async () => {
-      render(<CreateHouseholdForm userName="John" />)
-
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-
-      const nameInput = screen.getByPlaceholderText('Enter name')
-      await userEvent.type(nameInput, 'Emma')
-      await userEvent.click(screen.getByRole('button', { name: 'Add member' }))
-
-      expect(screen.getByText('Emma')).toBeInTheDocument()
-      expect(nameInput).toHaveValue('')
-    })
-
-    it('allows adding member by pressing Enter', async () => {
-      render(<CreateHouseholdForm userName="John" />)
-
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-
-      const nameInput = screen.getByPlaceholderText('Enter name')
-      await userEvent.type(nameInput, 'Emma{enter}')
-
-      expect(screen.getByText('Emma')).toBeInTheDocument()
-    })
-
-    it('allows removing a member', async () => {
-      render(<CreateHouseholdForm userName="John" />)
-
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-
-      const nameInput = screen.getByPlaceholderText('Enter name')
-      await userEvent.type(nameInput, 'Emma{enter}')
-
-      const membersList = screen.getByRole('list')
-      const removeButton = within(membersList).getByRole('button', { name: 'Remove Emma' })
-      await userEvent.click(removeButton)
-
-      expect(screen.queryByText('Emma')).not.toBeInTheDocument()
-    })
-
-    it('does not add empty member names', async () => {
-      render(<CreateHouseholdForm userName="John" />)
-
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-
-      const nameInput = screen.getByPlaceholderText('Enter name')
-      await userEvent.type(nameInput, '   ')
-      await userEvent.click(screen.getByRole('button', { name: 'Add member' }))
-
-      expect(screen.queryByRole('list')).not.toBeInTheDocument()
     })
   })
 
@@ -317,7 +356,7 @@ describe('CreateHouseholdForm', () => {
       await vi.advanceTimersByTimeAsync(150)
     }
 
-    it('submits form with all collected data', async () => {
+    it('submits form with all collected data including members', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: () =>
@@ -346,10 +385,19 @@ describe('CreateHouseholdForm', () => {
       await userEvent.click(screen.getByRole('radio', { name: 'Vegetarian' }))
       await userEvent.click(screen.getByRole('checkbox', { name: 'Gluten' }))
 
-      // Step 4: Add a member and submit
+      // Step 4: Add a member named Emma as child
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      const memberInput = screen.getByPlaceholderText('Enter name')
-      await userEvent.type(memberInput, 'Emma{enter}')
+      await vi.advanceTimersByTimeAsync(150)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Increase household size' }))
+      const member2Input = screen.getByLabelText('Member 2 name')
+      await userEvent.type(member2Input, 'Emma')
+
+      // Toggle member 2 to Child
+      const childButtons = screen.getAllByRole('button', { name: 'Child' })
+      const member2ChildBtn = childButtons[1]
+      if (!member2ChildBtn) throw new Error('Member 2 Child button not found')
+      await userEvent.click(member2ChildBtn)
 
       await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
 
@@ -365,7 +413,7 @@ describe('CreateHouseholdForm', () => {
               weekdayMealTypes: ['dinner', 'breakfast'],
               weekendMealTypes: ['dinner'],
             },
-            members: [{ name: 'Emma' }],
+            members: [{ name: 'Emma', portionType: 'child' }],
           }),
         })
       })
@@ -399,6 +447,94 @@ describe('CreateHouseholdForm', () => {
               weekendMealTypes: ['dinner'],
             },
             members: [],
+          }),
+        })
+      })
+    })
+
+    it('generates default names for unnamed members', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            id: 'household-123',
+            name: "John's Household",
+          }),
+      })
+
+      render(<CreateHouseholdForm userName="John" />)
+
+      await navigateToFinalStep()
+
+      // Add 2 more members (total 3), leave names empty
+      await userEvent.click(screen.getByRole('button', { name: 'Increase household size' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Increase household size' }))
+
+      await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledWith('/api/households', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: "John's Household",
+            preferences: {
+              dietaryType: null,
+              allergensToAvoid: [],
+              weekdayMealTypes: ['dinner'],
+              weekendMealTypes: ['dinner'],
+            },
+            members: [
+              { name: 'Adult 2', portionType: 'adult' },
+              { name: 'Adult 3', portionType: 'adult' },
+            ],
+          }),
+        })
+      })
+    })
+
+    it('generates correct default names for mixed adult/child members', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            id: 'household-123',
+            name: "John's Household",
+          }),
+      })
+
+      render(<CreateHouseholdForm userName="John" />)
+
+      await navigateToFinalStep()
+
+      // Add 2 members
+      await userEvent.click(screen.getByRole('button', { name: 'Increase household size' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Increase household size' }))
+
+      // Toggle member 2 to Child
+      const childButtons = screen.getAllByRole('button', { name: 'Child' })
+      const member2ChildBtn = childButtons[1]
+      if (!member2ChildBtn) throw new Error('Member 2 Child button not found')
+      await userEvent.click(member2ChildBtn)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledWith('/api/households', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: "John's Household",
+            preferences: {
+              dietaryType: null,
+              allergensToAvoid: [],
+              weekdayMealTypes: ['dinner'],
+              weekendMealTypes: ['dinner'],
+            },
+            members: [
+              { name: 'Child 1', portionType: 'child' },
+              { name: 'Adult 2', portionType: 'adult' },
+            ],
           }),
         })
       })
