@@ -15,6 +15,7 @@ export interface MealData {
   id: string
   name: string
   description?: string | null
+  preparationNotes?: string | null
   timeMinutes?: number | null
   kidFriendly: boolean
   primaryProteinType: ProteinType

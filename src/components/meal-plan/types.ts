@@ -27,6 +27,7 @@ export interface MealData {
   name: string
   kidFriendly: boolean
   timeMinutes?: number | null
+  preparationNotes?: string | null
   components: MealComponent[]
   nutrition: NutritionData
 }

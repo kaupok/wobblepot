@@ -271,6 +271,7 @@ model Meal {
   id                 String      @id @default(cuid())
   name               String
   description        String?
+  preparationNotes   String?
   timeMinutes        Int?
   kidFriendly        Boolean     @default(false)
   primaryProteinType ProteinType @default(none)

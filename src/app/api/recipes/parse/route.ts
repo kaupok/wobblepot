@@ -46,6 +46,7 @@ export async function POST(request: Request) {
       recipe: {
         name: result.name,
         description: result.description,
+        preparationNotes: result.preparationNotes,
         timeMinutes: result.timeMinutes,
         servings: result.servings,
         mealTypes: result.mealTypes,

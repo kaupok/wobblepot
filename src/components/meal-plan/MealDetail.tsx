@@ -126,6 +126,7 @@ export function MealDetail({
                   isLoading={isLoadingTips}
                   error={tipsError ?? null}
                   onRetry={onRetryTips ?? (() => {})}
+                  preparationNotes={meal.preparationNotes}
                 />
                 {tips && onHideTips && (
                   <div className="mt-3 flex justify-center">

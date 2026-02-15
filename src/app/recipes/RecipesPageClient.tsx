@@ -22,6 +22,7 @@ type ViewMode = 'list' | 'create' | 'edit'
 interface EnhancedPrefilledData {
   name: string
   description: string | null
+  preparationNotes?: string | null
   timeMinutes: number | null
   servings: number
   mealTypes: MealType[]
@@ -123,6 +124,7 @@ export function RecipesPageClient() {
     return {
       name: prefilledData.name,
       description: prefilledData.description,
+      preparationNotes: prefilledData.preparationNotes,
       timeMinutes: prefilledData.timeMinutes,
       kidFriendly: prefilledData.kidFriendly,
       suitableFor: prefilledData.mealTypes,
@@ -153,6 +155,7 @@ export function RecipesPageClient() {
             id: editingMeal.id,
             name: editingMeal.name,
             description: editingMeal.description,
+            preparationNotes: editingMeal.preparationNotes,
             timeMinutes: editingMeal.timeMinutes,
             kidFriendly: editingMeal.kidFriendly,
             suitableFor: editingMeal.suitableFor,

@@ -63,6 +63,7 @@ type IngredientMatchResult = MatchedIngredient | UnmatchedIngredient
 interface ParsedRecipeData {
   name: string
   description: string | null
+  preparationNotes: string | null
   timeMinutes: number | null
   servings: number
   mealTypes: MealType[]
@@ -75,6 +76,7 @@ interface ParsedRecipeData {
 function convertToPrefilledData(recipe: ParsedRecipeData): {
   name: string
   description: string | null
+  preparationNotes: string | null
   timeMinutes: number | null
   servings: number
   mealTypes: MealType[]
@@ -132,6 +134,7 @@ function convertToPrefilledData(recipe: ParsedRecipeData): {
   return {
     name: recipe.name,
     description: recipe.description,
+    preparationNotes: recipe.preparationNotes,
     timeMinutes: recipe.timeMinutes,
     servings: recipe.servings,
     mealTypes: recipe.mealTypes,
