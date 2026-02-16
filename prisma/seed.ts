@@ -3,6 +3,7 @@ import { PrismaClient } from '../src/generated/prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { newIngredients, newMeals } from './seed-expansion'
 import { comprehensiveIngredients } from './seed-comprehensive'
+import { importCoverageIngredients } from './seed-import-coverage'
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL!,
@@ -1946,6 +1947,7 @@ const ingredients = [
   ...baseIngredients,
   ...(newIngredients as unknown as IngredientInput[]),
   ...(comprehensiveIngredients as unknown as IngredientInput[]),
+  ...(importCoverageIngredients as unknown as IngredientInput[]),
 ]
 
 async function seedIngredients() {
