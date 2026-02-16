@@ -445,13 +445,10 @@ handle_failure() {
   local triage="BACKLOG"
   if command -v claude &> /dev/null && [ "$DRY_RUN" = false ]; then
     local triage_result
-    triage_result=$(claude -p "Worker for $issue_id failed ($failure_type). Based on this log, respond with EXACTLY one word:
+    triage_result=$(echo "$log_tail" | claude -p "Worker for $issue_id failed ($failure_type). Based on the log from stdin, respond with EXACTLY one word:
 RETRY - transient failure (flaky test, network error, rate limit, timeout)
 BACKLOG - issue needs refinement (bad description, missing context, wrong approach)
-NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)
-
-Log tail:
-$log_tail" 2>/dev/null | tr -d '[:space:]') || true
+NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 2>/dev/null | tr -d '[:space:]') || true
 
     case "$triage_result" in
       RETRY|BACKLOG|NEEDS_HUMAN) triage="$triage_result" ;;
@@ -463,7 +460,7 @@ $log_tail" 2>/dev/null | tr -d '[:space:]') || true
 
   case "$triage" in
     RETRY)
-      if [ "$retried" = "0" ]; then
+      if [ "$retried" = "0" ] && [ "$SHUTTING_DOWN" = false ]; then
         log INFO "Retrying $issue_id"
         cleanup_worker_worktree "$branch"
         spawn_worker "$issue_uuid" "$issue_id" "$branch" "(retry)" "1"
@@ -609,7 +606,8 @@ sync_permissions() {
   local wt_settings="$worktree_path/.claude/settings.local.json"
   local main_settings="$REPO_ROOT/.claude/settings.local.json"
 
-  [ ! -f "$wt_settings" ] || [ ! -f "$main_settings" ] && return 0
+  [ ! -f "$wt_settings" ] && return 0
+  [ ! -f "$main_settings" ] && return 0
   command -v jq &> /dev/null || return 0
 
   local wt_perms main_perms new_perms new_count
