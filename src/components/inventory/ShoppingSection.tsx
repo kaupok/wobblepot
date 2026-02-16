@@ -25,6 +25,10 @@ import { getUrgencyBucket, type UrgencyBucket } from '@/lib/meal-planning/dates'
 
 type SortMode = 'category' | 'urgency' | 'alphabetical'
 
+type AlphabeticalItem =
+  | { kind: 'computed'; item: ShoppingItemData }
+  | { kind: 'custom'; item: CustomItemData }
+
 const SORT_STORAGE_KEY = 'shopping-list-sort-mode'
 
 interface ShoppingListGroup {
@@ -149,10 +153,6 @@ export function ShoppingSection({
   }, [enhancedGroups, sortMode])
 
   // For alphabetical mode: flatten all items into a single A-Z sorted list
-  type AlphabeticalItem =
-    | { kind: 'computed'; item: ShoppingItemData }
-    | { kind: 'custom'; item: CustomItemData }
-
   const alphabeticalItems = useMemo(() => {
     if (sortMode !== 'alphabetical') return []
 
