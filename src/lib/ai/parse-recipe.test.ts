@@ -27,6 +27,8 @@ import {
   parseRecipeText,
   matchIngredients,
   parseAndMatchRecipe,
+  stripHtmlToText,
+  fetchRecipeFromUrl,
   RecipeParseError,
   RecipeExtractionSchema,
   LOW_CONFIDENCE_THRESHOLD,
@@ -768,6 +770,116 @@ describe('parseAndMatchRecipe', () => {
     expect(result.allMatched).toBe(false)
     expect(result.ingredients[0]!.type).toBe('matched')
     expect(result.ingredients[1]!.type).toBe('unmatched')
+  })
+})
+
+describe('stripHtmlToText', () => {
+  it('strips HTML tags', () => {
+    expect(stripHtmlToText('<p>Hello <b>world</b></p>')).toBe('Hello world')
+  })
+
+  it('removes script and style blocks', () => {
+    const html = '<p>Recipe</p><script>alert("x")</script><style>.a{}</style><p>Ingredients</p>'
+    expect(stripHtmlToText(html)).toBe('Recipe Ingredients')
+  })
+
+  it('removes nav, header, and footer blocks', () => {
+    const html = '<header>Nav bar</header><main>Recipe content</main><footer>Copyright</footer>'
+    expect(stripHtmlToText(html)).toBe('Recipe content')
+  })
+
+  it('decodes HTML entities', () => {
+    expect(stripHtmlToText('&amp; &lt; &gt; &quot; &#039; &apos; &nbsp;')).toBe("& < > \" ' '")
+  })
+
+  it('collapses whitespace', () => {
+    expect(stripHtmlToText('  hello   world  \n\n  foo  ')).toBe('hello world foo')
+  })
+
+  it('handles empty input', () => {
+    expect(stripHtmlToText('')).toBe('')
+  })
+})
+
+describe('fetchRecipeFromUrl', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('blocks localhost URLs', async () => {
+    await expect(fetchRecipeFromUrl('https://localhost/recipe')).rejects.toThrow(
+      'Cannot fetch from private or local addresses',
+    )
+  })
+
+  it('blocks private IP addresses', async () => {
+    await expect(fetchRecipeFromUrl('https://192.168.1.1/recipe')).rejects.toThrow(
+      'Cannot fetch from private or local addresses',
+    )
+    await expect(fetchRecipeFromUrl('https://10.0.0.1/recipe')).rejects.toThrow(
+      'Cannot fetch from private or local addresses',
+    )
+    await expect(fetchRecipeFromUrl('https://172.16.0.1/recipe')).rejects.toThrow(
+      'Cannot fetch from private or local addresses',
+    )
+  })
+
+  it('throws RecipeParseError on non-OK response', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('Not Found', { status: 404, headers: { 'content-type': 'text/html' } }),
+    )
+
+    await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(RecipeParseError)
+    await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow('404')
+  })
+
+  it('throws RecipeParseError for non-HTML content type', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }),
+    )
+
+    await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(
+      'does not point to a web page',
+    )
+  })
+
+  it('throws RecipeParseError when extracted text is too short', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('<html><body>Hi</body></html>', {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      }),
+    )
+
+    await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(
+      'Could not extract enough content',
+    )
+  })
+
+  it('returns stripped text content on success', async () => {
+    const html = `<html><body>
+      <h1>Chicken Stir Fry</h1>
+      <p>Serves 4. A delicious quick weeknight dinner with fresh vegetables and tender chicken.</p>
+      <ul><li>500g chicken breast</li><li>2 tbsp soy sauce</li></ul>
+    </body></html>`
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(html, { status: 200, headers: { 'content-type': 'text/html' } }),
+    )
+
+    const result = await fetchRecipeFromUrl('https://example.com/recipe')
+    expect(result).toContain('Chicken Stir Fry')
+    expect(result).toContain('500g chicken breast')
+    expect(result).not.toContain('<')
+  })
+
+  it('throws RecipeParseError on network error', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'))
+
+    await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(RecipeParseError)
+    await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(
+      'Could not fetch the URL',
+    )
   })
 })
 

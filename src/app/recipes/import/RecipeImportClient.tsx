@@ -151,7 +151,7 @@ export function RecipeImportClient() {
 
   const handleParse = async () => {
     if (!recipeText.trim()) {
-      setError('Please paste a recipe first')
+      setError('Please paste a recipe or URL first')
       return
     }
 
@@ -202,7 +202,7 @@ export function RecipeImportClient() {
           </div>
           <CardDescription>
             <Body variant="muted">
-              Paste a recipe from anywhere and we&apos;ll extract the ingredients for you. Include
+              Paste a recipe or drop a URL and we&apos;ll extract the ingredients for you. Include
               how many servings it makes, otherwise we&apos;ll assume 4.
             </Body>
           </CardDescription>
@@ -212,7 +212,7 @@ export function RecipeImportClient() {
             <Textarea
               value={recipeText}
               onChange={(e) => setRecipeText(e.target.value)}
-              placeholder={`Paste your recipe here...\n\nExample:\nChicken Stir Fry\nServes 4\n\nIngredients:\n- 500g chicken breast\n- 2 tbsp soy sauce\n- 1 red bell pepper\n- 2 cloves garlic`}
+              placeholder={`Paste a recipe or URL here...\n\nExamples:\nhttps://example.com/chicken-stir-fry\n\nOr paste recipe text directly:\nChicken Stir Fry (serves 4)\n- 500g chicken breast\n- 2 tbsp soy sauce\n- 1 red bell pepper`}
               rows={12}
               className="resize-none"
               disabled={isParsing}
@@ -233,12 +233,12 @@ export function RecipeImportClient() {
             {isParsing ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Parsing recipe...
+                Importing recipe...
               </>
             ) : (
               <>
                 <Sparkles className="mr-2 h-4 w-4" />
-                Parse recipe
+                Import recipe
               </>
             )}
           </Button>
