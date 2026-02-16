@@ -16,14 +16,18 @@ import { Button } from '@/components/ui/button'
 import { Heading, Body } from '@/components/ui/typography'
 import { CategoryGroup } from '@/components/shopping/CategoryGroup'
 import { UrgencyGroup } from '@/components/shopping/UrgencyGroup'
-import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
+import { ShoppingItem, type ShoppingItemData } from '@/components/shopping/ShoppingItem'
 import { CustomItemInput, type CustomItemData } from '@/components/shopping/CustomItemInput'
 import { CustomShoppingItem } from '@/components/shopping/CustomShoppingItem'
 import { ShoppingEmptyState } from './ShoppingEmptyState'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { getUrgencyBucket, type UrgencyBucket } from '@/lib/meal-planning/dates'
 
-type SortMode = 'category' | 'urgency'
+type SortMode = 'category' | 'urgency' | 'alphabetical'
+
+type AlphabeticalItem =
+  | { kind: 'computed'; item: ShoppingItemData }
+  | { kind: 'custom'; item: CustomItemData }
 
 const SORT_STORAGE_KEY = 'shopping-list-sort-mode'
 
@@ -49,7 +53,8 @@ interface ShoppingSectionProps {
 function getInitialSortMode(): SortMode {
   if (typeof window === 'undefined') return 'category'
   const stored = localStorage.getItem(SORT_STORAGE_KEY)
-  return stored === 'urgency' ? 'urgency' : 'category'
+  if (stored === 'urgency' || stored === 'alphabetical') return stored
+  return 'category'
 }
 
 export function ShoppingSection({
@@ -146,6 +151,29 @@ export function ShoppingSection({
         items: grouped.get(bucket)!,
       }))
   }, [enhancedGroups, sortMode])
+
+  // For alphabetical mode: flatten all items into a single A-Z sorted list
+  const alphabeticalItems = useMemo(() => {
+    if (sortMode !== 'alphabetical') return []
+
+    const allItems: AlphabeticalItem[] = [
+      ...enhancedGroups.flatMap((group) =>
+        group.items.map((item) => ({ kind: 'computed' as const, item })),
+      ),
+      ...customItems.map((item) => ({ kind: 'custom' as const, item })),
+    ]
+
+    return allItems.sort((a, b) => {
+      const aPurchased = a.kind === 'computed' ? a.item.purchased : a.item.checked
+      const bPurchased = b.kind === 'computed' ? b.item.purchased : b.item.checked
+
+      // Purchased/checked items sort to bottom
+      if (aPurchased !== bPurchased) return aPurchased ? 1 : -1
+
+      // Then sort alphabetically by name
+      return a.item.name.localeCompare(b.item.name)
+    })
+  }, [enhancedGroups, customItems, sortMode])
 
   // Split custom items into linked (have category) and unlinked
   const { linkedCustomByCategory, unlinkedCustomItems } = useMemo(() => {
@@ -379,12 +407,13 @@ export function ShoppingSection({
             )}
             {mounted && (
               <Select value={sortMode} onValueChange={handleSortModeChange}>
-                <SelectTrigger size="sm" className="w-[140px]" aria-label="Sort items">
+                <SelectTrigger size="sm" className="w-[150px]" aria-label="Sort items">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="category">By category</SelectItem>
                   <SelectItem value="urgency">By urgency</SelectItem>
+                  <SelectItem value="alphabetical">Alphabetical</SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -395,7 +424,7 @@ export function ShoppingSection({
         <div className="flex flex-col gap-6">
           <CustomItemInput onItemAdded={handleCustomItemAdded} disabled={isPending} />
 
-          {sortMode === 'category' ? (
+          {sortMode === 'category' && (
             <div className="flex flex-col gap-6">
               {enhancedGroups.map((group) => (
                 <CategoryGroup
@@ -457,7 +486,9 @@ export function ShoppingSection({
                 </div>
               )}
             </div>
-          ) : (
+          )}
+
+          {sortMode === 'urgency' && (
             <div className="flex flex-col gap-6">
               {urgencyGroups.map((group) => (
                 <UrgencyGroup
@@ -494,6 +525,30 @@ export function ShoppingSection({
                     ))}
                   </div>
                 </div>
+              )}
+            </div>
+          )}
+
+          {sortMode === 'alphabetical' && (
+            <div className="flex flex-col gap-1">
+              {alphabeticalItems.map((entry) =>
+                entry.kind === 'computed' ? (
+                  <ShoppingItem
+                    key={entry.item.ingredientId}
+                    item={entry.item}
+                    onToggle={handleToggle}
+                    disabled={isPending}
+                  />
+                ) : (
+                  <CustomShoppingItem
+                    key={entry.item.id}
+                    item={entry.item}
+                    onToggle={handleCustomToggle}
+                    onUnlink={handleCustomUnlink}
+                    onDelete={handleCustomDelete}
+                    disabled={isPending}
+                  />
+                ),
               )}
             </div>
           )}
