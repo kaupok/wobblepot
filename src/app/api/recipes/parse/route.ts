@@ -12,8 +12,12 @@ const parseRecipeSchema = z.object({
 /**
  * Detect if the input starts with a URL and extract it along with optional user context.
  */
-function extractUrlAndContext(text: string): { url: string; context: string } | null {
-  const trimmed = text.trim()
+export function extractUrlAndContext(text: string): { url: string; context: string } | null {
+  let trimmed = text.trim()
+  // Support www. URLs by auto-prepending https://
+  if (trimmed.startsWith('www.')) {
+    trimmed = 'https://' + trimmed
+  }
   if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
     return null
   }
