@@ -14,6 +14,178 @@ import {
 import { applyIngredientAlias } from '@/lib/ingredient-aliases'
 
 /**
+ * Browser-like User-Agent to avoid being blocked by recipe sites.
+ * Many sites return 403/404 to non-browser User-Agents.
+ */
+const BROWSER_USER_AGENT =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+
+/**
+ * Maximum characters of stripped HTML to send to AI parser.
+ * Prevents token overflow on ad-heavy sites without JSON-LD.
+ */
+const MAX_STRIPPED_TEXT_LENGTH = 10_000
+
+/**
+ * Extract JSON-LD Recipe data from HTML and format as clean text.
+ * Looks for `<script type="application/ld+json">` blocks containing `@type: Recipe`.
+ * Returns formatted recipe text, or null if no Recipe found.
+ */
+export function extractJsonLdRecipe(html: string): string | null {
+  const scriptRegex =
+    /<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+  const matches: string[] = []
+  let match: RegExpExecArray | null
+
+  while ((match = scriptRegex.exec(html)) !== null) {
+    if (match[1]) {
+      matches.push(match[1])
+    }
+  }
+
+  if (matches.length === 0) return null
+
+  for (const jsonText of matches) {
+    try {
+      const data = JSON.parse(jsonText)
+      const recipe = findRecipeInJsonLd(data)
+      if (recipe) {
+        return formatJsonLdRecipe(recipe)
+      }
+    } catch {
+      // Invalid JSON, try next block
+    }
+  }
+
+  return null
+}
+
+/**
+ * Recursively search for a Recipe object in JSON-LD data.
+ * Handles top-level objects, @graph arrays, and arrays of objects.
+ */
+function findRecipeInJsonLd(data: unknown): Record<string, unknown> | null {
+  if (!data || typeof data !== 'object') return null
+
+  if (Array.isArray(data)) {
+    for (const item of data) {
+      const result = findRecipeInJsonLd(item)
+      if (result) return result
+    }
+    return null
+  }
+
+  const obj = data as Record<string, unknown>
+
+  // Check if this object is a Recipe
+  if (obj['@type'] === 'Recipe') return obj
+
+  // Handle @type as array (e.g., ["Recipe", "HowTo"])
+  if (Array.isArray(obj['@type']) && (obj['@type'] as string[]).includes('Recipe')) return obj
+
+  // Check @graph array
+  if (Array.isArray(obj['@graph'])) {
+    return findRecipeInJsonLd(obj['@graph'])
+  }
+
+  return null
+}
+
+/**
+ * Format a JSON-LD Recipe object as clean text for the AI parser.
+ * Returns null if the formatted text is too short to be useful.
+ */
+function formatJsonLdRecipe(recipe: Record<string, unknown>): string | null {
+  const parts: string[] = []
+
+  // Recipe name
+  const name = recipe.name
+  if (typeof name === 'string') {
+    parts.push(`Recipe: ${name}`)
+  }
+
+  // Description
+  const description = recipe.description
+  if (typeof description === 'string') {
+    parts.push(`\nDescription: ${description}`)
+  }
+
+  // Prep/cook time
+  const prepTime = parseDuration(recipe.prepTime)
+  const cookTime = parseDuration(recipe.cookTime)
+  const totalTime = parseDuration(recipe.totalTime)
+  const timeStr = [
+    prepTime ? `Prep: ${prepTime} min` : null,
+    cookTime ? `Cook: ${cookTime} min` : null,
+    totalTime ? `Total: ${totalTime} min` : null,
+  ]
+    .filter(Boolean)
+    .join(', ')
+  if (timeStr) {
+    parts.push(`\nTime: ${timeStr}`)
+  }
+
+  // Servings
+  const servings = recipe.recipeYield
+  if (servings) {
+    const yieldStr = Array.isArray(servings) ? servings[0] : servings
+    parts.push(`\nServings: ${yieldStr}`)
+  }
+
+  // Ingredients
+  const ingredients = recipe.recipeIngredient
+  if (Array.isArray(ingredients) && ingredients.length > 0) {
+    parts.push('\n\nIngredients:')
+    for (const ing of ingredients) {
+      if (typeof ing === 'string') {
+        parts.push(`- ${ing}`)
+      }
+    }
+  }
+
+  // Instructions
+  const instructions = recipe.recipeInstructions
+  if (instructions) {
+    parts.push('\n\nInstructions:')
+    if (Array.isArray(instructions)) {
+      let step = 1
+      for (const instruction of instructions) {
+        if (typeof instruction === 'string') {
+          parts.push(`${step}. ${instruction}`)
+          step++
+        } else if (
+          instruction &&
+          typeof instruction === 'object' &&
+          'text' in instruction &&
+          typeof (instruction as Record<string, unknown>).text === 'string'
+        ) {
+          parts.push(`${step}. ${(instruction as Record<string, unknown>).text}`)
+          step++
+        }
+      }
+    } else if (typeof instructions === 'string') {
+      parts.push(instructions)
+    }
+  }
+
+  const formatted = parts.join('\n')
+  return formatted.length >= 50 ? formatted : null
+}
+
+/**
+ * Parse an ISO 8601 duration (e.g., "PT30M", "PT1H15M") to minutes.
+ */
+function parseDuration(value: unknown): number | null {
+  if (typeof value !== 'string') return null
+  const match = value.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/)
+  if (!match) return null
+  const hours = parseInt(match[1] || '0', 10)
+  const minutes = parseInt(match[2] || '0', 10)
+  const total = hours * 60 + minutes
+  return total > 0 ? total : null
+}
+
+/**
  * Strip HTML to plain text for recipe extraction.
  * Removes script/style/nav blocks, strips tags, collapses whitespace.
  */
@@ -68,7 +240,7 @@ export async function fetchRecipeFromUrl(url: string): Promise<string> {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(15000),
       headers: {
-        'User-Agent': 'Honkadori/1.0 (Recipe Import)',
+        'User-Agent': BROWSER_USER_AGENT,
         Accept: 'text/html,application/xhtml+xml,*/*',
       },
       redirect: 'follow',
@@ -88,7 +260,15 @@ export async function fetchRecipeFromUrl(url: string): Promise<string> {
     }
 
     const html = await response.text()
-    const text = stripHtmlToText(html)
+
+    // Try JSON-LD extraction first (cleanest data from recipe sites)
+    const jsonLdText = extractJsonLdRecipe(html)
+    if (jsonLdText) {
+      return jsonLdText
+    }
+
+    // Fall back to stripped HTML with truncation
+    const text = stripHtmlToText(html).slice(0, MAX_STRIPPED_TEXT_LENGTH)
 
     if (text.length < 50) {
       throw new RecipeParseError(
