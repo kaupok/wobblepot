@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, within, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MealForm, type MealFormData } from './MealForm'
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
 
@@ -311,6 +312,218 @@ describe('MealForm - Duplicate Detection', () => {
       // Second Tomato (index 2) should reference row 1 (index 0), not row 0
       const secondTomato = screen.getAllByText('Tomato')[1]?.closest('div')
       expect(within(secondTomato!).getByText(/Also used in row 1/i)).toBeInTheDocument()
+    })
+  })
+
+  describe('Discard confirmation', () => {
+    beforeEach(() => {
+      vi.clearAllMocks()
+    })
+
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('should show confirmation dialog when canceling form with imported data', async () => {
+      const user = userEvent.setup()
+      const mockMeal: MealFormData = {
+        name: 'Imported Recipe',
+        kidFriendly: false,
+        suitableFor: ['dinner' as MealType],
+        prefilledIngredients: [
+          {
+            type: 'matched',
+            ingredient: createMockIngredient('tomato-1', 'Tomato'),
+            convertedQuantity: 200,
+          },
+        ],
+      }
+
+      render(<MealForm meal={mockMeal} onSuccess={mockOnSuccess} onCancel={mockOnCancel} />)
+
+      const cancelButton = screen.getByRole('button', { name: /cancel/i })
+      await user.click(cancelButton)
+
+      // Confirmation dialog should appear
+      await waitFor(() => {
+        expect(screen.getByText(/discard imported recipe\?/i)).toBeInTheDocument()
+        expect(
+          screen.getByText(/are you sure you want to discard this imported recipe/i),
+        ).toBeInTheDocument()
+      })
+
+      // onCancel should NOT be called yet
+      expect(mockOnCancel).not.toHaveBeenCalled()
+    })
+
+    it('should keep editing when user cancels confirmation', async () => {
+      const user = userEvent.setup()
+      const mockMeal: MealFormData = {
+        name: 'Imported Recipe',
+        kidFriendly: false,
+        suitableFor: ['dinner' as MealType],
+        prefilledIngredients: [
+          {
+            type: 'matched',
+            ingredient: createMockIngredient('tomato-1', 'Tomato'),
+            convertedQuantity: 200,
+          },
+        ],
+      }
+
+      render(<MealForm meal={mockMeal} onSuccess={mockOnSuccess} onCancel={mockOnCancel} />)
+
+      const cancelButton = screen.getByRole('button', { name: /cancel/i })
+      await user.click(cancelButton)
+
+      // Wait for dialog
+      await waitFor(() => {
+        expect(screen.getByText(/discard imported recipe\?/i)).toBeInTheDocument()
+      })
+
+      // Click "Keep editing"
+      const keepEditingButton = screen.getByRole('button', { name: /keep editing/i })
+      await user.click(keepEditingButton)
+
+      // Dialog should close, form should remain
+      await waitFor(() => {
+        expect(screen.queryByText(/discard imported recipe\?/i)).not.toBeInTheDocument()
+      })
+
+      // onCancel should NOT be called
+      expect(mockOnCancel).not.toHaveBeenCalled()
+
+      // Form should still be visible
+      expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument()
+    })
+
+    it('should call onCancel when user confirms discard', async () => {
+      const user = userEvent.setup()
+      const mockMeal: MealFormData = {
+        name: 'Imported Recipe',
+        kidFriendly: false,
+        suitableFor: ['dinner' as MealType],
+        prefilledIngredients: [
+          {
+            type: 'matched',
+            ingredient: createMockIngredient('tomato-1', 'Tomato'),
+            convertedQuantity: 200,
+          },
+        ],
+      }
+
+      render(<MealForm meal={mockMeal} onSuccess={mockOnSuccess} onCancel={mockOnCancel} />)
+
+      const cancelButton = screen.getByRole('button', { name: /cancel/i })
+      await user.click(cancelButton)
+
+      // Wait for dialog
+      await waitFor(() => {
+        expect(screen.getByText(/discard imported recipe\?/i)).toBeInTheDocument()
+      })
+
+      // Click "Discard"
+      const discardButton = screen.getByRole('button', { name: /^discard$/i })
+      await user.click(discardButton)
+
+      // onCancel should be called
+      await waitFor(() => {
+        expect(mockOnCancel).toHaveBeenCalledTimes(1)
+      })
+    })
+
+    it('should NOT show confirmation when canceling form without imported data', async () => {
+      const user = userEvent.setup()
+      const mockMeal: MealFormData = {
+        name: 'Manual Recipe',
+        kidFriendly: false,
+        suitableFor: ['dinner' as MealType],
+        components: [
+          {
+            ingredientId: 'tomato-1',
+            quantityPerServing: 100,
+            ingredient: createMockIngredient('tomato-1', 'Tomato'),
+          },
+        ],
+      }
+
+      render(<MealForm meal={mockMeal} onSuccess={mockOnSuccess} onCancel={mockOnCancel} />)
+
+      const cancelButton = screen.getByRole('button', { name: /cancel/i })
+      await user.click(cancelButton)
+
+      // Confirmation dialog should NOT appear
+      expect(screen.queryByText(/discard imported recipe\?/i)).not.toBeInTheDocument()
+
+      // onCancel should be called immediately
+      expect(mockOnCancel).toHaveBeenCalledTimes(1)
+    })
+
+    it('should NOT show confirmation when creating meal from scratch', async () => {
+      const user = userEvent.setup()
+
+      render(<MealForm onSuccess={mockOnSuccess} onCancel={mockOnCancel} />)
+
+      const cancelButton = screen.getByRole('button', { name: /cancel/i })
+      await user.click(cancelButton)
+
+      // Confirmation dialog should NOT appear
+      expect(screen.queryByText(/discard imported recipe\?/i)).not.toBeInTheDocument()
+
+      // onCancel should be called immediately
+      expect(mockOnCancel).toHaveBeenCalledTimes(1)
+    })
+
+    it('should add beforeunload listener when form has imported data', () => {
+      const addEventListenerSpy = vi.spyOn(window, 'addEventListener')
+      const mockMeal: MealFormData = {
+        name: 'Imported Recipe',
+        kidFriendly: false,
+        suitableFor: ['dinner' as MealType],
+        prefilledIngredients: [
+          {
+            type: 'matched',
+            ingredient: createMockIngredient('tomato-1', 'Tomato'),
+            convertedQuantity: 200,
+          },
+        ],
+      }
+
+      render(<MealForm meal={mockMeal} onSuccess={mockOnSuccess} onCancel={mockOnCancel} />)
+
+      expect(addEventListenerSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function))
+    })
+
+    it('should NOT add beforeunload listener when form has no imported data', () => {
+      const addEventListenerSpy = vi.spyOn(window, 'addEventListener')
+
+      render(<MealForm onSuccess={mockOnSuccess} onCancel={mockOnCancel} />)
+
+      expect(addEventListenerSpy).not.toHaveBeenCalledWith('beforeunload', expect.any(Function))
+    })
+
+    it('should remove beforeunload listener on unmount', () => {
+      const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
+      const mockMeal: MealFormData = {
+        name: 'Imported Recipe',
+        kidFriendly: false,
+        suitableFor: ['dinner' as MealType],
+        prefilledIngredients: [
+          {
+            type: 'matched',
+            ingredient: createMockIngredient('tomato-1', 'Tomato'),
+            convertedQuantity: 200,
+          },
+        ],
+      }
+
+      const { unmount } = render(
+        <MealForm meal={mockMeal} onSuccess={mockOnSuccess} onCancel={mockOnCancel} />,
+      )
+
+      unmount()
+
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function))
     })
   })
 })
