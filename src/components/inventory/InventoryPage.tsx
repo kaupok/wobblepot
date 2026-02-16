@@ -11,6 +11,7 @@ import { ShoppingSection } from './ShoppingSection'
 import { ShoppingEmptyState, type ShoppingEmptyStateVariant } from './ShoppingEmptyState'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
+import type { CustomItemData } from '@/components/shopping/CustomItemInput'
 
 interface ShoppingListGroup {
   category: IngredientCategory
@@ -24,6 +25,7 @@ interface ShoppingData {
   endDate: string
   groups: ShoppingListGroup[]
   initialPurchasedIds: Set<string>
+  customItems?: CustomItemData[]
 }
 
 interface InventoryPageProps {
@@ -131,6 +133,7 @@ export function InventoryPage({
               endDate={shoppingData.endDate}
               groups={shoppingData.groups}
               initialPurchasedIds={shoppingData.initialPurchasedIds}
+              initialCustomItems={shoppingData.customItems}
               onItemPurchased={handleItemPurchased}
               onItemUnpurchased={handleItemUnpurchased}
               externalUnpurchasedIds={removedIngredientIds}

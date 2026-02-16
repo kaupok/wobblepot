@@ -161,13 +161,14 @@ model Household {
   timezone  String   @default("Europe/Tallinn")
   createdAt DateTime @default(now())
 
-  members       HouseholdMember[]
-  preferences   HouseholdPreferences?
-  mealPlans     MealPlan[]
-  meals         Meal[]
-  pantryItems   PantryItem[]
-  invites       HouseholdInvite[]
-  favoriteMeals FavoriteMeal[]
+  members              HouseholdMember[]
+  preferences          HouseholdPreferences?
+  mealPlans            MealPlan[]
+  meals                Meal[]
+  pantryItems          PantryItem[]
+  invites              HouseholdInvite[]
+  favoriteMeals        FavoriteMeal[]
+  customShoppingItems  CustomShoppingItem[]
 
   @@map("household")
 }
@@ -265,8 +266,9 @@ model Ingredient {
   gramsPerPiece Float?
   densityGPerMl Float?
 
-  components  MealComponent[]
-  pantryItems PantryItem[]
+  components          MealComponent[]
+  pantryItems         PantryItem[]
+  customShoppingItems CustomShoppingItem[]
 
   @@map("ingredient")
 }
@@ -383,4 +385,20 @@ model PantryItem {
   @@unique([householdId, ingredientId])
   @@index([ingredientId])
   @@map("pantry_item")
+}
+
+model CustomShoppingItem {
+  id           String      @id @default(cuid())
+  householdId  String
+  name         String
+  ingredientId String?
+  checked      Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+
+  household  Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  ingredient Ingredient? @relation(fields: [ingredientId], references: [id])
+
+  @@unique([householdId, name])
+  @@index([ingredientId])
+  @@map("custom_shopping_item")
 }

@@ -3,6 +3,8 @@
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { Body } from '@/components/ui/typography'
 import { ShoppingItem, type ShoppingItemData } from './ShoppingItem'
+import { CustomShoppingItem } from './CustomShoppingItem'
+import type { CustomItemData } from './CustomItemInput'
 
 /**
  * Emoji mapping for ingredient categories.
@@ -24,7 +26,11 @@ interface CategoryGroupProps {
   category: IngredientCategory
   categoryLabel: string
   items: ShoppingItemData[]
+  customItems?: CustomItemData[]
   onToggleItem: (ingredientId: string, purchased: boolean) => void
+  onToggleCustomItem?: (id: string, checked: boolean) => void
+  onUnlinkCustomItem?: (id: string) => void
+  onDeleteCustomItem?: (id: string) => void
   disabled?: boolean
 }
 
@@ -32,12 +38,20 @@ export function CategoryGroup({
   category,
   categoryLabel,
   items,
+  customItems,
   onToggleItem,
+  onToggleCustomItem,
+  onUnlinkCustomItem,
+  onDeleteCustomItem,
   disabled,
 }: CategoryGroupProps) {
   const emoji = CATEGORY_EMOJI[category]
-  const purchasedCount = items.filter((item) => item.purchased).length
-  const totalCount = items.length
+  const computedPurchasedCount = items.filter((item) => item.purchased).length
+  const customCheckedCount = customItems?.filter((item) => item.checked).length ?? 0
+  const totalCount = items.length + (customItems?.length ?? 0)
+  const purchasedCount = computedPurchasedCount + customCheckedCount
+
+  if (totalCount === 0) return null
 
   return (
     <div className="flex flex-col gap-2">
@@ -57,6 +71,16 @@ export function CategoryGroup({
             key={item.ingredientId}
             item={item}
             onToggle={onToggleItem}
+            disabled={disabled}
+          />
+        ))}
+        {customItems?.map((item) => (
+          <CustomShoppingItem
+            key={item.id}
+            item={item}
+            onToggle={onToggleCustomItem ?? (() => {})}
+            onUnlink={onUnlinkCustomItem ?? (() => {})}
+            onDelete={onDeleteCustomItem ?? (() => {})}
             disabled={disabled}
           />
         ))}
