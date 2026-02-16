@@ -780,6 +780,10 @@ mcp__linear-server__create_comment({
 
 **PR:** [#XX](url)
 
+### Summary
+
+[2-3 sentence plain-language summary of what was done and why. Describe the user-facing or architectural impact, not just "changed files". This should read like a mini changelog entry.]
+
 ### Changes
 - X files changed
 - [file list with +/- stats from gh pr view --json files]
