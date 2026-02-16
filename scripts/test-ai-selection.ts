@@ -10,6 +10,7 @@
 
 import 'dotenv/config'
 import { createAnthropic } from '@ai-sdk/anthropic'
+import { PLANNING_MODEL } from '../src/lib/ai/models'
 import { generateObject } from 'ai'
 import { z } from 'zod'
 import { prisma } from '../src/lib/prisma'
@@ -409,7 +410,7 @@ ${previousErrors.map((e) => `- ${e.type}: ${JSON.stringify(e)}`).join('\n')}`
   log.debug('Prompt', prompt)
 
   const { object } = await generateObject({
-    model: anthropic('claude-sonnet-4-20250514'),
+    model: anthropic(PLANNING_MODEL),
     schema: mealPlanSchema,
     prompt,
   })
