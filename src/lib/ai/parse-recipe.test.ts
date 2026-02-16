@@ -30,6 +30,7 @@ import {
   stripHtmlToText,
   extractJsonLdRecipe,
   fetchRecipeFromUrl,
+  evaluateRecipeConfidence,
   RecipeParseError,
   RecipeExtractionSchema,
   LOW_CONFIDENCE_THRESHOLD,
@@ -39,7 +40,7 @@ import {
   CUP_CONVERSIONS,
   fuzzySearchIngredient,
 } from './parse-recipe'
-import type { ExtractedIngredient } from './parse-recipe'
+import type { ExtractedIngredient, RecipeExtraction } from './parse-recipe'
 
 const mockQueryRaw = vi.mocked(prisma.$queryRaw)
 const mockGenerateObject = vi.mocked(generateObject)
@@ -182,6 +183,13 @@ describe('buildRecipeExtractionPrompt', () => {
     expect(prompt).toContain('black pepper')
     expect(prompt).toContain('olive oil')
   })
+
+  it('includes confidence scoring guidelines', () => {
+    const prompt = buildRecipeExtractionPrompt('test')
+    expect(prompt).toContain('RECIPE CONFIDENCE SCORING')
+    expect(prompt).toContain('90-100')
+    expect(prompt).toContain('not a recipe')
+  })
 })
 
 describe('parseRecipeText', () => {
@@ -200,14 +208,16 @@ describe('parseRecipeText', () => {
     await expect(parseRecipeText('   short   ')).rejects.toThrow(RecipeParseError)
   })
 
-  it('returns parsed recipe on successful AI extraction', async () => {
+  it('returns parsed recipe with confidence on successful AI extraction', async () => {
     const mockExtraction = {
       name: 'Chicken Stir Fry',
       description: 'A quick weeknight dinner',
+      preparationNotes: null,
       timeMinutes: 30,
       servings: 4,
       mealTypes: ['dinner'],
       kidFriendly: true,
+      recipeConfidence: 90,
       ingredients: [
         {
           name: 'chicken breast',
@@ -228,9 +238,10 @@ describe('parseRecipeText', () => {
     const result = await parseRecipeText(
       'A full recipe with chicken breast and vegetables for dinner',
     )
-    expect(result.name).toBe('Chicken Stir Fry')
-    expect(result.ingredients).toHaveLength(1)
-    expect(result.servings).toBe(4)
+    expect(result.extraction.name).toBe('Chicken Stir Fry')
+    expect(result.extraction.ingredients).toHaveLength(1)
+    expect(result.extraction.servings).toBe(4)
+    expect(result.confidence.tier).toBe('high')
   })
 
   it('throws RecipeParseError when name is empty', async () => {
@@ -238,10 +249,12 @@ describe('parseRecipeText', () => {
       object: {
         name: '',
         description: null,
+        preparationNotes: null,
         timeMinutes: null,
         servings: 4,
         mealTypes: ['dinner'],
         kidFriendly: false,
+        recipeConfidence: 80,
         ingredients: [
           {
             name: 'chicken',
@@ -266,10 +279,12 @@ describe('parseRecipeText', () => {
       object: {
         name: 'Test Recipe',
         description: null,
+        preparationNotes: null,
         timeMinutes: null,
         servings: 4,
         mealTypes: ['dinner'],
         kidFriendly: false,
+        recipeConfidence: 80,
         ingredients: [],
       },
     } as never)
@@ -284,10 +299,12 @@ describe('parseRecipeText', () => {
       object: {
         name: 'Test Recipe',
         description: null,
+        preparationNotes: null,
         timeMinutes: null,
         servings: 4,
         mealTypes: ['dinner'],
         kidFriendly: false,
+        recipeConfidence: 80,
         ingredients: [
           {
             name: 'unknown',
@@ -312,10 +329,12 @@ describe('parseRecipeText', () => {
       object: {
         name: 'Test Recipe',
         description: null,
+        preparationNotes: null,
         timeMinutes: null,
         servings: 4,
         mealTypes: ['dinner'],
         kidFriendly: false,
+        recipeConfidence: 80,
         ingredients: [
           {
             name: '<unknown>',
@@ -342,6 +361,75 @@ describe('parseRecipeText', () => {
     await expect(parseRecipeText('Some recipe text that is long enough')).rejects.toThrow(
       "Couldn't identify specific ingredients",
     )
+  })
+
+  it('throws RecipeParseError for low confidence extraction', async () => {
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        name: 'Some Article',
+        description: null,
+        preparationNotes: null,
+        timeMinutes: null,
+        servings: 4,
+        mealTypes: ['dinner'],
+        kidFriendly: false,
+        recipeConfidence: 15,
+        ingredients: [
+          {
+            name: 'tomato',
+            quantity: 1,
+            unit: 'piece',
+            originalText: '1 tomato',
+            isVague: false,
+            vaguePhrase: null,
+            isDried: null,
+          },
+        ],
+      },
+    } as never)
+
+    await expect(parseRecipeText('Some article about food that is long enough')).rejects.toThrow(
+      "doesn't appear to contain a recipe",
+    )
+  })
+
+  it('returns medium confidence for borderline extraction', async () => {
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        name: 'Quick Pasta',
+        description: null,
+        preparationNotes: null,
+        timeMinutes: null,
+        servings: 4,
+        mealTypes: ['dinner'],
+        kidFriendly: true,
+        recipeConfidence: 50,
+        ingredients: [
+          {
+            name: 'pasta',
+            quantity: 400,
+            unit: 'g',
+            originalText: '400g pasta',
+            isVague: false,
+            vaguePhrase: null,
+            isDried: null,
+          },
+          {
+            name: 'olive oil',
+            quantity: 2,
+            unit: 'tbsp',
+            originalText: '2 tbsp olive oil',
+            isVague: false,
+            vaguePhrase: null,
+            isDried: null,
+          },
+        ],
+      },
+    } as never)
+
+    const result = await parseRecipeText('A casual food blog with some pasta tips for you')
+    expect(result.confidence.tier).toBe('medium')
+    expect(result.confidence.message).toBeDefined()
   })
 
   it('wraps non-RecipeParseError exceptions', async () => {
@@ -656,10 +744,12 @@ describe('parseAndMatchRecipe', () => {
     const mockExtraction = {
       name: 'Simple Pasta',
       description: 'Easy weeknight pasta',
+      preparationNotes: null,
       timeMinutes: 20,
       servings: 4,
       mealTypes: ['dinner'],
       kidFriendly: true,
+      recipeConfidence: 95,
       ingredients: [
         {
           name: 'spaghetti',
@@ -719,16 +809,19 @@ describe('parseAndMatchRecipe', () => {
     expect(result.kidFriendly).toBe(true)
     expect(result.ingredients).toHaveLength(2)
     expect(result.allMatched).toBe(true)
+    expect(result.confidenceTier).toBe('high')
   })
 
   it('sets allMatched to false when some ingredients are unmatched', async () => {
     const mockExtraction = {
       name: 'Mystery Dish',
       description: null,
+      preparationNotes: null,
       timeMinutes: null,
       servings: 2,
       mealTypes: ['dinner'],
       kidFriendly: false,
+      recipeConfidence: 85,
       ingredients: [
         {
           name: 'chicken breast',
@@ -1062,7 +1155,9 @@ describe('fetchRecipeFromUrl', () => {
     )
 
     await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(RecipeParseError)
-    await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow('404')
+    await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(
+      "We couldn't import from that URL",
+    )
   })
 
   it('throws RecipeParseError for non-HTML content type', async () => {
@@ -1110,7 +1205,7 @@ describe('fetchRecipeFromUrl', () => {
 
     await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(RecipeParseError)
     await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(
-      'Could not fetch the URL',
+      "We couldn't import from that URL",
     )
   })
 
@@ -1170,6 +1265,291 @@ describe('fetchRecipeFromUrl', () => {
 
     const result = await fetchRecipeFromUrl('https://example.com/recipe')
     expect(result.length).toBeLessThanOrEqual(10000)
+  })
+})
+
+describe('evaluateRecipeConfidence', () => {
+  const makeExtraction = (overrides: Partial<RecipeExtraction> = {}): RecipeExtraction => ({
+    name: 'Test Recipe',
+    description: 'A test recipe',
+    preparationNotes: null,
+    timeMinutes: 30,
+    servings: 4,
+    mealTypes: ['dinner'],
+    kidFriendly: true,
+    recipeConfidence: 90,
+    ingredients: [
+      {
+        name: 'chicken breast',
+        quantity: 500,
+        unit: 'g',
+        originalText: '500g chicken breast',
+        isVague: false,
+        vaguePhrase: null,
+        isDried: null,
+      },
+      {
+        name: 'olive oil',
+        quantity: 2,
+        unit: 'tbsp',
+        originalText: '2 tbsp olive oil',
+        isVague: false,
+        vaguePhrase: null,
+        isDried: null,
+      },
+      {
+        name: 'garlic',
+        quantity: 3,
+        unit: 'piece',
+        originalText: '3 cloves garlic',
+        isVague: false,
+        vaguePhrase: null,
+        isDried: null,
+      },
+    ],
+    ...overrides,
+  })
+
+  it('returns high tier for confident recipe', () => {
+    const result = evaluateRecipeConfidence(makeExtraction())
+    expect(result.tier).toBe('high')
+    expect(result.message).toBeUndefined()
+  })
+
+  it('returns medium tier for borderline confidence', () => {
+    const result = evaluateRecipeConfidence(makeExtraction({ recipeConfidence: 50 }))
+    expect(result.tier).toBe('medium')
+    expect(result.message).toBeDefined()
+  })
+
+  it('returns low tier for very low confidence', () => {
+    const result = evaluateRecipeConfidence(makeExtraction({ recipeConfidence: 20 }))
+    expect(result.tier).toBe('low')
+    expect(result.message).toBeDefined()
+  })
+
+  // Pattern guards
+  it('rejects name starting with Error', () => {
+    const result = evaluateRecipeConfidence(
+      makeExtraction({ name: 'Error: No Recipe Found', recipeConfidence: 80 }),
+    )
+    expect(result.tier).toBe('low')
+  })
+
+  it('rejects name containing Not Found', () => {
+    const result = evaluateRecipeConfidence(
+      makeExtraction({ name: 'Recipe Not Found', recipeConfidence: 80 }),
+    )
+    expect(result.tier).toBe('low')
+  })
+
+  it('rejects name that is N/A', () => {
+    const result = evaluateRecipeConfidence(makeExtraction({ name: 'N/A', recipeConfidence: 80 }))
+    expect(result.tier).toBe('low')
+  })
+
+  it('rejects name that is Untitled', () => {
+    const result = evaluateRecipeConfidence(
+      makeExtraction({ name: 'Untitled', recipeConfidence: 80 }),
+    )
+    expect(result.tier).toBe('low')
+  })
+
+  it('rejects ingredients with placeholder names', () => {
+    const result = evaluateRecipeConfidence(
+      makeExtraction({
+        recipeConfidence: 90,
+        ingredients: [
+          {
+            name: 'placeholder ingredient',
+            quantity: 100,
+            unit: 'g',
+            originalText: '100g placeholder',
+            isVague: false,
+            vaguePhrase: null,
+            isDried: null,
+          },
+        ],
+      }),
+    )
+    expect(result.tier).toBe('low')
+  })
+
+  it('rejects ingredients with error names', () => {
+    const result = evaluateRecipeConfidence(
+      makeExtraction({
+        recipeConfidence: 90,
+        ingredients: [
+          {
+            name: 'error',
+            quantity: 100,
+            unit: 'g',
+            originalText: 'error',
+            isVague: false,
+            vaguePhrase: null,
+            isDried: null,
+          },
+        ],
+      }),
+    )
+    expect(result.tier).toBe('low')
+  })
+
+  // Heuristic: vague ingredient ratio
+  it('lowers confidence when most ingredients are vague', () => {
+    const result = evaluateRecipeConfidence(
+      makeExtraction({
+        recipeConfidence: 70,
+        ingredients: [
+          {
+            name: 'salt',
+            quantity: null,
+            unit: null,
+            originalText: 'salt to taste',
+            isVague: true,
+            vaguePhrase: 'to taste',
+            isDried: null,
+          },
+          {
+            name: 'pepper',
+            quantity: null,
+            unit: null,
+            originalText: 'pepper to taste',
+            isVague: true,
+            vaguePhrase: 'to taste',
+            isDried: null,
+          },
+          {
+            name: 'oil',
+            quantity: null,
+            unit: null,
+            originalText: 'oil as needed',
+            isVague: true,
+            vaguePhrase: 'as needed',
+            isDried: null,
+          },
+        ],
+      }),
+    )
+    // 70 - 20 (vague ratio) = 50 → medium
+    expect(result.tier).toBe('medium')
+  })
+
+  // Heuristic: identical quantities
+  it('lowers confidence when all quantities are identical', () => {
+    const result = evaluateRecipeConfidence(
+      makeExtraction({
+        recipeConfidence: 70,
+        ingredients: [
+          {
+            name: 'flour',
+            quantity: 1,
+            unit: 'piece',
+            originalText: '1 flour',
+            isVague: false,
+            vaguePhrase: null,
+            isDried: null,
+          },
+          {
+            name: 'sugar',
+            quantity: 1,
+            unit: 'piece',
+            originalText: '1 sugar',
+            isVague: false,
+            vaguePhrase: null,
+            isDried: null,
+          },
+          {
+            name: 'butter',
+            quantity: 1,
+            unit: 'piece',
+            originalText: '1 butter',
+            isVague: false,
+            vaguePhrase: null,
+            isDried: null,
+          },
+        ],
+      }),
+    )
+    // 70 - 25 (identical) = 45 → medium
+    expect(result.tier).toBe('medium')
+  })
+
+  // Heuristic: low ingredient count with no quantities
+  it('lowers confidence for few ingredients with no quantities', () => {
+    const result = evaluateRecipeConfidence(
+      makeExtraction({
+        recipeConfidence: 55,
+        ingredients: [
+          {
+            name: 'dough',
+            quantity: null,
+            unit: null,
+            originalText: 'dough',
+            isVague: true,
+            vaguePhrase: 'some',
+            isDried: null,
+          },
+          {
+            name: 'sauce',
+            quantity: null,
+            unit: null,
+            originalText: 'sauce',
+            isVague: true,
+            vaguePhrase: 'some',
+            isDried: null,
+          },
+        ],
+      }),
+    )
+    // 55 - 30 (low count) - 20 (vague ratio) = 5 → low
+    expect(result.tier).toBe('low')
+  })
+
+  // Combined heuristics can push from high to low
+  it('stacks heuristic penalties', () => {
+    const result = evaluateRecipeConfidence(
+      makeExtraction({
+        recipeConfidence: 65,
+        ingredients: [
+          {
+            name: 'item1',
+            quantity: 1,
+            unit: 'piece',
+            originalText: '1 item1',
+            isVague: false,
+            vaguePhrase: null,
+            isDried: null,
+          },
+          {
+            name: 'item2',
+            quantity: 1,
+            unit: 'piece',
+            originalText: '1 item2',
+            isVague: false,
+            vaguePhrase: null,
+            isDried: null,
+          },
+          {
+            name: 'item3',
+            quantity: 1,
+            unit: 'piece',
+            originalText: '1 item3',
+            isVague: false,
+            vaguePhrase: null,
+            isDried: null,
+          },
+        ],
+      }),
+    )
+    // 65 - 25 (identical) = 40 → medium
+    expect(result.tier).toBe('medium')
+  })
+
+  it('does not penalize varied real quantities', () => {
+    const result = evaluateRecipeConfidence(makeExtraction({ recipeConfidence: 75 }))
+    // 75 with no penalties → high
+    expect(result.tier).toBe('high')
   })
 })
 

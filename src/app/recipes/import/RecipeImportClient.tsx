@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, ArrowLeft, Sparkles } from 'lucide-react'
+import { Loader2, ArrowLeft, Sparkles, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -160,6 +160,19 @@ export function RecipeImportClient() {
   const [progressStep, setProgressStep] = useState('')
   const [stepVisible, setStepVisible] = useState(false)
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const [warning, setWarning] = useState<{
+    message: string
+    recipe: ParsedRecipeData
+  } | null>(null)
+
+  const navigateToCreate = (recipe: ParsedRecipeData) => {
+    const prefilledData = convertToPrefilledData(recipe)
+    sessionStorage.setItem(
+      'prefilled-meal',
+      JSON.stringify({ ...prefilledData, originalRecipeText: recipeText }),
+    )
+    router.push('/recipes?mode=create&prefilled=true')
+  }
 
   useEffect(() => {
     if (!isParsing) {
@@ -206,6 +219,7 @@ export function RecipeImportClient() {
     }
 
     setError('')
+    setWarning(null)
     setIsParsing(true)
 
     try {
@@ -222,13 +236,18 @@ export function RecipeImportClient() {
         return
       }
 
-      // Convert to enhanced prefilled format and navigate directly to edit form
-      const prefilledData = convertToPrefilledData(data.recipe)
-      sessionStorage.setItem(
-        'prefilled-meal',
-        JSON.stringify({ ...prefilledData, originalRecipeText: recipeText }),
-      )
-      router.push('/recipes?mode=create&prefilled=true')
+      // Handle medium confidence — show warning with options
+      if (data.confidenceTier === 'medium') {
+        setWarning({
+          message:
+            data.confidenceWarning ||
+            "We're not confident this is a complete recipe. The results may be incomplete.",
+          recipe: data.recipe,
+        })
+        return
+      }
+
+      navigateToCreate(data.recipe)
     } catch {
       setError('Failed to parse recipe. Please try again.')
     } finally {
@@ -271,6 +290,37 @@ export function RecipeImportClient() {
               <Body variant="small" className="text-destructive">
                 {error}
               </Body>
+            )}
+            {warning && (
+              <div className="rounded-md border border-yellow-500/50 bg-yellow-50 p-4 dark:bg-yellow-950/20">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-600 dark:text-yellow-500" />
+                  <div className="flex flex-col gap-3">
+                    <Body variant="small" className="text-yellow-800 dark:text-yellow-200">
+                      {warning.message}
+                    </Body>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigateToCreate(warning.recipe)}
+                      >
+                        Continue anyway
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setWarning(null)
+                          setRecipeText('')
+                        }}
+                      >
+                        Try different text
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </CardContent>

@@ -248,7 +248,7 @@ export async function fetchRecipeFromUrl(url: string): Promise<string> {
 
     if (!response.ok) {
       throw new RecipeParseError(
-        `Could not fetch the URL (${response.status}). Please check the URL and try again.`,
+        "We couldn't import from that URL. Try copying and pasting the recipe text directly instead.",
       )
     }
 
@@ -282,10 +282,12 @@ export async function fetchRecipeFromUrl(url: string): Promise<string> {
       throw error
     }
     if (error instanceof DOMException && error.name === 'TimeoutError') {
-      throw new RecipeParseError('The URL took too long to respond. Please try again.')
+      throw new RecipeParseError(
+        "We couldn't import from that URL. Try copying and pasting the recipe text directly instead.",
+      )
     }
     throw new RecipeParseError(
-      'Could not fetch the URL. Please check that it is correct and try again.',
+      "We couldn't import from that URL. Try copying and pasting the recipe text directly instead.",
     )
   }
 }
@@ -363,10 +365,125 @@ export const RecipeExtractionSchema = z.object({
   ingredients: z
     .array(ExtractedIngredientSchema)
     .describe('The list of ingredients with quantities (at least one)'),
+  recipeConfidence: z
+    .number()
+    .describe(
+      'How confident you are (0-100) that the input text contains an actual recipe with specific ingredients and quantities. 90-100 for structured recipes with clear ingredient lists. 50-89 for informal or partial recipes. Below 50 for non-recipe content (articles, stories, random text, code). If the text has no identifiable recipe at all, use 0-10.',
+    ),
 })
 
 export type RecipeExtraction = z.infer<typeof RecipeExtractionSchema>
 export type ExtractedIngredient = z.infer<typeof ExtractedIngredientSchema>
+
+/**
+ * Confidence tier for recipe extraction quality.
+ */
+export type ConfidenceTier = 'high' | 'medium' | 'low'
+
+export interface ConfidenceResult {
+  tier: ConfidenceTier
+  message?: string
+}
+
+/**
+ * Pattern guard: invalid recipe name patterns that indicate fabrication.
+ */
+const INVALID_NAME_PATTERNS = [
+  /^error/i,
+  /not found/i,
+  /\bn\/a\b/i,
+  /^untitled$/i,
+  /^unknown$/i,
+  /^none$/i,
+  /^n\/a$/i,
+]
+
+/**
+ * Pattern guard: invalid ingredient name patterns.
+ */
+const INVALID_INGREDIENT_PATTERNS = [/placeholder/i, /\berror\b/i, /\bexample\b/i, /\btest\b/i]
+
+/**
+ * Evaluate recipe extraction confidence using three layers:
+ * 1. Pattern guards (force rejection on known fabrication signals)
+ * 2. Post-AI heuristics (vague ratio, identical quantities, low count)
+ * 3. AI confidence score (adjusted by heuristics)
+ */
+export function evaluateRecipeConfidence(extraction: RecipeExtraction): ConfidenceResult {
+  // Layer 1: Pattern guards — always reject
+  const nameLower = extraction.name.toLowerCase().trim()
+  for (const pattern of INVALID_NAME_PATTERNS) {
+    if (pattern.test(nameLower)) {
+      return {
+        tier: 'low',
+        message:
+          "This doesn't appear to contain a recipe. Try pasting the recipe text directly, or check that the page has a specific recipe with ingredients.",
+      }
+    }
+  }
+
+  const suspiciousIngredients = extraction.ingredients.filter((ing) => {
+    const name = ing.name.toLowerCase().trim()
+    return INVALID_INGREDIENT_PATTERNS.some((pattern) => pattern.test(name))
+  })
+  if (suspiciousIngredients.length > 0) {
+    return {
+      tier: 'low',
+      message:
+        "This doesn't appear to contain a recipe. Try pasting the recipe text directly, or check that the page has a specific recipe with ingredients.",
+    }
+  }
+
+  // Layer 2: Post-AI heuristics
+  let adjustedScore = extraction.recipeConfidence
+
+  // Check vague ingredient ratio
+  const vagueCount = extraction.ingredients.filter((ing) => ing.isVague).length
+  const totalCount = extraction.ingredients.length
+  if (totalCount > 0 && vagueCount / totalCount > 0.5) {
+    adjustedScore -= 20
+  }
+
+  // Check for very few ingredients with no real quantities
+  const ingredientsWithQuantities = extraction.ingredients.filter(
+    (ing) => !ing.isVague && ing.quantity !== null && ing.quantity > 0,
+  )
+  if (totalCount < 3 && ingredientsWithQuantities.length === 0) {
+    adjustedScore -= 30
+  }
+
+  // Check for identical quantities (hallucination pattern)
+  if (totalCount >= 3) {
+    const quantities = extraction.ingredients
+      .filter((ing) => ing.quantity !== null)
+      .map((ing) => ing.quantity)
+    if (quantities.length >= 3) {
+      const allSame = quantities.every((q) => q === quantities[0])
+      if (allSame) {
+        adjustedScore -= 25
+      }
+    }
+  }
+
+  // Layer 3: Map adjusted score to tier
+  if (adjustedScore > 60) {
+    return { tier: 'high' }
+  }
+
+  if (adjustedScore >= 30) {
+    return {
+      tier: 'medium',
+      message:
+        "We're not confident this is a complete recipe. The results may be incomplete or inaccurate.",
+    }
+  }
+
+  return {
+    tier: 'low',
+    message:
+      "This doesn't appear to contain a recipe. Try pasting the recipe text directly, or check that the page has a specific recipe with ingredients.",
+  }
+}
 
 /**
  * Error thrown when recipe parsing fails due to insufficient content.
@@ -472,14 +589,31 @@ If your calculated quantities exceed these by 5x+, you likely made a conversion 
 RECIPE TEXT:
 ${recipeText}
 
-Extract the structured recipe data. If the text doesn't contain enough information to extract a recipe (no clear ingredients or recipe name), return an error message explaining what's missing.`
+RECIPE CONFIDENCE SCORING:
+Rate your confidence (0-100) that this text contains a real recipe:
+- 90-100: Structured recipe with clear name, ingredients list, and quantities
+- 70-89: Recognizable recipe but informal format or missing some details
+- 50-69: Might be a recipe but very incomplete or ambiguous
+- 20-49: Unlikely to be a recipe (food-related article, general food discussion)
+- 0-19: Definitely not a recipe (random text, code, news, lorem ipsum)
+Be honest — if the text is not a recipe, give a low score even if you can extract something.
+
+Extract the structured recipe data.`
+}
+
+/**
+ * Result of parsing recipe text, including confidence evaluation.
+ */
+export interface ParseRecipeResult {
+  extraction: RecipeExtraction
+  confidence: ConfidenceResult
 }
 
 /**
  * Parse recipe text using AI to extract structured data.
- * Throws RecipeParseError if the text doesn't contain enough information.
+ * Throws RecipeParseError if the text doesn't contain enough information or confidence is low.
  */
-export async function parseRecipeText(recipeText: string): Promise<RecipeExtraction> {
+export async function parseRecipeText(recipeText: string): Promise<ParseRecipeResult> {
   const trimmedText = recipeText.trim()
 
   // Minimum sanity check
@@ -524,7 +658,16 @@ export async function parseRecipeText(recipeText: string): Promise<RecipeExtract
       )
     }
 
-    return object
+    // Evaluate confidence
+    const confidence = evaluateRecipeConfidence(object)
+    if (confidence.tier === 'low') {
+      throw new RecipeParseError(
+        confidence.message ??
+          "This doesn't appear to contain a recipe. Try pasting the recipe text directly.",
+      )
+    }
+
+    return { extraction: object, confidence }
   } catch (error) {
     if (error instanceof RecipeParseError) {
       throw error
@@ -608,6 +751,8 @@ export interface ParsedRecipe {
   kidFriendly: boolean
   ingredients: IngredientMatchResult[]
   allMatched: boolean
+  confidenceTier: ConfidenceTier
+  confidenceWarning?: string
 }
 
 /**
@@ -905,8 +1050,8 @@ export async function matchIngredients(
  * This is the main entry point for the recipe import feature.
  */
 export async function parseAndMatchRecipe(recipeText: string): Promise<ParsedRecipe> {
-  // Step 1: Extract structured data from text
-  const extraction = await parseRecipeText(recipeText)
+  // Step 1: Extract structured data from text (low confidence throws)
+  const { extraction, confidence } = await parseRecipeText(recipeText)
 
   // Step 2: Match ingredients against database (pass servings for validation)
   const ingredientResults = await matchIngredients(extraction.ingredients, extraction.servings)
@@ -924,5 +1069,7 @@ export async function parseAndMatchRecipe(recipeText: string): Promise<ParsedRec
     kidFriendly: extraction.kidFriendly,
     ingredients: ingredientResults,
     allMatched,
+    confidenceTier: confidence.tier,
+    confidenceWarning: confidence.message,
   }
 }
