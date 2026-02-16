@@ -34,6 +34,7 @@ import {
   RecipeParseError,
   RecipeExtractionSchema,
   LOW_CONFIDENCE_THRESHOLD,
+  VERY_LOW_CONFIDENCE_THRESHOLD,
   SIMILARITY_THRESHOLD,
   MAX_GRAMS_PER_SERVING,
   DEFAULT_GRAMS_PER_PIECE,
@@ -530,9 +531,9 @@ describe('matchIngredients', () => {
 
   it('marks low confidence matches with alternatives', async () => {
     const lowConfidenceMatches = [
-      makeDbMatch({ similarity: 0.5, name: 'chicken breast' }),
-      makeDbMatch({ id: 'ing-2', similarity: 0.48, name: 'chicken thigh' }),
-      makeDbMatch({ id: 'ing-3', similarity: 0.46, name: 'chicken wing' }),
+      makeDbMatch({ similarity: 0.55, name: 'chicken breast' }),
+      makeDbMatch({ id: 'ing-2', similarity: 0.52, name: 'chicken thigh' }),
+      makeDbMatch({ id: 'ing-3', similarity: 0.51, name: 'chicken wing' }),
     ]
     mockQueryRaw.mockResolvedValue(lowConfidenceMatches)
 
@@ -547,6 +548,40 @@ describe('matchIngredients', () => {
     expect(matched.type).toBe('matched')
     expect(matched.lowConfidence).toBe(true)
     expect(matched.alternatives).toHaveLength(3)
+  })
+
+  it('treats very low confidence matches as unmatched', async () => {
+    // Similarity below VERY_LOW_CONFIDENCE_THRESHOLD (0.5) — too unreliable to suggest
+    mockQueryRaw.mockResolvedValue([makeDbMatch({ similarity: 0.47, name: 'italian seasoning' })])
+
+    const results = await matchIngredients(
+      [makeExtracted({ name: 'fajita seasoning', originalText: 'fajita seasoning' })],
+      4,
+    )
+
+    expect(results).toHaveLength(1)
+    expect(results[0]!.type).toBe('unmatched')
+    expect(results[0]!.extractedName).toBe('fajita seasoning')
+  })
+
+  it('shows verify match for similarity between very-low and low thresholds', async () => {
+    // Similarity between VERY_LOW_CONFIDENCE_THRESHOLD (0.5) and LOW_CONFIDENCE_THRESHOLD (0.6)
+    mockQueryRaw.mockResolvedValue([makeDbMatch({ similarity: 0.55, name: 'corn meal' })])
+
+    const results = await matchIngredients(
+      [makeExtracted({ name: 'cornmeal', originalText: '1 cup cornmeal' })],
+      4,
+    )
+
+    expect(results).toHaveLength(1)
+    const matched = results[0] as {
+      type: 'matched'
+      lowConfidence: boolean
+      similarityScore: number
+    }
+    expect(matched.type).toBe('matched')
+    expect(matched.lowConfidence).toBe(true)
+    expect(matched.similarityScore).toBe(0.55)
   })
 
   it('handles vague quantities with known phrase', async () => {
@@ -1562,7 +1597,12 @@ describe('exported constants', () => {
   it('has valid SIMILARITY_THRESHOLD', () => {
     expect(SIMILARITY_THRESHOLD).toBeGreaterThan(0)
     expect(SIMILARITY_THRESHOLD).toBeLessThan(1)
-    expect(SIMILARITY_THRESHOLD).toBeLessThan(LOW_CONFIDENCE_THRESHOLD)
+    expect(SIMILARITY_THRESHOLD).toBeLessThan(VERY_LOW_CONFIDENCE_THRESHOLD)
+  })
+
+  it('has valid VERY_LOW_CONFIDENCE_THRESHOLD', () => {
+    expect(VERY_LOW_CONFIDENCE_THRESHOLD).toBeGreaterThan(SIMILARITY_THRESHOLD)
+    expect(VERY_LOW_CONFIDENCE_THRESHOLD).toBeLessThan(LOW_CONFIDENCE_THRESHOLD)
   })
 
   it('has valid MAX_GRAMS_PER_SERVING', () => {

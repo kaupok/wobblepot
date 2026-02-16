@@ -686,6 +686,14 @@ export async function parseRecipeText(recipeText: string): Promise<ParseRecipeRe
 export const LOW_CONFIDENCE_THRESHOLD = 0.6
 
 /**
+ * Floor threshold for showing "verify match" suggestions.
+ * Matches below this score are too unreliable to suggest — they're treated
+ * as fully unmatched rather than shown as low-confidence suggestions.
+ * E.g., "fajita seasoning" → "italian seasoning" would be misleading.
+ */
+export const VERY_LOW_CONFIDENCE_THRESHOLD = 0.5
+
+/**
  * Result of matching an ingredient against the database.
  */
 export interface MatchedIngredient {
@@ -941,6 +949,21 @@ export async function matchIngredients(
     if (matches.length > 0 && matches[0]) {
       const match = matches[0]
       const similarityScore = match.similarity
+
+      // Very low similarity — treat as unmatched to avoid misleading suggestions
+      if (similarityScore < VERY_LOW_CONFIDENCE_THRESHOLD) {
+        results.push({
+          type: 'unmatched',
+          extractedName: extracted.name,
+          extractedQuantity: extracted.quantity ?? 0,
+          extractedUnit: extracted.unit ?? 'g',
+          originalText: extracted.originalText,
+          isVague: extracted.isVague,
+          originalPhrase: extracted.vaguePhrase ?? undefined,
+        })
+        continue
+      }
+
       const lowConfidence = similarityScore < LOW_CONFIDENCE_THRESHOLD
 
       // Get alternatives for disambiguation if low confidence
