@@ -129,8 +129,8 @@ VALUES
   (gen_random_uuid()::text, 'canola oil', 'fat', 'g', '{}', 884, 0, 0, 100, 0, 0.92)
 ON CONFLICT ("name") DO NOTHING;
 
-INSERT INTO "ingredient" ("id", "name", "category", "defaultUnit", "allergens", "calories", "protein", "carbs", "fat", "fiber")
+INSERT INTO "ingredient" ("id", "name", "category", "defaultUnit", "allergens", "calories", "protein", "carbs", "fat", "fiber", "densityGPerMl")
 VALUES
-  (gen_random_uuid()::text, 'cooking spray', 'fat', 'g', '{}', 884, 0, 0, 100, 0),
-  (gen_random_uuid()::text, 'liquid honey', 'condiment', 'g', '{}', 304, 0.3, 82, 0, 0.2)
+  (gen_random_uuid()::text, 'cooking spray', 'fat', 'g', '{}', 884, 0, 0, 100, 0, NULL),
+  (gen_random_uuid()::text, 'liquid honey', 'condiment', 'g', '{}', 304, 0.3, 82, 0, 0.2, 1.42)
 ON CONFLICT ("name") DO NOTHING;
