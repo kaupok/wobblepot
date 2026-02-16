@@ -61,6 +61,49 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   'soy sauce': 'light soy sauce', // DB has light soy sauce
   miso: 'white miso paste', // DB has white miso paste
   vinegar: 'white vinegar', // DB has white vinegar
+
+  // British English / alternate names (seed-import-coverage)
+  cornmeal: 'corn meal', // DB has corn meal
+  'plain flour': 'all-purpose flour', // British term
+  'self raising flour': 'self-raising flour', // Without hyphen
+  aubergine: 'eggplant', // British term
+  courgette: 'zucchini', // British term
+  rocket: 'arugula', // British term
+  mangetout: 'snap peas', // British term
+  'coriander leaves': 'cilantro', // Explicit leaf reference
+  'fresh coriander': 'cilantro', // Common British recipe phrasing
+  prawn: 'prawns', // Singular form
+
+  // Onion / scallion aliases
+  scallion: 'spring onion', // DB has spring onion
+  'green onion': 'spring onion', // DB has spring onion
+  'spring onions': 'spring onion', // Plural form
+
+  // Chilli / pepper aliases
+  'red pepper flakes': 'chili flakes', // DB has chili flakes
+  'crushed red pepper': 'chili flakes', // DB has chili flakes
+  'red chile pepper': 'red chilli', // DB has red chilli
+  'green chile pepper': 'green chilli', // DB has green chilli
+  'red chile': 'red chilli', // DB has red chilli
+  'green chile': 'green chilli', // DB has green chilli
+
+  // Canned / processed tomato aliases
+  'chopped tomatoes': 'canned diced tomatoes', // DB has canned diced tomatoes
+  passata: 'tomato puree', // DB has tomato puree
+  'tomato passata': 'tomato puree', // DB has tomato puree
+
+  // Meat / protein aliases
+  mince: 'ground beef', // Most common "mince" meaning
+  'minced beef': 'beef mince lean', // DB has beef mince lean
+  'minced pork': 'ground pork', // DB has ground pork
+  'stewing beef': 'beef chuck', // DB has beef chuck
+  'beef stew meat': 'beef chuck', // DB has beef chuck
+
+  // Oil aliases
+  'rapeseed oil': 'canola oil', // DB has canola oil (seed-import-coverage)
+
+  // Dairy aliases
+  'natural yogurt': 'plain yogurt', // British term
 }
 
 /**
