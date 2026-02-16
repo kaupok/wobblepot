@@ -248,46 +248,24 @@ describe('getCandidates', () => {
   })
 
   describe('time constraint filter', () => {
-    it('uses default MAX_TIME_MINUTES when not specified', async () => {
+    it('does not filter by time (all meals included regardless of timeMinutes)', async () => {
       mockFindMany.mockResolvedValue([])
 
       await getCandidates(baseFilters)
 
-      expect(mockFindMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            OR: [{ timeMinutes: { lte: MAX_TIME_MINUTES } }, { timeMinutes: null }],
-          }),
-        }),
-      )
+      const calledWith = mockFindMany.mock.calls[0]?.[0]
+      // Should not contain time filter
+      expect(calledWith?.where?.OR).toBeUndefined()
     })
 
-    it('uses custom maxTimeMinutes when provided', async () => {
+    it('ignores maxTimeMinutes parameter (backward compatibility)', async () => {
       mockFindMany.mockResolvedValue([])
 
       await getCandidates({ ...baseFilters, maxTimeMinutes: 30 })
 
-      expect(mockFindMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            OR: [{ timeMinutes: { lte: 30 } }, { timeMinutes: null }],
-          }),
-        }),
-      )
-    })
-
-    it('includes meals with null timeMinutes', async () => {
-      mockFindMany.mockResolvedValue([])
-
-      await getCandidates(baseFilters)
-
-      expect(mockFindMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            OR: expect.arrayContaining([{ timeMinutes: null }]),
-          }),
-        }),
-      )
+      const calledWith = mockFindMany.mock.calls[0]?.[0]
+      // Should not contain time filter even when maxTimeMinutes is provided
+      expect(calledWith?.where?.OR).toBeUndefined()
     })
   })
 
@@ -500,7 +478,6 @@ describe('getCandidates', () => {
               { id: { notIn: ['meal-old'] } },
               { primaryProteinType: 'poultry' },
             ]),
-            OR: [{ timeMinutes: { lte: 45 } }, { timeMinutes: null }],
           }),
         }),
       )
@@ -673,7 +650,7 @@ describe('preference sorting', () => {
 })
 
 describe('constants', () => {
-  it('exports MAX_TIME_MINUTES as 60', () => {
+  it('exports MAX_TIME_MINUTES as 60 (deprecated, no longer used)', () => {
     expect(MAX_TIME_MINUTES).toBe(60)
   })
 
