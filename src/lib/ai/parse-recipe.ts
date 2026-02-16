@@ -293,13 +293,20 @@ export async function fetchRecipeFromUrl(url: string): Promise<string> {
 /**
  * Schema for a single extracted ingredient from recipe text.
  */
+/**
+ * Extracted ingredient schema for AI structured output.
+ *
+ * NOTE: Anthropic's structured output API has limited JSON Schema support.
+ * Avoid .positive(), .min(), .max(), .int() on numbers — these generate
+ * unsupported properties (exclusiveMinimum, minimum, maximum).
+ * Encode constraints in .describe() instead.
+ */
 const ExtractedIngredientSchema = z.object({
   name: z.string().describe('The ingredient name without quantity (e.g., "chicken breast")'),
   quantity: z
     .number()
-    .positive()
     .nullable()
-    .describe('The numeric quantity, or null if vague (e.g., "to taste")'),
+    .describe('The numeric quantity (must be > 0), or null if vague (e.g., "to taste")'),
   unit: z
     .enum(['g', 'piece', 'ml', 'tbsp', 'tsp', 'cup', 'oz', 'lb'])
     .nullable()
@@ -322,45 +329,40 @@ const ExtractedIngredientSchema = z.object({
 
 /**
  * Schema for AI structured output of recipe extraction.
+ *
+ * NOTE: Anthropic's structured output API has limited JSON Schema support.
+ * Avoid .positive(), .min(), .max(), .int() on numbers — these generate
+ * unsupported properties (exclusiveMinimum, minimum, maximum).
+ * Encode constraints in .describe() instead.
  */
 export const RecipeExtractionSchema = z.object({
-  name: z.string().min(1).max(200).describe('The recipe name'),
+  name: z.string().describe('The recipe name (1-200 chars)'),
   description: z
     .string()
-    .max(1000)
     .nullable()
-    .describe('A brief description of the dish, or null if not found'),
+    .describe('A brief description of the dish (max 1000 chars), or null if not found'),
   preparationNotes: z
     .string()
-    .max(5000)
     .nullable()
     .describe(
-      'Distilled preparation steps from the recipe text. Strip noise (ads, life stories, navigation) and return only essential cooking steps in a clean, numbered format. Null if no preparation steps found.',
+      'Distilled preparation steps from the recipe text (max 5000 chars). Strip noise (ads, life stories, navigation) and return only essential cooking steps in a clean, numbered format. Null if no preparation steps found.',
     ),
   timeMinutes: z
     .number()
-    .int()
-    .positive()
-    .max(480)
     .nullable()
-    .describe('Total prep + cook time in minutes, or null if not specified'),
+    .describe('Total prep + cook time in minutes (integer, 1-480), or null if not specified'),
   servings: z
     .number()
-    .int()
-    .positive()
-    .max(50)
-    .describe('Number of servings the recipe makes, default to 4 if not specified'),
+    .describe('Number of servings the recipe makes (integer, 1-50, default to 4 if not specified)'),
   mealTypes: z
     .array(z.enum(['breakfast', 'lunch', 'dinner']))
-    .min(1)
-    .describe('Which meal types this recipe is suitable for'),
+    .describe('Which meal types this recipe is suitable for (at least one)'),
   kidFriendly: z
     .boolean()
     .describe('Whether this recipe is likely kid-friendly (no spicy ingredients, simple flavors)'),
   ingredients: z
     .array(ExtractedIngredientSchema)
-    .min(1)
-    .describe('The list of ingredients with quantities'),
+    .describe('The list of ingredients with quantities (at least one)'),
 })
 
 export type RecipeExtraction = z.infer<typeof RecipeExtractionSchema>
