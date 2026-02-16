@@ -12,12 +12,12 @@ vi.mock('next-themes', () => ({
 
 const mockUseTheme = vi.mocked(nextThemes.useTheme)
 
-const createMockTheme = (theme: string | undefined, setTheme = vi.fn()): UseThemeProps => ({
-  theme,
+const createMockTheme = (resolvedTheme: string | undefined, setTheme = vi.fn()): UseThemeProps => ({
+  theme: resolvedTheme,
   setTheme,
   systemTheme: 'light',
   themes: [],
-  resolvedTheme: theme,
+  resolvedTheme,
 })
 
 describe('ThemeToggle', () => {
@@ -41,7 +41,7 @@ describe('ThemeToggle', () => {
     expect(button).toHaveClass('relative')
   })
 
-  it('shows fallback monitor icon before hydration', () => {
+  it('shows placeholder before hydration', () => {
     mockUseTheme.mockReturnValue(createMockTheme(undefined))
 
     render(<ThemeToggle />)
@@ -49,40 +49,42 @@ describe('ThemeToggle', () => {
     expect(button).toBeInTheDocument()
   })
 
-  it('calls setTheme with correct values when clicking', () => {
+  it('toggles from light to dark', () => {
     const mockSetTheme = vi.fn()
     mockUseTheme.mockReturnValue(createMockTheme('light', mockSetTheme))
 
     render(<ThemeToggle />)
-    const button = screen.getByRole('button')
-    button.click()
+    screen.getByRole('button').click()
 
     expect(mockSetTheme).toHaveBeenCalledWith('dark')
   })
 
-  it('cycles through all three theme states', async () => {
+  it('toggles from dark to light', () => {
+    const mockSetTheme = vi.fn()
+    mockUseTheme.mockReturnValue(createMockTheme('dark', mockSetTheme))
+
+    render(<ThemeToggle />)
+    screen.getByRole('button').click()
+
+    expect(mockSetTheme).toHaveBeenCalledWith('light')
+  })
+
+  it('cycles between light and dark', async () => {
     const mockSetTheme = vi.fn()
     const user = userEvent.setup()
 
-    // System -> Light
-    mockUseTheme.mockReturnValue(createMockTheme('system', mockSetTheme))
+    // Light -> Dark
+    mockUseTheme.mockReturnValue(createMockTheme('light', mockSetTheme))
 
     const { rerender } = render(<ThemeToggle />)
     await user.click(screen.getByRole('button', { name: 'Toggle theme' }))
-    expect(mockSetTheme).toHaveBeenCalledWith('light')
-
-    // Light -> Dark
-    mockSetTheme.mockClear()
-    mockUseTheme.mockReturnValue(createMockTheme('light', mockSetTheme))
-    rerender(<ThemeToggle />)
-    await user.click(screen.getByRole('button', { name: 'Toggle theme' }))
     expect(mockSetTheme).toHaveBeenCalledWith('dark')
 
-    // Dark -> System
+    // Dark -> Light
     mockSetTheme.mockClear()
     mockUseTheme.mockReturnValue(createMockTheme('dark', mockSetTheme))
     rerender(<ThemeToggle />)
     await user.click(screen.getByRole('button', { name: 'Toggle theme' }))
-    expect(mockSetTheme).toHaveBeenCalledWith('system')
+    expect(mockSetTheme).toHaveBeenCalledWith('light')
   })
 })
