@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useMemo } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,6 +17,16 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { IngredientRow, type IngredientRowData } from '@/components/recipes/IngredientRow'
 import {
   type MealTypeValue,
@@ -123,11 +133,25 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
   // Form state
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [showDiscardConfirmation, setShowDiscardConfirmation] = useState(false)
   const ingredientRowsRef = useRef<HTMLDivElement>(null)
 
   const isImportMode = hasPrefilledIngredients || ingredientRows.length > 0
   const unresolvedCount = ingredientRows.filter((row) => row.type === 'unmatched').length
   const lowConfidenceCount = ingredientRows.filter((row) => row.type === 'low-confidence').length
+
+  // Add beforeunload listener to warn about losing imported data
+  useEffect(() => {
+    if (!hasPrefilledIngredients) return
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasPrefilledIngredients])
 
   // Detect duplicate ingredients by ID
   const duplicateMap = useMemo(() => {
@@ -257,6 +281,19 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
         i === index ? { type: 'matched' as const, ingredient, totalQuantity } : row,
       ),
     )
+  }
+
+  const handleCancelClick = () => {
+    if (hasPrefilledIngredients) {
+      setShowDiscardConfirmation(true)
+    } else {
+      onCancel()
+    }
+  }
+
+  const handleConfirmDiscard = () => {
+    setShowDiscardConfirmation(false)
+    onCancel()
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -501,7 +538,7 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
               <Button
                 type="button"
                 variant="outline"
-                onClick={onCancel}
+                onClick={handleCancelClick}
                 disabled={isSubmitting}
                 className="flex-1"
               >
@@ -514,6 +551,27 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
           </div>
         </CardFooter>
       </form>
+
+      {/* Discard confirmation dialog */}
+      <AlertDialog open={showDiscardConfirmation} onOpenChange={setShowDiscardConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard imported recipe?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to discard this imported recipe? All changes will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDiscard}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   )
 }
