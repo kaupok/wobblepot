@@ -332,4 +332,29 @@ describe('EmptyPlan', () => {
       })
     })
   })
+
+  describe('first-time generation', () => {
+    it('does not show restrictions textarea', () => {
+      render(<EmptyPlan weekContext={defaultWeekContext} isFirstGeneration />)
+
+      expect(screen.queryByLabelText('Anything else?')).not.toBeInTheDocument()
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    })
+
+    it('does not send restrictions in preferences payload', async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
+
+      render(<EmptyPlan weekContext={defaultWeekContext} isFirstGeneration />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Generate meal plan' }))
+
+      await waitFor(() => {
+        // First call is preferences PATCH
+        const prefsCall = mockFetch.mock.calls[0]!
+        expect(prefsCall[0]).toBe('/api/households/me/preferences')
+        const body = JSON.parse(prefsCall[1]!.body)
+        expect(body).not.toHaveProperty('restrictions')
+      })
+    })
+  })
 })

@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Textarea } from '@/components/ui/textarea'
 import { GeneratingOverlay } from './GeneratingOverlay'
 import {
   getNextMonday,
@@ -103,9 +102,6 @@ export function EmptyPlan({
   const [allergensToAvoid, setAllergensToAvoid] = useState<Allergen[]>(
     preferences?.allergensToAvoid ?? [],
   )
-  const [restrictionsText, setRestrictionsText] = useState(
-    (preferences?.restrictions ?? []).join(', '),
-  )
 
   const startDate = selectedWeekType === 'current' ? getCurrentWeekMonday() : getNextMonday()
   const endDate = getEndDate(startDate)
@@ -137,18 +133,12 @@ export function EmptyPlan({
     try {
       // For first-time generation, save preferences first
       if (isFirstGeneration && mode === 'generate') {
-        const restrictions = restrictionsText
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-
         const prefsResponse = await fetch('/api/households/me/preferences', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             dietaryType: dietaryType === 'none' ? null : dietaryType,
             allergensToAvoid,
-            restrictions,
             // For first-time, set both weekday and weekend to the same meal types
             weekdayMealTypes: mealTypes,
             weekendMealTypes: mealTypes,
@@ -316,20 +306,6 @@ export function EmptyPlan({
                     </div>
                   ))}
                 </div>
-              </div>
-
-              {/* Restrictions */}
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="restrictions">Anything else?</Label>
-                <Textarea
-                  id="restrictions"
-                  value={restrictionsText}
-                  onChange={(e) => setRestrictionsText(e.target.value)}
-                  placeholder="e.g., low FODMAP, no spicy food, halal"
-                  disabled={isGenerating}
-                  rows={2}
-                />
-                <Body variant="muted">Comma-separated dietary restrictions or preferences</Body>
               </div>
             </section>
 
