@@ -8,12 +8,8 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { GeneratingOverlay } from './GeneratingOverlay'
-import {
-  getNextMonday,
-  getCurrentWeekMonday,
-  isSunday,
-  formatDateDisplay,
-} from '@/lib/meal-planning/dates'
+import { toDateString, getNextMonday } from '@/lib/meal-planning/dates'
+import { getDayPickerOptions } from '@/lib/meal-planning/day-picker'
 import type { WeekContext, HouseholdPreferencesData, DietaryType, Allergen } from './types'
 
 const CLIENT_TIMEOUT_MS = 45000
@@ -59,17 +55,10 @@ function getErrorMessage(status: number, message?: string): string {
   }
 }
 
-function getDefaultWeekType(): 'current' | 'next' {
-  if (isSunday()) {
-    return 'next'
-  }
-  return 'current'
-}
-
-function getEndDate(startDate: Date): Date {
-  const end = new Date(startDate)
-  end.setDate(end.getDate() + 6)
-  return end
+function getDefaultDate(): string {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return toDateString(today)
 }
 
 interface EmptyPlanProps {
@@ -90,7 +79,8 @@ export function EmptyPlan({
   const [error, setError] = useState<string | null>(null)
 
   // First-time form state — pre-filled from saved preferences
-  const [selectedWeekType, setSelectedWeekType] = useState<'current' | 'next'>(getDefaultWeekType)
+  const [selectedDate, setSelectedDate] = useState<string>(getDefaultDate)
+  const dayPickerOptions = getDayPickerOptions()
   const [mealTypes, setMealTypes] = useState<MealType[]>(() => {
     // Use weekday meal types from preferences as the unified selection
     const prefsWeekday = preferences?.weekdayMealTypes ?? []
@@ -102,10 +92,6 @@ export function EmptyPlan({
   const [allergensToAvoid, setAllergensToAvoid] = useState<Allergen[]>(
     preferences?.allergensToAvoid ?? [],
   )
-
-  const startDate = selectedWeekType === 'current' ? getCurrentWeekMonday() : getNextMonday()
-  const endDate = getEndDate(startDate)
-  const canSelectCurrentWeek = !isSunday()
 
   const handleMealTypeToggle = (mealType: MealType, checked: boolean) => {
     if (checked) {
@@ -155,13 +141,15 @@ export function EmptyPlan({
         }
       }
 
-      // Determine target week for generation
-      const targetWeek = isFirstGeneration ? selectedWeekType : weekContext.type
+      // Build request body: use planFromDate for first-time, targetWeek for returning
+      const generateBody = isFirstGeneration
+        ? { planFromDate: selectedDate, mode }
+        : { targetWeek: weekContext.type, mode }
 
       const response = await fetch('/api/meal-plans/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetWeek, mode }),
+        body: JSON.stringify(generateBody),
         signal: controller.signal,
       })
 
@@ -173,7 +161,15 @@ export function EmptyPlan({
       }
 
       setIsGenerating(false)
-      router.refresh()
+
+      // Navigate to the correct week tab after generation
+      if (isFirstGeneration) {
+        const nextMondayDate = toDateString(getNextMonday())
+        const weekParam = selectedDate === nextMondayDate ? 'next' : 'current'
+        router.push(`/meal-plan?week=${weekParam}`)
+      } else {
+        router.refresh()
+      }
     } catch (err) {
       clearTimeout(timeoutId)
       setIsGenerating(false)
@@ -207,34 +203,23 @@ export function EmptyPlan({
               </Body>
             </div>
 
-            {/* Start date */}
+            {/* Start planning from */}
             <section className="flex flex-col gap-3">
-              <Label className="text-base font-semibold">Start date</Label>
-              <div className="flex gap-2">
-                {canSelectCurrentWeek && (
+              <Label className="text-base font-semibold">Start planning from</Label>
+              <div className="flex flex-wrap gap-2">
+                {dayPickerOptions.map((option) => (
                   <Button
+                    key={option.date}
                     type="button"
-                    variant={selectedWeekType === 'current' ? 'default' : 'outline'}
+                    variant={selectedDate === option.date ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => setSelectedWeekType('current')}
+                    onClick={() => setSelectedDate(option.date)}
                     disabled={isGenerating}
                   >
-                    This week
+                    {option.label}
                   </Button>
-                )}
-                <Button
-                  type="button"
-                  variant={selectedWeekType === 'next' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedWeekType('next')}
-                  disabled={isGenerating}
-                >
-                  Next week
-                </Button>
+                ))}
               </div>
-              <Body variant="muted">
-                {formatDateDisplay(startDate)} — {formatDateDisplay(endDate)}
-              </Body>
             </section>
 
             {/* Meals to plan */}

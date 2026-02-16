@@ -162,13 +162,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col gap-6">
-        <WeekTabs
-          activeWeek={activeWeek}
-          currentWeekDays={isCurrentlySunday ? 0 : currentWeekDays}
-          hasLastPlan={hasLastPlan}
-          hasCurrentPlan={hasCurrentPlan}
-          hasNextPlan={hasNextPlan}
-        />
+        {!isFirstGeneration && (
+          <WeekTabs
+            activeWeek={activeWeek}
+            currentWeekDays={isCurrentlySunday ? 0 : currentWeekDays}
+            hasLastPlan={hasLastPlan}
+            hasCurrentPlan={hasCurrentPlan}
+            hasNextPlan={hasNextPlan}
+          />
+        )}
 
         {plan ? (
           <WeekView
