@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, ArrowLeft, Sparkles, AlertTriangle } from 'lucide-react'
@@ -143,11 +143,23 @@ function convertToPrefilledData(recipe: ParsedRecipeData): {
   }
 }
 
+function isUrl(text: string): boolean {
+  return /^https?:\/\//i.test(text.trim()) || /^www\./i.test(text.trim())
+}
+
+const URL_STEPS = ['Fetching page...', 'Extracting recipe...', 'Matching ingredients...']
+const TEXT_STEPS = ['Extracting recipe...', 'Matching ingredients...']
+const URL_STEP_DELAYS = [0, 4000, 10000]
+const TEXT_STEP_DELAYS = [0, 4000]
+
 export function RecipeImportClient() {
   const router = useRouter()
   const [recipeText, setRecipeText] = useState('')
   const [isParsing, setIsParsing] = useState(false)
   const [error, setError] = useState('')
+  const [progressStep, setProgressStep] = useState('')
+  const [stepVisible, setStepVisible] = useState(false)
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const [warning, setWarning] = useState<{
     message: string
     recipe: ParsedRecipeData
@@ -161,6 +173,44 @@ export function RecipeImportClient() {
     )
     router.push('/recipes?mode=create&prefilled=true')
   }
+
+  useEffect(() => {
+    if (!isParsing) {
+      timersRef.current.forEach(clearTimeout)
+      timersRef.current = []
+      setStepVisible(false)
+      // Small delay before clearing text so fade-out completes
+      const clearTimer = setTimeout(() => setProgressStep(''), 150)
+      return () => clearTimeout(clearTimer)
+    }
+
+    const steps = isUrl(recipeText) ? URL_STEPS : TEXT_STEPS
+    const delays = isUrl(recipeText) ? URL_STEP_DELAYS : TEXT_STEP_DELAYS
+
+    // Show first step immediately
+    setProgressStep(steps[0]!)
+    setStepVisible(true)
+
+    // Set up fade transitions for subsequent steps
+    for (let i = 1; i < steps.length; i++) {
+      const step = steps[i]!
+      const delay = delays[i]!
+      const timer = setTimeout(() => {
+        setStepVisible(false)
+        const swapTimer = setTimeout(() => {
+          setProgressStep(step)
+          setStepVisible(true)
+        }, 150)
+        timersRef.current.push(swapTimer)
+      }, delay)
+      timersRef.current.push(timer)
+    }
+
+    return () => {
+      timersRef.current.forEach(clearTimeout)
+      timersRef.current = []
+    }
+  }, [isParsing]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleParse = async () => {
     if (!recipeText.trim()) {
@@ -283,7 +333,12 @@ export function RecipeImportClient() {
             {isParsing ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Importing recipe...
+                <span
+                  className="transition-opacity duration-150"
+                  style={{ opacity: stepVisible ? 1 : 0 }}
+                >
+                  {progressStep || 'Importing recipe...'}
+                </span>
               </>
             ) : (
               <>
