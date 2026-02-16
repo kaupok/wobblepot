@@ -28,6 +28,7 @@ import {
   matchIngredients,
   parseAndMatchRecipe,
   stripHtmlToText,
+  extractJsonLdRecipe,
   fetchRecipeFromUrl,
   RecipeParseError,
   RecipeExtractionSchema,
@@ -801,6 +802,237 @@ describe('stripHtmlToText', () => {
   })
 })
 
+describe('extractJsonLdRecipe', () => {
+  it('extracts recipe from top-level JSON-LD object', () => {
+    const html = `<html><head>
+      <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Recipe",
+        "name": "Classic Beef Stroganoff",
+        "description": "A creamy beef dish",
+        "prepTime": "PT15M",
+        "cookTime": "PT30M",
+        "recipeYield": "4 servings",
+        "recipeIngredient": [
+          "500g beef sirloin",
+          "200g mushrooms",
+          "1 cup sour cream"
+        ],
+        "recipeInstructions": [
+          {"@type": "HowToStep", "text": "Slice the beef thinly."},
+          {"@type": "HowToStep", "text": "Sauté mushrooms until golden."},
+          {"@type": "HowToStep", "text": "Combine with sour cream sauce."}
+        ]
+      }
+      </script>
+    </head><body></body></html>`
+
+    const result = extractJsonLdRecipe(html)
+    expect(result).not.toBeNull()
+    expect(result).toContain('Classic Beef Stroganoff')
+    expect(result).toContain('500g beef sirloin')
+    expect(result).toContain('200g mushrooms')
+    expect(result).toContain('1 cup sour cream')
+    expect(result).toContain('Prep: 15 min')
+    expect(result).toContain('Cook: 30 min')
+    expect(result).toContain('Servings: 4 servings')
+    expect(result).toContain('Slice the beef thinly')
+  })
+
+  it('extracts recipe from @graph array', () => {
+    const html = `<html><head>
+      <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {"@type": "WebSite", "name": "My Recipes"},
+          {
+            "@type": "Recipe",
+            "name": "Easy Chicken Fajitas",
+            "recipeIngredient": ["500g chicken breast", "2 bell peppers"],
+            "recipeInstructions": [
+              {"@type": "HowToStep", "text": "Slice chicken and peppers."}
+            ]
+          }
+        ]
+      }
+      </script>
+    </head><body></body></html>`
+
+    const result = extractJsonLdRecipe(html)
+    expect(result).not.toBeNull()
+    expect(result).toContain('Easy Chicken Fajitas')
+    expect(result).toContain('500g chicken breast')
+    expect(result).toContain('2 bell peppers')
+  })
+
+  it('handles @type as array (e.g., ["Recipe", "HowTo"])', () => {
+    const html = `<html><head>
+      <script type="application/ld+json">
+      {
+        "@type": ["Recipe", "HowTo"],
+        "name": "Pizza Dough",
+        "recipeIngredient": ["500g flour", "7g yeast"]
+      }
+      </script>
+    </head><body></body></html>`
+
+    const result = extractJsonLdRecipe(html)
+    expect(result).not.toBeNull()
+    expect(result).toContain('Pizza Dough')
+    expect(result).toContain('500g flour')
+  })
+
+  it('handles string instructions', () => {
+    const html = `<html><head>
+      <script type="application/ld+json">
+      {
+        "@type": "Recipe",
+        "name": "Simple Soup",
+        "recipeIngredient": ["1 onion", "2 carrots", "500ml stock"],
+        "recipeInstructions": "Chop vegetables. Add to stock. Simmer for 30 minutes."
+      }
+      </script>
+    </head><body></body></html>`
+
+    const result = extractJsonLdRecipe(html)
+    expect(result).not.toBeNull()
+    expect(result).toContain('Simple Soup')
+    expect(result).toContain('Chop vegetables')
+  })
+
+  it('handles string array instructions', () => {
+    const html = `<html><head>
+      <script type="application/ld+json">
+      {
+        "@type": "Recipe",
+        "name": "Quick Pasta",
+        "recipeIngredient": ["400g pasta"],
+        "recipeInstructions": ["Boil water.", "Cook pasta 8 min.", "Drain and serve."]
+      }
+      </script>
+    </head><body></body></html>`
+
+    const result = extractJsonLdRecipe(html)
+    expect(result).not.toBeNull()
+    expect(result).toContain('1. Boil water.')
+    expect(result).toContain('2. Cook pasta 8 min.')
+    expect(result).toContain('3. Drain and serve.')
+  })
+
+  it('returns null when no JSON-LD scripts found', () => {
+    const html = '<html><head></head><body><h1>Recipe</h1></body></html>'
+    expect(extractJsonLdRecipe(html)).toBeNull()
+  })
+
+  it('returns null when JSON-LD has no Recipe type', () => {
+    const html = `<html><head>
+      <script type="application/ld+json">
+      {"@type": "WebSite", "name": "My Blog"}
+      </script>
+    </head><body></body></html>`
+
+    expect(extractJsonLdRecipe(html)).toBeNull()
+  })
+
+  it('returns null when JSON-LD is invalid JSON', () => {
+    const html = `<html><head>
+      <script type="application/ld+json">
+      {invalid json here}
+      </script>
+    </head><body></body></html>`
+
+    expect(extractJsonLdRecipe(html)).toBeNull()
+  })
+
+  it('handles recipe with missing optional fields', () => {
+    const html = `<html><head>
+      <script type="application/ld+json">
+      {
+        "@type": "Recipe",
+        "name": "Minimal Recipe",
+        "recipeIngredient": ["100g butter", "200g sugar"]
+      }
+      </script>
+    </head><body></body></html>`
+
+    const result = extractJsonLdRecipe(html)
+    expect(result).not.toBeNull()
+    expect(result).toContain('Minimal Recipe')
+    expect(result).toContain('100g butter')
+    expect(result).not.toContain('Time:')
+    expect(result).not.toContain('Instructions:')
+  })
+
+  it('handles totalTime without prep/cook breakdown', () => {
+    const html = `<html><head>
+      <script type="application/ld+json">
+      {
+        "@type": "Recipe",
+        "name": "Quick Dish",
+        "totalTime": "PT1H15M",
+        "recipeIngredient": ["200g rice"]
+      }
+      </script>
+    </head><body></body></html>`
+
+    const result = extractJsonLdRecipe(html)
+    expect(result).not.toBeNull()
+    expect(result).toContain('Total: 75 min')
+  })
+
+  it('handles recipeYield as array', () => {
+    const html = `<html><head>
+      <script type="application/ld+json">
+      {
+        "@type": "Recipe",
+        "name": "Batch Recipe",
+        "recipeYield": ["8", "8 servings"],
+        "recipeIngredient": ["1kg flour"]
+      }
+      </script>
+    </head><body></body></html>`
+
+    const result = extractJsonLdRecipe(html)
+    expect(result).not.toBeNull()
+    expect(result).toContain('Servings: 8')
+  })
+
+  it('skips non-Recipe JSON-LD and finds Recipe in later script', () => {
+    const html = `<html><head>
+      <script type="application/ld+json">
+      {"@type": "WebSite", "name": "Blog"}
+      </script>
+      <script type="application/ld+json">
+      {
+        "@type": "Recipe",
+        "name": "Found Recipe With Enough Content",
+        "recipeIngredient": ["3 eggs", "200g flour", "100ml milk"]
+      }
+      </script>
+    </head><body></body></html>`
+
+    const result = extractJsonLdRecipe(html)
+    expect(result).not.toBeNull()
+    expect(result).toContain('Found Recipe With Enough Content')
+  })
+
+  it('returns null for recipe with too little content', () => {
+    const html = `<html><head>
+      <script type="application/ld+json">
+      {
+        "@type": "Recipe",
+        "name": "X"
+      }
+      </script>
+    </head><body></body></html>`
+
+    // Name is "X" with no ingredients — formatted text will be < 50 chars
+    expect(extractJsonLdRecipe(html)).toBeNull()
+  })
+})
+
 describe('fetchRecipeFromUrl', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -880,6 +1112,64 @@ describe('fetchRecipeFromUrl', () => {
     await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(
       'Could not fetch the URL',
     )
+  })
+
+  it('uses browser-like User-Agent', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        '<html><body><p>Some recipe content that is long enough to pass the check</p></body></html>',
+        {
+          status: 200,
+          headers: { 'content-type': 'text/html' },
+        },
+      ),
+    )
+
+    await fetchRecipeFromUrl('https://example.com/recipe')
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://example.com/recipe',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'User-Agent': expect.stringContaining('Mozilla/5.0'),
+        }),
+      }),
+    )
+  })
+
+  it('returns JSON-LD recipe text when available', async () => {
+    const html = `<html><head>
+      <script type="application/ld+json">
+      {
+        "@type": "Recipe",
+        "name": "JSON-LD Chicken Curry",
+        "recipeIngredient": ["500g chicken", "200ml coconut milk", "2 tbsp curry paste"],
+        "recipeInstructions": [{"@type": "HowToStep", "text": "Cook chicken with curry paste."}]
+      }
+      </script>
+    </head><body><p>Lots of blog noise and ads here...</p></body></html>`
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(html, { status: 200, headers: { 'content-type': 'text/html' } }),
+    )
+
+    const result = await fetchRecipeFromUrl('https://example.com/recipe')
+    expect(result).toContain('JSON-LD Chicken Curry')
+    expect(result).toContain('500g chicken')
+    expect(result).not.toContain('blog noise')
+  })
+
+  it('truncates stripped HTML to 10k characters when no JSON-LD', async () => {
+    // Create HTML that produces text > 10k characters
+    const longContent = 'A'.repeat(15000)
+    const html = `<html><body><p>${longContent}</p></body></html>`
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(html, { status: 200, headers: { 'content-type': 'text/html' } }),
+    )
+
+    const result = await fetchRecipeFromUrl('https://example.com/recipe')
+    expect(result.length).toBeLessThanOrEqual(10000)
   })
 })
 
