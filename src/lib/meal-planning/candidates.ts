@@ -7,6 +7,10 @@ import {
   ProteinType,
 } from '@/generated/prisma/enums'
 
+/**
+ * @deprecated No longer used. Time filtering has been removed from meal plan generation.
+ * All meals are now eligible for planning regardless of prep time.
+ */
 export const MAX_TIME_MINUTES = 60
 
 /**
@@ -66,14 +70,13 @@ export interface CandidateMeal {
 
 /**
  * Pre-filter meals by hard constraints before AI selection.
- * Database handles: allergens, excluded ingredients, time, recent history, protein type.
+ * Database handles: allergens, excluded ingredients, recent history, protein type.
  * AI handles: variety and final selection from filtered candidates.
  *
  * When householdId is provided, includes both system meals (householdId: null)
  * and custom meals belonging to that household.
  */
 export async function getCandidates(filters: CandidateFilters): Promise<CandidateMeal[]> {
-  const maxTime = filters.maxTimeMinutes ?? MAX_TIME_MINUTES
   const favoriteMealIds = new Set(filters.favoriteMealIds ?? [])
   const excludedProteinTypes = filters.dietaryType
     ? getExcludedProteinTypes(filters.dietaryType)
@@ -126,8 +129,6 @@ export async function getCandidates(filters: CandidateFilters): Promise<Candidat
         // Protein type filter (for slot-specific queries)
         ...(filters.primaryProteinType ? [{ primaryProteinType: filters.primaryProteinType }] : []),
       ],
-      // Time constraint: <= maxTime OR null (no time data)
-      OR: [{ timeMinutes: { lte: maxTime } }, { timeMinutes: null }],
     },
     select: {
       id: true,

@@ -149,7 +149,6 @@ AI-powered meal planning that generates personalized weekly ingredient-based mea
 | ------------------------------- | --------------------------------------- |
 | Allergens                       | Database query (hard filter)            |
 | Excluded ingredients            | Database query                          |
-| Time constraints                | Database query                          |
 | Recent history (14 days)        | Database query                          |
 | Meal type match                 | Database query                          |
 | Balance constraints (slots)     | Deterministic rules + DB query          |
@@ -327,7 +326,6 @@ BETTER_AUTH_SECRET   # Auth secret
 ### Global Constants
 
 ```typescript
-const MAX_TIME_MINUTES = 60 // Max meal prep+cook time
 const NO_REPEAT_DAYS = 14 // Don't repeat meals within this window
 const AI_TIMEOUT_MS = 30000 // AI generation timeout
 const AI_RETRY_LIMIT = 1 // Retry once on validation failure
