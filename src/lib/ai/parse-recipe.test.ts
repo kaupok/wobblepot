@@ -1155,7 +1155,9 @@ describe('fetchRecipeFromUrl', () => {
     )
 
     await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(RecipeParseError)
-    await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow('404')
+    await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(
+      "We couldn't import from that URL",
+    )
   })
 
   it('throws RecipeParseError for non-HTML content type', async () => {
@@ -1203,7 +1205,7 @@ describe('fetchRecipeFromUrl', () => {
 
     await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(RecipeParseError)
     await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(
-      'Could not fetch the URL',
+      "We couldn't import from that URL",
     )
   })
 

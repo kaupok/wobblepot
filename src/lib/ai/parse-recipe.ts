@@ -248,7 +248,7 @@ export async function fetchRecipeFromUrl(url: string): Promise<string> {
 
     if (!response.ok) {
       throw new RecipeParseError(
-        `Could not fetch the URL (${response.status}). Please check the URL and try again.`,
+        "We couldn't import from that URL. Try copying and pasting the recipe text directly instead.",
       )
     }
 
@@ -282,10 +282,12 @@ export async function fetchRecipeFromUrl(url: string): Promise<string> {
       throw error
     }
     if (error instanceof DOMException && error.name === 'TimeoutError') {
-      throw new RecipeParseError('The URL took too long to respond. Please try again.')
+      throw new RecipeParseError(
+        "We couldn't import from that URL. Try copying and pasting the recipe text directly instead.",
+      )
     }
     throw new RecipeParseError(
-      'Could not fetch the URL. Please check that it is correct and try again.',
+      "We couldn't import from that URL. Try copying and pasting the recipe text directly instead.",
     )
   }
 }
