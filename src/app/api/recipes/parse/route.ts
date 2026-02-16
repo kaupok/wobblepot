@@ -86,6 +86,8 @@ export async function POST(request: Request) {
         ingredients: result.ingredients,
         allMatched: result.allMatched,
       },
+      confidenceTier: result.confidenceTier,
+      confidenceWarning: result.confidenceWarning,
     })
   } catch (error) {
     if (error instanceof RecipeParseError) {
