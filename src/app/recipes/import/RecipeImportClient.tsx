@@ -280,7 +280,11 @@ export function RecipeImportClient() {
           <div className="flex flex-col gap-4">
             <Textarea
               value={recipeText}
-              onChange={(e) => setRecipeText(e.target.value)}
+              onChange={(e) => {
+                setRecipeText(e.target.value)
+                setError('')
+                setWarning(null)
+              }}
               placeholder={`Paste a recipe or URL here...\n\nExamples:\nhttps://example.com/chicken-stir-fry\n\nOr paste recipe text directly:\nChicken Stir Fry (serves 4)\n- 500g chicken breast\n- 2 tbsp soy sauce\n- 1 red bell pepper`}
               rows={12}
               className="resize-none"
