@@ -64,10 +64,12 @@ export async function POST(request: Request) {
 
   try {
     let recipeText = parsed.data.text
+    let sourceUrl: string | undefined
 
     // Check if input is a URL
     const urlInput = extractUrlAndContext(recipeText)
     if (urlInput) {
+      sourceUrl = urlInput.url
       const fetchedContent = await fetchRecipeFromUrl(urlInput.url)
       // Combine fetched content with optional user context
       recipeText = urlInput.context
@@ -75,7 +77,7 @@ export async function POST(request: Request) {
         : fetchedContent
     }
 
-    const result = await parseAndMatchRecipe(recipeText)
+    const result = await parseAndMatchRecipe(recipeText, sourceUrl)
 
     return NextResponse.json({
       success: true,
