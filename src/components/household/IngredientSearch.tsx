@@ -135,7 +135,7 @@ export function IngredientSearch({
           disabled={disabled}
           role="combobox"
           aria-expanded={showDropdown}
-          aria-controls={listboxId}
+          aria-controls={showDropdown && searchResults.length > 0 ? listboxId : undefined}
           aria-activedescendant={
             showDropdown && highlightedIndex >= 0 ? getOptionId(highlightedIndex) : undefined
           }

@@ -23,6 +23,7 @@ describe('IngredientSearch ARIA attributes', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+    vi.restoreAllMocks()
   })
 
   it('should have combobox role on input', () => {
@@ -52,13 +53,13 @@ describe('IngredientSearch ARIA attributes', () => {
     expect(input).toHaveAttribute('aria-autocomplete', 'list')
   })
 
-  it('should have aria-controls linking to listbox', () => {
+  it('should not have aria-controls when dropdown is closed', () => {
     render(
       <IngredientSearch disabled={false} existingIngredientIds={[]} onAddIngredient={vi.fn()} />,
     )
 
     const input = screen.getByRole('combobox')
-    expect(input).toHaveAttribute('aria-controls')
+    expect(input).not.toHaveAttribute('aria-controls')
   })
 
   it('should show listbox with options when results appear', async () => {
