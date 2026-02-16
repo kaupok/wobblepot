@@ -115,6 +115,7 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([token])
+  @@index([userId])
   @@map("session")
 }
 
@@ -135,6 +136,7 @@ model Account {
   updatedAt             DateTime  @updatedAt
 
   @@unique([providerId, accountId])
+  @@index([userId])
   @@map("account")
 }
 
@@ -184,6 +186,7 @@ model HouseholdMember {
   invite      HouseholdInvite?
 
   @@unique([householdId, userId])
+  @@index([userId])
   @@map("household_member")
 }
 
@@ -200,6 +203,7 @@ model HouseholdInvite {
   household Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
   member    HouseholdMember? @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
+  @@index([householdId])
   @@map("household_invite")
 }
 
@@ -288,6 +292,7 @@ model Meal {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([householdId])
   @@map("meal")
 }
 
@@ -301,6 +306,7 @@ model FavoriteMeal {
   meal      Meal      @relation(fields: [mealId], references: [id], onDelete: Cascade)
 
   @@unique([householdId, mealId])
+  @@index([mealId])
   @@map("favorite_meal")
 }
 
@@ -318,6 +324,7 @@ model MealComponent {
   ingredient Ingredient @relation(fields: [ingredientId], references: [id])
 
   @@unique([mealId, ingredientId])
+  @@index([ingredientId])
   @@map("meal_component")
 }
 
@@ -355,6 +362,8 @@ model MealPlanEntry {
   meal Meal?    @relation(fields: [mealId], references: [id])
 
   @@unique([planId, date, mealType])
+  @@index([mealId])
+  @@index([date])
   @@map("meal_plan_entry")
 }
 
@@ -372,5 +381,6 @@ model PantryItem {
   updatedAt DateTime @updatedAt
 
   @@unique([householdId, ingredientId])
+  @@index([ingredientId])
   @@map("pantry_item")
 }
