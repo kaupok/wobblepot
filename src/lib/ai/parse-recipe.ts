@@ -13,6 +13,80 @@ import {
 import { applyIngredientAlias } from '@/lib/ingredient-aliases'
 
 /**
+ * Strip HTML to plain text for recipe extraction.
+ * Removes script/style/nav blocks, strips tags, collapses whitespace.
+ */
+export function stripHtmlToText(html: string): string {
+  let text = html
+  // Remove script, style, nav, header, footer blocks and their content
+  text = text.replace(/<(script|style|nav|header|footer|noscript)[^>]*>[\s\S]*?<\/\1>/gi, ' ')
+  // Remove all remaining HTML tags
+  text = text.replace(/<[^>]+>/g, ' ')
+  // Decode common HTML entities
+  text = text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+  // Collapse whitespace
+  text = text.replace(/\s+/g, ' ').trim()
+  return text
+}
+
+/**
+ * Fetch a URL and extract its text content for recipe parsing.
+ * Throws RecipeParseError on failure.
+ */
+export async function fetchRecipeFromUrl(url: string): Promise<string> {
+  try {
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(15000),
+      headers: {
+        'User-Agent': 'Honkadori/1.0 (Recipe Import)',
+        Accept: 'text/html,application/xhtml+xml,*/*',
+      },
+      redirect: 'follow',
+    })
+
+    if (!response.ok) {
+      throw new RecipeParseError(
+        `Could not fetch the URL (${response.status}). Please check the URL and try again.`,
+      )
+    }
+
+    const contentType = response.headers.get('content-type') || ''
+    if (!contentType.includes('text/html') && !contentType.includes('text/plain')) {
+      throw new RecipeParseError(
+        'The URL does not point to a web page. Please paste a link to a recipe page.',
+      )
+    }
+
+    const html = await response.text()
+    const text = stripHtmlToText(html)
+
+    if (text.length < 50) {
+      throw new RecipeParseError(
+        'Could not extract enough content from the URL. Try pasting the recipe text directly.',
+      )
+    }
+
+    return text
+  } catch (error) {
+    if (error instanceof RecipeParseError) {
+      throw error
+    }
+    if (error instanceof DOMException && error.name === 'TimeoutError') {
+      throw new RecipeParseError('The URL took too long to respond. Please try again.')
+    }
+    throw new RecipeParseError(
+      'Could not fetch the URL. Please check that it is correct and try again.',
+    )
+  }
+}
+
+/**
  * Schema for a single extracted ingredient from recipe text.
  */
 const ExtractedIngredientSchema = z.object({

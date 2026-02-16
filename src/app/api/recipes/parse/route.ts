@@ -3,11 +3,31 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { parseAndMatchRecipe, RecipeParseError } from '@/lib/ai/parse-recipe'
+import { parseAndMatchRecipe, fetchRecipeFromUrl, RecipeParseError } from '@/lib/ai/parse-recipe'
 
 const parseRecipeSchema = z.object({
   text: z.string().min(1, 'Recipe text is required'),
 })
+
+/**
+ * Detect if the input starts with a URL and extract it along with optional user context.
+ */
+function extractUrlAndContext(text: string): { url: string; context: string } | null {
+  const trimmed = text.trim()
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    return null
+  }
+  const lines = trimmed.split('\n')
+  const urlLine = lines[0]!.trim()
+  // Validate it looks like a URL (has a domain after the protocol)
+  try {
+    new URL(urlLine)
+  } catch {
+    return null
+  }
+  const context = lines.slice(1).join('\n').trim()
+  return { url: urlLine, context }
+}
 
 export async function POST(request: Request) {
   const session = await auth.api.getSession({
@@ -39,7 +59,19 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await parseAndMatchRecipe(parsed.data.text)
+    let recipeText = parsed.data.text
+
+    // Check if input is a URL
+    const urlInput = extractUrlAndContext(recipeText)
+    if (urlInput) {
+      const fetchedContent = await fetchRecipeFromUrl(urlInput.url)
+      // Combine fetched content with optional user context
+      recipeText = urlInput.context
+        ? `${fetchedContent}\n\nAdditional context from user: ${urlInput.context}`
+        : fetchedContent
+    }
+
+    const result = await parseAndMatchRecipe(recipeText)
 
     return NextResponse.json({
       success: true,
