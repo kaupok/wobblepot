@@ -151,7 +151,18 @@ mcp__linear-server__create_comment({
 })
 ```
 
-### 9. Output completion
+### 9. Move issue to In Progress
+
+Update the issue status so other auto-implement sessions won't pick it up:
+
+```
+mcp__linear-server__update_issue({
+  id: "HON-XX",
+  state: "In Progress"
+})
+```
+
+### 10. Output completion
 
 Output the completion marker:
 
