@@ -83,17 +83,27 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Compute rolling window shopping list
-    const result = await computeRollingWindowShoppingList(household.id, days, household.timezone)
+    // Compute rolling window shopping list and fetch custom items in parallel
+    const [result, pantryItems, customItems] = await Promise.all([
+      computeRollingWindowShoppingList(household.id, days, household.timezone),
+      prisma.pantryItem.findMany({
+        where: { householdId: household.id },
+        select: {
+          ingredientId: true,
+          updatedAt: true,
+        },
+      }),
+      prisma.customShoppingItem.findMany({
+        where: { householdId: household.id },
+        include: {
+          ingredient: {
+            select: { id: true, name: true, category: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ])
 
-    // Fetch pantry items for purchase tracking
-    const pantryItems = await prisma.pantryItem.findMany({
-      where: { householdId: household.id },
-      select: {
-        ingredientId: true,
-        updatedAt: true,
-      },
-    })
     const pantryMap = new Map(pantryItems.map((p) => [p.ingredientId, p]))
 
     // Transform to response format with display quantities and purchase status
@@ -152,12 +162,23 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // Format custom items for response
+    const formattedCustomItems = customItems.map((item) => ({
+      id: item.id,
+      name: item.name,
+      checked: item.checked,
+      ingredientId: item.ingredientId,
+      ingredientCategory: item.ingredient?.category ?? null,
+      createdAt: item.createdAt.toISOString(),
+    }))
+
     const response = {
       windowDays: days,
       startDate: result.startDate,
       endDate: result.endDate,
       generatedAt: result.earliestPlanCreatedAt?.toISOString() ?? null,
       groups,
+      customItems: formattedCustomItems,
       summary: {
         totalItems,
         purchasedItems,

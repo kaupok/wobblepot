@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,10 +12,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
 import { Heading, Body } from '@/components/ui/typography'
 import { CategoryGroup } from '@/components/shopping/CategoryGroup'
 import { UrgencyGroup } from '@/components/shopping/UrgencyGroup'
 import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
+import { CustomItemInput, type CustomItemData } from '@/components/shopping/CustomItemInput'
+import { CustomShoppingItem } from '@/components/shopping/CustomShoppingItem'
 import { ShoppingEmptyState } from './ShoppingEmptyState'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { getUrgencyBucket, type UrgencyBucket } from '@/lib/meal-planning/dates'
@@ -35,6 +39,7 @@ interface ShoppingSectionProps {
   endDate: string
   groups: ShoppingListGroup[]
   initialPurchasedIds: Set<string>
+  initialCustomItems?: CustomItemData[]
   onItemPurchased?: (item: PantryItemData) => void
   onItemUnpurchased?: (ingredientId: string) => void
   externalUnpurchasedIds?: Set<string>
@@ -53,6 +58,7 @@ export function ShoppingSection({
   endDate: _endDate,
   groups,
   initialPurchasedIds,
+  initialCustomItems = [],
   onItemPurchased,
   onItemUnpurchased,
   externalUnpurchasedIds,
@@ -62,6 +68,8 @@ export function ShoppingSection({
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
   const [sortMode, setSortMode] = useState<SortMode>('category')
   const [mounted, setMounted] = useState(false)
+  const [customItems, setCustomItems] = useState<CustomItemData[]>(initialCustomItems)
+  const [pendingCustomIds, setPendingCustomIds] = useState<Set<string>>(new Set())
 
   // Initialize sort mode from localStorage after mount (SSR-safe)
   useEffect(() => {
@@ -88,8 +96,12 @@ export function ShoppingSection({
     localStorage.setItem(SORT_STORAGE_KEY, value)
   }
 
-  const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0)
-  const purchasedCount = purchasedIds.size
+  const totalComputedItems = groups.reduce((sum, group) => sum + group.items.length, 0)
+  const purchasedComputedCount = purchasedIds.size
+  const uncheckedCustomCount = customItems.filter((i) => !i.checked).length
+  const checkedCustomCount = customItems.filter((i) => i.checked).length
+  const totalItems = totalComputedItems + customItems.length
+  const totalPurchased = purchasedComputedCount + checkedCustomCount
 
   // Enhance items with current purchased state
   const enhancedGroups = useMemo(
@@ -134,6 +146,24 @@ export function ShoppingSection({
         items: grouped.get(bucket)!,
       }))
   }, [enhancedGroups, sortMode])
+
+  // Split custom items into linked (have category) and unlinked
+  const { linkedCustomByCategory, unlinkedCustomItems } = useMemo(() => {
+    const linked = new Map<string, CustomItemData[]>()
+    const unlinked: CustomItemData[] = []
+
+    for (const item of customItems) {
+      if (item.ingredientCategory) {
+        const existing = linked.get(item.ingredientCategory) ?? []
+        existing.push(item)
+        linked.set(item.ingredientCategory, existing)
+      } else {
+        unlinked.push(item)
+      }
+    }
+
+    return { linkedCustomByCategory: linked, unlinkedCustomItems: unlinked }
+  }, [customItems])
 
   const getWindowLabel = () => {
     return windowDays === 14 ? 'Next 14 days' : 'Next 7 days'
@@ -209,8 +239,114 @@ export function ShoppingSection({
     }
   }
 
-  // Check if all items are purchased
-  if (purchasedCount === totalItems && totalItems > 0) {
+  const handleCustomItemAdded = useCallback((item: CustomItemData) => {
+    setCustomItems((prev) => [item, ...prev])
+  }, [])
+
+  const handleCustomToggle = useCallback(
+    async (id: string, checked: boolean) => {
+      if (pendingCustomIds.has(id)) return
+
+      // Optimistic update
+      setCustomItems((prev) => prev.map((item) => (item.id === id ? { ...item, checked } : item)))
+      setPendingCustomIds((prev) => new Set(prev).add(id))
+
+      try {
+        const response = await fetch(`/api/shopping-list/custom/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ checked }),
+        })
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}))
+          throw new Error(data.error || 'Failed to update item')
+        }
+      } catch (error) {
+        // Revert optimistic update
+        setCustomItems((prev) =>
+          prev.map((item) => (item.id === id ? { ...item, checked: !checked } : item)),
+        )
+        const message = error instanceof Error ? error.message : 'Failed to update item'
+        toast.error(message)
+      } finally {
+        setPendingCustomIds((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+      }
+    },
+    [pendingCustomIds],
+  )
+
+  const handleCustomUnlink = useCallback(async (id: string) => {
+    // Optimistic update
+    setCustomItems((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, ingredientId: null, ingredientCategory: null } : item,
+      ),
+    )
+
+    try {
+      const response = await fetch(`/api/shopping-list/custom/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ingredientId: null }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to unlink item')
+      }
+    } catch {
+      // Revert on error — refetch would be better but this is simpler for now
+      toast.error('Failed to unlink item')
+    }
+  }, [])
+
+  const handleCustomDelete = useCallback(async (id: string) => {
+    // Optimistic update
+    setCustomItems((prev) => prev.filter((item) => item.id !== id))
+
+    try {
+      const response = await fetch(`/api/shopping-list/custom/${id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to remove item')
+      }
+    } catch {
+      toast.error('Failed to remove item')
+    }
+  }, [])
+
+  const handleClearChecked = useCallback(async () => {
+    const checkedIds = new Set(customItems.filter((i) => i.checked).map((i) => i.id))
+    if (checkedIds.size === 0) return
+
+    // Optimistic update
+    setCustomItems((prev) => prev.filter((item) => !item.checked))
+
+    try {
+      const response = await fetch('/api/shopping-list/custom/checked', {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to clear checked items')
+      }
+    } catch {
+      toast.error('Failed to clear checked items')
+    }
+  }, [customItems])
+
+  const isPending = pendingIds.size > 0 || pendingCustomIds.size > 0
+
+  // Check if all items are purchased/checked
+  const allPurchased = totalPurchased === totalItems && totalItems > 0 && uncheckedCustomCount === 0
+
+  if (allPurchased) {
     return <ShoppingEmptyState variant="all-purchased" />
   }
 
@@ -225,25 +361,40 @@ export function ShoppingSection({
             <CardDescription>
               <Body variant="muted">
                 {getWindowLabel()} · {totalItems} {totalItems === 1 ? 'item' : 'items'} ·{' '}
-                {purchasedCount} purchased
+                {totalPurchased} purchased
               </Body>
             </CardDescription>
           </div>
-          {mounted && (
-            <Select value={sortMode} onValueChange={handleSortModeChange}>
-              <SelectTrigger size="sm" className="w-[140px]" aria-label="Sort items">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="category">By category</SelectItem>
-                <SelectItem value="urgency">By urgency</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
+          <div className="flex items-center gap-2">
+            {checkedCustomCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearChecked}
+                className="text-muted-foreground"
+              >
+                <Trash2 className="mr-1 h-3.5 w-3.5" />
+                Clear checked
+              </Button>
+            )}
+            {mounted && (
+              <Select value={sortMode} onValueChange={handleSortModeChange}>
+                <SelectTrigger size="sm" className="w-[140px]" aria-label="Sort items">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="category">By category</SelectItem>
+                  <SelectItem value="urgency">By urgency</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="flex flex-col gap-6">
+          <CustomItemInput onItemAdded={handleCustomItemAdded} disabled={isPending} />
+
           {sortMode === 'category' ? (
             <div className="flex flex-col gap-6">
               {enhancedGroups.map((group) => (
@@ -252,10 +403,59 @@ export function ShoppingSection({
                   category={group.category}
                   categoryLabel={group.categoryLabel}
                   items={group.items}
+                  customItems={linkedCustomByCategory.get(group.category)}
                   onToggleItem={handleToggle}
-                  disabled={pendingIds.size > 0}
+                  onToggleCustomItem={handleCustomToggle}
+                  onUnlinkCustomItem={handleCustomUnlink}
+                  onDeleteCustomItem={handleCustomDelete}
+                  disabled={isPending}
                 />
               ))}
+              {/* Render category groups that only have custom items (no computed items) */}
+              {Array.from(linkedCustomByCategory.entries())
+                .filter(([cat]) => !enhancedGroups.some((g) => g.category === cat))
+                .map(([category, items]) => (
+                  <CategoryGroup
+                    key={category}
+                    category={category as IngredientCategory}
+                    categoryLabel={category.charAt(0).toUpperCase() + category.slice(1)}
+                    items={[]}
+                    customItems={items}
+                    onToggleItem={handleToggle}
+                    onToggleCustomItem={handleCustomToggle}
+                    onUnlinkCustomItem={handleCustomUnlink}
+                    onDeleteCustomItem={handleCustomDelete}
+                    disabled={isPending}
+                  />
+                ))}
+              {/* Unlinked custom items in "Other" section */}
+              {unlinkedCustomItems.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <Body variant="small" className="text-muted-foreground font-medium">
+                      📝 Other ({unlinkedCustomItems.length})
+                    </Body>
+                    {unlinkedCustomItems.filter((i) => i.checked).length > 0 && (
+                      <Body variant="muted">
+                        {unlinkedCustomItems.filter((i) => i.checked).length}/
+                        {unlinkedCustomItems.length}
+                      </Body>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    {unlinkedCustomItems.map((item) => (
+                      <CustomShoppingItem
+                        key={item.id}
+                        item={item}
+                        onToggle={handleCustomToggle}
+                        onUnlink={handleCustomUnlink}
+                        onDelete={handleCustomDelete}
+                        disabled={isPending}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex flex-col gap-6">
@@ -265,9 +465,36 @@ export function ShoppingSection({
                   bucket={group.bucket}
                   items={group.items}
                   onToggleItem={handleToggle}
-                  disabled={pendingIds.size > 0}
+                  disabled={isPending}
                 />
               ))}
+              {/* In urgency mode, show all custom items in a single "Custom items" group */}
+              {customItems.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <Body variant="small" className="text-muted-foreground font-medium">
+                      📝 Custom items ({customItems.length})
+                    </Body>
+                    {checkedCustomCount > 0 && (
+                      <Body variant="muted">
+                        {checkedCustomCount}/{customItems.length}
+                      </Body>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    {customItems.map((item) => (
+                      <CustomShoppingItem
+                        key={item.id}
+                        item={item}
+                        onToggle={handleCustomToggle}
+                        onUnlink={handleCustomUnlink}
+                        onDelete={handleCustomDelete}
+                        disabled={isPending}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

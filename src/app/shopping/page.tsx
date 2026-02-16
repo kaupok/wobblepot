@@ -27,12 +27,22 @@ interface ShoppingListGroup {
   items: ShoppingListItem[]
 }
 
+interface CustomShoppingItemResponse {
+  id: string
+  name: string
+  checked: boolean
+  ingredientId: string | null
+  ingredientCategory: string | null
+  createdAt: string
+}
+
 interface ShoppingListResponse {
   windowDays: number
   startDate: string
   endDate: string
   generatedAt: string | null
   groups: ShoppingListGroup[]
+  customItems: CustomShoppingItemResponse[]
   summary: {
     totalItems: number
     purchasedItems: number
@@ -111,11 +121,15 @@ export default async function ShoppingPage({ searchParams }: ShoppingPageProps) 
 
   const shoppingList: ShoppingListResponse = await shoppingResponse.json()
 
-  // Check for empty states
+  // Check for empty states (custom items prevent "nothing needed" empty state)
+  const hasCustomItems = shoppingList.customItems.length > 0
   let emptyStateVariant: ShoppingEmptyStateVariant | undefined
-  if (shoppingList.generatedAt === null) {
+  if (shoppingList.generatedAt === null && !hasCustomItems) {
     emptyStateVariant = 'no-plan'
-  } else if (shoppingList.groups.length === 0 || shoppingList.summary.totalItems === 0) {
+  } else if (
+    (shoppingList.groups.length === 0 || shoppingList.summary.totalItems === 0) &&
+    !hasCustomItems
+  ) {
     emptyStateVariant = 'nothing-needed'
   }
 
@@ -150,6 +164,7 @@ export default async function ShoppingPage({ searchParams }: ShoppingPageProps) 
     endDate: shoppingList.endDate,
     groups,
     initialPurchasedIds,
+    customItems: shoppingList.customItems,
   }
 
   return (

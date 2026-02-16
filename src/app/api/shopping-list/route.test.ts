@@ -26,6 +26,9 @@ vi.mock('@/lib/prisma', () => ({
     pantryItem: {
       findMany: vi.fn(),
     },
+    customShoppingItem: {
+      findMany: vi.fn(),
+    },
   },
 }))
 
@@ -40,6 +43,7 @@ import { computeRollingWindowShoppingList } from '@/lib/meal-planning/shopping-l
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
 const mockPantryFindMany = vi.mocked(prisma.pantryItem.findMany)
+const mockCustomItemsFindMany = vi.mocked(prisma.customShoppingItem.findMany)
 const mockComputeShoppingList = vi.mocked(computeRollingWindowShoppingList)
 
 const mockHousehold = {
@@ -65,6 +69,8 @@ const mockSession = {
 describe('GET /api/shopping-list', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Default: no custom items
+    mockCustomItemsFindMany.mockResolvedValue([])
   })
 
   it('returns 401 when not authenticated', async () => {
