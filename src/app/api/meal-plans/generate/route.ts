@@ -12,6 +12,7 @@ import {
 import {
   getNextMonday,
   getCurrentWeekMonday,
+  getMondayOfWeek,
   isMonday,
   isSunday,
   parseLocalDate,
@@ -24,6 +25,10 @@ const generateRequestSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format')
     .optional(),
   targetWeek: z.enum(['current', 'next']).optional(),
+  planFromDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format')
+    .optional(),
   planId: z.string().optional(),
   mode: z.enum(['generate', 'empty', 'fill-empty']).default('generate'),
 })
@@ -81,7 +86,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
   }
 
-  const { targetWeek = 'next', mode = 'generate', planId } = parsed.data
+  const { mode = 'generate', planId } = parsed.data
+
+  // Determine targetWeek for response context
+  // When planFromDate is used, derive from the date; otherwise use the explicit field
+  let targetWeek: 'current' | 'next' = parsed.data.targetWeek ?? 'next'
 
   // Get household preferences
   const preferences = household.preferences
@@ -146,11 +155,22 @@ export async function POST(request: Request) {
     }
   }
 
-  // Determine start date and effective start date based on targetWeek
+  // Determine start date and effective start date
   let startDate: Date
   let effectiveStartDate: Date | undefined
 
-  if (parsed.data.startDate) {
+  if (parsed.data.planFromDate) {
+    // Day picker: client sends the exact date the user selected
+    const fromDate = parseLocalDate(parsed.data.planFromDate)
+    startDate = getMondayOfWeek(fromDate)
+    // Set effectiveStartDate if the selected date is not a Monday (partial week)
+    if (!isMonday(fromDate)) {
+      effectiveStartDate = fromDate
+    }
+    // Derive targetWeek for response context
+    const currentMonday = getCurrentWeekMonday()
+    targetWeek = startDate.getTime() === currentMonday.getTime() ? 'current' : 'next'
+  } else if (parsed.data.startDate) {
     // Explicit startDate provided - use it directly (backwards compatibility)
     startDate = parseLocalDate(parsed.data.startDate)
     if (!isMonday(startDate)) {

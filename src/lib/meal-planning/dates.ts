@@ -252,6 +252,48 @@ export function getStartOfTodayInTimezone(timezone: string): Date {
   return parseLocalDate(todayString)
 }
 
+/**
+ * Get the Monday of the week that contains the given date.
+ * Mon-Sun week: Monday = start, Sunday = end.
+ */
+export function getMondayOfWeek(date: Date): Date {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  const dayOfWeek = d.getDay()
+  const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+  d.setDate(d.getDate() - daysSinceMonday)
+  return d
+}
+
+/**
+ * Format a date as "18 Feb" (day + abbreviated month).
+ */
+export function formatDayMonth(date: Date): string {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ]
+  return `${date.getDate()} ${months[date.getMonth()]}`
+}
+
+/**
+ * Get the short day name for a date (e.g., "Mon", "Tue").
+ */
+export function formatDayShort(date: Date): string {
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+  return days[date.getDay()] as string
+}
+
 export type UrgencyBucket = 'today' | 'tomorrow' | 'this-week' | 'later'
 
 /**

@@ -15,6 +15,9 @@ import {
   formatAbsoluteDate,
   getStartOfTodayInTimezone,
   getUrgencyBucket,
+  getMondayOfWeek,
+  formatDayMonth,
+  formatDayShort,
 } from './dates'
 
 describe('dates utilities', () => {
@@ -626,6 +629,91 @@ describe('dates utilities', () => {
       expect(getUrgencyBucket('2026-01-31', friday)).toBe('tomorrow') // Saturday
       expect(getUrgencyBucket('2026-02-01', friday)).toBe('this-week') // Sunday
       expect(getUrgencyBucket('2026-02-02', friday)).toBe('later') // Next Monday
+    })
+  })
+
+  describe('getMondayOfWeek', () => {
+    it('returns same date for Monday', () => {
+      const monday = new Date(2026, 1, 16) // Mon 16 Feb 2026
+      expect(toDateString(getMondayOfWeek(monday))).toBe('2026-02-16')
+    })
+
+    it('returns previous Monday for Tuesday', () => {
+      const tuesday = new Date(2026, 1, 17)
+      expect(toDateString(getMondayOfWeek(tuesday))).toBe('2026-02-16')
+    })
+
+    it('returns previous Monday for Wednesday', () => {
+      const wednesday = new Date(2026, 1, 18)
+      expect(toDateString(getMondayOfWeek(wednesday))).toBe('2026-02-16')
+    })
+
+    it('returns previous Monday for Thursday', () => {
+      const thursday = new Date(2026, 1, 19)
+      expect(toDateString(getMondayOfWeek(thursday))).toBe('2026-02-16')
+    })
+
+    it('returns previous Monday for Friday', () => {
+      const friday = new Date(2026, 1, 20)
+      expect(toDateString(getMondayOfWeek(friday))).toBe('2026-02-16')
+    })
+
+    it('returns previous Monday for Saturday', () => {
+      const saturday = new Date(2026, 1, 21)
+      expect(toDateString(getMondayOfWeek(saturday))).toBe('2026-02-16')
+    })
+
+    it('returns previous Monday for Sunday', () => {
+      const sunday = new Date(2026, 1, 22)
+      expect(toDateString(getMondayOfWeek(sunday))).toBe('2026-02-16')
+    })
+
+    it('handles month boundary', () => {
+      const sunday = new Date(2026, 1, 1) // Sun 1 Feb 2026
+      expect(toDateString(getMondayOfWeek(sunday))).toBe('2026-01-26')
+    })
+
+    it('returns date at midnight', () => {
+      const date = new Date(2026, 1, 19, 14, 30, 45)
+      const result = getMondayOfWeek(date)
+      expect(result.getHours()).toBe(0)
+      expect(result.getMinutes()).toBe(0)
+      expect(result.getSeconds()).toBe(0)
+    })
+
+    it('does not mutate the original date', () => {
+      const date = new Date(2026, 1, 19)
+      const originalTime = date.getTime()
+      getMondayOfWeek(date)
+      expect(date.getTime()).toBe(originalTime)
+    })
+  })
+
+  describe('formatDayMonth', () => {
+    it('formats single-digit day', () => {
+      expect(formatDayMonth(new Date(2026, 1, 5))).toBe('5 Feb')
+    })
+
+    it('formats double-digit day', () => {
+      expect(formatDayMonth(new Date(2026, 1, 18))).toBe('18 Feb')
+    })
+
+    it('formats all months correctly', () => {
+      expect(formatDayMonth(new Date(2026, 0, 1))).toBe('1 Jan')
+      expect(formatDayMonth(new Date(2026, 5, 15))).toBe('15 Jun')
+      expect(formatDayMonth(new Date(2026, 11, 25))).toBe('25 Dec')
+    })
+  })
+
+  describe('formatDayShort', () => {
+    it('returns correct short day names', () => {
+      expect(formatDayShort(new Date(2026, 1, 16))).toBe('Mon')
+      expect(formatDayShort(new Date(2026, 1, 17))).toBe('Tue')
+      expect(formatDayShort(new Date(2026, 1, 18))).toBe('Wed')
+      expect(formatDayShort(new Date(2026, 1, 19))).toBe('Thu')
+      expect(formatDayShort(new Date(2026, 1, 20))).toBe('Fri')
+      expect(formatDayShort(new Date(2026, 1, 21))).toBe('Sat')
+      expect(formatDayShort(new Date(2026, 1, 22))).toBe('Sun')
     })
   })
 })

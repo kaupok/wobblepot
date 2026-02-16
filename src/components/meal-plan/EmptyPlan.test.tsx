@@ -6,9 +6,11 @@ import type { WeekContext } from './types'
 
 // Mock next/navigation
 const mockRefresh = vi.fn()
+const mockPush = vi.fn()
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
     refresh: mockRefresh,
+    push: mockPush,
   }),
 }))
 
@@ -32,6 +34,7 @@ describe('EmptyPlan', () => {
   beforeEach(() => {
     mockFetch.mockReset()
     mockRefresh.mockReset()
+    mockPush.mockReset()
   })
 
   afterEach(() => {
@@ -334,11 +337,34 @@ describe('EmptyPlan', () => {
   })
 
   describe('first-time generation', () => {
-    it('does not show restrictions textarea', () => {
+    it('shows "Start planning from" label', () => {
       render(<EmptyPlan weekContext={defaultWeekContext} isFirstGeneration />)
 
-      expect(screen.queryByLabelText('Anything else?')).not.toBeInTheDocument()
-      expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+      expect(screen.getByText('Start planning from')).toBeInTheDocument()
+    })
+
+    it('shows day picker options including Today and Next week', () => {
+      render(<EmptyPlan weekContext={defaultWeekContext} isFirstGeneration />)
+
+      expect(screen.getByRole('button', { name: 'Today' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Next week/ })).toBeInTheDocument()
+    })
+
+    it('sends planFromDate in generate request', async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
+
+      render(<EmptyPlan weekContext={defaultWeekContext} isFirstGeneration />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Generate meal plan' }))
+
+      await waitFor(() => {
+        // Second call is the generate endpoint (first is preferences PATCH)
+        const generateCall = mockFetch.mock.calls[1]!
+        expect(generateCall[0]).toBe('/api/meal-plans/generate')
+        const body = JSON.parse(generateCall[1]!.body)
+        expect(body).toHaveProperty('planFromDate')
+        expect(body).not.toHaveProperty('targetWeek')
+      })
     })
 
     it('does not send restrictions in preferences payload', async () => {
@@ -354,6 +380,19 @@ describe('EmptyPlan', () => {
         expect(prefsCall[0]).toBe('/api/households/me/preferences')
         const body = JSON.parse(prefsCall[1]!.body)
         expect(body).not.toHaveProperty('restrictions')
+      })
+    })
+
+    it('navigates to correct week tab after generation', async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
+
+      render(<EmptyPlan weekContext={defaultWeekContext} isFirstGeneration />)
+
+      // Click generate (default selection is "Today" which is current week)
+      await userEvent.click(screen.getByRole('button', { name: 'Generate meal plan' }))
+
+      await waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('/meal-plan?week='))
       })
     })
   })
