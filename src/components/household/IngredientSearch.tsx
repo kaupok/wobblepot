@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useId } from 'react'
 import { Search, Plus, Loader2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
@@ -26,6 +26,9 @@ export function IngredientSearch({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const listboxId = useId()
+
+  const getOptionId = (index: number) => `${listboxId}-option-${index}`
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -130,6 +133,13 @@ export function IngredientSearch({
           placeholder="Search to add more ingredients..."
           className="pr-9 pl-9"
           disabled={disabled}
+          role="combobox"
+          aria-expanded={showDropdown}
+          aria-controls={listboxId}
+          aria-activedescendant={
+            showDropdown && highlightedIndex >= 0 ? getOptionId(highlightedIndex) : undefined
+          }
+          aria-autocomplete="list"
         />
         {isSearching && (
           <Loader2 className="text-muted-foreground absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin" />
@@ -139,6 +149,8 @@ export function IngredientSearch({
       {showDropdown && searchResults.length > 0 && (
         <div
           ref={dropdownRef}
+          id={listboxId}
+          role="listbox"
           className="bg-popover absolute top-full z-10 mt-1 w-full rounded-md border shadow-md"
         >
           {searchResults.map((ingredient, index) => {
@@ -146,7 +158,10 @@ export function IngredientSearch({
             return (
               <button
                 key={ingredient.id}
+                id={getOptionId(index)}
                 type="button"
+                role="option"
+                aria-selected={highlightedIndex === index}
                 onClick={() => handleAdd(ingredient)}
                 disabled={disabled || isAdded}
                 className={cn(
