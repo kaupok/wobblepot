@@ -3,6 +3,7 @@ import { generateObject } from 'ai'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
+import { RECIPE_MODEL } from './models'
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
 import {
   VAGUE_PHRASES,
@@ -214,7 +215,7 @@ export async function parseRecipeText(recipeText: string): Promise<RecipeExtract
 
   try {
     const { object } = await generateObject({
-      model: anthropic('claude-sonnet-4-20250514'),
+      model: anthropic(RECIPE_MODEL),
       schema: RecipeExtractionSchema,
       prompt,
     })

@@ -16,6 +16,7 @@ import {
   parseLocalDate,
 } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
+import { PLANNING_MODEL } from './models'
 import { buildMealPlanPrompt } from './prompts'
 import { validatePlan } from './validate-plan'
 import { repairPlan } from './repair-plan'
@@ -348,7 +349,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
 
   const { object } = await generateObject({
-    model: anthropic('claude-sonnet-4-20250514'),
+    model: anthropic(PLANNING_MODEL),
     schema: MealPlanResponseSchema,
     prompt,
   })
@@ -667,7 +668,7 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
 
   const { object } = await generateObject({
-    model: anthropic('claude-sonnet-4-20250514'),
+    model: anthropic(PLANNING_MODEL),
     schema: MealPlanResponseSchema,
     prompt,
   })

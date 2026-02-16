@@ -6,6 +6,7 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
+import { TIPS_MODEL } from '@/lib/ai/models'
 
 export async function POST(
   request: Request,
@@ -160,7 +161,7 @@ Format each section with the exact headers shown above (Equipment needed:, Steps
     const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
 
     const { text } = await generateText({
-      model: anthropic('claude-haiku-4-5'),
+      model: anthropic(TIPS_MODEL),
       prompt,
       maxOutputTokens: hasNotes ? 600 : 500,
     })
