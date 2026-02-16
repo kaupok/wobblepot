@@ -320,6 +320,11 @@ cmd_auto() {
   echo "Location: $worktree_path"
   echo ""
 
+  # Pull latest main so the worktree branches from up-to-date code
+  echo "Pulling latest main..."
+  git -C "$REPO_ROOT" pull origin main --ff-only 2>/dev/null || \
+    echo -e "${YELLOW}Warning: Could not fast-forward main (may be on a different branch)${NC}"
+
   # Create worktree with new branch from current HEAD
   git -C "$REPO_ROOT" worktree add -b "$branch" "$worktree_path"
 
