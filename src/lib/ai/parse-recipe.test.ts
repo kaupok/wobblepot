@@ -789,7 +789,7 @@ describe('stripHtmlToText', () => {
   })
 
   it('decodes HTML entities', () => {
-    expect(stripHtmlToText('&amp; &lt; &gt; &quot; &#039; &nbsp;')).toBe('& < > " \'')
+    expect(stripHtmlToText('&amp; &lt; &gt; &quot; &#039; &apos; &nbsp;')).toBe("& < > \" ' '")
   })
 
   it('collapses whitespace', () => {
@@ -804,6 +804,24 @@ describe('stripHtmlToText', () => {
 describe('fetchRecipeFromUrl', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+  })
+
+  it('blocks localhost URLs', async () => {
+    await expect(fetchRecipeFromUrl('https://localhost/recipe')).rejects.toThrow(
+      'Cannot fetch from private or local addresses',
+    )
+  })
+
+  it('blocks private IP addresses', async () => {
+    await expect(fetchRecipeFromUrl('https://192.168.1.1/recipe')).rejects.toThrow(
+      'Cannot fetch from private or local addresses',
+    )
+    await expect(fetchRecipeFromUrl('https://10.0.0.1/recipe')).rejects.toThrow(
+      'Cannot fetch from private or local addresses',
+    )
+    await expect(fetchRecipeFromUrl('https://172.16.0.1/recipe')).rejects.toThrow(
+      'Cannot fetch from private or local addresses',
+    )
   })
 
   it('throws RecipeParseError on non-OK response', async () => {

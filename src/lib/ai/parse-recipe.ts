@@ -29,6 +29,7 @@ export function stripHtmlToText(html: string): string {
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#039;/g, "'")
+    .replace(/&apos;/g, "'")
     .replace(/&nbsp;/g, ' ')
   // Collapse whitespace
   text = text.replace(/\s+/g, ' ').trim()
@@ -36,10 +37,32 @@ export function stripHtmlToText(html: string): string {
 }
 
 /**
+ * Block private/internal URLs to prevent SSRF attacks.
+ */
+function validatePublicUrl(url: string): void {
+  const parsedUrl = new URL(url)
+  const hostname = parsedUrl.hostname.toLowerCase()
+
+  if (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '0.0.0.0' ||
+    hostname === '[::1]' ||
+    hostname.startsWith('192.168.') ||
+    hostname.startsWith('10.') ||
+    /^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname)
+  ) {
+    throw new RecipeParseError('Cannot fetch from private or local addresses.')
+  }
+}
+
+/**
  * Fetch a URL and extract its text content for recipe parsing.
  * Throws RecipeParseError on failure.
  */
 export async function fetchRecipeFromUrl(url: string): Promise<string> {
+  validatePublicUrl(url)
+
   try {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(15000),
