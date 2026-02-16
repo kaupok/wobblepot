@@ -188,7 +188,19 @@ Otherwise, store the issue ID:
 [auto-implement] Phase 2/7: Planning implementation for HON-XX
 ```
 
-### 2.1 Fetch issue details
+### 2.1 Claim issue immediately
+
+Set status to "In Progress" and assign to self right away, before any planning work. This prevents other agents from picking the same issue concurrently.
+
+```
+mcp__linear-server__update_issue({
+  id: "HON-XX",
+  state: "In Progress",
+  assignee: "me"
+})
+```
+
+### 2.2 Fetch issue details
 
 ```
 mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
@@ -203,7 +215,7 @@ Extract and note:
 - `blocks` relations (what this unblocks)
 - Any labels or priority
 
-### 2.2 Read project context (if not already loaded)
+### 2.3 Read project context (if not already loaded)
 
 If Phase 1 ran (no issue ID provided), `docs/PROJECT_SPEC.md` is already in context — skip this step.
 
@@ -215,7 +227,7 @@ Read docs/PROJECT_SPEC.md
 
 Note the current phase and any relevant architectural decisions.
 
-### 2.3 Fetch issue comments
+### 2.4 Fetch issue comments
 
 ```
 mcp__linear-server__list_comments({ issueId: "[issue-uuid]" })
@@ -223,7 +235,7 @@ mcp__linear-server__list_comments({ issueId: "[issue-uuid]" })
 
 Review any prior discussion, decisions, or context from team members.
 
-### 2.4 Explore codebase
+### 2.5 Explore codebase
 
 Using Read, Grep, and Glob tools:
 
@@ -233,7 +245,7 @@ Using Read, Grep, and Glob tools:
 
 Focus on files directly relevant to the issue (2-5 files max).
 
-### 2.5 Write plan
+### 2.6 Write plan
 
 Write the plan directly in your response using this structure:
 
@@ -278,7 +290,7 @@ Write the plan directly in your response using this structure:
 - [ ] [Edge cases to check]
 ```
 
-### 2.6 Post plan to Linear
+### 2.7 Post plan to Linear
 
 Post the plan directly to Linear (no approval needed in auto mode):
 
@@ -302,17 +314,7 @@ mcp__linear-server__create_comment({
 [auto-implement] Phase 3/7: Implementing HON-XX
 ```
 
-### 3.1 Update issue status
-
-```
-mcp__linear-server__update_issue({
-  id: "HON-XX",
-  state: "In Progress",
-  assignee: "me"
-})
-```
-
-### 3.2 Create or switch to branch
+### 3.1 Create or switch to branch
 
 **Worktree mode:**
 
@@ -342,9 +344,9 @@ If branch doesn't exist:
 git checkout -b [gitBranchName]
 ```
 
-### 3.3 Implement following the plan
+### 3.2 Implement following the plan
 
-The plan from Phase 2.5 is already in context — do not re-fetch it from Linear.
+The plan from Phase 2.6 is already in context — do not re-fetch it from Linear.
 
 For each implementation step in the plan:
 
