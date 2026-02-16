@@ -83,3 +83,82 @@ When creating a worktree, the script automatically copies these gitignored files
 `PROJECT_ROOT` paths in these files are automatically updated to point to the worktree location.
 
 **To add more files:** Edit the `UNTRACKED_FILES` array in `scripts/worktree-claude.sh`.
+
+## Orchestrator (Autonomous Batch Processing)
+
+The orchestrator (`scripts/orchestrator.sh`) is a long-running dispatcher that polls Linear for Todo issues, claims them atomically, spawns `wt auto` workers, and handles the full lifecycle — including failure triage via Claude.
+
+### Quick Start
+
+```bash
+# Dry run — connects to Linear, logs what it would do
+./scripts/orchestrator.sh --dry-run
+
+# Single issue, full lifecycle
+./scripts/orchestrator.sh --once --max-workers 1
+
+# Steady state with 3 concurrent workers
+./scripts/orchestrator.sh --max-workers 3
+
+# Ctrl+C → graceful shutdown (waits for workers)
+# Ctrl+C again → force kill all workers
+```
+
+### How It Works
+
+```
+┌─────────────────────────────────────────┐
+│              Main Loop                  │
+│                                         │
+│  1. Monitor workers (reap/timeout)      │
+│  2. If slots available → poll Linear    │
+│  3. Select best unblocked Todo issue    │
+│  4. Claim (move to In Progress)         │
+│  5. Spawn wt auto worker               │
+│  6. Sleep, repeat                       │
+└─────────────────────────────────────────┘
+```
+
+**Issue selection** is mechanical — no Claude session overhead:
+
+- Fetch Todo issues via Linear GraphQL (curl + jq)
+- Filter out issues already being processed by running workers
+- Check `blockedBy` — unblocked if all blockers are Done/Canceled/Duplicate
+- Prioritize: issues that `blocks` others first, then by `priority` field
+- Pick one per poll cycle
+
+**Failure triage** is the one place Claude adds value:
+
+- On worker failure, a one-shot `claude -p` call analyzes the log
+- Returns: `RETRY` (respawn, max 1 retry), `BACKLOG` (needs refinement), or `NEEDS_HUMAN` (infra problem)
+- Failed issues get a comment with log tail, a label (`failed`/`needs-attention`), and move to Backlog
+
+### Configuration
+
+| Flag                 | Env Var                       | Default | Description                     |
+| -------------------- | ----------------------------- | ------- | ------------------------------- |
+| `--max-workers N`    | `ORCHESTRATOR_MAX_WORKERS`    | 5       | Max concurrent workers          |
+| `--poll-interval N`  | `ORCHESTRATOR_POLL_INTERVAL`  | 60      | Seconds between polls           |
+| `--worker-timeout N` | `ORCHESTRATOR_WORKER_TIMEOUT` | 3600    | Seconds before killing a worker |
+| `--dry-run`          | —                             | false   | Log actions without executing   |
+| `--once`             | —                             | false   | Single poll cycle, then exit    |
+
+Requires `LINEAR_API_KEY` env var (format: `lin_api_...`).
+
+### Logs
+
+All logs are written to `~/.worktrees/honkadori/logs/`:
+
+| File                          | Contents                                   |
+| ----------------------------- | ------------------------------------------ |
+| `orchestrator.log`            | Main loop activity, claims, triage results |
+| `worker-HON-XX-TIMESTAMP.log` | Full output from each `wt auto` worker     |
+
+### Graceful Shutdown
+
+- First `SIGINT`/`SIGTERM` → stops spawning, waits for running workers
+- Second signal → force kills all workers immediately
+
+### Design: Dumb Dispatcher, Smart Workers
+
+The orchestrator is deliberately simple — a bash loop with curl + jq. All intelligence lives in the workers (`/auto-implement`). This means zero API cost for the dispatch loop, predictable behavior, and the ability to run for days.
