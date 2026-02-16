@@ -768,6 +768,28 @@ describe('matchIngredients', () => {
     // 20g / 4 servings = 5g per serving, exceeds 2g spice threshold
     expect(matched.quantityWarning).toContain('Unusually high')
   })
+
+  it('treats "red chili pepper" → "red bell pepper" as unmatched when similarity is below VERY_LOW_CONFIDENCE_THRESHOLD', async () => {
+    // Simulate fuzzy search returning "red bell pepper" with similarity 0.53
+    // This is above the old threshold (0.5) but should be below the new one
+    mockQueryRaw.mockResolvedValue([
+      makeDbMatch({
+        name: 'red bell pepper',
+        similarity: 0.53,
+        category: 'vegetable',
+        subcategory: 'fruit-vegetable',
+      }),
+    ])
+
+    const results = await matchIngredients(
+      [makeExtracted({ name: 'red chili pepper', quantity: 50, unit: 'g' })],
+      4,
+    )
+
+    // Should be treated as unmatched because similarity is too low for a reliable suggestion
+    expect(results[0]!.type).toBe('unmatched')
+    expect((results[0] as { extractedName: string }).extractedName).toBe('red chili pepper')
+  })
 })
 
 describe('parseAndMatchRecipe', () => {
