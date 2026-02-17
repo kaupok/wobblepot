@@ -160,10 +160,17 @@ export function RecipeImportClient() {
   const [progressStep, setProgressStep] = useState('')
   const [stepVisible, setStepVisible] = useState(false)
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const abortControllerRef = useRef<AbortController | null>(null)
   const [warning, setWarning] = useState<{
     message: string
     recipe: ParsedRecipeData
   } | null>(null)
+
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort()
+    }
+  }, [])
 
   const navigateToCreate = (recipe: ParsedRecipeData) => {
     const prefilledData = convertToPrefilledData(recipe)
@@ -212,6 +219,12 @@ export function RecipeImportClient() {
     }
   }, [isParsing]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const handleCancel = () => {
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = null
+    setIsParsing(false)
+  }
+
   const handleParse = async () => {
     if (!recipeText.trim()) {
       setError('Please paste a recipe or URL first')
@@ -222,11 +235,15 @@ export function RecipeImportClient() {
     setWarning(null)
     setIsParsing(true)
 
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     try {
       const response = await fetch('/api/recipes/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: recipeText }),
+        signal: controller.signal,
       })
 
       const data = await response.json()
@@ -248,9 +265,13 @@ export function RecipeImportClient() {
       }
 
       navigateToCreate(data.recipe)
-    } catch {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return
+      }
       setError('Failed to parse recipe. Please try again.')
     } finally {
+      abortControllerRef.current = null
       setIsParsing(false)
     }
   }
@@ -351,12 +372,18 @@ export function RecipeImportClient() {
               </>
             )}
           </Button>
-          <Body variant="muted" className="text-center">
-            or{' '}
-            <Link href="/recipes?mode=create" className="text-primary underline">
-              create manually
-            </Link>
-          </Body>
+          {isParsing ? (
+            <Button variant="ghost" size="sm" onClick={handleCancel}>
+              Cancel
+            </Button>
+          ) : (
+            <Body variant="muted" className="text-center">
+              or{' '}
+              <Link href="/recipes?mode=create" className="text-primary underline">
+                create manually
+              </Link>
+            </Body>
+          )}
         </CardFooter>
       </Card>
     </div>
