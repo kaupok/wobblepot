@@ -1071,7 +1071,77 @@ export async function matchIngredients(
     }
   }
 
-  return results
+  return mergeDuplicateIngredients(results)
+}
+
+/**
+ * Merge duplicate matched ingredients (same ingredientId) into single rows.
+ * Quantities are summed. If either row is vague, the merged row is vague with no quantity.
+ * Unmatched ingredients pass through unchanged.
+ */
+export function mergeDuplicateIngredients(
+  results: IngredientMatchResult[],
+): IngredientMatchResult[] {
+  const merged: IngredientMatchResult[] = []
+  const matchedById = new Map<string, MatchedIngredient>()
+
+  for (const result of results) {
+    if (result.type !== 'matched') {
+      merged.push(result)
+      continue
+    }
+
+    const id = result.ingredient.id
+    const existing = matchedById.get(id)
+
+    if (!existing) {
+      matchedById.set(id, result)
+      continue
+    }
+
+    // Merge: if either is vague, result is vague with zero quantity
+    if (existing.isVague || result.isVague) {
+      matchedById.set(id, {
+        ...existing,
+        convertedQuantity: 0,
+        isVague: true,
+        originalPhrase: existing.originalPhrase ?? result.originalPhrase,
+        originalText: `${existing.originalText} + ${result.originalText}`,
+        quantityWarning: undefined,
+      })
+    } else {
+      // Both have quantities — sum them
+      matchedById.set(id, {
+        ...existing,
+        convertedQuantity: existing.convertedQuantity + result.convertedQuantity,
+        originalText: `${existing.originalText} + ${result.originalText}`,
+        quantityWarning: undefined,
+      })
+    }
+  }
+
+  // Build final array preserving original order.
+  // Walk the original results: emit each unmatched as-is,
+  // emit each matched ingredient at its first occurrence (merged).
+  const unmatchedResults = merged
+  const finalResults: IngredientMatchResult[] = []
+  let unmatchedIndex = 0
+  const emittedIds = new Set<string>()
+
+  for (const result of results) {
+    if (result.type !== 'matched') {
+      finalResults.push(unmatchedResults[unmatchedIndex]!)
+      unmatchedIndex++
+    } else {
+      const id = result.ingredient.id
+      if (!emittedIds.has(id)) {
+        emittedIds.add(id)
+        finalResults.push(matchedById.get(id)!)
+      }
+    }
+  }
+
+  return finalResults
 }
 
 /**

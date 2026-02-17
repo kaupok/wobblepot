@@ -26,6 +26,7 @@ import {
   buildRecipeExtractionPrompt,
   parseRecipeText,
   matchIngredients,
+  mergeDuplicateIngredients,
   parseAndMatchRecipe,
   stripHtmlToText,
   extractJsonLdRecipe,
@@ -41,7 +42,13 @@ import {
   CUP_CONVERSIONS,
   fuzzySearchIngredient,
 } from './parse-recipe'
-import type { ExtractedIngredient, RecipeExtraction } from './parse-recipe'
+import type {
+  ExtractedIngredient,
+  IngredientMatchResult,
+  MatchedIngredient,
+  RecipeExtraction,
+  UnmatchedIngredient,
+} from './parse-recipe'
 
 const mockQueryRaw = vi.mocked(prisma.$queryRaw)
 const mockGenerateObject = vi.mocked(generateObject)
@@ -789,6 +796,178 @@ describe('matchIngredients', () => {
     // Should be treated as unmatched because similarity is too low for a reliable suggestion
     expect(results[0]!.type).toBe('unmatched')
     expect((results[0] as { extractedName: string }).extractedName).toBe('red chili pepper')
+  })
+})
+
+describe('mergeDuplicateIngredients', () => {
+  const makeMatched = (overrides: Partial<MatchedIngredient> = {}): MatchedIngredient => ({
+    type: 'matched',
+    extractedName: 'olive oil',
+    extractedQuantity: 30,
+    extractedUnit: 'ml',
+    originalText: '2 tbsp olive oil',
+    ingredient: {
+      id: 'ing-olive-oil',
+      name: 'olive oil',
+      category: 'fat',
+      subcategory: 'oil',
+      defaultUnit: 'g',
+      gramsPerPiece: null,
+    },
+    convertedQuantity: 27,
+    isVague: false,
+    similarityScore: 0.95,
+    lowConfidence: false,
+    ...overrides,
+  })
+
+  const makeUnmatched = (overrides: Partial<UnmatchedIngredient> = {}): UnmatchedIngredient => ({
+    type: 'unmatched',
+    extractedName: "za'atar",
+    extractedQuantity: 5,
+    extractedUnit: 'g',
+    originalText: "1 tsp za'atar",
+    isVague: false,
+    ...overrides,
+  })
+
+  it('sums quantities when merging two matched ingredients with same id', () => {
+    const results: IngredientMatchResult[] = [
+      makeMatched({ convertedQuantity: 27, originalText: '2 tbsp olive oil (dough)' }),
+      makeMatched({ convertedQuantity: 14, originalText: '1 tbsp olive oil (topping)' }),
+    ]
+
+    const merged = mergeDuplicateIngredients(results)
+
+    expect(merged).toHaveLength(1)
+    expect(merged[0]!.type).toBe('matched')
+    const m = merged[0] as MatchedIngredient
+    expect(m.convertedQuantity).toBe(41)
+    expect(m.originalText).toBe('2 tbsp olive oil (dough) + 1 tbsp olive oil (topping)')
+  })
+
+  it('marks merged row as vague when either row is vague', () => {
+    const results: IngredientMatchResult[] = [
+      makeMatched({ convertedQuantity: 27, originalText: '2 tbsp olive oil', isVague: false }),
+      makeMatched({
+        convertedQuantity: 0,
+        originalText: 'olive oil to taste',
+        isVague: true,
+        originalPhrase: 'to taste',
+      }),
+    ]
+
+    const merged = mergeDuplicateIngredients(results)
+
+    expect(merged).toHaveLength(1)
+    const m = merged[0] as MatchedIngredient
+    expect(m.isVague).toBe(true)
+    expect(m.convertedQuantity).toBe(0)
+    expect(m.originalPhrase).toBe('to taste')
+  })
+
+  it('marks merged row as vague when both rows are vague', () => {
+    const results: IngredientMatchResult[] = [
+      makeMatched({
+        convertedQuantity: 0,
+        isVague: true,
+        originalPhrase: 'a drizzle',
+        originalText: 'a drizzle of olive oil',
+      }),
+      makeMatched({
+        convertedQuantity: 0,
+        isVague: true,
+        originalPhrase: 'to taste',
+        originalText: 'olive oil to taste',
+      }),
+    ]
+
+    const merged = mergeDuplicateIngredients(results)
+
+    expect(merged).toHaveLength(1)
+    const m = merged[0] as MatchedIngredient
+    expect(m.isVague).toBe(true)
+    expect(m.convertedQuantity).toBe(0)
+    expect(m.originalPhrase).toBe('a drizzle')
+  })
+
+  it('does not merge unmatched ingredients', () => {
+    const results: IngredientMatchResult[] = [
+      makeUnmatched({ extractedName: "za'atar", originalText: "1 tsp za'atar" }),
+      makeUnmatched({ extractedName: "za'atar", originalText: "2 tsp za'atar" }),
+    ]
+
+    const merged = mergeDuplicateIngredients(results)
+
+    expect(merged).toHaveLength(2)
+    expect(merged[0]!.type).toBe('unmatched')
+    expect(merged[1]!.type).toBe('unmatched')
+  })
+
+  it('does not merge different matched ingredients', () => {
+    const results: IngredientMatchResult[] = [
+      makeMatched({ ingredient: { ...makeMatched().ingredient, id: 'ing-olive-oil' } }),
+      makeMatched({
+        ingredient: {
+          id: 'ing-mozzarella',
+          name: 'mozzarella',
+          category: 'dairy',
+          subcategory: null,
+          defaultUnit: 'g',
+          gramsPerPiece: null,
+        },
+        extractedName: 'mozzarella',
+        convertedQuantity: 200,
+        originalText: '200g mozzarella',
+      }),
+    ]
+
+    const merged = mergeDuplicateIngredients(results)
+
+    expect(merged).toHaveLength(2)
+  })
+
+  it('preserves original order with unmatched items interleaved', () => {
+    const results: IngredientMatchResult[] = [
+      makeMatched({ originalText: 'olive oil (dough)', convertedQuantity: 27 }),
+      makeUnmatched({ originalText: "1 tsp za'atar" }),
+      makeMatched({ originalText: 'olive oil (topping)', convertedQuantity: 14 }),
+    ]
+
+    const merged = mergeDuplicateIngredients(results)
+
+    expect(merged).toHaveLength(2)
+    expect(merged[0]!.type).toBe('matched')
+    expect((merged[0] as MatchedIngredient).convertedQuantity).toBe(41)
+    expect(merged[1]!.type).toBe('unmatched')
+  })
+
+  it('clears quantityWarning on merged result', () => {
+    const results: IngredientMatchResult[] = [
+      makeMatched({
+        convertedQuantity: 400,
+        quantityWarning: 'Quantity seems high',
+        originalText: '400g olive oil',
+      }),
+      makeMatched({ convertedQuantity: 14, originalText: '1 tbsp olive oil' }),
+    ]
+
+    const merged = mergeDuplicateIngredients(results)
+
+    expect(merged).toHaveLength(1)
+    const m = merged[0] as MatchedIngredient
+    expect(m.quantityWarning).toBeUndefined()
+    expect(m.convertedQuantity).toBe(414)
+  })
+
+  it('passes through single items unchanged', () => {
+    const results: IngredientMatchResult[] = [makeMatched(), makeUnmatched()]
+
+    const merged = mergeDuplicateIngredients(results)
+
+    expect(merged).toHaveLength(2)
+    expect(merged[0]).toEqual(makeMatched())
+    expect(merged[1]).toEqual(makeUnmatched())
   })
 })
 
