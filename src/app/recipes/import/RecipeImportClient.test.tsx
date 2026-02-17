@@ -95,3 +95,90 @@ describe('RecipeImportClient progress steps', () => {
     expect(screen.queryByText('Matching ingredients...')).not.toBeInTheDocument()
   })
 })
+
+describe('RecipeImportClient cancel', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    // Mock fetch to hang (simulating slow import)
+    vi.stubGlobal('fetch', () => new Promise(() => {}))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  it('shows cancel button during parsing and hides it otherwise', () => {
+    render(<RecipeImportClient />)
+
+    // Cancel button not visible initially
+    expect(screen.queryByRole('button', { name: /cancel/i })).not.toBeInTheDocument()
+    // "create manually" link visible
+    expect(screen.getByText(/create manually/i)).toBeInTheDocument()
+
+    // Start import
+    const textarea = screen.getByRole('textbox')
+    fireEvent.change(textarea, { target: { value: 'https://example.com/recipe' } })
+    fireEvent.click(screen.getByRole('button', { name: /import recipe/i }))
+
+    // Cancel button visible during parsing
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument()
+    // "create manually" link hidden
+    expect(screen.queryByText(/create manually/i)).not.toBeInTheDocument()
+  })
+
+  it('aborts request and restores textarea on cancel', async () => {
+    const abortSpy = vi.spyOn(AbortController.prototype, 'abort')
+
+    render(<RecipeImportClient />)
+
+    const textarea = screen.getByRole('textbox')
+    fireEvent.change(textarea, { target: { value: 'https://example.com/recipe' } })
+    fireEvent.click(screen.getByRole('button', { name: /import recipe/i }))
+
+    // Click cancel
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+
+    // Let state updates settle
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200)
+    })
+
+    // AbortController.abort was called
+    expect(abortSpy).toHaveBeenCalled()
+
+    // Textarea is editable again with original content preserved
+    expect(textarea).not.toBeDisabled()
+    expect(textarea).toHaveValue('https://example.com/recipe')
+
+    // No error message shown
+    expect(screen.queryByText(/failed/i)).not.toBeInTheDocument()
+
+    // Cancel button hidden, "create manually" link back
+    expect(screen.queryByRole('button', { name: /cancel/i })).not.toBeInTheDocument()
+    expect(screen.getByText(/create manually/i)).toBeInTheDocument()
+
+    abortSpy.mockRestore()
+  })
+
+  it('does not show error when request is aborted', async () => {
+    // Mock fetch to reject with AbortError
+    const abortError = new Error('The operation was aborted.')
+    abortError.name = 'AbortError'
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(abortError))
+
+    render(<RecipeImportClient />)
+
+    const textarea = screen.getByRole('textbox')
+    fireEvent.change(textarea, { target: { value: 'https://example.com/recipe' } })
+    fireEvent.click(screen.getByRole('button', { name: /import recipe/i }))
+
+    // Let the fetch rejection resolve
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200)
+    })
+
+    // No error shown for abort
+    expect(screen.queryByText(/failed/i)).not.toBeInTheDocument()
+  })
+})
