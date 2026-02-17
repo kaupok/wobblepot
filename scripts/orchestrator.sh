@@ -465,6 +465,28 @@ sanitize_log() {
     -e 's/ghp_[A-Za-z0-9]{36,}/[REDACTED]/g'
 }
 
+# ─── Extract Claude output from worker log ───────────────────────────────────
+# Strips worktree setup noise (pnpm install, prisma generate, etc.)
+# Returns only the output after "Starting autonomous Claude Code" marker
+
+extract_claude_output() {
+  local log_file="$1"
+  local marker="Starting autonomous Claude Code"
+  local output
+
+  # Find content after the setup marker
+  # grep -A outputs everything after the match; tail -n +3 skips the marker + separator line
+  output=$(grep -A 999999 "$marker" "$log_file" 2>/dev/null | tail -n +3) || true
+
+  if [ -n "$output" ]; then
+    # Return last 50 lines of Claude output (enough context without noise)
+    printf '%s' "$output" | tail -50
+  else
+    # Marker not found — fall back to last 30 lines of raw log
+    tail -30 "$log_file" 2>/dev/null || echo "(log not readable)"
+  fi
+}
+
 # ─── Handle failure ─────────────────────────────────────────────────────────
 
 handle_failure() {
@@ -473,10 +495,14 @@ handle_failure() {
 
   log WARN "Triaging failure for $issue_id ($failure_type)"
 
-  # Get log tail for triage
+  # Get log tail for triage (full tail) and comment (Claude output only)
   local log_tail="(no log)"
+  local log_claude_output="(no log)"
   if [ -f "$log_file" ]; then
     log_tail=$(tail -200 "$log_file" 2>/dev/null || echo "(log not readable)")
+    # Extract only the Claude session output (after worktree setup completes)
+    # Falls back to last 30 lines if marker not found
+    log_claude_output=$(extract_claude_output "$log_file")
   fi
 
   # Claude-powered triage (default to NEEDS_HUMAN if Claude itself is broken)
@@ -530,16 +556,16 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 
         spawn_worker "$issue_uuid" "$issue_id" "$branch" "(retry)" "1"
       else
         log WARN "$issue_id already retried, moving to Backlog"
-        move_to_backlog "$issue_uuid" "$issue_id" "$log_tail" "Failed" \
+        move_to_backlog "$issue_uuid" "$issue_id" "$log_claude_output" "Failed" \
           "Auto-implementation failed after retry ($failure_type)" "$log_file"
         cleanup_worker_worktree "$branch"
       fi ;;
     BACKLOG)
-      move_to_backlog "$issue_uuid" "$issue_id" "$log_tail" "Failed" \
+      move_to_backlog "$issue_uuid" "$issue_id" "$log_claude_output" "Failed" \
         "Auto-implementation failed ($failure_type)" "$log_file"
       cleanup_worker_worktree "$branch" ;;
     NEEDS_HUMAN)
-      move_to_backlog "$issue_uuid" "$issue_id" "$log_tail" "Needs attention" \
+      move_to_backlog "$issue_uuid" "$issue_id" "$log_claude_output" "Needs attention" \
         "Auto-implementation needs human attention ($failure_type)" "$log_file"
       cleanup_worker_worktree "$branch" ;;
   esac
@@ -562,8 +588,8 @@ move_to_backlog() {
   fi
 
   local body
-  body=$(printf '## Auto-implementation failed\n\n**%s**%s\n\n<details>\n<summary>Log tail (last 200 lines)</summary>\n\n```\n%s\n```\n\n</details>' \
-    "$summary" "$log_path_note" "$(echo "$sanitized_tail" | head -200)")
+  body=$(printf '## Auto-implementation failed\n\n**%s**%s\n\n<details>\n<summary>Claude output</summary>\n\n```\n%s\n```\n\n</details>' \
+    "$summary" "$log_path_note" "$sanitized_tail")
 
   local vars
   vars=$(jq -n --arg id "$issue_uuid" --arg body "$body" '{issueId: $id, body: $body}')
