@@ -266,7 +266,7 @@ export function RecipeImportClient() {
 
       navigateToCreate(data.recipe)
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
+      if (err instanceof Error && err.name === 'AbortError') {
         return
       }
       setError('Failed to parse recipe. Please try again.')

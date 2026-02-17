@@ -163,10 +163,9 @@ describe('RecipeImportClient cancel', () => {
 
   it('does not show error when request is aborted', async () => {
     // Mock fetch to reject with AbortError
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockRejectedValue(new DOMException('The operation was aborted.', 'AbortError')),
-    )
+    const abortError = new Error('The operation was aborted.')
+    abortError.name = 'AbortError'
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(abortError))
 
     render(<RecipeImportClient />)
 
