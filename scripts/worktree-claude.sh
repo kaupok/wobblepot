@@ -354,7 +354,7 @@ cmd_auto() {
   echo ""
 
   # Start Claude Code with permissions bypassed and auto-implement prompt
-  exec claude --dangerously-skip-permissions "$prompt"
+  exec claude --dangerously-skip-permissions --model claude-opus-4-6 "$prompt"
 }
 
 # Resume existing worktree
