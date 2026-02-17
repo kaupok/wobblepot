@@ -55,7 +55,7 @@ export function QuantityControls({
         )}
       </div>
       <Button type="button" variant="outline" size="sm" onClick={onMarkAsVague} disabled={disabled}>
-        To taste
+        No quantity
       </Button>
     </>
   )
