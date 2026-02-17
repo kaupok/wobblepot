@@ -60,6 +60,9 @@ SHUTTING_DOWN=false
 FORCE_SHUTDOWN=false
 ONCE_SPAWNED=false
 TEAM_UUID=""
+CONSECUTIVE_FAILURES=0
+MAX_CONSECUTIVE_FAILURES=3
+PAUSED_UNTIL=0
 
 # ─── Colors ──────────────────────────────────────────────────────────────────
 
@@ -422,9 +425,66 @@ kill_process_tree() {
 handle_success() {
   local issue_id="$1" branch="$2" log_file="$3"
 
+  # Reset circuit breaker on success
+  CONSECUTIVE_FAILURES=0
+  PAUSED_UNTIL=0
+
   log INFO "Cleaning up worktree for $issue_id"
   cleanup_worker_worktree "$branch"
   log INFO "Worker $issue_id complete — worktree cleaned up"
+}
+
+# ─── Sanitize logs (strip secrets before posting to Linear) ──────────────────
+
+sanitize_log() {
+  local log_text="$1"
+  local env_file="$REPO_ROOT/.env"
+  local result="$log_text"
+
+  # Redact actual values from .env (skip short/trivial values)
+  if [ -f "$env_file" ]; then
+    while IFS= read -r line; do
+      [[ "$line" =~ ^[[:space:]]*#.*$ || -z "$line" || ! "$line" =~ = ]] && continue
+      local value="${line#*=}"
+      # Strip surrounding quotes
+      value="${value%\"}" ; value="${value#\"}"
+      value="${value%\'}" ; value="${value#\'}"
+      # Only redact values >= 8 chars to avoid false positives
+      [ ${#value} -lt 8 ] && continue
+      # Use awk with ENVIRON to avoid backslash escape interpretation from -v
+      result=$(printf '%s' "$result" | VALUE="$value" awk 'BEGIN{s=ENVIRON["VALUE"]; r="[REDACTED]"} {gsub(s,r)}1')
+    done < "$env_file"
+  fi
+
+  # Catch common secret patterns not covered by .env
+  printf '%s' "$result" | sed -E \
+    -e 's/lin_api_[A-Za-z0-9_-]+/[REDACTED]/g' \
+    -e 's/postgresql:\/\/[^[:space:]"]+/[REDACTED]/g' \
+    -e 's/Bearer [A-Za-z0-9._-]+/Bearer [REDACTED]/g' \
+    -e 's/sk-[A-Za-z0-9_-]{20,}/[REDACTED]/g' \
+    -e 's/ghp_[A-Za-z0-9]{36,}/[REDACTED]/g'
+}
+
+# ─── Extract Claude output from worker log ───────────────────────────────────
+# Strips worktree setup noise (pnpm install, prisma generate, etc.)
+# Returns only the output after "Starting autonomous Claude Code" marker
+
+extract_claude_output() {
+  local log_file="$1"
+  local marker="Starting autonomous Claude Code"
+  local output
+
+  # Find content after the setup marker
+  # grep -A outputs everything after the match; tail -n +3 skips the marker + separator line
+  output=$(grep -A 999999 "$marker" "$log_file" 2>/dev/null | tail -n +3) || true
+
+  if [ -n "$output" ]; then
+    # Return last 50 lines of Claude output (enough context without noise)
+    printf '%s' "$output" | tail -50
+  else
+    # Marker not found — fall back to last 30 lines of raw log
+    tail -30 "$log_file" 2>/dev/null || echo "(log not readable)"
+  fi
 }
 
 # ─── Handle failure ─────────────────────────────────────────────────────────
@@ -435,28 +495,59 @@ handle_failure() {
 
   log WARN "Triaging failure for $issue_id ($failure_type)"
 
-  # Get log tail for triage
+  # Get log tail for triage (full tail) and comment (Claude output only)
   local log_tail="(no log)"
+  local log_claude_output="(no log)"
   if [ -f "$log_file" ]; then
     log_tail=$(tail -200 "$log_file" 2>/dev/null || echo "(log not readable)")
+    # Extract only the Claude session output (after worktree setup completes)
+    # Falls back to last 30 lines if marker not found
+    log_claude_output=$(extract_claude_output "$log_file")
   fi
 
-  # Claude-powered triage (default to BACKLOG if unavailable)
+  # Claude-powered triage (default to BACKLOG if Claude unavailable, NEEDS_HUMAN if Claude errors)
   local triage="BACKLOG"
   if command -v claude &> /dev/null && [ "$DRY_RUN" = false ]; then
-    local triage_result
-    triage_result=$(echo "$log_tail" | claude -p "Worker for $issue_id failed ($failure_type). Based on the log from stdin, respond with EXACTLY one word:
+    local triage_output exit_code=0
+    triage_output=$(echo "$log_tail" | claude -p --model claude-haiku-4-5-20251001 "Worker for $issue_id failed ($failure_type). Based on the log from stdin, respond with EXACTLY one word:
 RETRY - transient failure (flaky test, network error, rate limit, timeout)
 BACKLOG - issue needs refinement (bad description, missing context, wrong approach)
-NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 2>/dev/null | tr -d '[:space:]') || true
+NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 2>&1) || exit_code=$?
 
-    case "$triage_result" in
-      RETRY|BACKLOG|NEEDS_HUMAN) triage="$triage_result" ;;
-      *) log WARN "Unexpected triage result: '$triage_result', defaulting to BACKLOG" ;;
-    esac
+    # Extract first word only — Claude may include explanatory text after the keyword
+    local triage_result
+    triage_result=$(printf '%s' "$triage_output" | awk 'NF{print $1; exit}' | tr -d '[:space:]')
+
+    if [ "$exit_code" -ne 0 ]; then
+      log WARN "Claude triage failed (exit $exit_code): $(printf '%s' "$triage_output" | head -1)"
+      triage="NEEDS_HUMAN"
+    else
+      case "$triage_result" in
+        RETRY|BACKLOG|NEEDS_HUMAN) triage="$triage_result" ;;
+        *)
+          log WARN "Unexpected triage result: '$triage_result'"
+          # Detect Claude CLI errors returned on stdout
+          if printf '%s' "$triage_output" | grep -qiE 'balance|credit|limit|unauthorized|forbidden'; then
+            log WARN "Looks like a Claude CLI error, treating as NEEDS_HUMAN"
+            triage="NEEDS_HUMAN"
+          fi ;;
+      esac
+    fi
   fi
 
   log INFO "Triage for $issue_id: $triage"
+
+  # Track consecutive failures for circuit breaker
+  if [ "$triage" != "RETRY" ]; then
+    CONSECUTIVE_FAILURES=$((CONSECUTIVE_FAILURES + 1))
+    if [ "$CONSECUTIVE_FAILURES" -ge "$MAX_CONSECUTIVE_FAILURES" ]; then
+      local pause_duration=600  # 10 minutes
+      PAUSED_UNTIL=$(( $(date +%s) + pause_duration ))
+      log WARN "Circuit breaker: $CONSECUTIVE_FAILURES consecutive failures, pausing new workers for ${pause_duration}s"
+    fi
+  else
+    CONSECUTIVE_FAILURES=0
+  fi
 
   case "$triage" in
     RETRY)
@@ -466,17 +557,17 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 
         spawn_worker "$issue_uuid" "$issue_id" "$branch" "(retry)" "1"
       else
         log WARN "$issue_id already retried, moving to Backlog"
-        move_to_backlog "$issue_uuid" "$issue_id" "$log_tail" "failed" \
-          "Auto-implementation failed after retry ($failure_type)"
+        move_to_backlog "$issue_uuid" "$issue_id" "$log_claude_output" "Failed" \
+          "Auto-implementation failed after retry ($failure_type)" "$log_file"
         cleanup_worker_worktree "$branch"
       fi ;;
     BACKLOG)
-      move_to_backlog "$issue_uuid" "$issue_id" "$log_tail" "failed" \
-        "Auto-implementation failed ($failure_type)"
+      move_to_backlog "$issue_uuid" "$issue_id" "$log_claude_output" "Failed" \
+        "Auto-implementation failed ($failure_type)" "$log_file"
       cleanup_worker_worktree "$branch" ;;
     NEEDS_HUMAN)
-      move_to_backlog "$issue_uuid" "$issue_id" "$log_tail" "needs-attention" \
-        "Auto-implementation needs human attention ($failure_type)"
+      move_to_backlog "$issue_uuid" "$issue_id" "$log_claude_output" "Needs attention" \
+        "Auto-implementation needs human attention ($failure_type)" "$log_file"
       cleanup_worker_worktree "$branch" ;;
   esac
 }
@@ -485,12 +576,21 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 
 
 move_to_backlog() {
   local issue_uuid="$1" issue_id="$2" log_tail="$3"
-  local label_name="$4" summary="$5"
+  local label_name="$4" summary="$5" log_file="${6:-}"
+
+  # Sanitize log to strip secrets before posting to Linear
+  local sanitized_tail
+  sanitized_tail=$(sanitize_log "$log_tail")
 
   # Add failure comment
+  local log_path_note=""
+  if [ -n "$log_file" ]; then
+    log_path_note=$(printf '\n\n**Full log:** `%s`' "$log_file")
+  fi
+
   local body
-  body=$(printf '## Auto-implementation failed\n\n**%s**\n\n<details>\n<summary>Log tail (last 200 lines)</summary>\n\n```\n%s\n```\n\n</details>' \
-    "$summary" "$(echo "$log_tail" | head -200)")
+  body=$(printf '## Auto-implementation failed\n\n**%s**%s\n\n<details>\n<summary>Claude output</summary>\n\n```\n%s\n```\n\n</details>' \
+    "$summary" "$log_path_note" "$sanitized_tail")
 
   local vars
   vars=$(jq -n --arg id "$issue_uuid" --arg body "$body" '{issueId: $id, body: $body}')
@@ -529,7 +629,7 @@ try_add_label() {
   # Create if not found
   if [ -z "$label_id" ] && [ -n "$TEAM_UUID" ]; then
     local color="#e5484d"
-    [ "$label_name" = "needs-attention" ] && color="#f76b15"
+    [ "$label_name" = "Needs attention" ] && color="#f76b15"
     local vars
     vars=$(jq -n --arg name "$label_name" --arg team "$TEAM_UUID" --arg color "$color" \
       '{name: $name, teamId: $team, color: $color}')
@@ -743,8 +843,25 @@ main() {
     local active=${#WORKER_PIDS[@]}
 
     if [ "$active" -lt "$MAX_WORKERS" ] && [ "$SHUTTING_DOWN" = false ]; then
+      # Circuit breaker: pause spawning after consecutive failures
+      if [ "$PAUSED_UNTIL" -gt 0 ]; then
+        local now
+        now=$(date +%s)
+        if [ "$now" -lt "$PAUSED_UNTIL" ]; then
+          local remaining=$(( PAUSED_UNTIL - now ))
+          log DEBUG "Circuit breaker active, ${remaining}s remaining"
+        else
+          log INFO "Circuit breaker reset, resuming"
+          PAUSED_UNTIL=0
+          CONSECUTIVE_FAILURES=0
+          # Fall through to polling below
+        fi
+      fi
+
       # In --once mode, only spawn once
-      if [ "$RUN_ONCE" = true ] && [ "$ONCE_SPAWNED" = true ]; then
+      if [ "$PAUSED_UNTIL" -gt 0 ]; then
+        : # Circuit breaker still active
+      elif [ "$RUN_ONCE" = true ] && [ "$ONCE_SPAWNED" = true ]; then
         : # Already spawned in --once mode
       elif check_disk_space; then
         log DEBUG "Polling: $active/$MAX_WORKERS workers active"
