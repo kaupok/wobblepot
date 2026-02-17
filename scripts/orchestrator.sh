@@ -451,8 +451,8 @@ sanitize_log() {
       value="${value%\'}" ; value="${value#\'}"
       # Only redact values >= 8 chars to avoid false positives
       [ ${#value} -lt 8 ] && continue
-      # Use awk to avoid sed metacharacter issues with arbitrary values
-      result=$(printf '%s' "$result" | awk -v s="$value" -v r="[REDACTED]" '{gsub(s,r)}1')
+      # Use awk with ENVIRON to avoid backslash escape interpretation from -v
+      result=$(printf '%s' "$result" | VALUE="$value" awk 'BEGIN{s=ENVIRON["VALUE"]; r="[REDACTED]"} {gsub(s,r)}1')
     done < "$env_file"
   fi
 
@@ -505,7 +505,7 @@ handle_failure() {
     log_claude_output=$(extract_claude_output "$log_file")
   fi
 
-  # Claude-powered triage (default to NEEDS_HUMAN if Claude itself is broken)
+  # Claude-powered triage (default to BACKLOG if Claude unavailable, NEEDS_HUMAN if Claude errors)
   local triage="BACKLOG"
   if command -v claude &> /dev/null && [ "$DRY_RUN" = false ]; then
     local triage_output exit_code=0
@@ -514,8 +514,9 @@ RETRY - transient failure (flaky test, network error, rate limit, timeout)
 BACKLOG - issue needs refinement (bad description, missing context, wrong approach)
 NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 2>&1) || exit_code=$?
 
+    # Extract first word only — Claude may include explanatory text after the keyword
     local triage_result
-    triage_result=$(printf '%s' "$triage_output" | tr -d '[:space:]')
+    triage_result=$(printf '%s' "$triage_output" | awk 'NF{print $1; exit}' | tr -d '[:space:]')
 
     if [ "$exit_code" -ne 0 ]; then
       log WARN "Claude triage failed (exit $exit_code): $(printf '%s' "$triage_output" | head -1)"
@@ -526,7 +527,7 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 
         *)
           log WARN "Unexpected triage result: '$triage_result'"
           # Detect Claude CLI errors returned on stdout
-          if printf '%s' "$triage_result" | grep -qiE 'balance|credit|limit|unauthorized|forbidden|error'; then
+          if printf '%s' "$triage_output" | grep -qiE 'balance|credit|limit|unauthorized|forbidden'; then
             log WARN "Looks like a Claude CLI error, treating as NEEDS_HUMAN"
             triage="NEEDS_HUMAN"
           fi ;;
@@ -853,8 +854,13 @@ main() {
           log INFO "Circuit breaker reset, resuming"
           PAUSED_UNTIL=0
           CONSECUTIVE_FAILURES=0
+          # Fall through to polling below
         fi
+      fi
+
       # In --once mode, only spawn once
+      if [ "$PAUSED_UNTIL" -gt 0 ]; then
+        : # Circuit breaker still active
       elif [ "$RUN_ONCE" = true ] && [ "$ONCE_SPAWNED" = true ]; then
         : # Already spawned in --once mode
       elif check_disk_space; then
