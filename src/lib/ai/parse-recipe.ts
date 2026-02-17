@@ -689,9 +689,15 @@ export const LOW_CONFIDENCE_THRESHOLD = 0.6
  * Floor threshold for showing "verify match" suggestions.
  * Matches below this score are too unreliable to suggest — they're treated
  * as fully unmatched rather than shown as low-confidence suggestions.
- * E.g., "fajita seasoning" → "italian seasoning" would be misleading.
+ *
+ * Examples of false positives this threshold filters out:
+ * - "fajita seasoning" → "italian seasoning"
+ * - "red chili pepper" → "red bell pepper" (similarity ~0.53, semantically wrong)
+ *
+ * Raised from 0.5 to 0.55 to prevent similar-sounding but semantically different
+ * ingredients from being suggested as verify-matches.
  */
-export const VERY_LOW_CONFIDENCE_THRESHOLD = 0.5
+export const VERY_LOW_CONFIDENCE_THRESHOLD = 0.55
 
 /**
  * Result of matching an ingredient against the database.
