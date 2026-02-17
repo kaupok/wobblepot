@@ -1625,3 +1625,85 @@ describe('exported constants', () => {
     expect(RecipeExtractionSchema.parse).toBeDefined()
   })
 })
+
+describe('parseAndMatchRecipe source URL prepending', () => {
+  const mockRecipeExtraction: RecipeExtraction = {
+    name: 'Test Recipe',
+    description: 'A test recipe',
+    preparationNotes: '1. Heat oven to 200C\n2. Mix ingredients',
+    timeMinutes: 30,
+    servings: 4,
+    mealTypes: ['dinner'],
+    kidFriendly: true,
+    ingredients: [
+      {
+        name: 'chicken breast',
+        quantity: 400,
+        unit: 'g',
+        originalText: '400g chicken breast',
+        isVague: false,
+        vaguePhrase: null,
+        isDried: null,
+      },
+    ],
+    recipeConfidence: 95,
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // Mock AI extraction
+    mockGenerateObject.mockResolvedValue({ object: mockRecipeExtraction } as never)
+    // Mock ingredient matching
+    mockQueryRaw.mockResolvedValue([
+      {
+        id: 'ingredient-1',
+        name: 'chicken breast',
+        category: 'protein',
+        subcategory: null,
+        defaultUnit: 'g',
+        gramsPerPiece: null,
+        similarity: 1.0,
+      },
+    ])
+  })
+
+  it('prepends source URL to preparation notes when URL is provided', async () => {
+    const result = await parseAndMatchRecipe(
+      'This is a longer recipe text with at least 20 characters so it passes validation',
+      'https://www.bbcgoodfood.com/recipes/easy-chicken-fajitas',
+    )
+
+    expect(result.preparationNotes).toBe(
+      'Source: https://www.bbcgoodfood.com/recipes/easy-chicken-fajitas\n\n1. Heat oven to 200C\n2. Mix ingredients',
+    )
+  })
+
+  it('includes only source URL when preparation notes are null', async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: { ...mockRecipeExtraction, preparationNotes: null },
+    } as never)
+
+    const result = await parseAndMatchRecipe(
+      'This is a longer recipe text with at least 20 characters so it passes validation',
+      'https://www.example.com/recipe',
+    )
+
+    expect(result.preparationNotes).toBe('Source: https://www.example.com/recipe')
+  })
+
+  it('does not modify preparation notes when no source URL is provided', async () => {
+    const result = await parseAndMatchRecipe(
+      'This is a longer recipe text with at least 20 characters so it passes validation',
+    )
+
+    expect(result.preparationNotes).toBe('1. Heat oven to 200C\n2. Mix ingredients')
+  })
+
+  it('does not add source URL for plain text imports', async () => {
+    const result = await parseAndMatchRecipe(
+      'Plain text recipe with enough characters to pass the length validation check',
+    )
+
+    expect(result.preparationNotes).toBe('1. Heat oven to 200C\n2. Mix ingredients')
+  })
+})

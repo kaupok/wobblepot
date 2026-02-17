@@ -1071,8 +1071,14 @@ export async function matchIngredients(
 /**
  * Parse recipe text and match ingredients against the database.
  * This is the main entry point for the recipe import feature.
+ *
+ * @param recipeText - The recipe text to parse
+ * @param sourceUrl - Optional source URL for URL imports (prepended to preparation notes)
  */
-export async function parseAndMatchRecipe(recipeText: string): Promise<ParsedRecipe> {
+export async function parseAndMatchRecipe(
+  recipeText: string,
+  sourceUrl?: string,
+): Promise<ParsedRecipe> {
   // Step 1: Extract structured data from text (low confidence throws)
   const { extraction, confidence } = await parseRecipeText(recipeText)
 
@@ -1082,10 +1088,17 @@ export async function parseAndMatchRecipe(recipeText: string): Promise<ParsedRec
   // Step 3: Check if all ingredients matched
   const allMatched = ingredientResults.every((r) => r.type === 'matched')
 
+  // Step 4: Prepend source URL to preparation notes for URL imports
+  let preparationNotes = extraction.preparationNotes
+  if (sourceUrl) {
+    const notesContent = preparationNotes ? `\n\n${preparationNotes}` : ''
+    preparationNotes = `Source: ${sourceUrl}${notesContent}`
+  }
+
   return {
     name: extraction.name,
     description: extraction.description,
-    preparationNotes: extraction.preparationNotes,
+    preparationNotes,
     timeMinutes: extraction.timeMinutes,
     servings: extraction.servings,
     mealTypes: extraction.mealTypes as MealType[],
