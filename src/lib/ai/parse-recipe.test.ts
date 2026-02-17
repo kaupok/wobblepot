@@ -551,7 +551,7 @@ describe('matchIngredients', () => {
   })
 
   it('treats very low confidence matches as unmatched', async () => {
-    // Similarity below VERY_LOW_CONFIDENCE_THRESHOLD (0.5) — too unreliable to suggest
+    // Similarity below VERY_LOW_CONFIDENCE_THRESHOLD (0.55) — too unreliable to suggest
     mockQueryRaw.mockResolvedValue([makeDbMatch({ similarity: 0.47, name: 'italian seasoning' })])
 
     const results = await matchIngredients(
@@ -565,7 +565,7 @@ describe('matchIngredients', () => {
   })
 
   it('shows verify match for similarity between very-low and low thresholds', async () => {
-    // Similarity between VERY_LOW_CONFIDENCE_THRESHOLD (0.5) and LOW_CONFIDENCE_THRESHOLD (0.6)
+    // Similarity between VERY_LOW_CONFIDENCE_THRESHOLD (0.55) and LOW_CONFIDENCE_THRESHOLD (0.6)
     mockQueryRaw.mockResolvedValue([makeDbMatch({ similarity: 0.55, name: 'corn meal' })])
 
     const results = await matchIngredients(
