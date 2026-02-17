@@ -1071,16 +1071,19 @@ export async function matchIngredients(
     }
   }
 
-  return mergeDuplicateIngredients(results)
+  return mergeDuplicateIngredients(results, servings)
 }
 
 /**
  * Merge duplicate matched ingredients (same ingredientId) into single rows.
  * Quantities are summed. If either row is vague, the merged row is vague with no quantity.
  * Unmatched ingredients pass through unchanged.
+ * Re-runs guardrail checks on summed quantities since individually-valid amounts may exceed
+ * thresholds when combined.
  */
 export function mergeDuplicateIngredients(
   results: IngredientMatchResult[],
+  servings: number,
 ): IngredientMatchResult[] {
   const merged: IngredientMatchResult[] = []
   const matchedById = new Map<string, MatchedIngredient>()
@@ -1110,12 +1113,28 @@ export function mergeDuplicateIngredients(
         quantityWarning: undefined,
       })
     } else {
-      // Both have quantities — sum them
+      // Both have quantities — sum them, re-run guardrails on combined total
+      const summedQuantity = existing.convertedQuantity + result.convertedQuantity
+      const { category, subcategory, defaultUnit, gramsPerPiece } = existing.ingredient
+      const quantityPerServing = summedQuantity / servings
+
+      let quantityWarning = checkGuardrail(quantityPerServing, category, subcategory)
+      if (!quantityWarning) {
+        let totalGrams = summedQuantity
+        if (defaultUnit === 'piece') {
+          totalGrams = summedQuantity * (gramsPerPiece ?? DEFAULT_GRAMS_PER_PIECE)
+        }
+        if (!isReasonableQuantity(totalGrams, servings)) {
+          const gramsPerServing = Math.round(totalGrams / servings)
+          quantityWarning = `Unusually high: ${gramsPerServing}g per serving. Please verify this amount.`
+        }
+      }
+
       matchedById.set(id, {
         ...existing,
-        convertedQuantity: existing.convertedQuantity + result.convertedQuantity,
+        convertedQuantity: summedQuantity,
         originalText: `${existing.originalText} + ${result.originalText}`,
-        quantityWarning: undefined,
+        quantityWarning,
       })
     }
   }

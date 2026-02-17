@@ -837,7 +837,7 @@ describe('mergeDuplicateIngredients', () => {
       makeMatched({ convertedQuantity: 14, originalText: '1 tbsp olive oil (topping)' }),
     ]
 
-    const merged = mergeDuplicateIngredients(results)
+    const merged = mergeDuplicateIngredients(results, 4)
 
     expect(merged).toHaveLength(1)
     expect(merged[0]!.type).toBe('matched')
@@ -857,7 +857,7 @@ describe('mergeDuplicateIngredients', () => {
       }),
     ]
 
-    const merged = mergeDuplicateIngredients(results)
+    const merged = mergeDuplicateIngredients(results, 4)
 
     expect(merged).toHaveLength(1)
     const m = merged[0] as MatchedIngredient
@@ -882,7 +882,7 @@ describe('mergeDuplicateIngredients', () => {
       }),
     ]
 
-    const merged = mergeDuplicateIngredients(results)
+    const merged = mergeDuplicateIngredients(results, 4)
 
     expect(merged).toHaveLength(1)
     const m = merged[0] as MatchedIngredient
@@ -897,7 +897,7 @@ describe('mergeDuplicateIngredients', () => {
       makeUnmatched({ extractedName: "za'atar", originalText: "2 tsp za'atar" }),
     ]
 
-    const merged = mergeDuplicateIngredients(results)
+    const merged = mergeDuplicateIngredients(results, 4)
 
     expect(merged).toHaveLength(2)
     expect(merged[0]!.type).toBe('unmatched')
@@ -922,7 +922,7 @@ describe('mergeDuplicateIngredients', () => {
       }),
     ]
 
-    const merged = mergeDuplicateIngredients(results)
+    const merged = mergeDuplicateIngredients(results, 4)
 
     expect(merged).toHaveLength(2)
   })
@@ -934,7 +934,7 @@ describe('mergeDuplicateIngredients', () => {
       makeMatched({ originalText: 'olive oil (topping)', convertedQuantity: 14 }),
     ]
 
-    const merged = mergeDuplicateIngredients(results)
+    const merged = mergeDuplicateIngredients(results, 4)
 
     expect(merged).toHaveLength(2)
     expect(merged[0]!.type).toBe('matched')
@@ -942,28 +942,46 @@ describe('mergeDuplicateIngredients', () => {
     expect(merged[1]!.type).toBe('unmatched')
   })
 
-  it('clears quantityWarning on merged result', () => {
+  it('re-runs guardrails on summed quantity', () => {
+    // 27g + 14g = 41g olive oil for 4 servings = 10.25g/serving
+    // Oil guardrail is 30g/serving, so this should pass
     const results: IngredientMatchResult[] = [
       makeMatched({
-        convertedQuantity: 400,
-        quantityWarning: 'Quantity seems high',
-        originalText: '400g olive oil',
+        convertedQuantity: 27,
+        quantityWarning: 'Some old warning',
+        originalText: '2 tbsp olive oil',
       }),
       makeMatched({ convertedQuantity: 14, originalText: '1 tbsp olive oil' }),
     ]
 
-    const merged = mergeDuplicateIngredients(results)
+    const merged = mergeDuplicateIngredients(results, 4)
 
     expect(merged).toHaveLength(1)
     const m = merged[0] as MatchedIngredient
+    expect(m.convertedQuantity).toBe(41)
     expect(m.quantityWarning).toBeUndefined()
-    expect(m.convertedQuantity).toBe(414)
+  })
+
+  it('generates warning when summed quantity exceeds guardrail', () => {
+    // 100g + 100g = 200g olive oil for 4 servings = 50g/serving
+    // Oil guardrail is 30g/serving, so this should trigger a warning
+    const results: IngredientMatchResult[] = [
+      makeMatched({ convertedQuantity: 100, originalText: '100g olive oil (dough)' }),
+      makeMatched({ convertedQuantity: 100, originalText: '100g olive oil (topping)' }),
+    ]
+
+    const merged = mergeDuplicateIngredients(results, 4)
+
+    expect(merged).toHaveLength(1)
+    const m = merged[0] as MatchedIngredient
+    expect(m.convertedQuantity).toBe(200)
+    expect(m.quantityWarning).toContain('Unusually high')
   })
 
   it('passes through single items unchanged', () => {
     const results: IngredientMatchResult[] = [makeMatched(), makeUnmatched()]
 
-    const merged = mergeDuplicateIngredients(results)
+    const merged = mergeDuplicateIngredients(results, 4)
 
     expect(merged).toHaveLength(2)
     expect(merged[0]).toEqual(makeMatched())
