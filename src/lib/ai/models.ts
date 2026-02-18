@@ -6,10 +6,10 @@
  */
 
 /** Model for meal plan generation and filling empty slots. */
-export const PLANNING_MODEL = 'claude-sonnet-4-5-20250929'
+export const PLANNING_MODEL = 'claude-sonnet-4-6'
 
 /** Model for recipe text extraction and parsing. */
-export const RECIPE_MODEL = 'claude-sonnet-4-5-20250929'
+export const RECIPE_MODEL = 'claude-sonnet-4-6'
 
 /** Model for preparation tips generation (fast/cheap). */
-export const TIPS_MODEL = 'claude-haiku-4-5-20251001'
+export const TIPS_MODEL = 'claude-sonnet-4-6'
