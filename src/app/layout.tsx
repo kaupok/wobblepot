@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'sonner'
@@ -18,9 +18,31 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 })
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#1a1a1a' },
+  ],
+}
+
 export const metadata: Metadata = {
   title: 'Honkadori',
-  description: 'Honkadori all day',
+  description: 'AI-powered weekly meal planning for families',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Honkadori',
+  },
+  icons: {
+    icon: [
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
 }
 
 export default function RootLayout({
@@ -39,7 +61,10 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <Toaster richColors closeButton duration={4000} />
           <Header />
-          <main id="main-content" className="min-h-screen pt-16">
+          <main
+            id="main-content"
+            className="min-h-screen pt-[calc(4rem+env(safe-area-inset-top,0px))]"
+          >
             {children}
           </main>
         </ThemeProvider>

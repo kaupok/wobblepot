@@ -15,7 +15,7 @@ export async function Header() {
   const hasHousehold = session ? await hasHouseholdMembership(session.user.id) : false
 
   return (
-    <header className="bg-background fixed top-0 right-0 left-0 z-50 border-b">
+    <header className="bg-background fixed top-0 right-0 left-0 z-50 border-b pt-[env(safe-area-inset-top,0px)]">
       <a
         href="#main-content"
         className="focus:bg-background focus:text-foreground sr-only focus:not-sr-only focus:absolute focus:z-50 focus:px-4 focus:py-2 focus:ring-2 focus:ring-offset-2"
