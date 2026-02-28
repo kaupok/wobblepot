@@ -1,15 +1,16 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import type { StructuredTips } from '@/components/meal-plan/types'
 
 interface UseMealTipsOptions {
   planId: string
   entryId: string
-  initialTips?: string | null
+  initialTips?: StructuredTips | null
 }
 
 export function useMealTips({ planId, entryId, initialTips = null }: UseMealTipsOptions) {
-  const [tips, setTips] = useState<string | null>(initialTips)
+  const [tips, setTips] = useState<StructuredTips | null>(initialTips)
   const [isLoadingTips, setIsLoadingTips] = useState(false)
   const [tipsError, setTipsError] = useState<string | null>(null)
   const [isTipsExpanded, setIsTipsExpanded] = useState(false)

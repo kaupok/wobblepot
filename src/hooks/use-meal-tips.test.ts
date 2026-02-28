@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useMealTips } from './use-meal-tips'
+import type { StructuredTips } from '@/components/meal-plan/types'
 
 const mockFetch = vi.fn()
 global.fetch = mockFetch
@@ -8,6 +9,18 @@ global.fetch = mockFetch
 const defaultOptions = {
   planId: 'plan-1',
   entryId: 'entry-1',
+}
+
+const mockTips: StructuredTips = {
+  equipment: ['Large skillet', 'Cutting board'],
+  steps: ['Heat oil in skillet', 'Cook chicken at 180°C for 25 minutes'],
+  pitfalls: ["Don't overcook the chicken"],
+  tip: 'Let the chicken rest for 5 minutes before slicing',
+}
+
+const mockSupplementaryTips: StructuredTips = {
+  pitfalls: ["Don't overcook the chicken"],
+  tip: 'Let the chicken rest for 5 minutes before slicing',
 }
 
 describe('useMealTips', () => {
@@ -27,11 +40,9 @@ describe('useMealTips', () => {
     })
 
     it('uses initialTips when provided', () => {
-      const { result } = renderHook(() =>
-        useMealTips({ ...defaultOptions, initialTips: 'Pre-loaded tips' }),
-      )
+      const { result } = renderHook(() => useMealTips({ ...defaultOptions, initialTips: mockTips }))
 
-      expect(result.current.tips).toBe('Pre-loaded tips')
+      expect(result.current.tips).toEqual(mockTips)
     })
   })
 
@@ -39,7 +50,7 @@ describe('useMealTips', () => {
     it('fetches tips and updates state on success', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve({ tips: 'Cook at 180°C for 25 minutes' }),
+        json: () => Promise.resolve({ tips: mockTips }),
       })
 
       const { result } = renderHook(() => useMealTips(defaultOptions))
@@ -52,7 +63,7 @@ describe('useMealTips', () => {
         '/api/meal-plans/plan-1/entries/entry-1/preparation-tips',
         { method: 'POST' },
       )
-      expect(result.current.tips).toBe('Cook at 180°C for 25 minutes')
+      expect(result.current.tips).toEqual(mockTips)
       expect(result.current.isLoadingTips).toBe(false)
       expect(result.current.isTipsExpanded).toBe(true)
       expect(result.current.tipsError).toBeNull()
@@ -121,7 +132,7 @@ describe('useMealTips', () => {
       await act(async () => {
         resolvePromise!({
           ok: true,
-          json: () => Promise.resolve({ tips: 'Tips here' }),
+          json: () => Promise.resolve({ tips: mockSupplementaryTips }),
         } as Response)
         await fetchPromise
       })
@@ -147,7 +158,7 @@ describe('useMealTips', () => {
       // Second call succeeds
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ tips: 'New tips' }),
+        json: () => Promise.resolve({ tips: mockTips }),
       })
 
       await act(async () => {
@@ -155,7 +166,7 @@ describe('useMealTips', () => {
       })
 
       expect(result.current.tipsError).toBeNull()
-      expect(result.current.tips).toBe('New tips')
+      expect(result.current.tips).toEqual(mockTips)
     })
   })
 
@@ -163,7 +174,7 @@ describe('useMealTips', () => {
     it('fetches tips when none are cached', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve({ tips: 'Fresh tips' }),
+        json: () => Promise.resolve({ tips: mockTips }),
       })
 
       const { result } = renderHook(() => useMealTips(defaultOptions))
@@ -173,14 +184,12 @@ describe('useMealTips', () => {
       })
 
       expect(mockFetch).toHaveBeenCalledOnce()
-      expect(result.current.tips).toBe('Fresh tips')
+      expect(result.current.tips).toEqual(mockTips)
       expect(result.current.isTipsExpanded).toBe(true)
     })
 
     it('toggles expanded state when tips are already cached', async () => {
-      const { result } = renderHook(() =>
-        useMealTips({ ...defaultOptions, initialTips: 'Cached tips' }),
-      )
+      const { result } = renderHook(() => useMealTips({ ...defaultOptions, initialTips: mockTips }))
 
       // First call: expand
       act(() => {
@@ -201,7 +210,9 @@ describe('useMealTips', () => {
 
   describe('hideTips', () => {
     it('sets expanded to false', () => {
-      const { result } = renderHook(() => useMealTips({ ...defaultOptions, initialTips: 'Tips' }))
+      const { result } = renderHook(() =>
+        useMealTips({ ...defaultOptions, initialTips: mockSupplementaryTips }),
+      )
 
       // Expand first
       act(() => {

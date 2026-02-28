@@ -7,7 +7,7 @@ import { IngredientList } from './IngredientList'
 import { computeMealAvailability } from './AvailabilityIndicator'
 import { PreparationTips } from '@/components/today/PreparationTips'
 import { ServingControl } from './ServingControl'
-import type { MealData, PantryIngredient } from './types'
+import type { MealData, PantryIngredient, StructuredTips } from './types'
 
 interface MealDetailProps {
   meal: MealData
@@ -26,7 +26,7 @@ interface MealDetailProps {
   /** If true, hides the availability badge on finished meals */
   hideAvailabilityBadge?: boolean
   /** Preparation tips content */
-  tips?: string | null
+  tips?: StructuredTips | null
   /** Whether tips are currently loading */
   isLoadingTips?: boolean
   /** Error message from loading tips */

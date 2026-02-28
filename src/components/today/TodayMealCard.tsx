@@ -14,7 +14,12 @@ import { NoteEditor } from '@/components/meal-plan/NoteEditor'
 import { MealStatusPrompt } from './MealStatusPrompt'
 import { useIngredientAvailability } from '@/hooks/use-ingredient-availability'
 import { useMealTips } from '@/hooks/use-meal-tips'
-import type { MealData, PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
+import type {
+  MealData,
+  PantryIngredient,
+  PantryItemFull,
+  StructuredTips,
+} from '@/components/meal-plan/types'
 import type { MealType } from '@/generated/prisma/enums'
 
 const mealTypeStyles: Record<MealType, { label: string }> = {
@@ -39,7 +44,7 @@ interface TodayMealCardProps {
   pantryIngredients: PantryIngredient[]
   pantryItems: PantryItemFull[]
   showStatusPrompt?: boolean
-  initialTips?: string | null
+  initialTips?: StructuredTips | null
   initialNote?: string | null
   initialServingOverride?: number | null
 }

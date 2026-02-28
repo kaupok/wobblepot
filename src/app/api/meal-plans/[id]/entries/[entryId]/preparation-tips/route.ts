@@ -1,12 +1,35 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { z } from 'zod'
 import { createAnthropic } from '@ai-sdk/anthropic'
-import { generateText } from 'ai'
+import { generateObject } from 'ai'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
 import { TIPS_MODEL } from '@/lib/ai/models'
+import { parseStoredTips } from '@/lib/tips'
+import type { StructuredTips } from '@/components/meal-plan/types'
+
+const fullTipsSchema = z.object({
+  equipment: z
+    .array(z.string())
+    .describe('3-5 essential equipment items (pans, bowls, utensils) specific to this meal'),
+  steps: z
+    .array(z.string())
+    .describe(
+      '4-6 ordered preparation steps covering what to start first, parallel prep, and timing tips',
+    ),
+  pitfalls: z.array(z.string()).describe('2-3 common mistakes to avoid with this dish'),
+  tip: z.string().describe('One helpful cooking tip'),
+})
+
+const supplementaryTipsSchema = z.object({
+  pitfalls: z
+    .array(z.string())
+    .describe('2-3 common mistakes to avoid, focusing on pitfalls not covered in the user notes'),
+  tip: z.string().describe('One helpful cooking tip relevant to the user method'),
+})
 
 export async function POST(
   request: Request,
@@ -64,9 +87,13 @@ export async function POST(
       return NextResponse.json({ error: 'No meal assigned to this entry' }, { status: 400 })
     }
 
-    // Return cached tips if available
+    // Return cached tips if available and valid JSON
     if (entry.preparationTips) {
-      return NextResponse.json({ tips: entry.preparationTips }, { status: 200 })
+      const cached = parseStoredTips(entry.preparationTips)
+      if (cached) {
+        return NextResponse.json({ tips: cached }, { status: 200 })
+      }
+      // Old format — fall through to regenerate
     }
 
     const householdSize = await getHouseholdMemberCount(household.id)
@@ -84,8 +111,19 @@ export async function POST(
 
     const hasNotes = !!preparationNotes?.trim()
 
-    const prompt = hasNotes
-      ? `You are a helpful cooking assistant. The user has their own preparation notes for this meal. Generate supplementary tips that ENHANCE their method — do NOT repeat what they already wrote.
+    const metricReminder = `IMPORTANT: Use metric units for ALL measurements:
+- Temperatures: °C (e.g., "190°C")
+- Weights: g or kg (e.g., "500g", "1.5kg")
+- Volumes: ml or L (e.g., "250ml", "1L")
+- Lengths: cm (e.g., "2cm")
+Never use Fahrenheit, cups, ounces, pounds, or inches.`
+
+    const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
+
+    let tips: StructuredTips
+
+    if (hasNotes) {
+      const prompt = `You are a helpful cooking assistant. The user has their own preparation notes for this meal. Generate supplementary tips that ENHANCE their method — do NOT repeat what they already wrote.
 
 Meal: ${mealName}
 Servings: ${householdSize}
@@ -97,31 +135,26 @@ ${ingredientsList}
 User's preparation notes:
 ${preparationNotes}
 
-Based on the user's method above, provide ONLY supplementary guidance they might find useful:
+Based on the user's method above, provide ONLY supplementary guidance:
+- pitfalls: 2-3 common mistakes specific to their approach that they didn't mention
+- tip: One helpful cooking tip relevant to their method
 
-**Equipment needed:**
-List 3-5 essential equipment items specific to their method. Skip anything obvious from their notes.
+Do NOT repeat or rephrase what the user already wrote. Only add new information.
 
-**Steps:**
-2-4 additional tips covering timing optimization, parallel prep, or technique improvements NOT already in their notes.
+${metricReminder}
 
-**Watch out for:**
-2-3 common mistakes specific to their approach. Focus on pitfalls they didn't mention.
+Keep it brief and practical.`
 
-**Tip:**
-One helpful cooking tip relevant to their method.
+      const { object } = await generateObject({
+        model: anthropic(TIPS_MODEL),
+        schema: supplementaryTipsSchema,
+        prompt,
+        maxOutputTokens: 400,
+      })
 
-IMPORTANT: Do NOT repeat or rephrase what the user already wrote. Only add new, supplementary information.
-
-IMPORTANT: Use metric units for ALL measurements:
-- Temperatures: °C (e.g., "190°C")
-- Weights: g or kg (e.g., "500g", "1.5kg")
-- Volumes: ml or L (e.g., "250ml", "1L")
-- Lengths: cm (e.g., "2cm")
-Never use Fahrenheit, cups, ounces, pounds, or inches.
-
-Keep it brief and practical. Format each section with the exact headers shown above (Equipment needed:, Steps:, Watch out for:, Tip:).`
-      : `You are a helpful cooking assistant. Generate brief, actionable preparation guidance for the following meal.
+      tips = object
+    } else {
+      const prompt = `You are a helpful cooking assistant. Generate brief, actionable preparation guidance for the following meal.
 
 Meal: ${mealName}
 Servings: ${householdSize}
@@ -130,48 +163,30 @@ ${timeMinutes ? `Time budget: ${timeMinutes} minutes` : ''}
 Ingredients:
 ${ingredientsList}
 
-Provide the following sections:
+Provide:
+- equipment: 3-5 essential equipment items (be specific, e.g., "Large oven-safe skillet" not just "pan")
+- steps: 4-6 ordered steps covering what to start first (longest cooking items), parallel prep, and timing tips
+- pitfalls: 2-3 common mistakes or pitfalls specific to this dish
+- tip: One helpful cooking tip
 
-**Equipment needed:**
-List 3-5 essential equipment items (pans, bowls, utensils) needed for this specific meal. Be specific (e.g., "Large oven-safe skillet" not just "pan").
+${metricReminder}
 
-**Steps:**
-4-6 numbered steps covering:
-- What to start first (longest cooking items)
-- Parallel prep suggestions
-- Timing tips
+Keep it brief and practical. Not a full recipe — just order of operations and key tips. Do not repeat ingredient quantities.`
 
-**Watch out for:**
-2-3 common mistakes or pitfalls specific to this dish. Focus on things that could go wrong and how to avoid them.
+      const { object } = await generateObject({
+        model: anthropic(TIPS_MODEL),
+        schema: fullTipsSchema,
+        prompt,
+        maxOutputTokens: 500,
+      })
 
-**Tip:**
-One helpful cooking tip at the end.
+      tips = object
+    }
 
-IMPORTANT: Use metric units for ALL measurements:
-- Temperatures: °C (e.g., "190°C")
-- Weights: g or kg (e.g., "500g", "1.5kg")
-- Volumes: ml or L (e.g., "250ml", "1L")
-- Lengths: cm (e.g., "2cm")
-Never use Fahrenheit, cups, ounces, pounds, or inches.
-
-Keep it brief and practical. Not a full recipe - just order of operations and key tips. Do not repeat ingredient quantities.
-
-Format each section with the exact headers shown above (Equipment needed:, Steps:, Watch out for:, Tip:).`
-
-    const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
-
-    const { text } = await generateText({
-      model: anthropic(TIPS_MODEL),
-      prompt,
-      maxOutputTokens: hasNotes ? 600 : 500,
-    })
-
-    const tips = text.trim()
-
-    // Cache tips in the database
+    // Cache tips as JSON in the database
     await prisma.mealPlanEntry.update({
       where: { id: entryId },
-      data: { preparationTips: tips },
+      data: { preparationTips: JSON.stringify(tips) },
     })
 
     return NextResponse.json({ tips }, { status: 200 })
