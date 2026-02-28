@@ -595,7 +595,7 @@ gh pr view --json number,title,headRefName,url
 Poll for Greptile comment with timeout:
 
 ```
-max_wait_seconds = 600  # 10 minutes
+max_wait_seconds = 900  # 15 minutes
 poll_interval = 15
 elapsed = 0
 
@@ -621,8 +621,8 @@ while elapsed < max_wait_seconds:
     [auto-implement] Waiting for Greptile... ({elapsed}s/{max_wait_seconds}s)
 
 If no Greptile comment after timeout:
-    [auto-implement] ⚠ Greptile review not received after {max_wait_seconds}s
-    [auto-implement] Proceeding with available comments (manual review recommended)
+    [auto-implement] ✗ Error: Greptile review not received after {max_wait_seconds}s. Stopping to prevent merging without code review.
+    Stop here (non-zero exit)
 ```
 
 ### 6.4 Parse and triage comments
@@ -855,5 +855,6 @@ To clean up this worktree:
 | 4     | Fix attempts exhausted (3)      | Stop, show failures    |
 | 5     | Commit/PR fails                 | Stop, show error       |
 | 6     | CI fails after fixes (2)        | Stop, show failures    |
+| 6     | Greptile review timeout (900s)  | Stop, show error       |
 | 6     | Review parse fails              | Stop, show error       |
 | 7     | Merge fails                     | Stop, show error       |

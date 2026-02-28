@@ -11,12 +11,19 @@ Merges a PR using squash merge, then cleans up local state.
 ## Usage
 
 ```
-/merge
+/merge              # Wait for Greptile review before merging
+/merge --force      # Skip Greptile review gate
 ```
 
 Run this command while on a feature branch that has a PR.
 
 ## Workflow
+
+### Step 0: Parse Arguments
+
+Check for flags:
+
+- `--force` - Skip Greptile review gate (bypass timeout wait)
 
 ### Step 1: Pre-flight Checks
 
@@ -63,6 +70,54 @@ gh pr checks --watch --fail-fast --interval 10  # Use 600s Bash timeout
 - If timeout expires: Reports timeout, stops
 
 **On failure:** Report which checks failed and stop. Do not proceed to merge.
+
+### Step 2.5: Wait for Greptile Review
+
+**Skip this step if `--force` flag is set.**
+
+Greptile does NOT show up as a GitHub check. It posts comments asynchronously after CI completes (typically 5-15 min after PR creation). Wait for it before merging.
+
+```bash
+# Get PR number and repo info
+PR_NUMBER=$(gh pr view --json number --jq .number)
+REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+```
+
+Poll for Greptile comment with timeout:
+
+```
+max_wait_seconds = 900  # 15 minutes
+poll_interval = 15
+elapsed = 0
+
+while elapsed < max_wait_seconds:
+    # Check PR-level comments for Greptile
+    gh api /repos/{REPO}/issues/{PR_NUMBER}/comments
+
+    # Check inline review comments for Greptile
+    gh api /repos/{REPO}/pulls/{PR_NUMBER}/comments
+
+    # Check review summaries for Greptile
+    gh api /repos/{REPO}/pulls/{PR_NUMBER}/reviews
+
+    # Look for comments/reviews from "greptile-apps[bot]"
+    If Greptile comment found:
+        Proceed to Step 3
+        break
+
+    sleep {poll_interval}
+    elapsed += poll_interval
+    # Log progress every poll
+```
+
+**On timeout (no Greptile after 900s):**
+
+```
+Greptile review not received after 15 minutes.
+Run `/merge --force` to bypass the Greptile gate and merge without it.
+```
+
+**STOP here.** Do not proceed to merge without Greptile review unless `--force` is used.
 
 ### Step 3: Detect Environment
 
