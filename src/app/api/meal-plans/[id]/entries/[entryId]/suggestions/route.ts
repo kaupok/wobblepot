@@ -11,6 +11,7 @@ import {
 import { computeRequiredSlots } from '@/lib/meal-planning/slots'
 import { getWeekDates, toDateString } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
+import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
 import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
 import type { AlternativeMeal } from '@/components/meal-plan/types'
 
@@ -18,16 +19,27 @@ import type { AlternativeMeal } from '@/components/meal-plan/types'
  * Score a candidate for personalization and variety.
  * Higher score = better match.
  */
-function scoreCandidate(candidate: {
-  isFavorite: boolean
-  isCustom: boolean
-  kidFriendly: boolean
-}): number {
+function scoreCandidate(
+  candidate: {
+    isFavorite: boolean
+    isCustom: boolean
+    kidFriendly: boolean
+    topIngredients: { name: string }[]
+  },
+  pantryIngredientNames?: Set<string>,
+): number {
   let score = 0
   if (candidate.isFavorite) score += 3 // Explicit preference signal
   if (candidate.isCustom) score += 2 // Household created/imported
   // Kid-friendly gives slight boost for family households
   if (candidate.kidFriendly) score += 1
+  // Pantry-aware: boost meals using ingredients already in stock
+  if (pantryIngredientNames && pantryIngredientNames.size > 0) {
+    const matchCount = candidate.topIngredients.filter((i) =>
+      pantryIngredientNames.has(i.name),
+    ).length
+    score += matchCount * 0.5
+  }
   return score
 }
 
@@ -157,12 +169,16 @@ export async function POST(
 
     const recentMealIds = [...new Set(recentEntries.map((e) => e.mealId!).filter(Boolean))]
 
-    // Get favorite meal IDs for this household
-    const favorites = await prisma.favoriteMeal.findMany({
-      where: { householdId: household.id },
-      select: { mealId: true },
-    })
+    // Get favorite meal IDs and pantry ingredients for this household
+    const [favorites, pantryIngredients] = await Promise.all([
+      prisma.favoriteMeal.findMany({
+        where: { householdId: household.id },
+        select: { mealId: true },
+      }),
+      getPantryIngredientNames(household.id),
+    ])
     const favoriteMealIds = favorites.map((f) => f.mealId)
+    const pantryIngredientNames = new Set(pantryIngredients)
 
     // Build candidate filters
     const filters: CandidateFilters = {
@@ -186,11 +202,11 @@ export async function POST(
       )
     }
 
-    // Score and sort candidates by personalization priority
+    // Score and sort candidates by personalization priority and pantry overlap
     // Add small random factor (0-0.5) for variety among equal-scored items
     const scored = candidates.map((c) => ({
       candidate: c,
-      score: scoreCandidate(c) + Math.random() * 0.5,
+      score: scoreCandidate(c, pantryIngredientNames) + Math.random() * 0.5,
     }))
     scored.sort((a, b) => b.score - a.score)
 

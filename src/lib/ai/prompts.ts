@@ -112,6 +112,7 @@ export function buildMealPlanPrompt(
     candidatePools,
     restrictions,
     candidatesByMealType,
+    pantryIngredients,
   } = input
 
   // Calculate last day (endDate is exclusive, so subtract 1 day)
@@ -155,6 +156,15 @@ PERSONALIZATION:
 - Prefer meals marked isFavorite=true (household explicitly favorited these)
 - Prefer meals marked isCustom=true (household created/imported these)
 - Balance personalization with variety - don't only pick favorites`
+
+  if (pantryIngredients && pantryIngredients.length > 0) {
+    prompt += `
+
+PANTRY (ingredients the household already has):
+${pantryIngredients.join(', ')}
+- When choosing between equally suitable meals, prefer ones that use these ingredients
+- This is a soft preference, not a hard constraint — variety and balance still come first`
+  }
 
   if (restrictions.length > 0) {
     prompt += `\n- Dietary preferences (best effort): ${restrictions.join(', ')}`

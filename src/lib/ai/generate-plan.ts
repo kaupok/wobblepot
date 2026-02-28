@@ -16,6 +16,7 @@ import {
   parseLocalDate,
 } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
+import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
 import { PLANNING_MODEL } from './models'
 import { buildMealPlanPrompt } from './prompts'
 import { validatePlan } from './validate-plan'
@@ -253,10 +254,11 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     weekendMealTypes,
   })
 
-  // Get recent meal IDs to exclude and favorite meal IDs for prioritization
-  const [recentMealIds, favoriteMealIds] = await Promise.all([
+  // Get recent meal IDs to exclude, favorite meal IDs for prioritization, and pantry ingredients
+  const [recentMealIds, favoriteMealIds, pantryIngredients] = await Promise.all([
     getRecentMealIds(householdId),
     getFavoriteMealIds(householdId),
+    getPantryIngredientNames(householdId),
   ])
 
   // Collect unique meal types to query candidates for
@@ -344,6 +346,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     candidatePools,
     restrictions,
     candidatesByMealType,
+    pantryIngredients,
   })
 
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
@@ -559,10 +562,11 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     weekendMealTypes,
   })
 
-  // Get recent meal IDs to exclude and favorite meal IDs for prioritization
-  const [recentMealIds, favoriteMealIds] = await Promise.all([
+  // Get recent meal IDs to exclude, favorite meal IDs for prioritization, and pantry ingredients
+  const [recentMealIds, favoriteMealIds, pantryIngredients] = await Promise.all([
     getRecentMealIds(householdId),
     getFavoriteMealIds(householdId),
+    getPantryIngredientNames(householdId),
   ])
 
   // Collect unique meal types from empty slots
@@ -663,6 +667,7 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     candidatePools,
     restrictions,
     candidatesByMealType,
+    pantryIngredients,
   })
 
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })

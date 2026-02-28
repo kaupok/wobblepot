@@ -334,6 +334,62 @@ describe('buildMealPlanPrompt', () => {
     })
   })
 
+  describe('pantry context', () => {
+    it('does not include pantry section when pantryIngredients is undefined', () => {
+      const input = createInput()
+
+      const result = buildMealPlanPrompt(input)
+
+      expect(result).not.toContain('PANTRY')
+    })
+
+    it('does not include pantry section when pantryIngredients is empty', () => {
+      const input = createInput({ pantryIngredients: [] })
+
+      const result = buildMealPlanPrompt(input)
+
+      expect(result).not.toContain('PANTRY')
+    })
+
+    it('includes pantry section with ingredient names', () => {
+      const input = createInput({
+        pantryIngredients: ['Chicken breast', 'Rice', 'Soy sauce'],
+      })
+
+      const result = buildMealPlanPrompt(input)
+
+      expect(result).toContain('PANTRY (ingredients the household already has):')
+      expect(result).toContain('Chicken breast, Rice, Soy sauce')
+    })
+
+    it('includes soft preference guidance', () => {
+      const input = createInput({
+        pantryIngredients: ['Salmon'],
+      })
+
+      const result = buildMealPlanPrompt(input)
+
+      expect(result).toContain('prefer ones that use these ingredients')
+      expect(result).toContain('soft preference, not a hard constraint')
+    })
+
+    it('places pantry section after personalization and before restrictions', () => {
+      const input = createInput({
+        pantryIngredients: ['Chicken breast'],
+        restrictions: ['low sodium'],
+      })
+
+      const result = buildMealPlanPrompt(input)
+
+      const personalizationIndex = result.indexOf('PERSONALIZATION')
+      const pantryIndex = result.indexOf('PANTRY')
+      const restrictionsIndex = result.indexOf('Dietary preferences')
+
+      expect(personalizationIndex).toBeLessThan(pantryIndex)
+      expect(pantryIndex).toBeLessThan(restrictionsIndex)
+    })
+  })
+
   describe('complete prompt structure', () => {
     it('produces well-structured prompt with all sections', () => {
       // Use explicit totalEntries to ensure correct structure test

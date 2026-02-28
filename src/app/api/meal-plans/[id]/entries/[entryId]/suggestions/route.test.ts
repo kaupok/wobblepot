@@ -46,6 +46,10 @@ vi.mock('@/lib/meal-planning/dates', () => ({
   toDateString: vi.fn((d: Date) => d.toISOString().split('T')[0]),
 }))
 
+vi.mock('@/lib/meal-planning/pantry', () => ({
+  getPantryIngredientNames: vi.fn(() => Promise.resolve([])),
+}))
+
 vi.mock('@/lib/meal-planning/nutrition', () => ({
   computeMealNutrition: vi.fn(() => ({
     calories: 350,
