@@ -142,6 +142,8 @@ export interface PromptInput {
   remainingSlots: MealSlot[]
   candidatePools: CandidatePools
   restrictions: string[]
+  /** Non-staple pantry ingredient names the household currently has in stock */
+  pantryIngredients?: string[]
 }
 
 /**
