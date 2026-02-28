@@ -85,6 +85,7 @@ export async function POST(request: Request) {
         name: result.name,
         description: result.description,
         preparationNotes: result.preparationNotes,
+        sourceUrl: result.sourceUrl,
         timeMinutes: result.timeMinutes,
         servings: result.servings,
         mealTypes: result.mealTypes,

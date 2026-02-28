@@ -1886,18 +1886,17 @@ describe('parseAndMatchRecipe source URL prepending', () => {
     ])
   })
 
-  it('prepends source URL to preparation notes when URL is provided', async () => {
+  it('returns sourceUrl separately and keeps preparation notes clean when URL is provided', async () => {
     const result = await parseAndMatchRecipe(
       'This is a longer recipe text with at least 20 characters so it passes validation',
       'https://www.bbcgoodfood.com/recipes/easy-chicken-fajitas',
     )
 
-    expect(result.preparationNotes).toBe(
-      'Source: https://www.bbcgoodfood.com/recipes/easy-chicken-fajitas\n\n1. Heat oven to 200C\n2. Mix ingredients',
-    )
+    expect(result.sourceUrl).toBe('https://www.bbcgoodfood.com/recipes/easy-chicken-fajitas')
+    expect(result.preparationNotes).toBe('1. Heat oven to 200C\n2. Mix ingredients')
   })
 
-  it('includes only source URL when preparation notes are null', async () => {
+  it('returns sourceUrl when preparation notes are null', async () => {
     mockGenerateObject.mockResolvedValueOnce({
       object: { ...mockRecipeExtraction, preparationNotes: null },
     } as never)
@@ -1907,22 +1906,25 @@ describe('parseAndMatchRecipe source URL prepending', () => {
       'https://www.example.com/recipe',
     )
 
-    expect(result.preparationNotes).toBe('Source: https://www.example.com/recipe')
+    expect(result.sourceUrl).toBe('https://www.example.com/recipe')
+    expect(result.preparationNotes).toBeNull()
   })
 
-  it('does not modify preparation notes when no source URL is provided', async () => {
+  it('returns null sourceUrl when no source URL is provided', async () => {
     const result = await parseAndMatchRecipe(
       'This is a longer recipe text with at least 20 characters so it passes validation',
     )
 
+    expect(result.sourceUrl).toBeNull()
     expect(result.preparationNotes).toBe('1. Heat oven to 200C\n2. Mix ingredients')
   })
 
-  it('does not add source URL for plain text imports', async () => {
+  it('returns null sourceUrl for plain text imports', async () => {
     const result = await parseAndMatchRecipe(
       'Plain text recipe with enough characters to pass the length validation check',
     )
 
+    expect(result.sourceUrl).toBeNull()
     expect(result.preparationNotes).toBe('1. Heat oven to 200C\n2. Mix ingredients')
   })
 })
