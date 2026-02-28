@@ -1,8 +1,10 @@
 import { Clock, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Body, Heading } from '@/components/ui/typography'
+import { cn } from '@/lib/utils'
+import { getIngredientAvailabilitySets } from './AvailabilityIndicator'
 import { NutritionSummary } from './NutritionSummary'
-import type { MealComponent, NutritionData } from './types'
+import type { MealComponent, NutritionData, PantryIngredient } from './types'
 import type { MealType } from '@/generated/prisma/enums'
 
 export interface MealCardBaseData {
@@ -18,6 +20,8 @@ export interface MealCardBaseData {
 
 interface MealCardBaseProps {
   meal: MealCardBaseData
+  /** When provided, ingredients are color-coded by pantry availability */
+  pantryIngredients?: PantryIngredient[]
 }
 
 function formatMealTypes(types: MealType[]): string {
@@ -34,7 +38,12 @@ function formatProteinType(type: string): string {
  * Renders: name, description, nutrition, prep time + badges, meal types + protein type, ingredient list.
  * Does NOT include Card wrapper or action buttons — consumers provide their own layout.
  */
-export function MealCardBase({ meal }: MealCardBaseProps) {
+export function MealCardBase({ meal, pantryIngredients }: MealCardBaseProps) {
+  const hasPantryData = pantryIngredients && pantryIngredients.length > 0
+  const { availableIds, stapleIds } = hasPantryData
+    ? getIngredientAvailabilitySets(pantryIngredients)
+    : { availableIds: null, stapleIds: null }
+
   return (
     <div className="flex flex-col gap-1.5">
       {/* 1. Meal name */}
@@ -79,11 +88,26 @@ export function MealCardBase({ meal }: MealCardBaseProps) {
         </Body>
       </div>
 
-      {/* 6. Ingredient list (names only) */}
-      <ul className="text-muted-foreground ml-4 list-disc text-sm">
-        {meal.components.map((comp) => (
-          <li key={comp.ingredientId}>{comp.ingredient.name}</li>
-        ))}
+      {/* 6. Ingredient list (names only, color-coded when pantry data available) */}
+      <ul className={cn('ml-4 list-disc text-sm', !hasPantryData && 'text-muted-foreground')}>
+        {meal.components.map((comp) => {
+          const isAvailable =
+            availableIds !== null &&
+            (stapleIds!.has(comp.ingredientId) || availableIds.has(comp.ingredientId))
+          const isMissing = availableIds !== null && !isAvailable
+
+          return (
+            <li
+              key={comp.ingredientId}
+              className={cn(
+                isAvailable && 'text-green-700 dark:text-green-400',
+                isMissing && 'text-amber-600 dark:text-amber-400',
+              )}
+            >
+              {comp.ingredient.name}
+            </li>
+          )
+        })}
       </ul>
     </div>
   )

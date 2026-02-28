@@ -5,6 +5,20 @@ interface AvailabilityIndicatorProps {
 }
 
 /**
+ * Build sets of available ingredient IDs and staple IDs from pantry data.
+ * Shared by MealCardBase (compact color-coding) and IngredientList (interactive checkboxes).
+ */
+export function getIngredientAvailabilitySets(pantryIngredients: PantryIngredient[]): {
+  availableIds: Set<string>
+  stapleIds: Set<string>
+} {
+  return {
+    availableIds: new Set(pantryIngredients.map((p) => p.ingredientId)),
+    stapleIds: new Set(pantryIngredients.filter((p) => p.isStaple).map((p) => p.ingredientId)),
+  }
+}
+
+/**
  * Compute meal availability based on pantry contents.
  * An ingredient is considered available if it exists in the pantry
  * (regardless of quantity). Staples are always considered available
@@ -14,9 +28,7 @@ export function computeMealAvailability(
   meal: MealData,
   pantryIngredients: PantryIngredient[],
 ): MealAvailability {
-  // Build sets for available ingredient IDs and staple IDs
-  const availableIds = new Set(pantryIngredients.map((p) => p.ingredientId))
-  const stapleIds = new Set(pantryIngredients.filter((p) => p.isStaple).map((p) => p.ingredientId))
+  const { availableIds, stapleIds } = getIngredientAvailabilitySets(pantryIngredients)
 
   const missingIngredients: string[] = []
 

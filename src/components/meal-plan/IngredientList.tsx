@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Body, Ul, Li } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
-import { AvailabilityIndicator } from './AvailabilityIndicator'
+import { AvailabilityIndicator, getIngredientAvailabilitySets } from './AvailabilityIndicator'
 import type { MealAvailability, MealComponent, PantryIngredient } from './types'
 
 interface IngredientListProps {
@@ -75,12 +75,9 @@ export function IngredientList({
   // Build maps for availability and staple status
   const { availableIds, stapleIds } = useMemo(() => {
     if (!pantryIngredients) {
-      return { availableIds: null, stapleIds: new Set<string>() }
+      return { availableIds: null as Set<string> | null, stapleIds: new Set<string>() }
     }
-    return {
-      availableIds: new Set(pantryIngredients.map((p) => p.ingredientId)),
-      stapleIds: new Set(pantryIngredients.filter((p) => p.isStaple).map((p) => p.ingredientId)),
-    }
+    return getIngredientAvailabilitySets(pantryIngredients)
   }, [pantryIngredients])
 
   // Separate regular ingredients from staples
