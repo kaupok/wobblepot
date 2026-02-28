@@ -1,4 +1,4 @@
-import { Clock, Users } from 'lucide-react'
+import { Clock, ExternalLink, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Body, Heading } from '@/components/ui/typography'
 import { NutritionSummary } from './NutritionSummary'
@@ -8,6 +8,7 @@ import type { MealType } from '@/generated/prisma/enums'
 export interface MealCardBaseData {
   name: string
   description?: string | null
+  sourceUrl?: string | null
   timeMinutes?: number | null
   kidFriendly: boolean
   primaryProteinType: string
@@ -42,6 +43,19 @@ export function MealCardBase({ meal }: MealCardBaseProps) {
 
       {/* 2. Description */}
       {meal.description && <Body variant="muted">{meal.description}</Body>}
+
+      {/* 2b. Source URL */}
+      {meal.sourceUrl && (
+        <a
+          href={meal.sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary hover:text-primary/80 inline-flex items-center gap-1 text-sm underline"
+        >
+          View original recipe
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      )}
 
       {/* 3. Nutrition summary */}
       <NutritionSummary nutrition={meal.nutrition} components={meal.components} compact />

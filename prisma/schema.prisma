@@ -278,6 +278,7 @@ model Meal {
   name               String
   description        String?
   preparationNotes   String?
+  sourceUrl          String?
   timeMinutes        Int?
   kidFriendly        Boolean     @default(false)
   primaryProteinType ProteinType @default(none)

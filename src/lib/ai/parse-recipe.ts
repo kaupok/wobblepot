@@ -759,6 +759,7 @@ export interface ParsedRecipe {
   name: string
   description: string | null
   preparationNotes: string | null
+  sourceUrl: string | null
   timeMinutes: number | null
   servings: number
   mealTypes: MealType[]
@@ -1168,7 +1169,7 @@ export function mergeDuplicateIngredients(
  * This is the main entry point for the recipe import feature.
  *
  * @param recipeText - The recipe text to parse
- * @param sourceUrl - Optional source URL for URL imports (prepended to preparation notes)
+ * @param sourceUrl - Optional source URL for URL imports (stored as dedicated field)
  */
 export async function parseAndMatchRecipe(
   recipeText: string,
@@ -1183,17 +1184,11 @@ export async function parseAndMatchRecipe(
   // Step 3: Check if all ingredients matched
   const allMatched = ingredientResults.every((r) => r.type === 'matched')
 
-  // Step 4: Prepend source URL to preparation notes for URL imports
-  let preparationNotes = extraction.preparationNotes
-  if (sourceUrl) {
-    const notesContent = preparationNotes ? `\n\n${preparationNotes}` : ''
-    preparationNotes = `Source: ${sourceUrl}${notesContent}`
-  }
-
   return {
     name: extraction.name,
     description: extraction.description,
-    preparationNotes,
+    preparationNotes: extraction.preparationNotes,
+    sourceUrl: sourceUrl ?? null,
     timeMinutes: extraction.timeMinutes,
     servings: extraction.servings,
     mealTypes: extraction.mealTypes as MealType[],

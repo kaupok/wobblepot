@@ -332,6 +332,7 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
         name: name.trim(),
         description: description.trim() || null,
         preparationNotes: preparationNotes.trim() || null,
+        sourceUrl: meal?.sourceUrl ?? null,
         timeMinutes: timeMinutes ? parseInt(timeMinutes, 10) : null,
         kidFriendly,
         suitableFor,

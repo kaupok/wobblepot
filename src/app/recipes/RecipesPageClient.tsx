@@ -23,6 +23,7 @@ interface EnhancedPrefilledData {
   name: string
   description: string | null
   preparationNotes?: string | null
+  sourceUrl?: string | null
   timeMinutes: number | null
   servings: number
   mealTypes: MealType[]
@@ -125,6 +126,7 @@ export function RecipesPageClient() {
       name: prefilledData.name,
       description: prefilledData.description,
       preparationNotes: prefilledData.preparationNotes,
+      sourceUrl: prefilledData.sourceUrl,
       timeMinutes: prefilledData.timeMinutes,
       kidFriendly: prefilledData.kidFriendly,
       suitableFor: prefilledData.mealTypes,

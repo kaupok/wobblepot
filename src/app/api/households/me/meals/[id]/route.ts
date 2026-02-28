@@ -10,6 +10,7 @@ const updateMealSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   description: z.string().max(1000).nullable().optional(),
   preparationNotes: z.string().max(5000).nullable().optional(),
+  sourceUrl: z.string().url().max(2000).nullable().optional(),
   timeMinutes: z.number().int().positive().max(480).nullable().optional(),
   kidFriendly: z.boolean().optional(),
   suitableFor: z
@@ -56,6 +57,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         name: true,
         description: true,
         preparationNotes: true,
+        sourceUrl: true,
         timeMinutes: true,
         kidFriendly: true,
         primaryProteinType: true,
@@ -114,6 +116,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       name: meal.name,
       description: meal.description,
       preparationNotes: meal.preparationNotes,
+      sourceUrl: meal.sourceUrl,
       timeMinutes: meal.timeMinutes,
       kidFriendly: meal.kidFriendly,
       primaryProteinType: meal.primaryProteinType,
@@ -196,6 +199,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     name,
     description,
     preparationNotes,
+    sourceUrl,
     timeMinutes,
     kidFriendly,
     suitableFor,
@@ -236,6 +240,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     name?: string
     description?: string | null
     preparationNotes?: string | null
+    sourceUrl?: string | null
     timeMinutes?: number | null
     kidFriendly?: boolean
     suitableFor?: ('breakfast' | 'lunch' | 'dinner')[]
@@ -245,6 +250,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (name !== undefined) updateData.name = name
   if (description !== undefined) updateData.description = description
   if (preparationNotes !== undefined) updateData.preparationNotes = preparationNotes
+  if (sourceUrl !== undefined) updateData.sourceUrl = sourceUrl
   if (timeMinutes !== undefined) updateData.timeMinutes = timeMinutes
   if (kidFriendly !== undefined) updateData.kidFriendly = kidFriendly
   if (suitableFor !== undefined) updateData.suitableFor = suitableFor
@@ -289,6 +295,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         name: true,
         description: true,
         preparationNotes: true,
+        sourceUrl: true,
         timeMinutes: true,
         kidFriendly: true,
         primaryProteinType: true,
@@ -343,6 +350,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     name: meal.name,
     description: meal.description,
     preparationNotes: meal.preparationNotes,
+    sourceUrl: meal.sourceUrl,
     timeMinutes: meal.timeMinutes,
     kidFriendly: meal.kidFriendly,
     primaryProteinType: meal.primaryProteinType,

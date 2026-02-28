@@ -64,6 +64,7 @@ interface ParsedRecipeData {
   name: string
   description: string | null
   preparationNotes: string | null
+  sourceUrl: string | null
   timeMinutes: number | null
   servings: number
   mealTypes: MealType[]
@@ -77,6 +78,7 @@ function convertToPrefilledData(recipe: ParsedRecipeData): {
   name: string
   description: string | null
   preparationNotes: string | null
+  sourceUrl: string | null
   timeMinutes: number | null
   servings: number
   mealTypes: MealType[]
@@ -135,6 +137,7 @@ function convertToPrefilledData(recipe: ParsedRecipeData): {
     name: recipe.name,
     description: recipe.description,
     preparationNotes: recipe.preparationNotes,
+    sourceUrl: recipe.sourceUrl,
     timeMinutes: recipe.timeMinutes,
     servings: recipe.servings,
     mealTypes: recipe.mealTypes,
