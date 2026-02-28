@@ -143,33 +143,72 @@ function formatJsonLdRecipe(recipe: Record<string, unknown>): string | null {
     }
   }
 
-  // Instructions
+  // Instructions — handles HowToStep, HowToSection, strings, and mixed arrays
   const instructions = recipe.recipeInstructions
   if (instructions) {
-    parts.push('\n\nInstructions:')
-    if (Array.isArray(instructions)) {
-      let step = 1
-      for (const instruction of instructions) {
-        if (typeof instruction === 'string') {
-          parts.push(`${step}. ${instruction}`)
-          step++
-        } else if (
-          instruction &&
-          typeof instruction === 'object' &&
-          'text' in instruction &&
-          typeof (instruction as Record<string, unknown>).text === 'string'
-        ) {
-          parts.push(`${step}. ${(instruction as Record<string, unknown>).text}`)
-          step++
-        }
+    const steps = extractInstructionSteps(instructions)
+    if (steps.length > 0) {
+      parts.push('\n\nInstructions:')
+      for (let i = 0; i < steps.length; i++) {
+        parts.push(`${i + 1}. ${steps[i]}`)
       }
-    } else if (typeof instructions === 'string') {
-      parts.push(instructions)
     }
   }
 
   const formatted = parts.join('\n')
   return formatted.length >= 50 ? formatted : null
+}
+
+/**
+ * Extract instruction step texts from JSON-LD recipeInstructions.
+ * Handles all common formats:
+ * - String: single instruction
+ * - String[]: array of instruction strings
+ * - HowToStep[]: array of objects with `text` property
+ * - HowToSection[]: array of sections with `itemListElement` arrays of HowToStep
+ * - Mixed arrays of the above
+ */
+function extractInstructionSteps(instructions: unknown): string[] {
+  if (typeof instructions === 'string') {
+    return instructions.trim() ? [instructions.trim()] : []
+  }
+
+  if (!Array.isArray(instructions)) return []
+
+  const steps: string[] = []
+
+  for (const item of instructions) {
+    if (typeof item === 'string') {
+      if (item.trim()) steps.push(item.trim())
+      continue
+    }
+
+    if (!item || typeof item !== 'object') continue
+
+    const obj = item as Record<string, unknown>
+
+    // HowToSection: has itemListElement with nested steps
+    if (Array.isArray(obj.itemListElement)) {
+      for (const subItem of obj.itemListElement) {
+        if (typeof subItem === 'string') {
+          if (subItem.trim()) steps.push(subItem.trim())
+        } else if (subItem && typeof subItem === 'object') {
+          const text = (subItem as Record<string, unknown>).text
+          if (typeof text === 'string' && text.trim()) {
+            steps.push(text.trim())
+          }
+        }
+      }
+      continue
+    }
+
+    // HowToStep: has text property
+    if ('text' in obj && typeof obj.text === 'string' && obj.text.trim()) {
+      steps.push(obj.text.trim())
+    }
+  }
+
+  return steps
 }
 
 /**
@@ -584,7 +623,14 @@ If your calculated quantities exceed these by 5x+, you likely made a conversion 
 5. Mark as kid-friendly if: no spicy ingredients, familiar foods, mild flavors
 6. If servings aren't specified, default to 4
 7. If cooking time isn't specified, leave it as null
-8. PREPARATION NOTES: If the recipe contains preparation/cooking steps or instructions, extract and distill them into clean, numbered steps. Strip away any noise (blog content, personal stories, ads, navigation text). Focus on actionable cooking instructions only. If no preparation steps are found, set preparationNotes to null.
+
+PREPARATION NOTES (IMPORTANT — always attempt extraction):
+Extract cooking/preparation steps from the recipe text into the preparationNotes field.
+- Look for ANY instructions, directions, method, or steps — even if they appear as prose rather than a numbered list
+- Distill them into clean, numbered steps (e.g., "1. Preheat oven to 200°C\n2. Mix flour and salt...")
+- Strip noise: blog content, personal stories, ads, navigation text, "jump to recipe" links
+- Focus on actionable cooking instructions only
+- If the source genuinely has no preparation steps at all, set preparationNotes to null — do NOT fabricate steps
 
 RECIPE TEXT:
 ${recipeText}
