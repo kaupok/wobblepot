@@ -1378,6 +1378,76 @@ describe('extractJsonLdRecipe', () => {
     // Name is "X" with no ingredients — formatted text will be < 50 chars
     expect(extractJsonLdRecipe(html)).toBeNull()
   })
+
+  it('extracts instructions from HowToSection with nested HowToStep', () => {
+    const html = `<html><head>
+      <script type="application/ld+json">
+      {
+        "@type": "Recipe",
+        "name": "Homemade Pizza",
+        "recipeIngredient": ["500g flour", "7g yeast", "300ml water"],
+        "recipeInstructions": [
+          {
+            "@type": "HowToSection",
+            "name": "Make the dough",
+            "itemListElement": [
+              {"@type": "HowToStep", "text": "Mix flour, yeast, and water."},
+              {"@type": "HowToStep", "text": "Knead for 10 minutes."}
+            ]
+          },
+          {
+            "@type": "HowToSection",
+            "name": "Bake the pizza",
+            "itemListElement": [
+              {"@type": "HowToStep", "text": "Preheat oven to 250°C."},
+              {"@type": "HowToStep", "text": "Roll out dough and add toppings."},
+              {"@type": "HowToStep", "text": "Bake for 12-15 minutes."}
+            ]
+          }
+        ]
+      }
+      </script>
+    </head><body></body></html>`
+
+    const result = extractJsonLdRecipe(html)
+    expect(result).not.toBeNull()
+    expect(result).toContain('1. Mix flour, yeast, and water.')
+    expect(result).toContain('2. Knead for 10 minutes.')
+    expect(result).toContain('3. Preheat oven to 250°C.')
+    expect(result).toContain('4. Roll out dough and add toppings.')
+    expect(result).toContain('5. Bake for 12-15 minutes.')
+  })
+
+  it('handles mixed HowToSection and HowToStep instructions', () => {
+    const html = `<html><head>
+      <script type="application/ld+json">
+      {
+        "@type": "Recipe",
+        "name": "Mixed Format Recipe",
+        "recipeIngredient": ["200g pasta", "100g cheese"],
+        "recipeInstructions": [
+          {"@type": "HowToStep", "text": "Boil water."},
+          {
+            "@type": "HowToSection",
+            "name": "Make the sauce",
+            "itemListElement": [
+              {"@type": "HowToStep", "text": "Melt butter in a pan."},
+              {"@type": "HowToStep", "text": "Add cheese and stir."}
+            ]
+          },
+          {"@type": "HowToStep", "text": "Combine and serve."}
+        ]
+      }
+      </script>
+    </head><body></body></html>`
+
+    const result = extractJsonLdRecipe(html)
+    expect(result).not.toBeNull()
+    expect(result).toContain('1. Boil water.')
+    expect(result).toContain('2. Melt butter in a pan.')
+    expect(result).toContain('3. Add cheese and stir.')
+    expect(result).toContain('4. Combine and serve.')
+  })
 })
 
 describe('fetchRecipeFromUrl', () => {
