@@ -63,6 +63,32 @@ const mockMeal: MealCardBaseData = {
 }
 
 describe('MealCardBase', () => {
+  describe('source URL rendering', () => {
+    it('renders link for https URLs', () => {
+      const meal = { ...mockMeal, sourceUrl: 'https://example.com/recipe' }
+      render(<MealCardBase meal={meal} />)
+
+      const link = screen.getByRole('link', { name: /view original recipe/i })
+      expect(link).toHaveAttribute('href', 'https://example.com/recipe')
+      expect(link).toHaveAttribute('target', '_blank')
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    })
+
+    it('does not render link for javascript: URLs', () => {
+      const meal = { ...mockMeal, sourceUrl: 'javascript:alert(1)' }
+      render(<MealCardBase meal={meal} />)
+
+      expect(screen.queryByRole('link', { name: /view original recipe/i })).not.toBeInTheDocument()
+    })
+
+    it('does not render link when sourceUrl is null', () => {
+      const meal = { ...mockMeal, sourceUrl: null }
+      render(<MealCardBase meal={meal} />)
+
+      expect(screen.queryByRole('link', { name: /view original recipe/i })).not.toBeInTheDocument()
+    })
+  })
+
   describe('ingredient availability color-coding', () => {
     it('renders ingredients without color-coding when no pantry data', () => {
       render(<MealCardBase meal={mockMeal} />)

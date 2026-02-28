@@ -54,7 +54,7 @@ export function MealCardBase({ meal, pantryIngredients }: MealCardBaseProps) {
       {meal.description && <Body variant="muted">{meal.description}</Body>}
 
       {/* 2b. Source URL */}
-      {meal.sourceUrl && (
+      {meal.sourceUrl && /^https?:\/\//i.test(meal.sourceUrl) && (
         <a
           href={meal.sourceUrl}
           target="_blank"

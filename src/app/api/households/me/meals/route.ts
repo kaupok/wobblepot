@@ -10,7 +10,12 @@ const createMealSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().max(1000).nullish(),
   preparationNotes: z.string().max(5000).nullish(),
-  sourceUrl: z.string().url().max(2000).nullish(),
+  sourceUrl: z
+    .string()
+    .url()
+    .max(2000)
+    .refine((url) => /^https?:\/\//i.test(url), 'Only http/https URLs are allowed')
+    .nullish(),
   timeMinutes: z.number().int().positive().max(480).nullish(),
   kidFriendly: z.boolean().optional().default(false),
   suitableFor: z.array(z.enum(['breakfast', 'lunch', 'dinner'])).min(1),

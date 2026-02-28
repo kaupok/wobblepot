@@ -210,6 +210,86 @@ describe('POST /api/households/me/meals', () => {
     expect(data.error).toBe('Invalid JSON')
   })
 
+  it('rejects javascript: protocol URLs in sourceUrl', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+
+    const request = new Request('http://localhost/api/households/me/meals', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'XSS Meal',
+        sourceUrl: 'javascript:alert(document.cookie)',
+        suitableFor: ['dinner'],
+        servings: 2,
+        components: [{ ingredientId: 'ing-1', totalQuantity: 300 }],
+      }),
+    })
+    const response = await POST(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Validation failed')
+  })
+
+  it('accepts https URLs in sourceUrl', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockIngredientFindMany.mockResolvedValue([
+      { id: 'ing-1', proteinType: 'poultry', protein: 31 },
+    ] as never)
+
+    const createdMeal = {
+      id: 'meal-new',
+      name: 'URL Meal',
+      description: null,
+      preparationNotes: null,
+      sourceUrl: 'https://example.com/recipe',
+      timeMinutes: null,
+      kidFriendly: false,
+      primaryProteinType: 'poultry',
+      suitableFor: ['dinner'],
+      servings: 2,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      components: [
+        {
+          ingredientId: 'ing-1',
+          quantityPerServing: 150,
+          isVague: false,
+          originalPhrase: null,
+          ingredient: {
+            id: 'ing-1',
+            name: 'Chicken breast',
+            category: 'protein',
+            defaultUnit: 'g',
+            gramsPerPiece: null,
+            calories: 165,
+            protein: 31,
+            carbs: 0,
+            fat: 3.6,
+            allergens: [],
+          },
+        },
+      ],
+    }
+    mockMealCreate.mockResolvedValue(createdMeal as never)
+
+    const request = new Request('http://localhost/api/households/me/meals', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'URL Meal',
+        sourceUrl: 'https://example.com/recipe',
+        suitableFor: ['dinner'],
+        servings: 2,
+        components: [{ ingredientId: 'ing-1', totalQuantity: 300 }],
+      }),
+    })
+    const response = await POST(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(201)
+    expect(data.sourceUrl).toBe('https://example.com/recipe')
+  })
+
   it('returns 400 for validation errors', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
 
