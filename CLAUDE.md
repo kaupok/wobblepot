@@ -234,6 +234,8 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **Staging review:** `/chrome-review` — Interactive exploration of staging (`honkadori.xyz`) using Chrome. Discuss findings and create Linear issues collaboratively. Requires `claude --chrome` or `/chrome`.
 
+**Voice review:** `/voice-review` — Voice-powered staging review combining VoiceMode + Chrome. Talk through the app hands-free, discuss findings by speaking, and create Linear issues. Requires `claude --chrome` or `/chrome` and VoiceMode MCP server. See [docs/VOICE_REVIEW.md](docs/VOICE_REVIEW.md).
+
 **Codebase audit:** `/tech-audit` — Scan for outdated deps, type issues, code quality, test coverage, security patterns, database health, bundle concerns, and pattern adherence. Use `--focus <area>` to audit a single area.
 
 **Cross-session context:** Plans are stored as Linear comments by `/plan-issue`, so `/implement-issue` and `/code-review` can fetch them in new sessions.
@@ -258,5 +260,6 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 | [docs/PERFORMANCE.md](docs/PERFORMANCE.md)             | Bundle optimization guide                     |
 | [docs/MCP_SETUP.md](docs/MCP_SETUP.md)                 | MCP server configuration and troubleshooting  |
 | [docs/CHROME_TESTING.md](docs/CHROME_TESTING.md)       | Browser testing with Chrome extension         |
+| [docs/VOICE_REVIEW.md](docs/VOICE_REVIEW.md)           | Voice review setup and usage                  |
 | [docs/PARALLEL_WORKFLOW.md](docs/PARALLEL_WORKFLOW.md) | Parallel Claude Code with git worktrees       |
 | [docs/CYRUS_GUIDE.md](docs/CYRUS_GUIDE.md)             | Cyrus autonomous agent setup                  |
