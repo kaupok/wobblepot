@@ -32,13 +32,20 @@ export interface MealData {
   nutrition: NutritionData
 }
 
+export interface StructuredTips {
+  equipment?: string[]
+  steps?: string[]
+  pitfalls: string[]
+  tip: string
+}
+
 export interface PlanEntry {
   id: string
   date: string
   mealType: MealType
   status: MealStatus
   meal: MealData | null
-  preparationTips: string | null
+  preparationTips: StructuredTips | null
   note: string | null
   servingOverride: number | null
 }

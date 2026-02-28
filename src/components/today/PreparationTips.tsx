@@ -1,58 +1,29 @@
 'use client'
 
-import { useMemo } from 'react'
 import { Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import type { StructuredTips } from '@/components/meal-plan/types'
 
 interface PreparationTipsProps {
-  tips: string | null
+  tips: StructuredTips | null
   isLoading: boolean
   error: string | null
   onRetry: () => void
   preparationNotes?: string | null
 }
 
-interface ParsedTips {
-  equipment: string | null
-  steps: string | null
-  mistakes: string | null
-  tip: string | null
-}
-
-function parseTips(tips: string): ParsedTips {
-  const result: ParsedTips = {
-    equipment: null,
-    steps: null,
-    mistakes: null,
-    tip: null,
-  }
-
-  // Normalize line endings and remove markdown bold markers
-  const text = tips.replace(/\r\n/g, '\n').replace(/\*\*/g, '')
-
-  // Extract sections using regex patterns
-  const equipmentMatch = text.match(
-    /Equipment needed:?\s*([\s\S]*?)(?=Steps:|Watch out for:|Tip:|$)/i,
+function UserNotes({ notes }: { notes: string }) {
+  return (
+    <div className="flex flex-col gap-1 border-t pt-4">
+      <Body variant="small" className="font-medium">
+        Your notes
+      </Body>
+      <Body variant="small" className="text-muted-foreground whitespace-pre-line">
+        {notes}
+      </Body>
+    </div>
   )
-  const stepsMatch = text.match(/Steps:?\s*([\s\S]*?)(?=Watch out for:|Tip:|$)/i)
-  const mistakesMatch = text.match(/Watch out for:?\s*([\s\S]*?)(?=Tip:|$)/i)
-  const tipMatch = text.match(/Tip:?\s*([\s\S]*?)$/i)
-
-  if (equipmentMatch?.[1]) {
-    result.equipment = equipmentMatch[1].trim()
-  }
-  if (stepsMatch?.[1]) {
-    result.steps = stepsMatch[1].trim()
-  }
-  if (mistakesMatch?.[1]) {
-    result.mistakes = mistakesMatch[1].trim()
-  }
-  if (tipMatch?.[1]) {
-    result.tip = tipMatch[1].trim()
-  }
-
-  return result
 }
 
 export function PreparationTips({
@@ -62,22 +33,12 @@ export function PreparationTips({
   onRetry,
   preparationNotes,
 }: PreparationTipsProps) {
-  const parsed = useMemo(() => (tips ? parseTips(tips) : null), [tips])
   const hasNotes = !!preparationNotes?.trim()
 
   if (isLoading) {
     return (
       <div className="flex flex-col gap-4">
-        {hasNotes && (
-          <div className="flex flex-col gap-1 border-t pt-4">
-            <Body variant="small" className="font-medium">
-              Your notes
-            </Body>
-            <Body variant="small" className="text-muted-foreground whitespace-pre-line">
-              {preparationNotes}
-            </Body>
-          </div>
-        )}
+        {hasNotes && <UserNotes notes={preparationNotes!} />}
         <div className="flex flex-col gap-4 border-t pt-4">
           <div className="flex flex-col gap-2">
             <Body variant="small" className="font-medium">
@@ -89,17 +50,19 @@ export function PreparationTips({
               <Skeleton className="h-4 w-1/2" />
             </div>
           </div>
-          <div className="flex flex-col gap-2">
-            <Body variant="small" className="font-medium">
-              Steps
-            </Body>
-            <div className="flex flex-col gap-1.5">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-11/12" />
-              <Skeleton className="h-4 w-10/12" />
-              <Skeleton className="h-4 w-full" />
+          {!hasNotes && (
+            <div className="flex flex-col gap-2">
+              <Body variant="small" className="font-medium">
+                Steps
+              </Body>
+              <div className="flex flex-col gap-1.5">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-11/12" />
+                <Skeleton className="h-4 w-10/12" />
+                <Skeleton className="h-4 w-full" />
+              </div>
             </div>
-          </div>
+          )}
           <div className="flex flex-col gap-2">
             <Body variant="small" className="font-medium">
               Watch out for
@@ -117,16 +80,7 @@ export function PreparationTips({
   if (error) {
     return (
       <div className="flex flex-col gap-4">
-        {hasNotes && (
-          <div className="flex flex-col gap-2 border-t pt-4">
-            <Body variant="small" className="font-medium">
-              Your notes
-            </Body>
-            <Body variant="small" className="text-muted-foreground whitespace-pre-line">
-              {preparationNotes}
-            </Body>
-          </div>
-        )}
+        {hasNotes && <UserNotes notes={preparationNotes!} />}
         <div className="flex flex-col gap-2 border-t pt-4">
           <Body variant="small" className="font-medium">
             Preparation tips
@@ -146,105 +100,63 @@ export function PreparationTips({
     return null
   }
 
-  if (!tips || !parsed) {
-    // No AI tips yet — show user notes if available
+  if (!tips) {
     if (hasNotes) {
-      return (
-        <div className="flex flex-col gap-2 border-t pt-4">
-          <Body variant="small" className="font-medium">
-            Your notes
-          </Body>
-          <Body variant="small" className="text-muted-foreground whitespace-pre-line">
-            {preparationNotes}
-          </Body>
-        </div>
-      )
+      return <UserNotes notes={preparationNotes!} />
     }
     return null
   }
 
-  // Check if we have structured sections or just raw text
-  const hasStructuredSections = parsed.equipment || parsed.steps || parsed.mistakes
-
-  if (!hasStructuredSections) {
-    // Fallback: render as plain text (backwards compatibility)
-    return (
-      <div className="flex flex-col gap-4">
-        {hasNotes && (
-          <div className="flex flex-col gap-2 border-t pt-4">
-            <Body variant="small" className="font-medium">
-              Your notes
-            </Body>
-            <Body variant="small" className="text-muted-foreground whitespace-pre-line">
-              {preparationNotes}
-            </Body>
-          </div>
-        )}
-        <div className="flex flex-col gap-2 border-t pt-4">
-          <Body variant="small" className="font-medium">
-            {hasNotes ? 'Additional tips' : 'Preparation tips'}
-          </Body>
-          <Body variant="small" className="text-muted-foreground whitespace-pre-line">
-            {tips}
-          </Body>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="flex flex-col gap-4">
-      {hasNotes && (
-        <div className="flex flex-col gap-1 border-t pt-4">
-          <Body variant="small" className="font-medium">
-            Your notes
-          </Body>
-          <Body variant="small" className="text-muted-foreground whitespace-pre-line">
-            {preparationNotes}
-          </Body>
-        </div>
-      )}
+      {hasNotes && <UserNotes notes={preparationNotes!} />}
       <div className="flex flex-col gap-4 border-t pt-4">
-        {parsed.equipment && (
+        {tips.equipment && tips.equipment.length > 0 && (
           <div className="flex flex-col gap-1">
             <Body variant="small" className="font-medium">
               Equipment needed
             </Body>
-            <Body variant="small" className="text-muted-foreground whitespace-pre-line">
-              {parsed.equipment}
-            </Body>
+            <ul className="text-muted-foreground list-disc pl-5 text-sm">
+              {tips.equipment.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
           </div>
         )}
-        {parsed.steps && (
+        {tips.steps && tips.steps.length > 0 && (
           <div className="flex flex-col gap-1">
             <Body variant="small" className="font-medium">
               Steps
             </Body>
-            <Body variant="small" className="text-muted-foreground whitespace-pre-line">
-              {parsed.steps}
-            </Body>
+            <ol className="text-muted-foreground list-decimal pl-5 text-sm">
+              {tips.steps.map((step, i) => (
+                <li key={i} className="mb-1">
+                  {step}
+                </li>
+              ))}
+            </ol>
           </div>
         )}
-        {parsed.mistakes && (
+        {tips.pitfalls.length > 0 && (
           <div className="flex flex-col gap-1">
             <Body variant="small" className="font-medium">
               Watch out for
             </Body>
-            <Body variant="small" className="text-muted-foreground whitespace-pre-line">
-              {parsed.mistakes}
-            </Body>
+            <ul className="text-muted-foreground list-disc pl-5 text-sm">
+              {tips.pitfalls.map((pitfall, i) => (
+                <li key={i}>{pitfall}</li>
+              ))}
+            </ul>
           </div>
         )}
-        {parsed.tip && (
-          <div className="flex flex-col gap-1">
-            <Body variant="small" className="font-medium">
-              Tip
-            </Body>
-            <Body variant="small" className="text-muted-foreground whitespace-pre-line">
-              {parsed.tip}
-            </Body>
-          </div>
-        )}
+        <div className="border-primary/20 bg-primary/5 rounded-md border-l-4 px-3 py-2">
+          <Body variant="small" className="font-medium">
+            Tip
+          </Body>
+          <Body variant="small" className="text-muted-foreground">
+            {tips.tip}
+          </Body>
+        </div>
       </div>
     </div>
   )

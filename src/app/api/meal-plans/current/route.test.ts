@@ -26,6 +26,20 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
+vi.mock('@/lib/tips', () => ({
+  parseStoredTips: vi.fn((stored: string) => {
+    try {
+      const parsed = JSON.parse(stored)
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.pitfalls) && parsed.tip) {
+        return parsed
+      }
+      return null
+    } catch {
+      return null
+    }
+  }),
+}))
+
 vi.mock('@/lib/meal-planning/nutrition', () => ({
   computeMealNutrition: vi.fn(() => ({
     calories: 400,
