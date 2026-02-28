@@ -206,6 +206,7 @@ export function MealCard({
             householdSize={householdSize}
             onSwapComplete={() => router.refresh()}
             mode="add"
+            pantryIngredients={pantryIngredients}
           />
         )}
       </>
@@ -307,6 +308,7 @@ export function MealCard({
         currentMealName={meal?.name}
         onSwapComplete={() => router.refresh()}
         mode="swap"
+        pantryIngredients={pantryIngredients}
       />
       <PantryDeductionModal
         open={isDeductionModalOpen}

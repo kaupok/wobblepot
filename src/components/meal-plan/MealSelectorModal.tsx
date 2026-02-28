@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Body } from '@/components/ui/typography'
 import { AlternativeCard } from './AlternativeCard'
-import type { AlternativeMeal, MealComponent, NutritionData } from './types'
+import type { AlternativeMeal, MealComponent, NutritionData, PantryIngredient } from './types'
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
 
 interface MealSelectorModalProps {
@@ -30,6 +30,8 @@ interface MealSelectorModalProps {
   onSwapComplete: () => void
   /** 'swap' = replacing existing meal (suggestions based on current meal), 'add' = empty slot (suggestions based on slot context) */
   mode: 'swap' | 'add'
+  /** When provided, ingredient lists on cards are color-coded by pantry availability */
+  pantryIngredients?: PantryIngredient[]
 }
 
 // Type for the /api/meals response
@@ -77,6 +79,7 @@ export function MealSelectorModal({
   currentMealName,
   onSwapComplete,
   mode,
+  pantryIngredients,
 }: MealSelectorModalProps) {
   // AI suggestions state
   const [suggestions, setSuggestions] = useState<AlternativeMeal[]>([])
@@ -404,6 +407,7 @@ export function MealSelectorModal({
                     householdSize={householdSize}
                     onSelect={handleSelect}
                     isSelecting={selectingId === meal.id}
+                    pantryIngredients={pantryIngredients}
                   />
                 ))}
               </div>
