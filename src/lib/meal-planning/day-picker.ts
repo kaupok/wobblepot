@@ -22,12 +22,14 @@ export function getDayPickerOptions(today?: Date): DayOption[] {
   const dayOfWeek = d.getDay() // 0=Sun, 1=Mon, ..., 6=Sat
   const options: DayOption[] = []
 
-  // Today (always)
-  options.push({ label: 'Today', date: toDateString(d) })
-
   // Days remaining in the current week after today (Mon-Sun week)
   // Sunday=0 → 0, Monday=1 → 6, Tuesday=2 → 5, ..., Saturday=6 → 1
   const daysRemaining = dayOfWeek === 0 ? 0 : 7 - dayOfWeek
+
+  // Today (skip on Sunday — only 1 day left in week, API blocks current-week generation)
+  if (daysRemaining > 0) {
+    options.push({ label: 'Today', date: toDateString(d) })
+  }
 
   // Tomorrow (if today is not Saturday — on Saturday, tomorrow is Sunday which is end-of-week)
   if (dayOfWeek !== 6 && daysRemaining >= 1) {

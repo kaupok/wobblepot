@@ -49,7 +49,13 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { checkRateLimit, recordGeneration } from '@/lib/meal-planning/rate-limit'
 import { generateMealPlan, createEmptyPlan, fillEmptySlots } from '@/lib/ai/generate-plan'
-import { isSunday, isMonday, parseLocalDate, getMondayOfWeek } from '@/lib/meal-planning/dates'
+import {
+  isSunday,
+  isMonday,
+  parseLocalDate,
+  getMondayOfWeek,
+  getCurrentWeekMonday,
+} from '@/lib/meal-planning/dates'
 import {
   MealPlanValidationError,
   InsufficientCandidatesError,
@@ -67,6 +73,7 @@ const mockIsSunday = vi.mocked(isSunday)
 const mockIsMonday = vi.mocked(isMonday)
 const mockParseLocalDate = vi.mocked(parseLocalDate)
 const mockGetMondayOfWeek = vi.mocked(getMondayOfWeek)
+const mockGetCurrentWeekMonday = vi.mocked(getCurrentWeekMonday)
 
 const mockHousehold = {
   id: 'household-123',
@@ -388,25 +395,43 @@ describe('POST /api/meal-plans/generate', () => {
       )
     })
 
-    it('bypasses Sunday check when planFromDate is provided', async () => {
+    it('returns 400 when planFromDate resolves to current week on Sunday', async () => {
       mockGetSession.mockResolvedValue(mockSession as never)
       mockGetMembership.mockResolvedValue(mockMembership as never)
       mockIsSunday.mockReturnValue(true)
-      // Sunday Feb 22 2026
+      // Sunday Feb 22 2026 — resolves to current week Monday (Feb 16)
       mockParseLocalDate.mockReturnValue(new Date('2026-02-22T00:00:00.000Z'))
       mockIsMonday.mockReturnValue(false)
+      // Both return Feb 16 → same week → targetWeek = 'current'
       mockGetMondayOfWeek.mockReturnValue(new Date('2026-02-16T00:00:00.000Z'))
+      mockGetCurrentWeekMonday.mockReturnValue(new Date('2026-02-16T00:00:00.000Z'))
+
+      const response = await POST(createRequest({ planFromDate: '2026-02-22' }))
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.error).toContain('Cannot generate current week plan on Sunday')
+    })
+
+    it('allows planFromDate on Sunday when it resolves to next week', async () => {
+      mockGetSession.mockResolvedValue(mockSession as never)
+      mockGetMembership.mockResolvedValue(mockMembership as never)
+      mockIsSunday.mockReturnValue(true)
+      // Next Monday Feb 23 2026 — resolves to next week
+      mockParseLocalDate.mockReturnValue(new Date('2026-02-23T00:00:00.000Z'))
+      mockIsMonday.mockReturnValue(true)
+      mockGetMondayOfWeek.mockReturnValue(new Date('2026-02-23T00:00:00.000Z'))
+      mockGetCurrentWeekMonday.mockReturnValue(new Date('2026-02-16T00:00:00.000Z'))
 
       const mockResult = {
         id: 'plan-123',
-        startDate: '2026-02-16',
-        endDate: '2026-02-23',
-        entries: [{ id: 'entry-1', date: '2026-02-22', mealType: 'dinner', status: 'planned' }],
+        startDate: '2026-02-23',
+        endDate: '2026-03-02',
+        entries: [{ id: 'entry-1', date: '2026-02-23', mealType: 'dinner', status: 'planned' }],
       }
       mockGenerateMealPlan.mockResolvedValue(mockResult as never)
 
-      // Should NOT return 400 even though isSunday() returns true
-      const response = await POST(createRequest({ planFromDate: '2026-02-22' }))
+      const response = await POST(createRequest({ planFromDate: '2026-02-23' }))
       expect(response.status).toBe(200)
     })
 

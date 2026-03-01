@@ -79,8 +79,10 @@ export function EmptyPlan({
   const [error, setError] = useState<string | null>(null)
 
   // First-time form state — pre-filled from saved preferences
-  const [selectedDate, setSelectedDate] = useState<string>(getDefaultDate)
   const dayPickerOptions = getDayPickerOptions()
+  const [selectedDate, setSelectedDate] = useState<string>(
+    dayPickerOptions[0]?.date ?? getDefaultDate(),
+  )
   const [mealTypes, setMealTypes] = useState<MealType[]>(() => {
     // Use weekday meal types from preferences as the unified selection
     const prefsWeekday = preferences?.weekdayMealTypes ?? []

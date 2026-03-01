@@ -69,12 +69,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         headers: { cookie: cookieHeader },
         cache: 'no-store',
       }),
-      isCurrentlySunday
-        ? Promise.resolve(null)
-        : fetch(`${baseURL}/api/meal-plans/current?week=current`, {
-            headers: { cookie: cookieHeader },
-            cache: 'no-store',
-          }),
+      fetch(`${baseURL}/api/meal-plans/current?week=current`, {
+        headers: { cookie: cookieHeader },
+        cache: 'no-store',
+      }),
       fetch(`${baseURL}/api/meal-plans/current?week=next`, {
         headers: { cookie: cookieHeader },
         cache: 'no-store',
@@ -101,13 +99,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   // Parse responses
   const hasLastPlan = lastResponse.ok
-  const hasCurrentPlan = currentResponse?.ok ?? false
+  const hasCurrentPlan = currentResponse.ok
   const hasNextPlan = nextResponse.ok
 
   // Get the active plan data
   const activeResponse =
     activeWeek === 'last' ? lastResponse : activeWeek === 'current' ? currentResponse : nextResponse
-  const hasPlan = activeResponse?.ok ?? false
+  const hasPlan = activeResponse.ok
 
   let plan: MealPlanWithContext | null = null
   let weekContext: WeekContext | null = null

@@ -23,6 +23,15 @@ vi.mock('./GeneratingOverlay', () => ({
   GeneratingOverlay: () => <div data-testid="generating-overlay">Generating...</div>,
 }))
 
+// Mock day-picker to return stable options regardless of system date
+vi.mock('@/lib/meal-planning/day-picker', () => ({
+  getDayPickerOptions: () => [
+    { label: 'Today', date: '2026-02-18' },
+    { label: 'Tomorrow', date: '2026-02-19' },
+    { label: 'Next week (23 Feb)', date: '2026-02-23' },
+  ],
+}))
+
 // Default week context for most tests
 const defaultWeekContext: WeekContext = {
   type: 'current',
