@@ -36,7 +36,7 @@ export interface StructuredTips {
   equipment?: string[]
   steps?: string[]
   pitfalls: string[]
-  tip: string
+  tip?: string
 }
 
 export interface PlanEntry {

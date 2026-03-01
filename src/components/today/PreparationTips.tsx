@@ -149,14 +149,16 @@ export function PreparationTips({
             </ul>
           </div>
         )}
-        <div className="border-primary/20 bg-primary/5 rounded-md border-l-4 px-3 py-2">
-          <Body variant="small" className="font-medium">
-            Tip
-          </Body>
-          <Body variant="small" className="text-muted-foreground">
-            {tips.tip}
-          </Body>
-        </div>
+        {tips.tip && (
+          <div className="border-primary/20 bg-primary/5 rounded-md border-l-4 px-3 py-2">
+            <Body variant="small" className="font-medium">
+              Tip
+            </Body>
+            <Body variant="small" className="text-muted-foreground">
+              {tips.tip}
+            </Body>
+          </div>
+        )}
       </div>
     </div>
   )

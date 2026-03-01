@@ -30,7 +30,7 @@ const fullTipsSchema = z.object({
       '4-6 ordered preparation steps covering what to start first, parallel prep, and timing tips',
     ),
   pitfalls: z.array(z.string()).describe('2-3 common mistakes to avoid with this dish'),
-  tip: z.string().describe('One helpful cooking tip'),
+  tip: z.string().describe('One helpful cooking tip').optional(),
 })
 
 const supplementaryTipsSchema = z.object({
@@ -189,7 +189,7 @@ Keep it brief and practical. Not a full recipe — just order of operations and 
         model: anthropic(TIPS_MODEL),
         schema: fullTipsSchema,
         prompt,
-        maxOutputTokens: 500,
+        maxOutputTokens: 1000,
         maxRetries: 3,
         abortSignal: timeout,
       })
