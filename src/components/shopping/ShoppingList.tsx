@@ -145,7 +145,7 @@ export function ShoppingList({
                 categoryLabel={group.categoryLabel}
                 items={group.items}
                 onToggleItem={handleToggle}
-                disabled={pendingIds.size > 0}
+                pendingIds={pendingIds}
               />
             ))}
           </div>
