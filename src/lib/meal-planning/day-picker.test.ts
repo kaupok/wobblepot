@@ -52,16 +52,14 @@ describe('getDayPickerOptions', () => {
     ])
   })
 
-  it('returns correct options for Sunday (22 Feb)', () => {
+  it('returns correct options for Sunday (22 Feb) — no "Today" option', () => {
     const sunday = new Date(2026, 1, 22) // Sun 22 Feb 2026
     mockGetNextMonday.mockReturnValue(new Date(2026, 1, 23))
 
     const options = getDayPickerOptions(sunday)
 
-    expect(options).toEqual([
-      { label: 'Today', date: '2026-02-22' },
-      { label: 'Next week (23 Feb)', date: '2026-02-23' },
-    ])
+    // Sunday: only "Next week" — "Today" is hidden because current-week generation is blocked
+    expect(options).toEqual([{ label: 'Next week (23 Feb)', date: '2026-02-23' }])
   })
 
   it('returns correct options for Saturday (21 Feb)', () => {
@@ -124,15 +122,21 @@ describe('getDayPickerOptions', () => {
     ])
   })
 
-  it('always includes Today as first option', () => {
-    // Test for every day of the week
-    for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+  it('includes Today as first option on all days except Sunday', () => {
+    // Mon(16) through Sat(21) should have "Today" first
+    for (let dayOffset = 0; dayOffset < 6; dayOffset++) {
       const date = new Date(2026, 1, 16 + dayOffset)
       mockGetNextMonday.mockReturnValue(new Date(2026, 1, 23))
 
       const options = getDayPickerOptions(date)
       expect(options[0]!.label).toBe('Today')
     }
+
+    // Sunday(22) should NOT have "Today"
+    const sunday = new Date(2026, 1, 22)
+    mockGetNextMonday.mockReturnValue(new Date(2026, 1, 23))
+    const sundayOptions = getDayPickerOptions(sunday)
+    expect(sundayOptions[0]!.label).toContain('Next week')
   })
 
   it('always includes Next week as last option', () => {

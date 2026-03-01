@@ -170,6 +170,13 @@ export async function POST(request: Request) {
     // Derive targetWeek for response context
     const currentMonday = getCurrentWeekMonday()
     targetWeek = startDate.getTime() === currentMonday.getTime() ? 'current' : 'next'
+    // Block current-week generation on Sunday (only 1 day left)
+    if (targetWeek === 'current' && isSunday()) {
+      return NextResponse.json(
+        { error: 'Cannot generate current week plan on Sunday - use next week instead' },
+        { status: 400 },
+      )
+    }
   } else if (parsed.data.startDate) {
     // Explicit startDate provided - use it directly (backwards compatibility)
     startDate = parseLocalDate(parsed.data.startDate)
