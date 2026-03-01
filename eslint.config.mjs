@@ -9,14 +9,7 @@ const config = defineConfig([
   ...nextTs,
 
   // Global ignores
-  globalIgnores([
-    '.next/**',
-    'out/**',
-    'build/**',
-    'coverage/**',
-    'next-env.d.ts',
-    'cyrus-proxy/**', // Third-party Cyrus proxy worker code
-  ]),
+  globalIgnores(['.next/**', 'out/**', 'build/**', 'coverage/**', 'next-env.d.ts']),
 
   // TypeScript-specific rules
   {

@@ -51,12 +51,6 @@ next-env.d.ts
 .prisma
 /src/generated/prisma
 
-# cyrus proxy worker - deployment-specific files only
-/cyrus-proxy/wrangler.toml
-/cyrus-proxy/.wrangler
-/cyrus-proxy/node_modules
-/cyrus-proxy/.dev.vars
-
 
 # temporary files
 /.temp

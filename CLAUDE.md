@@ -262,4 +262,3 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 | [docs/CHROME_TESTING.md](docs/CHROME_TESTING.md)       | Browser testing with Chrome extension         |
 | [docs/VOICE_REVIEW.md](docs/VOICE_REVIEW.md)           | Voice review setup and usage                  |
 | [docs/PARALLEL_WORKFLOW.md](docs/PARALLEL_WORKFLOW.md) | Parallel Claude Code with git worktrees       |
-| [docs/CYRUS_GUIDE.md](docs/CYRUS_GUIDE.md)             | Cyrus autonomous agent setup                  |
