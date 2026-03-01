@@ -75,9 +75,10 @@ export function TodayMealCard({
   const effectiveServings = servingOverride ?? householdSize
   const hasServingOverride = servingOverride !== null && servingOverride !== householdSize
 
-  const { togglingIngredientIds, handleToggleAvailability } = useIngredientAvailability({
-    onRefresh: () => router.refresh(),
-  })
+  const { togglingIngredientIds, optimisticOverrides, handleToggleAvailability } =
+    useIngredientAvailability({
+      onRefresh: () => router.refresh(),
+    })
   const {
     tips,
     isLoadingTips,
@@ -338,6 +339,7 @@ export function TodayMealCard({
               pantryIngredients={pantryIngredients}
               onToggleAvailability={isFinished ? undefined : handleToggleAvailability}
               togglingIds={togglingIngredientIds}
+              optimisticOverrides={optimisticOverrides}
               hideAvailability={isFinished}
               hideAvailabilityBadge={isFinished}
               tips={tips}

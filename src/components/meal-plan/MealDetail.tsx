@@ -19,8 +19,10 @@ interface MealDetailProps {
   pantryIngredients?: PantryIngredient[]
   /** If provided, renders checkboxes to toggle ingredient availability */
   onToggleAvailability?: (ingredientId: string, hasIt: boolean) => void
-  /** Ingredient IDs currently being toggled (for loading state) */
+  /** Ingredient IDs currently being toggled (for pending indicator) */
   togglingIds?: Set<string>
+  /** Optimistic availability overrides from in-flight toggles */
+  optimisticOverrides?: Map<string, boolean>
   /** If true, hides checkboxes and missing ingredient styling */
   hideAvailability?: boolean
   /** If true, hides the availability badge on finished meals */
@@ -49,6 +51,7 @@ export function MealDetail({
   pantryIngredients = [],
   onToggleAvailability,
   togglingIds,
+  optimisticOverrides,
   hideAvailability = false,
   hideAvailabilityBadge = false,
   tips = null,
@@ -98,6 +101,7 @@ export function MealDetail({
           pantryIngredients={pantryIngredients}
           onToggleAvailability={hideAvailability ? undefined : onToggleAvailability}
           togglingIds={togglingIds}
+          optimisticOverrides={optimisticOverrides}
           availability={hideAvailabilityBadge ? null : availability}
           hideAvailability={hideAvailability}
           headerElement={

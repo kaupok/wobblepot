@@ -45,9 +45,10 @@ export function MealDetailModal({
 }: MealDetailModalProps) {
   const router = useRouter()
   const [localServings, setLocalServings] = useState(servingOverride ?? householdSize)
-  const { togglingIngredientIds, handleToggleAvailability } = useIngredientAvailability({
-    onRefresh: () => router.refresh(),
-  })
+  const { togglingIngredientIds, optimisticOverrides, handleToggleAvailability } =
+    useIngredientAvailability({
+      onRefresh: () => router.refresh(),
+    })
   const {
     tips,
     isLoadingTips,
@@ -121,6 +122,7 @@ export function MealDetailModal({
           pantryIngredients={pantryIngredients}
           onToggleAvailability={handleToggleAvailability}
           togglingIds={togglingIngredientIds}
+          optimisticOverrides={optimisticOverrides}
           tips={tips}
           isLoadingTips={isLoadingTips}
           tipsError={tipsError}

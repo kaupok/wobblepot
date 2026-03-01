@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 
 interface UseIngredientAvailabilityOptions {
@@ -9,10 +9,18 @@ interface UseIngredientAvailabilityOptions {
 
 export function useIngredientAvailability({ onRefresh }: UseIngredientAvailabilityOptions) {
   const [togglingIngredientIds, setTogglingIngredientIds] = useState<Set<string>>(new Set())
+  const [optimisticOverrides, setOptimisticOverrides] = useState<Map<string, boolean>>(new Map())
+  const togglingRef = useRef(togglingIngredientIds)
+  togglingRef.current = togglingIngredientIds
 
   const handleToggleAvailability = useCallback(
     async (ingredientId: string, hasIt: boolean) => {
+      // Prevent double-clicks while already toggling this ingredient
+      if (togglingRef.current.has(ingredientId)) return
+
       setTogglingIngredientIds((prev) => new Set(prev).add(ingredientId))
+      // Optimistic update: show new state immediately
+      setOptimisticOverrides((prev) => new Map(prev).set(ingredientId, hasIt))
 
       try {
         if (hasIt) {
@@ -41,6 +49,12 @@ export function useIngredientAvailability({ onRefresh }: UseIngredientAvailabili
 
         onRefresh()
       } catch (error) {
+        // Revert optimistic update on error
+        setOptimisticOverrides((prev) => {
+          const next = new Map(prev)
+          next.delete(ingredientId)
+          return next
+        })
         toast.error(error instanceof Error ? error.message : 'Failed to update pantry')
       } finally {
         setTogglingIngredientIds((prev) => {
@@ -53,5 +67,5 @@ export function useIngredientAvailability({ onRefresh }: UseIngredientAvailabili
     [onRefresh],
   )
 
-  return { togglingIngredientIds, handleToggleAvailability }
+  return { togglingIngredientIds, optimisticOverrides, handleToggleAvailability }
 }

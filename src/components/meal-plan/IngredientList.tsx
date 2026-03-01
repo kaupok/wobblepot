@@ -16,8 +16,10 @@ interface IngredientListProps {
   pantryIngredients?: PantryIngredient[]
   /** If provided, renders checkboxes to toggle ingredient availability */
   onToggleAvailability?: (ingredientId: string, hasIt: boolean) => void
-  /** Ingredient IDs currently being toggled (for loading state) */
+  /** Ingredient IDs currently being toggled (for pending indicator) */
   togglingIds?: Set<string>
+  /** Optimistic availability overrides from in-flight toggles */
+  optimisticOverrides?: Map<string, boolean>
   /** If provided, renders availability badge inline with header */
   availability?: MealAvailability | null
   /** If true, hides checkboxes and missing ingredient styling (for completed/skipped meals) */
@@ -67,6 +69,7 @@ export function IngredientList({
   pantryIngredients,
   onToggleAvailability,
   togglingIds,
+  optimisticOverrides,
   availability,
   hideAvailability = false,
   compact = false,
@@ -134,7 +137,11 @@ export function IngredientList({
       </div>
       <Ul className={cn('my-0 ml-0', compact && 'text-xs leading-tight')}>
         {regularComponents.map((comp) => {
-          const hasIt = availableIds ? availableIds.has(comp.ingredientId) : true
+          // Use optimistic override if available, otherwise fall back to server state
+          const serverHasIt = availableIds ? availableIds.has(comp.ingredientId) : true
+          const hasIt = optimisticOverrides?.has(comp.ingredientId)
+            ? optimisticOverrides.get(comp.ingredientId)!
+            : serverHasIt
           const isMissing = !hasIt
           const isToggling = togglingIds?.has(comp.ingredientId) ?? false
 
@@ -148,13 +155,13 @@ export function IngredientList({
               className={cn(
                 'flex items-center gap-2',
                 showMissingStyle && 'text-amber-600 dark:text-amber-400',
+                isToggling && 'opacity-60',
               )}
             >
               {showCheckbox && (
                 <Checkbox
                   checked={hasIt}
                   onCheckedChange={(checked) => handleCheckedChange(comp.ingredientId, checked)}
-                  disabled={isToggling}
                   className={cn('h-4 w-4', compact && 'h-3 w-3')}
                   aria-label={`Mark ${comp.ingredient.name} as ${hasIt ? 'not available' : 'available'}`}
                 />

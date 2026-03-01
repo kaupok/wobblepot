@@ -19,10 +19,11 @@ describe('useIngredientAvailability', () => {
     mockFetch.mockReset()
   })
 
-  it('returns empty toggling set initially', () => {
+  it('returns empty toggling set and overrides initially', () => {
     const { result } = renderHook(() => useIngredientAvailability({ onRefresh: mockOnRefresh }))
 
     expect(result.current.togglingIngredientIds.size).toBe(0)
+    expect(result.current.optimisticOverrides.size).toBe(0)
   })
 
   describe('adding to pantry (hasIt=true)', () => {
@@ -170,6 +171,98 @@ describe('useIngredientAvailability', () => {
     // After completion, the ingredient should be removed from toggling set
     await waitFor(() => {
       expect(result.current.togglingIngredientIds.has('ing-3')).toBe(false)
+    })
+  })
+
+  describe('optimistic overrides', () => {
+    it('sets optimistic override immediately on toggle', async () => {
+      let resolvePromise: (value: Response) => void
+      mockFetch.mockReturnValue(
+        new Promise<Response>((resolve) => {
+          resolvePromise = resolve
+        }),
+      )
+
+      const { result } = renderHook(() => useIngredientAvailability({ onRefresh: mockOnRefresh }))
+
+      // Start the toggle (don't await)
+      let togglePromise: Promise<void>
+      act(() => {
+        togglePromise = result.current.handleToggleAvailability('ing-1', true)
+      })
+
+      // Optimistic override should be set immediately
+      expect(result.current.optimisticOverrides.get('ing-1')).toBe(true)
+
+      // Resolve
+      await act(async () => {
+        resolvePromise!({ ok: true, json: () => Promise.resolve({}) } as Response)
+        await togglePromise
+      })
+
+      // Override persists on success (server state will match via refresh)
+      expect(result.current.optimisticOverrides.get('ing-1')).toBe(true)
+    })
+
+    it('reverts optimistic override on API error', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({ error: 'Server error' }),
+      })
+
+      const { result } = renderHook(() => useIngredientAvailability({ onRefresh: mockOnRefresh }))
+
+      await act(async () => {
+        await result.current.handleToggleAvailability('ing-1', true)
+      })
+
+      // Override should be reverted on error
+      expect(result.current.optimisticOverrides.has('ing-1')).toBe(false)
+    })
+
+    it('reverts optimistic override on network error', async () => {
+      mockFetch.mockRejectedValue(new Error('Network error'))
+
+      const { result } = renderHook(() => useIngredientAvailability({ onRefresh: mockOnRefresh }))
+
+      await act(async () => {
+        await result.current.handleToggleAvailability('ing-1', false)
+      })
+
+      expect(result.current.optimisticOverrides.has('ing-1')).toBe(false)
+    })
+
+    it('prevents double-toggle while request is in-flight', async () => {
+      let resolvePromise: (value: Response) => void
+      mockFetch.mockReturnValue(
+        new Promise<Response>((resolve) => {
+          resolvePromise = resolve
+        }),
+      )
+
+      const { result } = renderHook(() => useIngredientAvailability({ onRefresh: mockOnRefresh }))
+
+      // Start the first toggle
+      let togglePromise: Promise<void>
+      act(() => {
+        togglePromise = result.current.handleToggleAvailability('ing-1', true)
+      })
+
+      // Try to toggle again while in-flight — should be ignored
+      act(() => {
+        result.current.handleToggleAvailability('ing-1', false)
+      })
+
+      // Should still show the first toggle's value
+      expect(result.current.optimisticOverrides.get('ing-1')).toBe(true)
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+
+      // Resolve
+      await act(async () => {
+        resolvePromise!({ ok: true, json: () => Promise.resolve({}) } as Response)
+        await togglePromise
+      })
     })
   })
 })
