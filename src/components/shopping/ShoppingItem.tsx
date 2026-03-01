@@ -20,9 +20,10 @@ interface ShoppingItemProps {
   item: ShoppingItemData
   onToggle: (ingredientId: string, purchased: boolean) => void
   disabled?: boolean
+  pending?: boolean
 }
 
-export function ShoppingItem({ item, onToggle, disabled }: ShoppingItemProps) {
+export function ShoppingItem({ item, onToggle, disabled, pending }: ShoppingItemProps) {
   const handleCheckedChange = (checked: boolean | 'indeterminate') => {
     if (checked === 'indeterminate') return
     onToggle(item.ingredientId, checked)
@@ -35,6 +36,7 @@ export function ShoppingItem({ item, onToggle, disabled }: ShoppingItemProps) {
         'hover:bg-muted/50',
         item.purchased && 'bg-muted/30',
         disabled && 'pointer-events-none opacity-50',
+        pending && !disabled && 'opacity-70',
       )}
     >
       <div className="flex items-center gap-3">

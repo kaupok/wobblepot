@@ -25,6 +25,7 @@ interface CustomShoppingItemProps {
   onUnlink: (id: string) => void
   onDelete: (id: string) => void
   disabled?: boolean
+  pending?: boolean
 }
 
 export function CustomShoppingItem({
@@ -33,6 +34,7 @@ export function CustomShoppingItem({
   onUnlink,
   onDelete,
   disabled,
+  pending,
 }: CustomShoppingItemProps) {
   const handleCheckedChange = (checked: boolean | 'indeterminate') => {
     if (checked === 'indeterminate') return
@@ -46,6 +48,7 @@ export function CustomShoppingItem({
         'hover:bg-muted/50',
         item.checked && 'bg-muted/30',
         disabled && 'pointer-events-none opacity-50',
+        pending && !disabled && 'opacity-70',
       )}
     >
       <label className="flex flex-1 cursor-pointer items-center gap-3">
