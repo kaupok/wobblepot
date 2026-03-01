@@ -78,9 +78,10 @@ export function TomorrowMealCard({
     },
     [planId, entryId, servingOverride],
   )
-  const { togglingIngredientIds, handleToggleAvailability } = useIngredientAvailability({
-    onRefresh: () => router.refresh(),
-  })
+  const { togglingIngredientIds, optimisticOverrides, handleToggleAvailability } =
+    useIngredientAvailability({
+      onRefresh: () => router.refresh(),
+    })
   const {
     tips,
     isLoadingTips,
@@ -171,6 +172,7 @@ export function TomorrowMealCard({
             pantryIngredients={pantryIngredients}
             onToggleAvailability={handleToggleAvailability}
             togglingIds={togglingIngredientIds}
+            optimisticOverrides={optimisticOverrides}
             tips={tips}
             isLoadingTips={isLoadingTips}
             tipsError={tipsError}
