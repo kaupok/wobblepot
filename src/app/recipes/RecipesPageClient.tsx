@@ -158,6 +158,7 @@ export function RecipesPageClient() {
             name: editingMeal.name,
             description: editingMeal.description,
             preparationNotes: editingMeal.preparationNotes,
+            sourceUrl: editingMeal.sourceUrl,
             timeMinutes: editingMeal.timeMinutes,
             kidFriendly: editingMeal.kidFriendly,
             suitableFor: editingMeal.suitableFor,
