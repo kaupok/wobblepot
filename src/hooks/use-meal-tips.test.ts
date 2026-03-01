@@ -1,10 +1,12 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useMealTips } from './use-meal-tips'
 import type { StructuredTips } from '@/components/meal-plan/types'
 
 const mockFetch = vi.fn()
 global.fetch = mockFetch
+
+vi.useFakeTimers({ shouldAdvanceTime: true })
 
 const defaultOptions = {
   planId: 'plan-1',
@@ -27,6 +29,10 @@ describe('useMealTips', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockFetch.mockReset()
+  })
+
+  afterEach(() => {
+    vi.runOnlyPendingTimers()
   })
 
   describe('initial state', () => {
@@ -138,6 +144,73 @@ describe('useMealTips', () => {
       })
 
       expect(result.current.isLoadingTips).toBe(false)
+    })
+
+    it('auto-retries once on 500 and succeeds', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({ error: 'Internal error' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ tips: mockTips }),
+        })
+
+      const { result } = renderHook(() => useMealTips(defaultOptions))
+
+      await act(async () => {
+        const promise = result.current.fetchTips()
+        await vi.advanceTimersByTimeAsync(2000)
+        await promise
+      })
+
+      expect(mockFetch).toHaveBeenCalledTimes(2)
+      expect(result.current.tips).toEqual(mockTips)
+      expect(result.current.tipsError).toBeNull()
+    })
+
+    it('auto-retries once on 429 and shows error if retry also fails', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 429,
+          json: () => Promise.resolve({ error: 'AI service is busy' }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 429,
+          json: () => Promise.resolve({ error: 'AI service is busy' }),
+        })
+
+      const { result } = renderHook(() => useMealTips(defaultOptions))
+
+      await act(async () => {
+        const promise = result.current.fetchTips()
+        await vi.advanceTimersByTimeAsync(2000)
+        await promise
+      })
+
+      expect(mockFetch).toHaveBeenCalledTimes(2)
+      expect(result.current.tipsError).toBe('AI service is busy')
+    })
+
+    it('does not retry on 404', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: () => Promise.resolve({ error: 'Entry not found' }),
+      })
+
+      const { result } = renderHook(() => useMealTips(defaultOptions))
+
+      await act(async () => {
+        await result.current.fetchTips()
+      })
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      expect(result.current.tipsError).toBe('Entry not found')
     })
 
     it('clears previous error on new fetch', async () => {

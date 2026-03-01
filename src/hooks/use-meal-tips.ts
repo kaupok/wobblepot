@@ -20,13 +20,16 @@ export function useMealTips({ planId, entryId, initialTips = null }: UseMealTips
     setTipsError(null)
     setIsTipsExpanded(true)
 
+    const url = `/api/meal-plans/${planId}/entries/${entryId}/preparation-tips`
+
     try {
-      const response = await fetch(
-        `/api/meal-plans/${planId}/entries/${entryId}/preparation-tips`,
-        {
-          method: 'POST',
-        },
-      )
+      let response = await fetch(url, { method: 'POST' })
+
+      // Auto-retry once after 2s for retryable server errors
+      if (!response.ok && (response.status >= 500 || response.status === 429)) {
+        await new Promise((resolve) => setTimeout(resolve, 2000))
+        response = await fetch(url, { method: 'POST' })
+      }
 
       if (!response.ok) {
         const data = await response.json()
