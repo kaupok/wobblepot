@@ -123,17 +123,6 @@ while read -r line; do
   fi
 done <<< "$worktrees"
 
-# Show Cyrus worktrees if any exist
-cyrus_base="$HOME/.cyrus/workspaces/$REPO_NAME"
-if [ -d "$cyrus_base" ]; then
-  cyrus_count=$(ls -1 "$cyrus_base" 2>/dev/null | wc -l | tr -d ' ')
-  if [ "$cyrus_count" -gt 0 ]; then
-    echo -e "${YELLOW}Also found $cyrus_count Cyrus worktree(s) in ~/.cyrus/workspaces/$REPO_NAME${NC}"
-    echo -e "${DIM}Run './scripts/cyrus-status.sh' for Cyrus details${NC}"
-    echo ""
-  fi
-fi
-
 # Quick commands reference
 echo -e "${DIM}─────────────────────────────────────────────────────────────────${NC}"
 echo -e "${DIM}Quick commands:${NC}"
