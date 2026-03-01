@@ -6,8 +6,6 @@ import type { StructuredTips } from '@/components/meal-plan/types'
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
-vi.useFakeTimers({ shouldAdvanceTime: true })
-
 const defaultOptions = {
   planId: 'plan-1',
   entryId: 'entry-1',
@@ -27,12 +25,14 @@ const mockSupplementaryTips: StructuredTips = {
 
 describe('useMealTips', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.clearAllMocks()
     mockFetch.mockReset()
   })
 
   afterEach(() => {
     vi.runOnlyPendingTimers()
+    vi.useRealTimers()
   })
 
   describe('initial state', () => {
@@ -67,7 +67,7 @@ describe('useMealTips', () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         '/api/meal-plans/plan-1/entries/entry-1/preparation-tips',
-        { method: 'POST' },
+        expect.objectContaining({ method: 'POST' }),
       )
       expect(result.current.tips).toEqual(mockTips)
       expect(result.current.isLoadingTips).toBe(false)
@@ -194,6 +194,31 @@ describe('useMealTips', () => {
 
       expect(mockFetch).toHaveBeenCalledTimes(2)
       expect(result.current.tipsError).toBe('AI service is busy')
+    })
+
+    it('auto-retries once on 502 and succeeds', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 502,
+          json: () => Promise.resolve({ error: 'Upstream unavailable' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ tips: mockTips }),
+        })
+
+      const { result } = renderHook(() => useMealTips(defaultOptions))
+
+      await act(async () => {
+        const promise = result.current.fetchTips()
+        await vi.advanceTimersByTimeAsync(2000)
+        await promise
+      })
+
+      expect(mockFetch).toHaveBeenCalledTimes(2)
+      expect(result.current.tips).toEqual(mockTips)
+      expect(result.current.tipsError).toBeNull()
     })
 
     it('does not retry on 404', async () => {

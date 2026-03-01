@@ -11,6 +11,15 @@ import { TIPS_MODEL } from '@/lib/ai/models'
 import { parseStoredTips } from '@/lib/tips'
 import type { StructuredTips } from '@/components/meal-plan/types'
 
+function getErrorStatusCode(err: unknown): number | undefined {
+  if (err !== null && typeof err === 'object') {
+    const e = err as Record<string, unknown>
+    if (typeof e['statusCode'] === 'number') return e['statusCode']
+    if (typeof e['status'] === 'number') return e['status']
+  }
+  return undefined
+}
+
 const fullTipsSchema = z.object({
   equipment: z
     .array(z.string())
@@ -199,8 +208,7 @@ Keep it brief and practical. Not a full recipe — just order of operations and 
     console.error('Failed to generate preparation tips:', error)
 
     // Classify error for appropriate HTTP status
-    const statusCode =
-      (error as { statusCode?: number }).statusCode ?? (error as { status?: number }).status
+    const statusCode = getErrorStatusCode(error)
 
     if (statusCode === 429) {
       return NextResponse.json(
