@@ -11,6 +11,15 @@ import { TIPS_MODEL } from '@/lib/ai/models'
 import { parseStoredTips } from '@/lib/tips'
 import type { StructuredTips } from '@/components/meal-plan/types'
 
+function getErrorStatusCode(err: unknown): number | undefined {
+  if (err !== null && typeof err === 'object') {
+    const e = err as Record<string, unknown>
+    if (typeof e['statusCode'] === 'number') return e['statusCode']
+    if (typeof e['status'] === 'number') return e['status']
+  }
+  return undefined
+}
+
 const fullTipsSchema = z.object({
   equipment: z
     .array(z.string())
@@ -119,6 +128,7 @@ export async function POST(
 Never use Fahrenheit, cups, ounces, pounds, or inches.`
 
     const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
+    const timeout = AbortSignal.timeout(30_000)
 
     let tips: StructuredTips
 
@@ -150,6 +160,8 @@ Keep it brief and practical.`
         schema: supplementaryTipsSchema,
         prompt,
         maxOutputTokens: 400,
+        maxRetries: 3,
+        abortSignal: timeout,
       })
 
       tips = object
@@ -178,6 +190,8 @@ Keep it brief and practical. Not a full recipe — just order of operations and 
         schema: fullTipsSchema,
         prompt,
         maxOutputTokens: 500,
+        maxRetries: 3,
+        abortSignal: timeout,
       })
 
       tips = object
@@ -192,6 +206,28 @@ Keep it brief and practical. Not a full recipe — just order of operations and 
     return NextResponse.json({ tips }, { status: 200 })
   } catch (error) {
     console.error('Failed to generate preparation tips:', error)
+
+    // Classify error for appropriate HTTP status
+    const statusCode = getErrorStatusCode(error)
+
+    if (statusCode === 429) {
+      return NextResponse.json(
+        { error: 'AI service is busy. Please try again in a moment.' },
+        { status: 429 },
+      )
+    }
+
+    if (statusCode === 529 || statusCode === 503) {
+      return NextResponse.json(
+        { error: 'AI service temporarily unavailable. Please try again.' },
+        { status: 502 },
+      )
+    }
+
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      return NextResponse.json({ error: 'Request timed out. Please try again.' }, { status: 504 })
+    }
+
     return NextResponse.json({ error: "Couldn't generate tips. Try again." }, { status: 500 })
   }
 }
