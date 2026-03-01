@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
@@ -58,6 +59,7 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
   const [timeMinutes, setTimeMinutes] = useState<string>(
     meal?.timeMinutes ? String(meal.timeMinutes) : '',
   )
+  const [sourceUrl, setSourceUrl] = useState(meal?.sourceUrl ?? '')
   const [kidFriendly, setKidFriendly] = useState(meal?.kidFriendly ?? false)
   const [suitableFor, setSuitableFor] = useState<MealTypeValue[]>(
     (meal?.suitableFor as MealTypeValue[]) ?? ['dinner'],
@@ -332,7 +334,7 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
         name: name.trim(),
         description: description.trim() || null,
         preparationNotes: preparationNotes.trim() || null,
-        sourceUrl: meal?.sourceUrl ?? null,
+        sourceUrl: sourceUrl.trim() || null,
         timeMinutes: timeMinutes ? parseInt(timeMinutes, 10) : null,
         kidFriendly,
         suitableFor,
@@ -513,18 +515,45 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
             <section className="flex flex-col gap-2">
               <Label htmlFor="preparationNotes">Preparation notes</Label>
               <Body variant="muted">
-                How do you prepare this meal? Steps, tips, or a link to the recipe.
+                How do you prepare this meal? Steps, tips, or other notes.
               </Body>
               <Textarea
                 id="preparationNotes"
                 value={preparationNotes}
                 onChange={(e) => setPreparationNotes(e.target.value)}
-                placeholder="Optional — e.g., steps, cooking tips, or a recipe URL"
+                placeholder="Optional — e.g., steps, cooking tips"
                 rows={5}
                 maxLength={5000}
                 disabled={isSubmitting}
                 className="resize-y"
               />
+            </section>
+
+            {/* Source URL Section */}
+            <section className="flex flex-col gap-2">
+              <Label htmlFor="sourceUrl">Source URL</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="sourceUrl"
+                  type="url"
+                  value={sourceUrl}
+                  onChange={(e) => setSourceUrl(e.target.value)}
+                  placeholder="https://example.com/recipe"
+                  disabled={isSubmitting}
+                />
+                {sourceUrl && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSourceUrl('')}
+                    disabled={isSubmitting}
+                    aria-label="Clear source URL"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </section>
           </div>
         </CardContent>
