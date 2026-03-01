@@ -7,7 +7,7 @@ import type { StructuredTips } from '@/components/meal-plan/types'
 export function parseStoredTips(stored: string): StructuredTips | null {
   try {
     const parsed = JSON.parse(stored)
-    if (parsed && typeof parsed === 'object' && Array.isArray(parsed.pitfalls) && parsed.tip) {
+    if (parsed && typeof parsed === 'object' && Array.isArray(parsed.pitfalls)) {
       return parsed as StructuredTips
     }
     return null

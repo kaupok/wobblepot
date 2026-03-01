@@ -30,7 +30,7 @@ vi.mock('@/lib/tips', () => ({
   parseStoredTips: vi.fn((stored: string) => {
     try {
       const parsed = JSON.parse(stored)
-      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.pitfalls) && parsed.tip) {
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.pitfalls)) {
         return parsed
       }
       return null
