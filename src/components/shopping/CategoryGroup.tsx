@@ -73,7 +73,8 @@ export function CategoryGroup({
             key={item.ingredientId}
             item={item}
             onToggle={onToggleItem}
-            disabled={pendingIds ? pendingIds.has(item.ingredientId) : disabled}
+            disabled={disabled}
+            pending={pendingIds?.has(item.ingredientId)}
           />
         ))}
         {customItems?.map((item) => (
@@ -83,7 +84,8 @@ export function CategoryGroup({
             onToggle={onToggleCustomItem ?? (() => {})}
             onUnlink={onUnlinkCustomItem ?? (() => {})}
             onDelete={onDeleteCustomItem ?? (() => {})}
-            disabled={pendingIds ? pendingIds.has(item.id) : disabled}
+            disabled={disabled}
+            pending={pendingIds?.has(item.id)}
           />
         ))}
       </div>

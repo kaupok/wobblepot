@@ -16,9 +16,16 @@ interface UrgencyGroupProps {
   items: ShoppingItemData[]
   onToggleItem: (ingredientId: string, purchased: boolean) => void
   disabled?: boolean
+  pendingIds?: Set<string>
 }
 
-export function UrgencyGroup({ bucket, items, onToggleItem, disabled }: UrgencyGroupProps) {
+export function UrgencyGroup({
+  bucket,
+  items,
+  onToggleItem,
+  disabled,
+  pendingIds,
+}: UrgencyGroupProps) {
   const label = URGENCY_LABELS[bucket]
   const purchasedCount = items.filter((item) => item.purchased).length
   const totalCount = items.length
@@ -42,6 +49,7 @@ export function UrgencyGroup({ bucket, items, onToggleItem, disabled }: UrgencyG
             item={item}
             onToggle={onToggleItem}
             disabled={disabled}
+            pending={pendingIds?.has(item.ingredientId)}
           />
         ))}
       </div>

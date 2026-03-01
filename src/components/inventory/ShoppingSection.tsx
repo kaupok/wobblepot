@@ -371,6 +371,14 @@ export function ShoppingSection({
 
   const isPending = pendingIds.size > 0 || pendingCustomIds.size > 0
 
+  // Combined pending IDs for components that handle both computed and custom items
+  const allPendingIds = useMemo(() => {
+    if (pendingIds.size === 0 && pendingCustomIds.size === 0) return undefined
+    const combined = new Set(pendingIds)
+    pendingCustomIds.forEach((id) => combined.add(id))
+    return combined
+  }, [pendingIds, pendingCustomIds])
+
   // Check if all items are purchased/checked
   const allPurchased = totalPurchased === totalItems && totalItems > 0 && uncheckedCustomCount === 0
 
@@ -437,7 +445,7 @@ export function ShoppingSection({
                   onToggleCustomItem={handleCustomToggle}
                   onUnlinkCustomItem={handleCustomUnlink}
                   onDeleteCustomItem={handleCustomDelete}
-                  disabled={isPending}
+                  pendingIds={allPendingIds}
                 />
               ))}
               {/* Render category groups that only have custom items (no computed items) */}
@@ -454,7 +462,7 @@ export function ShoppingSection({
                     onToggleCustomItem={handleCustomToggle}
                     onUnlinkCustomItem={handleCustomUnlink}
                     onDeleteCustomItem={handleCustomDelete}
-                    disabled={isPending}
+                    pendingIds={allPendingIds}
                   />
                 ))}
               {/* Unlinked custom items in "Other" section */}
@@ -479,7 +487,7 @@ export function ShoppingSection({
                         onToggle={handleCustomToggle}
                         onUnlink={handleCustomUnlink}
                         onDelete={handleCustomDelete}
-                        disabled={isPending}
+                        pending={pendingCustomIds.has(item.id)}
                       />
                     ))}
                   </div>
@@ -496,7 +504,7 @@ export function ShoppingSection({
                   bucket={group.bucket}
                   items={group.items}
                   onToggleItem={handleToggle}
-                  disabled={isPending}
+                  pendingIds={pendingIds}
                 />
               ))}
               {/* In urgency mode, show all custom items in a single "Custom items" group */}
@@ -520,7 +528,7 @@ export function ShoppingSection({
                         onToggle={handleCustomToggle}
                         onUnlink={handleCustomUnlink}
                         onDelete={handleCustomDelete}
-                        disabled={isPending}
+                        pending={pendingCustomIds.has(item.id)}
                       />
                     ))}
                   </div>
@@ -537,7 +545,7 @@ export function ShoppingSection({
                     key={entry.item.ingredientId}
                     item={entry.item}
                     onToggle={handleToggle}
-                    disabled={isPending}
+                    pending={pendingIds.has(entry.item.ingredientId)}
                   />
                 ) : (
                   <CustomShoppingItem
@@ -546,7 +554,7 @@ export function ShoppingSection({
                     onToggle={handleCustomToggle}
                     onUnlink={handleCustomUnlink}
                     onDelete={handleCustomDelete}
-                    disabled={isPending}
+                    pending={pendingCustomIds.has(entry.item.id)}
                   />
                 ),
               )}
