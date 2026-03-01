@@ -10,7 +10,13 @@ const updateMealSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   description: z.string().max(1000).nullable().optional(),
   preparationNotes: z.string().max(5000).nullable().optional(),
-  sourceUrl: z.string().url().max(2000).nullable().optional(),
+  sourceUrl: z
+    .string()
+    .url()
+    .max(2000)
+    .refine((url) => /^https?:\/\//i.test(url), 'Only http/https URLs are allowed')
+    .nullable()
+    .optional(),
   timeMinutes: z.number().int().positive().max(480).nullable().optional(),
   kidFriendly: z.boolean().optional(),
   suitableFor: z

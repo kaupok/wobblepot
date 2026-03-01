@@ -212,6 +212,20 @@ describe('PATCH /api/households/me/meals/[id]', () => {
     expect(data.error).toBe('Validation failed')
   })
 
+  it('rejects javascript: protocol URLs in sourceUrl', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+
+    const request = new Request('http://localhost/api/households/me/meals/meal-1', {
+      method: 'PATCH',
+      body: JSON.stringify({ sourceUrl: 'javascript:alert(document.cookie)' }),
+    })
+    const response = await PATCH(request, { params: paramsPromise('meal-1') })
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Validation failed')
+  })
+
   it('returns 404 when user has no household', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(null)
