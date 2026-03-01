@@ -9,13 +9,7 @@ const config = defineConfig([
   ...nextTs,
 
   // Global ignores
-  globalIgnores([
-    '.next/**',
-    'out/**',
-    'build/**',
-    'coverage/**',
-    'next-env.d.ts',
-  ]),
+  globalIgnores(['.next/**', 'out/**', 'build/**', 'coverage/**', 'next-env.d.ts']),
 
   // TypeScript-specific rules
   {
