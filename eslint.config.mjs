@@ -15,7 +15,6 @@ const config = defineConfig([
     'build/**',
     'coverage/**',
     'next-env.d.ts',
-    'cyrus-proxy/**', // Third-party Cyrus proxy worker code
   ]),
 
   // TypeScript-specific rules

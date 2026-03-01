@@ -109,7 +109,6 @@
     ],
     "*.{css,md,mdx,json}": [
       "prettier --write"
-    ],
-    "cyrus-proxy/**/*": []
+    ]
   }
 }

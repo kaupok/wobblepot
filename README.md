@@ -50,4 +50,3 @@ Always run `pnpm lint && pnpm type-check && pnpm test` before committing. Never 
 | [docs/MCP_SETUP.md](docs/MCP_SETUP.md)                 | MCP server configuration                      |
 | [docs/PARALLEL_WORKFLOW.md](docs/PARALLEL_WORKFLOW.md) | Parallel Claude Code with git worktrees       |
 | [docs/CHROME_TESTING.md](docs/CHROME_TESTING.md)       | Browser testing with Chrome extension         |
-| [docs/CYRUS_GUIDE.md](docs/CYRUS_GUIDE.md)             | Autonomous AI agent setup                     |
