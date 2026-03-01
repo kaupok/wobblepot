@@ -31,6 +31,7 @@ interface CategoryGroupProps {
   onToggleCustomItem?: (id: string, checked: boolean) => void
   onUnlinkCustomItem?: (id: string) => void
   onDeleteCustomItem?: (id: string) => void
+  pendingIds?: Set<string>
   disabled?: boolean
 }
 
@@ -43,6 +44,7 @@ export function CategoryGroup({
   onToggleCustomItem,
   onUnlinkCustomItem,
   onDeleteCustomItem,
+  pendingIds,
   disabled,
 }: CategoryGroupProps) {
   const emoji = CATEGORY_EMOJI[category]
@@ -71,7 +73,7 @@ export function CategoryGroup({
             key={item.ingredientId}
             item={item}
             onToggle={onToggleItem}
-            disabled={disabled}
+            disabled={pendingIds ? pendingIds.has(item.ingredientId) : disabled}
           />
         ))}
         {customItems?.map((item) => (
@@ -81,7 +83,7 @@ export function CategoryGroup({
             onToggle={onToggleCustomItem ?? (() => {})}
             onUnlink={onUnlinkCustomItem ?? (() => {})}
             onDelete={onDeleteCustomItem ?? (() => {})}
-            disabled={disabled}
+            disabled={pendingIds ? pendingIds.has(item.id) : disabled}
           />
         ))}
       </div>
