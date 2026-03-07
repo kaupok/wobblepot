@@ -173,7 +173,12 @@ export async function PATCH(
     today.setHours(0, 0, 0, 0)
     const isPastPlan = entry.plan.endDate < today
     const isStatusOnlyUpdate = parsed.data.status && !parsed.data.mealId
-    const isRatingOnlyUpdate = 'rating' in parsed.data && !parsed.data.mealId && !parsed.data.status
+    const isRatingOnlyUpdate =
+      'rating' in parsed.data &&
+      !parsed.data.mealId &&
+      !parsed.data.status &&
+      !('note' in parsed.data) &&
+      !('servingOverride' in parsed.data)
 
     if (isPastPlan && !isStatusOnlyUpdate && !isRatingOnlyUpdate) {
       return NextResponse.json({ error: 'Cannot modify past week plans' }, { status: 403 })

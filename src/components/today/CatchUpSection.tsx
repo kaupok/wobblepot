@@ -33,6 +33,7 @@ export function CatchUpSection({ entries, pantryItems, householdSize }: CatchUpS
     entry: CatchUpEntry,
     newStatus: MealStatus,
     deductPantry: boolean = false,
+    { hideAfter = true }: { hideAfter?: boolean } = {},
   ) {
     setUpdatingEntryId(entry.id)
 
@@ -48,8 +49,10 @@ export function CatchUpSection({ entries, pantryItems, householdSize }: CatchUpS
         return false
       }
 
-      // Mark as locally updated to hide from list
-      setLocallyUpdatedIds((prev) => new Set(prev).add(entry.id))
+      // Mark as locally updated to hide from list (unless caller handles it)
+      if (hideAfter) {
+        setLocallyUpdatedIds((prev) => new Set(prev).add(entry.id))
+      }
       return true
     } catch {
       toast.error('Failed to update status. Please try again.')
@@ -70,7 +73,7 @@ export function CatchUpSection({ entries, pantryItems, householdSize }: CatchUpS
   async function handleDeductionConfirm() {
     if (!deductionEntry) return
 
-    const success = await updateStatus(deductionEntry, 'completed', true)
+    const success = await updateStatus(deductionEntry, 'completed', true, { hideAfter: false })
     if (success) {
       const entryId = deductionEntry.id
       setDeductionEntry(null)

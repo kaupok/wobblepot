@@ -334,6 +334,26 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - rating', () => {
 
     expect(response.status).toBe(400)
   })
+
+  it('blocks rating combined with note on past-week entries', async () => {
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      plan: {
+        endDate: pastEndDate,
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: { components: [] },
+    } as never)
+
+    const response = await PATCH(createPatchRequest({ rating: 'up', note: 'sneaky edit' }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(403)
+    expect(data.error).toBe('Cannot modify past week plans')
+  })
 })
 
 describe('DELETE /api/meal-plans/[id]/entries/[entryId] - past week guard', () => {

@@ -306,7 +306,7 @@ export function MealCard({
             />
           </CardContent>
         )}
-        {status === 'completed' && !rating && !showRatingPrompt && (
+        {status === 'completed' && !rating && !showRatingPrompt && !isReadOnly && (
           <CardContent className="flex items-center gap-1.5 px-3 pb-1">
             <span className="text-muted-foreground text-[10px]">Rate</span>
             <MealRatingInline
