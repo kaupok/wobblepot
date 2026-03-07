@@ -13,3 +13,6 @@ export const RECIPE_MODEL = 'claude-sonnet-4-6'
 
 /** Model for preparation tips generation (fast/cheap). */
 export const TIPS_MODEL = 'claude-sonnet-4-6'
+
+/** Model for "Imagine a meal" freeform meal generation. */
+export const IMAGINE_MODEL = 'claude-sonnet-4-6'
