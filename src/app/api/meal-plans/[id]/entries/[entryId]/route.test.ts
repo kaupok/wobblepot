@@ -232,6 +232,130 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - past week guard', () =>
   })
 })
 
+describe('PATCH /api/meal-plans/[id]/entries/[entryId] - rating', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetSession.mockResolvedValue(mockSession)
+    mockGetMembership.mockResolvedValue(mockMembership)
+  })
+
+  it('allows rating update on current-week entries', async () => {
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      plan: {
+        endDate: futureEndDate,
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: { components: [] },
+    } as never)
+    mockUpdateEntry.mockResolvedValue({
+      id: 'entry-123',
+      status: 'completed',
+      mealId: 'meal-123',
+      rating: 'up',
+    } as never)
+
+    const response = await PATCH(createPatchRequest({ rating: 'up' }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.rating).toBe('up')
+  })
+
+  it('allows rating update on past-week entries', async () => {
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      plan: {
+        endDate: pastEndDate,
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: { components: [] },
+    } as never)
+    mockUpdateEntry.mockResolvedValue({
+      id: 'entry-123',
+      status: 'completed',
+      mealId: 'meal-123',
+      rating: 'down',
+    } as never)
+
+    const response = await PATCH(createPatchRequest({ rating: 'down' }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.rating).toBe('down')
+  })
+
+  it('allows clearing rating with null', async () => {
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      plan: {
+        endDate: futureEndDate,
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: { components: [] },
+    } as never)
+    mockUpdateEntry.mockResolvedValue({
+      id: 'entry-123',
+      status: 'completed',
+      mealId: 'meal-123',
+      rating: null,
+    } as never)
+
+    const response = await PATCH(createPatchRequest({ rating: null }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.rating).toBeNull()
+  })
+
+  it('rejects invalid rating values', async () => {
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      plan: {
+        endDate: futureEndDate,
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: { components: [] },
+    } as never)
+
+    const response = await PATCH(createPatchRequest({ rating: 'invalid' }), {
+      params: createParams(),
+    })
+
+    expect(response.status).toBe(400)
+  })
+
+  it('blocks rating combined with note on past-week entries', async () => {
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      plan: {
+        endDate: pastEndDate,
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: { components: [] },
+    } as never)
+
+    const response = await PATCH(createPatchRequest({ rating: 'up', note: 'sneaky edit' }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(403)
+    expect(data.error).toBe('Cannot modify past week plans')
+  })
+})
+
 describe('DELETE /api/meal-plans/[id]/entries/[entryId] - past week guard', () => {
   beforeEach(() => {
     vi.clearAllMocks()

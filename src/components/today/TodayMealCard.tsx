@@ -11,10 +11,12 @@ import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
 import { PantryDeductionModal } from '@/components/meal-plan/PantryDeductionModal'
 import { MealDetail } from '@/components/meal-plan/MealDetail'
 import { NoteEditor } from '@/components/meal-plan/NoteEditor'
+import { MealRatingPrompt, RatingBadge, MealRatingInline } from '@/components/meal-plan/MealRating'
 import { MealStatusPrompt } from './MealStatusPrompt'
 import { useIngredientAvailability } from '@/hooks/use-ingredient-availability'
 import { useMealTips } from '@/hooks/use-meal-tips'
 import type {
+  EntryRating,
   MealData,
   PantryIngredient,
   PantryItemFull,
@@ -40,6 +42,7 @@ interface TodayMealCardProps {
   meal: MealData | null
   mealType: MealType
   status: MealStatus
+  initialRating?: EntryRating | null
   householdSize: number
   pantryIngredients: PantryIngredient[]
   pantryItems: PantryItemFull[]
@@ -55,6 +58,7 @@ export function TodayMealCard({
   meal,
   mealType,
   status: initialStatus,
+  initialRating = null,
   householdSize,
   pantryIngredients,
   pantryItems,
@@ -65,6 +69,8 @@ export function TodayMealCard({
 }: TodayMealCardProps) {
   const router = useRouter()
   const [status, setStatus] = useState<MealStatus>(initialStatus)
+  const [rating, setRating] = useState<EntryRating | null>(initialRating)
+  const [showRatingPrompt, setShowRatingPrompt] = useState(false)
   const [note, setNote] = useState<string | null>(initialNote)
   const [servingOverride, setServingOverride] = useState<number | null>(initialServingOverride)
   const [isUpdating, setIsUpdating] = useState(false)
@@ -193,6 +199,7 @@ export function TodayMealCard({
     if (success) {
       setIsDeductionModalOpen(false)
       setIsChangingStatus(false)
+      setShowRatingPrompt(true)
       // Refresh to update pantry data
       router.refresh()
     }
@@ -281,6 +288,9 @@ export function TodayMealCard({
                   ✓ Made it
                 </span>
               )}
+              {status === 'completed' && rating && !showRatingPrompt && (
+                <RatingBadge rating={rating} onClick={() => setShowRatingPrompt(true)} />
+              )}
               {status === 'skipped' && (
                 <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
                   Skipped
@@ -327,6 +337,33 @@ export function TodayMealCard({
             </Body>
           )}
         </CardHeader>
+
+        {/* Rating prompt shown after marking as completed */}
+        {status === 'completed' && showRatingPrompt && (
+          <div className="px-6 pb-2">
+            <MealRatingPrompt
+              planId={planId}
+              entryId={entryId}
+              onRated={(r) => {
+                setRating(r)
+                setShowRatingPrompt(false)
+              }}
+              onDismiss={() => setShowRatingPrompt(false)}
+            />
+          </div>
+        )}
+        {/* Inline rating for completed meals without rating */}
+        {status === 'completed' && !rating && !showRatingPrompt && showSimplifiedView && (
+          <div className="flex items-center gap-2 px-6 pb-4">
+            <span className="text-muted-foreground text-xs">Rate this meal</span>
+            <MealRatingInline
+              planId={planId}
+              entryId={entryId}
+              rating={rating}
+              onRatingChange={setRating}
+            />
+          </div>
+        )}
 
         {/* BOTTOM SECTION: Meal detail (nutrition, ingredients, prep tips) */}
         {!showSimplifiedView && (

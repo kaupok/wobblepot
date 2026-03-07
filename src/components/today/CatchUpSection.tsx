@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { PantryDeductionModal } from '@/components/meal-plan/PantryDeductionModal'
+import { MealRatingPrompt } from '@/components/meal-plan/MealRating'
 import { formatCatchUpLabel } from '@/lib/meal-planning/dates'
 import type { PlanEntry, PantryItemFull } from '@/components/meal-plan/types'
 import type { MealStatus } from '@/components/meal-plan/StatusSelect'
@@ -26,11 +27,13 @@ export function CatchUpSection({ entries, pantryItems, householdSize }: CatchUpS
   const [updatingEntryId, setUpdatingEntryId] = useState<string | null>(null)
   const [deductionEntry, setDeductionEntry] = useState<CatchUpEntry | null>(null)
   const [locallyUpdatedIds, setLocallyUpdatedIds] = useState<Set<string>>(new Set())
+  const [ratingEntryId, setRatingEntryId] = useState<string | null>(null)
 
   async function updateStatus(
     entry: CatchUpEntry,
     newStatus: MealStatus,
     deductPantry: boolean = false,
+    { hideAfter = true }: { hideAfter?: boolean } = {},
   ) {
     setUpdatingEntryId(entry.id)
 
@@ -46,8 +49,10 @@ export function CatchUpSection({ entries, pantryItems, householdSize }: CatchUpS
         return false
       }
 
-      // Mark as locally updated to hide from list
-      setLocallyUpdatedIds((prev) => new Set(prev).add(entry.id))
+      // Mark as locally updated to hide from list (unless caller handles it)
+      if (hideAfter) {
+        setLocallyUpdatedIds((prev) => new Set(prev).add(entry.id))
+      }
       return true
     } catch {
       toast.error('Failed to update status. Please try again.')
@@ -68,11 +73,19 @@ export function CatchUpSection({ entries, pantryItems, householdSize }: CatchUpS
   async function handleDeductionConfirm() {
     if (!deductionEntry) return
 
-    const success = await updateStatus(deductionEntry, 'completed', true)
+    const success = await updateStatus(deductionEntry, 'completed', true, { hideAfter: false })
     if (success) {
+      const entryId = deductionEntry.id
       setDeductionEntry(null)
+      // Show rating prompt instead of immediately hiding
+      setRatingEntryId(entryId)
       router.refresh()
     }
+  }
+
+  function handleRatingDone(entryId: string) {
+    setRatingEntryId(null)
+    setLocallyUpdatedIds((prev) => new Set(prev).add(entryId))
   }
 
   // Filter out locally updated entries
@@ -89,6 +102,7 @@ export function CatchUpSection({ entries, pantryItems, householdSize }: CatchUpS
         <div className="divide-border rounded-lg border">
           {visibleEntries.map((entry) => {
             const isUpdating = updatingEntryId === entry.id
+            const isRating = ratingEntryId === entry.id
             return (
               <div
                 key={entry.id}
@@ -100,25 +114,36 @@ export function CatchUpSection({ entries, pantryItems, householdSize }: CatchUpS
                   </div>
                   <div className="truncate text-sm font-semibold">{entry.meal?.name}</div>
                 </div>
-                {entry.meal && (
-                  <div className="flex shrink-0 gap-2">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => handleMadeIt(entry)}
-                      disabled={isUpdating}
-                    >
-                      Made it
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleSkipped(entry)}
-                      disabled={isUpdating}
-                    >
-                      Skipped
-                    </Button>
+                {isRating && entry.meal ? (
+                  <div className="shrink-0">
+                    <MealRatingPrompt
+                      planId={entry.planId}
+                      entryId={entry.id}
+                      onRated={() => handleRatingDone(entry.id)}
+                      onDismiss={() => handleRatingDone(entry.id)}
+                    />
                   </div>
+                ) : (
+                  entry.meal && (
+                    <div className="flex shrink-0 gap-2">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handleMadeIt(entry)}
+                        disabled={isUpdating}
+                      >
+                        Made it
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSkipped(entry)}
+                        disabled={isUpdating}
+                      >
+                        Skipped
+                      </Button>
+                    </div>
+                  )
                 )}
               </div>
             )

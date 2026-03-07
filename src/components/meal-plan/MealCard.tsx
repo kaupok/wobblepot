@@ -12,7 +12,8 @@ import { MealDetailModal } from './MealDetailModal'
 import { PantryDeductionModal } from './PantryDeductionModal'
 import { AvailabilityIndicator, computeMealAvailability } from './AvailabilityIndicator'
 import { NoteEditor } from './NoteEditor'
-import type { MealData, PantryIngredient, PantryItemFull } from './types'
+import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
+import type { EntryRating, MealData, PantryIngredient, PantryItemFull } from './types'
 import type { MealType } from '@/generated/prisma/enums'
 
 const mealTypeStyles: Record<MealType, { label: string }> = {
@@ -33,6 +34,7 @@ interface MealCardProps {
   meal: MealData | null
   mealType: MealType
   status: MealStatus
+  rating?: EntryRating | null
   householdSize: number
   isReadOnly?: boolean
   isPast?: boolean
@@ -48,6 +50,7 @@ export function MealCard({
   meal,
   mealType,
   status: initialStatus,
+  rating: initialRating,
   householdSize,
   isReadOnly,
   isPast,
@@ -58,6 +61,8 @@ export function MealCard({
 }: MealCardProps) {
   const router = useRouter()
   const [status, setStatus] = useState<MealStatus>(initialStatus)
+  const [rating, setRating] = useState<EntryRating | null>(initialRating ?? null)
+  const [showRatingPrompt, setShowRatingPrompt] = useState(false)
   const [note, setNote] = useState<string | null>(initialNote ?? null)
   const [servingOverride, setServingOverride] = useState<number | null>(
     initialServingOverride ?? null,
@@ -124,6 +129,7 @@ export function MealCard({
     const success = await updateStatus('completed', true)
     if (success) {
       setIsDeductionModalOpen(false)
+      setShowRatingPrompt(true)
       // Refresh to update pantry data
       router.refresh()
     }
@@ -261,6 +267,9 @@ export function MealCard({
                 {effectiveServings} servings
               </span>
             )}
+            {status === 'completed' && rating && !showRatingPrompt && (
+              <RatingBadge rating={rating} onClick={() => setShowRatingPrompt(true)} />
+            )}
           </div>
           {/* Show note or add note control */}
           {!isReadOnly && !isPast && (
@@ -282,6 +291,30 @@ export function MealCard({
         {!isReadOnly && isPast && (
           <CardContent className="px-3 pb-1">
             <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
+          </CardContent>
+        )}
+        {status === 'completed' && showRatingPrompt && (
+          <CardContent className="px-3 pb-1">
+            <MealRatingPrompt
+              planId={planId}
+              entryId={entryId}
+              onRated={(r) => {
+                setRating(r)
+                setShowRatingPrompt(false)
+              }}
+              onDismiss={() => setShowRatingPrompt(false)}
+            />
+          </CardContent>
+        )}
+        {status === 'completed' && !rating && !showRatingPrompt && !isReadOnly && (
+          <CardContent className="flex items-center gap-1.5 px-3 pb-1">
+            <span className="text-muted-foreground text-[10px]">Rate</span>
+            <MealRatingInline
+              planId={planId}
+              entryId={entryId}
+              rating={rating}
+              onRatingChange={setRating}
+            />
           </CardContent>
         )}
       </Card>

@@ -145,6 +145,7 @@ export async function GET(request: NextRequest) {
         date: toDateString(entry.date),
         mealType: entry.mealType as 'dinner', // Cast needed: GeneratePlanResult expects literal 'dinner', not MealType enum
         status: entry.status,
+        rating: entry.rating,
         preparationTips: entry.preparationTips ? parseStoredTips(entry.preparationTips) : null,
         note: entry.note,
         servingOverride: entry.servingOverride,

@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
-import { MealPlanEntryStatus } from '@/generated/prisma/enums'
+import { MealPlanEntryStatus, EntryRating } from '@/generated/prisma/enums'
 
 const updateEntrySchema = z.object({
   status: z.enum(['planned', 'completed', 'skipped']).optional(),
@@ -12,6 +12,7 @@ const updateEntrySchema = z.object({
   deductPantry: z.boolean().optional(),
   note: z.string().max(200).nullable().optional(),
   servingOverride: z.number().int().min(1).max(20).nullable().optional(),
+  rating: z.enum(['up', 'down']).nullable().optional(),
 })
 
 export async function DELETE(
@@ -167,13 +168,19 @@ export async function PATCH(
     }
 
     // Reject modifications to past week plans (read-only)
-    // Exception: status changes (completed/skipped) are allowed for catch-up flow
+    // Exceptions: status changes (catch-up flow) and rating updates are allowed
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const isPastPlan = entry.plan.endDate < today
     const isStatusOnlyUpdate = parsed.data.status && !parsed.data.mealId
+    const isRatingOnlyUpdate =
+      'rating' in parsed.data &&
+      !parsed.data.mealId &&
+      !parsed.data.status &&
+      !('note' in parsed.data) &&
+      !('servingOverride' in parsed.data)
 
-    if (isPastPlan && !isStatusOnlyUpdate) {
+    if (isPastPlan && !isStatusOnlyUpdate && !isRatingOnlyUpdate) {
       return NextResponse.json({ error: 'Cannot modify past week plans' }, { status: 403 })
     }
 
@@ -184,6 +191,7 @@ export async function PATCH(
       preparationTips?: null
       note?: string | null
       servingOverride?: number | null
+      rating?: EntryRating | null
     } = {}
 
     if (parsed.data.status) {
@@ -216,6 +224,11 @@ export async function PATCH(
     // Handle servingOverride updates (including explicit null to reset to household default)
     if ('servingOverride' in parsed.data) {
       updateData.servingOverride = parsed.data.servingOverride ?? null
+    }
+
+    // Handle rating updates (including explicit null to clear)
+    if ('rating' in parsed.data) {
+      updateData.rating = (parsed.data.rating as EntryRating) ?? null
     }
 
     // Require at least one field to update
@@ -302,6 +315,7 @@ export async function PATCH(
         id: entryId,
         status: updateData.status,
         mealId: updateData.mealId ?? entry.mealId,
+        rating: updateData.rating,
         pantryDeducted: true,
       })
     }
@@ -316,6 +330,7 @@ export async function PATCH(
       id: updatedEntry.id,
       status: updatedEntry.status,
       mealId: updatedEntry.mealId,
+      rating: updatedEntry.rating,
     })
   } catch (error) {
     console.error('Failed to update entry status:', error)

@@ -101,6 +101,7 @@ export function DayColumn({
               meal={item.entry.meal}
               mealType={item.entry.mealType}
               status={item.entry.status}
+              rating={item.entry.rating}
               householdSize={householdSize}
               isReadOnly={isReadOnly}
               isPast={isPast}
