@@ -117,7 +117,7 @@ When the user agrees a finding is worth tracking:
 ### Step 7: Create in Linear
 
 ```typescript
-mcp__linear-server__create_issue({
+mcp__linear-server__save_issue({
     title: 'Agreed title in sentence case',
     team: 'Honkadori',
     description: `## What

@@ -370,6 +370,69 @@ monitor_workers() {
   done
 }
 
+# ─── Report worker status ────────────────────────────────────────────────
+
+report_worker_status() {
+  local count=${#WORKER_PIDS[@]}
+  [ "$count" -eq 0 ] && return 0
+
+  local now
+  now=$(date +%s)
+
+  log INFO "── Active workers: $count/$MAX_WORKERS ──"
+
+  local i=0
+  while [ $i -lt $count ]; do
+    local issue_id="${WORKER_ISSUES[$i]}"
+    local branch="${WORKER_BRANCHES[$i]}"
+    local start_time="${WORKER_START_TIMES[$i]}"
+
+    local elapsed=$(( now - start_time ))
+    local mins=$(( elapsed / 60 ))
+    local secs=$(( elapsed % 60 ))
+
+    # Check git activity in the worktree for real progress signal
+    local status=""
+    local wt_path
+    wt_path=$(get_worktree_path "$branch")
+
+    if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
+      # Count commits ahead of main
+      local ahead=0
+      ahead=$(git -C "$wt_path" rev-list --count main..HEAD 2>/dev/null) || true
+
+      # Last commit message (if any commits made)
+      local last_msg=""
+      if [ "$ahead" -gt 0 ]; then
+        last_msg=$(git -C "$wt_path" log -1 --format='%s' 2>/dev/null | cut -c1-80) || true
+      fi
+
+      # Check for uncommitted changes as a sign of active work
+      local dirty=""
+      if git -C "$wt_path" diff --quiet HEAD 2>/dev/null; then
+        dirty=""
+      else
+        dirty=" [working]"
+      fi
+
+      if [ "$ahead" -gt 0 ]; then
+        status="${ahead} commit(s)${dirty} — ${last_msg}"
+      elif [ -n "$dirty" ]; then
+        status="uncommitted changes"
+      else
+        status="no commits yet"
+      fi
+    else
+      status="worktree initializing"
+    fi
+
+    printf "  ${BLUE}%-8s${NC} %3dm%02ds  %s\n" "$issue_id" "$mins" "$secs" "$status" >&2
+    printf "  %-8s %3dm%02ds  %s\n" "$issue_id" "$mins" "$secs" "$status" >> "$MAIN_LOG"
+
+    i=$((i + 1))
+  done
+}
+
 remove_worker() {
   local idx="$1"
   local new_pids=() new_issues=() new_uuids=() new_branches=()
@@ -509,7 +572,7 @@ handle_failure() {
   local triage="BACKLOG"
   if command -v claude &> /dev/null && [ "$DRY_RUN" = false ]; then
     local triage_output exit_code=0
-    triage_output=$(echo "$log_tail" | claude -p --model claude-haiku-4-5-20251001 "Worker for $issue_id failed ($failure_type). Based on the log from stdin, respond with EXACTLY one word:
+    triage_output=$(echo "$log_tail" | env -u ANTHROPIC_API_KEY claude -p --model claude-haiku-4-5-20251001 "Worker for $issue_id failed ($failure_type). Based on the log from stdin, respond with EXACTLY one word:
 RETRY - transient failure (flaky test, network error, rate limit, timeout)
 BACKLOG - issue needs refinement (bad description, missing context, wrong approach)
 NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 2>&1) || exit_code=$?
@@ -837,6 +900,7 @@ main() {
     # Monitor running workers
     if [ ${#WORKER_PIDS[@]} -gt 0 ]; then
       monitor_workers
+      report_worker_status
     fi
 
     # Spawn new worker if slots available

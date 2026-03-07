@@ -263,7 +263,8 @@ cmd_new() {
   echo ""
 
   # Start Claude Code in the worktree
-  exec claude
+  # Unset ANTHROPIC_API_KEY so Claude CLI uses Max subscription instead of API credits
+  exec env -u ANTHROPIC_API_KEY claude
 }
 
 # Fully autonomous worktree - creates worktree and runs /auto-implement
@@ -354,7 +355,8 @@ cmd_auto() {
   echo ""
 
   # Start Claude Code with permissions bypassed and auto-implement prompt
-  exec claude --dangerously-skip-permissions --model claude-opus-4-6 "$prompt"
+  # Unset ANTHROPIC_API_KEY so Claude CLI uses Max subscription instead of API credits
+  exec env -u ANTHROPIC_API_KEY claude --dangerously-skip-permissions --model 'claude-opus-4-6[1m]' "$prompt"
 }
 
 # Resume existing worktree
@@ -379,7 +381,8 @@ cmd_resume() {
   echo ""
 
   cd "$worktree_path"
-  exec claude --resume
+  # Unset ANTHROPIC_API_KEY so Claude CLI uses Max subscription instead of API credits
+  exec env -u ANTHROPIC_API_KEY claude --resume
 }
 
 # List all worktrees
