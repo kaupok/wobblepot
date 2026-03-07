@@ -61,6 +61,7 @@ export function TodayMeals({
             meal={entry.meal}
             mealType={entry.mealType}
             status={entry.status}
+            initialRating={entry.rating}
             householdSize={householdSize}
             pantryIngredients={pantryIngredients}
             pantryItems={pantryItems}

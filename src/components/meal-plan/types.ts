@@ -39,11 +39,14 @@ export interface StructuredTips {
   tip?: string
 }
 
+export type EntryRating = 'up' | 'down'
+
 export interface PlanEntry {
   id: string
   date: string
   mealType: MealType
   status: MealStatus
+  rating: EntryRating | null
   meal: MealData | null
   preparationTips: StructuredTips | null
   note: string | null

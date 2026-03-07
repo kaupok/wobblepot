@@ -32,6 +32,11 @@ enum MealPlanEntryStatus {
   skipped
 }
 
+enum EntryRating {
+  up
+  down
+}
+
 enum Unit {
   g
   piece
@@ -357,6 +362,7 @@ model MealPlanEntry {
   date            DateTime
   mealType        MealType
   status          MealPlanEntryStatus @default(planned)
+  rating          EntryRating?
   preparationTips String?
   note            String?
   servingOverride Int?
