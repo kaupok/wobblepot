@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Loader2 } from 'lucide-react'
+import { Plus, Loader2, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -192,12 +192,20 @@ export function RecipesPageClient() {
                   ? 'Loading...'
                   : `${meals.length} recipe${meals.length === 1 ? '' : 's'}`}
               </Body>
-              <Button asChild>
-                <Link href="/recipes/import">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add recipe
-                </Link>
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" asChild>
+                  <Link href="/recipes/imagine">
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Imagine a meal
+                  </Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/recipes/import">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add recipe
+                  </Link>
+                </Button>
+              </div>
             </div>
 
             {isLoading ? (
