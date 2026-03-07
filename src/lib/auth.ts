@@ -1,5 +1,5 @@
 import { betterAuth } from 'better-auth'
-import { prismaAdapter } from 'better-auth/adapters/prisma'
+import { prismaAdapter } from '@better-auth/prisma-adapter'
 import { prisma, type PrismaClientType } from '@/lib/prisma'
 import { serverEnv, getServerBaseURL } from '@/lib/env'
 import { resend, isEmailConfigured } from '@/lib/resend'
