@@ -16,6 +16,7 @@ interface ComponentListProps {
   onRemove: (ingredientId: string) => void
   onUpdateQuantity: (ingredientId: string, quantity: number) => void
   onSetQuantity: (ingredientId: string, defaultUnit: Unit) => void
+  onMarkAsVague: (ingredientId: string) => void
 }
 
 export function ComponentList({
@@ -26,6 +27,7 @@ export function ComponentList({
   onRemove,
   onUpdateQuantity,
   onSetQuantity,
+  onMarkAsVague,
 }: ComponentListProps) {
   if (components.length === 0) return null
 
@@ -76,29 +78,41 @@ export function ComponentList({
                   Set quantity
                 </Button>
               ) : (
-                <div
-                  className={cn(
-                    'flex items-center rounded-md border',
-                    isInvalidQuantity ? 'border-destructive' : 'border-input',
-                  )}
-                >
-                  <Input
-                    type="number"
-                    value={comp.totalQuantity}
-                    onChange={(e) =>
-                      onUpdateQuantity(comp.ingredientId, parseFloat(e.target.value) || 0)
-                    }
-                    min={0.1}
-                    step="any"
-                    className="w-20 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                <>
+                  <div
+                    className={cn(
+                      'flex items-center rounded-md border',
+                      isInvalidQuantity ? 'border-destructive' : 'border-input',
+                    )}
+                  >
+                    <Input
+                      type="number"
+                      value={comp.totalQuantity}
+                      onChange={(e) =>
+                        onUpdateQuantity(comp.ingredientId, parseFloat(e.target.value) || 0)
+                      }
+                      min={0.1}
+                      step="any"
+                      className="w-20 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                      disabled={disabled}
+                    />
+                    {unitLabel && (
+                      <span className="text-muted-foreground bg-muted border-l px-2 py-1.5 text-sm">
+                        {unitLabel}
+                      </span>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onMarkAsVague(comp.ingredientId)}
                     disabled={disabled}
-                  />
-                  {unitLabel && (
-                    <span className="text-muted-foreground bg-muted border-l px-2 py-1.5 text-sm">
-                      {unitLabel}
-                    </span>
-                  )}
-                </div>
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    No quantity
+                  </Button>
+                </>
               )}
               <Button
                 type="button"

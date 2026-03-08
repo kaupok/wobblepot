@@ -149,14 +149,14 @@ export function buildFinalComponents(
       .filter((r): r is Extract<IngredientRowData, { type: 'matched' }> => r.type === 'matched')
       .map((r) => ({
         ingredientId: r.ingredient.id,
-        totalQuantity: r.totalQuantity,
+        totalQuantity: r.isVague ? 0 : r.totalQuantity,
         isVague: r.isVague ?? false,
         originalPhrase: r.originalPhrase ?? null,
       }))
   } else {
     finalComponents = components.map((c) => ({
       ingredientId: c.ingredientId,
-      totalQuantity: c.totalQuantity,
+      totalQuantity: c.isVague ? 0 : c.totalQuantity,
       isVague: c.isVague ?? false,
       originalPhrase: c.originalPhrase ?? null,
     }))

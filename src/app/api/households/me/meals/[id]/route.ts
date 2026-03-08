@@ -26,10 +26,16 @@ const updateMealSchema = z.object({
   servings: z.number().int().positive().max(50).optional(),
   components: z
     .array(
-      z.object({
-        ingredientId: z.string().min(1),
-        totalQuantity: z.number().positive(),
-      }),
+      z
+        .object({
+          ingredientId: z.string().min(1),
+          totalQuantity: z.number().nonnegative(),
+          isVague: z.boolean().optional().default(false),
+          originalPhrase: z.string().nullish(),
+        })
+        .refine((c) => c.isVague || c.totalQuantity > 0, {
+          message: 'Quantity must be greater than 0 for non-vague components',
+        }),
     )
     .min(1)
     .optional(),
@@ -76,6 +82,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           select: {
             ingredientId: true,
             quantityPerServing: true,
+            isVague: true,
+            originalPhrase: true,
             ingredient: {
               select: {
                 id: true,
@@ -105,6 +113,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const nutrition = meal.components.reduce(
       (acc, comp) => {
+        if (comp.isVague) return acc
         const factor = comp.quantityPerServing / 100
         return {
           calories: acc.calories + comp.ingredient.calories * factor,
@@ -137,6 +146,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       components: meal.components.map((comp) => ({
         ingredientId: comp.ingredientId,
         quantityPerServing: comp.quantityPerServing,
+        isVague: comp.isVague,
+        originalPhrase: comp.originalPhrase,
         ingredient: {
           id: comp.ingredient.id,
           name: comp.ingredient.name,
@@ -293,6 +304,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           mealId: id,
           ingredientId: c.ingredientId,
           quantityPerServing: c.totalQuantity / servings,
+          isVague: c.isVague ?? false,
+          originalPhrase: c.originalPhrase ?? null,
         })),
       })
     }
@@ -316,6 +329,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           select: {
             ingredientId: true,
             quantityPerServing: true,
+            isVague: true,
+            originalPhrase: true,
             ingredient: {
               select: {
                 id: true,
@@ -342,6 +357,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const nutrition = meal.components.reduce(
     (acc, comp) => {
+      if (comp.isVague) return acc
       const factor = comp.quantityPerServing / 100
       return {
         calories: acc.calories + comp.ingredient.calories * factor,
@@ -372,6 +388,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     components: meal.components.map((comp) => ({
       ingredientId: comp.ingredientId,
       quantityPerServing: comp.quantityPerServing,
+      isVague: comp.isVague,
+      originalPhrase: comp.originalPhrase,
       ingredient: {
         id: comp.ingredient.id,
         name: comp.ingredient.name,

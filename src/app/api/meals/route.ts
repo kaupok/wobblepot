@@ -189,6 +189,8 @@ export async function GET(request: NextRequest) {
           select: {
             ingredientId: true,
             quantityPerServing: true,
+            isVague: true,
+            originalPhrase: true,
             ingredient: {
               select: {
                 id: true,
@@ -231,6 +233,7 @@ export async function GET(request: NextRequest) {
     const meals = sortedMeals.map((meal) => {
       const nutrition = meal.components.reduce(
         (acc, comp) => {
+          if (comp.isVague) return acc
           const factor = comp.quantityPerServing / 100
           return {
             calories: acc.calories + comp.ingredient.calories * factor,
