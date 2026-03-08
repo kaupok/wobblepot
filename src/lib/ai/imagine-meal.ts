@@ -44,7 +44,7 @@ const ImaginedMealSchema = z.object({
     .number()
     .nullable()
     .describe('Estimated total prep + cook time in minutes (integer, 1-480)'),
-  servings: z.number().describe('Number of servings (integer, 1-50, default 4)'),
+  servings: z.number().describe('Number of servings (integer, 1-50)'),
   mealTypes: z
     .array(z.enum(['breakfast', 'lunch', 'dinner']))
     .describe('Which meal types this is suitable for (at least one)'),
@@ -66,6 +66,7 @@ interface HouseholdContext {
   dietaryType: string | null
   excludedIngredients: string[]
   restrictions: string[]
+  householdSize: number
 }
 
 export async function imagineMeals(
@@ -101,6 +102,7 @@ export async function imagineMeals(
   const systemPrompt = `You are a creative home cooking assistant. Generate exactly 3 distinct meal ideas based on the user's description. Each meal should be different from the others — vary the cooking method, cuisine style, or primary ingredients.
 
 Guidelines:
+- Generate meals for a household of ${household.householdSize} people. Each meal should make ${household.householdSize} servings.
 - Use simple, commonly available ingredients (nothing exotic or hard to find)
 - Be creative but practical — these are everyday family meals
 - Include a mix of proteins, vegetables, and carbs where appropriate

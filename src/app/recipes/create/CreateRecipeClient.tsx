@@ -25,7 +25,11 @@ interface EnhancedPrefilledData {
 // undefined = not loaded yet, null = loaded (no prefill), object = loaded with prefill
 type PrefilledState = EnhancedPrefilledData | null | undefined
 
-export function CreateRecipeClient() {
+interface CreateRecipeClientProps {
+  defaultServings: number
+}
+
+export function CreateRecipeClient({ defaultServings }: CreateRecipeClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const prefilled = searchParams.get('prefilled')
@@ -81,7 +85,12 @@ export function CreateRecipeClient() {
 
   return (
     <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
-      <MealForm meal={getPrefilledMeal()} onSuccess={handleSuccess} onCancel={handleCancel} />
+      <MealForm
+        meal={getPrefilledMeal()}
+        defaultServings={defaultServings}
+        onSuccess={handleSuccess}
+        onCancel={handleCancel}
+      />
     </div>
   )
 }

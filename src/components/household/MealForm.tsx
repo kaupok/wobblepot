@@ -44,7 +44,7 @@ import type { Unit } from '@/generated/prisma/enums'
 
 export type { MealFormData, PrefilledIngredient } from './meal-form-types'
 
-export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
+export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFormProps) {
   const isEditing = !!meal?.id
   const hasPrefilledIngredients = !!meal?.prefilledIngredients?.length
   const originalRecipeText = meal?.originalRecipeText
@@ -64,7 +64,7 @@ export function MealForm({ meal, onSuccess, onCancel }: MealFormProps) {
   const [suitableFor, setSuitableFor] = useState<MealTypeValue[]>(
     (meal?.suitableFor as MealTypeValue[]) ?? ['dinner'],
   )
-  const editServings = meal?.servings ?? 4
+  const editServings = meal?.servings ?? defaultServings ?? 4
   const [servings, setServings] = useState<string>(String(editServings))
 
   // Standard components (for plain ingredient rows when editing)
