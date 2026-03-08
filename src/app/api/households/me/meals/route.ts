@@ -31,7 +31,11 @@ const createMealSchema = z.object({
         })
         .refine((c) => c.isVague || c.totalQuantity > 0, {
           message: 'Quantity must be greater than 0 for non-vague components',
-        }),
+        })
+        .transform((c) => ({
+          ...c,
+          totalQuantity: c.isVague ? 0 : c.totalQuantity,
+        })),
     )
     .min(1),
 })
