@@ -126,7 +126,7 @@ mcp__linear-server__update_issue({
 **For splits (create new issues):**
 
 ```typescript
-mcp__linear-server__create_issue({
+mcp__linear-server__save_issue({
   title: 'New issue title',
   team: 'Honkadori',
   description: 'Description',
@@ -163,7 +163,7 @@ Discuss with user:
 ### Step 11: Create in Linear
 
 ```typescript
-mcp__linear-server__create_issue({
+mcp__linear-server__save_issue({
   title: '[DRAFT] Initial idea title', // Keep [DRAFT] if not fully refined
   team: 'Honkadori',
   description: 'Initial description - to be refined',
