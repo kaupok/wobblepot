@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
+import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { imagineMeals } from '@/lib/ai/imagine-meal'
 import { matchIngredients } from '@/lib/ai/parse-recipe'
@@ -62,6 +62,7 @@ export async function POST(request: Request) {
 
   const { prompt } = parsed.data
   const preferences = household.preferences
+  const householdSize = await getHouseholdMemberCount(household.id)
 
   try {
     // Generate meals with AI
@@ -70,6 +71,7 @@ export async function POST(request: Request) {
       dietaryType: preferences?.dietaryType ?? null,
       excludedIngredients: (preferences?.excludedIngredients ?? []) as string[],
       restrictions: (preferences?.restrictions ?? []) as string[],
+      householdSize,
     })
 
     // Match ingredients and compute nutrition for each meal

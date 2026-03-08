@@ -87,6 +87,7 @@ export interface MealFormData {
 
 export interface MealFormProps {
   meal?: MealFormData
+  defaultServings?: number
   onSuccess: () => void
   onCancel: () => void
 }
