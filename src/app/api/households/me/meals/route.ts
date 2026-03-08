@@ -22,12 +22,20 @@ const createMealSchema = z.object({
   servings: z.number().int().positive().max(50),
   components: z
     .array(
-      z.object({
-        ingredientId: z.string().min(1),
-        totalQuantity: z.number().positive(),
-        isVague: z.boolean().optional().default(false),
-        originalPhrase: z.string().nullish(),
-      }),
+      z
+        .object({
+          ingredientId: z.string().min(1),
+          totalQuantity: z.number().nonnegative(),
+          isVague: z.boolean().optional().default(false),
+          originalPhrase: z.string().nullish(),
+        })
+        .refine((c) => c.isVague || c.totalQuantity > 0, {
+          message: 'Quantity must be greater than 0 for non-vague components',
+        })
+        .transform((c) => ({
+          ...c,
+          totalQuantity: c.isVague ? 0 : c.totalQuantity,
+        })),
     )
     .min(1),
 })
@@ -106,6 +114,7 @@ export async function GET(request: NextRequest) {
     const mealsWithNutrition = meals.map((meal) => {
       const nutrition = meal.components.reduce(
         (acc, comp) => {
+          if (comp.isVague) return acc
           const factor = comp.quantityPerServing / 100
           return {
             calories: acc.calories + comp.ingredient.calories * factor,
@@ -293,6 +302,7 @@ export async function POST(request: Request) {
 
   const nutrition = meal.components.reduce(
     (acc, comp) => {
+      if (comp.isVague) return acc
       const factor = comp.quantityPerServing / 100
       return {
         calories: acc.calories + comp.ingredient.calories * factor,

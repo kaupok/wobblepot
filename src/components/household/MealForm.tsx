@@ -321,6 +321,14 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
     )
   }
 
+  const markComponentAsVague = (ingredientId: string) => {
+    setComponents(
+      components.map((c) =>
+        c.ingredientId === ingredientId ? { ...c, isVague: true, originalPhrase: 'to taste' } : c,
+      ),
+    )
+  }
+
   const handleIngredientRowUpdate = (index: number, updatedData: IngredientRowData) => {
     setIngredientRows(ingredientRows.map((row, i) => (i === index ? updatedData : row)))
   }
@@ -541,6 +549,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
                   onRemove={removeComponent}
                   onUpdateQuantity={updateComponentQuantity}
                   onSetQuantity={setComponentQuantity}
+                  onMarkAsVague={markComponentAsVague}
                 />
               )}
 
