@@ -197,10 +197,9 @@ export function singularize(word: string): string {
     return word.slice(0, -3) + 'y'
   }
 
-  // -ves → -f (loaves already handled by irregulars, but catch others)
-  if (word.endsWith('ves') && word.length > 4) {
-    return word.slice(0, -3) + 'f'
-  }
+  // Note: -ves → -f plurals (loaves, halves, knives) are all handled by
+  // IRREGULAR_PLURALS above. No generic -ves rule needed — it would break
+  // common words like olives → "olif", cloves → "clof".
 
   // -es after sibilants (sauces → sauce, peaches → peach)
   if (word.endsWith('ses') || word.endsWith('zes')) {

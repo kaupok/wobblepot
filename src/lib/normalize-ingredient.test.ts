@@ -27,6 +27,13 @@ describe('singularize', () => {
     expect(singularize('anchovies')).toBe('anchovy')
   })
 
+  it('handles -ves words that are just -ve + s (not -f plurals)', () => {
+    expect(singularize('olives')).toBe('olive')
+    expect(singularize('cloves')).toBe('clove')
+    expect(singularize('endives')).toBe('endive')
+    expect(singularize('chives')).toBe('chives') // false plural
+  })
+
   it('handles irregular culinary plurals', () => {
     expect(singularize('potatoes')).toBe('potato')
     expect(singularize('tomatoes')).toBe('tomato')
