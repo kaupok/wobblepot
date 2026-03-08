@@ -12,6 +12,7 @@ import {
   type VagueQuantityResult,
 } from '@/lib/vague-quantities'
 import { applyIngredientAlias } from '@/lib/ingredient-aliases'
+import { normalizeIngredientName, extractLastWord } from '@/lib/normalize-ingredient'
 
 /**
  * Browser-like User-Agent to avoid being blocked by recipe sites.
@@ -976,26 +977,33 @@ export async function matchIngredients(
   for (const extracted of extractedIngredients) {
     const directName = extracted.name.toLowerCase().trim()
 
-    // Step 1: Try direct fuzzy search with the original name
-    let matches = await fuzzySearchIngredient(directName)
-    const directMatch = matches[0]
+    // Build candidate search names (deduplicated, in priority order)
+    const candidateNames = new Set<string>()
+    candidateNames.add(directName)
 
-    // Step 2: Also try alias expansion to find best match
+    // Alias expansion
     const expandedName = applyIngredientAlias(extracted.name)
     const aliasName = expandedName.toLowerCase().trim()
+    candidateNames.add(aliasName)
 
-    // Only search with alias if it's different from direct name
-    if (aliasName !== directName) {
-      const aliasMatches = await fuzzySearchIngredient(aliasName)
+    // Normalized name (strip modifiers + singularize)
+    const normalizedName = normalizeIngredientName(directName)
+    candidateNames.add(normalizedName)
 
-      // Use alias matches if they're better than direct matches
-      const aliasMatch = aliasMatches[0]
-      if (aliasMatch !== undefined) {
-        const bestDirect = directMatch?.similarity ?? 0
-        const bestAlias = aliasMatch.similarity
-        if (bestAlias > bestDirect) {
-          matches = aliasMatches
-        }
+    // Alias of normalized name
+    const normalizedAliasName = applyIngredientAlias(normalizedName).toLowerCase().trim()
+    candidateNames.add(normalizedAliasName)
+
+    // Last word fallback (e.g., "black bread" → "bread")
+    const lastWord = extractLastWord(directName)
+    if (lastWord) candidateNames.add(lastWord)
+
+    // Search all candidates and pick the best match
+    let matches: Awaited<ReturnType<typeof fuzzySearchIngredient>> = []
+    for (const candidate of candidateNames) {
+      const candidateMatches = await fuzzySearchIngredient(candidate)
+      if (candidateMatches[0] && candidateMatches[0].similarity > (matches[0]?.similarity ?? 0)) {
+        matches = candidateMatches
       }
     }
 

@@ -737,9 +737,13 @@ describe('matchIngredients', () => {
   })
 
   it('processes multiple ingredients', async () => {
+    // "chicken breast" → candidates: "chicken breast", "breast" (last word)
+    // "zxywvut spice" → candidates: "zxywvut spice", "spice" (last word)
     mockQueryRaw
-      .mockResolvedValueOnce([makeDbMatch({ name: 'chicken breast' })])
-      .mockResolvedValueOnce([]) // no match for second ingredient
+      .mockResolvedValueOnce([makeDbMatch({ name: 'chicken breast' })]) // "chicken breast"
+      .mockResolvedValueOnce([]) // "breast" (last word fallback)
+      .mockResolvedValueOnce([]) // "zxywvut spice" — no match
+      .mockResolvedValueOnce([]) // "spice" (last word fallback)
 
     const results = await matchIngredients(
       [
@@ -796,6 +800,88 @@ describe('matchIngredients', () => {
     // Should be treated as unmatched because similarity is too low for a reliable suggestion
     expect(results[0]!.type).toBe('unmatched')
     expect((results[0] as { extractedName: string }).extractedName).toBe('red chili pepper')
+  })
+
+  it('matches "eggs" to "egg" via normalization fallback', async () => {
+    // Candidate order: "eggs" (direct), "egg" (normalized/singularized)
+    mockQueryRaw
+      .mockResolvedValueOnce([makeDbMatch({ name: 'egg', similarity: 0.5, category: 'protein' })]) // "eggs"
+      .mockResolvedValueOnce([makeDbMatch({ name: 'egg', similarity: 0.95, category: 'protein' })]) // "egg"
+
+    const results = await matchIngredients(
+      [makeExtracted({ name: 'eggs', quantity: 3, unit: 'piece' })],
+      4,
+    )
+
+    expect(results).toHaveLength(1)
+    expect(results[0]!.type).toBe('matched')
+    const matched = results[0] as {
+      type: 'matched'
+      ingredient: { name: string }
+      similarityScore: number
+    }
+    expect(matched.ingredient.name).toBe('egg')
+    expect(matched.similarityScore).toBe(0.95)
+  })
+
+  it('matches "fresh chives" to "chives" via modifier stripping', async () => {
+    // Candidate order: "fresh chives" (direct), "chives" (normalized — modifier stripped)
+    mockQueryRaw
+      .mockResolvedValueOnce([
+        makeDbMatch({ name: 'chives', similarity: 0.45, category: 'vegetable' }),
+      ]) // "fresh chives"
+      .mockResolvedValueOnce([
+        makeDbMatch({ name: 'chives', similarity: 0.95, category: 'vegetable' }),
+      ]) // "chives"
+
+    const results = await matchIngredients(
+      [makeExtracted({ name: 'fresh chives', quantity: 10, unit: 'g' })],
+      4,
+    )
+
+    expect(results).toHaveLength(1)
+    expect(results[0]!.type).toBe('matched')
+    const matched = results[0] as {
+      type: 'matched'
+      ingredient: { name: string }
+      similarityScore: number
+    }
+    expect(matched.ingredient.name).toBe('chives')
+    expect(matched.similarityScore).toBe(0.95)
+  })
+
+  it('matches "black bread" to "bread" via last-word fallback', async () => {
+    // Candidate order: "black bread" (direct + normalized, same), "bread" (last word)
+    mockQueryRaw
+      .mockResolvedValueOnce([makeDbMatch({ name: 'bread', similarity: 0.48, category: 'grain' })]) // "black bread"
+      .mockResolvedValueOnce([makeDbMatch({ name: 'bread', similarity: 0.9, category: 'grain' })]) // "bread"
+
+    const results = await matchIngredients(
+      [makeExtracted({ name: 'black bread', quantity: 200, unit: 'g' })],
+      4,
+    )
+
+    expect(results).toHaveLength(1)
+    expect(results[0]!.type).toBe('matched')
+    const matched = results[0] as {
+      type: 'matched'
+      ingredient: { name: string }
+      similarityScore: number
+    }
+    expect(matched.ingredient.name).toBe('bread')
+    expect(matched.similarityScore).toBe(0.9)
+  })
+
+  it('keeps best match when direct name scores higher than fallbacks', async () => {
+    // Direct "chicken breast" already scores high — normalization shouldn't downgrade
+    mockQueryRaw.mockResolvedValue([makeDbMatch({ similarity: 0.95 })])
+
+    const results = await matchIngredients([makeExtracted()], 4)
+
+    expect(results).toHaveLength(1)
+    expect(results[0]!.type).toBe('matched')
+    const matched = results[0] as { type: 'matched'; similarityScore: number }
+    expect(matched.similarityScore).toBe(0.95)
   })
 })
 
@@ -1099,6 +1185,8 @@ describe('parseAndMatchRecipe', () => {
     }
 
     mockGenerateObject.mockResolvedValue({ object: mockExtraction } as never)
+    // "chicken breast" → candidates: "chicken breast", "breast" (last word)
+    // "zarkleberry" → candidates: "zarkleberry" (single word, no fallbacks)
     mockQueryRaw
       .mockResolvedValueOnce([
         {
@@ -1111,6 +1199,7 @@ describe('parseAndMatchRecipe', () => {
           similarity: 0.95,
         },
       ])
+      .mockResolvedValueOnce([]) // "breast" (last word fallback)
       .mockResolvedValueOnce([]) // zarkleberry not found
 
     const result = await parseAndMatchRecipe('Mystery dish: 300g chicken breast, 50g zarkleberry')
