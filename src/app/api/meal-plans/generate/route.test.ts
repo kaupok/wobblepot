@@ -230,7 +230,7 @@ describe('POST /api/meal-plans/generate', () => {
     expect(data.id).toBe('plan-123')
     expect(data.weekContext.type).toBe('next')
     expect(data.weekContext.daysCount).toBe(2)
-    expect(mockRecordGeneration).toHaveBeenCalledWith('household-123')
+    expect(mockRecordGeneration).toHaveBeenCalledWith('household-123', 'plan-generation')
   })
 
   it('returns 200 for empty mode', async () => {
@@ -247,7 +247,7 @@ describe('POST /api/meal-plans/generate', () => {
     expect(data.id).toBe('plan-empty')
     expect(data.weekContext.type).toBe('next')
     expect(data.weekContext.daysCount).toBe(0)
-    expect(mockRecordGeneration).toHaveBeenCalledWith('household-123')
+    expect(mockRecordGeneration).toHaveBeenCalledWith('household-123', 'plan-generation')
   })
 
   it('returns 400 for fill-empty mode without planId', async () => {
@@ -276,7 +276,7 @@ describe('POST /api/meal-plans/generate', () => {
 
     expect(response.status).toBe(200)
     expect(data.id).toBe('plan-123')
-    expect(mockRecordGeneration).toHaveBeenCalledWith('household-123')
+    expect(mockRecordGeneration).toHaveBeenCalledWith('household-123', 'plan-generation')
   })
 
   it('returns 422 when AI validation fails', async () => {

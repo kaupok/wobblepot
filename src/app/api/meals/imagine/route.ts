@@ -32,12 +32,12 @@ export async function POST(request: Request) {
   const { household } = membership
 
   // Rate limit
-  const rateLimitResult = checkRateLimit(household.id)
+  const rateLimitResult = checkRateLimit(household.id, 'meal-imagination')
   if (!rateLimitResult.allowed) {
     return NextResponse.json(
       {
         error: 'Rate limit exceeded',
-        message: 'Too many requests. Please try again later.',
+        message: 'Maximum 50 meal imagination requests per hour',
         resetAt: rateLimitResult.resetAt?.toISOString(),
       },
       { status: 429 },
@@ -172,7 +172,7 @@ export async function POST(request: Request) {
       }),
     )
 
-    recordGeneration(household.id)
+    recordGeneration(household.id, 'meal-imagination')
 
     return NextResponse.json({ success: true, meals })
   } catch (error) {
