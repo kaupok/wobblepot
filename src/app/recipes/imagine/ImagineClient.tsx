@@ -248,7 +248,7 @@ export function ImagineClient() {
     setReviewingMealId(null)
     const prefilledData = convertToPrefilledData(finalMeal)
     sessionStorage.setItem('prefilled-meal', JSON.stringify(prefilledData))
-    router.push('/recipes?mode=create&prefilled=true')
+    router.push('/recipes/create?prefilled=true')
   }
 
   const handleCancel = () => {
