@@ -107,6 +107,12 @@ Guidelines:
 - Estimate realistic prep + cook times
 - Each meal should have at least 3-4 ingredients for a complete dish
 
+Ingredient naming rules (IMPORTANT — names are matched against a database):
+- Use singular form: "egg" not "eggs", "tomato" not "tomatoes", "carrot" not "carrots"
+- Use simple base names without cooking adjectives: "chives" not "fresh chives", "bread" not "black bread"
+- Do NOT prefix with preparation words like fresh, dried, sliced, chopped, minced, frozen, canned, etc.
+- Specificity is OK when it's part of the ingredient identity: "chicken breast", "olive oil", "sour cream"
+
 Quantity guidelines (per serving, scale by number of servings):
 - Proteins (meat, fish, tofu): 100-200g per serving
 - Main vegetables (core to the dish): 80-150g per serving
