@@ -13,7 +13,7 @@ describe('rate-limit', () => {
 
   describe('checkRateLimit', () => {
     it('allows first generation for new household', () => {
-      const result = checkRateLimit('household-1')
+      const result = checkRateLimit('household-1', 'plan-generation')
       expect(result.allowed).toBe(true)
       expect(result.remaining).toBe(5)
       expect(result.resetAt).toBeUndefined()
@@ -22,24 +22,37 @@ describe('rate-limit', () => {
     it('returns correct remaining count after generations', () => {
       const householdId = 'household-2'
 
-      recordGeneration(householdId)
-      expect(checkRateLimit(householdId).remaining).toBe(4)
+      recordGeneration(householdId, 'plan-generation')
+      expect(checkRateLimit(householdId, 'plan-generation').remaining).toBe(4)
 
-      recordGeneration(householdId)
-      expect(checkRateLimit(householdId).remaining).toBe(3)
+      recordGeneration(householdId, 'plan-generation')
+      expect(checkRateLimit(householdId, 'plan-generation').remaining).toBe(3)
 
-      recordGeneration(householdId)
-      expect(checkRateLimit(householdId).remaining).toBe(2)
+      recordGeneration(householdId, 'plan-generation')
+      expect(checkRateLimit(householdId, 'plan-generation').remaining).toBe(2)
     })
 
-    it('blocks after 5 generations', () => {
+    it('blocks plan generation after 5 requests', () => {
       const householdId = 'household-3'
 
       for (let i = 0; i < 5; i++) {
-        recordGeneration(householdId)
+        recordGeneration(householdId, 'plan-generation')
       }
 
-      const result = checkRateLimit(householdId)
+      const result = checkRateLimit(householdId, 'plan-generation')
+      expect(result.allowed).toBe(false)
+      expect(result.remaining).toBe(0)
+      expect(result.resetAt).toBeDefined()
+    })
+
+    it('blocks meal imagination after 50 requests', () => {
+      const householdId = 'household-3b'
+
+      for (let i = 0; i < 50; i++) {
+        recordGeneration(householdId, 'meal-imagination')
+      }
+
+      const result = checkRateLimit(householdId, 'meal-imagination')
       expect(result.allowed).toBe(false)
       expect(result.remaining).toBe(0)
       expect(result.resetAt).toBeDefined()
@@ -50,15 +63,15 @@ describe('rate-limit', () => {
       const now = new Date('2025-01-15T10:00:00.000Z')
       vi.setSystemTime(now)
 
-      recordGeneration(householdId)
+      recordGeneration(householdId, 'plan-generation')
 
       // Fill up the rate limit
       for (let i = 0; i < 4; i++) {
         vi.advanceTimersByTime(1000) // 1 second
-        recordGeneration(householdId)
+        recordGeneration(householdId, 'plan-generation')
       }
 
-      const result = checkRateLimit(householdId)
+      const result = checkRateLimit(householdId, 'plan-generation')
       expect(result.allowed).toBe(false)
       expect(result.resetAt).toBeDefined()
 
@@ -74,15 +87,15 @@ describe('rate-limit', () => {
 
       // Fill up the rate limit
       for (let i = 0; i < 5; i++) {
-        recordGeneration(householdId)
+        recordGeneration(householdId, 'plan-generation')
       }
 
-      expect(checkRateLimit(householdId).allowed).toBe(false)
+      expect(checkRateLimit(householdId, 'plan-generation').allowed).toBe(false)
 
       // Advance time by 1 hour + 1 second
       vi.advanceTimersByTime(60 * 60 * 1000 + 1000)
 
-      const result = checkRateLimit(householdId)
+      const result = checkRateLimit(householdId, 'plan-generation')
       expect(result.allowed).toBe(true)
       expect(result.remaining).toBe(5)
     })
@@ -94,7 +107,7 @@ describe('rate-limit', () => {
 
       // Record 3 generations
       for (let i = 0; i < 3; i++) {
-        recordGeneration(householdId)
+        recordGeneration(householdId, 'plan-generation')
         vi.advanceTimersByTime(1000)
       }
 
@@ -103,12 +116,12 @@ describe('rate-limit', () => {
 
       // Record 2 more generations
       for (let i = 0; i < 2; i++) {
-        recordGeneration(householdId)
+        recordGeneration(householdId, 'plan-generation')
         vi.advanceTimersByTime(1000)
       }
 
       // Should only count the 2 recent generations
-      const result = checkRateLimit(householdId)
+      const result = checkRateLimit(householdId, 'plan-generation')
       expect(result.remaining).toBe(3)
     })
 
@@ -118,12 +131,38 @@ describe('rate-limit', () => {
 
       // Fill up household1's rate limit
       for (let i = 0; i < 5; i++) {
-        recordGeneration(household1)
+        recordGeneration(household1, 'plan-generation')
       }
 
-      expect(checkRateLimit(household1).allowed).toBe(false)
-      expect(checkRateLimit(household2).allowed).toBe(true)
-      expect(checkRateLimit(household2).remaining).toBe(5)
+      expect(checkRateLimit(household1, 'plan-generation').allowed).toBe(false)
+      expect(checkRateLimit(household2, 'plan-generation').allowed).toBe(true)
+      expect(checkRateLimit(household2, 'plan-generation').remaining).toBe(5)
+    })
+
+    it('isolates rate limits between features', () => {
+      const householdId = 'household-features'
+
+      // Fill up plan-generation limit
+      for (let i = 0; i < 5; i++) {
+        recordGeneration(householdId, 'plan-generation')
+      }
+
+      // Plan generation should be blocked
+      expect(checkRateLimit(householdId, 'plan-generation').allowed).toBe(false)
+
+      // Meal imagination should still be available
+      expect(checkRateLimit(householdId, 'meal-imagination').allowed).toBe(true)
+      expect(checkRateLimit(householdId, 'meal-imagination').remaining).toBe(50)
+    })
+
+    it('uses correct limit per feature', () => {
+      const householdId = 'household-limits'
+
+      const planResult = checkRateLimit(householdId, 'plan-generation')
+      expect(planResult.remaining).toBe(5)
+
+      const imagineResult = checkRateLimit(householdId, 'meal-imagination')
+      expect(imagineResult.remaining).toBe(50)
     })
   })
 
@@ -131,19 +170,19 @@ describe('rate-limit', () => {
     it('creates new entry for new household', () => {
       const householdId = 'household-8'
 
-      expect(checkRateLimit(householdId).remaining).toBe(5)
-      recordGeneration(householdId)
-      expect(checkRateLimit(householdId).remaining).toBe(4)
+      expect(checkRateLimit(householdId, 'plan-generation').remaining).toBe(5)
+      recordGeneration(householdId, 'plan-generation')
+      expect(checkRateLimit(householdId, 'plan-generation').remaining).toBe(4)
     })
 
     it('adds to existing entry', () => {
       const householdId = 'household-9'
 
-      recordGeneration(householdId)
-      recordGeneration(householdId)
-      recordGeneration(householdId)
+      recordGeneration(householdId, 'plan-generation')
+      recordGeneration(householdId, 'plan-generation')
+      recordGeneration(householdId, 'plan-generation')
 
-      expect(checkRateLimit(householdId).remaining).toBe(2)
+      expect(checkRateLimit(householdId, 'plan-generation').remaining).toBe(2)
     })
 
     it('cleans up old timestamps on record', () => {
@@ -153,43 +192,42 @@ describe('rate-limit', () => {
 
       // Record 5 generations (rate limit reached)
       for (let i = 0; i < 5; i++) {
-        recordGeneration(householdId)
+        recordGeneration(householdId, 'plan-generation')
       }
 
       // Advance time past the window
       vi.advanceTimersByTime(60 * 60 * 1000 + 1000)
 
       // Record new generation - should clean up old ones
-      recordGeneration(householdId)
+      recordGeneration(householdId, 'plan-generation')
 
       // Should only have 1 generation in current window
-      expect(checkRateLimit(householdId).remaining).toBe(4)
+      expect(checkRateLimit(householdId, 'plan-generation').remaining).toBe(4)
     })
   })
 
   describe('clearRateLimit', () => {
-    it('clears rate limit for specific household', () => {
-      const household1 = 'household-11a'
-      const household2 = 'household-11b'
+    it('clears rate limit for specific household and feature', () => {
+      const householdId = 'household-11'
 
-      // Fill up both households
       for (let i = 0; i < 5; i++) {
-        recordGeneration(household1)
-        recordGeneration(household2)
+        recordGeneration(householdId, 'plan-generation')
+        recordGeneration(householdId, 'meal-imagination')
       }
 
-      expect(checkRateLimit(household1).allowed).toBe(false)
-      expect(checkRateLimit(household2).allowed).toBe(false)
+      expect(checkRateLimit(householdId, 'plan-generation').allowed).toBe(false)
+      expect(checkRateLimit(householdId, 'meal-imagination').remaining).toBe(45)
 
-      clearRateLimit(household1)
+      clearRateLimit(householdId, 'plan-generation')
 
-      expect(checkRateLimit(household1).allowed).toBe(true)
-      expect(checkRateLimit(household1).remaining).toBe(5)
-      expect(checkRateLimit(household2).allowed).toBe(false)
+      expect(checkRateLimit(householdId, 'plan-generation').allowed).toBe(true)
+      expect(checkRateLimit(householdId, 'plan-generation').remaining).toBe(5)
+      // Other feature unaffected
+      expect(checkRateLimit(householdId, 'meal-imagination').remaining).toBe(45)
     })
 
     it('does nothing for non-existent household', () => {
-      expect(() => clearRateLimit('non-existent')).not.toThrow()
+      expect(() => clearRateLimit('non-existent', 'plan-generation')).not.toThrow()
     })
   })
 
@@ -199,17 +237,17 @@ describe('rate-limit', () => {
       const household2 = 'household-12b'
 
       for (let i = 0; i < 5; i++) {
-        recordGeneration(household1)
-        recordGeneration(household2)
+        recordGeneration(household1, 'plan-generation')
+        recordGeneration(household2, 'plan-generation')
       }
 
-      expect(checkRateLimit(household1).allowed).toBe(false)
-      expect(checkRateLimit(household2).allowed).toBe(false)
+      expect(checkRateLimit(household1, 'plan-generation').allowed).toBe(false)
+      expect(checkRateLimit(household2, 'plan-generation').allowed).toBe(false)
 
       clearAllRateLimits()
 
-      expect(checkRateLimit(household1).allowed).toBe(true)
-      expect(checkRateLimit(household2).allowed).toBe(true)
+      expect(checkRateLimit(household1, 'plan-generation').allowed).toBe(true)
+      expect(checkRateLimit(household2, 'plan-generation').allowed).toBe(true)
     })
   })
 })

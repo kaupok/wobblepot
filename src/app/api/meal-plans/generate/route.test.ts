@@ -112,7 +112,7 @@ function createRequest(body?: unknown) {
 describe('POST /api/meal-plans/generate', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockCheckRateLimit.mockReturnValue({ allowed: true, remaining: 4 })
+    mockCheckRateLimit.mockReturnValue({ allowed: true, remaining: 4, limit: 5 })
     mockIsSunday.mockReturnValue(false)
     mockIsMonday.mockReturnValue(false)
   })
@@ -144,6 +144,7 @@ describe('POST /api/meal-plans/generate', () => {
     mockCheckRateLimit.mockReturnValue({
       allowed: false,
       remaining: 0,
+      limit: 5,
       resetAt: new Date('2026-02-01T12:00:00.000Z'),
     })
 
@@ -230,7 +231,7 @@ describe('POST /api/meal-plans/generate', () => {
     expect(data.id).toBe('plan-123')
     expect(data.weekContext.type).toBe('next')
     expect(data.weekContext.daysCount).toBe(2)
-    expect(mockRecordGeneration).toHaveBeenCalledWith('household-123')
+    expect(mockRecordGeneration).toHaveBeenCalledWith('household-123', 'plan-generation')
   })
 
   it('returns 200 for empty mode', async () => {
@@ -247,7 +248,7 @@ describe('POST /api/meal-plans/generate', () => {
     expect(data.id).toBe('plan-empty')
     expect(data.weekContext.type).toBe('next')
     expect(data.weekContext.daysCount).toBe(0)
-    expect(mockRecordGeneration).toHaveBeenCalledWith('household-123')
+    expect(mockRecordGeneration).toHaveBeenCalledWith('household-123', 'plan-generation')
   })
 
   it('returns 400 for fill-empty mode without planId', async () => {
@@ -276,7 +277,7 @@ describe('POST /api/meal-plans/generate', () => {
 
     expect(response.status).toBe(200)
     expect(data.id).toBe('plan-123')
-    expect(mockRecordGeneration).toHaveBeenCalledWith('household-123')
+    expect(mockRecordGeneration).toHaveBeenCalledWith('household-123', 'plan-generation')
   })
 
   it('returns 422 when AI validation fails', async () => {

@@ -57,12 +57,12 @@ export async function POST(request: Request) {
   // can bypass the limit before recordGeneration is called. This is acceptable for MVP
   // as it only affects edge cases of rapid concurrent requests. For production scale,
   // consider Redis or database-backed atomic rate limiting.
-  const rateLimitResult = checkRateLimit(household.id)
+  const rateLimitResult = checkRateLimit(household.id, 'plan-generation')
   if (!rateLimitResult.allowed) {
     return NextResponse.json(
       {
         error: 'Rate limit exceeded',
-        message: 'Maximum 5 meal plan generations per hour',
+        message: `Maximum ${rateLimitResult.limit} meal plan generations per hour`,
         resetAt: rateLimitResult.resetAt?.toISOString(),
       },
       { status: 429 },
@@ -120,7 +120,7 @@ export async function POST(request: Request) {
       })
 
       // Record successful generation for rate limiting
-      recordGeneration(household.id)
+      recordGeneration(household.id, 'plan-generation')
 
       return NextResponse.json(result, { status: 200 })
     } catch (error) {
@@ -212,7 +212,7 @@ export async function POST(request: Request) {
       })
 
       // Record successful generation for rate limiting
-      recordGeneration(household.id)
+      recordGeneration(household.id, 'plan-generation')
 
       return NextResponse.json(
         {
@@ -259,7 +259,7 @@ export async function POST(request: Request) {
     })
 
     // Record successful generation for rate limiting
-    recordGeneration(household.id)
+    recordGeneration(household.id, 'plan-generation')
 
     // Add metadata about the plan
     const daysCount = result.entries.length
