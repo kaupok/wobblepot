@@ -68,6 +68,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         kidFriendly: true,
         primaryProteinType: true,
         suitableFor: true,
+        servings: true,
         deletedAt: true,
         createdAt: true,
         updatedAt: true,
@@ -127,6 +128,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       kidFriendly: meal.kidFriendly,
       primaryProteinType: meal.primaryProteinType,
       suitableFor: meal.suitableFor,
+      servings: meal.servings,
       isCustom: true,
       isFavorite: meal.favoritedBy.length > 0,
       deletedAt: meal.deletedAt,
@@ -250,6 +252,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     timeMinutes?: number | null
     kidFriendly?: boolean
     suitableFor?: ('breakfast' | 'lunch' | 'dinner')[]
+    servings?: number
     primaryProteinType?: typeof primaryProteinType
   } = {}
 
@@ -260,6 +263,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (timeMinutes !== undefined) updateData.timeMinutes = timeMinutes
   if (kidFriendly !== undefined) updateData.kidFriendly = kidFriendly
   if (suitableFor !== undefined) updateData.suitableFor = suitableFor
+  if (servings !== undefined) updateData.servings = servings
   if (components && servings) updateData.primaryProteinType = primaryProteinType
 
   // Use transaction to update meal and components atomically

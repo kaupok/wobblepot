@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { Pencil, Trash2, Heart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -48,12 +49,11 @@ export interface MealData {
 
 interface MealListProps {
   meals: MealData[]
-  onEdit: (meal: MealData) => void
   onDelete: (mealId: string) => void
   onToggleFavorite: (mealId: string, isFavorite: boolean) => void
 }
 
-export function MealList({ meals, onEdit, onDelete, onToggleFavorite }: MealListProps) {
+export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
   const [deleteConfirmMeal, setDeleteConfirmMeal] = useState<MealData | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null)
@@ -132,13 +132,10 @@ export function MealList({ meals, onEdit, onDelete, onToggleFavorite }: MealList
                     className={cn('h-4 w-4', meal.isFavorite && 'fill-red-500 text-red-500')}
                   />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onEdit(meal)}
-                  aria-label="Edit meal"
-                >
-                  <Pencil className="h-4 w-4" />
+                <Button variant="ghost" size="sm" asChild aria-label="Edit meal">
+                  <Link href={`/recipes/${meal.id}/edit`}>
+                    <Pencil className="h-4 w-4" />
+                  </Link>
                 </Button>
                 <Button
                   variant="ghost"

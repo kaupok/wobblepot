@@ -181,7 +181,7 @@ export function RecipeImportClient() {
       'prefilled-meal',
       JSON.stringify({ ...prefilledData, originalRecipeText: recipeText }),
     )
-    router.push('/recipes?mode=create&prefilled=true')
+    router.push('/recipes/create?prefilled=true')
   }
 
   useEffect(() => {
@@ -382,7 +382,7 @@ export function RecipeImportClient() {
           ) : (
             <Body variant="muted" className="text-center">
               or{' '}
-              <Link href="/recipes?mode=create" className="text-primary underline">
+              <Link href="/recipes/create" className="text-primary underline">
                 create manually
               </Link>
             </Body>
