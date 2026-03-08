@@ -112,7 +112,7 @@ function createRequest(body?: unknown) {
 describe('POST /api/meal-plans/generate', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockCheckRateLimit.mockReturnValue({ allowed: true, remaining: 4 })
+    mockCheckRateLimit.mockReturnValue({ allowed: true, remaining: 4, limit: 5 })
     mockIsSunday.mockReturnValue(false)
     mockIsMonday.mockReturnValue(false)
   })
@@ -144,6 +144,7 @@ describe('POST /api/meal-plans/generate', () => {
     mockCheckRateLimit.mockReturnValue({
       allowed: false,
       remaining: 0,
+      limit: 5,
       resetAt: new Date('2026-02-01T12:00:00.000Z'),
     })
 

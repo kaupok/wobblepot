@@ -23,6 +23,7 @@ const rateLimitStore = new Map<string, RateLimitEntry>()
 export interface RateLimitResult {
   allowed: boolean
   remaining: number
+  limit: number
   resetAt?: Date
 }
 
@@ -38,7 +39,7 @@ export function checkRateLimit(householdId: string, feature: RateLimitFeature): 
 
   const entry = rateLimitStore.get(key)
   if (!entry) {
-    return { allowed: true, remaining: limit }
+    return { allowed: true, remaining: limit, limit }
   }
 
   // Filter to only timestamps within the last hour
@@ -49,10 +50,10 @@ export function checkRateLimit(householdId: string, feature: RateLimitFeature): 
     // Find when the oldest timestamp in the window will expire
     const oldestInWindow = Math.min(...recentTimestamps)
     const resetAt = new Date(oldestInWindow + HOUR_IN_MS)
-    return { allowed: false, remaining: 0, resetAt }
+    return { allowed: false, remaining: 0, limit, resetAt }
   }
 
-  return { allowed: true, remaining: limit - count }
+  return { allowed: true, remaining: limit - count, limit }
 }
 
 /**

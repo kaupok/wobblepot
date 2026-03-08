@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: 'Rate limit exceeded',
-        message: 'Maximum 50 meal imagination requests per hour',
+        message: `Maximum ${rateLimitResult.limit} meal imagination requests per hour`,
         resetAt: rateLimitResult.resetAt?.toISOString(),
       },
       { status: 429 },
