@@ -762,6 +762,10 @@ export interface MatchedIngredient {
     subcategory: string | null
     defaultUnit: Unit
     gramsPerPiece: number | null
+    calories: number
+    protein: number
+    carbs: number
+    fat: number
   }
   /** Quantity converted to the ingredient's default unit */
   convertedQuantity: number
@@ -943,6 +947,10 @@ export async function fuzzySearchIngredient(searchName: string) {
       subcategory: string | null
       defaultUnit: Unit
       gramsPerPiece: number | null
+      calories: number
+      protein: number
+      carbs: number
+      fat: number
       similarity: number
     }>
   >`
@@ -953,6 +961,10 @@ export async function fuzzySearchIngredient(searchName: string) {
       subcategory,
       "defaultUnit",
       "gramsPerPiece",
+      calories,
+      protein,
+      carbs,
+      fat,
       similarity(name, ${searchName}) as similarity
     FROM "ingredient"
     WHERE similarity(name, ${searchName}) >= ${SIMILARITY_THRESHOLD}
@@ -1104,6 +1116,10 @@ export async function matchIngredients(
           subcategory: match.subcategory,
           defaultUnit: match.defaultUnit,
           gramsPerPiece: match.gramsPerPiece,
+          calories: match.calories,
+          protein: match.protein,
+          carbs: match.carbs,
+          fat: match.fat,
         },
         convertedQuantity,
         quantityWarning,

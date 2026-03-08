@@ -14,6 +14,11 @@ interface IngredientSearchResult {
   name: string
   category: IngredientCategory
   defaultUnit: Unit
+  gramsPerPiece: number | null
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
   similarity: number
 }
 
@@ -53,6 +58,11 @@ export async function GET(request: NextRequest) {
         name,
         category,
         "defaultUnit",
+        "gramsPerPiece",
+        calories,
+        protein,
+        carbs,
+        fat,
         similarity(name, ${search}) as similarity
       FROM "ingredient"
       WHERE similarity(name, ${search}) >= ${SIMILARITY_THRESHOLD}

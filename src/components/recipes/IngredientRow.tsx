@@ -15,6 +15,11 @@ export interface IngredientResult {
   name: string
   category: IngredientCategory
   defaultUnit: Unit
+  gramsPerPiece?: number | null
+  calories?: number
+  protein?: number
+  carbs?: number
+  fat?: number
 }
 
 export interface IngredientAlternative {

@@ -143,6 +143,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           category: comp.ingredient.category,
           defaultUnit: comp.ingredient.defaultUnit,
           gramsPerPiece: comp.ingredient.gramsPerPiece,
+          calories: comp.ingredient.calories,
+          protein: comp.ingredient.protein,
+          carbs: comp.ingredient.carbs,
+          fat: comp.ingredient.fat,
         },
       })),
       nutrition: {
@@ -378,6 +382,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         category: comp.ingredient.category,
         defaultUnit: comp.ingredient.defaultUnit,
         gramsPerPiece: comp.ingredient.gramsPerPiece,
+        calories: comp.ingredient.calories,
+        protein: comp.ingredient.protein,
+        carbs: comp.ingredient.carbs,
+        fat: comp.ingredient.fat,
       },
     })),
     nutrition: {

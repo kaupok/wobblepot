@@ -138,6 +138,10 @@ export async function POST(request: Request) {
                 category: matched.ingredient.category,
                 defaultUnit: matched.ingredient.defaultUnit,
                 gramsPerPiece: matched.ingredient.gramsPerPiece,
+                calories: matched.ingredient.calories,
+                protein: matched.ingredient.protein,
+                carbs: matched.ingredient.carbs,
+                fat: matched.ingredient.fat,
               },
             }
           })

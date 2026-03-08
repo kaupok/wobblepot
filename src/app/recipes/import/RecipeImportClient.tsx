@@ -39,6 +39,10 @@ interface MatchedIngredient {
     category: IngredientCategory
     defaultUnit: Unit
     gramsPerPiece: number | null
+    calories?: number
+    protein?: number
+    carbs?: number
+    fat?: number
   }
   convertedQuantity: number
   isVague: boolean
@@ -107,6 +111,11 @@ function convertToPrefilledData(recipe: ParsedRecipeData): {
           name: ingredient.ingredient.name,
           category: ingredient.ingredient.category,
           defaultUnit: ingredient.ingredient.defaultUnit,
+          gramsPerPiece: ingredient.ingredient.gramsPerPiece,
+          calories: ingredient.ingredient.calories,
+          protein: ingredient.ingredient.protein,
+          carbs: ingredient.ingredient.carbs,
+          fat: ingredient.ingredient.fat,
         },
         convertedQuantity: ingredient.convertedQuantity,
         isVague: ingredient.isVague,
@@ -126,6 +135,11 @@ function convertToPrefilledData(recipe: ParsedRecipeData): {
         name: ingredient.ingredient.name,
         category: ingredient.ingredient.category,
         defaultUnit: ingredient.ingredient.defaultUnit,
+        gramsPerPiece: ingredient.ingredient.gramsPerPiece,
+        calories: ingredient.ingredient.calories,
+        protein: ingredient.ingredient.protein,
+        carbs: ingredient.ingredient.carbs,
+        fat: ingredient.ingredient.fat,
       },
       convertedQuantity: ingredient.convertedQuantity,
       isVague: ingredient.isVague,

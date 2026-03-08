@@ -14,6 +14,11 @@ export interface IngredientResult {
   name: string
   category: IngredientCategory
   defaultUnit: Unit
+  gramsPerPiece?: number | null
+  calories?: number
+  protein?: number
+  carbs?: number
+  fat?: number
 }
 
 export interface IngredientAlternative {
@@ -42,6 +47,11 @@ export interface PrefilledIngredient {
     name: string
     category: IngredientCategory
     defaultUnit: Unit
+    gramsPerPiece?: number | null
+    calories?: number
+    protein?: number
+    carbs?: number
+    fat?: number
   }
   convertedQuantity?: number
   isVague?: boolean
@@ -77,6 +87,11 @@ export interface MealFormData {
       name: string
       category: IngredientCategory
       defaultUnit: Unit
+      gramsPerPiece?: number | null
+      calories?: number
+      protein?: number
+      carbs?: number
+      fat?: number
     }
   }[]
   // Enhanced prefilled ingredients (for recipe import with match states)
