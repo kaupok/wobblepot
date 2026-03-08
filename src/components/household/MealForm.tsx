@@ -227,15 +227,21 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
           continue
         }
         if (row.ingredient.calories == null) continue
+        if (row.isVague) {
+          hasVague = true
+          continue
+        }
         matchedCount++
-        if (row.isVague) hasVague = true
         addNutrition(row.ingredient, row.totalQuantity)
       }
     } else {
       for (const comp of components) {
         if (comp.ingredient.calories == null) continue
+        if (comp.isVague) {
+          hasVague = true
+          continue
+        }
         matchedCount++
-        if (comp.isVague) hasVague = true
         addNutrition(comp.ingredient, comp.totalQuantity)
       }
     }
