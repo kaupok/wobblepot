@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma'
 import { imagineMeals } from '@/lib/ai/imagine-meal'
 import { matchIngredients } from '@/lib/ai/parse-recipe'
 import { checkRateLimit, recordGeneration } from '@/lib/meal-planning/rate-limit'
+import { deriveProteinType } from '@/lib/meal-planning/protein'
 import type { ExtractedIngredient } from '@/lib/ai/parse-recipe'
 
 const imagineRequestSchema = z.object({
@@ -102,6 +103,7 @@ export async function POST(request: Request) {
                   protein: true,
                   carbs: true,
                   fat: true,
+                  proteinType: true,
                 },
               })
             : []
@@ -138,6 +140,16 @@ export async function POST(request: Request) {
             }
           })
 
+        // Derive protein type from matched components
+        const componentDataForProtein = components.map((comp) => ({
+          quantityPerServing: comp.quantityPerServing,
+          ingredient: {
+            proteinType: nutritionMap.get(comp.ingredientId)?.proteinType ?? null,
+            protein: nutritionMap.get(comp.ingredientId)?.protein ?? 0,
+          },
+        }))
+        const primaryProteinType = deriveProteinType(componentDataForProtein)
+
         return {
           id: `imagined-${index}`,
           name: meal.name,
@@ -146,7 +158,7 @@ export async function POST(request: Request) {
           servings: meal.servings,
           suitableFor: meal.mealTypes,
           kidFriendly: meal.kidFriendly,
-          primaryProteinType: 'none',
+          primaryProteinType,
           components,
           nutrition: {
             calories: Math.round(nutrition.calories),
