@@ -102,11 +102,28 @@ export async function imagineMeals(
 
 Guidelines:
 - Use simple, commonly available ingredients (nothing exotic or hard to find)
-- Provide realistic quantities for each ingredient
 - Be creative but practical — these are everyday family meals
 - Include a mix of proteins, vegetables, and carbs where appropriate
 - Estimate realistic prep + cook times
-- Each meal should have at least 3-4 ingredients for a complete dish${constraintsSection}`
+- Each meal should have at least 3-4 ingredients for a complete dish
+
+Quantity guidelines (per serving, scale by number of servings):
+- Proteins (meat, fish, tofu): 100-200g per serving
+- Main vegetables (core to the dish): 80-150g per serving
+- Grains/pasta (dry weight): 75-100g per serving
+- Rice (dry weight): 65-80g per serving
+- Cooking oils/fats: 1-2 tbsp total (not per serving)
+- Fresh herbs: 5-15g total
+- Dried herbs/spices: 0.5-2 tsp each
+- Garlic: 1-2 cloves per serving
+- Onion: roughly 0.5 medium onion per serving
+- Sauces/condiments: 1-2 tbsp per serving
+- Cheese: 20-40g per serving
+
+Important: quantities must reflect the ingredient's role in the dish. A main-component vegetable (e.g., bell pepper in a stir-fry) needs 80-150g/serving, while a garnish or accent (e.g., a few slices of bell pepper on a sandwich) needs only 20-30g/serving.
+
+BAD: "30g red bell pepper" for 4 servings of roasted vegetables (7.5g/serving — barely a slice)
+GOOD: "400g red bell pepper" for 4 servings of roasted vegetables (100g/serving)${constraintsSection}`
 
   const result = await generateObject({
     model: anthropic(IMAGINE_MODEL),
