@@ -29,6 +29,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { IngredientRow, type IngredientRowData } from '@/components/recipes/IngredientRow'
+import { NutritionSummary } from '@/components/meal-plan/NutritionSummary'
 import {
   type MealTypeValue,
   type IngredientResult,
@@ -186,6 +187,49 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
 
     return duplicates
   }, [isImportMode, ingredientRows, components])
+
+  // Compute live nutrition summary from current ingredients
+  const nutritionSummary = useMemo(() => {
+    const servingsNum = parseInt(servings, 10) || 1
+    const nutrition = { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    let matchedCount = 0
+    let unmatchedCount = 0
+    let hasVague = false
+
+    if (isImportMode) {
+      for (const row of ingredientRows) {
+        if (row.type === 'unmatched') {
+          unmatchedCount++
+          continue
+        }
+        const ing = row.ingredient
+        if (ing.calories == null) continue
+        matchedCount++
+        if (row.isVague) hasVague = true
+        const quantityPerServing = row.totalQuantity / servingsNum
+        const factor = quantityPerServing / 100
+        nutrition.calories += (ing.calories ?? 0) * factor
+        nutrition.protein += (ing.protein ?? 0) * factor
+        nutrition.carbs += (ing.carbs ?? 0) * factor
+        nutrition.fat += (ing.fat ?? 0) * factor
+      }
+    } else {
+      for (const comp of components) {
+        const ing = comp.ingredient
+        if (ing.calories == null) continue
+        matchedCount++
+        if (comp.isVague) hasVague = true
+        const quantityPerServing = comp.totalQuantity / servingsNum
+        const factor = quantityPerServing / 100
+        nutrition.calories += (ing.calories ?? 0) * factor
+        nutrition.protein += (ing.protein ?? 0) * factor
+        nutrition.carbs += (ing.carbs ?? 0) * factor
+        nutrition.fat += (ing.fat ?? 0) * factor
+      }
+    }
+
+    return { nutrition, matchedCount, unmatchedCount, hasVague }
+  }, [isImportMode, ingredientRows, components, servings])
 
   const handleMealTypeToggle = (mealType: MealTypeValue, checked: boolean) => {
     if (checked) {
@@ -497,6 +541,23 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
               {!hasIngredients && (
                 <div className="border-muted rounded-md border border-dashed p-6 text-center">
                   <Body variant="muted">No ingredients added yet. Search above to add some.</Body>
+                </div>
+              )}
+
+              {/* Live nutrition summary */}
+              {nutritionSummary.matchedCount > 0 && (
+                <div className="bg-muted/50 rounded-md border px-3 py-2">
+                  <NutritionSummary
+                    nutrition={nutritionSummary.nutrition}
+                    compact
+                    components={nutritionSummary.hasVague ? [{ isVague: true }] : undefined}
+                  />
+                  {nutritionSummary.unmatchedCount > 0 && (
+                    <Body variant="muted" className="mt-1 text-xs">
+                      Approximate — {nutritionSummary.unmatchedCount} ingredient
+                      {nutritionSummary.unmatchedCount > 1 ? 's' : ''} not included
+                    </Body>
+                  )}
                 </div>
               )}
             </section>
