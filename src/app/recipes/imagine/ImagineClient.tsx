@@ -212,6 +212,7 @@ export function ImagineClient() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(reviewPayload),
+        signal: AbortSignal.timeout(15_000),
       })
 
       if (response.ok) {
@@ -346,7 +347,7 @@ export function ImagineClient() {
           <CardFooter className="flex flex-col gap-3">
             <Button
               onClick={handleGenerate}
-              disabled={isGenerating || !prompt.trim()}
+              disabled={isGenerating || reviewingMealId !== null || !prompt.trim()}
               className="w-full"
             >
               {isGenerating ? (

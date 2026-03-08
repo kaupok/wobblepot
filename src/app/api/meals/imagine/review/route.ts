@@ -49,7 +49,11 @@ export async function POST(request: Request) {
       ingredients as ReviewIngredient[],
     )
 
-    return NextResponse.json({ success: true, ingredients: reviewed.ingredients })
+    // Filter out non-positive quantities the AI may return (schema can't enforce .positive())
+    // Missing ingredients will keep their original quantities client-side
+    const safeIngredients = reviewed.ingredients.filter((ing) => ing.quantityPerServing > 0)
+
+    return NextResponse.json({ success: true, ingredients: safeIngredients })
   } catch (error) {
     console.error('Failed to review meal quantities:', error)
     return NextResponse.json({ error: 'Failed to review quantities' }, { status: 500 })
