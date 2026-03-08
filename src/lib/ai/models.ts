@@ -16,3 +16,6 @@ export const TIPS_MODEL = 'claude-sonnet-4-6'
 
 /** Model for "Imagine a meal" freeform meal generation. */
 export const IMAGINE_MODEL = 'claude-sonnet-4-6'
+
+/** Model for reviewing and correcting imagined meal quantities. */
+export const REVIEW_MODEL = 'claude-sonnet-4-6'

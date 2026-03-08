@@ -181,6 +181,7 @@ export function ImagineClient() {
   const router = useRouter()
   const [prompt, setPrompt] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
+  const [reviewingMealId, setReviewingMealId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [meals, setMeals] = useState<ImaginedMealResponse[] | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -191,8 +192,61 @@ export function ImagineClient() {
     }
   }, [])
 
-  const navigateToCreate = (meal: ImaginedMealResponse) => {
-    const prefilledData = convertToPrefilledData(meal)
+  const navigateToCreate = async (meal: ImaginedMealResponse) => {
+    setReviewingMealId(meal.id)
+
+    let finalMeal = meal
+    try {
+      const reviewPayload = {
+        mealName: meal.name,
+        servings: meal.servings,
+        ingredients: meal.components.map((comp) => ({
+          ingredientId: comp.ingredientId,
+          name: comp.ingredient.name,
+          quantityPerServing: comp.quantityPerServing,
+          unit: comp.ingredient.defaultUnit,
+        })),
+      }
+
+      const response = await fetch('/api/meals/imagine/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reviewPayload),
+        signal: AbortSignal.timeout(15_000),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.ingredients) {
+          const correctionMap = new Map<string, number>(
+            data.ingredients.map((ing: { ingredientId: string; quantityPerServing: number }) => [
+              ing.ingredientId,
+              ing.quantityPerServing,
+            ]),
+          )
+
+          finalMeal = {
+            ...meal,
+            components: meal.components.map((comp) => {
+              const corrected = correctionMap.get(comp.ingredientId)
+              return corrected != null ? { ...comp, quantityPerServing: corrected } : comp
+            }),
+            ingredients: meal.ingredients.map((ing) => {
+              if (ing.type !== 'matched') return ing
+              const corrected = correctionMap.get(ing.ingredient.id)
+              return corrected != null
+                ? { ...ing, convertedQuantity: corrected * meal.servings }
+                : ing
+            }),
+          }
+        }
+      }
+    } catch {
+      // Graceful degradation: proceed with original quantities
+    }
+
+    setReviewingMealId(null)
+    const prefilledData = convertToPrefilledData(finalMeal)
     sessionStorage.setItem('prefilled-meal', JSON.stringify(prefilledData))
     router.push('/recipes?mode=create&prefilled=true')
   }
@@ -293,7 +347,7 @@ export function ImagineClient() {
           <CardFooter className="flex flex-col gap-3">
             <Button
               onClick={handleGenerate}
-              disabled={isGenerating || !prompt.trim()}
+              disabled={isGenerating || reviewingMealId !== null || !prompt.trim()}
               className="w-full"
             >
               {isGenerating ? (
@@ -327,8 +381,19 @@ export function ImagineClient() {
                       <MealCardBase meal={meal} />
                     </CardContent>
                     <CardFooter className="p-4 pt-0">
-                      <Button className="w-full" onClick={() => navigateToCreate(meal)}>
-                        Select
+                      <Button
+                        className="w-full"
+                        onClick={() => navigateToCreate(meal)}
+                        disabled={reviewingMealId !== null}
+                      >
+                        {reviewingMealId === meal.id ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Fine-tuning recipe...
+                          </>
+                        ) : (
+                          'Select'
+                        )}
                       </Button>
                     </CardFooter>
                   </Card>
