@@ -196,35 +196,47 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
     let unmatchedCount = 0
     let hasVague = false
 
+    const addNutrition = (
+      ing: {
+        calories?: number
+        protein?: number
+        carbs?: number
+        fat?: number
+        defaultUnit: string
+        gramsPerPiece?: number | null
+      },
+      totalQuantity: number,
+    ) => {
+      const quantityPerServing = totalQuantity / servingsNum
+      // For piece-unit ingredients, convert pieces to grams first
+      const gramsPerServing =
+        ing.defaultUnit === 'piece' && ing.gramsPerPiece
+          ? quantityPerServing * ing.gramsPerPiece
+          : quantityPerServing
+      const factor = gramsPerServing / 100
+      nutrition.calories += (ing.calories ?? 0) * factor
+      nutrition.protein += (ing.protein ?? 0) * factor
+      nutrition.carbs += (ing.carbs ?? 0) * factor
+      nutrition.fat += (ing.fat ?? 0) * factor
+    }
+
     if (isImportMode) {
       for (const row of ingredientRows) {
         if (row.type === 'unmatched') {
           unmatchedCount++
           continue
         }
-        const ing = row.ingredient
-        if (ing.calories == null) continue
+        if (row.ingredient.calories == null) continue
         matchedCount++
         if (row.isVague) hasVague = true
-        const quantityPerServing = row.totalQuantity / servingsNum
-        const factor = quantityPerServing / 100
-        nutrition.calories += (ing.calories ?? 0) * factor
-        nutrition.protein += (ing.protein ?? 0) * factor
-        nutrition.carbs += (ing.carbs ?? 0) * factor
-        nutrition.fat += (ing.fat ?? 0) * factor
+        addNutrition(row.ingredient, row.totalQuantity)
       }
     } else {
       for (const comp of components) {
-        const ing = comp.ingredient
-        if (ing.calories == null) continue
+        if (comp.ingredient.calories == null) continue
         matchedCount++
         if (comp.isVague) hasVague = true
-        const quantityPerServing = comp.totalQuantity / servingsNum
-        const factor = quantityPerServing / 100
-        nutrition.calories += (ing.calories ?? 0) * factor
-        nutrition.protein += (ing.protein ?? 0) * factor
-        nutrition.carbs += (ing.carbs ?? 0) * factor
-        nutrition.fat += (ing.fat ?? 0) * factor
+        addNutrition(comp.ingredient, comp.totalQuantity)
       }
     }
 
@@ -547,6 +559,9 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
               {/* Live nutrition summary */}
               {nutritionSummary.matchedCount > 0 && (
                 <div className="bg-muted/50 rounded-md border px-3 py-2">
+                  <Body variant="muted" className="mb-1 text-xs font-medium">
+                    Nutrition per serving
+                  </Body>
                   <NutritionSummary
                     nutrition={nutritionSummary.nutrition}
                     compact

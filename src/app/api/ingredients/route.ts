@@ -14,6 +14,7 @@ interface IngredientSearchResult {
   name: string
   category: IngredientCategory
   defaultUnit: Unit
+  gramsPerPiece: number | null
   calories: number
   protein: number
   carbs: number
@@ -57,6 +58,7 @@ export async function GET(request: NextRequest) {
         name,
         category,
         "defaultUnit",
+        "gramsPerPiece",
         calories,
         protein,
         carbs,
