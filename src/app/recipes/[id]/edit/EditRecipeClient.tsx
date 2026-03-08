@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
 import { MealForm, type MealFormData } from '@/components/household/MealForm'
 import { Body } from '@/components/ui/typography'
 
@@ -71,8 +73,11 @@ export function EditRecipeClient({ mealId }: EditRecipeClientProps) {
   if (error || !meal) {
     return (
       <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
-        <div className="text-center">
+        <div className="flex flex-col items-center gap-4 text-center">
           <Body variant="muted">{error || 'Meal not found'}</Body>
+          <Button asChild variant="outline">
+            <Link href="/recipes">Back to recipes</Link>
+          </Button>
         </div>
       </div>
     )

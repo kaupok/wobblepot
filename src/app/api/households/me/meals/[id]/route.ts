@@ -252,6 +252,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     timeMinutes?: number | null
     kidFriendly?: boolean
     suitableFor?: ('breakfast' | 'lunch' | 'dinner')[]
+    servings?: number
     primaryProteinType?: typeof primaryProteinType
   } = {}
 
@@ -262,6 +263,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (timeMinutes !== undefined) updateData.timeMinutes = timeMinutes
   if (kidFriendly !== undefined) updateData.kidFriendly = kidFriendly
   if (suitableFor !== undefined) updateData.suitableFor = suitableFor
+  if (servings !== undefined) updateData.servings = servings
   if (components && servings) updateData.primaryProteinType = primaryProteinType
 
   // Use transaction to update meal and components atomically
