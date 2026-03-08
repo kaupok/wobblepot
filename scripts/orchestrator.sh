@@ -379,7 +379,7 @@ report_worker_status() {
   local now
   now=$(date +%s)
 
-  log INFO "── Active workers: $count/$MAX_WORKERS ──"
+  log DEBUG "── Active workers: $count/$MAX_WORKERS ──"
 
   local i=0
   while [ $i -lt $count ]; do
@@ -407,9 +407,9 @@ report_worker_status() {
         last_msg=$(git -C "$wt_path" log -1 --format='%s' 2>/dev/null | cut -c1-80) || true
       fi
 
-      # Check for uncommitted changes as a sign of active work
+      # Check for uncommitted changes or untracked files as a sign of active work
       local dirty=""
-      if git -C "$wt_path" diff --quiet HEAD 2>/dev/null; then
+      if [ -z "$(git -C "$wt_path" status --porcelain 2>/dev/null)" ]; then
         dirty=""
       else
         dirty=" [working]"
@@ -427,7 +427,7 @@ report_worker_status() {
     fi
 
     printf "  ${BLUE}%-8s${NC} %3dm%02ds  %s\n" "$issue_id" "$mins" "$secs" "$status" >&2
-    printf "  %-8s %3dm%02ds  %s\n" "$issue_id" "$mins" "$secs" "$status" >> "$MAIN_LOG"
+    log DEBUG "  $(printf '%-8s %3dm%02ds  %s' "$issue_id" "$mins" "$secs" "$status")"
 
     i=$((i + 1))
   done
