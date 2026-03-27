@@ -63,8 +63,11 @@ fi
 
 # ─── Review prompt ────────────────────────────────────────────────────────────
 
-REVIEW_PROMPT="$(cat <<PROMPT
-You are reviewing PR #${PR_NUMBER} in the Honkadori project. You are a fresh reviewer with NO context from the implementation — you only see the final diff and the codebase.
+PROMPT_FILE=$(mktemp)
+trap 'rm -f "$PROMPT_FILE"' EXIT
+
+cat > "$PROMPT_FILE" <<'PROMPT'
+You are reviewing PR #__PR_NUMBER__ in the Honkadori project. You are a fresh reviewer with NO context from the implementation — you only see the final diff and the codebase.
 
 ## Your task
 
@@ -126,8 +129,8 @@ Example of a BAD comment (do NOT post comments like this):
 
 Run these commands:
 \`\`\`bash
-gh pr diff ${PR_NUMBER}
-gh pr view ${PR_NUMBER} --json title,body,files --jq '{title: .title, body: .body, files: [.files[].path]}'
+gh pr diff __PR_NUMBER__
+gh pr view __PR_NUMBER__ --json title,body,files --jq '{title: .title, body: .body, files: [.files[].path]}'
 \`\`\`
 
 ### Step 2: Read changed files in full
@@ -160,7 +163,7 @@ echo '{
       "body": "**Issue title**\\n\\nExplanation...\\n\\n\`\`\`suggestion\\nfixed code\\n\`\`\`"
     }
   ]
-}' | gh api /repos/{owner}/{repo}/pulls/${PR_NUMBER}/reviews --method POST --input -
+}' | gh api /repos/{owner}/{repo}/pulls/__PR_NUMBER__/reviews --method POST --input -
 \`\`\`
 
 The \`line\` field must be a line number in the NEW version of the file (right side of the diff). Use the diff hunks to find the correct line numbers.
@@ -177,22 +180,22 @@ Rules for inline comments:
 Post an issue-level summary comment. This MUST start with the HTML marker on the very first line:
 
 \`\`\`bash
-gh api /repos/{owner}/{repo}/issues/${PR_NUMBER}/comments \\
+gh api /repos/{owner}/{repo}/issues/__PR_NUMBER__/comments \\
   --method POST \\
-  -f body='<!-- claude-review -->
+  -f body="<!-- claude-review -->
 ### Claude review
 
 [2-3 sentence summary of what the PR does and your overall assessment]
 
 **Issues found:**
-1. **[Issue title]** (\`file:line\`) — [one sentence]
+1. **[Issue title]** (file:line) — [one sentence]
 2. ...
 
-(If no issues: "No issues found. The changes look correct.")
+(If no issues: No issues found. The changes look correct.)
 
 **Confidence:** [1-5]/5 — [one sentence justification]
 
-**Files reviewed:** [comma-separated list]'
+**Files reviewed:** [comma-separated list]"
 \`\`\`
 
 ## Rules
@@ -204,7 +207,10 @@ gh api /repos/{owner}/{repo}/issues/${PR_NUMBER}/comments \\
 - Always post the summary comment, even if inline comments fail
 - If \`gh api\` for inline comments fails (e.g. bad line number), post the findings in the summary comment instead
 PROMPT
-)"
+
+# Substitute PR number into the prompt (quoted heredoc prevents expansion)
+sed -i '' "s/__PR_NUMBER__/${PR_NUMBER}/g" "$PROMPT_FILE"
+REVIEW_PROMPT=$(cat "$PROMPT_FILE")
 
 # ─── Run the reviewer ─────────────────────────────────────────────────────────
 
