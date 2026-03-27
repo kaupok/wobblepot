@@ -572,7 +572,7 @@ handle_failure() {
   local triage="BACKLOG"
   if command -v claude &> /dev/null && [ "$DRY_RUN" = false ]; then
     local triage_output exit_code=0
-    triage_output=$(echo "$log_tail" | env -u ANTHROPIC_API_KEY claude -p --model claude-haiku-4-5-20251001 "Worker for $issue_id failed ($failure_type). Based on the log from stdin, respond with EXACTLY one word:
+    triage_output=$(echo "$log_tail" | env -u ANTHROPIC_API_KEY claude -p --model claude-sonnet-4-6 "Worker for $issue_id failed ($failure_type). Based on the log from stdin, respond with EXACTLY one word:
 RETRY - transient failure (flaky test, network error, rate limit, timeout)
 BACKLOG - issue needs refinement (bad description, missing context, wrong approach)
 NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 2>&1) || exit_code=$?
