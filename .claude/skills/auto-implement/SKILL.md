@@ -588,66 +588,69 @@ If still failing after 2 attempts:
 gh pr view --json number,title,headRefName,url
 ```
 
-### 6.3 Wait for Greptile review
+### 6.3 Trigger Claude review
 
-**IMPORTANT:** Greptile does NOT show up as a GitHub check. It posts comments asynchronously after CI completes. You MUST wait for Greptile before proceeding to merge.
+Spawn a fresh Claude Code session to review the PR. This is a separate process with NO context from the implementation — it only sees the diff and the codebase.
 
-Poll for Greptile comment with timeout:
-
-```
-max_wait_seconds = 900  # 15 minutes
-poll_interval = 15
-elapsed = 0
-
-[auto-implement] Waiting for Greptile review...
-
-while elapsed < max_wait_seconds:
-    # Check PR-level comments for Greptile
-    gh api /repos/:owner/:repo/issues/{number}/comments
-
-    # Check inline review comments for Greptile
-    gh api /repos/:owner/:repo/pulls/{number}/comments
-
-    # Check review summaries for Greptile
-    gh api /repos/:owner/:repo/pulls/{number}/reviews
-
-    # Look for comments from "greptile-apps[bot]"
-    If Greptile comment found:
-        [auto-implement] ✓ Greptile review received
-        break
-
-    sleep {poll_interval}
-    elapsed += poll_interval
-    [auto-implement] Waiting for Greptile... ({elapsed}s/{max_wait_seconds}s)
-
-If no Greptile comment after timeout:
-    [auto-implement] ✗ Error: Greptile review not received after {max_wait_seconds}s. Stopping to prevent merging without code review.
-    Stop here (non-zero exit)
+```bash
+./scripts/pr-review.sh ${PR_NUMBER}
 ```
 
-### 6.4 Parse and triage comments
+This runs synchronously. When it returns, the review has been posted to GitHub.
 
-**Filter out noise:**
+```
+[auto-implement] Running Claude review for PR #${PR_NUMBER}...
+```
 
-- Bot messages about usage limits
-- Empty comments
-- Automated status messages
+Verify the review was posted:
 
-**Parse Greptile severity markers:**
+```bash
+gh api /repos/:owner/:repo/issues/{number}/comments \
+  --jq '[.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
+```
 
-| Greptile Pattern          | Maps To       |
-| ------------------------- | ------------- |
-| "Critical Issues" heading | 🔴 Critical   |
-| "critical" in body        | 🔴 Critical   |
-| "Improvements Needed"     | 🟡 Suggestion |
-| "suggestion" / "consider" | 🟡 Suggestion |
-| Other actionable feedback | 🟢 Nitpick    |
+If the review was posted (count > 0):
+```
+[auto-implement] ✓ Claude review received
+```
 
-**Triage using effort-first thinking:**
+If no review found after script returned (unexpected):
+```
+[auto-implement] ⚠ Review script returned but no review comment found. Proceeding anyway.
+```
 
-- Quick fix → address now
-- Moderate fix → address now
-- Significant work → defer if out of scope
+If the review script fails (non-zero exit):
+```
+[auto-implement] ✗ Error: Review script failed. Stopping to prevent merging without code review.
+Stop here (non-zero exit)
+```
+
+### 6.4 Parse and triage review comments
+
+Fetch the inline review comments posted by the reviewer:
+
+```bash
+gh api /repos/:owner/:repo/pulls/{number}/comments \
+  --jq '[.[] | select(.body | startswith("**"))]'
+```
+
+Also fetch the summary comment:
+
+```bash
+gh api /repos/:owner/:repo/issues/{number}/comments \
+  --jq '.[] | select(.body | startswith("<!-- claude-review -->")) | .body'
+```
+
+**Triage rules:**
+
+The reviewer only posts substantive issues (no nitpicks), so triage is simpler:
+
+- If summary contains "No issues found" → clean review, skip to Phase 7
+- Every inline review comment → **Address Now** (they are all substantive by design)
+- Use effort-first thinking for prioritization:
+  - Quick fix → address now
+  - Moderate fix → address now
+  - Significant work → defer if genuinely out of scope
 
 ### 6.5 Address review comments
 
@@ -855,6 +858,6 @@ To clean up this worktree:
 | 4     | Fix attempts exhausted (3)      | Stop, show failures    |
 | 5     | Commit/PR fails                 | Stop, show error       |
 | 6     | CI fails after fixes (2)        | Stop, show failures    |
-| 6     | Greptile review timeout (900s)  | Stop, show error       |
+| 6     | Review script failed            | Stop, show error       |
 | 6     | Review parse fails              | Stop, show error       |
 | 7     | Merge fails                     | Stop, show error       |
