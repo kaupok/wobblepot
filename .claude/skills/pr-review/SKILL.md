@@ -96,8 +96,8 @@ The Claude reviewer only posts substantive issues (no nitpicks by design). Map t
 | ---------------------------------------------- | ------------- |
 | Inline review comment (bold title format)      | 🟡 Suggestion |
 | Summary says "No issues found"                 | Clean review  |
-| Summary confidence 1-2/5                       | 🔴 Critical   |
-| Summary confidence 4-5/5 with inline comments  | 🟢 Nitpick    |
+| Summary confidence 1-2/5 → upgrade all issues  | 🔴 Critical   |
+| Summary confidence 3-5/5 → keep default        | 🟡 Suggestion |
 
 **Extract key fields from review comments:**
 
