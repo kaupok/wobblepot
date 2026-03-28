@@ -11,7 +11,7 @@ Fetches GitHub PR review comments and triages them into actionable categories.
 ## Usage
 
 ```
-/pr-review
+/triage-pr-comments
 ```
 
 Run this command on a feature branch with an existing PR to see external review feedback.
