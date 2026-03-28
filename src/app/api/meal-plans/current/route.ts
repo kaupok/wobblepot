@@ -14,23 +14,18 @@ import {
   getDaysRemaining,
 } from '@/lib/meal-planning/dates'
 
-// Common include pattern for meal plan queries
-const mealPlanInclude = {
-  entries: {
+// Common include pattern for entry queries
+const entryInclude = {
+  meal: {
     include: {
-      meal: {
+      components: {
         include: {
-          components: {
-            include: {
-              ingredient: true,
-            },
-          },
+          ingredient: true,
         },
       },
     },
-    orderBy: { date: 'asc' } as const,
   },
-}
+} as const
 
 export async function GET(request: NextRequest) {
   // Auth check
@@ -56,65 +51,79 @@ export async function GET(request: NextRequest) {
   const targetWeek = weekParam === 'next' ? 'next' : weekParam === 'last' ? 'last' : 'current'
 
   try {
-    // Get today's date normalized to midnight
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    // Find the household's single plan
+    const plan = await prisma.mealPlan.findUnique({
+      where: { householdId: household.id },
+    })
 
-    let plan
-    let weekType: 'last' | 'current' | 'next'
+    // Compute Monday boundaries from week param
+    let monday: Date
+    let weekType: 'last' | 'current' | 'next' = targetWeek
 
     if (targetWeek === 'last') {
-      // Explicitly requesting last week's plan
-      const lastMonday = getLastWeekMonday()
-      plan = await prisma.mealPlan.findFirst({
-        where: {
-          householdId: household.id,
-          startDate: lastMonday,
-        },
-        include: mealPlanInclude,
-      })
-      weekType = 'last'
+      monday = getLastWeekMonday()
     } else if (targetWeek === 'next') {
-      // Explicitly requesting next week's plan
-      const nextMonday = getNextMonday()
-      plan = await prisma.mealPlan.findFirst({
-        where: {
-          householdId: household.id,
-          startDate: nextMonday,
-        },
-        include: mealPlanInclude,
-      })
-      weekType = 'next'
+      monday = getNextMonday()
     } else {
-      // Current week: find plan containing today
-      const currentMonday = getCurrentWeekMonday()
-      plan = await prisma.mealPlan.findFirst({
-        where: {
-          householdId: household.id,
-          startDate: currentMonday,
-        },
-        include: mealPlanInclude,
-      })
-      weekType = 'current'
+      monday = getCurrentWeekMonday()
+    }
 
-      // Fallback for Sunday or when no current week plan:
-      // Return next week's plan if it exists
-      if (!plan && isSunday()) {
-        const nextMonday = getNextMonday()
-        plan = await prisma.mealPlan.findFirst({
-          where: {
-            householdId: household.id,
-            startDate: nextMonday,
+    const endDate = new Date(monday)
+    endDate.setDate(monday.getDate() + 7)
+
+    // If no plan exists, return 404 with context
+    if (!plan) {
+      const daysRemaining = getDaysRemaining(household.timezone)
+      return NextResponse.json(
+        {
+          error: 'No active meal plan',
+          weekContext: {
+            type: weekType,
+            daysRemaining,
+            isSunday: isSunday(),
           },
-          include: mealPlanInclude,
-        })
+        },
+        { status: 404 },
+      )
+    }
+
+    // Query entries in the computed date range
+    const entries = await prisma.mealPlanEntry.findMany({
+      where: {
+        planId: plan.id,
+        date: { gte: monday, lt: endDate },
+      },
+      include: entryInclude,
+      orderBy: { date: 'asc' },
+    })
+
+    // For "current" week with no entries: try Sunday fallback to next week
+    if (entries.length === 0 && targetWeek === 'current' && isSunday()) {
+      const nextMonday = getNextMonday()
+      const nextEndDate = new Date(nextMonday)
+      nextEndDate.setDate(nextMonday.getDate() + 7)
+
+      const nextEntries = await prisma.mealPlanEntry.findMany({
+        where: {
+          planId: plan.id,
+          date: { gte: nextMonday, lt: nextEndDate },
+        },
+        include: entryInclude,
+        orderBy: { date: 'asc' },
+      })
+
+      if (nextEntries.length > 0) {
+        // Use next week instead
+        monday = nextMonday
+        endDate.setTime(nextEndDate.getTime())
         weekType = 'next'
+        entries.length = 0
+        entries.push(...nextEntries)
       }
     }
 
-    // Return 404 if no plan found
-    if (!plan) {
-      // Return context even on 404 so the UI knows what week to generate
+    // No entries for this week — return 404 with context
+    if (entries.length === 0) {
       const daysRemaining = getDaysRemaining(household.timezone)
       return NextResponse.json(
         {
@@ -130,20 +139,18 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate week context
-    // Current week: use actual days remaining (today through Sunday)
-    // Past/future weeks: always 7 (full week)
     const daysCount = weekType === 'current' ? getDaysRemaining(household.timezone) : 7
     const isPartialWeek = daysCount < 7
 
-    // Format response to match GeneratePlanResult type
+    // Synthesize the old response shape with computed dates
     const response = {
       id: plan.id,
-      startDate: toDateString(plan.startDate),
-      endDate: toDateString(plan.endDate),
-      entries: plan.entries.map((entry) => ({
+      startDate: toDateString(monday),
+      endDate: toDateString(endDate),
+      entries: entries.map((entry) => ({
         id: entry.id,
         date: toDateString(entry.date),
-        mealType: entry.mealType as 'dinner', // Cast needed: GeneratePlanResult expects literal 'dinner', not MealType enum
+        mealType: entry.mealType as 'dinner',
         status: entry.status,
         rating: entry.rating,
         preparationTips: entry.preparationTips ? parseStoredTips(entry.preparationTips) : null,

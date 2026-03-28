@@ -67,8 +67,6 @@ const createRequest = () =>
 const mockPlan = {
   id: 'plan-123',
   householdId: 'household-123',
-  startDate: new Date('2026-01-26T00:00:00.000Z'),
-  endDate: new Date('2026-02-02T00:00:00.000Z'),
   entries: [
     {
       id: 'entry-1',
@@ -165,8 +163,6 @@ describe('GET /api/meal-plans/[id]', () => {
 
     expect(response.status).toBe(200)
     expect(data.id).toBe('plan-123')
-    expect(data.startDate).toBe('2026-01-26')
-    expect(data.endDate).toBe('2026-02-02')
     expect(data.entries).toHaveLength(1)
     expect(data.entries[0].meal.name).toBe('Chicken Rice Bowl')
     expect(data.entries[0].meal.nutrition).toEqual({

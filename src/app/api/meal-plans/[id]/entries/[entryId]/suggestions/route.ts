@@ -9,7 +9,7 @@ import {
   type CandidateFilters,
 } from '@/lib/meal-planning/candidates'
 import { computeRequiredSlots } from '@/lib/meal-planning/slots'
-import { getWeekDates, toDateString } from '@/lib/meal-planning/dates'
+import { getWeekDates, toDateString, getMondayOfWeek } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
 import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
@@ -124,13 +124,6 @@ export async function POST(
       return NextResponse.json({ error: 'Entry not found or access denied' }, { status: 404 })
     }
 
-    // Reject suggestions for past week plans (read-only)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    if (entry.plan.endDate < today) {
-      return NextResponse.json({ error: 'Cannot add meals to past week plans' }, { status: 403 })
-    }
-
     // Get preferences with defaults
     const preferences = household.preferences
     const dietaryType = preferences?.dietaryType ?? null
@@ -138,7 +131,8 @@ export async function POST(
     const excludedIngredientIds = preferences?.excludedIngredientIds ?? []
 
     // Compute required slots to check if this entry needs a specific protein type
-    const weekDates = getWeekDates(entry.plan.startDate)
+    const weekMonday = getMondayOfWeek(entry.date)
+    const weekDates = getWeekDates(weekMonday)
     const weekdayMealTypes = (preferences?.weekdayMealTypes ?? ['dinner']) as MealType[]
     const weekendMealTypes = (preferences?.weekendMealTypes ?? ['dinner']) as MealType[]
     const requiredSlots = computeRequiredSlots({

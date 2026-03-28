@@ -44,6 +44,14 @@ vi.mock('@/lib/meal-planning/slots', () => ({
 vi.mock('@/lib/meal-planning/dates', () => ({
   getWeekDates: vi.fn(() => []),
   toDateString: vi.fn((d: Date) => d.toISOString().split('T')[0]),
+  getMondayOfWeek: vi.fn((d: Date) => {
+    const date = new Date(d)
+    date.setHours(0, 0, 0, 0)
+    const dayOfWeek = date.getDay()
+    const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+    date.setDate(date.getDate() - daysSinceMonday)
+    return date
+  }),
 }))
 
 vi.mock('@/lib/meal-planning/pantry', () => ({
@@ -85,9 +93,6 @@ const mockMembership = {
   household: { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn', preferences: null },
 } as never
 
-const futureEndDate = new Date('2099-02-02T00:00:00.000Z')
-const pastEndDate = new Date('2025-01-06T00:00:00.000Z')
-
 const createParams = (id: string = 'plan-123', entryId: string = 'entry-123') =>
   Promise.resolve({ id, entryId })
 
@@ -105,8 +110,6 @@ const mockEntry = {
   plan: {
     id: 'plan-123',
     householdId: 'household-123',
-    startDate: new Date('2099-01-27T00:00:00.000Z'),
-    endDate: futureEndDate,
   },
 }
 
@@ -146,21 +149,6 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/suggestions', () => {
 
     expect(response.status).toBe(404)
     expect(data.error).toBe('Entry not found or access denied')
-  })
-
-  it('returns 403 for past week plans', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockFindFirstEntry.mockResolvedValue({
-      ...mockEntry,
-      plan: { ...mockEntry.plan, endDate: pastEndDate },
-    } as never)
-
-    const response = await POST(createRequest(), { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(403)
-    expect(data.error).toBe('Cannot add meals to past week plans')
   })
 
   it('returns 404 when no candidates available', async () => {

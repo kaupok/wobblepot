@@ -60,11 +60,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Access denied to this meal plan' }, { status: 403 })
     }
 
-    // Format response to match GeneratePlanResult type
+    // Format response
     const response = {
       id: plan.id,
-      startDate: toDateString(plan.startDate),
-      endDate: toDateString(plan.endDate),
       entries: plan.entries.map((entry) => ({
         id: entry.id,
         date: toDateString(entry.date),

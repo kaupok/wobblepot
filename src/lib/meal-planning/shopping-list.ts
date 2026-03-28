@@ -147,13 +147,19 @@ export async function computeShoppingList(
   // Get start of today in household timezone to filter out past meals
   const startOfToday = getStartOfTodayInTimezone(householdTimezone)
 
-  // 1. Get all entries for plan (only PLANNED status, today or future)
+  // Cap at 14 days ahead to avoid aggregating unbounded future entries
+  // (with one plan per household, there's no natural weekly boundary)
+  const endDate = new Date(startOfToday)
+  endDate.setDate(endDate.getDate() + 14)
+
+  // 1. Get entries for plan (only PLANNED status, within the 14-day window)
   const planEntries = await prisma.mealPlanEntry.findMany({
     where: {
       planId,
       status: 'planned',
       date: {
         gte: startOfToday,
+        lt: endDate,
       },
     },
     select: {

@@ -9,12 +9,15 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     mealPlanEntry: {
       findMany: vi.fn(),
+      deleteMany: vi.fn(),
+      createMany: vi.fn(),
     },
     meal: {
       findMany: vi.fn(),
     },
     mealPlan: {
-      deleteMany: vi.fn(),
+      findUnique: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
       create: vi.fn(),
     },
     favoriteMeal: {
@@ -76,8 +79,11 @@ const mockGenerateObject = vi.mocked(generateObject)
 const mockValidatePlan = vi.mocked(validatePlan)
 const mockRepairPlan = vi.mocked(repairPlan)
 const mockMealPlanEntryFindMany = vi.mocked(prisma.mealPlanEntry.findMany)
+const mockMealPlanEntryDeleteMany = vi.mocked(prisma.mealPlanEntry.deleteMany)
+const mockMealPlanEntryCreateMany = vi.mocked(prisma.mealPlanEntry.createMany)
 const mockMealFindMany = vi.mocked(prisma.meal.findMany)
-const mockMealPlanDeleteMany = vi.mocked(prisma.mealPlan.deleteMany)
+const mockMealPlanFindUnique = vi.mocked(prisma.mealPlan.findUnique)
+const mockMealPlanFindUniqueOrThrow = vi.mocked(prisma.mealPlan.findUniqueOrThrow)
 const mockMealPlanCreate = vi.mocked(prisma.mealPlan.create)
 const mockFavoriteMealFindMany = vi.mocked(prisma.favoriteMeal.findMany)
 const mockPantryItemFindMany = vi.mocked(prisma.pantryItem.findMany)
@@ -85,9 +91,17 @@ const mockTransaction = vi.mocked(prisma.$transaction)
 
 // Create mock prisma object to pass to transaction callbacks
 const mockPrisma = {
-  mealPlanEntry: { findMany: mockMealPlanEntryFindMany },
+  mealPlanEntry: {
+    findMany: mockMealPlanEntryFindMany,
+    deleteMany: mockMealPlanEntryDeleteMany,
+    createMany: mockMealPlanEntryCreateMany,
+  },
   meal: { findMany: mockMealFindMany },
-  mealPlan: { deleteMany: mockMealPlanDeleteMany, create: mockMealPlanCreate },
+  mealPlan: {
+    findUnique: mockMealPlanFindUnique,
+    findUniqueOrThrow: mockMealPlanFindUniqueOrThrow,
+    create: mockMealPlanCreate,
+  },
   favoriteMeal: { findMany: mockFavoriteMealFindMany },
 }
 
@@ -202,8 +216,6 @@ describe('generateMealPlan', () => {
       // Mock transaction
       const mockPlanResult = {
         id: 'plan-1',
-        startDate: date('2026-01-12'),
-        endDate: date('2026-01-19'),
         entries: aiEntries.map((e, i) => ({
           id: `entry-${i}`,
           date: date(e.date),
@@ -219,8 +231,13 @@ describe('generateMealPlan', () => {
         })),
       }
       mockTransaction.mockImplementation(async (fn) => fn(mockPrisma as never) as never)
-      mockMealPlanDeleteMany.mockResolvedValue({ count: 0 } as never)
-      mockMealPlanCreate.mockResolvedValue(mockPlanResult as never)
+      mockMealPlanFindUnique.mockResolvedValue({
+        id: 'plan-1',
+        householdId: 'household-1',
+      } as never)
+      mockMealPlanEntryDeleteMany.mockResolvedValue({ count: 0 } as never)
+      mockMealPlanEntryCreateMany.mockResolvedValue({ count: 7 } as never)
+      mockMealPlanFindUniqueOrThrow.mockResolvedValue(mockPlanResult as never)
 
       await generateMealPlan(defaultOptions)
 
@@ -278,11 +295,14 @@ describe('generateMealPlan', () => {
 
       mockValidatePlan.mockReturnValue({ valid: true, errors: [] })
       mockTransaction.mockImplementation(async (fn) => fn(mockPrisma as never) as never)
-      mockMealPlanDeleteMany.mockResolvedValue({ count: 0 } as never)
-      mockMealPlanCreate.mockResolvedValue({
+      mockMealPlanFindUnique.mockResolvedValue({
         id: 'plan-1',
-        startDate: date('2026-01-12'),
-        endDate: date('2026-01-19'),
+        householdId: 'household-1',
+      } as never)
+      mockMealPlanEntryDeleteMany.mockResolvedValue({ count: 0 } as never)
+      mockMealPlanEntryCreateMany.mockResolvedValue({ count: 7 } as never)
+      mockMealPlanFindUniqueOrThrow.mockResolvedValue({
+        id: 'plan-1',
         entries: aiEntries.map((e, i) => ({
           id: `entry-${i}`,
           date: date(e.date),
@@ -462,11 +482,14 @@ describe('generateMealPlan', () => {
       mockValidatePlan.mockReturnValue({ valid: true, errors: [] })
 
       mockTransaction.mockImplementation(async (fn) => fn(mockPrisma as never) as never)
-      mockMealPlanDeleteMany.mockResolvedValue({ count: 0 } as never)
-      mockMealPlanCreate.mockResolvedValue({
+      mockMealPlanFindUnique.mockResolvedValue({
         id: 'plan-1',
-        startDate: date('2026-01-12'),
-        endDate: date('2026-01-19'),
+        householdId: 'household-1',
+      } as never)
+      mockMealPlanEntryDeleteMany.mockResolvedValue({ count: 0 } as never)
+      mockMealPlanEntryCreateMany.mockResolvedValue({ count: 7 } as never)
+      mockMealPlanFindUniqueOrThrow.mockResolvedValue({
+        id: 'plan-1',
         entries: [],
       } as never)
 
@@ -574,11 +597,14 @@ describe('generateMealPlan', () => {
       ])
 
       mockTransaction.mockImplementation(async (fn) => fn(mockPrisma as never) as never)
-      mockMealPlanDeleteMany.mockResolvedValue({ count: 0 } as never)
-      mockMealPlanCreate.mockResolvedValue({
+      mockMealPlanFindUnique.mockResolvedValue({
         id: 'plan-1',
-        startDate: date('2026-01-12'),
-        endDate: date('2026-01-19'),
+        householdId: 'household-1',
+      } as never)
+      mockMealPlanEntryDeleteMany.mockResolvedValue({ count: 0 } as never)
+      mockMealPlanEntryCreateMany.mockResolvedValue({ count: 7 } as never)
+      mockMealPlanFindUniqueOrThrow.mockResolvedValue({
+        id: 'plan-1',
         entries: [],
       } as never)
 
@@ -750,8 +776,6 @@ describe('generateMealPlan', () => {
 
       const mockCreatedPlan = {
         id: 'plan-123',
-        startDate: date('2026-01-12'),
-        endDate: date('2026-01-19'),
         entries: aiEntries.map((e, i) => ({
           id: `entry-${i}`,
           date: date(e.date),
@@ -783,8 +807,13 @@ describe('generateMealPlan', () => {
       }
 
       mockTransaction.mockImplementation(async (fn) => fn(mockPrisma as never) as never)
-      mockMealPlanDeleteMany.mockResolvedValue({ count: 0 } as never)
-      mockMealPlanCreate.mockResolvedValue(mockCreatedPlan as never)
+      mockMealPlanFindUnique.mockResolvedValue({
+        id: 'plan-123',
+        householdId: 'household-1',
+      } as never)
+      mockMealPlanEntryDeleteMany.mockResolvedValue({ count: 0 } as never)
+      mockMealPlanEntryCreateMany.mockResolvedValue({ count: 7 } as never)
+      mockMealPlanFindUniqueOrThrow.mockResolvedValue(mockCreatedPlan as never)
 
       const result = await generateMealPlan(defaultOptions)
 
@@ -799,7 +828,7 @@ describe('generateMealPlan', () => {
       expect(firstEntry?.meal).toBeDefined()
     })
 
-    it('uses transaction to delete existing plan before creating new one', async () => {
+    it('uses transaction to find-or-create plan and replace entries', async () => {
       mockGetCandidates.mockResolvedValue([createCandidate()])
 
       const aiEntries = Array.from({ length: 7 }, (_, i) => ({
@@ -818,22 +847,27 @@ describe('generateMealPlan', () => {
         })) as never,
       )
       mockValidatePlan.mockReturnValue({ valid: true, errors: [] })
-      mockMealPlanDeleteMany.mockResolvedValue({ count: 1 } as never)
-      mockMealPlanCreate.mockResolvedValue({
+      mockMealPlanFindUnique.mockResolvedValue({
         id: 'plan-1',
-        startDate: date('2026-01-12'),
-        endDate: date('2026-01-19'),
+        householdId: 'household-1',
+      } as never)
+      mockMealPlanEntryDeleteMany.mockResolvedValue({ count: 7 } as never)
+      mockMealPlanEntryCreateMany.mockResolvedValue({ count: 7 } as never)
+      mockMealPlanFindUniqueOrThrow.mockResolvedValue({
+        id: 'plan-1',
         entries: [],
       } as never)
       mockTransaction.mockImplementation(async (fn) => fn(mockPrisma as never) as never)
 
       await generateMealPlan(defaultOptions)
 
-      // Verify transaction was used (which wraps deleteMany + create atomically)
+      // Verify transaction was used (which wraps findUnique + deleteMany entries + createMany entries atomically)
       expect(mockTransaction).toHaveBeenCalled()
-      // Verify both operations were called
-      expect(mockMealPlanDeleteMany).toHaveBeenCalled()
-      expect(mockMealPlanCreate).toHaveBeenCalled()
+      // Verify find-or-create plan was called
+      expect(mockMealPlanFindUnique).toHaveBeenCalled()
+      // Verify entries were deleted and created
+      expect(mockMealPlanEntryDeleteMany).toHaveBeenCalled()
+      expect(mockMealPlanEntryCreateMany).toHaveBeenCalled()
     })
   })
 })

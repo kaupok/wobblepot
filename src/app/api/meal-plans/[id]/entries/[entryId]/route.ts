@@ -52,23 +52,11 @@ export async function DELETE(
       },
       select: {
         id: true,
-        plan: {
-          select: {
-            endDate: true,
-          },
-        },
       },
     })
 
     if (!entry) {
       return NextResponse.json({ error: 'Entry not found or access denied' }, { status: 404 })
-    }
-
-    // Reject deletion of past week plan entries (read-only)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    if (entry.plan.endDate < today) {
-      return NextResponse.json({ error: 'Cannot modify past week plans' }, { status: 403 })
     }
 
     // Delete the entry
@@ -140,7 +128,6 @@ export async function PATCH(
         servingOverride: true,
         plan: {
           select: {
-            endDate: true,
             household: {
               select: {
                 members: {
@@ -165,23 +152,6 @@ export async function PATCH(
 
     if (!entry) {
       return NextResponse.json({ error: 'Entry not found or access denied' }, { status: 404 })
-    }
-
-    // Reject modifications to past week plans (read-only)
-    // Exceptions: status changes (catch-up flow) and rating updates are allowed
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const isPastPlan = entry.plan.endDate < today
-    const isStatusOnlyUpdate = parsed.data.status && !parsed.data.mealId
-    const isRatingOnlyUpdate =
-      'rating' in parsed.data &&
-      !parsed.data.mealId &&
-      !parsed.data.status &&
-      !('note' in parsed.data) &&
-      !('servingOverride' in parsed.data)
-
-    if (isPastPlan && !isStatusOnlyUpdate && !isRatingOnlyUpdate) {
-      return NextResponse.json({ error: 'Cannot modify past week plans' }, { status: 403 })
     }
 
     // Build update data

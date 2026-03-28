@@ -13,7 +13,7 @@ const createEntrySchema = z.object({
   note: z.string().max(200).nullable().optional(),
 })
 
-export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   // Auth check
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -42,7 +42,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       },
       select: {
         id: true,
-        endDate: true,
       },
     })
 
@@ -50,16 +49,24 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Meal plan not found' }, { status: 404 })
     }
 
-    // Reject modifications to past week plans
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    if (plan.endDate < today) {
-      return NextResponse.json({ error: 'Cannot modify past week plans' }, { status: 403 })
+    // Require date range to prevent accidental deletion of all entries
+    const url = new URL(request.url)
+    const startDateParam = url.searchParams.get('startDate')
+    const endDateParam = url.searchParams.get('endDate')
+
+    if (!startDateParam || !endDateParam) {
+      return NextResponse.json(
+        { error: 'startDate and endDate query params are required' },
+        { status: 400 },
+      )
     }
 
-    // Delete all entries for this plan
+    const weekStart = parseLocalDate(startDateParam)
+    const weekEnd = parseLocalDate(endDateParam)
+
+    // Delete entries within the specified date range
     const result = await prisma.mealPlanEntry.deleteMany({
-      where: { planId },
+      where: { planId, date: { gte: weekStart, lt: weekEnd } },
     })
 
     return NextResponse.json({ success: true, deletedCount: result.count })
@@ -115,8 +122,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       },
       select: {
         id: true,
-        startDate: true,
-        endDate: true,
       },
     })
 
@@ -124,18 +129,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Plan not found or access denied' }, { status: 404 })
     }
 
-    // Reject modifications to past week plans
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    if (plan.endDate < today) {
-      return NextResponse.json({ error: 'Cannot modify past week plans' }, { status: 403 })
-    }
-
-    // Verify the date is within the plan's range
     const entryDate = parseLocalDate(date)
-    if (entryDate < plan.startDate || entryDate >= plan.endDate) {
-      return NextResponse.json({ error: 'Date is outside plan range' }, { status: 400 })
-    }
 
     // Check if an entry already exists for this date + mealType
     const existingEntry = await prisma.mealPlanEntry.findFirst({

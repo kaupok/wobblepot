@@ -59,9 +59,6 @@ const mockMembership = {
   household: { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn' },
 } as never
 
-const pastEndDate = new Date('2025-01-06T00:00:00.000Z') // A Monday in the past
-const futureEndDate = new Date('2099-01-06T00:00:00.000Z') // Far future
-
 const createPatchRequest = (body: Record<string, unknown>) =>
   new Request('http://localhost/api/meal-plans/plan-123/entries/entry-123', {
     method: 'PATCH',
@@ -75,19 +72,18 @@ const createDeleteRequest = () =>
 
 const createParams = () => Promise.resolve({ id: 'plan-123', entryId: 'entry-123' })
 
-describe('PATCH /api/meal-plans/[id]/entries/[entryId] - past week guard', () => {
+describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetSession.mockResolvedValue(mockSession)
     mockGetMembership.mockResolvedValue(mockMembership)
   })
 
-  it('allows status change to completed on past-week entries', async () => {
+  it('allows status change to completed', async () => {
     mockFindFirstEntry.mockResolvedValue({
       id: 'entry-123',
       mealId: 'meal-123',
       plan: {
-        endDate: pastEndDate,
         household: { members: [{ id: 'member-1' }] },
       },
       meal: { components: [] },
@@ -107,12 +103,11 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - past week guard', () =>
     expect(data.status).toBe('completed')
   })
 
-  it('allows status change to skipped on past-week entries', async () => {
+  it('allows status change to skipped', async () => {
     mockFindFirstEntry.mockResolvedValue({
       id: 'entry-123',
       mealId: 'meal-123',
       plan: {
-        endDate: pastEndDate,
         household: { members: [{ id: 'member-1' }] },
       },
       meal: { components: [] },
@@ -132,15 +127,22 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - past week guard', () =>
     expect(data.status).toBe('skipped')
   })
 
-  it('blocks meal swap on past-week entries', async () => {
+  it('allows meal swap', async () => {
     mockFindFirstEntry.mockResolvedValue({
       id: 'entry-123',
       mealId: 'meal-123',
       plan: {
-        endDate: pastEndDate,
         household: { members: [{ id: 'member-1' }] },
       },
       meal: { components: [] },
+    } as never)
+
+    const mockMeal = { id: 'new-meal-456' }
+    vi.mocked(prisma.meal.findUnique).mockResolvedValue(mockMeal as never)
+    mockUpdateEntry.mockResolvedValue({
+      id: 'entry-123',
+      status: 'planned',
+      mealId: 'new-meal-456',
     } as never)
 
     const response = await PATCH(createPatchRequest({ mealId: 'new-meal-456' }), {
@@ -148,37 +150,15 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - past week guard', () =>
     })
     const data = await response.json()
 
-    expect(response.status).toBe(403)
-    expect(data.error).toBe('Cannot modify past week plans')
+    expect(response.status).toBe(200)
+    expect(data.mealId).toBe('new-meal-456')
   })
 
-  it('blocks meal swap combined with status change on past-week entries', async () => {
+  it('allows meal swap combined with status change', async () => {
     mockFindFirstEntry.mockResolvedValue({
       id: 'entry-123',
       mealId: 'meal-123',
       plan: {
-        endDate: pastEndDate,
-        household: { members: [{ id: 'member-1' }] },
-      },
-      meal: { components: [] },
-    } as never)
-
-    const response = await PATCH(
-      createPatchRequest({ status: 'completed', mealId: 'new-meal-456' }),
-      { params: createParams() },
-    )
-    const data = await response.json()
-
-    expect(response.status).toBe(403)
-    expect(data.error).toBe('Cannot modify past week plans')
-  })
-
-  it('allows all modifications on current-week entries', async () => {
-    mockFindFirstEntry.mockResolvedValue({
-      id: 'entry-123',
-      mealId: 'meal-123',
-      plan: {
-        endDate: futureEndDate,
         household: { members: [{ id: 'member-1' }] },
       },
       meal: { components: [] },
@@ -202,12 +182,11 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - past week guard', () =>
     expect(data.mealId).toBe('new-meal-456')
   })
 
-  it('allows pantry deduction when completing past-week entries', async () => {
+  it('allows pantry deduction when completing entries', async () => {
     mockFindFirstEntry.mockResolvedValue({
       id: 'entry-123',
       mealId: 'meal-123',
       plan: {
-        endDate: pastEndDate,
         household: { members: [{ id: 'member-1' }] },
       },
       meal: {
@@ -239,12 +218,11 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - rating', () => {
     mockGetMembership.mockResolvedValue(mockMembership)
   })
 
-  it('allows rating update on current-week entries', async () => {
+  it('allows rating update', async () => {
     mockFindFirstEntry.mockResolvedValue({
       id: 'entry-123',
       mealId: 'meal-123',
       plan: {
-        endDate: futureEndDate,
         household: { members: [{ id: 'member-1' }] },
       },
       meal: { components: [] },
@@ -265,38 +243,11 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - rating', () => {
     expect(data.rating).toBe('up')
   })
 
-  it('allows rating update on past-week entries', async () => {
-    mockFindFirstEntry.mockResolvedValue({
-      id: 'entry-123',
-      mealId: 'meal-123',
-      plan: {
-        endDate: pastEndDate,
-        household: { members: [{ id: 'member-1' }] },
-      },
-      meal: { components: [] },
-    } as never)
-    mockUpdateEntry.mockResolvedValue({
-      id: 'entry-123',
-      status: 'completed',
-      mealId: 'meal-123',
-      rating: 'down',
-    } as never)
-
-    const response = await PATCH(createPatchRequest({ rating: 'down' }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.rating).toBe('down')
-  })
-
   it('allows clearing rating with null', async () => {
     mockFindFirstEntry.mockResolvedValue({
       id: 'entry-123',
       mealId: 'meal-123',
       plan: {
-        endDate: futureEndDate,
         household: { members: [{ id: 'member-1' }] },
       },
       meal: { components: [] },
@@ -322,7 +273,6 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - rating', () => {
       id: 'entry-123',
       mealId: 'meal-123',
       plan: {
-        endDate: futureEndDate,
         household: { members: [{ id: 'member-1' }] },
       },
       meal: { components: [] },
@@ -334,52 +284,18 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - rating', () => {
 
     expect(response.status).toBe(400)
   })
-
-  it('blocks rating combined with note on past-week entries', async () => {
-    mockFindFirstEntry.mockResolvedValue({
-      id: 'entry-123',
-      mealId: 'meal-123',
-      plan: {
-        endDate: pastEndDate,
-        household: { members: [{ id: 'member-1' }] },
-      },
-      meal: { components: [] },
-    } as never)
-
-    const response = await PATCH(createPatchRequest({ rating: 'up', note: 'sneaky edit' }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(403)
-    expect(data.error).toBe('Cannot modify past week plans')
-  })
 })
 
-describe('DELETE /api/meal-plans/[id]/entries/[entryId] - past week guard', () => {
+describe('DELETE /api/meal-plans/[id]/entries/[entryId]', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetSession.mockResolvedValue(mockSession)
     mockGetMembership.mockResolvedValue(mockMembership)
   })
 
-  it('blocks deletion of past-week entries', async () => {
+  it('allows deletion of entries', async () => {
     mockFindFirstEntry.mockResolvedValue({
       id: 'entry-123',
-      plan: { endDate: pastEndDate },
-    } as never)
-
-    const response = await DELETE(createDeleteRequest(), { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(403)
-    expect(data.error).toBe('Cannot modify past week plans')
-  })
-
-  it('allows deletion of current-week entries', async () => {
-    mockFindFirstEntry.mockResolvedValue({
-      id: 'entry-123',
-      plan: { endDate: futureEndDate },
     } as never)
     mockDeleteEntry.mockResolvedValue({ id: 'entry-123' } as never)
 

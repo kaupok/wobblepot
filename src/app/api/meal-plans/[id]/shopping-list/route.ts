@@ -75,8 +75,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       select: {
         id: true,
         householdId: true,
-        startDate: true,
-        endDate: true,
         createdAt: true,
       },
     })
@@ -159,8 +157,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const response = {
       planId: plan.id,
-      planStartDate: toDateString(plan.startDate),
-      planEndDate: toDateString(plan.endDate),
       generatedAt: plan.createdAt.toISOString(),
       groups,
       summary: {

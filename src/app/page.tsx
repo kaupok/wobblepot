@@ -123,11 +123,18 @@ export default async function Home() {
   const baseURL = getServerBaseURL()
   const cookieHeader = requestHeaders.get('cookie') ?? ''
 
+  // Compute a wide date range for first-time detection: 4 weeks back to 2 weeks ahead
+  const fourWeeksAgo = new Date(todayParsed)
+  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28)
+  const twoWeeksAhead = new Date(todayParsed)
+  twoWeeksAhead.setDate(twoWeeksAhead.getDate() + 14)
+
   const [
     householdSize,
     currentPlanResponse,
     nextPlanResponse,
     lastPlanResponse,
+    entriesCheckResponse,
     pantryResponse,
     shoppingResponse,
   ] = await Promise.all([
@@ -144,6 +151,13 @@ export default async function Home() {
       headers: { cookie: cookieHeader },
       cache: 'no-store',
     }),
+    fetch(
+      `${baseURL}/api/entries?startDate=${toDateString(fourWeeksAgo)}&endDate=${toDateString(twoWeeksAhead)}`,
+      {
+        headers: { cookie: cookieHeader },
+        cache: 'no-store',
+      },
+    ),
     fetch(`${baseURL}/api/pantry`, {
       headers: { cookie: cookieHeader },
       cache: 'no-store',
@@ -154,8 +168,12 @@ export default async function Home() {
     }),
   ])
 
-  // Check if this is a first-time user (no meal plans at all)
-  const isFirstGeneration = !currentPlanResponse.ok && !nextPlanResponse.ok && !lastPlanResponse.ok
+  // Check if this is a first-time user (no entries at all)
+  let isFirstGeneration = false
+  if (entriesCheckResponse.ok) {
+    const entriesData = await entriesCheckResponse.json()
+    isFirstGeneration = entriesData.entries.length === 0
+  }
 
   // For first-time users, skip unnecessary data parsing
   if (isFirstGeneration) {

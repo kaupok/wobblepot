@@ -55,8 +55,10 @@ export interface PlanEntry {
 
 export interface MealPlan {
   id: string
-  startDate: string
-  endDate: string
+  /** Computed from week context; not stored in DB */
+  startDate?: string
+  /** Computed from week context; not stored in DB */
+  endDate?: string
   entries: PlanEntry[]
 }
 

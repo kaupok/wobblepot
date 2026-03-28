@@ -63,9 +63,6 @@ const mockMembership = {
   household: { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn', preferences: null },
 } as never
 
-const futureEndDate = new Date('2099-02-02T00:00:00.000Z')
-const pastEndDate = new Date('2025-01-06T00:00:00.000Z')
-
 const createParams = (id: string = 'plan-123') => Promise.resolve({ id })
 
 const createPostRequest = (body: Record<string, unknown>) =>
@@ -74,8 +71,11 @@ const createPostRequest = (body: Record<string, unknown>) =>
     body: JSON.stringify(body),
   })
 
-const createDeleteRequest = () =>
-  new Request('http://localhost/api/meal-plans/plan-123/entries', { method: 'DELETE' })
+const createDeleteRequest = (startDate = '2026-01-12', endDate = '2026-01-19') =>
+  new Request(
+    `http://localhost/api/meal-plans/plan-123/entries?startDate=${startDate}&endDate=${endDate}`,
+    { method: 'DELETE' },
+  )
 
 describe('DELETE /api/meal-plans/[id]/entries', () => {
   beforeEach(() => {
@@ -115,27 +115,28 @@ describe('DELETE /api/meal-plans/[id]/entries', () => {
     expect(data.error).toBe('Meal plan not found')
   })
 
-  it('returns 403 for past week plans', async () => {
+  it('returns 400 when date range params are missing', async () => {
     mockGetSession.mockResolvedValue(mockSession)
     mockGetMembership.mockResolvedValue(mockMembership)
     mockFindFirstPlan.mockResolvedValue({
       id: 'plan-123',
-      endDate: pastEndDate,
     } as never)
 
-    const response = await DELETE(createDeleteRequest(), { params: createParams() })
+    const request = new Request('http://localhost/api/meal-plans/plan-123/entries', {
+      method: 'DELETE',
+    })
+    const response = await DELETE(request, { params: createParams() })
     const data = await response.json()
 
-    expect(response.status).toBe(403)
-    expect(data.error).toBe('Cannot modify past week plans')
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('startDate and endDate query params are required')
   })
 
-  it('deletes all entries and returns success', async () => {
+  it('deletes entries within date range and returns success', async () => {
     mockGetSession.mockResolvedValue(mockSession)
     mockGetMembership.mockResolvedValue(mockMembership)
     mockFindFirstPlan.mockResolvedValue({
       id: 'plan-123',
-      endDate: futureEndDate,
     } as never)
     mockDeleteManyEntries.mockResolvedValue({ count: 5 } as never)
 
@@ -234,49 +235,11 @@ describe('POST /api/meal-plans/[id]/entries', () => {
     expect(data.error).toBe('Plan not found or access denied')
   })
 
-  it('returns 403 for past week plans', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockFindFirstPlan.mockResolvedValue({
-      id: 'plan-123',
-      startDate: new Date('2025-01-01T00:00:00.000Z'),
-      endDate: pastEndDate,
-    } as never)
-
-    const response = await POST(createPostRequest({ date: '2025-01-02', mealType: 'dinner' }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(403)
-    expect(data.error).toBe('Cannot modify past week plans')
-  })
-
-  it('returns 400 when date is outside plan range', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockFindFirstPlan.mockResolvedValue({
-      id: 'plan-123',
-      startDate: new Date('2099-01-27T00:00:00.000Z'),
-      endDate: new Date('2099-02-03T00:00:00.000Z'),
-    } as never)
-
-    const response = await POST(createPostRequest({ date: '2099-02-10', mealType: 'dinner' }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Date is outside plan range')
-  })
-
   it('returns 409 when entry already exists for date and mealType', async () => {
     mockGetSession.mockResolvedValue(mockSession)
     mockGetMembership.mockResolvedValue(mockMembership)
     mockFindFirstPlan.mockResolvedValue({
       id: 'plan-123',
-      startDate: new Date('2099-01-27T00:00:00.000Z'),
-      endDate: new Date('2099-02-03T00:00:00.000Z'),
     } as never)
     mockFindFirstEntry.mockResolvedValue({ id: 'existing-entry' } as never)
 
@@ -294,8 +257,6 @@ describe('POST /api/meal-plans/[id]/entries', () => {
     mockGetMembership.mockResolvedValue(mockMembership)
     mockFindFirstPlan.mockResolvedValue({
       id: 'plan-123',
-      startDate: new Date('2099-01-27T00:00:00.000Z'),
-      endDate: new Date('2099-02-03T00:00:00.000Z'),
     } as never)
     mockFindFirstEntry.mockResolvedValue(null)
     mockFindUniqueMeal.mockResolvedValue(null)
@@ -315,8 +276,6 @@ describe('POST /api/meal-plans/[id]/entries', () => {
     mockGetMembership.mockResolvedValue(mockMembership)
     mockFindFirstPlan.mockResolvedValue({
       id: 'plan-123',
-      startDate: new Date('2099-01-27T00:00:00.000Z'),
-      endDate: new Date('2099-02-03T00:00:00.000Z'),
     } as never)
     mockFindFirstEntry.mockResolvedValue(null)
     mockFindUniqueMeal.mockResolvedValue({ id: 'meal-1' } as never)
@@ -348,8 +307,6 @@ describe('POST /api/meal-plans/[id]/entries', () => {
     mockGetMembership.mockResolvedValue(mockMembership)
     mockFindFirstPlan.mockResolvedValue({
       id: 'plan-123',
-      startDate: new Date('2099-01-27T00:00:00.000Z'),
-      endDate: new Date('2099-02-03T00:00:00.000Z'),
     } as never)
     mockFindFirstEntry.mockResolvedValue(null)
     mockCreateEntry.mockResolvedValue({

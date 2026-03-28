@@ -304,7 +304,7 @@ describe('POST /api/meal-plans/generate', () => {
     expect(data.error).toBe('Insufficient meal options')
   })
 
-  it('returns 409 when plan already exists (Prisma unique constraint)', async () => {
+  it('returns 500 when Prisma unique constraint fails', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
 
@@ -314,8 +314,8 @@ describe('POST /api/meal-plans/generate', () => {
     const response = await POST(createRequest({}))
     const data = await response.json()
 
-    expect(response.status).toBe(409)
-    expect(data.error).toBe('A meal plan already exists for this week')
+    expect(response.status).toBe(500)
+    expect(data.error).toBe('Failed to generate meal plan')
   })
 
   it('returns 400 for fill-empty NoEmptySlotsError', async () => {

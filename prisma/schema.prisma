@@ -341,17 +341,15 @@ model MealComponent {
 // ============================================
 
 model MealPlan {
-  id          String   @id @default(cuid())
+  id          String @id @default(cuid())
   householdId String
-  startDate   DateTime
-  endDate     DateTime
 
   entries   MealPlanEntry[]
   household Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
-  @@unique([householdId, startDate])
+  @@unique([householdId])
   @@map("meal_plan")
 }
 

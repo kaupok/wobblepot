@@ -91,6 +91,8 @@ export interface CreateEmptyPlanOptions {
 export interface FillEmptySlotsOptions {
   planId: string
   householdId: string
+  /** Week start date (always Monday) — needed since plans no longer store dates */
+  startDate: Date
   dietaryType: DietaryType | null
   allergensToAvoid: Allergen[]
   excludedIngredientIds: string[]
@@ -104,7 +106,9 @@ export interface FillEmptySlotsOptions {
  */
 export interface GeneratePlanResult {
   id: string
+  /** Computed from entries for backward compat; not stored in DB */
   startDate: string
+  /** Computed from entries for backward compat; not stored in DB */
   endDate: string
   entries: Array<{
     id: string

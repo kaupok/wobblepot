@@ -9,9 +9,16 @@ import type { WeekContext } from './types'
 interface WeekViewActionsProps {
   planId: string
   weekContext: WeekContext
+  weekStartDate: string
+  weekEndDate: string
 }
 
-export function WeekViewActions({ planId, weekContext }: WeekViewActionsProps) {
+export function WeekViewActions({
+  planId,
+  weekContext,
+  weekStartDate,
+  weekEndDate,
+}: WeekViewActionsProps) {
   const [isClearModalOpen, setIsClearModalOpen] = useState(false)
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false)
 
@@ -23,7 +30,13 @@ export function WeekViewActions({ planId, weekContext }: WeekViewActionsProps) {
       <Button variant="outline" size="sm" onClick={() => setIsGenerateModalOpen(true)}>
         Generate meals
       </Button>
-      <ClearWeekModal open={isClearModalOpen} onOpenChange={setIsClearModalOpen} planId={planId} />
+      <ClearWeekModal
+        open={isClearModalOpen}
+        onOpenChange={setIsClearModalOpen}
+        planId={planId}
+        weekStartDate={weekStartDate}
+        weekEndDate={weekEndDate}
+      />
       <GenerateMealsModal
         open={isGenerateModalOpen}
         onOpenChange={setIsGenerateModalOpen}

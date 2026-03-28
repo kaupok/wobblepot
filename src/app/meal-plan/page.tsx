@@ -3,7 +3,13 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
 import { getServerBaseURL } from '@/lib/env'
-import { getDaysRemaining, isSunday } from '@/lib/meal-planning/dates'
+import {
+  getDaysRemaining,
+  isSunday,
+  getTodayInTimezone,
+  parseLocalDate,
+  toDateString,
+} from '@/lib/meal-planning/dates'
 import { WeekView } from '@/components/meal-plan/WeekView'
 import { EmptyPlan } from '@/components/meal-plan/EmptyPlan'
 import { WeekTabs } from '@/components/meal-plan/WeekTabs'
@@ -57,31 +63,52 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     activeWeek = isCurrentlySunday ? 'next' : 'current'
   }
 
-  // Fetch household size, all week plans, and pantry in parallel
+  // Compute date range for first-time detection
+  const todayDate = getTodayInTimezone(timezone)
+  const todayParsed = parseLocalDate(todayDate)
+  const fourWeeksAgo = new Date(todayParsed)
+  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28)
+  const twoWeeksAhead = new Date(todayParsed)
+  twoWeeksAhead.setDate(twoWeeksAhead.getDate() + 14)
+
+  // Fetch household size, all week plans, entries check, and pantry in parallel
   const requestHeaders = await headers()
   const baseURL = getServerBaseURL()
   const cookieHeader = requestHeaders.get('cookie') ?? ''
 
-  const [householdSize, lastResponse, currentResponse, nextResponse, pantryResponse] =
-    await Promise.all([
-      getHouseholdMemberCount(membership.household.id),
-      fetch(`${baseURL}/api/meal-plans/current?week=last`, {
+  const [
+    householdSize,
+    lastResponse,
+    currentResponse,
+    nextResponse,
+    entriesCheckResponse,
+    pantryResponse,
+  ] = await Promise.all([
+    getHouseholdMemberCount(membership.household.id),
+    fetch(`${baseURL}/api/meal-plans/current?week=last`, {
+      headers: { cookie: cookieHeader },
+      cache: 'no-store',
+    }),
+    fetch(`${baseURL}/api/meal-plans/current?week=current`, {
+      headers: { cookie: cookieHeader },
+      cache: 'no-store',
+    }),
+    fetch(`${baseURL}/api/meal-plans/current?week=next`, {
+      headers: { cookie: cookieHeader },
+      cache: 'no-store',
+    }),
+    fetch(
+      `${baseURL}/api/entries?startDate=${toDateString(fourWeeksAgo)}&endDate=${toDateString(twoWeeksAhead)}`,
+      {
         headers: { cookie: cookieHeader },
         cache: 'no-store',
-      }),
-      fetch(`${baseURL}/api/meal-plans/current?week=current`, {
-        headers: { cookie: cookieHeader },
-        cache: 'no-store',
-      }),
-      fetch(`${baseURL}/api/meal-plans/current?week=next`, {
-        headers: { cookie: cookieHeader },
-        cache: 'no-store',
-      }),
-      fetch(`${baseURL}/api/pantry`, {
-        headers: { cookie: cookieHeader },
-        cache: 'no-store',
-      }),
-    ])
+      },
+    ),
+    fetch(`${baseURL}/api/pantry`, {
+      headers: { cookie: cookieHeader },
+      cache: 'no-store',
+    }),
+  ])
 
   // Parse pantry response
   let pantryIngredients: PantryIngredient[] = []
@@ -144,8 +171,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     weekendMealTypes: (preferences?.weekendMealTypes ?? ['dinner']) as MealType[],
   }
 
-  // Check if this is the first-ever generation (no plans exist for any week)
-  const isFirstGeneration = !hasLastPlan && !hasCurrentPlan && !hasNextPlan
+  // Check if this is the first-ever generation (no entries at all)
+  let isFirstGeneration = !hasLastPlan && !hasCurrentPlan && !hasNextPlan
+  if (entriesCheckResponse.ok) {
+    const entriesData = await entriesCheckResponse.json()
+    isFirstGeneration = entriesData.entries.length === 0
+  }
 
   // Preferences data for the generation screen
   const preferencesData: HouseholdPreferencesData = {

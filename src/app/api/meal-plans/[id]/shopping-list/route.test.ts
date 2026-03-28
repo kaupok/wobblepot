@@ -72,8 +72,6 @@ const planCreatedAt = new Date('2099-01-25T10:00:00.000Z')
 const mockPlan = {
   id: 'plan-123',
   householdId: 'household-123',
-  startDate: new Date('2099-01-27T00:00:00.000Z'),
-  endDate: new Date('2099-02-03T00:00:00.000Z'),
   createdAt: planCreatedAt,
 }
 
@@ -168,8 +166,6 @@ describe('GET /api/meal-plans/[id]/shopping-list', () => {
 
     expect(response.status).toBe(200)
     expect(data.planId).toBe('plan-123')
-    expect(data.planStartDate).toBe('2099-01-27')
-    expect(data.planEndDate).toBe('2099-02-03')
     expect(data.generatedAt).toBeDefined()
     expect(data.groups).toHaveLength(1)
     expect(data.groups[0].category).toBe('protein')
