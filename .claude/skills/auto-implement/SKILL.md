@@ -725,6 +725,20 @@ gh pr checks --watch --fail-fast --interval 10  # Use 600s Bash timeout
 
 If timeout expires or any check fails, report and stop.
 
+**CRITICAL: After `gh pr checks` completes, verify ALL checks passed — including Vercel deployment:**
+
+```bash
+# Verify no failed checks remain (gh pr checks can miss late-arriving failures)
+FAILED=$(gh pr checks --json name,state --jq '[.[] | select(.state == "FAILURE")] | length')
+if [ "$FAILED" != "0" ]; then
+  echo "CI checks still failing:"
+  gh pr checks --json name,state --jq '.[] | select(.state == "FAILURE") | "\(.name): \(.state)"'
+  # STOP — do NOT merge
+fi
+```
+
+**Do NOT merge if any check shows FAILURE, including Vercel deployment checks.** This is a hard gate — no exceptions.
+
 ### 7.3 Merge the PR
 
 **Detect environment first** (reuse from Phase 0):
