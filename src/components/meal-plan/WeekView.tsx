@@ -2,6 +2,9 @@ import { Heading, Body } from '@/components/ui/typography'
 import {
   getTodayInTimezone,
   getWeekDates,
+  getCurrentWeekMonday,
+  getLastWeekMonday,
+  getNextMonday,
   parseLocalDate,
   toDateString,
   isWeekday,
@@ -50,7 +53,14 @@ export function WeekView({
   const today = getTodayInTimezone(timezone)
 
   // Always generate all 7 days of the week (Mon-Sun) for consistent layout
-  const startDate = parseLocalDate(plan.startDate)
+  // Derive Monday from weekContext or plan.startDate (compat layer provides it)
+  const startDate = plan.startDate
+    ? parseLocalDate(plan.startDate)
+    : weekContext.type === 'last'
+      ? getLastWeekMonday()
+      : weekContext.type === 'next'
+        ? getNextMonday()
+        : getCurrentWeekMonday()
   const weekDates = getWeekDates(startDate).map(toDateString)
 
   // Group entries by date - days without entries will have empty arrays

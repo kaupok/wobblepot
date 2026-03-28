@@ -21,7 +21,10 @@ vi.mock('@/lib/household', () => ({
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     mealPlan: {
-      findFirst: vi.fn(),
+      findUnique: vi.fn(),
+    },
+    mealPlanEntry: {
+      findMany: vi.fn(),
     },
   },
 }))
@@ -65,7 +68,8 @@ import { isSunday } from '@/lib/meal-planning/dates'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
-const mockFindFirst = vi.mocked(prisma.mealPlan.findFirst)
+const mockFindUnique = vi.mocked(prisma.mealPlan.findUnique)
+const mockFindManyEntries = vi.mocked(prisma.mealPlanEntry.findMany)
 const mockIsSunday = vi.mocked(isSunday)
 
 const mockHousehold = {
@@ -91,42 +95,43 @@ const mockSession = {
 const mockPlan = {
   id: 'plan-123',
   householdId: 'household-123',
-  startDate: new Date('2026-01-26T00:00:00.000Z'),
-  endDate: new Date('2026-02-02T00:00:00.000Z'),
-  entries: [
-    {
-      id: 'entry-1',
-      date: new Date('2026-01-26T00:00:00.000Z'),
-      mealType: 'dinner',
-      status: 'planned',
-      preparationTips: null,
-      note: null,
-      servingOverride: null,
-      meal: {
-        id: 'meal-1',
-        name: 'Chicken Rice Bowl',
-        kidFriendly: true,
-        timeMinutes: 30,
-        primaryProteinType: 'poultry',
-        components: [
-          {
-            ingredientId: 'ing-1',
-            quantityPerServing: 150,
-            isVague: false,
-            originalPhrase: null,
-            ingredient: {
-              id: 'ing-1',
-              name: 'Chicken breast',
-              category: 'protein',
-              defaultUnit: 'g',
-              gramsPerPiece: null,
-            },
-          },
-        ],
-      },
-    },
-  ],
 }
+
+const mockEntries = [
+  {
+    id: 'entry-1',
+    date: new Date('2026-01-26T00:00:00.000Z'),
+    mealType: 'dinner',
+    status: 'planned',
+    rating: null,
+    preparationTips: null,
+    note: null,
+    servingOverride: null,
+    meal: {
+      id: 'meal-1',
+      name: 'Chicken Rice Bowl',
+      kidFriendly: true,
+      timeMinutes: 30,
+      preparationNotes: null,
+      primaryProteinType: 'poultry',
+      components: [
+        {
+          ingredientId: 'ing-1',
+          quantityPerServing: 150,
+          isVague: false,
+          originalPhrase: null,
+          ingredient: {
+            id: 'ing-1',
+            name: 'Chicken breast',
+            category: 'protein',
+            defaultUnit: 'g',
+            gramsPerPiece: null,
+          },
+        },
+      ],
+    },
+  },
+]
 
 function createRequest(url: string = 'http://localhost/api/meal-plans/current') {
   return new NextRequest(url)
@@ -159,10 +164,10 @@ describe('GET /api/meal-plans/current', () => {
     expect(data.error).toBe('No household found')
   })
 
-  it('returns 404 with weekContext when no active plan', async () => {
+  it('returns 404 with weekContext when no plan exists', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindFirst.mockResolvedValue(null)
+    mockFindUnique.mockResolvedValue(null)
 
     const response = await GET(createRequest())
     const data = await response.json()
@@ -174,10 +179,26 @@ describe('GET /api/meal-plans/current', () => {
     expect(data.weekContext.daysRemaining).toBe(5)
   })
 
+  it('returns 404 with weekContext when plan exists but no entries for the week', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockFindUnique.mockResolvedValue(mockPlan as never)
+    mockFindManyEntries.mockResolvedValue([])
+
+    const response = await GET(createRequest())
+    const data = await response.json()
+
+    expect(response.status).toBe(404)
+    expect(data.error).toBe('No active meal plan')
+    expect(data.weekContext).toBeDefined()
+    expect(data.weekContext.type).toBe('current')
+  })
+
   it('returns current plan with entries and nutrition', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindFirst.mockResolvedValue(mockPlan as never)
+    mockFindUnique.mockResolvedValue(mockPlan as never)
+    mockFindManyEntries.mockResolvedValue(mockEntries as never)
 
     const response = await GET(createRequest())
     const data = await response.json()
@@ -196,7 +217,8 @@ describe('GET /api/meal-plans/current', () => {
   it('returns next week plan when week=next', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindFirst.mockResolvedValue(mockPlan as never)
+    mockFindUnique.mockResolvedValue(mockPlan as never)
+    mockFindManyEntries.mockResolvedValue(mockEntries as never)
 
     const response = await GET(createRequest('http://localhost/api/meal-plans/current?week=next'))
     const data = await response.json()
@@ -209,7 +231,8 @@ describe('GET /api/meal-plans/current', () => {
   it('returns last week plan when week=last', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindFirst.mockResolvedValue(mockPlan as never)
+    mockFindUnique.mockResolvedValue(mockPlan as never)
+    mockFindManyEntries.mockResolvedValue(mockEntries as never)
 
     const response = await GET(createRequest('http://localhost/api/meal-plans/current?week=last'))
     const data = await response.json()
@@ -219,12 +242,13 @@ describe('GET /api/meal-plans/current', () => {
     expect(data.weekContext.daysCount).toBe(7)
   })
 
-  it('falls back to next week plan on Sunday when no current plan', async () => {
+  it('falls back to next week plan on Sunday when no current week entries', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
     mockIsSunday.mockReturnValue(true)
-    // First call (current week) returns null, second call (next week) returns plan
-    mockFindFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(mockPlan as never)
+    mockFindUnique.mockResolvedValue(mockPlan as never)
+    // First call (current week) returns empty, second call (next week) returns entries
+    mockFindManyEntries.mockResolvedValueOnce([]).mockResolvedValueOnce(mockEntries as never)
 
     const response = await GET(createRequest())
     const data = await response.json()
@@ -236,23 +260,22 @@ describe('GET /api/meal-plans/current', () => {
   it('handles entry with null meal', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockFindUnique.mockResolvedValue(mockPlan as never)
 
-    const planWithNullMeal = {
-      ...mockPlan,
-      entries: [
-        {
-          id: 'entry-1',
-          date: new Date('2026-01-26T00:00:00.000Z'),
-          mealType: 'dinner',
-          status: 'planned',
-          preparationTips: null,
-          note: null,
-          servingOverride: null,
-          meal: null,
-        },
-      ],
-    }
-    mockFindFirst.mockResolvedValue(planWithNullMeal as never)
+    const entriesWithNullMeal = [
+      {
+        id: 'entry-1',
+        date: new Date('2026-01-26T00:00:00.000Z'),
+        mealType: 'dinner',
+        status: 'planned',
+        rating: null,
+        preparationTips: null,
+        note: null,
+        servingOverride: null,
+        meal: null,
+      },
+    ]
+    mockFindManyEntries.mockResolvedValue(entriesWithNullMeal as never)
 
     const response = await GET(createRequest())
     const data = await response.json()

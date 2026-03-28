@@ -101,60 +101,6 @@ export async function POST(request: Request) {
   const weekdayMealTypes = preferences?.weekdayMealTypes ?? ['dinner']
   const weekendMealTypes = preferences?.weekendMealTypes ?? ['dinner']
 
-  // Handle fill-empty mode
-  if (mode === 'fill-empty') {
-    if (!planId) {
-      return NextResponse.json({ error: 'planId is required for fill-empty mode' }, { status: 400 })
-    }
-
-    try {
-      const result = await fillEmptySlots({
-        planId,
-        householdId: household.id,
-        dietaryType,
-        allergensToAvoid,
-        excludedIngredientIds,
-        restrictions,
-        weekdayMealTypes,
-        weekendMealTypes,
-      })
-
-      // Record successful generation for rate limiting
-      recordGeneration(household.id, 'plan-generation')
-
-      return NextResponse.json(result, { status: 200 })
-    } catch (error) {
-      if (error instanceof NoEmptySlotsError) {
-        return NextResponse.json(
-          { error: 'No empty slots to fill', message: error.message },
-          { status: 400 },
-        )
-      }
-
-      if (error instanceof MealPlanValidationError) {
-        console.error('AI response validation failed:', error.message)
-        return NextResponse.json(
-          { error: 'AI generated an invalid meal plan', message: error.message },
-          { status: 422 },
-        )
-      }
-
-      if (error instanceof InsufficientCandidatesError) {
-        return NextResponse.json(
-          { error: 'Insufficient meal options', message: error.message },
-          { status: 422 },
-        )
-      }
-
-      if (error instanceof Error && error.message === 'Plan not found') {
-        return NextResponse.json({ error: 'Plan not found' }, { status: 404 })
-      }
-
-      console.error('Fill empty slots failed:', error)
-      return NextResponse.json({ error: 'Failed to fill empty slots' }, { status: 500 })
-    }
-  }
-
   // Determine start date and effective start date
   let startDate: Date
   let effectiveStartDate: Date | undefined
@@ -203,6 +149,61 @@ export async function POST(request: Request) {
     startDate = getNextMonday()
   }
 
+  // Handle fill-empty mode
+  if (mode === 'fill-empty') {
+    if (!planId) {
+      return NextResponse.json({ error: 'planId is required for fill-empty mode' }, { status: 400 })
+    }
+
+    try {
+      const result = await fillEmptySlots({
+        planId,
+        householdId: household.id,
+        startDate,
+        dietaryType,
+        allergensToAvoid,
+        excludedIngredientIds,
+        restrictions,
+        weekdayMealTypes,
+        weekendMealTypes,
+      })
+
+      // Record successful generation for rate limiting
+      recordGeneration(household.id, 'plan-generation')
+
+      return NextResponse.json(result, { status: 200 })
+    } catch (error) {
+      if (error instanceof NoEmptySlotsError) {
+        return NextResponse.json(
+          { error: 'No empty slots to fill', message: error.message },
+          { status: 400 },
+        )
+      }
+
+      if (error instanceof MealPlanValidationError) {
+        console.error('AI response validation failed:', error.message)
+        return NextResponse.json(
+          { error: 'AI generated an invalid meal plan', message: error.message },
+          { status: 422 },
+        )
+      }
+
+      if (error instanceof InsufficientCandidatesError) {
+        return NextResponse.json(
+          { error: 'Insufficient meal options', message: error.message },
+          { status: 422 },
+        )
+      }
+
+      if (error instanceof Error && error.message === 'Plan not found') {
+        return NextResponse.json({ error: 'Plan not found' }, { status: 404 })
+      }
+
+      console.error('Fill empty slots failed:', error)
+      return NextResponse.json({ error: 'Failed to fill empty slots' }, { status: 500 })
+    }
+  }
+
   // Handle empty mode - create plan with no entries
   if (mode === 'empty') {
     try {
@@ -226,19 +227,6 @@ export async function POST(request: Request) {
         { status: 200 },
       )
     } catch (error) {
-      // Handle Prisma unique constraint violation
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        error.code === 'P2002'
-      ) {
-        return NextResponse.json(
-          { error: 'A meal plan already exists for this week' },
-          { status: 409 },
-        )
-      }
-
       console.error('Empty plan creation failed:', error)
       return NextResponse.json({ error: 'Failed to create empty plan' }, { status: 500 })
     }
@@ -291,14 +279,6 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Insufficient meal options', message: error.message },
         { status: 422 },
-      )
-    }
-
-    // Handle Prisma unique constraint violation (race condition edge case)
-    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'A meal plan already exists for this week' },
-        { status: 409 },
       )
     }
 

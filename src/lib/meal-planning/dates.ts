@@ -294,6 +294,19 @@ export function formatDayShort(date: Date): string {
   return days[date.getDay()] as string
 }
 
+/**
+ * Get an array of consecutive dates starting from the given date.
+ */
+export function getDateRange(startDate: Date, days: number): Date[] {
+  const dates: Date[] = []
+  for (let i = 0; i < days; i++) {
+    const date = new Date(startDate)
+    date.setDate(startDate.getDate() + i)
+    dates.push(date)
+  }
+  return dates
+}
+
 export type UrgencyBucket = 'today' | 'tomorrow' | 'this-week' | 'later'
 
 /**

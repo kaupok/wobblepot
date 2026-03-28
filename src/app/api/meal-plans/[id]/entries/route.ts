@@ -42,19 +42,11 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       },
       select: {
         id: true,
-        endDate: true,
       },
     })
 
     if (!plan) {
       return NextResponse.json({ error: 'Meal plan not found' }, { status: 404 })
-    }
-
-    // Reject modifications to past week plans
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    if (plan.endDate < today) {
-      return NextResponse.json({ error: 'Cannot modify past week plans' }, { status: 403 })
     }
 
     // Delete all entries for this plan
@@ -115,8 +107,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       },
       select: {
         id: true,
-        startDate: true,
-        endDate: true,
       },
     })
 
@@ -124,18 +114,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Plan not found or access denied' }, { status: 404 })
     }
 
-    // Reject modifications to past week plans
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    if (plan.endDate < today) {
-      return NextResponse.json({ error: 'Cannot modify past week plans' }, { status: 403 })
-    }
-
-    // Verify the date is within the plan's range
     const entryDate = parseLocalDate(date)
-    if (entryDate < plan.startDate || entryDate >= plan.endDate) {
-      return NextResponse.json({ error: 'Date is outside plan range' }, { status: 400 })
-    }
 
     // Check if an entry already exists for this date + mealType
     const existingEntry = await prisma.mealPlanEntry.findFirst({

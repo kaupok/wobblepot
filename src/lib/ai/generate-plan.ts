@@ -366,34 +366,47 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
   // Validate constraints and repair if needed (protein types, consecutive days, duplicates)
   const validatedPlan = validateAndRepairPlan(hydratedPlan, requiredSlots, candidatePools)
 
-  // Delete existing plan and create new one in a transaction
-  // This allows users to regenerate plans for the same week
+  // Find or create single household plan, then delete existing entries for this date range
+  // and create new ones. This allows users to regenerate plans for any week.
   const mealPlan = await prisma.$transaction(async (tx) => {
-    // Delete existing plan for this household+startDate if it exists
-    await tx.mealPlan.deleteMany({
+    // Find or create the single household plan
+    let plan = await tx.mealPlan.findUnique({
+      where: { householdId },
+    })
+
+    if (!plan) {
+      plan = await tx.mealPlan.create({
+        data: { householdId },
+      })
+    }
+
+    // Delete existing entries for this date range
+    await tx.mealPlanEntry.deleteMany({
       where: {
-        householdId,
-        startDate,
+        planId: plan.id,
+        date: { gte: startDate, lt: endDate },
       },
     })
 
-    // Create new plan
-    return tx.mealPlan.create({
-      data: {
-        householdId,
-        startDate,
-        endDate,
-        entries: {
-          create: validatedPlan.map((entry) => ({
-            date: entry.date,
-            mealType: entry.mealType,
-            mealId: entry.mealId,
-            status: 'planned',
-          })),
-        },
-      },
+    // Create new entries
+    await tx.mealPlanEntry.createMany({
+      data: validatedPlan.map((entry) => ({
+        planId: plan.id,
+        date: entry.date,
+        mealType: entry.mealType,
+        mealId: entry.mealId,
+        status: 'planned',
+      })),
+    })
+
+    // Return plan with entries
+    return tx.mealPlan.findUniqueOrThrow({
+      where: { id: plan.id },
       include: {
         entries: {
+          where: {
+            date: { gte: startDate, lt: endDate },
+          },
           include: {
             meal: {
               include: {
@@ -411,11 +424,11 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     })
   })
 
-  // Format response
+  // Format response — compute startDate/endDate from the generation range
   return {
     id: mealPlan.id,
-    startDate: toDateString(mealPlan.startDate),
-    endDate: toDateString(mealPlan.endDate),
+    startDate: toDateString(startDate),
+    endDate: toDateString(endDate),
     entries: mealPlan.entries.map((entry) => ({
       id: entry.id,
       date: toDateString(entry.date),
@@ -435,8 +448,8 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
 }
 
 /**
- * Create an empty meal plan (no entries).
- * Deletes any existing plan for the same week.
+ * Create an empty meal plan (no entries for the given week).
+ * Deletes any existing entries for the same date range.
  */
 export async function createEmptyPlan(
   options: CreateEmptyPlanOptions,
@@ -447,33 +460,33 @@ export async function createEmptyPlan(
   const endDate = new Date(startDate)
   endDate.setDate(startDate.getDate() + 7)
 
-  // Delete existing plan and create empty one in a transaction
+  // Find or create single household plan, clear entries for this date range
   const mealPlan = await prisma.$transaction(async (tx) => {
-    // Delete existing plan for this household+startDate if it exists
-    await tx.mealPlan.deleteMany({
+    let plan = await tx.mealPlan.findUnique({
+      where: { householdId },
+    })
+
+    if (!plan) {
+      plan = await tx.mealPlan.create({
+        data: { householdId },
+      })
+    }
+
+    // Delete existing entries for this date range
+    await tx.mealPlanEntry.deleteMany({
       where: {
-        householdId,
-        startDate,
+        planId: plan.id,
+        date: { gte: startDate, lt: endDate },
       },
     })
 
-    // Create new plan with no entries
-    return tx.mealPlan.create({
-      data: {
-        householdId,
-        startDate,
-        endDate,
-      },
-      include: {
-        entries: true,
-      },
-    })
+    return plan
   })
 
   return {
     id: mealPlan.id,
-    startDate: toDateString(mealPlan.startDate),
-    endDate: toDateString(mealPlan.endDate),
+    startDate: toDateString(startDate),
+    endDate: toDateString(endDate),
     entries: [],
   }
 }
@@ -487,6 +500,7 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
   const {
     planId,
     householdId,
+    startDate: weekStartDate,
     dietaryType,
     allergensToAvoid,
     excludedIngredientIds,
@@ -519,8 +533,8 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     throw new Error('Plan not found')
   }
 
-  // Calculate expected slots based on plan dates and meal type preferences
-  const startDate = existingPlan.startDate
+  // Calculate expected slots based on week dates and meal type preferences
+  const startDate = weekStartDate
   const dates = getWeekDates(startDate)
 
   // Find existing entry slots that actually have a meal assigned.
@@ -657,10 +671,14 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     (s) => !requiredSlotKeys.has(slotKey(s.date, s.mealType)),
   )
 
+  // Compute endDate for this week (startDate + 7)
+  const endDate = new Date(startDate)
+  endDate.setDate(startDate.getDate() + 7)
+
   // Build prompt and call AI for fillable slots only
   const prompt = buildMealPlanPrompt({
     startDate,
-    endDate: existingPlan.endDate,
+    endDate,
     totalEntries: fillableSlots.length,
     requiredSlots,
     remainingSlots,
@@ -708,11 +726,14 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     })
   })
 
-  // Fetch all entries for the plan with meal details
+  // Fetch entries for this week with meal details
   const updatedPlan = await prisma.mealPlan.findUnique({
     where: { id: planId },
     include: {
       entries: {
+        where: {
+          date: { gte: startDate, lt: endDate },
+        },
         include: {
           meal: {
             include: {
@@ -735,8 +756,8 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
 
   return {
     id: updatedPlan.id,
-    startDate: toDateString(updatedPlan.startDate),
-    endDate: toDateString(updatedPlan.endDate),
+    startDate: toDateString(startDate),
+    endDate: toDateString(endDate),
     entries: updatedPlan.entries.map((entry) => ({
       id: entry.id,
       date: toDateString(entry.date),
