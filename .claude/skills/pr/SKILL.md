@@ -130,6 +130,18 @@ Return the PR URL, then output the completion marker:
 
 Do NOT output follow-up suggestions or next steps - just the URL and marker.
 
+### 9. Trigger Claude review
+
+After outputting the PR completion marker, spawn the Claude reviewer as a background process:
+
+```bash
+PR_NUMBER=$(gh pr view --json number --jq .number)
+nohup ./scripts/pr-review.sh ${PR_NUMBER} > /tmp/claude-review-${PR_NUMBER}.log 2>&1 &
+```
+
+This runs asynchronously. The `/pr` skill does not wait for the review to complete.
+Do NOT mention the review to the user — it runs silently in the background.
+
 ## Important
 
 - Follow conventions from docs, don't invent new rules

@@ -26,52 +26,40 @@ gh pr view --json number,title,headRefName,url,headRepository 2>/dev/null
 
 If no PR exists, inform user: "No PR found for this branch. Create one with `/pr` first."
 
-### Step 2: Wait for Greptile Review
+### Step 2: Get Claude Review
 
-**IMPORTANT:** Greptile does NOT post a GitHub check. It posts comments asynchronously after CI completes. You must poll for Greptile comments explicitly.
-
-**First, wait for CI:**
+Check if a Claude review already exists:
 
 ```bash
-gh pr checks --watch --interval 10
+gh api /repos/:owner/:repo/issues/{number}/comments \
+  --jq '[.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
 ```
 
-**If CI fails:** Report which checks failed, but still proceed to wait for Greptile.
-
-**Then, poll for Greptile comment with timeout:**
+If review exists (count > 0):
 
 ```
-max_wait_seconds = 600  # 10 minutes
-poll_interval = 15
-elapsed = 0
-
-[pr-review] Waiting for Greptile review...
-
-while elapsed < max_wait_seconds:
-    # Check PR-level comments for Greptile
-    gh api /repos/:owner/:repo/issues/{number}/comments
-
-    # Check inline review comments for Greptile
-    gh api /repos/:owner/:repo/pulls/{number}/comments
-
-    # Check review summaries for Greptile
-    gh api /repos/:owner/:repo/pulls/{number}/reviews
-
-    # Look for comments from "greptile-apps[bot]"
-    If Greptile comment found:
-        [pr-review] ✓ Greptile review received
-        break
-
-    sleep {poll_interval}
-    elapsed += poll_interval
-    [pr-review] Waiting for Greptile... ({elapsed}s/{max_wait_seconds}s)
-
-If no Greptile comment after timeout:
-    [pr-review] ⚠ Greptile review not received after {max_wait_seconds}s
-    [pr-review] Proceeding with available comments (manual Greptile check recommended)
+[pr-review] ✓ Claude review found
 ```
 
-**After Greptile received (or timeout):** Proceed to Step 3 to parse all comments.
+Proceed to Step 3.
+
+If no review exists, trigger one:
+
+```
+[pr-review] No Claude review found. Triggering review...
+```
+
+```bash
+./scripts/pr-review.sh ${PR_NUMBER}
+```
+
+After the script returns:
+
+```
+[pr-review] ✓ Claude review posted
+```
+
+Proceed to Step 3.
 
 ### Step 3: Fetch Comments
 
@@ -96,21 +84,20 @@ Replace `{number}` with the PR number from Step 1.
 
 **Filter out noise:**
 
-- Bot messages about usage limits (e.g., "You have reached your Codex usage limits")
 - Empty comments
 - Automated status messages
+- Non-review comments (comments without `<!-- claude-review -->` marker or bold issue titles)
 
-**Parse Greptile severity markers:**
+**Parse Claude review format:**
 
-Greptile uses specific patterns in its reviews. Map these to severity levels:
+The Claude reviewer only posts substantive issues (no nitpicks by design). Map to severity:
 
-| Greptile Pattern              | Maps To       |
-| ----------------------------- | ------------- |
-| "Critical Issues" heading     | 🔴 Critical   |
-| "critical" in comment body    | 🔴 Critical   |
-| "Improvements Needed" heading | 🟡 Suggestion |
-| "suggestion" / "consider"     | 🟡 Suggestion |
-| Other actionable feedback     | 🟢 Nitpick    |
+| Signal                                         | Maps To       |
+| ---------------------------------------------- | ------------- |
+| Inline review comment (bold title format)      | 🟡 Suggestion |
+| Summary says "No issues found"                 | Clean review  |
+| Summary confidence 1-2/5 → upgrade all issues  | 🔴 Critical   |
+| Summary confidence 3-5/5 → keep default        | 🟡 Suggestion |
 
 **Extract key fields from review comments:**
 
@@ -137,7 +124,7 @@ After parsing all comments, triage each one using **effort-first** thinking:
 
 **Bias toward action.** Deferred items rarely get done. If something can be fixed in a few minutes, just fix it.
 
-**Ignore reviewer's triage.** Reviewers (including Greptile) often suggest deferring things or mark items as "out of scope." Apply your own effort-based assessment. If it's a quick fix and directly related to this PR's changes, it's in scope - do it now.
+**Ignore reviewer's triage.** Reviewers often suggest deferring things or mark items as "out of scope." Apply your own effort-based assessment. If it's a quick fix and directly related to this PR's changes, it's in scope - do it now.
 
 Place each item in one of three buckets:
 
@@ -212,7 +199,7 @@ After outputting the review triage, add the completion marker:
 
 ## Notes
 
-- This skill fetches EXTERNAL review feedback (from GitHub reviewers like Greptile)
+- This skill fetches EXTERNAL review feedback (from the Claude PR reviewer via `scripts/pr-review.sh`)
 - For LOCAL code review before committing, use `/code-review` instead
 - **Bias toward action** - when in doubt, put it in Address Now
 - **Defer is last resort** - only for work that genuinely takes hours and is out of scope
