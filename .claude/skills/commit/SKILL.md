@@ -101,7 +101,7 @@ Report the commit hash and summary.
 
 ### 9. Post-commit actions (if flags passed)
 
-**If `--pr` flag:** Invoke the `/pr` skill to create the pull request (this handles pushing).
+**If `--pr` flag:** Invoke the `/create-pr` skill to create the pull request (this handles pushing).
 
 **If `--push` flag (without --pr):** Push to remote:
 

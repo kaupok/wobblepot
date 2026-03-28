@@ -1,5 +1,5 @@
 ---
-name: pr
+name: create-pr
 description: Create a pull request following project conventions. Analyzes all commits, generates description, and creates PR.
 context: inherit
 ---
@@ -125,21 +125,14 @@ EOF
 Return the PR URL, then output the completion marker:
 
 ```
-[pr:complete] PR created: <URL>
+[create-pr:complete] PR created: <URL>
 ```
 
 Do NOT output follow-up suggestions or next steps - just the URL and marker.
 
 ### 9. Trigger Claude review
 
-After outputting the PR completion marker, run the Claude reviewer in the foreground:
-
-```bash
-PR_NUMBER=$(gh pr view --json number --jq .number)
-./scripts/pr-review.sh ${PR_NUMBER}
-```
-
-This runs synchronously. Tell the user the review is starting, and report the outcome (success or failure) when it finishes.
+After outputting the PR completion marker, invoke the `/review-pr` skill to run the Claude reviewer.
 
 ## Important
 
