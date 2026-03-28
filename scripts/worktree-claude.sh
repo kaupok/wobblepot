@@ -574,13 +574,13 @@ cmd_status() {
   fi
 }
 
-# Format seconds into human-readable duration (e.g., "2h 15m", "5m 30s")
+# Format seconds into human-readable duration (e.g., "2h15m", "5m30s")
 format_duration() {
   local secs="$1"
   if [ "$secs" -ge 3600 ]; then
-    printf "%dh %dm" $((secs / 3600)) $(( (secs % 3600) / 60 ))
+    printf "%dh%dm" $((secs / 3600)) $(( (secs % 3600) / 60 ))
   elif [ "$secs" -ge 60 ]; then
-    printf "%dm %ds" $((secs / 60)) $((secs % 60))
+    printf "%dm%ds" $((secs / 60)) $((secs % 60))
   else
     printf "%ds" "$secs"
   fi

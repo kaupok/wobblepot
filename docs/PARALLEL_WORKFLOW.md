@@ -155,8 +155,8 @@ Requires `LINEAR_API_KEY` env var (format: `lin_api_...`).
 **Structured outcome logging:** Every worker completion logs a parseable `[OUTCOME]` line to `orchestrator.log`:
 
 ```
-[OUTCOME] HON-51 SUCCESS 35m 4-commits phase=merge
-[OUTCOME] HON-53 TIMEOUT 61m 2-commits phase=reviewing triage=RETRY
+[OUTCOME] HON-51 SUCCESS 35m0s 4-commits phase=merge
+[OUTCOME] HON-53 TIMEOUT 1h1m 2-commits phase=reviewing triage=RETRY
 ```
 
 Filter with `grep '\[OUTCOME\]' ~/.worktrees/honkadori/logs/orchestrator.log`.
