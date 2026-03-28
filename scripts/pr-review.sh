@@ -65,13 +65,16 @@ fi
 
 LOCK_DIR="/tmp/claude-review-${PR_NUMBER}.lock"
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then
-  echo -e "${GREEN}Another review is already running for PR #${PR_NUMBER}. Skipping.${NC}"
   # Check if the other instance already posted a review
   if gh api /repos/:owner/:repo/issues/${PR_NUMBER}/comments \
     --jq '[.[] | select(.body | startswith("<!-- claude-review -->"))] | length' 2>/dev/null | grep -q '^[1-9]'; then
     echo -e "${GREEN}Review already posted by another instance.${NC}"
+    exit 0
   fi
-  exit 0
+  # No review posted — stale lock from a crashed process. Clean up and proceed.
+  echo -e "${RED}Stale lock found (no review posted). Reclaiming lock.${NC}"
+  rmdir "$LOCK_DIR" 2>/dev/null || rm -rf "$LOCK_DIR"
+  mkdir "$LOCK_DIR"
 fi
 
 # ─── Review prompt ────────────────────────────────────────────────────────────
