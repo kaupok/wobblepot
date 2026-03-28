@@ -74,6 +74,10 @@ export async function GET(request: NextRequest) {
     }
 
     if (statusParam) {
+      const validStatuses: string[] = ['planned', 'completed', 'skipped']
+      if (!validStatuses.includes(statusParam)) {
+        return NextResponse.json({ error: 'Invalid status value' }, { status: 400 })
+      }
       where.status = statusParam as MealPlanEntryStatus
     }
 

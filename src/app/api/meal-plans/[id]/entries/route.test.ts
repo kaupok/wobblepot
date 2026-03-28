@@ -71,8 +71,11 @@ const createPostRequest = (body: Record<string, unknown>) =>
     body: JSON.stringify(body),
   })
 
-const createDeleteRequest = () =>
-  new Request('http://localhost/api/meal-plans/plan-123/entries', { method: 'DELETE' })
+const createDeleteRequest = (startDate = '2026-01-12', endDate = '2026-01-19') =>
+  new Request(
+    `http://localhost/api/meal-plans/plan-123/entries?startDate=${startDate}&endDate=${endDate}`,
+    { method: 'DELETE' },
+  )
 
 describe('DELETE /api/meal-plans/[id]/entries', () => {
   beforeEach(() => {
@@ -112,7 +115,24 @@ describe('DELETE /api/meal-plans/[id]/entries', () => {
     expect(data.error).toBe('Meal plan not found')
   })
 
-  it('deletes all entries and returns success', async () => {
+  it('returns 400 when date range params are missing', async () => {
+    mockGetSession.mockResolvedValue(mockSession)
+    mockGetMembership.mockResolvedValue(mockMembership)
+    mockFindFirstPlan.mockResolvedValue({
+      id: 'plan-123',
+    } as never)
+
+    const request = new Request('http://localhost/api/meal-plans/plan-123/entries', {
+      method: 'DELETE',
+    })
+    const response = await DELETE(request, { params: createParams() })
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('startDate and endDate query params are required')
+  })
+
+  it('deletes entries within date range and returns success', async () => {
     mockGetSession.mockResolvedValue(mockSession)
     mockGetMembership.mockResolvedValue(mockMembership)
     mockFindFirstPlan.mockResolvedValue({

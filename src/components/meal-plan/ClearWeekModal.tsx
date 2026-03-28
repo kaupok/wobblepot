@@ -18,9 +18,17 @@ interface ClearWeekModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   planId: string
+  weekStartDate: string
+  weekEndDate: string
 }
 
-export function ClearWeekModal({ open, onOpenChange, planId }: ClearWeekModalProps) {
+export function ClearWeekModal({
+  open,
+  onOpenChange,
+  planId,
+  weekStartDate,
+  weekEndDate,
+}: ClearWeekModalProps) {
   const router = useRouter()
   const [isClearing, setIsClearing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -30,9 +38,10 @@ export function ClearWeekModal({ open, onOpenChange, planId }: ClearWeekModalPro
     setError(null)
 
     try {
-      const response = await fetch(`/api/meal-plans/${planId}/entries`, {
-        method: 'DELETE',
-      })
+      const response = await fetch(
+        `/api/meal-plans/${planId}/entries?startDate=${weekStartDate}&endDate=${weekEndDate}`,
+        { method: 'DELETE' },
+      )
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))

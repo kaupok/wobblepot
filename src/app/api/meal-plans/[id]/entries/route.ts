@@ -13,7 +13,7 @@ const createEntrySchema = z.object({
   note: z.string().max(200).nullable().optional(),
 })
 
-export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   // Auth check
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -49,9 +49,24 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Meal plan not found' }, { status: 404 })
     }
 
-    // Delete all entries for this plan
+    // Require date range to prevent accidental deletion of all entries
+    const url = new URL(request.url)
+    const startDateParam = url.searchParams.get('startDate')
+    const endDateParam = url.searchParams.get('endDate')
+
+    if (!startDateParam || !endDateParam) {
+      return NextResponse.json(
+        { error: 'startDate and endDate query params are required' },
+        { status: 400 },
+      )
+    }
+
+    const weekStart = parseLocalDate(startDateParam)
+    const weekEnd = parseLocalDate(endDateParam)
+
+    // Delete entries within the specified date range
     const result = await prisma.mealPlanEntry.deleteMany({
-      where: { planId },
+      where: { planId, date: { gte: weekStart, lt: weekEnd } },
     })
 
     return NextResponse.json({ success: true, deletedCount: result.count })

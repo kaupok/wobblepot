@@ -62,6 +62,10 @@ export function WeekView({
         ? getNextMonday()
         : getCurrentWeekMonday()
   const weekDates = getWeekDates(startDate).map(toDateString)
+  const weekStartDateStr = toDateString(startDate)
+  const endDate = new Date(startDate)
+  endDate.setDate(startDate.getDate() + 7)
+  const weekEndDateStr = toDateString(endDate)
 
   // Group entries by date - days without entries will have empty arrays
   const entriesByDate = new Map<string, PlanEntry[]>()
@@ -121,7 +125,14 @@ export function WeekView({
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <Heading variant="h2">{heading}</Heading>
-          {!isReadOnly && <WeekViewActions planId={plan.id} weekContext={weekContext} />}
+          {!isReadOnly && (
+            <WeekViewActions
+              planId={plan.id}
+              weekContext={weekContext}
+              weekStartDate={weekStartDateStr}
+              weekEndDate={weekEndDateStr}
+            />
+          )}
         </div>
         {showPartialWeekNotice && (
           <Body variant="muted">

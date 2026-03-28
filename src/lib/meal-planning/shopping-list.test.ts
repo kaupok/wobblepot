@@ -599,7 +599,7 @@ describe('computeShoppingList', () => {
 
     await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
 
-    // Verify the query filtered by planned status AND date >= today
+    // Verify the query filtered by planned status AND date within 14-day window
     expect(mockFindManyEntries).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
@@ -607,6 +607,7 @@ describe('computeShoppingList', () => {
           status: 'planned',
           date: {
             gte: new Date('2026-01-20'),
+            lt: new Date('2026-02-03'),
           },
         },
       }),
