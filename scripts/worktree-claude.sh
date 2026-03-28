@@ -9,6 +9,7 @@
 #   ./scripts/worktree-claude.sh auto [issue-id|branch] # Create worktree + run /auto-implement autonomously
 #   ./scripts/worktree-claude.sh resume <branch-name>   # Resume existing worktree
 #   ./scripts/worktree-claude.sh list                   # List all worktrees
+#   ./scripts/worktree-claude.sh status                 # Show orchestrator and worker status
 #   ./scripts/worktree-claude.sh sync <branch-name>     # Sync permissions to main repo
 #   ./scripts/worktree-claude.sh sync-all               # Sync permissions from all worktrees
 #   ./scripts/worktree-claude.sh cleanup <branch-name>  # Remove worktree (auto-syncs)
@@ -38,6 +39,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
+DIM='\033[2m'
 NC='\033[0m' # No Color
 
 # Get the main (non-worktree) repository path
@@ -101,6 +103,7 @@ print_usage() {
   echo "  auto [issue-id|branch] Create worktree and run /auto-implement autonomously"
   echo "  resume <branch-name>   Open Claude Code in existing worktree"
   echo "  list                   List all active worktrees"
+  echo "  status                 Show orchestrator and worker status"
   echo "  sync <branch-name>     Sync permissions from worktree to main repo"
   echo "  sync-all               Sync permissions from all worktrees"
   echo "  cleanup <branch-name>  Remove a specific worktree (auto-syncs permissions)"
@@ -383,6 +386,204 @@ cmd_resume() {
   cd "$worktree_path"
   # Unset ANTHROPIC_API_KEY so Claude CLI uses Max subscription instead of API credits
   exec env -u ANTHROPIC_API_KEY claude --resume
+}
+
+# Show orchestrator and worker status
+cmd_status() {
+  local status_file="$WORKTREE_BASE/orchestrator-status.json"
+
+  if [ ! -f "$status_file" ]; then
+    echo -e "${YELLOW}No orchestrator status file found.${NC}"
+    echo "Start the orchestrator with: ./scripts/orchestrator.sh"
+    return
+  fi
+
+  local status
+  status=$(cat "$status_file" 2>/dev/null) || {
+    echo -e "${RED}Error reading status file${NC}"
+    return 1
+  }
+
+  local orch_pid started_at last_poll max_workers
+  orch_pid=$(echo "$status" | jq -r '.pid')
+  started_at=$(echo "$status" | jq -r '.started_at')
+  last_poll=$(echo "$status" | jq -r '.last_poll')
+  max_workers=$(echo "$status" | jq -r '.max_workers')
+
+  # Check if orchestrator process is alive
+  local orch_alive=false
+  if kill -0 "$orch_pid" 2>/dev/null; then
+    orch_alive=true
+  fi
+
+  # Calculate uptime and last poll age
+  local now
+  now=$(date +%s)
+
+  local uptime_str=""
+  if [ -n "$started_at" ] && [ "$started_at" != "null" ]; then
+    local start_epoch
+    start_epoch=$(date -jf '%Y-%m-%dT%H:%M:%SZ' "$started_at" '+%s' 2>/dev/null) || \
+    start_epoch=$(date -d "$started_at" '+%s' 2>/dev/null) || start_epoch=0
+    if [ "$start_epoch" -gt 0 ]; then
+      local uptime_secs=$((now - start_epoch))
+      uptime_str=$(format_duration "$uptime_secs")
+    fi
+  fi
+
+  local poll_age_str=""
+  if [ -n "$last_poll" ] && [ "$last_poll" != "null" ]; then
+    local poll_epoch
+    poll_epoch=$(date -jf '%Y-%m-%dT%H:%M:%SZ' "$last_poll" '+%s' 2>/dev/null) || \
+    poll_epoch=$(date -d "$last_poll" '+%s' 2>/dev/null) || poll_epoch=0
+    if [ "$poll_epoch" -gt 0 ]; then
+      local poll_age=$((now - poll_epoch))
+      poll_age_str=$(format_duration "$poll_age")
+    fi
+  fi
+
+  # Header
+  if [ "$orch_alive" = true ]; then
+    echo -e "${GREEN}Orchestrator running${NC} (PID $orch_pid, uptime ${uptime_str:-unknown}, last poll ${poll_age_str:-unknown} ago)"
+  else
+    echo -e "${YELLOW}Orchestrator not running${NC} (last active: ${poll_age_str:-unknown} ago)"
+  fi
+  echo ""
+
+  # Circuit breaker status
+  local cb_failures cb_paused
+  cb_failures=$(echo "$status" | jq -r '.circuit_breaker.consecutive_failures')
+  cb_paused=$(echo "$status" | jq -r '.circuit_breaker.paused_until')
+  if [ "$cb_paused" != "null" ] && [ -n "$cb_paused" ]; then
+    local pause_epoch
+    pause_epoch=$(date -jf '%Y-%m-%dT%H:%M:%SZ' "$cb_paused" '+%s' 2>/dev/null) || \
+    pause_epoch=$(date -d "$cb_paused" '+%s' 2>/dev/null) || pause_epoch=0
+    if [ "$pause_epoch" -gt "$now" ]; then
+      local remaining=$((pause_epoch - now))
+      echo -e "${YELLOW}  Circuit breaker active — paused for $(format_duration "$remaining")${NC}"
+      echo ""
+    fi
+  fi
+
+  # Workers
+  local worker_count
+  worker_count=$(echo "$status" | jq '.workers | length')
+
+  if [ "$worker_count" -eq 0 ]; then
+    echo "  No active workers"
+    echo ""
+    echo "0/$max_workers worker slots in use"
+    return
+  fi
+
+  # Table header
+  printf "  ${DIM}%-9s %-16s %9s %11s  %s${NC}\n" "ISSUE" "PHASE" "TIME" "PROGRESS" "BRANCH"
+
+  local i=0
+  while [ "$i" -lt "$worker_count" ]; do
+    local worker
+    worker=$(echo "$status" | jq ".workers[$i]")
+
+    local w_issue w_pid w_branch w_started w_log
+    w_issue=$(echo "$worker" | jq -r '.issue')
+    w_pid=$(echo "$worker" | jq -r '.pid')
+    w_branch=$(echo "$worker" | jq -r '.branch')
+    w_started=$(echo "$worker" | jq -r '.started_at')
+    w_log=$(echo "$worker" | jq -r '.log_file')
+
+    # Elapsed time
+    local elapsed_str="?"
+    local w_start_epoch
+    w_start_epoch=$(date -jf '%Y-%m-%dT%H:%M:%SZ' "$w_started" '+%s' 2>/dev/null) || \
+    w_start_epoch=$(date -d "$w_started" '+%s' 2>/dev/null) || w_start_epoch=0
+    if [ "$w_start_epoch" -gt 0 ]; then
+      local w_elapsed=$((now - w_start_epoch))
+      elapsed_str=$(format_duration "$w_elapsed")
+    fi
+
+    # Phase detection from log markers
+    local phase="Initializing"
+    if [ -f "$w_log" ]; then
+      local last_marker
+      last_marker=$(grep -o '\[[^]]*:complete\]' "$w_log" 2>/dev/null | tail -1) || true
+      case "$last_marker" in
+        "[plan-issue:complete]")      phase="Implementing" ;;
+        "[implement-issue:complete]") phase="Reviewing" ;;
+        "[code-review:complete]")     phase="Committing" ;;
+        "[commit:complete]")          phase="PR review" ;;
+        "[create-pr:complete]")       phase="PR review" ;;
+        "[review-pr:complete]")       phase="Merging" ;;
+        "[merge:complete]")           phase="Done" ;;
+        "")
+          if grep -q "Starting autonomous Claude Code" "$w_log" 2>/dev/null; then
+            phase="Planning"
+          else
+            phase="Initializing"
+          fi ;;
+        *) phase="Unknown" ;;
+      esac
+    fi
+
+    # Git progress
+    local progress=""
+    local wt_path
+    wt_path=$(get_worktree_path "$w_branch")
+    if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
+      local ahead=0
+      ahead=$(git -C "$wt_path" rev-list --count main..HEAD 2>/dev/null) || true
+      local dirty=""
+      if [ -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)" ]; then
+        dirty="+"
+      fi
+      progress="${ahead} commit(s)${dirty}"
+    else
+      progress="initializing"
+    fi
+
+    # Worker alive check
+    local alive_indicator=""
+    if ! kill -0 "$w_pid" 2>/dev/null; then
+      alive_indicator=" ${RED}(dead)${NC}"
+    fi
+
+    # Color the phase
+    local phase_color="$NC"
+    case "$phase" in
+      Initializing) phase_color="$DIM" ;;
+      Planning)     phase_color="$BLUE" ;;
+      Implementing) phase_color="$GREEN" ;;
+      Reviewing)    phase_color="$YELLOW" ;;
+      Committing)   phase_color="$BLUE" ;;
+      "PR review")  phase_color="$YELLOW" ;;
+      Merging)      phase_color="$GREEN" ;;
+      Done)         phase_color="$GREEN" ;;
+    esac
+
+    printf "  %-9s ${phase_color}%-16s${NC} %9s %11s  %s%b\n" \
+      "$w_issue" "$phase" "$elapsed_str" "$progress" "$w_branch" "$alive_indicator"
+
+    i=$((i + 1))
+  done
+
+  echo ""
+  echo "$worker_count/$max_workers worker slots in use · $cb_failures circuit breaker failure(s)"
+
+  if [ "$orch_alive" = true ]; then
+    echo ""
+    echo -e "${DIM}Tip: watch -n 5 wt status${NC}"
+  fi
+}
+
+# Format seconds into human-readable duration (e.g., "2h15m", "5m30s")
+format_duration() {
+  local secs="$1"
+  if [ "$secs" -ge 3600 ]; then
+    printf "%dh%dm" $((secs / 3600)) $(( (secs % 3600) / 60 ))
+  elif [ "$secs" -ge 60 ]; then
+    printf "%dm%ds" $((secs / 60)) $((secs % 60))
+  else
+    printf "%ds" "$secs"
+  fi
 }
 
 # List all worktrees
@@ -826,6 +1027,9 @@ case "${1:-}" in
     ;;
   list)
     cmd_list
+    ;;
+  status)
+    cmd_status
     ;;
   cleanup)
     cmd_cleanup "$2"

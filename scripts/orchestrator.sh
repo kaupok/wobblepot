@@ -26,6 +26,7 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 REPO_NAME="honkadori"
 WORKTREE_BASE="$HOME/.worktrees/$REPO_NAME"
 LOG_DIR="$WORKTREE_BASE/logs"
+STATUS_FILE="$WORKTREE_BASE/orchestrator-status.json"
 PID_FILE="$WORKTREE_BASE/orchestrator.pid"
 LINEAR_API_URL="https://api.linear.app/graphql"
 
@@ -148,6 +149,57 @@ log() {
   esac
   printf "${DIM}%s${NC} ${color}%-5s${NC} %s\n" "$ts" "$level" "$*" >&2
   printf "%s %-5s %s\n" "$ts" "$level" "$*" >> "$MAIN_LOG"
+}
+
+# ─── Status file ─────────────────────────────────────────────────────────────
+# Machine-readable JSON status for `wt status` to consume.
+# Written atomically (temp + mv) to avoid partial reads.
+
+ORCHESTRATOR_START_TIME=""
+
+write_status_file() {
+  local workers_json="[]"
+
+  if [ ${#WORKER_PIDS[@]} -gt 0 ]; then
+    workers_json="["
+    local i=0
+    while [ $i -lt ${#WORKER_PIDS[@]} ]; do
+      [ $i -gt 0 ] && workers_json+=","
+      workers_json+=$(jq -n \
+        --arg issue "${WORKER_ISSUES[$i]}" \
+        --arg title "${WORKER_TITLES[$i]}" \
+        --argjson pid "${WORKER_PIDS[$i]}" \
+        --arg branch "${WORKER_BRANCHES[$i]}" \
+        --arg started_at "$(date -r "${WORKER_START_TIMES[$i]}" -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+        --arg log_file "${WORKER_LOGS[$i]}" \
+        --argjson retried "$([ "${WORKER_RETRIED[$i]}" = "1" ] && echo true || echo false)" \
+        '{issue: $issue, title: $title, pid: $pid, branch: $branch, started_at: $started_at, log_file: $log_file, retried: $retried}')
+      i=$((i + 1))
+    done
+    workers_json+="]"
+  fi
+
+  local paused_until_val="null"
+  [ "$PAUSED_UNTIL" -gt 0 ] && paused_until_val="$(date -r "$PAUSED_UNTIL" -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo null)"
+
+  local tmp_file="${STATUS_FILE}.tmp.$$"
+  jq -n \
+    --argjson pid "$$" \
+    --arg started_at "$ORCHESTRATOR_START_TIME" \
+    --arg last_poll "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+    --argjson max_workers "$MAX_WORKERS" \
+    --argjson circuit_breaker "$(jq -n \
+      --argjson consecutive_failures "$CONSECUTIVE_FAILURES" \
+      --arg paused_until "${paused_until_val}" \
+      'if $paused_until == "null" then {consecutive_failures: $consecutive_failures, paused_until: null}
+       else {consecutive_failures: $consecutive_failures, paused_until: $paused_until} end')" \
+    --argjson workers "$workers_json" \
+    '{pid: $pid, started_at: $started_at, last_poll: $last_poll, max_workers: $max_workers, circuit_breaker: $circuit_breaker, workers: $workers}' \
+    > "$tmp_file" 2>/dev/null && mv "$tmp_file" "$STATUS_FILE" || rm -f "$tmp_file"
+}
+
+cleanup_status_file() {
+  rm -f "$STATUS_FILE"
 }
 
 # ─── Linear API ──────────────────────────────────────────────────────────────
@@ -343,6 +395,7 @@ spawn_worker() {
   WORKER_TITLES+=("$title")
 
   log INFO "Worker started (PID $pid)"
+  write_status_file
 }
 
 # ─── Monitor workers ────────────────────────────────────────────────────────
@@ -369,6 +422,13 @@ monitor_workers() {
 
       if [ "$elapsed" -ge "$WORKER_TIMEOUT" ]; then
         log WARN "Worker $issue_id (PID $pid) timed out after ${elapsed}s"
+        # Capture last activity before killing for triage context
+        if [ -f "$log_file" ]; then
+          local last_activity
+          last_activity=$(tail -20 "$log_file" 2>/dev/null || echo "(unreadable)")
+          log DEBUG "Timeout context for $issue_id (last 20 lines before kill):"
+          printf '%s\n' "$last_activity" >> "$MAIN_LOG"
+        fi
         kill_process_tree "$pid"
         sleep 2
         handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "timeout" "$title"
@@ -502,6 +562,8 @@ remove_worker() {
     WORKER_RETRIED=()
     WORKER_TITLES=()
   fi
+
+  write_status_file
 }
 
 # ─── Kill process tree (macOS compatible) ────────────────────────────────────
@@ -516,6 +578,68 @@ kill_process_tree() {
   kill -TERM "$pid" 2>/dev/null || true
 }
 
+# ─── Observability helpers ───────────────────────────────────────────────────
+
+# Detect the current phase from worker log markers
+detect_phase() {
+  local log_file="$1"
+  [ ! -f "$log_file" ] && echo "unknown" && return
+
+  local last_marker
+  last_marker=$(grep -o '\[[^]]*:complete\]' "$log_file" 2>/dev/null | tail -1) || true
+  case "$last_marker" in
+    "[plan-issue:complete]")      echo "implementing" ;;
+    "[implement-issue:complete]") echo "reviewing" ;;
+    "[code-review:complete]")     echo "committing" ;;
+    "[commit:complete]")          echo "pr-review" ;;
+    "[create-pr:complete]")       echo "pr-review" ;;
+    "[review-pr:complete]")       echo "merging" ;;
+    "[merge:complete]")           echo "done" ;;
+    "")
+      if grep -q "Starting autonomous Claude Code" "$log_file" 2>/dev/null; then
+        echo "planning"
+      else
+        echo "initializing"
+      fi ;;
+    *) echo "unknown" ;;
+  esac
+}
+
+# Format seconds into human-readable duration
+format_duration() {
+  local secs="$1"
+  if [ "$secs" -ge 3600 ]; then
+    printf "%dh%dm" $((secs / 3600)) $(( (secs % 3600) / 60 ))
+  elif [ "$secs" -ge 60 ]; then
+    printf "%dm%ds" $((secs / 60)) $((secs % 60))
+  else
+    printf "%ds" "$secs"
+  fi
+}
+
+# Count commits ahead of main in a worktree
+count_commits() {
+  local branch="$1"
+  local wt_path
+  wt_path=$(get_worktree_path "$branch")
+  if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
+    git -C "$wt_path" rev-list --count main..HEAD 2>/dev/null || echo 0
+  else
+    echo 0
+  fi
+}
+
+# Send macOS notification
+notify() {
+  local title="$1" message="$2"
+  if [[ "$OSTYPE" == darwin* ]]; then
+    # Escape backslashes and quotes for AppleScript string interpolation
+    title="${title//\\/\\\\}" ; title="${title//\"/\\\"}"
+    message="${message//\\/\\\\}" ; message="${message//\"/\\\"}"
+    osascript -e "display notification \"$message\" with title \"$title\"" 2>/dev/null || true
+  fi
+}
+
 # ─── Handle success ─────────────────────────────────────────────────────────
 
 handle_success() {
@@ -524,6 +648,26 @@ handle_success() {
   # Reset circuit breaker on success
   CONSECUTIVE_FAILURES=0
   PAUSED_UNTIL=0
+
+  # Compute outcome details
+  local commits duration_str phase
+  commits=$(count_commits "$branch")
+  phase=$(detect_phase "$log_file")
+
+  # Find start time for this worker to compute duration
+  local duration_secs=0
+  local i=0
+  while [ $i -lt ${#WORKER_ISSUES[@]} ]; do
+    if [ "${WORKER_ISSUES[$i]}" = "$issue_id" ]; then
+      duration_secs=$(( $(date +%s) - ${WORKER_START_TIMES[$i]} ))
+      break
+    fi
+    i=$((i + 1))
+  done
+  duration_str=$(format_duration "$duration_secs")
+
+  log INFO "[OUTCOME] $issue_id SUCCESS ${duration_str} ${commits}-commits phase=$phase"
+  notify "Honkadori" "$issue_id completed ($commits commits, $duration_str)"
 
   # Track success for --once exit code
   [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=0
@@ -594,21 +738,52 @@ handle_failure() {
 
   log WARN "Triaging failure for $issue_id ($failure_type)"
 
+  # Compute outcome details for logging and notifications
+  local commits phase duration_secs=0 duration_str original_title=""
+  commits=$(count_commits "$branch")
+  phase=$(detect_phase "$log_file")
+  local i=0
+  while [ $i -lt ${#WORKER_ISSUES[@]} ]; do
+    if [ "${WORKER_ISSUES[$i]}" = "$issue_id" ]; then
+      duration_secs=$(( $(date +%s) - ${WORKER_START_TIMES[$i]} ))
+      original_title="${WORKER_TITLES[$i]}"
+      break
+    fi
+    i=$((i + 1))
+  done
+  duration_str=$(format_duration "$duration_secs")
+
   # Get log tail for triage (full tail) and comment (Claude output only)
   local log_tail="(no log)"
   local log_claude_output="(no log)"
+  local timeout_context=""
   if [ -f "$log_file" ]; then
     log_tail=$(tail -200 "$log_file" 2>/dev/null || echo "(log not readable)")
     # Extract only the Claude session output (after worktree setup completes)
     # Falls back to last 30 lines if marker not found
     log_claude_output=$(extract_claude_output "$log_file")
+    # For timeouts, capture the last 20 lines as focused context
+    if [ "$failure_type" = "timeout" ]; then
+      timeout_context=$(tail -20 "$log_file" 2>/dev/null || echo "(unreadable)")
+    fi
   fi
 
   # Claude-powered triage (default to BACKLOG if Claude unavailable, NEEDS_HUMAN if Claude errors)
   local triage="BACKLOG"
   if command -v claude &> /dev/null && [ "$DRY_RUN" = false ]; then
+    # Build triage prompt with timeout context if available
+    local triage_extra=""
+    if [ -n "$timeout_context" ]; then
+      triage_extra="
+Worker was in phase: $phase (${duration_str}, ${commits} commits).
+Last 20 lines before kill:
+$timeout_context"
+    fi
+
     local triage_output exit_code=0
-    triage_output=$(echo "$log_tail" | env -u ANTHROPIC_API_KEY claude -p --model claude-sonnet-4-6 "Worker for $issue_id failed ($failure_type). Based on the log from stdin, respond with EXACTLY one word:
+    triage_output=$(echo "$log_tail" | env -u ANTHROPIC_API_KEY claude -p --model claude-sonnet-4-6 "Worker for $issue_id failed ($failure_type).${triage_extra}
+
+Based on the log from stdin, respond with EXACTLY one word:
 RETRY - transient failure (flaky test, network error, rate limit, timeout)
 BACKLOG - issue needs refinement (bad description, missing context, wrong approach)
 NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 2>&1) || exit_code=$?
@@ -636,6 +811,15 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 
 
   log INFO "Triage for $issue_id: $triage"
 
+  # Structured outcome logging
+  local failure_label
+  case "$failure_type" in
+    timeout) failure_label="TIMEOUT" ;;
+    *)       failure_label="FAILED" ;;
+  esac
+  log INFO "[OUTCOME] $issue_id $failure_label ${duration_str} ${commits}-commits phase=$phase triage=$triage"
+  notify "Honkadori" "$issue_id failed in $phase phase ($failure_type, $duration_str)"
+
   # Track failure for --once exit code (may be overridden to 0 if retry succeeds)
   [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=1
 
@@ -656,7 +840,8 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 
       if [ "$retried" = "0" ] && [ "$SHUTTING_DOWN" = false ]; then
         log INFO "Retrying $issue_id: $title"
         cleanup_worker_worktree "$branch"
-        spawn_worker "$issue_uuid" "$issue_id" "$branch" "$title" "1"
+        # Preserve original title on retry (from WORKER_TITLES array)
+        spawn_worker "$issue_uuid" "$issue_id" "$branch" "$original_title" "1"
       else
         log WARN "$issue_id already retried, moving to Backlog"
         move_to_backlog "$issue_uuid" "$issue_id" "$log_claude_output" "Failed" \
@@ -851,6 +1036,7 @@ shutdown() {
 
   while [ ${#WORKER_PIDS[@]} -gt 0 ]; do
     monitor_workers
+    write_status_file
     sleep 5
   done
 
@@ -927,12 +1113,15 @@ validate_environment() {
 
 main() {
   acquire_lock
-  trap release_lock EXIT
+  trap 'cleanup_status_file; release_lock' EXIT
 
   log INFO "═══ Orchestrator starting ═══"
 
   validate_environment
   fetch_team_uuid
+
+  ORCHESTRATOR_START_TIME=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+  write_status_file
 
   log INFO "Config: max_workers=$MAX_WORKERS poll=${POLL_INTERVAL}s timeout=${WORKER_TIMEOUT}s dry_run=$DRY_RUN once=$RUN_ONCE"
 
@@ -944,6 +1133,8 @@ main() {
       monitor_workers
       report_worker_status
     fi
+
+    write_status_file
 
     # Spawn new worker if slots available
     local active=${#WORKER_PIDS[@]}

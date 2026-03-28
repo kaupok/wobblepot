@@ -15,6 +15,7 @@ wt auto                                  # Find next available issue
 
 # Management
 wt list                                  # List all active worktrees
+wt status                                # Show orchestrator and worker status
 wt resume feat/my-feature                # Resume existing session
 wt cleanup feat/my-feature               # Remove worktree
 wt cleanup-all                           # Remove all merged worktrees
@@ -65,7 +66,7 @@ Then use `wt new feat/my-feature` from anywhere.
 1. **Use `/next-issue` first** - Get 3 candidates with ready-to-copy commands before spawning worktrees
 2. **Use branch names from Linear** - `wt auto kaupokorv/hon-51-...` creates properly named worktrees
 3. **Clean up regularly** - Run `wt cleanup-all` to remove merged worktrees
-4. **Check status** - Run `wt list` or `./scripts/worktree-status.sh` for dashboard view
+4. **Check status** - Run `wt status` for orchestrator/worker status, `wt list` for worktree listing, or `watch -n 5 wt status` for a live dashboard
 
 ## Worktree Location
 
@@ -145,14 +146,30 @@ The orchestrator (`scripts/orchestrator.sh`) is a long-running dispatcher that p
 
 Requires `LINEAR_API_KEY` env var (format: `lin_api_...`).
 
+### Monitoring
+
+**Live status:** Run `wt status` from any terminal to see orchestrator state, worker phases, elapsed times, and git progress. Use `watch -n 5 wt status` for a live dashboard.
+
+**macOS notifications:** Desktop notifications fire automatically when a worker succeeds or fails, showing the issue ID, outcome, duration, and phase.
+
+**Structured outcome logging:** Every worker completion logs a parseable `[OUTCOME]` line to `orchestrator.log`:
+
+```
+[OUTCOME] HON-51 SUCCESS 35m0s 4-commits phase=merge
+[OUTCOME] HON-53 TIMEOUT 1h1m 2-commits phase=reviewing triage=RETRY
+```
+
+Filter with `grep '\[OUTCOME\]' ~/.worktrees/honkadori/logs/orchestrator.log`.
+
 ### Logs
 
 All logs are written to `~/.worktrees/honkadori/logs/`:
 
-| File                          | Contents                                   |
-| ----------------------------- | ------------------------------------------ |
-| `orchestrator.log`            | Main loop activity, claims, triage results |
-| `worker-HON-XX-TIMESTAMP.log` | Full output from each `wt auto` worker     |
+| File                          | Contents                                     |
+| ----------------------------- | -------------------------------------------- |
+| `orchestrator.log`            | Main loop activity, claims, triage, outcomes |
+| `orchestrator-status.json`    | Machine-readable status for `wt status`      |
+| `worker-HON-XX-TIMESTAMP.log` | Full output from each `wt auto` worker       |
 
 ### Graceful Shutdown
 
