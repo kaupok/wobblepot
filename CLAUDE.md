@@ -218,16 +218,16 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 ## Skill Workflow
 
-**Recommended sequence:** `/next-issue` → `/plan-issue HON-XX` → `/implement-issue HON-XX` → `/code-review` → `/commit --pr` → `/pr-review` → `/commit --push` → `/merge`
+**Recommended sequence:** `/next-issue` → `/plan-issue HON-XX` → `/implement-issue HON-XX` → `/code-review` → `/commit --pr` → `/triage-pr-comments` → `/commit --push` → `/merge`
 
-**Single session (small issues):** `/code-review` → fix → `/commit --pr` → `/pr-review` → fix → `/commit --push` → `/merge`
+**Single session (small issues):** `/code-review` → fix → `/commit --pr` → `/triage-pr-comments` → fix → `/commit --push` → `/merge`
 
 **Multi-session (larger issues):**
 
 1. `/next-issue` → `/plan-issue` → approve plan
 2. `/implement-issue` → write code
 3. `/code-review` → fix → `/commit --pr`
-4. `/pr-review` → fix → `/commit --push` (if review comments)
+4. `/triage-pr-comments` → fix → `/commit --push` (if review comments)
 5. `/merge` (after PR approval)
 
 **Fully autonomous:** `/auto-implement HON-XX` runs the entire cycle unattended.

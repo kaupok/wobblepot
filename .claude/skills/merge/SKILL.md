@@ -45,7 +45,7 @@ gh pr view --json number,title,state,headRefName,mergeable,mergeStateStatus,url 
 | Check       | Fail Condition      | Error Message                                                                             |
 | ----------- | ------------------- | ----------------------------------------------------------------------------------------- |
 | Branch      | On `main`           | "You're on main. Switch to a feature branch with `git checkout <branch>`."                |
-| PR exists   | No PR for branch    | "No PR found for this branch. Create one with `/pr` first."                               |
+| PR exists   | No PR for branch    | "No PR found for this branch. Create one with `/create-pr` first."                               |
 | Clean state | Uncommitted changes | "You have uncommitted changes. Commit with `/commit` or stash them first."                |
 | PR state    | State is CLOSED     | "PR is closed. Cannot merge a closed PR."                                                 |
 | Mergeable   | Not mergeable       | "PR cannot be merged. Status: {mergeStateStatus}. Check for conflicts or failing checks." |
@@ -75,7 +75,7 @@ gh pr checks --watch --fail-fast --interval 10  # Use 600s Bash timeout
 
 **Skip this step if `--force` flag is set.**
 
-The Claude review is posted as a PR comment with a `<!-- claude-review -->` marker. It may already exist (triggered by `/pr`) or may need to be triggered.
+The Claude review is posted as a PR comment with a `<!-- claude-review -->` marker. It may already exist (triggered by `/create-pr`) or may need to be triggered.
 
 ```bash
 PR_NUMBER=$(gh pr view --json number --jq .number)

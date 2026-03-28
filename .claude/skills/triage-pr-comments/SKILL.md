@@ -1,5 +1,5 @@
 ---
-name: pr-review
+name: triage-pr-comments
 description: Fetch PR review comments and triage into actionable categories
 context: inherit
 ---
@@ -11,7 +11,7 @@ Fetches GitHub PR review comments and triages them into actionable categories.
 ## Usage
 
 ```
-/pr-review
+/triage-pr-comments
 ```
 
 Run this command on a feature branch with an existing PR to see external review feedback.
@@ -24,7 +24,7 @@ Run this command on a feature branch with an existing PR to see external review 
 gh pr view --json number,title,headRefName,url,headRepository 2>/dev/null
 ```
 
-If no PR exists, inform user: "No PR found for this branch. Create one with `/pr` first."
+If no PR exists, inform user: "No PR found for this branch. Create one with `/create-pr` first."
 
 ### Step 2: Get Claude Review
 
@@ -38,7 +38,7 @@ gh api /repos/:owner/:repo/issues/{number}/comments \
 If review exists (count > 0):
 
 ```
-[pr-review] ✓ Claude review found
+[triage-pr-comments] ✓ Claude review found
 ```
 
 Proceed to Step 3.
@@ -46,7 +46,7 @@ Proceed to Step 3.
 If no review exists, trigger one:
 
 ```
-[pr-review] No Claude review found. Triggering review...
+[triage-pr-comments] No Claude review found. Triggering review...
 ```
 
 ```bash
@@ -56,7 +56,7 @@ If no review exists, trigger one:
 After the script returns:
 
 ```
-[pr-review] ✓ Claude review posted
+[triage-pr-comments] ✓ Claude review posted
 ```
 
 Proceed to Step 3.
