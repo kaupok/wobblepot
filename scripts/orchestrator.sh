@@ -27,6 +27,7 @@ REPO_NAME="honkadori"
 WORKTREE_BASE="$HOME/.worktrees/$REPO_NAME"
 LOG_DIR="$WORKTREE_BASE/logs"
 STATUS_FILE="$WORKTREE_BASE/orchestrator-status.json"
+PID_FILE="$WORKTREE_BASE/orchestrator.pid"
 LINEAR_API_URL="https://api.linear.app/graphql"
 
 # Linear workflow state IDs (Honkadori workspace)
@@ -61,6 +62,7 @@ RUN_ONCE=false
 SHUTTING_DOWN=false
 FORCE_SHUTDOWN=false
 ONCE_SPAWNED=false
+ONCE_EXIT_CODE=2  # Default: no issues found
 TEAM_UUID=""
 CONSECUTIVE_FAILURES=0
 MAX_CONSECUTIVE_FAILURES=3
@@ -103,6 +105,31 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
 done
+
+# ─── Instance lock ──────────────────────────────────────────────────────────
+
+acquire_lock() {
+  mkdir -p "$(dirname "$PID_FILE")"
+
+  if [ -f "$PID_FILE" ]; then
+    local existing_pid
+    existing_pid=$(cat "$PID_FILE" 2>/dev/null) || true
+
+    if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
+      echo "Error: Another orchestrator is already running (PID $existing_pid)" >&2
+      echo "PID file: $PID_FILE" >&2
+      exit 1
+    else
+      echo "Warning: Stale PID file found (PID $existing_pid is dead), overwriting" >&2
+    fi
+  fi
+
+  echo "$$" > "$PID_FILE"
+}
+
+release_lock() {
+  rm -f "$PID_FILE"
+}
 
 # ─── Logging ─────────────────────────────────────────────────────────────────
 
@@ -385,6 +412,7 @@ monitor_workers() {
     local log_file="${WORKER_LOGS[$i]}"
     local start_time="${WORKER_START_TIMES[$i]}"
     local retried="${WORKER_RETRIED[$i]}"
+    local title="${WORKER_TITLES[$i]}"
 
     if kill -0 "$pid" 2>/dev/null; then
       # Still running — check timeout
@@ -403,7 +431,7 @@ monitor_workers() {
         fi
         kill_process_tree "$pid"
         sleep 2
-        handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "timeout"
+        handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "timeout" "$title"
         to_remove+=("$i")
       fi
     else
@@ -416,7 +444,7 @@ monitor_workers() {
         handle_success "$issue_id" "$branch" "$log_file"
       else
         log WARN "Worker $issue_id (PID $pid) failed (exit $exit_code)"
-        handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "exit:$exit_code"
+        handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "exit:$exit_code" "$title"
       fi
       to_remove+=("$i")
     fi
@@ -641,6 +669,9 @@ handle_success() {
   log INFO "[OUTCOME] $issue_id SUCCESS ${duration_str} ${commits}-commits phase=$phase"
   notify "Honkadori" "$issue_id completed ($commits commits, $duration_str)"
 
+  # Track success for --once exit code
+  [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=0
+
   log INFO "Cleaning up worktree for $issue_id"
   cleanup_worker_worktree "$branch"
   log INFO "Worker $issue_id complete — worktree cleaned up"
@@ -687,8 +718,8 @@ extract_claude_output() {
   local output
 
   # Find content after the setup marker
-  # grep -A outputs everything after the match; tail -n +3 skips the marker + separator line
-  output=$(grep -A 999999 "$marker" "$log_file" 2>/dev/null | tail -n +3) || true
+  # sed captures from marker to EOF; tail -n +3 skips the marker + separator line
+  output=$(sed -n "/$marker/,\$p" "$log_file" 2>/dev/null | tail -n +3) || true
 
   if [ -n "$output" ]; then
     # Return last 50 lines of Claude output (enough context without noise)
@@ -703,7 +734,7 @@ extract_claude_output() {
 
 handle_failure() {
   local issue_id="$1" issue_uuid="$2" branch="$3" log_file="$4"
-  local retried="$5" failure_type="$6"
+  local retried="$5" failure_type="$6" title="${7:-}"
 
   log WARN "Triaging failure for $issue_id ($failure_type)"
 
@@ -789,6 +820,9 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 
   log INFO "[OUTCOME] $issue_id $failure_label ${duration_str} ${commits}-commits phase=$phase triage=$triage"
   notify "Honkadori" "$issue_id failed in $phase phase ($failure_type, $duration_str)"
 
+  # Track failure for --once exit code (may be overridden to 0 if retry succeeds)
+  [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=1
+
   # Track consecutive failures for circuit breaker
   if [ "$triage" != "RETRY" ]; then
     CONSECUTIVE_FAILURES=$((CONSECUTIVE_FAILURES + 1))
@@ -804,9 +838,9 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 
   case "$triage" in
     RETRY)
       if [ "$retried" = "0" ] && [ "$SHUTTING_DOWN" = false ]; then
-        log INFO "Retrying $issue_id"
+        log INFO "Retrying $issue_id: $title"
         cleanup_worker_worktree "$branch"
-        # Preserve original title on retry
+        # Preserve original title on retry (from WORKER_TITLES array)
         spawn_worker "$issue_uuid" "$issue_id" "$branch" "$original_title" "1"
       else
         log WARN "$issue_id already retried, moving to Backlog"
@@ -1006,7 +1040,6 @@ shutdown() {
     sleep 5
   done
 
-  cleanup_status_file
   log INFO "All workers finished, exiting"
   exit 0
 }
@@ -1017,7 +1050,7 @@ trap shutdown SIGINT SIGTERM
 
 check_disk_space() {
   local free_kb
-  free_kb=$(df -k "$REPO_ROOT" | tail -1 | awk '{print $4}') || return 0
+  free_kb=$(df -Pk "$REPO_ROOT" | tail -1 | awk '{print $4}') || return 0
   local free_gb=$((free_kb / 1024 / 1024))
   if [ "$free_gb" -lt 1 ]; then
     log WARN "Low disk space: ${free_gb}GB free (< 1GB threshold)"
@@ -1079,6 +1112,9 @@ validate_environment() {
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 main() {
+  acquire_lock
+  trap 'cleanup_status_file; release_lock' EXIT
+
   log INFO "═══ Orchestrator starting ═══"
 
   validate_environment
@@ -1180,8 +1216,12 @@ main() {
     fi
   done
 
-  cleanup_status_file
   log INFO "═══ Orchestrator stopped ═══"
+
+  # In --once mode, exit with distinct code
+  if [ "$RUN_ONCE" = true ]; then
+    exit "$ONCE_EXIT_CODE"
+  fi
 }
 
 main
