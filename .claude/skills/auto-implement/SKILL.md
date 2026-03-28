@@ -590,7 +590,7 @@ gh pr view --json number,title,headRefName,url
 
 ### 6.3 Trigger Claude review
 
-Spawn a fresh Claude Code session to review the PR. This is a separate process with NO context from the implementation — it only sees the diff and the codebase.
+Spawn a fresh Claude Code session to review the PR. **You MUST use the script below — do NOT inline the review prompt or spawn claude directly.** The script handles model selection (Opus), locking, and prompt formatting.
 
 ```bash
 ./scripts/pr-review.sh ${PR_NUMBER}
