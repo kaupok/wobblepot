@@ -864,7 +864,7 @@ trap shutdown SIGINT SIGTERM
 
 check_disk_space() {
   local free_kb
-  free_kb=$(df -Pk "$REPO_ROOT" | tail -1 | awk '{print $(NF-2)}') || return 0
+  free_kb=$(df -Pk "$REPO_ROOT" | tail -1 | awk '{print $4}') || return 0
   local free_gb=$((free_kb / 1024 / 1024))
   if [ "$free_gb" -lt 1 ]; then
     log WARN "Low disk space: ${free_gb}GB free (< 1GB threshold)"
