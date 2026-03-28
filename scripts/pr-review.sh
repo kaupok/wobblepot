@@ -63,24 +63,21 @@ fi
 
 # ─── Lock to prevent duplicate reviews ────────────────────────────────────────
 
-LOCK_FILE="/tmp/claude-review-${PR_NUMBER}.lock"
-exec 9>"$LOCK_FILE"
-if ! flock -n 9; then
-  echo -e "${GREEN}Another review is already running for PR #${PR_NUMBER}. Waiting...${NC}"
-  flock 9
-  # The other instance finished — check if it posted the review
+LOCK_DIR="/tmp/claude-review-${PR_NUMBER}.lock"
+if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+  echo -e "${GREEN}Another review is already running for PR #${PR_NUMBER}. Skipping.${NC}"
+  # Check if the other instance already posted a review
   if gh api /repos/:owner/:repo/issues/${PR_NUMBER}/comments \
     --jq '[.[] | select(.body | startswith("<!-- claude-review -->"))] | length' 2>/dev/null | grep -q '^[1-9]'; then
     echo -e "${GREEN}Review already posted by another instance.${NC}"
-    exit 0
   fi
-  echo -e "${YELLOW}Previous instance finished but no review found. Running review...${NC}"
+  exit 0
 fi
 
 # ─── Review prompt ────────────────────────────────────────────────────────────
 
 PROMPT_FILE=$(mktemp)
-trap 'rm -f "$PROMPT_FILE"; rm -f "$LOCK_FILE"' EXIT
+trap 'rm -f "$PROMPT_FILE"; rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
 
 cat > "$PROMPT_FILE" <<'PROMPT'
 You are reviewing PR #__PR_NUMBER__ in the Honkadori project. You are a fresh reviewer with NO context from the implementation — you only see the final diff and the codebase.
