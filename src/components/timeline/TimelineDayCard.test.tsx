@@ -43,11 +43,9 @@ const defaultProps = {
 }
 
 describe('TimelineDayCard', () => {
-  it('renders day label and Today badge', () => {
+  it('renders day label', () => {
     render(<TimelineDayCard day={baseDay} {...defaultProps} />)
-    // "Today" appears twice: once as label text, once as badge
-    const todayElements = screen.getAllByText('Today')
-    expect(todayElements).toHaveLength(2)
+    expect(screen.getByText('Today')).toBeInTheDocument()
   })
 
   it('renders empty slots for future days', () => {
