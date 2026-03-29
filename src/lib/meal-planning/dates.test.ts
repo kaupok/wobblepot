@@ -18,6 +18,7 @@ import {
   getMondayOfWeek,
   formatDayMonth,
   formatDayShort,
+  formatDateRange,
 } from './dates'
 
 describe('dates utilities', () => {
@@ -714,6 +715,31 @@ describe('dates utilities', () => {
       expect(formatDayShort(new Date(2026, 1, 20))).toBe('Fri')
       expect(formatDayShort(new Date(2026, 1, 21))).toBe('Sat')
       expect(formatDayShort(new Date(2026, 1, 22))).toBe('Sun')
+    })
+  })
+
+  describe('formatDateRange', () => {
+    it('formats same-month range', () => {
+      const start = new Date(2026, 3, 5) // Apr 5
+      const end = new Date(2026, 3, 11) // Apr 11
+      expect(formatDateRange(start, end)).toBe('Apr 5 – 11')
+    })
+
+    it('formats cross-month range', () => {
+      const start = new Date(2026, 3, 28) // Apr 28
+      const end = new Date(2026, 4, 4) // May 4
+      expect(formatDateRange(start, end)).toBe('Apr 28 – May 4')
+    })
+
+    it('formats cross-year range', () => {
+      const start = new Date(2026, 11, 29) // Dec 29
+      const end = new Date(2027, 0, 4) // Jan 4
+      expect(formatDateRange(start, end)).toBe('Dec 29 – Jan 4')
+    })
+
+    it('formats single-day range', () => {
+      const date = new Date(2026, 3, 5) // Apr 5
+      expect(formatDateRange(date, date)).toBe('Apr 5 – 5')
     })
   })
 })

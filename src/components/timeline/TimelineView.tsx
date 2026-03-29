@@ -152,6 +152,12 @@ export function TimelineView({
 
   const hasEmptyFutureSlots = futureDays.some((d) => d.emptySlots.length > 0)
 
+  // Split future days at the first empty date boundary
+  const plannedDays = firstEmptyDate
+    ? futureDays.filter((d) => d.date < firstEmptyDate)
+    : futureDays
+  const emptyDays = firstEmptyDate ? futureDays.filter((d) => d.date >= firstEmptyDate) : []
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -166,7 +172,7 @@ export function TimelineView({
             onEntryUpdated={handleEntryUpdated}
           />
 
-          {futureDays.map((day) => (
+          {plannedDays.map((day) => (
             <TimelineDayCard
               key={day.date}
               day={day}
@@ -181,6 +187,18 @@ export function TimelineView({
           {hasEmptyFutureSlots && firstEmptyDate && (
             <FillDaysAction planId={planId} firstEmptyDate={firstEmptyDate} />
           )}
+
+          {emptyDays.map((day) => (
+            <TimelineDayCard
+              key={day.date}
+              day={day}
+              planId={planId}
+              householdSize={householdSize}
+              pantryIngredients={pantryIngredients}
+              pantryItems={pantryItems}
+              onEntryUpdated={handleEntryUpdated}
+            />
+          ))}
         </div>
 
         {/* Right column: Shopping */}

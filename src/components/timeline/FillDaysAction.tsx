@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select'
 import { GeneratingOverlay } from '@/components/meal-plan/GeneratingOverlay'
 import { computeEndDate } from '@/lib/meal-planning/day-picker'
+import { parseLocalDate, formatDateRange } from '@/lib/meal-planning/dates'
 
 const CLIENT_TIMEOUT_MS = 45000
 
@@ -34,6 +35,14 @@ export function FillDaysAction({ planId, firstEmptyDate }: FillDaysActionProps) 
   const [days, setDays] = useState('7')
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const dateRangeLabel = useMemo(() => {
+    const start = parseLocalDate(firstEmptyDate)
+    const endExclusive = parseLocalDate(computeEndDate(firstEmptyDate, Number(days)))
+    const endInclusive = new Date(endExclusive)
+    endInclusive.setDate(endInclusive.getDate() - 1)
+    return formatDateRange(start, endInclusive)
+  }, [firstEmptyDate, days])
 
   async function handleFill() {
     setIsGenerating(true)
@@ -89,7 +98,7 @@ export function FillDaysAction({ planId, firstEmptyDate }: FillDaysActionProps) 
           <Sparkles className="text-primary h-4 w-4 shrink-0" />
           <div className="flex flex-1 items-center gap-2">
             <Body variant="small" className="shrink-0">
-              Fill next
+              Fill {dateRangeLabel}
             </Body>
             <Select value={days} onValueChange={setDays}>
               <SelectTrigger className="h-8 w-[100px]">
