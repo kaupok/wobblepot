@@ -84,7 +84,7 @@ export function FillDaysAction({ planId, firstEmptyDate }: FillDaysActionProps) 
   return (
     <>
       {isGenerating && <GeneratingOverlay />}
-      <div className="bg-muted/50 sticky bottom-0 flex flex-col gap-2 rounded-lg border p-4">
+      <div className="bg-muted/50 flex flex-col gap-2 rounded-lg border p-4">
         <div className="flex items-center gap-3">
           <Sparkles className="text-primary h-4 w-4 shrink-0" />
           <div className="flex flex-1 items-center gap-2">
