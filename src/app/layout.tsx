@@ -63,7 +63,7 @@ export default function RootLayout({
           <Header />
           <main
             id="main-content"
-            className="min-h-screen pt-[calc(4rem+env(safe-area-inset-top,0px))]"
+            className="mx-auto min-h-screen max-w-[1152px] pt-[calc(4rem+env(safe-area-inset-top,0px))]"
           >
             {children}
           </main>

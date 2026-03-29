@@ -22,7 +22,7 @@ export async function Header() {
       >
         Skip to content
       </a>
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+      <div className="mx-auto flex h-16 w-full max-w-[1152px] items-center justify-between px-4">
         <div className="flex items-center gap-8">
           <Link href="/" className="transition-opacity hover:opacity-70">
             <Heading variant="h4">Honkadori</Heading>
