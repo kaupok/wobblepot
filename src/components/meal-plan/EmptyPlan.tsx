@@ -8,8 +8,12 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { GeneratingOverlay } from './GeneratingOverlay'
-import { toDateString, getNextMonday } from '@/lib/meal-planning/dates'
-import { getDayPickerOptions } from '@/lib/meal-planning/day-picker'
+import { toDateString } from '@/lib/meal-planning/dates'
+import {
+  getStartDateOptions,
+  getDaysCountOptions,
+  computeEndDate,
+} from '@/lib/meal-planning/day-picker'
 import type { WeekContext, HouseholdPreferencesData, DietaryType, Allergen } from './types'
 
 const CLIENT_TIMEOUT_MS = 45000
@@ -47,7 +51,7 @@ function getErrorMessage(status: number, message?: string): string {
     case 429:
       return 'Rate limit exceeded. Please try again later.'
     case 409:
-      return 'A meal plan already exists for this week.'
+      return 'A meal plan already exists for this period.'
     case 422:
       return message || 'Could not generate a meal plan. Please try again.'
     default:
@@ -78,13 +82,14 @@ export function EmptyPlan({
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // First-time form state — pre-filled from saved preferences
-  const dayPickerOptions = getDayPickerOptions()
+  // First-time form state
+  const startDateOptions = getStartDateOptions()
+  const daysCountOptions = getDaysCountOptions()
   const [selectedDate, setSelectedDate] = useState<string>(
-    dayPickerOptions[0]?.date ?? getDefaultDate(),
+    startDateOptions[0]?.date ?? getDefaultDate(),
   )
+  const [daysCount, setDaysCount] = useState(7)
   const [mealTypes, setMealTypes] = useState<MealType[]>(() => {
-    // Use weekday meal types from preferences as the unified selection
     const prefsWeekday = preferences?.weekdayMealTypes ?? []
     return prefsWeekday.length > 0 ? (prefsWeekday as MealType[]) : ['dinner']
   })
@@ -127,7 +132,6 @@ export function EmptyPlan({
           body: JSON.stringify({
             dietaryType: dietaryType === 'none' ? null : dietaryType,
             allergensToAvoid,
-            // For first-time, set both weekday and weekend to the same meal types
             weekdayMealTypes: mealTypes,
             weekendMealTypes: mealTypes,
           }),
@@ -143,10 +147,15 @@ export function EmptyPlan({
         }
       }
 
-      // Build request body: use planFromDate for first-time, targetWeek for returning
-      const generateBody = isFirstGeneration
-        ? { planFromDate: selectedDate, mode }
-        : { targetWeek: weekContext.type, mode }
+      // Compute date range
+      const endDate = isFirstGeneration
+        ? computeEndDate(selectedDate, daysCount)
+        : (weekContext.endDate ?? computeEndDate(weekContext.startDate ?? getDefaultDate(), 7))
+      const startDate = isFirstGeneration
+        ? selectedDate
+        : (weekContext.startDate ?? getDefaultDate())
+
+      const generateBody = { startDate, endDate, mode }
 
       const response = await fetch('/api/meal-plans/generate', {
         method: 'POST',
@@ -164,10 +173,20 @@ export function EmptyPlan({
 
       setIsGenerating(false)
 
-      // Navigate to the correct week tab after generation
+      // Navigate to the plan view
       if (isFirstGeneration) {
-        const nextMondayDate = toDateString(getNextMonday())
-        const weekParam = selectedDate === nextMondayDate ? 'next' : 'current'
+        // Determine which week tab the start date falls into
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const dayOfWeek = today.getDay()
+        const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+        const currentMonday = new Date(today)
+        currentMonday.setDate(today.getDate() - daysSinceMonday)
+        const nextMonday = new Date(currentMonday)
+        nextMonday.setDate(currentMonday.getDate() + 7)
+        const [y, m, d] = selectedDate.split('-').map(Number) as [number, number, number]
+        const selected = new Date(y, m - 1, d)
+        const weekParam = selected >= nextMonday ? 'next' : 'current'
         router.push(`/meal-plan?week=${weekParam}`)
       } else {
         router.refresh()
@@ -201,7 +220,7 @@ export function EmptyPlan({
             <div className="flex flex-col gap-2 text-center">
               <Heading variant="h2">Set up your first meal plan</Heading>
               <Body variant="muted">
-                Configure your preferences and generate your first weekly meal plan.
+                Configure your preferences and generate your first meal plan.
               </Body>
             </div>
 
@@ -209,13 +228,32 @@ export function EmptyPlan({
             <section className="flex flex-col gap-3">
               <Label className="text-base font-semibold">Start planning from</Label>
               <div className="flex flex-wrap gap-2">
-                {dayPickerOptions.map((option) => (
+                {startDateOptions.map((option) => (
                   <Button
                     key={option.date}
                     type="button"
                     variant={selectedDate === option.date ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSelectedDate(option.date)}
+                    disabled={isGenerating}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </section>
+
+            {/* Plan duration */}
+            <section className="flex flex-col gap-3">
+              <Label className="text-base font-semibold">Plan duration</Label>
+              <div className="flex flex-wrap gap-2">
+                {daysCountOptions.map((option) => (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    variant={daysCount === option.value ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setDaysCount(option.value)}
                     disabled={isGenerating}
                   >
                     {option.label}
@@ -322,7 +360,9 @@ export function EmptyPlan({
 
   // Returning generation: simplified UI
   const isCurrentWeek = weekContext.type === 'current'
-  const heading = isCurrentWeek ? 'No meal plan for this week' : 'No meal plan for next week'
+  const heading = isCurrentWeek
+    ? 'No meals planned for this week'
+    : 'No meals planned for next week'
   const description = isCurrentWeek
     ? weekContext.isPartialWeek
       ? `Generate a plan for the remaining ${weekContext.daysCount} days of this week.`

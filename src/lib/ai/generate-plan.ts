@@ -9,12 +9,7 @@ import {
   type MealSlot,
   type SlotRequirement,
 } from '@/lib/meal-planning/slots'
-import {
-  getWeekDates,
-  getRemainingWeekDates,
-  toDateString,
-  parseLocalDate,
-} from '@/lib/meal-planning/dates'
+import { getDatesBetween, toDateString, parseLocalDate } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
 import { PLANNING_MODEL } from './models'
@@ -218,14 +213,13 @@ function validateAndRepairPlan(
  * Generate a meal plan using AI.
  * Orchestrates: slot computation -> candidate query -> AI selection -> persist.
  *
- * For partial weeks (mid-week signup), pass effectiveStartDate to generate
- * entries only from that date through Sunday.
+ * Supports flexible date ranges via startDate + endDate (exclusive).
  */
 export async function generateMealPlan(options: GeneratePlanOptions): Promise<GeneratePlanResult> {
   const {
     householdId,
     startDate,
-    effectiveStartDate,
+    endDate,
     dietaryType,
     allergensToAvoid,
     excludedIngredientIds,
@@ -234,14 +228,8 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     weekendMealTypes = ['dinner'] as MealType[],
   } = options
 
-  // Get dates for entries: full week or partial week from effectiveStartDate
-  const dates = effectiveStartDate
-    ? getRemainingWeekDates(effectiveStartDate)
-    : getWeekDates(startDate)
-
-  // endDate is exclusive (day after the last entry) - e.g., Mon-Sun plan has endDate of next Monday
-  const endDate = new Date(startDate)
-  endDate.setDate(startDate.getDate() + 7)
+  // Get dates for entries from the flexible date range (endDate is exclusive)
+  const dates = getDatesBetween(startDate, endDate)
 
   // Expand dates into meal slots based on meal type preferences
   const allSlots = computeMealSlots(dates, weekdayMealTypes, weekendMealTypes)
@@ -454,11 +442,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
 export async function createEmptyPlan(
   options: CreateEmptyPlanOptions,
 ): Promise<GeneratePlanResult> {
-  const { householdId, startDate } = options
-
-  // endDate is exclusive (day after the last entry)
-  const endDate = new Date(startDate)
-  endDate.setDate(startDate.getDate() + 7)
+  const { householdId, startDate, endDate } = options
 
   // Find or create single household plan, clear entries for this date range
   const mealPlan = await prisma.$transaction(async (tx) => {
@@ -500,7 +484,8 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
   const {
     planId,
     householdId,
-    startDate: weekStartDate,
+    startDate,
+    endDate,
     dietaryType,
     allergensToAvoid,
     excludedIngredientIds,
@@ -533,9 +518,8 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     throw new Error('Plan not found')
   }
 
-  // Calculate expected slots based on week dates and meal type preferences
-  const startDate = weekStartDate
-  const dates = getWeekDates(startDate)
+  // Calculate expected slots based on date range and meal type preferences
+  const dates = getDatesBetween(startDate, endDate)
 
   // Find existing entry slots that actually have a meal assigned.
   // Entries with mealId=null are treated as empty (they show "No meal planned" in the UI).
@@ -670,10 +654,6 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
   const remainingSlots = fillableSlots.filter(
     (s) => !requiredSlotKeys.has(slotKey(s.date, s.mealType)),
   )
-
-  // Compute endDate for this week (startDate + 7)
-  const endDate = new Date(startDate)
-  endDate.setDate(startDate.getDate() + 7)
 
   // Build prompt and call AI for fillable slots only
   const prompt = buildMealPlanPrompt({

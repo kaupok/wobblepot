@@ -9,29 +9,20 @@ import {
   InsufficientCandidatesError,
   NoEmptySlotsError,
 } from '@/lib/ai/types'
-import {
-  getNextMonday,
-  getCurrentWeekMonday,
-  getMondayOfWeek,
-  isMonday,
-  isSunday,
-  parseLocalDate,
-} from '@/lib/meal-planning/dates'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { checkRateLimit, recordGeneration } from '@/lib/meal-planning/rate-limit'
 
+const datePattern = /^\d{4}-\d{2}-\d{2}$/
+
 const generateRequestSchema = z.object({
-  startDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format')
-    .optional(),
-  targetWeek: z.enum(['current', 'next']).optional(),
-  planFromDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format')
-    .optional(),
+  startDate: z.string().regex(datePattern, 'Date must be in YYYY-MM-DD format'),
+  endDate: z.string().regex(datePattern, 'Date must be in YYYY-MM-DD format'),
   planId: z.string().optional(),
   mode: z.enum(['generate', 'empty', 'fill-empty']).default('generate'),
 })
+
+/** Maximum number of days allowed in a single generation request. */
+const MAX_DAYS = 14
 
 export async function POST(request: Request) {
   // Auth check
@@ -88,9 +79,22 @@ export async function POST(request: Request) {
 
   const { mode = 'generate', planId } = parsed.data
 
-  // Determine targetWeek for response context
-  // When planFromDate is used, derive from the date; otherwise use the explicit field
-  let targetWeek: 'current' | 'next' = parsed.data.targetWeek ?? 'next'
+  // Parse dates
+  const startDate = parseLocalDate(parsed.data.startDate)
+  const endDate = parseLocalDate(parsed.data.endDate)
+
+  // Validate date range
+  if (endDate <= startDate) {
+    return NextResponse.json({ error: 'endDate must be after startDate' }, { status: 400 })
+  }
+
+  const dayCount = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+  if (dayCount > MAX_DAYS) {
+    return NextResponse.json(
+      { error: `Date range cannot exceed ${MAX_DAYS} days` },
+      { status: 400 },
+    )
+  }
 
   // Get household preferences
   const preferences = household.preferences
@@ -100,54 +104,6 @@ export async function POST(request: Request) {
   const restrictions = preferences?.restrictions ?? []
   const weekdayMealTypes = preferences?.weekdayMealTypes ?? ['dinner']
   const weekendMealTypes = preferences?.weekendMealTypes ?? ['dinner']
-
-  // Determine start date and effective start date
-  let startDate: Date
-  let effectiveStartDate: Date | undefined
-
-  if (parsed.data.planFromDate) {
-    // Day picker: client sends the exact date the user selected
-    const fromDate = parseLocalDate(parsed.data.planFromDate)
-    startDate = getMondayOfWeek(fromDate)
-    // Set effectiveStartDate if the selected date is not a Monday (partial week)
-    if (!isMonday(fromDate)) {
-      effectiveStartDate = fromDate
-    }
-    // Derive targetWeek for response context
-    const currentMonday = getCurrentWeekMonday()
-    targetWeek = startDate.getTime() === currentMonday.getTime() ? 'current' : 'next'
-    // Block current-week generation on Sunday (only 1 day left)
-    if (targetWeek === 'current' && isSunday()) {
-      return NextResponse.json(
-        { error: 'Cannot generate current week plan on Sunday - use next week instead' },
-        { status: 400 },
-      )
-    }
-  } else if (parsed.data.startDate) {
-    // Explicit startDate provided - use it directly (backwards compatibility)
-    startDate = parseLocalDate(parsed.data.startDate)
-    if (!isMonday(startDate)) {
-      return NextResponse.json({ error: 'Start date must be a Monday' }, { status: 400 })
-    }
-  } else if (targetWeek === 'current') {
-    // Current week: startDate is this Monday, entries start from today
-    if (isSunday()) {
-      return NextResponse.json(
-        { error: 'Cannot generate current week plan on Sunday - use next week instead' },
-        { status: 400 },
-      )
-    }
-    startDate = getCurrentWeekMonday()
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    // Only set effectiveStartDate if not Monday (partial week)
-    if (!isMonday(today)) {
-      effectiveStartDate = today
-    }
-  } else {
-    // Next week (default)
-    startDate = getNextMonday()
-  }
 
   // Handle fill-empty mode
   if (mode === 'fill-empty') {
@@ -160,6 +116,7 @@ export async function POST(request: Request) {
         planId,
         householdId: household.id,
         startDate,
+        endDate,
         dietaryType,
         allergensToAvoid,
         excludedIngredientIds,
@@ -210,22 +167,13 @@ export async function POST(request: Request) {
       const result = await createEmptyPlan({
         householdId: household.id,
         startDate,
+        endDate,
       })
 
       // Record successful generation for rate limiting
       recordGeneration(household.id, 'plan-generation')
 
-      return NextResponse.json(
-        {
-          ...result,
-          weekContext: {
-            type: targetWeek,
-            daysCount: 0,
-            isPartialWeek: false,
-          },
-        },
-        { status: 200 },
-      )
+      return NextResponse.json(result, { status: 200 })
     } catch (error) {
       console.error('Empty plan creation failed:', error)
       return NextResponse.json({ error: 'Failed to create empty plan' }, { status: 500 })
@@ -237,7 +185,7 @@ export async function POST(request: Request) {
     const result = await generateMealPlan({
       householdId: household.id,
       startDate,
-      effectiveStartDate,
+      endDate,
       dietaryType,
       allergensToAvoid,
       excludedIngredientIds,
@@ -249,21 +197,7 @@ export async function POST(request: Request) {
     // Record successful generation for rate limiting
     recordGeneration(household.id, 'plan-generation')
 
-    // Add metadata about the plan
-    const daysCount = result.entries.length
-    const isPartialWeek = daysCount < 7
-
-    return NextResponse.json(
-      {
-        ...result,
-        weekContext: {
-          type: targetWeek,
-          daysCount,
-          isPartialWeek,
-        },
-      },
-      { status: 200 },
-    )
+    return NextResponse.json(result, { status: 200 })
   } catch (error) {
     // Handle validation errors from AI response
     if (error instanceof MealPlanValidationError) {

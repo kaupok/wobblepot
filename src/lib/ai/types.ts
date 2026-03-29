@@ -58,14 +58,10 @@ export interface HydratedPlanEntry {
  */
 export interface GeneratePlanOptions {
   householdId: string
-  /** Week start date (always Monday) */
+  /** Start date of the generation range (inclusive, any day of week) */
   startDate: Date
-  /**
-   * Effective start date for entries (defaults to startDate).
-   * For partial weeks (mid-week signup), this is today's date.
-   * Entries will only be created from this date through Sunday.
-   */
-  effectiveStartDate?: Date
+  /** End date of the generation range (exclusive) */
+  endDate: Date
   dietaryType: DietaryType | null
   allergensToAvoid: Allergen[]
   excludedIngredientIds: string[]
@@ -81,8 +77,10 @@ export interface GeneratePlanOptions {
  */
 export interface CreateEmptyPlanOptions {
   householdId: string
-  /** Week start date (always Monday) */
+  /** Start date of the range (inclusive, any day of week) */
   startDate: Date
+  /** End date of the range (exclusive) */
+  endDate: Date
 }
 
 /**
@@ -91,8 +89,10 @@ export interface CreateEmptyPlanOptions {
 export interface FillEmptySlotsOptions {
   planId: string
   householdId: string
-  /** Week start date (always Monday) — needed since plans no longer store dates */
+  /** Start date of the range (inclusive, any day of week) */
   startDate: Date
+  /** End date of the range (exclusive) */
+  endDate: Date
   dietaryType: DietaryType | null
   allergensToAvoid: Allergen[]
   excludedIngredientIds: string[]

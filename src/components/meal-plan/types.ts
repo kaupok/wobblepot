@@ -79,6 +79,10 @@ export interface WeekContext {
   type: 'last' | 'current' | 'next'
   daysCount: number
   isPartialWeek: boolean
+  /** Start date of the week range (YYYY-MM-DD) for generation */
+  startDate?: string
+  /** End date of the week range (YYYY-MM-DD, exclusive) for generation */
+  endDate?: string
 }
 
 export interface MealPlanWithContext extends MealPlan {

@@ -48,33 +48,64 @@ describe('shouldEnforceBalanceConstraints', () => {
 })
 
 describe('pickDay', () => {
-  const fullWeek = createWeek(MONDAY)
+  describe('with 7-element array', () => {
+    const fullWeek = createWeek(MONDAY)
 
-  it('picks Wednesday for midweek', () => {
-    const result = pickDay(fullWeek, 'midweek')
-    expect(result.getDay()).toBe(3) // Wednesday
+    it('picks index 1 for early (round(0.15 * 6) = 1)', () => {
+      const result = pickDay(fullWeek, 'early')
+      expect(result).toBe(fullWeek[1]) // index 1
+    })
+
+    it('picks index 2 for midweek (round(0.4 * 6) = 2)', () => {
+      const result = pickDay(fullWeek, 'midweek')
+      expect(result).toBe(fullWeek[2]) // index 2
+    })
+
+    it('picks index 4 for late (round(0.7 * 6) = 4)', () => {
+      const result = pickDay(fullWeek, 'late')
+      expect(result).toBe(fullWeek[4]) // index 4
+    })
+
+    it('picks index 5 for weekend (round(0.8 * 6) = 5)', () => {
+      const result = pickDay(fullWeek, 'weekend')
+      expect(result).toBe(fullWeek[5]) // index 5
+    })
   })
 
-  it('picks Saturday for weekend', () => {
-    const result = pickDay(fullWeek, 'weekend')
-    expect(result.getDay()).toBe(6) // Saturday
+  describe('with 5-element array', () => {
+    const fullWeek = createWeek(MONDAY)
+    const fiveDays = fullWeek.slice(0, 5)
+
+    it('picks index 1 for early (round(0.15 * 4) = 1)', () => {
+      const result = pickDay(fiveDays, 'early')
+      expect(result).toBe(fiveDays[1])
+    })
+
+    it('picks index 2 for midweek (round(0.4 * 4) = 2)', () => {
+      const result = pickDay(fiveDays, 'midweek')
+      expect(result).toBe(fiveDays[2])
+    })
+
+    it('picks index 3 for late (round(0.7 * 4) = 3)', () => {
+      const result = pickDay(fiveDays, 'late')
+      expect(result).toBe(fiveDays[3])
+    })
+
+    it('picks index 3 for weekend (round(0.8 * 4) = 3)', () => {
+      const result = pickDay(fiveDays, 'weekend')
+      expect(result).toBe(fiveDays[3])
+    })
   })
 
-  it('picks Tuesday for early', () => {
-    const result = pickDay(fullWeek, 'early')
-    expect(result.getDay()).toBe(2) // Tuesday
-  })
+  describe('with 1-element array', () => {
+    const singleDay = [new Date(2025, 0, 8)]
 
-  it('picks Friday for late', () => {
-    const result = pickDay(fullWeek, 'late')
-    expect(result.getDay()).toBe(5) // Friday
-  })
-
-  it('falls back to first date when target day not found', () => {
-    // Only Wed-Sun (no Monday or Tuesday)
-    const partialWeek = fullWeek.slice(2) // Wed, Thu, Fri, Sat, Sun
-    const result = pickDay(partialWeek, 'early') // Looking for Tuesday
-    expect(result).toBe(partialWeek[0]) // Falls back to Wednesday
+    it('picks index 0 for all slot types', () => {
+      expect(pickDay(singleDay, 'early')).toBe(singleDay[0])
+      expect(pickDay(singleDay, 'midweek')).toBe(singleDay[0])
+      expect(pickDay(singleDay, 'late')).toBe(singleDay[0])
+      expect(pickDay(singleDay, 'weekend')).toBe(singleDay[0])
+    })
   })
 
   it('throws error for empty dates array', () => {
@@ -161,14 +192,15 @@ describe('computeRequiredSlots', () => {
         weekendMealTypes: DEFAULT_WEEKEND_MEALS,
       })
 
+      // 7 dinner dates → midweek=index 2 (Wed), weekend=index 5 (Sat)
       expect(result).toHaveLength(2)
       expect(result[0]).toEqual({
-        date: fullWeek[2], // Wednesday
+        date: fullWeek[2], // index 2 (Wednesday)
         mealType: 'dinner',
         proteinType: 'fish',
       })
       expect(result[1]).toEqual({
-        date: fullWeek[5], // Saturday
+        date: fullWeek[5], // index 5 (Saturday)
         mealType: 'dinner',
         proteinType: 'legume',
       })
@@ -182,19 +214,20 @@ describe('computeRequiredSlots', () => {
         weekendMealTypes: DEFAULT_WEEKEND_MEALS,
       })
 
+      // 7 dinner dates → early=index 1 (Tue), late=index 4 (Fri), midweek=index 2 (Wed)
       expect(result).toHaveLength(3)
       expect(result[0]).toEqual({
-        date: fullWeek[1], // Tuesday
+        date: fullWeek[1], // index 1 (Tuesday)
         mealType: 'dinner',
         proteinType: 'fish',
       })
       expect(result[1]).toEqual({
-        date: fullWeek[4], // Friday
+        date: fullWeek[4], // index 4 (Friday)
         mealType: 'dinner',
         proteinType: 'fish',
       })
       expect(result[2]).toEqual({
-        date: fullWeek[2], // Wednesday
+        date: fullWeek[2], // index 2 (Wednesday)
         mealType: 'dinner',
         proteinType: 'legume',
       })
@@ -208,14 +241,15 @@ describe('computeRequiredSlots', () => {
         weekendMealTypes: DEFAULT_WEEKEND_MEALS,
       })
 
+      // 7 dinner dates → early=index 1 (Tue), late=index 4 (Fri)
       expect(result).toHaveLength(2)
       expect(result[0]).toEqual({
-        date: fullWeek[1], // Tuesday
+        date: fullWeek[1], // index 1 (Tuesday)
         mealType: 'dinner',
         proteinType: 'legume',
       })
       expect(result[1]).toEqual({
-        date: fullWeek[4], // Friday
+        date: fullWeek[4], // index 4 (Friday)
         mealType: 'dinner',
         proteinType: 'legume',
       })
@@ -229,14 +263,15 @@ describe('computeRequiredSlots', () => {
         weekendMealTypes: DEFAULT_WEEKEND_MEALS,
       })
 
+      // 7 dinner dates → early=index 1 (Tue), late=index 4 (Fri)
       expect(result).toHaveLength(2)
       expect(result[0]).toEqual({
-        date: fullWeek[1], // Tuesday
+        date: fullWeek[1], // index 1 (Tuesday)
         mealType: 'dinner',
         proteinType: 'legume',
       })
       expect(result[1]).toEqual({
-        date: fullWeek[4], // Friday
+        date: fullWeek[4], // index 4 (Friday)
         mealType: 'dinner',
         proteinType: 'legume',
       })
@@ -266,14 +301,19 @@ describe('computeRequiredSlots', () => {
         weekendMealTypes: ['breakfast'], // No dinner on weekends
       })
 
-      // Only 5 dinner days (weekdays), so:
-      // - Fish midweek (Wednesday) - dinner exists
-      // - Legume weekend (Saturday) - NO dinner on Saturday!
-      // Since weekend has no dinner, the legume slot can't be on Saturday
-      // The fallback should still work within dinner dates
+      // 5 dinner dates (Mon-Fri, indices 0-4):
+      // midweek=round(0.4*4)=2 → Wed, weekend=round(0.8*4)=3 → Thu
       expect(result).toHaveLength(2)
-      expect(result[0]!.mealType).toBe('dinner')
-      expect(result[1]!.mealType).toBe('dinner')
+      expect(result[0]).toEqual({
+        date: fullWeek[2], // Wednesday (dinnerDates index 2)
+        mealType: 'dinner',
+        proteinType: 'fish',
+      })
+      expect(result[1]).toEqual({
+        date: fullWeek[3], // Thursday (dinnerDates index 3)
+        mealType: 'dinner',
+        proteinType: 'legume',
+      })
     })
   })
 
@@ -288,7 +328,7 @@ describe('computeRequiredSlots', () => {
       expect(result).toEqual([])
     })
 
-    it('handles partial week by falling back to first date', () => {
+    it('handles partial week with relative positioning', () => {
       // Wed-Sun only (no Mon, Tue) - 5 days
       const fullWeek = createWeek(MONDAY)
       const partialWeek = fullWeek.slice(2) // Wed, Thu, Fri, Sat, Sun
@@ -300,23 +340,21 @@ describe('computeRequiredSlots', () => {
         weekendMealTypes: DEFAULT_WEEKEND_MEALS,
       })
 
-      // 5 dinner days meets the MIN_DAYS_FOR_BALANCE threshold (5)
+      // 5 dinner dates (indices 0-4):
+      // early=round(0.15*4)=1 → Thu, late=round(0.7*4)=3 → Sat, midweek=round(0.4*4)=2 → Fri
       expect(result).toHaveLength(3)
-      // Tuesday (early) not found, falls back to first date (Wed)
       expect(result[0]).toEqual({
-        date: partialWeek[0], // Wednesday (fallback)
+        date: partialWeek[1], // Thursday (index 1)
         mealType: 'dinner',
         proteinType: 'fish',
       })
-      // Friday (late) found
       expect(result[1]).toEqual({
-        date: partialWeek[2], // Friday
+        date: partialWeek[3], // Saturday (index 3)
         mealType: 'dinner',
         proteinType: 'fish',
       })
-      // Wednesday (midweek) found
       expect(result[2]).toEqual({
-        date: partialWeek[0], // Wednesday
+        date: partialWeek[2], // Friday (index 2)
         mealType: 'dinner',
         proteinType: 'legume',
       })
@@ -334,15 +372,19 @@ describe('computeRequiredSlots', () => {
         weekendMealTypes: DEFAULT_WEEKEND_MEALS,
       })
 
+      // 7 dinner dates (indices 0-6):
+      // midweek=index 2 (Fri), weekend=index 5 (Mon)
       expect(result).toHaveLength(2)
-      // Wednesday is first day, which is midweek
-      expect(result[0]!.date.getDay()).toBe(3) // Wednesday for fish
-      expect(result[0]!.proteinType).toBe('fish')
-      expect(result[0]!.mealType).toBe('dinner')
-      // Saturday is in range
-      expect(result[1]!.date.getDay()).toBe(6) // Saturday for legume
-      expect(result[1]!.proteinType).toBe('legume')
-      expect(result[1]!.mealType).toBe('dinner')
+      expect(result[0]).toEqual({
+        date: midWeekStart[2], // Friday (index 2)
+        mealType: 'dinner',
+        proteinType: 'fish',
+      })
+      expect(result[1]).toEqual({
+        date: midWeekStart[5], // Monday (index 5)
+        mealType: 'dinner',
+        proteinType: 'legume',
+      })
     })
 
     it('returns empty array for short weeks (less than 5 dinner days)', () => {
@@ -374,8 +416,19 @@ describe('computeRequiredSlots', () => {
         weekendMealTypes: DEFAULT_WEEKEND_MEALS,
       })
 
-      // 5+ dinner days should still have balance constraints
+      // 5 dinner dates (indices 0-4):
+      // early=round(0.15*4)=1 → Thu, late=round(0.7*4)=3 → Sat
       expect(result).toHaveLength(2)
+      expect(result[0]).toEqual({
+        date: fiveDays[1], // Thursday (index 1)
+        mealType: 'dinner',
+        proteinType: 'legume',
+      })
+      expect(result[1]).toEqual({
+        date: fiveDays[3], // Saturday (index 3)
+        mealType: 'dinner',
+        proteinType: 'legume',
+      })
     })
   })
 })

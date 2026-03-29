@@ -139,7 +139,7 @@ export function buildMealPlanPrompt(
   }
   const mealTypesStr = [...allMealTypes].join(', ')
 
-  let prompt = `Select meals for this week's meal plan (${mealTypesStr}).
+  let prompt = `Select meals for the meal plan (${mealTypesStr}).
 
 REQUIRED PROTEIN SLOTS (must pick from specified candidates):
 ${slotsText}

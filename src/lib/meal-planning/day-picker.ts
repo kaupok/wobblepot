@@ -1,45 +1,40 @@
-import { toDateString, getNextMonday, formatDayMonth, formatDayShort } from './dates'
+import { toDateString, formatDayMonth, formatDayShort } from './dates'
 
 export interface DayOption {
   label: string
   date: string
 }
 
+export interface DaysCountOption {
+  value: number
+  label: string
+}
+
 /**
- * Generate day picker options for the first-time meal plan generation screen.
+ * Generate start-date options for the first-time meal plan generation screen.
  *
  * Options:
  * - Today (always shown)
  * - Tomorrow (shown if today is not Saturday)
- * - Named weekdays with dates (remaining days of the week after tomorrow)
- * - Next week (always shown, points to next Monday)
+ * - Named weekdays with dates (remaining days of the week after tomorrow, up to 5 total)
  *
  * @param today - Override for testability (defaults to current date)
  */
-export function getDayPickerOptions(today?: Date): DayOption[] {
+export function getStartDateOptions(today?: Date): DayOption[] {
   const d = today ? new Date(today) : new Date()
   d.setHours(0, 0, 0, 0)
-  const dayOfWeek = d.getDay() // 0=Sun, 1=Mon, ..., 6=Sat
   const options: DayOption[] = []
 
-  // Days remaining in the current week after today (Mon-Sun week)
-  // Sunday=0 → 0, Monday=1 → 6, Tuesday=2 → 5, ..., Saturday=6 → 1
-  const daysRemaining = dayOfWeek === 0 ? 0 : 7 - dayOfWeek
+  // Today (always shown)
+  options.push({ label: 'Today', date: toDateString(d) })
 
-  // Today (skip on Sunday — only 1 day left in week, API blocks current-week generation)
-  if (daysRemaining > 0) {
-    options.push({ label: 'Today', date: toDateString(d) })
-  }
+  // Tomorrow
+  const tomorrow = new Date(d)
+  tomorrow.setDate(d.getDate() + 1)
+  options.push({ label: 'Tomorrow', date: toDateString(tomorrow) })
 
-  // Tomorrow (if today is not Saturday — on Saturday, tomorrow is Sunday which is end-of-week)
-  if (dayOfWeek !== 6 && daysRemaining >= 1) {
-    const tomorrow = new Date(d)
-    tomorrow.setDate(d.getDate() + 1)
-    options.push({ label: 'Tomorrow', date: toDateString(tomorrow) })
-  }
-
-  // Named weekdays: 2+ days from now, within current week (up to Sunday)
-  for (let offset = 2; offset <= daysRemaining; offset++) {
+  // Next few days (up to 5 options total)
+  for (let offset = 2; offset <= 4; offset++) {
     const date = new Date(d)
     date.setDate(d.getDate() + offset)
     options.push({
@@ -48,12 +43,32 @@ export function getDayPickerOptions(today?: Date): DayOption[] {
     })
   }
 
-  // Next week (always)
-  const nextMon = getNextMonday()
-  options.push({
-    label: `Next week (${formatDayMonth(nextMon)})`,
-    date: toDateString(nextMon),
-  })
-
   return options
+}
+
+/**
+ * Generate days-count options for flexible date range selection.
+ * Returns options for how many days to generate a plan for.
+ */
+export function getDaysCountOptions(): DaysCountOption[] {
+  return [
+    { value: 3, label: '3 days' },
+    { value: 5, label: '5 days' },
+    { value: 7, label: '7 days' },
+    { value: 10, label: '10 days' },
+    { value: 14, label: '14 days' },
+  ]
+}
+
+/**
+ * Compute the end date (exclusive) from a start date string and days count.
+ */
+export function computeEndDate(startDateStr: string, days: number): string {
+  const parts = startDateStr.split('-')
+  const year = Number(parts[0])
+  const month = Number(parts[1])
+  const day = Number(parts[2])
+  const start = new Date(year, month - 1, day)
+  start.setDate(start.getDate() + days)
+  return toDateString(start)
 }
