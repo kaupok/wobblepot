@@ -26,6 +26,15 @@ vi.mock('@/components/theme-toggle', () => ({
   ThemeToggle: () => <div data-testid="theme-toggle">ThemeToggle</div>,
 }))
 
+// Mock next-themes
+const mockSetTheme = vi.fn()
+vi.mock('next-themes', () => ({
+  useTheme: () => ({
+    resolvedTheme: 'light',
+    setTheme: mockSetTheme,
+  }),
+}))
+
 describe('HeaderActions', () => {
   const mockSession: Session = {
     session: {
@@ -95,10 +104,10 @@ describe('HeaderActions', () => {
       expect(screen.getByRole('button', { name: 'User menu' })).toBeInTheDocument()
     })
 
-    it('renders theme toggle', () => {
+    it('does not render standalone theme toggle', () => {
       render(<HeaderActions session={mockSession} hasHousehold={true} />)
 
-      expect(screen.getByTestId('theme-toggle')).toBeInTheDocument()
+      expect(screen.queryByTestId('theme-toggle')).not.toBeInTheDocument()
     })
 
     it('does not render sign-in or sign-up buttons', () => {
@@ -108,7 +117,7 @@ describe('HeaderActions', () => {
       expect(screen.queryByRole('link', { name: 'Sign up' })).not.toBeInTheDocument()
     })
 
-    it('shows dropdown with Profile and Sign out when user menu is clicked', async () => {
+    it('shows dropdown with Profile, Sign out, and theme toggle when user menu is clicked', async () => {
       const user = userEvent.setup()
       render(<HeaderActions session={mockSession} hasHousehold={true} />)
 
@@ -117,6 +126,7 @@ describe('HeaderActions', () => {
 
       expect(screen.getByRole('menuitem', { name: 'Profile' })).toBeInTheDocument()
       expect(screen.getByRole('menuitem', { name: 'Sign out' })).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: /dark mode/i })).toBeInTheDocument()
     })
 
     it('Profile link points to /profile', async () => {
