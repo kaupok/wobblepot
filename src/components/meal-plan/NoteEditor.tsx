@@ -15,6 +15,10 @@ interface NoteEditorProps {
   onNoteChange?: (note: string | null) => void
   compact?: boolean
   className?: string
+  /** Controlled editing state (optional — uncontrolled by default) */
+  isEditing?: boolean
+  /** Callback when editing state changes (required when `isEditing` is controlled) */
+  onEditingChange?: (editing: boolean) => void
 }
 
 export function NoteEditor({
@@ -24,11 +28,30 @@ export function NoteEditor({
   onNoteChange,
   compact = false,
   className,
+  isEditing: controlledIsEditing,
+  onEditingChange,
 }: NoteEditorProps) {
-  const [isEditing, setIsEditing] = useState(false)
+  const [uncontrolledIsEditing, setUncontrolledIsEditing] = useState(false)
+  const isControlled = controlledIsEditing !== undefined
+  const isEditing = isControlled ? controlledIsEditing : uncontrolledIsEditing
+
+  function setIsEditing(value: boolean) {
+    if (isControlled) {
+      onEditingChange?.(value)
+    } else {
+      setUncontrolledIsEditing(value)
+    }
+  }
   const [editValue, setEditValue] = useState(note ?? '')
   const [isSaving, setIsSaving] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  // Sync editValue when entering edit mode (handles external trigger via controlled state)
+  useEffect(() => {
+    if (isEditing) {
+      setEditValue(note ?? '')
+    }
+  }, [isEditing, note])
 
   // Focus input when entering edit mode
   useEffect(() => {
@@ -153,7 +176,11 @@ export function NoteEditor({
     )
   }
 
-  // Display mode without note - show add button
+  // Display mode without note
+  // When controlled externally, render nothing (trigger is in the parent)
+  if (isControlled) return null
+
+  // Uncontrolled: show add button
   return (
     <button
       type="button"
