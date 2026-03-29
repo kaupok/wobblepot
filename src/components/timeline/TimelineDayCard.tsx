@@ -57,11 +57,6 @@ export function TimelineDayCard({
         <span className={`text-sm font-semibold ${day.isToday ? 'text-primary' : ''}`}>
           {day.label}
         </span>
-        {day.isToday && (
-          <span className="bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 text-[10px] font-medium">
-            Today
-          </span>
-        )}
       </div>
       {slots.length === 0 ? (
         <span className="text-muted-foreground text-xs">No meals planned</span>
