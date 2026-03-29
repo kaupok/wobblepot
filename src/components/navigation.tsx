@@ -18,9 +18,6 @@ export function NavigationLeft({ session, hasHousehold }: NavigationProps) {
       <Link href="/" className="hover:text-primary text-sm font-medium transition-colors">
         Today
       </Link>
-      <Link href="/meal-plan" className="hover:text-primary text-sm font-medium transition-colors">
-        Meal plan
-      </Link>
       <Link href="/shopping" className="hover:text-primary text-sm font-medium transition-colors">
         Pantry & shopping
       </Link>

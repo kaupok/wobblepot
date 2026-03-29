@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { NutritionSummary } from './NutritionSummary'
 import { IngredientList } from './IngredientList'
 import { computeMealAvailability } from './AvailabilityIndicator'
-import { PreparationTips } from '@/components/today/PreparationTips'
+import { PreparationTips } from './PreparationTips'
 import { ServingControl } from './ServingControl'
 import type { MealData, PantryIngredient, StructuredTips } from './types'
 

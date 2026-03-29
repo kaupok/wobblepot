@@ -38,14 +38,12 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
       })
   }, [items])
 
-  // Purchased items are already sorted by name since urgentItems sorts by urgency then name
   const unpurchasedItems = urgentItems.filter((item) => !item.purchased)
   const purchasedItems = urgentItems.filter((item) => item.purchased)
 
   const todayCount = unpurchasedItems.filter((item) => item.urgency === 'today').length
   const tomorrowCount = unpurchasedItems.filter((item) => item.urgency === 'tomorrow').length
 
-  // All set if no unpurchased items
   if (unpurchasedItems.length === 0) {
     return (
       <Card>
