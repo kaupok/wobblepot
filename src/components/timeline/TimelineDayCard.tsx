@@ -50,12 +50,8 @@ export function TimelineDayCard({
   ].sort((a, b) => a.order - b.order)
 
   // Visual styling based on day type
-  let containerClass = 'flex flex-col gap-2 rounded-lg border p-3'
-  if (day.isToday) {
-    containerClass += ' border-primary/30 bg-primary/5'
-  } else if (day.isTomorrow) {
-    containerClass += ' border-primary/15'
-  } else if (day.isPast) {
+  let containerClass = 'flex flex-col gap-2'
+  if (day.isPast) {
     containerClass += ' opacity-70'
   }
 

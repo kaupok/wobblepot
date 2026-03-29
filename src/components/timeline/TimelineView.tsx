@@ -156,7 +156,7 @@ export function TimelineView({
     <div className="container mx-auto px-4 py-8">
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         {/* Left column: Timeline */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-6">
           <TimelinePastSection
             days={pastDays}
             planId={planId}
