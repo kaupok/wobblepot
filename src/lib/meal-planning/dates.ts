@@ -326,6 +326,26 @@ export function getDatesBetween(startDate: Date, endDate: Date): Date[] {
   return dates
 }
 
+/**
+ * Format a date range as a compact string.
+ * Same month: "Apr 5 – 11"
+ * Different months: "Apr 28 – May 4"
+ *
+ * @param start - Start date (inclusive)
+ * @param end - End date (inclusive)
+ */
+export function formatDateRange(start: Date, end: Date): string {
+  const startMonth = start.toLocaleDateString('en-US', { month: 'short' })
+  const endMonth = end.toLocaleDateString('en-US', { month: 'short' })
+  const startDay = start.getDate()
+  const endDay = end.getDate()
+
+  if (startMonth === endMonth) {
+    return `${startMonth} ${startDay} – ${endDay}`
+  }
+  return `${startMonth} ${startDay} – ${endMonth} ${endDay}`
+}
+
 export type UrgencyBucket = 'today' | 'tomorrow' | 'this-week' | 'later'
 
 /**
