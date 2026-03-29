@@ -140,9 +140,7 @@ export function MemberInviteDialog({
               <Button variant="outline" onClick={handleCreateInvite} disabled={isLoading}>
                 {isLoading ? 'Creating...' : 'Generate new link'}
               </Button>
-              <Body variant="muted" className="text-xs">
-                This will invalidate the current link.
-              </Body>
+              <Body variant="caption">This will invalidate the current link.</Body>
             </div>
           </div>
         ) : (

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import type { IngredientCategory } from '@/generated/prisma/enums'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { CategoryGroup } from './CategoryGroup'
 import type { ShoppingItemData } from './ShoppingItem'
@@ -119,12 +119,8 @@ export function ShoppingList({
     <Card className="w-full">
       <CardHeader>
         <div className="flex flex-col gap-1">
-          <CardTitle>
-            <Heading variant="h2">Shopping list</Heading>
-          </CardTitle>
-          <CardDescription>
-            <Body variant="muted">For: {formatDateRange(planStartDate, planEndDate)}</Body>
-          </CardDescription>
+          <Heading variant="h4">Shopping list</Heading>
+          <Body variant="muted">For: {formatDateRange(planStartDate, planEndDate)}</Body>
         </div>
       </CardHeader>
       <CardContent>

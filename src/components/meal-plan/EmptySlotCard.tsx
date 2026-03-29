@@ -83,14 +83,12 @@ export function EmptySlotCard({ planId, date, mealType, householdSize }: EmptySl
     <>
       <Card className="gap-2 border-dashed py-2">
         <CardHeader className="px-3 pb-0">
-          <div className="text-muted-foreground text-[9px] font-medium tracking-wide uppercase">
+          <Body variant="caption" className="tracking-wide uppercase">
             {mealTypeLabels[mealType]}
-          </div>
+          </Body>
         </CardHeader>
         <CardContent className="px-3 pb-1">
-          <Body variant="muted" className="text-xs">
-            No meal selected
-          </Body>
+          <Body variant="caption">No meal selected</Body>
         </CardContent>
         <CardFooter className="px-3 pt-0">
           <Button

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { PantryItem, type PantryItemData } from './PantryItem'
 import { InlineAddItem } from './InlineAddItem'
@@ -75,12 +75,8 @@ export function PantryList({ initialItems }: PantryListProps) {
     return (
       <Card className="w-full">
         <CardHeader>
-          <CardTitle>
-            <Heading variant="h2">Your pantry</Heading>
-          </CardTitle>
-          <CardDescription>
-            <Body variant="muted">Manage your household inventory</Body>
-          </CardDescription>
+          <Heading variant="h4">Your pantry</Heading>
+          <Body variant="muted">Manage your household inventory</Body>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4">
@@ -100,12 +96,8 @@ export function PantryList({ initialItems }: PantryListProps) {
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>
-          <Heading variant="h2">Your pantry</Heading>
-        </CardTitle>
-        <CardDescription>
-          <Body variant="muted">Manage your household inventory</Body>
-        </CardDescription>
+        <Heading variant="h4">Your pantry</Heading>
+        <Body variant="muted">Manage your household inventory</Body>
       </CardHeader>
       <CardContent>
         <div className="flex flex-col gap-6">

@@ -7,14 +7,7 @@ import { Minus, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 
 const TOTAL_STEPS = 2
@@ -308,12 +301,8 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
           <Body variant="muted">
             Step {currentStep} of {TOTAL_STEPS}
           </Body>
-          <CardTitle>
-            <Heading variant="h2">{getStepTitle()}</Heading>
-          </CardTitle>
-          <CardDescription>
-            <Body variant="muted">{getStepDescription()}</Body>
-          </CardDescription>
+          <Heading variant="h4">{getStepTitle()}</Heading>
+          <Body variant="muted">{getStepDescription()}</Body>
         </div>
       </CardHeader>
       <form onSubmit={handleSubmit}>

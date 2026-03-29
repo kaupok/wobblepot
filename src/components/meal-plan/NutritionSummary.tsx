@@ -39,11 +39,7 @@ export function NutritionSummary({ nutrition, compact, components }: NutritionSu
         <span className="text-muted-foreground">Fat</span>
         <span>{Math.round(nutrition.fat)}g</span>
       </div>
-      {hasVague && (
-        <Body variant="muted" className="text-xs">
-          *includes estimates for vague quantities
-        </Body>
-      )}
+      {hasVague && <Body variant="caption">*includes estimates for vague quantities</Body>}
     </div>
   )
 }

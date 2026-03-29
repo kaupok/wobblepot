@@ -154,13 +154,11 @@ export function MealCard({
         <Card className="gap-2 py-2">
           <CardContent className="flex flex-col gap-1.5 px-3 pb-1">
             {note ? (
-              <Body variant="muted" className="text-xs italic">
+              <Body variant="caption" className="italic">
                 {note}
               </Body>
             ) : (
-              <Body variant="muted" className="text-xs">
-                No meal planned
-              </Body>
+              <Body variant="caption">No meal planned</Body>
             )}
             {canEdit && (
               <NoteEditor
@@ -221,7 +219,7 @@ export function MealCard({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-5 px-1.5 text-[10px]"
+                  className="h-5 px-1.5 text-xs"
                   onClick={() => setIsNoteEditing(true)}
                 >
                   Note
@@ -229,7 +227,7 @@ export function MealCard({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-5 px-1.5 text-[10px]"
+                  className="h-5 px-1.5 text-xs"
                   onClick={() => setIsRegenerateModalOpen(true)}
                 >
                   Swap
@@ -237,7 +235,7 @@ export function MealCard({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-5 px-1.5 text-[10px]"
+                  className="h-5 px-1.5 text-xs"
                   onClick={handleClear}
                   disabled={isClearing}
                 >
@@ -251,7 +249,7 @@ export function MealCard({
               <AvailabilityIndicator availability={availability} />
             )}
             {hasServingOverride && (
-              <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+              <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
                 {effectiveServings} servings
               </span>
             )}
@@ -273,7 +271,7 @@ export function MealCard({
           )}
           {/* Display note for past/readonly slots */}
           {(isReadOnly || isPast) && note && (
-            <Body variant="muted" className="text-xs italic">
+            <Body variant="caption" className="italic">
               {note}
             </Body>
           )}
@@ -298,7 +296,7 @@ export function MealCard({
         )}
         {status === 'completed' && !rating && !showRatingPrompt && !isReadOnly && (
           <CardContent className="flex items-center gap-1.5 px-3 pb-1">
-            <span className="text-muted-foreground text-[10px]">Rate</span>
+            <span className="text-muted-foreground text-xs">Rate</span>
             <MealRatingInline
               planId={planId}
               entryId={entryId}

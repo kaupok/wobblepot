@@ -5,14 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, ArrowLeft, Sparkles, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Heading, Body } from '@/components/ui/typography'
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
@@ -303,16 +296,12 @@ export function RecipeImportClient() {
                 <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
-            <CardTitle>
-              <Heading variant="h2">Import recipe</Heading>
-            </CardTitle>
+            <Heading variant="h4">Import recipe</Heading>
           </div>
-          <CardDescription>
-            <Body variant="muted">
-              Paste a recipe or drop a URL and we&apos;ll extract the ingredients for you. Include
-              how many servings it makes, otherwise we&apos;ll assume 4.
-            </Body>
-          </CardDescription>
+          <Body variant="muted">
+            Paste a recipe or drop a URL and we&apos;ll extract the ingredients for you. Include how
+            many servings it makes, otherwise we&apos;ll assume 4.
+          </Body>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4">

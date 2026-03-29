@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { IngredientCategory } from '@/generated/prisma/enums'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import {
   Select,
   SelectContent,
@@ -391,15 +391,11 @@ export function ShoppingSection({
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div className="flex flex-col gap-1">
-            <CardTitle>
-              <Heading variant="h2">Shopping list</Heading>
-            </CardTitle>
-            <CardDescription>
-              <Body variant="muted">
-                {getWindowLabel()} · {totalItems} {totalItems === 1 ? 'item' : 'items'} ·{' '}
-                {totalPurchased} purchased
-              </Body>
-            </CardDescription>
+            <Heading variant="h4">Shopping list</Heading>
+            <Body variant="muted">
+              {getWindowLabel()} · {totalItems} {totalItems === 1 ? 'item' : 'items'} ·{' '}
+              {totalPurchased} purchased
+            </Body>
           </div>
           <div className="flex items-center gap-2">
             {checkedCustomCount > 0 && (

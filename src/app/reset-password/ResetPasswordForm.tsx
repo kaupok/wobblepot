@@ -8,14 +8,7 @@ import { getUserFriendlyError } from '@/lib/auth-errors'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 
 export function ResetPasswordForm() {
@@ -91,12 +84,8 @@ export function ResetPasswordForm() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <CardTitle>
-          <Heading variant="h2">Reset password</Heading>
-        </CardTitle>
-        <CardDescription>
-          <Body variant="muted">Enter your new password below</Body>
-        </CardDescription>
+        <Heading variant="h4">Reset password</Heading>
+        <Body variant="muted">Enter your new password below</Body>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent>
