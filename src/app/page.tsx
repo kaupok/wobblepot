@@ -159,8 +159,8 @@ export default async function Home() {
     planId = entriesData.planId
   }
 
-  // First-time user: no entries and no plan
-  if (entries.length === 0 && !planId) {
+  // First-time user: no entries and no plan (only when API succeeded)
+  if (entriesResponse.ok && entries.length === 0 && !planId) {
     return <FirstTimeSetup userName={session.user.name} />
   }
 
