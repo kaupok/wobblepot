@@ -175,7 +175,19 @@ export function EmptyPlan({
 
       // Navigate to the plan view
       if (isFirstGeneration) {
-        router.push(`/meal-plan?week=current`)
+        // Determine which week tab the start date falls into
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const dayOfWeek = today.getDay()
+        const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+        const currentMonday = new Date(today)
+        currentMonday.setDate(today.getDate() - daysSinceMonday)
+        const nextMonday = new Date(currentMonday)
+        nextMonday.setDate(currentMonday.getDate() + 7)
+        const [y, m, d] = selectedDate.split('-').map(Number) as [number, number, number]
+        const selected = new Date(y, m - 1, d)
+        const weekParam = selected >= nextMonday ? 'next' : 'current'
+        router.push(`/meal-plan?week=${weekParam}`)
       } else {
         router.refresh()
       }

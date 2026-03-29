@@ -26,7 +26,7 @@ type SlotType = 'midweek' | 'weekend' | 'early' | 'late'
  * For a 7-day range: early≈day 2, midweek≈day 3, late≈day 5, weekend≈day 6.
  */
 const relativePositionMap: Record<SlotType, number> = {
-  early: 0.25,
+  early: 0.15,
   midweek: 0.4,
   late: 0.7,
   weekend: 0.8,
