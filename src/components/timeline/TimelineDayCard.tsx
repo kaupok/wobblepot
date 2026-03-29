@@ -3,8 +3,15 @@
 import { MealCard } from '@/components/meal-plan/MealCard'
 import { TimelineEmptySlot } from './TimelineEmptySlot'
 import type { TimelineDay, PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
+import type { MealType } from '@/generated/prisma/enums'
 
 const mealTypeOrder = { breakfast: 0, lunch: 1, dinner: 2 } as const
+
+const mealTypeLabels: Record<MealType, string> = {
+  breakfast: 'Breakfast',
+  lunch: 'Lunch',
+  dinner: 'Dinner',
+}
 
 interface TimelineDayCardProps {
   day: TimelineDay
@@ -62,36 +69,43 @@ export function TimelineDayCard({
         <span className="text-muted-foreground text-xs">No meals planned</span>
       ) : (
         <div className="flex flex-col gap-2">
-          {slots.map((slot) =>
-            slot.type === 'entry' ? (
-              <MealCard
-                key={slot.entry.id}
-                entryId={slot.entry.id}
-                planId={planId}
-                meal={slot.entry.meal}
-                mealType={slot.entry.mealType}
-                status={slot.entry.status}
-                rating={slot.entry.rating}
-                householdSize={householdSize}
-                isPast={day.isPast}
-                pantryIngredients={pantryIngredients}
-                pantryItems={pantryItems}
-                note={slot.entry.note}
-                servingOverride={slot.entry.servingOverride}
-              />
-            ) : (
-              !day.isPast && (
-                <TimelineEmptySlot
-                  key={`empty-${slot.mealType}`}
-                  planId={planId}
-                  date={day.date}
-                  mealType={slot.mealType}
-                  householdSize={householdSize}
-                  pantryIngredients={pantryIngredients}
-                />
-              )
-            ),
-          )}
+          {slots.map((slot) => {
+            const mealType = slot.type === 'entry' ? slot.entry.mealType : slot.mealType
+
+            if (slot.type === 'empty' && day.isPast) return null
+
+            return (
+              <div key={slot.type === 'entry' ? slot.entry.id : `empty-${slot.mealType}`}>
+                <div className="text-muted-foreground mb-1 text-[9px] font-medium tracking-wide uppercase">
+                  {mealTypeLabels[mealType as MealType]}
+                </div>
+                {slot.type === 'entry' ? (
+                  <MealCard
+                    entryId={slot.entry.id}
+                    planId={planId}
+                    meal={slot.entry.meal}
+                    mealType={slot.entry.mealType}
+                    status={slot.entry.status}
+                    rating={slot.entry.rating}
+                    householdSize={householdSize}
+                    isPast={day.isPast}
+                    pantryIngredients={pantryIngredients}
+                    pantryItems={pantryItems}
+                    note={slot.entry.note}
+                    servingOverride={slot.entry.servingOverride}
+                  />
+                ) : (
+                  <TimelineEmptySlot
+                    planId={planId}
+                    date={day.date}
+                    mealType={slot.mealType}
+                    householdSize={householdSize}
+                    pantryIngredients={pantryIngredients}
+                  />
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
