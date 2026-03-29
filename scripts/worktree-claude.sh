@@ -501,30 +501,7 @@ cmd_status() {
       elapsed_str=$(format_duration "$w_elapsed")
     fi
 
-    # Phase detection from log markers
-    local phase="Initializing"
-    if [ -f "$w_log" ]; then
-      local last_marker
-      last_marker=$(grep -o '\[[^]]*:complete\]' "$w_log" 2>/dev/null | tail -1) || true
-      case "$last_marker" in
-        "[plan-issue:complete]")      phase="Implementing" ;;
-        "[implement-issue:complete]") phase="Reviewing" ;;
-        "[code-review:complete]")     phase="Committing" ;;
-        "[commit:complete]")          phase="PR review" ;;
-        "[create-pr:complete]")       phase="PR review" ;;
-        "[review-pr:complete]")       phase="Merging" ;;
-        "[merge:complete]")           phase="Done" ;;
-        "")
-          if grep -q "Starting autonomous Claude Code" "$w_log" 2>/dev/null; then
-            phase="Planning"
-          else
-            phase="Initializing"
-          fi ;;
-        *) phase="Unknown" ;;
-      esac
-    fi
-
-    # Git progress
+    # Git progress (computed first, used by phase detection)
     local progress=""
     local wt_path
     wt_path=$(get_worktree_path "$w_branch")
@@ -538,6 +515,45 @@ cmd_status() {
       progress="${ahead} commit(s)${dirty}"
     else
       progress="initializing"
+    fi
+
+    # Phase detection: log markers → auto-implement markers → git heuristics
+    local phase="Initializing"
+    if [ -f "$w_log" ]; then
+      local last_marker
+      last_marker=$(grep -o '\[[^]]*:complete\]' "$w_log" 2>/dev/null | tail -1) || true
+      case "$last_marker" in
+        "[plan-issue:complete]")      phase="Implementing" ;;
+        "[implement-issue:complete]") phase="Reviewing" ;;
+        "[code-review:complete]")     phase="Committing" ;;
+        "[commit:complete]")          phase="PR review" ;;
+        "[create-pr:complete]")       phase="PR review" ;;
+        "[review-pr:complete]")       phase="Merging" ;;
+        "[merge:complete]")           phase="Done" ;;
+        "")
+          # Check auto-implement completion
+          if grep -qE '\[auto-implement\].*(cycle complete|PR merged)' "$w_log" 2>/dev/null; then
+            phase="Done"
+          # Git-based heuristics
+          elif [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
+            if git -C "$wt_path" rev-parse --abbrev-ref '@{upstream}' &>/dev/null; then
+              phase="PR review"
+            elif [ "$ahead" -gt 0 ]; then
+              if [ -n "$dirty" ]; then
+                phase="Implementing"
+              else
+                phase="Reviewing"
+              fi
+            elif [ -n "$dirty" ]; then
+              phase="Implementing"
+            elif grep -q "Starting autonomous Claude Code" "$w_log" 2>/dev/null; then
+              phase="Planning"
+            fi
+          elif grep -q "Starting autonomous Claude Code" "$w_log" 2>/dev/null; then
+            phase="Planning"
+          fi ;;
+        *) phase="Unknown" ;;
+      esac
     fi
 
     # Worker alive check
