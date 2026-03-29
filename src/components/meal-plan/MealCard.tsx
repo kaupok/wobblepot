@@ -72,6 +72,7 @@ export function MealCard({
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
   const [isDeductionModalOpen, setIsDeductionModalOpen] = useState(false)
+  const [isNoteEditing, setIsNoteEditing] = useState(false)
 
   const effectiveServings = servingOverride ?? householdSize
   const hasServingOverride = servingOverride !== null && servingOverride !== householdSize
@@ -233,6 +234,14 @@ export function MealCard({
                   variant="ghost"
                   size="sm"
                   className="h-5 px-1.5 text-[10px]"
+                  onClick={() => setIsNoteEditing(true)}
+                >
+                  Note
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 px-1.5 text-[10px]"
                   onClick={() => setIsRegenerateModalOpen(true)}
                 >
                   Swap
@@ -279,6 +288,8 @@ export function MealCard({
               note={note}
               onNoteChange={setNote}
               compact
+              isEditing={isNoteEditing}
+              onEditingChange={setIsNoteEditing}
             />
           )}
           {/* Display note for past/readonly slots */}
