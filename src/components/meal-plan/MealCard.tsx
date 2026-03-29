@@ -206,44 +206,46 @@ export function MealCard({
     <>
       <Card className="gap-2 py-2">
         <CardHeader className="px-3 pb-0">
-          {!isReadOnly && !isPast && (
-            <div className="flex justify-end gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-5 px-1.5 text-[10px]"
-                onClick={() => setIsNoteEditing(true)}
+          <div className="flex items-start justify-between gap-1">
+            <CardTitle className="text-xs leading-tight font-semibold">
+              <button
+                type="button"
+                className="cursor-pointer text-left underline-offset-2 hover:underline"
+                onClick={() => setIsDetailModalOpen(true)}
               >
-                Note
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-5 px-1.5 text-[10px]"
-                onClick={() => setIsRegenerateModalOpen(true)}
-              >
-                Swap
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-5 px-1.5 text-[10px]"
-                onClick={handleClear}
-                disabled={isClearing}
-              >
-                Clear
-              </Button>
-            </div>
-          )}
-          <CardTitle className="text-xs leading-tight font-semibold">
-            <button
-              type="button"
-              className="cursor-pointer text-left underline-offset-2 hover:underline"
-              onClick={() => setIsDetailModalOpen(true)}
-            >
-              {meal.name}
-            </button>
-          </CardTitle>
+                {meal.name}
+              </button>
+            </CardTitle>
+            {!isReadOnly && !isPast && (
+              <div className="flex shrink-0 gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 px-1.5 text-[10px]"
+                  onClick={() => setIsNoteEditing(true)}
+                >
+                  Note
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 px-1.5 text-[10px]"
+                  onClick={() => setIsRegenerateModalOpen(true)}
+                >
+                  Swap
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 px-1.5 text-[10px]"
+                  onClick={handleClear}
+                  disabled={isClearing}
+                >
+                  Clear
+                </Button>
+              </div>
+            )}
+          </div>
           <div className="flex flex-wrap items-center gap-1">
             {!isPast && shouldShowAvailability && availability && (
               <AvailabilityIndicator availability={availability} />
