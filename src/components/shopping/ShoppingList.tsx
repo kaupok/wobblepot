@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
 import { toast } from 'sonner'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
@@ -29,8 +29,74 @@ export function ShoppingList({
   groups,
   initialPurchasedIds,
 }: ShoppingListProps) {
-  const [purchasedIds, setPurchasedIds] = useState<Set<string>>(initialPurchasedIds)
-  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
+  const queryClient = useQueryClient()
+  const queryKey = ['shopping-list', planId, 'purchased']
+
+  // Seed cache with server-provided data; no real queryFn needed
+  const { data: purchasedIds = initialPurchasedIds } = useQuery({
+    queryKey,
+    queryFn: () => initialPurchasedIds,
+    initialData: initialPurchasedIds,
+    staleTime: Infinity,
+  })
+
+  const togglePurchase = useMutation({
+    mutationFn: async ({
+      ingredientId,
+      purchased,
+    }: {
+      ingredientId: string
+      purchased: boolean
+    }) => {
+      const endpoint = purchased ? 'purchase' : 'unpurchase'
+      const response = await fetch(`/api/meal-plans/${planId}/shopping-list/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ingredientId }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to update item')
+      }
+    },
+    onMutate: async ({ ingredientId, purchased }) => {
+      // Cancel any outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey })
+
+      // Snapshot the previous value
+      const previousIds = queryClient.getQueryData<Set<string>>(queryKey)
+
+      // Optimistically update the cache
+      queryClient.setQueryData<Set<string>>(queryKey, (old) => {
+        const next = new Set(old)
+        if (purchased) {
+          next.add(ingredientId)
+        } else {
+          next.delete(ingredientId)
+        }
+        return next
+      })
+
+      return { previousIds }
+    },
+    onError: (_err, _vars, context) => {
+      // Revert to snapshot on error
+      if (context?.previousIds) {
+        queryClient.setQueryData(queryKey, context.previousIds)
+      }
+      toast.error(_err instanceof Error ? _err.message : 'Failed to update item')
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey })
+    },
+  })
+
+  const handleToggle = (ingredientId: string, purchased: boolean) => {
+    // Prevent double clicks on the same item
+    if (togglePurchase.isPending && togglePurchase.variables?.ingredientId === ingredientId) return
+    togglePurchase.mutate({ ingredientId, purchased })
+  }
 
   // Calculate totals
   const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0)
@@ -49,61 +115,15 @@ export function ShoppingList({
     return `${startStr} - ${endStr}, ${year}`
   }
 
-  // Handle toggle with optimistic updates
-  const handleToggle = async (ingredientId: string, purchased: boolean) => {
-    // Prevent double clicks
-    if (pendingIds.has(ingredientId)) return
-
-    // Optimistic update
-    setPurchasedIds((prev) => {
-      const next = new Set(prev)
-      if (purchased) {
-        next.add(ingredientId)
-      } else {
-        next.delete(ingredientId)
-      }
-      return next
-    })
-    setPendingIds((prev) => new Set(prev).add(ingredientId))
-
-    try {
-      const endpoint = purchased ? 'purchase' : 'unpurchase'
-      const response = await fetch(`/api/meal-plans/${planId}/shopping-list/${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ingredientId }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}))
-        throw new Error(data.error || 'Failed to update item')
-      }
-    } catch (error) {
-      // Revert on error
-      setPurchasedIds((prev) => {
-        const next = new Set(prev)
-        if (purchased) {
-          next.delete(ingredientId)
-        } else {
-          next.add(ingredientId)
-        }
-        return next
-      })
-
-      const message = error instanceof Error ? error.message : 'Failed to update item'
-      toast.error(message)
-    } finally {
-      setPendingIds((prev) => {
-        const next = new Set(prev)
-        next.delete(ingredientId)
-        return next
-      })
-    }
-  }
-
   // Check if all items are purchased - return null, parent should handle
   if (purchasedCount === totalItems && totalItems > 0) {
     return null
+  }
+
+  // Track pending item IDs from in-flight mutations
+  const pendingIds = new Set<string>()
+  if (togglePurchase.isPending && togglePurchase.variables) {
+    pendingIds.add(togglePurchase.variables.ingredientId)
   }
 
   // Enhance groups with current purchase state

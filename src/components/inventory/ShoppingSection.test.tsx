@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ShoppingSection } from './ShoppingSection'
+import { createQueryWrapper } from '@/test/query-wrapper'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 
 // Mock fetch globally
@@ -66,6 +67,11 @@ const defaultProps = {
   initialPurchasedIds: new Set<string>(),
 }
 
+function renderSection(overrides: Partial<Parameters<typeof ShoppingSection>[0]> = {}) {
+  const { wrapper } = createQueryWrapper()
+  return render(<ShoppingSection {...defaultProps} {...overrides} />, { wrapper })
+}
+
 beforeEach(() => {
   localStorage.clear()
 })
@@ -73,7 +79,7 @@ beforeEach(() => {
 describe('ShoppingSection alphabetical sort', () => {
   it('shows the alphabetical option in the sort dropdown', async () => {
     const user = userEvent.setup()
-    render(<ShoppingSection {...defaultProps} />)
+    renderSection()
 
     const trigger = screen.getByRole('combobox', { name: 'Sort items' })
     await user.click(trigger)
@@ -83,7 +89,7 @@ describe('ShoppingSection alphabetical sort', () => {
 
   it('renders items in alphabetical order when alphabetical mode is selected', async () => {
     const user = userEvent.setup()
-    render(<ShoppingSection {...defaultProps} />)
+    renderSection()
 
     // Switch to alphabetical mode
     const trigger = screen.getByRole('combobox', { name: 'Sort items' })
@@ -100,19 +106,16 @@ describe('ShoppingSection alphabetical sort', () => {
 
   it('sorts purchased items to the bottom in alphabetical mode', async () => {
     const user = userEvent.setup()
-    render(
-      <ShoppingSection
-        {...defaultProps}
-        groups={[
-          makeGroup('vegetable', 'Vegetable', [
-            makeItem('Carrot', 'v1'),
-            makeItem('Asparagus', 'v2'),
-          ]),
-          makeGroup('protein', 'Protein', [makeItem('Beef', 'p1', true)]),
-        ]}
-        initialPurchasedIds={new Set(['p1'])}
-      />,
-    )
+    renderSection({
+      groups: [
+        makeGroup('vegetable', 'Vegetable', [
+          makeItem('Carrot', 'v1'),
+          makeItem('Asparagus', 'v2'),
+        ]),
+        makeGroup('protein', 'Protein', [makeItem('Beef', 'p1', true)]),
+      ],
+      initialPurchasedIds: new Set(['p1']),
+    })
 
     // Switch to alphabetical mode
     const trigger = screen.getByRole('combobox', { name: 'Sort items' })
@@ -139,7 +142,7 @@ describe('ShoppingSection alphabetical sort', () => {
       },
     ]
 
-    render(<ShoppingSection {...defaultProps} initialCustomItems={customItems} />)
+    renderSection({ initialCustomItems: customItems })
 
     // Switch to alphabetical mode
     const trigger = screen.getByRole('combobox', { name: 'Sort items' })
@@ -157,7 +160,7 @@ describe('ShoppingSection alphabetical sort', () => {
 
   it('persists alphabetical sort mode to localStorage', async () => {
     const user = userEvent.setup()
-    render(<ShoppingSection {...defaultProps} />)
+    renderSection()
 
     const trigger = screen.getByRole('combobox', { name: 'Sort items' })
     await user.click(trigger)
@@ -168,7 +171,7 @@ describe('ShoppingSection alphabetical sort', () => {
 
   it('restores alphabetical sort mode from localStorage', () => {
     localStorage.setItem('shopping-list-sort-mode', 'alphabetical')
-    render(<ShoppingSection {...defaultProps} />)
+    renderSection()
 
     // In alphabetical mode, there should be no category headers
     expect(screen.queryByText(/Vegetable/)).not.toBeInTheDocument()
@@ -177,7 +180,7 @@ describe('ShoppingSection alphabetical sort', () => {
 
   it('does not show category headers in alphabetical mode', async () => {
     const user = userEvent.setup()
-    render(<ShoppingSection {...defaultProps} />)
+    renderSection()
 
     // Initially in category mode - headers should be visible
     expect(screen.getByText(/Vegetable/)).toBeInTheDocument()
@@ -193,7 +196,7 @@ describe('ShoppingSection alphabetical sort', () => {
   })
 
   it('defaults to category sort mode', () => {
-    render(<ShoppingSection {...defaultProps} />)
+    renderSection()
 
     const trigger = screen.getByRole('combobox', { name: 'Sort items' })
     expect(trigger).toHaveTextContent('By category')

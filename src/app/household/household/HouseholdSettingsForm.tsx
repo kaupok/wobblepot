@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { toast } from 'sonner'
+import { useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -108,8 +109,55 @@ export function HouseholdSettingsForm({
   const excludedIngredientsRef = useRef<TagInputRef>(null)
 
   // Form state
-  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const saveSettings = useMutation({
+    mutationFn: async () => {
+      const preferencesPayload = {
+        dietaryType: dietaryType === 'none' ? null : dietaryType,
+        allergensToAvoid,
+        restrictions,
+        excludedIngredients,
+        weekdayMealTypes,
+        weekendMealTypes,
+      }
+
+      const requests: Promise<Response>[] = [
+        fetch('/api/households/me/preferences', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(preferencesPayload),
+        }),
+      ]
+
+      if (isOwner) {
+        requests.unshift(
+          fetch('/api/households/me', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, timezone }),
+          }),
+        )
+      }
+
+      const responses = await Promise.all(requests)
+
+      for (const response of responses) {
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to save settings')
+        }
+      }
+    },
+    onSuccess: () => {
+      toast.success('Settings saved')
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+    },
+  })
+
+  const isLoading = saveSettings.isPending
 
   const handleAllergenToggle = (allergen: Allergen, checked: boolean) => {
     if (checked) {
@@ -130,7 +178,7 @@ export function HouseholdSettingsForm({
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
     // Commit any pending tag input values before submitting
@@ -138,54 +186,7 @@ export function HouseholdSettingsForm({
     excludedIngredientsRef.current?.commitPendingValue()
 
     setError('')
-    setIsLoading(true)
-
-    try {
-      // Prepare preferences payload
-      const preferencesPayload = {
-        dietaryType: dietaryType === 'none' ? null : dietaryType,
-        allergensToAvoid,
-        restrictions,
-        excludedIngredients,
-        weekdayMealTypes,
-        weekendMealTypes,
-      }
-
-      // Call both endpoints
-      const requests: Promise<Response>[] = [
-        fetch('/api/households/me/preferences', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(preferencesPayload),
-        }),
-      ]
-
-      // Only update household if owner
-      if (isOwner) {
-        requests.unshift(
-          fetch('/api/households/me', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, timezone }),
-          }),
-        )
-      }
-
-      const responses = await Promise.all(requests)
-
-      for (const response of responses) {
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || 'Failed to save settings')
-        }
-      }
-
-      toast.success('Settings saved')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
-    } finally {
-      setIsLoading(false)
-    }
+    saveSettings.mutate()
   }
 
   return (

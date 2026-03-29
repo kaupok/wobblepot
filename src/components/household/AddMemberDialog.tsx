@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Plus } from 'lucide-react'
+import { useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,37 +36,11 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
   const [displayName, setDisplayName] = useState('')
   const [portionMultiplier, setPortionMultiplier] = useState(1.0)
   const [portionError, setPortionError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const resetForm = () => {
-    setName('')
-    setDisplayName('')
-    setPortionMultiplier(1.0)
-    setPortionError(null)
-    setError('')
-  }
-
-  const handleOpenChange = (newOpen: boolean) => {
-    setOpen(newOpen)
-    if (!newOpen) {
-      resetForm()
-    }
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-
-    const trimmedName = name.trim()
-    if (!trimmedName) {
-      setError('Name is required')
-      return
-    }
-
-    setIsLoading(true)
-
-    try {
+  const addMember = useMutation({
+    mutationFn: async () => {
+      const trimmedName = name.trim()
       const response = await fetch('/api/households/me/members', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -83,15 +58,46 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
         throw new Error(errorData.error || 'Failed to add member')
       }
 
-      const newMember = await response.json()
+      return response.json()
+    },
+    onSuccess: (newMember) => {
       onMemberAdded(newMember)
       handleOpenChange(false)
       toast.success('Member added')
-    } catch (err) {
+    },
+    onError: (err) => {
       setError(err instanceof Error ? err.message : 'An error occurred')
-    } finally {
-      setIsLoading(false)
+    },
+  })
+
+  const isLoading = addMember.isPending
+
+  const resetForm = () => {
+    setName('')
+    setDisplayName('')
+    setPortionMultiplier(1.0)
+    setPortionError(null)
+    setError('')
+  }
+
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen)
+    if (!newOpen) {
+      resetForm()
     }
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    const trimmedName = name.trim()
+    if (!trimmedName) {
+      setError('Name is required')
+      return
+    }
+
+    addMember.mutate()
   }
 
   const handlePortionInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
+import { useMutation } from '@tanstack/react-query'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
@@ -55,8 +56,6 @@ export function MealCard({
   const [servingOverride, setServingOverride] = useState<number | null>(
     initialServingOverride ?? null,
   )
-  const [isUpdating, setIsUpdating] = useState(false)
-  const [isClearing, setIsClearing] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
   const [isDeductionModalOpen, setIsDeductionModalOpen] = useState(false)
@@ -73,13 +72,14 @@ export function MealCard({
   // Hide availability badge for completed/skipped meals (ingredient status no longer relevant)
   const shouldShowAvailability = status !== 'completed' && status !== 'skipped'
 
-  async function updateStatus(newStatus: MealStatus, deductPantry: boolean = false) {
-    const previousStatus = status
-    // Optimistic update
-    setStatus(newStatus)
-    setIsUpdating(true)
-
-    try {
+  const statusMutation = useMutation({
+    mutationFn: async ({
+      newStatus,
+      deductPantry = false,
+    }: {
+      newStatus: MealStatus
+      deductPantry?: boolean
+    }) => {
       const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -87,21 +87,43 @@ export function MealCard({
       })
 
       if (!response.ok) {
-        // Revert on error
-        setStatus(previousStatus)
-        toast.error('Failed to update status. Please try again.')
-        return false
+        throw new Error('Failed to update status')
       }
-      return true
-    } catch {
+
+      return { newStatus, deductPantry }
+    },
+    onMutate: async ({ newStatus }) => {
+      const previousStatus = status
+      // Optimistic update
+      setStatus(newStatus)
+      return { previousStatus }
+    },
+    onError: (_err, _vars, context) => {
       // Revert on error
-      setStatus(previousStatus)
+      if (context?.previousStatus) {
+        setStatus(context.previousStatus)
+      }
       toast.error('Failed to update status. Please try again.')
-      return false
-    } finally {
-      setIsUpdating(false)
-    }
-  }
+    },
+  })
+
+  const clearMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to clear meal')
+      }
+    },
+    onSuccess: () => {
+      router.refresh()
+    },
+    onError: () => {
+      toast.error('Failed to clear meal. Please try again.')
+    },
+  })
 
   function handleStatusChange(newStatus: MealStatus) {
     // Intercept "completed" status to show deduction modal
@@ -111,40 +133,31 @@ export function MealCard({
     }
 
     // For other statuses, update directly
-    updateStatus(newStatus)
+    statusMutation.mutate({ newStatus })
   }
 
   async function handleDeductionConfirm() {
-    const success = await updateStatus('completed', true)
-    if (success) {
-      setIsDeductionModalOpen(false)
-      setShowRatingPrompt(true)
-      // Refresh to update pantry data
-      router.refresh()
-    }
+    statusMutation.mutate(
+      { newStatus: 'completed', deductPantry: true },
+      {
+        onSuccess: () => {
+          setIsDeductionModalOpen(false)
+          setShowRatingPrompt(true)
+          // Refresh to update pantry data
+          router.refresh()
+        },
+      },
+    )
   }
 
-  async function handleClear() {
-    setIsClearing(true)
-    try {
-      const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        toast.error('Failed to clear meal. Please try again.')
-        return
-      }
-
-      router.refresh()
-    } catch {
-      toast.error('Failed to clear meal. Please try again.')
-    } finally {
-      setIsClearing(false)
-    }
+  function handleClear() {
+    clearMutation.mutate()
   }
 
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
+
+  const isUpdating = statusMutation.isPending
+  const isClearing = clearMutation.isPending
 
   if (!meal) {
     const canEdit = !isReadOnly && !isPast

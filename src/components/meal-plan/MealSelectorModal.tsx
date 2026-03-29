@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   Dialog,
   DialogContent,
@@ -16,6 +17,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Body } from '@/components/ui/typography'
 import { AlternativeCard } from './AlternativeCard'
+import { apiFetch } from '@/lib/api'
 import type { AlternativeMeal, MealComponent, NutritionData, PantryIngredient } from './types'
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
 
@@ -45,6 +47,12 @@ interface LibraryMeal {
   suitableFor: MealType[]
   components: MealComponent[]
   nutrition: NutritionData
+}
+
+interface MealsSearchResponse {
+  meals: LibraryMeal[]
+  hasMore: boolean
+  total: number
 }
 
 function AlternativeSkeleton() {
@@ -81,101 +89,37 @@ export function MealSelectorModal({
   mode,
   pantryIngredients,
 }: MealSelectorModalProps) {
-  // AI suggestions state
-  const [suggestions, setSuggestions] = useState<AlternativeMeal[]>([])
-  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false)
-
   // Search state
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<AlternativeMeal[]>([])
-  const [isSearching, setIsSearching] = useState(false)
-  const [hasSearched, setHasSearched] = useState(false)
-  const [searchHasMore, setSearchHasMore] = useState(false)
-  const [searchTotal, setSearchTotal] = useState(0)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
   // Filter state
   const [myRecipesOnly, setMyRecipesOnly] = useState(false)
-  const [myRecipes, setMyRecipes] = useState<AlternativeMeal[]>([])
-  const [isLoadingMyRecipes, setIsLoadingMyRecipes] = useState(false)
-  const [myRecipesHasMore, setMyRecipesHasMore] = useState(false)
-  const [myRecipesTotal, setMyRecipesTotal] = useState(0)
 
   // Shared state
   const [error, setError] = useState<string | null>(null)
   const [selectingId, setSelectingId] = useState<string | null>(null)
 
-  // Track initial load
-  const isInitialLoad = useRef(true)
+  // Pagination state
+  const [searchOffset, setSearchOffset] = useState(0)
+  const [myRecipesOffset, setMyRecipesOffset] = useState(0)
+  const [accumulatedSearch, setAccumulatedSearch] = useState<AlternativeMeal[]>([])
+  const [accumulatedMyRecipes, setAccumulatedMyRecipes] = useState<AlternativeMeal[]>([])
 
   // Determine display mode
-  const isSearchMode = searchQuery.trim().length > 0
+  const isSearchMode = debouncedSearch.trim().length > 0
   const isMyRecipesBrowseMode = myRecipesOnly && !isSearchMode
-  const displayedMeals = isMyRecipesBrowseMode
-    ? myRecipes
-    : isSearchMode
-      ? searchResults
-      : suggestions
-  const isLoading = isMyRecipesBrowseMode
-    ? isLoadingMyRecipes
-    : isSearchMode
-      ? isSearching
-      : isLoadingSuggestions
 
-  // Fetch AI suggestions on modal open
+  // Debounce search input
   useEffect(() => {
-    if (!open) {
-      // Reset state when modal closes
-      setSuggestions([])
-      setSearchQuery('')
-      setSearchResults([])
-      setHasSearched(false)
-      setSearchHasMore(false)
-      setSearchTotal(0)
-      setMyRecipesOnly(false)
-      setMyRecipes([])
-      setMyRecipesHasMore(false)
-      setMyRecipesTotal(0)
-      setError(null)
-      setSelectingId(null)
-      isInitialLoad.current = true
-      return
-    }
-
-    async function fetchData() {
-      setIsLoadingSuggestions(true)
-      setError(null)
-
-      try {
-        // Different endpoint based on mode:
-        // - swap: uses /regenerate which considers current meal
-        // - add: uses /suggestions which considers slot context
-        const suggestionsEndpoint =
-          mode === 'swap'
-            ? `/api/meal-plans/${planId}/entries/${entryId}/regenerate`
-            : `/api/meal-plans/${planId}/entries/${entryId}/suggestions`
-
-        const response = await fetch(suggestionsEndpoint, {
-          method: 'POST',
-        })
-
-        if (!response.ok) {
-          const data = await response.json()
-          throw new Error(data.error || 'Failed to fetch suggestions')
-        }
-
-        const suggestionsData = await response.json()
-        // Both endpoints return { alternatives: [...] } or { suggestions: [...] }
-        setSuggestions(suggestionsData.alternatives || suggestionsData.suggestions || [])
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch suggestions')
-      } finally {
-        setIsLoadingSuggestions(false)
-        isInitialLoad.current = false
-      }
-    }
-
-    fetchData()
-  }, [open, planId, entryId, mode])
+    if (!open) return
+    const id = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+      setSearchOffset(0)
+      setAccumulatedSearch([])
+    }, 300)
+    return () => clearTimeout(id)
+  }, [searchQuery, open])
 
   // Transform API meal to AlternativeMeal format
   const toAlternativeMeal = useCallback(
@@ -194,131 +138,136 @@ export function MealSelectorModal({
     [],
   )
 
-  // Search library meals with debounce
-  const searchMeals = useCallback(
-    async (query: string, offset: number = 0, append: boolean = false) => {
-      if (!query.trim()) {
-        setSearchResults([])
-        setHasSearched(false)
-        setSearchHasMore(false)
-        setSearchTotal(0)
-        return
+  // Reset state when modal closes via the Dialog callback
+  const handleOpenChange = useCallback(
+    (newOpen: boolean) => {
+      if (!newOpen) {
+        setSearchQuery('')
+        setDebouncedSearch('')
+        setMyRecipesOnly(false)
+        setError(null)
+        setSelectingId(null)
+        setSearchOffset(0)
+        setMyRecipesOffset(0)
+        setAccumulatedSearch([])
+        setAccumulatedMyRecipes([])
       }
-
-      setIsSearching(true)
-      setError(null)
-
-      try {
-        const params = new URLSearchParams()
-        params.set('mealType', mealType)
-        params.set('search', query.trim())
-        params.set('limit', '20')
-        params.set('offset', String(offset))
-        if (myRecipesOnly) {
-          params.set('source', 'custom')
-        }
-
-        const response = await fetch(`/api/meals?${params.toString()}`)
-
-        if (!response.ok) {
-          const data = await response.json()
-          throw new Error(data.error || 'Failed to search meals')
-        }
-
-        const data = await response.json()
-        const results: AlternativeMeal[] = data.meals.map(toAlternativeMeal)
-
-        if (append) {
-          setSearchResults((prev) => [...prev, ...results])
-        } else {
-          setSearchResults(results)
-        }
-        setHasSearched(true)
-        setSearchHasMore(data.hasMore)
-        setSearchTotal(data.total)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to search meals')
-      } finally {
-        setIsSearching(false)
-      }
+      onOpenChange(newOpen)
     },
-    [mealType, myRecipesOnly, toAlternativeMeal],
+    [onOpenChange],
   )
 
-  // Fetch household recipes (when myRecipesOnly is checked and no search term)
-  const fetchMyRecipes = useCallback(
-    async (offset: number = 0, append: boolean = false) => {
-      setIsLoadingMyRecipes(true)
-      setError(null)
+  function handleMyRecipesToggle(checked: boolean) {
+    setMyRecipesOnly(checked)
+    setMyRecipesOffset(0)
+    setAccumulatedMyRecipes([])
+  }
 
-      try {
-        const params = new URLSearchParams()
-        params.set('mealType', mealType)
-        params.set('source', 'custom')
-        params.set('limit', '20')
-        params.set('offset', String(offset))
+  // Query 1: AI suggestions (fetched when modal opens)
+  const suggestionsEndpoint =
+    mode === 'swap'
+      ? `/api/meal-plans/${planId}/entries/${entryId}/regenerate`
+      : `/api/meal-plans/${planId}/entries/${entryId}/suggestions`
 
-        const response = await fetch(`/api/meals?${params.toString()}`)
-
-        if (!response.ok) {
-          const data = await response.json()
-          throw new Error(data.error || 'Failed to fetch recipes')
-        }
-
-        const data = await response.json()
-        const results: AlternativeMeal[] = data.meals.map(toAlternativeMeal)
-
-        if (append) {
-          setMyRecipes((prev) => [...prev, ...results])
-        } else {
-          setMyRecipes(results)
-        }
-        setMyRecipesHasMore(data.hasMore)
-        setMyRecipesTotal(data.total)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch recipes')
-      } finally {
-        setIsLoadingMyRecipes(false)
-      }
+  const { data: suggestions = [], isLoading: isLoadingSuggestions } = useQuery({
+    queryKey: ['meal-suggestions', planId, entryId, mode],
+    queryFn: async () => {
+      const data = await apiFetch<{
+        alternatives?: AlternativeMeal[]
+        suggestions?: AlternativeMeal[]
+      }>(suggestionsEndpoint, { method: 'POST' })
+      return data.alternatives || data.suggestions || []
     },
-    [mealType, toAlternativeMeal],
-  )
+    enabled: open && !isSearchMode && !isMyRecipesBrowseMode,
+    staleTime: 0,
+  })
 
-  // Debounced search effect
+  // Query 2: Search results
+  const { data: searchData, isLoading: isSearching } = useQuery({
+    queryKey: ['meal-search', debouncedSearch, mealType, myRecipesOnly, searchOffset],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      params.set('mealType', mealType)
+      params.set('search', debouncedSearch.trim())
+      params.set('limit', '20')
+      params.set('offset', String(searchOffset))
+      if (myRecipesOnly) params.set('source', 'custom')
+      return apiFetch<MealsSearchResponse>(`/api/meals?${params.toString()}`)
+    },
+    enabled: open && isSearchMode,
+  })
+
+  // Accumulate search results for pagination
+  /* eslint-disable react-hooks/set-state-in-effect -- syncing derived state from query data */
   useEffect(() => {
-    if (!open || isInitialLoad.current) return
+    if (searchData) {
+      const results = searchData.meals.map(toAlternativeMeal)
+      if (searchOffset === 0) {
+        setAccumulatedSearch(results)
+      } else {
+        setAccumulatedSearch((prev) => [...prev, ...results])
+      }
+    }
+  }, [searchData, searchOffset, toAlternativeMeal])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
-    const timeoutId = setTimeout(() => {
-      searchMeals(searchQuery)
-    }, 300)
+  // Query 3: My recipes browse
+  const { data: myRecipesData, isLoading: isLoadingMyRecipes } = useQuery({
+    queryKey: ['my-recipes', mealType, myRecipesOffset],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      params.set('mealType', mealType)
+      params.set('source', 'custom')
+      params.set('limit', '20')
+      params.set('offset', String(myRecipesOffset))
+      return apiFetch<MealsSearchResponse>(`/api/meals?${params.toString()}`)
+    },
+    enabled: open && isMyRecipesBrowseMode,
+  })
 
-    return () => clearTimeout(timeoutId)
-  }, [searchQuery, open, searchMeals])
-
-  // Fetch my recipes when filter is toggled on (and no search term)
+  // Accumulate my recipes results for pagination
+  /* eslint-disable react-hooks/set-state-in-effect -- syncing derived state from query data */
   useEffect(() => {
-    if (!open || !myRecipesOnly || isSearchMode) return
+    if (myRecipesData) {
+      const results = myRecipesData.meals.map(toAlternativeMeal)
+      if (myRecipesOffset === 0) {
+        setAccumulatedMyRecipes(results)
+      } else {
+        setAccumulatedMyRecipes((prev) => [...prev, ...results])
+      }
+    }
+  }, [myRecipesData, myRecipesOffset, toAlternativeMeal])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
-    fetchMyRecipes()
-  }, [open, myRecipesOnly, isSearchMode, fetchMyRecipes])
+  const displayedMeals = isMyRecipesBrowseMode
+    ? accumulatedMyRecipes
+    : isSearchMode
+      ? accumulatedSearch
+      : suggestions
+  const isLoading = isMyRecipesBrowseMode
+    ? isLoadingMyRecipes
+    : isSearchMode
+      ? isSearching
+      : isLoadingSuggestions
+
+  const searchHasMore = searchData?.hasMore ?? false
+  const searchTotal = searchData?.total ?? 0
+  const myRecipesHasMore = myRecipesData?.hasMore ?? false
+  const myRecipesTotal = myRecipesData?.total ?? 0
+  const hasSearched = !!searchData
 
   async function handleSelect(mealId: string) {
     setSelectingId(mealId)
 
     try {
-      const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
+      await apiFetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mealId }),
       })
 
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to update meal')
-      }
-
       onSwapComplete()
-      onOpenChange(false)
+      handleOpenChange(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update meal')
       setSelectingId(null)
@@ -327,9 +276,9 @@ export function MealSelectorModal({
 
   function handleLoadMore() {
     if (isMyRecipesBrowseMode) {
-      fetchMyRecipes(myRecipes.length, true)
+      setMyRecipesOffset(accumulatedMyRecipes.length)
     } else {
-      searchMeals(searchQuery, searchResults.length, true)
+      setSearchOffset(accumulatedSearch.length)
     }
   }
 
@@ -342,7 +291,7 @@ export function MealSelectorModal({
       : 'Select a meal for this slot'
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -362,7 +311,7 @@ export function MealSelectorModal({
             <Checkbox
               id="my-recipes-only"
               checked={myRecipesOnly}
-              onCheckedChange={(checked) => setMyRecipesOnly(checked === true)}
+              onCheckedChange={(checked) => handleMyRecipesToggle(checked === true)}
             />
             <Label htmlFor="my-recipes-only" className="cursor-pointer text-sm font-normal">
               My recipes only
@@ -423,8 +372,8 @@ export function MealSelectorModal({
                     {isSearching || isLoadingMyRecipes
                       ? 'Loading...'
                       : isMyRecipesBrowseMode
-                        ? `Load more (${myRecipes.length} of ${myRecipesTotal})`
-                        : `Load more (${searchResults.length} of ${searchTotal})`}
+                        ? `Load more (${accumulatedMyRecipes.length} of ${myRecipesTotal})`
+                        : `Load more (${accumulatedSearch.length} of ${searchTotal})`}
                   </Button>
                 </div>
               )}
@@ -432,7 +381,7 @@ export function MealSelectorModal({
           )}
 
           {/* Empty state for my recipes browse */}
-          {!isLoading && !error && isMyRecipesBrowseMode && myRecipes.length === 0 && (
+          {!isLoading && !error && isMyRecipesBrowseMode && accumulatedMyRecipes.length === 0 && (
             <Body variant="muted" className="text-center">
               No custom recipes yet. Try{' '}
               <a href="/recipes/import" className="text-primary underline">
@@ -448,7 +397,7 @@ export function MealSelectorModal({
             isSearchMode &&
             !isMyRecipesBrowseMode &&
             hasSearched &&
-            searchResults.length === 0 && (
+            accumulatedSearch.length === 0 && (
               <Body variant="muted" className="text-center">
                 {myRecipesOnly
                   ? `No custom recipes found matching "${searchQuery}"`

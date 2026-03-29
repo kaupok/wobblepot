@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { Minus, Plus } from 'lucide-react'
+import { useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -27,7 +28,6 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [error, setError] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
   // Guard against race condition when transitioning from step 1 to 2
   // where Enter key event can inadvertently submit the form
   const [justTransitioned, setJustTransitioned] = useState(false)
@@ -114,29 +114,24 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    // Ignore submissions triggered by race condition during step transition
-    if (justTransitioned) {
-      return
-    }
-
-    setError('')
-    setIsLoading(true)
-
-    try {
-      const response = await fetch('/api/households', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          members: memberRows.slice(1).map((row, index) => ({
-            name: generateDefaultName(index + 1, row),
-            portionType: row.portionType,
-          })),
-        }),
-      })
+  const createHousehold = useMutation({
+    mutationFn: async () => {
+      let response: Response
+      try {
+        response = await fetch('/api/households', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: name.trim(),
+            members: memberRows.slice(1).map((row, index) => ({
+              name: generateDefaultName(index + 1, row),
+              portionType: row.portionType,
+            })),
+          }),
+        })
+      } catch {
+        throw new Error('Unable to connect. Please check your internet connection.')
+      }
 
       const data = await response.json()
 
@@ -146,19 +141,36 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
           router.refresh()
           return
         }
-        setError(data.message || data.error || 'Failed to create household')
-        return
+        throw new Error(data.message || data.error || 'Failed to create household')
       }
 
-      toast.success('Household created')
-      router.push('/')
-      router.refresh()
-    } catch {
-      setError('Unable to connect. Please check your internet connection.')
-    } finally {
-      setIsLoading(false)
+      return data
+    },
+    onSuccess: (data) => {
+      if (data) {
+        toast.success('Household created')
+        router.push('/')
+        router.refresh()
+      }
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+    },
+  })
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Ignore submissions triggered by race condition during step transition
+    if (justTransitioned) {
+      return
     }
+
+    setError('')
+    createHousehold.mutate()
   }
+
+  const isLoading = createHousehold.isPending
 
   const renderStepContent = () => {
     switch (currentStep) {
