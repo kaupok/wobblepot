@@ -54,7 +54,7 @@ export function HeaderActions({ session, hasHousehold }: HeaderActionsProps) {
   return (
     <div className="hidden items-center gap-4 md:flex">
       {session ? (
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-9 w-9">
               <User className="h-5 w-5" />
