@@ -78,6 +78,12 @@ describe('Typography Components', () => {
       expect(body).toHaveClass('text-sm', 'text-muted-foreground')
     })
 
+    it('renders caption variant', () => {
+      render(<Body variant="caption">Caption text</Body>)
+      const body = screen.getByText('Caption text')
+      expect(body).toHaveClass('text-xs', 'font-medium', 'text-muted-foreground')
+    })
+
     it('accepts custom className', () => {
       render(<Body className="custom-class">Body text</Body>)
       const body = screen.getByText('Body text')

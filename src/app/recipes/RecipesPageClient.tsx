@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Plus, Loader2, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { MealList, type MealData } from '@/components/household/MealList'
 
@@ -44,12 +44,8 @@ export function RecipesPageClient() {
     <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
       <Card className="w-full max-w-2xl">
         <CardHeader>
-          <CardTitle>
-            <Heading variant="h2">My recipes</Heading>
-          </CardTitle>
-          <CardDescription>
-            <Body variant="muted">Create and manage your household&apos;s custom recipes</Body>
-          </CardDescription>
+          <Heading variant="h4">My recipes</Heading>
+          <Body variant="muted">Create and manage your household&apos;s custom recipes</Body>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-6">

@@ -104,8 +104,8 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
                   <span
                     className={
                       item.urgency === 'today'
-                        ? 'text-[10px] font-medium text-red-600 dark:text-red-400'
-                        : 'text-muted-foreground text-[10px]'
+                        ? 'text-xs font-medium text-red-600 dark:text-red-400'
+                        : 'text-muted-foreground text-xs'
                     }
                   >
                     {item.neededByRelative}

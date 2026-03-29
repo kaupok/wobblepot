@@ -1,6 +1,7 @@
 'use client'
 
 import { MealCard } from '@/components/meal-plan/MealCard'
+import { Body } from '@/components/ui/typography'
 import { TimelineEmptySlot } from './TimelineEmptySlot'
 import type { TimelineDay, PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
 import type { MealType } from '@/generated/prisma/enums'
@@ -61,7 +62,7 @@ export function TimelineDayCard({
   return (
     <div className={containerClass}>
       <div className="flex items-baseline gap-2">
-        <span className={`text-sm font-semibold ${day.isToday ? 'text-primary' : ''}`}>
+        <span className={`text-base font-semibold ${day.isToday ? 'text-primary' : ''}`}>
           {day.label}
         </span>
       </div>
@@ -76,8 +77,10 @@ export function TimelineDayCard({
 
             return (
               <div key={slot.type === 'entry' ? slot.entry.id : `empty-${slot.mealType}`}>
-                <div className="text-muted-foreground mb-1 text-[9px] font-medium tracking-wide uppercase">
-                  {mealTypeLabels[mealType as MealType]}
+                <div className="mb-1">
+                  <Body variant="caption" className="tracking-wide uppercase">
+                    {mealTypeLabels[mealType as MealType]}
+                  </Body>
                 </div>
                 {slot.type === 'entry' ? (
                   <MealCard

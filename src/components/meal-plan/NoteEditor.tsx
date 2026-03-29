@@ -146,7 +146,7 @@ export function NoteEditor({
           className,
         )}
       >
-        <Body variant="muted" className={cn('italic', compact && 'text-xs')}>
+        <Body variant={compact ? 'caption' : 'muted'} className="italic">
           {note}
         </Body>
       </button>

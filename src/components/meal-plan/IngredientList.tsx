@@ -124,7 +124,7 @@ export function IngredientList({
 
   // Default header label
   const defaultHeader = (
-    <Body variant="small" className={cn('font-semibold', compact && 'text-[10px]')}>
+    <Body variant="small" className={cn('font-semibold', compact && 'text-xs')}>
       Ingredients (serves {servings})
     </Body>
   )
@@ -187,7 +187,7 @@ export function IngredientList({
         })}
       </Ul>
       {staplesLine && (
-        <Body variant="muted" className={cn(compact && 'text-[10px]')}>
+        <Body variant="muted" className={cn(compact && 'text-xs')}>
           {staplesLine}
         </Body>
       )}

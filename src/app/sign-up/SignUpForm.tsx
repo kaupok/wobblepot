@@ -9,14 +9,7 @@ import { getValidReturnUrl } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 
 export function SignUpForm() {
@@ -82,12 +75,8 @@ export function SignUpForm() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <CardTitle>
-          <Heading variant="h2">Sign up</Heading>
-        </CardTitle>
-        <CardDescription>
-          <Body variant="muted">Create a new account to get started</Body>
-        </CardDescription>
+        <Heading variant="h4">Sign up</Heading>
+        <Body variant="muted">Create a new account to get started</Body>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent>

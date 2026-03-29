@@ -3,7 +3,7 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
 import { Heading, Body } from '@/components/ui/typography'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { DeleteAccountDialog } from './DeleteAccountDialog'
 
@@ -29,12 +29,8 @@ export default async function ProfilePage() {
     <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>
-            <Heading variant="h2">Profile</Heading>
-          </CardTitle>
-          <CardDescription>
-            <Body variant="muted">Your account information</Body>
-          </CardDescription>
+          <Heading variant="h4">Profile</Heading>
+          <Body variant="muted">Your account information</Body>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-6">

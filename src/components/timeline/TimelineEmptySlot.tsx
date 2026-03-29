@@ -78,9 +78,7 @@ export function TimelineEmptySlot({
   return (
     <>
       <div className="flex items-center justify-between rounded-lg border border-dashed px-3 py-2">
-        <Body variant="muted" className="text-xs">
-          No meal planned
-        </Body>
+        <Body variant="caption">No meal planned</Body>
         <Button
           variant="outline"
           size="sm"

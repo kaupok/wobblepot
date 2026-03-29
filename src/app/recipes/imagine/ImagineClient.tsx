@@ -5,14 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, ArrowLeft, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Heading, Body } from '@/components/ui/typography'
 import { MealCardBase, type MealCardBaseData } from '@/components/meal-plan/MealCardBase'
@@ -322,15 +315,11 @@ export function ImagineClient() {
                   <ArrowLeft className="h-4 w-4" />
                 </Link>
               </Button>
-              <CardTitle>
-                <Heading variant="h2">Imagine a meal</Heading>
-              </CardTitle>
+              <Heading variant="h4">Imagine a meal</Heading>
             </div>
-            <CardDescription>
-              <Body variant="muted">
-                Describe what you&apos;re in the mood for and we&apos;ll suggest 3 meal ideas.
-              </Body>
-            </CardDescription>
+            <Body variant="muted">
+              Describe what you&apos;re in the mood for and we&apos;ll suggest 3 meal ideas.
+            </Body>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col gap-4">
