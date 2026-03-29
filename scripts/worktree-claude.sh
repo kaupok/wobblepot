@@ -423,7 +423,7 @@ cmd_status() {
   local uptime_str=""
   if [ -n "$started_at" ] && [ "$started_at" != "null" ]; then
     local start_epoch
-    start_epoch=$(date -jf '%Y-%m-%dT%H:%M:%SZ' "$started_at" '+%s' 2>/dev/null) || \
+    start_epoch=$(TZ=UTC date -jf '%Y-%m-%dT%H:%M:%SZ' "$started_at" '+%s' 2>/dev/null) || \
     start_epoch=$(date -d "$started_at" '+%s' 2>/dev/null) || start_epoch=0
     if [ "$start_epoch" -gt 0 ]; then
       local uptime_secs=$((now - start_epoch))
@@ -434,7 +434,7 @@ cmd_status() {
   local poll_age_str=""
   if [ -n "$last_poll" ] && [ "$last_poll" != "null" ]; then
     local poll_epoch
-    poll_epoch=$(date -jf '%Y-%m-%dT%H:%M:%SZ' "$last_poll" '+%s' 2>/dev/null) || \
+    poll_epoch=$(TZ=UTC date -jf '%Y-%m-%dT%H:%M:%SZ' "$last_poll" '+%s' 2>/dev/null) || \
     poll_epoch=$(date -d "$last_poll" '+%s' 2>/dev/null) || poll_epoch=0
     if [ "$poll_epoch" -gt 0 ]; then
       local poll_age=$((now - poll_epoch))
@@ -456,7 +456,7 @@ cmd_status() {
   cb_paused=$(echo "$status" | jq -r '.circuit_breaker.paused_until')
   if [ "$cb_paused" != "null" ] && [ -n "$cb_paused" ]; then
     local pause_epoch
-    pause_epoch=$(date -jf '%Y-%m-%dT%H:%M:%SZ' "$cb_paused" '+%s' 2>/dev/null) || \
+    pause_epoch=$(TZ=UTC date -jf '%Y-%m-%dT%H:%M:%SZ' "$cb_paused" '+%s' 2>/dev/null) || \
     pause_epoch=$(date -d "$cb_paused" '+%s' 2>/dev/null) || pause_epoch=0
     if [ "$pause_epoch" -gt "$now" ]; then
       local remaining=$((pause_epoch - now))
@@ -494,7 +494,7 @@ cmd_status() {
     # Elapsed time
     local elapsed_str="?"
     local w_start_epoch
-    w_start_epoch=$(date -jf '%Y-%m-%dT%H:%M:%SZ' "$w_started" '+%s' 2>/dev/null) || \
+    w_start_epoch=$(TZ=UTC date -jf '%Y-%m-%dT%H:%M:%SZ' "$w_started" '+%s' 2>/dev/null) || \
     w_start_epoch=$(date -d "$w_started" '+%s' 2>/dev/null) || w_start_epoch=0
     if [ "$w_start_epoch" -gt 0 ]; then
       local w_elapsed=$((now - w_start_epoch))
