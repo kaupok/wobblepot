@@ -54,7 +54,7 @@ export function TimelinePastSection({
         )}
       </Button>
       {isExpanded && (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-6">
           {days.map((day) => (
             <TimelineDayCard
               key={day.date}
