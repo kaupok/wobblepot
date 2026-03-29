@@ -301,8 +301,17 @@ mcp__linear-server__create_comment({
 })
 ```
 
+**CRITICAL: Do NOT proceed to Phase 3 until the plan has been successfully posted to Linear.** If the `create_comment` call fails, retry once. If it fails again, stop with error:
+
+```
+[auto-implement] ✗ Error: Failed to post plan to Linear. Cannot proceed without documented plan.
+```
+
+On success:
+
 ```
 [auto-implement] ✓ Plan posted to Linear
+[plan-issue:complete]
 [auto-implement] Phase 2/7 complete → Proceeding to Phase 3
 ```
 
@@ -357,6 +366,7 @@ For each implementation step in the plan:
 
 ```
 [auto-implement] ✓ Implementation complete
+[implement-issue:complete]
 [auto-implement] Phase 3/7 complete → Proceeding to Phase 4
 ```
 
@@ -458,6 +468,7 @@ Stop here with failure details.
 
 ```
 [auto-implement] ✓ All checks passing
+[code-review:complete]
 [auto-implement] Phase 4/7 complete → Proceeding to Phase 5
 ```
 
@@ -541,6 +552,7 @@ Extract PR URL from output.
 
 ```
 [auto-implement] ✓ PR created: [URL]
+[create-pr:complete]
 [auto-implement] Phase 5/7 complete → Proceeding to Phase 6
 ```
 
@@ -689,6 +701,7 @@ gh pr checks --watch --interval 10  # Use 600s Bash timeout
 
 ```
 [auto-implement] ✓ Reviews addressed
+[review-pr:complete]
 [auto-implement] Phase 6/7 complete → Proceeding to Phase 7
 ```
 
@@ -844,6 +857,7 @@ Cannot fetch into main (already checked out in parent worktree). Skip local clea
 - Local branch deleted
 - Now on main with latest changes
 
+[merge:complete]
 [auto-implement] ✓ Autonomous implementation cycle complete
 ```
 
@@ -857,6 +871,7 @@ Cannot fetch into main (already checked out in parent worktree). Skip local clea
 To clean up this worktree:
   git worktree remove <worktree-path>
 
+[merge:complete]
 [auto-implement] ✓ Autonomous implementation cycle complete
 ```
 

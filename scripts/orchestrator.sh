@@ -580,29 +580,66 @@ kill_process_tree() {
 
 # ─── Observability helpers ───────────────────────────────────────────────────
 
-# Detect the current phase from worker log markers
+# Detect the current phase from worker log markers + git state heuristics
 detect_phase() {
   local log_file="$1"
+  local branch="${2:-}"
   [ ! -f "$log_file" ] && echo "unknown" && return
 
+  # Strategy 1: Check for individual skill markers (step-by-step workflow)
   local last_marker
   last_marker=$(grep -o '\[[^]]*:complete\]' "$log_file" 2>/dev/null | tail -1) || true
   case "$last_marker" in
-    "[plan-issue:complete]")      echo "implementing" ;;
-    "[implement-issue:complete]") echo "reviewing" ;;
-    "[code-review:complete]")     echo "committing" ;;
-    "[commit:complete]")          echo "pr-review" ;;
-    "[create-pr:complete]")       echo "pr-review" ;;
-    "[review-pr:complete]")       echo "merging" ;;
-    "[merge:complete]")           echo "done" ;;
-    "")
-      if grep -q "Starting autonomous Claude Code" "$log_file" 2>/dev/null; then
-        echo "planning"
-      else
-        echo "initializing"
-      fi ;;
-    *) echo "unknown" ;;
+    "[plan-issue:complete]")      echo "implementing"; return ;;
+    "[implement-issue:complete]") echo "reviewing"; return ;;
+    "[code-review:complete]")     echo "committing"; return ;;
+    "[commit:complete]")          echo "pr-review"; return ;;
+    "[create-pr:complete]")       echo "pr-review"; return ;;
+    "[review-pr:complete]")       echo "merging"; return ;;
+    "[merge:complete]")           echo "done"; return ;;
   esac
+
+  # Strategy 2: Check for auto-implement completion in log
+  if grep -qE '\[auto-implement\].*(cycle complete|PR merged)' "$log_file" 2>/dev/null; then
+    echo "done"; return
+  fi
+
+  # Strategy 3: Git-based heuristics (reliable for auto-implement workers)
+  if [ -n "$branch" ]; then
+    local wt_path
+    wt_path=$(get_worktree_path "$branch")
+    if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
+      # Check if branch has been pushed (upstream tracking = PR stage)
+      if git -C "$wt_path" rev-parse --abbrev-ref '@{upstream}' &>/dev/null; then
+        echo "pr-review"; return
+      fi
+
+      # Check commits ahead of main
+      local ahead=0
+      ahead=$(git -C "$wt_path" rev-list --count main..HEAD 2>/dev/null) || true
+      if [ "$ahead" -gt 0 ]; then
+        local has_dirty=""
+        has_dirty=$(git -C "$wt_path" status --porcelain 2>/dev/null) || true
+        if [ -n "$has_dirty" ]; then
+          echo "implementing"; return
+        else
+          echo "reviewing"; return
+        fi
+      fi
+
+      # No commits but has uncommitted changes = implementing
+      if [ -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)" ]; then
+        echo "implementing"; return
+      fi
+    fi
+  fi
+
+  # Strategy 4: Log content fallback
+  if grep -q "Starting autonomous Claude Code" "$log_file" 2>/dev/null; then
+    echo "planning"
+  else
+    echo "initializing"
+  fi
 }
 
 # Format seconds into human-readable duration
@@ -652,7 +689,7 @@ handle_success() {
   # Compute outcome details
   local commits duration_str phase
   commits=$(count_commits "$branch")
-  phase=$(detect_phase "$log_file")
+  phase=$(detect_phase "$log_file" "$branch")
 
   # Find start time for this worker to compute duration
   local duration_secs=0
@@ -741,7 +778,7 @@ handle_failure() {
   # Compute outcome details for logging and notifications
   local commits phase duration_secs=0 duration_str original_title=""
   commits=$(count_commits "$branch")
-  phase=$(detect_phase "$log_file")
+  phase=$(detect_phase "$log_file" "$branch")
   local i=0
   while [ $i -lt ${#WORKER_ISSUES[@]} ]; do
     if [ "${WORKER_ISSUES[$i]}" = "$issue_id" ]; then
