@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import Home from './page' // import the component directly
+import Home from './page'
 
 // Mock the auth module to prevent database initialization
 vi.mock('@/lib/auth', () => ({
@@ -33,9 +33,10 @@ vi.mock('next/navigation', () => ({
   })),
 }))
 
-// Mock the TodayPage component since it requires complex client-side behavior
-vi.mock('@/components/today', () => ({
-  TodayPage: vi.fn(() => <div data-testid="today-page">Today Dashboard</div>),
+// Mock the timeline components since they require complex client-side behavior
+vi.mock('@/components/timeline', () => ({
+  TimelineView: vi.fn(() => <div data-testid="timeline-view">Timeline</div>),
+  FirstTimeSetup: vi.fn(() => <div data-testid="first-time-setup">First Time Setup</div>),
 }))
 
 // Mock fetch for API calls
@@ -96,7 +97,7 @@ describe('Home page component', () => {
     expect(ctaLink).toHaveAttribute('href', '/sign-up')
   })
 
-  it('renders Today dashboard when authenticated with household', async () => {
+  it('renders first-time setup when authenticated with household but no entries', async () => {
     const { auth } = await import('@/lib/auth')
     const { getHouseholdMembership, getHouseholdMemberCount } = await import('@/lib/household')
     const now = new Date()
@@ -122,7 +123,6 @@ describe('Home page component', () => {
       },
     })
 
-    // Mock household membership - user has a household
     vi.mocked(getHouseholdMembership).mockResolvedValue({
       id: 'member-123',
       householdId: 'household-123',
@@ -139,10 +139,111 @@ describe('Home page component', () => {
 
     vi.mocked(getHouseholdMemberCount).mockResolvedValue(2)
 
-    // Should render the Today dashboard (mocked)
+    // Mock entries response: no entries, no plan
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/entries')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ entries: [], planId: null }),
+        })
+      }
+      return Promise.resolve({ ok: false, json: async () => ({}) })
+    })
+
     const component = await Home()
     render(component)
-    expect(screen.getByTestId('today-page')).toBeInTheDocument()
+    expect(screen.getByTestId('first-time-setup')).toBeInTheDocument()
+  })
+
+  it('renders timeline view when authenticated with household and entries', async () => {
+    const { auth } = await import('@/lib/auth')
+    const { getHouseholdMembership, getHouseholdMemberCount } = await import('@/lib/household')
+    const now = new Date()
+    vi.mocked(auth.api.getSession).mockResolvedValue({
+      session: {
+        id: 'session-123',
+        userId: '123',
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+        token: 'test-token',
+        ipAddress: '127.0.0.1',
+        userAgent: 'test',
+        createdAt: now,
+        updatedAt: now,
+      },
+      user: {
+        id: '123',
+        email: 'test@example.com',
+        name: 'Test User',
+        emailVerified: false,
+        image: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+    })
+
+    vi.mocked(getHouseholdMembership).mockResolvedValue({
+      id: 'member-123',
+      householdId: 'household-123',
+      userId: '123',
+      role: 'owner',
+      household: {
+        id: 'household-123',
+        name: 'Test Household',
+        timezone: 'Europe/Tallinn',
+        createdAt: now,
+        preferences: null,
+      },
+    } as never)
+
+    vi.mocked(getHouseholdMemberCount).mockResolvedValue(2)
+
+    // Mock entries response: has entries
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/entries')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            entries: [
+              {
+                id: 'entry-1',
+                date: '2026-03-29',
+                mealType: 'dinner',
+                status: 'planned',
+                rating: null,
+                meal: { id: 'meal-1', name: 'Chicken Rice', components: [], nutrition: {} },
+                preparationTips: null,
+                note: null,
+                servingOverride: null,
+              },
+            ],
+            planId: 'plan-1',
+          }),
+        })
+      }
+      if (url.includes('/api/pantry')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ items: [] }),
+        })
+      }
+      if (url.includes('/api/shopping-list')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ groups: [], summary: {} }),
+        })
+      }
+      if (url.includes('/api/households/me/preferences')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ weekdayMealTypes: ['dinner'], weekendMealTypes: ['dinner'] }),
+        })
+      }
+      return Promise.resolve({ ok: false, json: async () => ({}) })
+    })
+
+    const component = await Home()
+    render(component)
+    expect(screen.getByTestId('timeline-view')).toBeInTheDocument()
   })
 
   it('redirects to onboarding when authenticated without household', async () => {
@@ -171,10 +272,8 @@ describe('Home page component', () => {
       },
     })
 
-    // Mock no household membership
     vi.mocked(getHouseholdMembership).mockResolvedValue(null)
 
-    // Should redirect to onboarding
     await expect(Home()).rejects.toThrow('NEXT_REDIRECT:/onboarding')
   })
 })

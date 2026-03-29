@@ -30,7 +30,6 @@ describe('NavigationLeft', () => {
     render(<NavigationLeft session={mockSession} hasHousehold={true} />)
 
     expect(screen.getByRole('link', { name: 'Today' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Meal plan' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Pantry & shopping' })).toBeInTheDocument()
   })
 

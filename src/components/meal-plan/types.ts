@@ -152,3 +152,18 @@ export interface HouseholdPreferencesData {
   weekdayMealTypes: MealType[]
   weekendMealTypes: MealType[]
 }
+
+export interface TimelineDay {
+  date: string // YYYY-MM-DD
+  label: string // "Today", "Tomorrow", "Wednesday Mar 28", etc.
+  isToday: boolean
+  isTomorrow: boolean
+  isPast: boolean
+  entries: PlanEntry[]
+  emptySlots: MealType[]
+}
+
+export interface TimelineData {
+  days: TimelineDay[]
+  planId: string // needed for mutations
+}

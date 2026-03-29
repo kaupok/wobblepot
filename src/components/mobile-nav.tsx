@@ -65,13 +65,6 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
                       Today
                     </Link>
                     <Link
-                      href="/meal-plan"
-                      className="hover:text-primary text-sm font-medium transition-colors"
-                      onClick={() => setOpen(false)}
-                    >
-                      Meal plan
-                    </Link>
-                    <Link
                       href="/shopping"
                       className="hover:text-primary text-sm font-medium transition-colors"
                       onClick={() => setOpen(false)}

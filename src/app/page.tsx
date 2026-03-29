@@ -10,16 +10,16 @@ import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household
 import {
   getTodayInTimezone,
   getUrgencyBucket,
-  parseLocalDate,
   toDateString,
-  formatCatchUpLabel,
+  parseLocalDate,
 } from '@/lib/meal-planning/dates'
-import { TodayPage } from '@/components/today'
+import { TimelineView } from '@/components/timeline'
+import { FirstTimeSetup } from '@/components/timeline'
 import type {
-  MealPlanWithContext,
   PantryIngredient,
   PantryItemFull,
   PlanEntry,
+  ExpectedMealTypes,
 } from '@/components/meal-plan/types'
 import type { UrgencyBucket } from '@/lib/meal-planning/dates'
 import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
@@ -111,90 +111,60 @@ export default async function Home() {
 
   const { household } = membership
 
-  // Get today and tomorrow dates in household timezone
+  // Get today's date in household timezone
   const todayDate = getTodayInTimezone(household.timezone)
   const todayParsed = parseLocalDate(todayDate)
-  const tomorrowParsed = new Date(todayParsed)
-  tomorrowParsed.setDate(tomorrowParsed.getDate() + 1)
-  const tomorrowDate = toDateString(tomorrowParsed)
+
+  // Compute date range: -7 to +14 from today
+  const sevenDaysAgo = new Date(todayParsed)
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+  const fourteenDaysAhead = new Date(todayParsed)
+  fourteenDaysAhead.setDate(fourteenDaysAhead.getDate() + 15) // +15 because endDate is exclusive
 
   // Fetch data in parallel
   const requestHeaders = await headers()
   const baseURL = getServerBaseURL()
   const cookieHeader = requestHeaders.get('cookie') ?? ''
 
-  // Compute a wide date range for first-time detection: 4 weeks back to 2 weeks ahead
-  const fourWeeksAgo = new Date(todayParsed)
-  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28)
-  const twoWeeksAhead = new Date(todayParsed)
-  twoWeeksAhead.setDate(twoWeeksAhead.getDate() + 14)
-
-  const [
-    householdSize,
-    currentPlanResponse,
-    nextPlanResponse,
-    lastPlanResponse,
-    entriesCheckResponse,
-    pantryResponse,
-    shoppingResponse,
-  ] = await Promise.all([
-    getHouseholdMemberCount(household.id),
-    fetch(`${baseURL}/api/meal-plans/current?week=current`, {
-      headers: { cookie: cookieHeader },
-      cache: 'no-store',
-    }),
-    fetch(`${baseURL}/api/meal-plans/current?week=next`, {
-      headers: { cookie: cookieHeader },
-      cache: 'no-store',
-    }),
-    fetch(`${baseURL}/api/meal-plans/current?week=last`, {
-      headers: { cookie: cookieHeader },
-      cache: 'no-store',
-    }),
-    fetch(
-      `${baseURL}/api/entries?startDate=${toDateString(fourWeeksAgo)}&endDate=${toDateString(twoWeeksAhead)}`,
-      {
+  const [householdSize, entriesResponse, pantryResponse, shoppingResponse, prefsResponse] =
+    await Promise.all([
+      getHouseholdMemberCount(household.id),
+      fetch(
+        `${baseURL}/api/entries?startDate=${toDateString(sevenDaysAgo)}&endDate=${toDateString(fourteenDaysAhead)}`,
+        {
+          headers: { cookie: cookieHeader },
+          cache: 'no-store',
+        },
+      ),
+      fetch(`${baseURL}/api/pantry`, {
         headers: { cookie: cookieHeader },
         cache: 'no-store',
-      },
-    ),
-    fetch(`${baseURL}/api/pantry`, {
-      headers: { cookie: cookieHeader },
-      cache: 'no-store',
-    }),
-    fetch(`${baseURL}/api/shopping-list?days=7`, {
-      headers: { cookie: cookieHeader },
-      cache: 'no-store',
-    }),
-  ])
+      }),
+      fetch(`${baseURL}/api/shopping-list?days=7`, {
+        headers: { cookie: cookieHeader },
+        cache: 'no-store',
+      }),
+      fetch(`${baseURL}/api/households/me/preferences`, {
+        headers: { cookie: cookieHeader },
+        cache: 'no-store',
+      }),
+    ])
 
-  // Check if this is a first-time user (no entries at all)
-  let isFirstGeneration = false
-  if (entriesCheckResponse.ok) {
-    const entriesData = await entriesCheckResponse.json()
-    isFirstGeneration = entriesData.entries.length === 0
+  // Parse entries
+  let entries: PlanEntry[] = []
+  let planId: string | null = null
+  if (entriesResponse.ok) {
+    const entriesData = await entriesResponse.json()
+    entries = entriesData.entries
+    planId = entriesData.planId
   }
 
-  // For first-time users, skip unnecessary data parsing
-  if (isFirstGeneration) {
-    return (
-      <TodayPage
-        todayDate={todayDate}
-        tomorrowDate={tomorrowDate}
-        plan={null}
-        householdSize={householdSize}
-        pantryIngredients={[]}
-        pantryItems={[]}
-        shoppingItems={[]}
-        catchUpEntries={[]}
-        timezone={household.timezone}
-        isFirstGeneration
-        userName={session.user.name}
-      />
-    )
+  // First-time user: no entries and no plan
+  if (entries.length === 0 && !planId) {
+    return <FirstTimeSetup userName={session.user.name} />
   }
 
-  // Parse pantry response
+  // Parse pantry
   let pantryIngredients: PantryIngredient[] = []
   let pantryItems: PantryItemFull[] = []
   if (pantryResponse.ok) {
@@ -208,86 +178,7 @@ export default async function Home() {
     )
   }
 
-  // Determine which plan to use - current week or next week
-  // (tomorrow might be in next week's plan if today is Sunday)
-  let plan: MealPlanWithContext | null = null
-  if (currentPlanResponse.ok) {
-    plan = await currentPlanResponse.json()
-  }
-
-  // If we need tomorrow's meals and they're not in current plan, merge from next plan
-  if (nextPlanResponse.ok) {
-    const nextPlan: MealPlanWithContext = await nextPlanResponse.json()
-    if (!plan) {
-      // No current plan, use next plan
-      plan = nextPlan
-    } else {
-      // Check if tomorrow is in next week's plan
-      const tomorrowInCurrent = plan.entries.some((e) => e.date === tomorrowDate)
-      if (!tomorrowInCurrent) {
-        // Merge tomorrow's entries from next plan
-        const tomorrowEntries = nextPlan.entries.filter((e) => e.date === tomorrowDate)
-        plan = {
-          ...plan,
-          entries: [...plan.entries, ...tomorrowEntries],
-        }
-      }
-    }
-  }
-
-  // Build catch-up entries from past 7 days that are still "planned"
-  // Collect entries from both current and last week's plans
-  const catchUpEntries: (PlanEntry & { label: string; planId: string })[] = []
-  const sevenDaysAgo = new Date(todayParsed)
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-  const sevenDaysAgoStr = toDateString(sevenDaysAgo)
-
-  // Helper to add catch-up entries from a plan
-  function addCatchUpEntries(entries: PlanEntry[], planId: string) {
-    for (const entry of entries) {
-      // Only include entries that:
-      // 1. Are before today
-      // 2. Are within 7 days
-      // 3. Are still "planned" (not completed/skipped)
-      // 4. Have a meal assigned
-      if (
-        entry.date < todayDate &&
-        entry.date >= sevenDaysAgoStr &&
-        entry.status === 'planned' &&
-        entry.meal
-      ) {
-        catchUpEntries.push({
-          ...entry,
-          planId,
-          label: formatCatchUpLabel(entry.date, entry.mealType, todayParsed),
-        })
-      }
-    }
-  }
-
-  // Add from current plan
-  if (plan) {
-    addCatchUpEntries(plan.entries, plan.id)
-  }
-
-  // Add from last week's plan
-  if (lastPlanResponse.ok) {
-    const lastPlan: MealPlanWithContext = await lastPlanResponse.json()
-    addCatchUpEntries(lastPlan.entries, lastPlan.id)
-  }
-
-  // Sort chronologically: oldest date first, then breakfast → lunch → dinner
-  const mealTypeOrder = { breakfast: 0, lunch: 1, dinner: 2 }
-  catchUpEntries.sort((a, b) => {
-    const dateCompare = a.date.localeCompare(b.date)
-    if (dateCompare !== 0) return dateCompare
-    return (
-      (mealTypeOrder[a.mealType as keyof typeof mealTypeOrder] ?? 3) -
-      (mealTypeOrder[b.mealType as keyof typeof mealTypeOrder] ?? 3)
-    )
-  })
-
-  // Parse shopping response and add urgency
+  // Parse shopping list
   const shoppingItems: ShoppingItem[] = []
   if (shoppingResponse.ok) {
     const shoppingData: ShoppingListResponse = await shoppingResponse.json()
@@ -306,17 +197,31 @@ export default async function Home() {
     }
   }
 
+  // Parse household preferences for expected meal types
+  const expectedMealTypes: ExpectedMealTypes = {
+    weekdayMealTypes: ['dinner'],
+    weekendMealTypes: ['dinner'],
+  }
+  if (prefsResponse.ok) {
+    const prefsData = await prefsResponse.json()
+    if (prefsData.weekdayMealTypes?.length > 0) {
+      expectedMealTypes.weekdayMealTypes = prefsData.weekdayMealTypes
+    }
+    if (prefsData.weekendMealTypes?.length > 0) {
+      expectedMealTypes.weekendMealTypes = prefsData.weekendMealTypes
+    }
+  }
+
   return (
-    <TodayPage
-      todayDate={todayDate}
-      tomorrowDate={tomorrowDate}
-      plan={plan}
+    <TimelineView
+      entries={entries}
+      planId={planId ?? ''}
+      expectedMealTypes={expectedMealTypes}
       householdSize={householdSize}
       pantryIngredients={pantryIngredients}
       pantryItems={pantryItems}
       shoppingItems={shoppingItems}
-      catchUpEntries={catchUpEntries}
-      timezone={household.timezone}
+      todayDate={todayDate}
     />
   )
 }
