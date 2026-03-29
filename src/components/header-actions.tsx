@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { User } from 'lucide-react'
+import { Moon, Sun, User } from 'lucide-react'
+import { useTheme } from 'next-themes'
 import { authClient } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,6 +17,8 @@ import {
 import { ThemeToggle } from '@/components/theme-toggle'
 import type { Session } from '@/lib/auth'
 
+const emptySubscribe = () => () => {}
+
 interface HeaderActionsProps {
   session: Session | null
   hasHousehold: boolean
@@ -24,6 +27,12 @@ interface HeaderActionsProps {
 export function HeaderActions({ session, hasHousehold }: HeaderActionsProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const { resolvedTheme, setTheme } = useTheme()
+  const mounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  )
 
   const handleSignOut = async () => {
     setIsLoading(true)
@@ -64,19 +73,28 @@ export function HeaderActions({ session, hasHousehold }: HeaderActionsProps) {
             <DropdownMenuItem onClick={handleSignOut} disabled={isLoading}>
               {isLoading ? 'Signing out...' : 'Sign out'}
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}>
+              {mounted && resolvedTheme === 'dark' ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Moon className="h-4 w-4" />
+              )}
+              {mounted ? (resolvedTheme === 'dark' ? 'Light mode' : 'Dark mode') : 'Toggle theme'}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ) : (
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Button asChild variant="outline" size="sm">
             <Link href="/sign-in">Sign in</Link>
           </Button>
           <Button asChild size="sm">
             <Link href="/sign-up">Sign up</Link>
           </Button>
+          <ThemeToggle />
         </div>
       )}
-      <ThemeToggle />
     </div>
   )
 }
