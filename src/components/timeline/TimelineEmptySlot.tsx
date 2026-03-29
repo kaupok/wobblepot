@@ -9,12 +9,6 @@ import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
 import type { MealType } from '@/generated/prisma/enums'
 import type { PantryIngredient } from '@/components/meal-plan/types'
 
-const mealTypeLabels: Record<MealType, string> = {
-  breakfast: 'Breakfast',
-  lunch: 'Lunch',
-  dinner: 'Dinner',
-}
-
 interface TimelineEmptySlotProps {
   planId: string
   date: string
@@ -84,14 +78,9 @@ export function TimelineEmptySlot({
   return (
     <>
       <div className="flex items-center justify-between rounded-lg border border-dashed px-3 py-2">
-        <div>
-          <div className="text-muted-foreground text-[9px] font-medium tracking-wide uppercase">
-            {mealTypeLabels[mealType]}
-          </div>
-          <Body variant="muted" className="text-xs">
-            No meal planned
-          </Body>
-        </div>
+        <Body variant="muted" className="text-xs">
+          No meal planned
+        </Body>
         <Button
           variant="outline"
           size="sm"
