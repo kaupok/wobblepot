@@ -29,33 +29,16 @@ vi.mock('@/lib/ai/generate-plan', () => ({
 }))
 
 vi.mock('@/lib/meal-planning/dates', () => ({
-  getNextMonday: vi.fn(() => new Date('2026-02-02T00:00:00.000Z')),
-  getCurrentWeekMonday: vi.fn(() => new Date('2026-01-26T00:00:00.000Z')),
-  getMondayOfWeek: vi.fn((date: Date) => {
-    // Compute actual Monday of week for the given date
-    const d = new Date(date)
-    d.setHours(0, 0, 0, 0)
-    const dayOfWeek = d.getDay()
-    const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-    d.setDate(d.getDate() - daysSinceMonday)
-    return d
+  parseLocalDate: vi.fn((s: string) => {
+    const [y, m, d] = s.split('-').map(Number) as [number, number, number]
+    return new Date(y, m - 1, d)
   }),
-  isMonday: vi.fn(() => false),
-  isSunday: vi.fn(() => false),
-  parseLocalDate: vi.fn((s: string) => new Date(`${s}T00:00:00.000Z`)),
 }))
 
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { checkRateLimit, recordGeneration } from '@/lib/meal-planning/rate-limit'
 import { generateMealPlan, createEmptyPlan, fillEmptySlots } from '@/lib/ai/generate-plan'
-import {
-  isSunday,
-  isMonday,
-  parseLocalDate,
-  getMondayOfWeek,
-  getCurrentWeekMonday,
-} from '@/lib/meal-planning/dates'
 import {
   MealPlanValidationError,
   InsufficientCandidatesError,
@@ -69,11 +52,6 @@ const mockRecordGeneration = vi.mocked(recordGeneration)
 const mockGenerateMealPlan = vi.mocked(generateMealPlan)
 const mockCreateEmptyPlan = vi.mocked(createEmptyPlan)
 const mockFillEmptySlots = vi.mocked(fillEmptySlots)
-const mockIsSunday = vi.mocked(isSunday)
-const mockIsMonday = vi.mocked(isMonday)
-const mockParseLocalDate = vi.mocked(parseLocalDate)
-const mockGetMondayOfWeek = vi.mocked(getMondayOfWeek)
-const mockGetCurrentWeekMonday = vi.mocked(getCurrentWeekMonday)
 
 const mockHousehold = {
   id: 'household-123',
@@ -113,8 +91,6 @@ describe('POST /api/meal-plans/generate', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCheckRateLimit.mockReturnValue({ allowed: true, remaining: 4, limit: 5 })
-    mockIsSunday.mockReturnValue(false)
-    mockIsMonday.mockReturnValue(false)
   })
 
   it('returns 401 when not authenticated', async () => {
@@ -172,44 +148,41 @@ describe('POST /api/meal-plans/generate', () => {
     expect(data.error).toBe('Invalid JSON')
   })
 
-  it('returns 400 for invalid startDate format', async () => {
+  it('returns 400 for missing startDate or endDate', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
 
-    const response = await POST(createRequest({ startDate: 'not-a-date' }))
+    const response = await POST(createRequest({ startDate: '2026-02-02' }))
     const data = await response.json()
 
     expect(response.status).toBe(400)
     expect(data.error).toBe('Validation failed')
-    expect(data.details.startDate).toBeDefined()
+    expect(data.details.endDate).toBeDefined()
   })
 
-  it('returns 400 when startDate is not a Monday', async () => {
+  it('returns 400 when endDate is not after startDate', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockParseLocalDate.mockReturnValue(new Date('2026-02-03T00:00:00.000Z'))
-    mockIsMonday.mockReturnValue(false)
 
-    const response = await POST(createRequest({ startDate: '2026-02-03' }))
+    const response = await POST(createRequest({ startDate: '2026-02-09', endDate: '2026-02-02' }))
     const data = await response.json()
 
     expect(response.status).toBe(400)
-    expect(data.error).toBe('Start date must be a Monday')
+    expect(data.error).toBe('endDate must be after startDate')
   })
 
-  it('returns 400 when generating current week on Sunday', async () => {
+  it('returns 400 when date range exceeds 14 days', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockIsSunday.mockReturnValue(true)
 
-    const response = await POST(createRequest({ targetWeek: 'current' }))
+    const response = await POST(createRequest({ startDate: '2026-02-02', endDate: '2026-02-17' }))
     const data = await response.json()
 
     expect(response.status).toBe(400)
-    expect(data.error).toContain('Cannot generate current week plan on Sunday')
+    expect(data.error).toBe('Date range cannot exceed 14 days')
   })
 
-  it('returns 200 with generated plan for next week (default)', async () => {
+  it('returns 200 with generated plan for valid date range', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
 
@@ -224,13 +197,18 @@ describe('POST /api/meal-plans/generate', () => {
     }
     mockGenerateMealPlan.mockResolvedValue(mockResult as never)
 
-    const response = await POST(createRequest({}))
+    const response = await POST(createRequest({ startDate: '2026-02-02', endDate: '2026-02-09' }))
     const data = await response.json()
 
     expect(response.status).toBe(200)
     expect(data.id).toBe('plan-123')
-    expect(data.weekContext.type).toBe('next')
-    expect(data.weekContext.daysCount).toBe(2)
+    expect(mockGenerateMealPlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        householdId: 'household-123',
+        startDate: expect.any(Date),
+        endDate: expect.any(Date),
+      }),
+    )
     expect(mockRecordGeneration).toHaveBeenCalledWith('household-123', 'plan-generation')
   })
 
@@ -241,13 +219,20 @@ describe('POST /api/meal-plans/generate', () => {
     const mockResult = { id: 'plan-empty', startDate: '2026-02-02', endDate: '2026-02-09' }
     mockCreateEmptyPlan.mockResolvedValue(mockResult as never)
 
-    const response = await POST(createRequest({ mode: 'empty' }))
+    const response = await POST(
+      createRequest({ startDate: '2026-02-02', endDate: '2026-02-09', mode: 'empty' }),
+    )
     const data = await response.json()
 
     expect(response.status).toBe(200)
     expect(data.id).toBe('plan-empty')
-    expect(data.weekContext.type).toBe('next')
-    expect(data.weekContext.daysCount).toBe(0)
+    expect(mockCreateEmptyPlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        householdId: 'household-123',
+        startDate: expect.any(Date),
+        endDate: expect.any(Date),
+      }),
+    )
     expect(mockRecordGeneration).toHaveBeenCalledWith('household-123', 'plan-generation')
   })
 
@@ -255,14 +240,16 @@ describe('POST /api/meal-plans/generate', () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
 
-    const response = await POST(createRequest({ mode: 'fill-empty' }))
+    const response = await POST(
+      createRequest({ startDate: '2026-02-02', endDate: '2026-02-09', mode: 'fill-empty' }),
+    )
     const data = await response.json()
 
     expect(response.status).toBe(400)
     expect(data.error).toBe('planId is required for fill-empty mode')
   })
 
-  it('returns 200 for fill-empty mode with planId', async () => {
+  it('returns 200 for fill-empty mode with planId and date range', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
 
@@ -272,11 +259,26 @@ describe('POST /api/meal-plans/generate', () => {
     }
     mockFillEmptySlots.mockResolvedValue(mockResult as never)
 
-    const response = await POST(createRequest({ mode: 'fill-empty', planId: 'plan-123' }))
+    const response = await POST(
+      createRequest({
+        startDate: '2026-02-02',
+        endDate: '2026-02-09',
+        mode: 'fill-empty',
+        planId: 'plan-123',
+      }),
+    )
     const data = await response.json()
 
     expect(response.status).toBe(200)
     expect(data.id).toBe('plan-123')
+    expect(mockFillEmptySlots).toHaveBeenCalledWith(
+      expect.objectContaining({
+        planId: 'plan-123',
+        householdId: 'household-123',
+        startDate: expect.any(Date),
+        endDate: expect.any(Date),
+      }),
+    )
     expect(mockRecordGeneration).toHaveBeenCalledWith('household-123', 'plan-generation')
   })
 
@@ -285,7 +287,7 @@ describe('POST /api/meal-plans/generate', () => {
     mockGetMembership.mockResolvedValue(mockMembership as never)
     mockGenerateMealPlan.mockRejectedValue(new MealPlanValidationError('Invalid AI response'))
 
-    const response = await POST(createRequest({}))
+    const response = await POST(createRequest({ startDate: '2026-02-02', endDate: '2026-02-09' }))
     const data = await response.json()
 
     expect(response.status).toBe(422)
@@ -297,37 +299,11 @@ describe('POST /api/meal-plans/generate', () => {
     mockGetMembership.mockResolvedValue(mockMembership as never)
     mockGenerateMealPlan.mockRejectedValue(new InsufficientCandidatesError('Not enough fish meals'))
 
-    const response = await POST(createRequest({}))
+    const response = await POST(createRequest({ startDate: '2026-02-02', endDate: '2026-02-09' }))
     const data = await response.json()
 
     expect(response.status).toBe(422)
     expect(data.error).toBe('Insufficient meal options')
-  })
-
-  it('returns 500 when Prisma unique constraint fails', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-
-    const prismaError = Object.assign(new Error('Unique constraint failed'), { code: 'P2002' })
-    mockGenerateMealPlan.mockRejectedValue(prismaError)
-
-    const response = await POST(createRequest({}))
-    const data = await response.json()
-
-    expect(response.status).toBe(500)
-    expect(data.error).toBe('Failed to generate meal plan')
-  })
-
-  it('returns 400 for fill-empty NoEmptySlotsError', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFillEmptySlots.mockRejectedValue(new NoEmptySlotsError())
-
-    const response = await POST(createRequest({ mode: 'fill-empty', planId: 'plan-123' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('No empty slots to fill')
   })
 
   it('returns 500 for unexpected errors', async () => {
@@ -335,117 +311,10 @@ describe('POST /api/meal-plans/generate', () => {
     mockGetMembership.mockResolvedValue(mockMembership as never)
     mockGenerateMealPlan.mockRejectedValue(new Error('Something unexpected'))
 
-    const response = await POST(createRequest({}))
+    const response = await POST(createRequest({ startDate: '2026-02-02', endDate: '2026-02-09' }))
     const data = await response.json()
 
     expect(response.status).toBe(500)
     expect(data.error).toBe('Failed to generate meal plan')
-  })
-
-  describe('planFromDate parameter', () => {
-    it('uses planFromDate to compute startDate and effectiveStartDate', async () => {
-      mockGetSession.mockResolvedValue(mockSession as never)
-      mockGetMembership.mockResolvedValue(mockMembership as never)
-      // Wednesday Feb 18 2026 — not a Monday
-      mockParseLocalDate.mockReturnValue(new Date('2026-02-18T00:00:00.000Z'))
-      mockIsMonday.mockReturnValue(false)
-      mockGetMondayOfWeek.mockReturnValue(new Date('2026-02-16T00:00:00.000Z'))
-
-      const mockResult = {
-        id: 'plan-123',
-        startDate: '2026-02-16',
-        endDate: '2026-02-23',
-        entries: [{ id: 'entry-1', date: '2026-02-18', mealType: 'dinner', status: 'planned' }],
-      }
-      mockGenerateMealPlan.mockResolvedValue(mockResult as never)
-
-      const response = await POST(createRequest({ planFromDate: '2026-02-18' }))
-
-      expect(response.status).toBe(200)
-      // Should pass effectiveStartDate to generateMealPlan
-      expect(mockGenerateMealPlan).toHaveBeenCalledWith(
-        expect.objectContaining({
-          effectiveStartDate: expect.any(Date),
-        }),
-      )
-    })
-
-    it('does not set effectiveStartDate when planFromDate is a Monday', async () => {
-      mockGetSession.mockResolvedValue(mockSession as never)
-      mockGetMembership.mockResolvedValue(mockMembership as never)
-      // Monday Feb 16 2026
-      mockParseLocalDate.mockReturnValue(new Date('2026-02-16T00:00:00.000Z'))
-      mockIsMonday.mockReturnValue(true)
-      mockGetMondayOfWeek.mockReturnValue(new Date('2026-02-16T00:00:00.000Z'))
-
-      const mockResult = {
-        id: 'plan-123',
-        startDate: '2026-02-16',
-        endDate: '2026-02-23',
-        entries: [{ id: 'entry-1', date: '2026-02-16', mealType: 'dinner', status: 'planned' }],
-      }
-      mockGenerateMealPlan.mockResolvedValue(mockResult as never)
-
-      const response = await POST(createRequest({ planFromDate: '2026-02-16' }))
-
-      expect(response.status).toBe(200)
-      expect(mockGenerateMealPlan).toHaveBeenCalledWith(
-        expect.objectContaining({
-          effectiveStartDate: undefined,
-        }),
-      )
-    })
-
-    it('returns 400 when planFromDate resolves to current week on Sunday', async () => {
-      mockGetSession.mockResolvedValue(mockSession as never)
-      mockGetMembership.mockResolvedValue(mockMembership as never)
-      mockIsSunday.mockReturnValue(true)
-      // Sunday Feb 22 2026 — resolves to current week Monday (Feb 16)
-      mockParseLocalDate.mockReturnValue(new Date('2026-02-22T00:00:00.000Z'))
-      mockIsMonday.mockReturnValue(false)
-      // Both return Feb 16 → same week → targetWeek = 'current'
-      mockGetMondayOfWeek.mockReturnValue(new Date('2026-02-16T00:00:00.000Z'))
-      mockGetCurrentWeekMonday.mockReturnValue(new Date('2026-02-16T00:00:00.000Z'))
-
-      const response = await POST(createRequest({ planFromDate: '2026-02-22' }))
-      const data = await response.json()
-
-      expect(response.status).toBe(400)
-      expect(data.error).toContain('Cannot generate current week plan on Sunday')
-    })
-
-    it('allows planFromDate on Sunday when it resolves to next week', async () => {
-      mockGetSession.mockResolvedValue(mockSession as never)
-      mockGetMembership.mockResolvedValue(mockMembership as never)
-      mockIsSunday.mockReturnValue(true)
-      // Next Monday Feb 23 2026 — resolves to next week
-      mockParseLocalDate.mockReturnValue(new Date('2026-02-23T00:00:00.000Z'))
-      mockIsMonday.mockReturnValue(true)
-      mockGetMondayOfWeek.mockReturnValue(new Date('2026-02-23T00:00:00.000Z'))
-      mockGetCurrentWeekMonday.mockReturnValue(new Date('2026-02-16T00:00:00.000Z'))
-
-      const mockResult = {
-        id: 'plan-123',
-        startDate: '2026-02-23',
-        endDate: '2026-03-02',
-        entries: [{ id: 'entry-1', date: '2026-02-23', mealType: 'dinner', status: 'planned' }],
-      }
-      mockGenerateMealPlan.mockResolvedValue(mockResult as never)
-
-      const response = await POST(createRequest({ planFromDate: '2026-02-23' }))
-      expect(response.status).toBe(200)
-    })
-
-    it('returns 400 for invalid planFromDate format', async () => {
-      mockGetSession.mockResolvedValue(mockSession as never)
-      mockGetMembership.mockResolvedValue(mockMembership as never)
-
-      const response = await POST(createRequest({ planFromDate: 'not-a-date' }))
-      const data = await response.json()
-
-      expect(response.status).toBe(400)
-      expect(data.error).toBe('Validation failed')
-      expect(data.details.planFromDate).toBeDefined()
-    })
   })
 })

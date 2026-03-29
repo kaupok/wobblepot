@@ -9,6 +9,9 @@ import {
   getTodayInTimezone,
   parseLocalDate,
   toDateString,
+  getCurrentWeekMonday,
+  getLastWeekMonday,
+  getNextMonday,
 } from '@/lib/meal-planning/dates'
 import { WeekView } from '@/components/meal-plan/WeekView'
 import { EmptyPlan } from '@/components/meal-plan/EmptyPlan'
@@ -134,12 +137,27 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     activeWeek === 'last' ? lastResponse : activeWeek === 'current' ? currentResponse : nextResponse
   const hasPlan = activeResponse.ok
 
+  // Compute Monday boundaries for the active week (used for generation date range)
+  const activeMonday =
+    activeWeek === 'last'
+      ? getLastWeekMonday()
+      : activeWeek === 'next'
+        ? getNextMonday()
+        : getCurrentWeekMonday()
+  const activeEndDate = new Date(activeMonday)
+  activeEndDate.setDate(activeMonday.getDate() + 7)
+
   let plan: MealPlanWithContext | null = null
   let weekContext: WeekContext | null = null
 
   if (hasPlan && activeResponse) {
     plan = await activeResponse.json()
     weekContext = plan?.weekContext ?? null
+    // Enrich with date range
+    if (weekContext) {
+      weekContext.startDate = toDateString(activeMonday)
+      weekContext.endDate = toDateString(activeEndDate)
+    }
   } else if (activeResponse) {
     // Extract weekContext from 404 response
     const errorData = await activeResponse.json().catch(() => ({}))
@@ -148,6 +166,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         type: activeWeek,
         daysCount: errorData.weekContext.daysRemaining ?? currentWeekDays,
         isPartialWeek: (errorData.weekContext.daysRemaining ?? currentWeekDays) < 7,
+        startDate: toDateString(activeMonday),
+        endDate: toDateString(activeEndDate),
       }
     }
   }
@@ -158,6 +178,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       type: activeWeek,
       daysCount: activeWeek === 'current' ? currentWeekDays : 7,
       isPartialWeek: activeWeek === 'current' && currentWeekDays < 7,
+      startDate: toDateString(activeMonday),
+      endDate: toDateString(activeEndDate),
     }
   }
 

@@ -138,6 +138,7 @@ function createMockMeals(count: number, startIndex = 1): CandidateMeal[] {
 const defaultOptions = {
   householdId: 'household-1',
   startDate: date('2026-01-12'),
+  endDate: date('2026-01-19'),
   dietaryType: null,
   allergensToAvoid: [],
   excludedIngredientIds: [],

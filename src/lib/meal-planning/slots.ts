@@ -20,11 +20,16 @@ export interface SlotRequirement {
 
 type SlotType = 'midweek' | 'weekend' | 'early' | 'late'
 
-const dayOfWeekMap: Record<SlotType, number> = {
-  midweek: 3, // Wednesday
-  weekend: 6, // Saturday
-  early: 2, // Tuesday
-  late: 5, // Friday
+/**
+ * Relative positions within a date range for protein balance slots.
+ * Values are fractions (0-1) of the range length.
+ * For a 7-day range: early≈day 2, midweek≈day 3, late≈day 5, weekend≈day 6.
+ */
+const relativePositionMap: Record<SlotType, number> = {
+  early: 0.25,
+  midweek: 0.4,
+  late: 0.7,
+  weekend: 0.8,
 }
 
 /**
@@ -77,16 +82,17 @@ export function computeMealSlots(
 }
 
 /**
- * Pick a day from the dates array matching the slot type.
- * Falls back to first date if target day not found.
+ * Pick a day from the dates array at a relative position for the slot type.
+ * Uses fractional positions within the range for flexible date range support.
  * Requires non-empty dates array.
  */
 export function pickDay(dates: Date[], slot: SlotType): Date {
   if (dates.length === 0) {
     throw new Error('pickDay requires non-empty dates array')
   }
-  const targetDay = dayOfWeekMap[slot]
-  return dates.find((d) => d.getDay() === targetDay) ?? dates[0]!
+  const position = relativePositionMap[slot]
+  const index = Math.min(Math.round(position * (dates.length - 1)), dates.length - 1)
+  return dates[index]!
 }
 
 /**

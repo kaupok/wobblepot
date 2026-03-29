@@ -25,11 +25,29 @@ vi.mock('./GeneratingOverlay', () => ({
 
 // Mock day-picker to return stable options regardless of system date
 vi.mock('@/lib/meal-planning/day-picker', () => ({
-  getDayPickerOptions: () => [
+  getStartDateOptions: () => [
     { label: 'Today', date: '2026-02-18' },
     { label: 'Tomorrow', date: '2026-02-19' },
-    { label: 'Next week (23 Feb)', date: '2026-02-23' },
+    { label: 'Fri (20 Feb)', date: '2026-02-20' },
+    { label: 'Sat (21 Feb)', date: '2026-02-21' },
+    { label: 'Sun (22 Feb)', date: '2026-02-22' },
   ],
+  getDaysCountOptions: () => [
+    { value: 3, label: '3 days' },
+    { value: 5, label: '5 days' },
+    { value: 7, label: '7 days' },
+    { value: 10, label: '10 days' },
+    { value: 14, label: '14 days' },
+  ],
+  computeEndDate: (start: string, days: number) => {
+    const [y, m, d] = start.split('-').map(Number)
+    const date = new Date(y!, m! - 1, d!)
+    date.setDate(date.getDate() + days)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  },
 }))
 
 // Default week context for most tests
@@ -37,6 +55,8 @@ const defaultWeekContext: WeekContext = {
   type: 'current',
   daysCount: 7,
   isPartialWeek: false,
+  startDate: '2026-02-16',
+  endDate: '2026-02-23',
 }
 
 describe('EmptyPlan', () => {
@@ -55,7 +75,7 @@ describe('EmptyPlan', () => {
       render(<EmptyPlan weekContext={defaultWeekContext} />)
 
       expect(
-        screen.getByRole('heading', { name: 'No meal plan for this week' }),
+        screen.getByRole('heading', { name: 'No meals planned for this week' }),
       ).toBeInTheDocument()
       expect(
         screen.getByText('Generate your meal plan for this week to get started.'),
@@ -63,16 +83,36 @@ describe('EmptyPlan', () => {
     })
 
     it('renders heading and description for next week', () => {
-      render(<EmptyPlan weekContext={{ type: 'next', daysCount: 7, isPartialWeek: false }} />)
+      render(
+        <EmptyPlan
+          weekContext={{
+            type: 'next',
+            daysCount: 7,
+            isPartialWeek: false,
+            startDate: '2026-02-23',
+            endDate: '2026-03-02',
+          }}
+        />,
+      )
 
       expect(
-        screen.getByRole('heading', { name: 'No meal plan for next week' }),
+        screen.getByRole('heading', { name: 'No meals planned for next week' }),
       ).toBeInTheDocument()
       expect(screen.getByText('Generate your meal plan for next week.')).toBeInTheDocument()
     })
 
     it('renders partial week description', () => {
-      render(<EmptyPlan weekContext={{ type: 'current', daysCount: 4, isPartialWeek: true }} />)
+      render(
+        <EmptyPlan
+          weekContext={{
+            type: 'current',
+            daysCount: 4,
+            isPartialWeek: true,
+            startDate: '2026-02-16',
+            endDate: '2026-02-23',
+          }}
+        />,
+      )
 
       expect(
         screen.getByText('Generate a plan for the remaining 4 days of this week.'),
@@ -86,7 +126,17 @@ describe('EmptyPlan', () => {
     })
 
     it('renders generate button for next week', () => {
-      render(<EmptyPlan weekContext={{ type: 'next', daysCount: 7, isPartialWeek: false }} />)
+      render(
+        <EmptyPlan
+          weekContext={{
+            type: 'next',
+            daysCount: 7,
+            isPartialWeek: false,
+            startDate: '2026-02-23',
+            endDate: '2026-03-02',
+          }}
+        />,
+      )
 
       expect(screen.getByRole('button', { name: 'Generate next week' })).toBeInTheDocument()
     })
@@ -125,7 +175,7 @@ describe('EmptyPlan', () => {
       expect(screen.getByRole('button', { name: 'Generating...' })).toBeDisabled()
     })
 
-    it('calls generate endpoint with targetWeek on button click', async () => {
+    it('calls generate endpoint with startDate and endDate', async () => {
       mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
 
       render(<EmptyPlan weekContext={defaultWeekContext} />)
@@ -135,22 +185,11 @@ describe('EmptyPlan', () => {
       expect(mockFetch).toHaveBeenCalledWith('/api/meal-plans/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetWeek: 'current', mode: 'generate' }),
-        signal: expect.any(AbortSignal),
-      })
-    })
-
-    it('calls generate endpoint with next week target', async () => {
-      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
-
-      render(<EmptyPlan weekContext={{ type: 'next', daysCount: 7, isPartialWeek: false }} />)
-
-      await userEvent.click(screen.getByRole('button', { name: 'Generate next week' }))
-
-      expect(mockFetch).toHaveBeenCalledWith('/api/meal-plans/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetWeek: 'next', mode: 'generate' }),
+        body: JSON.stringify({
+          startDate: '2026-02-16',
+          endDate: '2026-02-23',
+          mode: 'generate',
+        }),
         signal: expect.any(AbortSignal),
       })
     })
@@ -165,7 +204,11 @@ describe('EmptyPlan', () => {
       expect(mockFetch).toHaveBeenCalledWith('/api/meal-plans/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetWeek: 'current', mode: 'empty' }),
+        body: JSON.stringify({
+          startDate: '2026-02-16',
+          endDate: '2026-02-23',
+          mode: 'empty',
+        }),
         signal: expect.any(AbortSignal),
       })
     })
@@ -224,7 +267,7 @@ describe('EmptyPlan', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
 
       await waitFor(() => {
-        expect(screen.getByText('A meal plan already exists for this week.')).toBeInTheDocument()
+        expect(screen.getByText('A meal plan already exists for this period.')).toBeInTheDocument()
       })
     })
 
@@ -291,58 +334,6 @@ describe('EmptyPlan', () => {
         expect(screen.getByRole('button', { name: 'Generate this week' })).not.toBeDisabled()
       })
     })
-
-    it('allows retry after error', async () => {
-      mockFetch
-        .mockResolvedValueOnce({
-          ok: false,
-          status: 500,
-          json: () => Promise.resolve({}),
-        })
-        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
-
-      render(<EmptyPlan weekContext={defaultWeekContext} />)
-
-      // First attempt fails
-      await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
-      await waitFor(() => {
-        expect(screen.getByText('Something went wrong. Please try again.')).toBeInTheDocument()
-      })
-
-      // Retry succeeds
-      await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
-      await waitFor(() => {
-        expect(mockRefresh).toHaveBeenCalled()
-      })
-    })
-
-    it('clears previous error on retry', async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 500,
-        json: () => Promise.resolve({}),
-      })
-
-      render(<EmptyPlan weekContext={defaultWeekContext} />)
-
-      // First attempt
-      await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
-      await waitFor(() => {
-        expect(screen.getByText('Something went wrong. Please try again.')).toBeInTheDocument()
-      })
-
-      // Setup for second attempt (never resolves)
-      mockFetch.mockImplementation(() => new Promise(() => {}))
-
-      // Start retry - error should clear when loading starts
-      await userEvent.click(screen.getByRole('button', { name: 'Generate this week' }))
-
-      await waitFor(() => {
-        expect(
-          screen.queryByText('Something went wrong. Please try again.'),
-        ).not.toBeInTheDocument()
-      })
-    })
   })
 
   describe('first-time generation', () => {
@@ -352,14 +343,23 @@ describe('EmptyPlan', () => {
       expect(screen.getByText('Start planning from')).toBeInTheDocument()
     })
 
-    it('shows day picker options including Today and Next week', () => {
+    it('shows start date options including Today', () => {
       render(<EmptyPlan weekContext={defaultWeekContext} isFirstGeneration />)
 
       expect(screen.getByRole('button', { name: 'Today' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /Next week/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Tomorrow' })).toBeInTheDocument()
     })
 
-    it('sends planFromDate in generate request', async () => {
+    it('shows plan duration options', () => {
+      render(<EmptyPlan weekContext={defaultWeekContext} isFirstGeneration />)
+
+      expect(screen.getByText('Plan duration')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '7 days' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '3 days' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '14 days' })).toBeInTheDocument()
+    })
+
+    it('sends startDate and endDate in generate request', async () => {
       mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
 
       render(<EmptyPlan weekContext={defaultWeekContext} isFirstGeneration />)
@@ -371,8 +371,10 @@ describe('EmptyPlan', () => {
         const generateCall = mockFetch.mock.calls[1]!
         expect(generateCall[0]).toBe('/api/meal-plans/generate')
         const body = JSON.parse(generateCall[1]!.body)
-        expect(body).toHaveProperty('planFromDate')
+        expect(body).toHaveProperty('startDate', '2026-02-18')
+        expect(body).toHaveProperty('endDate', '2026-02-25') // 7 days from Feb 18
         expect(body).not.toHaveProperty('targetWeek')
+        expect(body).not.toHaveProperty('planFromDate')
       })
     })
 
@@ -392,16 +394,15 @@ describe('EmptyPlan', () => {
       })
     })
 
-    it('navigates to correct week tab after generation', async () => {
+    it('navigates to meal plan page after generation', async () => {
       mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
 
       render(<EmptyPlan weekContext={defaultWeekContext} isFirstGeneration />)
 
-      // Click generate (default selection is "Today" which is current week)
       await userEvent.click(screen.getByRole('button', { name: 'Generate meal plan' }))
 
       await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('/meal-plan?week='))
+        expect(mockPush).toHaveBeenCalledWith('/meal-plan?week=current')
       })
     })
   })

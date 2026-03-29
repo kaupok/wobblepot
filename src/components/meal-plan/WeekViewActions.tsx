@@ -42,6 +42,8 @@ export function WeekViewActions({
         onOpenChange={setIsGenerateModalOpen}
         planId={planId}
         weekContext={weekContext}
+        weekStartDate={weekStartDate}
+        weekEndDate={weekEndDate}
       />
     </div>
   )

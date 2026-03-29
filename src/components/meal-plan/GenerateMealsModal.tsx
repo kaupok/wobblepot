@@ -36,13 +36,17 @@ interface GenerateMealsModalProps {
   onOpenChange: (open: boolean) => void
   planId: string
   weekContext: WeekContext
+  weekStartDate: string
+  weekEndDate: string
 }
 
 export function GenerateMealsModal({
   open,
   onOpenChange,
   planId,
-  weekContext,
+  weekContext: _weekContext,
+  weekStartDate,
+  weekEndDate,
 }: GenerateMealsModalProps) {
   const router = useRouter()
   const [isGenerating, setIsGenerating] = useState(false)
@@ -59,7 +63,10 @@ export function GenerateMealsModal({
     const timeoutId = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS)
 
     try {
-      const body = mode === 'fill-empty' ? { mode, planId } : { mode, targetWeek: weekContext.type }
+      const body =
+        mode === 'fill-empty'
+          ? { mode, planId, startDate: weekStartDate, endDate: weekEndDate }
+          : { mode, startDate: weekStartDate, endDate: weekEndDate }
 
       const response = await fetch('/api/meal-plans/generate', {
         method: 'POST',
