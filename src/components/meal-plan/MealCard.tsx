@@ -16,18 +16,6 @@ import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
 import type { EntryRating, MealData, PantryIngredient, PantryItemFull } from './types'
 import type { MealType } from '@/generated/prisma/enums'
 
-const mealTypeStyles: Record<MealType, { label: string }> = {
-  breakfast: {
-    label: 'Breakfast',
-  },
-  lunch: {
-    label: 'Lunch',
-  },
-  dinner: {
-    label: 'Dinner',
-  },
-}
-
 interface MealCardProps {
   entryId: string
   planId: string
@@ -156,7 +144,6 @@ export function MealCard({
     }
   }
 
-  const typeStyle = mealTypeStyles[mealType]
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
 
   if (!meal) {
@@ -165,11 +152,6 @@ export function MealCard({
     return (
       <>
         <Card className="gap-2 py-2">
-          <CardHeader className="px-3 pb-0">
-            <div className="text-muted-foreground text-[9px] font-medium tracking-wide uppercase">
-              {typeStyle.label}
-            </div>
-          </CardHeader>
           <CardContent className="flex flex-col gap-1.5 px-3 pb-1">
             {note ? (
               <Body variant="muted" className="text-xs italic">
@@ -224,40 +206,35 @@ export function MealCard({
     <>
       <Card className="gap-2 py-2">
         <CardHeader className="px-3 pb-0">
-          <div className="flex items-center justify-between">
-            <div className="text-muted-foreground text-[9px] font-medium tracking-wide uppercase">
-              {typeStyle.label}
+          {!isReadOnly && !isPast && (
+            <div className="flex justify-end gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 px-1.5 text-[10px]"
+                onClick={() => setIsNoteEditing(true)}
+              >
+                Note
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 px-1.5 text-[10px]"
+                onClick={() => setIsRegenerateModalOpen(true)}
+              >
+                Swap
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 px-1.5 text-[10px]"
+                onClick={handleClear}
+                disabled={isClearing}
+              >
+                Clear
+              </Button>
             </div>
-            {!isReadOnly && !isPast && (
-              <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-5 px-1.5 text-[10px]"
-                  onClick={() => setIsNoteEditing(true)}
-                >
-                  Note
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-5 px-1.5 text-[10px]"
-                  onClick={() => setIsRegenerateModalOpen(true)}
-                >
-                  Swap
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-5 px-1.5 text-[10px]"
-                  onClick={handleClear}
-                  disabled={isClearing}
-                >
-                  Clear
-                </Button>
-              </div>
-            )}
-          </div>
+          )}
           <CardTitle className="text-xs leading-tight font-semibold">
             <button
               type="button"

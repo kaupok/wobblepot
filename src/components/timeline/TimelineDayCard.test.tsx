@@ -43,11 +43,9 @@ const defaultProps = {
 }
 
 describe('TimelineDayCard', () => {
-  it('renders day label and Today badge', () => {
+  it('renders day label', () => {
     render(<TimelineDayCard day={baseDay} {...defaultProps} />)
-    // "Today" appears twice: once as label text, once as badge
-    const todayElements = screen.getAllByText('Today')
-    expect(todayElements).toHaveLength(2)
+    expect(screen.getByText('Today')).toBeInTheDocument()
   })
 
   it('renders empty slots for future days', () => {
@@ -136,5 +134,36 @@ describe('TimelineDayCard', () => {
     expect(screen.getByTestId('empty-slot-breakfast')).toBeInTheDocument()
     expect(screen.getByTestId('empty-slot-lunch')).toBeInTheDocument()
     expect(screen.getByTestId('meal-card-dinner')).toBeInTheDocument()
+  })
+
+  it('renders meal type labels outside the cards', () => {
+    const dayWithEntry: TimelineDay = {
+      ...baseDay,
+      entries: [
+        {
+          id: 'e1',
+          date: '2026-03-29',
+          mealType: 'dinner',
+          status: 'planned',
+          rating: null,
+          meal: {
+            id: 'm1',
+            name: 'Chicken Rice',
+            kidFriendly: true,
+            components: [],
+            nutrition: { calories: 500, protein: 30, carbs: 50, fat: 15 },
+          },
+          preparationTips: null,
+          note: null,
+          servingOverride: null,
+        },
+      ],
+      emptySlots: ['breakfast'],
+    }
+
+    render(<TimelineDayCard day={dayWithEntry} {...defaultProps} />)
+
+    expect(screen.getByText('Dinner')).toBeInTheDocument()
+    expect(screen.getByText('Breakfast')).toBeInTheDocument()
   })
 })

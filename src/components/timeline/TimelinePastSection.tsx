@@ -38,7 +38,7 @@ export function TimelinePastSection({
       <Button
         variant="ghost"
         size="sm"
-        className="self-start"
+        className="self-end"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         {isExpanded ? (
