@@ -87,9 +87,6 @@ export function ShoppingList({
       }
       toast.error(_err instanceof Error ? _err.message : 'Failed to update item')
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey })
-    },
   })
 
   const handleToggle = (ingredientId: string, purchased: boolean) => {

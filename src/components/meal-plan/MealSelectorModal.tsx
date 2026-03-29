@@ -179,7 +179,7 @@ export function MealSelectorModal({
       return data.alternatives || data.suggestions || []
     },
     enabled: open && !isSearchMode && !isMyRecipesBrowseMode,
-    staleTime: 0,
+    staleTime: Infinity,
   })
 
   // Query 2: Search results
