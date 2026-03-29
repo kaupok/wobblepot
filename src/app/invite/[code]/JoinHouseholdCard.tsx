@@ -4,14 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 
 interface JoinHouseholdCardProps {
@@ -65,12 +58,8 @@ export function JoinHouseholdCard({
     return (
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>
-            <Heading variant="h2">Already a member</Heading>
-          </CardTitle>
-          <CardDescription>
-            <Body variant="muted">You are already a member of &ldquo;{householdName}&rdquo;</Body>
-          </CardDescription>
+          <Heading variant="h4">Already a member</Heading>
+          <Body variant="muted">You are already a member of &ldquo;{householdName}&rdquo;</Body>
         </CardHeader>
         <CardContent>
           <Body>
@@ -91,12 +80,8 @@ export function JoinHouseholdCard({
     return (
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>
-            <Heading variant="h2">Invite expired</Heading>
-          </CardTitle>
-          <CardDescription>
-            <Body variant="muted">This invite is no longer valid</Body>
-          </CardDescription>
+          <Heading variant="h4">Invite expired</Heading>
+          <Body variant="muted">This invite is no longer valid</Body>
         </CardHeader>
         <CardContent>
           <Body>
@@ -116,16 +101,12 @@ export function JoinHouseholdCard({
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <CardTitle>
-          <Heading variant="h2">{memberName ? `Join as ${memberName}` : 'Join household'}</Heading>
-        </CardTitle>
-        <CardDescription>
-          <Body variant="muted">
-            {memberName
-              ? 'Claim your profile and join the household'
-              : "You've been invited to join a household"}
-          </Body>
-        </CardDescription>
+        <Heading variant="h4">{memberName ? `Join as ${memberName}` : 'Join household'}</Heading>
+        <Body variant="muted">
+          {memberName
+            ? 'Claim your profile and join the household'
+            : "You've been invited to join a household"}
+        </Body>
       </CardHeader>
       <CardContent>
         <div className="flex flex-col gap-4">

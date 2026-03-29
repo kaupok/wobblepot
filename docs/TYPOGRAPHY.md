@@ -25,9 +25,10 @@ Renders paragraph text with different text sizes and styles:
 <Body variant="large">Large text (lg, semibold)</Body>
 <Body variant="small">Small text (sm, medium weight)</Body>
 <Body variant="muted">Muted text (sm, muted color)</Body>
+<Body variant="caption">Caption text (xs, medium weight, muted)</Body>
 ```
 
-**Available variants:** `default` | `lead` | `large` | `small` | `muted`
+**Available variants:** `default` | `lead` | `large` | `small` | `muted` | `caption`
 
 ## Separation of Concerns
 

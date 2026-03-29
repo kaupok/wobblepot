@@ -4,7 +4,7 @@ import React from 'react'
 
 // Variant type exports for type reusability
 export type HeadingVariant = 'h1' | 'h2' | 'h3' | 'h4'
-export type BodyVariant = 'default' | 'lead' | 'large' | 'small' | 'muted'
+export type BodyVariant = 'default' | 'lead' | 'large' | 'small' | 'muted' | 'caption'
 
 // Heading component with variants for h1-h4
 const headingVariants = cva('scroll-m-20 tracking-tight', {
@@ -53,6 +53,7 @@ const bodyVariants = cva('', {
       large: 'text-lg font-semibold',
       small: 'text-sm font-medium leading-none',
       muted: 'text-sm text-muted-foreground',
+      caption: 'text-xs font-medium text-muted-foreground',
     },
   },
   defaultVariants: {

@@ -4,14 +4,7 @@ import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
 import { ChevronDown, ChevronRight, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -442,16 +435,12 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
   return (
     <Card className="w-full max-w-2xl">
       <CardHeader>
-        <CardTitle>
-          <Heading variant="h2">{isEditing ? 'Edit meal' : 'Create meal'}</Heading>
-        </CardTitle>
-        <CardDescription>
-          <Body variant="muted">
-            {isEditing
-              ? 'Update your custom meal details'
-              : 'Add a new meal to your household collection'}
-          </Body>
-        </CardDescription>
+        <Heading variant="h4">{isEditing ? 'Edit meal' : 'Create meal'}</Heading>
+        <Body variant="muted">
+          {isEditing
+            ? 'Update your custom meal details'
+            : 'Add a new meal to your household collection'}
+        </Body>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent>
@@ -574,19 +563,21 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
               {/* Live nutrition summary */}
               {nutritionSummary.matchedCount > 0 && (
                 <div className="bg-muted/50 rounded-md border px-3 py-2">
-                  <Body variant="muted" className="mb-1 text-xs font-medium">
-                    Nutrition per serving
-                  </Body>
+                  <div className="mb-1">
+                    <Body variant="caption">Nutrition per serving</Body>
+                  </div>
                   <NutritionSummary
                     nutrition={nutritionSummary.nutrition}
                     compact
                     components={nutritionSummary.hasVague ? [{ isVague: true }] : undefined}
                   />
                   {nutritionSummary.unmatchedCount > 0 && (
-                    <Body variant="muted" className="mt-1 text-xs">
-                      Approximate — {nutritionSummary.unmatchedCount} ingredient
-                      {nutritionSummary.unmatchedCount > 1 ? 's' : ''} not included
-                    </Body>
+                    <div className="mt-1">
+                      <Body variant="caption">
+                        Approximate — {nutritionSummary.unmatchedCount} ingredient
+                        {nutritionSummary.unmatchedCount > 1 ? 's' : ''} not included
+                      </Body>
+                    </div>
                   )}
                 </div>
               )}

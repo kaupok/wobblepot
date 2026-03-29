@@ -4,7 +4,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { useState } from 'react'
 import { ChevronDown, Star, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Button } from '@/components/ui/button'
 import { Body, Heading } from '@/components/ui/typography'
@@ -175,14 +175,10 @@ export function PantrySection({
             <CollapsibleTrigger asChild>
               <button className="flex w-full items-center justify-between text-left">
                 <div className="flex flex-col gap-1">
-                  <CardTitle>
-                    <Heading variant="h2">Your pantry</Heading>
-                  </CardTitle>
-                  <CardDescription>
-                    <Body variant="muted">
-                      {items.length} {items.length === 1 ? 'item' : 'items'} in stock
-                    </Body>
-                  </CardDescription>
+                  <Heading variant="h4">Your pantry</Heading>
+                  <Body variant="muted">
+                    {items.length} {items.length === 1 ? 'item' : 'items'} in stock
+                  </Body>
                 </div>
                 <ChevronDown
                   className={cn(
@@ -204,12 +200,8 @@ export function PantrySection({
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>
-          <Heading variant="h2">Your pantry</Heading>
-        </CardTitle>
-        <CardDescription>
-          <Body variant="muted">Manage your household inventory</Body>
-        </CardDescription>
+        <Heading variant="h4">Your pantry</Heading>
+        <Body variant="muted">Manage your household inventory</Body>
       </CardHeader>
       <CardContent>{content}</CardContent>
     </Card>
@@ -280,7 +272,7 @@ function PantryItemRow({
         <div className="flex flex-col">
           <Body>{item.ingredient.name}</Body>
           {item.neededQuantity !== undefined && item.neededQuantity > 0 && (
-            <Body variant="muted" className="text-xs">
+            <Body variant="caption">
               {item.neededDisplayQuantity} needed in next {item.windowDays} days
             </Body>
           )}

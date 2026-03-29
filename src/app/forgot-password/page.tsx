@@ -7,14 +7,7 @@ import { getUserFriendlyError } from '@/lib/auth-errors'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 
 export default function ForgotPasswordPage() {
@@ -74,14 +67,10 @@ export default function ForgotPasswordPage() {
     <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>
-            <Heading variant="h2">Forgot password</Heading>
-          </CardTitle>
-          <CardDescription>
-            <Body variant="muted">
-              Enter your email address and we&apos;ll send you a link to reset your password
-            </Body>
-          </CardDescription>
+          <Heading variant="h4">Forgot password</Heading>
+          <Body variant="muted">
+            Enter your email address and we&apos;ll send you a link to reset your password
+          </Body>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent>

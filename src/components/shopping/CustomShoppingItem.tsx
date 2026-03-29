@@ -69,7 +69,7 @@ export function CustomShoppingItem({
             {item.name}
           </Body>
           {item.ingredientCategory && (
-            <Body variant="muted" className="text-xs">
+            <Body variant="caption">
               {CATEGORY_LABELS[item.ingredientCategory] ?? item.ingredientCategory}
             </Body>
           )}
