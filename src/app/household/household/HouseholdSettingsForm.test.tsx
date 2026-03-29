@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { toast } from 'sonner'
 import { HouseholdSettingsForm } from './HouseholdSettingsForm'
+import { createQueryWrapper } from '@/test/query-wrapper'
 
 vi.mock('sonner', () => ({
   toast: {
@@ -50,6 +51,17 @@ const defaultPreferences: {
   weekendMealTypes: ['dinner'],
 }
 
+function renderForm(overrides: Partial<Parameters<typeof HouseholdSettingsForm>[0]> = {}) {
+  const { wrapper } = createQueryWrapper()
+  const props = {
+    household: defaultHousehold,
+    preferences: defaultPreferences,
+    isOwner: true,
+    ...overrides,
+  }
+  return render(<HouseholdSettingsForm {...props} />, { wrapper })
+}
+
 describe('HouseholdSettingsForm', () => {
   beforeEach(() => {
     mockFetch.mockReset()
@@ -63,13 +75,7 @@ describe('HouseholdSettingsForm', () => {
 
   describe('rendering', () => {
     it('renders all form sections', () => {
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={true}
-        />,
-      )
+      renderForm()
 
       expect(screen.getByText('Basic information')).toBeInTheDocument()
       expect(screen.getByText('Dietary preferences')).toBeInTheDocument()
@@ -78,26 +84,14 @@ describe('HouseholdSettingsForm', () => {
     })
 
     it('renders household name input with initial value', () => {
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={true}
-        />,
-      )
+      renderForm()
 
       const nameInput = screen.getByLabelText('Household name')
       expect(nameInput).toHaveValue('Test Household')
     })
 
     it('renders dietary type radio buttons', () => {
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={true}
-        />,
-      )
+      renderForm()
 
       expect(screen.getByLabelText('No preference')).toBeInTheDocument()
       expect(screen.getByLabelText('Vegetarian')).toBeInTheDocument()
@@ -106,13 +100,7 @@ describe('HouseholdSettingsForm', () => {
     })
 
     it('renders allergen checkboxes', () => {
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={true}
-        />,
-      )
+      renderForm()
 
       expect(screen.getByLabelText('Gluten')).toBeInTheDocument()
       expect(screen.getByLabelText('Dairy')).toBeInTheDocument()
@@ -126,20 +114,11 @@ describe('HouseholdSettingsForm', () => {
     })
 
     it('renders meal type checkboxes for weekday and weekend', () => {
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={true}
-        />,
-      )
+      renderForm()
 
-      // Weekday meals
       expect(screen.getByText('Weekday meals to plan')).toBeInTheDocument()
-      // Weekend meals
       expect(screen.getByText('Weekend meals to plan')).toBeInTheDocument()
 
-      // Should have 6 meal type checkboxes (3 weekday + 3 weekend)
       const breakfastCheckboxes = screen.getAllByLabelText('Breakfast')
       const lunchCheckboxes = screen.getAllByLabelText('Lunch')
       const dinnerCheckboxes = screen.getAllByLabelText('Dinner')
@@ -152,37 +131,19 @@ describe('HouseholdSettingsForm', () => {
 
   describe('owner vs member permissions', () => {
     it('enables name and timezone inputs for owners', () => {
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={true}
-        />,
-      )
+      renderForm({ isOwner: true })
 
       expect(screen.getByLabelText('Household name')).not.toBeDisabled()
     })
 
     it('disables name input for non-owners', () => {
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={false}
-        />,
-      )
+      renderForm({ isOwner: false })
 
       expect(screen.getByLabelText('Household name')).toBeDisabled()
     })
 
     it('shows owner-only message for non-owners', () => {
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={false}
-        />,
-      )
+      renderForm({ isOwner: false })
 
       expect(
         screen.getByText('Only the household owner can edit name and timezone.'),
@@ -190,13 +151,7 @@ describe('HouseholdSettingsForm', () => {
     })
 
     it('does not show owner-only message for owners', () => {
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={true}
-        />,
-      )
+      renderForm({ isOwner: true })
 
       expect(
         screen.queryByText('Only the household owner can edit name and timezone.'),
@@ -204,15 +159,8 @@ describe('HouseholdSettingsForm', () => {
     })
 
     it('allows non-owners to edit preferences', () => {
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={false}
-        />,
-      )
+      renderForm({ isOwner: false })
 
-      // Allergen checkboxes should not be disabled
       expect(screen.getByLabelText('Gluten')).not.toBeDisabled()
       expect(screen.getByLabelText('Dairy')).not.toBeDisabled()
     })
@@ -220,31 +168,17 @@ describe('HouseholdSettingsForm', () => {
 
   describe('initial values from preferences', () => {
     it('shows selected dietary type', () => {
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={{
-            ...defaultPreferences,
-            dietaryType: 'vegetarian',
-          }}
-          isOwner={true}
-        />,
-      )
+      renderForm({
+        preferences: { ...defaultPreferences, dietaryType: 'vegetarian' },
+      })
 
       expect(screen.getByLabelText('Vegetarian')).toBeChecked()
     })
 
     it('shows selected allergens', () => {
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={{
-            ...defaultPreferences,
-            allergensToAvoid: ['gluten', 'dairy'],
-          }}
-          isOwner={true}
-        />,
-      )
+      renderForm({
+        preferences: { ...defaultPreferences, allergensToAvoid: ['gluten', 'dairy'] },
+      })
 
       expect(screen.getByLabelText('Gluten')).toBeChecked()
       expect(screen.getByLabelText('Dairy')).toBeChecked()
@@ -252,35 +186,23 @@ describe('HouseholdSettingsForm', () => {
     })
 
     it('shows selected meal types', () => {
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={{
-            ...defaultPreferences,
-            weekdayMealTypes: ['breakfast', 'dinner'],
-            weekendMealTypes: ['lunch'],
-          }}
-          isOwner={true}
-        />,
-      )
+      renderForm({
+        preferences: {
+          ...defaultPreferences,
+          weekdayMealTypes: ['breakfast', 'dinner'],
+          weekendMealTypes: ['lunch'],
+        },
+      })
 
       const dinnerCheckboxes = screen.getAllByLabelText('Dinner')
-      // First dinner checkbox is weekday
       expect(dinnerCheckboxes[0]).toBeChecked()
-      // Second dinner checkbox is weekend
       expect(dinnerCheckboxes[1]).not.toBeChecked()
     })
   })
 
   describe('form interactions', () => {
     it('updates name input on change', async () => {
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={true}
-        />,
-      )
+      renderForm()
 
       const nameInput = screen.getByLabelText('Household name')
       await userEvent.clear(nameInput)
@@ -290,13 +212,7 @@ describe('HouseholdSettingsForm', () => {
     })
 
     it('toggles allergen checkbox', async () => {
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={true}
-        />,
-      )
+      renderForm()
 
       const glutenCheckbox = screen.getByLabelText('Gluten')
       expect(glutenCheckbox).not.toBeChecked()
@@ -309,13 +225,7 @@ describe('HouseholdSettingsForm', () => {
     })
 
     it('changes dietary type selection', async () => {
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={true}
-        />,
-      )
+      renderForm()
 
       const veganRadio = screen.getByLabelText('Vegan')
       await userEvent.click(veganRadio)
@@ -325,27 +235,14 @@ describe('HouseholdSettingsForm', () => {
     })
 
     it('renders timezone select with current value', () => {
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={true}
-        />,
-      )
+      renderForm()
 
-      // Verify the timezone trigger shows the current value
       const timezoneTrigger = screen.getByRole('combobox', { name: /timezone/i })
       expect(timezoneTrigger).toHaveTextContent('Europe/Tallinn')
     })
 
     it('disables timezone select for non-owners', () => {
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={false}
-        />,
-      )
+      renderForm({ isOwner: false })
 
       const timezoneTrigger = screen.getByRole('combobox', { name: /timezone/i })
       expect(timezoneTrigger).toBeDisabled()
@@ -356,22 +253,14 @@ describe('HouseholdSettingsForm', () => {
     it('submits form with correct data for owner', async () => {
       mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
 
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={true}
-        />,
-      )
+      renderForm({ isOwner: true })
 
       await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
 
       await waitFor(() => {
-        // Owner should make 2 API calls
         expect(mockFetch).toHaveBeenCalledTimes(2)
       })
 
-      // Check household update call
       expect(mockFetch).toHaveBeenCalledWith(
         '/api/households/me',
         expect.objectContaining({
@@ -383,7 +272,6 @@ describe('HouseholdSettingsForm', () => {
         }),
       )
 
-      // Check preferences update call
       expect(mockFetch).toHaveBeenCalledWith(
         '/api/households/me/preferences',
         expect.objectContaining({
@@ -395,36 +283,22 @@ describe('HouseholdSettingsForm', () => {
     it('only submits preferences for non-owner', async () => {
       mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
 
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={false}
-        />,
-      )
+      renderForm({ isOwner: false })
 
       await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
 
       await waitFor(() => {
-        // Non-owner should only make 1 API call (preferences)
         expect(mockFetch).toHaveBeenCalledTimes(1)
       })
 
       expect(mockFetch).toHaveBeenCalledWith('/api/households/me/preferences', expect.anything())
-
       expect(mockFetch).not.toHaveBeenCalledWith('/api/households/me', expect.anything())
     })
 
     it('shows success toast on successful save', async () => {
       mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
 
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={true}
-        />,
-      )
+      renderForm()
 
       await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
 
@@ -439,13 +313,7 @@ describe('HouseholdSettingsForm', () => {
         json: () => Promise.resolve({ error: 'Failed to save' }),
       })
 
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={true}
-        />,
-      )
+      renderForm()
 
       await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
 
@@ -459,13 +327,7 @@ describe('HouseholdSettingsForm', () => {
         () => new Promise((resolve) => setTimeout(() => resolve({ ok: true }), 500)),
       )
 
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={true}
-        />,
-      )
+      renderForm()
 
       await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
 
@@ -475,13 +337,7 @@ describe('HouseholdSettingsForm', () => {
     it('handles network failure gracefully', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'))
 
-      render(
-        <HouseholdSettingsForm
-          household={defaultHousehold}
-          preferences={defaultPreferences}
-          isOwner={true}
-        />,
-      )
+      renderForm()
 
       await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
 
@@ -493,13 +349,9 @@ describe('HouseholdSettingsForm', () => {
 
   describe('null preferences handling', () => {
     it('handles null preferences gracefully', () => {
-      render(
-        <HouseholdSettingsForm household={defaultHousehold} preferences={null} isOwner={true} />,
-      )
+      renderForm({ preferences: null })
 
-      // Should render with default values
       expect(screen.getByLabelText('No preference')).toBeChecked()
-      // Default meal types (dinner)
       const dinnerCheckboxes = screen.getAllByLabelText('Dinner')
       expect(dinnerCheckboxes[0]).toBeChecked()
       expect(dinnerCheckboxes[1]).toBeChecked()

@@ -1,43 +1,42 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useEffect } from 'react'
 import Link from 'next/link'
 import { Plus, Loader2, Sparkles } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { MealList, type MealData } from '@/components/household/MealList'
+import { apiFetch } from '@/lib/api'
 
 export function RecipesPageClient() {
-  const [meals, setMeals] = useState<MealData[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
 
-  const fetchMeals = useCallback(async () => {
-    try {
-      const response = await fetch('/api/households/me/meals')
-      if (!response.ok) {
-        throw new Error('Failed to fetch meals')
-      }
-      const data = await response.json()
-      setMeals(data.meals)
-    } catch {
-      toast.error('Failed to load meals')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+  const {
+    data: meals = [],
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ['meals'],
+    queryFn: () => apiFetch<{ meals: MealData[] }>('/api/households/me/meals').then((d) => d.meals),
+  })
 
   useEffect(() => {
-    fetchMeals()
-  }, [fetchMeals])
+    if (error) toast.error('Failed to load meals')
+  }, [error])
 
   const handleDelete = (mealId: string) => {
-    setMeals(meals.filter((m) => m.id !== mealId))
+    queryClient.setQueryData<MealData[]>(['meals'], (old) =>
+      old ? old.filter((m) => m.id !== mealId) : [],
+    )
   }
 
   const handleToggleFavorite = (mealId: string, isFavorite: boolean) => {
-    setMeals(meals.map((m) => (m.id === mealId ? { ...m, isFavorite } : m)))
+    queryClient.setQueryData<MealData[]>(['meals'], (old) =>
+      old ? old.map((m) => (m.id === mealId ? { ...m, isFavorite } : m)) : [],
+    )
   }
 
   return (

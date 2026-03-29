@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -33,10 +34,43 @@ export function MemberInviteDialog({
   existingInvite,
   onInviteCreated,
 }: MemberInviteDialogProps) {
-  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [createdInvite, setCreatedInvite] = useState<MemberInvite | null>(existingInvite)
   const [copied, setCopied] = useState(false)
+
+  const createInvite = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/households/me/invites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          memberId,
+          expiresInDays: 7,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to create invite')
+      }
+
+      return response.json()
+    },
+    onSuccess: (invite) => {
+      const newInvite: MemberInvite = {
+        url: invite.url,
+        expiresAt: invite.expiresAt,
+        isActive: true,
+      }
+      setCreatedInvite(newInvite)
+      onInviteCreated(newInvite)
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+    },
+  })
+
+  const isLoading = createInvite.isPending
 
   const resetForm = () => {
     setError('')
@@ -54,38 +88,9 @@ export function MemberInviteDialog({
     onOpenChange(newOpen)
   }
 
-  const handleCreateInvite = async () => {
+  const handleCreateInvite = () => {
     setError('')
-    setIsLoading(true)
-
-    try {
-      const response = await fetch('/api/households/me/invites', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          memberId,
-          expiresInDays: 7,
-        }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to create invite')
-      }
-
-      const invite = await response.json()
-      const newInvite: MemberInvite = {
-        url: invite.url,
-        expiresAt: invite.expiresAt,
-        isActive: true,
-      }
-      setCreatedInvite(newInvite)
-      onInviteCreated(newInvite)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
-    } finally {
-      setIsLoading(false)
-    }
+    createInvite.mutate()
   }
 
   const handleCopy = async () => {

@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { CreateHouseholdForm } from './CreateHouseholdForm'
+import { createQueryWrapper } from '@/test/query-wrapper'
 
 // Mock next/navigation
 const mockPush = vi.fn()
@@ -17,6 +18,11 @@ vi.mock('next/navigation', () => ({
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
+function renderForm(userName = 'John') {
+  const { wrapper } = createQueryWrapper()
+  return render(<CreateHouseholdForm userName={userName} />, { wrapper })
+}
+
 describe('CreateHouseholdForm', () => {
   beforeEach(() => {
     mockFetch.mockReset()
@@ -30,7 +36,7 @@ describe('CreateHouseholdForm', () => {
 
   describe('Step 1: Household name', () => {
     it('renders first step with heading and progress indicator', () => {
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       expect(screen.getByText('Step 1 of 2')).toBeInTheDocument()
       expect(screen.getByText('Create your household')).toBeInTheDocument()
@@ -38,21 +44,21 @@ describe('CreateHouseholdForm', () => {
     })
 
     it('renders name input with default value based on userName', () => {
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       const nameInput = screen.getByLabelText('Household name')
       expect(nameInput).toHaveValue("John's Household")
     })
 
     it('renders Continue button on first step', () => {
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument()
     })
 
     it('allows editing the household name', async () => {
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       const nameInput = screen.getByLabelText('Household name')
       await userEvent.clear(nameInput)
@@ -62,7 +68,7 @@ describe('CreateHouseholdForm', () => {
     })
 
     it('shows error when trying to continue with empty name', async () => {
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       const nameInput = screen.getByLabelText('Household name')
       await userEvent.clear(nameInput)
@@ -76,7 +82,7 @@ describe('CreateHouseholdForm', () => {
 
   describe('Step 2: Household members', () => {
     it('navigates to step 2 when continuing from step 1', async () => {
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
@@ -86,7 +92,7 @@ describe('CreateHouseholdForm', () => {
     })
 
     it('shows Create household button on final step', async () => {
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
@@ -95,7 +101,7 @@ describe('CreateHouseholdForm', () => {
     })
 
     it('shows Back button on step 2', async () => {
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
@@ -103,7 +109,7 @@ describe('CreateHouseholdForm', () => {
     })
 
     it('navigates back to step 1', async () => {
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
       await userEvent.click(screen.getByRole('button', { name: 'Back' }))
@@ -112,7 +118,7 @@ describe('CreateHouseholdForm', () => {
     })
 
     it('shows household size input with default value 1', async () => {
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
@@ -121,7 +127,7 @@ describe('CreateHouseholdForm', () => {
     })
 
     it('shows first member row pre-filled with user name and disabled', async () => {
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
@@ -131,7 +137,7 @@ describe('CreateHouseholdForm', () => {
     })
 
     it('expands member rows when increasing household size', async () => {
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
@@ -145,7 +151,7 @@ describe('CreateHouseholdForm', () => {
     })
 
     it('collapses member rows when decreasing household size', async () => {
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
@@ -160,7 +166,7 @@ describe('CreateHouseholdForm', () => {
     })
 
     it('does not allow decreasing below 1', async () => {
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
@@ -168,7 +174,7 @@ describe('CreateHouseholdForm', () => {
     })
 
     it('allows toggling Adult/Child for additional members', async () => {
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
@@ -187,7 +193,7 @@ describe('CreateHouseholdForm', () => {
     })
 
     it('allows entering names for additional members', async () => {
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
@@ -225,7 +231,7 @@ describe('CreateHouseholdForm', () => {
           }),
       })
 
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       // Step 1: Edit name
       const nameInput = screen.getByLabelText('Household name')
@@ -269,7 +275,7 @@ describe('CreateHouseholdForm', () => {
           }),
       })
 
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       await navigateToFinalStep()
       await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
@@ -296,7 +302,7 @@ describe('CreateHouseholdForm', () => {
           }),
       })
 
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       await navigateToFinalStep()
 
@@ -331,7 +337,7 @@ describe('CreateHouseholdForm', () => {
           }),
       })
 
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       await navigateToFinalStep()
 
@@ -372,7 +378,7 @@ describe('CreateHouseholdForm', () => {
           }),
       })
 
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       await navigateToFinalStep()
       await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
@@ -398,7 +404,7 @@ describe('CreateHouseholdForm', () => {
           ),
       )
 
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       await navigateToFinalStep()
       await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
@@ -416,7 +422,7 @@ describe('CreateHouseholdForm', () => {
           }),
       })
 
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       await navigateToFinalStep()
       await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
@@ -436,7 +442,7 @@ describe('CreateHouseholdForm', () => {
           }),
       })
 
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       await navigateToFinalStep()
       await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
@@ -450,7 +456,7 @@ describe('CreateHouseholdForm', () => {
     it('handles network failure gracefully', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'))
 
-      render(<CreateHouseholdForm userName="John" />)
+      renderForm()
 
       await navigateToFinalStep()
       await userEvent.click(screen.getByRole('button', { name: 'Create household' }))

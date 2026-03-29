@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { Plus, Loader2 } from 'lucide-react'
+import { useMutation } from '@tanstack/react-query'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 
@@ -21,16 +22,10 @@ interface CustomItemInputProps {
 
 export function CustomItemInput({ onItemAdded, disabled }: CustomItemInputProps) {
   const [value, setValue] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const handleSubmit = async () => {
-    const name = value.trim()
-    if (!name || isSubmitting) return
-
-    setIsSubmitting(true)
-
-    try {
+  const addItem = useMutation({
+    mutationFn: async (name: string) => {
       const response = await fetch('/api/shopping-list/custom', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -42,30 +37,39 @@ export function CustomItemInput({ onItemAdded, disabled }: CustomItemInputProps)
       if (!response.ok) {
         if (response.status === 409) {
           toast.error('Item already on the list')
-        } else {
-          throw new Error(data.error || 'Failed to add item')
+          return null
         }
-        return
+        throw new Error(data.error || 'Failed to add item')
       }
 
-      const item: CustomItemData = {
+      return {
         id: data.item.id,
         name: data.item.name,
         checked: data.item.checked,
         ingredientId: data.item.ingredientId,
         ingredientCategory: data.item.ingredient?.category ?? null,
         createdAt: data.item.createdAt,
+      } as CustomItemData
+    },
+    onSuccess: (item) => {
+      if (item) {
+        onItemAdded(item)
+        setValue('')
+        inputRef.current?.focus()
       }
-
-      onItemAdded(item)
-      setValue('')
-      inputRef.current?.focus()
-    } catch (error) {
+    },
+    onError: (error) => {
       const message = error instanceof Error ? error.message : 'Failed to add item'
       toast.error(message)
-    } finally {
-      setIsSubmitting(false)
-    }
+    },
+  })
+
+  const isSubmitting = addItem.isPending
+
+  const handleSubmit = () => {
+    const name = value.trim()
+    if (!name || isSubmitting) return
+    addItem.mutate(name)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

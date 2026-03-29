@@ -4,6 +4,7 @@ import './globals.css'
 import { Toaster } from 'sonner'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Header } from '@/components/header'
+import Providers from '@/app/providers'
 // Ensure environment variables are validated on app startup
 import '@/lib/env'
 import { getServerBaseURL } from '@/lib/env'
@@ -59,14 +60,16 @@ export default function RootLayout({
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <Toaster richColors closeButton duration={4000} />
-          <Header />
-          <main
-            id="main-content"
-            className="mx-auto min-h-screen max-w-[1152px] pt-[calc(4rem+env(safe-area-inset-top,0px))]"
-          >
-            {children}
-          </main>
+          <Providers>
+            <Toaster richColors closeButton duration={4000} />
+            <Header />
+            <main
+              id="main-content"
+              className="mx-auto min-h-screen max-w-[1152px] pt-[calc(4rem+env(safe-area-inset-top,0px))]"
+            >
+              {children}
+            </main>
+          </Providers>
         </ThemeProvider>
       </body>
     </html>
