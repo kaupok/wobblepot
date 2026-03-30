@@ -14,6 +14,10 @@ const imagineRequestSchema = z.object({
   prompt: z.string().min(1).max(500),
 })
 
+const MAX_IMAGES = 3
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+
 export async function POST(request: Request) {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -44,35 +48,82 @@ export async function POST(request: Request) {
     )
   }
 
-  // Parse request body
-  let body: unknown
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  // Parse request body — supports JSON (text-only) and FormData (with images)
+  let prompt: string | null = null
+  const images: { base64: string; mimeType: string }[] = []
+
+  const contentType = request.headers.get('content-type') ?? ''
+
+  if (contentType.includes('multipart/form-data')) {
+    const formData = await request.formData()
+    const promptField = formData.get('prompt')
+    if (promptField && typeof promptField === 'string' && promptField.trim()) {
+      if (promptField.length > 500) {
+        return NextResponse.json(
+          { error: 'Prompt must be 500 characters or less' },
+          { status: 400 },
+        )
+      }
+      prompt = promptField.trim()
+    }
+
+    const imageFiles = formData.getAll('image')
+    if (imageFiles.length > MAX_IMAGES) {
+      return NextResponse.json({ error: `Maximum ${MAX_IMAGES} images allowed` }, { status: 400 })
+    }
+
+    for (const file of imageFiles) {
+      if (!(file instanceof File)) continue
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        return NextResponse.json({ error: 'Images must be JPEG, PNG, or WebP' }, { status: 400 })
+      }
+      if (file.size > MAX_IMAGE_SIZE) {
+        return NextResponse.json({ error: 'Each image must be 5MB or less' }, { status: 400 })
+      }
+      const base64 = Buffer.from(await file.arrayBuffer()).toString('base64')
+      images.push({ base64, mimeType: file.type })
+    }
+
+    if (!prompt && images.length === 0) {
+      return NextResponse.json(
+        { error: 'Please provide a description or attach at least one image' },
+        { status: 400 },
+      )
+    }
+  } else {
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
+
+    const parsed = imagineRequestSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Please enter a description of the meal you want' },
+        { status: 400 },
+      )
+    }
+    prompt = parsed.data.prompt
   }
 
-  const parsed = imagineRequestSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Please enter a description of the meal you want' },
-      { status: 400 },
-    )
-  }
-
-  const { prompt } = parsed.data
   const preferences = household.preferences
   const householdSize = await getHouseholdMemberCount(household.id)
 
   try {
     // Generate meals with AI
-    const generatedMeals = await imagineMeals(prompt, {
-      allergens: (preferences?.allergensToAvoid ?? []) as string[],
-      dietaryType: preferences?.dietaryType ?? null,
-      excludedIngredients: (preferences?.excludedIngredients ?? []) as string[],
-      restrictions: (preferences?.restrictions ?? []) as string[],
-      householdSize,
-    })
+    const generatedMeals = await imagineMeals(
+      prompt,
+      {
+        allergens: (preferences?.allergensToAvoid ?? []) as string[],
+        dietaryType: preferences?.dietaryType ?? null,
+        excludedIngredients: (preferences?.excludedIngredients ?? []) as string[],
+        restrictions: (preferences?.restrictions ?? []) as string[],
+        householdSize,
+      },
+      images.length > 0 ? images : undefined,
+    )
 
     // Match ingredients and compute nutrition for each meal
     const meals = await Promise.all(

@@ -70,8 +70,9 @@ interface HouseholdContext {
 }
 
 export async function imagineMeals(
-  prompt: string,
+  prompt: string | null,
   household: HouseholdContext,
+  images?: { base64: string; mimeType: string }[],
 ): Promise<ImaginedMeal[]> {
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
 
@@ -131,12 +132,34 @@ Quantity guidelines (per serving, scale by number of servings):
 Important: quantities must reflect the ingredient's role in the dish. A main-component vegetable (e.g., bell pepper in a stir-fry) needs 80-150g/serving, while a garnish or accent (e.g., a few slices of bell pepper on a sandwich) needs only 20-30g/serving.
 
 BAD: "30g red bell pepper" for 4 servings of roasted vegetables (7.5g/serving — barely a slice)
-GOOD: "400g red bell pepper" for 4 servings of roasted vegetables (100g/serving)${constraintsSection}`
+GOOD: "400g red bell pepper" for 4 servings of roasted vegetables (100g/serving)
+
+The user may attach photos for context — these could show ingredients they have available, a dish they'd like to recreate, a recipe from a cookbook, or anything else. Use the visual information to inform your meal suggestions. If the photos show specific ingredients, try to incorporate them. If they show a prepared dish or recipe page, use it as inspiration for one or more of your suggestions.${constraintsSection}`
+
+  const content: Array<
+    { type: 'text'; text: string } | { type: 'image'; image: Buffer; mediaType: string }
+  > = []
+
+  if (images?.length) {
+    for (const img of images) {
+      content.push({
+        type: 'image',
+        image: Buffer.from(img.base64, 'base64'),
+        mediaType: img.mimeType,
+      })
+    }
+  }
+
+  const textPrompt = prompt
+    ? `Generate 3 meal ideas based on this description: "${prompt}"`
+    : 'Generate 3 meal ideas inspired by the attached photo(s).'
+
+  content.push({ type: 'text', text: textPrompt })
 
   const result = await generateObject({
     model: anthropic(IMAGINE_MODEL),
     schema: ImaginedMealsSchema,
-    prompt: `Generate 3 meal ideas based on this description: "${prompt}"`,
+    messages: [{ role: 'user' as const, content }],
     system: systemPrompt,
   })
 
