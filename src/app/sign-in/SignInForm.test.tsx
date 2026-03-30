@@ -262,7 +262,7 @@ describe('SignInForm', () => {
   })
 
   describe('success navigation', () => {
-    it('navigates to profile on successful sign in', async () => {
+    it('navigates to Today dashboard on successful sign in', async () => {
       const { authClient } = await import('@/lib/auth-client')
       vi.mocked(authClient.signIn.email).mockImplementation(async (creds, options) => {
         if (options?.onSuccess) {
@@ -278,7 +278,7 @@ describe('SignInForm', () => {
       await user.click(screen.getByRole('button', { name: /sign in/i }))
 
       await vi.waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith('/profile')
+        expect(mockPush).toHaveBeenCalledWith('/')
       })
     })
 

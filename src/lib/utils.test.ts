@@ -128,7 +128,7 @@ describe('cn utility function', () => {
 })
 
 describe('getValidReturnUrl', () => {
-  const DEFAULT_REDIRECT = '/profile'
+  const DEFAULT_REDIRECT = '/'
 
   describe('valid inputs', () => {
     it('returns valid relative path unchanged', () => {

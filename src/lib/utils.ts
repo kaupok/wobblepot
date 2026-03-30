@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-const DEFAULT_REDIRECT = '/profile'
+const DEFAULT_REDIRECT = '/'
 
 /**
  * Validates and returns a safe return URL.

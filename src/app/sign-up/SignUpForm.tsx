@@ -142,7 +142,7 @@ export function SignUpForm() {
               Already have an account?{' '}
               <Link
                 href={
-                  returnUrl !== '/profile'
+                  returnUrl !== '/'
                     ? `/sign-in?returnUrl=${encodeURIComponent(returnUrl)}`
                     : '/sign-in'
                 }
