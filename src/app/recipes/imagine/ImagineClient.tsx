@@ -8,156 +8,16 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Heading, Body } from '@/components/ui/typography'
-import { MealCardBase, type MealCardBaseData } from '@/components/meal-plan/MealCardBase'
+import { MealCardBase } from '@/components/meal-plan/MealCardBase'
 import { Skeleton } from '@/components/ui/skeleton'
-import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
 import { toast } from 'sonner'
 import type { PrefilledIngredient } from '@/components/household/MealForm'
 import { ImagineReviewSheet, type ReviewMealData } from '@/components/recipes/ImagineReviewSheet'
+import { convertToPrefilledData, type ImaginedMealResponse } from '@/lib/imagine-utils'
 
 const MAX_IMAGES = 3
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-
-interface IngredientAlternative {
-  id: string
-  name: string
-  category: IngredientCategory
-  defaultUnit: Unit
-  similarity: number
-}
-
-interface MatchedIngredient {
-  type: 'matched'
-  extractedName: string
-  extractedQuantity: number
-  extractedUnit: string
-  originalText: string
-  ingredient: {
-    id: string
-    name: string
-    category: IngredientCategory
-    defaultUnit: Unit
-    gramsPerPiece: number | null
-    calories?: number
-    protein?: number
-    carbs?: number
-    fat?: number
-  }
-  convertedQuantity: number
-  isVague: boolean
-  originalPhrase?: string
-  similarityScore?: number
-  lowConfidence?: boolean
-  alternatives?: IngredientAlternative[]
-}
-
-interface UnmatchedIngredient {
-  type: 'unmatched'
-  extractedName: string
-  extractedQuantity: number
-  extractedUnit: string
-  originalText: string
-  isVague: boolean
-  originalPhrase?: string
-}
-
-type IngredientMatchResult = MatchedIngredient | UnmatchedIngredient
-
-interface ImaginedMealResponse {
-  id: string
-  name: string
-  description: string | null
-  timeMinutes: number | null
-  servings: number
-  suitableFor: MealType[]
-  kidFriendly: boolean
-  primaryProteinType: string
-  components: MealCardBaseData['components']
-  nutrition: MealCardBaseData['nutrition']
-  ingredients: IngredientMatchResult[]
-  allMatched: boolean
-}
-
-function convertToPrefilledData(meal: ImaginedMealResponse): {
-  name: string
-  description: string | null
-  preparationNotes: string | null
-  sourceUrl: string | null
-  timeMinutes: number | null
-  servings: number
-  mealTypes: MealType[]
-  kidFriendly: boolean
-  prefilledIngredients: PrefilledIngredient[]
-} {
-  const prefilledIngredients: PrefilledIngredient[] = meal.ingredients.map((ingredient) => {
-    if (ingredient.type === 'unmatched') {
-      return {
-        type: 'unmatched' as const,
-        extractedName: ingredient.extractedName,
-        originalText: ingredient.originalText,
-        extractedQuantity: ingredient.extractedQuantity,
-        extractedUnit: ingredient.extractedUnit,
-        isVague: ingredient.isVague,
-        originalPhrase: ingredient.originalPhrase,
-      }
-    }
-
-    if (ingredient.lowConfidence && ingredient.alternatives) {
-      return {
-        type: 'low-confidence' as const,
-        ingredient: {
-          id: ingredient.ingredient.id,
-          name: ingredient.ingredient.name,
-          category: ingredient.ingredient.category,
-          defaultUnit: ingredient.ingredient.defaultUnit,
-          gramsPerPiece: ingredient.ingredient.gramsPerPiece,
-          calories: ingredient.ingredient.calories,
-          protein: ingredient.ingredient.protein,
-          carbs: ingredient.ingredient.carbs,
-          fat: ingredient.ingredient.fat,
-        },
-        convertedQuantity: ingredient.convertedQuantity,
-        isVague: ingredient.isVague,
-        originalPhrase: ingredient.originalPhrase,
-        lowConfidence: true,
-        alternatives: ingredient.alternatives,
-        extractedName: ingredient.extractedName,
-        originalText: ingredient.originalText,
-      }
-    }
-
-    return {
-      type: 'matched' as const,
-      ingredient: {
-        id: ingredient.ingredient.id,
-        name: ingredient.ingredient.name,
-        category: ingredient.ingredient.category,
-        defaultUnit: ingredient.ingredient.defaultUnit,
-        gramsPerPiece: ingredient.ingredient.gramsPerPiece,
-        calories: ingredient.ingredient.calories,
-        protein: ingredient.ingredient.protein,
-        carbs: ingredient.ingredient.carbs,
-        fat: ingredient.ingredient.fat,
-      },
-      convertedQuantity: ingredient.convertedQuantity,
-      isVague: ingredient.isVague,
-      originalPhrase: ingredient.originalPhrase,
-    }
-  })
-
-  return {
-    name: meal.name,
-    description: meal.description,
-    preparationNotes: null,
-    sourceUrl: null,
-    timeMinutes: meal.timeMinutes,
-    servings: meal.servings,
-    mealTypes: meal.suitableFor,
-    kidFriendly: meal.kidFriendly,
-    prefilledIngredients,
-  }
-}
 
 function SkeletonCard() {
   return (

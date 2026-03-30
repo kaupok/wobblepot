@@ -45,7 +45,7 @@ interface ImagineReviewSheetProps {
   onOpenChange: (open: boolean) => void
   meal: ReviewMealData
   onSaved: (mealId: string) => void
-  onEditDetails: (currentIngredients: PrefilledIngredient[]) => void
+  onEditDetails?: (currentIngredients: PrefilledIngredient[]) => void
 }
 
 function initIngredientRows(prefilledIngredients: PrefilledIngredient[]): IngredientRowData[] {
@@ -380,14 +380,16 @@ export function ImagineReviewSheet({
               'Save meal'
             )}
           </Button>
-          <button
-            type="button"
-            onClick={() => onEditDetails(toPrefilledIngredients(ingredientRows))}
-            disabled={isSaving}
-            className="text-muted-foreground hover:text-foreground text-center text-sm underline transition-colors disabled:pointer-events-none disabled:opacity-50"
-          >
-            Edit details
-          </button>
+          {onEditDetails && (
+            <button
+              type="button"
+              onClick={() => onEditDetails(toPrefilledIngredients(ingredientRows))}
+              disabled={isSaving}
+              className="text-muted-foreground hover:text-foreground text-center text-sm underline transition-colors disabled:pointer-events-none disabled:opacity-50"
+            >
+              Edit details
+            </button>
+          )}
         </SheetFooter>
       </SheetContent>
     </Sheet>
