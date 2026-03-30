@@ -12,7 +12,7 @@ import { MealCardBase } from '@/components/meal-plan/MealCardBase'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import type { PrefilledIngredient } from '@/components/household/MealForm'
-import { ImagineReviewSheet, type ReviewMealData } from '@/components/recipes/ImagineReviewSheet'
+import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import { convertToPrefilledData, type ImaginedMealResponse } from '@/lib/imagine-utils'
 
 const MAX_IMAGES = 3
@@ -399,7 +399,7 @@ export function ImagineClient() {
       </div>
 
       {reviewMeal && (
-        <ImagineReviewSheet
+        <ImagineReviewDialog
           open={!!reviewMeal}
           onOpenChange={(open) => {
             if (!open) setReviewMeal(null)

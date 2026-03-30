@@ -20,7 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Body } from '@/components/ui/typography'
 import { AlternativeCard } from './AlternativeCard'
 import { MealCardBase } from './MealCardBase'
-import { ImagineReviewSheet, type ReviewMealData } from '@/components/recipes/ImagineReviewSheet'
+import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import { apiFetch } from '@/lib/api'
 import { convertToPrefilledData, type ImaginedMealResponse } from '@/lib/imagine-utils'
 import { toast } from 'sonner'
@@ -813,9 +813,9 @@ export function MealSelectorModal({
         </DialogContent>
       </Dialog>
 
-      {/* Imagine review sheet - rendered outside Dialog to avoid z-index issues */}
+      {/* Imagine review dialog - rendered outside main Dialog to avoid z-index issues */}
       {reviewMeal && (
-        <ImagineReviewSheet
+        <ImagineReviewDialog
           open={!!reviewMeal}
           onOpenChange={(open) => {
             if (!open) setReviewMeal(null)
