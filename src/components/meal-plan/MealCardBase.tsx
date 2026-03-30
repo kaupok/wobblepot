@@ -72,10 +72,10 @@ export function MealCardBase({ meal, pantryIngredients }: MealCardBaseProps) {
       {/* 4. Prep time + badges */}
       <div className="flex flex-wrap items-center gap-1.5">
         {meal.timeMinutes && (
-          <Body variant="small" className="text-muted-foreground flex items-center gap-1">
+          <div className="text-muted-foreground flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            {meal.timeMinutes} min
-          </Body>
+            <Body variant="small">{meal.timeMinutes} min</Body>
+          </div>
         )}
         {meal.kidFriendly && (
           <Badge variant="secondary" className="text-xs">

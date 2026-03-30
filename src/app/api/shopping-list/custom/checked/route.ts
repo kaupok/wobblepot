@@ -26,12 +26,17 @@ export async function DELETE() {
 
   const { household } = membership
 
-  const result = await prisma.customShoppingItem.deleteMany({
-    where: {
-      householdId: household.id,
-      checked: true,
-    },
-  })
+  try {
+    const result = await prisma.customShoppingItem.deleteMany({
+      where: {
+        householdId: household.id,
+        checked: true,
+      },
+    })
 
-  return NextResponse.json({ success: true, deletedCount: result.count }, { status: 200 })
+    return NextResponse.json({ success: true, deletedCount: result.count }, { status: 200 })
+  } catch (error) {
+    console.error('Failed to delete checked items:', error)
+    return NextResponse.json({ error: 'Failed to delete checked items' }, { status: 500 })
+  }
 }
