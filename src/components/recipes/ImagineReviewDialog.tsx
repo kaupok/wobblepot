@@ -369,7 +369,7 @@ export function ImagineReviewDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-col">
           <Button onClick={handleSave} disabled={!canSave || isSaving} className="w-full">
             {isSaving ? (
               <>
