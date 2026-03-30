@@ -7,13 +7,13 @@ import { Body } from '@/components/ui/typography'
 import { Badge } from '@/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-} from '@/components/ui/sheet'
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { IngredientRow, type IngredientRowData } from './IngredientRow'
 import type { IngredientResult } from './IngredientRow'
 import { buildFinalComponents, formatUnit } from '@/components/household/meal-form-types'
@@ -40,7 +40,7 @@ export interface ReviewMealData {
   nutrition: NutritionData
 }
 
-interface ImagineReviewSheetProps {
+interface ImagineReviewDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   meal: ReviewMealData
@@ -140,13 +140,13 @@ const MEAL_TYPE_LABELS: Record<string, string> = {
   dinner: 'Dinner',
 }
 
-export function ImagineReviewSheet({
+export function ImagineReviewDialog({
   open,
   onOpenChange,
   meal,
   onSaved,
   onEditDetails,
-}: ImagineReviewSheetProps) {
+}: ImagineReviewDialogProps) {
   const [ingredientRows, setIngredientRows] = useState<IngredientRowData[]>(() =>
     initIngredientRows(meal.prefilledIngredients),
   )
@@ -240,14 +240,14 @@ export function ImagineReviewSheet({
   const { nutrition } = meal
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="overflow-y-auto sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>{meal.name}</SheetTitle>
-          {meal.description && <SheetDescription>{meal.description}</SheetDescription>}
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{meal.name}</DialogTitle>
+          {meal.description && <DialogDescription>{meal.description}</DialogDescription>}
+        </DialogHeader>
 
-        <div className="flex flex-col gap-4 px-4">
+        <div className="flex flex-col gap-4">
           {/* Macros summary */}
           <div className="text-muted-foreground text-xs">
             {Math.round(nutrition.calories)} kcal · {Math.round(nutrition.protein)}g protein ·{' '}
@@ -369,7 +369,7 @@ export function ImagineReviewSheet({
           )}
         </div>
 
-        <SheetFooter>
+        <DialogFooter>
           <Button onClick={handleSave} disabled={!canSave || isSaving} className="w-full">
             {isSaving ? (
               <>
@@ -390,8 +390,8 @@ export function ImagineReviewSheet({
               Edit details
             </button>
           )}
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
