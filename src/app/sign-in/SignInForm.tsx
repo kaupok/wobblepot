@@ -161,7 +161,7 @@ export function SignInForm() {
               Don&apos;t have an account?{' '}
               <Link
                 href={
-                  returnUrl !== '/profile'
+                  returnUrl !== '/'
                     ? `/sign-up?returnUrl=${encodeURIComponent(returnUrl)}`
                     : '/sign-up'
                 }
