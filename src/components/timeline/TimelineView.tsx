@@ -140,7 +140,7 @@ export function TimelineView({
     }
 
     // Split into past and future (today counts as future)
-    const past = allDays.filter((d) => d.isPast)
+    const past = allDays.filter((d) => d.isPast && d.entries.length > 0)
     const future = allDays.filter((d) => !d.isPast)
 
     return { pastDays: past, futureDays: future, firstEmptyDate: firstEmpty }
