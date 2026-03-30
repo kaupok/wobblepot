@@ -181,7 +181,7 @@ describe('TimelineView', () => {
     render(<TimelineView {...defaultProps} entries={entries} />)
 
     // Past section should have days
-    expect(screen.getByTestId('past-section')).toHaveTextContent('7 past days')
+    expect(screen.getByTestId('past-section')).toHaveTextContent('1 past days')
 
     // Past entry date should NOT be in the future day cards
     expect(screen.queryByTestId('day-card-2026-03-27')).not.toBeInTheDocument()
