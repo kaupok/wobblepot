@@ -1,13 +1,11 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
-import { headers } from 'next/headers'
 import './globals.css'
 import { Toaster } from 'sonner'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Header } from '@/components/header'
 import { BottomTabBar } from '@/components/bottom-tab-bar'
-import { auth } from '@/lib/auth'
-import { hasHouseholdMembership } from '@/lib/household'
+import { getSession, getHasHousehold } from '@/lib/session'
 import Providers from '@/app/providers'
 // Ensure environment variables are validated on app startup
 import '@/lib/env'
@@ -57,10 +55,8 @@ export default async function RootLayout({
 }>) {
   const baseURL = getServerBaseURL()
 
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  })
-  const hasHousehold = session ? await hasHouseholdMembership(session.user.id) : false
+  const session = await getSession()
+  const hasHousehold = session ? await getHasHousehold(session.user.id) : false
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -74,7 +70,7 @@ export default async function RootLayout({
             <Header />
             <main
               id="main-content"
-              className="mx-auto min-h-screen max-w-[1152px] pt-[calc(4rem+env(safe-area-inset-top,0px))] pb-20 md:pb-0"
+              className="mx-auto min-h-screen max-w-[1152px] pt-[calc(4rem+env(safe-area-inset-top,0px))] pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0"
             >
               {children}
             </main>
