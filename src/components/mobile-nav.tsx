@@ -48,53 +48,12 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
       </SheetTrigger>
       <SheetContent side="right">
         <SheetHeader>
-          <SheetTitle>Navigation</SheetTitle>
+          <SheetTitle>Account</SheetTitle>
         </SheetHeader>
         <nav className="mt-6 flex flex-col px-4">
           {session ? (
             <>
-              {hasHousehold && (
-                <>
-                  {/* Daily operational views */}
-                  <div className="flex flex-col gap-4">
-                    <Link
-                      href="/"
-                      className="hover:text-primary text-sm font-medium transition-colors"
-                      onClick={() => setOpen(false)}
-                    >
-                      Today
-                    </Link>
-                    <Link
-                      href="/shopping"
-                      className="hover:text-primary text-sm font-medium transition-colors"
-                      onClick={() => setOpen(false)}
-                    >
-                      Pantry & shopping
-                    </Link>
-                  </div>
-
-                  {/* Settings/configuration views */}
-                  <div className="mt-6 flex flex-col gap-4 border-t pt-6">
-                    <Link
-                      href="/recipes"
-                      className="hover:text-primary text-sm font-medium transition-colors"
-                      onClick={() => setOpen(false)}
-                    >
-                      My recipes
-                    </Link>
-                    <Link
-                      href="/household"
-                      className="hover:text-primary text-sm font-medium transition-colors"
-                      onClick={() => setOpen(false)}
-                    >
-                      Household
-                    </Link>
-                  </div>
-                </>
-              )}
-
-              {/* Account */}
-              <div className={`flex flex-col gap-4 ${hasHousehold ? 'mt-6 border-t pt-6' : ''}`}>
+              <div className="flex flex-col gap-4">
                 {hasHousehold && (
                   <Link
                     href="/profile"

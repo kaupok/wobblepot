@@ -4,6 +4,8 @@ import './globals.css'
 import { Toaster } from 'sonner'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Header } from '@/components/header'
+import { BottomTabBar } from '@/components/bottom-tab-bar'
+import { getSession, getHasHousehold } from '@/lib/session'
 import Providers from '@/app/providers'
 // Ensure environment variables are validated on app startup
 import '@/lib/env'
@@ -46,12 +48,15 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
   const baseURL = getServerBaseURL()
+
+  const session = await getSession()
+  const hasHousehold = session ? await getHasHousehold(session.user.id) : false
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -65,10 +70,11 @@ export default function RootLayout({
             <Header />
             <main
               id="main-content"
-              className="mx-auto min-h-screen max-w-[1152px] pt-[calc(4rem+env(safe-area-inset-top,0px))]"
+              className="mx-auto min-h-screen max-w-[1152px] pt-[calc(4rem+env(safe-area-inset-top,0px))] pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0"
             >
               {children}
             </main>
+            <BottomTabBar session={session} hasHousehold={hasHousehold} />
           </Providers>
         </ThemeProvider>
       </body>

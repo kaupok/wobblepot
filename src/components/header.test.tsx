@@ -2,23 +2,10 @@ import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Header } from './header'
 
-// Mock the auth module to prevent database initialization
-vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
-}))
-
-// Mock household membership check
-vi.mock('@/lib/household', () => ({
-  hasHouseholdMembership: vi.fn(),
-}))
-
-// Mock Next.js headers
-vi.mock('next/headers', () => ({
-  headers: vi.fn(async () => new Headers()),
+// Mock the cached session module
+vi.mock('@/lib/session', () => ({
+  getSession: vi.fn(),
+  getHasHousehold: vi.fn(),
 }))
 
 // Mock HeaderActions component
@@ -61,8 +48,8 @@ describe('Header component', () => {
   })
 
   it('renders the app name heading', async () => {
-    const { auth } = await import('@/lib/auth')
-    vi.mocked(auth.api.getSession).mockResolvedValue(null)
+    const { getSession } = await import('@/lib/session')
+    vi.mocked(getSession).mockResolvedValue(null)
 
     const component = await Header()
     render(component)
@@ -71,8 +58,8 @@ describe('Header component', () => {
   })
 
   it('renders heading as link to homepage', async () => {
-    const { auth } = await import('@/lib/auth')
-    vi.mocked(auth.api.getSession).mockResolvedValue(null)
+    const { getSession } = await import('@/lib/session')
+    vi.mocked(getSession).mockResolvedValue(null)
 
     const component = await Header()
     render(component)
@@ -82,23 +69,20 @@ describe('Header component', () => {
   })
 
   it('fetches session and passes to HeaderActions when not authenticated', async () => {
-    const { auth } = await import('@/lib/auth')
-    vi.mocked(auth.api.getSession).mockResolvedValue(null)
+    const { getSession } = await import('@/lib/session')
+    vi.mocked(getSession).mockResolvedValue(null)
 
     const component = await Header()
     render(component)
 
-    expect(auth.api.getSession).toHaveBeenCalledWith({
-      headers: expect.any(Headers),
-    })
+    expect(getSession).toHaveBeenCalled()
     expect(screen.getByTestId('header-actions')).toHaveTextContent('unauthenticated')
   })
 
   it('fetches session and passes to HeaderActions when authenticated with household', async () => {
-    const { auth } = await import('@/lib/auth')
-    const { hasHouseholdMembership } = await import('@/lib/household')
+    const { getSession, getHasHousehold } = await import('@/lib/session')
     const now = new Date()
-    vi.mocked(auth.api.getSession).mockResolvedValue({
+    vi.mocked(getSession).mockResolvedValue({
       session: {
         id: 'session-123',
         userId: '123',
@@ -119,24 +103,21 @@ describe('Header component', () => {
         updatedAt: now,
       },
     })
-    vi.mocked(hasHouseholdMembership).mockResolvedValue(true)
+    vi.mocked(getHasHousehold).mockResolvedValue(true)
 
     const component = await Header()
     render(component)
 
-    expect(auth.api.getSession).toHaveBeenCalledWith({
-      headers: expect.any(Headers),
-    })
+    expect(getSession).toHaveBeenCalled()
     expect(screen.getByTestId('header-actions')).toHaveTextContent('authenticated-with-household')
     expect(screen.getByTestId('navigation-left')).toHaveTextContent('authenticated-nav-left')
     expect(screen.getByTestId('navigation-right')).toHaveTextContent('authenticated-nav-right')
   })
 
   it('hides navigation when authenticated without household (onboarding)', async () => {
-    const { auth } = await import('@/lib/auth')
-    const { hasHouseholdMembership } = await import('@/lib/household')
+    const { getSession, getHasHousehold } = await import('@/lib/session')
     const now = new Date()
-    vi.mocked(auth.api.getSession).mockResolvedValue({
+    vi.mocked(getSession).mockResolvedValue({
       session: {
         id: 'session-123',
         userId: '123',
@@ -157,7 +138,7 @@ describe('Header component', () => {
         updatedAt: now,
       },
     })
-    vi.mocked(hasHouseholdMembership).mockResolvedValue(false)
+    vi.mocked(getHasHousehold).mockResolvedValue(false)
 
     const component = await Header()
     render(component)
@@ -168,8 +149,8 @@ describe('Header component', () => {
   })
 
   it('renders header with correct styling classes', async () => {
-    const { auth } = await import('@/lib/auth')
-    vi.mocked(auth.api.getSession).mockResolvedValue(null)
+    const { getSession } = await import('@/lib/session')
+    vi.mocked(getSession).mockResolvedValue(null)
 
     const component = await Header()
     render(component)

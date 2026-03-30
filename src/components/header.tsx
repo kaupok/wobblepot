@@ -1,18 +1,13 @@
 import Link from 'next/link'
-import { headers } from 'next/headers'
 import { Heading } from '@/components/ui/typography'
-import { auth } from '@/lib/auth'
-import { hasHouseholdMembership } from '@/lib/household'
+import { getSession, getHasHousehold } from '@/lib/session'
 import { HeaderActions } from './header-actions'
 import { NavigationLeft, NavigationRight } from './navigation'
 import { MobileNav } from './mobile-nav'
 
 export async function Header() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  })
-
-  const hasHousehold = session ? await hasHouseholdMembership(session.user.id) : false
+  const session = await getSession()
+  const hasHousehold = session ? await getHasHousehold(session.user.id) : false
 
   return (
     <header className="bg-background fixed top-0 right-0 left-0 z-50 border-b pt-[env(safe-area-inset-top,0px)]">
