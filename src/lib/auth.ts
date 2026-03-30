@@ -100,8 +100,10 @@ export const auth = betterAuth({
       if (!isEmailConfigured() || !resend || !fromEmail) {
         // eslint-disable-next-line no-console
         console.warn('Email not configured. Password reset email not sent.')
-        // eslint-disable-next-line no-console
-        console.log('Reset URL:', url)
+        if (process.env.NODE_ENV === 'development') {
+          // eslint-disable-next-line no-console
+          console.log('Reset URL:', url)
+        }
         return
       }
 
