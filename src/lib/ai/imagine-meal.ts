@@ -136,13 +136,16 @@ GOOD: "400g red bell pepper" for 4 servings of roasted vegetables (100g/serving)
 
 The user may attach photos for context — these could show ingredients they have available, a dish they'd like to recreate, a recipe from a cookbook, or anything else. Use the visual information to inform your meal suggestions. If the photos show specific ingredients, try to incorporate them. If they show a prepared dish or recipe page, use it as inspiration for one or more of your suggestions.${constraintsSection}`
 
-  const content: Array<{ type: 'text'; text: string } | { type: 'image'; image: Buffer }> = []
+  const content: Array<
+    { type: 'text'; text: string } | { type: 'image'; image: Buffer; mediaType: string }
+  > = []
 
   if (images?.length) {
     for (const img of images) {
       content.push({
         type: 'image',
         image: Buffer.from(img.base64, 'base64'),
+        mediaType: img.mimeType,
       })
     }
   }
