@@ -1,9 +1,13 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
+import { headers } from 'next/headers'
 import './globals.css'
 import { Toaster } from 'sonner'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Header } from '@/components/header'
+import { BottomTabBar } from '@/components/bottom-tab-bar'
+import { auth } from '@/lib/auth'
+import { hasHouseholdMembership } from '@/lib/household'
 import Providers from '@/app/providers'
 // Ensure environment variables are validated on app startup
 import '@/lib/env'
@@ -46,12 +50,17 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
   const baseURL = getServerBaseURL()
+
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  })
+  const hasHousehold = session ? await hasHouseholdMembership(session.user.id) : false
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -65,10 +74,11 @@ export default function RootLayout({
             <Header />
             <main
               id="main-content"
-              className="mx-auto min-h-screen max-w-[1152px] pt-[calc(4rem+env(safe-area-inset-top,0px))]"
+              className="mx-auto min-h-screen max-w-[1152px] pt-[calc(4rem+env(safe-area-inset-top,0px))] pb-20 md:pb-0"
             >
               {children}
             </main>
+            <BottomTabBar session={session} hasHousehold={hasHousehold} />
           </Providers>
         </ThemeProvider>
       </body>
