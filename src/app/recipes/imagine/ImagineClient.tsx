@@ -318,10 +318,13 @@ export function ImagineClient() {
     toast.success('Meal saved to your library')
   }
 
-  const handleEditDetails = () => {
+  const handleEditDetails = (currentIngredients: PrefilledIngredient[]) => {
     if (!reviewMeal) return
     const { nutrition: _, ...prefilledData } = reviewMeal
-    sessionStorage.setItem('prefilled-meal', JSON.stringify(prefilledData))
+    sessionStorage.setItem(
+      'prefilled-meal',
+      JSON.stringify({ ...prefilledData, prefilledIngredients: currentIngredients }),
+    )
     router.push('/recipes/create?prefilled=true')
   }
 

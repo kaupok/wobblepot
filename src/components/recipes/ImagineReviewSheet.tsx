@@ -45,7 +45,7 @@ interface ImagineReviewSheetProps {
   onOpenChange: (open: boolean) => void
   meal: ReviewMealData
   onSaved: (mealId: string) => void
-  onEditDetails: () => void
+  onEditDetails: (currentIngredients: PrefilledIngredient[]) => void
 }
 
 function initIngredientRows(prefilledIngredients: PrefilledIngredient[]): IngredientRowData[] {
@@ -96,6 +96,42 @@ function initIngredientRows(prefilledIngredients: PrefilledIngredient[]): Ingred
 
   const typeOrder = { unmatched: 0, 'low-confidence': 1, matched: 2 }
   return rows.sort((a, b) => typeOrder[a.type] - typeOrder[b.type])
+}
+
+function toPrefilledIngredients(rows: IngredientRowData[]): PrefilledIngredient[] {
+  return rows.map((row): PrefilledIngredient => {
+    if (row.type === 'unmatched') {
+      return {
+        type: 'unmatched',
+        extractedName: row.extractedName,
+        originalText: row.originalText,
+        extractedQuantity: row.extractedQuantity,
+        extractedUnit: row.extractedUnit,
+        isVague: row.isVague,
+        originalPhrase: row.originalPhrase,
+      }
+    }
+    if (row.type === 'low-confidence') {
+      return {
+        type: 'low-confidence',
+        ingredient: row.ingredient,
+        convertedQuantity: row.totalQuantity,
+        isVague: row.isVague,
+        originalPhrase: row.originalPhrase,
+        lowConfidence: true,
+        alternatives: row.alternatives,
+        extractedName: row.extractedName,
+        originalText: row.originalText,
+      }
+    }
+    return {
+      type: 'matched',
+      ingredient: row.ingredient,
+      convertedQuantity: row.totalQuantity,
+      isVague: row.isVague,
+      originalPhrase: row.originalPhrase,
+    }
+  })
 }
 
 const MEAL_TYPE_LABELS: Record<string, string> = {
@@ -346,7 +382,7 @@ export function ImagineReviewSheet({
           </Button>
           <button
             type="button"
-            onClick={onEditDetails}
+            onClick={() => onEditDetails(toPrefilledIngredients(ingredientRows))}
             disabled={isSaving}
             className="text-muted-foreground hover:text-foreground text-center text-sm underline transition-colors disabled:pointer-events-none disabled:opacity-50"
           >
