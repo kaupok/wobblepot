@@ -497,6 +497,7 @@ export function MealSelectorModal({
   }
 
   const handleImaginedMealSaved = async (mealId: string) => {
+    setReviewMeal(null) // Close sheet immediately to prevent duplicate saves
     try {
       await apiFetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
         method: 'PATCH',
@@ -504,7 +505,6 @@ export function MealSelectorModal({
         body: JSON.stringify({ mealId }),
       })
 
-      setReviewMeal(null)
       setIsImagineMode(false)
       onSwapComplete()
       handleOpenChange(false)
