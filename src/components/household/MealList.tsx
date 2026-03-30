@@ -115,12 +115,10 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
       {meals.map((meal) => (
         <Card key={meal.id}>
           <CardContent className="p-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <MealCardBase meal={meal} />
-              </div>
+            <div className="flex flex-col gap-2">
+              <MealCardBase meal={meal} />
 
-              <div className="flex shrink-0 items-center gap-1">
+              <div className="flex items-center gap-1">
                 <Button
                   variant="ghost"
                   size="sm"
