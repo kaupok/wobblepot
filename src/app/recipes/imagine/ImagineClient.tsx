@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
 import { toast } from 'sonner'
 import type { PrefilledIngredient } from '@/components/household/MealForm'
+import { ImagineReviewSheet, type ReviewMealData } from '@/components/recipes/ImagineReviewSheet'
 
 const MAX_IMAGES = 3
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
@@ -197,6 +198,7 @@ export function ImagineClient() {
   const [reviewingMealId, setReviewingMealId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [meals, setMeals] = useState<ImaginedMealResponse[] | null>(null)
+  const [reviewMeal, setReviewMeal] = useState<ReviewMealData | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const objectUrlsRef = useRef<string[]>([])
@@ -305,6 +307,20 @@ export function ImagineClient() {
 
     setReviewingMealId(null)
     const prefilledData = convertToPrefilledData(finalMeal)
+    setReviewMeal({
+      ...prefilledData,
+      nutrition: finalMeal.nutrition,
+    })
+  }
+
+  const handleReviewSaved = (_mealId: string) => {
+    setReviewMeal(null)
+    toast.success('Meal saved to your library')
+  }
+
+  const handleEditDetails = () => {
+    if (!reviewMeal) return
+    const { nutrition: _, ...prefilledData } = reviewMeal
     sessionStorage.setItem('prefilled-meal', JSON.stringify(prefilledData))
     router.push('/recipes/create?prefilled=true')
   }
@@ -518,6 +534,18 @@ export function ImagineClient() {
           </div>
         )}
       </div>
+
+      {reviewMeal && (
+        <ImagineReviewSheet
+          open={!!reviewMeal}
+          onOpenChange={(open) => {
+            if (!open) setReviewMeal(null)
+          }}
+          meal={reviewMeal}
+          onSaved={handleReviewSaved}
+          onEditDetails={handleEditDetails}
+        />
+      )}
     </div>
   )
 }
