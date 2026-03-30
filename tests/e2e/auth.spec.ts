@@ -47,10 +47,8 @@ test.describe('Authentication flows', () => {
     // Sign in
     await signIn(page, email)
 
-    // Should redirect to profile (default returnUrl)
-    await expect(page).toHaveURL('/profile')
-    await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible()
-    await expect(page.getByText(name)).toBeVisible()
+    // Should redirect to Today dashboard (default returnUrl)
+    await expect(page).toHaveURL('/')
   })
 
   test('sign out -> redirect to home with sign in link', async ({ page }) => {
