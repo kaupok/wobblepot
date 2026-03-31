@@ -148,6 +148,14 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   'korean seaweed': 'gim', // DB has gim
   'korean kelp': 'dashima', // DB has dashima
 
+  // Japanese pantry aliases (HON-412)
+  'dashi stock': 'dashi', // DB has dashi
+  'dashi broth': 'dashi', // DB has dashi
+  wasabi: 'wasabi paste', // DB has wasabi paste
+  tsuyu: 'mentsuyu', // DB has mentsuyu
+  'soybean flour': 'kinako', // DB has kinako
+  'curry roux': 'Japanese curry roux', // DB has Japanese curry roux
+
   // British / Nordic aliases (HON-421)
   'cured salmon': 'gravlax', // DB has gravlax
   'black treacle': 'treacle', // DB has treacle
