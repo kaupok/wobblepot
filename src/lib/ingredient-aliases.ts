@@ -57,6 +57,17 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   // Dairy alternatives
   yogurt: 'plain yogurt', // DB has plain yogurt
 
+  // Indian ingredients - expand to DB names (seed-comprehensive)
+  besan: 'chickpea flour', // DB has chickpea flour
+  'gram flour': 'chickpea flour', // DB has chickpea flour
+  'atta flour': 'chapati flour', // DB has chapati flour
+  atta: 'chapati flour', // DB has chapati flour
+  tamarind: 'tamarind puree', // DB has tamarind puree
+  'carom seeds': 'ajwain seeds', // DB has ajwain seeds
+  'dried fenugreek leaves': 'kasuri methi', // DB has kasuri methi
+  'methi leaves': 'kasuri methi', // DB has kasuri methi
+  achar: 'Indian pickle', // DB has Indian pickle
+
   // Condiments - expand to DB names
   mustard: 'yellow mustard', // DB has yellow mustard
   'soy sauce': 'light soy sauce', // DB has light soy sauce

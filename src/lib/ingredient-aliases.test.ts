@@ -55,6 +55,19 @@ describe('INGREDIENT_ALIASES', () => {
     expect(INGREDIENT_ALIASES['extra virgin olive oil']).toBe('olive oil')
   })
 
+  it('contains Indian ingredient aliases', () => {
+    expect(INGREDIENT_ALIASES['besan']).toBe('chickpea flour')
+    expect(INGREDIENT_ALIASES['gram flour']).toBe('chickpea flour')
+    expect(INGREDIENT_ALIASES['atta flour']).toBe('chapati flour')
+    expect(INGREDIENT_ALIASES['atta']).toBe('chapati flour')
+    expect(INGREDIENT_ALIASES['tamarind paste']).toBe('tamarind puree')
+    expect(INGREDIENT_ALIASES['tamarind']).toBe('tamarind puree')
+    expect(INGREDIENT_ALIASES['carom seeds']).toBe('ajwain seeds')
+    expect(INGREDIENT_ALIASES['dried fenugreek leaves']).toBe('kasuri methi')
+    expect(INGREDIENT_ALIASES['methi leaves']).toBe('kasuri methi')
+    expect(INGREDIENT_ALIASES['achar']).toBe('Indian pickle')
+  })
+
   it('does not contain aliases that would degrade direct matches', () => {
     // These ingredients exist in the DB directly, so no alias needed
     expect(INGREDIENT_ALIASES['onion']).toBeUndefined()
