@@ -38,6 +38,7 @@ describe('INGREDIENT_ALIASES', () => {
     expect(INGREDIENT_ALIASES['miso']).toBe('white miso paste')
     expect(INGREDIENT_ALIASES['vinegar']).toBe('white vinegar')
     expect(INGREDIENT_ALIASES['soy sauce']).toBe('light soy sauce')
+    expect(INGREDIENT_ALIASES['vietnamese fish sauce']).toBe('fish sauce')
   })
 
   it('contains audit quick-win aliases', () => {
@@ -106,6 +107,7 @@ describe('applyIngredientAlias', () => {
     expect(applyIngredientAlias('sugar')).toBe('granulated sugar')
     expect(applyIngredientAlias('mustard')).toBe('yellow mustard')
     expect(applyIngredientAlias('vinegar')).toBe('white vinegar')
+    expect(applyIngredientAlias('Vietnamese fish sauce')).toBe('fish sauce')
   })
 
   it('expands audit quick-win aliases', () => {
