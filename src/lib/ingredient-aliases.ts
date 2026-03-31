@@ -48,6 +48,7 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   sugar: 'granulated sugar', // DB has granulated sugar
   yeast: 'active dry yeast', // DB has active dry yeast
   chocolate: 'chocolate chips', // DB has chocolate chips
+  'ginger powder': 'ground ginger', // DB has ground ginger
 
   // Wines - expand to DB names (seed-comprehensive)
   wine: 'red wine', // DB has red wine
@@ -73,11 +74,20 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   'coriander leaves': 'cilantro', // Explicit leaf reference
   'fresh coriander': 'cilantro', // Common British recipe phrasing
   prawn: 'prawns', // Singular form
+  capsicum: 'bell pepper', // Australian/British term
+  swede: 'rutabaga', // British term
+  sultanas: 'raisins', // British term
+  'bicarbonate of soda': 'baking soda', // British term
+  'icing sugar': 'powdered sugar', // British term
 
   // Onion / scallion aliases
   scallion: 'spring onion', // DB has spring onion
   'green onion': 'spring onion', // DB has spring onion
   'spring onions': 'spring onion', // Plural form
+
+  // Alternate spellings
+  'azuki beans': 'adzuki beans', // DB has adzuki beans
+  'sichuan peppercorn': 'szechuan peppercorn', // DB has szechuan peppercorn
 
   // Chilli / pepper aliases
   'red pepper flakes': 'chili flakes', // DB has chili flakes
@@ -100,6 +110,12 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
 
   // Oil aliases
   'rapeseed oil': 'canola oil', // DB has canola oil (seed-import-coverage)
+  'extra virgin olive oil': 'olive oil', // DB has olive oil
+
+  // Juice-to-base aliases
+  'lemon juice': 'lemon', // DB has lemon
+  'lime juice': 'lime', // DB has lime
+  'tomato juice': 'tomato', // DB has tomato
 
   // Dairy aliases
   'natural yogurt': 'plain yogurt', // British term

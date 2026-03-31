@@ -40,6 +40,21 @@ describe('INGREDIENT_ALIASES', () => {
     expect(INGREDIENT_ALIASES['soy sauce']).toBe('light soy sauce')
   })
 
+  it('contains audit quick-win aliases', () => {
+    expect(INGREDIENT_ALIASES['azuki beans']).toBe('adzuki beans')
+    expect(INGREDIENT_ALIASES['sichuan peppercorn']).toBe('szechuan peppercorn')
+    expect(INGREDIENT_ALIASES['capsicum']).toBe('bell pepper')
+    expect(INGREDIENT_ALIASES['swede']).toBe('rutabaga')
+    expect(INGREDIENT_ALIASES['sultanas']).toBe('raisins')
+    expect(INGREDIENT_ALIASES['bicarbonate of soda']).toBe('baking soda')
+    expect(INGREDIENT_ALIASES['icing sugar']).toBe('powdered sugar')
+    expect(INGREDIENT_ALIASES['ginger powder']).toBe('ground ginger')
+    expect(INGREDIENT_ALIASES['lemon juice']).toBe('lemon')
+    expect(INGREDIENT_ALIASES['lime juice']).toBe('lime')
+    expect(INGREDIENT_ALIASES['tomato juice']).toBe('tomato')
+    expect(INGREDIENT_ALIASES['extra virgin olive oil']).toBe('olive oil')
+  })
+
   it('does not contain aliases that would degrade direct matches', () => {
     // These ingredients exist in the DB directly, so no alias needed
     expect(INGREDIENT_ALIASES['onion']).toBeUndefined()
@@ -78,6 +93,14 @@ describe('applyIngredientAlias', () => {
     expect(applyIngredientAlias('sugar')).toBe('granulated sugar')
     expect(applyIngredientAlias('mustard')).toBe('yellow mustard')
     expect(applyIngredientAlias('vinegar')).toBe('white vinegar')
+  })
+
+  it('expands audit quick-win aliases', () => {
+    expect(applyIngredientAlias('Capsicum')).toBe('bell pepper')
+    expect(applyIngredientAlias('SULTANAS')).toBe('raisins')
+    expect(applyIngredientAlias('Bicarbonate of Soda')).toBe('baking soda')
+    expect(applyIngredientAlias('extra virgin olive oil')).toBe('olive oil')
+    expect(applyIngredientAlias('Lemon Juice')).toBe('lemon')
   })
 
   it('returns original name for ingredients that should match directly', () => {
