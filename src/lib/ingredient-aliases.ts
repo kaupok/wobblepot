@@ -175,6 +175,14 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   'cured salmon': 'gravlax', // DB has gravlax
   'black treacle': 'treacle', // DB has treacle
   'yeast extract': 'marmite', // DB has marmite
+
+  // Caribbean & Brazilian aliases (HON-420)
+  'dendê oil': 'palm oil', // DB has palm oil — dendê is unrefined palm oil variant
+  'dende oil': 'palm oil', // Without accent
+  'brazilian nut': 'brazil nuts', // DB has brazil nuts
+  recao: 'culantro', // DB has culantro — Puerto Rican name for culantro
+  'dried beef': 'carne seca', // DB has carne seca
+  'brazilian cream cheese': 'requeijão', // DB has requeijão
 }
 
 /**
