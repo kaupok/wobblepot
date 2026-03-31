@@ -162,6 +162,14 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   // 'roasted seaweed' intentionally omitted — nori already in DB as the more common match
   'korean seaweed': 'gim', // DB has gim
   'korean kelp': 'dashima', // DB has dashima
+
+  // Japanese pantry aliases (HON-412)
+  'dashi stock': 'dashi', // DB has dashi
+  'dashi broth': 'dashi', // DB has dashi
+  wasabi: 'wasabi paste', // DB has wasabi paste
+  tsuyu: 'mentsuyu', // DB has mentsuyu
+  'soybean flour': 'kinako', // DB has kinako
+  'curry roux': 'Japanese curry roux', // DB has Japanese curry roux
 }
 
 /**
