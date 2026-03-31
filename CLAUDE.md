@@ -27,6 +27,7 @@ A Next.js 16 project with React 19, using TypeScript, Tailwind CSS, and shadcn/u
 - **Testing**: Vitest for unit tests, Playwright for E2E
 - **Linting**: ESLint 9 + Prettier
 - **Package Manager**: pnpm 10.9
+- **Data Fetching**: TanStack Query (React Query) v5 for client-side
 - **Database**: PostgreSQL (Neon) with Prisma ORM
 - **Authentication**: Better Auth
 
@@ -39,8 +40,10 @@ A Next.js 16 project with React 19, using TypeScript, Tailwind CSS, and shadcn/u
   - `/ui`: shadcn/ui primitives (button, card, typography, input, label, etc.)
   - Root level: Feature components (header, theme-toggle, etc.)
 - **/lib**: Shared utilities, configuration, and service clients
+  - `api.ts`: Shared fetch utility for TanStack Query (`apiFetch`)
   - `auth.ts` / `auth-client.ts`: Better Auth (server / client)
   - `env.ts`: Environment variable validation (Zod schemas)
+  - `get-query-client.ts`: TanStack Query client singleton
   - `prisma.ts`: Prisma client singleton
   - `utils.ts`: Utility functions (cn, etc.)
 - **/hooks**: Custom React hooks
@@ -91,9 +94,48 @@ A Next.js 16 project with React 19, using TypeScript, Tailwind CSS, and shadcn/u
 
 **Server Components (preferred):** Fetch directly in async Server Components. See `src/app/page.tsx:8-11`
 
-**Client Components:** Native `useState` for loading/error states. Better Auth client methods for auth mutations. See `src/app/sign-in/SignInForm.tsx:48-92`
+**Client Components:** TanStack Query (`@tanstack/react-query`) for all client-side data fetching.
 
-**No SWR/React Query** - native patterns only.
+- **Reads:** `useQuery` — never `useEffect` + `fetch` + `useState`
+- **Mutations:** `useMutation` — never manual `try/catch/finally` with loading state
+- **Cache invalidation:** `invalidateQueries` — never `router.refresh()` for data revalidation
+- **Optimistic updates:** `useMutation` with `onMutate`/`onError`/`onSettled` — never manual state snapshots
+
+**Key files:** `src/lib/api.ts` (`apiFetch` utility), `src/lib/get-query-client.ts` (client singleton), `src/app/providers.tsx` (QueryClientProvider)
+
+### Query Key Conventions
+
+- Entity lists: `['meals']`, `['recipes']`, `['shopping-list', planId]`
+- Single entities: `['meal', mealId]`, `['meal-plan', planId]`
+- Nested resources: `['meal-plan', planId, 'entries']`
+- Filtered queries: `['meals', { search: query }]`
+
+### Read Pattern
+
+```tsx
+const { data, isLoading, error } = useQuery({
+  queryKey: ['entity', id],
+  queryFn: () => apiFetch(`/api/entity/${id}`),
+})
+```
+
+### Mutation Pattern
+
+```tsx
+const queryClient = useQueryClient()
+const mutation = useMutation({
+  mutationFn: (data) => apiFetch('/api/entity', { method: 'POST', body: JSON.stringify(data) }),
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: ['entity'] }),
+  onError: (error) => toast.error(error.message),
+})
+```
+
+### Don'ts
+
+- **Never** use `useEffect` to fetch data — use `useQuery`
+- **Never** use `useState` for loading/error state of fetches — use query/mutation result
+- **Never** use `router.refresh()` for cache invalidation — use `invalidateQueries`
+- **Never** implement manual optimistic updates — use `useMutation` with `onMutate`
 
 ## Error Handling Strategy
 
@@ -178,6 +220,8 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 **Commands:** `pnpm test`, `pnpm test:coverage`, `pnpm test:e2e`, `pnpm test:all`
 
 **What to test:** Component rendering, variants/states, user interactions, error handling, utility functions, custom hooks
+
+**TanStack Query in tests:** Components using `useQuery`/`useMutation` need a `QueryClientProvider` wrapper. Use `createQueryWrapper()` from `src/test/query-wrapper.tsx` — it creates a fresh `QueryClient` per test with retries disabled.
 
 **E2E Tests** (Playwright): Run with `pnpm test:e2e`. Config: `playwright.config.ts`
 
