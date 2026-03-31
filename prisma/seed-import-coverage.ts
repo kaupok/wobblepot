@@ -1215,7 +1215,7 @@ export const importCoverageIngredients = [
     fat: 3,
   },
   {
-    name: 'Dover sole',
+    name: 'dover sole',
     category: 'protein',
     subcategory: 'fish',
     proteinType: 'fish',
@@ -1227,7 +1227,7 @@ export const importCoverageIngredients = [
     fat: 1.2,
   },
   {
-    name: 'Dover sole fillet',
+    name: 'dover sole fillet',
     category: 'protein',
     subcategory: 'fish',
     proteinType: 'fish',
