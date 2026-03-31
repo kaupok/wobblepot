@@ -170,6 +170,11 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   tsuyu: 'mentsuyu', // DB has mentsuyu
   'soybean flour': 'kinako', // DB has kinako
   'curry roux': 'Japanese curry roux', // DB has Japanese curry roux
+
+  // British / Nordic aliases (HON-421)
+  'cured salmon': 'gravlax', // DB has gravlax
+  'black treacle': 'treacle', // DB has treacle
+  'yeast extract': 'marmite', // DB has marmite
 }
 
 /**
