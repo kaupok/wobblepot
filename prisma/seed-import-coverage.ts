@@ -6,6 +6,8 @@
 // SimplyRecipes, etc.) that were landing as "unmatched" during imports.
 // Generated for HON-320.
 
+import type { IngredientInput } from './seed-types'
+
 export const importCoverageIngredients = [
   // ============================================
   // SPICES & SEASONINGS (30)
@@ -3505,7 +3507,8 @@ export const importCoverageIngredients = [
   },
   {
     name: 'custard powder',
-    category: 'baking',
+    category: 'carb',
+    subcategory: 'baking',
     defaultUnit: 'g',
     allergens: [],
     calories: 380,
@@ -4352,4 +4355,4 @@ export const importCoverageIngredients = [
     fat: 8,
     fiber: 1.8,
   },
-]
+] satisfies IngredientInput[]

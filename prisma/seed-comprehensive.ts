@@ -5,6 +5,8 @@
 // Indian, Mediterranean pantry items, condiments, wines, proteins, and produce.
 // Generated for HON-248.
 
+import type { IngredientInput } from './seed-types'
+
 // ============================================
 // COMPREHENSIVE INGREDIENTS
 // ============================================
@@ -4300,4 +4302,4 @@ export const comprehensiveIngredients = [
     fat: 27,
     fiber: 4,
   },
-]
+] satisfies IngredientInput[]

@@ -18,12 +18,13 @@ import { newIngredients, newMeals } from './seed-expansion'
 import { comprehensiveIngredients } from './seed-comprehensive'
 import { importCoverageIngredients } from './seed-import-coverage'
 import { INGREDIENT_ALIASES } from '../src/lib/ingredient-aliases'
+import type { IngredientInput } from './seed-types'
 
 // ============================================
 // TYPES
 // ============================================
 
-type Ingredient = (typeof baseIngredients)[number]
+type Ingredient = IngredientInput
 type Meal = (typeof baseMeals)[number]
 
 type ValidationResult = {
@@ -433,12 +434,8 @@ function validateProteinTypeConsistency(ingredients: Ingredient[]): ValidationRe
       warnings.push(`${name}: category is 'protein' but no proteinType set`)
     }
 
-    // Non-protein/legume/dairy categories having a meaningful proteinType is suspicious
-    if (
-      ing.proteinType &&
-      ing.proteinType !== 'none' &&
-      !['protein', 'legume', 'dairy'].includes(ing.category)
-    ) {
+    // Non-protein/legume/dairy categories having a proteinType is suspicious
+    if (ing.proteinType && !['protein', 'legume', 'dairy'].includes(ing.category)) {
       warnings.push(
         `${name}: category '${ing.category}' has proteinType '${ing.proteinType}' - verify this is intentional`,
       )
@@ -555,8 +552,8 @@ async function main() {
   const ingredientSources: Record<string, Ingredient[]> = {
     'seed.ts': baseIngredients,
     'seed-expansion.ts': newIngredients,
-    'seed-comprehensive.ts': comprehensiveIngredients as unknown as Ingredient[],
-    'seed-import-coverage.ts': importCoverageIngredients as unknown as Ingredient[],
+    'seed-comprehensive.ts': comprehensiveIngredients,
+    'seed-import-coverage.ts': importCoverageIngredients,
   }
 
   // Meal sources — add new seed files here

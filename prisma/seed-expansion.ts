@@ -4,6 +4,8 @@
 // This file contains additional ingredients and meals to triple the database.
 // To be merged into seed.ts after review.
 
+import type { IngredientInput } from './seed-types'
+
 // ============================================
 // NEW INGREDIENTS
 // ============================================
@@ -3478,7 +3480,7 @@ export const newIngredients = [
     fat: 0.6,
     fiber: 1.3,
   },
-]
+] satisfies IngredientInput[]
 
 // Total new ingredients: ~267
 
