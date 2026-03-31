@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import { PrismaClient } from '../src/generated/prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
+import type { IngredientInput } from './seed-types'
 import { newIngredients, newMeals } from './seed-expansion'
 import { comprehensiveIngredients } from './seed-comprehensive'
 import { importCoverageIngredients } from './seed-import-coverage'
@@ -1991,15 +1992,14 @@ export const baseIngredients = [
     fat: 42,
     fiber: 27,
   },
-]
+] satisfies IngredientInput[]
 
 // Merge base ingredients with new expansion ingredients
-type IngredientInput = (typeof baseIngredients)[number]
-const ingredients = [
+const ingredients: IngredientInput[] = [
   ...baseIngredients,
-  ...(newIngredients as unknown as IngredientInput[]),
-  ...(comprehensiveIngredients as unknown as IngredientInput[]),
-  ...(importCoverageIngredients as unknown as IngredientInput[]),
+  ...newIngredients,
+  ...comprehensiveIngredients,
+  ...importCoverageIngredients,
 ]
 
 async function seedIngredients() {
@@ -2014,26 +2014,18 @@ async function seedIngredients() {
       },
       create: {
         name: ingredient.name,
-        category: ingredient.category as Parameters<
-          typeof prisma.ingredient.create
-        >[0]['data']['category'],
+        category: ingredient.category,
         subcategory: ingredient.subcategory,
-        proteinType: ('proteinType' in ingredient ? ingredient.proteinType : null) as Parameters<
-          typeof prisma.ingredient.create
-        >[0]['data']['proteinType'],
-        defaultUnit: ingredient.defaultUnit as Parameters<
-          typeof prisma.ingredient.create
-        >[0]['data']['defaultUnit'],
-        allergens: ingredient.allergens as Parameters<
-          typeof prisma.ingredient.create
-        >[0]['data']['allergens'],
+        proteinType: ingredient.proteinType ?? null,
+        defaultUnit: ingredient.defaultUnit,
+        allergens: ingredient.allergens,
         calories: ingredient.calories,
         protein: ingredient.protein,
         carbs: ingredient.carbs,
         fat: ingredient.fat,
         fiber: ingredient.fiber,
-        gramsPerPiece: 'gramsPerPiece' in ingredient ? ingredient.gramsPerPiece : null,
-        densityGPerMl: 'densityGPerMl' in ingredient ? ingredient.densityGPerMl : null,
+        gramsPerPiece: ingredient.gramsPerPiece ?? null,
+        densityGPerMl: ingredient.densityGPerMl ?? null,
       },
     })
   }
