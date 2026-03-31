@@ -541,7 +541,7 @@ export const importCoverageIngredients = [
   },
 
   // ============================================
-  // CHEESE (22)
+  // CHEESE (21)
   // ============================================
   {
     name: 'pepper jack cheese',
@@ -713,17 +713,6 @@ export const importCoverageIngredients = [
     protein: 17,
     carbs: 0,
     fat: 23,
-  },
-  {
-    name: 'labneh',
-    category: 'dairy',
-    subcategory: 'fresh cheese',
-    defaultUnit: 'g',
-    allergens: ['dairy'],
-    calories: 154,
-    protein: 6,
-    carbs: 5,
-    fat: 13,
   },
   {
     name: 'fromage blanc',
