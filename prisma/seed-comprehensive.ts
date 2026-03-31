@@ -997,6 +997,82 @@ export const comprehensiveIngredients = [
   },
 
   // ============================================
+  // MEXICAN - Dried Chilies & Specialty (6)
+  // ============================================
+  {
+    name: 'guajillo chili',
+    category: 'spice',
+    subcategory: 'dried chili',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 324,
+    protein: 11,
+    carbs: 56,
+    fat: 6,
+    fiber: 29,
+  },
+  {
+    name: 'pasilla chili',
+    category: 'spice',
+    subcategory: 'dried chili',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 324,
+    protein: 11,
+    carbs: 56,
+    fat: 6,
+    fiber: 29,
+  },
+  {
+    name: 'arbol chili',
+    category: 'spice',
+    subcategory: 'dried chili',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 324,
+    protein: 11,
+    carbs: 56,
+    fat: 6,
+    fiber: 29,
+  },
+  {
+    name: 'queso oaxaca',
+    category: 'dairy',
+    subcategory: 'cheese',
+    defaultUnit: 'g',
+    allergens: ['dairy'],
+    calories: 316,
+    protein: 25,
+    carbs: 2,
+    fat: 23,
+    fiber: 0,
+  },
+  {
+    name: 'huitlacoche',
+    category: 'vegetable',
+    subcategory: 'fungus',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 35,
+    protein: 3.5,
+    carbs: 4,
+    fat: 0.7,
+    fiber: 2,
+  },
+  {
+    name: 'piloncillo',
+    category: 'condiment',
+    subcategory: 'sweetener',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 375,
+    protein: 0.4,
+    carbs: 93,
+    fat: 0.1,
+    fiber: 0,
+  },
+
+  // ============================================
   // INDIAN PANTRY (14)
   // ============================================
   {

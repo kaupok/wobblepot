@@ -69,6 +69,22 @@ describe('INGREDIENT_ALIASES', () => {
     expect(INGREDIENT_ALIASES['achar']).toBe('Indian pickle')
   })
 
+  it('contains Mexican ingredient aliases', () => {
+    expect(INGREDIENT_ALIASES['chile guajillo']).toBe('guajillo chili')
+    expect(INGREDIENT_ALIASES['dried guajillo']).toBe('guajillo chili')
+    expect(INGREDIENT_ALIASES['chile pasilla']).toBe('pasilla chili')
+    expect(INGREDIENT_ALIASES['dried pasilla']).toBe('pasilla chili')
+    expect(INGREDIENT_ALIASES['chile de arbol']).toBe('arbol chili')
+    expect(INGREDIENT_ALIASES['chile de árbol']).toBe('arbol chili')
+    expect(INGREDIENT_ALIASES['dried arbol']).toBe('arbol chili')
+    expect(INGREDIENT_ALIASES['oaxaca cheese']).toBe('queso oaxaca')
+    expect(INGREDIENT_ALIASES['quesillo']).toBe('queso oaxaca')
+    expect(INGREDIENT_ALIASES['corn truffle']).toBe('huitlacoche')
+    expect(INGREDIENT_ALIASES['cuitlacoche']).toBe('huitlacoche')
+    expect(INGREDIENT_ALIASES['mexican raw sugar']).toBe('piloncillo')
+    expect(INGREDIENT_ALIASES['panela sugar']).toBe('piloncillo')
+  })
+
   it('does not contain aliases that would degrade direct matches', () => {
     // These ingredients exist in the DB directly, so no alias needed
     expect(INGREDIENT_ALIASES['onion']).toBeUndefined()
