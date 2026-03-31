@@ -1006,16 +1006,27 @@ export async function matchIngredients(
     const normalizedAliasName = applyIngredientAlias(normalizedName).toLowerCase().trim()
     candidateNames.add(normalizedAliasName)
 
-    // Last word fallback (e.g., "black bread" → "bread")
-    const lastWord = extractLastWord(directName)
-    if (lastWord) candidateNames.add(lastWord)
-
-    // Search all candidates and pick the best match
+    // Phase 1: Search semantic candidates (direct, alias, normalized, alias-normalized)
     let matches: Awaited<ReturnType<typeof fuzzySearchIngredient>> = []
     for (const candidate of candidateNames) {
       const candidateMatches = await fuzzySearchIngredient(candidate)
       if (candidateMatches[0] && candidateMatches[0].similarity > (matches[0]?.similarity ?? 0)) {
         matches = candidateMatches
+      }
+    }
+
+    // Phase 2: Last-word fallback — ONLY if no semantic match found above threshold
+    // This prevents "trout fillet" → "fillet" → "cod fillet" from overriding
+    // the direct search result when a reasonable match already exists.
+    // Uses VERY_LOW_CONFIDENCE_THRESHOLD because matches below it would be treated
+    // as unmatched anyway — so the fallback can only improve the outcome.
+    if (!matches[0] || matches[0].similarity < VERY_LOW_CONFIDENCE_THRESHOLD) {
+      const lastWord = extractLastWord(directName)
+      if (lastWord) {
+        const fallbackMatches = await fuzzySearchIngredient(lastWord)
+        if (fallbackMatches[0] && fallbackMatches[0].similarity > (matches[0]?.similarity ?? 0)) {
+          matches = fallbackMatches
+        }
       }
     }
 
@@ -1037,7 +1048,37 @@ export async function matchIngredients(
         continue
       }
 
-      const lowConfidence = similarityScore < LOW_CONFIDENCE_THRESHOLD
+      let lowConfidence = similarityScore < LOW_CONFIDENCE_THRESHOLD
+
+      // Safety check: if primary nouns differ between extracted and matched name,
+      // force low-confidence regardless of trigram score.
+      // e.g., "trout fillet" → "cod fillet": trout ≠ cod → flag for review
+      if (!lowConfidence && directName.includes(' ')) {
+        const COMMON_SUFFIXES = new Set([
+          'fillet',
+          'breast',
+          'thigh',
+          'leg',
+          'wing',
+          'steak',
+          'chop',
+          'loin',
+          'rib',
+        ])
+        const extractedWords = new Set(directName.split(/\s+/))
+        const matchedWords = new Set(match.name.toLowerCase().split(/\s+/))
+
+        const extractedUnique = [...extractedWords].filter(
+          (w) => !matchedWords.has(w) && !COMMON_SUFFIXES.has(w),
+        )
+        const matchedUnique = [...matchedWords].filter(
+          (w) => !extractedWords.has(w) && !COMMON_SUFFIXES.has(w),
+        )
+
+        if (extractedUnique.length > 0 && matchedUnique.length > 0) {
+          lowConfidence = true
+        }
+      }
 
       // Get alternatives for disambiguation if low confidence
       const alternatives = lowConfidence
