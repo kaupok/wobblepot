@@ -147,6 +147,20 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   // 'roasted seaweed' intentionally omitted — nori already in DB as the more common match
   'korean seaweed': 'gim', // DB has gim
   'korean kelp': 'dashima', // DB has dashima
+
+  // Mediterranean & French aliases (HON-417)
+  'parmigiano-reggiano': 'parmesan', // DB has parmesan
+  'parmigiano reggiano': 'parmesan', // DB has parmesan
+  'phyllo pastry': 'phyllo dough', // DB has phyllo dough
+  'filo pastry': 'phyllo dough', // DB has phyllo dough
+  'filo dough': 'phyllo dough', // DB has phyllo dough
+  filo: 'phyllo dough', // DB has phyllo dough
+  'french green beans': 'haricots verts', // DB has haricots verts
+  'calabrian chili paste': 'calabrian chili', // DB has calabrian chili
+  'calabrian chili pepper': 'calabrian chili', // DB has calabrian chili
+  'calabrian pepper': 'calabrian chili', // DB has calabrian chili
+  soppressata: 'sopressata', // DB has sopressata (single-p spelling)
+  'apple brandy': 'calvados', // DB has calvados
 }
 
 /**
