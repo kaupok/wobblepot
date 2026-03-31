@@ -176,6 +176,25 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   'black treacle': 'treacle', // DB has treacle
   'yeast extract': 'marmite', // DB has marmite
 
+  // Caribbean & Brazilian aliases (HON-420)
+  'dendê oil': 'palm oil', // DB has palm oil — dendê is unrefined palm oil variant
+  'dende oil': 'palm oil', // Without accent
+  'brazilian nut': 'brazil nuts', // DB has brazil nuts
+  recao: 'culantro', // DB has culantro — Puerto Rican name for culantro
+  'dried beef': 'carne seca', // DB has carne seca
+  'brazilian cream cheese': 'requeijão', // DB has requeijão
+
+  // West African aliases (HON-416)
+  iru: 'dawadawa', // Yoruba name for fermented locust bean
+  'locust bean condiment': 'dawadawa', // DB has dawadawa
+  'yaji spice': 'suya spice', // DB has suya spice
+  yaji: 'suya spice', // DB has suya spice
+  'cassava couscous': 'attieke', // DB has attieke
+  attiéké: 'attieke', // Accented spelling
+  'african basil': 'scent leaf', // DB has scent leaf
+  'dika seeds': 'ogbono seeds', // Alternate name for ogbono
+  'melon seeds': 'egusi seeds', // DB has egusi seeds
+
   // Mediterranean & French aliases (HON-417)
   'parmigiano-reggiano': 'parmesan', // DB has parmesan
   'parmigiano reggiano': 'parmesan', // DB has parmesan
