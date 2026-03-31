@@ -69,6 +69,15 @@ describe('INGREDIENT_ALIASES', () => {
     expect(INGREDIENT_ALIASES['achar']).toBe('Indian pickle')
   })
 
+  it('contains Japanese pantry aliases', () => {
+    expect(INGREDIENT_ALIASES['dashi stock']).toBe('dashi')
+    expect(INGREDIENT_ALIASES['dashi broth']).toBe('dashi')
+    expect(INGREDIENT_ALIASES['wasabi']).toBe('wasabi paste')
+    expect(INGREDIENT_ALIASES['tsuyu']).toBe('mentsuyu')
+    expect(INGREDIENT_ALIASES['soybean flour']).toBe('kinako')
+    expect(INGREDIENT_ALIASES['curry roux']).toBe('Japanese curry roux')
+  })
+
   it('does not contain aliases that would degrade direct matches', () => {
     // These ingredients exist in the DB directly, so no alias needed
     expect(INGREDIENT_ALIASES['onion']).toBeUndefined()
@@ -116,6 +125,14 @@ describe('applyIngredientAlias', () => {
     expect(applyIngredientAlias('Bicarbonate of Soda')).toBe('baking soda')
     expect(applyIngredientAlias('extra virgin olive oil')).toBe('olive oil')
     expect(applyIngredientAlias('Lemon Juice')).toBe('lemon')
+  })
+
+  it('expands Japanese pantry aliases', () => {
+    expect(applyIngredientAlias('dashi stock')).toBe('dashi')
+    expect(applyIngredientAlias('Dashi Broth')).toBe('dashi')
+    expect(applyIngredientAlias('wasabi')).toBe('wasabi paste')
+    expect(applyIngredientAlias('Tsuyu')).toBe('mentsuyu')
+    expect(applyIngredientAlias('Curry Roux')).toBe('Japanese curry roux')
   })
 
   it('returns original name for ingredients that should match directly', () => {
