@@ -591,6 +591,100 @@ describe('matchIngredients', () => {
     expect(matched.similarityScore).toBe(0.55)
   })
 
+  it('does not let last-word fallback override semantic match with different species', async () => {
+    // Semantic search for "trout fillet" finds "cod fillet" at 0.72 (above SIMILARITY_THRESHOLD 0.45)
+    // Last-word "fillet" would find "cod fillet" at 0.80, but should NOT run
+    // because semantic search already found a match above threshold.
+    // Additionally, noun mismatch (trout ≠ cod) should force low-confidence.
+    mockQueryRaw.mockResolvedValue([makeDbMatch({ name: 'cod fillet', similarity: 0.72 })])
+
+    const results = await matchIngredients(
+      [makeExtracted({ name: 'trout fillet', originalText: '200g trout fillet' })],
+      4,
+    )
+
+    expect(results).toHaveLength(1)
+    const matched = results[0] as {
+      type: 'matched'
+      lowConfidence: boolean
+      similarityScore: number
+      ingredient: { name: string }
+    }
+    expect(matched.type).toBe('matched')
+    expect(matched.ingredient.name).toBe('cod fillet')
+    // Should be flagged as low-confidence due to noun mismatch (trout ≠ cod)
+    expect(matched.lowConfidence).toBe(true)
+  })
+
+  it('still uses last-word fallback when no semantic match found', async () => {
+    // Semantic search for "black bread" returns nothing above threshold
+    // Last-word "bread" returns "bread" at 0.90 — should match high-confidence
+    mockQueryRaw
+      .mockResolvedValueOnce([]) // "black bread" semantic search → no results
+      .mockResolvedValueOnce([makeDbMatch({ name: 'bread', similarity: 0.9 })]) // "bread" fallback
+
+    const results = await matchIngredients(
+      [makeExtracted({ name: 'black bread', originalText: '200g black bread' })],
+      4,
+    )
+
+    expect(results).toHaveLength(1)
+    const matched = results[0] as {
+      type: 'matched'
+      lowConfidence: boolean
+      similarityScore: number
+      ingredient: { name: string }
+    }
+    expect(matched.type).toBe('matched')
+    expect(matched.ingredient.name).toBe('bread')
+    expect(matched.similarityScore).toBe(0.9)
+    expect(matched.lowConfidence).toBe(false)
+  })
+
+  it('flags low-confidence when primary noun differs despite high trigram score', async () => {
+    // "chicken breast" matched to "turkey breast" — high trigram but different protein
+    // "chicken" not in "turkey breast" AND "turkey" not in "chicken breast"
+    // → force lowConfidence = true
+    mockQueryRaw.mockResolvedValue([makeDbMatch({ name: 'turkey breast', similarity: 0.75 })])
+
+    const results = await matchIngredients(
+      [makeExtracted({ name: 'chicken breast', originalText: '400g chicken breast' })],
+      4,
+    )
+
+    expect(results).toHaveLength(1)
+    const matched = results[0] as {
+      type: 'matched'
+      lowConfidence: boolean
+      similarityScore: number
+    }
+    expect(matched.type).toBe('matched')
+    // 0.75 ≥ 0.6 would normally be high-confidence, but noun mismatch forces low
+    expect(matched.lowConfidence).toBe(true)
+  })
+
+  it('does not flag low-confidence when primary noun matches with different cut', async () => {
+    // "chicken breast" matched to "chicken thigh" — same protein, different cut
+    // "chicken" is shared, "breast" and "thigh" are both common suffixes
+    // → should NOT force low-confidence (normal threshold rules apply)
+    mockQueryRaw.mockResolvedValue([makeDbMatch({ name: 'chicken thigh', similarity: 0.75 })])
+
+    const results = await matchIngredients(
+      [makeExtracted({ name: 'chicken breast', originalText: '400g chicken breast' })],
+      4,
+    )
+
+    expect(results).toHaveLength(1)
+    const matched = results[0] as {
+      type: 'matched'
+      lowConfidence: boolean
+      similarityScore: number
+    }
+    expect(matched.type).toBe('matched')
+    // 0.75 ≥ 0.6 and primary noun matches → should be high-confidence
+    expect(matched.lowConfidence).toBe(false)
+  })
+
   it('handles vague quantities with known phrase', async () => {
     mockQueryRaw.mockResolvedValue([
       makeDbMatch({ category: 'spice', subcategory: 'mineral', name: 'salt' }),
@@ -737,13 +831,12 @@ describe('matchIngredients', () => {
   })
 
   it('processes multiple ingredients', async () => {
-    // "chicken breast" → candidates: "chicken breast", "breast" (last word)
-    // "zxywvut spice" → candidates: "zxywvut spice", "spice" (last word)
+    // "chicken breast" → semantic match at 0.9 → skip last-word fallback
+    // "zxywvut spice" → no semantic match → last-word "spice" fallback → no match
     mockQueryRaw
-      .mockResolvedValueOnce([makeDbMatch({ name: 'chicken breast' })]) // "chicken breast"
-      .mockResolvedValueOnce([]) // "breast" (last word fallback)
-      .mockResolvedValueOnce([]) // "zxywvut spice" — no match
-      .mockResolvedValueOnce([]) // "spice" (last word fallback)
+      .mockResolvedValueOnce([makeDbMatch({ name: 'chicken breast' })]) // "chicken breast" semantic
+      .mockResolvedValueOnce([]) // "zxywvut spice" semantic — no match
+      .mockResolvedValueOnce([]) // "spice" (last word fallback) — no match
 
     const results = await matchIngredients(
       [
