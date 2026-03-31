@@ -92,11 +92,12 @@ Display:
 
 **For draft issues**, discuss:
 
-1. **Scope clarity**: Is the scope well-defined? Too broad? Too narrow?
-2. **Acceptance criteria**: What does "done" look like?
-3. **Technical approach**: Any key implementation decisions?
-4. **Dependencies**: What must happen first? What does this unblock?
-5. **Split/merge**: Should this be multiple issues? Is it a duplicate?
+1. **Problem/motivation**: Why does this matter? What user need or constraint drives it?
+2. **Scope clarity**: Is the scope well-defined? Too broad? Too narrow?
+3. **Acceptance criteria**: What does "done" look like? Specific, testable outcomes.
+4. **Technical approach**: Any key implementation decisions?
+5. **Dependencies**: What must happen first? What does this unblock?
+6. **Split/merge**: Should this be multiple issues? Is it a duplicate?
 
 **For Tech/labeled issues** (e.g., from `/tech-audit`), also discuss:
 
@@ -106,6 +107,10 @@ Display:
 4. **Ordering**: Should some tech issues be batched together? (e.g., deps + Next.js update in one PR)
 5. **Dependencies**: Does this block or depend on other tech issues? (e.g., Prisma update before type fix)
 6. **Labels**: Should additional labels be added? Should Tech issues also have a type label (e.g., "Bug", "Improvement")?
+
+### Step 7b: Add implementation guidance
+
+For issues that involve code changes, do a focused codebase scan (2-5 files) to add an **Implementation guidance** section to the description: key files to modify/study, patterns to follow, and any non-obvious integration points. For non-coding issues, still point to relevant existing code or UI when it grounds the issue (e.g., "see current onboarding flow in `src/app/onboarding/`").
 
 ### Step 8: Update or create
 
@@ -186,13 +191,16 @@ At end of session, provide:
 
 ## Issue Quality Checklist
 
-A well-refined issue should have:
+Refined issues feed into the agentic workflow (`/plan-issue` → `/auto-implement`). They must contain enough context for an agent — coding, product, or design — to act without the refinement conversation. A well-refined issue should have:
 
 - [ ] Clear, concise title (sentence case, no [DRAFT])
-- [ ] Description explaining the "what" and "why"
-- [ ] Acceptance criteria (what does done look like?)
+- [ ] Problem/motivation: Why does this matter? What user need or constraint drives it?
+- [ ] Description with enough context for an agent to make good judgment calls
+- [ ] Acceptance criteria with specific, testable outcomes (not "works correctly")
+- [ ] Implementation guidance: key files, patterns to follow, API/schema changes (for coding issues)
 - [ ] Appropriate relationships (blockedBy, blocks, relatedTo)
 - [ ] Priority set if important
+- [ ] Self-check: "Could an agent complete this from the issue alone?"
 
 ## Relationship Guidelines
 
