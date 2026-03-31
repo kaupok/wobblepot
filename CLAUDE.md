@@ -284,6 +284,18 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **Cross-session context:** Plans are stored as Linear comments by `/plan-issue`, so `/implement-issue` and `/code-review` can fetch them in new sessions.
 
+### Writing for Agents
+
+Specs, plans, and issues are consumed by agents — coding agents (`/auto-implement`), but also product, design, and growth agents. Write for both:
+
+- **Include the "why":** Agents need enough context and reasoning to make good judgment calls, not just a task list. State the problem, the user need, and key constraints.
+- **Be explicit about the "what":** Reference file paths, function names, data shapes, and expected behavior. No vague descriptions an agent must guess at.
+- **Be actionable:** Concrete, unambiguous steps. An agent should be able to execute without asking clarifying questions.
+- **Define done:** Testable acceptance criteria — not "works correctly" but specific observable outcomes.
+- **Self-check:** "Could an agent complete this from the issue alone, without the conversation that produced it?"
+
+This applies to `/ideate`, `/refine-backlog`, `/plan-issue`, and any content that feeds into the agentic workflow.
+
 ## Review Focus
 
 - Flag actual bugs and logic errors
