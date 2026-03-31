@@ -69,6 +69,31 @@ describe('INGREDIENT_ALIASES', () => {
     expect(INGREDIENT_ALIASES['achar']).toBe('Indian pickle')
   })
 
+  it('contains Mexican ingredient aliases', () => {
+    expect(INGREDIENT_ALIASES['chile guajillo']).toBe('guajillo chili')
+    expect(INGREDIENT_ALIASES['dried guajillo']).toBe('guajillo chili')
+    expect(INGREDIENT_ALIASES['chile pasilla']).toBe('pasilla chili')
+    expect(INGREDIENT_ALIASES['dried pasilla']).toBe('pasilla chili')
+    expect(INGREDIENT_ALIASES['chile de arbol']).toBe('arbol chili')
+    expect(INGREDIENT_ALIASES['chile de árbol']).toBe('arbol chili')
+    expect(INGREDIENT_ALIASES['dried arbol']).toBe('arbol chili')
+    expect(INGREDIENT_ALIASES['oaxaca cheese']).toBe('queso oaxaca')
+    expect(INGREDIENT_ALIASES['quesillo']).toBe('queso oaxaca')
+    expect(INGREDIENT_ALIASES['corn truffle']).toBe('huitlacoche')
+    expect(INGREDIENT_ALIASES['cuitlacoche']).toBe('huitlacoche')
+    expect(INGREDIENT_ALIASES['mexican raw sugar']).toBe('piloncillo')
+    expect(INGREDIENT_ALIASES['panela sugar']).toBe('piloncillo')
+  })
+
+  it('contains Japanese pantry aliases', () => {
+    expect(INGREDIENT_ALIASES['dashi stock']).toBe('dashi')
+    expect(INGREDIENT_ALIASES['dashi broth']).toBe('dashi')
+    expect(INGREDIENT_ALIASES['wasabi']).toBe('wasabi paste')
+    expect(INGREDIENT_ALIASES['tsuyu']).toBe('mentsuyu')
+    expect(INGREDIENT_ALIASES['soybean flour']).toBe('kinako')
+    expect(INGREDIENT_ALIASES['curry roux']).toBe('Japanese curry roux')
+  })
+
   it('contains Mediterranean and French aliases', () => {
     expect(INGREDIENT_ALIASES['parmigiano-reggiano']).toBe('parmesan')
     expect(INGREDIENT_ALIASES['parmigiano reggiano']).toBe('parmesan')
@@ -131,6 +156,14 @@ describe('applyIngredientAlias', () => {
     expect(applyIngredientAlias('Bicarbonate of Soda')).toBe('baking soda')
     expect(applyIngredientAlias('extra virgin olive oil')).toBe('olive oil')
     expect(applyIngredientAlias('Lemon Juice')).toBe('lemon')
+  })
+
+  it('expands Japanese pantry aliases', () => {
+    expect(applyIngredientAlias('dashi stock')).toBe('dashi')
+    expect(applyIngredientAlias('Dashi Broth')).toBe('dashi')
+    expect(applyIngredientAlias('wasabi')).toBe('wasabi paste')
+    expect(applyIngredientAlias('Tsuyu')).toBe('mentsuyu')
+    expect(applyIngredientAlias('Curry Roux')).toBe('Japanese curry roux')
   })
 
   it('returns original name for ingredients that should match directly', () => {

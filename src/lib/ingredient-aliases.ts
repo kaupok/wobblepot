@@ -138,6 +138,21 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   'crème fraîche': 'creme fraiche', // DB has creme fraiche
   'creme fraîche': 'creme fraiche', // Partial accent variant
 
+  // Mexican ingredient aliases (HON-418)
+  'chile guajillo': 'guajillo chili', // DB has guajillo chili
+  'dried guajillo': 'guajillo chili', // DB has guajillo chili
+  'chile pasilla': 'pasilla chili', // DB has pasilla chili
+  'dried pasilla': 'pasilla chili', // DB has pasilla chili
+  'chile de arbol': 'arbol chili', // DB has arbol chili
+  'chile de árbol': 'arbol chili', // DB has arbol chili (with accent)
+  'dried arbol': 'arbol chili', // DB has arbol chili
+  'oaxaca cheese': 'queso oaxaca', // DB has queso oaxaca
+  quesillo: 'queso oaxaca', // DB has queso oaxaca (common Mexican name)
+  'corn truffle': 'huitlacoche', // DB has huitlacoche
+  cuitlacoche: 'huitlacoche', // DB has huitlacoche (alternate spelling)
+  'mexican raw sugar': 'piloncillo', // DB has piloncillo
+  'panela sugar': 'piloncillo', // DB has piloncillo (Colombian name, same product)
+
   // Korean ingredient aliases (HON-413)
   'korean red pepper paste': 'gochujang', // DB has gochujang
   // 'red pepper paste' intentionally omitted — too generic (could be harissa, gochujang, etc.)
@@ -147,6 +162,19 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   // 'roasted seaweed' intentionally omitted — nori already in DB as the more common match
   'korean seaweed': 'gim', // DB has gim
   'korean kelp': 'dashima', // DB has dashima
+
+  // Japanese pantry aliases (HON-412)
+  'dashi stock': 'dashi', // DB has dashi
+  'dashi broth': 'dashi', // DB has dashi
+  wasabi: 'wasabi paste', // DB has wasabi paste
+  tsuyu: 'mentsuyu', // DB has mentsuyu
+  'soybean flour': 'kinako', // DB has kinako
+  'curry roux': 'Japanese curry roux', // DB has Japanese curry roux
+
+  // British / Nordic aliases (HON-421)
+  'cured salmon': 'gravlax', // DB has gravlax
+  'black treacle': 'treacle', // DB has treacle
+  'yeast extract': 'marmite', // DB has marmite
 
   // Mediterranean & French aliases (HON-417)
   'parmigiano-reggiano': 'parmesan', // DB has parmesan

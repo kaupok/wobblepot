@@ -16,6 +16,7 @@
 import { baseIngredients, baseMeals } from './seed'
 import { newIngredients, newMeals } from './seed-expansion'
 import { comprehensiveIngredients } from './seed-comprehensive'
+import { importCoverageIngredients } from './seed-import-coverage'
 import { INGREDIENT_ALIASES } from '../src/lib/ingredient-aliases'
 
 // ============================================
@@ -555,6 +556,7 @@ async function main() {
     'seed.ts': baseIngredients,
     'seed-expansion.ts': newIngredients,
     'seed-comprehensive.ts': comprehensiveIngredients as unknown as Ingredient[],
+    'seed-import-coverage.ts': importCoverageIngredients as unknown as Ingredient[],
   }
 
   // Meal sources — add new seed files here
