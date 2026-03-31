@@ -71,6 +71,7 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   // Condiments - expand to DB names
   mustard: 'yellow mustard', // DB has yellow mustard
   'soy sauce': 'light soy sauce', // DB has light soy sauce
+  'vietnamese fish sauce': 'fish sauce', // DB has fish sauce
   miso: 'white miso paste', // DB has white miso paste
   vinegar: 'white vinegar', // DB has white vinegar
 

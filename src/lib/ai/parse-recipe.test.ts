@@ -641,6 +641,24 @@ describe('matchIngredients', () => {
     expect(matched.lowConfidence).toBe(false)
   })
 
+  it('rejects last-word fallback when matched name does not contain the last word', async () => {
+    // "calabresa sausage" — semantic search finds nothing good
+    // Last-word "sausage" would trigram-match "sage" at 0.65, but "sage" does NOT
+    // contain the word "sausage" — fallback should be rejected.
+    mockQueryRaw
+      .mockResolvedValueOnce([]) // "calabresa sausage" semantic search → no results
+      .mockResolvedValueOnce([makeDbMatch({ name: 'sage', similarity: 0.65 })]) // "sausage" fallback → "sage"
+
+    const results = await matchIngredients(
+      [makeExtracted({ name: 'calabresa sausage', originalText: '200g calabresa sausage' })],
+      4,
+    )
+
+    expect(results).toHaveLength(1)
+    // Should be unmatched because "sage" doesn't contain the word "sausage"
+    expect(results[0]!.type).toBe('unmatched')
+  })
+
   it('flags low-confidence when primary noun differs despite high trigram score', async () => {
     // "chicken breast" matched to "turkey breast" — high trigram but different protein
     // "chicken" not in "turkey breast" AND "turkey" not in "chicken breast"

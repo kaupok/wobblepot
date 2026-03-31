@@ -1025,7 +1025,13 @@ export async function matchIngredients(
       if (lastWord) {
         const fallbackMatches = await fuzzySearchIngredient(lastWord)
         if (fallbackMatches[0] && fallbackMatches[0].similarity > (matches[0]?.similarity ?? 0)) {
-          matches = fallbackMatches
+          // Safety: only accept fallback if the last word appears as a complete word
+          // in the matched name. Prevents "sausage" → "sage" (substring trigram match)
+          // while allowing "sauce" → "soy sauce" and "bread" → "bread".
+          const matchedWords = new Set(fallbackMatches[0].name.toLowerCase().split(/\s+/))
+          if (matchedWords.has(lastWord)) {
+            matches = fallbackMatches
+          }
         }
       }
     }
