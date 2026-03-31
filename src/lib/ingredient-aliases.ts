@@ -155,6 +155,17 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   tsuyu: 'mentsuyu', // DB has mentsuyu
   'soybean flour': 'kinako', // DB has kinako
   'curry roux': 'Japanese curry roux', // DB has Japanese curry roux
+
+  // West African aliases (HON-416)
+  iru: 'dawadawa', // Yoruba name for fermented locust bean
+  'locust bean condiment': 'dawadawa', // DB has dawadawa
+  'yaji spice': 'suya spice', // DB has suya spice
+  yaji: 'suya spice', // DB has suya spice
+  'cassava couscous': 'attieke', // DB has attieke
+  attiéké: 'attieke', // Accented spelling
+  'african basil': 'scent leaf', // DB has scent leaf
+  'dika seeds': 'ogbono seeds', // Alternate name for ogbono
+  'melon seeds': 'egusi seeds', // DB has egusi seeds
 }
 
 /**

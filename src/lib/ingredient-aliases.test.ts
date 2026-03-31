@@ -78,6 +78,18 @@ describe('INGREDIENT_ALIASES', () => {
     expect(INGREDIENT_ALIASES['curry roux']).toBe('Japanese curry roux')
   })
 
+  it('contains West African ingredient aliases', () => {
+    expect(INGREDIENT_ALIASES['iru']).toBe('dawadawa')
+    expect(INGREDIENT_ALIASES['locust bean condiment']).toBe('dawadawa')
+    expect(INGREDIENT_ALIASES['yaji spice']).toBe('suya spice')
+    expect(INGREDIENT_ALIASES['yaji']).toBe('suya spice')
+    expect(INGREDIENT_ALIASES['cassava couscous']).toBe('attieke')
+    expect(INGREDIENT_ALIASES['attiéké']).toBe('attieke')
+    expect(INGREDIENT_ALIASES['african basil']).toBe('scent leaf')
+    expect(INGREDIENT_ALIASES['dika seeds']).toBe('ogbono seeds')
+    expect(INGREDIENT_ALIASES['melon seeds']).toBe('egusi seeds')
+  })
+
   it('does not contain aliases that would degrade direct matches', () => {
     // These ingredients exist in the DB directly, so no alias needed
     expect(INGREDIENT_ALIASES['onion']).toBeUndefined()
@@ -133,6 +145,14 @@ describe('applyIngredientAlias', () => {
     expect(applyIngredientAlias('wasabi')).toBe('wasabi paste')
     expect(applyIngredientAlias('Tsuyu')).toBe('mentsuyu')
     expect(applyIngredientAlias('Curry Roux')).toBe('Japanese curry roux')
+  })
+
+  it('expands West African ingredient aliases', () => {
+    expect(applyIngredientAlias('iru')).toBe('dawadawa')
+    expect(applyIngredientAlias('Yaji Spice')).toBe('suya spice')
+    expect(applyIngredientAlias('cassava couscous')).toBe('attieke')
+    expect(applyIngredientAlias('African Basil')).toBe('scent leaf')
+    expect(applyIngredientAlias('dika seeds')).toBe('ogbono seeds')
   })
 
   it('returns original name for ingredients that should match directly', () => {
