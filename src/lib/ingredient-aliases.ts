@@ -119,6 +119,12 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
 
   // Dairy aliases
   'natural yogurt': 'plain yogurt', // British term
+
+  // Cross-cuisine aliases (HON-411)
+  'tamarind paste': 'tamarind puree', // DB has tamarind puree
+  'bulgur wheat': 'bulgur', // DB has bulgur
+  'crème fraîche': 'creme fraiche', // DB has creme fraiche
+  'creme fraîche': 'creme fraiche', // Partial accent variant
 }
 
 /**
