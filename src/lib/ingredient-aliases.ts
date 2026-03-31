@@ -128,11 +128,11 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
 
   // Korean ingredient aliases (HON-413)
   'korean red pepper paste': 'gochujang', // DB has gochujang
-  'red pepper paste': 'gochujang', // DB has gochujang
+  // 'red pepper paste' intentionally omitted — too generic (could be harissa, gochujang, etc.)
   'korean fermented soybean paste': 'doenjang', // DB has doenjang
   'korean rice cakes': 'tteok', // DB has tteok
   'rice cakes': 'tteok', // DB has tteok
-  'roasted seaweed': 'gim', // DB has gim
+  // 'roasted seaweed' intentionally omitted — nori already in DB as the more common match
   'korean seaweed': 'gim', // DB has gim
   'korean kelp': 'dashima', // DB has dashima
 }
