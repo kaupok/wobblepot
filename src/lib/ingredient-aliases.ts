@@ -183,6 +183,17 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   recao: 'culantro', // DB has culantro — Puerto Rican name for culantro
   'dried beef': 'carne seca', // DB has carne seca
   'brazilian cream cheese': 'requeijão', // DB has requeijão
+
+  // West African aliases (HON-416)
+  iru: 'dawadawa', // Yoruba name for fermented locust bean
+  'locust bean condiment': 'dawadawa', // DB has dawadawa
+  'yaji spice': 'suya spice', // DB has suya spice
+  yaji: 'suya spice', // DB has suya spice
+  'cassava couscous': 'attieke', // DB has attieke
+  attiéké: 'attieke', // Accented spelling
+  'african basil': 'scent leaf', // DB has scent leaf
+  'dika seeds': 'ogbono seeds', // Alternate name for ogbono
+  'melon seeds': 'egusi seeds', // DB has egusi seeds
 }
 
 /**
