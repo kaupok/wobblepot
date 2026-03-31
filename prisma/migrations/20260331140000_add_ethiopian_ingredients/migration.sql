@@ -5,7 +5,7 @@
 -- Spices & Spice Blends
 INSERT INTO "ingredient" ("id", "name", "category", "subcategory", "defaultUnit", "allergens", "calories", "protein", "carbs", "fat", "fiber")
 VALUES
-  (gen_random_uuid()::text, 'berbere', 'spice', 'spice blend', 'g', '{}', 340, 12, 50, 8, 20),
+  (gen_random_uuid()::text, 'berbere', 'spice', 'spice blend', 'g', '{}', 280, 10, 50, 6, 20),
   (gen_random_uuid()::text, 'mitmita', 'spice', 'spice blend', 'g', '{}', 330, 11, 48, 10, 18),
   (gen_random_uuid()::text, 'korarima', 'spice', 'whole spice', 'g', '{}', 311, 11, 68, 7, 28),
   (gen_random_uuid()::text, 'besobela', 'spice', 'dried herb', 'g', '{}', 233, 14, 48, 4, 26)

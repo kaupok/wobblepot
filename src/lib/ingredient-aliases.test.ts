@@ -85,6 +85,21 @@ describe('INGREDIENT_ALIASES', () => {
     expect(INGREDIENT_ALIASES['panela sugar']).toBe('piloncillo')
   })
 
+  it('contains Ethiopian ingredient aliases', () => {
+    expect(INGREDIENT_ALIASES['berbere spice']).toBe('berbere')
+    expect(INGREDIENT_ALIASES['berbere seasoning']).toBe('berbere')
+    expect(INGREDIENT_ALIASES['ethiopian cardamom']).toBe('korarima')
+    expect(INGREDIENT_ALIASES['ethiopian sacred basil']).toBe('besobela')
+    expect(INGREDIENT_ALIASES['sacred basil']).toBe('besobela')
+    expect(INGREDIENT_ALIASES['spiced butter']).toBe('niter kibbeh')
+    expect(INGREDIENT_ALIASES['ethiopian spiced butter']).toBe('niter kibbeh')
+    expect(INGREDIENT_ALIASES['kibbeh butter']).toBe('niter kibbeh')
+    expect(INGREDIENT_ALIASES['shiro']).toBe('shiro powder')
+    expect(INGREDIENT_ALIASES['chickpea flour blend']).toBe('shiro powder')
+    expect(INGREDIENT_ALIASES['awaze']).toBe('awaze paste')
+    expect(INGREDIENT_ALIASES['ethiopian chili paste']).toBe('awaze paste')
+  })
+
   it('contains Japanese pantry aliases', () => {
     expect(INGREDIENT_ALIASES['dashi stock']).toBe('dashi')
     expect(INGREDIENT_ALIASES['dashi broth']).toBe('dashi')

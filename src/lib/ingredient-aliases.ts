@@ -153,6 +153,20 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   'mexican raw sugar': 'piloncillo', // DB has piloncillo
   'panela sugar': 'piloncillo', // DB has piloncillo (Colombian name, same product)
 
+  // Ethiopian ingredient aliases (HON-415)
+  'berbere spice': 'berbere', // DB has berbere
+  'berbere seasoning': 'berbere', // DB has berbere
+  'ethiopian cardamom': 'korarima', // DB has korarima
+  'ethiopian sacred basil': 'besobela', // DB has besobela
+  'sacred basil': 'besobela', // DB has besobela (not Thai holy basil)
+  'spiced butter': 'niter kibbeh', // DB has niter kibbeh
+  'ethiopian spiced butter': 'niter kibbeh', // DB has niter kibbeh
+  'kibbeh butter': 'niter kibbeh', // DB has niter kibbeh
+  shiro: 'shiro powder', // DB has shiro powder
+  'chickpea flour blend': 'shiro powder', // DB has shiro powder
+  awaze: 'awaze paste', // DB has awaze paste
+  'ethiopian chili paste': 'awaze paste', // DB has awaze paste
+
   // Korean ingredient aliases (HON-413)
   'korean red pepper paste': 'gochujang', // DB has gochujang
   // 'red pepper paste' intentionally omitted — too generic (could be harissa, gochujang, etc.)
