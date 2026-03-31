@@ -136,6 +136,11 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   'bulgur wheat': 'bulgur', // DB has bulgur
   'crème fraîche': 'creme fraiche', // DB has creme fraiche
   'creme fraîche': 'creme fraiche', // Partial accent variant
+
+  // British / Nordic aliases (HON-421)
+  'cured salmon': 'gravlax', // DB has gravlax
+  'black treacle': 'treacle', // DB has treacle
+  'yeast extract': 'marmite', // DB has marmite
 }
 
 /**
