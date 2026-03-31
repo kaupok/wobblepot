@@ -3669,7 +3669,7 @@ export const importCoverageIngredients = [
 
   // ── Mediterranean & French specialty ingredients (HON-417) ── 12 items
 
-  // Italian
+  // Spanish
   {
     name: 'piquillo peppers',
     category: 'vegetable',
@@ -3683,7 +3683,7 @@ export const importCoverageIngredients = [
     fiber: 2,
   },
   {
-    name: 'sopressata',
+    name: 'soppressata',
     category: 'protein',
     subcategory: 'cured meat',
     proteinType: 'pork',

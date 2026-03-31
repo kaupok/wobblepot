@@ -80,7 +80,7 @@ describe('INGREDIENT_ALIASES', () => {
     expect(INGREDIENT_ALIASES['calabrian chili paste']).toBe('calabrian chili')
     expect(INGREDIENT_ALIASES['calabrian chili pepper']).toBe('calabrian chili')
     expect(INGREDIENT_ALIASES['calabrian pepper']).toBe('calabrian chili')
-    expect(INGREDIENT_ALIASES['soppressata']).toBe('sopressata')
+    expect(INGREDIENT_ALIASES['sopressata']).toBe('soppressata')
     expect(INGREDIENT_ALIASES['apple brandy']).toBe('calvados')
   })
 

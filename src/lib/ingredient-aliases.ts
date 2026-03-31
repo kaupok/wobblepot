@@ -159,7 +159,7 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   'calabrian chili paste': 'calabrian chili', // DB has calabrian chili
   'calabrian chili pepper': 'calabrian chili', // DB has calabrian chili
   'calabrian pepper': 'calabrian chili', // DB has calabrian chili
-  soppressata: 'sopressata', // DB has sopressata (single-p spelling)
+  sopressata: 'soppressata', // DB has soppressata (standard double-p spelling)
   'apple brandy': 'calvados', // DB has calvados
 }
 
