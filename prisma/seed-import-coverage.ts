@@ -3059,4 +3059,130 @@ export const importCoverageIngredients = [
     fat: 55,
     fiber: 14,
   },
+
+  // ============================================
+  // ASIAN & INTERNATIONAL CONDIMENTS (9)
+  // ============================================
+  // Fills gaps for international condiments not covered by
+  // seed.ts, seed-expansion.ts, or seed-comprehensive.ts.
+  // Generated for HON-407.
+
+  // --- East Asian (2) ---
+  {
+    name: 'toban djan',
+    category: 'condiment',
+    subcategory: 'paste',
+    defaultUnit: 'g',
+    allergens: ['soy'],
+    calories: 60,
+    protein: 3,
+    carbs: 8,
+    fat: 2,
+    fiber: 2,
+  },
+  {
+    name: 'dashi',
+    category: 'condiment',
+    subcategory: 'liquid',
+    defaultUnit: 'g',
+    allergens: ['fish'],
+    calories: 3,
+    protein: 0.5,
+    carbs: 0.3,
+    fat: 0,
+    fiber: 0,
+    densityGPerMl: 1.0,
+  },
+
+  // --- Southeast Asian (3) ---
+  {
+    name: 'fish paste',
+    category: 'condiment',
+    subcategory: 'paste',
+    defaultUnit: 'g',
+    allergens: ['fish'],
+    calories: 113,
+    protein: 18,
+    carbs: 5,
+    fat: 2,
+    fiber: 0,
+  },
+  {
+    name: 'shrimp paste',
+    category: 'condiment',
+    subcategory: 'paste',
+    defaultUnit: 'g',
+    allergens: ['shellfish'],
+    calories: 168,
+    protein: 30,
+    carbs: 7,
+    fat: 2,
+    fiber: 0,
+  },
+  {
+    name: 'pandan extract',
+    category: 'condiment',
+    subcategory: 'liquid',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 0,
+    protein: 0,
+    carbs: 0,
+    fat: 0,
+    fiber: 0,
+    densityGPerMl: 1.0,
+  },
+
+  // --- South Asian (2) ---
+  {
+    name: 'tamarind concentrate',
+    category: 'condiment',
+    subcategory: 'paste',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 239,
+    protein: 3,
+    carbs: 63,
+    fat: 0.6,
+    fiber: 5,
+  },
+  {
+    name: 'curry paste',
+    category: 'condiment',
+    subcategory: 'paste',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 84,
+    protein: 2,
+    carbs: 10,
+    fat: 4,
+    fiber: 3,
+  },
+
+  // --- Latin American (2) ---
+  {
+    name: 'adobo sauce',
+    category: 'condiment',
+    subcategory: 'sauce',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 24,
+    protein: 0.5,
+    carbs: 5,
+    fat: 0.3,
+    fiber: 1,
+    densityGPerMl: 1.05,
+  },
+  {
+    name: 'mole paste',
+    category: 'condiment',
+    subcategory: 'paste',
+    defaultUnit: 'g',
+    allergens: ['sesame', 'nuts'],
+    calories: 200,
+    protein: 5,
+    carbs: 25,
+    fat: 10,
+    fiber: 4,
+  },
 ]
