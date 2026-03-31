@@ -1662,19 +1662,7 @@ export const importCoverageIngredients = [
     fat: 21,
     fiber: 0,
   },
-  {
-    name: 'lamb rack',
-    category: 'protein',
-    subcategory: 'lamb',
-    proteinType: 'lamb',
-    defaultUnit: 'g',
-    allergens: [],
-    calories: 294,
-    protein: 25,
-    carbs: 0,
-    fat: 21,
-    fiber: 0,
-  },
+  // lamb rack: already seeded in seed-comprehensive.ts (260 cal, 21g protein, 19g fat)
   {
     name: 'lamb mince',
     category: 'protein',

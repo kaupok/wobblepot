@@ -96,8 +96,7 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   mince: 'ground beef', // Most common "mince" meaning
   'minced beef': 'beef mince lean', // DB has beef mince lean
   'minced pork': 'ground pork', // DB has ground pork
-  'stewing beef': 'beef chuck', // DB has beef chuck
-  'beef stew meat': 'beef chuck', // DB has beef chuck
+  // stewing beef / beef stew meat: now direct ingredients in seed-import-coverage.ts
 
   // Oil aliases
   'rapeseed oil': 'canola oil', // DB has canola oil (seed-import-coverage)
