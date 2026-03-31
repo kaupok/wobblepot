@@ -103,6 +103,7 @@ const DAIRY_EXCEPTIONS = [
   'shea butter',
   'nut butter',
   'sunflower butter',
+  'seed butter',
 ]
 
 const FISH_KEYWORDS = [
@@ -240,7 +241,36 @@ const GLUTEN_EXCEPTIONS = [
   'polenta',
   'millet',
   'quinoa',
+  'breadfruit',
 ]
+
+// ============================================
+// CATEGORY GUARD
+// ============================================
+
+// For name-based allergen checks, only run if the ingredient's category
+// could legitimately contain the allergen. A vegetable named "water chestnut"
+// can never be a tree nut; a spice named "cream of tartar" is never dairy.
+//
+// Category/subcategory-based checks (e.g., category === 'dairy') are unaffected —
+// they're high-confidence and run always. This guard only limits keyword searches.
+const NAME_CHECK_ALLOWED_CATEGORIES: Record<string, Set<string>> = {
+  dairy: new Set(['dairy', 'fat', 'condiment']),
+  fish: new Set(['protein', 'condiment']),
+  shellfish: new Set(['protein', 'condiment']),
+  nuts: new Set(['fat', 'condiment']),
+  peanuts: new Set(['fat', 'legume', 'condiment']),
+  soy: new Set(['protein', 'legume', 'condiment']),
+  sesame: new Set(['fat', 'condiment', 'spice']),
+  eggs: new Set(['protein', 'carb']),
+  gluten: new Set(['carb', 'condiment']),
+}
+
+/** Check if name-based allergen detection should run for this category */
+function shouldCheckNameFor(allergen: string, category: string): boolean {
+  const allowed = NAME_CHECK_ALLOWED_CATEGORIES[allergen]
+  return allowed ? allowed.has(category) : true
+}
 
 // ============================================
 // AUDIT FUNCTIONS
@@ -463,7 +493,8 @@ function auditAllergens(
 
   // DAIRY
   if (
-    (category === 'dairy' || nameMatches(DAIRY_KEYWORDS, DAIRY_EXCEPTIONS)) &&
+    (category === 'dairy' ||
+      (shouldCheckNameFor('dairy', category) && nameMatches(DAIRY_KEYWORDS, DAIRY_EXCEPTIONS))) &&
     !has('dairy') &&
     !DAIRY_EXCEPTIONS.some((e) => lowerName.includes(e.toLowerCase()))
   ) {
@@ -480,7 +511,7 @@ function auditAllergens(
   if (
     (FISH_SUBCATEGORIES.includes(subcategory ?? '') ||
       (proteinType === 'fish' && subcategory === 'fish') ||
-      nameMatches(FISH_KEYWORDS)) &&
+      (shouldCheckNameFor('fish', category) && nameMatches(FISH_KEYWORDS))) &&
     !has('fish')
   ) {
     // Don't flag shellfish items
@@ -497,7 +528,8 @@ function auditAllergens(
 
   // SHELLFISH
   if (
-    (SHELLFISH_SUBCATEGORIES.includes(subcategory ?? '') || nameMatches(SHELLFISH_KEYWORDS)) &&
+    (SHELLFISH_SUBCATEGORIES.includes(subcategory ?? '') ||
+      (shouldCheckNameFor('shellfish', category) && nameMatches(SHELLFISH_KEYWORDS))) &&
     !has('shellfish')
   ) {
     findings.push({
@@ -510,7 +542,11 @@ function auditAllergens(
   }
 
   // NUTS
-  if (nameMatches(NUT_KEYWORDS, NUT_EXCEPTIONS) && !has('nuts')) {
+  if (
+    shouldCheckNameFor('nuts', category) &&
+    nameMatches(NUT_KEYWORDS, NUT_EXCEPTIONS) &&
+    !has('nuts')
+  ) {
     findings.push({
       severity: 'critical',
       area: 'allergen',
@@ -533,7 +569,7 @@ function auditAllergens(
   }
 
   // PEANUTS
-  if (nameMatches(PEANUT_KEYWORDS) && !has('peanuts')) {
+  if (shouldCheckNameFor('peanuts', category) && nameMatches(PEANUT_KEYWORDS) && !has('peanuts')) {
     findings.push({
       severity: 'critical',
       area: 'allergen',
@@ -544,7 +580,7 @@ function auditAllergens(
   }
 
   // SOY
-  if (nameMatches(SOY_KEYWORDS) && !has('soy')) {
+  if (shouldCheckNameFor('soy', category) && nameMatches(SOY_KEYWORDS) && !has('soy')) {
     findings.push({
       severity: 'warning',
       area: 'allergen',
@@ -555,7 +591,7 @@ function auditAllergens(
   }
 
   // SESAME
-  if (nameMatches(SESAME_KEYWORDS) && !has('sesame')) {
+  if (shouldCheckNameFor('sesame', category) && nameMatches(SESAME_KEYWORDS) && !has('sesame')) {
     findings.push({
       severity: 'warning',
       area: 'allergen',
@@ -566,7 +602,11 @@ function auditAllergens(
   }
 
   // EGGS
-  if ((nameMatches(EGG_KEYWORDS, EGG_EXCEPTIONS) || proteinType === 'eggs') && !has('eggs')) {
+  if (
+    ((shouldCheckNameFor('eggs', category) && nameMatches(EGG_KEYWORDS, EGG_EXCEPTIONS)) ||
+      proteinType === 'eggs') &&
+    !has('eggs')
+  ) {
     findings.push({
       severity: 'critical',
       area: 'allergen',
@@ -588,7 +628,7 @@ function auditAllergens(
 
   // GLUTEN
   const isGlutenFree = GLUTEN_EXCEPTIONS.some((e) => lowerName.includes(e.toLowerCase()))
-  if (!isGlutenFree) {
+  if (!isGlutenFree && shouldCheckNameFor('gluten', category)) {
     const isGlutenGrain = nameMatches(GLUTEN_KEYWORDS)
     const isGlutenFlour =
       nameMatches(GLUTEN_FLOUR_KEYWORDS) &&
