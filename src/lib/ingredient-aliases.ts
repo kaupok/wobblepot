@@ -194,6 +194,20 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   'african basil': 'scent leaf', // DB has scent leaf
   'dika seeds': 'ogbono seeds', // Alternate name for ogbono
   'melon seeds': 'egusi seeds', // DB has egusi seeds
+
+  // Mediterranean & French aliases (HON-417)
+  'parmigiano-reggiano': 'parmesan', // DB has parmesan
+  'parmigiano reggiano': 'parmesan', // DB has parmesan
+  'phyllo pastry': 'phyllo dough', // DB has phyllo dough
+  'filo pastry': 'phyllo dough', // DB has phyllo dough
+  'filo dough': 'phyllo dough', // DB has phyllo dough
+  filo: 'phyllo dough', // DB has phyllo dough
+  'french green beans': 'haricots verts', // DB has haricots verts
+  'calabrian chili paste': 'calabrian chili', // DB has calabrian chili
+  'calabrian chili pepper': 'calabrian chili', // DB has calabrian chili
+  'calabrian pepper': 'calabrian chili', // DB has calabrian chili
+  sopressata: 'soppressata', // DB has soppressata (standard double-p spelling)
+  'apple brandy': 'calvados', // DB has calvados
 }
 
 /**

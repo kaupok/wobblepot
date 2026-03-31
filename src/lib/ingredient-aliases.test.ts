@@ -106,6 +106,21 @@ describe('INGREDIENT_ALIASES', () => {
     expect(INGREDIENT_ALIASES['melon seeds']).toBe('egusi seeds')
   })
 
+  it('contains Mediterranean and French aliases', () => {
+    expect(INGREDIENT_ALIASES['parmigiano-reggiano']).toBe('parmesan')
+    expect(INGREDIENT_ALIASES['parmigiano reggiano']).toBe('parmesan')
+    expect(INGREDIENT_ALIASES['phyllo pastry']).toBe('phyllo dough')
+    expect(INGREDIENT_ALIASES['filo pastry']).toBe('phyllo dough')
+    expect(INGREDIENT_ALIASES['filo dough']).toBe('phyllo dough')
+    expect(INGREDIENT_ALIASES['filo']).toBe('phyllo dough')
+    expect(INGREDIENT_ALIASES['french green beans']).toBe('haricots verts')
+    expect(INGREDIENT_ALIASES['calabrian chili paste']).toBe('calabrian chili')
+    expect(INGREDIENT_ALIASES['calabrian chili pepper']).toBe('calabrian chili')
+    expect(INGREDIENT_ALIASES['calabrian pepper']).toBe('calabrian chili')
+    expect(INGREDIENT_ALIASES['sopressata']).toBe('soppressata')
+    expect(INGREDIENT_ALIASES['apple brandy']).toBe('calvados')
+  })
+
   it('does not contain aliases that would degrade direct matches', () => {
     // These ingredients exist in the DB directly, so no alias needed
     expect(INGREDIENT_ALIASES['onion']).toBeUndefined()
