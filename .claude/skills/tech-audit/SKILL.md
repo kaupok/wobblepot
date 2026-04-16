@@ -23,7 +23,7 @@ Perform a comprehensive codebase health audit across sixteen focus areas and pro
 
 ### 1. Parse arguments
 
-Check if `--focus <area>` was passed. If so, run only that section. Otherwise run all sections in order.
+Check if `--focus <area>` was passed. If so, run only that section plus section 17 (backlog cross-reference always runs, otherwise focused reruns re-propose tracked work). Otherwise run all sections in order.
 
 ---
 
@@ -395,7 +395,7 @@ Record findings: unused exports, orphaned files.
 
 **Goal:** Avoid proposing issues that already exist.
 
-Use `mcp__linear-server__list_issues` with `team: "Honkadori"`, `label: "Tech"`, `limit: 100`. Fetch `state: "Backlog"`, `"Todo"`, and `"In Progress"` in separate calls.
+Use `mcp__linear-server__list_issues` with `team: "Honkadori"`, `label: "Tech"`, `limit: 100`. Fetch `state: "Backlog"`, `"Todo"`, `"In Progress"`, and `"In Review"` in separate calls.
 
 Classify each would-be proposal against returned titles/descriptions:
 
@@ -470,7 +470,7 @@ Items to watch but not urgent (minor pattern deviations, informational).
 For significant findings, propose Linear issues. Each proposal is tagged with its section-17 status. All new issues must include the **Tech** label.
 
 1. **[Title]** - New - [Description] - [Priority] - Label: Tech
-2. **[Title]** - Update HON-XX - [What's changed]
+2. **[Title]** - Update HON-XX - [What's changed] - [Suggested priority change, if any]
 3. **[Title]** - Duplicate of HON-XX - [Optional comment to add]
 ```
 
