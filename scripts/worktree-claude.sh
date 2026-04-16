@@ -262,6 +262,9 @@ neon_create_branch_for_worktree() {
 
   if [ -z "$pooled" ] || [ -z "$unpooled" ]; then
     echo -e "${RED}Error: Neon branch created but could not fetch connection strings.${NC}" >&2
+    # Don't leak the branch we just created. Best-effort delete.
+    pnpm dlx "neonctl@$NEONCTL_VERSION" branches delete "$neon_branch" \
+      --project-id "$NEON_PROJECT_ID" >/dev/null 2>&1 || true
     return 1
   fi
 
@@ -473,11 +476,10 @@ cmd_new() {
   # Copy untracked files from main repo (.env, Claude settings, etc.)
   copy_untracked_files "$worktree_path"
 
-  # Provision a Neon branch and patch DATABASE_URL in the worktree .env.
-  # No-op when NEON_API_KEY/NEON_PROJECT_ID are unset.
-  neon_create_branch_for_worktree "$branch" "$worktree_path/.env" "$fresh_db" || exit 1
-
-  # Install dependencies
+  # Install dependencies BEFORE Neon provisioning so a pnpm failure (lockfile
+  # conflict, registry 5xx, corrupt node_modules, OOM) can't leak a fresh
+  # Neon branch. `db:generate` reads DATABASE_URL from the copied .env but
+  # doesn't connect, so the shared URL is fine here.
   echo "Installing dependencies..."
   if command -v pnpm &> /dev/null; then
     pnpm install
@@ -485,6 +487,10 @@ cmd_new() {
   else
     echo -e "${YELLOW}Warning: pnpm not found, skipping dependency installation${NC}"
   fi
+
+  # Provision a Neon branch and patch DATABASE_URL in the worktree .env.
+  # No-op when NEON_API_KEY/NEON_PROJECT_ID are unset.
+  neon_create_branch_for_worktree "$branch" "$worktree_path/.env" "$fresh_db" || exit 1
 
   echo ""
   echo -e "${GREEN}Worktree ready!${NC}"
@@ -591,12 +597,9 @@ cmd_auto() {
   # Copy untracked files from main repo (.env, Claude settings, etc.)
   copy_untracked_files "$worktree_path"
 
-  # Provision a Neon branch and patch DATABASE_URL in the worktree .env.
-  # No-op when NEON_API_KEY/NEON_PROJECT_ID are unset. Failure is fatal so
-  # the orchestrator logs a clean failure and moves on (no silent shared-DB fallback).
-  neon_create_branch_for_worktree "$branch" "$worktree_path/.env" "$fresh_db" || exit 1
-
-  # Install dependencies
+  # Install dependencies BEFORE Neon provisioning so a pnpm failure can't
+  # leak a fresh Neon branch. db:generate doesn't connect — shared DATABASE_URL
+  # from the copied .env is sufficient.
   echo "Installing dependencies..."
   if command -v pnpm &> /dev/null; then
     pnpm install
@@ -604,6 +607,11 @@ cmd_auto() {
   else
     echo -e "${YELLOW}Warning: pnpm not found, skipping dependency installation${NC}"
   fi
+
+  # Provision a Neon branch and patch DATABASE_URL in the worktree .env.
+  # No-op when NEON_API_KEY/NEON_PROJECT_ID are unset. Failure is fatal so
+  # the orchestrator logs a clean failure and moves on (no silent shared-DB fallback).
+  neon_create_branch_for_worktree "$branch" "$worktree_path/.env" "$fresh_db" || exit 1
 
   echo ""
   echo -e "${GREEN}Worktree ready!${NC}"
@@ -1237,8 +1245,11 @@ cmd_cleanup_all() {
       local branch="${safe_branches[$i]}"
       sync_permissions "$path"
       echo "Removing: $path"
-      git -C "$REPO_ROOT" worktree remove "$path" --force 2>/dev/null || true
-      neon_delete_branch_for_worktree "$branch"
+      if git -C "$REPO_ROOT" worktree remove "$path" --force 2>/dev/null; then
+        neon_delete_branch_for_worktree "$branch"
+      else
+        echo -e "${YELLOW}Worktree remove failed for $path — keeping Neon branch${NC}" >&2
+      fi
     done
   elif [ ${#safe_worktrees[@]} -eq 0 ]; then
     # No safe worktrees, all have work in progress
@@ -1261,8 +1272,11 @@ cmd_cleanup_all() {
           local branch="${unsafe_branches[$i]}"
           sync_permissions "$path"
           echo "Force removing: $path"
-          git -C "$REPO_ROOT" worktree remove "$path" --force 2>/dev/null || true
-          neon_delete_branch_for_worktree "$branch"
+          if git -C "$REPO_ROOT" worktree remove "$path" --force 2>/dev/null; then
+            neon_delete_branch_for_worktree "$branch"
+          else
+            echo -e "${YELLOW}Worktree remove failed for $path — keeping Neon branch${NC}" >&2
+          fi
         done
       else
         echo "Cancelled."
@@ -1289,8 +1303,11 @@ cmd_cleanup_all() {
           local branch="${safe_branches[$i]}"
           sync_permissions "$path"
           echo "Removing: $path"
-          git -C "$REPO_ROOT" worktree remove "$path" --force 2>/dev/null || true
-          neon_delete_branch_for_worktree "$branch"
+          if git -C "$REPO_ROOT" worktree remove "$path" --force 2>/dev/null; then
+            neon_delete_branch_for_worktree "$branch"
+          else
+            echo -e "${YELLOW}Worktree remove failed for $path — keeping Neon branch${NC}" >&2
+          fi
         done
         echo ""
         echo -e "${YELLOW}Kept ${#unsafe_worktrees[@]} worktree(s) with work in progress.${NC}"
@@ -1305,8 +1322,11 @@ cmd_cleanup_all() {
             local branch="${all_branches[$i]}"
             sync_permissions "$path"
             echo "Force removing: $path"
-            git -C "$REPO_ROOT" worktree remove "$path" --force 2>/dev/null || true
-            neon_delete_branch_for_worktree "$branch"
+            if git -C "$REPO_ROOT" worktree remove "$path" --force 2>/dev/null; then
+              neon_delete_branch_for_worktree "$branch"
+            else
+              echo -e "${YELLOW}Worktree remove failed for $path — keeping Neon branch${NC}" >&2
+            fi
           done
         else
           echo "Cancelled."
@@ -1881,6 +1901,12 @@ case "${1:-}" in
     ;;
   cleanup-all)
     cmd_cleanup_all
+    ;;
+  neon-delete)
+    # Non-interactive Neon-branch delete for external callers (e.g. orchestrator).
+    # Same semantics as the cleanup hook: degrades silently if Neon isn't configured,
+    # refuses protected names, never fails loud.
+    neon_delete_branch_for_worktree "$2"
     ;;
   sync)
     cmd_sync "$2"

@@ -1004,8 +1004,15 @@ cleanup_worker_worktree() {
   fi
 
   sync_permissions "$worktree_path"
-  git -C "$REPO_ROOT" worktree remove "$worktree_path" --force 2>/dev/null || \
-    log WARN "Failed to remove worktree at $worktree_path"
+  if git -C "$REPO_ROOT" worktree remove "$worktree_path" --force 2>/dev/null; then
+    # Delete the paired Neon branch. Delegates to worktree-claude.sh so all
+    # Neon logic (name mapping, protected-name guardrail, "not configured"
+    # short-circuit) stays in one place. `|| true` in case the helper errors;
+    # a failed Neon delete should never block worker cleanup.
+    "$SCRIPT_DIR/worktree-claude.sh" neon-delete "$branch" >/dev/null 2>&1 || true
+  else
+    log WARN "Failed to remove worktree at $worktree_path — keeping Neon branch"
+  fi
   git -C "$REPO_ROOT" branch -D "$branch" 2>/dev/null || true
   git -C "$REPO_ROOT" worktree prune 2>/dev/null || true
   log DEBUG "Cleaned up worktree: $branch"
