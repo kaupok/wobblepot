@@ -2,6 +2,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 import nextVitals from 'eslint-config-next/core-web-vitals'
 import nextTs from 'eslint-config-next/typescript'
 import testingLibrary from 'eslint-plugin-testing-library'
+import storybook from 'eslint-plugin-storybook'
 
 const config = defineConfig([
   // Next.js + TypeScript base rules (native flat config)
@@ -9,7 +10,14 @@ const config = defineConfig([
   ...nextTs,
 
   // Global ignores
-  globalIgnores(['.next/**', 'out/**', 'build/**', 'coverage/**', 'next-env.d.ts']),
+  globalIgnores([
+    '.next/**',
+    'out/**',
+    'build/**',
+    'coverage/**',
+    'storybook-static/**',
+    'next-env.d.ts',
+  ]),
 
   // TypeScript-specific rules
   {
@@ -42,6 +50,9 @@ const config = defineConfig([
       'testing-library/no-container': 'warn',
     },
   },
+
+  // Storybook rules (only for story files)
+  ...storybook.configs['flat/recommended'],
 ])
 
 export default config

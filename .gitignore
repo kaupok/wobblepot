@@ -57,3 +57,6 @@ next-env.d.ts
 
 # Claude Code local settings (may contain secrets)
 .claude/settings.local.json
+
+*storybook.log
+storybook-static
