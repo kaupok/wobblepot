@@ -136,7 +136,7 @@ export function ServingControl({
       aria-label={`Serves ${servings}. Click to edit.`}
     >
       Serves {servings}
-      {isOverridden && <span className="text-xs opacity-70">(custom)</span>}
+      {isOverridden && <span className="text-xs">(custom)</span>}
     </button>
   )
 }

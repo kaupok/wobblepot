@@ -154,7 +154,7 @@ export function IngredientList({
               key={comp.ingredient.name}
               className={cn(
                 'flex items-center gap-2',
-                showMissingStyle && 'text-amber-600 dark:text-amber-400',
+                showMissingStyle && 'text-amber-700 dark:text-amber-400',
                 isToggling && 'opacity-60',
               )}
             >
@@ -170,7 +170,7 @@ export function IngredientList({
               <span
                 className={cn(
                   'whitespace-nowrap',
-                  showMissingStyle ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground',
+                  showMissingStyle ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground',
                   comp.isVague && 'italic',
                 )}
               >

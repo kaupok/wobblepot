@@ -34,7 +34,7 @@ const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 export const Default: Story = {
   render: () => (
     <Select defaultValue="Monday">
-      <SelectTrigger className="w-48">
+      <SelectTrigger aria-label="Day of week" className="w-48">
         <SelectValue placeholder="Pick a day" />
       </SelectTrigger>
       <SelectContent>
@@ -51,7 +51,7 @@ export const Default: Story = {
 export const Placeholder: Story = {
   render: () => (
     <Select>
-      <SelectTrigger className="w-48">
+      <SelectTrigger aria-label="Day of week" className="w-48">
         <SelectValue placeholder="Pick a day" />
       </SelectTrigger>
       <SelectContent>
@@ -68,7 +68,7 @@ export const Placeholder: Story = {
 export const WithDisabledOption: Story = {
   render: () => (
     <Select defaultValue="planned">
-      <SelectTrigger className="w-48">
+      <SelectTrigger aria-label="Status" className="w-48">
         <SelectValue placeholder="Status" />
       </SelectTrigger>
       <SelectContent>
@@ -85,7 +85,7 @@ export const WithDisabledOption: Story = {
 export const WithGroups: Story = {
   render: () => (
     <Select defaultValue="dinner">
-      <SelectTrigger className="w-48">
+      <SelectTrigger aria-label="Meal type" className="w-48">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -129,7 +129,7 @@ export const WithLabel: Story = {
 export const SmallSize: Story = {
   render: () => (
     <Select defaultValue="Monday">
-      <SelectTrigger size="sm" className="w-40">
+      <SelectTrigger size="sm" aria-label="Day of week" className="w-40">
         <SelectValue placeholder="Pick a day" />
       </SelectTrigger>
       <SelectContent>

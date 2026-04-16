@@ -154,9 +154,7 @@ export function PreparationTips({
             <Body variant="small" className="font-medium">
               Tip
             </Body>
-            <Body variant="small" className="text-muted-foreground">
-              {tips.tip}
-            </Body>
+            <Body variant="small">{tips.tip}</Body>
           </div>
         )}
       </div>
