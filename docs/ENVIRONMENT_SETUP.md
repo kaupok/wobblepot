@@ -141,6 +141,36 @@ For production use:
 - Development emails only reach the account owner
 - Use Resend's email preview to test templates
 
+## Neon Database Branching (optional)
+
+When `NEON_API_KEY` and `NEON_PROJECT_ID` are set, `wt new` / `wt auto` provision a per-worktree [Neon branch](https://neon.com/guides/git-worktrees-neon-branching) — an isolated copy-on-write copy of the database forked from a parent branch (default `staging`). Each worktree gets its own `DATABASE_URL`, so `pnpm db:migrate` in one worktree does not clobber the schema in another. `wt cleanup` removes the paired Neon branch automatically.
+
+Leaving the vars blank is the opt-out — worktrees print a one-line warning and fall back to the shared `DATABASE_URL`.
+
+### Setup
+
+1. **API key.** Go to [console.neon.tech/app/settings/api-keys](https://console.neon.tech/app/settings/api-keys), create a personal key, copy the `neon_...` value into `NEON_API_KEY`.
+2. **Project ID.** Open your Neon project. The project ID appears in the URL (`console.neon.tech/app/projects/<project-id>/...`) and under **Settings → General → Project ID**. Copy it into `NEON_PROJECT_ID`.
+3. **Parent branch (optional).** Defaults to `staging`. Override with `NEON_PARENT_BRANCH=some-other-branch` if you need a different schema base.
+4. **(Recommended)** In the Neon dashboard, mark `staging` (and `production` if it exists) as **protected** (⛨). This adds a server-side delete guardrail on top of the script's blocklist.
+
+### How it works
+
+- Branch name mapping is deterministic: `auto/hon-339-foo` → Neon branch `auto-hon-339-foo` (slashes become dashes).
+- `neonctl` runs via `pnpm dlx` with a pinned version — no install step required.
+- When the project hits the branch cap (10 on the free tier), `wt` runs an automatic GC pass to delete branches whose git worktree no longer exists, then retries once.
+- If a Neon branch with the target name already exists after GC, `wt` fails loud. Pass `--fresh-db` to `wt new` / `wt auto` to force delete-and-recreate.
+
+### Inspecting branches
+
+```bash
+# List Neon branches
+pnpm dlx neonctl@2.22.0 branches list --project-id "$NEON_PROJECT_ID"
+
+# Get the connection string for a specific branch
+pnpm dlx neonctl@2.22.0 connection-string <branch-name> --project-id "$NEON_PROJECT_ID" --pooled
+```
+
 ## Validation
 
 All environment variables are validated at startup with clear error messages if validation fails.

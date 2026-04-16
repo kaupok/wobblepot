@@ -95,6 +95,181 @@ sync_permissions() {
   fi
 }
 
+# ─── Neon database branching ──────────────────────────────────────────────────
+#
+# Each worktree can be paired with its own Neon branch (isolated copy-on-write
+# database). Opt-in via NEON_API_KEY + NEON_PROJECT_ID env vars. When unset,
+# worktrees fall back to the shared DATABASE_URL from .env.
+#
+# neonctl is invoked via pnpm dlx with a pinned version — no dev dep, no
+# global install, reproducible behavior. Bump NEONCTL_VERSION deliberately.
+NEONCTL_VERSION="2.22.0"
+
+# Map a git branch name to a Neon branch name (deterministic, reversible).
+# Example: auto/hon-339-foo -> auto-hon-339-foo
+neon_branch_name() {
+  echo "$1" | tr '/' '-'
+}
+
+# Hard-refuse list of protected Neon branch names. Defense-in-depth against
+# catastrophic deletes (see Neon dashboard's ⛨ marker for server-side backstop).
+is_protected_neon_branch() {
+  case "$1" in
+    staging|main|production|preview) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Check if Neon integration is configured.
+neon_enabled() {
+  [ -n "${NEON_API_KEY:-}" ] && [ -n "${NEON_PROJECT_ID:-}" ]
+}
+
+# Atomically update (or create) a key in a .env file. Values are double-quoted
+# to match .env.example convention. Regex anchors on `^KEY=` so related keys
+# (e.g., DATABASE_URL vs DATABASE_URL_UNPOOLED) aren't cross-matched.
+update_env_var() {
+  local key="$1" value="$2" file="$3"
+  local tmp
+  tmp=$(mktemp)
+  awk -v k="$key" -v v="$value" '
+    BEGIN { found = 0 }
+    $0 ~ "^"k"=" { print k"=\""v"\""; found = 1; next }
+    { print }
+    END { if (!found) print k"=\""v"\"" }
+  ' "$file" > "$tmp" && mv "$tmp" "$file"
+}
+
+# Delete Neon branches whose live git worktree no longer exists. Filters to
+# auto-* / kaupo-* prefixes so the GC can't touch hand-managed branches. Skips
+# protected names. Safe to call repeatedly; errors from individual deletes
+# are ignored (best-effort sweep).
+neon_gc_orphans() {
+  neon_enabled || return 0
+  local live_worktrees
+  live_worktrees=$(git -C "$REPO_ROOT" worktree list --porcelain \
+    | awk '/^branch /{print substr($2, 12)}' | tr '/' '-' | sort -u)
+
+  # Split list + filter into two steps so we can detect API failures. A silent
+  # no-op here would mask the real problem (auth, network, rate limit) as a
+  # later "cap exceeded" error, which is much harder to diagnose.
+  local list_out list_rc
+  list_out=$(pnpm dlx "neonctl@$NEONCTL_VERSION" branches list \
+    --project-id "$NEON_PROJECT_ID" --output json 2>/dev/null)
+  list_rc=$?
+  if [ "$list_rc" -ne 0 ]; then
+    echo -e "${YELLOW}Warning: Neon branches list failed (exit $list_rc) — skipping orphan GC${NC}" >&2
+    return 0
+  fi
+
+  # GC only reclaims branches with known prefixes (auto- from the orchestrator,
+  # kaupo- from interactive `wt new kaupo/...`). Other worktrees (feat-, fix-, etc.)
+  # must be cleaned up via `wt cleanup` — GC intentionally won't auto-reap them,
+  # so hand-managed Neon branches stay safe.
+  # Shape-tolerant: accepts either `[...]` or `{"branches": [...]}` wire formats.
+  local all_neon_branches
+  all_neon_branches=$(echo "$list_out" \
+    | jq -r '(.branches // .) | if type == "array" then .[] else empty end
+             | select(.name | startswith("auto-") or startswith("kaupo-"))
+             | .name')
+  local b
+  while IFS= read -r b; do
+    [ -z "$b" ] && continue
+    if ! echo "$live_worktrees" | grep -qx "$b"; then
+      if is_protected_neon_branch "$b"; then
+        continue
+      fi
+      pnpm dlx "neonctl@$NEONCTL_VERSION" branches delete "$b" \
+        --project-id "$NEON_PROJECT_ID" >/dev/null 2>&1 || true
+    fi
+  done <<< "$all_neon_branches"
+}
+
+# Create a Neon branch forked from $NEON_PARENT_BRANCH (default: staging) and
+# patch the worktree's .env to point at it. Self-heals orphan cap via GC retry.
+# Collisions fail loud — require --fresh-db to recreate.
+neon_create_branch_for_worktree() {
+  local git_branch="$1" worktree_env="$2" fresh_db="${3:-0}"
+  if ! neon_enabled; then
+    echo -e "${YELLOW}Neon branching disabled (NEON_API_KEY/NEON_PROJECT_ID not set) — using shared DB${NC}"
+    return 0
+  fi
+
+  local neon_branch parent
+  neon_branch=$(neon_branch_name "$git_branch")
+  parent="${NEON_PARENT_BRANCH:-staging}"
+
+  # Fresh-DB: nuke any existing branch first.
+  if [ "$fresh_db" = "1" ]; then
+    if is_protected_neon_branch "$neon_branch"; then
+      echo -e "${RED}Error: refusing to --fresh-db a protected Neon branch '$neon_branch'${NC}" >&2
+      return 1
+    fi
+    pnpm dlx "neonctl@$NEONCTL_VERSION" branches delete "$neon_branch" \
+      --project-id "$NEON_PROJECT_ID" >/dev/null 2>&1 || true
+  fi
+
+  # Attempt create; on cap error run GC and retry once.
+  local create_out
+  create_out=$(pnpm dlx "neonctl@$NEONCTL_VERSION" branches create \
+    --project-id "$NEON_PROJECT_ID" --name "$neon_branch" --parent "$parent" \
+    --output json 2>&1) || {
+    if echo "$create_out" | grep -qiE "limit|quota"; then
+      echo -e "${YELLOW}Neon branch cap hit — running orphan GC...${NC}"
+      neon_gc_orphans
+      create_out=$(pnpm dlx "neonctl@$NEONCTL_VERSION" branches create \
+        --project-id "$NEON_PROJECT_ID" --name "$neon_branch" --parent "$parent" \
+        --output json 2>&1) || {
+        echo -e "${RED}Error: Neon branch cap still exceeded after orphan GC.${NC}" >&2
+        echo "$create_out" >&2
+        return 1
+      }
+    elif echo "$create_out" | grep -qiE "already exists|duplicate"; then
+      echo -e "${RED}Error: Neon branch '$neon_branch' already exists after orphan cleanup.${NC}" >&2
+      echo "Run 'wt cleanup $git_branch' or pass --fresh-db to force recreate." >&2
+      return 1
+    else
+      echo -e "${RED}Error: Neon branch create failed:${NC}" >&2
+      echo "$create_out" >&2
+      return 1
+    fi
+  }
+
+  local pooled unpooled
+  pooled=$(pnpm dlx "neonctl@$NEONCTL_VERSION" connection-string "$neon_branch" \
+    --project-id "$NEON_PROJECT_ID" --pooled 2>/dev/null)
+  unpooled=$(pnpm dlx "neonctl@$NEONCTL_VERSION" connection-string "$neon_branch" \
+    --project-id "$NEON_PROJECT_ID" 2>/dev/null)
+
+  if [ -z "$pooled" ] || [ -z "$unpooled" ]; then
+    echo -e "${RED}Error: Neon branch created but could not fetch connection strings.${NC}" >&2
+    return 1
+  fi
+
+  update_env_var DATABASE_URL "$pooled" "$worktree_env"
+  update_env_var DATABASE_URL_UNPOOLED "$unpooled" "$worktree_env"
+  echo -e "${GREEN}Neon branch '$neon_branch' created (forked from '$parent')${NC}"
+}
+
+# Delete the Neon branch that corresponds to a git branch. Never fails the
+# overall cleanup — Neon API outage shouldn't block worktree removal.
+neon_delete_branch_for_worktree() {
+  local git_branch="$1"
+  neon_enabled || return 0
+  local neon_branch
+  neon_branch=$(neon_branch_name "$git_branch")
+  if is_protected_neon_branch "$neon_branch"; then
+    echo -e "${YELLOW}Refusing to delete protected Neon branch '$neon_branch'${NC}" >&2
+    return 0
+  fi
+  if pnpm dlx "neonctl@$NEONCTL_VERSION" branches delete "$neon_branch" \
+    --project-id "$NEON_PROJECT_ID" >/dev/null 2>&1; then
+    echo -e "${GREEN}Neon branch '$neon_branch' deleted${NC}"
+  else
+    echo -e "${YELLOW}Neon branch '$neon_branch' not found or already deleted${NC}"
+  fi
+}
+
 print_usage() {
   echo "Usage: $0 <command> [branch-name|issue-id]"
   echo ""
@@ -219,7 +394,27 @@ worktree_exists() {
 
 # Create new worktree
 cmd_new() {
-  local branch="$1"
+  local branch=""
+  local fresh_db=0
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      --fresh-db) fresh_db=1 ;;
+      -*)
+        echo -e "${RED}Error: Unknown flag: $arg${NC}" >&2
+        print_usage
+        exit 1 ;;
+      *)
+        if [ -z "$branch" ]; then
+          branch="$arg"
+        else
+          echo -e "${RED}Error: Unexpected extra argument: $arg${NC}" >&2
+          print_usage
+          exit 1
+        fi ;;
+    esac
+  done
+
   if [ -z "$branch" ]; then
     echo -e "${RED}Error: Branch name required${NC}"
     print_usage
@@ -254,6 +449,10 @@ cmd_new() {
   # Copy untracked files from main repo (.env, Claude settings, etc.)
   copy_untracked_files "$worktree_path"
 
+  # Provision a Neon branch and patch DATABASE_URL in the worktree .env.
+  # No-op when NEON_API_KEY/NEON_PROJECT_ID are unset.
+  neon_create_branch_for_worktree "$branch" "$worktree_path/.env" "$fresh_db" || exit 1
+
   # Install dependencies
   echo "Installing dependencies..."
   if command -v pnpm &> /dev/null; then
@@ -277,7 +476,29 @@ cmd_new() {
 
 # Fully autonomous worktree - creates worktree and runs /auto-implement
 cmd_auto() {
-  local arg="$1"
+  local arg=""
+  local fresh_db=0
+  local positional_arg=""
+  local a
+  for a in "$@"; do
+    case "$a" in
+      --fresh-db) fresh_db=1 ;;
+      -*)
+        echo -e "${RED}Error: Unknown flag: $a${NC}" >&2
+        print_usage
+        exit 1 ;;
+      *)
+        if [ -z "$positional_arg" ]; then
+          positional_arg="$a"
+        else
+          echo -e "${RED}Error: Unexpected extra argument: $a${NC}" >&2
+          print_usage
+          exit 1
+        fi ;;
+    esac
+  done
+  arg="$positional_arg"
+
   local branch
   local issue_id
   local prompt
@@ -345,6 +566,11 @@ cmd_auto() {
 
   # Copy untracked files from main repo (.env, Claude settings, etc.)
   copy_untracked_files "$worktree_path"
+
+  # Provision a Neon branch and patch DATABASE_URL in the worktree .env.
+  # No-op when NEON_API_KEY/NEON_PROJECT_ID are unset. Failure is fatal so
+  # the orchestrator logs a clean failure and moves on (no silent shared-DB fallback).
+  neon_create_branch_for_worktree "$branch" "$worktree_path/.env" "$fresh_db" || exit 1
 
   # Install dependencies
   echo "Installing dependencies..."
@@ -793,6 +1019,9 @@ cmd_cleanup() {
   # Remove the worktree
   git -C "$REPO_ROOT" worktree remove "$worktree_path" --force
 
+  # Delete the paired Neon branch (no-op if Neon branching disabled)
+  neon_delete_branch_for_worktree "$branch"
+
   # Optionally delete the branch if it wasn't pushed
   echo ""
   read -p "Delete the branch '$branch' as well? (y/N) " -n 1 -r
@@ -919,7 +1148,9 @@ cmd_cleanup_all() {
 
   # Collect worktree info first
   local safe_worktrees=()
+  local safe_branches=()
   local unsafe_worktrees=()
+  local unsafe_branches=()
   local all_paths=()
   local all_branches=()
   local all_statuses=()
@@ -936,8 +1167,10 @@ cmd_cleanup_all() {
 
       if [ "$status" = "merged" ]; then
         safe_worktrees+=("$path")
+        safe_branches+=("$branch")
       else
         unsafe_worktrees+=("$path")
+        unsafe_branches+=("$branch")
       fi
     fi
   done < <(git -C "$REPO_ROOT" worktree list)
@@ -975,10 +1208,13 @@ cmd_cleanup_all() {
       return
     fi
 
-    for path in "${safe_worktrees[@]}"; do
+    for i in "${!safe_worktrees[@]}"; do
+      local path="${safe_worktrees[$i]}"
+      local branch="${safe_branches[$i]}"
       sync_permissions "$path"
       echo "Removing: $path"
       git -C "$REPO_ROOT" worktree remove "$path" --force 2>/dev/null || true
+      neon_delete_branch_for_worktree "$branch"
     done
   elif [ ${#safe_worktrees[@]} -eq 0 ]; then
     # No safe worktrees, all have work in progress
@@ -996,10 +1232,13 @@ cmd_cleanup_all() {
       echo -e "${RED}WARNING: This will permanently delete uncommitted/unpushed work!${NC}"
       read -p "Type 'yes' to confirm: " confirm
       if [ "$confirm" = "yes" ]; then
-        for path in "${unsafe_worktrees[@]}"; do
+        for i in "${!unsafe_worktrees[@]}"; do
+          local path="${unsafe_worktrees[$i]}"
+          local branch="${unsafe_branches[$i]}"
           sync_permissions "$path"
           echo "Force removing: $path"
           git -C "$REPO_ROOT" worktree remove "$path" --force 2>/dev/null || true
+          neon_delete_branch_for_worktree "$branch"
         done
       else
         echo "Cancelled."
@@ -1021,10 +1260,13 @@ cmd_cleanup_all() {
 
     case $REPLY in
       1)
-        for path in "${safe_worktrees[@]}"; do
+        for i in "${!safe_worktrees[@]}"; do
+          local path="${safe_worktrees[$i]}"
+          local branch="${safe_branches[$i]}"
           sync_permissions "$path"
           echo "Removing: $path"
           git -C "$REPO_ROOT" worktree remove "$path" --force 2>/dev/null || true
+          neon_delete_branch_for_worktree "$branch"
         done
         echo ""
         echo -e "${YELLOW}Kept ${#unsafe_worktrees[@]} worktree(s) with work in progress.${NC}"
@@ -1034,10 +1276,13 @@ cmd_cleanup_all() {
         echo -e "${RED}WARNING: This will permanently delete uncommitted/unpushed work!${NC}"
         read -p "Type 'yes' to confirm: " confirm
         if [ "$confirm" = "yes" ]; then
-          for path in "${all_paths[@]}"; do
+          for i in "${!all_paths[@]}"; do
+            local path="${all_paths[$i]}"
+            local branch="${all_branches[$i]}"
             sync_permissions "$path"
             echo "Force removing: $path"
             git -C "$REPO_ROOT" worktree remove "$path" --force 2>/dev/null || true
+            neon_delete_branch_for_worktree "$branch"
           done
         else
           echo "Cancelled."
@@ -1582,10 +1827,12 @@ case "${1:-}" in
     cmd_stop
     ;;
   new)
-    cmd_new "$2"
+    shift
+    cmd_new "$@"
     ;;
   auto)
-    cmd_auto "$2"
+    shift
+    cmd_auto "$@"
     ;;
   resume)
     cmd_resume "$2"
