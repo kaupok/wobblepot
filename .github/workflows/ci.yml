@@ -52,6 +52,9 @@ jobs:
       - name: Run unit tests
         run: pnpm test
 
+      - name: Build Storybook
+        run: pnpm build-storybook
+
       # NOTE: E2E tests are intentionally disabled in CI
       # E2E tests can still be run locally with: pnpm test:e2e
       # This is a temporary measure to speed up CI builds while the E2E test infrastructure is being stabilized.
