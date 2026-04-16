@@ -54,6 +54,7 @@ A Next.js 16 project with React 19, using TypeScript, Tailwind CSS, and shadcn/u
 
 - **Server Components by default** - "use client" only for interactivity, browser APIs, or hooks
 - **Colocated tests** - `.test.tsx` / `.test.ts` next to source files
+- **Colocated stories** - `.stories.tsx` next to components (see Storybook section)
 - **Absolute imports** - `@/` prefix for all imports
 - **Type-safe env vars** - Validated with Zod at startup (see `lib/env.ts:3`)
 
@@ -224,6 +225,32 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 **TanStack Query in tests:** Components using `useQuery`/`useMutation` need a `QueryClientProvider` wrapper. Use `createQueryWrapper()` from `src/test/query-wrapper.tsx` — it creates a fresh `QueryClient` per test with retries disabled.
 
 **E2E Tests** (Playwright): Run with `pnpm test:e2e`. Config: `playwright.config.ts`
+
+## Storybook
+
+**Storybook 10** with `@storybook/nextjs-vite` for component development and review in isolation.
+
+**Commands:** `pnpm storybook` (dev server on port 6006), `pnpm build-storybook` (static build)
+
+**Config:** `.storybook/main.ts` and `.storybook/preview.tsx`. Preview wires up Geist fonts, `globals.css`, `QueryClientProvider`, and light/dark theme toggle via `withThemeByClassName`.
+
+**CRITICAL: When creating or modifying a component in `/src/components/**`, create or update a colocated `.stories.tsx`file covering all variants and states.** Stories live next to the component (e.g.`Button.tsx`+`button.stories.tsx`). This is part of the definition of done — Storybook is maintained by the agentic workflow so it stays current.
+
+**What a story should cover:**
+
+- Every variant/size exposed by the component's props (e.g. all CVA variants)
+- Key states: default, disabled, loading, empty, error
+- With and without optional props that change rendering (e.g. description present vs. absent)
+- An `AllVariants` render story showing variants side-by-side when useful for visual review
+
+**Conventions:**
+
+- Title uses `UI/ComponentName` for primitives, `Feature/ComponentName` for feature components (e.g. `Meal plan/MealCardBase`)
+- Add `tags: ['autodocs']` to auto-generate docs pages
+- Use `satisfies Meta<typeof Component>` for type-safe args
+- Mock data for feature components: inline in the story file — don't reach into fixtures unless already shared
+
+**Scope:** Stories cover rendering and variants. Behavior tests stay in colocated `.test.tsx` files (see Testing section above).
 
 ## Commit Message Conventions
 

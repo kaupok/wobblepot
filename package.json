@@ -26,7 +26,9 @@
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
     "db:validate": "npx tsx prisma/seed-validator.ts",
-    "test:ai-selection": "npx tsx scripts/test-ai-selection.ts"
+    "test:ai-selection": "npx tsx scripts/test-ai-selection.ts",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "engines": {
     "node": "22.x"
@@ -66,6 +68,10 @@
   "devDependencies": {
     "@better-auth/cli": "1.4.21",
     "@playwright/test": "1.58.2",
+    "@storybook/addon-a11y": "10.3.5",
+    "@storybook/addon-docs": "10.3.5",
+    "@storybook/addon-themes": "10.3.5",
+    "@storybook/nextjs-vite": "10.3.5",
     "@tailwindcss/postcss": "4.1.18",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
@@ -77,6 +83,7 @@
     "dotenv": "17.3.1",
     "eslint": "9.39.2",
     "eslint-config-next": "16.1.6",
+    "eslint-plugin-storybook": "10.3.5",
     "eslint-plugin-testing-library": "7.15.4",
     "husky": "9.1.7",
     "jsdom": "28.1.0",
@@ -84,6 +91,7 @@
     "prettier": "3.8.1",
     "prettier-plugin-tailwindcss": "0.7.2",
     "prisma": "7.4.2",
+    "storybook": "10.3.5",
     "tailwindcss": "4.1.18",
     "tsx": "4.21.0",
     "tw-animate-css": "1.4.0",
