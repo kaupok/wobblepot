@@ -18,10 +18,6 @@ export const Checked: Story = {
   args: { defaultChecked: true },
 }
 
-export const Indeterminate: Story = {
-  args: { checked: 'indeterminate' },
-}
-
 export const Disabled: Story = {
   args: { disabled: true },
 }
@@ -49,10 +45,6 @@ export const AllStates: Story = {
       <div className="flex items-center gap-2">
         <Checkbox id="state-checked" defaultChecked />
         <Label htmlFor="state-checked">Checked</Label>
-      </div>
-      <div className="flex items-center gap-2">
-        <Checkbox id="state-indeterminate" checked="indeterminate" />
-        <Label htmlFor="state-indeterminate">Indeterminate</Label>
       </div>
       <div className="flex items-center gap-2">
         <Checkbox id="state-disabled" disabled />

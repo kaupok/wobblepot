@@ -88,8 +88,8 @@ export const WithCheckboxItems: Story = {
       <DropdownMenuContent align="start">
         <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuCheckboxItem checked>Meal name</DropdownMenuCheckboxItem>
-        <DropdownMenuCheckboxItem checked>Time</DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem defaultChecked>Meal name</DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem defaultChecked>Time</DropdownMenuCheckboxItem>
         <DropdownMenuCheckboxItem>Calories</DropdownMenuCheckboxItem>
         <DropdownMenuCheckboxItem>Protein</DropdownMenuCheckboxItem>
       </DropdownMenuContent>
@@ -107,7 +107,7 @@ export const WithRadioItems: Story = {
       <DropdownMenuContent align="start">
         <DropdownMenuLabel>Sort meals</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuRadioGroup value="name">
+        <DropdownMenuRadioGroup defaultValue="name">
           <DropdownMenuRadioItem value="name">Name</DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="time">Cook time</DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="recent">Recently added</DropdownMenuRadioItem>
