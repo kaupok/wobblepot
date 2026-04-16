@@ -7,10 +7,22 @@ import '../src/app/globals.css'
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
 
+function FontDecorator({ children }: { children: React.ReactNode }) {
+  useLayoutEffect(() => {
+    const body = document.body
+    const classes = [geistSans.variable, geistMono.variable, 'font-sans']
+    body.classList.add(...classes)
+    return () => {
+      body.classList.remove(...classes)
+    }
+  }, [])
+  return <>{children}</>
+}
+
 const withFonts: Decorator = (Story) => (
-  <div className={`${geistSans.variable} ${geistMono.variable} font-sans`}>
+  <FontDecorator>
     <Story />
-  </div>
+  </FontDecorator>
 )
 
 function QueryClientDecorator({ children }: { children: React.ReactNode }) {
