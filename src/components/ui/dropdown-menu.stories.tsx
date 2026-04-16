@@ -35,8 +35,17 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
+// WHY: Radix sets aria-hidden on sibling content when the portal opens; axe flags
+// this as aria-hidden-focus because the underlying trigger is still a focusable
+// <button>. In real usage Radix's focus trap prevents reaching it. Applies to all
+// Open stories below that render with `defaultOpen: true`.
+const openDropdownA11y = {
+  config: { rules: [{ id: 'aria-hidden-focus', enabled: false }] },
+}
+
 export const Open: Story = {
   args: { defaultOpen: true },
+  parameters: { a11y: openDropdownA11y },
   render: (args) => (
     <DropdownMenu {...args}>
       <DropdownMenuTrigger asChild>
@@ -80,6 +89,7 @@ export const Open: Story = {
 
 export const WithCheckboxItems: Story = {
   args: { defaultOpen: true },
+  parameters: { a11y: openDropdownA11y },
   render: (args) => (
     <DropdownMenu {...args}>
       <DropdownMenuTrigger asChild>
@@ -99,6 +109,7 @@ export const WithCheckboxItems: Story = {
 
 export const WithRadioItems: Story = {
   args: { defaultOpen: true },
+  parameters: { a11y: openDropdownA11y },
   render: (args) => (
     <DropdownMenu {...args}>
       <DropdownMenuTrigger asChild>

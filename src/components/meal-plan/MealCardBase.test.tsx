@@ -95,7 +95,7 @@ describe('MealCardBase', () => {
 
       const salmon = screen.getByText('Salmon')
       expect(salmon.closest('li')).not.toHaveClass('text-green-700')
-      expect(salmon.closest('li')).not.toHaveClass('text-amber-600')
+      expect(salmon.closest('li')).not.toHaveClass('text-amber-700')
     })
 
     it('renders available ingredients in green', () => {
@@ -116,7 +116,7 @@ describe('MealCardBase', () => {
       render(<MealCardBase meal={mockMeal} pantryIngredients={pantry} />)
 
       const avocado = screen.getByText('Avocado').closest('li')
-      expect(avocado).toHaveClass('text-amber-600')
+      expect(avocado).toHaveClass('text-amber-700')
     })
 
     it('renders staples as available (green)', () => {
@@ -141,7 +141,7 @@ describe('MealCardBase', () => {
       expect(screen.getByText('Salmon').closest('li')).toHaveClass('text-green-700')
       expect(screen.getByText('Sushi rice').closest('li')).toHaveClass('text-green-700')
       expect(screen.getByText('Soy sauce').closest('li')).toHaveClass('text-green-700')
-      expect(screen.getByText('Avocado').closest('li')).toHaveClass('text-amber-600')
+      expect(screen.getByText('Avocado').closest('li')).toHaveClass('text-amber-700')
     })
   })
 })

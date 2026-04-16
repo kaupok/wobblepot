@@ -26,12 +26,12 @@ const STATUS_CONFIG: Record<MealStatus, StatusConfig> = {
   completed: {
     label: 'Completed',
     icon: '\u2713',
-    className: 'text-green-600 dark:text-green-400',
+    className: 'text-green-700 dark:text-green-400',
   },
   skipped: {
     label: 'Skipped',
     icon: '\u23ED\uFE0F',
-    className: 'text-yellow-600 dark:text-yellow-400',
+    className: 'text-yellow-700 dark:text-yellow-400',
   },
 }
 
@@ -46,7 +46,11 @@ export function StatusSelect({ value, onChange, disabled }: StatusSelectProps) {
 
   return (
     <Select value={value} onValueChange={onChange} disabled={disabled}>
-      <SelectTrigger size="sm" className={cn('w-[140px]', config.className)}>
+      <SelectTrigger
+        size="sm"
+        aria-label="Meal status"
+        className={cn('w-[140px]', config.className)}
+      >
         <SelectValue>
           <span className="flex items-center gap-2">
             <span>{config.icon}</span>

@@ -230,9 +230,9 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **Storybook 10** with `@storybook/nextjs-vite` for component development and review in isolation.
 
-**Commands:** `pnpm storybook` (dev server on port 6006), `pnpm build-storybook` (static build)
+**Commands:** `pnpm storybook` (dev server on port 6006), `pnpm build-storybook` (static build), `pnpm test-storybook:ci` (build + serve + run a11y tests against every story)
 
-**Config:** `.storybook/main.ts` and `.storybook/preview.tsx`. Preview wires up Geist fonts, `globals.css`, `QueryClientProvider`, and a light/dark theme toggle via a custom `withTailwindTheme` decorator that toggles the `dark` class on `document.documentElement` so Radix portal content (Dialog, Select, DropdownMenu) inherits the theme.
+**Config:** `.storybook/main.ts` and `.storybook/preview.tsx`. Preview wires up Geist fonts, `globals.css`, `QueryClientProvider`, Next.js app-router mocking (`nextjs.appDirectory: true`), and a light/dark theme toggle via a custom `withTailwindTheme` decorator that toggles the `dark` class on `document.documentElement` so Radix portal content (Dialog, Select, DropdownMenu) inherits the theme.
 
 **CRITICAL: When creating or modifying a component in `/src/components/**`, create or update a colocated `.stories.tsx`file covering all variants and states.** Stories live next to the component (e.g.`Button.tsx`+`button.stories.tsx`). This is part of the definition of done — Storybook is maintained by the agentic workflow so it stays current.
 
@@ -251,6 +251,20 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 - Mock data for feature components: inline in the story file — don't reach into fixtures unless already shared
 
 **Scope:** Stories cover rendering and variants. Behavior tests stay in colocated `.test.tsx` files (see Testing section above).
+
+**a11y gate:** Every story runs through axe via `@storybook/test-runner` in CI. `.storybook/preview.tsx` sets `a11y: { test: 'error' }`, so any violation fails the `Run Storybook a11y tests` step and blocks the PR. When adding a story:
+
+- **Fix real violations** in the component or story (missing labels, low contrast, bad ARIA, etc.). Most are real bugs worth fixing.
+- **Waive false positives narrowly** at the story level with a `// WHY:` comment explaining why the rule doesn't apply. Keep waivers rule-scoped, not blanket skips:
+
+  ```tsx
+  // WHY: This story renders all palette swatches; contrast is not applicable.
+  parameters: {
+    a11y: { config: { rules: [{ id: 'color-contrast', enabled: false }] } },
+  }
+  ```
+
+- Run locally with `pnpm test-storybook:ci` before pushing if you touched a story.
 
 ## Commit Message Conventions
 
