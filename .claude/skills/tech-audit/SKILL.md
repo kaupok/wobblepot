@@ -8,6 +8,7 @@ allowed-tools:
   - Read
   - Grep
   - Glob
+  - mcp__linear-server__list_issues
 ---
 
 # Tech Audit
@@ -22,7 +23,7 @@ Perform a comprehensive codebase health audit across sixteen focus areas and pro
 
 ### 1. Parse arguments
 
-Check if `--focus <area>` was passed. If so, run only that section. Otherwise run all sections in order.
+Check if `--focus <area>` was passed. If so, run only that section plus section 17 (backlog cross-reference always runs, otherwise focused reruns re-propose tracked work). Otherwise run all sections in order.
 
 ---
 
@@ -390,6 +391,18 @@ Compare the list of files in `src/lib/` against what's actually imported.
 
 Record findings: unused exports, orphaned files.
 
+### 17. Backlog cross-reference
+
+**Goal:** Avoid proposing issues that already exist.
+
+Use `mcp__linear-server__list_issues` with `team: "Honkadori"`, `label: "Tech"`, `limit: 100`. Fetch `state: "Backlog"`, `"Todo"`, `"In Progress"`, and `"In Review"` in separate calls.
+
+Classify each would-be proposal against returned titles/descriptions:
+
+- **New** — no existing coverage
+- **Duplicate of HON-XX** — already tracked
+- **Update HON-XX** — tracked but description is stale
+
 ---
 
 ## Output Format
@@ -454,10 +467,11 @@ Items to watch but not urgent (minor pattern deviations, informational).
 ...
 
 ### Proposed Linear Issues
-For significant findings, propose Linear issues. All issues created from tech audits must include the **Tech** label.
+For significant findings, propose Linear issues. Each proposal is tagged with its section-17 status. All new issues must include the **Tech** label.
 
-1. **[Title]** - [Description] - [Priority: urgent/high/medium/low] - Label: Tech
-2. ...
+1. **[Title]** - New - [Description] - [Priority] - Label: Tech
+2. **[Title]** - Update HON-XX - [What's changed] - [Suggested priority change, if any]
+3. **[Title]** - Duplicate of HON-XX - [Optional comment to add]
 ```
 
 ### Triage criteria
