@@ -91,7 +91,7 @@ When `NEON_API_KEY` and `NEON_PROJECT_ID` are set in `.env`, each worktree gets 
 
 **Lifecycle:**
 
-- `wt new <branch>` / `wt auto <branch-or-issue>` creates a Neon branch named `<branch>` (slashes replaced with dashes, so `auto/hon-339-foo` → `auto-hon-339-foo`) and patches `DATABASE_URL` + `DATABASE_URL_UNPOOLED` in the worktree's `.env` to point at it.
+- `wt new <branch>` / `wt auto <branch-or-issue>` creates a Neon branch named `<branch>` (slashes replaced with double-dashes so `feat/foo-bar` and `feat-foo/bar` don't collide, e.g. `auto/hon-339-foo` → `auto--hon-339-foo`) and patches `DATABASE_URL` + `DATABASE_URL_UNPOOLED` in the worktree's `.env` to point at it.
 - `wt cleanup <branch>` / `wt cleanup-all` deletes the paired Neon branch after removing the worktree.
 - Protected names — `staging`, `main`, `production`, `preview` — are hard-refused by the delete guardrail regardless of how they're passed in.
 
@@ -102,6 +102,8 @@ When `NEON_API_KEY` and `NEON_PROJECT_ID` are set in `.env`, each worktree gets 
 **Branch cap handling:**
 
 When the Neon project hits its branch cap (10 on the free tier), `wt` automatically runs an orphan GC (deletes Neon branches whose git worktree no longer exists) and retries once. If still over cap, it fails loud — no silent fallback to the shared DB.
+
+GC is prefix-scoped so it can't touch hand-managed branches: orchestrator-spawned `auto-*` branches are always eligible, plus `${NEON_USER_PREFIX}-*` when you've set `NEON_USER_PREFIX` in `.env` (use this if you run `wt new <you>/branch-name` for interactive work). Other prefixes (`feat-`, `fix-`, etc.) must be reclaimed manually via `wt cleanup`.
 
 **Opt-out:**
 

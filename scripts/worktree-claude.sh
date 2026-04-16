@@ -106,9 +106,11 @@ sync_permissions() {
 NEONCTL_VERSION="2.22.0"
 
 # Map a git branch name to a Neon branch name (deterministic, reversible).
-# Example: auto/hon-339-foo -> auto-hon-339-foo
+# `/` becomes `--` rather than `-` so git branches `feat/foo-bar` and
+# `feat-foo/bar` don't collide on the same Neon branch name.
+# Example: auto/hon-339-foo -> auto--hon-339-foo
 neon_branch_name() {
-  echo "$1" | tr '/' '-'
+  echo "${1//\//--}"
 }
 
 # Hard-refuse list of protected Neon branch names. Defense-in-depth against
@@ -147,8 +149,10 @@ update_env_var() {
 neon_gc_orphans() {
   neon_enabled || return 0
   local live_worktrees
+  # Must match neon_branch_name's `/` -> `--` mapping so GC can recognize its
+  # own branches. Never bump this in isolation.
   live_worktrees=$(git -C "$REPO_ROOT" worktree list --porcelain \
-    | awk '/^branch /{print substr($2, 12)}' | tr '/' '-' | sort -u)
+    | awk '/^branch /{print substr($2, 12)}' | sed 's|/|--|g' | sort -u)
 
   # Split list + filter into two steps so we can detect API failures. A silent
   # no-op here would mask the real problem (auth, network, rate limit) as a
@@ -162,16 +166,25 @@ neon_gc_orphans() {
     return 0
   fi
 
-  # GC only reclaims branches with known prefixes (auto- from the orchestrator,
-  # kaupo- from interactive `wt new kaupo/...`). Other worktrees (feat-, fix-, etc.)
-  # must be cleaned up via `wt cleanup` — GC intentionally won't auto-reap them,
-  # so hand-managed Neon branches stay safe.
+  # GC reclaims branches with known prefixes: `auto-` (always, from the
+  # orchestrator's `wt auto HON-XX` → `auto/hon-XX` → Neon `auto--hon-XX`),
+  # plus `${NEON_USER_PREFIX}-` when set (from interactive `wt new <prefix>/...`).
+  # Anything else — `feat-`, `fix-`, test scaffolds, hand-managed branches —
+  # stays untouched; users clean those up via `wt cleanup`.
   # Shape-tolerant: accepts either `[...]` or `{"branches": [...]}` wire formats.
+  # `.branches // .` would throw on a bare array (Cannot index array with string),
+  # so dispatch on type first.
   local all_neon_branches
   all_neon_branches=$(echo "$list_out" \
-    | jq -r '(.branches // .) | if type == "array" then .[] else empty end
-             | select(.name | startswith("auto-") or startswith("kaupo-"))
-             | .name')
+    | jq -r --arg user_prefix "${NEON_USER_PREFIX:-}" '
+        if type == "array" then .[]
+        elif .branches then .branches[]
+        else empty end
+        | select(
+            (.name | startswith("auto-"))
+            or ($user_prefix != "" and (.name | startswith($user_prefix + "-")))
+          )
+        | .name')
   local b
   while IFS= read -r b; do
     [ -z "$b" ] && continue
@@ -199,22 +212,28 @@ neon_create_branch_for_worktree() {
   neon_branch=$(neon_branch_name "$git_branch")
   parent="${NEON_PARENT_BRANCH:-staging}"
 
+  # Symmetrical with the delete guardrail: refuse to create/overwrite a
+  # protected name no matter how the git branch was named.
+  if is_protected_neon_branch "$neon_branch"; then
+    echo -e "${RED}Error: refusing to provision protected Neon branch name '$neon_branch'${NC}" >&2
+    return 1
+  fi
+
   # Fresh-DB: nuke any existing branch first.
   if [ "$fresh_db" = "1" ]; then
-    if is_protected_neon_branch "$neon_branch"; then
-      echo -e "${RED}Error: refusing to --fresh-db a protected Neon branch '$neon_branch'${NC}" >&2
-      return 1
-    fi
     pnpm dlx "neonctl@$NEONCTL_VERSION" branches delete "$neon_branch" \
       --project-id "$NEON_PROJECT_ID" >/dev/null 2>&1 || true
   fi
 
-  # Attempt create; on cap error run GC and retry once.
+  # Attempt create; on cap error run GC and retry once. The cap-error regex
+  # requires "branch" near one of the exhaustion keywords so plain rate-limit
+  # responses (which GC can't help with) don't trigger a pointless sweep.
   local create_out
   create_out=$(pnpm dlx "neonctl@$NEONCTL_VERSION" branches create \
     --project-id "$NEON_PROJECT_ID" --name "$neon_branch" --parent "$parent" \
     --output json 2>&1) || {
-    if echo "$create_out" | grep -qiE "limit|quota"; then
+    if echo "$create_out" | grep -qi "branch" \
+       && echo "$create_out" | grep -qiE "limit|quota|cap|exceed|maximum"; then
       echo -e "${YELLOW}Neon branch cap hit — running orphan GC...${NC}"
       neon_gc_orphans
       create_out=$(pnpm dlx "neonctl@$NEONCTL_VERSION" branches create \
@@ -245,6 +264,11 @@ neon_create_branch_for_worktree() {
     echo -e "${RED}Error: Neon branch created but could not fetch connection strings.${NC}" >&2
     return 1
   fi
+
+  # Ensure .env exists — if copy_untracked_files skipped it (main repo has no
+  # .env) awk would fail under `set -e` *after* the Neon branch was created,
+  # leaking a branch. Creating an empty .env here is the cheapest fix.
+  [ -f "$worktree_env" ] || touch "$worktree_env"
 
   update_env_var DATABASE_URL "$pooled" "$worktree_env"
   update_env_var DATABASE_URL_UNPOOLED "$unpooled" "$worktree_env"
@@ -1732,18 +1756,10 @@ cmd_start() {
     fi
   fi
 
-  # Source .env for LINEAR_API_KEY
-  if [ -f "$REPO_ROOT/.env" ]; then
-    set -a
-    source "$REPO_ROOT/.env"
-    set +a
-  else
-    echo -e "${RED}Error: .env not found at $REPO_ROOT/.env${NC}"
-    return 1
-  fi
-
+  # .env is sourced by the top-level dispatcher; just validate the orchestrator's
+  # required var here.
   if [ -z "${LINEAR_API_KEY:-}" ]; then
-    echo -e "${RED}Error: LINEAR_API_KEY not set (check .env)${NC}"
+    echo -e "${RED}Error: LINEAR_API_KEY not set (check $REPO_ROOT/.env)${NC}"
     return 1
   fi
 
@@ -1815,6 +1831,17 @@ cmd_stop() {
 
   echo -e "${GREEN}Orchestrator stopped.${NC}"
 }
+
+# Load .env so NEON_API_KEY / NEON_PROJECT_ID (and anything else) are
+# available to every subcommand. Silent no-op if .env is missing — commands
+# that genuinely require specific vars validate them explicitly (cmd_start
+# validates LINEAR_API_KEY, neon_enabled validates NEON_*).
+if [ -f "$REPO_ROOT/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$REPO_ROOT/.env"
+  set +a
+fi
 
 # Main command router
 case "${1:-}" in
