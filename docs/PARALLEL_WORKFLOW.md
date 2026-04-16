@@ -85,6 +85,42 @@ When creating a worktree, the script automatically copies these gitignored files
 
 **To add more files:** Edit the `UNTRACKED_FILES` array in `scripts/worktree-claude.sh`.
 
+## Per-Worktree Database Isolation
+
+When `NEON_API_KEY` and `NEON_PROJECT_ID` are set in `.env`, each worktree gets its own Neon branch — an isolated copy-on-write database forked from `staging` (or `NEON_PARENT_BRANCH`). This prevents the schema stomping that happens when multiple worktrees share the same dev DB and one runs `pnpm db:migrate`.
+
+**Lifecycle:**
+
+- `wt new <branch>` / `wt auto <branch-or-issue>` creates a Neon branch named `<branch>` (slashes replaced with double-dashes so `feat/foo-bar` and `feat-foo/bar` don't collide, e.g. `auto/hon-339-foo` → `auto--hon-339-foo`) and patches `DATABASE_URL` + `DATABASE_URL_UNPOOLED` in the worktree's `.env` to point at it.
+- `wt cleanup <branch>` / `wt cleanup-all` deletes the paired Neon branch after removing the worktree.
+- Protected names — `staging`, `main`, `production`, `preview` — are hard-refused by the delete guardrail regardless of how they're passed in.
+
+**Flags:**
+
+- `--fresh-db` — force delete-and-recreate the Neon branch. Useful when reusing a branch name after a previous worktree crashed without cleanup. Works with both `wt new` and `wt auto`.
+
+**Branch cap handling:**
+
+When the Neon project hits its branch cap (10 on the free tier), `wt` automatically runs an orphan GC (deletes Neon branches whose git worktree no longer exists) and retries once. If still over cap, it fails loud — no silent fallback to the shared DB.
+
+GC is prefix-scoped so it can't touch hand-managed branches: orchestrator-spawned `auto-*` branches are always eligible, plus `${NEON_USER_PREFIX}-*` when you've set `NEON_USER_PREFIX` in `.env` (use this if you run `wt new <you>/branch-name` for interactive work). Other prefixes (`feat-`, `fix-`, etc.) must be reclaimed manually via `wt cleanup`.
+
+**Opt-out:**
+
+Leave `NEON_API_KEY` / `NEON_PROJECT_ID` blank. `wt` prints a one-line warning and proceeds with the shared `DATABASE_URL`. Tests (Vitest, Playwright) read `DATABASE_URL`, so they automatically use the per-worktree branch when the feature is enabled.
+
+**Inspecting Neon state:**
+
+```bash
+# List all Neon branches (filter your worktree branches by prefix)
+pnpm dlx neonctl@2.22.0 branches list --project-id "$NEON_PROJECT_ID"
+
+# Manually GC orphans (also runs automatically on cap errors)
+# Or just run any `wt new` to trigger the same GC path on cap.
+```
+
+Full setup guide: [ENVIRONMENT_SETUP.md § Neon Database Branching](./ENVIRONMENT_SETUP.md#neon-database-branching-optional).
+
 ## Orchestrator (Autonomous Batch Processing)
 
 The orchestrator (`scripts/orchestrator.sh`) is a long-running dispatcher that polls Linear for Todo issues, claims them atomically, spawns `wt auto` workers, and handles the full lifecycle — including failure triage via Claude.
