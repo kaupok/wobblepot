@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { Decorator, Preview } from '@storybook/nextjs-vite'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { withThemeByClassName } from '@storybook/addon-themes'
@@ -7,20 +8,23 @@ import '../src/app/globals.css'
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
 
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: false } },
-})
-
 const withFonts: Decorator = (Story) => (
   <div className={`${geistSans.variable} ${geistMono.variable} font-sans`}>
     <Story />
   </div>
 )
 
+function QueryClientDecorator({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(
+    () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  )
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+}
+
 const withQueryClient: Decorator = (Story) => (
-  <QueryClientProvider client={queryClient}>
+  <QueryClientDecorator>
     <Story />
-  </QueryClientProvider>
+  </QueryClientDecorator>
 )
 
 const preview: Preview = {

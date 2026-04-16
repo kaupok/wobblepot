@@ -56,7 +56,7 @@ const baseMeal: MealCardBaseData = {
   sourceUrl: null,
   timeMinutes: 45,
   kidFriendly: true,
-  primaryProteinType: 'chicken',
+  primaryProteinType: 'poultry',
   suitableFor: [MealType.dinner],
   components,
   nutrition: { calories: 520, protein: 42, carbs: 8, fat: 35 },
