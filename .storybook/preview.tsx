@@ -1,7 +1,6 @@
-import { useState } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import type { Decorator, Preview } from '@storybook/nextjs-vite'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { withThemeByClassName } from '@storybook/addon-themes'
 import { Geist, Geist_Mono } from 'next/font/google'
 import '../src/app/globals.css'
 
@@ -27,6 +26,26 @@ const withQueryClient: Decorator = (Story) => (
   </QueryClientDecorator>
 )
 
+function TailwindThemeDecorator({ theme, children }: { theme: string; children: React.ReactNode }) {
+  useLayoutEffect(() => {
+    const root = document.documentElement
+    root.classList.toggle('dark', theme === 'dark')
+    return () => {
+      root.classList.remove('dark')
+    }
+  }, [theme])
+  return <>{children}</>
+}
+
+const withTailwindTheme: Decorator = (Story, context) => {
+  const theme = (context.globals.theme as string | undefined) ?? 'light'
+  return (
+    <TailwindThemeDecorator theme={theme}>
+      <Story />
+    </TailwindThemeDecorator>
+  )
+}
+
 const preview: Preview = {
   parameters: {
     backgrounds: { disable: true },
@@ -38,14 +57,22 @@ const preview: Preview = {
     },
     a11y: { test: 'todo' },
   },
-  decorators: [
-    withFonts,
-    withQueryClient,
-    withThemeByClassName({
-      themes: { light: '', dark: 'dark' },
-      defaultTheme: 'light',
-    }),
-  ],
+  globalTypes: {
+    theme: {
+      name: 'Theme',
+      description: 'Tailwind theme',
+      defaultValue: 'light',
+      toolbar: {
+        icon: 'circlehollow',
+        items: [
+          { value: 'light', title: 'Light' },
+          { value: 'dark', title: 'Dark' },
+        ],
+        dynamicTitle: true,
+      },
+    },
+  },
+  decorators: [withFonts, withQueryClient, withTailwindTheme],
 }
 
 export default preview
