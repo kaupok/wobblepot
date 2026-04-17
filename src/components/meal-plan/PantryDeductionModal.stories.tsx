@@ -1,104 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { fn } from 'storybook/test'
+import { createPantryItem, lemonGarlicChickenComponents } from '@/stories/fixtures'
 import { PantryDeductionModal } from './PantryDeductionModal'
-import type { MealComponent, PantryItemFull } from './types'
 
-const components: MealComponent[] = [
-  {
-    ingredientId: 'chicken-thigh',
-    quantityPerServing: 150,
-    ingredient: {
-      id: 'chicken-thigh',
-      name: 'Chicken thigh',
-      category: 'protein',
-      defaultUnit: 'g',
-      gramsPerPiece: null,
-    },
-  },
-  {
-    ingredientId: 'potato',
-    quantityPerServing: 200,
-    ingredient: {
-      id: 'potato',
-      name: 'Potato',
-      category: 'produce',
-      defaultUnit: 'g',
-      gramsPerPiece: null,
-    },
-  },
-  {
-    ingredientId: 'lemon',
-    quantityPerServing: 0.5,
-    ingredient: {
-      id: 'lemon',
-      name: 'Lemon',
-      category: 'produce',
-      defaultUnit: 'piece',
-      gramsPerPiece: 60,
-    },
-  },
-  {
-    ingredientId: 'garlic',
-    quantityPerServing: 2,
-    ingredient: {
-      id: 'garlic',
-      name: 'Garlic',
-      category: 'aromatic',
-      defaultUnit: 'piece',
-      gramsPerPiece: 5,
-    },
-  },
-]
-
-const pantryItems: PantryItemFull[] = [
-  {
-    id: 'p-1',
-    ingredientId: 'chicken-thigh',
-    quantity: 800,
-    isStaple: false,
-    ingredient: {
-      id: 'chicken-thigh',
-      name: 'Chicken thigh',
-      category: 'protein',
-      defaultUnit: 'g',
-    },
-  },
-  {
-    id: 'p-2',
-    ingredientId: 'potato',
-    quantity: 500,
-    isStaple: false,
-    ingredient: {
-      id: 'potato',
-      name: 'Potato',
-      category: 'produce',
-      defaultUnit: 'g',
-    },
-  },
-  {
-    id: 'p-3',
-    ingredientId: 'lemon',
-    quantity: 1,
-    isStaple: false,
-    ingredient: {
-      id: 'lemon',
-      name: 'Lemon',
-      category: 'produce',
-      defaultUnit: 'piece',
-    },
-  },
-  {
-    id: 'p-4',
-    ingredientId: 'garlic',
-    quantity: 10,
-    isStaple: true,
-    ingredient: {
-      id: 'garlic',
-      name: 'Garlic',
-      category: 'aromatic',
-      defaultUnit: 'piece',
-    },
-  },
+const pantryItems = [
+  createPantryItem({ ingredientId: 'chicken-thigh', quantity: 800, isStaple: false }),
+  createPantryItem({ ingredientId: 'potato', quantity: 500, isStaple: false }),
+  createPantryItem({ ingredientId: 'lemon', quantity: 1, isStaple: false }),
+  createPantryItem({ ingredientId: 'garlic', quantity: 10, isStaple: true }),
 ]
 
 const meta = {
@@ -119,7 +28,7 @@ const meta = {
     onOpenChange: fn(),
     onConfirm: fn(),
     mealName: 'Lemon-garlic roast chicken',
-    components,
+    components: lemonGarlicChickenComponents,
     householdSize: 4,
     pantryItems,
   },
@@ -159,7 +68,7 @@ export const NoDeductions: Story = {
 
 export const OnlyStaples: Story = {
   args: {
-    components: [components[3]!],
+    components: [lemonGarlicChickenComponents[3]!],
     pantryItems: [pantryItems[3]!],
   },
   parameters: {
