@@ -123,9 +123,14 @@ export function MemberInviteDialog({
         {hasActiveInvite && displayInvite ? (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label>Invite link</Label>
+              <Label htmlFor="invite-link">Invite link</Label>
               <div className="flex gap-2">
-                <Input value={displayInvite.url} readOnly className="font-mono text-sm" />
+                <Input
+                  id="invite-link"
+                  value={displayInvite.url}
+                  readOnly
+                  className="font-mono text-sm"
+                />
                 <Button variant="outline" onClick={handleCopy} className="shrink-0">
                   {copied ? 'Copied!' : 'Copy'}
                 </Button>

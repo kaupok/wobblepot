@@ -1,0 +1,141 @@
+import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+import { createMemberInvite } from '@/stories/fixtures'
+import { errorInviteHandlers, pendingInviteHandlers } from '@/stories/msw-handlers'
+import { MemberInviteDialog } from './MemberInviteDialog'
+
+const meta = {
+  title: 'Feature/Household/MemberInviteDialog',
+  component: MemberInviteDialog,
+  tags: ['autodocs'],
+  parameters: {
+    layout: 'centered',
+    docs: {
+      description: {
+        component:
+          'Dialog for creating an invite link so a manual member can claim their profile. The active-invite branch shows the link with a copy button; the empty branch lets the owner generate a fresh one. Clipboard write happens via `navigator.clipboard.writeText`.',
+      },
+    },
+  },
+  args: {
+    open: true,
+    onOpenChange: fn(),
+    memberId: 'member-pending',
+    memberName: 'Jordan',
+    existingInvite: null,
+    onInviteCreated: fn(),
+  },
+} satisfies Meta<typeof MemberInviteDialog>
+
+export default meta
+type Story = StoryObj<typeof meta>
+
+export const Closed: Story = {
+  args: { open: false },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Dialog closed — verifies the component renders nothing visible when `open` is false.',
+      },
+    },
+  },
+}
+
+export const Open: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'No existing invite yet — the dialog shows the explanation and a "Create invite link" CTA.',
+      },
+    },
+  },
+  play: async () => {
+    const body = within(document.body)
+    await body.findByRole('dialog')
+    await body.findByRole('button', { name: /create invite link/i })
+  },
+}
+
+export const InvitePending: Story = {
+  parameters: {
+    msw: { handlers: pendingInviteHandlers },
+    docs: {
+      description: {
+        story:
+          'After clicking create, the POST never resolves — button stays in the "Creating..." state.',
+      },
+    },
+  },
+  play: async () => {
+    const body = within(document.body)
+    const createButton = await body.findByRole('button', { name: /create invite link/i })
+    await userEvent.click(createButton)
+    await body.findByRole('button', { name: /creating/i })
+  },
+}
+
+export const InviteSent: Story = {
+  args: {
+    existingInvite: createMemberInvite(),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Active invite already exists — dialog shows the link, expiry, and a "Done" footer button.',
+      },
+    },
+  },
+  play: async () => {
+    const body = within(document.body)
+    await body.findByRole('dialog')
+    await body.findByRole('button', { name: /^copy$/i })
+    await body.findByRole('button', { name: /^done$/i })
+  },
+}
+
+export const Error: Story = {
+  parameters: {
+    msw: { handlers: errorInviteHandlers },
+    docs: {
+      description: {
+        story: 'POST returns 500 — error message renders below the explanation copy.',
+      },
+    },
+  },
+  play: async () => {
+    const body = within(document.body)
+    const createButton = await body.findByRole('button', { name: /create invite link/i })
+    await userEvent.click(createButton)
+    await body.findByText(/failed to create invite/i)
+  },
+}
+
+// Play story — exercises the clipboard contract. The active-invite branch
+// renders the copy button; clicking it writes the URL to the clipboard and
+// fires the `onInviteCreated` callback only when generating a new link, so the
+// copy assertion targets `navigator.clipboard.writeText` directly.
+
+export const CopyInviteLink: Story = {
+  args: {
+    existingInvite: createMemberInvite({ url: 'https://honkadori.xyz/invite/copy-test' }),
+  },
+  play: async () => {
+    const writeText = fn(async () => undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+
+    const body = within(document.body)
+    const copyButton = await body.findByRole('button', { name: /^copy$/i })
+    await userEvent.click(copyButton)
+
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith('https://honkadori.xyz/invite/copy-test'),
+    )
+    await body.findByRole('button', { name: /copied/i })
+  },
+}

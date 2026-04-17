@@ -192,6 +192,7 @@ export function EditMemberPreferencesDialog({
                   className="w-24"
                   disabled={isLoading}
                   aria-invalid={!!portionError}
+                  aria-label="Portion multiplier"
                 />
                 <Body variant="muted">x standard portion</Body>
               </div>

@@ -95,6 +95,7 @@ export function ComponentList({
                       step="any"
                       className="w-20 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                       disabled={disabled}
+                      aria-label={`Total quantity for ${comp.ingredient.name}`}
                     />
                     {unitLabel && (
                       <span className="text-muted-foreground bg-muted border-l px-2 py-1.5 text-sm">
