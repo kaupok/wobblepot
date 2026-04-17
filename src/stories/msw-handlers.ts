@@ -61,17 +61,16 @@ function buildLibraryMeal(
 function buildHouseholdMeal(
   overrides: Partial<HouseholdMeal> & Pick<HouseholdMeal, 'id' | 'name'>,
 ): HouseholdMeal {
-  const base = buildLibraryMeal(overrides)
   return {
-    ...base,
-    description: overrides.description ?? null,
-    preparationNotes: overrides.preparationNotes ?? null,
-    sourceUrl: overrides.sourceUrl ?? null,
-    servings: overrides.servings ?? 4,
-    createdAt: overrides.createdAt ?? '2026-04-01T12:00:00.000Z',
-    updatedAt: overrides.updatedAt ?? '2026-04-01T12:00:00.000Z',
-    allergens: overrides.allergens ?? [],
-    isCustom: overrides.isCustom ?? true,
+    ...buildLibraryMeal(overrides),
+    preparationNotes: null,
+    sourceUrl: null,
+    servings: 4,
+    createdAt: '2026-04-01T12:00:00.000Z',
+    updatedAt: '2026-04-01T12:00:00.000Z',
+    allergens: [],
+    isCustom: true,
+    ...overrides,
   }
 }
 
