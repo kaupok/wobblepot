@@ -79,7 +79,7 @@ export function RecipesPageClient() {
     updatePages((meal) => (meal.id === mealId ? { ...meal, isFavorite } : meal))
   }
 
-  const isSearchEmpty = debouncedSearch !== '' && !isLoading && meals.length === 0
+  const isSearchEmpty = debouncedSearch !== '' && !isLoading && !error && meals.length === 0
 
   return (
     <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
