@@ -280,12 +280,12 @@ export function ImagineReviewDialog({
             <div className="flex flex-col gap-2">
               <div className="flex gap-2">
                 {unresolvedCount > 0 && (
-                  <Badge variant="outline" className="text-amber-600">
+                  <Badge variant="outline" className="text-amber-700 dark:text-amber-400">
                     {unresolvedCount} unmatched
                   </Badge>
                 )}
                 {lowConfidenceCount > 0 && (
-                  <Badge variant="outline" className="text-blue-600">
+                  <Badge variant="outline" className="text-blue-700 dark:text-blue-400">
                     {lowConfidenceCount} to verify
                   </Badge>
                 )}
