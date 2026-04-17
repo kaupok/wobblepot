@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import Link from 'next/link'
 import { Plus, Loader2, Sparkles } from 'lucide-react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -11,32 +11,60 @@ import { Heading, Body } from '@/components/ui/typography'
 import { MealList, type MealData } from '@/components/household/MealList'
 import { apiFetch } from '@/lib/api'
 
+type MealsPage = { meals: MealData[]; nextCursor: string | null }
+
 export function RecipesPageClient() {
   const queryClient = useQueryClient()
 
   const {
-    data: meals = [],
+    data,
     isLoading,
     error,
-  } = useQuery({
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+    fetchNextPage,
+  } = useInfiniteQuery<MealsPage>({
     queryKey: ['meals'],
-    queryFn: () => apiFetch<{ meals: MealData[] }>('/api/households/me/meals').then((d) => d.meals),
+    initialPageParam: null,
+    queryFn: ({ pageParam }) => {
+      const qs = pageParam ? `?cursor=${encodeURIComponent(pageParam as string)}` : ''
+      return apiFetch<MealsPage>(`/api/households/me/meals${qs}`)
+    },
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
   })
+
+  const meals = data?.pages.flatMap((page) => page.meals) ?? []
 
   useEffect(() => {
     if (error) toast.error('Failed to load meals')
   }, [error])
 
+  useEffect(() => {
+    if (isFetchNextPageError) toast.error('Failed to load more meals')
+  }, [isFetchNextPageError])
+
+  const updatePages = (mapper: (meal: MealData) => MealData | null) => {
+    queryClient.setQueryData<InfiniteData<MealsPage>>(['meals'], (old) => {
+      if (!old) return old
+      return {
+        ...old,
+        pages: old.pages.map((page) => ({
+          ...page,
+          meals: page.meals
+            .map((meal) => mapper(meal))
+            .filter((meal): meal is MealData => meal !== null),
+        })),
+      }
+    })
+  }
+
   const handleDelete = (mealId: string) => {
-    queryClient.setQueryData<MealData[]>(['meals'], (old) =>
-      old ? old.filter((m) => m.id !== mealId) : [],
-    )
+    updatePages((meal) => (meal.id === mealId ? null : meal))
   }
 
   const handleToggleFavorite = (mealId: string, isFavorite: boolean) => {
-    queryClient.setQueryData<MealData[]>(['meals'], (old) =>
-      old ? old.map((m) => (m.id === mealId ? { ...m, isFavorite } : m)) : [],
-    )
+    updatePages((meal) => (meal.id === mealId ? { ...meal, isFavorite } : meal))
   }
 
   return (
@@ -52,7 +80,7 @@ export function RecipesPageClient() {
               <Body variant="muted">
                 {isLoading
                   ? 'Loading...'
-                  : `${meals.length} recipe${meals.length === 1 ? '' : 's'}`}
+                  : `${meals.length}${hasNextPage ? '+' : ''} recipe${meals.length === 1 ? '' : 's'}`}
               </Body>
               <div className="flex gap-2">
                 <Button variant="outline" asChild>
@@ -75,11 +103,31 @@ export function RecipesPageClient() {
                 <Loader2 className="h-6 w-6 animate-spin" />
               </div>
             ) : (
-              <MealList
-                meals={meals}
-                onDelete={handleDelete}
-                onToggleFavorite={handleToggleFavorite}
-              />
+              <>
+                <MealList
+                  meals={meals}
+                  onDelete={handleDelete}
+                  onToggleFavorite={handleToggleFavorite}
+                />
+                {hasNextPage ? (
+                  <div className="flex justify-center">
+                    <Button
+                      variant="outline"
+                      onClick={() => fetchNextPage()}
+                      disabled={isFetchingNextPage}
+                    >
+                      {isFetchingNextPage ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        'Load more'
+                      )}
+                    </Button>
+                  </div>
+                ) : null}
+              </>
             )}
           </div>
         </CardContent>
