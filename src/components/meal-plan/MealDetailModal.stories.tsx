@@ -130,7 +130,7 @@ export const EditNoteInvokesCallback: Story = {
 export const A11yInteractionPatterns: Story = {
   args: { open: false },
   render: (args) => {
-    const [open, setOpen] = useState(false)
+    const [open, setOpen] = useState(args.open ?? false)
     return (
       <div>
         <button type="button" data-testid="a11y-trigger" onClick={() => setOpen(true)}>
