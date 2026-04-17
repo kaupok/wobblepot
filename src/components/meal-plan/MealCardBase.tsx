@@ -1,6 +1,6 @@
 import { Clock, ExternalLink, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Body, Heading } from '@/components/ui/typography'
+import { Body, Heading, type HeadingVariant } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { getIngredientAvailabilitySets } from './AvailabilityIndicator'
 import { NutritionSummary } from './NutritionSummary'
@@ -23,6 +23,8 @@ interface MealCardBaseProps {
   meal: MealCardBaseData
   /** When provided, ingredients are color-coded by pantry availability */
   pantryIngredients?: PantryIngredient[]
+  /** Heading level for the meal name. Pass `h3` when rendered directly under a Dialog/h2 so axe's heading-order rule stays valid. */
+  nameHeadingLevel?: HeadingVariant
 }
 
 function formatMealTypes(types: MealType[]): string {
@@ -39,7 +41,11 @@ function formatProteinType(type: string): string {
  * Renders: name, description, nutrition, prep time + badges, meal types + protein type, ingredient list.
  * Does NOT include Card wrapper or action buttons — consumers provide their own layout.
  */
-export function MealCardBase({ meal, pantryIngredients }: MealCardBaseProps) {
+export function MealCardBase({
+  meal,
+  pantryIngredients,
+  nameHeadingLevel = 'h4',
+}: MealCardBaseProps) {
   const hasPantryData = pantryIngredients && pantryIngredients.length > 0
   const { availableIds, stapleIds } = hasPantryData
     ? getIngredientAvailabilitySets(pantryIngredients)
@@ -48,7 +54,7 @@ export function MealCardBase({ meal, pantryIngredients }: MealCardBaseProps) {
   return (
     <div className="flex flex-col gap-1.5">
       {/* 1. Meal name */}
-      <Heading variant="h4">{meal.name}</Heading>
+      <Heading variant={nameHeadingLevel}>{meal.name}</Heading>
 
       {/* 2. Description */}
       {meal.description && <Body variant="muted">{meal.description}</Body>}

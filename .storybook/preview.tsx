@@ -2,7 +2,13 @@ import { useLayoutEffect, useState } from 'react'
 import type { Decorator, Preview } from '@storybook/nextjs-vite'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Geist, Geist_Mono } from 'next/font/google'
+import { initialize, mswLoader } from 'msw-storybook-addon'
 import '../src/app/globals.css'
+// MSW handlers for data-fetching stories live in src/stories/msw-handlers.ts.
+// Per-story overrides go on `parameters.msw.handlers` in the story file.
+import { defaultHandlers } from '../src/stories/msw-handlers'
+
+initialize({ onUnhandledRequest: 'bypass' })
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
@@ -69,7 +75,9 @@ const preview: Preview = {
     },
     a11y: { test: 'error' },
     nextjs: { appDirectory: true },
+    msw: { handlers: { default: defaultHandlers } },
   },
+  loaders: [mswLoader],
   globalTypes: {
     theme: {
       name: 'Theme',
