@@ -250,7 +250,13 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 - Use `satisfies Meta<typeof Component>` for type-safe args
 - Mock data for feature components: inline in the story file — don't reach into fixtures unless already shared
 
-**Scope:** Stories cover rendering and variants. Behavior tests stay in colocated `.test.tsx` files (see Testing section above).
+**Scope:**
+
+- Stories cover rendering and variants (every CVA variant, empty/loading/error states).
+- Add a `play` function when the component has a behavioural contract worth regression-testing in CI — modals (open/close/escape), search-and-select flows, form submission, keyboard handling, callback wiring. Assert on `fn()` spies, not just DOM presence. Radix portal content requires `within(document.body)`. Example: `src/components/meal-plan/MealDetailModal.stories.tsx`.
+- `.test.tsx` files remain the home for logic-heavy, non-DOM unit tests (pure functions, hooks, reducers).
+
+See [`.storybook/README.md`](./.storybook/README.md) for the play-function pattern (imports, `waitFor`, spies, MSW integration).
 
 **a11y gate:** Every story runs through axe via `@storybook/test-runner` in CI. `.storybook/preview.tsx` sets `a11y: { test: 'error' }`, so any violation fails the `Run Storybook a11y tests` step and blocks the PR. When adding a story:
 
