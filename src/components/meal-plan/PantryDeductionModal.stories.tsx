@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { fn } from 'storybook/test'
+import { expect, fn, userEvent, within } from 'storybook/test'
 import { createPantryItem, lemonGarlicChickenComponents } from '@/stories/fixtures'
 import { PantryDeductionModal } from './PantryDeductionModal'
 
@@ -81,5 +81,34 @@ export const OnlyStaples: Story = {
 export const Loading: Story = {
   args: {
     isLoading: true,
+  },
+}
+
+// Play stories — Radix Dialog portals outside `canvasElement`, so queries use
+// `within(document.body)`. The modal is read-only aside from the two footer
+// buttons, so these cover the full parent-callback contract.
+
+export const ConfirmInvokesCallback: Story = {
+  play: async ({ args }) => {
+    const body = within(document.body)
+    // Assert computed deductions render (3 non-staple items, garlic is skipped)
+    await body.findByText('Chicken thigh')
+    await body.findByText('Potato')
+    await body.findByText('Lemon')
+
+    const confirmButton = await body.findByRole('button', { name: /^confirm$/i })
+    await userEvent.click(confirmButton)
+
+    await expect(args.onConfirm).toHaveBeenCalledTimes(1)
+  },
+}
+
+export const CancelClosesDialog: Story = {
+  play: async ({ args }) => {
+    const body = within(document.body)
+    const cancelButton = await body.findByRole('button', { name: /^cancel$/i })
+    await userEvent.click(cancelButton)
+
+    await expect(args.onOpenChange).toHaveBeenCalledWith(false)
   },
 }
