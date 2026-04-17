@@ -144,6 +144,7 @@ describe('GET /api/households/me/meals', () => {
     expect(data.meals[0].nutrition.calories).toBeGreaterThan(0)
     expect(data.meals[0].isCustom).toBe(true)
     expect(data.meals[0].allergens).toEqual([])
+    expect(data.nextCursor).toBeNull()
   })
 
   it('returns empty meals array when none exist', async () => {
@@ -157,6 +158,7 @@ describe('GET /api/households/me/meals', () => {
 
     expect(response.status).toBe(200)
     expect(data.meals).toEqual([])
+    expect(data.nextCursor).toBeNull()
   })
 
   it('passes search parameter to query', async () => {
@@ -174,6 +176,139 @@ describe('GET /api/households/me/meals', () => {
         }),
       }),
     )
+  })
+
+  it('orders meals by updatedAt desc, id desc', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockMealFindMany.mockResolvedValue([])
+
+    const request = new NextRequest('http://localhost/api/households/me/meals')
+    await GET(request)
+
+    expect(mockMealFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+        take: 31,
+      }),
+    )
+  })
+
+  it('returns nextCursor when results exceed limit (mid-list)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    // Default limit is 30; mock returns 31 items (limit + 1) to signal hasNext
+    const manyMeals = Array.from({ length: 31 }, (_, i) => ({
+      ...mockMealData,
+      id: `meal-${i}`,
+      name: `Meal ${i}`,
+    }))
+    mockMealFindMany.mockResolvedValue(manyMeals as never)
+
+    const request = new NextRequest('http://localhost/api/households/me/meals')
+    const response = await GET(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.meals).toHaveLength(30)
+    expect(data.nextCursor).toBe('meal-29')
+    // The 31st meal was used only to detect hasNext and should be trimmed
+    expect(data.meals.map((m: { id: string }) => m.id)).not.toContain('meal-30')
+  })
+
+  it('returns null nextCursor when results exactly match limit (last page)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    const exactPage = Array.from({ length: 30 }, (_, i) => ({
+      ...mockMealData,
+      id: `meal-${i}`,
+      name: `Meal ${i}`,
+    }))
+    mockMealFindMany.mockResolvedValue(exactPage as never)
+
+    const request = new NextRequest('http://localhost/api/households/me/meals')
+    const response = await GET(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.meals).toHaveLength(30)
+    expect(data.nextCursor).toBeNull()
+  })
+
+  it('passes cursor to query with skip: 1', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockMealFindMany.mockResolvedValue([])
+
+    const request = new NextRequest('http://localhost/api/households/me/meals?cursor=meal-42')
+    await GET(request)
+
+    expect(mockMealFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cursor: { id: 'meal-42' },
+        skip: 1,
+      }),
+    )
+  })
+
+  it('respects custom limit parameter', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockMealFindMany.mockResolvedValue([])
+
+    const request = new NextRequest('http://localhost/api/households/me/meals?limit=10')
+    await GET(request)
+
+    expect(mockMealFindMany).toHaveBeenCalledWith(expect.objectContaining({ take: 11 }))
+  })
+
+  it('returns 400 for non-numeric limit', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+
+    const request = new NextRequest('http://localhost/api/households/me/meals?limit=abc')
+    const response = await GET(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Invalid limit parameter')
+  })
+
+  it('returns 400 for limit exceeding max', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+
+    const request = new NextRequest('http://localhost/api/households/me/meals?limit=999')
+    const response = await GET(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Invalid limit parameter')
+  })
+
+  it('falls back to first page when cursor points to a deleted meal (P2025)', async () => {
+    const { Prisma } = await import('@/generated/prisma/client')
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    const p2025 = new Prisma.PrismaClientKnownRequestError('Record not found', {
+      code: 'P2025',
+      clientVersion: 'test',
+    })
+    // First call (with stale cursor) throws P2025; fallback call (no cursor) returns empty.
+    mockMealFindMany.mockRejectedValueOnce(p2025).mockResolvedValueOnce([])
+
+    const request = new NextRequest('http://localhost/api/households/me/meals?cursor=stale-id')
+    const response = await GET(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.meals).toEqual([])
+    expect(data.nextCursor).toBeNull()
+    expect(mockMealFindMany).toHaveBeenCalledTimes(2)
+    // Second (fallback) call should not include cursor/skip
+    const fallbackArgs = mockMealFindMany.mock.calls[1]![0]!
+    expect(fallbackArgs).not.toHaveProperty('cursor')
+    expect(fallbackArgs).not.toHaveProperty('skip')
   })
 })
 

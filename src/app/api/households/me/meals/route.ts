@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
 import { getHouseholdMembership } from '@/lib/household'
 import { deriveProteinType } from '@/lib/meal-planning/protein'
 
@@ -59,8 +60,21 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const search = searchParams.get('search')?.trim() || null
     const includeDeleted = searchParams.get('includeDeleted') === 'true'
+    const cursor = searchParams.get('cursor') || null
 
-    const meals = await prisma.meal.findMany({
+    const limitParam = searchParams.get('limit')
+    const limitResult = z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(100)
+      .safeParse(limitParam ?? 30)
+    if (!limitResult.success) {
+      return NextResponse.json({ error: 'Invalid limit parameter' }, { status: 400 })
+    }
+    const limit = limitResult.data
+
+    const baseQuery = {
       where: {
         householdId: membership.household.id,
         ...(includeDeleted ? {} : { deletedAt: null }),
@@ -108,10 +122,35 @@ export async function GET(request: NextRequest) {
           select: { id: true },
         },
       },
-      orderBy: { name: 'asc' },
-    })
+      orderBy: [{ updatedAt: 'desc' as const }, { id: 'desc' as const }],
+      take: limit + 1,
+    }
 
-    const mealsWithNutrition = meals.map((meal) => {
+    let meals
+    try {
+      meals = await prisma.meal.findMany({
+        ...baseQuery,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      })
+    } catch (error) {
+      // Stale or unknown cursor → Prisma throws P2025. Fall back to first page
+      // so bookmarks/refreshes with a since-deleted meal id don't 500.
+      if (
+        cursor &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        meals = await prisma.meal.findMany(baseQuery)
+      } else {
+        throw error
+      }
+    }
+
+    const hasNext = meals.length > limit
+    const pageMeals = hasNext ? meals.slice(0, limit) : meals
+    const nextCursor = hasNext ? (pageMeals.at(-1)?.id ?? null) : null
+
+    const mealsWithNutrition = pageMeals.map((meal) => {
       const nutrition = meal.components.reduce(
         (acc, comp) => {
           if (comp.isVague) return acc
@@ -167,7 +206,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ meals: mealsWithNutrition })
+    return NextResponse.json({ meals: mealsWithNutrition, nextCursor })
   } catch (error) {
     console.error('Failed to fetch meals:', error)
     return NextResponse.json({ error: 'Failed to fetch meals' }, { status: 500 })
