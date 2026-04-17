@@ -155,6 +155,7 @@ export const defaultHandlers: HttpHandler[] = [
   http.post('/api/meal-plans/:planId/entries/:entryId/regenerate', () =>
     HttpResponse.json({ alternatives: defaultAlternatives }),
   ),
+  http.patch('/api/meal-plans/:planId/entries/:entryId', () => HttpResponse.json({ ok: true })),
   http.get('/api/households/me/meals', () =>
     HttpResponse.json({ meals: householdMeals, nextCursor: null }),
   ),

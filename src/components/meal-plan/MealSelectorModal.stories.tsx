@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { fn } from 'storybook/test'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { MealType } from '@/generated/prisma/enums'
 import {
   emptyMealsHandlers,
@@ -105,5 +105,43 @@ export const Loading: Story = {
         story: 'Handlers never resolve — component stays in its skeleton loading state.',
       },
     },
+  },
+}
+
+// Play stories — Radix Dialog portals outside `canvasElement`, so queries use
+// `within(document.body)`. MSW handlers in `src/stories/msw-handlers.ts` back
+// the search + select PATCH requests so callbacks fire deterministically.
+
+export const SearchAndSelectInvokesCallbacks: Story = {
+  args: {
+    mode: 'swap',
+    currentMealName: 'Lemon-garlic roast chicken',
+  },
+  play: async ({ args }) => {
+    const body = within(document.body)
+    await body.findByRole('dialog')
+
+    const searchInput = await body.findByPlaceholderText('Search meal library...')
+    await userEvent.type(searchInput, 'chicken')
+
+    // Debounced search (300 ms) → MSW returns library meals
+    await body.findByText('Lemon-garlic roast chicken', undefined, { timeout: 3000 })
+
+    const selectButtons = await body.findAllByRole('button', { name: /^select$/i })
+    await userEvent.click(selectButtons[0]!)
+
+    // handleSelect awaits the PATCH before firing parent callbacks
+    await waitFor(() => expect(args.onSwapComplete).toHaveBeenCalled())
+    await expect(args.onOpenChange).toHaveBeenCalledWith(false)
+  },
+}
+
+export const EscapeClosesDialog: Story = {
+  args: { mode: 'add' },
+  play: async ({ args }) => {
+    const body = within(document.body)
+    await body.findByRole('dialog')
+    await userEvent.keyboard('{Escape}')
+    await expect(args.onOpenChange).toHaveBeenCalledWith(false)
   },
 }
