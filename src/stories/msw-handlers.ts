@@ -159,6 +159,26 @@ export const defaultHandlers: HttpHandler[] = [
   http.get('/api/households/me/meals', () =>
     HttpResponse.json({ meals: householdMeals, nextCursor: null }),
   ),
+  http.post('/api/meal-plans/:planId/shopping-list/purchase', () =>
+    HttpResponse.json({ ok: true }),
+  ),
+  http.post('/api/meal-plans/:planId/shopping-list/unpurchase', () =>
+    HttpResponse.json({ ok: true }),
+  ),
+  http.post('/api/shopping-list/custom', async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { name?: string }
+    const name = body.name ?? 'New item'
+    return HttpResponse.json({
+      item: {
+        id: `custom-${Date.now()}`,
+        name,
+        checked: false,
+        ingredientId: null,
+        ingredient: null,
+        createdAt: new Date().toISOString(),
+      },
+    })
+  }),
 ]
 
 /**
@@ -192,6 +212,15 @@ export const errorMealsHandlers: HttpHandler[] = [
   ),
   http.get('/api/households/me/meals', () =>
     HttpResponse.json({ error: 'Failed to fetch meals' }, { status: 500 }),
+  ),
+  http.post('/api/meal-plans/:planId/shopping-list/purchase', () =>
+    HttpResponse.json({ error: 'Failed to update item' }, { status: 500 }),
+  ),
+  http.post('/api/meal-plans/:planId/shopping-list/unpurchase', () =>
+    HttpResponse.json({ error: 'Failed to update item' }, { status: 500 }),
+  ),
+  http.post('/api/shopping-list/custom', () =>
+    HttpResponse.json({ error: 'Failed to add item' }, { status: 500 }),
   ),
 ]
 
