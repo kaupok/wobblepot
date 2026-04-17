@@ -7,6 +7,12 @@ import type {
   PantryIngredient,
   PantryItemFull,
 } from '@/components/meal-plan/types'
+import type {
+  IngredientAlternative,
+  IngredientResult,
+  PrefilledIngredient,
+} from '@/components/household/meal-form-types'
+import type { ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import type { CustomItemData } from '@/components/shopping/CustomItemInput'
 import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
 import type { UrgencyBucket } from '@/lib/meal-planning/dates'
@@ -460,6 +466,193 @@ export const customShoppingItems: CustomItemData[] = [
     checked: true,
   }),
 ]
+
+/**
+ * Strictly-typed ingredient catalog for `PrefilledIngredient` fixtures. The
+ * shared `ingredients` catalog uses `MealComponent['ingredient']` (category
+ * is loosely typed as `string`), but `PrefilledIngredient.ingredient` requires
+ * a valid `IngredientCategory` enum value, so we keep a narrower lookup here.
+ */
+const reviewIngredients = {
+  'salmon-fillet': {
+    id: 'salmon-fillet',
+    name: 'Salmon fillet',
+    category: 'protein',
+    defaultUnit: 'g',
+    gramsPerPiece: null,
+  },
+  'short-grain-rice': {
+    id: 'short-grain-rice',
+    name: 'Short-grain rice',
+    category: 'carb',
+    defaultUnit: 'g',
+    gramsPerPiece: null,
+  },
+  'miso-paste': {
+    id: 'miso-paste',
+    name: 'White miso',
+    category: 'condiment',
+    defaultUnit: 'g',
+    gramsPerPiece: null,
+  },
+  ginger: {
+    id: 'ginger',
+    name: 'Fresh ginger',
+    category: 'vegetable',
+    defaultUnit: 'g',
+    gramsPerPiece: null,
+  },
+  cucumber: {
+    id: 'cucumber',
+    name: 'Cucumber',
+    category: 'vegetable',
+    defaultUnit: 'piece',
+    gramsPerPiece: 200,
+  },
+} as const satisfies Record<string, IngredientResult>
+
+type MatchedIngredientOverrides = Partial<
+  Pick<PrefilledIngredient, 'ingredient' | 'convertedQuantity' | 'isVague' | 'originalPhrase'>
+>
+
+type LowConfidenceIngredientOverrides = Partial<
+  Pick<
+    PrefilledIngredient,
+    | 'ingredient'
+    | 'convertedQuantity'
+    | 'alternatives'
+    | 'extractedName'
+    | 'originalText'
+    | 'isVague'
+    | 'originalPhrase'
+  >
+>
+
+type UnmatchedIngredientOverrides = Partial<
+  Pick<
+    PrefilledIngredient,
+    | 'extractedName'
+    | 'originalText'
+    | 'extractedQuantity'
+    | 'extractedUnit'
+    | 'isVague'
+    | 'originalPhrase'
+  >
+>
+
+/**
+ * Build a matched `PrefilledIngredient` (the clean, ready-to-save shape). The
+ * default is 600g of salmon fillet — override `ingredient` or `convertedQuantity`
+ * to customize.
+ */
+export function createMatchedPrefilledIngredient(
+  overrides: MatchedIngredientOverrides = {},
+): PrefilledIngredient {
+  return {
+    type: 'matched',
+    ingredient: reviewIngredients['salmon-fillet'],
+    convertedQuantity: 600,
+    isVague: false,
+    originalPhrase: null,
+    ...overrides,
+  }
+}
+
+/**
+ * Build a low-confidence `PrefilledIngredient` — the dialog renders these in
+ * the "to verify" bucket with alternatives the user can pick from. Defaults to
+ * miso with two alternative brands.
+ */
+export function createLowConfidencePrefilledIngredient(
+  overrides: LowConfidenceIngredientOverrides = {},
+): PrefilledIngredient {
+  const alternatives: IngredientAlternative[] = [
+    {
+      id: 'white-miso-marukome',
+      name: 'White miso (Marukome)',
+      category: 'condiment',
+      defaultUnit: 'g',
+      similarity: 0.82,
+    },
+    {
+      id: 'white-miso-hikari',
+      name: 'White miso (Hikari)',
+      category: 'condiment',
+      defaultUnit: 'g',
+      similarity: 0.78,
+    },
+  ]
+  return {
+    type: 'low-confidence',
+    extractedName: 'miso',
+    originalText: '2 tbsp miso',
+    ingredient: reviewIngredients['miso-paste'],
+    convertedQuantity: 30,
+    alternatives,
+    lowConfidence: true,
+    isVague: false,
+    originalPhrase: null,
+    ...overrides,
+  }
+}
+
+/**
+ * Build an unmatched `PrefilledIngredient` — the dialog renders these in the
+ * "unmatched" bucket where the user must pick or create an ingredient. Defaults
+ * to a pickled-daikon row the AI extractor couldn't confidently resolve.
+ */
+export function createUnmatchedPrefilledIngredient(
+  overrides: UnmatchedIngredientOverrides = {},
+): PrefilledIngredient {
+  return {
+    type: 'unmatched',
+    extractedName: 'pickled daikon',
+    originalText: '50g pickled daikon',
+    extractedQuantity: 50,
+    extractedUnit: 'g',
+    isVague: false,
+    originalPhrase: null,
+    ...overrides,
+  }
+}
+
+/**
+ * Build a `ReviewMealData` for `ImagineReviewDialog` stories. Default is a
+ * miso-glazed salmon scenario where every ingredient is matched (the clean
+ * save path). Pass `prefilledIngredients` to exercise other states.
+ */
+export function createReviewMealData(overrides: Partial<ReviewMealData> = {}): ReviewMealData {
+  return {
+    name: 'Miso-glazed salmon with rice',
+    description: 'Sweet-savoury broiled salmon with ginger rice and pickled cucumber.',
+    preparationNotes: null,
+    sourceUrl: null,
+    timeMinutes: 30,
+    servings: 4,
+    mealTypes: [MealType.dinner],
+    kidFriendly: true,
+    nutrition: { calories: 540, protein: 38, carbs: 55, fat: 18 },
+    prefilledIngredients: [
+      createMatchedPrefilledIngredient({
+        ingredient: reviewIngredients['salmon-fillet'],
+        convertedQuantity: 600,
+      }),
+      createMatchedPrefilledIngredient({
+        ingredient: reviewIngredients['short-grain-rice'],
+        convertedQuantity: 300,
+      }),
+      createMatchedPrefilledIngredient({
+        ingredient: reviewIngredients['miso-paste'],
+        convertedQuantity: 40,
+      }),
+      createMatchedPrefilledIngredient({
+        ingredient: reviewIngredients['ginger'],
+        convertedQuantity: 20,
+      }),
+    ],
+    ...overrides,
+  }
+}
 
 /**
  * Miso-glazed salmon scenario, shaped as `AlternativeMeal` — includes the

@@ -45,6 +45,7 @@ export function QuantityControls({
           onChange={(e) => onQuantityChange(parseFloat(e.target.value) || 0)}
           min={0.1}
           step="any"
+          aria-label="Quantity"
           className="w-20 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
           disabled={disabled}
         />

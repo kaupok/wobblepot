@@ -159,6 +159,7 @@ export const defaultHandlers: HttpHandler[] = [
   http.get('/api/households/me/meals', () =>
     HttpResponse.json({ meals: householdMeals, nextCursor: null }),
   ),
+  http.post('/api/households/me/meals', () => HttpResponse.json({ id: 'new-meal-123' })),
   http.post('/api/meal-plans/:planId/shopping-list/purchase', () =>
     HttpResponse.json({ ok: true }),
   ),

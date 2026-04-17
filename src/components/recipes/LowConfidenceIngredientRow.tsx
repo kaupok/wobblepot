@@ -116,6 +116,7 @@ export function LowConfidenceIngredientRow({
                 size="sm"
                 onClick={onRemove}
                 disabled={disabled}
+                aria-label="Remove ingredient"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -132,7 +133,7 @@ export function LowConfidenceIngredientRow({
               onValueChange={handleAlternativeSelect}
               disabled={disabled}
             >
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-[200px]" aria-label="Verify ingredient match">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
