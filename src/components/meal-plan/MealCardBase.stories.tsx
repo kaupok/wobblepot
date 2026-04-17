@@ -1,66 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { MealType } from '@/generated/prisma/enums'
-import { MealCardBase, type MealCardBaseData } from './MealCardBase'
-import type { MealComponent, PantryIngredient } from './types'
+import { createMealCardBaseData, createMealComponent } from '@/stories/fixtures'
+import { MealCardBase } from './MealCardBase'
+import type { PantryIngredient } from './types'
 
-const components: MealComponent[] = [
-  {
-    ingredientId: 'chicken-thigh',
-    quantityPerServing: 150,
-    ingredient: {
-      id: 'chicken-thigh',
-      name: 'Chicken thigh',
-      category: 'protein',
-      defaultUnit: 'g',
-      gramsPerPiece: null,
-    },
-  },
-  {
-    ingredientId: 'garlic',
-    quantityPerServing: 2,
-    ingredient: {
-      id: 'garlic',
-      name: 'Garlic',
-      category: 'aromatic',
-      defaultUnit: 'piece',
-      gramsPerPiece: 5,
-    },
-  },
-  {
-    ingredientId: 'lemon',
-    quantityPerServing: 1,
-    ingredient: {
-      id: 'lemon',
-      name: 'Lemon',
-      category: 'produce',
-      defaultUnit: 'piece',
-      gramsPerPiece: 60,
-    },
-  },
-  {
-    ingredientId: 'olive-oil',
-    quantityPerServing: 15,
-    ingredient: {
-      id: 'olive-oil',
-      name: 'Olive oil',
-      category: 'pantry',
-      defaultUnit: 'g',
-      gramsPerPiece: null,
-    },
-  },
-]
-
-const baseMeal: MealCardBaseData = {
-  name: 'Lemon-garlic roast chicken',
-  description: 'Weeknight-friendly sheet-pan dinner with crisp skin and bright citrus.',
-  sourceUrl: null,
-  timeMinutes: 45,
-  kidFriendly: true,
-  primaryProteinType: 'poultry',
-  suitableFor: [MealType.dinner],
-  components,
-  nutrition: { calories: 520, protein: 42, carbs: 8, fat: 35 },
-}
+const mealFixture = createMealCardBaseData()
 
 const meta = {
   title: 'Meal plan/MealCardBase',
@@ -80,50 +24,47 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {
-  args: { meal: baseMeal },
+  args: { meal: mealFixture },
 }
 
 export const WithSourceUrl: Story = {
   args: {
-    meal: {
-      ...baseMeal,
+    meal: createMealCardBaseData({
       sourceUrl: 'https://example.com/recipes/lemon-garlic-chicken',
-    },
+    }),
   },
 }
 
 export const NotKidFriendly: Story = {
   args: {
-    meal: {
-      ...baseMeal,
+    meal: createMealCardBaseData({
       name: 'Spicy harissa salmon',
       description: 'Adults-only weeknight dinner with a kick.',
       kidFriendly: false,
       primaryProteinType: 'fish',
-    },
+    }),
   },
 }
 
 export const MultipleMealTypes: Story = {
   args: {
-    meal: {
-      ...baseMeal,
+    meal: createMealCardBaseData({
       name: 'Shakshuka',
       suitableFor: [MealType.breakfast, MealType.lunch, MealType.dinner],
       primaryProteinType: 'eggs',
-    },
+    }),
   },
 }
 
 export const NoDescription: Story = {
   args: {
-    meal: { ...baseMeal, description: null },
+    meal: createMealCardBaseData({ description: null }),
   },
 }
 
 export const WithPantryAvailability: Story = {
   args: {
-    meal: baseMeal,
+    meal: mealFixture,
     pantryIngredients: [
       { ingredientId: 'chicken-thigh', isStaple: false },
       { ingredientId: 'garlic', isStaple: true },
@@ -142,14 +83,13 @@ export const WithPantryAvailability: Story = {
 
 export const Vegetarian: Story = {
   args: {
-    meal: {
-      ...baseMeal,
+    meal: createMealCardBaseData({
       name: 'Mushroom risotto',
       description: 'Creamy arborio risotto with wild mushrooms and parmesan.',
       timeMinutes: 35,
       primaryProteinType: 'none',
       components: [
-        {
+        createMealComponent({
           ingredientId: 'arborio-rice',
           quantityPerServing: 80,
           ingredient: {
@@ -159,8 +99,8 @@ export const Vegetarian: Story = {
             defaultUnit: 'g',
             gramsPerPiece: null,
           },
-        },
-        {
+        }),
+        createMealComponent({
           ingredientId: 'mushrooms',
           quantityPerServing: 100,
           ingredient: {
@@ -170,9 +110,9 @@ export const Vegetarian: Story = {
             defaultUnit: 'g',
             gramsPerPiece: null,
           },
-        },
+        }),
       ],
       nutrition: { calories: 420, protein: 12, carbs: 68, fat: 10 },
-    },
+    }),
   },
 }

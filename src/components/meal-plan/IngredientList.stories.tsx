@@ -1,78 +1,17 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { fn } from 'storybook/test'
+import { createMealComponent, lemonGarlicChickenComponentsFull } from '@/stories/fixtures'
 import { IngredientList } from './IngredientList'
-import type { MealComponent, PantryIngredient } from './types'
+import type { PantryIngredient } from './types'
 
-const components: MealComponent[] = [
-  {
-    ingredientId: 'chicken-thigh',
-    quantityPerServing: 150,
-    ingredient: {
-      id: 'chicken-thigh',
-      name: 'Chicken thigh',
-      category: 'protein',
-      defaultUnit: 'g',
-      gramsPerPiece: null,
-    },
-  },
-  {
-    ingredientId: 'potato',
-    quantityPerServing: 200,
-    ingredient: {
-      id: 'potato',
-      name: 'Potato',
-      category: 'produce',
-      defaultUnit: 'g',
-      gramsPerPiece: null,
-    },
-  },
-  {
-    ingredientId: 'lemon',
-    quantityPerServing: 0.5,
-    ingredient: {
-      id: 'lemon',
-      name: 'Lemon',
-      category: 'produce',
-      defaultUnit: 'piece',
-      gramsPerPiece: 60,
-    },
-  },
-  {
-    ingredientId: 'garlic',
-    quantityPerServing: 2,
-    ingredient: {
-      id: 'garlic',
-      name: 'Garlic',
-      category: 'aromatic',
-      defaultUnit: 'piece',
-      gramsPerPiece: 5,
-    },
-  },
-  {
-    ingredientId: 'olive-oil',
-    quantityPerServing: 15,
-    ingredient: {
-      id: 'olive-oil',
-      name: 'Olive oil',
-      category: 'pantry',
-      defaultUnit: 'g',
-      gramsPerPiece: null,
-    },
-  },
-  {
-    ingredientId: 'salt',
-    quantityPerServing: 1,
-    isVague: true,
-    originalPhrase: 'to taste',
-    ingredient: {
-      id: 'salt',
-      name: 'Salt',
-      category: 'pantry',
-      defaultUnit: 'g',
-      gramsPerPiece: null,
-    },
-  },
-]
+const vagueSalt = createMealComponent({
+  ingredientId: 'salt',
+  quantityPerServing: 1,
+  isVague: true,
+  originalPhrase: 'to taste',
+})
+
+const componentsWithVagueSalt = [...lemonGarlicChickenComponentsFull, vagueSalt]
 
 const meta = {
   title: 'Meal plan/IngredientList',
@@ -80,7 +19,7 @@ const meta = {
   tags: ['autodocs'],
   parameters: { layout: 'padded' },
   args: {
-    components,
+    components: componentsWithVagueSalt,
     servings: 4,
     householdSize: 4,
   },

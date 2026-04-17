@@ -1,70 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { fn } from 'storybook/test'
+import {
+  createMeal,
+  lemonGarlicChickenComponentsFull,
+  lemonGarlicChickenPantryWithOil,
+} from '@/stories/fixtures'
 import { MealDetailModal } from './MealDetailModal'
-import type { MealComponent, MealData, PantryIngredient } from './types'
 
-const components: MealComponent[] = [
-  {
-    ingredientId: 'chicken-thigh',
-    quantityPerServing: 150,
-    ingredient: {
-      id: 'chicken-thigh',
-      name: 'Chicken thigh',
-      category: 'protein',
-      defaultUnit: 'g',
-      gramsPerPiece: null,
-    },
-  },
-  {
-    ingredientId: 'potato',
-    quantityPerServing: 200,
-    ingredient: {
-      id: 'potato',
-      name: 'Potato',
-      category: 'produce',
-      defaultUnit: 'g',
-      gramsPerPiece: null,
-    },
-  },
-  {
-    ingredientId: 'garlic',
-    quantityPerServing: 2,
-    ingredient: {
-      id: 'garlic',
-      name: 'Garlic',
-      category: 'aromatic',
-      defaultUnit: 'piece',
-      gramsPerPiece: 5,
-    },
-  },
-  {
-    ingredientId: 'olive-oil',
-    quantityPerServing: 15,
-    ingredient: {
-      id: 'olive-oil',
-      name: 'Olive oil',
-      category: 'pantry',
-      defaultUnit: 'g',
-      gramsPerPiece: null,
-    },
-  },
-]
-
-const baseMeal: MealData = {
-  id: 'meal-1',
-  name: 'Lemon-garlic roast chicken',
-  kidFriendly: true,
-  timeMinutes: 45,
-  preparationNotes: null,
-  components,
-  nutrition: { calories: 520, protein: 42, carbs: 30, fat: 28 },
-}
-
-const pantryIngredients: PantryIngredient[] = [
-  { ingredientId: 'chicken-thigh', isStaple: false },
-  { ingredientId: 'garlic', isStaple: true },
-  { ingredientId: 'olive-oil', isStaple: true },
-]
+const mealFixture = createMeal({ components: lemonGarlicChickenComponentsFull })
 
 const meta = {
   title: 'Meal plan/MealDetailModal',
@@ -80,13 +23,13 @@ const meta = {
     },
   },
   args: {
-    meal: baseMeal,
+    meal: mealFixture,
     householdSize: 4,
     open: true,
     onOpenChange: fn(),
     planId: 'plan-1',
     entryId: 'entry-1',
-    pantryIngredients,
+    pantryIngredients: lemonGarlicChickenPantryWithOil,
   },
 } satisfies Meta<typeof MealDetailModal>
 
@@ -111,10 +54,10 @@ export const WithServingOverride: Story = {
 
 export const WithPreparationNotes: Story = {
   args: {
-    meal: {
-      ...baseMeal,
+    meal: createMeal({
+      components: lemonGarlicChickenComponentsFull,
       preparationNotes:
         'Broil last 2 minutes for crispier skin. Serve with steamed green beans and flaky salt.',
-    },
+    }),
   },
 }

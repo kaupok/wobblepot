@@ -1,96 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { MealType } from '@/generated/prisma/enums'
+import {
+  createMeal,
+  lemonGarlicChickenPantry,
+  lemonGarlicChickenPantryItems,
+} from '@/stories/fixtures'
 import { MealCard } from './MealCard'
-import type { MealComponent, MealData, PantryIngredient, PantryItemFull } from './types'
 
-const components: MealComponent[] = [
-  {
-    ingredientId: 'chicken-thigh',
-    quantityPerServing: 150,
-    ingredient: {
-      id: 'chicken-thigh',
-      name: 'Chicken thigh',
-      category: 'protein',
-      defaultUnit: 'g',
-      gramsPerPiece: null,
-    },
-  },
-  {
-    ingredientId: 'potato',
-    quantityPerServing: 200,
-    ingredient: {
-      id: 'potato',
-      name: 'Potato',
-      category: 'produce',
-      defaultUnit: 'g',
-      gramsPerPiece: null,
-    },
-  },
-  {
-    ingredientId: 'lemon',
-    quantityPerServing: 0.5,
-    ingredient: {
-      id: 'lemon',
-      name: 'Lemon',
-      category: 'produce',
-      defaultUnit: 'piece',
-      gramsPerPiece: 60,
-    },
-  },
-  {
-    ingredientId: 'garlic',
-    quantityPerServing: 2,
-    ingredient: {
-      id: 'garlic',
-      name: 'Garlic',
-      category: 'aromatic',
-      defaultUnit: 'piece',
-      gramsPerPiece: 5,
-    },
-  },
-]
-
-const baseMeal: MealData = {
-  id: 'meal-1',
-  name: 'Lemon-garlic roast chicken',
-  kidFriendly: true,
-  timeMinutes: 45,
-  preparationNotes: null,
-  components,
-  nutrition: { calories: 520, protein: 42, carbs: 30, fat: 28 },
-}
-
-const pantryIngredients: PantryIngredient[] = [
-  { ingredientId: 'chicken-thigh', isStaple: false },
-  { ingredientId: 'garlic', isStaple: true },
-]
-
-const pantryItems: PantryItemFull[] = [
-  {
-    id: 'p-1',
-    ingredientId: 'chicken-thigh',
-    quantity: 800,
-    isStaple: false,
-    ingredient: {
-      id: 'chicken-thigh',
-      name: 'Chicken thigh',
-      category: 'protein',
-      defaultUnit: 'g',
-    },
-  },
-  {
-    id: 'p-2',
-    ingredientId: 'garlic',
-    quantity: 10,
-    isStaple: true,
-    ingredient: {
-      id: 'garlic',
-      name: 'Garlic',
-      category: 'aromatic',
-      defaultUnit: 'piece',
-    },
-  },
-]
+const mealFixture = createMeal()
 
 const meta = {
   title: 'Meal plan/MealCard',
@@ -102,8 +19,8 @@ const meta = {
     planId: 'plan-1',
     mealType: MealType.dinner,
     householdSize: 4,
-    pantryIngredients,
-    pantryItems,
+    pantryIngredients: lemonGarlicChickenPantry,
+    pantryItems: lemonGarlicChickenPantryItems,
   },
   decorators: [
     (Story) => (
@@ -119,14 +36,14 @@ type Story = StoryObj<typeof meta>
 
 export const Planned: Story = {
   args: {
-    meal: baseMeal,
+    meal: mealFixture,
     status: 'planned',
   },
 }
 
 export const PlannedWithNote: Story = {
   args: {
-    meal: baseMeal,
+    meal: mealFixture,
     status: 'planned',
     note: 'Double the garlic — kids approved.',
   },
@@ -134,7 +51,7 @@ export const PlannedWithNote: Story = {
 
 export const WithServingOverride: Story = {
   args: {
-    meal: baseMeal,
+    meal: mealFixture,
     status: 'planned',
     servingOverride: 6,
   },
@@ -142,7 +59,7 @@ export const WithServingOverride: Story = {
 
 export const LowAvailability: Story = {
   args: {
-    meal: baseMeal,
+    meal: mealFixture,
     status: 'planned',
     pantryIngredients: [{ ingredientId: 'garlic', isStaple: true }],
   },
@@ -157,7 +74,7 @@ export const LowAvailability: Story = {
 
 export const CompletedThumbsUp: Story = {
   args: {
-    meal: baseMeal,
+    meal: mealFixture,
     status: 'completed',
     rating: 'up',
   },
@@ -165,7 +82,7 @@ export const CompletedThumbsUp: Story = {
 
 export const CompletedThumbsDown: Story = {
   args: {
-    meal: baseMeal,
+    meal: mealFixture,
     status: 'completed',
     rating: 'down',
   },
@@ -173,7 +90,7 @@ export const CompletedThumbsDown: Story = {
 
 export const CompletedUnrated: Story = {
   args: {
-    meal: baseMeal,
+    meal: mealFixture,
     status: 'completed',
     rating: null,
   },
@@ -181,14 +98,14 @@ export const CompletedUnrated: Story = {
 
 export const Skipped: Story = {
   args: {
-    meal: baseMeal,
+    meal: mealFixture,
     status: 'skipped',
   },
 }
 
 export const PastCompleted: Story = {
   args: {
-    meal: baseMeal,
+    meal: mealFixture,
     status: 'completed',
     rating: 'up',
     isPast: true,
@@ -197,7 +114,7 @@ export const PastCompleted: Story = {
 
 export const PastReadonly: Story = {
   args: {
-    meal: baseMeal,
+    meal: mealFixture,
     status: 'completed',
     rating: 'up',
     isPast: true,
