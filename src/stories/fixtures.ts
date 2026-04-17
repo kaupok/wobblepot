@@ -14,6 +14,7 @@ import type {
   PrefilledIngredient,
 } from '@/components/household/meal-form-types'
 import type { MealData as HouseholdMealData } from '@/components/household/MealList'
+import type { PantryItemData } from '@/components/pantry/PantryItem'
 import type { ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import type { CustomItemData } from '@/components/shopping/CustomItemInput'
 import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
@@ -250,6 +251,101 @@ export const lemonGarlicChickenPantryWithOil: PantryIngredient[] = [
 export const lemonGarlicChickenPantryItems: PantryItemFull[] = [
   createPantryItem({ ingredientId: 'chicken-thigh', quantity: 800, isStaple: false }),
   createPantryItem({ ingredientId: 'garlic', quantity: 10, isStaple: true }),
+]
+
+type PantryIngredientShape = PantryItemData['ingredient']
+
+/**
+ * Strictly-typed ingredient catalog for pantry-module fixtures. The
+ * `PantryItemData.ingredient` shape requires a valid `IngredientCategory` enum
+ * value, so we keep a narrower lookup here instead of reusing the loose-typed
+ * meal-plan `ingredients` catalog above.
+ */
+const pantryIngredients = {
+  'olive-oil': {
+    id: 'olive-oil',
+    name: 'Olive oil',
+    category: 'fat',
+    defaultUnit: 'g',
+  },
+  salt: {
+    id: 'salt',
+    name: 'Salt',
+    category: 'condiment',
+    defaultUnit: 'g',
+  },
+  'chicken-thigh': {
+    id: 'chicken-thigh',
+    name: 'Chicken thigh',
+    category: 'protein',
+    defaultUnit: 'g',
+  },
+  'short-grain-rice': {
+    id: 'short-grain-rice',
+    name: 'Short-grain rice',
+    category: 'carb',
+    defaultUnit: 'g',
+  },
+  garlic: {
+    id: 'garlic',
+    name: 'Garlic',
+    category: 'vegetable',
+    defaultUnit: 'piece',
+  },
+  lemon: {
+    id: 'lemon',
+    name: 'Lemon',
+    category: 'fruit',
+    defaultUnit: 'piece',
+  },
+} as const satisfies Record<string, PantryIngredientShape>
+
+/**
+ * Build a `PantryItemData` row — the shape the pantry module renders. Default
+ * is a non-staple olive oil. Pass `ingredientId` to pick from the narrow
+ * {@link pantryIngredients} catalog, or pass full `ingredient` overrides.
+ */
+export function createPantryItemData(overrides: Partial<PantryItemData> = {}): PantryItemData {
+  const ingredientId = overrides.ingredient?.id ?? 'olive-oil'
+  const catalogEntry = (pantryIngredients as Record<string, PantryIngredientShape>)[ingredientId]
+  const ingredient: PantryIngredientShape = overrides.ingredient ??
+    catalogEntry ?? {
+      id: ingredientId,
+      name: ingredientId,
+      category: 'condiment',
+      defaultUnit: 'g',
+    }
+  return {
+    id: `pantry-${ingredient.id}`,
+    quantity: null,
+    isStaple: false,
+    updatedAt: '2026-04-01T12:00:00.000Z',
+    ...overrides,
+    ingredient,
+  }
+}
+
+/**
+ * Canonical pantry list used by `PantryList` stories — one staple (salt), one
+ * staple aromatic (garlic), and two on-hand items (chicken thigh with a known
+ * quantity, rice with "have some"). Exercises both rendered sections.
+ */
+export const defaultPantryItems: PantryItemData[] = [
+  createPantryItemData({
+    ingredient: pantryIngredients.salt,
+    isStaple: true,
+  }),
+  createPantryItemData({
+    ingredient: pantryIngredients.garlic,
+    isStaple: true,
+  }),
+  createPantryItemData({
+    ingredient: pantryIngredients['chicken-thigh'],
+    quantity: 500,
+  }),
+  createPantryItemData({
+    ingredient: pantryIngredients['short-grain-rice'],
+  }),
 ]
 
 /**
