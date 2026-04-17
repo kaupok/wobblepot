@@ -1,8 +1,14 @@
 import { delay, http, HttpResponse, type HttpHandler } from 'msw'
 import { MealType, type ProteinType } from '@/generated/prisma/enums'
 import type { AlternativeMeal, MealComponent, NutritionData } from '@/components/meal-plan/types'
+import type { Member } from '@/types/member'
 import {
+  createChildMember,
+  createManualMemberWithInvite,
   createMealComponent,
+  createMember,
+  createMemberInvite,
+  ingredientResults,
   lemonGarlicChickenComponents,
   misoSalmonAlternative,
 } from './fixtures'
@@ -180,6 +186,100 @@ export const defaultHandlers: HttpHandler[] = [
       },
     })
   }),
+  // Household members CRUD — used by `MemberList` (GET) and the dialogs (POST/PATCH/DELETE).
+  http.get('/api/households/me/members', () => HttpResponse.json({ members: defaultMembers })),
+  http.post('/api/households/me/members', async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as {
+      name?: string
+      preferences?: { displayName?: string | null; portionMultiplier?: number }
+    }
+    const newMember = createMember({
+      id: `member-${Date.now()}`,
+      userId: null,
+      name: body.name ?? 'New member',
+      role: 'member',
+      user: null,
+      preferences: {
+        displayName: body.preferences?.displayName ?? null,
+        portionMultiplier: body.preferences?.portionMultiplier ?? 1.0,
+        targetCalories: null,
+        targetProtein: null,
+        targetCarbs: null,
+        targetFat: null,
+        dietaryType: null,
+        allergens: [],
+        restrictions: [],
+        excludedIngredients: [],
+        excludedIngredientIds: [],
+      },
+    })
+    return HttpResponse.json(newMember)
+  }),
+  http.patch('/api/households/me/members/:id', async ({ request, params }) => {
+    const body = (await request.json().catch(() => ({}))) as {
+      name?: string
+      preferences?: Partial<{
+        displayName: string | null
+        portionMultiplier: number
+      }>
+    }
+    return HttpResponse.json(
+      createMember({
+        id: String(params.id),
+        name: body.name ?? 'Member',
+        preferences: {
+          displayName: body.preferences?.displayName ?? null,
+          portionMultiplier: body.preferences?.portionMultiplier ?? 1.0,
+          targetCalories: null,
+          targetProtein: null,
+          targetCarbs: null,
+          targetFat: null,
+          dietaryType: null,
+          allergens: [],
+          restrictions: [],
+          excludedIngredients: [],
+          excludedIngredientIds: [],
+        },
+      }),
+    )
+  }),
+  http.delete('/api/households/me/members/:id', () => HttpResponse.json({ ok: true })),
+  http.post('/api/households/me/invites', () => {
+    const invite = createMemberInvite()
+    return HttpResponse.json(invite)
+  }),
+  // Ingredient catalog search — used by `IngredientSearch` and indirectly by `MealForm`.
+  http.get('/api/ingredients', ({ request }) => {
+    const url = new URL(request.url)
+    const search = url.searchParams.get('search')?.toLowerCase().trim() ?? ''
+    const all = Object.values(ingredientResults)
+    const filtered = search
+      ? all.filter((ing) => ing.name.toLowerCase().includes(search))
+      : all.slice(0, 5)
+    return HttpResponse.json({ ingredients: filtered })
+  }),
+  // Favorite toggling on the meal library — used by `MealList`.
+  http.post('/api/meals/:id/favorite', () => HttpResponse.json({ ok: true })),
+  http.delete('/api/meals/:id/favorite', () => HttpResponse.json({ ok: true })),
+  http.delete('/api/households/me/meals/:id', () => HttpResponse.json({ ok: true })),
+]
+
+/**
+ * Default member roster used by `MemberList` and the member dialogs — owner +
+ * one adult member + one child + one pending-invite member, so a single render
+ * shows every badge/avatar variant the cards can produce.
+ */
+const defaultMembers: Member[] = [
+  createMember(),
+  createMember({
+    id: 'member-2',
+    userId: 'user-2',
+    name: 'Sky Doe',
+    role: 'member',
+    user: { id: 'user-2', name: 'Sky Doe', email: 'sky@example.com', image: null },
+  }),
+  createChildMember(),
+  createManualMemberWithInvite(),
 ]
 
 /**
@@ -245,5 +345,110 @@ export const loadingMealsHandlers: HttpHandler[] = [
   http.get('/api/households/me/meals', async () => {
     await delay('infinite')
     return HttpResponse.json({ meals: [], nextCursor: null })
+  }),
+]
+
+/**
+ * Override `GET /api/households/me/members` with an empty roster. Use for the
+ * `MemberList` empty-state story.
+ */
+export const emptyMembersHandlers: HttpHandler[] = [
+  http.get('/api/households/me/members', () => HttpResponse.json({ members: [] })),
+]
+
+/**
+ * Override `GET /api/households/me/members` with a 500 error. Use for the
+ * `MemberList` error-state story.
+ */
+export const errorMembersHandlers: HttpHandler[] = [
+  http.get('/api/households/me/members', () =>
+    HttpResponse.json({ error: 'Failed to fetch members' }, { status: 500 }),
+  ),
+]
+
+/**
+ * Override `GET /api/households/me/members` so it never resolves. Use for the
+ * `MemberList` loading-state story (renders the skeleton).
+ */
+export const loadingMembersHandlers: HttpHandler[] = [
+  http.get('/api/households/me/members', async () => {
+    await delay('infinite')
+    return HttpResponse.json({ members: [] })
+  }),
+]
+
+/**
+ * Override `POST /api/households/me/members` with a 500. Use to exercise the
+ * `AddMemberDialog` error path.
+ */
+export const errorAddMemberHandlers: HttpHandler[] = [
+  http.post('/api/households/me/members', () =>
+    HttpResponse.json({ error: 'A member with that name already exists' }, { status: 400 }),
+  ),
+]
+
+/**
+ * Hold the `POST /api/households/me/members` request open so the dialog stays
+ * in its `Submitting` state.
+ */
+export const submittingAddMemberHandlers: HttpHandler[] = [
+  http.post('/api/households/me/members', async () => {
+    await delay('infinite')
+    return HttpResponse.json({ ok: true })
+  }),
+]
+
+/**
+ * Override `POST /api/households/me/invites` with a 500. Use for the
+ * `MemberInviteDialog` error story.
+ */
+export const errorInviteHandlers: HttpHandler[] = [
+  http.post('/api/households/me/invites', () =>
+    HttpResponse.json({ error: 'Failed to create invite' }, { status: 500 }),
+  ),
+]
+
+/**
+ * Hold the `POST /api/households/me/invites` request open so the dialog stays
+ * in its create-pending state.
+ */
+export const pendingInviteHandlers: HttpHandler[] = [
+  http.post('/api/households/me/invites', async () => {
+    await delay('infinite')
+    return HttpResponse.json({})
+  }),
+]
+
+/**
+ * Override `GET /api/ingredients` to return an empty result set. Use for the
+ * `IngredientSearch` no-results story.
+ */
+export const emptyIngredientsHandlers: HttpHandler[] = [
+  http.get('/api/ingredients', () => HttpResponse.json({ ingredients: [] })),
+]
+
+/**
+ * Hold `GET /api/ingredients` open so the spinner stays visible. Use for the
+ * `IngredientSearch` typing-without-results story.
+ */
+export const loadingIngredientsHandlers: HttpHandler[] = [
+  http.get('/api/ingredients', async () => {
+    await delay('infinite')
+    return HttpResponse.json({ ingredients: [] })
+  }),
+]
+
+/**
+ * Hold `POST /api/households/me/meals` and `PATCH /api/households/me/meals/:id`
+ * open. Use for the `MealForm` submitting story.
+ */
+export const submittingMealFormHandlers: HttpHandler[] = [
+  http.post('/api/households/me/meals', async () => {
+    await delay('infinite')
+    return HttpResponse.json({ id: 'new' })
+  }),
+  http.patch('/api/households/me/meals/:id', async () => {
+    await delay('infinite')
+    return HttpResponse.json({ ok: true })
   }),
 ]

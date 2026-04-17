@@ -490,12 +490,12 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
                 {isImportMode && (unresolvedCount > 0 || lowConfidenceCount > 0) && (
                   <div className="flex gap-2">
                     {lowConfidenceCount > 0 && (
-                      <Badge variant="outline" className="text-blue-600">
+                      <Badge variant="outline" className="text-blue-700 dark:text-blue-400">
                         {lowConfidenceCount} to verify
                       </Badge>
                     )}
                     {unresolvedCount > 0 && (
-                      <Badge variant="outline" className="text-amber-600">
+                      <Badge variant="outline" className="text-amber-700 dark:text-amber-400">
                         {unresolvedCount} unmatched
                       </Badge>
                     )}

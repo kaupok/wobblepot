@@ -10,12 +10,15 @@ import type {
 import type {
   IngredientAlternative,
   IngredientResult,
+  MealComponent as MealFormComponent,
   PrefilledIngredient,
 } from '@/components/household/meal-form-types'
+import type { MealData as HouseholdMealData } from '@/components/household/MealList'
 import type { ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import type { CustomItemData } from '@/components/shopping/CustomItemInput'
 import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
 import type { UrgencyBucket } from '@/lib/meal-planning/dates'
+import type { Member, MemberInvite, MemberPreferences } from '@/types/member'
 
 type IngredientShape = MealComponent['ingredient']
 type PantryItemIngredient = PantryItemFull['ingredient']
@@ -675,3 +678,303 @@ export const misoSalmonAlternative: AlternativeMeal = {
   ],
   nutrition: { calories: 540, protein: 38, carbs: 55, fat: 18 },
 }
+
+/**
+ * Catalog of strictly-typed `IngredientResult` shapes used by household
+ * `IngredientSearch` and `MealForm` stories. Keyed by id so factories can look
+ * up entries the same way the meal-plan ingredient catalog above does.
+ */
+export const ingredientResults = {
+  'chicken-thigh': {
+    id: 'chicken-thigh',
+    name: 'Chicken thigh',
+    category: 'protein',
+    defaultUnit: 'g',
+    gramsPerPiece: null,
+    calories: 209,
+    protein: 26,
+    carbs: 0,
+    fat: 11,
+  },
+  potato: {
+    id: 'potato',
+    name: 'Potato',
+    category: 'vegetable',
+    defaultUnit: 'g',
+    gramsPerPiece: null,
+    calories: 77,
+    protein: 2,
+    carbs: 17,
+    fat: 0.1,
+  },
+  lemon: {
+    id: 'lemon',
+    name: 'Lemon',
+    category: 'fruit',
+    defaultUnit: 'piece',
+    gramsPerPiece: 60,
+    calories: 17,
+    protein: 0.6,
+    carbs: 5.4,
+    fat: 0.2,
+  },
+  garlic: {
+    id: 'garlic',
+    name: 'Garlic',
+    category: 'vegetable',
+    defaultUnit: 'piece',
+    gramsPerPiece: 5,
+    calories: 149,
+    protein: 6.4,
+    carbs: 33,
+    fat: 0.5,
+  },
+  'olive-oil': {
+    id: 'olive-oil',
+    name: 'Olive oil',
+    category: 'fat',
+    defaultUnit: 'g',
+    gramsPerPiece: null,
+    calories: 884,
+    protein: 0,
+    carbs: 0,
+    fat: 100,
+  },
+  'salmon-fillet': {
+    id: 'salmon-fillet',
+    name: 'Salmon fillet',
+    category: 'protein',
+    defaultUnit: 'g',
+    gramsPerPiece: null,
+    calories: 208,
+    protein: 20,
+    carbs: 0,
+    fat: 13,
+  },
+} as const satisfies Record<string, IngredientResult>
+
+/**
+ * Build an `IngredientResult` for `IngredientSearch` and `MealForm` stories.
+ * Defaults to chicken thigh — pass `id` matching a key in {@link ingredientResults}
+ * to swap to a catalog entry, or pass full overrides for a one-off shape.
+ */
+export function createIngredientResult(
+  overrides: Partial<IngredientResult> = {},
+): IngredientResult {
+  const id = overrides.id ?? 'chicken-thigh'
+  const catalogEntry = (ingredientResults as Record<string, IngredientResult>)[id]
+  if (catalogEntry) {
+    return { ...catalogEntry, ...overrides }
+  }
+  return { ...ingredientResults['chicken-thigh'], ...overrides, id }
+}
+
+/**
+ * Build a `MealComponent` for the household `MealForm`. Default = 600g of
+ * chicken thigh (matches a 4-serving recipe at 150g per serving). Pass `id`
+ * via `ingredient.id` to swap the ingredient sub-object.
+ */
+export function createMealFormComponent(
+  overrides: Partial<MealFormComponent> = {},
+): MealFormComponent {
+  const ingredient = overrides.ingredient ?? createIngredientResult()
+  return {
+    ingredientId: ingredient.id,
+    ingredient,
+    totalQuantity: 600,
+    isVague: false,
+    originalPhrase: null,
+    ...overrides,
+  }
+}
+
+/**
+ * Default `MemberPreferences` shape — a regular adult with no dietary
+ * restrictions. Override any field to build other personas (child, vegan,
+ * allergens).
+ */
+export function createMemberPreferences(
+  overrides: Partial<MemberPreferences> = {},
+): MemberPreferences {
+  return {
+    displayName: null,
+    portionMultiplier: 1.0,
+    targetCalories: null,
+    targetProtein: null,
+    targetCarbs: null,
+    targetFat: null,
+    dietaryType: null,
+    allergens: [],
+    restrictions: [],
+    excludedIngredients: [],
+    excludedIngredientIds: [],
+    ...overrides,
+  }
+}
+
+/**
+ * Build an active `MemberInvite` link expiring one week from a fixed date so
+ * stories render the same human-readable expiry every snapshot.
+ */
+export function createMemberInvite(overrides: Partial<MemberInvite> = {}): MemberInvite {
+  return {
+    url: 'https://honkadori.xyz/invite/abc123',
+    expiresAt: '2026-04-24T12:00:00.000Z',
+    isActive: true,
+    ...overrides,
+  }
+}
+
+/**
+ * Build a `Member`. Default = household owner "Alex Doe" with regular portion
+ * size. Pass `role: 'member'` for non-owners and override `preferences` /
+ * `user` / `invite` to build the variants stories need.
+ */
+export function createMember(overrides: Partial<Member> = {}): Member {
+  const preferences = overrides.preferences ?? createMemberPreferences()
+  return {
+    id: 'member-owner',
+    userId: 'user-1',
+    name: 'Alex Doe',
+    role: 'owner',
+    joinedAt: '2026-01-15T12:00:00.000Z',
+    user: {
+      id: 'user-1',
+      name: 'Alex Doe',
+      email: 'alex@example.com',
+      image: null,
+    },
+    preferences,
+    invite: null,
+    ...overrides,
+  }
+}
+
+/**
+ * Build a child member — small portion, manual (no linked user account), no
+ * invite yet. Defaults to "Sam" so stories read naturally next to the owner.
+ */
+export function createChildMember(overrides: Partial<Member> = {}): Member {
+  return createMember({
+    id: 'member-child',
+    userId: null,
+    name: 'Sam',
+    role: 'member',
+    user: null,
+    preferences: createMemberPreferences({
+      displayName: 'kiddo',
+      portionMultiplier: 0.75,
+    }),
+    invite: null,
+    ...overrides,
+  })
+}
+
+/**
+ * Build a manual (no linked user) member with a pending invite link — used by
+ * `MemberCard` and `MemberInviteDialog` stories.
+ */
+export function createManualMemberWithInvite(overrides: Partial<Member> = {}): Member {
+  return createMember({
+    id: 'member-pending',
+    userId: null,
+    name: 'Jordan',
+    role: 'member',
+    user: null,
+    preferences: createMemberPreferences({ portionMultiplier: 1.5 }),
+    invite: createMemberInvite(),
+    ...overrides,
+  })
+}
+
+type HouseholdMealComponent = HouseholdMealData['components'][number]
+
+/**
+ * Build a strictly-typed `MealData['components']` entry for the household
+ * `MealList`. Picks the ingredient sub-object from {@link ingredientResults},
+ * which uses the strict `IngredientCategory` enum (the meal-plan
+ * `createMealComponent` returns a loose-string category that doesn't satisfy
+ * the household shape).
+ */
+function createHouseholdMealComponent(
+  ingredientId: keyof typeof ingredientResults,
+  quantityPerServing: number,
+): HouseholdMealComponent {
+  const ingredient = ingredientResults[ingredientId]
+  return {
+    ingredientId: ingredient.id,
+    quantityPerServing,
+    ingredient: {
+      id: ingredient.id,
+      name: ingredient.name,
+      category: ingredient.category,
+      defaultUnit: ingredient.defaultUnit,
+      gramsPerPiece: ingredient.gramsPerPiece,
+    },
+  }
+}
+
+const householdLemonGarlicComponents: HouseholdMealComponent[] = [
+  createHouseholdMealComponent('chicken-thigh', 150),
+  createHouseholdMealComponent('potato', 200),
+  createHouseholdMealComponent('lemon', 0.5),
+  createHouseholdMealComponent('garlic', 2),
+]
+
+/**
+ * Build a `MealData` row for the household `MealList`. Default = lemon-garlic
+ * roast chicken with full meal-card metadata. Pass overrides for empty/edge
+ * states or alternate meals.
+ */
+export function createHouseholdMealListData(
+  overrides: Partial<HouseholdMealData> = {},
+): HouseholdMealData {
+  return {
+    id: 'household-meal-1',
+    name: 'Lemon-garlic roast chicken',
+    description: 'Weeknight-friendly sheet-pan dinner with crisp skin and bright citrus.',
+    preparationNotes: null,
+    sourceUrl: null,
+    timeMinutes: 45,
+    kidFriendly: true,
+    primaryProteinType: 'poultry',
+    suitableFor: [MealType.dinner],
+    servings: 4,
+    isCustom: true,
+    isFavorite: false,
+    createdAt: '2026-04-01T12:00:00.000Z',
+    updatedAt: '2026-04-01T12:00:00.000Z',
+    components: householdLemonGarlicComponents,
+    nutrition: { calories: 520, protein: 42, carbs: 30, fat: 28 },
+    allergens: [],
+    ...overrides,
+  }
+}
+
+/**
+ * Three-meal sample list used by `MealList` stories — a poultry meal, a fish
+ * meal, and a vegetarian one — so the rendered list shows variety in protein
+ * type and time.
+ */
+export const householdMealList: HouseholdMealData[] = [
+  createHouseholdMealListData(),
+  createHouseholdMealListData({
+    id: 'household-meal-2',
+    name: 'Miso-glazed salmon with rice',
+    description: 'Sweet-savoury broiled salmon with ginger rice and pickled cucumber.',
+    primaryProteinType: 'fish',
+    timeMinutes: 30,
+    isFavorite: true,
+    components: [createHouseholdMealComponent('salmon-fillet', 150)],
+    nutrition: { calories: 540, protein: 38, carbs: 55, fat: 18 },
+  }),
+  createHouseholdMealListData({
+    id: 'household-meal-3',
+    name: 'Spiced red-lentil stew',
+    description: 'One-pot weeknight stew with warming spices and coconut milk.',
+    primaryProteinType: 'none',
+    timeMinutes: 35,
+    components: [createHouseholdMealComponent('potato', 180)],
+    nutrition: { calories: 410, protein: 18, carbs: 62, fat: 12 },
+  }),
+]
