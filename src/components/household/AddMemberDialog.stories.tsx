@@ -1,5 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+import {
+  assertFocusInDialog,
+  assertFocusRestored,
+  assertTabStaysInDialog,
+  awaitDialogClosed,
+  pressEscape,
+} from '@/stories/a11y-helpers'
 import { errorAddMemberHandlers, submittingAddMemberHandlers } from '@/stories/msw-handlers'
 import { AddMemberDialog } from './AddMemberDialog'
 
@@ -121,5 +128,23 @@ export const SubmitInvokesCallback: Story = {
         }),
       ),
     )
+  },
+}
+
+// Interaction-a11y story — the component uses a Radix DialogTrigger
+// internally, so Radix tracks the trigger via context and focus-restore to
+// the "Add member" button is reliable here. See `src/stories/a11y-helpers.ts`.
+export const A11yInteractionPatterns: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const trigger = canvas.getByRole('button', { name: /add member/i })
+
+    await userEvent.click(trigger)
+    await assertFocusInDialog()
+    await assertTabStaysInDialog()
+
+    await pressEscape()
+    await awaitDialogClosed()
+    await assertFocusRestored(trigger)
   },
 }

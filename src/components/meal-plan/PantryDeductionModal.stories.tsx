@@ -1,5 +1,13 @@
+import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fn, userEvent, within } from 'storybook/test'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+import {
+  assertFocusInDialog,
+  assertTabStaysInDialog,
+  awaitDialogClosed,
+  openViaTrigger,
+  pressEscape,
+} from '@/stories/a11y-helpers'
 import { createPantryItem, lemonGarlicChickenComponents } from '@/stories/fixtures'
 import { PantryDeductionModal } from './PantryDeductionModal'
 
@@ -110,5 +118,41 @@ export const CancelClosesDialog: Story = {
     await userEvent.click(cancelButton)
 
     await expect(args.onOpenChange).toHaveBeenCalledWith(false)
+  },
+}
+
+// Interaction-a11y story — focus trap / tab containment / Escape / focus
+// restore. See `src/stories/a11y-helpers.ts`.
+export const A11yInteractionPatterns: Story = {
+  args: { open: false },
+  render: (args) => {
+    const [open, setOpen] = useState(args.open ?? false)
+    return (
+      <div>
+        <button type="button" data-testid="a11y-trigger" onClick={() => setOpen(true)}>
+          Open modal
+        </button>
+        <PantryDeductionModal
+          {...args}
+          open={open}
+          onOpenChange={(next) => {
+            setOpen(next)
+            args.onOpenChange?.(next)
+          }}
+        />
+      </div>
+    )
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const trigger = canvas.getByTestId('a11y-trigger')
+
+    await openViaTrigger(trigger)
+    await assertFocusInDialog()
+    await assertTabStaysInDialog()
+
+    await pressEscape()
+    await waitFor(() => expect(args.onOpenChange).toHaveBeenCalledWith(false))
+    await awaitDialogClosed()
   },
 }
