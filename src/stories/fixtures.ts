@@ -1,4 +1,4 @@
-import { MealType } from '@/generated/prisma/enums'
+import { MealType, type IngredientCategory } from '@/generated/prisma/enums'
 import type { MealCardBaseData } from '@/components/meal-plan/MealCardBase'
 import type {
   AlternativeMeal,
@@ -7,6 +7,9 @@ import type {
   PantryIngredient,
   PantryItemFull,
 } from '@/components/meal-plan/types'
+import type { CustomItemData } from '@/components/shopping/CustomItemInput'
+import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
+import type { UrgencyBucket } from '@/lib/meal-planning/dates'
 
 type IngredientShape = MealComponent['ingredient']
 type PantryItemIngredient = PantryItemFull['ingredient']
@@ -238,6 +241,224 @@ export const lemonGarlicChickenPantryWithOil: PantryIngredient[] = [
 export const lemonGarlicChickenPantryItems: PantryItemFull[] = [
   createPantryItem({ ingredientId: 'chicken-thigh', quantity: 800, isStaple: false }),
   createPantryItem({ ingredientId: 'garlic', quantity: 10, isStaple: true }),
+]
+
+/**
+ * Build a `ShoppingItemData` for shopping-list stories. Defaults to an
+ * unpurchased 500g chicken breast needed tomorrow. Override any field.
+ */
+export function createShoppingItem(overrides: Partial<ShoppingItemData> = {}): ShoppingItemData {
+  return {
+    ingredientId: 'chicken-thigh',
+    name: 'Chicken thigh',
+    displayQuantity: '500g',
+    purchased: false,
+    neededByDate: '2026-04-20',
+    neededByRelative: 'Monday',
+    neededByAbsolute: 'Monday, April 20',
+    ...overrides,
+  }
+}
+
+/**
+ * Build a `CustomItemData` for user-added shopping-list entries. Defaults to
+ * an unchecked linked "Olive oil" in the fat category.
+ */
+export function createCustomItem(overrides: Partial<CustomItemData> = {}): CustomItemData {
+  return {
+    id: 'custom-1',
+    name: 'Olive oil',
+    checked: false,
+    ingredientId: 'olive-oil',
+    ingredientCategory: 'fat',
+    createdAt: '2026-04-15T10:00:00.000Z',
+    ...overrides,
+  }
+}
+
+/**
+ * Canonical protein group — mixed purchased/unpurchased state for progress UI.
+ */
+export const proteinShoppingItems: ShoppingItemData[] = [
+  createShoppingItem({
+    ingredientId: 'chicken-thigh',
+    name: 'Chicken thigh',
+    displayQuantity: '600g',
+    neededByRelative: 'tomorrow',
+    neededByAbsolute: 'Saturday, April 18',
+  }),
+  createShoppingItem({
+    ingredientId: 'salmon-fillet',
+    name: 'Salmon fillet',
+    displayQuantity: '300g',
+    purchased: true,
+    neededByDate: '2026-04-21',
+    neededByRelative: 'Tuesday',
+    neededByAbsolute: 'Tuesday, April 21',
+  }),
+  createShoppingItem({
+    ingredientId: 'ground-beef',
+    name: 'Ground beef',
+    displayQuantity: '400g',
+    neededByDate: '2026-04-22',
+    neededByRelative: 'Wednesday',
+    neededByAbsolute: 'Wednesday, April 22',
+  }),
+]
+
+/**
+ * Canonical produce group — single item with vague quantity for italic styling.
+ */
+export const produceShoppingItems: ShoppingItemData[] = [
+  createShoppingItem({
+    ingredientId: 'potato',
+    name: 'Potato',
+    displayQuantity: '1kg',
+    neededByRelative: 'tomorrow',
+    neededByAbsolute: 'Saturday, April 18',
+  }),
+  createShoppingItem({
+    ingredientId: 'lemon',
+    name: 'Lemon',
+    displayQuantity: '2 pcs',
+    neededByDate: '2026-04-21',
+    neededByRelative: 'Tuesday',
+    neededByAbsolute: 'Tuesday, April 21',
+  }),
+  createShoppingItem({
+    ingredientId: 'garlic',
+    name: 'Garlic',
+    displayQuantity: 'some',
+    isVague: true,
+    neededByRelative: 'tomorrow',
+    neededByAbsolute: 'Saturday, April 18',
+  }),
+]
+
+/**
+ * Canonical dairy group — all purchased, shows "all done" UI.
+ */
+export const dairyShoppingItems: ShoppingItemData[] = [
+  createShoppingItem({
+    ingredientId: 'butter',
+    name: 'Butter',
+    displayQuantity: '200g',
+    purchased: true,
+    neededByRelative: 'tomorrow',
+    neededByAbsolute: 'Saturday, April 18',
+  }),
+  createShoppingItem({
+    ingredientId: 'milk',
+    name: 'Whole milk',
+    displayQuantity: '1L',
+    purchased: true,
+    neededByDate: '2026-04-22',
+    neededByRelative: 'Wednesday',
+    neededByAbsolute: 'Wednesday, April 22',
+  }),
+]
+
+/**
+ * Default `ShoppingList` groups — three categories with mixed states.
+ * Uses `IngredientCategory` keys so the emoji map in `CategoryGroup` renders.
+ */
+export const shoppingListGroups: Array<{
+  category: IngredientCategory
+  categoryLabel: string
+  items: ShoppingItemData[]
+}> = [
+  { category: 'protein', categoryLabel: 'Protein', items: proteinShoppingItems },
+  { category: 'vegetable', categoryLabel: 'Vegetable', items: produceShoppingItems },
+  { category: 'dairy', categoryLabel: 'Dairy', items: dairyShoppingItems },
+]
+
+/**
+ * Canonical urgency-bucketed items covering all four `UrgencyBucket` values.
+ * Use when exercising `UrgencyGroup` stories.
+ */
+export const shoppingItemsByUrgency: Record<UrgencyBucket, ShoppingItemData[]> = {
+  today: [
+    createShoppingItem({
+      ingredientId: 'tomato',
+      name: 'Tomato',
+      displayQuantity: '400g',
+      neededByDate: '2026-04-17',
+      neededByRelative: 'today',
+      neededByAbsolute: 'Friday, April 17',
+    }),
+    createShoppingItem({
+      ingredientId: 'onion',
+      name: 'Onion',
+      displayQuantity: '2 pcs',
+      neededByDate: '2026-04-17',
+      neededByRelative: 'today',
+      neededByAbsolute: 'Friday, April 17',
+      purchased: true,
+    }),
+  ],
+  tomorrow: [
+    createShoppingItem({
+      ingredientId: 'chicken-thigh',
+      name: 'Chicken thigh',
+      displayQuantity: '500g',
+      neededByDate: '2026-04-18',
+      neededByRelative: 'tomorrow',
+      neededByAbsolute: 'Saturday, April 18',
+    }),
+  ],
+  'this-week': [
+    createShoppingItem({
+      ingredientId: 'potato',
+      name: 'Potato',
+      displayQuantity: '1kg',
+      neededByDate: '2026-04-21',
+      neededByRelative: 'Tuesday',
+      neededByAbsolute: 'Tuesday, April 21',
+    }),
+    createShoppingItem({
+      ingredientId: 'salmon-fillet',
+      name: 'Salmon fillet',
+      displayQuantity: '300g',
+      neededByDate: '2026-04-22',
+      neededByRelative: 'Wednesday',
+      neededByAbsolute: 'Wednesday, April 22',
+    }),
+  ],
+  later: [
+    createShoppingItem({
+      ingredientId: 'rice',
+      name: 'Short-grain rice',
+      displayQuantity: '500g',
+      neededByDate: '2026-04-25',
+      neededByRelative: 'next week',
+      neededByAbsolute: 'Saturday, April 25',
+    }),
+  ],
+}
+
+/**
+ * Canonical custom-item list — a mix of linked, unlinked, and checked items.
+ */
+export const customShoppingItems: CustomItemData[] = [
+  createCustomItem({
+    id: 'custom-olive-oil',
+    name: 'Olive oil',
+    ingredientId: 'olive-oil',
+    ingredientCategory: 'fat',
+  }),
+  createCustomItem({
+    id: 'custom-paper-towels',
+    name: 'Paper towels',
+    ingredientId: null,
+    ingredientCategory: null,
+  }),
+  createCustomItem({
+    id: 'custom-parmesan',
+    name: 'Parmesan',
+    ingredientId: 'parmesan',
+    ingredientCategory: 'dairy',
+    checked: true,
+  }),
 ]
 
 /**
