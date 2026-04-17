@@ -1,5 +1,13 @@
+import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+import {
+  assertFocusInDialog,
+  assertTabStaysInDialog,
+  awaitDialogClosed,
+  openViaTrigger,
+  pressEscape,
+} from '@/stories/a11y-helpers'
 import {
   createMeal,
   lemonGarlicChickenComponentsFull,
@@ -112,5 +120,43 @@ export const EditNoteInvokesCallback: Story = {
 
     // NoteEditor.handleSave awaits the PATCH before firing onNoteChange
     await waitFor(() => expect(args.onNoteChange).toHaveBeenCalledWith('Add extra lemon zest.'))
+  },
+}
+
+// Interaction-a11y story — asserts focus trap on open, tab containment, Escape
+// handling, and focus restore on close. See `src/stories/a11y-helpers.ts`.
+// Wraps the modal in a local trigger-button render so Radix has a captured
+// "before-open" focus target to restore to.
+export const A11yInteractionPatterns: Story = {
+  args: { open: false },
+  render: (args) => {
+    const [open, setOpen] = useState(args.open ?? false)
+    return (
+      <div>
+        <button type="button" data-testid="a11y-trigger" onClick={() => setOpen(true)}>
+          Open modal
+        </button>
+        <MealDetailModal
+          {...args}
+          open={open}
+          onOpenChange={(next) => {
+            setOpen(next)
+            args.onOpenChange?.(next)
+          }}
+        />
+      </div>
+    )
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const trigger = canvas.getByTestId('a11y-trigger')
+
+    await openViaTrigger(trigger)
+    await assertFocusInDialog()
+    await assertTabStaysInDialog()
+
+    await pressEscape()
+    await waitFor(() => expect(args.onOpenChange).toHaveBeenCalledWith(false))
+    await awaitDialogClosed()
   },
 }
