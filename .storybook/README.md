@@ -77,9 +77,14 @@ handlers — no per-story wiring needed unless you want a specific state.
 ## Modal a11y play-function conventions
 
 The axe a11y gate catches **static** violations — missing labels, low contrast,
-bad ARIA. It cannot see **interaction-level** a11y: focus trap on open, focus
-restore on close, tab order within the dialog, Escape handling. Every modal
-story file must include a play function that asserts these invariants.
+bad ARIA. It cannot see **interaction-level** a11y: focus trap on open, tab
+order within the dialog, Escape handling, close-sequence completion. Every
+modal story file must include a play function that asserts these invariants.
+
+Focus-restore on close is intentionally not asserted in Storybook — it's a
+Radix contract tied to the real trigger at the real callsite, not per-modal
+code, and the headless test-runner env can't reliably observe it. E2E owns
+that assertion (see HON-446).
 
 ### Helpers
 
@@ -88,11 +93,10 @@ Use the shared helpers in `src/stories/a11y-helpers.ts`:
 - `assertFocusInDialog()` — focus moved into the open dialog
 - `assertTabStaysInDialog(count = 10)` — tabbing doesn't escape the dialog
 - `awaitDialogClosed(timeoutMs = 2000)` — waits for dialog to fully unmount. Our Radix Dialog has a 200ms fade-out animation; during that time the dialog stays in the DOM with `data-state="closed"` and FocusScope hasn't cleaned up yet. Awaiting unmount is a proxy for "close sequence completed" and catches real regressions (a dialog that never closes, or whose focus trap outlives unmount).
-- `assertFocusRestored(trigger)` — asserts focus has returned to the trigger after close. **Only reliable for components that use Radix's `<DialogTrigger>` internally** (e.g. `AddMemberDialog`). For wrapper-pattern stories with an external trigger, Radix's FocusScope captures `document.activeElement` at mount but can't reliably restore back in the @storybook/test-runner headless env — use `awaitDialogClosed` instead.
 - `openViaTrigger(trigger)` — Tab to the trigger and activate with Enter. Keyboard navigation is more reliable than `.focus()` or `.click()` in the headless test-runner.
 - `pressEscape()` / `pressTab(count = 1)` — `userEvent` wrappers.
 
-### Pattern A — external trigger wrapper (most modals)
+### The pattern
 
 Most of our modals are controlled-open (receive `open`/`onOpenChange` props).
 Wrap them with a local render function that provides a trigger button and
@@ -144,23 +148,6 @@ export const A11yInteractionPatterns: Story = {
 }
 ```
 
-### Pattern B — internal DialogTrigger
-
-When the modal uses a Radix `<DialogTrigger>` internally (like
-`AddMemberDialog`), Radix tracks the trigger via context and focus-restore to
-it is reliable. You can assert on `document.activeElement` directly.
-
-```tsx
-play: async ({ canvasElement }) => {
-  const canvas = within(canvasElement)
-  const trigger = canvas.getByRole('button', { name: /add member/i })
-
-  await userEvent.click(trigger)
-  await assertFocusInDialog()
-  await assertTabStaysInDialog()
-
-  await pressEscape()
-  await awaitDialogClosed()
-  await assertFocusRestored(trigger)
-},
-```
+Modals that use a Radix `<DialogTrigger>` internally (like `AddMemberDialog`)
+can skip the wrapper and click the real trigger directly, but the play-function
+assertions are the same — focus-in, tab-stays-in, escape, await-closed.

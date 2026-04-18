@@ -154,8 +154,8 @@ export const EscapeClosesDialog: Story = {
   },
 }
 
-// Interaction-a11y story — focus trap / tab containment / Escape / focus
-// restore. See `src/stories/a11y-helpers.ts`.
+// Interaction-a11y story — focus trap / tab containment / Escape / close-
+// sequence completion. See `src/stories/a11y-helpers.ts`.
 export const A11yInteractionPatterns: Story = {
   args: { open: false, mode: 'add' },
   render: (args) => {
