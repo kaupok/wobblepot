@@ -3,6 +3,7 @@ import type { Decorator, Preview } from '@storybook/nextjs-vite'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { initialize, mswLoader } from 'msw-storybook-addon'
+import { MINIMAL_VIEWPORTS } from 'storybook/viewport'
 import '../src/app/globals.css'
 // MSW handlers for data-fetching stories live in src/stories/msw-handlers.ts.
 // Per-story overrides go on `parameters.msw.handlers` in the story file.
@@ -64,6 +65,23 @@ const withTailwindTheme: Decorator = (Story, context) => {
   )
 }
 
+// Custom viewports matching common mobile device sizes the app targets. The
+// built-in MINIMAL_VIEWPORTS.mobile1 is iPhone 5 (320×568), too small for a
+// mobile-first audit; these add realistic iPhone 13/14 (390×844) and Pixel-class
+// Android (360×640) sizes and re-use the built-in desktop preset.
+const honkadoriViewports = {
+  mobilePixel: {
+    name: 'Mobile — 360×640',
+    styles: { width: '360px', height: '640px' },
+    type: 'mobile',
+  },
+  mobileIphone: {
+    name: 'Mobile — 390×844 (iPhone)',
+    styles: { width: '390px', height: '844px' },
+    type: 'mobile',
+  },
+} as const
+
 const preview: Preview = {
   parameters: {
     backgrounds: { disable: true },
@@ -76,6 +94,15 @@ const preview: Preview = {
     a11y: { test: 'error' },
     nextjs: { appDirectory: true },
     msw: { handlers: { default: defaultHandlers } },
+    viewport: {
+      options: {
+        ...honkadoriViewports,
+        ...MINIMAL_VIEWPORTS,
+      },
+    },
+  },
+  initialGlobals: {
+    viewport: { value: 'mobileIphone', isRotated: false },
   },
   loaders: [mswLoader],
   globalTypes: {

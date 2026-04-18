@@ -14,7 +14,7 @@ export function NavigationLeft({ session, hasHousehold }: NavigationProps) {
   if (!session || !hasHousehold) return null
 
   return (
-    <nav className="hidden items-center gap-6 md:flex">
+    <nav aria-label="Primary" className="hidden items-center gap-6 md:flex">
       <Link href="/" className="hover:text-primary text-sm font-medium transition-colors">
         Today
       </Link>
@@ -33,7 +33,7 @@ export function NavigationRight({ session, hasHousehold }: NavigationProps) {
   if (!session || !hasHousehold) return null
 
   return (
-    <nav className="hidden items-center gap-6 md:flex">
+    <nav aria-label="Settings" className="hidden items-center gap-6 md:flex">
       <Link href="/recipes" className="hover:text-primary text-sm font-medium transition-colors">
         My recipes
       </Link>

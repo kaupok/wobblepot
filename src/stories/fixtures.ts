@@ -19,10 +19,45 @@ import type { ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import type { CustomItemData } from '@/components/shopping/CustomItemInput'
 import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
 import type { UrgencyBucket } from '@/lib/meal-planning/dates'
+import type { Session } from '@/lib/auth'
 import type { Member, MemberInvite, MemberPreferences } from '@/types/member'
 
 type IngredientShape = MealComponent['ingredient']
 type PantryItemIngredient = PantryItemFull['ingredient']
+
+/**
+ * Build a Better Auth session fixture for navigation / header stories. Fixed
+ * ids and dates so axe snapshots stay deterministic. Override any field to
+ * model a specific user or session-state variant.
+ */
+export function createSession(overrides: Partial<Session> = {}): Session {
+  const createdAt = new Date('2026-01-15T12:00:00.000Z')
+  return {
+    session: {
+      id: 'session-storybook',
+      userId: 'user-storybook',
+      expiresAt: new Date('2026-12-31T23:59:59.000Z'),
+      token: 'storybook-session-token',
+      ipAddress: '127.0.0.1',
+      userAgent: 'Storybook',
+      createdAt,
+      updatedAt: createdAt,
+    },
+    user: {
+      id: 'user-storybook',
+      email: 'alex@example.com',
+      name: 'Alex Doe',
+      emailVerified: true,
+      image: null,
+      createdAt,
+      updatedAt: createdAt,
+    },
+    ...overrides,
+  }
+}
+
+/** Default authenticated session — canonical user for nav stories. */
+export const sessionFixture: Session = createSession()
 
 /**
  * Canonical ingredient catalog used across meal-plan stories. Keyed by id so
