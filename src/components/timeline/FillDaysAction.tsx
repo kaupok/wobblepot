@@ -101,7 +101,7 @@ export function FillDaysAction({ planId, firstEmptyDate }: FillDaysActionProps) 
               Fill {dateRangeLabel}
             </Body>
             <Select value={days} onValueChange={setDays}>
-              <SelectTrigger className="h-8 w-[100px]">
+              <SelectTrigger className="h-8 w-[100px]" aria-label="Number of days to fill">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
