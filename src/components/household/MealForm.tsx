@@ -34,6 +34,7 @@ import { MealFormBasicInfo } from './MealFormBasicInfo'
 import { MealFormDetails } from './MealFormDetails'
 import { ComponentList } from './ComponentList'
 import { IngredientSearch } from './IngredientSearch'
+import { prefersReducedMotion } from '@/lib/utils'
 import type { Unit } from '@/generated/prisma/enums'
 
 export type { MealFormData, PrefilledIngredient } from './meal-form-types'
@@ -385,7 +386,10 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
     if (result.error) {
       setError(result.error)
       if (isImportMode) {
-        ingredientRowsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        ingredientRowsRef.current?.scrollIntoView({
+          behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+          block: 'start',
+        })
       }
       return
     }

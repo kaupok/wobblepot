@@ -5,6 +5,20 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Returns true when the user has expressed a preference for reduced motion —
+ * either through the OS-level `prefers-reduced-motion: reduce` media query, or
+ * via the Storybook `data-reduced-motion="true"` attribute on `<html>`. CSS
+ * handles most animations, but JS-initiated smooth scrolls bypass the media
+ * query, so callers like `MealForm` check this helper before passing
+ * `behavior: 'smooth'` to `scrollIntoView`.
+ */
+export function prefersReducedMotion(): boolean {
+  if (typeof window === 'undefined') return false
+  if (document.documentElement.getAttribute('data-reduced-motion') === 'true') return true
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
 const DEFAULT_REDIRECT = '/'
 
 /**

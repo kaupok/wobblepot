@@ -65,6 +65,36 @@ const withTailwindTheme: Decorator = (Story, context) => {
   )
 }
 
+function ReducedMotionDecorator({
+  reducedMotion,
+  children,
+}: {
+  reducedMotion: string
+  children: React.ReactNode
+}) {
+  useLayoutEffect(() => {
+    const root = document.documentElement
+    if (reducedMotion === 'on') {
+      root.setAttribute('data-reduced-motion', 'true')
+    } else {
+      root.removeAttribute('data-reduced-motion')
+    }
+    return () => {
+      root.removeAttribute('data-reduced-motion')
+    }
+  }, [reducedMotion])
+  return <>{children}</>
+}
+
+const withReducedMotion: Decorator = (Story, context) => {
+  const reducedMotion = (context.globals.reducedMotion as string | undefined) ?? 'off'
+  return (
+    <ReducedMotionDecorator reducedMotion={reducedMotion}>
+      <Story />
+    </ReducedMotionDecorator>
+  )
+}
+
 // Custom viewports matching common mobile device sizes the app targets. The
 // built-in MINIMAL_VIEWPORTS.mobile1 is iPhone 5 (320×568), too small for a
 // mobile-first audit; these add realistic iPhone 13/14 (390×844) and Pixel-class
@@ -119,8 +149,21 @@ const preview: Preview = {
         dynamicTitle: true,
       },
     },
+    reducedMotion: {
+      name: 'Reduced motion',
+      description: 'Simulates prefers-reduced-motion: reduce via data-reduced-motion on <html>',
+      defaultValue: 'off',
+      toolbar: {
+        icon: 'accessibility',
+        items: [
+          { value: 'off', title: 'Motion: on' },
+          { value: 'on', title: 'Motion: reduced' },
+        ],
+        dynamicTitle: true,
+      },
+    },
   },
-  decorators: [withFonts, withQueryClient, withTailwindTheme],
+  decorators: [withFonts, withQueryClient, withTailwindTheme, withReducedMotion],
 }
 
 export default preview
