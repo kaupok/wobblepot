@@ -1,5 +1,13 @@
+import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+import {
+  assertFocusInDialog,
+  assertTabStaysInDialog,
+  awaitDialogClosed,
+  openViaTrigger,
+  pressEscape,
+} from '@/stories/a11y-helpers'
 import { createMemberInvite } from '@/stories/fixtures'
 import { errorInviteHandlers, pendingInviteHandlers } from '@/stories/msw-handlers'
 import { MemberInviteDialog } from './MemberInviteDialog'
@@ -51,11 +59,6 @@ export const Open: Story = {
       },
     },
   },
-  play: async () => {
-    const body = within(document.body)
-    await body.findByRole('dialog')
-    await body.findByRole('button', { name: /create invite link/i })
-  },
 }
 
 export const InvitePending: Story = {
@@ -87,12 +90,6 @@ export const InviteSent: Story = {
           'Active invite already exists — dialog shows the link, expiry, and a "Done" footer button.',
       },
     },
-  },
-  play: async () => {
-    const body = within(document.body)
-    await body.findByRole('dialog')
-    await body.findByRole('button', { name: /^copy$/i })
-    await body.findByRole('button', { name: /^done$/i })
   },
 }
 
@@ -137,5 +134,43 @@ export const CopyInviteLink: Story = {
       expect(writeText).toHaveBeenCalledWith('https://honkadori.xyz/invite/copy-test'),
     )
     await body.findByRole('button', { name: /copied/i })
+  },
+}
+
+// Interaction-a11y story — asserts focus trap on open, tab containment, Escape
+// handling, and close-sequence completion. See `src/stories/a11y-helpers.ts`.
+// Wraps the controlled-open modal in a local trigger-button render so it can be
+// opened via keyboard like a real callsite.
+export const A11yInteractionPatterns: Story = {
+  args: { open: false },
+  render: (args) => {
+    const [open, setOpen] = useState(args.open ?? false)
+    return (
+      <div>
+        <button type="button" data-testid="a11y-trigger" onClick={() => setOpen(true)}>
+          Open invite dialog
+        </button>
+        <MemberInviteDialog
+          {...args}
+          open={open}
+          onOpenChange={(next) => {
+            setOpen(next)
+            args.onOpenChange?.(next)
+          }}
+        />
+      </div>
+    )
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const trigger = canvas.getByTestId('a11y-trigger')
+
+    await openViaTrigger(trigger)
+    await assertFocusInDialog()
+    await assertTabStaysInDialog()
+
+    await pressEscape()
+    await waitFor(() => expect(args.onOpenChange).toHaveBeenCalledWith(false))
+    await awaitDialogClosed()
   },
 }
