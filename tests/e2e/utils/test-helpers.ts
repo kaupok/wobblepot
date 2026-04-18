@@ -45,7 +45,8 @@ export async function signUp(
 }
 
 /**
- * Creates a household during onboarding
+ * Creates a household during onboarding.
+ * Onboarding is a 2-step flow: step 1 = household name, step 2 = members.
  */
 export async function createHousehold(page: Page, householdName?: string): Promise<void> {
   await page.waitForURL('/onboarding')
@@ -55,6 +56,17 @@ export async function createHousehold(page: Page, householdName?: string): Promi
     await page.getByLabel('Household name').fill(householdName)
   }
 
+  // Step 1 → 2: advance past the household-name step
+  await page.getByRole('button', { name: 'Continue' }).click()
+
+  // The form has a 100ms guard (`justTransitioned`) that ignores submissions
+  // immediately after a step transition, to prevent Enter-key race conditions.
+  // Wait for step 2 to render, then for the guard window to elapse, before
+  // clicking the submit button — otherwise the click is silently swallowed.
+  await expect(page.getByRole('heading', { name: 'Household members' })).toBeVisible()
+  await page.waitForTimeout(150)
+
+  // Step 2: submit with defaults (1 member)
   await page.getByRole('button', { name: 'Create household' }).click()
   await page.waitForURL('/')
 }
