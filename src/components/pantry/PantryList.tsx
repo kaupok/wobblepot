@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
@@ -16,6 +16,10 @@ export function PantryList({ initialItems }: PantryListProps) {
 
   const staples = items.filter((item) => item.isStaple)
   const onHand = items.filter((item) => !item.isStaple)
+  const pantryIngredientIds = useMemo(
+    () => new Set(items.map((item) => item.ingredient.id)),
+    [items],
+  )
 
   const handleToggleStaple = async (id: string, currentIsStaple: boolean) => {
     // Optimistic update
@@ -68,7 +72,6 @@ export function PantryList({ initialItems }: PantryListProps) {
 
   const handleItemAdded = (newItem: PantryItemData) => {
     setItems((prev) => [...prev, newItem])
-    toast.success('Item added to pantry')
   }
 
   if (items.length === 0) {
@@ -80,7 +83,10 @@ export function PantryList({ initialItems }: PantryListProps) {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4">
-            <InlineAddItem onItemAdded={handleItemAdded} />
+            <InlineAddItem
+              onItemAdded={handleItemAdded}
+              pantryIngredientIds={pantryIngredientIds}
+            />
             <div className="rounded-lg border border-dashed p-8 text-center">
               <Body variant="muted">
                 Your pantry is empty. Add staples like olive oil, salt, and rice to exclude them
@@ -101,7 +107,7 @@ export function PantryList({ initialItems }: PantryListProps) {
       </CardHeader>
       <CardContent>
         <div className="flex flex-col gap-6">
-          <InlineAddItem onItemAdded={handleItemAdded} />
+          <InlineAddItem onItemAdded={handleItemAdded} pantryIngredientIds={pantryIngredientIds} />
 
           {staples.length > 0 && (
             <div className="flex flex-col gap-3">
