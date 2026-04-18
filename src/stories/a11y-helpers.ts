@@ -4,8 +4,10 @@ import { expect, userEvent, waitFor, within } from 'storybook/test'
  * Modal a11y play-function helpers.
  *
  * These assert the interaction invariants that axe (static a11y) cannot see:
- * focus trap on open, focus restore on close, tab order containment, Escape
- * handling. Radix Dialog content renders through a portal, so queries go
+ * focus trap on open, tab order containment, Escape handling, and close-sequence
+ * completion. Focus-restore is intentionally not asserted here — it's a Radix
+ * contract tied to the real trigger at the real callsite, and belongs in E2E
+ * (see HON-446). Radix Dialog content renders through a portal, so queries go
  * through `within(document.body)` rather than `canvasElement`.
  */
 
@@ -62,23 +64,6 @@ export async function pressTab(count = 1): Promise<void> {
   for (let i = 0; i < count; i++) {
     await userEvent.keyboard('{Tab}')
   }
-}
-
-/**
- * Asserts focus has been restored to the given trigger element after the
- * dialog closes.
- *
- * Note: Only reliable when the trigger is registered with Radix's
- * `<DialogTrigger>` context (e.g. `AddMemberDialog`). For a controlled-open
- * modal with an external trigger button, Radix's FocusScope captures
- * `document.activeElement` at mount time and can't always restore focus back
- * in the @storybook/test-runner (headless Chromium) environment — prefer
- * `awaitDialogClosed` as the close-sequence assertion for those.
- */
-export async function assertFocusRestored(trigger: HTMLElement): Promise<void> {
-  await waitFor(() => {
-    expect(document.activeElement).toBe(trigger)
-  })
 }
 
 /**
