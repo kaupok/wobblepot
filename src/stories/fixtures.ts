@@ -19,6 +19,11 @@ import type {
 import type { MealData as HouseholdMealData } from '@/components/household/MealList'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import type { ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
+import type {
+  LowConfidenceIngredientData,
+  MatchedIngredientData,
+  UnmatchedIngredientData,
+} from '@/components/recipes/IngredientRow'
 import type { CustomItemData } from '@/components/shopping/CustomItemInput'
 import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
 import type { UrgencyBucket } from '@/lib/meal-planning/dates'
@@ -1241,3 +1246,96 @@ export const urgentShoppingItems: UrgentShoppingItemData[] = [
     urgency: 'this-week',
   }),
 ]
+
+/**
+ * Build an `IngredientAlternative` — the shape the "verify match" Select in
+ * `LowConfidenceIngredientRow` renders. Defaults to an alternate short-grain
+ * rice with 0.8 similarity. Pass `id` / `name` / `category` for one-off rows.
+ */
+export function createIngredientAlternative(
+  overrides: Partial<IngredientAlternative> = {},
+): IngredientAlternative {
+  return {
+    id: 'short-grain-rice-alt',
+    name: 'Medium-grain rice',
+    category: 'carb',
+    defaultUnit: 'g',
+    similarity: 0.8,
+    ...overrides,
+  }
+}
+
+/**
+ * Build a `MatchedIngredientData` for the `IngredientRow` dispatcher. Default =
+ * 600g of chicken thigh, matched (high-confidence). Pass `ingredient` to swap
+ * to another catalog entry from {@link ingredientResults}, or override any
+ * other field for vague / invalid variants.
+ */
+export function createMatchedIngredientRowData(
+  overrides: Partial<Omit<MatchedIngredientData, 'type'>> = {},
+): MatchedIngredientData {
+  return {
+    type: 'matched',
+    ingredient: ingredientResults['chicken-thigh'],
+    totalQuantity: 600,
+    isVague: false,
+    originalPhrase: null,
+    ...overrides,
+  }
+}
+
+/**
+ * Build a `LowConfidenceIngredientData` for the `IngredientRow` dispatcher and
+ * `LowConfidenceIngredientRow`. Default = "chicken thighs" extracted with the
+ * canonical chicken-thigh ingredient as the best match, plus one alternative.
+ */
+export function createLowConfidenceIngredientRowData(
+  overrides: Partial<Omit<LowConfidenceIngredientData, 'type'>> = {},
+): LowConfidenceIngredientData {
+  return {
+    type: 'low-confidence',
+    extractedName: 'chicken thighs',
+    originalText: '600g chicken thighs',
+    ingredient: ingredientResults['chicken-thigh'],
+    alternatives: [
+      createIngredientAlternative({
+        id: 'chicken-breast',
+        name: 'Chicken breast',
+        category: 'protein',
+        defaultUnit: 'g',
+        similarity: 0.82,
+      }),
+      createIngredientAlternative({
+        id: 'chicken-drumstick',
+        name: 'Chicken drumstick',
+        category: 'protein',
+        defaultUnit: 'piece',
+        similarity: 0.78,
+      }),
+    ],
+    totalQuantity: 600,
+    isVague: false,
+    originalPhrase: null,
+    ...overrides,
+  }
+}
+
+/**
+ * Build an `UnmatchedIngredientData` for the `IngredientRow` dispatcher and
+ * `UnmatchedIngredientRow`. Default = 50g of "pickled daikon" the extractor
+ * could not resolve.
+ */
+export function createUnmatchedIngredientRowData(
+  overrides: Partial<Omit<UnmatchedIngredientData, 'type'>> = {},
+): UnmatchedIngredientData {
+  return {
+    type: 'unmatched',
+    extractedName: 'pickled daikon',
+    originalText: '50g pickled daikon',
+    extractedQuantity: 50,
+    extractedUnit: 'g',
+    isVague: false,
+    originalPhrase: null,
+    ...overrides,
+  }
+}

@@ -195,7 +195,14 @@ export function IngredientRow({
           onSetQuantity={handleSetQuantity}
           onMarkAsVague={handleMarkAsVague}
         />
-        <Button type="button" variant="ghost" size="sm" onClick={onRemove} disabled={disabled}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onRemove}
+          disabled={disabled}
+          aria-label="Remove ingredient"
+        >
           <X className="h-4 w-4" />
         </Button>
       </div>
