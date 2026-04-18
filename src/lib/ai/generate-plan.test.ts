@@ -69,7 +69,8 @@ import { getCandidates } from '@/lib/meal-planning/candidates'
 import { computeRequiredSlots, computeMealSlots } from '@/lib/meal-planning/slots'
 import { validatePlan } from './validate-plan'
 import { repairPlan } from './repair-plan'
-import { generateMealPlan } from './generate-plan'
+import { generateMealPlan, createEmptyPlan, fillEmptySlots } from './generate-plan'
+import { NoEmptySlotsError } from './types'
 
 // Type assertions for mocks
 const mockGetCandidates = vi.mocked(getCandidates)
@@ -870,5 +871,280 @@ describe('generateMealPlan', () => {
       expect(mockMealPlanEntryDeleteMany).toHaveBeenCalled()
       expect(mockMealPlanEntryCreateMany).toHaveBeenCalled()
     })
+  })
+})
+
+describe('createEmptyPlan', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockTransaction.mockImplementation(async (fn) => fn(mockPrisma as never) as never)
+    mockMealPlanEntryDeleteMany.mockResolvedValue({ count: 0 } as never)
+  })
+
+  it('creates a plan when none exists and returns empty entries', async () => {
+    mockMealPlanFindUnique.mockResolvedValue(null)
+    mockMealPlanCreate.mockResolvedValue({ id: 'new-plan', householdId: 'household-1' } as never)
+
+    const result = await createEmptyPlan({
+      householdId: 'household-1',
+      startDate: date('2026-01-12'),
+      endDate: date('2026-01-19'),
+    })
+
+    expect(result).toEqual({
+      id: 'new-plan',
+      startDate: '2026-01-12',
+      endDate: '2026-01-19',
+      entries: [],
+    })
+    expect(mockMealPlanCreate).toHaveBeenCalledWith({ data: { householdId: 'household-1' } })
+  })
+
+  it('reuses an existing household plan and clears the date range', async () => {
+    mockMealPlanFindUnique.mockResolvedValue({ id: 'plan-1', householdId: 'household-1' } as never)
+
+    const result = await createEmptyPlan({
+      householdId: 'household-1',
+      startDate: date('2026-01-12'),
+      endDate: date('2026-01-19'),
+    })
+
+    expect(result.id).toBe('plan-1')
+    expect(mockMealPlanCreate).not.toHaveBeenCalled()
+    expect(mockMealPlanEntryDeleteMany).toHaveBeenCalledWith({
+      where: {
+        planId: 'plan-1',
+        date: { gte: date('2026-01-12'), lt: date('2026-01-19') },
+      },
+    })
+  })
+})
+
+describe('fillEmptySlots', () => {
+  const fillOptions = {
+    planId: 'plan-1',
+    householdId: 'household-1',
+    startDate: date('2026-01-12'),
+    endDate: date('2026-01-19'),
+    dietaryType: null,
+    allergensToAvoid: [],
+    excludedIngredientIds: [],
+    restrictions: [],
+    weekdayMealTypes: ['dinner' as const],
+    weekendMealTypes: ['dinner' as const],
+  }
+
+  // Build a plan entry that looks like Prisma's returned shape for `fillEmptySlots`.
+  function entry(
+    dateStr: string,
+    mealType: 'breakfast' | 'lunch' | 'dinner',
+    mealId: string | null,
+  ) {
+    return {
+      id: `e-${dateStr}-${mealType}`,
+      date: date(dateStr),
+      mealType,
+      mealId,
+      planId: 'plan-1',
+      status: 'planned',
+      meal: mealId
+        ? {
+            id: mealId,
+            name: `Meal ${mealId}`,
+            components: [],
+          }
+        : null,
+    }
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+
+    mockMealPlanEntryFindMany.mockResolvedValue([])
+    mockFavoriteMealFindMany.mockResolvedValue([])
+    mockPantryItemFindMany.mockResolvedValue([])
+    mockComputeMealSlots.mockReturnValue(createDefaultMealSlots())
+    mockComputeRequiredSlots.mockReturnValue([])
+
+    mockTransaction.mockImplementation(async (fn) => fn(mockPrisma as never) as never)
+    mockMealPlanEntryDeleteMany.mockResolvedValue({ count: 0 } as never)
+    mockMealPlanEntryCreateMany.mockResolvedValue({ count: 0 } as never)
+  })
+
+  it('throws when the plan does not exist', async () => {
+    mockMealPlanFindUnique.mockResolvedValueOnce(null)
+
+    await expect(fillEmptySlots(fillOptions)).rejects.toThrow('Plan not found')
+  })
+
+  it('throws when the plan belongs to a different household', async () => {
+    mockMealPlanFindUnique.mockResolvedValueOnce({
+      id: 'plan-1',
+      householdId: 'someone-else',
+      entries: [],
+    } as never)
+
+    await expect(fillEmptySlots(fillOptions)).rejects.toThrow('Plan not found')
+  })
+
+  it('throws NoEmptySlotsError when every expected slot is already filled', async () => {
+    mockMealPlanFindUnique.mockResolvedValueOnce({
+      id: 'plan-1',
+      householdId: 'household-1',
+      entries: [
+        entry('2026-01-12', 'dinner', 'meal-1'),
+        entry('2026-01-13', 'dinner', 'meal-2'),
+        entry('2026-01-14', 'dinner', 'meal-3'),
+        entry('2026-01-15', 'dinner', 'meal-4'),
+        entry('2026-01-16', 'dinner', 'meal-5'),
+        entry('2026-01-17', 'dinner', 'meal-6'),
+        entry('2026-01-18', 'dinner', 'meal-7'),
+      ],
+    } as never)
+
+    await expect(fillEmptySlots(fillOptions)).rejects.toBeInstanceOf(NoEmptySlotsError)
+  })
+
+  it('throws NoEmptySlotsError when the only empty slot has no candidates', async () => {
+    // Switch to lunch so we exercise the non-dinner unfillable path cleanly.
+    mockComputeMealSlots.mockReturnValue([{ date: date('2026-01-12'), mealType: 'lunch' as const }])
+    mockComputeRequiredSlots.mockReturnValue([])
+    mockMealPlanFindUnique.mockResolvedValueOnce({
+      id: 'plan-1',
+      householdId: 'household-1',
+      entries: [],
+    } as never)
+    // No candidates returned for any meal type — the single lunch slot is unfillable.
+    mockGetCandidates.mockResolvedValue([])
+
+    await expect(fillEmptySlots(fillOptions)).rejects.toBeInstanceOf(NoEmptySlotsError)
+  })
+
+  it('fills only the empty slot and leaves filled entries untouched', async () => {
+    // Six filled dinner entries, one empty slot on 2026-01-18.
+    const existing = [
+      entry('2026-01-12', 'dinner', 'meal-1'),
+      entry('2026-01-13', 'dinner', 'meal-2'),
+      entry('2026-01-14', 'dinner', 'meal-3'),
+      entry('2026-01-15', 'dinner', 'meal-4'),
+      entry('2026-01-16', 'dinner', 'meal-5'),
+      entry('2026-01-17', 'dinner', 'meal-6'),
+    ]
+    mockMealPlanFindUnique
+      .mockResolvedValueOnce({
+        id: 'plan-1',
+        householdId: 'household-1',
+        entries: existing,
+      } as never)
+      // After the transaction, fillEmptySlots re-queries the plan.
+      .mockResolvedValueOnce({
+        id: 'plan-1',
+        entries: [
+          ...existing,
+          {
+            ...entry('2026-01-18', 'dinner', 'meal-new'),
+            meal: {
+              id: 'meal-new',
+              name: 'Meal new',
+              kidFriendly: true,
+              primaryProteinType: ProteinType.poultry,
+              components: [],
+            },
+          },
+        ],
+      } as never)
+
+    mockGetCandidates.mockResolvedValue([createCandidate({ id: 'meal-new' })])
+
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        entries: [{ date: '2026-01-18', mealType: 'dinner', mealId: 'meal-new' }],
+      },
+    } as never)
+
+    mockMealFindMany.mockResolvedValue([
+      {
+        id: 'meal-new',
+        name: 'Meal new',
+        primaryProteinType: ProteinType.poultry,
+        kidFriendly: true,
+      },
+    ] as never)
+
+    mockValidatePlan.mockReturnValue({ valid: true, errors: [] })
+
+    const result = await fillEmptySlots(fillOptions)
+
+    expect(result.entries).toHaveLength(7)
+    // Only one new entry gets created by the transaction.
+    expect(mockMealPlanEntryCreateMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ mealId: 'meal-new', date: date('2026-01-18') })],
+    })
+  })
+
+  it('deletes orphan null-mealId entries that overlap with fillable empty slots', async () => {
+    const orphanEntry = { ...entry('2026-01-18', 'dinner', null), id: 'orphan-id' }
+    const existing = [
+      entry('2026-01-12', 'dinner', 'meal-1'),
+      entry('2026-01-13', 'dinner', 'meal-2'),
+      entry('2026-01-14', 'dinner', 'meal-3'),
+      entry('2026-01-15', 'dinner', 'meal-4'),
+      entry('2026-01-16', 'dinner', 'meal-5'),
+      entry('2026-01-17', 'dinner', 'meal-6'),
+      orphanEntry,
+    ]
+
+    mockMealPlanFindUnique
+      .mockResolvedValueOnce({
+        id: 'plan-1',
+        householdId: 'household-1',
+        entries: existing,
+      } as never)
+      .mockResolvedValueOnce({
+        id: 'plan-1',
+        entries: [],
+      } as never)
+
+    mockGetCandidates.mockResolvedValue([createCandidate({ id: 'meal-new' })])
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        entries: [{ date: '2026-01-18', mealType: 'dinner', mealId: 'meal-new' }],
+      },
+    } as never)
+    mockMealFindMany.mockResolvedValue([
+      {
+        id: 'meal-new',
+        name: 'Meal new',
+        primaryProteinType: ProteinType.poultry,
+        kidFriendly: true,
+      },
+    ] as never)
+    mockValidatePlan.mockReturnValue({ valid: true, errors: [] })
+
+    await fillEmptySlots(fillOptions)
+
+    expect(mockMealPlanEntryDeleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ['orphan-id'] } },
+    })
+  })
+
+  it('throws InsufficientCandidatesError when a required protein pool is empty', async () => {
+    mockMealPlanFindUnique.mockResolvedValueOnce({
+      id: 'plan-1',
+      householdId: 'household-1',
+      entries: [],
+    } as never)
+    mockComputeRequiredSlots.mockReturnValue([
+      { date: date('2026-01-14'), mealType: 'dinner', proteinType: 'fish' },
+    ])
+    // Order: 1. dinner (general), 2. fish, 3. legume — mirror generateMealPlan order.
+    mockGetCandidates
+      .mockResolvedValueOnce(createMockMeals(10)) // dinner general
+      .mockResolvedValueOnce([]) // fish — empty
+      .mockResolvedValueOnce([
+        createCandidate({ id: 'legume-1', primaryProteinType: ProteinType.legume }),
+      ])
+
+    await expect(fillEmptySlots(fillOptions)).rejects.toThrow(/fish/i)
   })
 })

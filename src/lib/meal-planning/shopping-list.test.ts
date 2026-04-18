@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { groupByCategory, computeShoppingList, categoryConfig } from './shopping-list'
+import {
+  groupByCategory,
+  computeShoppingList,
+  computeRollingWindowShoppingList,
+  categoryConfig,
+} from './shopping-list'
 import type { ShoppingListItem } from './shopping-list'
 import { IngredientCategory, Unit } from '@/generated/prisma/enums'
 
@@ -19,9 +24,13 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 // Mock dates module to control "today" in tests
-vi.mock('./dates', () => ({
-  getStartOfTodayInTimezone: vi.fn(),
-}))
+vi.mock('./dates', async () => {
+  const actual = await vi.importActual<typeof import('./dates')>('./dates')
+  return {
+    ...actual,
+    getStartOfTodayInTimezone: vi.fn(),
+  }
+})
 
 // Import mocked prisma for test setup
 import { prisma } from '@/lib/prisma'
@@ -846,5 +855,329 @@ describe('computeShoppingList', () => {
     await computeShoppingList('plan-1', 'household-1', 'America/New_York')
 
     expect(mockGetStartOfToday).toHaveBeenCalledWith('America/New_York')
+  })
+})
+
+describe('computeRollingWindowShoppingList', () => {
+  const PLAN_CREATED = new Date('2026-01-15T10:00:00Z')
+
+  function rollingEntry(
+    overrides: {
+      date?: Date
+      mealId?: string | null
+      components?: Array<{
+        ingredientId: string
+        quantityPerServing: number
+        isVague?: boolean
+        originalPhrase?: string | null
+        ingredient: {
+          id: string
+          name: string
+          category: IngredientCategory
+          defaultUnit: Unit
+          gramsPerPiece: number | null
+        }
+      }>
+      servingOverride?: number | null
+      planCreatedAt?: Date
+    } = {},
+  ) {
+    return {
+      id: `e-${overrides.mealId ?? 'x'}`,
+      date: overrides.date ?? new Date('2026-01-20'),
+      servingOverride: overrides.servingOverride ?? null,
+      plan: { createdAt: overrides.planCreatedAt ?? PLAN_CREATED },
+      meal:
+        overrides.mealId === null
+          ? null
+          : {
+              id: overrides.mealId ?? 'meal-1',
+              name: `Meal ${overrides.mealId ?? 'meal-1'}`,
+              components: overrides.components ?? [
+                {
+                  id: 'comp-1',
+                  mealId: overrides.mealId ?? 'meal-1',
+                  ingredientId: 'ing-chicken',
+                  quantityPerServing: 150,
+                  isVague: false,
+                  originalPhrase: null,
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                  ingredient: {
+                    id: 'ing-chicken',
+                    name: 'Chicken breast',
+                    category: 'protein' as IngredientCategory,
+                    defaultUnit: 'g' as Unit,
+                    gramsPerPiece: null,
+                  },
+                },
+              ],
+            },
+    }
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetStartOfToday.mockReturnValue(new Date('2026-01-20T00:00:00Z'))
+  })
+
+  it('returns empty groups and correct metadata when no entries exist', async () => {
+    mockFindManyEntries.mockResolvedValue([])
+    mockCountMembers.mockResolvedValue(2)
+    mockFindManyPantry.mockResolvedValue([])
+
+    const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
+
+    expect(result.groups).toEqual([])
+    expect(result.windowDays).toBe(7)
+    expect(result.startDate).toBe('2026-01-20')
+    // displayEndDate = startOfToday + days - 1 = 2026-01-26
+    expect(result.endDate).toBe('2026-01-26')
+    expect(result.earliestPlanCreatedAt).toBeNull()
+  })
+
+  it('queries entries scoped to the household and date window', async () => {
+    mockFindManyEntries.mockResolvedValue([])
+    mockCountMembers.mockResolvedValue(2)
+    mockFindManyPantry.mockResolvedValue([])
+
+    await computeRollingWindowShoppingList('household-1', 14, TEST_TIMEZONE)
+
+    expect(mockFindManyEntries).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          plan: { householdId: 'household-1' },
+          status: 'planned',
+          date: {
+            gte: new Date('2026-01-20T00:00:00Z'),
+            // 14 days from 2026-01-20
+            lt: new Date('2026-02-03T00:00:00Z'),
+          },
+        },
+      }),
+    )
+  })
+
+  it('aggregates quantities across entries from different plans', async () => {
+    mockFindManyEntries.mockResolvedValue([
+      rollingEntry({
+        mealId: 'meal-a',
+        date: new Date('2026-01-20'),
+        planCreatedAt: new Date('2026-01-10T00:00:00Z'),
+      }),
+      rollingEntry({
+        mealId: 'meal-b',
+        date: new Date('2026-01-22'),
+        planCreatedAt: new Date('2026-01-15T00:00:00Z'),
+      }),
+    ] as never)
+    mockCountMembers.mockResolvedValue(2)
+    mockFindManyPantry.mockResolvedValue([])
+
+    const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
+
+    expect(result.groups).toHaveLength(1)
+    const item = result.groups[0]!.items[0]!
+    // 2 entries × 150 qty/serving × 2 people = 600g
+    expect(item.neededQuantity).toBe(600)
+    expect(item.mealCount).toBe(2)
+    // Earliest plan wins
+    expect(result.earliestPlanCreatedAt).toEqual(new Date('2026-01-10T00:00:00Z'))
+  })
+
+  it('uses servingOverride when provided instead of household size', async () => {
+    mockFindManyEntries.mockResolvedValue([
+      rollingEntry({
+        mealId: 'meal-a',
+        date: new Date('2026-01-20'),
+        servingOverride: 5,
+      }),
+    ] as never)
+    mockCountMembers.mockResolvedValue(2) // Normally 2, but override = 5
+    mockFindManyPantry.mockResolvedValue([])
+
+    const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
+
+    // 150 × 5 (override) = 750
+    expect(result.groups[0]!.items[0]!.neededQuantity).toBe(750)
+  })
+
+  it('falls back to default household size when no members exist', async () => {
+    mockFindManyEntries.mockResolvedValue([
+      rollingEntry({ mealId: 'meal-a', date: new Date('2026-01-20') }),
+    ] as never)
+    mockCountMembers.mockResolvedValue(0)
+    mockFindManyPantry.mockResolvedValue([])
+
+    const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
+
+    // Default household size is 2 → 150 × 2 = 300
+    expect(result.groups[0]!.items[0]!.neededQuantity).toBe(300)
+  })
+
+  it('skips staple pantry items entirely', async () => {
+    mockFindManyEntries.mockResolvedValue([
+      rollingEntry({ mealId: 'meal-a', date: new Date('2026-01-20') }),
+    ] as never)
+    mockCountMembers.mockResolvedValue(2)
+    mockFindManyPantry.mockResolvedValue([
+      {
+        id: 'pantry-1',
+        householdId: 'household-1',
+        ingredientId: 'ing-chicken',
+        quantity: null,
+        isStaple: true,
+        expiresAt: null,
+        updatedAt: new Date(),
+      },
+    ])
+
+    const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
+    expect(result.groups).toEqual([])
+  })
+
+  it('skips items when pantry quantity is null (have some)', async () => {
+    mockFindManyEntries.mockResolvedValue([
+      rollingEntry({ mealId: 'meal-a', date: new Date('2026-01-20') }),
+    ] as never)
+    mockCountMembers.mockResolvedValue(2)
+    mockFindManyPantry.mockResolvedValue([
+      {
+        id: 'pantry-1',
+        householdId: 'household-1',
+        ingredientId: 'ing-chicken',
+        quantity: null,
+        isStaple: false,
+        expiresAt: null,
+        updatedAt: new Date(),
+      },
+    ])
+
+    const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
+    expect(result.groups).toEqual([])
+  })
+
+  it('needs the full amount when pantry quantity is 0 (ran out)', async () => {
+    mockFindManyEntries.mockResolvedValue([
+      rollingEntry({ mealId: 'meal-a', date: new Date('2026-01-20') }),
+    ] as never)
+    mockCountMembers.mockResolvedValue(2)
+    mockFindManyPantry.mockResolvedValue([
+      {
+        id: 'pantry-1',
+        householdId: 'household-1',
+        ingredientId: 'ing-chicken',
+        quantity: 0,
+        isStaple: false,
+        expiresAt: null,
+        updatedAt: new Date(),
+      },
+    ])
+
+    const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
+    expect(result.groups[0]!.items[0]!.shoppingQuantity).toBe(300) // 150 × 2
+    expect(result.groups[0]!.items[0]!.pantryQuantity).toBe(0)
+  })
+
+  it('calculates the difference when pantry has partial stock', async () => {
+    mockFindManyEntries.mockResolvedValue([
+      rollingEntry({ mealId: 'meal-a', date: new Date('2026-01-20') }),
+    ] as never)
+    mockCountMembers.mockResolvedValue(2)
+    mockFindManyPantry.mockResolvedValue([
+      {
+        id: 'pantry-1',
+        householdId: 'household-1',
+        ingredientId: 'ing-chicken',
+        quantity: 100,
+        isStaple: false,
+        expiresAt: null,
+        updatedAt: new Date(),
+      },
+    ])
+
+    const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
+    // 300 needed − 100 in pantry = 200
+    expect(result.groups[0]!.items[0]!.shoppingQuantity).toBe(200)
+  })
+
+  it('skips entries with a null meal', async () => {
+    mockFindManyEntries.mockResolvedValue([
+      rollingEntry({ mealId: null, date: new Date('2026-01-20') }),
+      rollingEntry({ mealId: 'meal-a', date: new Date('2026-01-21') }),
+    ] as never)
+    mockCountMembers.mockResolvedValue(2)
+    mockFindManyPantry.mockResolvedValue([])
+
+    const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
+
+    // Only the entry with a meal contributes.
+    expect(result.groups).toHaveLength(1)
+    expect(result.groups[0]!.items[0]!.mealCount).toBe(1)
+  })
+
+  it('tracks the earliest needed date across entries', async () => {
+    mockFindManyEntries.mockResolvedValue([
+      rollingEntry({ mealId: 'meal-a', date: new Date('2026-01-25') }),
+      rollingEntry({ mealId: 'meal-b', date: new Date('2026-01-21') }),
+    ] as never)
+    mockCountMembers.mockResolvedValue(2)
+    mockFindManyPantry.mockResolvedValue([])
+
+    const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
+
+    expect(result.groups[0]!.items[0]!.earliestNeededDate).toEqual(new Date('2026-01-21'))
+  })
+
+  it('merges divergent vague phrases as "some"', async () => {
+    mockFindManyEntries.mockResolvedValue([
+      rollingEntry({
+        mealId: 'meal-a',
+        date: new Date('2026-01-20'),
+        components: [
+          {
+            ingredientId: 'ing-spice',
+            quantityPerServing: 2,
+            isVague: true,
+            originalPhrase: 'a pinch',
+            ingredient: {
+              id: 'ing-spice',
+              name: 'Paprika',
+              category: 'spice' as IngredientCategory,
+              defaultUnit: 'g' as Unit,
+              gramsPerPiece: null,
+            },
+          },
+        ],
+      }),
+      rollingEntry({
+        mealId: 'meal-b',
+        date: new Date('2026-01-21'),
+        components: [
+          {
+            ingredientId: 'ing-spice',
+            quantityPerServing: 2,
+            isVague: true,
+            originalPhrase: 'to taste',
+            ingredient: {
+              id: 'ing-spice',
+              name: 'Paprika',
+              category: 'spice' as IngredientCategory,
+              defaultUnit: 'g' as Unit,
+              gramsPerPiece: null,
+            },
+          },
+        ],
+      }),
+    ] as never)
+    mockCountMembers.mockResolvedValue(2)
+    mockFindManyPantry.mockResolvedValue([])
+
+    const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
+
+    const item = result.groups[0]!.items[0]!
+    expect(item.isVague).toBe(true)
+    // Two different vague phrases → collapse to "some"
+    expect(item.originalPhrase).toBe('some')
   })
 })
