@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { cn, getValidReturnUrl } from './utils'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { cn, getValidReturnUrl, prefersReducedMotion } from './utils'
 
 describe('cn utility function', () => {
   it('merges multiple class names', () => {
@@ -197,5 +197,46 @@ describe('getValidReturnUrl', () => {
       // Invalid percent encoding
       expect(getValidReturnUrl('/%ZZ/invalid')).toBe(DEFAULT_REDIRECT)
     })
+  })
+})
+
+describe('prefersReducedMotion', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    document.documentElement.removeAttribute('data-reduced-motion')
+  })
+
+  it('returns false during SSR when window is undefined', () => {
+    vi.stubGlobal('window', undefined)
+    expect(prefersReducedMotion()).toBe(false)
+  })
+
+  it('returns true when the Storybook data-reduced-motion attribute is set', () => {
+    document.documentElement.setAttribute('data-reduced-motion', 'true')
+    // matchMedia should not be consulted in this path, but stub it to prove we
+    // don't depend on it.
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false })),
+    )
+    expect(prefersReducedMotion()).toBe(true)
+  })
+
+  it('returns true when the OS media query matches', () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query === '(prefers-reduced-motion: reduce)',
+      })),
+    )
+    expect(prefersReducedMotion()).toBe(true)
+  })
+
+  it('returns false when neither the attribute nor the media query matches', () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false })),
+    )
+    expect(prefersReducedMotion()).toBe(false)
   })
 })

@@ -119,6 +119,31 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* WHY: Inside @layer base so these rules beat Tailwind utilities without
+     per-class !important; the wildcard + !important is the only way to override
+     tw-animate-css keyframe utilities on every Radix-backed primitive at once. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Mirrors the @media block for Storybook's reduced-motion toolbar toggle,
+     which sets data-reduced-motion on <html> without changing the OS preference. */
+  html[data-reduced-motion='true'] *,
+  html[data-reduced-motion='true'] *::before,
+  html[data-reduced-motion='true'] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* PWA standalone mode */
