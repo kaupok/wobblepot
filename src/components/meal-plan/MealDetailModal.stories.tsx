@@ -124,9 +124,9 @@ export const EditNoteInvokesCallback: Story = {
 }
 
 // Interaction-a11y story — asserts focus trap on open, tab containment, Escape
-// handling, and focus restore on close. See `src/stories/a11y-helpers.ts`.
-// Wraps the modal in a local trigger-button render so Radix has a captured
-// "before-open" focus target to restore to.
+// handling, and close-sequence completion. See `src/stories/a11y-helpers.ts`.
+// Wraps the modal in a local trigger-button render so it can be opened via
+// keyboard like a real callsite.
 export const A11yInteractionPatterns: Story = {
   args: { open: false },
   render: (args) => {
