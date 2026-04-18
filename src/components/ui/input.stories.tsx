@@ -83,3 +83,50 @@ export const WithLabel: Story = {
     </div>
   ),
 }
+
+export const Focused: Story = {
+  args: { autoFocus: true, defaultValue: 'Focused input' },
+  render: (args) => (
+    <div className="w-72">
+      <Label htmlFor="focused-input" className="mb-2">
+        Focused (autoFocus)
+      </Label>
+      <Input id="focused-input" {...args} />
+    </div>
+  ),
+}
+
+// WHY: Disabled inputs render at 50% opacity, dipping below 4.5:1 on the
+// placeholder / value. WCAG 1.4.3 exempts inactive UI components from the
+// contrast rule — axe can't infer the disabled state from opacity, so waive
+// only `color-contrast`. Focused state is covered by the separate `Focused`
+// story to avoid autoFocus stealing focus on grid render.
+export const AllVariants: Story = {
+  parameters: {
+    a11y: { config: { rules: [{ id: 'color-contrast', enabled: false }] } },
+  },
+  render: () => (
+    <div className="flex w-72 flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="av-default">Default</Label>
+        <Input id="av-default" placeholder="Type here…" />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="av-value">With value</Label>
+        <Input id="av-value" defaultValue="Lemon-garlic chicken" />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="av-disabled">Disabled</Label>
+        <Input id="av-disabled" disabled defaultValue="Disabled value" />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="av-readonly">Read-only</Label>
+        <Input id="av-readonly" readOnly defaultValue="Read-only value" />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="av-invalid">Invalid (aria-invalid)</Label>
+        <Input id="av-invalid" aria-invalid defaultValue="invalid@" />
+      </div>
+    </div>
+  ),
+}

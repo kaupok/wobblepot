@@ -30,6 +30,20 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+const months = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
 
 export const Default: Story = {
   render: () => (
@@ -140,5 +154,79 @@ export const SmallSize: Story = {
         ))}
       </SelectContent>
     </Select>
+  ),
+}
+
+// WHY: Disabled Select triggers render at 50% opacity, dipping below 4.5:1 on
+// the placeholder text. WCAG 1.4.3 exempts inactive UI components from the
+// contrast rule — axe can't infer the disabled state, so waive only
+// `color-contrast`.
+export const AllVariants: Story = {
+  parameters: {
+    a11y: { config: { rules: [{ id: 'color-contrast', enabled: false }] } },
+  },
+  render: () => (
+    <div className="grid gap-6 sm:grid-cols-2">
+      <section className="flex flex-col gap-2">
+        <p className="text-muted-foreground text-xs">Placeholder</p>
+        <Select>
+          <SelectTrigger aria-label="Placeholder day" className="w-48">
+            <SelectValue placeholder="Pick a day" />
+          </SelectTrigger>
+          <SelectContent>
+            {days.map((day) => (
+              <SelectItem key={day} value={day}>
+                {day}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </section>
+      <section className="flex flex-col gap-2">
+        <p className="text-muted-foreground text-xs">With value</p>
+        <Select defaultValue="Wednesday">
+          <SelectTrigger aria-label="Selected day" className="w-48">
+            <SelectValue placeholder="Pick a day" />
+          </SelectTrigger>
+          <SelectContent>
+            {days.map((day) => (
+              <SelectItem key={day} value={day}>
+                {day}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </section>
+      <section className="flex flex-col gap-2">
+        <p className="text-muted-foreground text-xs">Disabled</p>
+        <Select defaultValue="Monday" disabled>
+          <SelectTrigger aria-label="Disabled day" className="w-48">
+            <SelectValue placeholder="Pick a day" />
+          </SelectTrigger>
+          <SelectContent>
+            {days.map((day) => (
+              <SelectItem key={day} value={day}>
+                {day}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </section>
+      <section className="flex flex-col gap-2">
+        <p className="text-muted-foreground text-xs">Many options (scroll)</p>
+        <Select defaultValue="January">
+          <SelectTrigger aria-label="Month" className="w-48">
+            <SelectValue placeholder="Pick a month" />
+          </SelectTrigger>
+          <SelectContent>
+            {months.map((month) => (
+              <SelectItem key={month} value={month}>
+                {month}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </section>
+    </div>
   ),
 }
