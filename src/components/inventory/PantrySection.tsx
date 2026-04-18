@@ -87,7 +87,6 @@ export function PantrySection({
 
   const handleItemAdded = (newItem: PantryItemData) => {
     onItemsChange((prev) => [...prev, newItem])
-    toast.success('Item added to pantry')
   }
 
   // Create a set of ingredient IDs currently in pantry for the search indicator
