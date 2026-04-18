@@ -7,6 +7,7 @@ import {
   lemonGarlicChickenPantry,
   lemonGarlicChickenPantryItems,
 } from '@/stories/fixtures'
+import { slowCreateEntryHandlers } from '@/stories/msw-handlers'
 import { TimelineDayCard } from './TimelineDayCard'
 
 const meta = {
@@ -216,7 +217,10 @@ export const PickMealFromEmptySlot: Story = {
       emptySlots: [MealType.dinner],
     }),
   },
-  parameters: { a11y: emptySlotA11y },
+  parameters: {
+    a11y: emptySlotA11y,
+    msw: { handlers: slowCreateEntryHandlers },
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const pick = canvas.getByRole('button', { name: /pick a meal/i })
