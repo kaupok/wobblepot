@@ -24,6 +24,7 @@ export function BottomTabBar({ session, hasHousehold }: BottomTabBarProps) {
 
   return (
     <nav
+      aria-label="Primary"
       className="bg-background/80 fixed right-0 bottom-0 left-0 z-50 border-t backdrop-blur-lg md:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >

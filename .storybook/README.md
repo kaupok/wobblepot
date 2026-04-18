@@ -1,4 +1,41 @@
-# Storybook — play-function interaction tests
+# Storybook — conventions
+
+## Viewport — mobile-first default
+
+Honkadori is a mobile-first web app, so every story **opens at a 390×844 mobile
+viewport** (`mobileIphone`) by default. This matches modern iPhone dimensions
+and makes it impossible to backfill a nav story without noticing mobile-only
+layout issues.
+
+Custom viewports (defined in `.storybook/preview.tsx`):
+
+- `mobileIphone` — 390×844 (iPhone 13/14) — **default**
+- `mobilePixel` — 360×640 (Android-class)
+- Plus Storybook's built-in `MINIMAL_VIEWPORTS` (`mobile1` 320×568, `mobile2`
+  414×896, `tablet` 834×1112, `desktop` 1280×1024)
+
+### When to add a desktop variant
+
+If the component's layout changes at `md:` (or any other breakpoint), add an
+explicit `Desktop` story by overriding the viewport via `globals`:
+
+```tsx
+export const Desktop: Story = {
+  globals: {
+    viewport: { value: 'desktop', isRotated: false },
+  },
+}
+```
+
+Do **not** add desktop variants to every story — only the ones where layout
+actually branches. Presentational primitives (badges, inputs, typography) don't
+need them.
+
+The toolbar lets you toggle the viewport manually for exploration.
+
+---
+
+## Play-function interaction tests
 
 Stories can include a `play` function to exercise the component under
 `@storybook/test-runner` (run in CI via `pnpm test-storybook:ci`). Use this to

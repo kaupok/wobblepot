@@ -50,7 +50,7 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
         <SheetHeader>
           <SheetTitle>Account</SheetTitle>
         </SheetHeader>
-        <nav className="mt-6 flex flex-col px-4">
+        <nav aria-label="Account menu" className="mt-6 flex flex-col px-4">
           {session ? (
             <>
               <div className="flex flex-col gap-4">
