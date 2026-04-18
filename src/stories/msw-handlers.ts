@@ -299,6 +299,15 @@ export const defaultHandlers: HttpHandler[] = [
   }),
   http.patch('/api/pantry/:id', () => HttpResponse.json({ ok: true })),
   http.delete('/api/pantry/:id', () => HttpResponse.json({ ok: true })),
+  // Meal plan generation — used by `FillDaysAction` (fill-empty) and
+  // `FirstTimeSetup` (generate).
+  http.post('/api/meal-plans/generate', () => HttpResponse.json({ planId: 'plan-1', ok: true })),
+  // Empty-slot flow: `TimelineEmptySlot` POSTs to create an entry, the user
+  // selects a meal (MealSelectorModal), or cancels (DELETE).
+  http.post('/api/meal-plans/:planId/entries', async () =>
+    HttpResponse.json({ id: `entry-${Date.now()}` }),
+  ),
+  http.delete('/api/meal-plans/:planId/entries/:entryId', () => HttpResponse.json({ ok: true })),
 ]
 
 /**
@@ -513,5 +522,47 @@ export const submittingMealFormHandlers: HttpHandler[] = [
   http.patch('/api/households/me/meals/:id', async () => {
     await delay('infinite')
     return HttpResponse.json({ ok: true })
+  }),
+]
+
+/**
+ * Return 500 for `POST /api/meal-plans/generate`. Use for `FillDaysAction` and
+ * `FirstTimeSetup` error-state stories.
+ */
+export const errorGenerateHandlers: HttpHandler[] = [
+  http.post('/api/meal-plans/generate', () =>
+    HttpResponse.json({ message: 'Generation failed. Please try again.' }, { status: 500 }),
+  ),
+]
+
+/**
+ * Return 429 for `POST /api/meal-plans/generate`. Covers the rate-limited
+ * branch of `FillDaysAction` and `FirstTimeSetup`.
+ */
+export const rateLimitGenerateHandlers: HttpHandler[] = [
+  http.post('/api/meal-plans/generate', () =>
+    HttpResponse.json({ message: 'Too many requests' }, { status: 429 }),
+  ),
+]
+
+/**
+ * Hold `POST /api/meal-plans/generate` open. Use to render the `GeneratingOverlay`
+ * in `FillDaysAction` / `FirstTimeSetup` stories.
+ */
+export const slowGenerateHandlers: HttpHandler[] = [
+  http.post('/api/meal-plans/generate', async () => {
+    await delay('infinite')
+    return HttpResponse.json({ planId: 'plan-1' })
+  }),
+]
+
+/**
+ * Hold `POST /api/meal-plans/:planId/entries` open. Use to render the
+ * `TimelineEmptySlot` "Adding..." pending state.
+ */
+export const slowCreateEntryHandlers: HttpHandler[] = [
+  http.post('/api/meal-plans/:planId/entries', async () => {
+    await delay('infinite')
+    return HttpResponse.json({ id: 'entry-slow' })
   }),
 ]

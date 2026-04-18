@@ -2,10 +2,13 @@ import { MealType, type IngredientCategory } from '@/generated/prisma/enums'
 import type { MealCardBaseData } from '@/components/meal-plan/MealCardBase'
 import type {
   AlternativeMeal,
+  ExpectedMealTypes,
   MealComponent,
   MealData,
   PantryIngredient,
   PantryItemFull,
+  PlanEntry,
+  TimelineDay,
 } from '@/components/meal-plan/types'
 import type {
   IngredientAlternative,
@@ -1107,5 +1110,134 @@ export const householdMealList: HouseholdMealData[] = [
     timeMinutes: 35,
     components: [createHouseholdMealComponent('potato', 180)],
     nutrition: { calories: 410, protein: 18, carbs: 62, fat: 12 },
+  }),
+]
+
+/**
+ * Canonical "today" used by timeline stories. Pinned so axe snapshots and
+ * relative-date rendering stay deterministic across story runs. 2026-04-15 is
+ * a Wednesday, giving us a representative weekday for the default timeline.
+ */
+export const timelineTodayDate = '2026-04-15'
+
+/**
+ * Build a `PlanEntry`. Default = a `planned` dinner entry backed by the
+ * canonical lemon-garlic chicken meal. Dates default to the pinned
+ * {@link timelineTodayDate}. Override any field to model other statuses,
+ * meal types, or an empty (meal = null) slot.
+ */
+export function createPlanEntry(overrides: Partial<PlanEntry> = {}): PlanEntry {
+  return {
+    id: 'entry-1',
+    date: timelineTodayDate,
+    mealType: MealType.dinner,
+    status: 'planned',
+    rating: null,
+    meal: createMeal(),
+    preparationTips: null,
+    note: null,
+    servingOverride: null,
+    ...overrides,
+  }
+}
+
+/**
+ * Build an {@link ExpectedMealTypes}. Default = dinner-only weekday+weekend,
+ * matching the app's default meal-type configuration.
+ */
+export function createExpectedMealTypes(
+  overrides: Partial<ExpectedMealTypes> = {},
+): ExpectedMealTypes {
+  return {
+    weekdayMealTypes: [MealType.dinner],
+    weekendMealTypes: [MealType.dinner],
+    ...overrides,
+  }
+}
+
+/**
+ * Build a {@link TimelineDay}. Default = "Today" (Wed 2026-04-15) with one
+ * planned dinner entry and no empty slots. Override flags and entries/slots
+ * arrays to model any calendar position.
+ */
+export function createTimelineDay(overrides: Partial<TimelineDay> = {}): TimelineDay {
+  return {
+    date: timelineTodayDate,
+    label: 'Today',
+    isToday: true,
+    isTomorrow: false,
+    isPast: false,
+    entries: [createPlanEntry()],
+    emptySlots: [],
+    ...overrides,
+  }
+}
+
+/**
+ * Shape of an item rendered by `UrgentShopping`. Kept local since the consuming
+ * component defines its `ShoppingItem` inline and we don't want to import the
+ * private alias.
+ */
+export interface UrgentShoppingItemData {
+  ingredientId: string
+  name: string
+  displayQuantity: string
+  neededByDate: string
+  neededByRelative: string
+  purchased: boolean
+  urgency: UrgencyBucket
+}
+
+/**
+ * Build an `UrgentShopping` row. Default = 500g of chicken thigh needed today,
+ * unpurchased. Override `urgency`, `purchased`, etc. to model sidebar states.
+ */
+export function createUrgentShoppingItem(
+  overrides: Partial<UrgentShoppingItemData> = {},
+): UrgentShoppingItemData {
+  return {
+    ingredientId: 'chicken-thigh',
+    name: 'Chicken thigh',
+    displayQuantity: '500g',
+    neededByDate: timelineTodayDate,
+    neededByRelative: 'today',
+    purchased: false,
+    urgency: 'today',
+    ...overrides,
+  }
+}
+
+/**
+ * Canonical "mixed urgency" sidebar — two today items (one purchased), one
+ * tomorrow item, one this-week (should be filtered out by the component). Use
+ * to render the default populated `UrgentShopping` state.
+ */
+export const urgentShoppingItems: UrgentShoppingItemData[] = [
+  createUrgentShoppingItem({
+    ingredientId: 'chicken-thigh',
+    name: 'Chicken thigh',
+    displayQuantity: '600g',
+  }),
+  createUrgentShoppingItem({
+    ingredientId: 'onion',
+    name: 'Onion',
+    displayQuantity: '2 pcs',
+    purchased: true,
+  }),
+  createUrgentShoppingItem({
+    ingredientId: 'salmon-fillet',
+    name: 'Salmon fillet',
+    displayQuantity: '300g',
+    neededByDate: '2026-04-16',
+    neededByRelative: 'tomorrow',
+    urgency: 'tomorrow',
+  }),
+  createUrgentShoppingItem({
+    ingredientId: 'potato',
+    name: 'Potato',
+    displayQuantity: '1kg',
+    neededByDate: '2026-04-19',
+    neededByRelative: 'Sunday',
+    urgency: 'this-week',
   }),
 ]
