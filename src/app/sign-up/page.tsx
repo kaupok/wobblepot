@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
@@ -6,6 +7,10 @@ import { hasHouseholdMembership } from '@/lib/household'
 import { SignUpForm } from './SignUpForm'
 import { Card, CardContent } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
+
+export const metadata: Metadata = {
+  title: 'Sign up',
+}
 
 export default async function SignUpPage() {
   const session = await auth.api.getSession({
