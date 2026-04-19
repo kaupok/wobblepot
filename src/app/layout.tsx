@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
+import { headers } from 'next/headers'
 import './globals.css'
 import { Toaster } from 'sonner'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -7,7 +8,6 @@ import { Header } from '@/components/header'
 import { BottomTabBar } from '@/components/bottom-tab-bar'
 import { getSession, getHasHousehold } from '@/lib/session'
 import Providers from '@/app/providers'
-// Ensure environment variables are validated on app startup
 import '@/lib/env'
 import { getServerBaseURL } from '@/lib/env'
 
@@ -70,6 +70,7 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   const baseURL = getServerBaseURL()
+  const nonce = (await headers()).get('x-nonce') ?? undefined
 
   const session = await getSession()
   const hasHousehold = session ? await getHasHousehold(session.user.id) : false
@@ -80,7 +81,7 @@ export default async function RootLayout({
         <meta name="x-server-base-url" content={baseURL} />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem nonce={nonce}>
           <Providers>
             <Toaster richColors closeButton duration={4000} />
             <Header />
