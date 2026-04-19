@@ -1,0 +1,332 @@
+#!/usr/bin/env bash
+# Garbage-collect stale `auto--hon-*` Neon branches created by `/auto-implement`
+# worktrees. See docs/RUNBOOKS/neon-branch-gc.md for the full runbook.
+#
+# Subcommands:
+#   sweep                              List all auto--hon-* branches, delete
+#                                      those whose linked Linear issue is Done
+#                                      or Canceled and that are > 24h old.
+#   delete-for-branch <git-branch>     Delete the matching auto--hon-<N> Neon
+#                                      branch for a merged PR. HON-ID is
+#                                      derived from the git branch name or the
+#                                      PR_BODY env var (`Closes HON-N` fallback).
+#                                      Does NOT gate on Linear status — the
+#                                      explicit merge signal is authoritative.
+#
+# Required env:
+#   NEON_API_KEY, NEON_PROJECT_ID, LINEAR_API_KEY
+#
+# Optional env:
+#   NEON_CLEANUP_DRY_RUN        "1" to log without DELETE (default). "0" to delete.
+#   NEON_CLEANUP_MIN_AGE_HOURS  Sweep age gate in hours (default 24). Set to 0
+#                               for the one-time cleanup to bypass the gate.
+#   PR_BODY                     Piped PR body, used by `delete-for-branch` as
+#                               the fallback for HON-ID extraction.
+#
+# Safety invariants (MUST all hold for a branch to be deleted):
+#   - Name matches ^auto--hon-[0-9]+$
+#   - primary != true and protected != true (per the Neon branch record)
+#   - Name is not in the hardcoded allowlist {main, staging, dev/kaupo, vercel-dev}
+#   - (sweep only) updated_at is older than NEON_CLEANUP_MIN_AGE_HOURS
+#   - (sweep only) linked Linear issue is Done or Canceled — Linear lookup
+#     failure defaults to DO NOT DELETE
+set -euo pipefail
+
+NEON_API_BASE="https://console.neon.tech/api/v2"
+LINEAR_API_URL="https://api.linear.app/graphql"
+SAFE_BRANCH_REGEX='^auto--hon-[0-9]+$'
+ALLOWLIST_NAMES=(main staging dev/kaupo vercel-dev)
+DRY_RUN="${NEON_CLEANUP_DRY_RUN:-1}"
+MIN_AGE_HOURS="${NEON_CLEANUP_MIN_AGE_HOURS:-24}"
+
+# ─── Logging ─────────────────────────────────────────────────────────────────
+
+log()  { printf '%s\n' "$*" >&2; }
+warn() { printf 'warn: %s\n' "$*" >&2; }
+fail() { printf 'error: %s\n' "$*" >&2; exit 1; }
+
+# ─── Env validation ──────────────────────────────────────────────────────────
+
+require_env() {
+  local missing=()
+  [ -z "${NEON_API_KEY:-}" ]     && missing+=("NEON_API_KEY")
+  [ -z "${NEON_PROJECT_ID:-}" ]  && missing+=("NEON_PROJECT_ID")
+  [ -z "${LINEAR_API_KEY:-}" ]   && missing+=("LINEAR_API_KEY")
+  if [ "${#missing[@]}" -gt 0 ]; then
+    fail "missing required env: ${missing[*]}"
+  fi
+}
+
+# ─── HTTP helpers ────────────────────────────────────────────────────────────
+
+neon_api() {
+  local method="$1" path="$2" body="${3:-}"
+  local url="${NEON_API_BASE}${path}"
+  local curl_args=(-sS --max-time 30 -w '\n%{http_code}'
+    -H "Authorization: Bearer $NEON_API_KEY"
+    -H "Accept: application/json"
+    -X "$method" "$url")
+  if [ -n "$body" ]; then
+    curl_args+=(-H "Content-Type: application/json" -d "$body")
+  fi
+
+  local response status
+  response=$(curl "${curl_args[@]}") || {
+    warn "neon_api: curl failed for $method $path"
+    return 1
+  }
+  status="${response##*$'\n'}"
+  response="${response%$'\n'*}"
+
+  if [ "$status" -ge 400 ]; then
+    warn "neon_api: $method $path → HTTP $status: $response"
+    return 1
+  fi
+  printf '%s' "$response"
+}
+
+linear_api() {
+  local query="$1"
+  local payload
+  payload=$(jq -cn --arg q "$query" '{query: $q}')
+
+  local response status
+  response=$(curl -sS --max-time 30 -w '\n%{http_code}' \
+    -H "Content-Type: application/json" \
+    -H "Authorization: $LINEAR_API_KEY" \
+    -d "$payload" \
+    -X POST "$LINEAR_API_URL") || {
+    warn "linear_api: curl failed"
+    return 1
+  }
+  status="${response##*$'\n'}"
+  response="${response%$'\n'*}"
+
+  if [ "$status" -ge 400 ]; then
+    warn "linear_api: HTTP $status: $response"
+    return 1
+  fi
+  if printf '%s' "$response" | jq -e '.errors[0]' > /dev/null 2>&1; then
+    local msg
+    msg=$(printf '%s' "$response" | jq -r '.errors[0].message // "unknown"')
+    warn "linear_api: GraphQL error: $msg"
+    return 1
+  fi
+  printf '%s' "$response"
+}
+
+# ─── Safety checks ───────────────────────────────────────────────────────────
+
+# Reads one branch JSON object on stdin, returns 0 if it is safe to delete.
+# Usage: printf '%s' "$branch_json" | is_safe_to_delete <mode>
+# Modes: "sweep" (enforces > 24h age) or "merge" (skips age gate).
+is_safe_to_delete() {
+  local mode="$1" branch_json
+  branch_json=$(cat)
+
+  local name primary protected
+  name=$(printf '%s' "$branch_json" | jq -r '.name // ""')
+  primary=$(printf '%s' "$branch_json" | jq -r '.primary // false')
+  protected=$(printf '%s' "$branch_json" | jq -r '.protected // false')
+
+  if ! [[ "$name" =~ $SAFE_BRANCH_REGEX ]]; then
+    return 1
+  fi
+  if [ "$primary" = "true" ] || [ "$protected" = "true" ]; then
+    warn "skip $name: primary=$primary protected=$protected"
+    return 1
+  fi
+  local allowed
+  for allowed in "${ALLOWLIST_NAMES[@]}"; do
+    if [ "$name" = "$allowed" ]; then
+      warn "skip $name: allowlisted protected branch name"
+      return 1
+    fi
+  done
+
+  if [ "$mode" = "sweep" ] && [ "$MIN_AGE_HOURS" -gt 0 ]; then
+    local updated_at age_sec now min_age_sec
+    updated_at=$(printf '%s' "$branch_json" | jq -r '.updated_at // ""')
+    if [ -z "$updated_at" ]; then
+      warn "skip $name: missing updated_at"
+      return 1
+    fi
+    now=$(date -u +%s)
+    age_sec=$(( now - $(parse_iso8601 "$updated_at") ))
+    min_age_sec=$(( MIN_AGE_HOURS * 3600 ))
+    if [ "$age_sec" -lt "$min_age_sec" ]; then
+      warn "skip $name: younger than ${MIN_AGE_HOURS}h (age ${age_sec}s)"
+      return 1
+    fi
+  fi
+  return 0
+}
+
+# Portable ISO-8601 → unix timestamp. Handles "2026-04-19T09:12:30.938Z" on
+# both BSD date (macOS) and GNU date (Linux runners).
+parse_iso8601() {
+  local ts="$1"
+  ts="${ts%.*Z}"; ts="${ts%Z}"
+  if date -u -d "$ts" +%s >/dev/null 2>&1; then
+    date -u -d "$ts" +%s
+  else
+    date -u -j -f '%Y-%m-%dT%H:%M:%S' "$ts" +%s
+  fi
+}
+
+# Returns 0 only if the Linear issue's state type is `completed` or `canceled`.
+# Fail-safe: any lookup error returns non-zero so the caller does not delete.
+issue_done_or_canceled() {
+  local hon_id="$1"
+  local query response state_type
+  query=$(printf 'query { issue(id: "%s") { state { type } } }' "$hon_id")
+  response=$(linear_api "$query") || return 1
+  state_type=$(printf '%s' "$response" | jq -r '.data.issue.state.type // ""')
+  case "$state_type" in
+    completed|canceled) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# ─── Deletion ────────────────────────────────────────────────────────────────
+
+delete_branch() {
+  local branch_id="$1" name="$2"
+  if [ "$DRY_RUN" = "1" ]; then
+    log "DRY-RUN would delete: $name ($branch_id)"
+    return 0
+  fi
+  if neon_api DELETE "/projects/${NEON_PROJECT_ID}/branches/${branch_id}" >/dev/null; then
+    log "DELETED: $name ($branch_id)"
+    return 0
+  fi
+  warn "failed to delete $name ($branch_id)"
+  return 1
+}
+
+# ─── Sweep ───────────────────────────────────────────────────────────────────
+
+cmd_sweep() {
+  require_env
+  log "sweep: listing branches for project $NEON_PROJECT_ID (dry_run=$DRY_RUN)"
+  local response branches_json
+  response=$(neon_api GET "/projects/${NEON_PROJECT_ID}/branches") \
+    || fail "cannot list branches"
+  branches_json=$(printf '%s' "$response" | jq -c '.branches[]')
+
+  local considered=0 deleted=0 skipped_safe=0 skipped_status=0
+  while IFS= read -r branch; do
+    local name
+    name=$(printf '%s' "$branch" | jq -r '.name')
+    [[ "$name" =~ $SAFE_BRANCH_REGEX ]] || continue
+    considered=$((considered + 1))
+
+    if ! printf '%s' "$branch" | is_safe_to_delete sweep; then
+      skipped_safe=$((skipped_safe + 1))
+      continue
+    fi
+
+    local hon_id
+    hon_id="HON-${name#auto--hon-}"
+    if ! issue_done_or_canceled "$hon_id"; then
+      log "skip $name: $hon_id not Done/Canceled (or Linear lookup failed)"
+      skipped_status=$((skipped_status + 1))
+      continue
+    fi
+
+    local branch_id
+    branch_id=$(printf '%s' "$branch" | jq -r '.id')
+    if delete_branch "$branch_id" "$name"; then
+      deleted=$((deleted + 1))
+    fi
+  done <<< "$branches_json"
+
+  local verb="deleted"
+  [ "$DRY_RUN" = "1" ] && verb="would delete"
+  local summary
+  summary=$(printf 'neon-cleanup sweep: considered=%d %s=%d skipped_safety=%d skipped_status=%d dry_run=%s' \
+    "$considered" "$verb" "$deleted" "$skipped_safe" "$skipped_status" "$DRY_RUN")
+  log "$summary"
+  if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+    {
+      echo "## Neon cleanup sweep"
+      echo
+      echo "- Considered: $considered"
+      echo "- $(printf '%s' "$verb" | sed 's/^./\U&/'): $deleted"
+      echo "- Skipped (safety): $skipped_safe"
+      echo "- Skipped (status): $skipped_status"
+      echo "- Dry run: $DRY_RUN"
+    } >> "$GITHUB_STEP_SUMMARY"
+  fi
+}
+
+# ─── delete-for-branch (post-merge) ──────────────────────────────────────────
+
+cmd_delete_for_branch() {
+  local git_branch="${1:-}"
+  [ -n "$git_branch" ] || fail "usage: delete-for-branch <git-branch>"
+  require_env
+
+  local hon_num=""
+  if [[ "$git_branch" =~ ^auto--hon-([0-9]+)$ ]]; then
+    hon_num="${BASH_REMATCH[1]}"
+  elif [ -n "${PR_BODY:-}" ]; then
+    hon_num=$(printf '%s' "$PR_BODY" | grep -oE 'Closes HON-[0-9]+' | head -n1 | grep -oE '[0-9]+$' || true)
+  fi
+
+  if [ -z "$hon_num" ]; then
+    log "no auto--hon-<N> branch to reap for '$git_branch' — nothing to do"
+    return 0
+  fi
+
+  local target_name="auto--hon-${hon_num}"
+  log "delete-for-branch: looking up $target_name (dry_run=$DRY_RUN)"
+
+  local response branch
+  response=$(neon_api GET "/projects/${NEON_PROJECT_ID}/branches") \
+    || fail "cannot list branches"
+  branch=$(printf '%s' "$response" | jq -c --arg n "$target_name" '.branches[] | select(.name == $n)')
+
+  if [ -z "$branch" ]; then
+    log "no Neon branch named $target_name — already cleaned up"
+    return 0
+  fi
+
+  if ! printf '%s' "$branch" | is_safe_to_delete merge; then
+    warn "refusing to delete $target_name: failed safety check"
+    return 0
+  fi
+
+  local branch_id
+  branch_id=$(printf '%s' "$branch" | jq -r '.id')
+  delete_branch "$branch_id" "$target_name"
+}
+
+# ─── Dispatch ────────────────────────────────────────────────────────────────
+
+main() {
+  local cmd="${1:-}"
+  shift || true
+  case "$cmd" in
+    sweep)             cmd_sweep "$@" ;;
+    delete-for-branch) cmd_delete_for_branch "$@" ;;
+    "" | help | -h | --help)
+      cat <<EOF
+Usage: $(basename "$0") <command> [args]
+
+Commands:
+  sweep                          GC stale auto--hon-* branches (respects
+                                 Linear status and 24h age gate).
+  delete-for-branch <git-branch> Delete the auto--hon-<N> branch linked to
+                                 a just-merged PR (reads PR_BODY for the
+                                 \`Closes HON-N\` fallback).
+
+Env: NEON_API_KEY, NEON_PROJECT_ID, LINEAR_API_KEY required.
+     NEON_CLEANUP_DRY_RUN=1 (default) to simulate, 0 to delete.
+EOF
+      ;;
+    *) fail "unknown command: $cmd (try --help)" ;;
+  esac
+}
+
+main "$@"

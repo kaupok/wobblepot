@@ -27,6 +27,39 @@ if [[ "$DATABASE_URL_UNPOOLED" != *"connect_timeout="* ]]; then
   export DATABASE_URL_UNPOOLED
 fi
 
+# Fail-fast pre-flight: verify the endpoint host in DATABASE_URL_UNPOOLED
+# actually exists in the Neon project. Catches the case where Vercel's env var
+# is pinned to a reaped endpoint (see HON-492), avoiding 5 rounds of P1001
+# noise in favour of one clear diagnostic. Soft-skip when either Neon env var
+# is unset so local/self-hosted paths are unaffected.
+if [ -n "${NEON_API_KEY:-}" ] && [ -n "${NEON_PROJECT_ID:-}" ]; then
+  host="${DATABASE_URL_UNPOOLED#*@}"
+  host="${host%%/*}"
+  host="${host%%:*}"
+  endpoint_id="${host%%.*}"
+
+  if [[ "$endpoint_id" =~ ^ep-[a-z0-9-]+$ ]]; then
+    endpoints_response=$(curl -sS --max-time 5 \
+      -H "Authorization: Bearer $NEON_API_KEY" \
+      -H "Accept: application/json" \
+      "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/endpoints" 2>/dev/null || true)
+
+    if [ -n "$endpoints_response" ] && echo "$endpoints_response" | grep -q '"endpoints"'; then
+      if ! echo "$endpoints_response" | grep -q "\"id\":\"${endpoint_id}\""; then
+        cat >&2 <<EOF
+Endpoint ${endpoint_id} is not present in Neon project ${NEON_PROJECT_ID}.
+Vercel env var for this preview is stale — re-trigger the Vercel-Neon
+integration (delete + recreate the preview branch) or update the env
+var manually.
+EOF
+        exit 1
+      fi
+    else
+      echo "neon pre-flight: could not reach Neon API, skipping check" >&2
+    fi
+  fi
+fi
+
 MAX_ATTEMPTS=5
 BACKOFF_SEC=15
 
