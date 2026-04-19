@@ -48,7 +48,7 @@ describe('ResetPasswordForm', () => {
       const input = screen.getByLabelText(/new password/i)
       expect(input).toBeInTheDocument()
       expect(input).toHaveAttribute('type', 'password')
-      expect(input).toHaveAttribute('placeholder', 'At least 8 characters')
+      expect(input).toHaveAttribute('placeholder', 'At least 12 characters')
     })
 
     it('renders confirm password input with label', () => {
@@ -135,13 +135,13 @@ describe('ResetPasswordForm', () => {
       const user = userEvent.setup()
       render(<ResetPasswordForm />)
 
-      await user.type(screen.getByLabelText(/new password/i), 'short')
-      await user.type(screen.getByLabelText(/confirm password/i), 'short')
+      await user.type(screen.getByLabelText(/new password/i), 'shortpass11')
+      await user.type(screen.getByLabelText(/confirm password/i), 'shortpass11')
       await user.click(screen.getByRole('button', { name: /reset password/i }))
 
       await vi.waitFor(() => {
         expect(screen.getByRole('alert')).toHaveTextContent(
-          /password must be at least 8 characters/i,
+          /password must be at least 12 characters/i,
         )
       })
     })
@@ -167,11 +167,11 @@ describe('ResetPasswordForm', () => {
       const newPasswordInput = screen.getByLabelText(/new password/i)
       const confirmPasswordInput = screen.getByLabelText(/confirm password/i)
 
-      await user.type(newPasswordInput, 'newpass123')
-      await user.type(confirmPasswordInput, 'newpass123')
+      await user.type(newPasswordInput, 'newpass123456')
+      await user.type(confirmPasswordInput, 'newpass123456')
 
-      expect(newPasswordInput).toHaveValue('newpass123')
-      expect(confirmPasswordInput).toHaveValue('newpass123')
+      expect(newPasswordInput).toHaveValue('newpass123456')
+      expect(confirmPasswordInput).toHaveValue('newpass123456')
     })
 
     it('calls authClient.resetPassword on form submission', async () => {
@@ -185,14 +185,14 @@ describe('ResetPasswordForm', () => {
       const user = userEvent.setup()
       render(<ResetPasswordForm />)
 
-      await user.type(screen.getByLabelText(/new password/i), 'newpass123')
-      await user.type(screen.getByLabelText(/confirm password/i), 'newpass123')
+      await user.type(screen.getByLabelText(/new password/i), 'newpass123456')
+      await user.type(screen.getByLabelText(/confirm password/i), 'newpass123456')
       await user.click(screen.getByRole('button', { name: /reset password/i }))
 
       await vi.waitFor(() => {
         expect(authClient.resetPassword).toHaveBeenCalledWith(
           {
-            newPassword: 'newpass123',
+            newPassword: 'newpass123456',
             token: 'test-token-123',
           },
           {
@@ -215,8 +215,8 @@ describe('ResetPasswordForm', () => {
       const user = userEvent.setup()
       render(<ResetPasswordForm />)
 
-      await user.type(screen.getByLabelText(/new password/i), 'newpass123')
-      await user.type(screen.getByLabelText(/confirm password/i), 'newpass123')
+      await user.type(screen.getByLabelText(/new password/i), 'newpass123456')
+      await user.type(screen.getByLabelText(/confirm password/i), 'newpass123456')
       await user.click(screen.getByRole('button', { name: /reset password/i }))
 
       await vi.waitFor(() => {
@@ -245,8 +245,8 @@ describe('ResetPasswordForm', () => {
       const user = userEvent.setup()
       render(<ResetPasswordForm />)
 
-      await user.type(screen.getByLabelText(/new password/i), 'newpass123')
-      await user.type(screen.getByLabelText(/confirm password/i), 'newpass123')
+      await user.type(screen.getByLabelText(/new password/i), 'newpass123456')
+      await user.type(screen.getByLabelText(/confirm password/i), 'newpass123456')
       await user.click(screen.getByRole('button', { name: /reset password/i }))
 
       await vi.waitFor(() => {
@@ -274,8 +274,8 @@ describe('ResetPasswordForm', () => {
       const user = userEvent.setup()
       render(<ResetPasswordForm />)
 
-      await user.type(screen.getByLabelText(/new password/i), 'newpass123')
-      await user.type(screen.getByLabelText(/confirm password/i), 'newpass123')
+      await user.type(screen.getByLabelText(/new password/i), 'newpass123456')
+      await user.type(screen.getByLabelText(/confirm password/i), 'newpass123456')
       await user.click(screen.getByRole('button', { name: /reset password/i }))
 
       await vi.waitFor(() => {
@@ -301,8 +301,8 @@ describe('ResetPasswordForm', () => {
       const user = userEvent.setup()
       render(<ResetPasswordForm />)
 
-      await user.type(screen.getByLabelText(/new password/i), 'newpass123')
-      await user.type(screen.getByLabelText(/confirm password/i), 'newpass123')
+      await user.type(screen.getByLabelText(/new password/i), 'newpass123456')
+      await user.type(screen.getByLabelText(/confirm password/i), 'newpass123456')
       await user.click(screen.getByRole('button', { name: /reset password/i }))
 
       await vi.waitFor(() => {
@@ -328,8 +328,8 @@ describe('ResetPasswordForm', () => {
       const user = userEvent.setup()
       render(<ResetPasswordForm />)
 
-      await user.type(screen.getByLabelText(/new password/i), 'newpass123')
-      await user.type(screen.getByLabelText(/confirm password/i), 'newpass123')
+      await user.type(screen.getByLabelText(/new password/i), 'newpass123456')
+      await user.type(screen.getByLabelText(/confirm password/i), 'newpass123456')
       await user.click(screen.getByRole('button', { name: /reset password/i }))
 
       await vi.waitFor(() => {
@@ -344,8 +344,8 @@ describe('ResetPasswordForm', () => {
       const user = userEvent.setup()
       render(<ResetPasswordForm />)
 
-      await user.type(screen.getByLabelText(/new password/i), 'newpass123')
-      await user.type(screen.getByLabelText(/confirm password/i), 'newpass123')
+      await user.type(screen.getByLabelText(/new password/i), 'newpass123456')
+      await user.type(screen.getByLabelText(/confirm password/i), 'newpass123456')
       await user.click(screen.getByRole('button', { name: /reset password/i }))
 
       await vi.waitFor(() => {

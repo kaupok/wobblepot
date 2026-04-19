@@ -116,10 +116,13 @@ export function SignUpForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={isLoading}
-                minLength={8}
+                minLength={12}
                 aria-invalid={!!error}
-                aria-describedby={error ? 'form-error' : undefined}
+                aria-describedby={error ? 'form-error' : 'password-hint'}
               />
+              <Body id="password-hint" variant="small" className="text-muted-foreground">
+                Use at least 12 characters. Avoid passwords from past data breaches.
+              </Body>
             </div>
             {error && (
               <Body id="form-error" variant="small" className="text-destructive" role="alert">
