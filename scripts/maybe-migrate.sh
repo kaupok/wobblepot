@@ -58,10 +58,13 @@ var manually.
 EOF
         exit 1
       fi
+      echo "neon pre-flight: endpoint ${endpoint_id} confirmed in project ${NEON_PROJECT_ID}" >&2
     else
       echo "neon pre-flight: could not reach Neon API, skipping check" >&2
     fi
   fi
+else
+  echo "neon pre-flight: skipped (NEON_API_KEY or NEON_PROJECT_ID not set)" >&2
 fi
 
 MAX_ATTEMPTS=5
