@@ -35,10 +35,16 @@ vi.mock('ai', () => ({
   generateObject: vi.fn(),
 }))
 
+vi.mock('@/lib/rate-limit', () => ({
+  checkRateLimit: vi.fn(),
+  retryAfterSeconds: vi.fn(() => 90),
+}))
+
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { generateObject } from 'ai'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -46,6 +52,7 @@ const mockGetMemberCount = vi.mocked(getHouseholdMemberCount)
 const mockEntryFindFirst = vi.mocked(prisma.mealPlanEntry.findFirst)
 const mockEntryUpdate = vi.mocked(prisma.mealPlanEntry.update)
 const mockGenerateObject = vi.mocked(generateObject)
+const mockCheckRateLimit = vi.mocked(checkRateLimit)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -99,6 +106,12 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetMemberCount.mockResolvedValue(4)
+    mockCheckRateLimit.mockResolvedValue({
+      allowed: true,
+      remaining: 29,
+      limit: 30,
+      resetAt: new Date('2026-02-01T12:00:00.000Z'),
+    })
   })
 
   it('returns 401 when not authenticated', async () => {
@@ -120,6 +133,25 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
 
     expect(response.status).toBe(404)
     expect(data.error).toBe('No household found')
+  })
+
+  it('returns 429 with Retry-After header when rate limited', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockCheckRateLimit.mockResolvedValue({
+      allowed: false,
+      remaining: 0,
+      limit: 30,
+      resetAt: new Date('2026-02-01T12:00:00.000Z'),
+    })
+
+    const response = await callPost()
+    const data = await response.json()
+
+    expect(response.status).toBe(429)
+    expect(response.headers.get('Retry-After')).toBe('90')
+    expect(data.error).toBe('Rate limit exceeded')
+    expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'meal-prep-tips')
   })
 
   it('scopes entry lookup via plan.householdId and returns 404 when not found', async () => {

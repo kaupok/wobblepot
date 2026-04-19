@@ -6,7 +6,7 @@ import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household
 import { prisma } from '@/lib/prisma'
 import { imagineMeals } from '@/lib/ai/imagine-meal'
 import { matchIngredients } from '@/lib/ai/parse-recipe'
-import { checkRateLimit, recordGeneration } from '@/lib/meal-planning/rate-limit'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { deriveProteinType } from '@/lib/meal-planning/protein'
 import type { ExtractedIngredient } from '@/lib/ai/parse-recipe'
 
@@ -35,16 +35,18 @@ export async function POST(request: Request) {
 
   const { household } = membership
 
-  // Rate limit
-  const rateLimitResult = checkRateLimit(household.id, 'meal-imagination')
+  const rateLimitResult = await checkRateLimit(household.id, 'meal-imagination')
   if (!rateLimitResult.allowed) {
     return NextResponse.json(
       {
         error: 'Rate limit exceeded',
         message: `Maximum ${rateLimitResult.limit} meal imagination requests per hour`,
-        resetAt: rateLimitResult.resetAt?.toISOString(),
+        resetAt: rateLimitResult.resetAt.toISOString(),
       },
-      { status: 429 },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(retryAfterSeconds(rateLimitResult)) },
+      },
     )
   }
 
@@ -228,8 +230,6 @@ export async function POST(request: Request) {
         }
       }),
     )
-
-    recordGeneration(household.id, 'meal-imagination')
 
     return NextResponse.json({ success: true, meals })
   } catch (error) {

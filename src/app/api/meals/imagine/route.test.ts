@@ -19,9 +19,9 @@ vi.mock('@/lib/household', () => ({
   getHouseholdMemberCount: vi.fn(),
 }))
 
-vi.mock('@/lib/meal-planning/rate-limit', () => ({
+vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: vi.fn(),
-  recordGeneration: vi.fn(),
+  retryAfterSeconds: vi.fn(() => 60),
 }))
 
 vi.mock('@/lib/ai/imagine-meal', () => ({
@@ -42,7 +42,7 @@ vi.mock('@/lib/prisma', () => ({
 
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
-import { checkRateLimit, recordGeneration } from '@/lib/meal-planning/rate-limit'
+import { checkRateLimit } from '@/lib/rate-limit'
 import { imagineMeals } from '@/lib/ai/imagine-meal'
 import { matchIngredients } from '@/lib/ai/parse-recipe'
 import { prisma } from '@/lib/prisma'
@@ -51,7 +51,6 @@ const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockGetMemberCount = vi.mocked(getHouseholdMemberCount)
 const mockCheckRateLimit = vi.mocked(checkRateLimit)
-const mockRecordGeneration = vi.mocked(recordGeneration)
 const mockImagineMeals = vi.mocked(imagineMeals)
 const mockMatchIngredients = vi.mocked(matchIngredients)
 const mockIngredientFindMany = vi.mocked(prisma.ingredient.findMany)
@@ -159,7 +158,12 @@ function unmatchedResult(overrides: Record<string, unknown> = {}) {
 describe('POST /api/meals/imagine', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockCheckRateLimit.mockReturnValue({ allowed: true, remaining: 49, limit: 50 })
+    mockCheckRateLimit.mockResolvedValue({
+      allowed: true,
+      remaining: 49,
+      limit: 50,
+      resetAt: new Date('2026-02-01T12:00:00.000Z'),
+    })
     mockGetMemberCount.mockResolvedValue(2)
     mockIngredientFindMany.mockResolvedValue([])
   })
@@ -185,10 +189,10 @@ describe('POST /api/meals/imagine', () => {
     expect(data.error).toBe('No household found')
   })
 
-  it('returns 429 when rate limit exceeded', async () => {
+  it('returns 429 with Retry-After header when rate limit exceeded', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockCheckRateLimit.mockReturnValue({
+    mockCheckRateLimit.mockResolvedValue({
       allowed: false,
       remaining: 0,
       limit: 50,
@@ -199,6 +203,7 @@ describe('POST /api/meals/imagine', () => {
     const data = await response.json()
 
     expect(response.status).toBe(429)
+    expect(response.headers.get('Retry-After')).toBe('60')
     expect(data.error).toBe('Rate limit exceeded')
     expect(data.resetAt).toBe('2026-02-01T12:00:00.000Z')
   })
@@ -296,7 +301,7 @@ describe('POST /api/meals/imagine', () => {
     expect(data.error).toContain('500 characters')
   })
 
-  it('happy path: returns generated meals with nutrition and calls recordGeneration', async () => {
+  it('happy path: returns generated meals with nutrition and records rate limit', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
     mockImagineMeals.mockResolvedValue([imaginedMeal() as never])
@@ -324,7 +329,7 @@ describe('POST /api/meals/imagine', () => {
     expect(meal.nutrition.calories).toBeGreaterThan(0)
     expect(meal.components).toHaveLength(1)
     expect(meal.components[0].ingredientId).toBe('ing-chicken')
-    expect(mockRecordGeneration).toHaveBeenCalledWith('household-123', 'meal-imagination')
+    expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'meal-imagination')
     expect(mockImagineMeals).toHaveBeenCalledWith(
       'chicken dinner',
       expect.objectContaining({ householdSize: 2 }),
@@ -367,7 +372,6 @@ describe('POST /api/meals/imagine', () => {
 
     expect(response.status).toBe(500)
     expect(data.error).toContain('Failed to generate meal ideas')
-    expect(mockRecordGeneration).not.toHaveBeenCalled()
   })
 
   it('accepts a multipart request with just an image (no prompt)', async () => {

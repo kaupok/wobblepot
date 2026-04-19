@@ -10,7 +10,7 @@ import {
   NoEmptySlotsError,
 } from '@/lib/ai/types'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
-import { checkRateLimit, recordGeneration } from '@/lib/meal-planning/rate-limit'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
 
@@ -43,20 +43,18 @@ export async function POST(request: Request) {
 
   const { household } = membership
 
-  // Check rate limit
-  // NOTE: In-memory rate limiting has a known race condition where concurrent requests
-  // can bypass the limit before recordGeneration is called. This is acceptable for MVP
-  // as it only affects edge cases of rapid concurrent requests. For production scale,
-  // consider Redis or database-backed atomic rate limiting.
-  const rateLimitResult = checkRateLimit(household.id, 'plan-generation')
+  const rateLimitResult = await checkRateLimit(household.id, 'plan-generation')
   if (!rateLimitResult.allowed) {
     return NextResponse.json(
       {
         error: 'Rate limit exceeded',
         message: `Maximum ${rateLimitResult.limit} meal plan generations per hour`,
-        resetAt: rateLimitResult.resetAt?.toISOString(),
+        resetAt: rateLimitResult.resetAt.toISOString(),
       },
-      { status: 429 },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(retryAfterSeconds(rateLimitResult)) },
+      },
     )
   }
 
@@ -125,9 +123,6 @@ export async function POST(request: Request) {
         weekendMealTypes,
       })
 
-      // Record successful generation for rate limiting
-      recordGeneration(household.id, 'plan-generation')
-
       return NextResponse.json(result, { status: 200 })
     } catch (error) {
       if (error instanceof NoEmptySlotsError) {
@@ -170,9 +165,6 @@ export async function POST(request: Request) {
         endDate,
       })
 
-      // Record successful generation for rate limiting
-      recordGeneration(household.id, 'plan-generation')
-
       return NextResponse.json(result, { status: 200 })
     } catch (error) {
       console.error('Empty plan creation failed:', error)
@@ -193,9 +185,6 @@ export async function POST(request: Request) {
       weekdayMealTypes,
       weekendMealTypes,
     })
-
-    // Record successful generation for rate limiting
-    recordGeneration(household.id, 'plan-generation')
 
     return NextResponse.json(result, { status: 200 })
   } catch (error) {

@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { parseAndMatchRecipe, fetchRecipeFromUrl, RecipeParseError } from '@/lib/ai/parse-recipe'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 
 const parseRecipeSchema = z.object({
   text: z.string().min(1, 'Recipe text is required'),
@@ -46,6 +47,22 @@ export async function POST(request: Request) {
 
   if (!membership) {
     return NextResponse.json({ error: 'No household found' }, { status: 404 })
+  }
+
+  const rateLimitResult = await checkRateLimit(membership.household.id, 'recipe-parse')
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Rate limit exceeded',
+        message: `Maximum ${rateLimitResult.limit} recipe parses per hour`,
+        resetAt: rateLimitResult.resetAt.toISOString(),
+      },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(retryAfterSeconds(rateLimitResult)) },
+      },
+    )
   }
 
   let body
