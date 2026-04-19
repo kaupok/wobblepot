@@ -135,9 +135,10 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(data.error).toBe('No household found')
   })
 
-  it('returns 429 with Retry-After header when rate limited', async () => {
+  it('returns 429 with Retry-After header when rate limited (and cache miss)', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
     mockCheckRateLimit.mockResolvedValue({
       allowed: false,
       remaining: 0,
@@ -152,6 +153,20 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(response.headers.get('Retry-After')).toBe('90')
     expect(data.error).toBe('Rate limit exceeded')
     expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'meal-prep-tips')
+  })
+
+  it('does NOT consume rate-limit tokens when returning cached tips', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    const cached = { equipment: ['P'], steps: ['S'], pitfalls: ['X'], tip: 'T' }
+    mockEntryFindFirst.mockResolvedValue(
+      sampleEntry({ preparationTips: JSON.stringify(cached) }) as never,
+    )
+
+    const response = await callPost()
+
+    expect(response.status).toBe(200)
+    expect(mockCheckRateLimit).not.toHaveBeenCalled()
   })
 
   it('scopes entry lookup via plan.householdId and returns 404 when not found', async () => {
