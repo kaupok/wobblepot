@@ -69,13 +69,15 @@ const serverOnlyEnvSchema = z.object({
     .string()
     .url('UPSTASH_REDIS_REST_URL must be a valid URL')
     .describe(
-      'Upstash Redis REST URL (auto-injected by the Vercel Marketplace Upstash integration on deploy)',
+      'Upstash Redis REST URL. Must be set manually in Vercel (Marketplace integration injects KV_* names instead); see docs/ENVIRONMENT_SETUP.md § "Upstash Redis".',
     ),
 
   UPSTASH_REDIS_REST_TOKEN: z
     .string()
     .min(1, 'UPSTASH_REDIS_REST_TOKEN is required for rate limiting')
-    .describe('Upstash Redis REST token (auto-injected by the Vercel Marketplace integration)'),
+    .describe(
+      'Upstash Redis REST token. Must be set manually in Vercel (Marketplace integration injects KV_* names instead); see docs/ENVIRONMENT_SETUP.md § "Upstash Redis".',
+    ),
 })
 
 /**
