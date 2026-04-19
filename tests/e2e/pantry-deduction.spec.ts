@@ -35,12 +35,24 @@ test.describe('Pantry deduction on meal completion', { tag: '@smoke' }, () => {
     // Generate the first meal plan from the FirstTimeSetup CTA on "/".
     await page.goto('/')
     await expect(page.getByRole('heading', { name: /^Welcome to Honkadori/ })).toBeVisible()
-    await page.getByRole('button', { name: 'Generate meal plan' }).click()
 
-    // Wait for generation to complete: the TimelineView renders a day label
-    // (e.g., "Today") once entries are loaded. We intentionally don't key off
-    // meal-name text because seed content drifts.
-    await expect(page.getByText(/^Today$/)).toBeVisible({ timeout: 60_000 })
+    // Wait for the generate POST to resolve before reading /api/entries. Text-
+    // based waits (e.g. "Today") don't work here: FirstTimeSetup itself
+    // renders a "Today" start-date button, so the locator resolves pre-
+    // generation and the subsequent entries fetch races the POST.
+    const [generateResponse] = await Promise.all([
+      page.waitForResponse(
+        (r) => r.url().endsWith('/api/meal-plans/generate') && r.request().method() === 'POST',
+        { timeout: 60_000 },
+      ),
+      page.getByRole('button', { name: 'Generate meal plan' }).click(),
+    ])
+    expect(generateResponse.ok()).toBe(true)
+
+    // After a successful generate, FirstTimeSetup unmounts in favour of
+    // TimelineView — wait for the Welcome heading to disappear so we know the
+    // server-rendered plan has hydrated.
+    await expect(page.getByRole('heading', { name: /^Welcome to Honkadori/ })).toBeHidden()
 
     // Discover plan + entries via API so we know a concrete ingredient and
     // quantityPerServing to drive the deduction assertion.
