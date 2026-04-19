@@ -15,6 +15,11 @@ allowed-tools:
 
 Find the next unblocked issue and return a concise implementation summary.
 
+## Modes
+
+- **Default:** find any unblocked, unclaimed issue ready to implement.
+- **No-human-input mode:** triggered when the user asks for issues that can be done "without input", "autonomously", "fully by an agent", "pure code", or similar. Applies **extra** filters in step 5 — everything else identical.
+
 ## Workflow
 
 1. **Read project context**
@@ -25,46 +30,56 @@ Find the next unblocked issue and return a concise implementation summary.
 
    Review for current phase and relevant context.
 
-2. **Search for issues (priority order)**
+2. **List unassigned Backlog and Todo issues**
 
-   Search in this order, stopping when unblocked issues are found:
-
-   **a) Todo/Active issues (highest priority):**
+   Always pass `assignee: "null"` — never list all issues and filter client-side. Never list issues with any other state (In Progress / In Review / Done / Canceled issues are already claimed or complete).
 
    ```
-   mcp__linear-server__list_issues({
-     state: "Todo",
-     limit: 20
-   })
+   mcp__linear-server__list_issues({ state: "Todo",    assignee: "null", limit: 20 })
+   mcp__linear-server__list_issues({ state: "Backlog", assignee: "null", limit: 20 })
    ```
 
-   **b) Backlog issues:**
+3. **MANDATORY: Verify every candidate with `includeRelations: true`**
 
-   ```
-   mcp__linear-server__list_issues({
-     state: "Backlog",
-     limit: 20
-   })
-   ```
-
-3. **Check dependencies for candidate issues**
-   For each promising issue, fetch with relations:
+   Before a candidate can enter the output list, re-fetch it:
 
    ```
    mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
    ```
 
-4. **Find unblocked issues**
-   An issue is unblocked if:
-   - `blockedBy` is empty, OR
-   - All issues in `blockedBy` have status "Done" or "Canceled"
+   This is non-negotiable. `list_issues` does not return the `relations` field, so blockers are invisible without this step.
 
-5. **Prioritize by**
-   - Status: Todo/Active before Backlog
-   - Dependency order (issues that unblock others first - check `blocks` array)
-   - Priority field if set
+4. **Hard filters — reject the candidate if ANY of these fail**
 
-6. **Quick codebase scan**
+   - `status` must be one of: `Backlog`, `Todo`. Reject `In Progress`, `In Review`, `Done`, `Canceled`, `Triage`.
+   - `assignee` must be `null`. Reject any issue with an assignee, even "me" — it's already claimed.
+   - Every id in `relations.blockedBy` must resolve to a `status` of `Done` or `Canceled`. An empty `blockedBy` array passes. An open blocker (Backlog / Todo / In Progress / In Review) fails.
+   - `statusType` must not be `triage` or `canceled`.
+
+   If any filter rejects the candidate, discard it and pick another — **do not downgrade the candidate to a "caveat" or include it anyway**. Silent failures here are the primary failure mode this skill exists to prevent.
+
+5. **No-human-input mode — additional filters**
+
+   When the user asked for issues doable "without human input", also reject the candidate if the description or acceptance criteria imply any of:
+
+   - Third-party account provisioning (Upstash, PostHog, Sentry, Resend, Chromatic, Anthropic console, etc.)
+   - New environment variables / secrets on Vercel or elsewhere
+   - DNS changes (SPF/DKIM/DMARC, subdomain setup, registrar actions)
+   - Legal / copy review (privacy policy text, ToS, company entity details, parental consent wording)
+   - Design assets (OG images, branded graphics, mockups)
+   - Ops access (authenticated CLI like `neonctl` against production, Vercel dashboard edits, GitHub org settings)
+   - Shared-state side effects (staging DB writes that can't be reset, sending real emails, outbound API calls that cost money)
+
+   Skim for red-flag phrases: "add env var", "add secret", "configure DNS", "sign up", "provision", "API key", "`support@`", "legal entity", "OÜ", "Resend", "Upstash", "PostHog", "Sentry", "Anthropic console", "Vercel dashboard".
+
+   `[DRAFT]` in the title is not an automatic reject in no-human-input mode — but flag it clearly in the output so the user knows the spec hasn't been refined yet.
+
+6. **Prioritize surviving candidates**
+   - Todo before Backlog
+   - Issues that unblock others (large `blocks` array) before leaf issues
+   - Higher priority (lower `priority.value`) before lower
+
+7. **Quick codebase scan**
    Read key files mentioned in the issue description to identify:
    - Files to modify
    - Existing patterns to follow
@@ -131,3 +146,5 @@ If no unblocked issues found:
 - Prioritize issues that unblock others
 - Always include the `gitBranchName` from Linear in the parallel commands
 - The `wt auto` command accepts branch names and extracts the issue ID automatically
+- **Every returned candidate must have passed step 4's hard filters via a `get_issue` call with `includeRelations: true`.** Never surface a candidate based on `list_issues` output alone — that endpoint hides `relations` and can disagree with the prose "Blocked by" section. If fewer than 3 candidates survive the filters, return only what survives; do not pad the list.
+- When the user asks for a refined variation ("find me three without blockers", "that don't need input", "pure code only"), re-invoke this skill rather than ad-hoc-delegating to a general-purpose agent — the skill's filters are the reason it exists.
