@@ -9,6 +9,7 @@ import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
 import { TIPS_MODEL } from '@/lib/ai/models'
 import { parseStoredTips } from '@/lib/tips'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import type { StructuredTips } from '@/components/meal-plan/types'
 
 function getErrorStatusCode(err: unknown): number | undefined {
@@ -103,6 +104,23 @@ export async function POST(
         return NextResponse.json({ tips: cached }, { status: 200 })
       }
       // Old format — fall through to regenerate
+    }
+
+    // Gate after the cache hit: cached reads shouldn't burn rate-limit tokens,
+    // only AI calls should. Modal reopens on a cached entry are free.
+    const rateLimitResult = await checkRateLimit(household.id, 'meal-prep-tips')
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        {
+          error: 'Rate limit exceeded',
+          message: `Maximum ${rateLimitResult.limit} preparation tip requests per hour`,
+          resetAt: rateLimitResult.resetAt.toISOString(),
+        },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(retryAfterSeconds(rateLimitResult)) },
+        },
+      )
     }
 
     const householdSize = await getHouseholdMemberCount(household.id)

@@ -17,9 +17,9 @@ vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
 }))
 
-vi.mock('@/lib/meal-planning/rate-limit', () => ({
+vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: vi.fn(),
-  recordGeneration: vi.fn(),
+  retryAfterSeconds: vi.fn(() => 60),
 }))
 
 vi.mock('@/lib/ai/generate-plan', () => ({
@@ -37,7 +37,7 @@ vi.mock('@/lib/meal-planning/dates', () => ({
 
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { checkRateLimit, recordGeneration } from '@/lib/meal-planning/rate-limit'
+import { checkRateLimit } from '@/lib/rate-limit'
 import { generateMealPlan, createEmptyPlan, fillEmptySlots } from '@/lib/ai/generate-plan'
 import {
   MealPlanValidationError,
@@ -48,7 +48,6 @@ import {
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockCheckRateLimit = vi.mocked(checkRateLimit)
-const mockRecordGeneration = vi.mocked(recordGeneration)
 const mockGenerateMealPlan = vi.mocked(generateMealPlan)
 const mockCreateEmptyPlan = vi.mocked(createEmptyPlan)
 const mockFillEmptySlots = vi.mocked(fillEmptySlots)
@@ -90,7 +89,12 @@ function createRequest(body?: unknown) {
 describe('POST /api/meal-plans/generate', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockCheckRateLimit.mockReturnValue({ allowed: true, remaining: 4, limit: 5 })
+    mockCheckRateLimit.mockResolvedValue({
+      allowed: true,
+      remaining: 4,
+      limit: 5,
+      resetAt: new Date('2026-02-01T12:00:00.000Z'),
+    })
   })
 
   it('returns 401 when not authenticated', async () => {
@@ -114,10 +118,10 @@ describe('POST /api/meal-plans/generate', () => {
     expect(data.error).toBe('No household found')
   })
 
-  it('returns 429 when rate limited', async () => {
+  it('returns 429 with Retry-After header when rate limited', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockCheckRateLimit.mockReturnValue({
+    mockCheckRateLimit.mockResolvedValue({
       allowed: false,
       remaining: 0,
       limit: 5,
@@ -128,6 +132,7 @@ describe('POST /api/meal-plans/generate', () => {
     const data = await response.json()
 
     expect(response.status).toBe(429)
+    expect(response.headers.get('Retry-After')).toBe('60')
     expect(data.error).toBe('Rate limit exceeded')
     expect(data.resetAt).toBe('2026-02-01T12:00:00.000Z')
   })
@@ -209,7 +214,7 @@ describe('POST /api/meal-plans/generate', () => {
         endDate: expect.any(Date),
       }),
     )
-    expect(mockRecordGeneration).toHaveBeenCalledWith('household-123', 'plan-generation')
+    expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'plan-generation')
   })
 
   it('returns 200 for empty mode', async () => {
@@ -233,7 +238,7 @@ describe('POST /api/meal-plans/generate', () => {
         endDate: expect.any(Date),
       }),
     )
-    expect(mockRecordGeneration).toHaveBeenCalledWith('household-123', 'plan-generation')
+    expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'plan-generation')
   })
 
   it('returns 400 for fill-empty mode without planId', async () => {
@@ -279,7 +284,7 @@ describe('POST /api/meal-plans/generate', () => {
         endDate: expect.any(Date),
       }),
     )
-    expect(mockRecordGeneration).toHaveBeenCalledWith('household-123', 'plan-generation')
+    expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'plan-generation')
   })
 
   it('returns 422 when AI validation fails', async () => {

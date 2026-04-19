@@ -24,6 +24,8 @@ export default defineConfig({
       NEXT_PUBLIC_APP_ENV: 'test',
       BETTER_AUTH_SECRET: 'test-secret-key-at-least-32-characters-long-for-testing',
       ANTHROPIC_API_KEY: 'sk-ant-test-key-for-vitest',
+      UPSTASH_REDIS_REST_URL: 'https://test.upstash.io',
+      UPSTASH_REDIS_REST_TOKEN: 'test-upstash-token',
     },
     // quality-of-life defaults
     testTimeout: 10000,

@@ -67,10 +67,16 @@ vi.mock('@/lib/meal-planning/nutrition', () => ({
   })),
 }))
 
+vi.mock('@/lib/rate-limit', () => ({
+  checkRateLimit: vi.fn(),
+  retryAfterSeconds: vi.fn(() => 120),
+}))
+
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { getCandidates } from '@/lib/meal-planning/candidates'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -79,6 +85,7 @@ const mockFindManyEntries = vi.mocked(prisma.mealPlanEntry.findMany)
 const mockFindManyFavorites = vi.mocked(prisma.favoriteMeal.findMany)
 const mockFindManyMeals = vi.mocked(prisma.meal.findMany)
 const mockGetCandidates = vi.mocked(getCandidates)
+const mockCheckRateLimit = vi.mocked(checkRateLimit)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -116,6 +123,31 @@ const mockEntry = {
 describe('POST /api/meal-plans/[id]/entries/[entryId]/suggestions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockCheckRateLimit.mockResolvedValue({
+      allowed: true,
+      remaining: 59,
+      limit: 60,
+      resetAt: new Date('2026-02-01T12:00:00.000Z'),
+    })
+  })
+
+  it('returns 429 with Retry-After header when rate limited', async () => {
+    mockGetSession.mockResolvedValue(mockSession)
+    mockGetMembership.mockResolvedValue(mockMembership)
+    mockCheckRateLimit.mockResolvedValue({
+      allowed: false,
+      remaining: 0,
+      limit: 60,
+      resetAt: new Date('2026-02-01T12:00:00.000Z'),
+    })
+
+    const response = await POST(createRequest(), { params: createParams() })
+    const data = await response.json()
+
+    expect(response.status).toBe(429)
+    expect(response.headers.get('Retry-After')).toBe('120')
+    expect(data.error).toBe('Rate limit exceeded')
+    expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'meal-suggestions')
   })
 
   it('returns 401 when not authenticated', async () => {

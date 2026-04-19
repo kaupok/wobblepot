@@ -64,6 +64,18 @@ const serverOnlyEnvSchema = z.object({
     .email('RESEND_FROM_EMAIL must be a valid email address')
     .optional()
     .describe('Email address to send from (must be verified in Resend)'),
+
+  UPSTASH_REDIS_REST_URL: z
+    .string()
+    .url('UPSTASH_REDIS_REST_URL must be a valid URL')
+    .describe(
+      'Upstash Redis REST URL (auto-injected by the Vercel Marketplace Upstash integration on deploy)',
+    ),
+
+  UPSTASH_REDIS_REST_TOKEN: z
+    .string()
+    .min(1, 'UPSTASH_REDIS_REST_TOKEN is required for rate limiting')
+    .describe('Upstash Redis REST token (auto-injected by the Vercel Marketplace integration)'),
 })
 
 /**
@@ -151,6 +163,8 @@ export const serverEnv = new Proxy(
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
+    UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
+    UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
   } as z.infer<typeof serverEnvSchema>,
   {
     get(target, prop) {
