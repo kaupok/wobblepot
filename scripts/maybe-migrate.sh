@@ -44,8 +44,8 @@ if [ -n "${NEON_API_KEY:-}" ] && [ -n "${NEON_PROJECT_ID:-}" ]; then
       -H "Accept: application/json" \
       "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/endpoints" 2>/dev/null || true)
 
-    if [ -n "$endpoints_response" ] && echo "$endpoints_response" | grep -q '"endpoints"'; then
-      if ! echo "$endpoints_response" | grep -q "\"id\":\"${endpoint_id}\""; then
+    if [ -n "$endpoints_response" ] && echo "$endpoints_response" | grep -qE '"endpoints"[[:space:]]*:'; then
+      if ! echo "$endpoints_response" | grep -qE "\"id\"[[:space:]]*:[[:space:]]*\"${endpoint_id}\""; then
         cat >&2 <<EOF
 Endpoint ${endpoint_id} is not present in Neon project ${NEON_PROJECT_ID}.
 Vercel env var for this preview is stale — re-trigger the Vercel-Neon

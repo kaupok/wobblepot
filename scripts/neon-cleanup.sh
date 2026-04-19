@@ -124,16 +124,16 @@ is_safe_to_delete() {
   local mode="$1" branch_json
   branch_json=$(cat)
 
-  local name primary protected
+  local name is_default is_protected
   name=$(printf '%s' "$branch_json" | jq -r '.name // ""')
-  primary=$(printf '%s' "$branch_json" | jq -r '.primary // false')
-  protected=$(printf '%s' "$branch_json" | jq -r '.protected // false')
+  is_default=$(printf '%s' "$branch_json" | jq -r '.default // .primary // false')
+  is_protected=$(printf '%s' "$branch_json" | jq -r '.protected // false')
 
   if ! [[ "$name" =~ $SAFE_BRANCH_REGEX ]]; then
     return 1
   fi
-  if [ "$primary" = "true" ] || [ "$protected" = "true" ]; then
-    warn "skip $name: primary=$primary protected=$protected"
+  if [ "$is_default" = "true" ] || [ "$is_protected" = "true" ]; then
+    warn "skip $name: default=$is_default protected=$is_protected"
     return 1
   fi
   local allowed
@@ -265,18 +265,30 @@ cmd_sweep() {
 cmd_delete_for_branch() {
   local git_branch="${1:-}"
   [ -n "$git_branch" ] || fail "usage: delete-for-branch <git-branch>"
-  require_env
 
   local hon_num=""
   if [[ "$git_branch" =~ ^auto--hon-([0-9]+)$ ]]; then
     hon_num="${BASH_REMATCH[1]}"
   elif [ -n "${PR_BODY:-}" ]; then
-    hon_num=$(printf '%s' "$PR_BODY" | grep -oE 'Closes HON-[0-9]+' | head -n1 | grep -oE '[0-9]+$' || true)
+    # GitHub recognises close/fix/resolve (+ closed/fixes/resolved/…) in any case.
+    hon_num=$(printf '%s' "$PR_BODY" \
+      | grep -oiE '(close[sd]?|fix(e[sd])?|resolve[sd]?)[[:space:]]+HON-[0-9]+' \
+      | head -n1 \
+      | grep -oE '[0-9]+$' || true)
   fi
 
   if [ -z "$hon_num" ]; then
     log "no auto--hon-<N> branch to reap for '$git_branch' — nothing to do"
     return 0
+  fi
+
+  # Only assert env once we know there is actual work to do, and keep the
+  # merge path independent of LINEAR_API_KEY (which it doesn't use).
+  local missing=()
+  [ -z "${NEON_API_KEY:-}" ]    && missing+=("NEON_API_KEY")
+  [ -z "${NEON_PROJECT_ID:-}" ] && missing+=("NEON_PROJECT_ID")
+  if [ "${#missing[@]}" -gt 0 ]; then
+    fail "missing required env: ${missing[*]}"
   fi
 
   local target_name="auto--hon-${hon_num}"
