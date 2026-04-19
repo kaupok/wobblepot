@@ -141,6 +141,42 @@ For production use:
 - Development emails only reach the account owner
 - Use Resend's email preview to test templates
 
+## Upstash Redis (rate limiting)
+
+Upstash Redis backs the rate limiter introduced in HON-451. All AI endpoints (`/api/meal-plans/generate`, `/api/meals/imagine`, `/api/recipes/parse`, meal-plan preparation tips + suggestions) require `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`; missing values cause a 500 on the first rate-limit-gated request.
+
+### Local dev
+
+1. Create a free DB at [console.upstash.com/redis](https://console.upstash.com/redis) (Global region is fine; free tier covers 500k commands/month).
+2. On the DB's **Details** page → **Connect → REST** tab, reveal and copy the `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` lines.
+3. Paste into `.env` (this repo uses a single `.env` locally, not `.env.local`).
+
+### Vercel (deployed environments)
+
+1. Install the [Upstash Redis integration](https://vercel.com/marketplace/upstash) on the `honkadori` project. Recommended settings:
+   - **Create New Upstash Account (Vercel Native)** for simpler billing.
+   - **Eviction: ON** — keys have TTLs, so eviction never drops anything load-bearing; it just keeps the endpoint healthy if the DB fills up.
+   - Environments: Dev / Preview / Production.
+   - Custom Prefix: leave blank.
+2. **Gotcha — env var naming.** The integration injects values under Vercel's legacy KV names (`KV_REST_API_URL`, `KV_REST_API_TOKEN`, `KV_URL`, etc.), not `UPSTASH_REDIS_REST_*`. The app's env schema expects the `UPSTASH_REDIS_REST_*` names, so these don't wire up automatically.
+3. In **Project Settings → Environment Variables**, manually add two vars using the values from the Upstash console's **Details → Connect → REST** tab:
+   - `UPSTASH_REDIS_REST_URL`
+   - `UPSTASH_REDIS_REST_TOKEN`
+
+   Scope both to **all** environments — Dev, Preview, Production, and any custom environments (e.g. `staging`). Vercel Marketplace integrations cannot target custom environments (the `...` menu on integration-managed vars only offers Manage / Copy / Remove), so these manual entries are the only way staging gets values.
+
+4. Leave the auto-injected `KV_*` vars in place — they're integration-managed, read-only, and harmless.
+
+### Token rotation
+
+Since the two `UPSTASH_REDIS_REST_*` vars are entered manually, Upstash-side token rotation won't propagate automatically. If you rotate, re-copy from the REST tab into each env scope. Low-risk for rate limiting.
+
+### Verify after provisioning
+
+- Preview deploy: `/api/meal-plans/generate` returns 200, not 500.
+- Upstash Data Browser shows keys like `ratelimit:household:plan-generation:{id}` after an AI call.
+- Trigger 6 generations within an hour from the same household → the 6th returns 429 with a `Retry-After` header.
+
 ## Neon Database Branching (optional)
 
 When `NEON_API_KEY` and `NEON_PROJECT_ID` are set, `wt new` / `wt auto` provision a per-worktree [Neon branch](https://neon.com/guides/git-worktrees-neon-branching) — an isolated copy-on-write copy of the database forked from a parent branch (default `staging`). Each worktree gets its own `DATABASE_URL`, so `pnpm db:migrate` in one worktree does not clobber the schema in another. `wt cleanup` removes the paired Neon branch automatically.
