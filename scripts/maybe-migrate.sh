@@ -1,6 +1,13 @@
 #!/bin/bash
 # Preview-only `prisma migrate deploy` with retry to absorb Neon cold-start races.
 # Skips on production and main branch (where preview DBs aren't relevant).
+#
+# Two layers of resilience against Neon auto-suspend (builds on HON-422):
+# 1. Per-attempt: append ?connect_timeout=30 to DATABASE_URL_UNPOOLED so each
+#    Prisma connect call actually waits for a waking compute instead of
+#    giving up in the default ~5s. This alone usually covers cold-start.
+# 2. Across attempts: up to 5 retries with 15s backoff to cover edge cases
+#    (branch creation mid-build, DNS propagation lag, intermittent Neon blips).
 set -eu
 
 if [ "${VERCEL_ENV:-}" != "preview" ] || \
@@ -10,8 +17,18 @@ if [ "${VERCEL_ENV:-}" != "preview" ] || \
   exit 0
 fi
 
-MAX_ATTEMPTS=3
-BACKOFF_SEC=10
+# Idempotently extend the Prisma connect timeout so attempts wait for Neon wake.
+if [[ "$DATABASE_URL_UNPOOLED" != *"connect_timeout="* ]]; then
+  if [[ "$DATABASE_URL_UNPOOLED" == *"?"* ]]; then
+    DATABASE_URL_UNPOOLED="${DATABASE_URL_UNPOOLED}&connect_timeout=30"
+  else
+    DATABASE_URL_UNPOOLED="${DATABASE_URL_UNPOOLED}?connect_timeout=30"
+  fi
+  export DATABASE_URL_UNPOOLED
+fi
+
+MAX_ATTEMPTS=5
+BACKOFF_SEC=15
 
 for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
   if pnpm prisma migrate deploy; then

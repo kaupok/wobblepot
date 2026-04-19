@@ -2,9 +2,9 @@
 
 ## Current Status
 
-**Mode:** Iterative refinement toward Minimal Lovable Product (MLP)
+**Mode:** Launch readiness for public EU beta
 
-We're past the foundation phases and into continuous improvement. No fixed remaining issue list - we iterate until it feels right.
+Foundation and core flows are complete (AI planning, shopping, pantry, auth, household management). Open work is the launch-readiness band: GDPR/legal, production observability, abuse protection, email deliverability, and launch hygiene (metadata, uptime). Target launch geography is EU-wide including UK-GDPR — the compliance bar is the full GDPR surface, not "soft launch to friends". First real-world user is still a family of 3 (2-year-old, second child on the way); the bar is set at public-beta because retrofitting compliance later is worse than paying the cost upfront.
 
 <!-- prettier-ignore -->
 ```typescript
@@ -25,7 +25,7 @@ mcp__linear-server__list_issues({})
 
 ### Target Users
 
-Families with young children. Initial test: family of 3 (2-year-old, second child on the way).
+Target audience for public EU beta: families with young children across EU/EEA and UK. Initial real-world user: family of 3 (2-year-old, second child on the way).
 
 ### Core Value Proposition
 
@@ -449,11 +449,23 @@ Key enums: `DietaryType`, `MealType`, `MealPlanEntryStatus`, `Unit`, `Ingredient
 
 ## Success Criteria
 
+### Product quality (gates on "does it work")
+
 - [ ] Use for 2+ weeks of meal planning
 - [ ] Generate useful, balanced meal suggestions
 - [ ] Accurate shopping lists
 - [ ] Mobile interface we actually want to use
 - [ ] Saves time vs manual planning
+
+### Launch readiness (gates on "can we take EU sign-ups")
+
+- [ ] Legal: Privacy Policy + Terms published; consent captured at sign-up; DPAs signed with Anthropic, Resend, Vercel, Neon
+- [ ] GDPR user rights: data export (Art. 20), grace-window deletion (Art. 17), parental consent for under-16 (Art. 8)
+- [ ] Observability: PostHog installed behind cookie consent; errors, web vitals, and core funnels captured
+- [ ] Abuse protection: durable rate limits (Upstash Redis) on auth + generation; AI per-household cost cap
+- [ ] Email: SPF/DKIM/DMARC aligned; password-reset reliably lands in inbox
+- [ ] CI safety net: E2E re-enabled in CI; sign-up, generation, invite, and shopping→pantry flows covered
+- [ ] Launch hygiene: `/api/health` + uptime monitor; `not-found.tsx`, `robots.ts`, `sitemap.ts`, OG metadata
 
 ---
 
