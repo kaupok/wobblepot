@@ -622,7 +622,7 @@ cmd_auto() {
 
   # Start Claude Code with permissions bypassed and auto-implement prompt
   # Unset ANTHROPIC_API_KEY so Claude CLI uses Max subscription instead of API credits
-  exec env -u ANTHROPIC_API_KEY claude --dangerously-skip-permissions --model 'claude-opus-4-6[1m]' "$prompt"
+  exec env -u ANTHROPIC_API_KEY claude --dangerously-skip-permissions --model 'claude-opus-4-7[1m]' "$prompt"
 }
 
 # Resume existing worktree
