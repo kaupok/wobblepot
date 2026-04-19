@@ -14,6 +14,21 @@ const BREACHED_PASSWORD_MESSAGE =
   'That password appears in known data breaches. Please pick a different one.'
 
 /**
+ * Wraps Better Auth's default scrypt with an HIBP breach check. Exported
+ * so it can be unit-tested in isolation and so a wiring assertion can
+ * verify it is actually used by `emailAndPassword.password.hash`.
+ */
+export async function hashPasswordWithBreachCheck(password: string): Promise<string> {
+  if (await isPasswordBreached(password)) {
+    throw new APIError('BAD_REQUEST', {
+      message: BREACHED_PASSWORD_MESSAGE,
+      code: 'PASSWORD_COMPROMISED',
+    })
+  }
+  return hashPassword(password)
+}
+
+/**
  * Creates a household for a new user with default preferences
  * Called after user signup to set up their initial household
  */
@@ -84,24 +99,6 @@ export const auth = betterAuth({
   trustedOrigins: [getServerBaseURL()],
 
   /**
-   * Custom password hashing that runs an HIBP breach check before
-   * delegating to Better Auth's default scrypt. `hash` is only invoked
-   * when storing a new password (sign-up, reset, change), so existing
-   * users with shorter or known-breached passwords keep working.
-   */
-  password: {
-    hash: async (password: string) => {
-      if (await isPasswordBreached(password)) {
-        throw new APIError('BAD_REQUEST', {
-          message: BREACHED_PASSWORD_MESSAGE,
-          code: 'PASSWORD_COMPROMISED',
-        })
-      }
-      return hashPassword(password)
-    },
-  },
-
-  /**
    * Email and password authentication configuration
    */
   emailAndPassword: {
@@ -116,6 +113,15 @@ export const auth = betterAuth({
      * minimum is enforced at sign-up and password reset only.
      */
     minPasswordLength: MIN_PASSWORD_LENGTH,
+    /**
+     * HIBP breach check before storing a new password.
+     * `hash` is only invoked when storing a new password (sign-up, reset,
+     * change), so existing users with shorter or known-breached passwords
+     * keep working — `verify` still uses the default scrypt path.
+     */
+    password: {
+      hash: hashPasswordWithBreachCheck,
+    },
     /**
      * Password reset email handler
      * Sends email via Resend. Errors are logged but not thrown
