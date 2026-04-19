@@ -836,6 +836,8 @@ git branch -d [branch-name] || git branch -D [branch-name]
 
 Cannot fetch into main (already checked out in parent worktree). Skip local cleanup - the worktree will be removed by the user.
 
+**Neon branch cleanup:** No action needed here. `.github/workflows/neon-cleanup.yml` is the source of truth — it fires on `pull_request.closed` with `merged == true` and reaps the paired `auto--hon-<N>` Neon branch. A weekly sweep catches anything that escapes. See [`docs/RUNBOOKS/neon-branch-gc.md`](../../../docs/RUNBOOKS/neon-branch-gc.md).
+
 ### 7.6 Report completion
 
 **Regular repo mode:**

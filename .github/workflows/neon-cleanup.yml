@@ -1,0 +1,75 @@
+# Neon branch garbage collection for stale `auto--hon-*` branches.
+#
+# Two jobs, three triggers:
+#   - on-merge: runs when a PR is merged; deletes the paired Neon branch
+#   - sweep:    weekly cron + manual dispatch; deletes stale auto--hon-* branches
+#               whose linked Linear issue is Done/Canceled and age > 24h
+#
+# Runbook: docs/RUNBOOKS/neon-branch-gc.md
+# Safety invariants live in scripts/neon-cleanup.sh.
+
+name: Neon cleanup
+
+on:
+  pull_request:
+    types: [closed]
+  schedule:
+    - cron: '17 3 * * 1' # Monday 03:17 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (log only, no DELETE calls)'
+        type: boolean
+        default: true
+      min_age_hours:
+        description: 'Only delete branches older than N hours (0 for initial cleanup)'
+        type: string
+        default: '24'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: neon-cleanup
+  cancel-in-progress: false
+
+jobs:
+  on-merge:
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+      LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+      NEON_CLEANUP_DRY_RUN: ${{ vars.NEON_CLEANUP_DRY_RUN || '1' }}
+      PR_BODY: ${{ github.event.pull_request.body }}
+      # Branch names can contain shell metacharacters; route via env + quoted
+      # expansion instead of interpolating into `run:` directly.
+      HEAD_REF: ${{ github.event.pull_request.head.ref }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Delete paired auto--hon-* Neon branch
+        run: ./scripts/neon-cleanup.sh delete-for-branch "$HEAD_REF"
+
+  sweep:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+      LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+      # workflow_dispatch boolean input overrides the repo variable default.
+      # Scheduled runs use the repo variable (NEON_CLEANUP_DRY_RUN, default '1').
+      NEON_CLEANUP_DRY_RUN: ${{ github.event.inputs.dry_run == 'false' && '0' || (github.event.inputs.dry_run == 'true' && '1' || (vars.NEON_CLEANUP_DRY_RUN || '1')) }}
+      NEON_CLEANUP_MIN_AGE_HOURS: ${{ github.event.inputs.min_age_hours || '24' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sweep stale auto--hon-* Neon branches
+        run: ./scripts/neon-cleanup.sh sweep
