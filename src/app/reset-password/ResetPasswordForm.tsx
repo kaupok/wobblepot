@@ -41,8 +41,8 @@ export function ResetPasswordForm() {
     }
 
     // Validate password length
-    if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters long')
+    if (newPassword.length < 12) {
+      setError('Password must be at least 12 characters long')
       return
     }
 
@@ -99,9 +99,13 @@ export function ResetPasswordForm() {
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
                 disabled={isLoading || !token}
-                minLength={8}
-                placeholder="At least 8 characters"
+                minLength={12}
+                placeholder="At least 12 characters"
+                aria-describedby="password-hint"
               />
+              <Body id="password-hint" variant="small" className="text-muted-foreground">
+                Use at least 12 characters. Avoid passwords from past data breaches.
+              </Body>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="confirmPassword">Confirm password</Label>
@@ -112,7 +116,7 @@ export function ResetPasswordForm() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 disabled={isLoading || !token}
-                minLength={8}
+                minLength={12}
                 placeholder="Re-enter your password"
               />
             </div>

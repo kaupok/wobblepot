@@ -54,10 +54,10 @@ describe('getUserFriendlyError', () => {
 
     it('handles password too short error', () => {
       expect(getUserFriendlyError('Password too short')).toBe(
-        'Password must be at least 8 characters long.',
+        'Password must be at least 12 characters long.',
       )
       expect(getUserFriendlyError('Password minimum length not met')).toBe(
-        'Password must be at least 8 characters long.',
+        'Password must be at least 12 characters long.',
       )
     })
 
@@ -68,6 +68,18 @@ describe('getUserFriendlyError', () => {
       expect(getUserFriendlyError('Weak password provided')).toBe(
         'Please choose a stronger password.',
       )
+    })
+
+    it('handles breached/compromised password error', () => {
+      const expected = 'That password appears in known data breaches. Please pick a different one.'
+      expect(
+        getUserFriendlyError(
+          'That password appears in known data breaches. Please pick a different one.',
+        ),
+      ).toBe(expected)
+      expect(getUserFriendlyError('The password you entered has been compromised.')).toBe(expected)
+      expect(getUserFriendlyError('Password found in data breach')).toBe(expected)
+      expect(getUserFriendlyError('This password is pwned')).toBe(expected)
     })
   })
 

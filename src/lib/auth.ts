@@ -1,9 +1,32 @@
 import { betterAuth } from 'better-auth'
+import { APIError } from 'better-auth/api'
+import { hashPassword } from 'better-auth/crypto'
 import { prismaAdapter } from '@better-auth/prisma-adapter'
 import { prisma, type PrismaClientType } from '@/lib/prisma'
 import { serverEnv, getServerBaseURL } from '@/lib/env'
 import { resend, isEmailConfigured } from '@/lib/resend'
 import { generateResetPasswordEmail } from '@/lib/emails/reset-password'
+import { isPasswordBreached } from '@/lib/breached-password'
+
+const MIN_PASSWORD_LENGTH = 12
+
+const BREACHED_PASSWORD_MESSAGE =
+  'That password appears in known data breaches. Please pick a different one.'
+
+/**
+ * Wraps Better Auth's default scrypt with an HIBP breach check. Exported
+ * so it can be unit-tested in isolation and so a wiring assertion can
+ * verify it is actually used by `emailAndPassword.password.hash`.
+ */
+export async function hashPasswordWithBreachCheck(password: string): Promise<string> {
+  if (await isPasswordBreached(password)) {
+    throw new APIError('BAD_REQUEST', {
+      message: BREACHED_PASSWORD_MESSAGE,
+      code: 'PASSWORD_COMPROMISED',
+    })
+  }
+  return hashPassword(password)
+}
 
 /**
  * Creates a household for a new user with default preferences
@@ -85,10 +108,20 @@ export const auth = betterAuth({
      */
     autoSignIn: true,
     /**
-     * Password requirements (defaults shown)
-     * minPasswordLength: 8
-     * maxPasswordLength: 128
+     * Stricter than the Better Auth default of 8 — see HON-464.
+     * Existing users with shorter passwords are unaffected: the
+     * minimum is enforced at sign-up and password reset only.
      */
+    minPasswordLength: MIN_PASSWORD_LENGTH,
+    /**
+     * HIBP breach check before storing a new password.
+     * `hash` is only invoked when storing a new password (sign-up, reset,
+     * change), so existing users with shorter or known-breached passwords
+     * keep working — `verify` still uses the default scrypt path.
+     */
+    password: {
+      hash: hashPasswordWithBreachCheck,
+    },
     /**
      * Password reset email handler
      * Sends email via Resend. Errors are logged but not thrown

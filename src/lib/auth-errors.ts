@@ -54,11 +54,20 @@ export function getUserFriendlyError(message: string): string {
   if (lowerMessage.includes('invalid email') && !lowerMessage.includes('password')) {
     return 'Please enter a valid email address.'
   }
+  // Breached-password check (must come before generic "password weak" / "password short")
+  if (
+    lowerMessage.includes('compromised') ||
+    lowerMessage.includes('data breach') ||
+    lowerMessage.includes('breached') ||
+    lowerMessage.includes('pwned')
+  ) {
+    return 'That password appears in known data breaches. Please pick a different one.'
+  }
   if (
     lowerMessage.includes('password') &&
     (lowerMessage.includes('short') || lowerMessage.includes('minimum'))
   ) {
-    return 'Password must be at least 8 characters long.'
+    return 'Password must be at least 12 characters long.'
   }
   if (lowerMessage.includes('password') && lowerMessage.includes('weak')) {
     return 'Please choose a stronger password.'
