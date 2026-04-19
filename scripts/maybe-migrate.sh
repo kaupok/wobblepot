@@ -37,6 +37,10 @@ if [ -n "${NEON_API_KEY:-}" ] && [ -n "${NEON_PROJECT_ID:-}" ]; then
   host="${host%%/*}"
   host="${host%%:*}"
   endpoint_id="${host%%.*}"
+  # Neon's pooled host is `<endpoint-id>-pooler.<region>…`; the API's canonical
+  # endpoint id has no `-pooler` suffix. Normalise so a pooled URL accidentally
+  # landing in DATABASE_URL_UNPOOLED doesn't false-positive as "not present".
+  endpoint_id="${endpoint_id%-pooler}"
 
   if [[ "$endpoint_id" =~ ^ep-[a-z0-9-]+$ ]]; then
     endpoints_response=$(curl -sS --max-time 5 \

@@ -45,12 +45,15 @@ jobs:
       LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
       NEON_CLEANUP_DRY_RUN: ${{ vars.NEON_CLEANUP_DRY_RUN || '1' }}
       PR_BODY: ${{ github.event.pull_request.body }}
+      # Branch names can contain shell metacharacters; route via env + quoted
+      # expansion instead of interpolating into `run:` directly.
+      HEAD_REF: ${{ github.event.pull_request.head.ref }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Delete paired auto--hon-* Neon branch
-        run: ./scripts/neon-cleanup.sh delete-for-branch "${{ github.event.pull_request.head.ref }}"
+        run: ./scripts/neon-cleanup.sh delete-for-branch "$HEAD_REF"
 
   sweep:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

@@ -126,6 +126,9 @@ is_safe_to_delete() {
 
   local name is_default is_protected
   name=$(printf '%s' "$branch_json" | jq -r '.name // ""')
+  # Neon's `primary` field is deprecated in favour of `default` — read `default`
+  # with `primary` as the fallback so we're correct before and after Neon drops
+  # the deprecated field from the API.
   is_default=$(printf '%s' "$branch_json" | jq -r '.default // .primary // false')
   is_protected=$(printf '%s' "$branch_json" | jq -r '.protected // false')
 
@@ -241,18 +244,24 @@ cmd_sweep() {
     fi
   done <<< "$branches_json"
 
-  local verb="deleted"
-  [ "$DRY_RUN" = "1" ] && verb="would delete"
+  local verb_lower verb_title
+  if [ "$DRY_RUN" = "1" ]; then
+    verb_lower="would delete"
+    verb_title="Would delete"
+  else
+    verb_lower="deleted"
+    verb_title="Deleted"
+  fi
   local summary
   summary=$(printf 'neon-cleanup sweep: considered=%d %s=%d skipped_safety=%d skipped_status=%d dry_run=%s' \
-    "$considered" "$verb" "$deleted" "$skipped_safe" "$skipped_status" "$DRY_RUN")
+    "$considered" "$verb_lower" "$deleted" "$skipped_safe" "$skipped_status" "$DRY_RUN")
   log "$summary"
   if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     {
       echo "## Neon cleanup sweep"
       echo
       echo "- Considered: $considered"
-      echo "- $(printf '%s' "$verb" | sed 's/^./\U&/'): $deleted"
+      echo "- $verb_title: $deleted"
       echo "- Skipped (safety): $skipped_safe"
       echo "- Skipped (status): $skipped_status"
       echo "- Dry run: $DRY_RUN"
@@ -271,8 +280,10 @@ cmd_delete_for_branch() {
     hon_num="${BASH_REMATCH[1]}"
   elif [ -n "${PR_BODY:-}" ]; then
     # GitHub recognises close/fix/resolve (+ closed/fixes/resolved/…) in any case.
+    # Left-anchor on start-of-line or whitespace so "Discloses HON-N" doesn't
+    # match "closes HON-N" mid-word and wrongly reap an in-flight branch.
     hon_num=$(printf '%s' "$PR_BODY" \
-      | grep -oiE '(close[sd]?|fix(e[sd])?|resolve[sd]?)[[:space:]]+HON-[0-9]+' \
+      | grep -oiE '(^|[[:space:]])(close[sd]?|fix(e[sd])?|resolve[sd]?)[[:space:]]+HON-[0-9]+' \
       | head -n1 \
       | grep -oE '[0-9]+$' || true)
   fi
