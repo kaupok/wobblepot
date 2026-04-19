@@ -3,13 +3,13 @@ import { GET } from './route'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    $queryRawUnsafe: vi.fn(),
+    $queryRaw: vi.fn(),
   },
 }))
 
 import { prisma } from '@/lib/prisma'
 
-const mockQueryRawUnsafe = vi.mocked(prisma.$queryRawUnsafe)
+const mockQueryRaw = vi.mocked(prisma.$queryRaw)
 
 describe('GET /api/health', () => {
   beforeEach(() => {
@@ -18,7 +18,7 @@ describe('GET /api/health', () => {
   })
 
   it('returns 200 with ok status when DB is reachable', async () => {
-    mockQueryRawUnsafe.mockResolvedValue([{ '?column?': 1 }])
+    mockQueryRaw.mockResolvedValue([{ '?column?': 1 }])
 
     const response = await GET()
     const data = await response.json()
@@ -27,11 +27,11 @@ describe('GET /api/health', () => {
     expect(data.status).toBe('ok')
     expect(data.db).toBe('ok')
     expect(data.timestamp).toBeDefined()
-    expect(mockQueryRawUnsafe).toHaveBeenCalledWith('SELECT 1')
+    expect(mockQueryRaw).toHaveBeenCalled()
   })
 
   it('returns 503 when DB query fails', async () => {
-    mockQueryRawUnsafe.mockRejectedValue(new Error('Connection refused'))
+    mockQueryRaw.mockRejectedValue(new Error('Connection refused'))
 
     const response = await GET()
     const data = await response.json()
@@ -43,7 +43,7 @@ describe('GET /api/health', () => {
   })
 
   it('returns 503 when DB query times out', async () => {
-    mockQueryRawUnsafe.mockImplementation(
+    mockQueryRaw.mockImplementation(
       () => new Promise((resolve) => setTimeout(resolve, 5000)) as never,
     )
 
@@ -57,7 +57,7 @@ describe('GET /api/health', () => {
 
   it('includes commit SHA from VERCEL_GIT_COMMIT_SHA env var', async () => {
     vi.stubEnv('VERCEL_GIT_COMMIT_SHA', 'abc123def')
-    mockQueryRawUnsafe.mockResolvedValue([{ '?column?': 1 }])
+    mockQueryRaw.mockResolvedValue([{ '?column?': 1 }])
 
     const response = await GET()
     const data = await response.json()
@@ -67,7 +67,7 @@ describe('GET /api/health', () => {
 
   it('returns "local" as commit when VERCEL_GIT_COMMIT_SHA is not set', async () => {
     delete process.env.VERCEL_GIT_COMMIT_SHA
-    mockQueryRawUnsafe.mockResolvedValue([{ '?column?': 1 }])
+    mockQueryRaw.mockResolvedValue([{ '?column?': 1 }])
 
     const response = await GET()
     const data = await response.json()

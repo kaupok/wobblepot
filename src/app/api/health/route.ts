@@ -11,7 +11,7 @@ export async function GET() {
 
   try {
     await Promise.race([
-      prisma.$queryRawUnsafe('SELECT 1'),
+      prisma.$queryRaw`SELECT 1`,
       new Promise((_, reject) =>
         setTimeout(() => reject(new Error('DB probe timeout')), DB_TIMEOUT_MS),
       ),
