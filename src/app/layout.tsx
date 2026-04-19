@@ -32,8 +32,24 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'Honkadori',
+  metadataBase: new URL(getServerBaseURL()),
+  title: { default: 'Honkadori', template: '%s · Honkadori' },
   description: 'AI-powered weekly meal planning for families',
+  openGraph: {
+    title: 'Honkadori',
+    description: 'AI-powered weekly meal planning for families',
+    url: '/',
+    siteName: 'Honkadori',
+    images: [{ url: '/og-image.png', width: 1200, height: 630 }],
+    type: 'website',
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Honkadori',
+    description: 'AI-powered weekly meal planning for families',
+    images: ['/og-image.png'],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
