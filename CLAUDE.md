@@ -298,6 +298,8 @@ See [`.storybook/README.md`](./.storybook/README.md) for the play-function patte
 
 **Linear integration:** Use the `gitBranchName` field from Linear issues for branch names (auto-links branch to issue). Once a PR is created, don't update Linear status manually - automation handles it.
 
+**Linear issue reads — always pass `includeRelations: true`.** This rule applies to every `get_issue` call, not just inside skills. `list_issues` never returns relations, and the default `get_issue` response strips `blocks` / `blockedBy` / `relatedTo`. Before discussing, recommending, surfacing, or acting on an issue, re-fetch it with `includeRelations: true` and check the `status`, `assignee`, and `relations.blockedBy` fields. When delegating issue selection to a subagent, include the same requirement in the prompt — subagents default to reading titles and descriptions and miss structured fields unless told.
+
 **Before committing:** Run `pnpm lint && pnpm type-check && pnpm test`
 
 **Pre-commit hook:** Husky + lint-staged runs type-check, ESLint, and Prettier on staged files.

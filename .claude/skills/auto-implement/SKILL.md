@@ -120,48 +120,37 @@ Read docs/PROJECT_SPEC.md
 
 Review for current phase and relevant context.
 
-### 1.2 Search for issues (priority order)
+### 1.2 List unassigned Backlog / Todo issues
 
-Search in this order, stopping when unblocked issues are found:
-
-**a) Todo/Active issues (highest priority):**
+Always pass `assignee: "null"` — In Progress / In Review / Done / Canceled issues are already claimed or complete and must never be picked up by an autonomous cycle.
 
 ```
-mcp__linear-server__list_issues({
-  state: "Todo",
-  limit: 20
-})
+mcp__linear-server__list_issues({ state: "Todo",    assignee: "null", limit: 20 })
+mcp__linear-server__list_issues({ state: "Backlog", assignee: "null", limit: 20 })
 ```
 
-**b) Backlog issues:**
+### 1.3 MANDATORY: Verify every candidate with `includeRelations: true`
 
-```
-mcp__linear-server__list_issues({
-  state: "Backlog",
-  limit: 20
-})
-```
-
-### 1.3 Check dependencies for candidate issues
-
-For each promising issue, fetch with relations:
+`list_issues` does NOT return relations. Before a candidate can enter the selection pool, re-fetch it:
 
 ```
 mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
 ```
 
-### 1.4 Find unblocked issues
+### 1.4 Hard filters — reject the candidate if ANY of these fail
 
-An issue is unblocked if:
+- `status` ∈ { `Backlog`, `Todo` } — reject `In Progress`, `In Review`, `Done`, `Canceled`, `Triage`.
+- `assignee` is `null` — reject any assigned issue, including "me".
+- Every id in `relations.blockedBy` resolves to `status` ∈ { `Done`, `Canceled` }. Empty `blockedBy` passes. Any open blocker (Backlog / Todo / In Progress / In Review) fails.
+- `statusType` is not `triage` or `canceled`.
 
-- `blockedBy` is empty, OR
-- All issues in `blockedBy` have status "Done" or "Canceled"
+If a candidate fails any filter, discard and pick another. Do not soften or bypass a filter to keep a candidate. An autonomous cycle that picks a claimed or blocked issue will collide with other work or stall at implementation — both are worse than having no issue to pick.
 
-### 1.5 Prioritize by
+### 1.5 Prioritize surviving candidates
 
-- Status: Todo/Active before Backlog
-- Dependency order (issues that unblock others first - check `blocks` array)
-- Priority field if set
+- Todo before Backlog
+- Issues that unblock others (larger `blocks` array) before leaf issues
+- Higher priority (lower `priority.value`) before lower
 
 ### 1.6 Select issue
 
