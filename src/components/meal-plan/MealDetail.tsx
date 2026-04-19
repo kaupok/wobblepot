@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
+import { NutritionDisclaimer } from '@/components/NutritionDisclaimer'
 import { NutritionSummary } from './NutritionSummary'
 import { IngredientList } from './IngredientList'
 import { computeMealAvailability } from './AvailabilityIndicator'
@@ -76,7 +77,10 @@ export function MealDetail({
     <div className="flex flex-col gap-4">
       {/* Nutrition summary */}
       {meal.nutrition && (
-        <NutritionSummary nutrition={meal.nutrition} components={meal.components} compact />
+        <div className="flex flex-col gap-1">
+          <NutritionSummary nutrition={meal.nutrition} components={meal.components} compact />
+          <NutritionDisclaimer className="text-xs" />
+        </div>
       )}
 
       {/* Time + Kid-friendly badge */}

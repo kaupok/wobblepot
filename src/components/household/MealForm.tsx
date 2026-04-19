@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { IngredientRow, type IngredientRowData } from '@/components/recipes/IngredientRow'
+import { NutritionDisclaimer } from '@/components/NutritionDisclaimer'
 import { NutritionSummary } from '@/components/meal-plan/NutritionSummary'
 import {
   type MealTypeValue,
@@ -583,6 +584,9 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
                       </Body>
                     </div>
                   )}
+                  <div className="mt-2">
+                    <NutritionDisclaimer className="text-xs" />
+                  </div>
                 </div>
               )}
             </section>
