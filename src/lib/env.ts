@@ -78,6 +78,13 @@ const serverOnlyEnvSchema = z.object({
     .describe(
       'Upstash Redis REST token. Must be set manually in Vercel (Marketplace integration injects KV_* names instead); see docs/ENVIRONMENT_SETUP.md § "Upstash Redis".',
     ),
+
+  STATUS_INCIDENT_MESSAGE: z
+    .string()
+    .optional()
+    .describe(
+      'Operator-set banner shown on /status during an incident. Empty/unset means no banner. See docs/RUNBOOKS/status-page.md.',
+    ),
 })
 
 /**
@@ -167,6 +174,7 @@ export const serverEnv = new Proxy(
     RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
+    STATUS_INCIDENT_MESSAGE: process.env.STATUS_INCIDENT_MESSAGE,
   } as z.infer<typeof serverEnvSchema>,
   {
     get(target, prop) {
