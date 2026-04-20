@@ -91,7 +91,7 @@ export const Disabled: Story = {
 }
 
 // Play stories — verify the three parent-callback contracts under
-// @storybook/test-runner.
+// @storybook/addon-vitest.
 
 export const ChangingQuantityInvokesCallback: Story = {
   play: async ({ args, canvasElement }) => {

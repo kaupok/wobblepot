@@ -230,7 +230,7 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **Storybook 10** with `@storybook/nextjs-vite` for component development and review in isolation.
 
-**Commands:** `pnpm storybook` (dev server on port 6006), `pnpm build-storybook` (static build), `pnpm test-storybook:ci` (build + serve + run a11y tests against every story)
+**Commands:** `pnpm storybook` (dev server on port 6006), `pnpm build-storybook` (static build), `pnpm test-storybook` (watch mode), `pnpm test-storybook:ci` (run every story once through `@storybook/addon-vitest` in Chromium — a11y gate + play functions)
 
 **Config:** `.storybook/main.ts` and `.storybook/preview.tsx`. Preview wires up Geist fonts, `globals.css`, `QueryClientProvider`, Next.js app-router mocking (`nextjs.appDirectory: true`), and a light/dark theme toggle via a custom `withTailwindTheme` decorator that toggles the `dark` class on `document.documentElement` so Radix portal content (Dialog, Select, DropdownMenu) inherits the theme.
 
@@ -259,7 +259,7 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 See [`.storybook/README.md`](./.storybook/README.md) for the play-function pattern (imports, `waitFor`, spies, MSW integration).
 
-**a11y gate:** Every story runs through axe via `@storybook/test-runner` in CI. `.storybook/preview.tsx` sets `a11y: { test: 'error' }`, so any violation fails the `Run Storybook a11y tests` step and blocks the PR. When adding a story:
+**a11y gate:** Every story runs through axe via `@storybook/addon-vitest` in CI. `.storybook/preview.tsx` sets `a11y: { test: 'error' }`, so any violation fails the `Run Storybook a11y tests` step and blocks the PR. When adding a story:
 
 - **Fix real violations** in the component or story (missing labels, low contrast, bad ARIA, etc.). Most are real bugs worth fixing.
 - **Waive false positives narrowly** at the story level with a `// WHY:` comment explaining why the rule doesn't apply. Keep waivers rule-scoped, not blanket skips:

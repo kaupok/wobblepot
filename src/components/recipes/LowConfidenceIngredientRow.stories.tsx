@@ -113,7 +113,7 @@ export const WithOriginalText: Story = {
 }
 
 // Play stories — verify `onUpdate` / `onRemove` contracts under
-// @storybook/test-runner. Radix Select content renders through a portal outside
+// @storybook/addon-vitest. Radix Select content renders through a portal outside
 // `canvasElement`, so option queries go through `within(document.body)`.
 
 export const SelectingAlternativeInvokesOnUpdate: Story = {

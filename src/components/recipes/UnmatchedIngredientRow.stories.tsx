@@ -94,7 +94,7 @@ export const NoResults: Story = {
 }
 
 // Play stories — verify `onResolve` and `onRemove` contracts under
-// @storybook/test-runner. Uses default MSW handler for `/api/ingredients`.
+// @storybook/addon-vitest. Uses default MSW handler for `/api/ingredients`.
 
 export const TypingShowsResults: Story = {
   play: async ({ canvasElement }) => {

@@ -1,35 +1,23 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { playwright } from '@vitest/browser-playwright'
+import { storybookTest } from '@storybook/addon-vitest/vitest-plugin'
 import { defineConfig } from 'vitest/config'
-import path from 'path'
+
+const dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
-  // Belt-and-suspenders so JSX never falls back to classic runtime
   esbuild: { jsx: 'automatic', jsxImportSource: 'react' },
 
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(dirname, './src'),
     },
   },
 
   test: {
-    environment: 'jsdom',
-    environmentOptions: { jsdom: { url: 'http://localhost' } }, // avoids URL/Location undefined errors
-    setupFiles: ['./vitest.setup.ts'],
-    globals: true, // or false if you prefer to import expect in tests
-    include: ['**/*.{test,spec}.?(c|m)[jt]s?(x)'],
-    exclude: ['**/node_modules/**', '**/dist/**', 'tests/e2e/**', 'e2e/**'],
-    // Set required environment variables for tests
-    env: {
-      NEXT_PUBLIC_APP_NAME: 'TestApp',
-      NEXT_PUBLIC_APP_ENV: 'test',
-      BETTER_AUTH_SECRET: 'test-secret-key-at-least-32-characters-long-for-testing',
-      ANTHROPIC_API_KEY: 'sk-ant-test-key-for-vitest',
-      UPSTASH_REDIS_REST_URL: 'https://test.upstash.io',
-      UPSTASH_REDIS_REST_TOKEN: 'test-upstash-token',
-    },
-    // quality-of-life defaults
-    testTimeout: 10000,
-    reporters: ['default'],
+    // Coverage is a root-level option in Vitest 4; it applies when tests are
+    // run with --coverage regardless of which project is selected.
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],
@@ -50,5 +38,48 @@ export default defineConfig({
         statements: 0,
       },
     },
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'unit',
+          environment: 'jsdom',
+          environmentOptions: { jsdom: { url: 'http://localhost' } },
+          setupFiles: ['./vitest.setup.ts'],
+          globals: true,
+          include: ['**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+          exclude: ['**/node_modules/**', '**/dist/**', 'tests/e2e/**', 'e2e/**', '**/*.stories.*'],
+          env: {
+            NODE_ENV: 'test',
+            NEXT_PUBLIC_APP_NAME: 'TestApp',
+            NEXT_PUBLIC_APP_ENV: 'test',
+            BETTER_AUTH_SECRET: 'test-secret-key-at-least-32-characters-long-for-testing',
+            ANTHROPIC_API_KEY: 'sk-ant-test-key-for-vitest',
+            UPSTASH_REDIS_REST_URL: 'https://test.upstash.io',
+            UPSTASH_REDIS_REST_TOKEN: 'test-upstash-token',
+          },
+          testTimeout: 10000,
+        },
+      },
+      {
+        extends: true,
+        plugins: [
+          storybookTest({
+            configDir: path.join(dirname, '.storybook'),
+            storybookScript: 'pnpm storybook --no-open',
+          }),
+        ],
+        test: {
+          name: 'storybook',
+          browser: {
+            enabled: true,
+            provider: playwright({}),
+            headless: true,
+            instances: [{ browser: 'chromium' }],
+          },
+          setupFiles: ['./.storybook/vitest.setup.ts'],
+        },
+      },
+    ],
   },
 })

@@ -35,10 +35,10 @@ const meta = {
   },
   decorators: [
     // Force the component's `hidden md:flex` root to render as `flex`
-    // regardless of the iframe's resolved viewport. The test-runner cannot
-    // reliably size the preview iframe to match the story's `globals.viewport`,
-    // so a CSS override is more robust than relying on breakpoints for stories
-    // that target desktop-only components.
+    // regardless of the iframe's resolved viewport. The Storybook viewport
+    // addon only resizes the preview iframe — not the page — so relying on
+    // `md:` breakpoints for desktop-only components is brittle in Storybook
+    // dev and autodocs; a CSS override is a more robust belt-and-braces.
     (Story) => (
       <div className="flex min-h-12 items-center justify-end [&>div]:!flex">
         <Story />
