@@ -3,6 +3,7 @@ import { generateObject } from 'ai'
 import { z } from 'zod'
 import { serverEnv } from '@/lib/env'
 import { REVIEW_MODEL } from './models'
+import type { AiUsageStats } from './usage'
 
 export interface ReviewIngredient {
   ingredientId: string
@@ -35,6 +36,7 @@ export async function reviewMealQuantities(
   mealName: string,
   servings: number,
   ingredients: ReviewIngredient[],
+  onAiUsage?: (usage: AiUsageStats) => void,
 ): Promise<ReviewedIngredients> {
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
 
@@ -86,6 +88,12 @@ ${ingredientList}
 
 Return all ingredients with corrected quantities per serving. Keep reasonable quantities unchanged.`,
     system: systemPrompt,
+  })
+
+  onAiUsage?.({
+    model: REVIEW_MODEL,
+    inputTokens: result.usage?.inputTokens ?? 0,
+    outputTokens: result.usage?.outputTokens ?? 0,
   })
 
   return result.object

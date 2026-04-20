@@ -11,6 +11,12 @@ import {
 } from '@/lib/ai/types'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import {
+  AiCostCapExceededError,
+  assertUnderCap,
+  recordAiUsage,
+  respondCapExceeded,
+} from '@/lib/ai/usage'
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
 
@@ -56,6 +62,15 @@ export async function POST(request: Request) {
         headers: { 'Retry-After': String(retryAfterSeconds(rateLimitResult)) },
       },
     )
+  }
+
+  try {
+    await assertUnderCap(household.id)
+  } catch (error) {
+    if (error instanceof AiCostCapExceededError) {
+      return respondCapExceeded(error)
+    }
+    throw error
   }
 
   // Parse and validate request body
@@ -121,6 +136,8 @@ export async function POST(request: Request) {
         restrictions,
         weekdayMealTypes,
         weekendMealTypes,
+        onAiUsage: (usage) =>
+          recordAiUsage({ householdId: household.id, feature: 'plan_fill_empty', ...usage }),
       })
 
       return NextResponse.json(result, { status: 200 })
@@ -184,6 +201,8 @@ export async function POST(request: Request) {
       restrictions,
       weekdayMealTypes,
       weekendMealTypes,
+      onAiUsage: (usage) =>
+        recordAiUsage({ householdId: household.id, feature: 'plan_generate', ...usage }),
     })
 
     return NextResponse.json(result, { status: 200 })

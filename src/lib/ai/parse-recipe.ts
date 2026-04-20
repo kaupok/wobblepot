@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
 import { RECIPE_MODEL } from './models'
+import type { AiUsageStats } from './usage'
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
 import {
   VAGUE_PHRASES,
@@ -660,7 +661,10 @@ export interface ParseRecipeResult {
  * Parse recipe text using AI to extract structured data.
  * Throws RecipeParseError if the text doesn't contain enough information or confidence is low.
  */
-export async function parseRecipeText(recipeText: string): Promise<ParseRecipeResult> {
+export async function parseRecipeText(
+  recipeText: string,
+  onAiUsage?: (usage: AiUsageStats) => void,
+): Promise<ParseRecipeResult> {
   const trimmedText = recipeText.trim()
 
   // Minimum sanity check
@@ -674,10 +678,18 @@ export async function parseRecipeText(recipeText: string): Promise<ParseRecipeRe
   const prompt = buildRecipeExtractionPrompt(trimmedText)
 
   try {
-    const { object } = await generateObject({
+    const result = await generateObject({
       model: anthropic(RECIPE_MODEL),
       schema: RecipeExtractionSchema,
       prompt,
+    })
+
+    const { object } = result
+
+    onAiUsage?.({
+      model: RECIPE_MODEL,
+      inputTokens: result.usage?.inputTokens ?? 0,
+      outputTokens: result.usage?.outputTokens ?? 0,
     })
 
     // Validate we got meaningful data
@@ -1291,9 +1303,10 @@ export function mergeDuplicateIngredients(
 export async function parseAndMatchRecipe(
   recipeText: string,
   sourceUrl?: string,
+  onAiUsage?: (usage: AiUsageStats) => void,
 ): Promise<ParsedRecipe> {
   // Step 1: Extract structured data from text (low confidence throws)
-  const { extraction, confidence } = await parseRecipeText(recipeText)
+  const { extraction, confidence } = await parseRecipeText(recipeText, onAiUsage)
 
   // Step 2: Match ingredients against database (pass servings for validation)
   const ingredientResults = await matchIngredients(extraction.ingredients, extraction.servings)

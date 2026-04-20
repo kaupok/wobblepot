@@ -5,6 +5,12 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { parseAndMatchRecipe, fetchRecipeFromUrl, RecipeParseError } from '@/lib/ai/parse-recipe'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import {
+  AiCostCapExceededError,
+  assertUnderCap,
+  recordAiUsage,
+  respondCapExceeded,
+} from '@/lib/ai/usage'
 
 const parseRecipeSchema = z.object({
   text: z.string().min(1, 'Recipe text is required'),
@@ -65,6 +71,15 @@ export async function POST(request: Request) {
     )
   }
 
+  try {
+    await assertUnderCap(membership.household.id)
+  } catch (error) {
+    if (error instanceof AiCostCapExceededError) {
+      return respondCapExceeded(error)
+    }
+    throw error
+  }
+
   let body
   try {
     body = await request.json()
@@ -94,7 +109,13 @@ export async function POST(request: Request) {
         : fetchedContent
     }
 
-    const result = await parseAndMatchRecipe(recipeText, sourceUrl)
+    const result = await parseAndMatchRecipe(recipeText, sourceUrl, (usage) =>
+      recordAiUsage({
+        householdId: membership.household.id,
+        feature: 'recipe_parse',
+        ...usage,
+      }),
+    )
 
     return NextResponse.json({
       success: true,

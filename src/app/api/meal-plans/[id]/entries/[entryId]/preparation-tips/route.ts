@@ -10,6 +10,12 @@ import { serverEnv } from '@/lib/env'
 import { TIPS_MODEL } from '@/lib/ai/models'
 import { parseStoredTips } from '@/lib/tips'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import {
+  AiCostCapExceededError,
+  assertUnderCap,
+  recordAiUsage,
+  respondCapExceeded,
+} from '@/lib/ai/usage'
 import type { StructuredTips } from '@/components/meal-plan/types'
 
 function getErrorStatusCode(err: unknown): number | undefined {
@@ -123,6 +129,15 @@ export async function POST(
       )
     }
 
+    try {
+      await assertUnderCap(household.id)
+    } catch (error) {
+      if (error instanceof AiCostCapExceededError) {
+        return respondCapExceeded(error)
+      }
+      throw error
+    }
+
     const householdSize = await getHouseholdMemberCount(household.id)
     const mealName = entry.meal.name
     const timeMinutes = entry.meal.timeMinutes
@@ -173,7 +188,7 @@ ${metricReminder}
 
 Keep it brief and practical.`
 
-      const { object } = await generateObject({
+      const result = await generateObject({
         model: anthropic(TIPS_MODEL),
         schema: supplementaryTipsSchema,
         prompt,
@@ -182,7 +197,15 @@ Keep it brief and practical.`
         abortSignal: timeout,
       })
 
-      tips = object
+      await recordAiUsage({
+        householdId: household.id,
+        feature: 'entry_preparation_tips',
+        model: TIPS_MODEL,
+        inputTokens: result.usage?.inputTokens ?? 0,
+        outputTokens: result.usage?.outputTokens ?? 0,
+      })
+
+      tips = result.object
     } else {
       const prompt = `You are a helpful cooking assistant. Generate brief, actionable preparation guidance for the following meal.
 
@@ -203,7 +226,7 @@ ${metricReminder}
 
 Keep it brief and practical. Not a full recipe — just order of operations and key tips. Do not repeat ingredient quantities.`
 
-      const { object } = await generateObject({
+      const result = await generateObject({
         model: anthropic(TIPS_MODEL),
         schema: fullTipsSchema,
         prompt,
@@ -212,7 +235,15 @@ Keep it brief and practical. Not a full recipe — just order of operations and 
         abortSignal: timeout,
       })
 
-      tips = object
+      await recordAiUsage({
+        householdId: household.id,
+        feature: 'entry_preparation_tips',
+        model: TIPS_MODEL,
+        inputTokens: result.usage?.inputTokens ?? 0,
+        outputTokens: result.usage?.outputTokens ?? 0,
+      })
+
+      tips = result.object
     }
 
     // Cache tips as JSON in the database

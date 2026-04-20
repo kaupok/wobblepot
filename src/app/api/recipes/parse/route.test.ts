@@ -25,13 +25,24 @@ vi.mock('@/lib/ai/parse-recipe', () => ({
   RecipeParseError: class RecipeParseError extends Error {},
 }))
 
+vi.mock('@/lib/ai/usage', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/ai/usage')>()
+  return {
+    ...actual,
+    assertUnderCap: vi.fn(),
+    recordAiUsage: vi.fn(),
+  }
+})
+
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { assertUnderCap } from '@/lib/ai/usage'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockCheckRateLimit = vi.mocked(checkRateLimit)
+const mockAssertUnderCap = vi.mocked(assertUnderCap)
 
 describe('extractUrlAndContext', () => {
   it('detects https:// URLs', () => {
@@ -116,6 +127,7 @@ describe('POST /api/recipes/parse rate limiting', () => {
     vi.clearAllMocks()
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockAssertUnderCap.mockResolvedValue(undefined)
   })
 
   function jsonRequest(body: unknown) {

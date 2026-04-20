@@ -67,10 +67,19 @@ vi.mock('@/lib/meal-planning/nutrition', () => ({
   })),
 }))
 
+vi.mock('@/lib/ai/usage', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/ai/usage')>()
+  return {
+    ...actual,
+    assertUnderCap: vi.fn(),
+  }
+})
+
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { getCandidates } from '@/lib/meal-planning/candidates'
+import { assertUnderCap } from '@/lib/ai/usage'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -79,6 +88,7 @@ const mockFindManyEntries = vi.mocked(prisma.mealPlanEntry.findMany)
 const mockFindManyFavorites = vi.mocked(prisma.favoriteMeal.findMany)
 const mockFindManyMeals = vi.mocked(prisma.meal.findMany)
 const mockGetCandidates = vi.mocked(getCandidates)
+const mockAssertUnderCap = vi.mocked(assertUnderCap)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -121,6 +131,7 @@ const mockEntry = {
 describe('POST /api/meal-plans/[id]/entries/[entryId]/regenerate', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockAssertUnderCap.mockResolvedValue(undefined)
   })
 
   it('returns 401 when not authenticated', async () => {

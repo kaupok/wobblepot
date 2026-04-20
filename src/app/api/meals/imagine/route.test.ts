@@ -40,12 +40,22 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
+vi.mock('@/lib/ai/usage', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/ai/usage')>()
+  return {
+    ...actual,
+    assertUnderCap: vi.fn(),
+    recordAiUsage: vi.fn(),
+  }
+})
+
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { imagineMeals } from '@/lib/ai/imagine-meal'
 import { matchIngredients } from '@/lib/ai/parse-recipe'
 import { prisma } from '@/lib/prisma'
+import { assertUnderCap } from '@/lib/ai/usage'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -54,6 +64,7 @@ const mockCheckRateLimit = vi.mocked(checkRateLimit)
 const mockImagineMeals = vi.mocked(imagineMeals)
 const mockMatchIngredients = vi.mocked(matchIngredients)
 const mockIngredientFindMany = vi.mocked(prisma.ingredient.findMany)
+const mockAssertUnderCap = vi.mocked(assertUnderCap)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -166,6 +177,7 @@ describe('POST /api/meals/imagine', () => {
     })
     mockGetMemberCount.mockResolvedValue(2)
     mockIngredientFindMany.mockResolvedValue([])
+    mockAssertUnderCap.mockResolvedValue(undefined)
   })
 
   it('returns 401 when not authenticated', async () => {
@@ -334,6 +346,7 @@ describe('POST /api/meals/imagine', () => {
       'chicken dinner',
       expect.objectContaining({ householdSize: 2 }),
       undefined,
+      expect.any(Function),
     )
   })
 
@@ -402,6 +415,7 @@ describe('POST /api/meals/imagine', () => {
       null,
       expect.any(Object),
       expect.arrayContaining([expect.objectContaining({ mimeType: 'image/jpeg' })]),
+      expect.any(Function),
     )
   })
 })

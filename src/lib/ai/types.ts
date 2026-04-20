@@ -8,6 +8,7 @@ import type {
 } from '@/generated/prisma/enums'
 import type { CandidateMeal } from '@/lib/meal-planning/candidates'
 import type { MealSlot, SlotRequirement } from '@/lib/meal-planning/slots'
+import type { AiUsageStats } from './usage'
 
 /**
  * Zod schema for AI structured output.
@@ -70,6 +71,8 @@ export interface GeneratePlanOptions {
   weekdayMealTypes?: MealType[]
   /** Meal types to plan for weekends (Sat-Sun). Defaults to ['dinner'] */
   weekendMealTypes?: MealType[]
+  /** Optional callback fired with token usage after the AI call returns. */
+  onAiUsage?: (usage: AiUsageStats) => void
 }
 
 /**
@@ -99,6 +102,8 @@ export interface FillEmptySlotsOptions {
   restrictions: string[]
   weekdayMealTypes: MealType[]
   weekendMealTypes: MealType[]
+  /** Optional callback fired with token usage after the AI call returns. */
+  onAiUsage?: (usage: AiUsageStats) => void
 }
 
 /**
