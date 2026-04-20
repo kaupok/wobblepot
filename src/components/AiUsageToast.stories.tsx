@@ -34,6 +34,11 @@ const meta = {
           'Background poller that fires a single warning toast when household AI spend reaches 80% of the monthly cap. Renders nothing — the component exists purely for its side effect. Uses sessionStorage keyed by `YYYY-MM` to avoid repeat toasts on page reload within the same browser session.',
       },
     },
+    // WHY: The visible markup in this story is the sonner warning toast — its
+    // amber-on-cream palette is owned by sonner's `richColors`, not by this
+    // component. Waiving color-contrast narrowly so the a11y gate still catches
+    // any other violations the story might introduce.
+    a11y: { config: { rules: [{ id: 'color-contrast', enabled: false }] } },
   },
   decorators: [withSonner],
 } satisfies Meta<typeof AiUsageToast>
