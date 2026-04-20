@@ -58,49 +58,50 @@ These steps are generic; the failure-mode playbooks below reference them.
 
 1. **Identify the "last known good" timestamp.** Usually: the last deploy that passed smoke tests. Look at `gh run list --workflow deploy-code-production.yml` or the Vercel deployments list. Pick an ISO-8601 timestamp a minute _before_ the bad deploy finished. Example: `2026-04-20T08:42:00Z`.
 
-2. **Create a recovery branch from that timestamp:**
+2. **Create a recovery branch from that timestamp.** `neonctl@2.22.0`'s `branches create` exposes exactly one parent flag — `--parent` — which accepts a branch name, branch ID, timestamp, or LSN. Pass the incident timestamp directly as `--parent` and the CLI performs PITR from the default branch (our `main`):
 
    ```bash
+   recovery_branch="recovery-$(date +%Y%m%d-%H%M)"
    pnpm dlx neonctl@2.22.0 branches create \
      --project-id "$NEON_PROJECT_ID" \
-     --parent main \
-     --name "recovery-$(date +%Y%m%d-%H%M)" \
-     --parent-timestamp "2026-04-20T08:42:00Z"
+     --parent "2026-04-20T08:42:00Z" \
+     --name "$recovery_branch"
    ```
 
    Neon responds with the new branch's ID. Note it.
 
+   **Caveat:** this shape only works because production lives on Neon's default branch. If the primary DB is ever moved to a non-default branch, `neonctl` cannot express both a non-default parent _and_ a point-in-time — we would need to drop to the API (`POST /projects/:id/branches` with `parent_id` + `parent_timestamp`). Flag this when the branch layout changes.
+
 3. **Retrieve the branch connection strings:**
 
    ```bash
-   pnpm dlx neonctl@2.22.0 connection-string recovery-YYYYMMDD-HHMM \
+   pnpm dlx neonctl@2.22.0 connection-string "$recovery_branch" \
      --project-id "$NEON_PROJECT_ID" --pooled
-   pnpm dlx neonctl@2.22.0 connection-string recovery-YYYYMMDD-HHMM \
+   pnpm dlx neonctl@2.22.0 connection-string "$recovery_branch" \
      --project-id "$NEON_PROJECT_ID"
    ```
 
-   Export the unpooled one as `DATABASE_URL_UNPOOLED` and the pooled one as `DATABASE_URL` in a scratch shell. Do **not** overwrite `.env`.
+   Export the pooled one as `DATABASE_URL` and the unpooled one as `DATABASE_URL_UNPOOLED` in a **scratch shell** — do not overwrite `.env`. `psql`, `pg_dump`, and `pnpm db:migrate:deploy` all read these by default, so every command below can run without further plumbing.
 
-4. **Validate branch state.** Confirm the branch is in the expected pre-incident shape:
+4. **Validate branch state.** Confirm the branch is actually pre-incident, not a silent fork of current `main`:
    - Row counts for critical tables:
 
      ```bash
-     psql "$recovery_pooled" -c '
+     psql "$DATABASE_URL" -c '
        SELECT
-         (SELECT COUNT(*) FROM "user")      AS users,
-         (SELECT COUNT(*) FROM household)    AS households,
-         (SELECT COUNT(*) FROM meal_plan)    AS meal_plans;'
+         (SELECT COUNT(*) FROM "user")    AS users,
+         (SELECT COUNT(*) FROM household) AS households,
+         (SELECT COUNT(*) FROM meal_plan) AS meal_plans;'
      ```
 
+   - **Gate against a broken recovery branch.** Compare the counts (and a timestamp spot-check, e.g. `SELECT MAX("createdAt") FROM meal_plan;`) against what you expect _before_ the incident. If the numbers look like current post-incident state, stop — the `--parent` timestamp was misread by Neon, or the flag was silently ignored by a newer CLI version. Do not proceed to step 5; re-create the branch with a different timestamp format or fall back to the Neon console (Branches → Create branch → "At a point in time").
    - Spot-check a handful of specific rows you know were affected (e.g. the user who reported the bug).
 
 5. **Apply the fix.** There are two patterns — pick one:
 
-   **Pattern A — Corrective migration.** Write a new Prisma migration that repairs state. Validate on the recovery branch:
+   **Pattern A — Corrective migration.** Write a new Prisma migration that repairs state. Validate on the recovery branch (the scratch-shell `DATABASE_URL` / `DATABASE_URL_UNPOOLED` from step 3 are already pointed at it):
 
    ```bash
-   DATABASE_URL="$recovery_pooled" \
-   DATABASE_URL_UNPOOLED="$recovery_unpooled" \
    pnpm db:migrate:deploy
    ```
 
@@ -124,7 +125,7 @@ Promoting a branch swaps the entire database. Any valid user data written _after
 The automated cleanup in [`neon-branch-gc.md`](neon-branch-gc.md) only reaps `auto--hon-*` branches, **not** `recovery-*` — so cleanup is manual:
 
 ```bash
-pnpm dlx neonctl@2.22.0 branches delete recovery-YYYYMMDD-HHMM \
+pnpm dlx neonctl@2.22.0 branches delete "$recovery_branch" \
   --project-id "$NEON_PROJECT_ID"
 ```
 
@@ -151,14 +152,14 @@ One subsection per mode. Each starts with what it looks like, then the numbered 
 
 1. Roll back **code** immediately via Vercel dashboard → Deployments → Promote previous deployment to Production. This buys time.
 2. Execute the Neon branching workflow. Use a timestamp from before the dropped-column migration.
-3. On the recovery branch, export the column/table data:
+3. On the recovery branch, export the column/table data (`DATABASE_URL_UNPOOLED` from step 3 of the workflow points here):
 
    ```bash
    # Single column
-   psql "$recovery_unpooled" -c "COPY (SELECT id, <dropped_column> FROM \"<table>\") TO STDOUT WITH CSV HEADER" > dropped.csv
+   psql "$DATABASE_URL_UNPOOLED" -c "COPY (SELECT id, <dropped_column> FROM \"<table>\") TO STDOUT WITH CSV HEADER" > dropped.csv
 
    # Whole table
-   pg_dump "$recovery_unpooled" --table="<table>" --data-only > dropped.sql
+   pg_dump "$DATABASE_URL_UNPOOLED" --table="<table>" --data-only > dropped.sql
    ```
 
 4. Write a **new forward migration** that re-adds the column/table structure.
