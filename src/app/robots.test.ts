@@ -12,7 +12,7 @@ describe('robots', () => {
     expect(result.rules).toEqual([
       {
         userAgent: '*',
-        allow: ['/', '/privacy', '/terms', '/sign-in', '/sign-up', '/bot'],
+        allow: ['/', '/privacy', '/terms', '/sign-in', '/sign-up', '/bot', '/status'],
         disallow: [
           '/api',
           '/profile',
