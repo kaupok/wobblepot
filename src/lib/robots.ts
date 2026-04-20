@@ -12,41 +12,66 @@ export const HONKADORI_BOT_TOKEN = 'Honkadori-Bot/1.0'
 
 const ROBOTS_FETCH_TIMEOUT_MS = 5_000
 const ROBOTS_CACHE_TTL_SECONDS = 60 * 60 * 24
+// Short TTL when we failed to reach the origin's robots.txt. We still allow
+// the request (polite-bot convention), but we want to retry the real fetch
+// soon after a transient blip rather than pinning "allow" for 24h.
+const ROBOTS_FAILURE_CACHE_TTL_SECONDS = 60 * 5
 
 function cacheKey(origin: string): string {
   return `robots:${origin}`
 }
 
-async function readCache(origin: string): Promise<boolean | null> {
-  const cached = await getRedis().get<string | number | boolean>(cacheKey(origin))
+/**
+ * Cached representation of a robots.txt response. We cache the raw body so
+ * the per-URL decision is re-computed on each call — robots rules are
+ * path-scoped and caching a single allow/deny decision per origin would
+ * produce wrong answers for other paths on the same host.
+ */
+async function readCachedBody(origin: string): Promise<string | null> {
+  const cached = await getRedis().get<string>(cacheKey(origin))
   if (cached === null || cached === undefined) return null
-  if (cached === true || cached === '1' || cached === 1) return true
-  if (cached === false || cached === '0' || cached === 0) return false
-  return null
+  return cached
 }
 
-async function writeCache(origin: string, allowed: boolean): Promise<void> {
-  await getRedis().set(cacheKey(origin), allowed ? '1' : '0', { ex: ROBOTS_CACHE_TTL_SECONDS })
+async function writeCachedBody(origin: string, body: string, ttlSeconds: number): Promise<void> {
+  await getRedis().set(cacheKey(origin), body, { ex: ttlSeconds })
+}
+
+function decideFromBody(url: string, robotsUrl: string, body: string, origin: string): boolean {
+  // Empty body (no rules) — robots-parser returns undefined for isAllowed.
+  // Treat as allowed per the Robots Exclusion spec (no policy = no restriction).
+  const robots = robotsParser(robotsUrl, body)
+  const allowed = robots.isAllowed(url, HONKADORI_BOT_TOKEN) ?? true
+
+  if (!allowed) {
+    // eslint-disable-next-line no-console
+    console.info('[robots] Disallowed', { origin })
+  }
+
+  return allowed
 }
 
 /**
  * Check whether Honkadori-Bot is allowed to fetch the given URL according to
- * the origin's robots.txt. Caches the decision per-origin in Upstash for 24h.
+ * the origin's robots.txt. Caches the robots.txt *body* per origin so each
+ * URL's decision is computed fresh (rules are path-scoped).
  *
  * On fetch failure (404, 5xx, network error, timeout) we allow the request.
- * 404 is explicit permission under the Robots Exclusion spec; 5xx/network
- * errors are ambiguous and the polite-bot convention is to allow rather than
- * block user traffic on a transient issue. The 24h cache prevents hammering
- * a struggling server.
+ * 404 is explicit permission under the Robots Exclusion spec (cached 24h).
+ * 5xx/network/timeout are ambiguous; the polite-bot convention is to allow
+ * rather than block user traffic on a transient issue, but we cache with a
+ * short TTL so we retry the fetch soon after the origin recovers.
  */
 export async function checkRobotsAllowed(url: string): Promise<boolean> {
   const parsed = new URL(url)
   const origin = parsed.origin
-
-  const cached = await readCache(origin)
-  if (cached !== null) return cached
-
   const robotsUrl = `${origin}/robots.txt`
+
+  const cachedBody = await readCachedBody(origin)
+  if (cachedBody !== null) {
+    return decideFromBody(url, robotsUrl, cachedBody, origin)
+  }
+
   let body: string
   try {
     const response = await fetch(robotsUrl, {
@@ -58,7 +83,9 @@ export async function checkRobotsAllowed(url: string): Promise<boolean> {
     if (response.status === 404) {
       // eslint-disable-next-line no-console
       console.info('[robots] Allowing due to fetch failure', { origin, reason: 'not-found' })
-      await writeCache(origin, true)
+      // Empty body = no rules; cached at the long TTL because 404 is an
+      // explicit "no policy" signal under the Robots Exclusion spec.
+      await writeCachedBody(origin, '', ROBOTS_CACHE_TTL_SECONDS)
       return true
     }
 
@@ -68,7 +95,7 @@ export async function checkRobotsAllowed(url: string): Promise<boolean> {
         origin,
         reason: `status-${response.status}`,
       })
-      await writeCache(origin, true)
+      await writeCachedBody(origin, '', ROBOTS_FAILURE_CACHE_TTL_SECONDS)
       return true
     }
 
@@ -78,19 +105,10 @@ export async function checkRobotsAllowed(url: string): Promise<boolean> {
       error instanceof DOMException && error.name === 'TimeoutError' ? 'timeout' : 'network-error'
     // eslint-disable-next-line no-console
     console.info('[robots] Allowing due to fetch failure', { origin, reason })
-    await writeCache(origin, true)
+    await writeCachedBody(origin, '', ROBOTS_FAILURE_CACHE_TTL_SECONDS)
     return true
   }
 
-  const robots = robotsParser(robotsUrl, body)
-  // robots-parser returns undefined when no rules apply; treat as allowed.
-  const allowed = robots.isAllowed(url, HONKADORI_BOT_TOKEN) ?? true
-
-  if (!allowed) {
-    // eslint-disable-next-line no-console
-    console.info('[robots] Disallowed', { origin })
-  }
-
-  await writeCache(origin, allowed)
-  return allowed
+  await writeCachedBody(origin, body, ROBOTS_CACHE_TTL_SECONDS)
+  return decideFromBody(url, robotsUrl, body, origin)
 }

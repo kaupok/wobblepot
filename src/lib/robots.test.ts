@@ -26,7 +26,7 @@ describe('checkRobotsAllowed', () => {
     infoSpy.mockRestore()
   })
 
-  it('fetches robots.txt with the bot UA and the token', async () => {
+  it('fetches robots.txt with the bot UA', async () => {
     fetchSpy.mockResolvedValue(
       new Response('User-agent: *\nAllow: /\n', {
         status: 200,
@@ -45,37 +45,38 @@ describe('checkRobotsAllowed', () => {
     )
   })
 
-  it('returns true and caches when robots.txt allows', async () => {
+  it('returns true and caches the robots.txt body for 24h when robots.txt allows', async () => {
+    const body = 'User-agent: *\nAllow: /\n'
     fetchSpy.mockResolvedValue(
-      new Response('User-agent: *\nAllow: /\n', {
-        status: 200,
-        headers: { 'content-type': 'text/plain' },
-      }),
+      new Response(body, { status: 200, headers: { 'content-type': 'text/plain' } }),
     )
 
     const allowed = await checkRobotsAllowed('https://example.com/recipe/123')
 
     expect(allowed).toBe(true)
-    expect(mockSet).toHaveBeenCalledWith('robots:https://example.com', '1', { ex: 86400 })
+    expect(mockSet).toHaveBeenCalledWith('robots:https://example.com', body, { ex: 86400 })
   })
 
   it('returns false and logs disallow when the UA token is disallowed for the path', async () => {
-    const robotsTxt = `User-agent: ${HONKADORI_BOT_TOKEN}\nDisallow: /private/\n`
+    const body = `User-agent: ${HONKADORI_BOT_TOKEN}\nDisallow: /private/\n`
     fetchSpy.mockResolvedValue(
-      new Response(robotsTxt, { status: 200, headers: { 'content-type': 'text/plain' } }),
+      new Response(body, { status: 200, headers: { 'content-type': 'text/plain' } }),
     )
 
     const allowed = await checkRobotsAllowed('https://example.com/private/recipe')
 
     expect(allowed).toBe(false)
     expect(infoSpy).toHaveBeenCalledWith('[robots] Disallowed', { origin: 'https://example.com' })
-    expect(mockSet).toHaveBeenCalledWith('robots:https://example.com', '0', { ex: 86400 })
+    // The body is cached; the disallow decision itself is not — it is derived
+    // from the body on each call so sibling paths on the same origin get the
+    // correct per-path answer.
+    expect(mockSet).toHaveBeenCalledWith('robots:https://example.com', body, { ex: 86400 })
   })
 
   it('returns false when a wildcard rule disallows the path', async () => {
-    const robotsTxt = 'User-agent: *\nDisallow: /secret/\n'
+    const body = 'User-agent: *\nDisallow: /secret/\n'
     fetchSpy.mockResolvedValue(
-      new Response(robotsTxt, { status: 200, headers: { 'content-type': 'text/plain' } }),
+      new Response(body, { status: 200, headers: { 'content-type': 'text/plain' } }),
     )
 
     const allowed = await checkRobotsAllowed('https://example.com/secret/page')
@@ -83,8 +84,26 @@ describe('checkRobotsAllowed', () => {
     expect(allowed).toBe(false)
   })
 
-  it('returns the cached value without fetching on cache hit (allow)', async () => {
-    mockGet.mockResolvedValue('1')
+  it('re-evaluates each URL against the cached body so sibling paths get per-path answers', async () => {
+    // First call: fetch robots.txt with a mix of allowed and disallowed paths.
+    const body = 'User-agent: *\nDisallow: /private/\n'
+    fetchSpy.mockResolvedValueOnce(
+      new Response(body, { status: 200, headers: { 'content-type': 'text/plain' } }),
+    )
+
+    const allowedPath = await checkRobotsAllowed('https://example.com/public/a')
+    expect(allowedPath).toBe(true)
+
+    // Second call: cache hit — should not re-fetch, should return false for
+    // a Disallow path even though the previous call allowed a sibling.
+    mockGet.mockResolvedValueOnce(body)
+    const disallowedPath = await checkRobotsAllowed('https://example.com/private/b')
+    expect(disallowedPath).toBe(false)
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns the per-URL decision on cache hit without re-fetching', async () => {
+    mockGet.mockResolvedValue('User-agent: *\nAllow: /\n')
 
     const allowed = await checkRobotsAllowed('https://example.com/recipe')
 
@@ -93,17 +112,16 @@ describe('checkRobotsAllowed', () => {
     expect(mockSet).not.toHaveBeenCalled()
   })
 
-  it('returns the cached value without fetching on cache hit (disallow)', async () => {
-    mockGet.mockResolvedValue('0')
+  it('treats empty cached body as allow (no rules apply)', async () => {
+    mockGet.mockResolvedValue('')
 
     const allowed = await checkRobotsAllowed('https://example.com/recipe')
 
-    expect(allowed).toBe(false)
+    expect(allowed).toBe(true)
     expect(fetchSpy).not.toHaveBeenCalled()
-    expect(mockSet).not.toHaveBeenCalled()
   })
 
-  it('returns true and logs info when robots.txt returns 404', async () => {
+  it('returns true, logs info, and caches empty body for 24h when robots.txt returns 404', async () => {
     fetchSpy.mockResolvedValue(new Response('Not Found', { status: 404 }))
 
     const allowed = await checkRobotsAllowed('https://example.com/recipe')
@@ -113,10 +131,10 @@ describe('checkRobotsAllowed', () => {
       origin: 'https://example.com',
       reason: 'not-found',
     })
-    expect(mockSet).toHaveBeenCalledWith('robots:https://example.com', '1', { ex: 86400 })
+    expect(mockSet).toHaveBeenCalledWith('robots:https://example.com', '', { ex: 86400 })
   })
 
-  it('returns true and logs info when robots.txt returns 5xx', async () => {
+  it('returns true, logs info, and caches with a short TTL when robots.txt returns 5xx', async () => {
     fetchSpy.mockResolvedValue(new Response('Server Error', { status: 503 }))
 
     const allowed = await checkRobotsAllowed('https://example.com/recipe')
@@ -126,10 +144,10 @@ describe('checkRobotsAllowed', () => {
       origin: 'https://example.com',
       reason: 'status-503',
     })
-    expect(mockSet).toHaveBeenCalledWith('robots:https://example.com', '1', { ex: 86400 })
+    expect(mockSet).toHaveBeenCalledWith('robots:https://example.com', '', { ex: 300 })
   })
 
-  it('returns true and logs info when robots.txt fetch times out', async () => {
+  it('returns true, logs info, and caches with a short TTL when robots.txt fetch times out', async () => {
     fetchSpy.mockRejectedValue(new DOMException('aborted', 'TimeoutError'))
 
     const allowed = await checkRobotsAllowed('https://example.com/recipe')
@@ -139,10 +157,10 @@ describe('checkRobotsAllowed', () => {
       origin: 'https://example.com',
       reason: 'timeout',
     })
-    expect(mockSet).toHaveBeenCalledWith('robots:https://example.com', '1', { ex: 86400 })
+    expect(mockSet).toHaveBeenCalledWith('robots:https://example.com', '', { ex: 300 })
   })
 
-  it('returns true and logs info when the robots.txt fetch fails with a network error', async () => {
+  it('returns true, logs info, and caches with a short TTL on network error', async () => {
     fetchSpy.mockRejectedValue(new Error('ENETUNREACH'))
 
     const allowed = await checkRobotsAllowed('https://example.com/recipe')
@@ -152,7 +170,7 @@ describe('checkRobotsAllowed', () => {
       origin: 'https://example.com',
       reason: 'network-error',
     })
-    expect(mockSet).toHaveBeenCalledWith('robots:https://example.com', '1', { ex: 86400 })
+    expect(mockSet).toHaveBeenCalledWith('robots:https://example.com', '', { ex: 300 })
   })
 
   it('scopes cache keys to the origin so paths on the same host share a decision', async () => {
