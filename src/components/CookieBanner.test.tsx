@@ -38,9 +38,8 @@ describe('CookieBanner', () => {
     expect(grant).not.toHaveBeenCalled()
   })
 
-  it('exposes the privacy link', () => {
+  it('mentions that the choice can be revisited from the footer', () => {
     renderWithConsent({ granted: null, grant: vi.fn(), withdraw: vi.fn() })
-    const link = screen.getByRole('link', { name: /learn more/i })
-    expect(link).toHaveAttribute('href', '/privacy#cookies')
+    expect(screen.getByText(/you can change this any time from the footer/i)).toBeInTheDocument()
   })
 })

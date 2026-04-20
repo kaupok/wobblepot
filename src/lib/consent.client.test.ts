@@ -41,6 +41,12 @@ describe('readConsentCookieClient', () => {
     document.cookie = 'consent-v1=maybe; Path=/'
     expect(readConsentCookieClient()).toBe(null)
   })
+
+  it('does not throw on a malformed cookie value (e.g. bare %)', () => {
+    document.cookie = 'consent-v1=%; Path=/'
+    expect(() => readConsentCookieClient()).not.toThrow()
+    expect(readConsentCookieClient()).toBe(null)
+  })
 })
 
 describe('writeConsentCookieClient', () => {

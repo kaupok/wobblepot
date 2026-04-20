@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
@@ -21,13 +20,7 @@ export function CookieBanner() {
             <Body variant="small">We use cookies</Body>
             <Body variant="muted">
               Essential cookies keep you signed in. Analytics cookies help us understand how the app
-              is used so we can improve it. You can change this any time from the footer.{' '}
-              <Link
-                href="/privacy#cookies"
-                className="hover:text-foreground underline underline-offset-2"
-              >
-                Learn more
-              </Link>
+              is used so we can improve it. You can change this any time from the footer.
             </Body>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">

@@ -12,7 +12,7 @@ export function readConsentCookieClient(): ConsentDecision | null {
   const match = document.cookie
     .split('; ')
     .find((part) => part.startsWith(`${CONSENT_COOKIE_NAME}=`))
-  const raw = match ? decodeURIComponent(match.slice(CONSENT_COOKIE_NAME.length + 1)) : null
+  const raw = match ? match.slice(CONSENT_COOKIE_NAME.length + 1) : null
   return parseConsentDecision(raw)
 }
 
