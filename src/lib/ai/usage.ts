@@ -33,16 +33,20 @@ export interface RecordAiUsageInput extends AiUsageStats {
 /**
  * Custom error class thrown by `assertUnderCap` when a household is at or
  * above its monthly cap. Carries the `resetAt` timestamp (start of next
- * calendar month in the household's timezone) so the route can surface a
- * friendly 429 with an accurate reset date.
+ * calendar month in the household's timezone) and the household's IANA
+ * timezone so the route can render the reset date in the user's local time
+ * — formatting `resetAt` in UTC produces an off-by-one-day for any timezone
+ * east of UTC (including the schema default `Europe/Tallinn`).
  */
 export class AiCostCapExceededError extends Error {
   readonly resetAt: Date
+  readonly timezone: string
 
-  constructor(resetAt: Date) {
+  constructor(resetAt: Date, timezone: string) {
     super('AI usage cap exceeded')
     this.name = 'AiCostCapExceededError'
     this.resetAt = resetAt
+    this.timezone = timezone
   }
 }
 
@@ -133,7 +137,7 @@ export async function assertUnderCap(householdId: string, now: Date = new Date()
   const cap = Number(household.aiCapUsd)
 
   if (spend >= cap) {
-    throw new AiCostCapExceededError(end)
+    throw new AiCostCapExceededError(end, household.timezone)
   }
 }
 
@@ -175,10 +179,18 @@ export async function recordAiUsage(input: RecordAiUsageInput): Promise<void> {
  */
 export function respondCapExceeded(error: AiCostCapExceededError): NextResponse {
   const seconds = Math.max(1, Math.ceil((error.resetAt.getTime() - Date.now()) / 1000))
+  // en-CA produces YYYY-MM-DD; format in the household's local timezone so a
+  // Tallinn user sees "2026-05-01" and not the UTC slice "2026-04-30".
+  const localDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: error.timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(error.resetAt)
   return NextResponse.json(
     {
       error: 'AI usage cap exceeded',
-      message: `You've hit this month's AI usage cap. It resets on ${error.resetAt.toISOString().slice(0, 10)}.`,
+      message: `You've hit this month's AI usage cap. It resets on ${localDate}.`,
       resetAt: error.resetAt.toISOString(),
     },
     {

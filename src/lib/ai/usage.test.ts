@@ -68,10 +68,10 @@ describe('assertUnderCap', () => {
     await expect(assertUnderCap('h1')).resolves.toBeUndefined()
   })
 
-  it('throws AiCostCapExceededError with reset date when at cap', async () => {
+  it('throws AiCostCapExceededError with reset date and household timezone when at cap', async () => {
     const now = new Date('2026-04-15T12:00:00.000Z')
     mockHouseholdFindUnique.mockResolvedValue({
-      timezone: 'UTC',
+      timezone: 'Europe/Tallinn',
       aiCapUsd: 5,
     } as never)
     mockAggregate.mockResolvedValue({ _sum: { estimatedCostUsd: 5 } } as never)
@@ -82,7 +82,9 @@ describe('assertUnderCap', () => {
     } catch (error) {
       expect(error).toBeInstanceOf(AiCostCapExceededError)
       const e = error as AiCostCapExceededError
-      expect(e.resetAt.toISOString()).toBe('2026-05-01T00:00:00.000Z')
+      // For Tallinn (UTC+3 in summer), May 1 00:00 local is April 30 21:00 UTC.
+      expect(e.resetAt.toISOString()).toBe('2026-04-30T21:00:00.000Z')
+      expect(e.timezone).toBe('Europe/Tallinn')
     }
   })
 

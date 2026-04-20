@@ -93,7 +93,7 @@ describe('POST /api/meals/imagine/review', () => {
   it('returns 429 when AI cost cap is exceeded', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockAssertUnderCap.mockRejectedValue(
-      new AiCostCapExceededError(new Date('2026-05-01T00:00:00.000Z')),
+      new AiCostCapExceededError(new Date('2026-05-01T00:00:00.000Z'), 'UTC'),
     )
 
     const response = await POST(createRequest(validBody))

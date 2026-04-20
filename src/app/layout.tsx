@@ -82,7 +82,7 @@ export default async function RootLayout({
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem nonce={nonce}>
-          <Providers>
+          <Providers isAuthenticated={Boolean(session)}>
             <Toaster richColors closeButton duration={4000} />
             <Header />
             <main

@@ -43,9 +43,25 @@ describe('AiUsageToast', () => {
     render(<AiUsageToast />, { wrapper })
 
     await waitFor(() => {
-      expect(mockToastWarning).toHaveBeenCalledWith('AI usage is at 80% of your monthly cap.')
+      expect(mockToastWarning).toHaveBeenCalledWith('AI usage is at 85% of your monthly cap.')
     })
     expect(mockToastWarning).toHaveBeenCalledTimes(1)
+  })
+
+  it('rounds the percentage shown in the toast (e.g. 89.7% → 90%)', async () => {
+    mockFetchOnce({
+      spendUsd: 4.485,
+      capUsd: 5,
+      percentage: 89.7,
+      resetAt: '2026-05-01T00:00:00.000Z',
+    })
+
+    const { wrapper } = createQueryWrapper()
+    render(<AiUsageToast />, { wrapper })
+
+    await waitFor(() => {
+      expect(mockToastWarning).toHaveBeenCalledWith('AI usage is at 90% of your monthly cap.')
+    })
   })
 
   it('does not toast when usage is below 80%', async () => {

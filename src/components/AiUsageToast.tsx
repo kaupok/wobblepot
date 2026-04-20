@@ -41,7 +41,7 @@ export function AiUsageToast() {
     if (alreadyShown === monthKey) return
 
     window.sessionStorage.setItem(SESSION_STORAGE_KEY, monthKey)
-    toast.warning('AI usage is at 80% of your monthly cap.')
+    toast.warning(`AI usage is at ${Math.round(data.percentage)}% of your monthly cap.`)
   }, [data])
 
   return null
