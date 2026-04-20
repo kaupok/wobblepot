@@ -18,8 +18,7 @@
  */
 
 import { Ratelimit, type Duration } from '@upstash/ratelimit'
-import { Redis } from '@upstash/redis'
-import { serverEnv } from '@/lib/env'
+import { getRedis } from '@/lib/upstash'
 
 export type RateLimitFeature =
   | 'plan-generation'
@@ -74,18 +73,6 @@ export interface RateLimitResult {
   limit: number
   remaining: number
   resetAt: Date
-}
-
-let redisSingleton: Redis | null = null
-
-function getRedis(): Redis {
-  if (!redisSingleton) {
-    redisSingleton = new Redis({
-      url: serverEnv.UPSTASH_REDIS_REST_URL,
-      token: serverEnv.UPSTASH_REDIS_REST_TOKEN,
-    })
-  }
-  return redisSingleton
 }
 
 type WindowSlot = 'primary' | 'daily'

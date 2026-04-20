@@ -3,7 +3,12 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { parseAndMatchRecipe, fetchRecipeFromUrl, RecipeParseError } from '@/lib/ai/parse-recipe'
+import {
+  parseAndMatchRecipe,
+  fetchRecipeFromUrl,
+  RecipeParseError,
+  ROBOTS_DISALLOWED_MESSAGE,
+} from '@/lib/ai/parse-recipe'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import {
   AiCostCapExceededError,
@@ -136,12 +141,13 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     if (error instanceof RecipeParseError) {
+      const status = error.message === ROBOTS_DISALLOWED_MESSAGE ? 403 : 400
       return NextResponse.json(
         {
           success: false,
           error: error.message,
         },
-        { status: 400 },
+        { status },
       )
     }
 

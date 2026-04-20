@@ -22,8 +22,18 @@ vi.mock('@/lib/rate-limit', () => ({
 vi.mock('@/lib/ai/parse-recipe', () => ({
   parseAndMatchRecipe: vi.fn(),
   fetchRecipeFromUrl: vi.fn(),
-  RecipeParseError: class RecipeParseError extends Error {},
+  RecipeParseError: class RecipeParseError extends Error {
+    constructor(message: string) {
+      super(message)
+      this.name = 'RecipeParseError'
+    }
+  },
+  ROBOTS_DISALLOWED_MESSAGE:
+    "This site doesn't allow automated content extraction. Try pasting the recipe text directly instead.",
 }))
+
+const ROBOTS_DISALLOWED_MESSAGE =
+  "This site doesn't allow automated content extraction. Try pasting the recipe text directly instead."
 
 vi.mock('@/lib/ai/usage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/ai/usage')>()
@@ -38,11 +48,13 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { assertUnderCap } from '@/lib/ai/usage'
+import { fetchRecipeFromUrl, RecipeParseError } from '@/lib/ai/parse-recipe'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockCheckRateLimit = vi.mocked(checkRateLimit)
 const mockAssertUnderCap = vi.mocked(assertUnderCap)
+const mockFetchRecipeFromUrl = vi.mocked(fetchRecipeFromUrl)
 
 describe('extractUrlAndContext', () => {
   it('detects https:// URLs', () => {
@@ -154,5 +166,53 @@ describe('POST /api/recipes/parse rate limiting', () => {
     expect(data.success).toBe(false)
     expect(data.error).toBe('Rate limit exceeded')
     expect(mockCheckRateLimit).toHaveBeenCalledWith('household-42', 'recipe-parse')
+  })
+})
+
+describe('POST /api/recipes/parse RecipeParseError handling', () => {
+  const mockSession = { user: { id: 'user-1' }, session: { id: 's-1' } }
+  const mockMembership = { household: { id: 'household-42' } }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockAssertUnderCap.mockResolvedValue(undefined)
+    mockCheckRateLimit.mockResolvedValue({
+      allowed: true,
+      remaining: 19,
+      limit: 20,
+      resetAt: new Date(Date.now() + 3_600_000),
+    })
+  })
+
+  function jsonRequest(body: unknown) {
+    return new Request('http://localhost/api/recipes/parse', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  }
+
+  it('returns 403 when the fetch throws the robots-disallowed sentinel', async () => {
+    mockFetchRecipeFromUrl.mockRejectedValue(new RecipeParseError(ROBOTS_DISALLOWED_MESSAGE))
+
+    const response = await POST(jsonRequest({ text: 'https://example.com/recipe' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(403)
+    expect(data.success).toBe(false)
+    expect(data.error).toBe(ROBOTS_DISALLOWED_MESSAGE)
+  })
+
+  it('returns 400 for other RecipeParseError messages', async () => {
+    mockFetchRecipeFromUrl.mockRejectedValue(new RecipeParseError('Some other fetch failure'))
+
+    const response = await POST(jsonRequest({ text: 'https://example.com/recipe' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.success).toBe(false)
+    expect(data.error).toBe('Some other fetch failure')
   })
 })
