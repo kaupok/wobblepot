@@ -44,8 +44,9 @@ describe('rate-limit', () => {
   })
 
   describe('CONFIG', () => {
-    it('covers all AI + auth features', () => {
+    it('covers all AI + auth + export features', () => {
       expect(Object.keys(RATE_LIMIT_CONFIG).sort()).toEqual([
+        'data-export',
         'forgot-password',
         'meal-imagination',
         'meal-prep-tips',
@@ -55,6 +56,14 @@ describe('rate-limit', () => {
         'sign-in',
         'sign-up',
       ])
+    })
+
+    it('configures data-export at 3/day per user', () => {
+      expect(RATE_LIMIT_CONFIG['data-export']).toEqual({
+        limit: 3,
+        window: '1 d',
+        dimension: 'user',
+      })
     })
 
     it('preserves existing household limits for plan-generation and meal-imagination', () => {
@@ -139,6 +148,23 @@ describe('rate-limit', () => {
         ([opts]) => opts.prefix === 'ratelimit:household:meal-imagination',
       )
       expect(mealImaginationCalls).toHaveLength(1)
+    })
+
+    it('uses a user-dimension prefix for data-export', async () => {
+      const { checkRateLimit: fresh } = await import('./rate-limit')
+      mockLimit.mockResolvedValue({
+        success: true,
+        limit: 3,
+        remaining: 2,
+        reset: Date.now() + 86_400_000,
+      })
+
+      await fresh('user-abc', 'data-export')
+
+      expect(ratelimitConstructor).toHaveBeenCalledWith(
+        expect.objectContaining({ prefix: 'ratelimit:user:data-export' }),
+      )
+      expect(mockLimit).toHaveBeenCalledWith('ratelimit:user:data-export', 'user-abc')
     })
 
     it('builds separate limiters per feature so dimensions do not collide', async () => {
