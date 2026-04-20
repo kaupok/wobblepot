@@ -18,6 +18,13 @@ vi.mock('@/lib/env', () => ({
   serverEnv: { ANTHROPIC_API_KEY: 'test-key' },
 }))
 
+const mockCheckRobotsAllowed = vi.fn()
+vi.mock('@/lib/robots', () => ({
+  HONKADORI_BOT_USER_AGENT: 'Honkadori-Bot/1.0 (+https://honkadori.xyz/bot)',
+  HONKADORI_BOT_TOKEN: 'Honkadori-Bot/1.0',
+  checkRobotsAllowed: (url: string) => mockCheckRobotsAllowed(url),
+}))
+
 import { prisma } from '@/lib/prisma'
 import { generateObject } from 'ai'
 import {
@@ -34,6 +41,7 @@ import {
   evaluateRecipeConfidence,
   RecipeParseError,
   RecipeExtractionSchema,
+  ROBOTS_DISALLOWED_MESSAGE,
   LOW_CONFIDENCE_THRESHOLD,
   VERY_LOW_CONFIDENCE_THRESHOLD,
   SIMILARITY_THRESHOLD,
@@ -1661,6 +1669,7 @@ describe('extractJsonLdRecipe', () => {
 describe('fetchRecipeFromUrl', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    mockCheckRobotsAllowed.mockReset().mockResolvedValue(true)
   })
 
   it('blocks localhost URLs', async () => {
@@ -1741,7 +1750,7 @@ describe('fetchRecipeFromUrl', () => {
     )
   })
 
-  it('uses browser-like User-Agent', async () => {
+  it('uses the Honkadori-Bot User-Agent', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
         '<html><body><p>Some recipe content that is long enough to pass the check</p></body></html>',
@@ -1758,10 +1767,21 @@ describe('fetchRecipeFromUrl', () => {
       'https://example.com/recipe',
       expect.objectContaining({
         headers: expect.objectContaining({
-          'User-Agent': expect.stringContaining('Mozilla/5.0'),
+          'User-Agent': 'Honkadori-Bot/1.0 (+https://honkadori.xyz/bot)',
         }),
       }),
     )
+  })
+
+  it('throws ROBOTS_DISALLOWED_MESSAGE and skips the page fetch when robots.txt disallows the URL', async () => {
+    mockCheckRobotsAllowed.mockResolvedValue(false)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+
+    await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(RecipeParseError)
+    await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(
+      ROBOTS_DISALLOWED_MESSAGE,
+    )
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 
   it('returns JSON-LD recipe text when available', async () => {

@@ -14,13 +14,14 @@ import {
 } from '@/lib/vague-quantities'
 import { applyIngredientAlias } from '@/lib/ingredient-aliases'
 import { normalizeIngredientName, extractLastWord } from '@/lib/normalize-ingredient'
+import { HONKADORI_BOT_USER_AGENT, checkRobotsAllowed } from '@/lib/robots'
 
 /**
- * Browser-like User-Agent to avoid being blocked by recipe sites.
- * Many sites return 403/404 to non-browser User-Agents.
+ * Error message emitted when robots.txt disallows the fetch. Used as a sentinel
+ * by `/api/recipes/parse` to return 403 specifically for this case.
  */
-const BROWSER_USER_AGENT =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+export const ROBOTS_DISALLOWED_MESSAGE =
+  "This site doesn't allow automated content extraction. Try pasting the recipe text directly instead."
 
 /**
  * Maximum characters of stripped HTML to send to AI parser.
@@ -277,11 +278,16 @@ function validatePublicUrl(url: string): void {
 export async function fetchRecipeFromUrl(url: string): Promise<string> {
   validatePublicUrl(url)
 
+  const allowed = await checkRobotsAllowed(url)
+  if (!allowed) {
+    throw new RecipeParseError(ROBOTS_DISALLOWED_MESSAGE)
+  }
+
   try {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(15000),
       headers: {
-        'User-Agent': BROWSER_USER_AGENT,
+        'User-Agent': HONKADORI_BOT_USER_AGENT,
         Accept: 'text/html,application/xhtml+xml,*/*',
       },
       redirect: 'follow',
