@@ -44,13 +44,16 @@ describe('rate-limit', () => {
   })
 
   describe('CONFIG', () => {
-    it('covers all five AI-gated features', () => {
+    it('covers all AI + auth features', () => {
       expect(Object.keys(RATE_LIMIT_CONFIG).sort()).toEqual([
+        'forgot-password',
         'meal-imagination',
         'meal-prep-tips',
         'meal-suggestions',
         'plan-generation',
         'recipe-parse',
+        'sign-in',
+        'sign-up',
       ])
     })
 
@@ -64,6 +67,27 @@ describe('rate-limit', () => {
         limit: 50,
         window: '1 h',
         dimension: 'household',
+      })
+    })
+
+    it('configures auth features with ip dimension and dual windows', () => {
+      expect(RATE_LIMIT_CONFIG['sign-up']).toEqual({
+        limit: 5,
+        window: '1 h',
+        dimension: 'ip',
+        daily: { limit: 20, window: '1 d' },
+      })
+      expect(RATE_LIMIT_CONFIG['sign-in']).toEqual({
+        limit: 20,
+        window: '1 h',
+        dimension: 'ip',
+        daily: { limit: 100, window: '1 d' },
+      })
+      expect(RATE_LIMIT_CONFIG['forgot-password']).toEqual({
+        limit: 3,
+        window: '1 h',
+        dimension: 'ip',
+        daily: { limit: 5, window: '1 d' },
       })
     })
   })
@@ -155,6 +179,103 @@ describe('rate-limit', () => {
         limit: 5,
         remaining: 0,
         resetAt: new Date(resetMs),
+      })
+    })
+
+    describe('dual-window (features with a daily limit)', () => {
+      it('builds both primary and daily limiters with distinct prefixes', async () => {
+        const { checkRateLimit: fresh } = await import('./rate-limit')
+        mockLimit.mockResolvedValue({
+          success: true,
+          limit: 5,
+          remaining: 4,
+          reset: Date.now() + 60_000,
+        })
+
+        await fresh('1.2.3.4', 'sign-up')
+
+        const prefixes = ratelimitConstructor.mock.calls.map(([opts]) => opts.prefix).sort()
+        expect(prefixes).toEqual(['ratelimit:ip:sign-up', 'ratelimit:ip:sign-up:daily'])
+      })
+
+      it('returns primary result when both limiters allow', async () => {
+        const { checkRateLimit: fresh } = await import('./rate-limit')
+        const primaryReset = Date.now() + 60_000
+        const dailyReset = Date.now() + 3_600_000
+
+        mockLimit.mockImplementation(async (prefix: string) => {
+          if (prefix.endsWith(':daily')) {
+            return { success: true, limit: 20, remaining: 19, reset: dailyReset }
+          }
+          return { success: true, limit: 5, remaining: 4, reset: primaryReset }
+        })
+
+        const result = await fresh('1.2.3.4', 'sign-up')
+
+        expect(result).toEqual({
+          allowed: true,
+          limit: 5,
+          remaining: 4,
+          resetAt: new Date(primaryReset),
+        })
+      })
+
+      it('returns daily result when primary allows but daily denies', async () => {
+        const { checkRateLimit: fresh } = await import('./rate-limit')
+        const primaryReset = Date.now() + 60_000
+        const dailyReset = Date.now() + 3_600_000
+
+        mockLimit.mockImplementation(async (prefix: string) => {
+          if (prefix.endsWith(':daily')) {
+            return { success: false, limit: 20, remaining: 0, reset: dailyReset }
+          }
+          return { success: true, limit: 5, remaining: 4, reset: primaryReset }
+        })
+
+        const result = await fresh('1.2.3.4', 'sign-up')
+
+        expect(result).toEqual({
+          allowed: false,
+          limit: 20,
+          remaining: 0,
+          resetAt: new Date(dailyReset),
+        })
+      })
+
+      it('does not consult the daily limiter when the primary denies', async () => {
+        const { checkRateLimit: fresh } = await import('./rate-limit')
+        const primaryReset = Date.now() + 60_000
+
+        mockLimit.mockImplementation(async (prefix: string) => {
+          if (prefix.endsWith(':daily')) {
+            throw new Error('daily limiter must not be called when primary denies')
+          }
+          return { success: false, limit: 5, remaining: 0, reset: primaryReset }
+        })
+
+        const result = await fresh('1.2.3.4', 'sign-up')
+
+        expect(result.allowed).toBe(false)
+        expect(result.limit).toBe(5)
+        const dailyCalls = mockLimit.mock.calls.filter(([prefix]) =>
+          (prefix as string).endsWith(':daily'),
+        )
+        expect(dailyCalls).toHaveLength(0)
+      })
+
+      it('skips the daily limiter entirely for features without a daily config', async () => {
+        const { checkRateLimit: fresh } = await import('./rate-limit')
+        mockLimit.mockResolvedValue({
+          success: true,
+          limit: 5,
+          remaining: 4,
+          reset: Date.now() + 60_000,
+        })
+
+        await fresh('household-1', 'plan-generation')
+
+        const prefixes = ratelimitConstructor.mock.calls.map(([opts]) => opts.prefix)
+        expect(prefixes).toEqual(['ratelimit:household:plan-generation'])
       })
     })
   })
