@@ -98,9 +98,6 @@ If production deployment fails:
    - Find previous working deployment
    - Click "⋯" menu → "Promote to Production"
 
-2. **Database rollback**:
-   - Database migrations may not be easily reversible
-   - Contact team lead for assistance
-   - May require manual SQL fixes
+2. **Database rollback**: see [RUNBOOKS/database-recovery.md](RUNBOOKS/database-recovery.md) for migration rollback and PITR procedures.
 
 **Prevention**: Always test thoroughly in staging before production deployment.
