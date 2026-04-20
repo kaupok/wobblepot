@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
 import { Heading, Body } from '@/components/ui/typography'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { DeleteAccountDialog } from './DeleteAccountDialog'
@@ -46,6 +47,23 @@ export default async function ProfilePage() {
                   Email
                 </Body>
                 <Body>{session.user.email}</Body>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="flex flex-col gap-3">
+              <Heading variant="h4">Your data</Heading>
+              <Body variant="muted">
+                Download a copy of your profile, household data, meal plans, and settings as a JSON
+                file.
+              </Body>
+              <div>
+                <Button asChild variant="outline">
+                  <a href="/api/auth/user/export" download>
+                    Download my data
+                  </a>
+                </Button>
               </div>
             </div>
 

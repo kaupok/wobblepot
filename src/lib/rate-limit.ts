@@ -29,8 +29,9 @@ export type RateLimitFeature =
   | 'sign-up'
   | 'sign-in'
   | 'forgot-password'
+  | 'data-export'
 
-type Dimension = 'household' | 'ip'
+type Dimension = 'household' | 'ip' | 'user'
 
 interface WindowConfig {
   limit: number
@@ -66,6 +67,7 @@ export const RATE_LIMIT_CONFIG: Record<RateLimitFeature, FeatureConfig> = {
     dimension: 'ip',
     daily: { limit: 5, window: '1 d' },
   },
+  'data-export': { limit: 3, window: '1 d', dimension: 'user' },
 }
 
 export interface RateLimitResult {
