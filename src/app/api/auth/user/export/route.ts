@@ -20,9 +20,19 @@ import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
  *    invites and AI usage are not exposed.
  *
  * Never exposed: password hashes, session tokens, Better Auth internals.
+ *
+ * Soft-deleted meals (deletedAt != null) are intentionally included: under
+ * GDPR, all retained personal data is the user's data. Do not add a
+ * `deletedAt: null` filter here by analogy with the app-facing routes.
  */
 
 const SCHEMA_VERSION = 1
+
+// A year of meal planning + AI usage can involve thousands of rows across
+// AiUsage, MealPlanEntry, and MealComponent, all serialised through the
+// interactive-tx connection. Default 5s is too tight; a failed export still
+// spends one of the 3/day rate-limit slots, so we degrade gracefully.
+const EXPORT_TRANSACTION_TIMEOUT_MS = 30_000
 
 export async function GET() {
   const session = await auth.api.getSession({
@@ -51,154 +61,164 @@ export async function GET() {
   }
 
   try {
-    const payload = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          emailVerified: true,
-          image: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      })
+    const payload = await prisma.$transaction(
+      async (tx) => {
+        const user = await tx.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            emailVerified: true,
+            image: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        })
 
-      if (!user) {
-        throw new Error('User not found')
-      }
+        if (!user) {
+          throw new Error('User not found')
+        }
 
-      // Session metadata only — never include token.
-      const sessions = await tx.session.findMany({
-        where: { userId },
-        select: {
-          id: true,
-          createdAt: true,
-          updatedAt: true,
-          expiresAt: true,
-          ipAddress: true,
-          userAgent: true,
-        },
-        orderBy: { createdAt: 'asc' },
-      })
+        // Session metadata only — never include token.
+        const sessions = await tx.session.findMany({
+          where: { userId },
+          select: {
+            id: true,
+            createdAt: true,
+            updatedAt: true,
+            expiresAt: true,
+            ipAddress: true,
+            userAgent: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        })
 
-      const memberships = await tx.householdMember.findMany({
-        where: { userId },
-        select: { householdId: true, role: true },
-      })
+        const memberships = await tx.householdMember.findMany({
+          where: { userId },
+          select: { householdId: true, role: true },
+        })
 
-      const households = await Promise.all(
-        memberships.map(async ({ householdId, role }) => {
-          const isOwner = role === 'owner'
+        const households = await Promise.all(
+          memberships.map(async ({ householdId, role }) => {
+            const isOwner = role === 'owner'
 
-          const household = await tx.household.findUnique({
-            where: { id: householdId },
-            include: { preferences: true },
-          })
+            const household = await tx.household.findUnique({
+              where: { id: householdId },
+              include: { preferences: true },
+            })
 
-          // Unreachable in practice (FK guarantees the household exists), but
-          // keeps the types honest if a household is deleted mid-export.
-          if (!household) return null
+            // Unreachable in practice (FK guarantees the household exists), but
+            // keeps the types honest if a household is deleted mid-export.
+            if (!household) return null
 
-          const allMembers = await tx.householdMember.findMany({
-            where: { householdId },
-            include: { preferences: true },
-            orderBy: { joinedAt: 'asc' },
-          })
+            const allMembers = await tx.householdMember.findMany({
+              where: { householdId },
+              include: { preferences: true },
+              orderBy: { joinedAt: 'asc' },
+            })
 
-          const members = allMembers.map((member) => {
-            // Own row is always fully included. In an owner-household, all
-            // rows are fully included.
-            if (isOwner || member.userId === userId) {
+            const members = allMembers.map((member) => {
+              // Own row is always fully included. In an owner-household, all
+              // rows are fully included.
+              if (isOwner || member.userId === userId) {
+                return {
+                  id: member.id,
+                  userId: member.userId,
+                  name: member.name,
+                  role: member.role,
+                  joinedAt: member.joinedAt,
+                  preferences: member.preferences,
+                }
+              }
+              // Non-owner household, other member: redact name, preferences,
+              // and the user link (which could re-identify the person). Keep
+              // id/role/joinedAt for referential integrity.
               return {
                 id: member.id,
-                userId: member.userId,
-                name: member.name,
                 role: member.role,
                 joinedAt: member.joinedAt,
-                preferences: member.preferences,
               }
-            }
-            // Non-owner household, other member: redact name, preferences,
-            // and the user link (which could re-identify the person). Keep
-            // id/role/joinedAt for referential integrity.
-            return {
-              id: member.id,
-              role: member.role,
-              joinedAt: member.joinedAt,
-            }
-          })
+            })
 
-          const [meals, mealPlans, pantryItems, favoriteMeals, customShoppingItems] =
-            await Promise.all([
-              tx.meal.findMany({
+            const [meals, mealPlans, pantryItems, favoriteMeals, customShoppingItems] =
+              await Promise.all([
+                tx.meal.findMany({
+                  where: { householdId },
+                  include: { components: true },
+                  orderBy: { createdAt: 'asc' },
+                }),
+                tx.mealPlan.findMany({
+                  where: { householdId },
+                  include: { entries: true },
+                  orderBy: { createdAt: 'asc' },
+                }),
+                tx.pantryItem.findMany({
+                  where: { householdId },
+                  orderBy: { updatedAt: 'asc' },
+                }),
+                tx.favoriteMeal.findMany({
+                  where: { householdId },
+                  orderBy: { createdAt: 'asc' },
+                }),
+                tx.customShoppingItem.findMany({
+                  where: { householdId },
+                  orderBy: { createdAt: 'asc' },
+                }),
+              ])
+
+            const base = {
+              role,
+              household,
+              members,
+              meals,
+              mealPlans,
+              pantryItems,
+              favoriteMeals,
+              customShoppingItems,
+            }
+
+            if (!isOwner) {
+              // Non-owner members cannot see invites or AI usage.
+              return base
+            }
+
+            const [invites, aiUsage] = await Promise.all([
+              tx.householdInvite.findMany({
                 where: { householdId },
-                include: { components: true },
                 orderBy: { createdAt: 'asc' },
               }),
-              tx.mealPlan.findMany({
-                where: { householdId },
-                include: { entries: true },
-                orderBy: { createdAt: 'asc' },
-              }),
-              tx.pantryItem.findMany({
-                where: { householdId },
-                orderBy: { updatedAt: 'asc' },
-              }),
-              tx.favoriteMeal.findMany({
-                where: { householdId },
-                orderBy: { createdAt: 'asc' },
-              }),
-              tx.customShoppingItem.findMany({
+              tx.aiUsage.findMany({
                 where: { householdId },
                 orderBy: { createdAt: 'asc' },
               }),
             ])
 
-          const base = {
-            role,
-            household,
-            members,
-            meals,
-            mealPlans,
-            pantryItems,
-            favoriteMeals,
-            customShoppingItems,
-          }
+            return { ...base, invites, aiUsage }
+          }),
+        )
 
-          if (!isOwner) {
-            // Non-owner members cannot see invites or AI usage.
-            return base
-          }
+        // HON-457 will add `acceptedTermsAt` / `acceptedTermsVersion` to the
+        // User model and to the `select` above. Prefer the DB value if
+        // present, stub to null otherwise — placing the explicit keys after
+        // the spread would silently overwrite real values once HON-457 lands.
+        const userWithTerms = user as typeof user & {
+          acceptedTermsAt?: Date | null
+          acceptedTermsVersion?: string | null
+        }
 
-          const [invites, aiUsage] = await Promise.all([
-            tx.householdInvite.findMany({
-              where: { householdId },
-              orderBy: { createdAt: 'asc' },
-            }),
-            tx.aiUsage.findMany({
-              where: { householdId },
-              orderBy: { createdAt: 'asc' },
-            }),
-          ])
-
-          return { ...base, invites, aiUsage }
-        }),
-      )
-
-      return {
-        user: {
-          ...user,
-          // HON-457 will add these fields to the User model; stub as null
-          // until then so the envelope shape is stable for consumers.
-          acceptedTermsAt: null as string | null,
-          acceptedTermsVersion: null as string | null,
-          sessions,
-        },
-        households: households.filter((h): h is NonNullable<typeof h> => h !== null),
-      }
-    })
+        return {
+          user: {
+            ...user,
+            acceptedTermsAt: userWithTerms.acceptedTermsAt ?? null,
+            acceptedTermsVersion: userWithTerms.acceptedTermsVersion ?? null,
+            sessions,
+          },
+          households: households.filter((h): h is NonNullable<typeof h> => h !== null),
+        }
+      },
+      { timeout: EXPORT_TRANSACTION_TIMEOUT_MS },
+    )
 
     const now = new Date()
     const envelope = {
