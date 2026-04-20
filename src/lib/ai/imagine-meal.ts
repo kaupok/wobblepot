@@ -3,6 +3,7 @@ import { generateObject } from 'ai'
 import { z } from 'zod'
 import { serverEnv } from '@/lib/env'
 import { IMAGINE_MODEL } from './models'
+import type { AiUsageStats } from './usage'
 
 /**
  * Schema for a single ingredient in an imagined meal.
@@ -73,6 +74,7 @@ export async function imagineMeals(
   prompt: string | null,
   household: HouseholdContext,
   images?: { base64: string; mimeType: string }[],
+  onAiUsage?: (usage: AiUsageStats) => void,
 ): Promise<ImaginedMeal[]> {
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
 
@@ -161,6 +163,12 @@ The user may attach photos for context — these could show ingredients they hav
     schema: ImaginedMealsSchema,
     messages: [{ role: 'user' as const, content }],
     system: systemPrompt,
+  })
+
+  onAiUsage?.({
+    model: IMAGINE_MODEL,
+    inputTokens: result.usage?.inputTokens ?? 0,
+    outputTokens: result.usage?.outputTokens ?? 0,
   })
 
   return result.object.meals

@@ -72,11 +72,20 @@ vi.mock('@/lib/rate-limit', () => ({
   retryAfterSeconds: vi.fn(() => 120),
 }))
 
+vi.mock('@/lib/ai/usage', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/ai/usage')>()
+  return {
+    ...actual,
+    assertUnderCap: vi.fn(),
+  }
+})
+
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { getCandidates } from '@/lib/meal-planning/candidates'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { assertUnderCap } from '@/lib/ai/usage'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -86,6 +95,7 @@ const mockFindManyFavorites = vi.mocked(prisma.favoriteMeal.findMany)
 const mockFindManyMeals = vi.mocked(prisma.meal.findMany)
 const mockGetCandidates = vi.mocked(getCandidates)
 const mockCheckRateLimit = vi.mocked(checkRateLimit)
+const mockAssertUnderCap = vi.mocked(assertUnderCap)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -129,6 +139,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/suggestions', () => {
       limit: 60,
       resetAt: new Date('2026-02-01T12:00:00.000Z'),
     })
+    mockAssertUnderCap.mockResolvedValue(undefined)
   })
 
   it('returns 429 with Retry-After header when rate limited', async () => {

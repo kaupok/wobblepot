@@ -226,6 +226,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     restrictions,
     weekdayMealTypes = ['dinner'] as MealType[],
     weekendMealTypes = ['dinner'] as MealType[],
+    onAiUsage,
   } = options
 
   // Get dates for entries from the flexible date range (endDate is exclusive)
@@ -339,11 +340,19 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
 
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
 
-  const { object } = await generateObject({
+  const result = await generateObject({
     model: anthropic(PLANNING_MODEL),
     schema: MealPlanResponseSchema,
     prompt,
   })
+
+  onAiUsage?.({
+    model: PLANNING_MODEL,
+    inputTokens: result.usage?.inputTokens ?? 0,
+    outputTokens: result.usage?.outputTokens ?? 0,
+  })
+
+  const { object } = result
 
   // Hydrate with meal details
   const hydratedPlan = await hydratePlan(object.entries)
@@ -492,6 +501,7 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     restrictions,
     weekdayMealTypes,
     weekendMealTypes,
+    onAiUsage,
   } = options
 
   // Fetch existing plan with entries
@@ -670,11 +680,19 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
 
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
 
-  const { object } = await generateObject({
+  const result = await generateObject({
     model: anthropic(PLANNING_MODEL),
     schema: MealPlanResponseSchema,
     prompt,
   })
+
+  onAiUsage?.({
+    model: PLANNING_MODEL,
+    inputTokens: result.usage?.inputTokens ?? 0,
+    outputTokens: result.usage?.outputTokens ?? 0,
+  })
+
+  const { object } = result
 
   // Hydrate with meal details
   const hydratedPlan = await hydratePlan(object.entries)

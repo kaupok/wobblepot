@@ -2,7 +2,14 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
+import { getHouseholdMembership } from '@/lib/household'
 import { reviewMealQuantities, type ReviewIngredient } from '@/lib/ai/review-quantities'
+import {
+  AiCostCapExceededError,
+  assertUnderCap,
+  recordAiUsage,
+  respondCapExceeded,
+} from '@/lib/ai/usage'
 
 const reviewRequestSchema = z.object({
   mealName: z.string().min(1),
@@ -28,6 +35,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const membership = await getHouseholdMembership(session.user.id)
+
+  if (!membership) {
+    return NextResponse.json({ error: 'No household found' }, { status: 404 })
+  }
+
+  const { household } = membership
+
+  try {
+    await assertUnderCap(household.id)
+  } catch (error) {
+    if (error instanceof AiCostCapExceededError) {
+      return respondCapExceeded(error)
+    }
+    throw error
+  }
+
   let body: unknown
   try {
     body = await request.json()
@@ -47,6 +71,8 @@ export async function POST(request: Request) {
       mealName,
       servings,
       ingredients as ReviewIngredient[],
+      (usage) =>
+        recordAiUsage({ householdId: household.id, feature: 'meal_review_quantities', ...usage }),
     )
 
     // Filter out non-positive quantities the AI may return (schema can't enforce .positive())

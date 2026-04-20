@@ -12,6 +12,7 @@ import { computeRequiredSlots } from '@/lib/meal-planning/slots'
 import { getWeekDates, toDateString, getMondayOfWeek } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
+import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
 import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
 import type { AlternativeMeal } from '@/components/meal-plan/types'
 
@@ -141,6 +142,15 @@ export async function POST(
 
   // Extract params
   const { id: planId, entryId } = await params
+
+  try {
+    await assertUnderCap(household.id)
+  } catch (error) {
+    if (error instanceof AiCostCapExceededError) {
+      return respondCapExceeded(error)
+    }
+    throw error
+  }
 
   try {
     // Fetch entry with plan and meal details (including protein type for similarity scoring)

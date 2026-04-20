@@ -7,6 +7,12 @@ import { prisma } from '@/lib/prisma'
 import { imagineMeals } from '@/lib/ai/imagine-meal'
 import { matchIngredients } from '@/lib/ai/parse-recipe'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import {
+  AiCostCapExceededError,
+  assertUnderCap,
+  recordAiUsage,
+  respondCapExceeded,
+} from '@/lib/ai/usage'
 import { deriveProteinType } from '@/lib/meal-planning/protein'
 import type { ExtractedIngredient } from '@/lib/ai/parse-recipe'
 
@@ -48,6 +54,15 @@ export async function POST(request: Request) {
         headers: { 'Retry-After': String(retryAfterSeconds(rateLimitResult)) },
       },
     )
+  }
+
+  try {
+    await assertUnderCap(household.id)
+  } catch (error) {
+    if (error instanceof AiCostCapExceededError) {
+      return respondCapExceeded(error)
+    }
+    throw error
   }
 
   // Parse request body — supports JSON (text-only) and FormData (with images)
@@ -125,6 +140,7 @@ export async function POST(request: Request) {
         householdSize,
       },
       images.length > 0 ? images : undefined,
+      (usage) => recordAiUsage({ householdId: household.id, feature: 'meal_imagine', ...usage }),
     )
 
     // Match ingredients and compute nutrition for each meal

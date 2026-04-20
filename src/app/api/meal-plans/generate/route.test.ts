@@ -35,6 +35,15 @@ vi.mock('@/lib/meal-planning/dates', () => ({
   }),
 }))
 
+vi.mock('@/lib/ai/usage', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/ai/usage')>()
+  return {
+    ...actual,
+    assertUnderCap: vi.fn(),
+    recordAiUsage: vi.fn(),
+  }
+})
+
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -44,6 +53,7 @@ import {
   InsufficientCandidatesError,
   NoEmptySlotsError,
 } from '@/lib/ai/types'
+import { assertUnderCap } from '@/lib/ai/usage'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -51,6 +61,7 @@ const mockCheckRateLimit = vi.mocked(checkRateLimit)
 const mockGenerateMealPlan = vi.mocked(generateMealPlan)
 const mockCreateEmptyPlan = vi.mocked(createEmptyPlan)
 const mockFillEmptySlots = vi.mocked(fillEmptySlots)
+const mockAssertUnderCap = vi.mocked(assertUnderCap)
 
 const mockHousehold = {
   id: 'household-123',
@@ -95,6 +106,7 @@ describe('POST /api/meal-plans/generate', () => {
       limit: 5,
       resetAt: new Date('2026-02-01T12:00:00.000Z'),
     })
+    mockAssertUnderCap.mockResolvedValue(undefined)
   })
 
   it('returns 401 when not authenticated', async () => {
