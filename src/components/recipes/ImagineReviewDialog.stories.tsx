@@ -118,7 +118,7 @@ export const WithoutEditDetails: Story = {
   },
 }
 
-// Play stories — exercise parent-callback contracts under @storybook/test-runner.
+// Play stories — exercise parent-callback contracts under @storybook/addon-vitest.
 // Radix Dialog content lives outside `canvasElement`, so queries use `within(document.body)`.
 
 export const EscapeClosesDialog: Story = {

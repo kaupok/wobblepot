@@ -38,9 +38,10 @@ The toolbar lets you toggle the viewport manually for exploration.
 ## Play-function interaction tests
 
 Stories can include a `play` function to exercise the component under
-`@storybook/test-runner` (run in CI via `pnpm test-storybook:ci`). Use this to
-cover parent-callback contracts that aren't easily tested end-to-end: modal
-open/close, keyboard handling, form submission, selection.
+`@storybook/addon-vitest` (run in CI via `pnpm test-storybook:ci`, live in
+watch mode via `pnpm test-storybook`). Use this to cover parent-callback
+contracts that aren't easily tested end-to-end: modal open/close, keyboard
+handling, form submission, selection.
 
 ## Imports
 
@@ -130,7 +131,7 @@ Use the shared helpers in `src/stories/a11y-helpers.ts`:
 - `assertFocusInDialog()` — focus moved into the open dialog
 - `assertTabStaysInDialog(count = 10)` — tabbing doesn't escape the dialog
 - `awaitDialogClosed(timeoutMs = 2000)` — waits for dialog to fully unmount. Our Radix Dialog has a 200ms fade-out animation; during that time the dialog stays in the DOM with `data-state="closed"` and FocusScope hasn't cleaned up yet. Awaiting unmount is a proxy for "close sequence completed" and catches real regressions (a dialog that never closes, or whose focus trap outlives unmount).
-- `openViaTrigger(trigger)` — Tab to the trigger and activate with Enter. Keyboard navigation is more reliable than `.focus()` or `.click()` in the headless test-runner.
+- `openViaTrigger(trigger)` — Tab to the trigger and activate with Enter. Keyboard navigation is more reliable than `.focus()` or `.click()` in the headless test runner.
 - `pressEscape()` / `pressTab(count = 1)` — `userEvent` wrappers.
 
 ### The pattern

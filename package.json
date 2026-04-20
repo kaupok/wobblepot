@@ -10,8 +10,8 @@
     "postinstall": "prisma generate",
     "prepare": "husky",
     "lint": "eslint .",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
+    "test": "vitest run --project=unit",
+    "test:coverage": "vitest run --project=unit --coverage",
     "test:e2e": "playwright test",
     "test:all": "pnpm test && pnpm test:e2e",
     "format": "prettier --write .",
@@ -29,8 +29,8 @@
     "test:ai-selection": "npx tsx scripts/test-ai-selection.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "test-storybook": "test-storybook",
-    "test-storybook:ci": "concurrently -k -s first -n \"SB,TEST\" \"http-server storybook-static --port 6006 --silent\" \"wait-on tcp:6006 && test-storybook\""
+    "test-storybook": "vitest --project=storybook",
+    "test-storybook:ci": "vitest run --project=storybook"
   },
   "engines": {
     "node": "22.x"
@@ -75,8 +75,8 @@
     "@playwright/test": "1.59.1",
     "@storybook/addon-a11y": "10.3.5",
     "@storybook/addon-docs": "10.3.5",
+    "@storybook/addon-vitest": "10.3.5",
     "@storybook/nextjs-vite": "10.3.5",
-    "@storybook/test-runner": "0.24.3",
     "@tailwindcss/postcss": "4.1.18",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
@@ -84,19 +84,19 @@
     "@types/node": "22.19.7",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
+    "@vitest/browser-playwright": "4.0.18",
     "@vitest/coverage-v8": "4.0.18",
-    "concurrently": "9.2.1",
     "dotenv": "17.3.1",
     "eslint": "9.39.2",
     "eslint-config-next": "16.1.6",
     "eslint-plugin-storybook": "10.3.5",
     "eslint-plugin-testing-library": "7.15.4",
-    "http-server": "14.1.1",
     "husky": "9.1.7",
     "jsdom": "28.1.0",
     "lint-staged": "16.2.7",
     "msw": "2.13.4",
     "msw-storybook-addon": "2.0.7",
+    "playwright": "1.59.1",
     "prettier": "3.8.1",
     "prettier-plugin-tailwindcss": "0.7.2",
     "prisma": "7.4.2",
@@ -105,8 +105,7 @@
     "tsx": "4.21.0",
     "tw-animate-css": "1.4.0",
     "typescript": "5.9.3",
-    "vitest": "4.0.18",
-    "wait-on": "9.0.5"
+    "vitest": "4.0.18"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

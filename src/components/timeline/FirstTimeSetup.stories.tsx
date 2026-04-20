@@ -92,8 +92,8 @@ export const SetupFlowInvokesApi: Story = {
     expect(generateSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         mode: 'generate',
-        startDate: expect.any(String),
-        endDate: expect.any(String),
+        startDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        endDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
       }),
     )
   },

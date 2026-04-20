@@ -93,7 +93,7 @@ export const Error: Story = {
   },
 }
 
-// Play stories — exercise the parent-callback contract under @storybook/test-runner.
+// Play stories — exercise the parent-callback contract under @storybook/addon-vitest.
 // The default MSW handler in `msw-handlers.ts` echoes the submitted name back as a
 // new member, so onMemberAdded fires with the server's response shape.
 

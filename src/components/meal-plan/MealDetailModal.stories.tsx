@@ -71,7 +71,7 @@ export const WithPreparationNotes: Story = {
 }
 
 // Play stories — exercise the component's parent-callback contract under
-// @storybook/test-runner. Radix Dialog portals outside `canvasElement`, so we
+// @storybook/addon-vitest. Radix Dialog portals outside `canvasElement`, so we
 // scope queries to `document.body` via `within(document.body)`.
 
 export const EscapeClosesDialog: Story = {

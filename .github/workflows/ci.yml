@@ -52,11 +52,8 @@ jobs:
       - name: Run unit tests
         run: pnpm test
 
-      - name: Build Storybook
-        run: pnpm build-storybook
-
       - name: Install Playwright chromium
-        run: pnpm exec playwright install --with-deps chromium chromium-headless-shell
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Run Storybook a11y tests
         run: pnpm test-storybook:ci
