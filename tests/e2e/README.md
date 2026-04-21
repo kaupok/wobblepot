@@ -5,20 +5,37 @@ environments, all from the same `tests/e2e/*.spec.ts` files.
 
 ## Tiers
 
-| Tier              | When                                                                   | Target                           | Specs run            |
-| ----------------- | ---------------------------------------------------------------------- | -------------------------------- | -------------------- |
-| **CI E2E**        | Every push / PR (`.github/workflows/ci.yml`)                           | Docker Postgres sidecar          | All specs            |
-| **Preview-smoke** | Vercel preview deploy succeeds (`preview-smoke.yml`)                   | Vercel preview URL + Neon branch | `--grep=@smoke` only |
-| **Staging-smoke** | Staging DB-migration workflow succeeds on `main` (`staging-smoke.yml`) | `https://honkadori.xyz`          | `--grep=@smoke` only |
+| Tier              | When                                                                              | Target                           | Specs run                     |
+| ----------------- | --------------------------------------------------------------------------------- | -------------------------------- | ----------------------------- |
+| **CI E2E**        | Every push / PR (`.github/workflows/ci.yml`)                                      | Docker Postgres sidecar          | All specs **except `@ai`**    |
+| **Preview-smoke** | Vercel preview deploy succeeds **and PR has `smoke` label** (`preview-smoke.yml`) | Vercel preview URL + Neon branch | `--grep=@smoke` (includes AI) |
+| **Staging-smoke** | Staging DB-migration workflow succeeds on `main` (`staging-smoke.yml`)            | `https://honkadori.xyz`          | `--grep=@smoke` (includes AI) |
 
 Staging-smoke failure blocks production promotion — see
 [`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md).
 
+### Why the `@ai` split
+
+Tier 1 runs on every push. Specs that call Claude (meal-plan generate,
+swap, pantry-deduction) cost real money per run — at this repo's PR
+velocity, running them on every push is a four-to-five-figure annual
+bill. They live in tiers 2 and 3 instead, where "once per PR" and "once
+per merge" cadences are economically reasonable.
+
+### Running preview-smoke on a PR
+
+Preview-smoke is **label-gated**: add the `smoke` label to the PR and
+the next successful Vercel preview deploy triggers a smoke run against
+it. Remove + re-add the label (or push a new commit) to re-trigger. The
+workflow silently does nothing on unlabelled PRs — the "Smoke tests on
+Vercel preview" check only appears once a run is actually dispatched.
+
 ## Running locally
 
 ```bash
-pnpm test:e2e              # Full suite against local dev server
-pnpm test:e2e --grep=@smoke # Just the smoke specs
+pnpm test:e2e                       # Full suite against local dev server
+pnpm test:e2e --grep=@smoke         # Just smoke specs (what tiers 2+3 run)
+pnpm test:e2e --grep-invert=@ai     # What tier 1 runs — no Claude calls
 ```
 
 To exercise the remote-URL wiring without a local server:
@@ -68,16 +85,27 @@ path.
 
 ## Required GitHub Actions secrets
 
-| Secret                          | Used by                      | Notes                                                        |
-| ------------------------------- | ---------------------------- | ------------------------------------------------------------ |
-| `BETTER_AUTH_SECRET_CI`         | CI                           | `openssl rand -base64 32`                                    |
-| `ANTHROPIC_API_KEY_CI`          | CI                           | Dedicated low-budget key; meal-plan spec invokes AI          |
-| `UPSTASH_REDIS_REST_URL_CI`     | CI                           | Throwaway Upstash DB — rate-limiter state isolated from prod |
-| `UPSTASH_REDIS_REST_TOKEN_CI`   | CI                           | Paired with above                                            |
-| `SMOKE_TEST_EMAIL`              | CI / preview-smoke / staging | Seed + helper credential                                     |
-| `SMOKE_TEST_PASSWORD`           | CI / preview-smoke / staging | Must be ≥ 12 chars (HON-464 minimum)                         |
-| `FORGOT_PASSWORD_TEST_EMAIL`    | CI / preview-smoke / staging | Seed + helper credential                                     |
-| `FORGOT_PASSWORD_TEST_PASSWORD` | CI / preview-smoke / staging | Must be ≥ 12 chars                                           |
+The `_CI` suffixed secrets can all reuse the same values as the matching
+staging/prod env vars — they're only separate so you can rotate CI
+independently if you ever want to. The test-user credentials are
+purely content.
+
+| Secret                          | Used by                      | Can reuse staging? | Notes                                                                                                                                                             |
+| ------------------------------- | ---------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BETTER_AUTH_SECRET_CI`         | CI                           | Yes                | Signs sessions in the CI runner. Sessions are DB-backed — a leaked secret can't forge a session without the matching DB row, so sharing is benign.                |
+| `ANTHROPIC_API_KEY_CI`          | CI                           | Yes                | Tier 1 skips `@ai` specs so runtime AI spend is effectively zero. The key is still needed for `pnpm build` to resolve lazy env references cleanly. Reuse staging. |
+| `UPSTASH_REDIS_REST_URL_CI`     | CI                           | Yes                | Same Upstash DB as staging. Rate-limiter keys are dimensioned (ip/household/user) and CI runner IPs / fresh IDs don't collide with real traffic.                  |
+| `UPSTASH_REDIS_REST_TOKEN_CI`   | CI                           | Yes                | Paired with above.                                                                                                                                                |
+| `SMOKE_TEST_EMAIL`              | CI / preview-smoke / staging | n/a                | Stable seeded account. Pick any value — e.g. `smoke+ci@honkadori.xyz`.                                                                                            |
+| `SMOKE_TEST_PASSWORD`           | CI / preview-smoke / staging | n/a                | ≥ 12 chars (HON-464 minimum) and must not be in HIBP's breach list (auth.ts rejects known-breached passwords on sign-up).                                         |
+| `FORGOT_PASSWORD_TEST_EMAIL`    | CI / preview-smoke / staging | n/a                | Separate seeded account so reset-password specs don't affect the smoke account.                                                                                   |
+| `FORGOT_PASSWORD_TEST_PASSWORD` | CI / preview-smoke / staging | n/a                | Same constraints as `SMOKE_TEST_PASSWORD`.                                                                                                                        |
+
+For preview-smoke and staging-smoke to actually find the seeded
+accounts, the **Vercel env vars** for those environments also need
+`SEED_TEST_USERS=1` plus the same `SMOKE_TEST_*` / `FORGOT_PASSWORD_TEST_*`
+values — otherwise the seed step `scripts/maybe-migrate.sh` → `pnpm db:seed`
+skips the `seedTestUsers()` branch.
 
 `STAGING_URL` is a **variable** (not a secret) — default `https://honkadori.xyz`.
 

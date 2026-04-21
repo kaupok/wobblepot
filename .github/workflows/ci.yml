@@ -97,8 +97,12 @@ jobs:
       - name: Seed database
         run: pnpm db:seed
 
-      - name: Run E2E tests
-        run: pnpm test:e2e
+      # Tier 1 runs every spec except Claude-calling ones (tagged @ai) —
+      # AI-exercising flows are covered by preview-smoke once per PR and
+      # staging-smoke once per merge. Running them on every push is the
+      # dominant cost driver given this repo's PR velocity.
+      - name: Run E2E tests (excluding @ai)
+        run: pnpm test:e2e --grep-invert=@ai
 
       - name: Upload Playwright report
         if: failure()
