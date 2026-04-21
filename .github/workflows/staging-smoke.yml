@@ -79,9 +79,11 @@ jobs:
         run: pnpm test:e2e --grep=@smoke
 
       - name: Upload Playwright report
-        if: failure()
+        if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-staging-${{ github.sha }}
           path: playwright-report/
           retention-days: 14
+          if-no-files-found: ignore

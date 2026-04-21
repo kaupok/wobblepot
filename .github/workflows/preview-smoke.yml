@@ -9,14 +9,19 @@ on:
   deployment_status:
 
 concurrency:
-  group: preview-smoke-${{ github.event.deployment.sha }}
+  # Per-ref so a newer push cancels in-flight smoke runs for the same
+  # branch — otherwise every preview deploy on a fast-iterating PR piles
+  # up its own 15+ min smoke job.
+  group: preview-smoke-${{ github.event.deployment.ref }}
   cancel-in-progress: true
 
 jobs:
   smoke:
     name: Smoke tests on Vercel preview
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Bumped above the Playwright worst-case (5 tests × retries × per-test
+    # timeout) so we see real failures + traces, not a GitHub-level cancel.
+    timeout-minutes: 25
     # Only run when a Vercel preview deploy completes successfully.
     # `github.event.deployment.environment` is "Preview" for Vercel previews.
     if: >-
@@ -59,10 +64,16 @@ jobs:
       - name: Run @smoke specs against preview URL
         run: pnpm test:e2e --grep=@smoke
 
+      # `always()` instead of `failure()` so we also keep the report when a
+      # test run is cancelled (e.g. a superseding push triggers
+      # concurrency-cancel). `continue-on-error` keeps missing artifacts
+      # from flipping an otherwise-green job red.
       - name: Upload Playwright report
-        if: failure()
+        if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-preview-${{ github.event.deployment.sha }}
           path: playwright-report/
           retention-days: 7
+          if-no-files-found: ignore
