@@ -44,21 +44,15 @@ jobs:
       NODE_ENV: test
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
       DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
-      # Fallbacks for env vars whose validation schema requires them so the
-      # build step doesn't crash before CI is fully configured. These
-      # fallbacks are for ephemeral CI sessions only — override with real
-      # secrets once the repo admin adds them. ANTHROPIC_API_KEY has no
-      # fallback: specs that invoke the model will fail loudly until the
-      # real secret lands.
-      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET_CI || 'ci-fallback-better-auth-secret-ephemeral-32plus-chars' }}
+      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET_CI }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_CI }}
-      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL_CI || 'https://ci-fallback.upstash.invalid' }}
-      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN_CI || 'ci-fallback-token' }}
+      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL_CI }}
+      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN_CI }}
       SEED_TEST_USERS: '1'
-      SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL || 'smoke@test.honkadori.local' }}
-      SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD || 'smoke-test-pass-ci-2026' }}
-      FORGOT_PASSWORD_TEST_EMAIL: ${{ secrets.FORGOT_PASSWORD_TEST_EMAIL || 'forgot-password@test.honkadori.local' }}
-      FORGOT_PASSWORD_TEST_PASSWORD: ${{ secrets.FORGOT_PASSWORD_TEST_PASSWORD || 'forgot-pass-test-ci-2026' }}
+      SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
+      SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
+      FORGOT_PASSWORD_TEST_EMAIL: ${{ secrets.FORGOT_PASSWORD_TEST_EMAIL }}
+      FORGOT_PASSWORD_TEST_PASSWORD: ${{ secrets.FORGOT_PASSWORD_TEST_PASSWORD }}
 
     steps:
       - name: Checkout code
