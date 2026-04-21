@@ -1,0 +1,68 @@
+name: Preview smoke
+
+# Tier 2 of the HON-455 E2E setup. Fires when Vercel reports a successful
+# preview deploy and runs the @smoke-tagged Playwright specs against the
+# real preview URL (backed by a per-PR Neon branch via maybe-migrate.sh).
+# Status shows up on the PR conversation and blocks merge on failure.
+
+on:
+  deployment_status:
+
+concurrency:
+  group: preview-smoke-${{ github.event.deployment.sha }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Smoke tests on Vercel preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Only run when a Vercel preview deploy completes successfully.
+    # `github.event.deployment.environment` is "Preview" for Vercel previews.
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment.environment == 'Preview' &&
+      github.event.deployment_status.environment_url != ''
+    permissions:
+      contents: read
+      statuses: write
+
+    env:
+      PLAYWRIGHT_BASE_URL: ${{ github.event.deployment_status.environment_url }}
+      SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
+      SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
+      FORGOT_PASSWORD_TEST_EMAIL: ${{ secrets.FORGOT_PASSWORD_TEST_EMAIL }}
+      FORGOT_PASSWORD_TEST_PASSWORD: ${{ secrets.FORGOT_PASSWORD_TEST_PASSWORD }}
+      NEXT_TELEMETRY_DISABLED: 1
+
+    steps:
+      - name: Checkout code at deployed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha }}
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run @smoke specs against preview URL
+        run: pnpm test:e2e --grep=@smoke
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-preview-${{ github.event.deployment.sha }}
+          path: playwright-report/
+          retention-days: 7

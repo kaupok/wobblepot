@@ -32,7 +32,7 @@ test.describe('Invite flows', () => {
     expect(inviteUrl).toContain('/invite/')
   })
 
-  test('new user accepts invite and joins household', async ({ browser }) => {
+  test('new user accepts invite and joins household', { tag: '@smoke' }, async ({ browser }) => {
     // Create two separate browser contexts to simulate two different users
     const ownerContext = await browser.newContext()
     const memberContext = await browser.newContext()

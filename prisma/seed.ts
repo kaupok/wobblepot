@@ -1,4 +1,6 @@
 import 'dotenv/config'
+import { randomUUID } from 'node:crypto'
+import { hashPassword } from 'better-auth/crypto'
 import { PrismaClient } from '../src/generated/prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import type { IngredientInput } from './seed-types'
@@ -3807,9 +3809,101 @@ async function seedMeals() {
   console.log(`Seeded ${seededCount} meals (${skippedCount} skipped)`)
 }
 
+// ============================================
+// E2E TEST USER SEEDING
+// ============================================
+//
+// Seeds a stable smoke-test account and a forgot-password account used by the
+// preview-smoke and staging-smoke Playwright tiers. Gated behind the
+// SEED_TEST_USERS env var so these never land in a production DB. The
+// contract is documented in tests/e2e/README.md.
+//
+// Passwords are hashed with Better Auth's built-in scrypt (`hashPassword`)
+// so a direct `signIn.email` call through the app stack can verify them.
+
+const SMOKE_DEFAULT_EMAIL = 'smoke@test.honkadori.local'
+const SMOKE_DEFAULT_PASSWORD = 'smoke-test-pass-1234'
+const FORGOT_PASSWORD_DEFAULT_EMAIL = 'forgot-password@test.honkadori.local'
+const FORGOT_PASSWORD_DEFAULT_PASSWORD = 'forgot-pass-test-1234'
+
+interface TestUserSpec {
+  label: string
+  email: string
+  password: string
+  name: string
+}
+
+async function upsertCredentialUser(spec: TestUserSpec) {
+  const hashed = await hashPassword(spec.password)
+
+  const user = await prisma.user.upsert({
+    where: { email: spec.email },
+    update: {
+      name: spec.name,
+      emailVerified: true,
+    },
+    create: {
+      id: randomUUID(),
+      email: spec.email,
+      name: spec.name,
+      emailVerified: true,
+    },
+  })
+
+  await prisma.account.upsert({
+    where: {
+      providerId_accountId: {
+        providerId: 'credential',
+        accountId: user.id,
+      },
+    },
+    update: {
+      password: hashed,
+    },
+    create: {
+      id: randomUUID(),
+      providerId: 'credential',
+      accountId: user.id,
+      userId: user.id,
+      password: hashed,
+    },
+  })
+
+  return user
+}
+
+async function seedTestUsers() {
+  if (process.env.SEED_TEST_USERS !== '1') {
+    return
+  }
+
+  console.log('Seeding E2E test users (SEED_TEST_USERS=1)...')
+
+  const specs: TestUserSpec[] = [
+    {
+      label: 'smoke',
+      email: process.env.SMOKE_TEST_EMAIL ?? SMOKE_DEFAULT_EMAIL,
+      password: process.env.SMOKE_TEST_PASSWORD ?? SMOKE_DEFAULT_PASSWORD,
+      name: 'Smoke Test User',
+    },
+    {
+      label: 'forgot-password',
+      email: process.env.FORGOT_PASSWORD_TEST_EMAIL ?? FORGOT_PASSWORD_DEFAULT_EMAIL,
+      password: process.env.FORGOT_PASSWORD_TEST_PASSWORD ?? FORGOT_PASSWORD_DEFAULT_PASSWORD,
+      name: 'Forgot Password Test User',
+    },
+  ]
+
+  for (const spec of specs) {
+    await upsertCredentialUser(spec)
+    console.log(`  ✓ ${spec.label} user: ${spec.email}`)
+  }
+}
+
 async function main() {
   await seedIngredients()
   await seedMeals()
+  await seedTestUsers()
 }
 
 // Only run main() when executed directly (not when imported)

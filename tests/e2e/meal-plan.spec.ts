@@ -29,7 +29,7 @@ test.describe('Meal plan generation and viewing', () => {
     await expect(page.getByRole('button', { name: 'Generate meal plan' })).toBeVisible()
   })
 
-  test('generate first meal plan', async ({ page }) => {
+  test('generate first meal plan', { tag: '@smoke' }, async ({ page }) => {
     await signUpWithHousehold(page)
     await page.goto('/meal-plan')
 
@@ -71,7 +71,7 @@ test.describe('Meal plan generation and viewing', () => {
     await expect(dialog).not.toBeVisible()
   })
 
-  test('change meal status persists after refresh', async ({ page }) => {
+  test('change meal status persists after refresh', { tag: '@smoke' }, async ({ page }) => {
     await signUpWithHousehold(page)
     await page.goto('/meal-plan')
     await generateMealPlan(page)

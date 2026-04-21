@@ -16,13 +16,33 @@ Complete guide for deploying Honkadori to staging and production environments.
 All changes must pass the following checks in GitHub Actions:
 
 - `pnpm lint` - ESLint rules
+- `pnpm format:check` - Prettier
 - `pnpm type-check` - TypeScript type checking
 - `pnpm test` - Unit tests
+- `pnpm test-storybook:ci` - Storybook a11y gate
+- `pnpm test:e2e` - Playwright E2E tier 1 (Docker Postgres sidecar)
 
 **Important notes:**
 
 - Build verification happens through Vercel deployment (not in CI)
-- E2E tests are currently disabled in CI but should be run locally before submitting PRs with `pnpm test:e2e`
+- Locally: `pnpm test:e2e` runs against `pnpm dev`; see [`tests/e2e/README.md`](../tests/e2e/README.md) for details
+
+## E2E testing tiers
+
+See [`tests/e2e/README.md`](../tests/e2e/README.md) for the authoritative tier
+definitions. Summary for deployment decisions:
+
+1. **CI E2E** — runs on every push/PR against a Docker Postgres sidecar. Full
+   suite. Blocks merge.
+2. **Preview-smoke** (`.github/workflows/preview-smoke.yml`) — runs on Vercel
+   preview `deployment_status: success` against the real preview URL +
+   per-PR Neon branch. Executes `@smoke`-tagged specs. Status check appears
+   on the PR.
+3. **Staging-smoke** (`.github/workflows/staging-smoke.yml`) — runs after the
+   staging DB-migration workflow succeeds on `main`. Executes `@smoke`-tagged
+   specs against `https://honkadori.xyz`. **Failure blocks production
+   promotion** — do not run the production deploy workflows below until
+   staging-smoke is green on the same commit.
 
 ## Production Deployment Process
 
@@ -40,7 +60,11 @@ Production deployments require manual coordination to ensure database migrations
    - Test all affected functionality
    - Check for any migration issues
 
-3. **Deploy to production** (when ready):
+3. **Confirm staging-smoke is green**
+   - The [staging-smoke workflow](https://github.com/kaupok/honkadori/actions/workflows/staging-smoke.yml) runs after each staging deploy
+   - Do not promote to production until staging-smoke is green on the commit being deployed
+
+4. **Deploy to production** (when ready):
 
    **a. Run database migrations**
    - Go to: [GitHub Actions](https://github.com/kaupok/honkadori/actions/workflows/deploy-db-migrations-production.yml)
