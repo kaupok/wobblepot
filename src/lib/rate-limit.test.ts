@@ -41,6 +41,10 @@ describe('rate-limit', () => {
     redisConstructor.mockReset()
     // Drop module cache for limiterCache between tests.
     vi.resetModules()
+    // Default: never bypass. Individual tests in the bypass describe block
+    // opt in explicitly. This guards against ambient `E2E_DISABLE_RATE_LIMIT`
+    // in the shell (local dev) or leaked from a parent CI env.
+    delete process.env.E2E_DISABLE_RATE_LIMIT
   })
 
   describe('CONFIG', () => {
@@ -303,6 +307,83 @@ describe('rate-limit', () => {
         const prefixes = ratelimitConstructor.mock.calls.map(([opts]) => opts.prefix)
         expect(prefixes).toEqual(['ratelimit:household:plan-generation'])
       })
+    })
+  })
+
+  describe('E2E_DISABLE_RATE_LIMIT bypass', () => {
+    const originalFlag = process.env.E2E_DISABLE_RATE_LIMIT
+    const originalEnv = process.env.NEXT_PUBLIC_APP_ENV
+
+    beforeEach(() => {
+      // Each test must load the module fresh so the module-init guard re-runs
+      // against the env it just set. vi.resetModules() in the outer beforeEach
+      // already does this; we just need to restore env between tests.
+      process.env.E2E_DISABLE_RATE_LIMIT = originalFlag
+      process.env.NEXT_PUBLIC_APP_ENV = originalEnv
+    })
+
+    it('short-circuits to allowed=true when enabled in ci', async () => {
+      process.env.E2E_DISABLE_RATE_LIMIT = '1'
+      process.env.NEXT_PUBLIC_APP_ENV = 'ci'
+
+      const { checkRateLimit: fresh } = await import('./rate-limit')
+
+      const result = await fresh('1.2.3.4', 'sign-up')
+
+      expect(result.allowed).toBe(true)
+      expect(mockLimit).not.toHaveBeenCalled()
+    })
+
+    it('throws at module init when enabled in production', async () => {
+      process.env.E2E_DISABLE_RATE_LIMIT = '1'
+      process.env.NEXT_PUBLIC_APP_ENV = 'production'
+
+      await expect(import('./rate-limit')).rejects.toThrow(
+        /E2E_DISABLE_RATE_LIMIT must not be set when NEXT_PUBLIC_APP_ENV=production/,
+      )
+    })
+
+    it('throws at module init when enabled in staging', async () => {
+      process.env.E2E_DISABLE_RATE_LIMIT = '1'
+      process.env.NEXT_PUBLIC_APP_ENV = 'staging'
+
+      await expect(import('./rate-limit')).rejects.toThrow(
+        /E2E_DISABLE_RATE_LIMIT must not be set when NEXT_PUBLIC_APP_ENV=staging/,
+      )
+    })
+
+    it('does not bypass when flag is unset', async () => {
+      delete process.env.E2E_DISABLE_RATE_LIMIT
+      process.env.NEXT_PUBLIC_APP_ENV = 'ci'
+
+      const { checkRateLimit: fresh } = await import('./rate-limit')
+      mockLimit.mockResolvedValue({
+        success: true,
+        limit: 5,
+        remaining: 4,
+        reset: Date.now() + 60_000,
+      })
+
+      await fresh('1.2.3.4', 'sign-up')
+
+      expect(mockLimit).toHaveBeenCalled()
+    })
+
+    it('does not bypass when flag is "0" or "false"', async () => {
+      process.env.E2E_DISABLE_RATE_LIMIT = '0'
+      process.env.NEXT_PUBLIC_APP_ENV = 'ci'
+
+      const { checkRateLimit: fresh } = await import('./rate-limit')
+      mockLimit.mockResolvedValue({
+        success: true,
+        limit: 5,
+        remaining: 4,
+        reset: Date.now() + 60_000,
+      })
+
+      await fresh('1.2.3.4', 'sign-up')
+
+      expect(mockLimit).toHaveBeenCalled()
     })
   })
 

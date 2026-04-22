@@ -17,19 +17,17 @@ test.describe('Authentication flows', () => {
     // Sign up
     await signUp(page, { email, name })
 
-    // Should redirect to onboarding
+    // Should redirect to onboarding (step 1 — household name)
     await expect(page).toHaveURL('/onboarding')
     await expect(page.getByRole('heading', { name: 'Create your household' })).toBeVisible()
 
-    // Create household
+    // Complete the 2-step onboarding flow (name → members → submit)
     const householdName = `${name}'s Household`
-    await page.getByLabel('Household name').clear()
-    await page.getByLabel('Household name').fill(householdName)
-    await page.getByRole('button', { name: 'Create household' }).click()
+    await createHousehold(page, householdName)
 
-    // Should redirect to home with welcome message
+    // Should redirect to home with the first-time setup card
     await expect(page).toHaveURL('/')
-    await expect(page.getByText(`Welcome back, ${name}!`)).toBeVisible()
+    await expect(page.getByText(`Welcome to Honkadori, ${name}!`)).toBeVisible()
   })
 
   test('sign in -> view profile', { tag: '@smoke' }, async ({ page }) => {
@@ -58,8 +56,8 @@ test.describe('Authentication flows', () => {
     await signUp(page, { email })
     await createHousehold(page)
 
-    // Verify signed in state
-    await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible()
+    // Verify signed in state — the User menu trigger only renders when authed
+    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible()
 
     // Sign out
     await signOut(page)
@@ -106,7 +104,7 @@ test.describe('Authentication flows', () => {
     await page.goto('/sign-up')
     await page.getByLabel('Name').fill(TEST_NAME)
     await page.getByLabel('Email').fill(generateUniqueEmail())
-    await page.getByLabel('Password').fill('short') // Only 5 chars, minLength is 8
+    await page.getByLabel('Password').fill('short') // Only 5 chars; auth.ts sets minPasswordLength to 12
 
     await page.getByRole('button', { name: 'Sign up' }).click()
 
@@ -123,13 +121,13 @@ test.describe('Authentication flows', () => {
     await signOut(page)
 
     // Sign in with returnUrl pointing to settings/invites
-    await page.goto('/sign-in?returnUrl=/settings/invites')
+    await page.goto('/sign-in?returnUrl=/profile')
     await page.getByLabel('Email').fill(email)
     await page.getByLabel('Password').fill(TEST_PASSWORD)
     await page.getByRole('button', { name: 'Sign in' }).click()
 
     // Wait for navigation away from sign-in page and then to settings/invites
     await page.waitForURL((url) => !url.pathname.includes('/sign-in'))
-    await expect(page).toHaveURL('/settings/invites')
+    await expect(page).toHaveURL('/profile')
   })
 })

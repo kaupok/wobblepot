@@ -20,6 +20,35 @@
 import { Ratelimit, type Duration } from '@upstash/ratelimit'
 import { getRedis } from '@/lib/upstash'
 
+// E2E bypass: allows CI to skip the IP-dimensioned rate limiter that would
+// otherwise trip on the shared GitHub-runner IP after ~5 sign-ups. Refuses
+// to activate in production / staging so a misconfigured deploy fails loudly
+// at module init instead of silently weakening auth-endpoint protection.
+//
+// Enable with `E2E_DISABLE_RATE_LIMIT=1` (or `true`) in CI only.
+function resolveBypass(): boolean {
+  const raw = process.env.E2E_DISABLE_RATE_LIMIT
+  const enabled = raw === '1' || raw === 'true'
+  if (!enabled) return false
+
+  const env = process.env.NEXT_PUBLIC_APP_ENV
+  if (env === 'production' || env === 'staging') {
+    throw new Error(
+      `E2E_DISABLE_RATE_LIMIT must not be set when NEXT_PUBLIC_APP_ENV=${env}. ` +
+        `This flag weakens abuse protection and is only permitted in ci/test/dev.`,
+    )
+  }
+
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[rate-limit] E2E_DISABLE_RATE_LIMIT is active (NEXT_PUBLIC_APP_ENV=${env ?? 'unset'}). ` +
+      `Rate limiting is DISABLED — do not deploy this config to any user-facing environment.`,
+  )
+  return true
+}
+
+const BYPASS_ACTIVE = resolveBypass()
+
 export type RateLimitFeature =
   | 'plan-generation'
   | 'meal-imagination'
@@ -153,6 +182,18 @@ export async function checkRateLimit(
   identifier: string,
   feature: RateLimitFeature,
 ): Promise<RateLimitResult> {
+  if (BYPASS_ACTIVE) {
+    // eslint-disable-next-line no-console
+    console.warn(`[rate-limit] bypassed: feature=${feature} identifier=${identifier}`)
+    const cfg = RATE_LIMIT_CONFIG[feature]
+    return {
+      allowed: true,
+      limit: cfg.limit,
+      remaining: cfg.limit,
+      resetAt: new Date(Date.now() + 60_000),
+    }
+  }
+
   const primary = getLimiter(feature, 'primary')
   // Primary always exists — this cast is safe because every feature has a
   // primary window by construction of RATE_LIMIT_CONFIG.
