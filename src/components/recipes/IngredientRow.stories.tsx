@@ -163,7 +163,7 @@ export const MatchedQuantityChangeInvokesOnUpdate: Story = {
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    const input = canvas.getByRole('spinbutton', { name: /quantity/i }) as HTMLInputElement
+    const input = canvas.getByRole('textbox', { name: /quantity/i }) as HTMLInputElement
     setInputValue(input, '800')
     await expect(args.onUpdate).toHaveBeenLastCalledWith(
       expect.objectContaining({

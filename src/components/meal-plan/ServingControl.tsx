@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { cn } from '@/lib/utils'
+import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
 
 interface ServingControlProps {
   servings: number
@@ -51,10 +52,10 @@ export function ServingControl({
   }
 
   async function handleSubmit() {
-    const newValue = parseInt(inputValue, 10)
+    const newValue = parseLocalizedNumber(inputValue, { integer: true })
 
     // Validate
-    if (isNaN(newValue) || newValue < MIN_SERVINGS || newValue > MAX_SERVINGS) {
+    if (newValue === null || newValue < MIN_SERVINGS || newValue > MAX_SERVINGS) {
       setInputValue(String(servings))
       setIsEditing(false)
       return
@@ -102,9 +103,8 @@ export function ServingControl({
         <span className="text-muted-foreground">Serves</span>
         <input
           ref={inputRef}
-          type="number"
-          min={MIN_SERVINGS}
-          max={MAX_SERVINGS}
+          type="text"
+          inputMode="numeric"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}

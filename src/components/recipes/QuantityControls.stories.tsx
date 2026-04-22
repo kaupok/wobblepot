@@ -96,9 +96,19 @@ export const Disabled: Story = {
 export const ChangingQuantityInvokesCallback: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    const input = canvas.getByRole('spinbutton', { name: /quantity/i }) as HTMLInputElement
+    const input = canvas.getByRole('textbox', { name: /quantity/i }) as HTMLInputElement
     setInputValue(input, '250')
     await expect(args.onQuantityChange).toHaveBeenLastCalledWith(250)
+  },
+}
+
+export const CommaDecimalInvokesCallback: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const input = canvas.getByRole('textbox', { name: /quantity/i }) as HTMLInputElement
+    setInputValue(input, '1,5')
+    // Estonian comma-decimal parses identically to the English dot-decimal.
+    await expect(args.onQuantityChange).toHaveBeenLastCalledWith(1.5)
   },
 }
 

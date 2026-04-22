@@ -2,7 +2,7 @@
 
 import { Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { type MealComponent, formatUnit } from './meal-form-types'
@@ -85,14 +85,11 @@ export function ComponentList({
                       isInvalidQuantity ? 'border-destructive' : 'border-input',
                     )}
                   >
-                    <Input
-                      type="number"
+                    <NumberInput
                       value={comp.totalQuantity}
-                      onChange={(e) =>
-                        onUpdateQuantity(comp.ingredientId, parseFloat(e.target.value) || 0)
-                      }
-                      min={0.1}
-                      step="any"
+                      onValueChange={(v) => {
+                        if (v !== null) onUpdateQuantity(comp.ingredientId, v)
+                      }}
                       className="w-20 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                       disabled={disabled}
                       aria-label={`Total quantity for ${comp.ingredient.name}`}

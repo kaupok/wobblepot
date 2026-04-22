@@ -123,7 +123,7 @@ describe('CreateHouseholdForm', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
       const sizeInput = screen.getByLabelText('How many people in your household?')
-      expect(sizeInput).toHaveValue(1)
+      expect(sizeInput).toHaveValue('1')
     })
 
     it('shows first member row pre-filled with user name and disabled', async () => {

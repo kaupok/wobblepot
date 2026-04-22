@@ -52,11 +52,10 @@ export function MealFormDetails({
         <Label htmlFor="timeMinutes">Prep time (minutes)</Label>
         <Input
           id="timeMinutes"
-          type="number"
+          type="text"
+          inputMode="numeric"
           value={timeMinutes}
           onChange={(e) => onTimeMinutesChange(e.target.value)}
-          min={1}
-          max={480}
           disabled={disabled}
           placeholder="e.g., 30"
         />

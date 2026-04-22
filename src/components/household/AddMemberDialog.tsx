@@ -6,6 +6,7 @@ import { Plus } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import { Body } from '@/components/ui/typography'
 import {
@@ -97,12 +98,16 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
       return
     }
 
+    if (portionMultiplier < 0.5 || portionMultiplier > 3.0) {
+      setPortionError('Portion size must be between 0.5 and 3.0')
+      return
+    }
+
     addMember.mutate()
   }
 
-  const handlePortionInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value)
-    if (isNaN(value)) {
+  const handlePortionInputChange = (value: number | null) => {
+    if (value === null) {
       setPortionError(null)
       return
     }
@@ -111,7 +116,7 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
       return
     }
     setPortionError(null)
-    setPortionMultiplier(Math.round(value * 100) / 100)
+    setPortionMultiplier(value)
   }
 
   return (
@@ -182,13 +187,9 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
                 ))}
               </div>
               <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min={0.5}
-                  max={3.0}
-                  step={0.05}
+                <NumberInput
                   value={portionMultiplier}
-                  onChange={handlePortionInputChange}
+                  onValueChange={handlePortionInputChange}
                   className="w-24"
                   disabled={isLoading}
                   aria-invalid={!!portionError}

@@ -59,11 +59,10 @@ export function MealFormBasicInfo({
         <Label htmlFor="servings">Recipe makes (servings)</Label>
         <Input
           id="servings"
-          type="number"
+          type="text"
+          inputMode="numeric"
           value={servings}
           onChange={(e) => onServingsChange(e.target.value)}
-          min={1}
-          max={50}
           required
           disabled={disabled}
         />
