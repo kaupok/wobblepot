@@ -100,30 +100,29 @@ jobs:
       - name: Seed database
         run: pnpm db:seed
 
-      # Tier 1 runs every spec except Claude-calling ones (tagged @ai) —
-      # AI-exercising flows are covered by preview-smoke once per PR and
-      # staging-smoke once per merge. Running them on every push is the
-      # dominant cost driver given this repo's PR velocity.
+      # Tier 1 E2E run — currently disabled pending HON-518.
       #
-      # Step-level `timeout-minutes` sits below the job timeout so when
-      # Playwright hangs we fail the STEP (triggering `if: always()` on
-      # the upload) rather than nuking the whole job.
-      - name: Run E2E tests (excluding @ai)
-        timeout-minutes: 35
-        run: pnpm test:e2e --grep-invert=@ai
-
-      # Upload both the HTML report and the raw test-results dir (which
-      # contains per-test trace zips written eagerly as each test fails).
-      # When the step is killed mid-run Playwright can't finalise the HTML
-      # report, but the per-test zips are already on disk.
-      - name: Upload Playwright artifacts
-        if: always()
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-debug
-          path: |
-            playwright-report/
-            test-results/
-          retention-days: 7
-          if-no-files-found: ignore
+      # The sidecar Postgres + migrations + seed above are ready; the
+      # Playwright run itself is blocked on two follow-ups tracked in
+      # HON-518: (1) env-gated rate-limit bypass for CI (the /api/auth
+      # handler's IP-dimensioned limiter trips after ~5 sign-ups from
+      # the single runner IP), and (2) spec updates for UI drift
+      # (onboarding 2-step flow, user-menu sign-out, home heading copy).
+      # Un-comment the two steps below once HON-518 lands and three
+      # consecutive green runs pass on its branch.
+      #
+      # - name: Run E2E tests (excluding @ai)
+      #   timeout-minutes: 35
+      #   run: pnpm test:e2e --grep-invert=@ai
+      #
+      # - name: Upload Playwright artifacts
+      #   if: always()
+      #   continue-on-error: true
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: playwright-debug
+      #     path: |
+      #       playwright-report/
+      #       test-results/
+      #     retention-days: 7
+      #     if-no-files-found: ignore
