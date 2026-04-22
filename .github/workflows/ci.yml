@@ -56,11 +56,6 @@ jobs:
       SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
       FORGOT_PASSWORD_TEST_EMAIL: ${{ secrets.FORGOT_PASSWORD_TEST_EMAIL }}
       FORGOT_PASSWORD_TEST_PASSWORD: ${{ secrets.FORGOT_PASSWORD_TEST_PASSWORD }}
-      # HON-518: bypass the IP-dimensioned rate limiter on /api/auth/* so
-      # sign-up-heavy specs don't trip the 5/hour cap on the shared runner IP.
-      # Refuses to activate when NEXT_PUBLIC_APP_ENV is production/staging —
-      # see src/lib/rate-limit.ts.
-      E2E_DISABLE_RATE_LIMIT: '1'
 
     steps:
       - name: Checkout code
@@ -108,8 +103,16 @@ jobs:
       # Tier 1 E2E run. Step-level timeout sits below the job-level 45m so
       # Playwright gets killed before the whole job, letting the artifact
       # upload below still run with the partial test-results/ directory.
+      #
+      # E2E_DISABLE_RATE_LIMIT is scoped to this step only — setting it at
+      # the job level would leak into `pnpm test` and short-circuit the
+      # rate-limit unit tests (which assume the real limiter path). The
+      # bypass is only meaningful during the live Playwright run against
+      # the built Next app.
       - name: Run E2E tests (excluding @ai)
         timeout-minutes: 35
+        env:
+          E2E_DISABLE_RATE_LIMIT: '1'
         run: pnpm test:e2e --grep-invert=@ai
 
       - name: Upload Playwright artifacts

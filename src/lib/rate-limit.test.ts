@@ -41,6 +41,10 @@ describe('rate-limit', () => {
     redisConstructor.mockReset()
     // Drop module cache for limiterCache between tests.
     vi.resetModules()
+    // Default: never bypass. Individual tests in the bypass describe block
+    // opt in explicitly. This guards against ambient `E2E_DISABLE_RATE_LIMIT`
+    // in the shell (local dev) or leaked from a parent CI env.
+    delete process.env.E2E_DISABLE_RATE_LIMIT
   })
 
   describe('CONFIG', () => {
