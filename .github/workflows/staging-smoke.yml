@@ -57,22 +57,31 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       # Vercel auto-deploys staging on main, but the deploy may still be in
-      # flight when this workflow starts. Poll /status (public JSON endpoint)
-      # until it responds 200, then proceed.
-      - name: Wait for staging deploy to be live
+      # flight when this workflow starts — or worse, the *previous* build
+      # is still what's serving. Poll /api/status until its `commitSha`
+      # field matches the commit that triggered the upstream workflow, so
+      # we only run smoke tests against the build the migrations were
+      # intended for.
+      - name: Wait for staging deploy to serve ${{ github.event.workflow_run.head_sha || github.sha }}
+        env:
+          # `workflow_run.head_sha` for the upstream migration workflow,
+          # `github.sha` for manual `workflow_dispatch` triggers.
+          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           set -eu
-          url="${PLAYWRIGHT_BASE_URL%/}/status"
-          echo "Waiting for $url"
+          url="${PLAYWRIGHT_BASE_URL%/}/api/status"
+          echo "Waiting for $url to report commitSha=$EXPECTED_SHA"
           for attempt in $(seq 1 30); do
-            if curl -sf --max-time 5 "$url" >/dev/null; then
-              echo "staging is live"
+            body=$(curl -sf --max-time 5 "$url" || true)
+            actual_sha=$(echo "$body" | jq -r '.commitSha // empty' 2>/dev/null || true)
+            if [ -n "$actual_sha" ] && [ "$actual_sha" = "$EXPECTED_SHA" ]; then
+              echo "staging is live on $EXPECTED_SHA"
               exit 0
             fi
-            echo "attempt $attempt: not ready yet, sleeping 10s"
+            echo "attempt $attempt: staging commitSha=${actual_sha:-unknown}, waiting for $EXPECTED_SHA"
             sleep 10
           done
-          echo "staging never came online after 5 minutes" >&2
+          echo "staging never reported commitSha=$EXPECTED_SHA after 5 minutes" >&2
           exit 1
 
       - name: Run @smoke specs against staging

@@ -14,12 +14,13 @@ name: Preview smoke
 on:
   deployment_status:
 
-concurrency:
-  # Per-ref so a newer push cancels in-flight smoke runs for the same
-  # branch — otherwise every preview deploy on a fast-iterating PR piles
-  # up its own 15+ min smoke job.
-  group: preview-smoke-${{ github.event.deployment.ref }}
-  cancel-in-progress: true
+# No concurrency block intentionally. Vercel sets `deployment.ref` to the
+# commit SHA, so a per-ref key would only dedupe same-commit redeploys,
+# not newer pushes on the same branch. Accurate per-branch cancellation
+# would need the PR number (known to the `gate` job but not at workflow
+# header parse time). In practice the label gate makes concurrent runs
+# rare enough that paying for the occasional duplicate beats a stale
+# correctness claim.
 
 jobs:
   # Gate exists as its own job so the "Smoke tests on Vercel preview"
