@@ -92,11 +92,18 @@ export async function signIn(
 }
 
 /**
- * Signs out the current user via the header button
- * Waits for redirect to home page
+ * Signs out the current user via the header user-menu dropdown.
+ * Desktop: opens the "User menu" button, clicks the "Sign out" menuitem.
+ * Mobile: the mobile nav exposes a direct "Sign out" button inside the sheet.
  */
 export async function signOut(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Sign out' }).click()
+  const userMenuTrigger = page.getByRole('button', { name: 'User menu' })
+  if (await userMenuTrigger.isVisible()) {
+    await userMenuTrigger.click()
+    await page.getByRole('menuitem', { name: 'Sign out' }).click()
+  } else {
+    await page.getByRole('button', { name: 'Sign out' }).click()
+  }
   await page.waitForURL('/')
 }
 

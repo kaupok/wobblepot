@@ -85,6 +85,13 @@ const serverOnlyEnvSchema = z.object({
     .describe(
       'Operator-set banner shown on /status during an incident. Empty/unset means no banner. See docs/RUNBOOKS/status-page.md.',
     ),
+
+  E2E_DISABLE_RATE_LIMIT: z
+    .enum(['1', 'true', '0', 'false'])
+    .optional()
+    .describe(
+      'E2E-only bypass for the abuse-sensitive rate limiter (CI sign-up tests collide on the shared runner IP). Refuses to activate when NEXT_PUBLIC_APP_ENV is production or staging — see src/lib/rate-limit.ts.',
+    ),
 })
 
 /**
@@ -175,6 +182,7 @@ export const serverEnv = new Proxy(
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
     STATUS_INCIDENT_MESSAGE: process.env.STATUS_INCIDENT_MESSAGE,
+    E2E_DISABLE_RATE_LIMIT: process.env.E2E_DISABLE_RATE_LIMIT,
   } as z.infer<typeof serverEnvSchema>,
   {
     get(target, prop) {
