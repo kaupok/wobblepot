@@ -118,35 +118,6 @@ export async function waitForDialog(page: Page): Promise<void> {
 }
 
 /**
- * Creates an invite and returns the invite code
- * Must be called when signed in as a household owner
- */
-export async function createInvite(
-  page: Page,
-  options: { maxUses?: number } = {},
-): Promise<string> {
-  await page.goto('/settings/invites')
-  await page.getByRole('button', { name: 'Create invite' }).click()
-  await waitForDialog(page)
-
-  if (options.maxUses !== undefined) {
-    await page.getByLabel('Maximum uses').clear()
-    await page.getByLabel('Maximum uses').fill(String(options.maxUses))
-  }
-
-  await page.getByRole('button', { name: 'Create invite' }).click()
-  await expect(page.getByText('Invite created')).toBeVisible()
-
-  const inviteInput = page.getByRole('dialog').locator('input[readonly]')
-  const inviteUrl = await inviteInput.inputValue()
-  const inviteCode = inviteUrl.split('/invite/')[1]
-  if (!inviteCode) {
-    throw new Error(`Failed to extract invite code from URL: ${inviteUrl}`)
-  }
-  return inviteCode
-}
-
-/**
  * Complete sign up and onboarding flow
  * Returns the user credentials
  */
