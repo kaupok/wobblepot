@@ -7,6 +7,7 @@ import { Minus, Plus } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
@@ -210,13 +211,11 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
                 >
                   <Minus className="h-4 w-4" aria-hidden="true" />
                 </Button>
-                <Input
+                <NumberInput
                   id="householdSize"
-                  type="number"
-                  min={1}
-                  max={10}
+                  integer
                   value={householdSize}
-                  onChange={(e) => handleHouseholdSizeChange(parseInt(e.target.value) || 1)}
+                  onValueChange={(v) => handleHouseholdSizeChange(v ?? 1)}
                   disabled={isLoading}
                   className="w-16 text-center"
                 />

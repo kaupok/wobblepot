@@ -36,6 +36,7 @@ import { MealFormDetails } from './MealFormDetails'
 import { ComponentList } from './ComponentList'
 import { IngredientSearch } from './IngredientSearch'
 import { prefersReducedMotion } from '@/lib/utils'
+import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
 import type { Unit } from '@/generated/prisma/enums'
 
 export type { MealFormData, PrefilledIngredient } from './meal-form-types'
@@ -185,7 +186,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
 
   // Compute live nutrition summary from current ingredients
   const nutritionSummary = useMemo(() => {
-    const servingsNum = parseInt(servings, 10) || 1
+    const servingsNum = parseLocalizedNumber(servings, { integer: true }) ?? 1
     const nutrition = { calories: 0, protein: 0, carbs: 0, fat: 0 }
     let matchedCount = 0
     let unmatchedCount = 0
@@ -377,9 +378,9 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
       return
     }
 
-    const servingsNum = parseInt(servings, 10)
-    if (isNaN(servingsNum) || servingsNum < 1) {
-      setError('Servings must be at least 1')
+    const servingsNum = parseLocalizedNumber(servings, { integer: true })
+    if (servingsNum === null || servingsNum < 1 || servingsNum > 50) {
+      setError('Servings must be between 1 and 50')
       return
     }
 
@@ -398,12 +399,21 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
     setIsSubmitting(true)
 
     try {
+      const timeMinutesNum = timeMinutes
+        ? parseLocalizedNumber(timeMinutes, { integer: true })
+        : null
+      if (timeMinutes && (timeMinutesNum === null || timeMinutesNum < 1 || timeMinutesNum > 480)) {
+        setError('Prep time must be between 1 and 480 minutes')
+        setIsSubmitting(false)
+        return
+      }
+
       const payload = {
         name: name.trim(),
         description: description.trim() || null,
         preparationNotes: preparationNotes.trim() || null,
         sourceUrl: sourceUrl.trim() || null,
-        timeMinutes: timeMinutes ? parseInt(timeMinutes, 10) : null,
+        timeMinutes: timeMinutesNum,
         kidFriendly,
         suitableFor,
         servings: servingsNum,
@@ -433,7 +443,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
     }
   }
 
-  const servingsNum = parseInt(servings, 10) || 1
+  const servingsNum = parseLocalizedNumber(servings, { integer: true }) ?? 1
   const totalIngredientCount = isImportMode ? ingredientRows.length : components.length
   const hasIngredients = totalIngredientCount > 0
 

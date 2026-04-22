@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import { Body } from '@/components/ui/typography'
 import {
@@ -104,9 +105,8 @@ export function EditMemberPreferencesDialog({
     }
   }
 
-  const handlePortionInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value)
-    if (isNaN(value)) {
+  const handlePortionInputChange = (value: number | null) => {
+    if (value === null) {
       setPortionError(null)
       return
     }
@@ -115,7 +115,7 @@ export function EditMemberPreferencesDialog({
       return
     }
     setPortionError(null)
-    setPortionMultiplier(Math.round(value * 100) / 100)
+    setPortionMultiplier(value)
   }
 
   const memberDisplayName =
@@ -182,13 +182,9 @@ export function EditMemberPreferencesDialog({
                 ))}
               </div>
               <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min={0.5}
-                  max={3.0}
-                  step={0.05}
+                <NumberInput
                   value={portionMultiplier}
-                  onChange={handlePortionInputChange}
+                  onValueChange={handlePortionInputChange}
                   className="w-24"
                   disabled={isLoading}
                   aria-invalid={!!portionError}

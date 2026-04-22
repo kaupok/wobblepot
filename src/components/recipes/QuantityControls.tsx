@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { cn } from '@/lib/utils'
 
 interface QuantityControlsProps {
@@ -39,12 +39,9 @@ export function QuantityControls({
           isInvalidQuantity ? 'border-destructive' : 'border-input',
         )}
       >
-        <Input
-          type="number"
+        <NumberInput
           value={totalQuantity}
-          onChange={(e) => onQuantityChange(parseFloat(e.target.value) || 0)}
-          min={0.1}
-          step="any"
+          onValueChange={(v) => onQuantityChange(v ?? 0)}
           aria-label="Quantity"
           className="w-20 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
           disabled={disabled}
