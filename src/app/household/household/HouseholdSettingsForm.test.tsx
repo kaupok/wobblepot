@@ -15,6 +15,14 @@ vi.mock('sonner', () => ({
   },
 }))
 
+const mockRouterRefresh = vi.fn()
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    refresh: mockRouterRefresh,
+  }),
+}))
+
 // Mock fetch globally
 const mockFetch = vi.fn()
 global.fetch = mockFetch
@@ -76,6 +84,7 @@ function renderForm(overrides: Partial<Parameters<typeof HouseholdSettingsForm>[
 describe('HouseholdSettingsForm', () => {
   beforeEach(() => {
     mockFetch.mockReset()
+    mockRouterRefresh.mockReset()
     vi.mocked(toast.success).mockReset()
     vi.mocked(toast.error).mockReset()
   })
@@ -157,7 +166,7 @@ describe('HouseholdSettingsForm', () => {
       renderForm({ isOwner: false })
 
       expect(
-        screen.getByText('Only the household owner can edit name and timezone.'),
+        screen.getByText('Only the household owner can edit name, timezone, and language.'),
       ).toBeInTheDocument()
     })
 
@@ -165,7 +174,7 @@ describe('HouseholdSettingsForm', () => {
       renderForm({ isOwner: true })
 
       expect(
-        screen.queryByText('Only the household owner can edit name and timezone.'),
+        screen.queryByText('Only the household owner can edit name, timezone, and language.'),
       ).not.toBeInTheDocument()
     })
 
@@ -316,6 +325,18 @@ describe('HouseholdSettingsForm', () => {
 
       await waitFor(() => {
         expect(toast.success).toHaveBeenCalledWith('Settings saved')
+      })
+    })
+
+    it('calls router.refresh on successful save so SSR chrome picks up locale', async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
+
+      renderForm()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+
+      await waitFor(() => {
+        expect(mockRouterRefresh).toHaveBeenCalled()
       })
     })
 

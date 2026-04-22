@@ -77,6 +77,13 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'No household found' }, { status: 404 })
   }
 
+  if (membership.role !== 'owner') {
+    return NextResponse.json(
+      { error: 'forbidden', message: 'Only the household owner can edit these settings.' },
+      { status: 403 },
+    )
+  }
+
   const household = await prisma.household.update({
     where: { id: membership.household.id },
     data: parsed.data,

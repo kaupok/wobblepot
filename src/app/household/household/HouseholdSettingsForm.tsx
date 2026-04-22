@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -108,6 +109,7 @@ export function HouseholdSettingsForm({
   isOwner,
 }: HouseholdSettingsFormProps) {
   const t = useTranslations('household')
+  const router = useRouter()
 
   // Basic info state
   const [name, setName] = useState(household.name)
@@ -179,6 +181,11 @@ export function HouseholdSettingsForm({
     },
     onSuccess: () => {
       toast.success('Settings saved')
+      // Re-render the server tree so NextIntlClientProvider / `<html lang>` /
+      // server-rendered header pick up a changed household.locale without a
+      // manual reload. (Not TanStack cache invalidation — this is SSR content
+      // tied to the DB row.)
+      router.refresh()
     },
     onError: (err) => {
       setError(err instanceof Error ? err.message : 'An error occurred')
@@ -283,7 +290,9 @@ export function HouseholdSettingsForm({
               <Body variant="muted">{t('localeHelperText')}</Body>
             </div>
             {!isOwner && (
-              <Body variant="muted">Only the household owner can edit name and timezone.</Body>
+              <Body variant="muted">
+                Only the household owner can edit name, timezone, and language.
+              </Body>
             )}
           </section>
 

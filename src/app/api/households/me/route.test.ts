@@ -359,6 +359,26 @@ describe('PATCH /api/households/me', () => {
     })
   })
 
+  it('returns 403 when caller is a non-owner member', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-456', name: 'Jane', email: 'jane@example.com' },
+      session: { id: 'session-456' },
+    } as never)
+    mockFindFirst.mockResolvedValue({ ...mockMembership, role: 'member' } as never)
+
+    const request = new Request('http://localhost/api/households/me', {
+      method: 'PATCH',
+      body: JSON.stringify({ name: 'New Name' }),
+    })
+
+    const response = await PATCH(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(403)
+    expect(data.error).toBe('forbidden')
+    expect(mockHouseholdUpdate).not.toHaveBeenCalled()
+  })
+
   it('updates locale to a known value', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },

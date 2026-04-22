@@ -37,5 +37,18 @@ test.describe('@i18n platform smoke', () => {
     // Estonian label "Hommikusöök" in the household settings form.
     await page.goto('/household')
     await expect(page.getByText('Hommikusöök').first()).toBeVisible()
+
+    // Mid-session locale change: switching the household locale to English via
+    // the settings form should flip `<html lang>` and the enum labels without
+    // a manual reload (the mutation's onSuccess calls `router.refresh()`).
+    // The locale-selector label is "Keel" while chrome is still in Estonian;
+    // the submit button is not yet externalized, so its text stays "Save
+    // settings" regardless of locale.
+    await page.getByRole('combobox', { name: /keel/i }).click()
+    await page.getByRole('option', { name: 'Inglise' }).click()
+    await page.getByRole('button', { name: 'Save settings' }).click()
+
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+    await expect(page.getByText('Breakfast').first()).toBeVisible()
   })
 })
