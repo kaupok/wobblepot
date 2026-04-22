@@ -1,0 +1,28 @@
+{
+  "landing": {
+    "headline": "Meal planning for busy families",
+    "sub": "AI-powered weekly meal plans tailored to your household's preferences, dietary needs, and what's already in your pantry.",
+    "cta": "Get started - it's free",
+    "feature1": "Personalized for your household",
+    "feature2": "Smart shopping lists",
+    "feature3": "Tracks what you have on hand"
+  },
+  "header": {
+    "skipToContent": "Skip to content"
+  },
+  "household": {
+    "localeLabel": "Language",
+    "localeHelperText": "Existing meals and recipes you created stay in their original language. New content follows the selected locale.",
+    "localeOption": {
+      "en": "English",
+      "et": "Estonian"
+    }
+  },
+  "enums": {
+    "MealType": {
+      "breakfast": "Breakfast",
+      "lunch": "Lunch",
+      "dinner": "Dinner"
+    }
+  }
+}

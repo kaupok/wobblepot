@@ -1,6 +1,21 @@
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Header } from './header'
+import enMessages from '../../messages/en.json'
+
+// Resolve `getTranslations('header')` against the real en catalog so the RSC
+// Server Component renders the expected chrome strings without pulling in the
+// full next-intl request pipeline.
+vi.mock('next-intl/server', () => ({
+  getTranslations: vi.fn(async (namespace: string) => {
+    const segments = namespace.split('.')
+    let cursor: unknown = enMessages
+    for (const segment of segments) {
+      cursor = (cursor as Record<string, unknown>)?.[segment]
+    }
+    return (key: string) => (cursor as Record<string, string>)?.[key] ?? key
+  }),
+}))
 
 // Mock the cached session module
 vi.mock('@/lib/session', () => ({

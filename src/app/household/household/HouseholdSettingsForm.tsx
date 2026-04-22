@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,6 +19,8 @@ import {
 } from '@/components/ui/select'
 import { Heading, Body } from '@/components/ui/typography'
 import { TagInput, type TagInputRef } from '@/components/tag-input'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
+import { KNOWN_LOCALES, type Locale } from '@/lib/i18n/locales'
 
 // Types matching Prisma enums
 type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian'
@@ -51,11 +55,32 @@ const ALLERGENS: { value: Allergen; label: string }[] = [
   { value: 'sesame', label: 'Sesame' },
 ]
 
-const MEAL_TYPES: { value: MealType; label: string }[] = [
-  { value: 'breakfast', label: 'Breakfast' },
-  { value: 'lunch', label: 'Lunch' },
-  { value: 'dinner', label: 'Dinner' },
-]
+const MEAL_TYPE_VALUES: MealType[] = ['breakfast', 'lunch', 'dinner']
+
+function MealTypeCheckbox({
+  mealType,
+  idPrefix,
+  checked,
+  disabled,
+  onCheckedChange,
+}: {
+  mealType: MealType
+  idPrefix: string
+  checked: boolean
+  disabled: boolean
+  onCheckedChange: (checked: boolean) => void
+}) {
+  const id = `${idPrefix}-${mealType}`
+  const label = useEnumLabel('MealType', mealType)
+  return (
+    <div className="flex items-center gap-2">
+      <Checkbox id={id} checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
+      <Label htmlFor={id} className="font-normal">
+        {label}
+      </Label>
+    </div>
+  )
+}
 
 // Get all IANA timezones
 const TIMEZONES = Intl.supportedValuesOf('timeZone')
@@ -65,6 +90,7 @@ interface HouseholdSettingsFormProps {
     id: string
     name: string
     timezone: string
+    locale: Locale
   }
   preferences: {
     dietaryType: DietaryType | null
@@ -82,9 +108,13 @@ export function HouseholdSettingsForm({
   preferences,
   isOwner,
 }: HouseholdSettingsFormProps) {
+  const t = useTranslations('household')
+  const router = useRouter()
+
   // Basic info state
   const [name, setName] = useState(household.name)
   const [timezone, setTimezone] = useState(household.timezone)
+  const [locale, setLocale] = useState<Locale>(household.locale)
 
   // Preferences state
   const [dietaryType, setDietaryType] = useState<DietaryType | 'none'>(
@@ -135,7 +165,7 @@ export function HouseholdSettingsForm({
           fetch('/api/households/me', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, timezone }),
+            body: JSON.stringify({ name, timezone, locale }),
           }),
         )
       }
@@ -151,6 +181,11 @@ export function HouseholdSettingsForm({
     },
     onSuccess: () => {
       toast.success('Settings saved')
+      // Re-render the server tree so NextIntlClientProvider / `<html lang>` /
+      // server-rendered header pick up a changed household.locale without a
+      // manual reload. (Not TanStack cache invalidation — this is SSR content
+      // tied to the DB row.)
+      router.refresh()
     },
     onError: (err) => {
       setError(err instanceof Error ? err.message : 'An error occurred')
@@ -234,8 +269,30 @@ export function HouseholdSettingsForm({
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="locale">{t('localeLabel')}</Label>
+              <Select
+                value={locale}
+                onValueChange={(value) => setLocale(value as Locale)}
+                disabled={isLoading || !isOwner}
+              >
+                <SelectTrigger id="locale" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {KNOWN_LOCALES.map((code) => (
+                    <SelectItem key={code} value={code}>
+                      {t(`localeOption.${code}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Body variant="muted">{t('localeHelperText')}</Body>
+            </div>
             {!isOwner && (
-              <Body variant="muted">Only the household owner can edit name and timezone.</Body>
+              <Body variant="muted">
+                Only the household owner can edit name, timezone, and language.
+              </Body>
             )}
           </section>
 
@@ -317,40 +374,30 @@ export function HouseholdSettingsForm({
             <div className="flex flex-col gap-2">
               <Label>Weekday meals to plan</Label>
               <div className="flex gap-4">
-                {MEAL_TYPES.map((meal) => (
-                  <div key={meal.value} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`weekday-${meal.value}`}
-                      checked={weekdayMealTypes.includes(meal.value)}
-                      onCheckedChange={(checked) =>
-                        handleMealTypeToggle(meal.value, checked === true, false)
-                      }
-                      disabled={isLoading}
-                    />
-                    <Label htmlFor={`weekday-${meal.value}`} className="font-normal">
-                      {meal.label}
-                    </Label>
-                  </div>
+                {MEAL_TYPE_VALUES.map((mealType) => (
+                  <MealTypeCheckbox
+                    key={mealType}
+                    mealType={mealType}
+                    idPrefix="weekday"
+                    checked={weekdayMealTypes.includes(mealType)}
+                    disabled={isLoading}
+                    onCheckedChange={(checked) => handleMealTypeToggle(mealType, checked, false)}
+                  />
                 ))}
               </div>
             </div>
             <div className="flex flex-col gap-2">
               <Label>Weekend meals to plan</Label>
               <div className="flex gap-4">
-                {MEAL_TYPES.map((meal) => (
-                  <div key={meal.value} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`weekend-${meal.value}`}
-                      checked={weekendMealTypes.includes(meal.value)}
-                      onCheckedChange={(checked) =>
-                        handleMealTypeToggle(meal.value, checked === true, true)
-                      }
-                      disabled={isLoading}
-                    />
-                    <Label htmlFor={`weekend-${meal.value}`} className="font-normal">
-                      {meal.label}
-                    </Label>
-                  </div>
+                {MEAL_TYPE_VALUES.map((mealType) => (
+                  <MealTypeCheckbox
+                    key={mealType}
+                    mealType={mealType}
+                    idPrefix="weekend"
+                    checked={weekendMealTypes.includes(mealType)}
+                    disabled={isLoading}
+                    onCheckedChange={(checked) => handleMealTypeToggle(mealType, checked, true)}
+                  />
                 ))}
               </div>
             </div>

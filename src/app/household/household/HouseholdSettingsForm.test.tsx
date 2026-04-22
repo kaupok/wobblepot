@@ -2,6 +2,9 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { toast } from 'sonner'
+import type { ReactNode } from 'react'
+import { NextIntlClientProvider } from 'next-intl'
+import enMessages from '../../../../messages/en.json'
 import { HouseholdSettingsForm } from './HouseholdSettingsForm'
 import { createQueryWrapper } from '@/test/query-wrapper'
 
@@ -10,6 +13,14 @@ vi.mock('sonner', () => ({
     success: vi.fn(),
     error: vi.fn(),
   },
+}))
+
+const mockRouterRefresh = vi.fn()
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    refresh: mockRouterRefresh,
+  }),
 }))
 
 // Mock fetch globally
@@ -33,6 +44,7 @@ const defaultHousehold = {
   id: 'household-1',
   name: 'Test Household',
   timezone: 'Europe/Tallinn',
+  locale: 'en' as const,
 }
 
 const defaultPreferences: {
@@ -52,19 +64,27 @@ const defaultPreferences: {
 }
 
 function renderForm(overrides: Partial<Parameters<typeof HouseholdSettingsForm>[0]> = {}) {
-  const { wrapper } = createQueryWrapper()
+  const { wrapper: QueryWrapper } = createQueryWrapper()
   const props = {
     household: defaultHousehold,
     preferences: defaultPreferences,
     isOwner: true,
     ...overrides,
   }
-  return render(<HouseholdSettingsForm {...props} />, { wrapper })
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        <QueryWrapper>{children}</QueryWrapper>
+      </NextIntlClientProvider>
+    )
+  }
+  return render(<HouseholdSettingsForm {...props} />, { wrapper: Wrapper })
 }
 
 describe('HouseholdSettingsForm', () => {
   beforeEach(() => {
     mockFetch.mockReset()
+    mockRouterRefresh.mockReset()
     vi.mocked(toast.success).mockReset()
     vi.mocked(toast.error).mockReset()
   })
@@ -146,7 +166,7 @@ describe('HouseholdSettingsForm', () => {
       renderForm({ isOwner: false })
 
       expect(
-        screen.getByText('Only the household owner can edit name and timezone.'),
+        screen.getByText('Only the household owner can edit name, timezone, and language.'),
       ).toBeInTheDocument()
     })
 
@@ -154,7 +174,7 @@ describe('HouseholdSettingsForm', () => {
       renderForm({ isOwner: true })
 
       expect(
-        screen.queryByText('Only the household owner can edit name and timezone.'),
+        screen.queryByText('Only the household owner can edit name, timezone, and language.'),
       ).not.toBeInTheDocument()
     })
 
@@ -268,6 +288,7 @@ describe('HouseholdSettingsForm', () => {
           body: JSON.stringify({
             name: 'Test Household',
             timezone: 'Europe/Tallinn',
+            locale: 'en',
           }),
         }),
       )
@@ -304,6 +325,18 @@ describe('HouseholdSettingsForm', () => {
 
       await waitFor(() => {
         expect(toast.success).toHaveBeenCalledWith('Settings saved')
+      })
+    })
+
+    it('calls router.refresh on successful save so SSR chrome picks up locale', async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
+
+      renderForm()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+
+      await waitFor(() => {
+        expect(mockRouterRefresh).toHaveBeenCalled()
       })
     })
 

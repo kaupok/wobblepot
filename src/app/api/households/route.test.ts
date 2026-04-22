@@ -210,6 +210,105 @@ describe('POST /api/households', () => {
     expect(data.preferences).toBeDefined()
   })
 
+  it('persists locale resolved from Accept-Language header', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    // Override the default headers mock for this test to return an Estonian
+    // preference, so the resolver should pick 'et'.
+    const { headers } = await import('next/headers')
+    vi.mocked(headers).mockResolvedValueOnce(
+      new Headers({ 'accept-language': 'et,en;q=0.9' }) as never,
+    )
+
+    const createSpy = vi.fn().mockResolvedValue({ id: 'household-123' })
+    const mockHousehold = {
+      id: 'household-123',
+      name: 'My Household',
+      timezone: 'Europe/Tallinn',
+      locale: 'et',
+      createdAt: new Date('2026-04-22'),
+      preferences: null,
+    }
+
+    mockTransaction.mockImplementation(async (callback) => {
+      const mockTx = {
+        household: {
+          create: createSpy,
+          findUnique: vi.fn().mockResolvedValue(mockHousehold),
+        },
+        householdMember: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockResolvedValue({ id: 'member-123' }),
+        },
+        householdPreferences: {
+          create: vi.fn().mockResolvedValue({ id: 'prefs-123' }),
+        },
+      }
+      return callback(mockTx as never)
+    })
+
+    const request = new Request('http://localhost/api/households', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'My Household' }),
+    })
+
+    const response = await POST(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(201)
+    expect(createSpy).toHaveBeenCalledWith({ data: { name: 'My Household', locale: 'et' } })
+    expect(data.locale).toBe('et')
+  })
+
+  it('persists default locale when no Accept-Language header is present', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    const createSpy = vi.fn().mockResolvedValue({ id: 'household-123' })
+    const mockHousehold = {
+      id: 'household-123',
+      name: 'My Household',
+      timezone: 'Europe/Tallinn',
+      locale: 'en',
+      createdAt: new Date('2026-04-22'),
+      preferences: null,
+    }
+
+    mockTransaction.mockImplementation(async (callback) => {
+      const mockTx = {
+        household: {
+          create: createSpy,
+          findUnique: vi.fn().mockResolvedValue(mockHousehold),
+        },
+        householdMember: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockResolvedValue({ id: 'member-123' }),
+        },
+        householdPreferences: {
+          create: vi.fn().mockResolvedValue({ id: 'prefs-123' }),
+        },
+      }
+      return callback(mockTx as never)
+    })
+
+    const request = new Request('http://localhost/api/households', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'My Household' }),
+    })
+
+    const response = await POST(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(201)
+    expect(createSpy).toHaveBeenCalledWith({ data: { name: 'My Household', locale: 'en' } })
+    expect(data.locale).toBe('en')
+  })
+
   it('ignores unknown fields in request body', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
