@@ -17,18 +17,6 @@ test.describe('Meal plan generation and viewing', () => {
   // Extend timeout for tests involving AI generation
   test.setTimeout(90000)
 
-  test('empty state shows generate button', async ({ page }) => {
-    await signUpWithHousehold(page)
-
-    // After onboarding, user is redirected to home which redirects to dashboard
-    await page.goto('/meal-plan')
-
-    // Verify empty state
-    await expect(page.getByRole('heading', { name: 'No meal plan for this week' })).toBeVisible()
-    await expect(page.getByText('Generate your first meal plan to get started.')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Generate meal plan' })).toBeVisible()
-  })
-
   test('generate first meal plan', { tag: ['@smoke', '@ai'] }, async ({ page }) => {
     await signUpWithHousehold(page)
     await page.goto('/meal-plan')

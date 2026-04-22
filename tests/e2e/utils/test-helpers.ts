@@ -34,6 +34,22 @@ export async function signUp(
   const password = options.password ?? TEST_PASSWORD
   const name = options.name ?? TEST_NAME
 
+  // Pre-grant cookie consent so the bottom-fixed CookieBanner never
+  // renders and intercepts clicks on elements low on the page (e.g. the
+  // profile page's Delete account button). Keeps the rest of each test
+  // focused on its real assertion without a per-test "click Accept all"
+  // dance. Uses `essential` which satisfies the banner without flipping
+  // the analytics flag.
+  const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'
+  await page.context().addCookies([
+    {
+      name: 'consent-v1',
+      value: 'essential',
+      url: baseURL,
+      sameSite: 'Lax',
+    },
+  ])
+
   await page.goto('/sign-up')
   await page.getByLabel('Name').fill(name)
   await page.getByLabel('Email').fill(email)
