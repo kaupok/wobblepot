@@ -112,12 +112,18 @@ jobs:
         timeout-minutes: 35
         run: pnpm test:e2e --grep-invert=@ai
 
-      - name: Upload Playwright report
+      # Upload both the HTML report and the raw test-results dir (which
+      # contains per-test trace zips written eagerly as each test fails).
+      # When the step is killed mid-run Playwright can't finalise the HTML
+      # report, but the per-test zips are already on disk.
+      - name: Upload Playwright artifacts
         if: always()
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
-          path: playwright-report/
+          name: playwright-debug
+          path: |
+            playwright-report/
+            test-results/
           retention-days: 7
           if-no-files-found: ignore

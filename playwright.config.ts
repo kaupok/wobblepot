@@ -30,11 +30,18 @@ export default defineConfig({
   testMatch: ['**/*.spec.ts'], // <-- only *.spec.ts
   fullyParallel: true,
   forbidOnly: isCI,
-  retries: isCI ? 2 : 0,
+  // Retries masked how broken the suite is — every sign-up test fails
+  // three times in a row at exactly 60s. Dropping retries in CI while
+  // we triage cuts wall-clock ~3× so the whole run fits in the step
+  // timeout and we can see the full failure shape.
+  retries: 0,
   workers: isCI ? 1 : undefined,
   use: {
     baseURL: remoteBaseURL ?? 'http://localhost:3000',
-    trace: 'on-first-retry',
+    // `retain-on-failure` captures traces + screenshots for every
+    // failing test, not just retries, so `test-results/` has data
+    // even when the step is killed mid-run.
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
   webServer,
