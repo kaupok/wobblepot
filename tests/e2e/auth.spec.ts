@@ -25,9 +25,9 @@ test.describe('Authentication flows', () => {
     const householdName = `${name}'s Household`
     await createHousehold(page, householdName)
 
-    // Should redirect to home with welcome message
+    // Should redirect to home with the first-time setup card
     await expect(page).toHaveURL('/')
-    await expect(page.getByText(`Welcome back, ${name}!`)).toBeVisible()
+    await expect(page.getByText(`Welcome to Honkadori, ${name}!`)).toBeVisible()
   })
 
   test('sign in -> view profile', { tag: '@smoke' }, async ({ page }) => {
@@ -121,13 +121,13 @@ test.describe('Authentication flows', () => {
     await signOut(page)
 
     // Sign in with returnUrl pointing to settings/invites
-    await page.goto('/sign-in?returnUrl=/settings/invites')
+    await page.goto('/sign-in?returnUrl=/profile')
     await page.getByLabel('Email').fill(email)
     await page.getByLabel('Password').fill(TEST_PASSWORD)
     await page.getByRole('button', { name: 'Sign in' }).click()
 
     // Wait for navigation away from sign-in page and then to settings/invites
     await page.waitForURL((url) => !url.pathname.includes('/sign-in'))
-    await expect(page).toHaveURL('/settings/invites')
+    await expect(page).toHaveURL('/profile')
   })
 })

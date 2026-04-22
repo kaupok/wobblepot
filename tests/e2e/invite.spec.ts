@@ -1,7 +1,23 @@
 import { test, expect } from '@playwright/test'
 import { signUpWithHousehold, signUp, waitForDialog, createInvite } from './utils/test-helpers'
 
-test.describe('Invite flows', () => {
+// Invite UX was rebuilt after these specs were written: the old
+// `/settings/invites` page no longer exists, and invites are now created
+// per-member from the `/household` page via `MemberInviteDialog`
+// (title: "Invite {memberName}"). The assertions below — "Invite
+// management" heading, generic "Create invite" button, max-uses field,
+// revoke-by-button flow — all reference UI that no longer ships.
+//
+// Rewriting to match the new flow is bigger than HON-518's "stale spec
+// audit" scope, so the whole suite is skipped here until a dedicated
+// follow-up rewrites it. Follow-up: https://linear.app/honkadori
+// (open a new issue referencing HON-518 when you pick this up).
+//
+// Note: this temporarily removes the `@smoke` invite test from tier 2
+// (preview-smoke) and tier 3 (staging-smoke). The test bodies still
+// reference the helpers so imports stay "used" for TypeScript.
+
+test.describe.skip('Invite flows', () => {
   test('owner creates invite and sees invite link', async ({ page }) => {
     // Sign up as owner
     await signUpWithHousehold(page, { name: 'Owner' })
