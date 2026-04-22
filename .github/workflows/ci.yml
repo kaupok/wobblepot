@@ -104,7 +104,12 @@ jobs:
       # AI-exercising flows are covered by preview-smoke once per PR and
       # staging-smoke once per merge. Running them on every push is the
       # dominant cost driver given this repo's PR velocity.
+      #
+      # Step-level `timeout-minutes` sits below the job timeout so when
+      # Playwright hangs we fail the STEP (triggering `if: always()` on
+      # the upload) rather than nuking the whole job.
       - name: Run E2E tests (excluding @ai)
+        timeout-minutes: 35
         run: pnpm test:e2e --grep-invert=@ai
 
       - name: Upload Playwright report

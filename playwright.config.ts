@@ -39,5 +39,8 @@ export default defineConfig({
   },
   webServer,
   timeout: isCI ? 60_000 : 30_000,
-  reporter: isCI ? [['github'], ['html']] : [['list']],
+  // `list` goes first so CI gets per-test progress streamed to stdout
+  // (otherwise `github` buffers everything and a hung suite prints nothing
+  // before the job is killed).
+  reporter: isCI ? [['list'], ['github'], ['html']] : [['list']],
 })
