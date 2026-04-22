@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import { getTranslations } from 'next-intl/server'
 import { CheckCircle2 } from 'lucide-react'
 import { Heading, Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
@@ -69,33 +70,31 @@ export default async function Home() {
 
   // Landing page for unauthenticated users
   if (!session) {
+    const t = await getTranslations('landing')
     return (
       <div className="grid min-h-[calc(100vh-4rem)] place-items-center px-4">
         <main className="flex max-w-2xl flex-col items-center gap-8 text-center">
           <div className="flex flex-col gap-4">
-            <Heading>Meal planning for busy families</Heading>
-            <Body variant="lead">
-              AI-powered weekly meal plans tailored to your household&apos;s preferences, dietary
-              needs, and what&apos;s already in your pantry.
-            </Body>
+            <Heading>{t('headline')}</Heading>
+            <Body variant="lead">{t('sub')}</Body>
           </div>
 
           <Button asChild size="lg">
-            <Link href="/sign-up">Get started - it&apos;s free</Link>
+            <Link href="/sign-up">{t('cta')}</Link>
           </Button>
 
           <ul className="flex flex-col gap-3 text-left">
             <li className="flex items-center gap-2">
               <CheckCircle2 className="text-primary h-5 w-5 shrink-0" />
-              <Body>Personalized for your household</Body>
+              <Body>{t('feature1')}</Body>
             </li>
             <li className="flex items-center gap-2">
               <CheckCircle2 className="text-primary h-5 w-5 shrink-0" />
-              <Body>Smart shopping lists</Body>
+              <Body>{t('feature2')}</Body>
             </li>
             <li className="flex items-center gap-2">
               <CheckCircle2 className="text-primary h-5 w-5 shrink-0" />
-              <Body>Tracks what you have on hand</Body>
+              <Body>{t('feature3')}</Body>
             </li>
           </ul>
         </main>

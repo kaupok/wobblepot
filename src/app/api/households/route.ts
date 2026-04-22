@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { MealType } from '@/generated/prisma/enums'
+import { resolveLocale } from '@/lib/i18n/resolve-locale'
 
 const createHouseholdSchema = z.object({
   name: z.string().min(1).max(100),
@@ -18,8 +19,9 @@ const createHouseholdSchema = z.object({
 })
 
 export async function POST(request: Request) {
+  const requestHeaders = await headers()
   const session = await auth.api.getSession({
-    headers: await headers(),
+    headers: requestHeaders,
   })
 
   if (!session) {
@@ -40,6 +42,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
   }
 
+  // Onboarding has no household yet — resolver falls through to Accept-Language.
+  // Persisting the result here prevents the chrome locale from snapping back to
+  // English the moment the household row exists.
+  const locale = resolveLocale({
+    householdLocale: null,
+    acceptLanguage: requestHeaders.get('accept-language'),
+  })
+
   // Create household, membership, preferences, and optional members in a transaction
   try {
     const { name, members } = parsed.data
@@ -57,6 +67,7 @@ export async function POST(request: Request) {
       const newHousehold = await tx.household.create({
         data: {
           name,
+          locale,
         },
       })
 
@@ -107,6 +118,7 @@ export async function POST(request: Request) {
         id: household!.id,
         name: household!.name,
         timezone: household!.timezone,
+        locale: household!.locale,
         createdAt: household!.createdAt,
         preferences: household!.preferences,
       },

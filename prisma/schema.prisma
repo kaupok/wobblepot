@@ -175,6 +175,7 @@ model Household {
   id        String   @id @default(cuid())
   name      String
   timezone  String   @default("Europe/Tallinn")
+  locale    String   @default("en")
   aiCapUsd  Decimal  @default(5.00) @db.Decimal(10, 4)
   createdAt DateTime @default(now())
 

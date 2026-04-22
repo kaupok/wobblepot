@@ -1,0 +1,28 @@
+{
+  "landing": {
+    "headline": "Söögiplaanid hõivatud peredele",
+    "sub": "Tehisintellekti abil loodud nädalased söögiplaanid, mis arvestavad teie leibkonna eelistusi, toitumispiiranguid ja seda, mis on juba sahvris olemas.",
+    "cta": "Alusta – see on tasuta",
+    "feature1": "Kohandatud teie leibkonnale",
+    "feature2": "Nutikad poenimekirjad",
+    "feature3": "Jälgib, mis sul käepärast on"
+  },
+  "header": {
+    "skipToContent": "Liigu sisu juurde"
+  },
+  "household": {
+    "localeLabel": "Keel",
+    "localeHelperText": "Olemasolevad toidud ja retseptid, mille olete lisanud, jäävad oma algsesse keelde. Uus sisu järgib valitud keelt.",
+    "localeOption": {
+      "en": "Inglise",
+      "et": "Eesti"
+    }
+  },
+  "enums": {
+    "MealType": {
+      "breakfast": "Hommikusöök",
+      "lunch": "Lõunasöök",
+      "dinner": "Õhtusöök"
+    }
+  }
+}

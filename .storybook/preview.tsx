@@ -1,6 +1,7 @@
 import { useLayoutEffect, useState } from 'react'
 import type { Decorator, Preview } from '@storybook/nextjs-vite'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { NextIntlClientProvider } from 'next-intl'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { initialize, mswLoader } from 'msw-storybook-addon'
 import { MINIMAL_VIEWPORTS } from 'storybook/viewport'
@@ -8,6 +9,11 @@ import '../src/app/globals.css'
 // MSW handlers for data-fetching stories live in src/stories/msw-handlers.ts.
 // Per-story overrides go on `parameters.msw.handlers` in the story file.
 import { defaultHandlers } from '../src/stories/msw-handlers'
+import enMessages from '../messages/en.json'
+import etMessages from '../messages/et.json'
+
+const messagesByLocale = { en: enMessages, et: etMessages } as const
+type StorybookLocale = keyof typeof messagesByLocale
 
 initialize({ onUnhandledRequest: 'bypass' })
 
@@ -95,6 +101,16 @@ const withReducedMotion: Decorator = (Story, context) => {
   )
 }
 
+const withI18n: Decorator = (Story, context) => {
+  const globalLocale = (context.globals.locale as StorybookLocale | undefined) ?? 'en'
+  const locale = globalLocale in messagesByLocale ? globalLocale : 'en'
+  return (
+    <NextIntlClientProvider locale={locale} messages={messagesByLocale[locale]}>
+      <Story />
+    </NextIntlClientProvider>
+  )
+}
+
 // Custom viewports matching common mobile device sizes the app targets. The
 // built-in MINIMAL_VIEWPORTS.mobile1 is iPhone 5 (320×568), too small for a
 // mobile-first audit; these add realistic iPhone 13/14 (390×844) and Pixel-class
@@ -162,8 +178,21 @@ const preview: Preview = {
         dynamicTitle: true,
       },
     },
+    locale: {
+      name: 'Locale',
+      description: 'i18n message catalog',
+      defaultValue: 'en',
+      toolbar: {
+        icon: 'globe',
+        items: [
+          { value: 'en', title: 'English' },
+          { value: 'et', title: 'Eesti' },
+        ],
+        dynamicTitle: true,
+      },
+    },
   },
-  decorators: [withFonts, withQueryClient, withTailwindTheme, withReducedMotion],
+  decorators: [withFonts, withQueryClient, withI18n, withTailwindTheme, withReducedMotion],
 }
 
 export default preview

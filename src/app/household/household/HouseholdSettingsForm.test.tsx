@@ -2,6 +2,9 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { toast } from 'sonner'
+import type { ReactNode } from 'react'
+import { NextIntlClientProvider } from 'next-intl'
+import enMessages from '../../../../messages/en.json'
 import { HouseholdSettingsForm } from './HouseholdSettingsForm'
 import { createQueryWrapper } from '@/test/query-wrapper'
 
@@ -33,6 +36,7 @@ const defaultHousehold = {
   id: 'household-1',
   name: 'Test Household',
   timezone: 'Europe/Tallinn',
+  locale: 'en' as const,
 }
 
 const defaultPreferences: {
@@ -52,14 +56,21 @@ const defaultPreferences: {
 }
 
 function renderForm(overrides: Partial<Parameters<typeof HouseholdSettingsForm>[0]> = {}) {
-  const { wrapper } = createQueryWrapper()
+  const { wrapper: QueryWrapper } = createQueryWrapper()
   const props = {
     household: defaultHousehold,
     preferences: defaultPreferences,
     isOwner: true,
     ...overrides,
   }
-  return render(<HouseholdSettingsForm {...props} />, { wrapper })
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        <QueryWrapper>{children}</QueryWrapper>
+      </NextIntlClientProvider>
+    )
+  }
+  return render(<HouseholdSettingsForm {...props} />, { wrapper: Wrapper })
 }
 
 describe('HouseholdSettingsForm', () => {
@@ -268,6 +279,7 @@ describe('HouseholdSettingsForm', () => {
           body: JSON.stringify({
             name: 'Test Household',
             timezone: 'Europe/Tallinn',
+            locale: 'en',
           }),
         }),
       )

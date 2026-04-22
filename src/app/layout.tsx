@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { headers } from 'next/headers'
+import { NextIntlClientProvider } from 'next-intl'
+import { getMessages } from 'next-intl/server'
 import './globals.css'
 import { Toaster } from 'sonner'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -10,6 +12,7 @@ import { Footer } from '@/components/footer'
 import { ConsentProvider } from '@/components/ConsentProvider'
 import { getSession, getHasHousehold } from '@/lib/session'
 import { readConsentCookieServer } from '@/lib/consent.server'
+import { getLocale } from '@/lib/i18n/get-locale'
 import Providers from '@/app/providers'
 import '@/lib/env'
 import { getServerBaseURL } from '@/lib/env'
@@ -78,29 +81,33 @@ export default async function RootLayout({
   const session = await getSession()
   const hasHousehold = session ? await getHasHousehold(session.user.id) : false
   const consentDecision = await readConsentCookieServer()
+  const locale = await getLocale()
+  const messages = await getMessages()
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <head>
         <meta name="x-server-base-url" content={baseURL} />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem nonce={nonce}>
-          <ConsentProvider initialDecision={consentDecision}>
-            <Providers isAuthenticated={Boolean(session)}>
-              <Toaster richColors closeButton duration={4000} />
-              <Header />
-              <main
-                id="main-content"
-                className="mx-auto min-h-screen max-w-[1152px] pt-[calc(4rem+env(safe-area-inset-top,0px))] pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0"
-              >
-                {children}
-              </main>
-              <Footer />
-              <BottomTabBar session={session} hasHousehold={hasHousehold} />
-            </Providers>
-          </ConsentProvider>
-        </ThemeProvider>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem nonce={nonce}>
+            <ConsentProvider initialDecision={consentDecision}>
+              <Providers isAuthenticated={Boolean(session)}>
+                <Toaster richColors closeButton duration={4000} />
+                <Header />
+                <main
+                  id="main-content"
+                  className="mx-auto min-h-screen max-w-[1152px] pt-[calc(4rem+env(safe-area-inset-top,0px))] pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0"
+                >
+                  {children}
+                </main>
+                <Footer />
+                <BottomTabBar session={session} hasHousehold={hasHousehold} />
+              </Providers>
+            </ConsentProvider>
+          </ThemeProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   )
