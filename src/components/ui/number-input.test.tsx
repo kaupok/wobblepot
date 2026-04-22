@@ -109,6 +109,36 @@ describe('NumberInput', () => {
     expect(input.value).toBe('2,5')
   })
 
+  it('preserves intermediate partial input when parent coerces null to a number', () => {
+    // Call sites like QuantityControls / ComponentList store the value as
+    // `number` and must not zero it out mid-keystroke. If they routed null
+    // to a numeric fallback (e.g. `v ?? 0`), NumberInput would see the
+    // coerced value come back as an external change and resync the draft —
+    // wiping the user's `1.` as they type `1.5`. This test guards against
+    // that regression.
+    function CoercingParent() {
+      const [value, setValue] = useState<number>(100)
+      return (
+        <NumberInput
+          aria-label="q"
+          value={value}
+          onValueChange={(v) => {
+            if (v !== null) setValue(v)
+          }}
+        />
+      )
+    }
+    render(<CoercingParent />)
+    const input = screen.getByLabelText('q') as HTMLInputElement
+    // User types `1` then `.` on the way to `1.5`. The trailing-separator
+    // draft must survive so the next keystroke (`5`) builds `1.5`.
+    fireEvent.change(input, { target: { value: '1' } })
+    fireEvent.change(input, { target: { value: '1.' } })
+    expect(input.value).toBe('1.')
+    fireEvent.change(input, { target: { value: '1.5' } })
+    expect(input.value).toBe('1.5')
+  })
+
   it('rejects fractional values in integer mode', () => {
     const onValueChange = vi.fn()
     render(<ControlledHarness onValueChange={onValueChange} integer />)

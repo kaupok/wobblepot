@@ -98,6 +98,11 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
       return
     }
 
+    if (portionMultiplier < 0.5 || portionMultiplier > 3.0) {
+      setPortionError('Portion size must be between 0.5 and 3.0')
+      return
+    }
+
     addMember.mutate()
   }
 

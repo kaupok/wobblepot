@@ -87,7 +87,9 @@ export function ComponentList({
                   >
                     <NumberInput
                       value={comp.totalQuantity}
-                      onValueChange={(v) => onUpdateQuantity(comp.ingredientId, v ?? 0)}
+                      onValueChange={(v) => {
+                        if (v !== null) onUpdateQuantity(comp.ingredientId, v)
+                      }}
                       className="w-20 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                       disabled={disabled}
                       aria-label={`Total quantity for ${comp.ingredient.name}`}

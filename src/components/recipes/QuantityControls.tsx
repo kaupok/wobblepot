@@ -41,7 +41,9 @@ export function QuantityControls({
       >
         <NumberInput
           value={totalQuantity}
-          onValueChange={(v) => onQuantityChange(v ?? 0)}
+          onValueChange={(v) => {
+            if (v !== null) onQuantityChange(v)
+          }}
           aria-label="Quantity"
           className="w-20 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
           disabled={disabled}
