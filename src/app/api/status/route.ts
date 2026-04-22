@@ -28,6 +28,11 @@ export async function GET() {
     },
     incidentMessage: snapshot.incidentMessage,
     timestamp: snapshot.timestamp,
+    // Commit SHA of the deployed build. Used by staging-smoke.yml to
+    // verify the new deploy is actually serving before smoke tests run
+    // (vs. racing against a stale Vercel build). `undefined` in local dev
+    // and omitted from the JSON payload in that case.
+    commitSha: process.env.VERCEL_GIT_COMMIT_SHA,
   })
 }
 

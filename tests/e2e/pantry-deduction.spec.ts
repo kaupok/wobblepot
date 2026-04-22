@@ -24,7 +24,7 @@ interface Entry {
   } | null
 }
 
-test.describe('Pantry deduction on meal completion', { tag: '@smoke' }, () => {
+test.describe('Pantry deduction on meal completion', { tag: ['@smoke', '@ai'] }, () => {
   test.setTimeout(90_000)
 
   test('marking a meal completed decrements pantry by quantityPerServing × householdSize', async ({

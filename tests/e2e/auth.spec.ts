@@ -32,7 +32,7 @@ test.describe('Authentication flows', () => {
     await expect(page.getByText(`Welcome back, ${name}!`)).toBeVisible()
   })
 
-  test('sign in -> view profile', async ({ page }) => {
+  test('sign in -> view profile', { tag: '@smoke' }, async ({ page }) => {
     const email = generateUniqueEmail()
     const name = 'Existing User'
 

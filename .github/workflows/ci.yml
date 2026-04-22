@@ -14,15 +14,48 @@ jobs:
   ci:
     name: Lint, Type Check & Test
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Above 29 Playwright tests × retries × 60s per-test timeout plus all
+    # the setup steps so a slow run surfaces real failures instead of a
+    # GitHub-level job cancel.
+    timeout-minutes: 45
     permissions:
       contents: read
       actions: write
+
+    # Postgres sidecar powers the E2E tier 1 (HON-455). Migrations + seed run
+    # against this DB before Playwright. Doesn't catch Neon-specific quirks
+    # (pooling, cold starts) — preview-smoke covers those.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: honkadori_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     env:
       NEXT_PUBLIC_APP_NAME: ${{ vars.NEXT_PUBLIC_APP_NAME }}
       NEXT_PUBLIC_APP_ENV: ci
       NEXT_TELEMETRY_DISABLED: 1
       NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
+      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
+      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET_CI }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_CI }}
+      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL_CI }}
+      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN_CI }}
+      SEED_TEST_USERS: '1'
+      SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
+      SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
+      FORGOT_PASSWORD_TEST_EMAIL: ${{ secrets.FORGOT_PASSWORD_TEST_EMAIL }}
+      FORGOT_PASSWORD_TEST_PASSWORD: ${{ secrets.FORGOT_PASSWORD_TEST_PASSWORD }}
 
     steps:
       - name: Checkout code
@@ -58,22 +91,38 @@ jobs:
       - name: Run Storybook a11y tests
         run: pnpm test-storybook:ci
 
-      # NOTE: E2E tests are intentionally disabled in CI
-      # E2E tests can still be run locally with: pnpm test:e2e
-      # This is a temporary measure to speed up CI builds while the E2E test infrastructure is being stabilized.
-      # Re-enable when test flakiness is resolved or when required for the CI pipeline.
-      # DO NOT COMMENT ABOUT THIS IN PRS. IT'S KNOWN.
+      # ==========================================
+      # E2E tier 1: Playwright against Docker Postgres sidecar (HON-455)
+      # ==========================================
+      - name: Apply database migrations
+        run: pnpm prisma migrate deploy
+
+      - name: Seed database
+        run: pnpm db:seed
+
+      # Tier 1 E2E run — currently disabled pending HON-518.
       #
-      # - name: Install Playwright browsers
-      #   run: pnpm exec playwright install --with-deps
+      # The sidecar Postgres + migrations + seed above are ready; the
+      # Playwright run itself is blocked on two follow-ups tracked in
+      # HON-518: (1) env-gated rate-limit bypass for CI (the /api/auth
+      # handler's IP-dimensioned limiter trips after ~5 sign-ups from
+      # the single runner IP), and (2) spec updates for UI drift
+      # (onboarding 2-step flow, user-menu sign-out, home heading copy).
+      # Un-comment the two steps below once HON-518 lands and three
+      # consecutive green runs pass on its branch.
       #
-      # - name: Run E2E tests
-      #   run: pnpm test:e2e
+      # - name: Run E2E tests (excluding @ai)
+      #   timeout-minutes: 35
+      #   run: pnpm test:e2e --grep-invert=@ai
       #
-      # - name: Upload Playwright report
-      #   if: failure()
+      # - name: Upload Playwright artifacts
+      #   if: always()
+      #   continue-on-error: true
       #   uses: actions/upload-artifact@v4
       #   with:
-      #     name: playwright-report
-      #     path: playwright-report/
+      #     name: playwright-debug
+      #     path: |
+      #       playwright-report/
+      #       test-results/
       #     retention-days: 7
+      #     if-no-files-found: ignore

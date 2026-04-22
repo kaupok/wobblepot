@@ -1,9 +1,11 @@
 import { expect, type Page } from '@playwright/test'
 
 /**
- * Default test password that meets the 8+ character requirement
+ * Default test password. Must meet Better Auth's `minPasswordLength` (12+
+ * chars) and avoid HIBP breach matches — short / common passwords like
+ * `testpass123` fail sign-up on both fronts.
  */
-export const TEST_PASSWORD = 'testpass123'
+export const TEST_PASSWORD = 'honkadori-e2e-test-2026'
 
 /**
  * Default test user name

@@ -1,0 +1,113 @@
+name: Preview smoke
+
+# Tier 2 of the HON-455 E2E setup. Fires when Vercel reports a successful
+# preview deploy AND the PR carries a `smoke` label. Runs the
+# @smoke-tagged Playwright specs (including AI-calling ones) against the
+# real preview URL, backed by a per-PR Neon branch via maybe-migrate.sh.
+#
+# The label gate exists because AI-dependent specs cost real money every
+# run — we want prod-parity E2E once per PR (when the author adds the
+# `smoke` label to trigger it, typically at ready-for-review time), not
+# on every push. Without the label the workflow exits cleanly and the
+# merge gate is still honoured because staging-smoke runs after merge.
+
+on:
+  deployment_status:
+
+# No concurrency block intentionally. Vercel sets `deployment.ref` to the
+# commit SHA, so a per-ref key would only dedupe same-commit redeploys,
+# not newer pushes on the same branch. Accurate per-branch cancellation
+# would need the PR number (known to the `gate` job but not at workflow
+# header parse time). In practice the label gate makes concurrent runs
+# rare enough that paying for the occasional duplicate beats a stale
+# correctness claim.
+
+jobs:
+  # Gate exists as its own job so the "Smoke tests on Vercel preview"
+  # check doesn't appear red when the PR isn't labelled — it just
+  # doesn't appear at all.
+  gate:
+    name: Check smoke label
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment.environment == 'Preview' &&
+      github.event.deployment_status.environment_url != ''
+    outputs:
+      should-run: ${{ steps.check.outputs.should-run }}
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check PR label
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          PR=$(gh api "repos/${{ github.repository }}/commits/${{ github.event.deployment.sha }}/pulls" --jq '.[0].number // empty')
+          if [ -z "$PR" ]; then
+            echo "No PR for deploy sha ${{ github.event.deployment.sha }} — skipping"
+            echo "should-run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          HAS_LABEL=$(gh pr view "$PR" --repo ${{ github.repository }} --json labels --jq '[.labels[].name] | any(. == "smoke")')
+          echo "PR #$PR smoke-label=$HAS_LABEL"
+          echo "should-run=$HAS_LABEL" >> "$GITHUB_OUTPUT"
+
+  smoke:
+    name: Smoke tests on Vercel preview
+    needs: gate
+    if: needs.gate.outputs.should-run == 'true'
+    runs-on: ubuntu-latest
+    # Above the Playwright worst-case (5 tests × retries × per-test
+    # timeout) so we see real failures + traces, not a GitHub-level cancel.
+    timeout-minutes: 25
+    permissions:
+      contents: read
+
+    env:
+      PLAYWRIGHT_BASE_URL: ${{ github.event.deployment_status.environment_url }}
+      SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
+      SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
+      FORGOT_PASSWORD_TEST_EMAIL: ${{ secrets.FORGOT_PASSWORD_TEST_EMAIL }}
+      FORGOT_PASSWORD_TEST_PASSWORD: ${{ secrets.FORGOT_PASSWORD_TEST_PASSWORD }}
+      NEXT_TELEMETRY_DISABLED: 1
+
+    steps:
+      - name: Checkout code at deployed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha }}
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run @smoke specs against preview URL
+        run: pnpm test:e2e --grep=@smoke
+
+      # `always()` so we also keep the report when a run is cancelled
+      # (e.g. concurrency-cancel); `continue-on-error` keeps missing
+      # artifacts from flipping an otherwise-green job red.
+      - name: Upload Playwright report
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-preview-${{ github.event.deployment.sha }}
+          path: playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore

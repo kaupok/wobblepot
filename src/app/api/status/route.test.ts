@@ -104,6 +104,49 @@ describe('GET /api/status', () => {
     expect(body.overall).toBe('down')
   })
 
+  it('includes commitSha from VERCEL_GIT_COMMIT_SHA when set', async () => {
+    const original = process.env.VERCEL_GIT_COMMIT_SHA
+    process.env.VERCEL_GIT_COMMIT_SHA = 'abc123def456'
+    try {
+      mockGetSnapshot.mockResolvedValue({
+        db: { status: 'ok', ...baseProbe },
+        auth: { status: 'ok', ...baseProbe },
+        ai: { status: 'ok', ...baseProbe },
+        timestamp: '2026-04-20T12:00:00.000Z',
+      })
+      mockComputeOverall.mockReturnValue('ok')
+
+      const response = await GET()
+      const body = await response.json()
+
+      expect(body.commitSha).toBe('abc123def456')
+    } finally {
+      if (original === undefined) delete process.env.VERCEL_GIT_COMMIT_SHA
+      else process.env.VERCEL_GIT_COMMIT_SHA = original
+    }
+  })
+
+  it('omits commitSha when VERCEL_GIT_COMMIT_SHA is unset', async () => {
+    const original = process.env.VERCEL_GIT_COMMIT_SHA
+    delete process.env.VERCEL_GIT_COMMIT_SHA
+    try {
+      mockGetSnapshot.mockResolvedValue({
+        db: { status: 'ok', ...baseProbe },
+        auth: { status: 'ok', ...baseProbe },
+        ai: { status: 'ok', ...baseProbe },
+        timestamp: '2026-04-20T12:00:00.000Z',
+      })
+      mockComputeOverall.mockReturnValue('ok')
+
+      const response = await GET()
+      const body = await response.json()
+
+      expect(body.commitSha).toBeUndefined()
+    } finally {
+      if (original !== undefined) process.env.VERCEL_GIT_COMMIT_SHA = original
+    }
+  })
+
   it('passes through the incident message when set', async () => {
     mockGetSnapshot.mockResolvedValue({
       db: { status: 'ok', ...baseProbe },

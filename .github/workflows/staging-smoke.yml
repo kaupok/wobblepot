@@ -1,0 +1,98 @@
+name: Staging smoke
+
+# Tier 3 of the HON-455 E2E setup. Runs after the staging DB-migration
+# workflow succeeds on main. Staging is auto-deployed by Vercel on push to
+# main, so we poll the staging URL until it responds before running the
+# @smoke-tagged specs. Failure blocks production promotion (see
+# docs/DEPLOYMENT.md → "E2E testing tiers").
+
+on:
+  workflow_run:
+    workflows: ['Deploy DB migrations [staging]']
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: staging-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Smoke tests on staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: read
+
+    env:
+      # STAGING_URL is a repository variable so it can be updated without code
+      # changes. Falls back to the production staging domain when unset.
+      PLAYWRIGHT_BASE_URL: ${{ vars.STAGING_URL || 'https://honkadori.xyz' }}
+      SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
+      SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
+      FORGOT_PASSWORD_TEST_EMAIL: ${{ secrets.FORGOT_PASSWORD_TEST_EMAIL }}
+      FORGOT_PASSWORD_TEST_PASSWORD: ${{ secrets.FORGOT_PASSWORD_TEST_PASSWORD }}
+      NEXT_TELEMETRY_DISABLED: 1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Vercel auto-deploys staging on main, but the deploy may still be in
+      # flight when this workflow starts — or worse, the *previous* build
+      # is still what's serving. Poll /api/status until its `commitSha`
+      # field matches the commit that triggered the upstream workflow, so
+      # we only run smoke tests against the build the migrations were
+      # intended for.
+      - name: Wait for staging deploy to serve ${{ github.event.workflow_run.head_sha || github.sha }}
+        env:
+          # `workflow_run.head_sha` for the upstream migration workflow,
+          # `github.sha` for manual `workflow_dispatch` triggers.
+          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -eu
+          url="${PLAYWRIGHT_BASE_URL%/}/api/status"
+          echo "Waiting for $url to report commitSha=$EXPECTED_SHA"
+          for attempt in $(seq 1 30); do
+            body=$(curl -sf --max-time 5 "$url" || true)
+            actual_sha=$(echo "$body" | jq -r '.commitSha // empty' 2>/dev/null || true)
+            if [ -n "$actual_sha" ] && [ "$actual_sha" = "$EXPECTED_SHA" ]; then
+              echo "staging is live on $EXPECTED_SHA"
+              exit 0
+            fi
+            echo "attempt $attempt: staging commitSha=${actual_sha:-unknown}, waiting for $EXPECTED_SHA"
+            sleep 10
+          done
+          echo "staging never reported commitSha=$EXPECTED_SHA after 5 minutes" >&2
+          exit 1
+
+      - name: Run @smoke specs against staging
+        run: pnpm test:e2e --grep=@smoke
+
+      - name: Upload Playwright report
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-staging-${{ github.sha }}
+          path: playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore
