@@ -4,12 +4,16 @@ import { signUpWithHousehold } from './utils/test-helpers'
 /**
  * Platform i18n smoke — catches framework regressions on every PR.
  *
- * Per HON-501:
  *   1. Signed-out user with Estonian browser → Estonian chrome
- *      (verifies `<html lang>`, catalog string, resolver → Accept-Language path)
- *   2. New household created during onboarding with Estonian browser →
- *      `Household.locale = "et"` persisted (resolver output, not hardcoded "en")
- *      and the MealType enum label renders in Estonian via `useEnumLabel`.
+ *      (verifies `<html lang>`, catalog string, resolver → Accept-Language path).
+ *   2. New household created during onboarding with Estonian browser → the
+ *      onboarding path clamps to `PUBLIC_LOCALES` (HON-524), so
+ *      `Household.locale = "en"` is persisted and chrome flips to English
+ *      post-sign-up. `useEnumLabel('MealType', 'breakfast')` therefore renders
+ *      "Breakfast" on the household settings form. The Estonian enum-label
+ *      path is exercised by unit + Storybook tests, not here — there is no
+ *      UI-reachable way to reach an Estonian household while `PUBLIC_LOCALES
+ *      = ['en']`.
  */
 
 test.describe('@i18n platform smoke', () => {
@@ -23,32 +27,20 @@ test.describe('@i18n platform smoke', () => {
     ).toBeVisible()
   })
 
-  test('new household persists resolved locale and MealType renders in et', async ({ page }) => {
+  test('onboarding clamps Estonian-browser locale to PUBLIC_LOCALES', async ({ page }) => {
     // Sign up + onboarding helpers use English-only labels (sign-up /
-    // onboarding chrome is not externalized in this issue), so they work fine
-    // against an Estonian-browser session.
+    // onboarding chrome is not externalized), so they work fine against an
+    // Estonian-browser session.
     await signUpWithHousehold(page)
 
-    // After creation, chrome must still be in Estonian — locale did not snap
-    // back when Household.locale was persisted.
-    await expect(page.locator('html')).toHaveAttribute('lang', 'et')
+    // HON-524: onboarding clamps Accept-Language-resolved `et` to
+    // DEFAULT_LOCALE because `et` isn't in PUBLIC_LOCALES yet. Chrome therefore
+    // flips to English the moment the household row exists.
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
 
     // `MealTypeCheckbox` → `useEnumLabel('MealType', 'breakfast')` renders the
-    // Estonian label "Hommikusöök" in the household settings form.
+    // English label on the household settings form after the clamp.
     await page.goto('/household')
-    await expect(page.getByText('Hommikusöök').first()).toBeVisible()
-
-    // Mid-session locale change: switching the household locale to English via
-    // the settings form should flip `<html lang>` and the enum labels without
-    // a manual reload (the mutation's onSuccess calls `router.refresh()`).
-    // The locale-selector label is "Keel" while chrome is still in Estonian;
-    // the submit button is not yet externalized, so its text stays "Save
-    // settings" regardless of locale.
-    await page.getByRole('combobox', { name: /keel/i }).click()
-    await page.getByRole('option', { name: 'Inglise' }).click()
-    await page.getByRole('button', { name: 'Save settings' }).click()
-
-    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
     await expect(page.getByText('Breakfast').first()).toBeVisible()
   })
 })
