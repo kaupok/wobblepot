@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { MealType } from '@/generated/prisma/enums'
 import { resolveLocale } from '@/lib/i18n/resolve-locale'
+import { DEFAULT_LOCALE, isPublicLocale } from '@/lib/i18n/locales'
 
 const createHouseholdSchema = z.object({
   name: z.string().min(1).max(100),
@@ -44,11 +45,17 @@ export async function POST(request: Request) {
 
   // Onboarding has no household yet — resolver falls through to Accept-Language.
   // Persisting the result here prevents the chrome locale from snapping back to
-  // English the moment the household row exists.
-  const locale = resolveLocale({
+  // English the moment the household row exists. Clamped to PUBLIC_LOCALES so a
+  // non-English browser doesn't silently land a general user on a locale whose
+  // public enablement conditions (e.g. email-template localization) haven't
+  // cleared yet; partner households opt into non-public locales via direct DB
+  // write, which bypasses this path. The clamp is a no-op once PUBLIC_LOCALES
+  // widens to the full KNOWN_LOCALES set.
+  const resolved = resolveLocale({
     householdLocale: null,
     acceptLanguage: requestHeaders.get('accept-language'),
   })
+  const locale = isPublicLocale(resolved) ? resolved : DEFAULT_LOCALE
 
   // Create household, membership, preferences, and optional members in a transaction
   try {
