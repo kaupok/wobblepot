@@ -74,6 +74,27 @@ Also note any key decisions or rationale from:
 - Implementation plan (if posted to Linear comments)
 - Conversation context (design tradeoffs, important choices made)
 
+### 5b. Note E2E impact
+
+If the diff includes any of the following, the PR description must state the E2E impact explicitly:
+
+- `src/app/**/page.tsx` (route added, removed, or renamed)
+- A modal/dialog component under `src/components/**`
+- Navigation/CTA copy changes in a heading, button, or link
+
+Determine which applies and record one of:
+
+- **"E2E specs updated: [list]"** — specs you modified in this branch.
+- **"No E2E impact"** — only if no `tests/e2e/*.spec.ts` header (`// ROUTES: … · COMPONENTS: …`) matches the changed routes/components.
+
+Check with:
+
+```bash
+grep -l "ROUTES.*<route>\|COMPONENTS.*<Component>" tests/e2e/*.spec.ts
+```
+
+This goes in the Summary section of the description (step 6). The goal: a reviewer reading the PR body sees at a glance whether E2E drift was considered, and a future auditor sees whether this PR was the one that broke a given spec. See HON-519 for why this gate exists.
+
 ### 6. Draft PR title and description
 
 **Title:** Follow Conventional Commits format (this becomes the squash-merge commit message).
@@ -88,6 +109,7 @@ Also note any key decisions or rationale from:
 ## Summary
 
 - [1-3 bullet points describing the changes]
+- **E2E impact:** [From step 5b — either `E2E specs updated: tests/e2e/foo.spec.ts, tests/e2e/bar.spec.ts` or `No E2E impact`. Omit the line entirely only if the diff is pure-backend with no UI / route / modal surface.]
 
 ## Test plan
 
@@ -111,6 +133,7 @@ gh pr create --title "type(scope): Subject" --body "$(cat <<'EOF'
 
 ## Summary
 - ...
+- E2E impact: [specs updated | No E2E impact]
 
 ## Test plan
 - [ ] ...

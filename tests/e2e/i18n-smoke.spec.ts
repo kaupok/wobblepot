@@ -1,3 +1,4 @@
+// ROUTES: /, /household · COMPONENTS: Header, MealTypeCheckbox, HouseholdSettingsForm
 import { test, expect } from '@playwright/test'
 import { signUpWithHousehold } from './utils/test-helpers'
 

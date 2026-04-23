@@ -1,3 +1,4 @@
+// ROUTES: / · COMPONENTS: Header, Home (landing hero)
 import { test, expect } from '@playwright/test'
 
 test('home renders with heading', async ({ page }) => {

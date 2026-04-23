@@ -1,3 +1,4 @@
+// ROUTES: /profile · COMPONENTS: DeleteAccountDialog, AlertDialogTrigger
 import { test, expect } from '@playwright/test'
 import { signUpWithHousehold } from './utils/test-helpers'
 

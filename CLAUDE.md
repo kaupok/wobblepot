@@ -224,7 +224,9 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **TanStack Query in tests:** Components using `useQuery`/`useMutation` need a `QueryClientProvider` wrapper. Use `createQueryWrapper()` from `src/test/query-wrapper.tsx` — it creates a fresh `QueryClient` per test with retries disabled.
 
-**E2E Tests** (Playwright): Run with `pnpm test:e2e`. Config: `playwright.config.ts`
+**E2E Tests** (Playwright): Run with `pnpm test:e2e`. Config: `playwright.config.ts`. Specs live in `tests/e2e/*.spec.ts`; see [`tests/e2e/README.md`](./tests/e2e/README.md) for tiers, selector conventions, and the spec-header convention.
+
+**CRITICAL: When modifying `src/app/**/page.tsx`, changing a route's URL, renaming a navigation/CTA copy string, or restructuring a modal/dialog, grep `tests/e2e`for references and update the affected specs in the same PR.** The tier 1 E2E check catches drift on`main`, but specs that reference removed routes or renamed copy are cheap to miss locally and expensive to fix in batch (see HON-518). Use the per-spec `// ROUTES: … · COMPONENTS: …` header comments to scope the grep. This is part of the definition of done — the same loud-rule treatment as colocated Storybook stories.
 
 ## Storybook
 

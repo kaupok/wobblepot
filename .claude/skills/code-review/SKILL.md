@@ -136,6 +136,20 @@ CLAUDE.md is already loaded as project instructions — do not re-read it. Read 
 - **Performance**: N+1 queries, unnecessary re-renders, large bundle imports
 - **Requirements**: If Linear issue context available, verify acceptance criteria are met
 - **Plan Compliance**: If implementation plan found, verify implementation matches planned approach
+- **E2E drift**: If the diff includes `src/app/**/page.tsx`, a modal/dialog component, or changes user-visible copy in a heading/button/link, grep `tests/e2e/` for stale references to the old identifiers. Spec-file `// ROUTES: … · COMPONENTS: …` headers make this a deterministic scan:
+
+  ```bash
+  # For a route change (e.g. removed /settings/invites):
+  grep -l "ROUTES.*<route>" tests/e2e/*.spec.ts
+
+  # For a component rename (e.g. MealDetailModal → MealDetail):
+  grep -l "COMPONENTS.*<OldName>" tests/e2e/*.spec.ts
+
+  # For a copy rename — also grep spec bodies:
+  grep -rn "<exact old copy>" tests/e2e/
+  ```
+
+  If any spec references removed routes or renamed copy, call it out in **Address Now** — stale specs are cheap to miss locally and land as a CI regression. See HON-518 for the drift-batch incident this rule was introduced to prevent.
 
 ### 9. Triage issues
 
@@ -217,6 +231,7 @@ Files: `file1.ts`, `file2.ts`, ...
 - [ ] `pnpm lint` passes
 - [ ] `pnpm type-check` passes
 - [ ] `pnpm test` passes
+- [ ] If changes touch `src/app/**/page.tsx`, a modal/dialog component, or user-visible copy: grepped `tests/e2e/` `// ROUTES: …` / `// COMPONENTS: …` headers for stale references and updated affected specs (or noted "no E2E impact")
 - [ ] PR description is up to date
 
 ### Verdict
