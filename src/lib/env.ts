@@ -90,7 +90,7 @@ const serverOnlyEnvSchema = z.object({
     .enum(['1', 'true', '0', 'false'])
     .optional()
     .describe(
-      'E2E-only bypass for the abuse-sensitive rate limiter (CI sign-up tests collide on the shared runner IP). Refuses to activate when NEXT_PUBLIC_APP_ENV is production or staging — see src/lib/rate-limit.ts.',
+      'E2E-only bypass for the abuse-sensitive rate limiter (CI sign-up tests collide on the shared runner IP). Only activates when NEXT_PUBLIC_APP_ENV is one of ci/test/dev; any other value (production, staging, preview, unset, or typo) throws at module init — see src/lib/rate-limit.ts.',
     ),
 
   FEATURE_RECIPE_PARSER_ET: z
