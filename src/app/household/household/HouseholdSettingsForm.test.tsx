@@ -87,6 +87,11 @@ describe('HouseholdSettingsForm', () => {
     mockRouterRefresh.mockReset()
     vi.mocked(toast.success).mockReset()
     vi.mocked(toast.error).mockReset()
+    // Radix Select calls pointer-capture APIs that jsdom doesn't implement.
+    Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false)
+    Element.prototype.setPointerCapture = vi.fn()
+    Element.prototype.releasePointerCapture = vi.fn()
+    Element.prototype.scrollIntoView = vi.fn()
   })
 
   afterEach(() => {
@@ -388,6 +393,35 @@ describe('HouseholdSettingsForm', () => {
       const dinnerCheckboxes = screen.getAllByLabelText('Dinner')
       expect(dinnerCheckboxes[0]).toBeChecked()
       expect(dinnerCheckboxes[1]).toBeChecked()
+    })
+  })
+
+  describe('locale selector', () => {
+    it('shows only public locales when household locale is public', async () => {
+      renderForm({ household: { ...defaultHousehold, locale: 'en' } })
+
+      const localeTrigger = screen.getByRole('combobox', { name: /language/i })
+      await userEvent.click(localeTrigger)
+
+      const englishOption = await screen.findByRole('option', { name: 'English' })
+      expect(englishOption).toBeInTheDocument()
+      expect(englishOption).not.toHaveAttribute('aria-disabled', 'true')
+      expect(screen.queryByRole('option', { name: 'Estonian' })).not.toBeInTheDocument()
+    })
+
+    it('shows a disabled option for the current locale when it is not public', async () => {
+      renderForm({ household: { ...defaultHousehold, locale: 'et' } })
+
+      const localeTrigger = screen.getByRole('combobox', { name: /language/i })
+      expect(localeTrigger).toHaveTextContent('Estonian')
+
+      await userEvent.click(localeTrigger)
+
+      const estonianOption = await screen.findByRole('option', { name: 'Estonian' })
+      expect(estonianOption).toHaveAttribute('aria-disabled', 'true')
+
+      const englishOption = screen.getByRole('option', { name: 'English' })
+      expect(englishOption).not.toHaveAttribute('aria-disabled', 'true')
     })
   })
 })

@@ -20,7 +20,7 @@ import {
 import { Heading, Body } from '@/components/ui/typography'
 import { TagInput, type TagInputRef } from '@/components/tag-input'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
-import { KNOWN_LOCALES, type Locale } from '@/lib/i18n/locales'
+import { PUBLIC_LOCALES, isPublicLocale, type Locale } from '@/lib/i18n/locales'
 
 // Types matching Prisma enums
 type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian'
@@ -280,7 +280,12 @@ export function HouseholdSettingsForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {KNOWN_LOCALES.map((code) => (
+                  {!isPublicLocale(locale) && (
+                    <SelectItem value={locale} disabled>
+                      {t(`localeOption.${locale}`)}
+                    </SelectItem>
+                  )}
+                  {PUBLIC_LOCALES.map((code) => (
                     <SelectItem key={code} value={code}>
                       {t(`localeOption.${code}`)}
                     </SelectItem>
