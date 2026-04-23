@@ -210,14 +210,15 @@ describe('POST /api/households', () => {
     expect(data.preferences).toBeDefined()
   })
 
-  it('persists locale resolved from Accept-Language header', async () => {
+  it('clamps Accept-Language-resolved locale to PUBLIC_LOCALES at onboarding', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
       session: { id: 'session-123' },
     } as never)
 
-    // Override the default headers mock for this test to return an Estonian
-    // preference, so the resolver should pick 'et'.
+    // Estonian preference with quality-weighted English fallback. `resolveLocale`
+    // on its own returns 'et' here, but the onboarding path clamps to
+    // PUBLIC_LOCALES — 'et' isn't public yet, so the persisted value is 'en'.
     const { headers } = await import('next/headers')
     vi.mocked(headers).mockResolvedValueOnce(
       new Headers({ 'accept-language': 'et,en;q=0.9' }) as never,
@@ -228,7 +229,7 @@ describe('POST /api/households', () => {
       id: 'household-123',
       name: 'My Household',
       timezone: 'Europe/Tallinn',
-      locale: 'et',
+      locale: 'en',
       createdAt: new Date('2026-04-22'),
       preferences: null,
     }
@@ -259,8 +260,57 @@ describe('POST /api/households', () => {
     const data = await response.json()
 
     expect(response.status).toBe(201)
-    expect(createSpy).toHaveBeenCalledWith({ data: { name: 'My Household', locale: 'et' } })
-    expect(data.locale).toBe('et')
+    expect(createSpy).toHaveBeenCalledWith({ data: { name: 'My Household', locale: 'en' } })
+    expect(data.locale).toBe('en')
+  })
+
+  it('clamps Estonian Accept-Language (et-EE) to DEFAULT_LOCALE at onboarding', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    const { headers } = await import('next/headers')
+    vi.mocked(headers).mockResolvedValueOnce(new Headers({ 'accept-language': 'et-EE' }) as never)
+
+    const createSpy = vi.fn().mockResolvedValue({ id: 'household-123' })
+    const mockHousehold = {
+      id: 'household-123',
+      name: 'My Household',
+      timezone: 'Europe/Tallinn',
+      locale: 'en',
+      createdAt: new Date('2026-04-22'),
+      preferences: null,
+    }
+
+    mockTransaction.mockImplementation(async (callback) => {
+      const mockTx = {
+        household: {
+          create: createSpy,
+          findUnique: vi.fn().mockResolvedValue(mockHousehold),
+        },
+        householdMember: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockResolvedValue({ id: 'member-123' }),
+        },
+        householdPreferences: {
+          create: vi.fn().mockResolvedValue({ id: 'prefs-123' }),
+        },
+      }
+      return callback(mockTx as never)
+    })
+
+    const request = new Request('http://localhost/api/households', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'My Household' }),
+    })
+
+    const response = await POST(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(201)
+    expect(createSpy).toHaveBeenCalledWith({ data: { name: 'My Household', locale: 'en' } })
+    expect(data.locale).toBe('en')
   })
 
   it('persists default locale when no Accept-Language header is present', async () => {
