@@ -22,26 +22,30 @@ import { getRedis } from '@/lib/upstash'
 
 // E2E bypass: allows CI to skip the IP-dimensioned rate limiter that would
 // otherwise trip on the shared GitHub-runner IP after ~5 sign-ups. Refuses
-// to activate in production / staging so a misconfigured deploy fails loudly
-// at module init instead of silently weakening auth-endpoint protection.
+// to activate unless NEXT_PUBLIC_APP_ENV is explicitly one of SAFE_ENVS
+// (ci / test / dev), so misconfigured deploys — production, staging,
+// preview, unset, or typo — fail loudly at module init instead of silently
+// weakening auth-endpoint protection.
 //
 // Enable with `E2E_DISABLE_RATE_LIMIT=1` (or `true`) in CI only.
+const SAFE_ENVS: ReadonlySet<string> = new Set(['ci', 'test', 'dev'])
+
 function resolveBypass(): boolean {
   const raw = process.env.E2E_DISABLE_RATE_LIMIT
   const enabled = raw === '1' || raw === 'true'
   if (!enabled) return false
 
   const env = process.env.NEXT_PUBLIC_APP_ENV
-  if (env === 'production' || env === 'staging') {
+  if (!env || !SAFE_ENVS.has(env)) {
     throw new Error(
-      `E2E_DISABLE_RATE_LIMIT must not be set when NEXT_PUBLIC_APP_ENV=${env}. ` +
-        `This flag weakens abuse protection and is only permitted in ci/test/dev.`,
+      `E2E_DISABLE_RATE_LIMIT must not be set when NEXT_PUBLIC_APP_ENV=${env ?? 'unset'}. ` +
+        `This flag weakens abuse protection and is only permitted in: ${[...SAFE_ENVS].join(', ')}.`,
     )
   }
 
   // eslint-disable-next-line no-console
   console.warn(
-    `[rate-limit] E2E_DISABLE_RATE_LIMIT is active (NEXT_PUBLIC_APP_ENV=${env ?? 'unset'}). ` +
+    `[rate-limit] E2E_DISABLE_RATE_LIMIT is active (NEXT_PUBLIC_APP_ENV=${env}). ` +
       `Rate limiting is DISABLED — do not deploy this config to any user-facing environment.`,
   )
   return true
