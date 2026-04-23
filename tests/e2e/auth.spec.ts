@@ -1,3 +1,4 @@
+// ROUTES: /sign-up, /sign-in, /onboarding, /, /profile · COMPONENTS: SignUpForm, SignInForm, CreateHouseholdForm, Header (User menu)
 import { test, expect } from '@playwright/test'
 import {
   generateUniqueEmail,

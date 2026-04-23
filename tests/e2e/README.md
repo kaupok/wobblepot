@@ -65,6 +65,36 @@ The locked initial `@smoke` set is:
 Do **not** add `@smoke` to destructive specs (e.g. account deletion —
 ships CI-only via [HON-479](https://linear.app/honkadori/issue/HON-479)).
 
+## Selector conventions
+
+Specs must outlive cosmetic churn. The drift batch audited in [HON-518](https://linear.app/honkadori/issue/HON-518) — three whole spec files deleted because route removals, copy renames, and dialog restructures piled up silently — came from specs over-fitting to markup the product was always going to reshape.
+
+Use these selectors, in order of preference:
+
+- **`getByRole` + semantic `name`** is the default. It survives copy that moves between an `<h1>` and an `<h2>`, survives wrapping a `<button>` in a `<Tooltip>`, and fails fast when the accessible name changes (which is a real regression, not drift).
+- **`getByLabel`** for form inputs. The label text is the user contract — if the label changes, the spec should notice.
+- **`data-testid`** only when no accessible-name anchor exists (dynamic grids, icon-only buttons without `aria-label`). Treat each `data-testid` as a commitment: add it sparingly and keep it in the component, not the spec.
+- **Plain text locators** (`getByText('Welcome back')`) are the most brittle — use them only for content that is itself the contract (landing-page hero, legal copy). Expect the spec to need an update when the copy changes.
+
+Any `waitForTimeout` / ad-hoc `page.waitFor(ms)` is a smell — wait on real state (`waitForResponse`, `toBeVisible`, `toHaveURL`) instead.
+
+## Spec header convention
+
+Every `tests/e2e/*.spec.ts` file carries a single-line header comment as its first non-blank line:
+
+```ts
+// ROUTES: /a, /b · COMPONENTS: Foo, Bar
+```
+
+Format:
+
+- `ROUTES:` — comma-separated list of URL pathnames the spec visits (including `/` for home). Parameterised routes use `:param` placeholders (e.g. `/meal-plans/:id`).
+- `COMPONENTS:` — comma-separated list of React component names the spec exercises. Prefer the component's filename export (e.g. `SignUpForm`, not "the sign-up form"). Parenthetical qualifiers (e.g. `Header (User menu)`) are allowed when a single component hosts the assertion target.
+- Separator: `·` (U+00B7 middle dot) between ROUTES and COMPONENTS.
+- Keep it on one line so it stays grep-friendly — `grep -l 'ROUTES.*/profile' tests/e2e/` should cheaply return every spec that touches `/profile`.
+
+The header is load-bearing for the drift-prevention workflow. `/plan-issue` and `/code-review` use it to map a diff of `src/app/**/page.tsx` or modal components back to the specs that need updating in the same PR.
+
 ## Seed fixture contract
 
 Preview-smoke and staging-smoke rely on fixtures the seed script plants when

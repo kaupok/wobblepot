@@ -38,7 +38,7 @@ mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
 
 Extract and note:
 
-- Issue UUID (for API calls in steps 5 and 9)
+- Issue UUID (for API calls in steps 5 and 10)
 - Title and description
 - `gitBranchName` for later use
 - `blockedBy` relations (check if blocked)
@@ -114,7 +114,31 @@ Focus on files directly relevant to the issue (2-5 files max).
 
 **If step 3 flagged any recently-merged sibling issues:** also run `git log --oneline --since="14 days ago" -- <overlapping-paths>` and `git diff origin/main~<N>..origin/main -- <overlapping-paths>` so you actually see what the sibling changed. The file tree alone doesn't tell you which lines are new; without the diff you risk searching for a pattern, not finding it, and duplicating it.
 
-### 7. Write plan and present to user
+### 7. Scan for E2E impact
+
+**Why:** When a plan touches a route, renames user-visible copy, or restructures a modal/dialog, one or more `tests/e2e/*.spec.ts` files are almost always affected. Historically (see HON-518) these updates lagged the UI change by months and surfaced as an unrecoverable batch when CI came back online. Catching the impact at planning time is the cheapest place to fix it — the plan can list the specs explicitly and the implementation step ships UI + spec updates in one PR.
+
+This step runs **after** codebase exploration (step 6) so the file set is real — not a mental sketch. If step 6 turned up no touched `src/app/**/page.tsx`, navigation callsite, visible-copy string, or modal restructure, skip this step and proceed to step 8.
+
+**Run this step if step 6 surfaced changes to any of:**
+
+- `src/app/**/page.tsx` (route added, removed, or renamed)
+- A URL path in user-facing navigation (`<Link>` / `router.push` callsites)
+- Copy in a visible heading, button, link, or modal title
+- The structure of a `Dialog` / `AlertDialog` / navigation dropdown
+
+**How:**
+
+1. From the files identified in step 6, extract the routes (pathnames each `page.tsx` represents) and component names.
+2. Grep the spec headers for matches:
+   ```bash
+   grep -l "ROUTES.*<path>\|COMPONENTS.*<Component>" tests/e2e/*.spec.ts
+   ```
+3. For each matching spec, read the relevant assertions and decide whether the plan's change breaks the selector or copy the spec asserts.
+
+Record findings under a new "E2E updates required" section of the plan (step 8). If the scan ran and found no matching specs (e.g. a brand-new route with no existing coverage, or a modal whose assertions live elsewhere), still note "E2E updates required: none — no existing spec asserts on the changed routes/components" so the reviewer sees the scan happened.
+
+### 8. Write plan and present to user
 
 Write the plan directly in your response (not to a file). Use this structure:
 
@@ -152,6 +176,10 @@ Write the plan directly in your response (not to a file). Use this structure:
 
 - `src/path/to/file.test.ts` - [What to test]
 
+## E2E updates required
+
+[From step 7. Either list the affected specs with a one-line reason each, or — if the scan ran and found no matching specs — write `none — no existing spec asserts on the changed routes/components` so the reviewer sees the scan happened. Omit this section entirely only if step 7 was skipped (step 6 surfaced no route / navigation / visible-copy / modal changes).]
+
 ## Verification
 
 - [ ] [How to test the implementation]
@@ -159,9 +187,9 @@ Write the plan directly in your response (not to a file). Use this structure:
 - [ ] [Edge cases to check]
 ```
 
-### 8. Get approval (or skip if --auto)
+### 9. Get approval (or skip if --auto)
 
-**If `--auto` flag is present:** Skip approval and proceed directly to step 9.
+**If `--auto` flag is present:** Skip approval and proceed directly to step 10.
 
 **Otherwise:** Use `AskUserQuestion` to confirm the plan:
 
@@ -181,18 +209,18 @@ AskUserQuestion({
 
 If the user wants changes, revise the plan and ask again.
 
-### 9. Post plan to Linear
+### 10. Post plan to Linear
 
-Once approved, post the plan you wrote in step 7 to Linear:
+Once approved, post the plan you wrote in step 8 to Linear:
 
 ```
 mcp__linear-server__create_comment({
   issueId: "issue-uuid",
-  body: "[The complete plan from step 7, including the markdown structure]"
+  body: "[The complete plan from step 8, including the markdown structure]"
 })
 ```
 
-### 10. Move issue to In Progress
+### 11. Move issue to In Progress
 
 Update the issue status so other auto-implement sessions won't pick it up:
 
@@ -203,7 +231,7 @@ mcp__linear-server__update_issue({
 })
 ```
 
-### 11. Output completion
+### 12. Output completion
 
 Output the completion marker:
 
