@@ -70,18 +70,23 @@ const mockSession = {
   session: { id: 'session-123' },
 }
 
-const mockMembership = {
-  id: 'member-123',
-  householdId: 'household-123',
-  userId: 'user-123',
-  role: 'owner',
-  household: {
-    id: 'household-123',
-    name: 'Test Household',
-    timezone: 'Europe/Tallinn',
-    preferences: null,
-  },
+function buildMembership(locale: string = 'en') {
+  return {
+    id: 'member-123',
+    householdId: 'household-123',
+    userId: 'user-123',
+    role: 'owner',
+    household: {
+      id: 'household-123',
+      name: 'Test Household',
+      timezone: 'Europe/Tallinn',
+      locale,
+      preferences: null,
+    },
+  }
 }
+
+const mockMembership = buildMembership()
 
 function sampleEntry(overrides: Record<string, unknown> = {}) {
   return {
@@ -377,5 +382,36 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
 
     expect(response.status).toBe(500)
     expect(data.error).toContain("Couldn't generate tips")
+  })
+
+  it('threads household.locale into the AI prompt for non-English households', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(buildMembership('et') as never)
+    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockGenerateObject.mockResolvedValue({
+      object: { equipment: ['Pan'], steps: ['Step 1'], pitfalls: ['P'] },
+    } as never)
+
+    const response = await callPost()
+
+    expect(response.status).toBe(200)
+    const call = mockGenerateObject.mock.calls[0]?.[0] as { prompt: string }
+    expect(call.prompt).toContain('LOCALE:')
+    expect(call.prompt).toContain('Estonian')
+  })
+
+  it('does not inject a LOCALE block for English households (byte-identical English path)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockGenerateObject.mockResolvedValue({
+      object: { equipment: ['Pan'], steps: ['Step 1'], pitfalls: ['P'] },
+    } as never)
+
+    const response = await callPost()
+
+    expect(response.status).toBe(200)
+    const call = mockGenerateObject.mock.calls[0]?.[0] as { prompt: string }
+    expect(call.prompt).not.toContain('LOCALE:')
   })
 })
