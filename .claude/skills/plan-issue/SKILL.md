@@ -43,11 +43,50 @@ Extract and note:
 - `gitBranchName` for later use
 - `blockedBy` relations (check if blocked)
 - `blocks` relations (what this unblocks)
+- `relatedTo` / `parentId` (for overlap check in step 3)
 - Any labels or priority
 
 **If issue is blocked:** Warn the user and list the blocking issues. Ask if they want to proceed anyway or work on the blockers first.
 
-### 3. Read project context
+### 3. Check relatedTo + epic siblings for recently-merged overlap
+
+**Why:** When an issue is part of an epic (has `parentId`) or has `relatedTo` links, a sibling issue may have already landed and introduced files, conventions, schema, or constants that your plan needs to build on rather than duplicate. `blockedBy` is checked above; `relatedTo` and epic-siblings are not — a Done sibling in the same epic is a strong "check for overlap" signal.
+
+Before doing anything else, sync with origin so the overlap check sees the current main:
+
+```bash
+git fetch origin main
+```
+
+For each id in `relations.relatedTo` and (if `parentId` is set) each sub-issue of the parent:
+
+```
+mcp__linear-server__get_issue({ id: "HON-YY", includeRelations: true })
+```
+
+For any sibling where `status` ∈ { `Done`, `In Review`, `In Progress` }:
+
+- Note its title, `gitBranchName`, and completion/start time.
+- If status is `Done` AND `completedAt` is within the last 14 days, fetch the merged PR to see what files it touched:
+  ```bash
+  gh pr list --search "HON-YY in:title" --state merged --json number,title,files,mergedAt --limit 1
+  ```
+  Inspect the `files` array. If any overlap with files you expect to modify (schema, shared lib, route files), flag it in the plan's **Design Decisions** and adjust the approach (extend rather than duplicate).
+- If status is `In Progress` / `In Review`, surface it as a coordination risk in the plan's context.
+
+Report the finding to the user inline before continuing so they can redirect if the overlap changes scope:
+
+```
+[plan-issue] Sibling check: HON-YY (Done, merged PR #<N> <date>) touches <files> — plan will extend, not duplicate.
+```
+
+If no siblings match, log one line and continue:
+
+```
+[plan-issue] Sibling check: no recently-merged/in-flight related issues.
+```
+
+### 4. Read project context
 
 ```
 Read docs/PROJECT_SPEC.md
@@ -55,7 +94,7 @@ Read docs/PROJECT_SPEC.md
 
 Note the current phase and any relevant architectural decisions.
 
-### 4. Fetch issue comments
+### 5. Fetch issue comments
 
 ```
 mcp__linear-server__list_comments({ issueId: "issue-uuid" })
@@ -63,7 +102,7 @@ mcp__linear-server__list_comments({ issueId: "issue-uuid" })
 
 Review any prior discussion, decisions, or context from team members.
 
-### 5. Explore codebase
+### 6. Explore codebase
 
 Using Read, Grep, and Glob tools:
 
@@ -73,7 +112,9 @@ Using Read, Grep, and Glob tools:
 
 Focus on files directly relevant to the issue (2-5 files max).
 
-### 6. Write plan and present to user
+**If step 3 flagged any recently-merged sibling issues:** also run `git log --oneline --since="14 days ago" -- <overlapping-paths>` and `git diff origin/main~<N>..origin/main -- <overlapping-paths>` so you actually see what the sibling changed. The file tree alone doesn't tell you which lines are new; without the diff you risk searching for a pattern, not finding it, and duplicating it.
+
+### 7. Write plan and present to user
 
 Write the plan directly in your response (not to a file). Use this structure:
 
@@ -118,9 +159,9 @@ Write the plan directly in your response (not to a file). Use this structure:
 - [ ] [Edge cases to check]
 ```
 
-### 7. Get approval (or skip if --auto)
+### 8. Get approval (or skip if --auto)
 
-**If `--auto` flag is present:** Skip approval and proceed directly to step 8.
+**If `--auto` flag is present:** Skip approval and proceed directly to step 9.
 
 **Otherwise:** Use `AskUserQuestion` to confirm the plan:
 
@@ -140,18 +181,18 @@ AskUserQuestion({
 
 If the user wants changes, revise the plan and ask again.
 
-### 8. Post plan to Linear
+### 9. Post plan to Linear
 
-Once approved, post the plan you wrote in step 6 to Linear:
+Once approved, post the plan you wrote in step 7 to Linear:
 
 ```
 mcp__linear-server__create_comment({
   issueId: "issue-uuid",
-  body: "[The complete plan from step 6, including the markdown structure]"
+  body: "[The complete plan from step 7, including the markdown structure]"
 })
 ```
 
-### 9. Move issue to In Progress
+### 10. Move issue to In Progress
 
 Update the issue status so other auto-implement sessions won't pick it up:
 
@@ -162,7 +203,7 @@ mcp__linear-server__update_issue({
 })
 ```
 
-### 10. Output completion
+### 11. Output completion
 
 Output the completion marker:
 
