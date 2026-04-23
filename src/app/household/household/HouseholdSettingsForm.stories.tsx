@@ -64,7 +64,7 @@ export const Default: Story = {
   },
 }
 
-export const EstonianHouseholdLegacy: Story = {
+export const EstonianHouseholdCurrent: Story = {
   args: {
     household: {
       id: 'household-et',
@@ -83,7 +83,7 @@ export const EstonianHouseholdLegacy: Story = {
     docs: {
       description: {
         story:
-          'Household whose `locale` was set to `et` directly in the database (partner opt-in path). The selector preserves the current state by rendering Estonian as a disabled option; English remains the only selectable value.',
+          'Household whose persisted `locale` falls outside `PUBLIC_LOCALES` — reached via a direct DB write, or `Accept-Language` auto-resolution at onboarding when `et` was still public. The selector preserves the current state by rendering Estonian as a disabled option; English remains the only selectable value.',
       },
     },
   },
