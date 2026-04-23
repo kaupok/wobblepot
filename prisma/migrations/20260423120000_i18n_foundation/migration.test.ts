@@ -9,10 +9,6 @@ import { join } from 'node:path'
 describe('migration 20260423120000_i18n_foundation', () => {
   const sql = readFileSync(join(__dirname, 'migration.sql'), 'utf-8')
 
-  it('adds locale column to household with English default', () => {
-    expect(sql).toMatch(/ALTER TABLE "household" ADD COLUMN "locale" TEXT NOT NULL DEFAULT 'en'/)
-  })
-
   it('adds nullable householdId column to ingredient', () => {
     expect(sql).toMatch(/ALTER TABLE "ingredient" ADD COLUMN "householdId" TEXT;/)
   })

@@ -1,7 +1,5 @@
--- AlterTable: add locale to household
-ALTER TABLE "household" ADD COLUMN "locale" TEXT NOT NULL DEFAULT 'en';
-
 -- AlterTable: add nullable householdId to ingredient (null = global seeded pool)
+-- (Household.locale was added by 20260422120000_add_household_locale during HON-501.)
 ALTER TABLE "ingredient" ADD COLUMN "householdId" TEXT;
 
 -- DropIndex: drop the global unique index on ingredient.name; replaced below by two partial unique indexes.
