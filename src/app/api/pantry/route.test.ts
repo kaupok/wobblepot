@@ -54,6 +54,7 @@ const mockHousehold = {
   id: 'household-123',
   name: 'Test Household',
   timezone: 'Europe/Tallinn',
+  locale: 'en',
   preferences: null,
 }
 

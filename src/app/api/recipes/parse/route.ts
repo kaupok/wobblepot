@@ -114,12 +114,16 @@ export async function POST(request: Request) {
         : fetchedContent
     }
 
-    const result = await parseAndMatchRecipe(recipeText, sourceUrl, (usage) =>
-      recordAiUsage({
-        householdId: membership.household.id,
-        feature: 'recipe_parse',
-        ...usage,
-      }),
+    const result = await parseAndMatchRecipe(
+      recipeText,
+      sourceUrl,
+      (usage) =>
+        recordAiUsage({
+          householdId: membership.household.id,
+          feature: 'recipe_parse',
+          ...usage,
+        }),
+      { householdId: membership.household.id, locale: membership.household.locale },
     )
 
     return NextResponse.json({

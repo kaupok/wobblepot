@@ -50,6 +50,7 @@ const mockHousehold = {
   id: 'household-123',
   name: 'Test Household',
   timezone: 'Europe/Tallinn',
+  locale: 'en',
   preferences: null,
 }
 
@@ -258,7 +259,12 @@ describe('GET /api/shopping-list', () => {
 
     expect(response.status).toBe(200)
     expect(data.windowDays).toBe(14)
-    expect(mockComputeShoppingList).toHaveBeenCalledWith('household-123', 14, 'Europe/Tallinn')
+    expect(mockComputeShoppingList).toHaveBeenCalledWith(
+      'household-123',
+      14,
+      'Europe/Tallinn',
+      'en',
+    )
   })
 
   it('formats piece-based items correctly', async () => {

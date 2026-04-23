@@ -2007,29 +2007,43 @@ const ingredients: IngredientInput[] = [
 async function seedIngredients() {
   console.log('Seeding ingredients...')
 
+  // Seed targets the global pool (householdId: null). We can't use upsert with
+  // a single-column unique anymore — the `Ingredient.name` column has a partial
+  // unique index per household scope (see migration 20260423120000_i18n_foundation),
+  // which Prisma can't model. Manual find-then-create/update keeps the seed idempotent.
   for (const ingredient of ingredients) {
-    await prisma.ingredient.upsert({
-      where: { name: ingredient.name },
-      update: {
-        // Update gramsPerPiece if it's defined in the seed data
-        gramsPerPiece: 'gramsPerPiece' in ingredient ? ingredient.gramsPerPiece : undefined,
-      },
-      create: {
-        name: ingredient.name,
-        category: ingredient.category,
-        subcategory: ingredient.subcategory,
-        proteinType: ingredient.proteinType ?? null,
-        defaultUnit: ingredient.defaultUnit,
-        allergens: ingredient.allergens,
-        calories: ingredient.calories,
-        protein: ingredient.protein,
-        carbs: ingredient.carbs,
-        fat: ingredient.fat,
-        fiber: ingredient.fiber,
-        gramsPerPiece: ingredient.gramsPerPiece ?? null,
-        densityGPerMl: ingredient.densityGPerMl ?? null,
-      },
+    const existing = await prisma.ingredient.findFirst({
+      where: { name: ingredient.name, householdId: null },
+      select: { id: true },
     })
+
+    if (existing) {
+      await prisma.ingredient.update({
+        where: { id: existing.id },
+        data: {
+          // Update gramsPerPiece if it's defined in the seed data
+          gramsPerPiece: 'gramsPerPiece' in ingredient ? ingredient.gramsPerPiece : undefined,
+        },
+      })
+    } else {
+      await prisma.ingredient.create({
+        data: {
+          name: ingredient.name,
+          category: ingredient.category,
+          subcategory: ingredient.subcategory,
+          proteinType: ingredient.proteinType ?? null,
+          defaultUnit: ingredient.defaultUnit,
+          allergens: ingredient.allergens,
+          calories: ingredient.calories,
+          protein: ingredient.protein,
+          carbs: ingredient.carbs,
+          fat: ingredient.fat,
+          fiber: ingredient.fiber,
+          gramsPerPiece: ingredient.gramsPerPiece ?? null,
+          densityGPerMl: ingredient.densityGPerMl ?? null,
+        },
+      })
+    }
   }
 
   console.log(`Seeded ${ingredients.length} ingredients`)

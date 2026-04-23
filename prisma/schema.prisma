@@ -188,6 +188,7 @@ model Household {
   favoriteMeals        FavoriteMeal[]
   customShoppingItems  CustomShoppingItem[]
   aiUsage              AiUsage[]
+  ingredients          Ingredient[]
 
   @@map("household")
 }
@@ -271,7 +272,8 @@ model MemberPreferences {
 
 model Ingredient {
   id            String             @id @default(cuid())
-  name          String             @unique
+  name          String
+  householdId   String?
   category      IngredientCategory
   subcategory   String?
   proteinType   ProteinType?
@@ -285,11 +287,27 @@ model Ingredient {
   gramsPerPiece Float?
   densityGPerMl Float?
 
+  household           Household?              @relation(fields: [householdId], references: [id], onDelete: Cascade)
   components          MealComponent[]
   pantryItems         PantryItem[]
   customShoppingItems CustomShoppingItem[]
+  translations        IngredientTranslation[]
 
+  @@index([householdId])
   @@map("ingredient")
+}
+
+model IngredientTranslation {
+  id           String @id @default(cuid())
+  ingredientId String
+  locale       String
+  name         String
+
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@unique([ingredientId, locale])
+  @@index([locale, name])
+  @@map("ingredient_translation")
 }
 
 model Meal {
@@ -310,12 +328,27 @@ model Meal {
   components    MealComponent[]
   planEntries   MealPlanEntry[]
   favoritedBy   FavoriteMeal[]
+  translations  MealTranslation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([householdId])
   @@map("meal")
+}
+
+model MealTranslation {
+  id               String  @id @default(cuid())
+  mealId           String
+  locale           String
+  name             String
+  description      String?
+  preparationNotes String?
+
+  meal Meal @relation(fields: [mealId], references: [id], onDelete: Cascade)
+
+  @@unique([mealId, locale])
+  @@map("meal_translation")
 }
 
 model FavoriteMeal {

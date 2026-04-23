@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
   try {
     // Compute rolling window shopping list and fetch custom items in parallel
     const [result, pantryItems, customItems] = await Promise.all([
-      computeRollingWindowShoppingList(household.id, days, household.timezone),
+      computeRollingWindowShoppingList(household.id, days, household.timezone, household.locale),
       prisma.pantryItem.findMany({
         where: { householdId: household.id },
         select: {

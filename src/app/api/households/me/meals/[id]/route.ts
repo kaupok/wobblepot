@@ -5,6 +5,12 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { deriveProteinType } from '@/lib/meal-planning/protein'
+import {
+  ingredientTranslationsInclude,
+  mealTranslationsInclude,
+  translateIngredient,
+  translateMeal,
+} from '@/lib/i18n/content'
 
 const updateMealSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -63,6 +69,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
+    const householdLocale = membership.household.locale
     const meal = await prisma.meal.findFirst({
       where: {
         id,
@@ -100,6 +107,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
                 carbs: true,
                 fat: true,
                 allergens: true,
+                ...ingredientTranslationsInclude(householdLocale),
               },
             },
           },
@@ -108,6 +116,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           where: { householdId: membership.household.id },
           select: { id: true },
         },
+        ...mealTranslationsInclude(householdLocale),
       },
     })
 
@@ -130,40 +139,44 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     )
 
     const allergens = [...new Set(meal.components.flatMap((comp) => comp.ingredient.allergens))]
+    const translatedMeal = translateMeal(meal, householdLocale)
 
     return NextResponse.json({
-      id: meal.id,
-      name: meal.name,
-      description: meal.description,
-      preparationNotes: meal.preparationNotes,
+      id: translatedMeal.id,
+      name: translatedMeal.name,
+      description: translatedMeal.description,
+      preparationNotes: translatedMeal.preparationNotes,
       sourceUrl: meal.sourceUrl,
-      timeMinutes: meal.timeMinutes,
-      kidFriendly: meal.kidFriendly,
-      primaryProteinType: meal.primaryProteinType,
-      suitableFor: meal.suitableFor,
+      timeMinutes: translatedMeal.timeMinutes,
+      kidFriendly: translatedMeal.kidFriendly,
+      primaryProteinType: translatedMeal.primaryProteinType,
+      suitableFor: translatedMeal.suitableFor,
       servings: meal.servings,
       isCustom: true,
       isFavorite: meal.favoritedBy.length > 0,
       deletedAt: meal.deletedAt,
       createdAt: meal.createdAt,
       updatedAt: meal.updatedAt,
-      components: meal.components.map((comp) => ({
-        ingredientId: comp.ingredientId,
-        quantityPerServing: comp.quantityPerServing,
-        isVague: comp.isVague,
-        originalPhrase: comp.originalPhrase,
-        ingredient: {
-          id: comp.ingredient.id,
-          name: comp.ingredient.name,
-          category: comp.ingredient.category,
-          defaultUnit: comp.ingredient.defaultUnit,
-          gramsPerPiece: comp.ingredient.gramsPerPiece,
-          calories: comp.ingredient.calories,
-          protein: comp.ingredient.protein,
-          carbs: comp.ingredient.carbs,
-          fat: comp.ingredient.fat,
-        },
-      })),
+      components: meal.components.map((comp) => {
+        const translatedIngredient = translateIngredient(comp.ingredient, householdLocale)
+        return {
+          ingredientId: comp.ingredientId,
+          quantityPerServing: comp.quantityPerServing,
+          isVague: comp.isVague,
+          originalPhrase: comp.originalPhrase,
+          ingredient: {
+            id: translatedIngredient.id,
+            name: translatedIngredient.name,
+            category: translatedIngredient.category,
+            defaultUnit: translatedIngredient.defaultUnit,
+            gramsPerPiece: translatedIngredient.gramsPerPiece,
+            calories: comp.ingredient.calories,
+            protein: comp.ingredient.protein,
+            carbs: comp.ingredient.carbs,
+            fat: comp.ingredient.fat,
+          },
+        }
+      }),
       nutrition: {
         calories: Math.round(nutrition.calories),
         protein: Math.round(nutrition.protein),

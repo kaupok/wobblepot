@@ -5,6 +5,12 @@ import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
+import {
+  ingredientTranslationsInclude,
+  mealTranslationsInclude,
+  translateIngredient,
+  translateMeal,
+} from '@/lib/i18n/content'
 
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 50
@@ -202,6 +208,7 @@ export async function GET(request: NextRequest) {
                 protein: true,
                 carbs: true,
                 fat: true,
+                ...ingredientTranslationsInclude(household.locale),
               },
             },
           },
@@ -210,6 +217,7 @@ export async function GET(request: NextRequest) {
           where: { householdId: household.id },
           select: { id: true },
         },
+        ...mealTranslationsInclude(household.locale),
       },
       // When searching, we need to fetch all matching meals and sort in memory
       // because Prisma doesn't support ordering by a computed value from raw SQL
@@ -245,27 +253,32 @@ export async function GET(request: NextRequest) {
         { calories: 0, protein: 0, carbs: 0, fat: 0 },
       )
 
+      const translatedMeal = translateMeal(meal, household.locale)
+
       // Format components for AlternativeCard compatibility
-      const components = meal.components.map((comp) => ({
-        ingredientId: comp.ingredientId,
-        quantityPerServing: comp.quantityPerServing,
-        ingredient: {
-          id: comp.ingredient.id,
-          name: comp.ingredient.name,
-          category: comp.ingredient.category,
-          defaultUnit: comp.ingredient.defaultUnit,
-          gramsPerPiece: comp.ingredient.gramsPerPiece,
-        },
-      }))
+      const components = meal.components.map((comp) => {
+        const translatedIngredient = translateIngredient(comp.ingredient, household.locale)
+        return {
+          ingredientId: comp.ingredientId,
+          quantityPerServing: comp.quantityPerServing,
+          ingredient: {
+            id: translatedIngredient.id,
+            name: translatedIngredient.name,
+            category: translatedIngredient.category,
+            defaultUnit: translatedIngredient.defaultUnit,
+            gramsPerPiece: translatedIngredient.gramsPerPiece,
+          },
+        }
+      })
 
       return {
-        id: meal.id,
-        name: meal.name,
-        description: meal.description,
-        timeMinutes: meal.timeMinutes,
-        kidFriendly: meal.kidFriendly,
-        primaryProteinType: meal.primaryProteinType,
-        suitableFor: meal.suitableFor,
+        id: translatedMeal.id,
+        name: translatedMeal.name,
+        description: translatedMeal.description,
+        timeMinutes: translatedMeal.timeMinutes,
+        kidFriendly: translatedMeal.kidFriendly,
+        primaryProteinType: translatedMeal.primaryProteinType,
+        suitableFor: translatedMeal.suitableFor,
         isCustom: meal.householdId !== null,
         isFavorite: meal.favoritedBy.length > 0,
         components,

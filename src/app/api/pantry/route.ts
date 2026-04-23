@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
 import { Unit } from '@/generated/prisma/enums'
+import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
 
 const createPantryItemSchema = z.object({
   ingredientId: z.string().min(1),
@@ -80,6 +81,7 @@ export async function GET(request: NextRequest) {
             category: true,
             defaultUnit: true,
             gramsPerPiece: true,
+            ...ingredientTranslationsInclude(household.locale),
           },
         },
       },
@@ -170,14 +172,15 @@ export async function GET(request: NextRequest) {
 
     const items = pantryItems.map((item) => {
       const neededInfo = neededQuantities.get(item.ingredientId)
+      const translatedIngredient = translateIngredient(item.ingredient, household.locale)
       return {
         id: item.id,
         ingredientId: item.ingredientId,
         ingredient: {
-          id: item.ingredient.id,
-          name: item.ingredient.name,
-          category: item.ingredient.category,
-          defaultUnit: item.ingredient.defaultUnit,
+          id: translatedIngredient.id,
+          name: translatedIngredient.name,
+          category: translatedIngredient.category,
+          defaultUnit: translatedIngredient.defaultUnit,
         },
         quantity: item.quantity,
         isStaple: item.isStaple,

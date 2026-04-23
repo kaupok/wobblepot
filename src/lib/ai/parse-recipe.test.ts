@@ -478,12 +478,45 @@ describe('fuzzySearchIngredient', () => {
         defaultUnit: 'g',
         gramsPerPiece: null,
         similarity: 0.9,
+        source: 'global',
       },
     ]
     mockQueryRaw.mockResolvedValue(mockResults)
 
     const results = await fuzzySearchIngredient('chicken breast')
     expect(results).toEqual(mockResults)
+  })
+
+  it('accepts optional householdId and locale without throwing', async () => {
+    mockQueryRaw.mockResolvedValue([])
+    await fuzzySearchIngredient('sibul', { householdId: 'hh-1', locale: 'et' })
+    expect(mockQueryRaw).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns the top result regardless of source — caller does not branch on source', async () => {
+    // Simulates DB returning rows pre-ordered by source priority then similarity.
+    // The matcher takes the first row; this verifies it does not require `source` to be 'global'.
+    const mockResults = [
+      {
+        id: 'ing-translation',
+        name: 'onion',
+        category: 'vegetable',
+        subcategory: null,
+        defaultUnit: 'piece',
+        gramsPerPiece: 110,
+        calories: 40,
+        protein: 1.1,
+        carbs: 9.3,
+        fat: 0.1,
+        similarity: 0.95,
+        source: 'translation',
+      },
+    ]
+    mockQueryRaw.mockResolvedValue(mockResults)
+
+    const results = await fuzzySearchIngredient('sibul', { locale: 'et' })
+    expect(results[0]?.id).toBe('ing-translation')
+    expect(results[0]?.name).toBe('onion')
   })
 })
 
@@ -542,6 +575,49 @@ describe('matchIngredients', () => {
     expect(results).toHaveLength(1)
     expect(results[0]!.type).toBe('unmatched')
     expect(results[0]!.extractedName).toBe('mystery spice')
+  })
+
+  it('still matches when DB returns a translation-sourced row first', async () => {
+    // Simulates the matcher receiving a row that came from `ingredient_translation`
+    // (e.g., user typed "sibul" and DB returned the canonical English "onion" via the
+    // translation JOIN). Caller must accept it the same way as a global-pool match.
+    mockQueryRaw.mockResolvedValue([
+      makeDbMatch({
+        id: 'ing-onion',
+        name: 'onion',
+        category: 'vegetable',
+        defaultUnit: 'piece',
+        gramsPerPiece: 110,
+        similarity: 0.95,
+        source: 'translation',
+      }),
+    ])
+
+    const results = await matchIngredients(
+      [makeExtracted({ name: 'sibul', quantity: 2, unit: 'piece' })],
+      4,
+      { householdId: 'hh-1', locale: 'et' },
+    )
+
+    expect(results).toHaveLength(1)
+    expect(results[0]!.type).toBe('matched')
+    const matched = results[0] as { type: 'matched'; ingredient: { name: string } }
+    // Returns the canonical English name; UI translates for display via @/lib/i18n/content.
+    expect(matched.ingredient.name).toBe('onion')
+  })
+
+  it('runs the search query when householdId and locale are provided', async () => {
+    // Verifies the new options pass-through doesn't break the search loop. The
+    // matcher tries multiple candidate names (direct, alias, normalized), so
+    // the mock is hit at least once.
+    mockQueryRaw.mockResolvedValue([])
+
+    await matchIngredients([makeExtracted({ name: 'mystery spice' })], 4, {
+      householdId: 'hh-1',
+      locale: 'et',
+    })
+
+    expect(mockQueryRaw).toHaveBeenCalled()
   })
 
   it('marks low confidence matches with alternatives', async () => {
