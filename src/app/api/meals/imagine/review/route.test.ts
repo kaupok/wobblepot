@@ -65,7 +65,7 @@ const validBody = {
 describe('POST /api/meals/imagine/review', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetMembership.mockResolvedValue({ household: { id: 'h1' } } as never)
+    mockGetMembership.mockResolvedValue({ household: { id: 'h1', locale: 'en' } } as never)
     mockAssertUnderCap.mockResolvedValue(undefined)
   })
 
@@ -188,6 +188,7 @@ describe('POST /api/meals/imagine/review', () => {
       'Chicken stir fry',
       4,
       validBody.ingredients,
+      expect.any(String),
       expect.any(Function),
     )
   })

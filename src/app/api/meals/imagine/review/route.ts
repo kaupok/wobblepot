@@ -71,6 +71,7 @@ export async function POST(request: Request) {
       mealName,
       servings,
       ingredients as ReviewIngredient[],
+      household.locale,
       (usage) =>
         recordAiUsage({ householdId: household.id, feature: 'meal_review_quantities', ...usage }),
     )

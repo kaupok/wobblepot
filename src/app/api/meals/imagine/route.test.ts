@@ -80,6 +80,7 @@ const mockMembership = {
     id: 'household-123',
     name: 'Test Household',
     timezone: 'Europe/Tallinn',
+    locale: 'en',
     preferences: {
       allergensToAvoid: [],
       dietaryType: null,
@@ -345,6 +346,7 @@ describe('POST /api/meals/imagine', () => {
     expect(mockImagineMeals).toHaveBeenCalledWith(
       'chicken dinner',
       expect.objectContaining({ householdSize: 2 }),
+      expect.any(String),
       undefined,
       expect.any(Function),
     )
@@ -414,6 +416,7 @@ describe('POST /api/meals/imagine', () => {
     expect(mockImagineMeals).toHaveBeenCalledWith(
       null,
       expect.any(Object),
+      expect.any(String),
       expect.arrayContaining([expect.objectContaining({ mimeType: 'image/jpeg' })]),
       expect.any(Function),
     )

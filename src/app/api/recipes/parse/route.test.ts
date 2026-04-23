@@ -1,5 +1,17 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+// The feature-flag gate reads serverEnv.FEATURE_RECIPE_PARSER_ET. Tests
+// flip this value directly to cover both gate branches. Hoisted so the
+// vi.mock factory below can see it (vi.mock is hoisted above imports).
+const { mockServerEnv } = vi.hoisted(() => ({
+  mockServerEnv: { FEATURE_RECIPE_PARSER_ET: undefined as string | undefined },
+}))
+
+vi.mock('@/lib/env', () => ({
+  serverEnv: mockServerEnv,
+}))
+
 import { extractUrlAndContext, POST } from './route'
 
 vi.mock('next/headers', () => ({
@@ -48,13 +60,14 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { assertUnderCap } from '@/lib/ai/usage'
-import { fetchRecipeFromUrl, RecipeParseError } from '@/lib/ai/parse-recipe'
+import { fetchRecipeFromUrl, parseAndMatchRecipe, RecipeParseError } from '@/lib/ai/parse-recipe'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockCheckRateLimit = vi.mocked(checkRateLimit)
 const mockAssertUnderCap = vi.mocked(assertUnderCap)
 const mockFetchRecipeFromUrl = vi.mocked(fetchRecipeFromUrl)
+const mockParseAndMatchRecipe = vi.mocked(parseAndMatchRecipe)
 
 describe('extractUrlAndContext', () => {
   it('detects https:// URLs', () => {
@@ -214,5 +227,105 @@ describe('POST /api/recipes/parse RecipeParseError handling', () => {
     expect(response.status).toBe(400)
     expect(data.success).toBe(false)
     expect(data.error).toBe('Some other fetch failure')
+  })
+})
+
+describe('POST /api/recipes/parse FEATURE_RECIPE_PARSER_ET gate', () => {
+  const mockSession = { user: { id: 'user-1' }, session: { id: 's-1' } }
+
+  function membership(locale: string) {
+    return { household: { id: 'household-42', locale } }
+  }
+
+  function successfulParse() {
+    mockParseAndMatchRecipe.mockResolvedValue({
+      name: 'Recipe',
+      description: null,
+      preparationNotes: null,
+      sourceUrl: null,
+      timeMinutes: null,
+      servings: 4,
+      mealTypes: ['dinner'],
+      kidFriendly: false,
+      ingredients: [],
+      allMatched: true,
+      confidenceTier: 'high',
+    })
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockAssertUnderCap.mockResolvedValue(undefined)
+    mockCheckRateLimit.mockResolvedValue({
+      allowed: true,
+      remaining: 19,
+      limit: 20,
+      resetAt: new Date(Date.now() + 3_600_000),
+    })
+    mockServerEnv.FEATURE_RECIPE_PARSER_ET = undefined
+  })
+
+  function jsonRequest(body: unknown) {
+    return new Request('http://localhost/api/recipes/parse', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  }
+
+  it('passes locale="en" through to parseAndMatchRecipe for English households', async () => {
+    mockGetMembership.mockResolvedValue(membership('en') as never)
+    successfulParse()
+
+    await POST(jsonRequest({ text: 'Simple English recipe: 400g chicken, 200g rice, salt.' }))
+
+    expect(mockParseAndMatchRecipe).toHaveBeenCalledTimes(1)
+    const matchOptions = mockParseAndMatchRecipe.mock.calls[0]![3]!
+    expect(matchOptions).toMatchObject({ householdId: 'household-42', locale: 'en' })
+  })
+
+  it('collapses Estonian locale to English when FEATURE_RECIPE_PARSER_ET is unset (default)', async () => {
+    mockGetMembership.mockResolvedValue(membership('et') as never)
+    successfulParse()
+
+    await POST(jsonRequest({ text: 'Eesti retsept: 400g kana, 200g riisi, soola.' }))
+
+    expect(mockParseAndMatchRecipe).toHaveBeenCalledTimes(1)
+    const matchOptions = mockParseAndMatchRecipe.mock.calls[0]![3]!
+    expect(matchOptions).toMatchObject({ householdId: 'household-42', locale: 'en' })
+  })
+
+  it('collapses Estonian locale to English when FEATURE_RECIPE_PARSER_ET is "0"', async () => {
+    mockServerEnv.FEATURE_RECIPE_PARSER_ET = '0'
+    mockGetMembership.mockResolvedValue(membership('et') as never)
+    successfulParse()
+
+    await POST(jsonRequest({ text: 'Eesti retsept: 400g kana, 200g riisi, soola.' }))
+
+    const matchOptions = mockParseAndMatchRecipe.mock.calls[0]![3]!
+    expect(matchOptions).toMatchObject({ locale: 'en' })
+  })
+
+  it('passes Estonian locale through when FEATURE_RECIPE_PARSER_ET is "1"', async () => {
+    mockServerEnv.FEATURE_RECIPE_PARSER_ET = '1'
+    mockGetMembership.mockResolvedValue(membership('et') as never)
+    successfulParse()
+
+    await POST(jsonRequest({ text: 'Eesti retsept: 400g kana, 200g riisi, soola.' }))
+
+    const matchOptions = mockParseAndMatchRecipe.mock.calls[0]![3]!
+    expect(matchOptions).toMatchObject({ householdId: 'household-42', locale: 'et' })
+  })
+
+  it('passes Estonian locale through when FEATURE_RECIPE_PARSER_ET is "true"', async () => {
+    mockServerEnv.FEATURE_RECIPE_PARSER_ET = 'true'
+    mockGetMembership.mockResolvedValue(membership('et') as never)
+    successfulParse()
+
+    await POST(jsonRequest({ text: 'Eesti retsept: 400g kana, 200g riisi, soola.' }))
+
+    const matchOptions = mockParseAndMatchRecipe.mock.calls[0]![3]!
+    expect(matchOptions).toMatchObject({ locale: 'et' })
   })
 })

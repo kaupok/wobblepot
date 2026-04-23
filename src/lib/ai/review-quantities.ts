@@ -3,6 +3,7 @@ import { generateObject } from 'ai'
 import { z } from 'zod'
 import { serverEnv } from '@/lib/env'
 import { REVIEW_MODEL } from './models'
+import { localeInstruction } from './prompts'
 import type { AiUsageStats } from './usage'
 
 export interface ReviewIngredient {
@@ -36,6 +37,7 @@ export async function reviewMealQuantities(
   mealName: string,
   servings: number,
   ingredients: ReviewIngredient[],
+  locale: string,
   onAiUsage?: (usage: AiUsageStats) => void,
 ): Promise<ReviewedIngredients> {
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
@@ -74,7 +76,7 @@ Rules:
 - Only correct quantities that are clearly wrong (too low or too high for the ingredient's role)
 - Every ingredient in the input must appear in the output with the same ingredientId
 - Quantities must be > 0
-- Use realistic home cooking amounts, not restaurant portions`
+- Use realistic home cooking amounts, not restaurant portions${localeInstruction(locale)}`
 
   const result = await generateObject({
     model: anthropic(REVIEW_MODEL),

@@ -144,6 +144,7 @@ const defaultOptions = {
   allergensToAvoid: [],
   excludedIngredientIds: [],
   restrictions: [],
+  locale: 'en',
 }
 
 // Helper to create default meal slots for a week (Mon-Sun, dinner only)
@@ -871,6 +872,28 @@ describe('generateMealPlan', () => {
       expect(mockMealPlanEntryDeleteMany).toHaveBeenCalled()
       expect(mockMealPlanEntryCreateMany).toHaveBeenCalled()
     })
+
+    it('threads household locale into the AI prompt', async () => {
+      mockGetCandidates.mockResolvedValue([createCandidate()])
+      mockGenerateObject.mockResolvedValue({ object: { entries: [] } } as never)
+      mockMealFindMany.mockResolvedValue([])
+      mockValidatePlan.mockReturnValue({ valid: true, errors: [] })
+      mockMealPlanFindUnique.mockResolvedValue({
+        id: 'plan-1',
+        householdId: 'household-1',
+      } as never)
+      mockMealPlanFindUniqueOrThrow.mockResolvedValue({ id: 'plan-1', entries: [] } as never)
+      mockTransaction.mockImplementation(async (fn) => fn(mockPrisma as never) as never)
+
+      await generateMealPlan({ ...defaultOptions, locale: 'et' }).catch(() => {
+        // validateAIResponseStructure may throw because we returned zero entries;
+        // we only care that the AI was invoked with the right prompt first.
+      })
+
+      const call = mockGenerateObject.mock.calls[0]?.[0] as { prompt: string } | undefined
+      expect(call?.prompt).toContain('LOCALE:')
+      expect(call?.prompt).toContain('Estonian')
+    })
   })
 })
 
@@ -930,6 +953,7 @@ describe('fillEmptySlots', () => {
     allergensToAvoid: [],
     excludedIngredientIds: [],
     restrictions: [],
+    locale: 'en',
     weekdayMealTypes: ['dinner' as const],
     weekendMealTypes: ['dinner' as const],
   }

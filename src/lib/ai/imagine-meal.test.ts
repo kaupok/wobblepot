@@ -72,7 +72,7 @@ describe('imagineMeals', () => {
     ]
     mockGenerateObject.mockResolvedValue({ object: { meals } } as never)
 
-    const result = await imagineMeals('something with chicken', emptyHousehold)
+    const result = await imagineMeals('something with chicken', emptyHousehold, 'en')
 
     expect(result).toEqual(meals)
   })
@@ -80,7 +80,7 @@ describe('imagineMeals', () => {
   it('initializes Anthropic with the server API key', async () => {
     mockGenerateObject.mockResolvedValue({ object: { meals: [] } } as never)
 
-    await imagineMeals('test', emptyHousehold)
+    await imagineMeals('test', emptyHousehold, 'en')
 
     expect(mockCreateAnthropic).toHaveBeenCalledWith({ apiKey: 'test-key' })
   })
@@ -88,7 +88,7 @@ describe('imagineMeals', () => {
   it('uses the ImaginedMealsSchema for structured output', async () => {
     mockGenerateObject.mockResolvedValue({ object: { meals: [] } } as never)
 
-    await imagineMeals('test', emptyHousehold)
+    await imagineMeals('test', emptyHousehold, 'en')
 
     const call = mockGenerateObject.mock.calls[0]![0]! as { schema: unknown }
     expect(call.schema).toBe(ImaginedMealsSchema)
@@ -97,7 +97,7 @@ describe('imagineMeals', () => {
   it('includes household size in the system prompt', async () => {
     mockGenerateObject.mockResolvedValue({ object: { meals: [] } } as never)
 
-    await imagineMeals('test', { ...emptyHousehold, householdSize: 5 })
+    await imagineMeals('test', { ...emptyHousehold, householdSize: 5 }, 'en')
 
     const call = mockGenerateObject.mock.calls[0]![0]! as { system: string }
     expect(call.system).toContain('household of 5 people')
@@ -107,7 +107,7 @@ describe('imagineMeals', () => {
   it('injects allergens into the system prompt when present', async () => {
     mockGenerateObject.mockResolvedValue({ object: { meals: [] } } as never)
 
-    await imagineMeals('test', { ...emptyHousehold, allergens: ['peanuts', 'shellfish'] })
+    await imagineMeals('test', { ...emptyHousehold, allergens: ['peanuts', 'shellfish'] }, 'en')
 
     const call = mockGenerateObject.mock.calls[0]![0]! as { system: string }
     expect(call.system).toContain('MUST AVOID')
@@ -117,13 +117,17 @@ describe('imagineMeals', () => {
   it('injects dietary type, excluded ingredients, and restrictions when present', async () => {
     mockGenerateObject.mockResolvedValue({ object: { meals: [] } } as never)
 
-    await imagineMeals('test', {
-      allergens: [],
-      dietaryType: 'vegetarian',
-      excludedIngredients: ['mushrooms'],
-      restrictions: ['low FODMAP'],
-      householdSize: 2,
-    })
+    await imagineMeals(
+      'test',
+      {
+        allergens: [],
+        dietaryType: 'vegetarian',
+        excludedIngredients: ['mushrooms'],
+        restrictions: ['low FODMAP'],
+        householdSize: 2,
+      },
+      'en',
+    )
 
     const call = mockGenerateObject.mock.calls[0]![0]! as { system: string }
     expect(call.system).toContain('Dietary type: vegetarian')
@@ -134,7 +138,7 @@ describe('imagineMeals', () => {
   it('omits constraint section when household has no dietary constraints', async () => {
     mockGenerateObject.mockResolvedValue({ object: { meals: [] } } as never)
 
-    await imagineMeals('test', emptyHousehold)
+    await imagineMeals('test', emptyHousehold, 'en')
 
     const call = mockGenerateObject.mock.calls[0]![0]! as { system: string }
     expect(call.system).not.toContain('Household dietary constraints')
@@ -144,7 +148,7 @@ describe('imagineMeals', () => {
   it('includes the user prompt in the messages content', async () => {
     mockGenerateObject.mockResolvedValue({ object: { meals: [] } } as never)
 
-    await imagineMeals('chicken something easy', emptyHousehold)
+    await imagineMeals('chicken something easy', emptyHousehold, 'en')
 
     const call = mockGenerateObject.mock.calls[0]![0]! as {
       messages: Array<{ role: string; content: Array<{ type: string; text?: string }> }>
@@ -158,7 +162,7 @@ describe('imagineMeals', () => {
   it('uses photo-only fallback prompt when user prompt is null', async () => {
     mockGenerateObject.mockResolvedValue({ object: { meals: [] } } as never)
 
-    await imagineMeals(null, emptyHousehold, [
+    await imagineMeals(null, emptyHousehold, 'en', [
       { base64: Buffer.from('fake-image').toString('base64'), mimeType: 'image/jpeg' },
     ])
 
@@ -180,7 +184,7 @@ describe('imagineMeals', () => {
   it('forwards multiple image attachments', async () => {
     mockGenerateObject.mockResolvedValue({ object: { meals: [] } } as never)
 
-    await imagineMeals('test', emptyHousehold, [
+    await imagineMeals('test', emptyHousehold, 'en', [
       { base64: Buffer.from('img1').toString('base64'), mimeType: 'image/jpeg' },
       { base64: Buffer.from('img2').toString('base64'), mimeType: 'image/png' },
     ])
@@ -197,6 +201,25 @@ describe('imagineMeals', () => {
   it('propagates errors from generateObject', async () => {
     mockGenerateObject.mockRejectedValue(new Error('AI failure'))
 
-    await expect(imagineMeals('test', emptyHousehold)).rejects.toThrow('AI failure')
+    await expect(imagineMeals('test', emptyHousehold, 'en')).rejects.toThrow('AI failure')
+  })
+
+  it('does not inject a locale instruction for the default (English) locale', async () => {
+    mockGenerateObject.mockResolvedValue({ object: { meals: [] } } as never)
+
+    await imagineMeals('test', emptyHousehold, 'en')
+
+    const call = mockGenerateObject.mock.calls[0]![0]! as { system: string }
+    expect(call.system).not.toContain('LOCALE:')
+  })
+
+  it('injects an Estonian output instruction when locale is "et"', async () => {
+    mockGenerateObject.mockResolvedValue({ object: { meals: [] } } as never)
+
+    await imagineMeals('test', emptyHousehold, 'et')
+
+    const call = mockGenerateObject.mock.calls[0]![0]! as { system: string }
+    expect(call.system).toContain('LOCALE:')
+    expect(call.system).toContain('Estonian')
   })
 })

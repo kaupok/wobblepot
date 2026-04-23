@@ -3,6 +3,7 @@ import { generateObject } from 'ai'
 import { z } from 'zod'
 import { serverEnv } from '@/lib/env'
 import { IMAGINE_MODEL } from './models'
+import { localeInstruction } from './prompts'
 import type { AiUsageStats } from './usage'
 
 /**
@@ -73,6 +74,7 @@ interface HouseholdContext {
 export async function imagineMeals(
   prompt: string | null,
   household: HouseholdContext,
+  locale: string,
   images?: { base64: string; mimeType: string }[],
   onAiUsage?: (usage: AiUsageStats) => void,
 ): Promise<ImaginedMeal[]> {
@@ -136,7 +138,7 @@ Important: quantities must reflect the ingredient's role in the dish. A main-com
 BAD: "30g red bell pepper" for 4 servings of roasted vegetables (7.5g/serving — barely a slice)
 GOOD: "400g red bell pepper" for 4 servings of roasted vegetables (100g/serving)
 
-The user may attach photos for context — these could show ingredients they have available, a dish they'd like to recreate, a recipe from a cookbook, or anything else. Use the visual information to inform your meal suggestions. If the photos show specific ingredients, try to incorporate them. If they show a prepared dish or recipe page, use it as inspiration for one or more of your suggestions.${constraintsSection}`
+The user may attach photos for context — these could show ingredients they have available, a dish they'd like to recreate, a recipe from a cookbook, or anything else. Use the visual information to inform your meal suggestions. If the photos show specific ingredients, try to incorporate them. If they show a prepared dish or recipe page, use it as inspiration for one or more of your suggestions.${constraintsSection}${localeInstruction(locale)}`
 
   const content: Array<
     { type: 'text'; text: string } | { type: 'image'; image: Buffer; mediaType: string }

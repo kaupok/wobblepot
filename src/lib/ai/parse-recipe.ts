@@ -16,6 +16,7 @@ import { applyIngredientAlias } from '@/lib/ingredient-aliases'
 import { normalizeIngredientName, extractLastWord } from '@/lib/normalize-ingredient'
 import { HONKADORI_BOT_USER_AGENT, checkRobotsAllowed } from '@/lib/robots'
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
+import { localeInstruction } from './prompts'
 
 /**
  * Error message emitted when robots.txt disallows the fetch. Used as a sentinel
@@ -545,8 +546,14 @@ export class RecipeParseError extends Error {
 
 /**
  * Build the prompt for recipe extraction.
+ *
+ * `locale` is the household's locale — the parser detects the input language
+ * and produces output in `locale` regardless (so Estonian input in an English
+ * household comes out English, and English input in an Estonian household
+ * comes out Estonian). Ingredient names stay lowercase singular base form for
+ * matcher reliability; `@/lib/i18n/content#translateIngredient` handles display.
  */
-export function buildRecipeExtractionPrompt(recipeText: string): string {
+export function buildRecipeExtractionPrompt(recipeText: string, locale?: string): string {
   const vaguePhrasesList = VAGUE_PHRASES.join(', ')
 
   return `You are a recipe parsing assistant. Extract structured data from the following recipe text.
@@ -653,7 +660,7 @@ Rate your confidence (0-100) that this text contains a real recipe:
 - 0-19: Definitely not a recipe (random text, code, news, lorem ipsum)
 Be honest — if the text is not a recipe, give a low score even if you can extract something.
 
-Extract the structured recipe data.`
+Extract the structured recipe data.${localeInstruction(locale)}`
 }
 
 /**
@@ -670,6 +677,7 @@ export interface ParseRecipeResult {
  */
 export async function parseRecipeText(
   recipeText: string,
+  locale?: string,
   onAiUsage?: (usage: AiUsageStats) => void,
 ): Promise<ParseRecipeResult> {
   const trimmedText = recipeText.trim()
@@ -682,7 +690,7 @@ export async function parseRecipeText(
   }
 
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
-  const prompt = buildRecipeExtractionPrompt(trimmedText)
+  const prompt = buildRecipeExtractionPrompt(trimmedText, locale)
 
   try {
     const result = await generateObject({
@@ -1390,8 +1398,14 @@ export async function parseAndMatchRecipe(
   onAiUsage?: (usage: AiUsageStats) => void,
   matchOptions: { householdId?: string | null; locale?: string } = {},
 ): Promise<ParsedRecipe> {
-  // Step 1: Extract structured data from text (low confidence throws)
-  const { extraction, confidence } = await parseRecipeText(recipeText, onAiUsage)
+  // Step 1: Extract structured data from text (low confidence throws). Thread
+  // the household locale so the parser prompt includes the output-language
+  // instruction; matcher-side locale threading is handled via `matchOptions`.
+  const { extraction, confidence } = await parseRecipeText(
+    recipeText,
+    matchOptions.locale,
+    onAiUsage,
+  )
 
   // Step 2: Match ingredients against database (pass servings for validation)
   const ingredientResults = await matchIngredients(

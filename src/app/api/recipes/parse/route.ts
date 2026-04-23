@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
+import { serverEnv } from '@/lib/env'
 import { getHouseholdMembership } from '@/lib/household'
 import {
   parseAndMatchRecipe,
@@ -9,6 +10,7 @@ import {
   RecipeParseError,
   ROBOTS_DISALLOWED_MESSAGE,
 } from '@/lib/ai/parse-recipe'
+import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import {
   AiCostCapExceededError,
@@ -16,6 +18,20 @@ import {
   recordAiUsage,
   respondCapExceeded,
 } from '@/lib/ai/usage'
+
+/**
+ * HON-502 gate: Estonian recipe parsing is held behind an opt-in env flag
+ * until HON-506 seeds Estonian ingredient translations. Without that data,
+ * Estonian input creates household-scoped duplicate ingredient rows that
+ * later require admin cleanup via HON-514. Flip `FEATURE_RECIPE_PARSER_ET`
+ * to `"1"` (or `"true"`) as part of HON-506's merge.
+ */
+function resolveParserLocale(householdLocale: string): string {
+  if (householdLocale === DEFAULT_LOCALE) return householdLocale
+  const flag = serverEnv.FEATURE_RECIPE_PARSER_ET
+  if (flag === '1' || flag === 'true') return householdLocale
+  return DEFAULT_LOCALE
+}
 
 const parseRecipeSchema = z.object({
   text: z.string().min(1, 'Recipe text is required'),
@@ -114,6 +130,8 @@ export async function POST(request: Request) {
         : fetchedContent
     }
 
+    const parserLocale = resolveParserLocale(membership.household.locale)
+
     const result = await parseAndMatchRecipe(
       recipeText,
       sourceUrl,
@@ -123,7 +141,7 @@ export async function POST(request: Request) {
           feature: 'recipe_parse',
           ...usage,
         }),
-      { householdId: membership.household.id, locale: membership.household.locale },
+      { householdId: membership.household.id, locale: parserLocale },
     )
 
     return NextResponse.json({

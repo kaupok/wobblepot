@@ -224,6 +224,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     allergensToAvoid,
     excludedIngredientIds,
     restrictions,
+    locale,
     weekdayMealTypes = ['dinner'] as MealType[],
     weekendMealTypes = ['dinner'] as MealType[],
     onAiUsage,
@@ -336,6 +337,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     restrictions,
     candidatesByMealType,
     pantryIngredients,
+    locale,
   })
 
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
@@ -499,6 +501,7 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     allergensToAvoid,
     excludedIngredientIds,
     restrictions,
+    locale,
     weekdayMealTypes,
     weekendMealTypes,
     onAiUsage,
@@ -676,6 +679,7 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     restrictions,
     candidatesByMealType,
     pantryIngredients,
+    locale,
   })
 
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })

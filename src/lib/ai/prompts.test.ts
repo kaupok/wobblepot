@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildMealPlanPrompt } from './prompts'
+import { buildMealPlanPrompt, localeInstruction } from './prompts'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import type { PromptInput } from './types'
 import type { MealSlot, SlotRequirement } from '@/lib/meal-planning/slots'
@@ -424,5 +424,41 @@ describe('buildMealPlanPrompt', () => {
       expect(remainingDaysIndex).toBeLessThan(varietyRulesIndex)
       expect(varietyRulesIndex).toBeLessThan(returnIndex)
     })
+  })
+
+  describe('locale threading', () => {
+    it('omits the locale instruction block when locale is the default (en)', () => {
+      const result = buildMealPlanPrompt({ ...createInput(), locale: 'en' })
+      expect(result).not.toContain('LOCALE:')
+    })
+
+    it('omits the locale instruction block when locale is undefined', () => {
+      const result = buildMealPlanPrompt(createInput())
+      expect(result).not.toContain('LOCALE:')
+    })
+
+    it('injects an Estonian instruction when locale is "et"', () => {
+      const result = buildMealPlanPrompt({ ...createInput(), locale: 'et' })
+      expect(result).toContain('LOCALE:')
+      expect(result).toContain('Estonian')
+    })
+  })
+})
+
+describe('localeInstruction', () => {
+  it('returns empty for default locale / null / undefined', () => {
+    expect(localeInstruction('en')).toBe('')
+    expect(localeInstruction(null)).toBe('')
+    expect(localeInstruction(undefined)).toBe('')
+  })
+
+  it('returns a non-empty block for a non-default locale', () => {
+    expect(localeInstruction('et')).toContain('Estonian')
+    expect(localeInstruction('et')).toContain('LOCALE:')
+  })
+
+  it('falls back to the raw locale tag for unknown locales', () => {
+    expect(localeInstruction('fi')).toContain('fi')
+    expect(localeInstruction('fi')).toContain('LOCALE:')
   })
 })
