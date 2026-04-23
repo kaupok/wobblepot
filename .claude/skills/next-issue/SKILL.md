@@ -81,7 +81,7 @@ Find the next unblocked issue and return a concise implementation summary.
 
    Skim for red-flag phrases: "add env var", "add secret", "configure DNS", "sign up", "provision", "API key", "`support@`", "legal entity", "OÜ", "Resend", "Upstash", "PostHog", "Sentry", "Anthropic console", "Vercel dashboard".
 
-   `[DRAFT]` in the title is not an automatic reject in no-human-input mode — but flag it clearly in the output so the user knows the spec hasn't been refined yet.
+   Reject `[DRAFT]` titles outright in no-human-input mode — a draft spec is not ready for unattended implementation, and `/auto-implement` rejects the same. Keeping these symmetric is non-negotiable: the `wt auto [branchName]` chain passes the issue ID through to `/auto-implement` as an explicit arg, which skips the filter, so a DRAFT surfaced here would still trigger unattended work.
 
 6. **Prioritize surviving candidates**
    - Todo before Backlog
@@ -135,17 +135,31 @@ If fewer than 3 unblocked issues exist, return only what's available.
 
 ## Completion
 
-After outputting candidates, add the marker. Include `mode=auto` when `autoMode` is true so the caller can see that the stricter filters were applied:
+After outputting candidates, emit exactly **one** completion marker — never both forms.
+
+**If `autoMode` is false:**
 
 ```
 [next-issue:complete] Found N candidates: HON-XX, HON-AA, HON-BB
+```
+
+**If `autoMode` is true:** include `mode=auto` so the caller can see that the stricter filters were applied.
+
+```
 [next-issue:complete] mode=auto | Found N candidates: HON-XX, HON-AA, HON-BB
 ```
 
-If no unblocked issues found:
+If no unblocked issues survive the filters, emit the matching "no candidates" form for the active mode.
+
+**`autoMode` false:**
 
 ```
 [next-issue:complete] No unblocked issues found
+```
+
+**`autoMode` true:**
+
+```
 [next-issue:complete] mode=auto | No unblocked issues found
 ```
 
