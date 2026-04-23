@@ -206,6 +206,17 @@ describe('buildRecipeExtractionPrompt', () => {
     expect(prompt).toContain('90-100')
     expect(prompt).toContain('not a recipe')
   })
+
+  it('omits the locale instruction for English / default locale', () => {
+    expect(buildRecipeExtractionPrompt('test')).not.toContain('LOCALE:')
+    expect(buildRecipeExtractionPrompt('test', 'en')).not.toContain('LOCALE:')
+  })
+
+  it('injects an Estonian output instruction when locale is "et"', () => {
+    const prompt = buildRecipeExtractionPrompt('test', 'et')
+    expect(prompt).toContain('LOCALE:')
+    expect(prompt).toContain('Estonian')
+  })
 })
 
 describe('parseRecipeText', () => {
@@ -1410,6 +1421,129 @@ describe('parseAndMatchRecipe', () => {
     expect(result.allMatched).toBe(false)
     expect(result.ingredients[0]!.type).toBe('matched')
     expect(result.ingredients[1]!.type).toBe('unmatched')
+  })
+
+  it('threads household locale into the parser prompt and matcher options (pasted Estonian text sample)', async () => {
+    // Sample: Estonian pasted-text recipe. AI is mocked — we assert the *inputs*
+    // (prompt + matcher options) carry locale='et', not any live AI behavior.
+    const mockExtraction = {
+      name: 'Kanasupp',
+      description: 'Kiire kanasupp pere õhtusöögiks',
+      preparationNotes: null,
+      timeMinutes: 25,
+      servings: 4,
+      mealTypes: ['dinner'],
+      kidFriendly: true,
+      recipeConfidence: 92,
+      ingredients: [
+        {
+          name: 'kana',
+          quantity: 400,
+          unit: 'g',
+          originalText: '400g kana',
+          isVague: false,
+          vaguePhrase: null,
+          isDried: null,
+        },
+      ],
+    }
+
+    mockGenerateObject.mockResolvedValue({ object: mockExtraction } as never)
+    mockQueryRaw.mockResolvedValueOnce([
+      {
+        id: 'ing-1',
+        name: 'chicken',
+        category: 'protein',
+        subcategory: null,
+        defaultUnit: 'g',
+        gramsPerPiece: null,
+        similarity: 0.85,
+        source: 'translation',
+      },
+    ])
+
+    const pastedText =
+      'Kanasupp: 400g kana, 2 porgandit, 1 sibul, keeda pehmeks ja maitsesta soolaga.'
+
+    const result = await parseAndMatchRecipe(pastedText, undefined, undefined, {
+      householdId: 'household-et',
+      locale: 'et',
+    })
+
+    // Prompt includes the recipe text and the Estonian locale instruction.
+    const call = mockGenerateObject.mock.calls[0]![0]! as { prompt: string }
+    expect(call.prompt).toContain(pastedText.slice(0, 20))
+    expect(call.prompt).toContain('LOCALE:')
+    expect(call.prompt).toContain('Estonian')
+
+    // Matcher was called with the household + locale so it can also search
+    // translations. The raw-SQL string contains '$3' for the locale parameter.
+    expect(mockQueryRaw).toHaveBeenCalled()
+    const queryArgs = mockQueryRaw.mock.calls[0]! as unknown as [unknown, ...unknown[]]
+    // Template literal values (searchName, householdIdParam, localeParam) arrive as positional args.
+    // Validate the locale param is 'et' by finding it in the args (position may vary across queries).
+    expect(queryArgs.slice(1)).toContain('et')
+
+    expect(result.name).toBe('Kanasupp')
+  })
+
+  it('threads household locale when the input is a URL (Estonian URL sample)', async () => {
+    // This test covers the route-level URL path at the library level: we feed
+    // Estonian-origin recipe text that a URL fetch might return, and assert the
+    // locale threading reaches both the AI prompt and the matcher.
+    const mockExtraction = {
+      name: 'Kartulisalat',
+      description: null,
+      preparationNotes: null,
+      timeMinutes: 30,
+      servings: 6,
+      mealTypes: ['lunch'],
+      kidFriendly: true,
+      recipeConfidence: 88,
+      ingredients: [
+        {
+          name: 'kartul',
+          quantity: 1000,
+          unit: 'g',
+          originalText: '1kg kartulit',
+          isVague: false,
+          vaguePhrase: null,
+          isDried: null,
+        },
+      ],
+    }
+
+    mockGenerateObject.mockResolvedValue({ object: mockExtraction } as never)
+    mockQueryRaw.mockResolvedValueOnce([
+      {
+        id: 'ing-potato',
+        name: 'potato',
+        category: 'carb',
+        subcategory: null,
+        defaultUnit: 'g',
+        gramsPerPiece: null,
+        similarity: 0.82,
+        source: 'translation',
+      },
+    ])
+
+    // Text shape that mirrors what fetchRecipeFromUrl would produce after
+    // stripping an Estonian-language recipe page.
+    const fetchedEtText =
+      'Kartulisalat: 1kg kartulit, 3 muna, 1 sibul, 200g hapukoort. Keeda kartulid ja munad, haki sibul.'
+    const sourceUrl = 'https://www.toidutare.ee/retseptid/kartulisalat'
+
+    const result = await parseAndMatchRecipe(fetchedEtText, sourceUrl, undefined, {
+      householdId: 'household-et',
+      locale: 'et',
+    })
+
+    const call = mockGenerateObject.mock.calls[0]![0]! as { prompt: string }
+    expect(call.prompt).toContain('LOCALE:')
+    expect(call.prompt).toContain('Estonian')
+
+    expect(result.sourceUrl).toBe(sourceUrl)
+    expect(result.name).toBe('Kartulisalat')
   })
 })
 

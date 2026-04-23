@@ -139,6 +139,7 @@ export async function POST(request: Request) {
         restrictions: (preferences?.restrictions ?? []) as string[],
         householdSize,
       },
+      household.locale,
       images.length > 0 ? images : undefined,
       (usage) => recordAiUsage({ householdId: household.id, feature: 'meal_imagine', ...usage }),
     )

@@ -92,6 +92,13 @@ const serverOnlyEnvSchema = z.object({
     .describe(
       'E2E-only bypass for the abuse-sensitive rate limiter (CI sign-up tests collide on the shared runner IP). Refuses to activate when NEXT_PUBLIC_APP_ENV is production or staging — see src/lib/rate-limit.ts.',
     ),
+
+  FEATURE_RECIPE_PARSER_ET: z
+    .enum(['1', 'true', '0', 'false'])
+    .optional()
+    .describe(
+      'Gate for the Estonian recipe-parser surface. When unset or "0"/"false", Estonian-household recipe parsing falls back to English to avoid creating duplicate household-scoped ingredient rows before HON-506 seeds Estonian translation data. Flip to "1" once HON-506 ships. See src/app/api/recipes/parse/route.ts.',
+    ),
 })
 
 /**
@@ -183,6 +190,7 @@ export const serverEnv = new Proxy(
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
     STATUS_INCIDENT_MESSAGE: process.env.STATUS_INCIDENT_MESSAGE,
     E2E_DISABLE_RATE_LIMIT: process.env.E2E_DISABLE_RATE_LIMIT,
+    FEATURE_RECIPE_PARSER_ET: process.env.FEATURE_RECIPE_PARSER_ET,
   } as z.infer<typeof serverEnvSchema>,
   {
     get(target, prop) {

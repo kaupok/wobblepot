@@ -1,8 +1,26 @@
 import { formatDateDisplay, toDateString } from '@/lib/meal-planning/dates'
+import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
 import type { PromptInput, CandidatePools } from './types'
 import type { MealSlot, SlotRequirement } from '@/lib/meal-planning/slots'
 import type { CandidateMeal } from '@/lib/meal-planning/candidates'
 import type { MealType } from '@/generated/prisma/enums'
+
+const LOCALE_LABELS: Record<string, string> = {
+  en: 'English',
+  et: 'Estonian',
+}
+
+/**
+ * Minimal localized-output instruction block appended to AI prompts. Returns
+ * an empty string for the default locale so English flows are byte-identical
+ * to pre-i18n behaviour. Voice-level tuning lands in HON-503 — this is
+ * plumbing only.
+ */
+export function localeInstruction(locale: string | null | undefined): string {
+  if (!locale || locale === DEFAULT_LOCALE) return ''
+  const label = LOCALE_LABELS[locale] ?? locale
+  return `\n\nLOCALE: Produce all user-visible output (names, descriptions, free-text fields) in ${label}. Ingredient names stay lowercase singular base form.`
+}
 
 /**
  * Format a candidate pool for the AI prompt.
@@ -113,6 +131,7 @@ export function buildMealPlanPrompt(
     restrictions,
     candidatesByMealType,
     pantryIngredients,
+    locale,
   } = input
 
   // Calculate last day (endDate is exclusive, so subtract 1 day)
@@ -174,6 +193,8 @@ ${pantryIngredients.join(', ')}
 
 Return exactly ${totalEntries} entries covering ${toDateString(firstEntryDate)} through ${toDateString(lastDay)}.
 Each entry must include: date (YYYY-MM-DD format), mealType (breakfast/lunch/dinner), and mealId.`
+
+  prompt += localeInstruction(locale)
 
   return prompt
 }

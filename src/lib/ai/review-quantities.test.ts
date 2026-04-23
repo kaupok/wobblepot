@@ -47,7 +47,7 @@ describe('reviewMealQuantities', () => {
     }
     mockGenerateObject.mockResolvedValue({ object: aiResponse } as never)
 
-    const result = await reviewMealQuantities('Chicken stir fry', 4, sampleIngredients)
+    const result = await reviewMealQuantities('Chicken stir fry', 4, sampleIngredients, 'en')
 
     expect(result).toEqual(aiResponse)
   })
@@ -55,7 +55,7 @@ describe('reviewMealQuantities', () => {
   it('calls generateObject with the REVIEW_MODEL and a schema', async () => {
     mockGenerateObject.mockResolvedValue({ object: { ingredients: [] } } as never)
 
-    await reviewMealQuantities('Pasta', 2, sampleIngredients)
+    await reviewMealQuantities('Pasta', 2, sampleIngredients, 'en')
 
     expect(mockGenerateObject).toHaveBeenCalledTimes(1)
     const call = mockGenerateObject.mock.calls[0]![0]! as {
@@ -73,7 +73,7 @@ describe('reviewMealQuantities', () => {
   it('includes meal name, serving count, and every ingredient in the user prompt', async () => {
     mockGenerateObject.mockResolvedValue({ object: { ingredients: [] } } as never)
 
-    await reviewMealQuantities('Chicken stir fry', 4, sampleIngredients)
+    await reviewMealQuantities('Chicken stir fry', 4, sampleIngredients, 'en')
 
     const call = mockGenerateObject.mock.calls[0]![0]! as { prompt: string }
     expect(call.prompt).toContain('Chicken stir fry')
@@ -95,18 +95,42 @@ describe('reviewMealQuantities', () => {
   it('propagates errors from generateObject', async () => {
     mockGenerateObject.mockRejectedValue(new Error('AI down'))
 
-    await expect(reviewMealQuantities('Pasta', 2, sampleIngredients)).rejects.toThrow('AI down')
+    await expect(reviewMealQuantities('Pasta', 2, sampleIngredients, 'en')).rejects.toThrow(
+      'AI down',
+    )
   })
 
   it('formats piece units correctly in the prompt', async () => {
     mockGenerateObject.mockResolvedValue({ object: { ingredients: [] } } as never)
 
-    await reviewMealQuantities('Omelette', 2, [
-      { ingredientId: 'ing-eggs', name: 'Eggs', quantityPerServing: 2, unit: 'piece' },
-    ])
+    await reviewMealQuantities(
+      'Omelette',
+      2,
+      [{ ingredientId: 'ing-eggs', name: 'Eggs', quantityPerServing: 2, unit: 'piece' }],
+      'en',
+    )
 
     const call = mockGenerateObject.mock.calls[0]![0]! as { prompt: string }
     expect(call.prompt).toContain('2piece/serving')
     expect(call.prompt).toContain('4piece total')
+  })
+
+  it('does not inject a locale instruction for the default (English) locale', async () => {
+    mockGenerateObject.mockResolvedValue({ object: { ingredients: [] } } as never)
+
+    await reviewMealQuantities('Pasta', 2, sampleIngredients, 'en')
+
+    const call = mockGenerateObject.mock.calls[0]![0]! as { system: string }
+    expect(call.system).not.toContain('LOCALE:')
+  })
+
+  it('injects an Estonian output instruction when locale is "et"', async () => {
+    mockGenerateObject.mockResolvedValue({ object: { ingredients: [] } } as never)
+
+    await reviewMealQuantities('Pasta', 2, sampleIngredients, 'et')
+
+    const call = mockGenerateObject.mock.calls[0]![0]! as { system: string }
+    expect(call.system).toContain('LOCALE:')
+    expect(call.system).toContain('Estonian')
   })
 })

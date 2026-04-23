@@ -67,6 +67,8 @@ export interface GeneratePlanOptions {
   allergensToAvoid: Allergen[]
   excludedIngredientIds: string[]
   restrictions: string[]
+  /** Household locale; threaded into the AI prompt so output fields come back in the household's language. */
+  locale: string
   /** Meal types to plan for weekdays (Mon-Fri). Defaults to ['dinner'] */
   weekdayMealTypes?: MealType[]
   /** Meal types to plan for weekends (Sat-Sun). Defaults to ['dinner'] */
@@ -100,6 +102,8 @@ export interface FillEmptySlotsOptions {
   allergensToAvoid: Allergen[]
   excludedIngredientIds: string[]
   restrictions: string[]
+  /** Household locale; threaded into the AI prompt so output fields come back in the household's language. */
+  locale: string
   weekdayMealTypes: MealType[]
   weekendMealTypes: MealType[]
   /** Optional callback fired with token usage after the AI call returns. */
@@ -153,6 +157,8 @@ export interface PromptInput {
   restrictions: string[]
   /** Non-staple pantry ingredient names the household currently has in stock */
   pantryIngredients?: string[]
+  /** Household locale; threaded into the AI prompt so output fields come back in the household's language. */
+  locale?: string
 }
 
 /**

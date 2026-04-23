@@ -134,6 +134,7 @@ export async function POST(request: Request) {
         allergensToAvoid,
         excludedIngredientIds,
         restrictions,
+        locale: household.locale,
         weekdayMealTypes,
         weekendMealTypes,
         onAiUsage: (usage) =>
@@ -199,6 +200,7 @@ export async function POST(request: Request) {
       allergensToAvoid,
       excludedIngredientIds,
       restrictions,
+      locale: household.locale,
       weekdayMealTypes,
       weekendMealTypes,
       onAiUsage: (usage) =>
