@@ -15,6 +15,7 @@ import {
 import { applyIngredientAlias } from '@/lib/ingredient-aliases'
 import { normalizeIngredientName, extractLastWord } from '@/lib/normalize-ingredient'
 import { HONKADORI_BOT_USER_AGENT, checkRobotsAllowed } from '@/lib/robots'
+import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
 
 /**
  * Error message emitted when robots.txt disallows the fetch. Used as a sentinel
@@ -952,41 +953,110 @@ export function isReasonableQuantity(totalGrams: number, servings: number): bool
   return gramsPerServing <= MAX_GRAMS_PER_SERVING
 }
 
+export type IngredientMatchSource = 'global' | 'household' | 'translation'
+
+export type FuzzyIngredientMatch = {
+  id: string
+  name: string
+  category: IngredientCategory
+  subcategory: string | null
+  defaultUnit: Unit
+  gramsPerPiece: number | null
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+  similarity: number
+  source: IngredientMatchSource
+}
+
 /**
- * Perform fuzzy search for an ingredient name using pg_trgm.
- * Returns top 4 matches above the similarity threshold.
+ * Perform fuzzy search for an ingredient name using pg_trgm across:
+ *   1. Global pool (`householdId IS NULL`) — priority 1
+ *   2. Household-scoped pool (`householdId = ?`) — priority 2 (only if `householdId` provided)
+ *   3. Translation table for the requested locale — priority 3 (only if `locale` non-default)
+ *
+ * Results are ordered by source priority then similarity, so a global canonical
+ * match always wins over a household-scoped or translation-only match. The
+ * returned `name` is always the canonical English `ingredient.name` even when
+ * matched via a translation row — callers translate for display via
+ * `@/lib/i18n/content`.
+ *
+ * WHY: Translation-based matching reliability depends on Estonian translation
+ * data being seeded (HON-506). Until then, the translation branch returns no
+ * rows in practice and behaviour matches pre-i18n state.
  */
-export async function fuzzySearchIngredient(searchName: string) {
-  return prisma.$queryRaw<
-    Array<{
-      id: string
-      name: string
-      category: IngredientCategory
-      subcategory: string | null
-      defaultUnit: Unit
-      gramsPerPiece: number | null
-      calories: number
-      protein: number
-      carbs: number
-      fat: number
-      similarity: number
-    }>
-  >`
-    SELECT
-      id,
-      name,
-      category,
-      subcategory,
-      "defaultUnit",
-      "gramsPerPiece",
-      calories,
-      protein,
-      carbs,
-      fat,
-      similarity(name, ${searchName}) as similarity
-    FROM "ingredient"
-    WHERE similarity(name, ${searchName}) >= ${SIMILARITY_THRESHOLD}
-    ORDER BY similarity DESC
+export async function fuzzySearchIngredient(
+  searchName: string,
+  options: { householdId?: string | null; locale?: string } = {},
+): Promise<FuzzyIngredientMatch[]> {
+  const householdIdParam = options.householdId ?? null
+  const locale = options.locale ?? DEFAULT_LOCALE
+  const localeParam = locale === DEFAULT_LOCALE ? null : locale
+
+  return prisma.$queryRaw<FuzzyIngredientMatch[]>`
+    SELECT * FROM (
+      SELECT
+        id,
+        name,
+        category,
+        subcategory,
+        "defaultUnit",
+        "gramsPerPiece",
+        calories,
+        protein,
+        carbs,
+        fat,
+        similarity(name, ${searchName}) AS similarity,
+        'global'::text AS source,
+        1 AS source_priority
+      FROM "ingredient"
+      WHERE "householdId" IS NULL
+        AND similarity(name, ${searchName}) >= ${SIMILARITY_THRESHOLD}
+
+      UNION ALL
+
+      SELECT
+        id,
+        name,
+        category,
+        subcategory,
+        "defaultUnit",
+        "gramsPerPiece",
+        calories,
+        protein,
+        carbs,
+        fat,
+        similarity(name, ${searchName}) AS similarity,
+        'household'::text AS source,
+        2 AS source_priority
+      FROM "ingredient"
+      WHERE "householdId" = ${householdIdParam}::text
+        AND similarity(name, ${searchName}) >= ${SIMILARITY_THRESHOLD}
+
+      UNION ALL
+
+      SELECT
+        i.id,
+        i.name,
+        i.category,
+        i.subcategory,
+        i."defaultUnit",
+        i."gramsPerPiece",
+        i.calories,
+        i.protein,
+        i.carbs,
+        i.fat,
+        similarity(t.name, ${searchName}) AS similarity,
+        'translation'::text AS source,
+        3 AS source_priority
+      FROM "ingredient_translation" t
+      INNER JOIN "ingredient" i ON i.id = t."ingredientId"
+      WHERE t.locale = ${localeParam}::text
+        AND similarity(t.name, ${searchName}) >= ${SIMILARITY_THRESHOLD}
+        AND (i."householdId" IS NULL OR i."householdId" = ${householdIdParam}::text)
+    ) AS results
+    ORDER BY source_priority ASC, similarity DESC
     LIMIT 4
   `
 }
@@ -997,12 +1067,18 @@ export async function fuzzySearchIngredient(searchName: string) {
  *
  * @param extractedIngredients - The ingredients extracted by AI
  * @param servings - Number of servings for quantity validation
+ * @param options.householdId - Used to also search the household's own ingredient pool
+ *                              (in addition to the global seeded pool).
+ * @param options.locale - Used to also search `ingredient_translation` rows for the
+ *                         locale, so a query like "sibul" can find the English `onion`.
  */
 export async function matchIngredients(
   extractedIngredients: ExtractedIngredient[],
   servings: number,
+  options: { householdId?: string | null; locale?: string } = {},
 ): Promise<IngredientMatchResult[]> {
   const results: IngredientMatchResult[] = []
+  const searchOptions = { householdId: options.householdId, locale: options.locale }
 
   for (const extracted of extractedIngredients) {
     const directName = extracted.name.toLowerCase().trim()
@@ -1027,7 +1103,7 @@ export async function matchIngredients(
     // Phase 1: Search semantic candidates (direct, alias, normalized, alias-normalized)
     let matches: Awaited<ReturnType<typeof fuzzySearchIngredient>> = []
     for (const candidate of candidateNames) {
-      const candidateMatches = await fuzzySearchIngredient(candidate)
+      const candidateMatches = await fuzzySearchIngredient(candidate, searchOptions)
       if (candidateMatches[0] && candidateMatches[0].similarity > (matches[0]?.similarity ?? 0)) {
         matches = candidateMatches
       }
@@ -1041,7 +1117,7 @@ export async function matchIngredients(
     if (!matches[0] || matches[0].similarity < VERY_LOW_CONFIDENCE_THRESHOLD) {
       const lastWord = extractLastWord(directName)
       if (lastWord) {
-        const fallbackMatches = await fuzzySearchIngredient(lastWord)
+        const fallbackMatches = await fuzzySearchIngredient(lastWord, searchOptions)
         if (fallbackMatches[0] && fallbackMatches[0].similarity > (matches[0]?.similarity ?? 0)) {
           // Safety: only accept fallback if the last word appears as a complete word
           // in the matched name. Prevents "sausage" → "sage" (substring trigram match)
@@ -1305,17 +1381,24 @@ export function mergeDuplicateIngredients(
  *
  * @param recipeText - The recipe text to parse
  * @param sourceUrl - Optional source URL for URL imports (stored as dedicated field)
+ * @param onAiUsage - Callback for tracking AI usage stats
+ * @param matchOptions - Household + locale context for ingredient matching
  */
 export async function parseAndMatchRecipe(
   recipeText: string,
   sourceUrl?: string,
   onAiUsage?: (usage: AiUsageStats) => void,
+  matchOptions: { householdId?: string | null; locale?: string } = {},
 ): Promise<ParsedRecipe> {
   // Step 1: Extract structured data from text (low confidence throws)
   const { extraction, confidence } = await parseRecipeText(recipeText, onAiUsage)
 
   // Step 2: Match ingredients against database (pass servings for validation)
-  const ingredientResults = await matchIngredients(extraction.ingredients, extraction.servings)
+  const ingredientResults = await matchIngredients(
+    extraction.ingredients,
+    extraction.servings,
+    matchOptions,
+  )
 
   // Step 3: Check if all ingredients matched
   const allMatched = ingredientResults.every((r) => r.type === 'matched')

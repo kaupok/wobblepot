@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { IngredientCategory, Unit } from '@/generated/prisma/enums'
 import { getStartOfTodayInTimezone, toDateString } from './dates'
+import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
+import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
 
 /**
  * Category configuration for shopping list grouping.
@@ -143,6 +145,7 @@ export async function computeShoppingList(
   planId: string,
   householdId: string,
   householdTimezone: string,
+  locale: string = DEFAULT_LOCALE,
 ): Promise<GroupedShoppingList[]> {
   // Get start of today in household timezone to filter out past meals
   const startOfToday = getStartOfTodayInTimezone(householdTimezone)
@@ -180,6 +183,7 @@ export async function computeShoppingList(
                   category: true,
                   defaultUnit: true,
                   gramsPerPiece: true,
+                  ...ingredientTranslationsInclude(locale),
                 },
               },
             },
@@ -230,7 +234,7 @@ export async function computeShoppingList(
         }
       } else {
         needed.set(ingredientId, {
-          ingredient: component.ingredient,
+          ingredient: translateIngredient(component.ingredient, locale),
           quantity: qty,
           mealCount: 1,
           earliestNeededDate: entry.date,
@@ -316,12 +320,14 @@ export interface RollingWindowResult {
  * @param householdId - The household ID
  * @param days - Number of days in the window (7 or 14)
  * @param householdTimezone - IANA timezone string for determining "today"
+ * @param locale - Household locale; ingredient names are translated when non-default
  * @returns Grouped shopping list with window metadata
  */
 export async function computeRollingWindowShoppingList(
   householdId: string,
   days: number,
   householdTimezone: string,
+  locale: string = DEFAULT_LOCALE,
 ): Promise<RollingWindowResult> {
   // Get start of today in household timezone
   const startOfToday = getStartOfTodayInTimezone(householdTimezone)
@@ -366,6 +372,7 @@ export async function computeRollingWindowShoppingList(
                   category: true,
                   defaultUnit: true,
                   gramsPerPiece: true,
+                  ...ingredientTranslationsInclude(locale),
                 },
               },
             },
@@ -424,7 +431,7 @@ export async function computeRollingWindowShoppingList(
         }
       } else {
         needed.set(ingredientId, {
-          ingredient: component.ingredient,
+          ingredient: translateIngredient(component.ingredient, locale),
           quantity: qty,
           mealCount: 1,
           earliestNeededDate: entry.date,

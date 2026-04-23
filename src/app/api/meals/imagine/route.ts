@@ -156,7 +156,10 @@ export async function POST(request: Request) {
           isDried: ing.isDried,
         }))
 
-        const matchResults = await matchIngredients(extractedIngredients, meal.servings)
+        const matchResults = await matchIngredients(extractedIngredients, meal.servings, {
+          householdId: household.id,
+          locale: household.locale,
+        })
 
         // Collect matched ingredient IDs to fetch nutrition data
         const matchedIds = matchResults

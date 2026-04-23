@@ -5,6 +5,12 @@ import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { toDateString } from '@/lib/meal-planning/dates'
+import {
+  ingredientTranslationsInclude,
+  mealTranslationsInclude,
+  translateIngredient,
+  translateMeal,
+} from '@/lib/i18n/content'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   // Auth check
@@ -39,9 +45,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
               include: {
                 components: {
                   include: {
-                    ingredient: true,
+                    ingredient: {
+                      include: ingredientTranslationsInclude(household.locale),
+                    },
                   },
                 },
+                ...mealTranslationsInclude(household.locale),
               },
             },
           },
@@ -70,28 +79,37 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         status: entry.status,
         servingOverride: entry.servingOverride,
         meal: entry.meal
-          ? {
-              id: entry.meal.id,
-              name: entry.meal.name,
-              kidFriendly: entry.meal.kidFriendly,
-              timeMinutes: entry.meal.timeMinutes,
-              preparationNotes: entry.meal.preparationNotes,
-              primaryProteinType: entry.meal.primaryProteinType,
-              nutrition: computeMealNutrition(entry.meal.components),
-              components: entry.meal.components.map((comp) => ({
-                ingredientId: comp.ingredientId,
-                quantityPerServing: comp.quantityPerServing,
-                isVague: comp.isVague,
-                originalPhrase: comp.originalPhrase,
-                ingredient: {
-                  id: comp.ingredient.id,
-                  name: comp.ingredient.name,
-                  category: comp.ingredient.category,
-                  defaultUnit: comp.ingredient.defaultUnit,
-                  gramsPerPiece: comp.ingredient.gramsPerPiece,
-                },
-              })),
-            }
+          ? (() => {
+              const translatedMeal = translateMeal(entry.meal, household.locale)
+              return {
+                id: translatedMeal.id,
+                name: translatedMeal.name,
+                kidFriendly: translatedMeal.kidFriendly,
+                timeMinutes: translatedMeal.timeMinutes,
+                preparationNotes: translatedMeal.preparationNotes,
+                primaryProteinType: translatedMeal.primaryProteinType,
+                nutrition: computeMealNutrition(entry.meal.components),
+                components: entry.meal.components.map((comp) => {
+                  const translatedIngredient = translateIngredient(
+                    comp.ingredient,
+                    household.locale,
+                  )
+                  return {
+                    ingredientId: comp.ingredientId,
+                    quantityPerServing: comp.quantityPerServing,
+                    isVague: comp.isVague,
+                    originalPhrase: comp.originalPhrase,
+                    ingredient: {
+                      id: translatedIngredient.id,
+                      name: translatedIngredient.name,
+                      category: translatedIngredient.category,
+                      defaultUnit: translatedIngredient.defaultUnit,
+                      gramsPerPiece: translatedIngredient.gramsPerPiece,
+                    },
+                  }
+                }),
+              }
+            })()
           : null,
       })),
     }

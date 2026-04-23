@@ -15,6 +15,12 @@ import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
 import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
 import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
 import type { AlternativeMeal } from '@/components/meal-plan/types'
+import {
+  ingredientTranslationsInclude,
+  mealTranslationsInclude,
+  translateIngredient,
+  translateMeal,
+} from '@/lib/i18n/content'
 
 interface ScoredCandidate {
   candidate: {
@@ -294,9 +300,12 @@ export async function POST(
       include: {
         components: {
           include: {
-            ingredient: true,
+            ingredient: {
+              include: ingredientTranslationsInclude(household.locale),
+            },
           },
         },
+        ...mealTranslationsInclude(household.locale),
       },
     })
 
@@ -306,30 +315,34 @@ export async function POST(
     const alternatives: AlternativeMeal[] = selected.map((scoredItem) => {
       const { candidate, reasons } = scoredItem
       const mealDetail = mealDetailsMap.get(candidate.id)
+      const translatedMeal = mealDetail ? translateMeal(mealDetail, household.locale) : null
       const components = mealDetail?.components ?? []
 
       return {
         id: candidate.id,
-        name: candidate.name,
-        description: mealDetail?.description ?? null,
+        name: translatedMeal?.name ?? candidate.name,
+        description: translatedMeal?.description ?? null,
         timeMinutes: mealDetail?.timeMinutes ?? null,
         kidFriendly: candidate.kidFriendly,
         primaryProteinType: candidate.primaryProteinType,
         suitableFor: mealDetail?.suitableFor as MealType[] | undefined,
         reason: generateReason(reasons, candidate),
-        components: components.map((comp) => ({
-          ingredientId: comp.ingredientId,
-          quantityPerServing: comp.quantityPerServing,
-          isVague: comp.isVague,
-          originalPhrase: comp.originalPhrase,
-          ingredient: {
-            id: comp.ingredient.id,
-            name: comp.ingredient.name,
-            category: comp.ingredient.category,
-            defaultUnit: comp.ingredient.defaultUnit as 'g' | 'piece',
-            gramsPerPiece: comp.ingredient.gramsPerPiece,
-          },
-        })),
+        components: components.map((comp) => {
+          const translatedIngredient = translateIngredient(comp.ingredient, household.locale)
+          return {
+            ingredientId: comp.ingredientId,
+            quantityPerServing: comp.quantityPerServing,
+            isVague: comp.isVague,
+            originalPhrase: comp.originalPhrase,
+            ingredient: {
+              id: translatedIngredient.id,
+              name: translatedIngredient.name,
+              category: translatedIngredient.category,
+              defaultUnit: translatedIngredient.defaultUnit as 'g' | 'piece',
+              gramsPerPiece: translatedIngredient.gramsPerPiece,
+            },
+          }
+        }),
         nutrition: computeMealNutrition(components),
       }
     })
