@@ -102,31 +102,7 @@ mcp__linear-server__list_comments({ issueId: "issue-uuid" })
 
 Review any prior discussion, decisions, or context from team members.
 
-### 6. Scan for E2E impact
-
-**Why:** When a plan touches a route, renames user-visible copy, or restructures a modal/dialog, one or more `tests/e2e/*.spec.ts` files are almost always affected. Historically (see HON-518) these updates lagged the UI change by months and surfaced as an unrecoverable batch when CI came back online. Catching the impact at planning time is the cheapest place to fix it — the plan can list the specs explicitly and the implementation step ships UI + spec updates in one PR.
-
-**Run this step only if the plan is about to touch any of:**
-
-- `src/app/**/page.tsx` (route added, removed, or renamed)
-- A URL path in user-facing navigation (`<Link>` / `router.push` callsites)
-- Copy in a visible heading, button, link, or modal title
-- The structure of a `Dialog` / `AlertDialog` / navigation dropdown
-
-If the plan is purely internal (helpers, API-only, non-UI utility code, CSS tokens), skip this step and proceed to step 7.
-
-**How:**
-
-1. From the files-to-modify list in the draft plan, extract routes (the URL pathnames the `page.tsx` file represents) and component names (matching `tests/e2e/*.spec.ts` `// ROUTES: … · COMPONENTS: …` headers).
-2. Grep the spec headers for matches:
-   ```bash
-   grep -l "ROUTES.*<path>\|COMPONENTS.*<Component>" tests/e2e/*.spec.ts
-   ```
-3. For each matching spec, read the relevant assertions and decide whether the plan's change breaks the selector or copy the spec asserts.
-
-Record findings under a new "E2E updates required" section of the plan (step 8). If no specs are affected, still note "E2E updates required: none — diff is pure-logic / internal" so the reviewer sees the scan happened.
-
-### 7. Explore codebase
+### 6. Explore codebase
 
 Using Read, Grep, and Glob tools:
 
@@ -137,6 +113,30 @@ Using Read, Grep, and Glob tools:
 Focus on files directly relevant to the issue (2-5 files max).
 
 **If step 3 flagged any recently-merged sibling issues:** also run `git log --oneline --since="14 days ago" -- <overlapping-paths>` and `git diff origin/main~<N>..origin/main -- <overlapping-paths>` so you actually see what the sibling changed. The file tree alone doesn't tell you which lines are new; without the diff you risk searching for a pattern, not finding it, and duplicating it.
+
+### 7. Scan for E2E impact
+
+**Why:** When a plan touches a route, renames user-visible copy, or restructures a modal/dialog, one or more `tests/e2e/*.spec.ts` files are almost always affected. Historically (see HON-518) these updates lagged the UI change by months and surfaced as an unrecoverable batch when CI came back online. Catching the impact at planning time is the cheapest place to fix it — the plan can list the specs explicitly and the implementation step ships UI + spec updates in one PR.
+
+This step runs **after** codebase exploration (step 6) so the file set is real — not a mental sketch. If step 6 turned up no touched `src/app/**/page.tsx`, navigation callsite, visible-copy string, or modal restructure, skip this step and proceed to step 8.
+
+**Run this step if step 6 surfaced changes to any of:**
+
+- `src/app/**/page.tsx` (route added, removed, or renamed)
+- A URL path in user-facing navigation (`<Link>` / `router.push` callsites)
+- Copy in a visible heading, button, link, or modal title
+- The structure of a `Dialog` / `AlertDialog` / navigation dropdown
+
+**How:**
+
+1. From the files identified in step 6, extract the routes (pathnames each `page.tsx` represents) and component names.
+2. Grep the spec headers for matches:
+   ```bash
+   grep -l "ROUTES.*<path>\|COMPONENTS.*<Component>" tests/e2e/*.spec.ts
+   ```
+3. For each matching spec, read the relevant assertions and decide whether the plan's change breaks the selector or copy the spec asserts.
+
+Record findings under a new "E2E updates required" section of the plan (step 8). If the scan ran and found no matching specs (e.g. a brand-new route with no existing coverage, or a modal whose assertions live elsewhere), still note "E2E updates required: none — no existing spec asserts on the changed routes/components" so the reviewer sees the scan happened.
 
 ### 8. Write plan and present to user
 
@@ -178,7 +178,7 @@ Write the plan directly in your response (not to a file). Use this structure:
 
 ## E2E updates required
 
-[From step 6. Either list the affected specs with a one-line reason each, or write `none — diff is pure-logic / internal` so the reviewer sees the scan happened. Omit this section entirely only if step 6 was skipped (purely non-UI diff that couldn't have touched specs).]
+[From step 7. Either list the affected specs with a one-line reason each, or — if the scan ran and found no matching specs — write `none — no existing spec asserts on the changed routes/components` so the reviewer sees the scan happened. Omit this section entirely only if step 7 was skipped (step 6 surfaced no route / navigation / visible-copy / modal changes).]
 
 ## Verification
 
