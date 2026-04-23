@@ -13,10 +13,12 @@ All logic is inlined to avoid nested skill context loss ([GitHub #17351](https:/
 ## Usage
 
 ```
-/auto-implement              # Find next unblocked issue automatically
-/auto-implement HON-51       # Use specified issue (skip issue discovery)
+/auto-implement              # Find next unblocked issue (auto-discovery applies no-human-input filters)
+/auto-implement HON-51       # Use specified issue (skip issue discovery; filters NOT applied)
 /auto-implement 51           # Same as above (HON- prefix optional)
 ```
+
+Auto-discovery (no arg) only surfaces issues `/auto-implement` can finish end-to-end — no new env vars, DNS, legal/design review, or provisioning. See Phase 1, step 1.5 for the full filter. When an issue ID is passed, the user's choice is respected without filtering.
 
 ## Execution Model
 
@@ -192,13 +194,33 @@ mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
 
 If a candidate fails any filter, discard and pick another. Do not soften or bypass a filter to keep a candidate. An autonomous cycle that picks a claimed or blocked issue will collide with other work or stall at implementation — both are worse than having no issue to pick.
 
-### 1.5 Prioritize surviving candidates
+### 1.5 No-human-input filters — default in auto-discovery
+
+**Only applies when auto-discovering (no issue ID was passed as argument).** When the user passes an explicit `HON-XX`, skip this step — they've made the judgment call and Phase 1 is already short-circuited.
+
+`/auto-implement` runs end-to-end unattended, so an auto-discovered issue must be completable without human input. Reject the candidate if the description or acceptance criteria imply any of:
+
+- Third-party account provisioning (Upstash, PostHog, Sentry, Resend, Chromatic, Anthropic console, etc.)
+- New environment variables / secrets on Vercel or elsewhere
+- DNS changes (SPF/DKIM/DMARC, subdomain setup, registrar actions)
+- Legal / copy review (privacy policy text, ToS, company entity details, parental consent wording)
+- Design assets (OG images, branded graphics, mockups)
+- Ops access (authenticated CLI like `neonctl` against production, Vercel dashboard edits, GitHub org settings)
+- Shared-state side effects (staging DB writes that can't be reset, sending real emails, outbound API calls that cost money)
+
+Skim for red-flag phrases: "add env var", "add secret", "configure DNS", "sign up", "provision", "API key", "`support@`", "legal entity", "OÜ", "Resend", "Upstash", "PostHog", "Sentry", "Anthropic console", "Vercel dashboard".
+
+Also reject `[DRAFT]` titles in auto-discovery — a draft spec is not ready to implement unattended.
+
+If all candidates fail, exit normally per step 1.7 ("No unblocked issues found"). Do not soften the filter to find a match — a stalled half-PR is worse than no work.
+
+### 1.6 Prioritize surviving candidates
 
 - Todo before Backlog
 - Issues that unblock others (larger `blocks` array) before leaf issues
 - Higher priority (lower `priority.value`) before lower
 
-### 1.6 Select issue
+### 1.7 Select issue
 
 If no unblocked issues found:
 

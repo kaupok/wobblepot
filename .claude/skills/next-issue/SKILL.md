@@ -1,6 +1,7 @@
 ---
 name: next-issue
 description: Find the next unblocked Linear issue to work on. Use when user says "continue implementation" or asks what to work on next.
+argument-hint: '[--auto]'
 context: fork
 agent: general-purpose
 allowed-tools:
@@ -18,9 +19,17 @@ Find the next unblocked issue and return a concise implementation summary.
 ## Modes
 
 - **Default:** find any unblocked, unclaimed issue ready to implement.
-- **No-human-input mode:** triggered when the user asks for issues that can be done "without input", "autonomously", "fully by an agent", "pure code", or similar. Applies **extra** filters in step 5 — everything else identical.
+- **No-human-input mode (`--auto`):** only surface issues that `/auto-implement` can complete end-to-end without a human in the loop — no open decisions, no missing configuration, no provisioning, no design/legal review. Applies **extra** filters in step 5 — everything else identical.
+
+## Arguments
+
+- `--auto` — enable no-human-input mode. Also triggered implicitly when the user asks for issues doable "without input", "autonomously", "fully by an agent", "pure code", or similar phrasing. When in doubt, prefer the explicit flag — the natural-language trigger exists for ergonomics, not as the source of truth.
 
 ## Workflow
+
+0. **Parse arguments**
+
+   Set `autoMode = true` if the invocation contains `--auto`, or if the user's request used natural-language equivalents (see Arguments section). Otherwise `autoMode = false`.
 
 1. **Read project context**
 
@@ -58,9 +67,9 @@ Find the next unblocked issue and return a concise implementation summary.
 
    If any filter rejects the candidate, discard it and pick another — **do not downgrade the candidate to a "caveat" or include it anyway**. Silent failures here are the primary failure mode this skill exists to prevent.
 
-5. **No-human-input mode — additional filters**
+5. **No-human-input mode — additional filters (only when `autoMode` is true)**
 
-   When the user asked for issues doable "without human input", also reject the candidate if the description or acceptance criteria imply any of:
+   When `autoMode` is true, also reject the candidate if the description or acceptance criteria imply any of:
 
    - Third-party account provisioning (Upstash, PostHog, Sentry, Resend, Chromatic, Anthropic console, etc.)
    - New environment variables / secrets on Vercel or elsewhere
@@ -126,16 +135,18 @@ If fewer than 3 unblocked issues exist, return only what's available.
 
 ## Completion
 
-After outputting candidates, add the marker:
+After outputting candidates, add the marker. Include `mode=auto` when `autoMode` is true so the caller can see that the stricter filters were applied:
 
 ```
 [next-issue:complete] Found N candidates: HON-XX, HON-AA, HON-BB
+[next-issue:complete] mode=auto | Found N candidates: HON-XX, HON-AA, HON-BB
 ```
 
 If no unblocked issues found:
 
 ```
 [next-issue:complete] No unblocked issues found
+[next-issue:complete] mode=auto | No unblocked issues found
 ```
 
 ## Important
@@ -147,4 +158,4 @@ If no unblocked issues found:
 - Always include the `gitBranchName` from Linear in the parallel commands
 - The `wt auto` command accepts branch names and extracts the issue ID automatically
 - **Every returned candidate must have passed step 4's hard filters via a `get_issue` call with `includeRelations: true`.** Never surface a candidate based on `list_issues` output alone — that endpoint hides `relations` and can disagree with the prose "Blocked by" section. If fewer than 3 candidates survive the filters, return only what survives; do not pad the list.
-- When the user asks for a refined variation ("find me three without blockers", "that don't need input", "pure code only"), re-invoke this skill rather than ad-hoc-delegating to a general-purpose agent — the skill's filters are the reason it exists.
+- When the user asks for a refined variation ("find me three without blockers", "that don't need input", "pure code only"), re-invoke this skill rather than ad-hoc-delegating to a general-purpose agent — the skill's filters are the reason it exists. For the no-human-input variation prefer `/next-issue --auto` over natural-language phrasing.
