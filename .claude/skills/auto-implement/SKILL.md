@@ -83,7 +83,53 @@ If output is not empty:
 
 Stop here.
 
-### 0.4 Report start
+### 0.4 Sync with origin/main
+
+**Why this matters:** Branching from a stale local main means every subsequent tool (Explore, planning, codebase grep) searches an outdated tree. If a related or epic-sibling issue landed on origin/main since you last pulled, its files, migrations, conventions, and constants won't be visible. At PR time you'll hit merge conflicts and schema collisions on code you didn't know existed — exactly the HON-500 ↔ HON-501 migration collision that motivated this step.
+
+**Regular repo mode:**
+
+```bash
+git fetch origin main
+git merge-base --is-ancestor origin/main HEAD
+```
+
+- Exit 0 → local main already contains all remote commits. Continue.
+- Exit 1 → local main is behind or diverged. Check which case:
+
+```bash
+# How many commits ahead/behind (ahead \t behind)
+git rev-list --left-right --count HEAD...origin/main
+```
+
+- Behind-only (local ahead count = 0, behind count > 0) → fast-forward:
+  ```bash
+  git pull --ff-only origin main
+  ```
+  Report the catch-up: `[auto-implement] Fast-forwarded main: <N> new commits from origin/main`.
+- Diverged (both counts > 0, meaning local main has commits origin/main doesn't) → stop:
+  ```
+  [auto-implement] ✗ Error: Local main has diverged from origin/main (ahead <A>, behind <B>). Resolve manually before running /auto-implement.
+  ```
+
+**Worktree mode:**
+
+The parent repo owns main; the worktree must not touch it. Fetch only, so Phase 2 planning and the git fetch in Phase 5/6 see up-to-date refs:
+
+```bash
+git fetch origin main
+```
+
+Log a catch-up summary if `origin/main` moved since the worktree was created (informational — do not block, since the worktree branch is where work happens):
+
+```bash
+git rev-list --count $(git merge-base HEAD origin/main)..origin/main
+```
+
+- > 0 → `[auto-implement] Note: origin/main has <N> new commits since this worktree branched. Plan should account for any overlap.`
+- = 0 → no log line.
+
+### 0.5 Report start
 
 ```
 [auto-implement] Starting autonomous implementation cycle
@@ -202,9 +248,42 @@ Extract and note:
 - `gitBranchName` for later use
 - `blockedBy` relations (should be empty or done)
 - `blocks` relations (what this unblocks)
+- `relatedTo` / `parentId` (for overlap check in 2.3)
 - Any labels or priority
 
-### 2.3 Read project context (if not already loaded)
+### 2.3 MANDATORY: Check relatedTo + epic siblings for recently-merged overlap
+
+**Why:** When an issue is part of an epic (has `parentId`) or has `relatedTo` links, a sibling issue may have already landed and introduced files, conventions, schema, or constants that your plan needs to build on rather than duplicate. `blockedBy` is checked by Phase 1's selection filter, but `relatedTo` / epic-siblings are not — and a Done sibling in the same epic is a strong "check for overlap" signal. The HON-500 ↔ HON-501 incident (duplicate `Household.locale` schema change, duplicate `locales.ts`) is what motivated this step.
+
+For each id in `relations.relatedTo` and (if `parentId` is set) each sub-issue of the parent:
+
+```
+mcp__linear-server__get_issue({ id: "HON-YY", includeRelations: true })
+```
+
+For any sibling where `status` ∈ { `Done`, `In Review`, `In Progress` }:
+
+- Note its title, `gitBranchName`, and completion/start time.
+- If status is `Done` AND `completedAt` is within the last 14 days, fetch the merged PR to see what files it touched:
+  ```bash
+  gh pr list --search "HON-YY in:title" --state merged --json number,title,files,mergedAt --limit 1
+  ```
+  Inspect the `files` array. If any overlap with `prisma/schema.prisma`, `prisma/migrations/`, or other files you expect to modify, flag it in the plan's **Design Decisions** table and adjust the approach (extend rather than duplicate).
+- If status is `In Progress` / `In Review`, surface it as a coordination risk in the plan's context so the user knows parallel work is happening.
+
+Surface findings inline:
+
+```
+[auto-implement] Sibling check: HON-YY ([status], merged PR #<N>) touches prisma/schema.prisma — plan must extend, not duplicate.
+```
+
+If no siblings match, log a one-line confirmation and continue:
+
+```
+[auto-implement] Sibling check: no recently-merged/in-flight related issues.
+```
+
+### 2.4 Read project context (if not already loaded)
 
 If Phase 1 ran (no issue ID provided), `docs/PROJECT_SPEC.md` is already in context — skip this step.
 
@@ -216,7 +295,7 @@ Read docs/PROJECT_SPEC.md
 
 Note the current phase and any relevant architectural decisions.
 
-### 2.4 Fetch issue comments
+### 2.5 Fetch issue comments
 
 ```
 mcp__linear-server__list_comments({ issueId: "[issue-uuid]" })
@@ -224,7 +303,7 @@ mcp__linear-server__list_comments({ issueId: "[issue-uuid]" })
 
 Review any prior discussion, decisions, or context from team members.
 
-### 2.5 Explore codebase
+### 2.6 Explore codebase
 
 Using Read, Grep, and Glob tools:
 
@@ -234,7 +313,9 @@ Using Read, Grep, and Glob tools:
 
 Focus on files directly relevant to the issue (2-5 files max).
 
-### 2.6 Write plan
+**If Phase 2.3 flagged any recently-merged sibling issues:** also run `git log --oneline --since="14 days ago" -- <overlapping-paths>` and `git diff origin/main~<N>..origin/main -- <overlapping-paths>` to see what the sibling actually changed. The Explore agent sees only static file content; it can't know which lines are new. Reading the diff prevents the "I searched and it didn't exist" → "it existed and I duplicated it" failure mode.
+
+### 2.7 Write plan
 
 Write the plan directly in your response using this structure:
 
@@ -279,14 +360,14 @@ Write the plan directly in your response using this structure:
 - [ ] [Edge cases to check]
 ```
 
-### 2.7 Post plan to Linear
+### 2.8 Post plan to Linear
 
 Post the plan directly to Linear (no approval needed in auto mode):
 
 ```
 mcp__linear-server__create_comment({
   issueId: "[issue-uuid]",
-  body: "[The complete plan from step 2.5]"
+  body: "[The complete plan from step 2.7]"
 })
 ```
 
@@ -344,7 +425,7 @@ git checkout -b [gitBranchName]
 
 ### 3.2 Implement following the plan
 
-The plan from Phase 2.6 is already in context — do not re-fetch it from Linear.
+The plan from Phase 2.7 is already in context — do not re-fetch it from Linear.
 
 For each implementation step in the plan:
 
@@ -874,6 +955,7 @@ To clean up this worktree:
 | ----- | ------------------------------- | ---------------------- |
 | 0     | Not on main (regular repo only) | Stop with instructions |
 | 0     | Uncommitted changes             | Stop with instructions |
+| 0     | Local main diverged from origin | Stop, ask user to resolve |
 | 1     | No unblocked issues             | Stop (normal exit)     |
 | 4     | Fix attempts exhausted (3)      | Stop, show failures    |
 | 5     | Commit/PR fails                 | Stop, show error       |
