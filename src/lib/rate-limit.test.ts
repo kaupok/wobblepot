@@ -31,6 +31,14 @@ vi.mock('@upstash/ratelimit', () => {
   return { Ratelimit }
 })
 
+// Short-circuit `@/lib/upstash` so loading `rate-limit.ts` does NOT pull in
+// `@/lib/env`. Otherwise clientEnv's IIFE would throw on the "unset" and
+// "unknown env" cases below before the rate-limit guard could fire, making
+// it impossible to unit-test the guard's rejection path directly.
+vi.mock('@/lib/upstash', () => ({
+  getRedis: () => ({ __mockRedis: true }),
+}))
+
 // Import AFTER mocks so they take effect.
 const { retryAfterSeconds, RATE_LIMIT_CONFIG } = await import('./rate-limit')
 
@@ -318,8 +326,13 @@ describe('rate-limit', () => {
       // Each test must load the module fresh so the module-init guard re-runs
       // against the env it just set. vi.resetModules() in the outer beforeEach
       // already does this; we just need to restore env between tests.
-      process.env.E2E_DISABLE_RATE_LIMIT = originalFlag
-      process.env.NEXT_PUBLIC_APP_ENV = originalEnv
+      // Conditional delete avoids Node coercing `undefined` to the literal
+      // string "undefined" in process.env when the captured value was unset.
+      if (originalFlag === undefined) delete process.env.E2E_DISABLE_RATE_LIMIT
+      else process.env.E2E_DISABLE_RATE_LIMIT = originalFlag
+
+      if (originalEnv === undefined) delete process.env.NEXT_PUBLIC_APP_ENV
+      else process.env.NEXT_PUBLIC_APP_ENV = originalEnv
     })
 
     it('short-circuits to allowed=true when enabled in ci', async () => {
@@ -349,6 +362,33 @@ describe('rate-limit', () => {
 
       await expect(import('./rate-limit')).rejects.toThrow(
         /E2E_DISABLE_RATE_LIMIT must not be set when NEXT_PUBLIC_APP_ENV=staging/,
+      )
+    })
+
+    it('throws at module init when enabled in preview', async () => {
+      process.env.E2E_DISABLE_RATE_LIMIT = '1'
+      process.env.NEXT_PUBLIC_APP_ENV = 'preview'
+
+      await expect(import('./rate-limit')).rejects.toThrow(
+        /E2E_DISABLE_RATE_LIMIT must not be set when NEXT_PUBLIC_APP_ENV=preview/,
+      )
+    })
+
+    it('throws at module init when enabled with NEXT_PUBLIC_APP_ENV unset', async () => {
+      process.env.E2E_DISABLE_RATE_LIMIT = '1'
+      delete process.env.NEXT_PUBLIC_APP_ENV
+
+      await expect(import('./rate-limit')).rejects.toThrow(
+        /E2E_DISABLE_RATE_LIMIT must not be set when NEXT_PUBLIC_APP_ENV=unset/,
+      )
+    })
+
+    it('throws at module init when enabled with an unrecognised env value', async () => {
+      process.env.E2E_DISABLE_RATE_LIMIT = '1'
+      process.env.NEXT_PUBLIC_APP_ENV = 'typo-env'
+
+      await expect(import('./rate-limit')).rejects.toThrow(
+        /E2E_DISABLE_RATE_LIMIT must not be set when NEXT_PUBLIC_APP_ENV=typo-env/,
       )
     })
 
