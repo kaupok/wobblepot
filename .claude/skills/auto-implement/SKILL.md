@@ -425,7 +425,7 @@ git checkout -b [gitBranchName]
 
 ### 3.2 Implement following the plan
 
-The plan from Phase 2.6 is already in context — do not re-fetch it from Linear.
+The plan from Phase 2.7 is already in context — do not re-fetch it from Linear.
 
 For each implementation step in the plan:
 

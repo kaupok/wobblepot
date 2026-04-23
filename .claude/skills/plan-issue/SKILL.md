@@ -38,7 +38,7 @@ mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
 
 Extract and note:
 
-- Issue UUID (for API calls in steps 4 and 8)
+- Issue UUID (for API calls in steps 5 and 9)
 - Title and description
 - `gitBranchName` for later use
 - `blockedBy` relations (check if blocked)
