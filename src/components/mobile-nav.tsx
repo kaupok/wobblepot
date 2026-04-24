@@ -25,9 +25,10 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
     try {
       await authClient.signOut({
         fetchOptions: {
-          onSuccess: async () => {
-            const { default: posthog } = await import('posthog-js')
-            posthog.reset()
+          onSuccess: () => {
+            // Fire-and-forget: don't let an analytics chunk-load failure
+            // block the sign-out redirect.
+            import('posthog-js').then(({ default: posthog }) => posthog.reset()).catch(() => {})
             setOpen(false)
             router.push('/')
             router.refresh()

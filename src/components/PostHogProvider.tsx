@@ -36,6 +36,12 @@ export function PostHogProvider({ children, userId, householdId }: PostHogProvid
   const [client, setClient] = useState<PostHog | null>(null)
 
   // Lazy-load posthog-js after idle so analytics wiring does not block LCP.
+  // `opt_out_capturing_by_default` is derived from the current consent state
+  // so the SDK is in the correct capture mode before child effects run:
+  // React runs child effects before parent effects, so the
+  // SuspendedPostHogPageView pageview effect would otherwise fire $pageview
+  // on the transition render while the parent opt-in effect had not yet run,
+  // and the first pageview would be dropped by the opt-out guard.
   useEffect(() => {
     if (!clientEnv.NEXT_PUBLIC_POSTHOG_KEY || !clientEnv.NEXT_PUBLIC_POSTHOG_HOST) return
     if (client) return
@@ -47,7 +53,7 @@ export function PostHogProvider({ children, userId, householdId }: PostHogProvid
       posthog.init(clientEnv.NEXT_PUBLIC_POSTHOG_KEY as string, {
         api_host: clientEnv.NEXT_PUBLIC_POSTHOG_HOST as string,
         person_profiles: 'identified_only',
-        opt_out_capturing_by_default: true,
+        opt_out_capturing_by_default: granted !== true,
         capture_pageview: false,
         disable_session_recording: true,
         defaults: '2026-01-30',
@@ -59,7 +65,7 @@ export function PostHogProvider({ children, userId, householdId }: PostHogProvid
       cancelled = true
       schedule.cancel()
     }
-  }, [client])
+  }, [client, granted])
 
   // Mirror consent state to PostHog's opt-in/out. posthog-js clears its own
   // ph_* cookies when opt_out_capturing() runs, so we don't need a manual

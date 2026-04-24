@@ -86,6 +86,8 @@ describe('PostHogProvider', () => {
       expect.objectContaining({
         api_host: 'https://eu.i.posthog.com',
         person_profiles: 'identified_only',
+        // Consent undecided → SDK starts opted-out so no events leak before
+        // the user decides.
         opt_out_capturing_by_default: true,
         capture_pageview: false,
         disable_session_recording: true,
@@ -94,6 +96,27 @@ describe('PostHogProvider', () => {
     expect(posthogMock.identify).not.toHaveBeenCalled()
     expect(posthogMock.opt_in_capturing).not.toHaveBeenCalled()
     expect(posthogMock.opt_out_capturing).not.toHaveBeenCalled()
+  })
+
+  it('inits with opt_out_capturing_by_default=false when consent is already granted', async () => {
+    const consent = makeConsent(true)
+    render(
+      wrap(
+        consent,
+        <PostHogProvider userId="user-1" householdId="hh-1">
+          <p>child</p>
+        </PostHogProvider>,
+      ),
+    )
+    // Without this, the first $pageview on load (fired by child effects that
+    // run before the parent opt-in effect) would be dropped by the SDK's
+    // opt-out guard. See PostHogProvider.tsx for the effect-ordering rationale.
+    await waitFor(() =>
+      expect(posthogMock.init).toHaveBeenCalledWith(
+        'phc_test',
+        expect.objectContaining({ opt_out_capturing_by_default: false }),
+      ),
+    )
   })
 
   it('calls opt_in_capturing when consent is granted', async () => {

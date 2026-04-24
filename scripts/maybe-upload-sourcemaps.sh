@@ -15,8 +15,11 @@
 # (without it, no .map files are emitted and both steps walk empty dirs).
 set -euo pipefail
 
-if [ -z "${VERCEL_GIT_COMMIT_SHA:-}" ] || [ -z "${POSTHOG_CLI_API_KEY:-}" ]; then
-  echo "maybe-upload-sourcemaps: skip (VERCEL_GIT_COMMIT_SHA or POSTHOG_CLI_API_KEY unset)"
+if [ -z "${VERCEL_GIT_COMMIT_SHA:-}" ] \
+  || [ -z "${POSTHOG_CLI_API_KEY:-}" ] \
+  || [ -z "${POSTHOG_CLI_HOST:-}" ] \
+  || [ -z "${POSTHOG_CLI_PROJECT_ID:-}" ]; then
+  echo "maybe-upload-sourcemaps: skip (need VERCEL_GIT_COMMIT_SHA, POSTHOG_CLI_API_KEY, POSTHOG_CLI_HOST, POSTHOG_CLI_PROJECT_ID)"
   exit 0
 fi
 

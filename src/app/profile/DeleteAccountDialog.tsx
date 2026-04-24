@@ -54,9 +54,10 @@ export function DeleteAccountDialog({
       // Sign out and redirect
       await authClient.signOut({
         fetchOptions: {
-          onSuccess: async () => {
-            const { default: posthog } = await import('posthog-js')
-            posthog.reset()
+          onSuccess: () => {
+            // Fire-and-forget: account is already deleted, so an analytics
+            // chunk-load failure must not block the post-delete redirect.
+            import('posthog-js').then(({ default: posthog }) => posthog.reset()).catch(() => {})
             router.push('/')
             router.refresh()
           },
