@@ -27,6 +27,11 @@ import { getRedis } from '@/lib/upstash'
 // preview, unset, or typo — fail loudly at module init instead of silently
 // weakening auth-endpoint protection.
 //
+// Exported so `src/lib/auth.ts` can also disable Better Auth's built-in
+// IP rate limiter (3 sign-ups/sign-ins per 10 s, on by default in
+// production) when our bypass is active — otherwise CI tests still trip
+// it from the shared runner IP. See HON-520.
+//
 // Enable with `E2E_DISABLE_RATE_LIMIT=1` (or `true`) in CI only.
 const SAFE_ENVS: ReadonlySet<string> = new Set(['ci', 'test', 'dev'])
 
@@ -51,7 +56,7 @@ function resolveBypass(): boolean {
   return true
 }
 
-const BYPASS_ACTIVE = resolveBypass()
+export const RATE_LIMIT_BYPASS_ACTIVE = resolveBypass()
 
 export type RateLimitFeature =
   | 'plan-generation'
@@ -186,7 +191,7 @@ export async function checkRateLimit(
   identifier: string,
   feature: RateLimitFeature,
 ): Promise<RateLimitResult> {
-  if (BYPASS_ACTIVE) {
+  if (RATE_LIMIT_BYPASS_ACTIVE) {
     // eslint-disable-next-line no-console
     console.warn(`[rate-limit] bypassed: feature=${feature} identifier=${identifier}`)
     const cfg = RATE_LIMIT_CONFIG[feature]
