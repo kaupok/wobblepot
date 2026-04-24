@@ -78,8 +78,9 @@ Find the next unblocked issue and return a concise implementation summary.
    - Design assets (OG images, branded graphics, mockups)
    - Ops access (authenticated CLI like `neonctl` against production, Vercel dashboard edits, GitHub org settings)
    - Shared-state side effects (staging DB writes that can't be reset, sending real emails, outbound API calls that cost money)
+   - Subjective human review — the acceptance criteria require a human to *validate quality*, not just to provide inputs. An agent can produce the artifact but cannot close the ticket. Covers: native-speaker / native-judgment work (voice, tone, register, idiom), copy or naming quality review, design polish review, and any AC that name-drops a specific reviewer ("does Kaupo read this and…"). Distinct from "legal / copy review" — that's about *clearance*; this is about *taste*.
 
-   Skim for red-flag phrases: "add env var", "add secret", "configure DNS", "sign up", "provision", "API key", "`support@`", "legal entity", "OÜ", "Resend", "Upstash", "PostHog", "Sentry", "Anthropic console", "Vercel dashboard".
+   Skim for red-flag phrases: "add env var", "add secret", "configure DNS", "sign up", "provision", "API key", "`support@`", "legal entity", "OÜ", "Resend", "Upstash", "PostHog", "Sentry", "Anthropic console", "Vercel dashboard", "manual spot-check", "reads natural", "feels native", "idiomatic Estonian", "voice reference", "tone of voice", "native speaker", "copy review", and any AC that references a specific human by name as the reviewer.
 
    Reject `[DRAFT]` titles outright in no-human-input mode — a draft spec is not ready for unattended implementation, and `/auto-implement` rejects the same. Keeping these symmetric is non-negotiable: the `wt auto [branchName]` chain passes the issue ID through to `/auto-implement` as an explicit arg, which skips the filter, so a DRAFT surfaced here would still trigger unattended work.
 
