@@ -28,9 +28,6 @@ const webServer = remoteBaseURL
 export default defineConfig({
   testDir: 'tests/e2e', // <-- only look here
   testMatch: ['**/*.spec.ts'], // <-- only *.spec.ts
-  // Warm up cold auth endpoints before any spec runs (HON-520). Skipped against
-  // remote URLs — see `tests/e2e/utils/global-setup.ts`.
-  globalSetup: './tests/e2e/utils/global-setup.ts',
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,

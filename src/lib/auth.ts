@@ -7,6 +7,7 @@ import { serverEnv, getServerBaseURL } from '@/lib/env'
 import { resend, isEmailConfigured } from '@/lib/resend'
 import { generateResetPasswordEmail } from '@/lib/emails/reset-password'
 import { isPasswordBreached } from '@/lib/breached-password'
+import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
 
 const MIN_PASSWORD_LENGTH = 12
 
@@ -97,6 +98,20 @@ export const auth = betterAuth({
    * Requests from origins not in this list will be blocked
    */
   trustedOrigins: [getServerBaseURL()],
+
+  /**
+   * Better Auth ships its own in-memory IP rate limiter (default 3 sign-ups
+   * or sign-ins per 10 s per IP, on by default in production). It runs in
+   * addition to the Upstash limiter wired into
+   * `src/app/api/auth/[...all]/route.ts`. In CI, the Upstash limiter
+   * bypasses cleanly via `E2E_DISABLE_RATE_LIMIT`, but Next.js's `next start`
+   * reports as production-mode to Better Auth, so the built-in limiter
+   * stays on and trips the 4th sign-up within 10 s — the original symptom
+   * tracked as HON-520. Disable both together when our bypass is active.
+   * In production both limiters stay on; the Upstash one is the load-bearing
+   * one (memory storage doesn't survive serverless instance churn anyway).
+   */
+  rateLimit: RATE_LIMIT_BYPASS_ACTIVE ? { enabled: false } : undefined,
 
   /**
    * Email and password authentication configuration

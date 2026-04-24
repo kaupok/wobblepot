@@ -139,30 +139,10 @@ skips the `seedTestUsers()` branch.
 
 `STAGING_URL` is a **variable** (not a secret) — default `https://honkadori.xyz`.
 
-## Cold-start warm-up
-
-`tests/e2e/utils/global-setup.ts` runs before any spec and hits two endpoints
-against the local server: `GET /api/auth/get-session` and `POST /api/auth/sign-in/email`
-with bogus credentials. Without this, the first test that exercises the
-sign-in **error response** path (`auth.spec.ts` → `invalid credentials show
-error message`) consistently timed out at the 60 s per-test budget on a
-freshly-built `pnpm start` server, then passed in 4–5 s on retry — the
-fourth test was the first to JIT-compile / module-load that branch (see
-[HON-520](https://linear.app/honkadori/issue/HON-520)). The warm-up moves
-that one-time cost out of a per-test timeout window into globalSetup, where
-there's no Playwright-imposed deadline.
-
-The setup is **skipped when `PLAYWRIGHT_BASE_URL` is set** (preview-smoke /
-staging-smoke tiers). Those run against shared environments where (a) there
-is no cold-start to warm and (b) a junk POST would charge against the real
-abuse-protection rate limiter. Per-call timing is logged so the first CI
-run after a warm-up change doubles as the diagnostic record.
-
 ## File layout
 
 | File                              | Purpose                                         |
 | --------------------------------- | ----------------------------------------------- |
 | `tests/e2e/*.spec.ts`             | Specs                                           |
 | `tests/e2e/utils/test-helpers.ts` | Shared helpers (sign-up, sign-in, meal-plan)    |
-| `tests/e2e/utils/global-setup.ts` | Cold-start warm-up (HON-520)                    |
 | `playwright.config.ts`            | Top-level config (CI-aware webServer + baseURL) |
