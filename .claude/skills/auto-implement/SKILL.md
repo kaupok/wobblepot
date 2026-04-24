@@ -18,7 +18,7 @@ All logic is inlined to avoid nested skill context loss ([GitHub #17351](https:/
 /auto-implement 51           # Same as above (HON- prefix optional)
 ```
 
-Auto-discovery (no arg) only surfaces issues `/auto-implement` can finish end-to-end — no new env vars, DNS, legal/design review, or provisioning. See Phase 1, step 1.5 for the full filter. When an issue ID is passed, the user's choice is respected without filtering.
+Auto-discovery (no arg) only surfaces issues `/auto-implement` can finish end-to-end — no new env vars, DNS, legal/design review, provisioning, or subjective human review (voice/taste/native-judgment work). See Phase 1, step 1.5 for the full filter. When an issue ID is passed, the user's choice is respected without filtering.
 
 ## Execution Model
 
@@ -207,8 +207,9 @@ If a candidate fails any filter, discard and pick another. Do not soften or bypa
 - Design assets (OG images, branded graphics, mockups)
 - Ops access (authenticated CLI like `neonctl` against production, Vercel dashboard edits, GitHub org settings)
 - Shared-state side effects (staging DB writes that can't be reset, sending real emails, outbound API calls that cost money)
+- Subjective human review — the acceptance criteria require a human to *validate quality*, not just to provide inputs. An agent can produce the artifact but cannot close the ticket. Covers: native-speaker / native-judgment work (voice, tone, register, idiom), copy or naming quality review, design polish review, and any AC that name-drops a specific reviewer ("does Kaupo read this and…"). Distinct from "legal / copy review" — that's about *clearance*; this is about *taste*.
 
-Skim for red-flag phrases: "add env var", "add secret", "configure DNS", "sign up", "provision", "API key", "`support@`", "legal entity", "OÜ", "Resend", "Upstash", "PostHog", "Sentry", "Anthropic console", "Vercel dashboard".
+Skim for red-flag phrases: "add env var", "add secret", "configure DNS", "sign up", "provision", "API key", "`support@`", "legal entity", "OÜ", "Resend", "Upstash", "PostHog", "Sentry", "Anthropic console", "Vercel dashboard", "manual spot-check", "reads natural", "feels native", "idiomatic", "voice reference", "tone", "native speaker", "copy review", and any AC that references a specific human by name as the reviewer.
 
 Also reject `[DRAFT]` titles in auto-discovery — a draft spec is not ready to implement unattended.
 
