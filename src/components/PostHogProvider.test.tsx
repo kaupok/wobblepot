@@ -61,7 +61,7 @@ function makeConsent(granted: boolean | null): AnalyticsConsent {
 }
 
 describe('PostHogProvider', () => {
-  it('renders children without initializing posthog when consent is undecided', async () => {
+  it('does not init posthog-js when consent is undecided', async () => {
     const consent = makeConsent(null)
     const { getByTestId } = render(
       wrap(
@@ -78,27 +78,37 @@ describe('PostHogProvider', () => {
       await new Promise((r) => setTimeout(r, 10))
     })
 
-    // posthog.init ran (lazy-load always runs when key + host are set), but
-    // identify and opt_in did NOT because consent is null.
-    await waitFor(() => expect(posthogMock.init).toHaveBeenCalledTimes(1))
-    expect(posthogMock.init).toHaveBeenCalledWith(
-      'phc_test',
-      expect.objectContaining({
-        api_host: 'https://eu.i.posthog.com',
-        person_profiles: 'identified_only',
-        // Consent undecided → SDK starts opted-out so no events leak before
-        // the user decides.
-        opt_out_capturing_by_default: true,
-        capture_pageview: false,
-        disable_session_recording: true,
-      }),
-    )
+    // No init → no SDK assets fetched from posthog.com, which is the whole
+    // point of consent gating under EDPB/AKI. `opt_out_capturing_by_default`
+    // is a post-init guard and does not prevent those fetches on its own.
+    expect(posthogMock.init).not.toHaveBeenCalled()
     expect(posthogMock.identify).not.toHaveBeenCalled()
     expect(posthogMock.opt_in_capturing).not.toHaveBeenCalled()
     expect(posthogMock.opt_out_capturing).not.toHaveBeenCalled()
   })
 
-  it('inits with opt_out_capturing_by_default=false when consent is already granted', async () => {
+  it('does not init posthog-js when consent is declined', async () => {
+    const consent = makeConsent(false)
+    render(
+      wrap(
+        consent,
+        <PostHogProvider userId="user-1" householdId="hh-1">
+          <p>child</p>
+        </PostHogProvider>,
+      ),
+    )
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10))
+    })
+
+    expect(posthogMock.init).not.toHaveBeenCalled()
+    expect(posthogMock.identify).not.toHaveBeenCalled()
+    expect(posthogMock.opt_in_capturing).not.toHaveBeenCalled()
+    expect(posthogMock.opt_out_capturing).not.toHaveBeenCalled()
+  })
+
+  it('inits with capture enabled once consent is granted', async () => {
     const consent = makeConsent(true)
     render(
       wrap(
@@ -108,18 +118,23 @@ describe('PostHogProvider', () => {
         </PostHogProvider>,
       ),
     )
-    // Without this, the first $pageview on load (fired by child effects that
-    // run before the parent opt-in effect) would be dropped by the SDK's
-    // opt-out guard. See PostHogProvider.tsx for the effect-ordering rationale.
-    await waitFor(() =>
-      expect(posthogMock.init).toHaveBeenCalledWith(
-        'phc_test',
-        expect.objectContaining({ opt_out_capturing_by_default: false }),
-      ),
+
+    await waitFor(() => expect(posthogMock.init).toHaveBeenCalledTimes(1))
+    expect(posthogMock.init).toHaveBeenCalledWith(
+      'phc_test',
+      expect.objectContaining({
+        api_host: 'https://eu.i.posthog.com',
+        person_profiles: 'identified_only',
+        capture_pageview: false,
+        disable_session_recording: true,
+      }),
     )
+    // We no longer pass opt_out_capturing_by_default — init only happens on
+    // grant, so the SDK starts in capture-enabled state by default.
+    expect(posthogMock.init.mock.calls[0]?.[1]).not.toHaveProperty('opt_out_capturing_by_default')
   })
 
-  it('calls opt_in_capturing when consent is granted', async () => {
+  it('calls opt_in_capturing once init completes on grant', async () => {
     const consent = makeConsent(true)
     render(
       wrap(
@@ -131,20 +146,6 @@ describe('PostHogProvider', () => {
     )
     await waitFor(() => expect(posthogMock.opt_in_capturing).toHaveBeenCalledTimes(1))
     expect(posthogMock.opt_out_capturing).not.toHaveBeenCalled()
-  })
-
-  it('calls opt_out_capturing when consent is declined', async () => {
-    const consent = makeConsent(false)
-    render(
-      wrap(
-        consent,
-        <PostHogProvider>
-          <p>child</p>
-        </PostHogProvider>,
-      ),
-    )
-    await waitFor(() => expect(posthogMock.opt_out_capturing).toHaveBeenCalledTimes(1))
-    expect(posthogMock.opt_in_capturing).not.toHaveBeenCalled()
   })
 
   it('identifies only with userId + household_id — never email/name/tokens', async () => {
@@ -169,8 +170,11 @@ describe('PostHogProvider', () => {
   })
 
   it('does not identify when consent is not granted', async () => {
+    // Covered by the decline + undecided cases above — this guards against
+    // a future regression where identify might slip past the gate via
+    // prop changes rather than consent changes.
     const consent = makeConsent(false)
-    render(
+    const { rerender } = render(
       wrap(
         consent,
         <PostHogProvider userId="user-1" householdId="hh-1">
@@ -178,7 +182,17 @@ describe('PostHogProvider', () => {
         </PostHogProvider>,
       ),
     )
-    await waitFor(() => expect(posthogMock.opt_out_capturing).toHaveBeenCalledTimes(1))
+    rerender(
+      wrap(
+        consent,
+        <PostHogProvider userId="user-2" householdId="hh-2">
+          <p>child</p>
+        </PostHogProvider>,
+      ),
+    )
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10))
+    })
     expect(posthogMock.identify).not.toHaveBeenCalled()
   })
 
@@ -194,6 +208,35 @@ describe('PostHogProvider', () => {
     )
     await waitFor(() => expect(posthogMock.opt_in_capturing).toHaveBeenCalledTimes(1))
     expect(posthogMock.identify).not.toHaveBeenCalled()
+  })
+
+  it('opts out mid-session when the user withdraws consent after granting', async () => {
+    const grantedConsent = makeConsent(true)
+    const { rerender } = render(
+      wrap(
+        grantedConsent,
+        <PostHogProvider userId="user-1" householdId="hh-1">
+          <p>child</p>
+        </PostHogProvider>,
+      ),
+    )
+    await waitFor(() => expect(posthogMock.init).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(posthogMock.opt_in_capturing).toHaveBeenCalledTimes(1))
+
+    // User revokes consent without a remount — e.g. via a preferences toggle.
+    const withdrawnConsent = makeConsent(false)
+    rerender(
+      wrap(
+        withdrawnConsent,
+        <PostHogProvider userId="user-1" householdId="hh-1">
+          <p>child</p>
+        </PostHogProvider>,
+      ),
+    )
+    await waitFor(() => expect(posthogMock.opt_out_capturing).toHaveBeenCalledTimes(1))
+    // The SDK was already loaded when consent was granted; opt_out stops
+    // events and clears ph_* cookies but does not re-init.
+    expect(posthogMock.init).toHaveBeenCalledTimes(1)
   })
 
   it('skips the lazy load entirely when NEXT_PUBLIC_POSTHOG_KEY is unset', async () => {
