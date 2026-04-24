@@ -3,6 +3,10 @@
 # build. No-op unless both gate env vars are set — local `pnpm build` stays
 # silent and fast.
 #
+# Uses PostHog's official CLI (`@posthog/cli`, published by PostHog Inc.).
+# The unscoped `posthog-cli` package on npm is a community fork with no
+# `sourcemap` subcommand — do not swap it back.
+#
 # Two-step flow (both required):
 #   1. `sourcemap inject`: embeds release metadata into .map files so PostHog
 #      can correlate minified frames back to source. Skipping this makes the
@@ -29,10 +33,10 @@ if [ ! -d "$CHUNKS_DIR" ]; then
   exit 0
 fi
 
-POSTHOG_CLI_VERSION="0.1.6"
+POSTHOG_CLI_PACKAGE="@posthog/cli@0.7.10"
 
 echo "maybe-upload-sourcemaps: injecting release metadata into $CHUNKS_DIR"
-pnpm dlx "posthog-cli@${POSTHOG_CLI_VERSION}" sourcemap inject \
+pnpm dlx "$POSTHOG_CLI_PACKAGE" --host "$POSTHOG_CLI_HOST" sourcemap inject \
   --directory "$CHUNKS_DIR"
 
 TEMP_DIR=$(mktemp -d)
@@ -53,7 +57,7 @@ while IFS= read -r file; do
 done < <(find "$CHUNKS_DIR" -type f -size -10M \( -name "*.js" -o -name "*.map" \))
 
 echo "maybe-upload-sourcemaps: uploading to PostHog (release=$VERCEL_GIT_COMMIT_SHA)"
-pnpm dlx "posthog-cli@${POSTHOG_CLI_VERSION}" sourcemap upload \
+pnpm dlx "$POSTHOG_CLI_PACKAGE" --host "$POSTHOG_CLI_HOST" sourcemap upload \
   --directory "$FILTERED_DIR" \
   --release-name honkadori \
   --release-version "$VERCEL_GIT_COMMIT_SHA"
