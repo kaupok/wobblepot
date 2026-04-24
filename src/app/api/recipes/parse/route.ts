@@ -18,6 +18,7 @@ import {
   recordAiUsage,
   respondCapExceeded,
 } from '@/lib/ai/usage'
+import { withRequestId } from '@/lib/request-id'
 
 /**
  * HON-502 gate: Estonian recipe parsing is held behind an opt-in env flag
@@ -61,7 +62,7 @@ export function extractUrlAndContext(text: string): { url: string; context: stri
   return { url: urlLine, context }
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const session = await auth.api.getSession({
     headers: await headers(),
   })
@@ -183,3 +184,5 @@ export async function POST(request: Request) {
     )
   }
 }
+
+export const POST = withRequestId(handlePOST)

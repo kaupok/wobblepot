@@ -13,6 +13,7 @@ import { getWeekDates, toDateString, getMondayOfWeek } from '@/lib/meal-planning
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
 import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
+import { withRequestId } from '@/lib/request-id'
 import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
 import type { AlternativeMeal } from '@/components/meal-plan/types'
 import {
@@ -124,7 +125,7 @@ function generateReason(
   return 'Matches your preferences'
 }
 
-export async function POST(
+async function handlePOST(
   request: Request,
   { params }: { params: Promise<{ id: string; entryId: string }> },
 ) {
@@ -353,3 +354,5 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to generate alternatives' }, { status: 500 })
   }
 }
+
+export const POST = withRequestId(handlePOST)

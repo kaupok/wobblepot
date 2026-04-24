@@ -20,6 +20,7 @@ import {
   translateMeal,
 } from '@/lib/i18n/content'
 import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
+import { withRequestId } from '@/lib/request-id'
 import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
 import type { AlternativeMeal } from '@/components/meal-plan/types'
 
@@ -88,7 +89,7 @@ function generateReason(meal: {
  * Generate AI suggestions for an empty slot based on slot context (meal type + day).
  * Similar to /regenerate but designed for adding meals to empty slots.
  */
-export async function POST(
+async function handlePOST(
   request: Request,
   { params }: { params: Promise<{ id: string; entryId: string }> },
 ) {
@@ -297,3 +298,5 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to generate suggestions' }, { status: 500 })
   }
 }
+
+export const POST = withRequestId(handlePOST)

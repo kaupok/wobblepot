@@ -55,6 +55,9 @@ export function DeleteAccountDialog({
       await authClient.signOut({
         fetchOptions: {
           onSuccess: () => {
+            // Fire-and-forget: account is already deleted, so an analytics
+            // chunk-load failure must not block the post-delete redirect.
+            import('posthog-js').then(({ default: posthog }) => posthog.reset()).catch(() => {})
             router.push('/')
             router.refresh()
           },

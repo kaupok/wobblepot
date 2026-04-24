@@ -1,6 +1,6 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConsentProvider, useAnalyticsConsent } from '@/components/ConsentProvider'
 
 function clearAllCookies() {
@@ -24,10 +24,6 @@ function Probe() {
 beforeEach(() => {
   clearAllCookies()
   window.localStorage.clear()
-})
-
-afterEach(() => {
-  delete (window as unknown as { posthog?: unknown }).posthog
 })
 
 describe('ConsentProvider', () => {
@@ -77,11 +73,8 @@ describe('ConsentProvider', () => {
     expect(screen.getByRole('region', { name: /cookie consent/i })).toBeInTheDocument()
   })
 
-  it('grant() writes the cookie, flips state, and opts PostHog in if loaded', async () => {
+  it('grant() writes the cookie and flips state', async () => {
     const user = userEvent.setup()
-    const optIn = vi.fn()
-    ;(window as unknown as { posthog: unknown }).posthog = { opt_in_capturing: optIn }
-
     render(
       <ConsentProvider initialDecision={null}>
         <Probe />
@@ -92,15 +85,10 @@ describe('ConsentProvider', () => {
 
     expect(screen.getByTestId('granted').textContent).toBe('true')
     expect(document.cookie).toContain('consent-v1=all')
-    expect(optIn).toHaveBeenCalledTimes(1)
   })
 
-  it('withdraw() writes the cookie, flips state, opts PostHog out, and clears ph_* cookies', async () => {
+  it('withdraw() writes the cookie and flips state', async () => {
     const user = userEvent.setup()
-    const optOut = vi.fn()
-    ;(window as unknown as { posthog: unknown }).posthog = { opt_out_capturing: optOut }
-    document.cookie = 'ph_seeded=value; Path=/'
-
     render(
       <ConsentProvider initialDecision="all">
         <Probe />
@@ -111,8 +99,6 @@ describe('ConsentProvider', () => {
 
     expect(screen.getByTestId('granted').textContent).toBe('false')
     expect(document.cookie).toContain('consent-v1=essential')
-    expect(document.cookie).not.toContain('ph_seeded=value')
-    expect(optOut).toHaveBeenCalledTimes(1)
   })
 
   it('reconciles with the client cookie on mount if SSR and client disagree', async () => {

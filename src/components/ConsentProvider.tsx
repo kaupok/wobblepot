@@ -10,12 +10,7 @@ import {
   type ReactNode,
 } from 'react'
 import { decisionToGranted, type ConsentDecision } from '@/lib/consent'
-import {
-  notifyPosthogGranted,
-  notifyPosthogWithdrawn,
-  readConsentCookieClient,
-  writeConsentCookieClient,
-} from '@/lib/consent.client'
+import { readConsentCookieClient, writeConsentCookieClient } from '@/lib/consent.client'
 import { CookieBanner } from '@/components/CookieBanner'
 
 export interface AnalyticsConsent {
@@ -51,13 +46,11 @@ export function ConsentProvider({ children, initialDecision }: ConsentProviderPr
   const grant = useCallback(() => {
     writeConsentCookieClient('all')
     setGranted(true)
-    notifyPosthogGranted()
   }, [])
 
   const withdraw = useCallback(() => {
     writeConsentCookieClient('essential')
     setGranted(false)
-    notifyPosthogWithdrawn()
   }, [])
 
   const value = useMemo<AnalyticsConsent>(
