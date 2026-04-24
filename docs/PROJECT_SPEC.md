@@ -1,5 +1,7 @@
 # Honkadori: AI-Powered Family Meal Planning
 
+> **Naming note:** 'Honkadori' is the parent company / legal entity for this product — used for vendor accounts (PostHog org, Neon org, etc.), DPAs, subprocessor listings, and the staging domain `honkadori.xyz`. The user-facing product/service name is separate and not yet finalised. This doc's title reflects the working internal name; final user-facing branding is TBD.
+
 ## Current Status
 
 **Mode:** Launch readiness for public EU beta

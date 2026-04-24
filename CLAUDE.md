@@ -6,7 +6,7 @@ In conversational responses, prioritize brevity. Keep explanations concise and d
 
 A Next.js 16 project with React 19, using TypeScript, Tailwind CSS, and shadcn/ui components.
 
-**Product:** Family Meal Planning App (Honkadori) - AI-powered weekly meal planning for households.
+**Product:** AI-powered family meal planning app for households. 'Honkadori' is the parent company / legal entity (used for vendor accounts, DPAs, subprocessor listings, and the staging domain `honkadori.xyz`) — the user-facing service name is separate and not yet finalised.
 
 **Product Spec:** The full product spec is in [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md). Read it before starting implementation work.
 
@@ -18,6 +18,10 @@ A Next.js 16 project with React 19, using TypeScript, Tailwind CSS, and shadcn/u
 | **[docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md)** | Product vision, decisions, phase goals, domain logic | Before implementation work  |
 
 **Rule:** CLAUDE.md tells you _how_ to code. The project spec tells you _what_ to build and _why_.
+
+## Agent memory
+
+**Do not use the Claude Code auto-memory system** (`~/.claude/projects/*/memory/`) — it's machine-local and creates cross-machine inconsistency. All agent guidance, project facts, behavioural rules, and cross-session context belong in this file (CLAUDE.md), `docs/`, or the relevant `.claude/skills/*/SKILL.md`. If you find yourself wanting to "save this for next session," write it to a portable in-repo file instead.
 
 ## Tech Stack
 
@@ -302,6 +306,8 @@ See [`.storybook/README.md`](./.storybook/README.md) for the play-function patte
 
 **Linear issue reads — always pass `includeRelations: true`.** This rule applies to every `get_issue` call, not just inside skills. `list_issues` never returns relations, and the default `get_issue` response strips `blocks` / `blockedBy` / `relatedTo`. Before discussing, recommending, surfacing, or acting on an issue, re-fetch it with `includeRelations: true` and check the `status`, `assignee`, and `relations.blockedBy` fields. When delegating issue selection to a subagent, include the same requirement in the prompt — subagents default to reading titles and descriptions and miss structured fields unless told.
 
+**Linear issue references — use plain text (`HON-455`), never hand-copied `<issue id="uuid">` tags.** Linear auto-resolves plain text on save. Hand-copying a `<issue id="uuid">` tag from one description into another risks silent mis-linking — the UUID controls where the link goes, not the HON text beside it, so a reference can look correct in plain-text review but click through to the wrong issue.
+
 **Before committing:** Run `pnpm lint && pnpm type-check && pnpm test`
 
 **Pre-commit hook:** Husky + lint-staged runs type-check, ESLint, and Prettier on staged files.
@@ -347,6 +353,18 @@ Specs, plans, and issues are consumed by agents — coding agents (`/auto-implem
 - **Self-check:** "Could an agent complete this from the issue alone, without the conversation that produced it?"
 
 This applies to `/ideate`, `/refine-backlog`, `/plan-issue`, and any content that feeds into the agentic workflow.
+
+## Working style
+
+**Verify from code + Linear before asking the user or asserting non-existence.** Before claiming "X doesn't exist" or asking the user about project setup (env, deploy, infra, existing features):
+
+1. Read the relevant docs — the Reference table below points to `docs/DEPLOYMENT.md`, `docs/GIT_WORKFLOW.md`, `docs/ENVIRONMENT_SETUP.md`, `docs/PARALLEL_WORKFLOW.md`, etc. Those are the authoritative map.
+2. Check all plausible homes for the feature. A CSP header can live in `middleware.ts`, `next.config.ts` `headers()`, an edge-config file, or a custom server — don't generalise from one file.
+3. Grep broadly for the feature name or a distinctive string (`grep -r "Content-Security-Policy"`). One wide grep beats multiple targeted reads.
+4. If an issue references another (even as `relatedTo`), fetch the referenced issue with `includeRelations: true` and check `status` / `completedAt` / `attachments`. A "Done" status with an attached PR means the feature has shipped — don't reason about it as an active dependency.
+5. If genuinely absent after all of the above, lead with "I checked X, Y, Z, grepped for Q, and looked up HON-NNN — no match" so the user can verify the coverage.
+
+The failure mode this prevents: checking one file, finding nothing, and generalising to "the feature doesn't exist" — then taking bad actions like promoting a shipped issue to a blocker.
 
 ## Review Focus
 

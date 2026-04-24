@@ -68,6 +68,17 @@ Show user:
 - Brief list with titles, priority, and current state
 - Ask which to refine first (or offer to go through all)
 
+### Step 4b: Cluster-level triage (when 5+ issues touch the same system)
+
+When the list includes multiple related drafts (e.g. analytics, observability, GDPR launch band, auth), do breadth-first cross-cutting decisions across the cluster **before** diving into any individual issue:
+
+- Present the cluster shape: what's covered, what's missing, dependency graph.
+- Surface cross-cutting open questions (e.g. PII policy, environment separation, `requestId` correlation, alert channel) — decide them once at the cluster level so child issues can reference back instead of re-deciding.
+- Batch options + recommendations + tradeoffs for cross-cutting decisions in one round, then lock them.
+- Only after cluster-level decisions are locked, proceed to per-issue refinement (Step 5 onward).
+
+This is dramatically faster and more coherent than re-deciding cross-cutting concerns inside each issue.
+
 ## Phase 2: Refinement Loop
 
 For each issue:
