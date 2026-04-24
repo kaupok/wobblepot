@@ -26,33 +26,3 @@ export function writeConsentCookieClient(decision: ConsentDecision): void {
     // localStorage can throw in private-browsing / quota-exceeded states; cookie is source of truth.
   }
 }
-
-/**
- * Clears all PostHog cookies (names starting with `ph_`) by expiring them.
- * Best-effort — a cookie whose Path/Domain differs from the default is skipped.
- */
-export function clearAnalyticsCookies(): void {
-  if (typeof document === 'undefined') return
-  for (const part of document.cookie.split('; ')) {
-    const name = part.split('=')[0]
-    if (name && name.startsWith('ph_')) {
-      document.cookie = `${name}=; Path=/; Max-Age=0; SameSite=Lax`
-    }
-  }
-}
-
-interface PosthogLike {
-  opt_in_capturing?: () => void
-  opt_out_capturing?: () => void
-}
-
-export function notifyPosthogGranted(): void {
-  const ph = (window as unknown as { posthog?: PosthogLike }).posthog
-  ph?.opt_in_capturing?.()
-}
-
-export function notifyPosthogWithdrawn(): void {
-  const ph = (window as unknown as { posthog?: PosthogLike }).posthog
-  ph?.opt_out_capturing?.()
-  clearAnalyticsCookies()
-}

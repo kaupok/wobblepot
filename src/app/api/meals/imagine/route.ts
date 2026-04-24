@@ -14,6 +14,7 @@ import {
   respondCapExceeded,
 } from '@/lib/ai/usage'
 import { deriveProteinType } from '@/lib/meal-planning/protein'
+import { withRequestId } from '@/lib/request-id'
 import type { ExtractedIngredient } from '@/lib/ai/parse-recipe'
 
 const imagineRequestSchema = z.object({
@@ -24,7 +25,7 @@ const MAX_IMAGES = 3
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const session = await auth.api.getSession({
     headers: await headers(),
   })
@@ -260,3 +261,5 @@ export async function POST(request: Request) {
     )
   }
 }
+
+export const POST = withRequestId(handlePOST)

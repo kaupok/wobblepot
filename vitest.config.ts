@@ -12,6 +12,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(dirname, './src'),
+      // Shim `import 'server-only'` — Next.js ships it at runtime, but Vite
+      // can't resolve it in the unit test environment. The shim is a no-op
+      // because `server-only` only exists to throw in client bundles.
+      'server-only': path.resolve(dirname, './src/test/server-only-shim.ts'),
     },
   },
 

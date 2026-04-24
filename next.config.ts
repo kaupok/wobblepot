@@ -7,6 +7,11 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
+  // Required for posthog-cli sourcemap inject/upload — without it, Next.js
+  // doesn't emit browser-readable .map files in production and the CLI
+  // walks an empty directory. Tradeoff: source is visible in devtools for
+  // anyone who looks. See docs/ENVIRONMENT_SETUP.md § "PostHog".
+  productionBrowserSourceMaps: true,
   typescript: {
     ignoreBuildErrors: false,
   },

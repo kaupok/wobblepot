@@ -177,6 +177,52 @@ Since the two `UPSTASH_REDIS_REST_*` vars are entered manually, Upstash-side tok
 - Upstash Data Browser shows keys like `ratelimit:household:plan-generation:{id}` after an AI call.
 - Trigger 6 generations within an hour from the same household → the 6th returns 429 with a `Retry-After` header.
 
+## PostHog (analytics, errors, source maps)
+
+PostHog is the consolidated home for product analytics, error tracking, web analytics + CWV, feature flags, and (later) session replay. Installed by HON-474 as the foundation that child issues (HON-452, HON-460, HON-475, HON-476, HON-477, HON-478) build on.
+
+### Project topology
+
+Three PostHog projects match Vercel's three environments:
+
+| Vercel env    | PostHog project        | `NEXT_PUBLIC_POSTHOG_KEY` | `POSTHOG_CLI_PROJECT_ID` |
+| ------------- | ---------------------- | ------------------------- | ------------------------ |
+| Production    | `mealplan-production`  | prod token                | prod numeric id          |
+| Staging       | `mealplan-staging`     | staging token             | staging numeric id       |
+| Preview + Dev | `mealplan-development` | dev token                 | dev numeric id           |
+
+All three projects live in the `Honkadori` PostHog organisation on EU Cloud.
+
+### Env vars
+
+Five variables total — three are per-env (distinct values), two are identical across envs.
+
+| Variable                   | Scope      | Purpose                                                                                           |
+| -------------------------- | ---------- | ------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_POSTHOG_KEY`  | runtime    | Project token for `posthog-js` + `posthog-node`. **Per-Vercel-env.** Unset = PostHog disabled.    |
+| `NEXT_PUBLIC_POSTHOG_HOST` | runtime    | Ingest host — `https://eu.i.posthog.com`. Identical across all envs.                              |
+| `POSTHOG_CLI_HOST`         | build-time | Admin host for `posthog-cli` — `https://eu.posthog.com`. Identical across all envs.               |
+| `POSTHOG_CLI_PROJECT_ID`   | build-time | Numeric project id for sourcemap upload. **Per-Vercel-env.**                                      |
+| `POSTHOG_CLI_API_KEY`      | build-time | Personal API key with `sourcemap:write` scope. Identical across all envs (one key for all three). |
+
+**Admin host ≠ ingest host.** `POSTHOG_CLI_HOST` is `https://eu.posthog.com` (app surface). Event ingestion uses `https://eu.i.posthog.com`. Swapping produces auth errors that read like "invalid project ID".
+
+**Project token ≠ personal API key.** `posthog-node` and `posthog-js` both use the **project token** (`NEXT_PUBLIC_POSTHOG_KEY`). The personal API key (`POSTHOG_CLI_API_KEY`) is for the CLI only. They are different values with different scopes.
+
+### Local dev
+
+In `.env`, set `NEXT_PUBLIC_POSTHOG_KEY` + `NEXT_PUBLIC_POSTHOG_HOST` to the `mealplan-development` project values (or leave both unset to disable PostHog locally — tests and dev still work without it). Leave the `POSTHOG_CLI_*` vars unset; local `pnpm build` skips the sourcemap upload because the postbuild script gates on `VERCEL_GIT_COMMIT_SHA`.
+
+### Vercel
+
+In **Project Settings → Environment Variables**, set the five variables per the scope column above. The `mealplan-development` token covers both **Preview** and **Development** targets in Vercel; `mealplan-staging` targets the custom `staging` environment; `mealplan-production` targets **Production**.
+
+### Verify after provisioning
+
+- Fresh incognito → accept cookie consent → `$pageview` appears in the matching PostHog project, tagged with an authenticated `user_id`.
+- Decline cookie consent → no `ph_*` cookies, no PostHog network requests.
+- After a Vercel preview build, the CLI sourcemap upload step output reports a non-zero `.map` count (visible in the Vercel build log under `postbuild`).
+
 ## Neon Database Branching (optional)
 
 When `NEON_API_KEY` and `NEON_PROJECT_ID` are set, `wt new` / `wt auto` provision a per-worktree [Neon branch](https://neon.com/guides/git-worktrees-neon-branching) — an isolated copy-on-write copy of the database forked from a parent branch (default `staging`). Each worktree gets its own `DATABASE_URL`, so `pnpm db:migrate` in one worktree does not clobber the schema in another. `wt cleanup` removes the paired Neon branch automatically.

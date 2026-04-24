@@ -21,6 +21,7 @@ import {
   recordAiUsage,
   respondCapExceeded,
 } from '@/lib/ai/usage'
+import { withRequestId } from '@/lib/request-id'
 import type { StructuredTips } from '@/components/meal-plan/types'
 
 function getErrorStatusCode(err: unknown): number | undefined {
@@ -32,7 +33,7 @@ function getErrorStatusCode(err: unknown): number | undefined {
   return undefined
 }
 
-export async function POST(
+async function handlePOST(
   request: Request,
   { params }: { params: Promise<{ id: string; entryId: string }> },
 ) {
@@ -232,3 +233,5 @@ export async function POST(
     return NextResponse.json({ error: "Couldn't generate tips. Try again." }, { status: 500 })
   }
 }
+
+export const POST = withRequestId(handlePOST)

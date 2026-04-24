@@ -24,6 +24,22 @@ export const clientEnvSchema = z.object({
   NEXT_PUBLIC_APP_ENV: z
     .enum(['dev', 'preview', 'staging', 'production', 'ci', 'test'])
     .describe('Application environment (dev, preview, staging, production, ci, or test)'),
+
+  NEXT_PUBLIC_POSTHOG_KEY: z
+    .string()
+    .min(1, 'NEXT_PUBLIC_POSTHOG_KEY must not be empty when set')
+    .optional()
+    .describe(
+      'PostHog project token (client + server capture). Per-Vercel-env scoping: 3 distinct values (mealplan-production / mealplan-staging / mealplan-development). Unset = PostHog disabled.',
+    ),
+
+  NEXT_PUBLIC_POSTHOG_HOST: z
+    .string()
+    .url('NEXT_PUBLIC_POSTHOG_HOST must be a valid URL')
+    .optional()
+    .describe(
+      'PostHog ingest host (e.g. https://eu.i.posthog.com). Identical across all environments. Distinct from POSTHOG_CLI_HOST (admin host).',
+    ),
 })
 
 /**
@@ -99,6 +115,30 @@ const serverOnlyEnvSchema = z.object({
     .describe(
       'Gate for the Estonian recipe-parser surface. When unset or "0"/"false", Estonian-household recipe parsing falls back to English to avoid creating duplicate household-scoped ingredient rows before HON-506 seeds Estonian translation data. Flip to "1" once HON-506 ships. See src/app/api/recipes/parse/route.ts.',
     ),
+
+  POSTHOG_CLI_HOST: z
+    .string()
+    .url('POSTHOG_CLI_HOST must be a valid URL')
+    .optional()
+    .describe(
+      'PostHog admin host for posthog-cli (e.g. https://eu.posthog.com). Identical across all environments. Distinct from the ingest host — swapping them produces misleading "invalid project ID" errors. Build-time only.',
+    ),
+
+  POSTHOG_CLI_PROJECT_ID: z
+    .string()
+    .regex(/^\d+$/, 'POSTHOG_CLI_PROJECT_ID must be a numeric project ID')
+    .optional()
+    .describe(
+      'Numeric PostHog project ID for posthog-cli sourcemap upload. Per-Vercel-env scoping: 3 distinct values, one per PostHog project. Build-time only.',
+    ),
+
+  POSTHOG_CLI_API_KEY: z
+    .string()
+    .min(1, 'POSTHOG_CLI_API_KEY must not be empty when set')
+    .optional()
+    .describe(
+      'PostHog personal API key with sourcemap:write scope for posthog-cli. Identical across all environments (one key works for all three projects). Build-time only. Distinct from NEXT_PUBLIC_POSTHOG_KEY (project token used for event capture).',
+    ),
 })
 
 /**
@@ -131,6 +171,8 @@ export const clientEnv = (() => {
     NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_APP_ENV: process.env.NEXT_PUBLIC_APP_ENV,
+    NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
+    NEXT_PUBLIC_POSTHOG_HOST: process.env.NEXT_PUBLIC_POSTHOG_HOST,
   }
 
   const parsed = clientEnvSchema.safeParse(envVars)
@@ -191,6 +233,9 @@ export const serverEnv = new Proxy(
     STATUS_INCIDENT_MESSAGE: process.env.STATUS_INCIDENT_MESSAGE,
     E2E_DISABLE_RATE_LIMIT: process.env.E2E_DISABLE_RATE_LIMIT,
     FEATURE_RECIPE_PARSER_ET: process.env.FEATURE_RECIPE_PARSER_ET,
+    POSTHOG_CLI_HOST: process.env.POSTHOG_CLI_HOST,
+    POSTHOG_CLI_PROJECT_ID: process.env.POSTHOG_CLI_PROJECT_ID,
+    POSTHOG_CLI_API_KEY: process.env.POSTHOG_CLI_API_KEY,
   } as z.infer<typeof serverEnvSchema>,
   {
     get(target, prop) {

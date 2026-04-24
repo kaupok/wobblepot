@@ -39,7 +39,11 @@ export function HeaderActions({ session, hasHousehold }: HeaderActionsProps) {
     try {
       await authClient.signOut({
         fetchOptions: {
-          onSuccess: () => {
+          onSuccess: async () => {
+            // Dynamic import so posthog-js stays out of the main bundle —
+            // the SDK is already cached in-browser if PostHogProvider loaded it.
+            const { default: posthog } = await import('posthog-js')
+            posthog.reset()
             router.push('/')
             router.refresh()
           },

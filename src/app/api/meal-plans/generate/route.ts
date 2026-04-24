@@ -17,6 +17,7 @@ import {
   recordAiUsage,
   respondCapExceeded,
 } from '@/lib/ai/usage'
+import { withRequestId } from '@/lib/request-id'
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
 
@@ -30,7 +31,7 @@ const generateRequestSchema = z.object({
 /** Maximum number of days allowed in a single generation request. */
 const MAX_DAYS = 14
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   // Auth check
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -231,3 +232,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to generate meal plan' }, { status: 500 })
   }
 }
+
+export const POST = withRequestId(handlePOST)

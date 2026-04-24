@@ -54,7 +54,9 @@ export function DeleteAccountDialog({
       // Sign out and redirect
       await authClient.signOut({
         fetchOptions: {
-          onSuccess: () => {
+          onSuccess: async () => {
+            const { default: posthog } = await import('posthog-js')
+            posthog.reset()
             router.push('/')
             router.refresh()
           },

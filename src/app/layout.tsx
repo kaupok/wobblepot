@@ -10,7 +10,7 @@ import { Header } from '@/components/header'
 import { BottomTabBar } from '@/components/bottom-tab-bar'
 import { Footer } from '@/components/footer'
 import { ConsentProvider } from '@/components/ConsentProvider'
-import { getSession, getHasHousehold } from '@/lib/session'
+import { getSession, getHasHousehold, getHouseholdIdForUser } from '@/lib/session'
 import { readConsentCookieServer } from '@/lib/consent.server'
 import { getLocale } from '@/lib/i18n/get-locale'
 import Providers from '@/app/providers'
@@ -80,6 +80,7 @@ export default async function RootLayout({
 
   const session = await getSession()
   const hasHousehold = session ? await getHasHousehold(session.user.id) : false
+  const householdId = session ? await getHouseholdIdForUser(session.user.id) : null
   const consentDecision = await readConsentCookieServer()
   const locale = await getLocale()
   const messages = await getMessages()
@@ -93,7 +94,11 @@ export default async function RootLayout({
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem nonce={nonce}>
             <ConsentProvider initialDecision={consentDecision}>
-              <Providers isAuthenticated={Boolean(session)}>
+              <Providers
+                isAuthenticated={Boolean(session)}
+                userId={session?.user.id}
+                householdId={householdId}
+              >
                 <Toaster richColors closeButton duration={4000} />
                 <Header />
                 <main
