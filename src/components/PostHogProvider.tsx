@@ -35,15 +35,15 @@ export function PostHogProvider({ children, userId, householdId }: PostHogProvid
   const { granted } = useAnalyticsConsent()
   const [client, setClient] = useState<PostHog | null>(null)
 
-  // Lazy-load posthog-js after idle so analytics wiring does not block LCP.
-  // `opt_out_capturing_by_default` is derived from the current consent state
-  // so the SDK is in the correct capture mode before child effects run:
-  // React runs child effects before parent effects, so the
-  // SuspendedPostHogPageView pageview effect would otherwise fire $pageview
-  // on the transition render while the parent opt-in effect had not yet run,
-  // and the first pageview would be dropped by the opt-out guard.
+  // Lazy-load and initialise posthog-js only after consent is granted.
+  // `opt_out_capturing_by_default` is a post-init event gate — it does not
+  // prevent `posthog.init()` from fetching config.js, surveys.js, and
+  // web-vitals.js from eu-assets.i.posthog.com at init time. Those fetches
+  // are tracking-without-consent under EDPB/AKI guidance, so the only
+  // compliant position is to skip init entirely until the user opts in.
   useEffect(() => {
     if (!clientEnv.NEXT_PUBLIC_POSTHOG_KEY || !clientEnv.NEXT_PUBLIC_POSTHOG_HOST) return
+    if (granted !== true) return
     if (client) return
 
     let cancelled = false
@@ -53,7 +53,6 @@ export function PostHogProvider({ children, userId, householdId }: PostHogProvid
       posthog.init(clientEnv.NEXT_PUBLIC_POSTHOG_KEY as string, {
         api_host: clientEnv.NEXT_PUBLIC_POSTHOG_HOST as string,
         person_profiles: 'identified_only',
-        opt_out_capturing_by_default: granted !== true,
         capture_pageview: false,
         disable_session_recording: true,
         defaults: '2026-01-30',
