@@ -58,5 +58,8 @@ next-env.d.ts
 # Claude Code local settings (may contain secrets)
 .claude/settings.local.json
 
+# Claude Code runtime lockfile for scheduled tasks / loops
+.claude/scheduled_tasks.lock
+
 *storybook.log
 storybook-static
