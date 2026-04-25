@@ -13,6 +13,7 @@ import {
   getDaysCountOptions,
   computeEndDate,
 } from '@/lib/meal-planning/day-picker'
+import { track } from '@/lib/analytics'
 
 const CLIENT_TIMEOUT_MS = 45000
 
@@ -60,6 +61,12 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
           setError(data.message || 'Failed to generate meals. Please try again.')
         }
         return
+      }
+
+      // Generate route returns `{ id: <planId>, ... }` (see GeneratePlanResult).
+      const data = (await response.json().catch(() => ({}))) as { id?: string }
+      if (data.id) {
+        void track('meal_plan:plan_generated', { plan_id: data.id })
       }
 
       router.refresh()

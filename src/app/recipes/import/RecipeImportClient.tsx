@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Heading, Body } from '@/components/ui/typography'
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
 import type { PrefilledIngredient } from '@/components/household/MealForm'
+import { track } from '@/lib/analytics'
 
 // Types for the parsed recipe response from the API
 interface IngredientAlternative {
@@ -262,6 +263,10 @@ export function RecipeImportClient() {
         setError(data.error || 'Failed to parse recipe')
         return
       }
+
+      // Successful parse — track regardless of confidence tier (the user
+      // landed a recipe; the medium-confidence path still lets them continue).
+      void track('recipe:imported', { source: 'import_page' })
 
       // Handle medium confidence — show warning with options
       if (data.confidenceTier === 'medium') {

@@ -23,6 +23,7 @@ import { MealCardBase } from './MealCardBase'
 import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import { apiFetch } from '@/lib/api'
 import { convertToPrefilledData, type ImaginedMealResponse } from '@/lib/imagine-utils'
+import { track } from '@/lib/analytics'
 import { toast } from 'sonner'
 import type { AlternativeMeal, MealComponent, NutritionData, PantryIngredient } from './types'
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
@@ -39,6 +40,8 @@ interface MealSelectorModalProps {
   mealType: MealType
   householdSize: number
   currentMealName?: string
+  /** Current meal id when `mode === 'swap'`. Used as `from_meal_id` on `meal_plan:meal_swapped`. */
+  currentMealId?: string
   onSwapComplete: () => void
   /** 'swap' = replacing existing meal (suggestions based on current meal), 'add' = empty slot (suggestions based on slot context) */
   mode: 'swap' | 'add'
@@ -95,6 +98,7 @@ export function MealSelectorModal({
   mealType,
   householdSize,
   currentMealName,
+  currentMealId,
   onSwapComplete,
   mode,
   pantryIngredients,
@@ -307,6 +311,17 @@ export function MealSelectorModal({
         body: JSON.stringify({ mealId }),
       })
 
+      // Only fire the swap event when actually replacing an existing meal —
+      // the 'add' mode is filling an empty slot, not a swap.
+      if (mode === 'swap' && currentMealId) {
+        void track('meal_plan:meal_swapped', {
+          plan_id: planId,
+          from_meal_id: currentMealId,
+          to_meal_id: mealId,
+          source: 'meal_selector',
+        })
+      }
+
       onSwapComplete()
       handleOpenChange(false)
     } catch (err) {
@@ -504,6 +519,8 @@ export function MealSelectorModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mealId }),
       })
+
+      void track('meal:imagined', { meal_id: mealId, source: 'meal_selector' })
 
       setIsImagineMode(false)
       onSwapComplete()
