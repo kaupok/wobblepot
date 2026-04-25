@@ -124,4 +124,14 @@ describe('sanitizeEventProperties', () => {
     })
     expect(out).toEqual({ notes: 42, description: null, route: '/api' })
   })
+
+  // Regression-guard for HON-528: the `token` strip is intentional. posthog-js
+  // stamps the project api key at properties.token, but the PostHogProvider
+  // before_send re-adds it after sanitization (see PostHogProvider.tsx). If
+  // this redactor is ever loosened to pass `token` through, captureException
+  // payloads carrying user-supplied OAuth tokens would leak.
+  it('strips a top-level `token` key', () => {
+    const out = sanitizeEventProperties({ token: 'phc_xxx', other: 'x' })
+    expect(out).toEqual({ other: 'x' })
+  })
 })
