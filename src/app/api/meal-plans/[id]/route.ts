@@ -11,6 +11,7 @@ import {
   translateIngredient,
   translateMeal,
 } from '@/lib/i18n/content'
+import { captureApiError } from '@/lib/errors'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   // Auth check
@@ -116,7 +117,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     return NextResponse.json(response, { status: 200 })
   } catch (error) {
-    console.error('Failed to fetch meal plan:', error)
+    captureApiError(error, { route: '/api/meal-plans/[id]' })
     return NextResponse.json({ error: 'Failed to fetch meal plan' }, { status: 500 })
   }
 }

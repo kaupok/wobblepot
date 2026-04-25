@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
+import { captureApiError } from '@/lib/errors'
 
 const updateMemberSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -104,7 +105,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         : null,
     })
   } catch (error) {
-    console.error('Failed to fetch member:', error)
+    captureApiError(error, { route: '/api/households/me/members/[id]' })
     return NextResponse.json({ error: 'Failed to fetch member' }, { status: 500 })
   }
 }

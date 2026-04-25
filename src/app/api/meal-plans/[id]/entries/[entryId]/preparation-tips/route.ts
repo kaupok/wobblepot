@@ -22,6 +22,7 @@ import {
   respondCapExceeded,
 } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
+import { captureApiError } from '@/lib/errors'
 import type { StructuredTips } from '@/components/meal-plan/types'
 
 function getErrorStatusCode(err: unknown): number | undefined {
@@ -207,7 +208,10 @@ async function handlePOST(
 
     return NextResponse.json({ tips }, { status: 200 })
   } catch (error) {
-    console.error('Failed to generate preparation tips:', error)
+    captureApiError(error, {
+      route: '/api/meal-plans/[id]/entries/[entryId]/preparation-tips',
+      feature: 'preparation_tips',
+    })
 
     // Classify error for appropriate HTTP status
     const statusCode = getErrorStatusCode(error)

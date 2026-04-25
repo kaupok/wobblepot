@@ -6,6 +6,7 @@ import { PostHogProvider as PHProvider, usePostHog } from '@posthog/react'
 import type { PostHog } from 'posthog-js'
 import { clientEnv } from '@/lib/env'
 import { useAnalyticsConsent } from '@/components/ConsentProvider'
+import { sanitizeEventProperties } from '@/lib/redact'
 
 interface PostHogProviderProps {
   children: ReactNode
@@ -56,6 +57,13 @@ export function PostHogProvider({ children, userId, householdId }: PostHogProvid
         capture_pageview: false,
         disable_session_recording: true,
         defaults: '2026-01-30',
+        before_send: (cr) => {
+          if (!cr) return cr
+          return {
+            ...cr,
+            properties: sanitizeEventProperties(cr.properties) ?? cr.properties,
+          }
+        },
       })
       setClient(posthog)
     })

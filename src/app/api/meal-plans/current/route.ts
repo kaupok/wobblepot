@@ -5,6 +5,7 @@ import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { parseStoredTips } from '@/lib/tips'
+import { captureApiError } from '@/lib/errors'
 import {
   toDateString,
   getCurrentWeekMonday,
@@ -209,7 +210,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response, { status: 200 })
   } catch (error) {
-    console.error('Failed to fetch current meal plan:', error)
+    captureApiError(error, { route: '/api/meal-plans/current' })
     return NextResponse.json({ error: 'Failed to fetch current meal plan' }, { status: 500 })
   }
 }

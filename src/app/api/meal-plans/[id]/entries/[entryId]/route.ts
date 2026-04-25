@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { MealPlanEntryStatus, EntryRating } from '@/generated/prisma/enums'
+import { captureApiError } from '@/lib/errors'
 
 const updateEntrySchema = z.object({
   status: z.enum(['planned', 'completed', 'skipped']).optional(),
@@ -66,7 +67,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Failed to delete entry:', error)
+    captureApiError(error, { route: '/api/meal-plans/[id]/entries/[entryId]' })
     return NextResponse.json({ error: 'Failed to delete entry' }, { status: 500 })
   }
 }
@@ -303,7 +304,7 @@ export async function PATCH(
       rating: updatedEntry.rating,
     })
   } catch (error) {
-    console.error('Failed to update entry status:', error)
+    captureApiError(error, { route: '/api/meal-plans/[id]/entries/[entryId]' })
     return NextResponse.json({ error: 'Failed to update entry status' }, { status: 500 })
   }
 }

@@ -7,6 +7,7 @@ import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { toDateString, parseLocalDate } from '@/lib/meal-planning/dates'
 import { parseStoredTips } from '@/lib/tips'
 import type { MealPlanEntryStatus } from '@/generated/prisma/enums'
+import { captureApiError } from '@/lib/errors'
 
 /**
  * GET /api/entries?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD&status=planned
@@ -134,7 +135,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ entries: formattedEntries, planId: plan.id }, { status: 200 })
   } catch (error) {
-    console.error('Failed to fetch entries:', error)
+    captureApiError(error, { route: '/api/entries', householdId: household.id })
     return NextResponse.json({ error: 'Failed to fetch entries' }, { status: 500 })
   }
 }

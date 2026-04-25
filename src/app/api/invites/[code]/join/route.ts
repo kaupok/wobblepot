@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { captureApiError } from '@/lib/errors'
 
 export async function POST(_request: Request, { params }: { params: Promise<{ code: string }> }) {
   const session = await auth.api.getSession({
@@ -105,7 +106,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
       },
     })
   } catch (error) {
-    console.error('Failed to join household via invite:', error)
+    captureApiError(error, { route: '/api/invites/[code]/join' })
     return NextResponse.json({ error: 'Failed to join household' }, { status: 500 })
   }
 }

@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { isUserSoleOwnerWithOtherMembers } from '@/lib/household'
+import { captureApiError } from '@/lib/errors'
 
 /**
  * DELETE /api/auth/user
@@ -90,7 +91,7 @@ export async function DELETE() {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Failed to delete user account:', error)
+    captureApiError(error, { route: '/api/auth/user' })
     return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 })
   }
 }

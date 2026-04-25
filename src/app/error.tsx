@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button'
 import { Heading, Body, Pre } from '@/components/ui/typography'
 import { useEffect } from 'react'
+import { captureClientError } from '@/lib/errors-client'
 
 export default function Error({
   error,
@@ -12,9 +13,7 @@ export default function Error({
   reset: () => void
 }) {
   useEffect(() => {
-    // Log error to error reporting service (e.g., Sentry, LogRocket)
-    // eslint-disable-next-line no-console
-    console.error('Route error:', error)
+    void captureClientError(error, { digest: error.digest, $exception_source: 'app.error' })
   }, [error])
 
   return (

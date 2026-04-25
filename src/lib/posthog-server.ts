@@ -1,6 +1,7 @@
 import 'server-only'
 import { PostHog } from 'posthog-node'
 import { serverEnv } from '@/lib/env'
+import { sanitizeEventProperties } from '@/lib/redact'
 
 const globalForPosthog = globalThis as unknown as {
   posthog: PostHog | undefined
@@ -16,6 +17,10 @@ export function getPosthogServer(): PostHog | null {
       host: serverEnv.NEXT_PUBLIC_POSTHOG_HOST,
       flushAt: 1,
       flushInterval: 0,
+      before_send: (event) => {
+        if (!event) return event
+        return { ...event, properties: sanitizeEventProperties(event.properties) }
+      },
     })
   }
 

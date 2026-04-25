@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
+import { captureApiError } from '@/lib/errors'
 
 const updatePreferencesSchema = z.object({
   dietaryType: z.enum(['vegetarian', 'vegan', 'pescatarian']).nullable().optional(),
@@ -43,7 +44,7 @@ export async function GET() {
 
     return NextResponse.json(membership.household.preferences)
   } catch (error) {
-    console.error('Failed to fetch household preferences:', error)
+    captureApiError(error, { route: '/api/households/me/preferences' })
     return NextResponse.json({ error: 'Failed to fetch household preferences' }, { status: 500 })
   }
 }

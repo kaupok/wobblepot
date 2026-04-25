@@ -13,6 +13,7 @@ import {
   recordAiUsage,
   respondCapExceeded,
 } from '@/lib/ai/usage'
+import { captureApiError } from '@/lib/errors'
 import { deriveProteinType } from '@/lib/meal-planning/protein'
 import { withRequestId } from '@/lib/request-id'
 import type { ExtractedIngredient } from '@/lib/ai/parse-recipe'
@@ -254,7 +255,11 @@ async function handlePOST(request: Request) {
 
     return NextResponse.json({ success: true, meals })
   } catch (error) {
-    console.error('Failed to imagine meals:', error)
+    captureApiError(error, {
+      route: '/api/meals/imagine',
+      feature: 'meal_imagine',
+      householdId: household.id,
+    })
     return NextResponse.json(
       { error: 'Failed to generate meal ideas. Please try again.' },
       { status: 500 },

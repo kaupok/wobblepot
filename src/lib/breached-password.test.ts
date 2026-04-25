@@ -8,12 +8,10 @@ const SUFFIX = '1E4C9B93F3F0682250B6CF8331B7EE68FD8'
 
 describe('isPasswordBreached', () => {
   const fetchMock = vi.fn()
-  const warnMock = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
   beforeEach(() => {
     vi.stubGlobal('fetch', fetchMock)
     fetchMock.mockReset()
-    warnMock.mockClear()
   })
 
   afterEach(() => {
@@ -72,25 +70,20 @@ describe('isPasswordBreached', () => {
     expect(result).toBe(true)
   })
 
-  it('fail-open: returns false on non-OK response and logs warning', async () => {
+  it('fail-open: returns false on non-OK response', async () => {
     fetchMock.mockResolvedValue(new Response('upstream issue', { status: 503 }))
 
     const result = await isPasswordBreached(PASSWORD)
 
     expect(result).toBe(false)
-    expect(warnMock).toHaveBeenCalledWith(expect.stringContaining('HIBP returned 503'))
   })
 
-  it('fail-open: returns false when fetch throws and logs warning', async () => {
+  it('fail-open: returns false when fetch throws', async () => {
     fetchMock.mockRejectedValue(new Error('ECONNRESET'))
 
     const result = await isPasswordBreached(PASSWORD)
 
     expect(result).toBe(false)
-    expect(warnMock).toHaveBeenCalledWith(
-      expect.stringContaining('HIBP check failed'),
-      expect.any(Error),
-    )
   })
 
   it('fail-open: returns false on AbortError (timeout)', async () => {
@@ -108,6 +101,5 @@ describe('isPasswordBreached', () => {
     const result = await isPasswordBreached(PASSWORD)
 
     expect(result).toBe(false)
-    expect(warnMock).toHaveBeenCalled()
   })
 })

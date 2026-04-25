@@ -14,6 +14,7 @@ import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
 import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
+import { captureApiError } from '@/lib/errors'
 import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
 import type { AlternativeMeal } from '@/components/meal-plan/types'
 import {
@@ -350,7 +351,10 @@ async function handlePOST(
 
     return NextResponse.json({ alternatives }, { status: 200 })
   } catch (error) {
-    console.error('Failed to generate alternatives:', error)
+    captureApiError(error, {
+      route: '/api/meal-plans/[id]/entries/[entryId]/regenerate',
+      feature: 'meal_regenerate',
+    })
     return NextResponse.json({ error: 'Failed to generate alternatives' }, { status: 500 })
   }
 }

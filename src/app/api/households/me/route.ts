@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { KNOWN_LOCALES } from '@/lib/i18n/locales'
+import { captureApiError } from '@/lib/errors'
 
 const updateHouseholdSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -43,7 +44,7 @@ export async function GET() {
       preferences: household.preferences,
     })
   } catch (error) {
-    console.error('Failed to fetch household:', error)
+    captureApiError(error, { route: '/api/households/me' })
     return NextResponse.json({ error: 'Failed to fetch household' }, { status: 500 })
   }
 }

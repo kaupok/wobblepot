@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
+import { captureApiError } from '@/lib/errors'
 
 export async function DELETE(
   _request: Request,
@@ -45,7 +46,7 @@ export async function DELETE(
 
     return new NextResponse(null, { status: 204 })
   } catch (error) {
-    console.error('Failed to delete pantry item:', error)
+    captureApiError(error, { route: '/api/pantry/by-ingredient/[ingredientId]' })
     return NextResponse.json({ error: 'Failed to delete pantry item' }, { status: 500 })
   }
 }

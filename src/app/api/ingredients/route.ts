@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
+import { captureApiError } from '@/lib/errors'
 
 const DEFAULT_LIMIT = 10
 const MAX_LIMIT = 50
@@ -73,7 +74,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ ingredients })
   } catch (error) {
-    console.error('Failed to search ingredients:', error)
+    captureApiError(error, { route: '/api/ingredients' })
     return NextResponse.json({ error: 'Failed to search ingredients' }, { status: 500 })
   }
 }
