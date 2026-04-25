@@ -134,6 +134,30 @@ describe('getUserFriendlyError', () => {
     })
   })
 
+  describe('invite-code errors', () => {
+    it('maps the missing-code message to the private-beta copy', () => {
+      // Matches the exact APIError message thrown by validateAndClaimInviteCode.
+      expect(getUserFriendlyError('An invite code is required.')).toBe(
+        'An invite code is required to sign up while we are in private beta.',
+      )
+    })
+
+    it('maps the invalid/expired/used-code message to the bad-code copy', () => {
+      expect(getUserFriendlyError('This invite code is invalid, expired, or already used.')).toBe(
+        'That invite code is invalid, expired, or has already been used.',
+      )
+    })
+
+    it('takes precedence over the generic Forbidden mapping', () => {
+      // Better Auth wraps the throw in a FORBIDDEN response; without the
+      // ordering in auth-errors.ts the keyword "forbidden" upstream of the
+      // user message could swallow these into the CSRF copy.
+      expect(getUserFriendlyError('forbidden: An invite code is required.')).toBe(
+        'An invite code is required to sign up while we are in private beta.',
+      )
+    })
+  })
+
   describe('security errors', () => {
     it('handles CSRF error', () => {
       expect(getUserFriendlyError('CSRF token invalid')).toBe(
