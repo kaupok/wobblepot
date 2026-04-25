@@ -71,10 +71,17 @@ export function PostHogProvider({
         defaults: '2026-01-30',
         before_send: (cr) => {
           if (!cr) return cr
-          return {
-            ...cr,
-            properties: sanitizeEventProperties(cr.properties) ?? cr.properties,
+          const sanitized = sanitizeEventProperties(cr.properties) ?? cr.properties
+          // posthog-js stamps the project token at properties.token; the PII
+          // sanitizer strips it as a sensitive key, which makes /e/ and /i/v0/e/
+          // reject every event as "submitted without an api_key". Restore the
+          // SDK-set token after sanitization. The token is the public
+          // NEXT_PUBLIC_ project key, not a user secret — already in the
+          // browser bundle.
+          if (cr.properties && 'token' in cr.properties) {
+            sanitized.token = cr.properties.token
           }
+          return { ...cr, properties: sanitized }
         },
         // Conditional spread keeps the option absent (rather than `undefined`)
         // so PostHog's default behaviour applies when no bootstrap is provided.

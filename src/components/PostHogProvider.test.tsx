@@ -280,6 +280,96 @@ describe('PostHogProvider', () => {
     expect(posthogMock.init.mock.calls[0]?.[1]).not.toHaveProperty('bootstrap')
   })
 
+  // HON-528: posthog-js stamps the project token at properties.token; the
+  // PII redactor strips it as a sensitive key, so before_send MUST re-add it
+  // — otherwise every client event 401s with "submitted without an api_key".
+  describe('before_send (HON-528 regression-guard)', () => {
+    type CaptureResult = {
+      uuid: string
+      event: string
+      properties: Record<string, unknown>
+    }
+
+    async function captureBeforeSend(): Promise<(cr: CaptureResult | null) => unknown> {
+      const consent = makeConsent(true)
+      render(
+        wrap(
+          consent,
+          <PostHogProvider userId="user-1">
+            <p>child</p>
+          </PostHogProvider>,
+        ),
+      )
+      await waitFor(() => expect(posthogMock.init).toHaveBeenCalledTimes(1))
+      const initOptions = posthogMock.init.mock.calls[0]?.[1] as
+        | { before_send?: (cr: CaptureResult | null) => unknown }
+        | undefined
+      const fn = initOptions?.before_send
+      expect(fn).toBeTypeOf('function')
+      return fn as (cr: CaptureResult | null) => unknown
+    }
+
+    it('preserves properties.token for $pageview', async () => {
+      const before_send = await captureBeforeSend()
+      const cr: CaptureResult = {
+        uuid: 'evt-1',
+        event: '$pageview',
+        properties: {
+          distinct_id: 'user-1',
+          token: 'phc_test_token_value',
+          $config_defaults: '2026-01-30',
+          $current_url: 'https://example.com/',
+        },
+      }
+      const out = before_send(cr) as CaptureResult
+      expect(out.properties.token).toBe('phc_test_token_value')
+      // Untouched SDK-internal and id keys still present.
+      expect(out.properties.$current_url).toBe('https://example.com/')
+      expect(out.properties.distinct_id).toBe('user-1')
+    })
+
+    it('preserves properties.token for a generic custom event and keeps safe keys', async () => {
+      const before_send = await captureBeforeSend()
+      const cr: CaptureResult = {
+        uuid: 'evt-2',
+        event: 'meal_plan_generated',
+        properties: {
+          distinct_id: 'user-1',
+          token: 'phc_test_token_value',
+          household_id: 'hh_1',
+          plan_id: 'p_42',
+        },
+      }
+      const out = before_send(cr) as CaptureResult
+      expect(out.properties.token).toBe('phc_test_token_value')
+      expect(out.properties.household_id).toBe('hh_1')
+      expect(out.properties.plan_id).toBe('p_42')
+    })
+
+    it('still strips other sensitive keys (PII redaction unchanged)', async () => {
+      const before_send = await captureBeforeSend()
+      const cr: CaptureResult = {
+        uuid: 'evt-3',
+        event: 'meal_plan_generated',
+        properties: {
+          distinct_id: 'user-1',
+          token: 'phc_test_token_value',
+          email: 'leak@example.com',
+          household_id: 'hh_1',
+        },
+      }
+      const out = before_send(cr) as CaptureResult
+      expect(out.properties.token).toBe('phc_test_token_value')
+      expect(out.properties.email).toBeUndefined()
+      expect(out.properties.household_id).toBe('hh_1')
+    })
+
+    it('returns the input unchanged when given a falsy CaptureResult', async () => {
+      const before_send = await captureBeforeSend()
+      expect(before_send(null)).toBeNull()
+    })
+  })
+
   it('skips the lazy load entirely when NEXT_PUBLIC_POSTHOG_KEY is unset', async () => {
     envMock.NEXT_PUBLIC_POSTHOG_KEY = undefined
     envMock.NEXT_PUBLIC_POSTHOG_HOST = undefined
