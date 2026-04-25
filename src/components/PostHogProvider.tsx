@@ -7,11 +7,18 @@ import type { PostHog } from 'posthog-js'
 import { clientEnv } from '@/lib/env'
 import { useAnalyticsConsent } from '@/components/ConsentProvider'
 import { sanitizeEventProperties } from '@/lib/redact'
+import type { BootstrapData } from '@/lib/feature-flags'
 
 interface PostHogProviderProps {
   children: ReactNode
   userId?: string
   householdId?: string | null
+  /**
+   * Server-evaluated feature-flag bootstrap. When present, PostHog returns the
+   * bootstrapped values synchronously for `isFeatureEnabled` calls before any
+   * `/decide` round-trip — eliminating the flash-of-wrong-variant on hydration.
+   */
+  bootstrap?: BootstrapData
 }
 
 type IdleSchedule = (cb: () => void) => number
@@ -32,7 +39,12 @@ function scheduleIdle(cb: () => void): { cancel: () => void } {
   return { cancel: () => window.clearTimeout(handle) }
 }
 
-export function PostHogProvider({ children, userId, householdId }: PostHogProviderProps) {
+export function PostHogProvider({
+  children,
+  userId,
+  householdId,
+  bootstrap,
+}: PostHogProviderProps) {
   const { granted } = useAnalyticsConsent()
   const [client, setClient] = useState<PostHog | null>(null)
 
@@ -64,6 +76,9 @@ export function PostHogProvider({ children, userId, householdId }: PostHogProvid
             properties: sanitizeEventProperties(cr.properties) ?? cr.properties,
           }
         },
+        // Conditional spread keeps the option absent (rather than `undefined`)
+        // so PostHog's default behaviour applies when no bootstrap is provided.
+        ...(bootstrap ? { bootstrap } : {}),
       })
       setClient(posthog)
     })
@@ -72,7 +87,7 @@ export function PostHogProvider({ children, userId, householdId }: PostHogProvid
       cancelled = true
       schedule.cancel()
     }
-  }, [client, granted])
+  }, [client, granted, bootstrap])
 
   // Mirror consent state to PostHog's opt-in/out. posthog-js clears its own
   // ph_* cookies when opt_out_capturing() runs, so we don't need a manual

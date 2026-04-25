@@ -19,6 +19,7 @@ import {
   respondCapExceeded,
 } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
+import { getServerFlag } from '@/lib/feature-flags'
 import { captureApiError } from '@/lib/errors'
 
 /**
@@ -91,6 +92,22 @@ async function handlePOST(request: Request) {
         status: 429,
         headers: { 'Retry-After': String(retryAfterSeconds(rateLimitResult)) },
       },
+    )
+  }
+
+  // Kill-switch: short-circuit recipe import (the highest-risk external-input
+  // surface — SSRF, parser crashes, non-recipe content) before the AI call.
+  // Fail-open default (`true`) keeps the route working through PostHog
+  // outages — see docs/FEATURE_FLAGS.md.
+  const recipeImportEnabled = await getServerFlag('recipe_import_enabled', session.user.id)
+  if (!recipeImportEnabled) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Recipe import is temporarily disabled',
+        message: 'Recipe import is currently turned off. Please try again later.',
+      },
+      { status: 503 },
     )
   }
 

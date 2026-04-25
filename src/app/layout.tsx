@@ -13,6 +13,7 @@ import { ConsentProvider } from '@/components/ConsentProvider'
 import { getSession, getHouseholdIdForUser } from '@/lib/session'
 import { readConsentCookieServer } from '@/lib/consent.server'
 import { getLocale } from '@/lib/i18n/get-locale'
+import { bootstrapFlags } from '@/lib/feature-flags'
 import Providers from '@/app/providers'
 import '@/lib/env'
 import { getServerBaseURL } from '@/lib/env'
@@ -84,6 +85,10 @@ export default async function RootLayout({
   const consentDecision = await readConsentCookieServer()
   const locale = await getLocale()
   const messages = await getMessages()
+  // Evaluate feature flags server-side so PostHog's client SDK can answer
+  // `isFeatureEnabled` synchronously on first render. Fail-open semantics
+  // live in `getServerFlag`, so this never throws and never blocks the page.
+  const bootstrap = await bootstrapFlags(session?.user.id ?? 'anonymous')
 
   return (
     <html lang={locale} suppressHydrationWarning>
@@ -98,6 +103,7 @@ export default async function RootLayout({
                 isAuthenticated={Boolean(session)}
                 userId={session?.user.id}
                 householdId={householdId}
+                bootstrap={bootstrap}
               >
                 <Toaster richColors closeButton duration={4000} />
                 <Header />

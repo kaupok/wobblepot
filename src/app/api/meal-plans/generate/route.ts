@@ -18,6 +18,7 @@ import {
   respondCapExceeded,
 } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
+import { getServerFlag } from '@/lib/feature-flags'
 import { captureApiError } from '@/lib/errors'
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
@@ -63,6 +64,20 @@ async function handlePOST(request: Request) {
         status: 429,
         headers: { 'Retry-After': String(retryAfterSeconds(rateLimitResult)) },
       },
+    )
+  }
+
+  // Kill-switch: short-circuit before the cost-cap query and the AI call so a
+  // disabled feature does no expensive work. Fail-open default (`true`) keeps
+  // the route working through PostHog outages — see docs/FEATURE_FLAGS.md.
+  const aiEnabled = await getServerFlag('ai_generation_enabled', session.user.id)
+  if (!aiEnabled) {
+    return NextResponse.json(
+      {
+        error: 'AI generation is temporarily disabled',
+        message: 'AI plan generation is currently turned off. Please try again later.',
+      },
+      { status: 503 },
     )
   }
 

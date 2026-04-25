@@ -239,6 +239,47 @@ describe('PostHogProvider', () => {
     expect(posthogMock.init).toHaveBeenCalledTimes(1)
   })
 
+  it('forwards the bootstrap prop to posthog.init for flicker-free flag reads', async () => {
+    const consent = makeConsent(true)
+    const bootstrap = {
+      distinctID: 'user-7',
+      featureFlags: {
+        ai_generation_enabled: false,
+        recipe_import_enabled: true,
+        invite_code_required: true,
+      },
+    } as const
+    render(
+      wrap(
+        consent,
+        <PostHogProvider userId="user-7" bootstrap={bootstrap}>
+          <p>child</p>
+        </PostHogProvider>,
+      ),
+    )
+    await waitFor(() => expect(posthogMock.init).toHaveBeenCalledTimes(1))
+    expect(posthogMock.init).toHaveBeenCalledWith(
+      'phc_test',
+      expect.objectContaining({ bootstrap }),
+    )
+  })
+
+  it('omits the bootstrap option when no bootstrap is supplied', async () => {
+    const consent = makeConsent(true)
+    render(
+      wrap(
+        consent,
+        <PostHogProvider userId="user-1">
+          <p>child</p>
+        </PostHogProvider>,
+      ),
+    )
+    await waitFor(() => expect(posthogMock.init).toHaveBeenCalledTimes(1))
+    // Conditional spread keeps the option absent rather than `undefined`,
+    // so PostHog's own default behaviour applies.
+    expect(posthogMock.init.mock.calls[0]?.[1]).not.toHaveProperty('bootstrap')
+  })
+
   it('skips the lazy load entirely when NEXT_PUBLIC_POSTHOG_KEY is unset', async () => {
     envMock.NEXT_PUBLIC_POSTHOG_KEY = undefined
     envMock.NEXT_PUBLIC_POSTHOG_HOST = undefined
