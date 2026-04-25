@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
+import { captureApiError } from '@/lib/errors'
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: mealId } = await params
@@ -60,7 +61,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     return NextResponse.json({ id: favorite.id, mealId, isFavorite: true }, { status: 201 })
   } catch (error) {
-    console.error('Failed to favorite meal:', error)
+    captureApiError(error, { route: '/api/meals/[id]/favorite', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to favorite meal' }, { status: 500 })
   }
 }
@@ -97,7 +98,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     return NextResponse.json({ mealId, isFavorite: false })
   } catch (error) {
-    console.error('Failed to unfavorite meal:', error)
+    captureApiError(error, { route: '/api/meals/[id]/favorite', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to unfavorite meal' }, { status: 500 })
   }
 }

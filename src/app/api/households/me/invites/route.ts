@@ -6,6 +6,7 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { getServerBaseURL } from '@/lib/env'
+import { captureApiError } from '@/lib/errors'
 
 const createInviteSchema = z.object({
   memberId: z.string().min(1),
@@ -163,7 +164,7 @@ export async function GET() {
       }),
     })
   } catch (error) {
-    console.error('Failed to fetch invites:', error)
+    captureApiError(error, { route: '/api/households/me/invites', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch invites' }, { status: 500 })
   }
 }

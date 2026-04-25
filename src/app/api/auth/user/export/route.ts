@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import { captureApiError } from '@/lib/errors'
 
 /**
  * GET /api/auth/user/export
@@ -239,7 +240,7 @@ export async function GET() {
       },
     })
   } catch (error) {
-    console.error('Failed to export user data:', error)
+    captureApiError(error, { route: '/api/auth/user/export', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to export data' }, { status: 500 })
   }
 }

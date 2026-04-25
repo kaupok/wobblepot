@@ -19,6 +19,7 @@ import {
   respondCapExceeded,
 } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
+import { captureApiError } from '@/lib/errors'
 
 /**
  * HON-502 gate: Estonian recipe parsing is held behind an opt-in env flag
@@ -174,7 +175,11 @@ async function handlePOST(request: Request) {
       )
     }
 
-    console.error('Failed to parse recipe:', error)
+    captureApiError(error, {
+      route: '/api/recipes/parse',
+      userId: session.user.id,
+      feature: 'recipe_parse',
+    })
     return NextResponse.json(
       {
         success: false,

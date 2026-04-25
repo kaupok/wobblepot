@@ -3,9 +3,13 @@
  * using k-anonymity. The plaintext password and full hash never leave
  * this process — only the first 5 hex chars of the SHA-1 are sent.
  *
- * Fail-open: any network error, timeout, or non-OK response is logged
- * and treated as "not breached" so a HIBP outage cannot block sign-up.
+ * Fail-open: any network error, timeout, or non-OK response is treated
+ * as "not breached" so a HIBP outage cannot block sign-up. The non-OK
+ * branch and network failures are surfaced to PostHog via `externalFetch`
+ * so degraded HIBP shows up as an external-dependency alert rather than
+ * vanishing into Vercel logs.
  */
+import { externalFetch } from '@/lib/external-fetch'
 
 const HIBP_RANGE_URL = 'https://api.pwnedpasswords.com/range'
 const HIBP_TIMEOUT_MS = 2000
@@ -30,17 +34,19 @@ export async function isPasswordBreached(password: string): Promise<boolean> {
     const prefix = hash.slice(0, 5)
     const suffix = hash.slice(5)
 
-    const response = await fetch(`${HIBP_RANGE_URL}/${prefix}`, {
-      signal: controller.signal,
-      headers: {
-        'Add-Padding': 'true',
-        'User-Agent': 'Honkadori-Password-Check',
+    const response = await externalFetch(
+      `${HIBP_RANGE_URL}/${prefix}`,
+      {
+        signal: controller.signal,
+        headers: {
+          'Add-Padding': 'true',
+          'User-Agent': 'Honkadori-Password-Check',
+        },
       },
-    })
+      { feature: 'breached_password_check' },
+    )
 
     if (!response.ok) {
-      // eslint-disable-next-line no-console
-      console.warn(`[breached-password] HIBP returned ${response.status}; allowing sign-up`)
       return false
     }
 
@@ -53,9 +59,8 @@ export async function isPasswordBreached(password: string): Promise<boolean> {
       if (Number.isFinite(count) && count > 0) return true
     }
     return false
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.warn('[breached-password] HIBP check failed; allowing sign-up', error)
+  } catch {
+    // Network error / timeout — already captured by externalFetch. Fail open.
     return false
   } finally {
     clearTimeout(timeout)

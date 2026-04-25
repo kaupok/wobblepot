@@ -7,6 +7,7 @@ import { getHouseholdMembership } from '@/lib/household'
 import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
 import { Unit } from '@/generated/prisma/enums'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
+import { captureApiError } from '@/lib/errors'
 
 const createPantryItemSchema = z.object({
   ingredientId: z.string().min(1),
@@ -204,7 +205,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ items, windowDays: days })
   } catch (error) {
-    console.error('Failed to fetch pantry items:', error)
+    captureApiError(error, { route: '/api/pantry', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch pantry items' }, { status: 500 })
   }
 }

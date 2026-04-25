@@ -18,6 +18,7 @@ import {
   respondCapExceeded,
 } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
+import { captureApiError } from '@/lib/errors'
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
 
@@ -152,7 +153,12 @@ async function handlePOST(request: Request) {
       }
 
       if (error instanceof MealPlanValidationError) {
-        console.error('AI response validation failed:', error.message)
+        captureApiError(error, {
+          route: '/api/meal-plans/generate',
+          userId: session.user.id,
+          feature: 'plan_fill_empty',
+          householdId: household.id,
+        })
         return NextResponse.json(
           { error: 'AI generated an invalid meal plan', message: error.message },
           { status: 422 },
@@ -170,7 +176,12 @@ async function handlePOST(request: Request) {
         return NextResponse.json({ error: 'Plan not found' }, { status: 404 })
       }
 
-      console.error('Fill empty slots failed:', error)
+      captureApiError(error, {
+        route: '/api/meal-plans/generate',
+        userId: session.user.id,
+        feature: 'plan_fill_empty',
+        householdId: household.id,
+      })
       return NextResponse.json({ error: 'Failed to fill empty slots' }, { status: 500 })
     }
   }
@@ -186,7 +197,12 @@ async function handlePOST(request: Request) {
 
       return NextResponse.json(result, { status: 200 })
     } catch (error) {
-      console.error('Empty plan creation failed:', error)
+      captureApiError(error, {
+        route: '/api/meal-plans/generate',
+        userId: session.user.id,
+        feature: 'plan_empty',
+        householdId: household.id,
+      })
       return NextResponse.json({ error: 'Failed to create empty plan' }, { status: 500 })
     }
   }
@@ -212,7 +228,12 @@ async function handlePOST(request: Request) {
   } catch (error) {
     // Handle validation errors from AI response
     if (error instanceof MealPlanValidationError) {
-      console.error('AI response validation failed:', error.message)
+      captureApiError(error, {
+        route: '/api/meal-plans/generate',
+        userId: session.user.id,
+        feature: 'plan_generate',
+        householdId: household.id,
+      })
       return NextResponse.json(
         { error: 'AI generated an invalid meal plan', message: error.message },
         { status: 422 },
@@ -227,8 +248,12 @@ async function handlePOST(request: Request) {
       )
     }
 
-    // Log and return generic error for other cases
-    console.error('Meal plan generation failed:', error)
+    captureApiError(error, {
+      route: '/api/meal-plans/generate',
+      userId: session.user.id,
+      feature: 'plan_generate',
+      householdId: household.id,
+    })
     return NextResponse.json({ error: 'Failed to generate meal plan' }, { status: 500 })
   }
 }

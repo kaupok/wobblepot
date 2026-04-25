@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { computeRollingWindowShoppingList } from '@/lib/meal-planning/shopping-list'
 import { toDateString, formatRelativeDate, formatAbsoluteDate } from '@/lib/meal-planning/dates'
 import { Unit } from '@/generated/prisma/enums'
+import { captureApiError } from '@/lib/errors'
 
 /**
  * Format quantity for display.
@@ -188,7 +189,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response, { status: 200 })
   } catch (error) {
-    console.error('Failed to fetch shopping list:', error)
+    captureApiError(error, { route: '/api/shopping-list', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch shopping list' }, { status: 500 })
   }
 }

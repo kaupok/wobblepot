@@ -11,6 +11,7 @@ import {
   translateIngredient,
   translateMeal,
 } from '@/lib/i18n/content'
+import { captureApiError } from '@/lib/errors'
 
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 50
@@ -297,7 +298,11 @@ export async function GET(request: NextRequest) {
       hasMore: offset + meals.length < total,
     })
   } catch (error) {
-    console.error('Failed to fetch meals:', error)
+    captureApiError(error, {
+      route: '/api/meals',
+      userId: session.user.id,
+      householdId: household.id,
+    })
     return NextResponse.json({ error: 'Failed to fetch meals' }, { status: 500 })
   }
 }

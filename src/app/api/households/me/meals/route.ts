@@ -12,6 +12,7 @@ import {
   translateIngredient,
   translateMeal,
 } from '@/lib/i18n/content'
+import { captureApiError } from '@/lib/errors'
 
 const createMealSchema = z.object({
   name: z.string().min(1).max(200),
@@ -221,7 +222,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ meals: mealsWithNutrition, nextCursor })
   } catch (error) {
-    console.error('Failed to fetch meals:', error)
+    captureApiError(error, { route: '/api/households/me/meals', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch meals' }, { status: 500 })
   }
 }

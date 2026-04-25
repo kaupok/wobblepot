@@ -21,6 +21,7 @@ import {
 } from '@/lib/i18n/content'
 import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
+import { captureApiError } from '@/lib/errors'
 import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
 import type { AlternativeMeal } from '@/components/meal-plan/types'
 
@@ -294,7 +295,11 @@ async function handlePOST(
 
     return NextResponse.json({ alternatives }, { status: 200 })
   } catch (error) {
-    console.error('Failed to generate suggestions:', error)
+    captureApiError(error, {
+      route: '/api/meal-plans/[id]/entries/[entryId]/suggestions',
+      userId: session.user.id,
+      feature: 'meal_suggestions',
+    })
     return NextResponse.json({ error: 'Failed to generate suggestions' }, { status: 500 })
   }
 }

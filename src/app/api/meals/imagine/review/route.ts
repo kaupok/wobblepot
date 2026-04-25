@@ -10,6 +10,7 @@ import {
   recordAiUsage,
   respondCapExceeded,
 } from '@/lib/ai/usage'
+import { captureApiError } from '@/lib/errors'
 
 const reviewRequestSchema = z.object({
   mealName: z.string().min(1),
@@ -82,7 +83,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, ingredients: safeIngredients })
   } catch (error) {
-    console.error('Failed to review meal quantities:', error)
+    captureApiError(error, {
+      route: '/api/meals/imagine/review',
+      userId: session.user.id,
+      feature: 'meal_review_quantities',
+      householdId: household.id,
+    })
     return NextResponse.json({ error: 'Failed to review quantities' }, { status: 500 })
   }
 }

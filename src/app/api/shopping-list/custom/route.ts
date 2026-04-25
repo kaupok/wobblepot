@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { getHouseholdMembership } from '@/lib/household'
+import { captureApiError } from '@/lib/errors'
 
 const AUTO_MATCH_THRESHOLD = 0.4
 
@@ -124,7 +125,7 @@ export async function POST(request: Request) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return NextResponse.json({ error: 'Item already exists' }, { status: 409 })
     }
-    console.error('Failed to create custom shopping item:', error)
+    captureApiError(error, { route: '/api/shopping-list/custom', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to create item' }, { status: 500 })
   }
 }

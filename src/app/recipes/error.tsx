@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button'
 import { Heading, Body, Pre } from '@/components/ui/typography'
 import { useEffect } from 'react'
+import { captureClientError } from '@/lib/errors-client'
 
 export default function RecipesError({
   error,
@@ -12,8 +13,7 @@ export default function RecipesError({
   reset: () => void
 }) {
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.error('Recipes error:', error)
+    void captureClientError(error, { digest: error.digest })
   }, [error])
 
   return (

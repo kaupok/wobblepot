@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button'
 import { Heading, Body } from '@/components/ui/typography'
 import { useEffect } from 'react'
+import { captureClientError } from '@/lib/errors-client'
 
 export default function GlobalError({
   error,
@@ -12,9 +13,7 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
-    // Log error to error reporting service
-    // eslint-disable-next-line no-console
-    console.error('Global error:', error)
+    void captureClientError(error, { digest: error.digest, $exception_source: 'app.global-error' })
   }, [error])
 
   return (

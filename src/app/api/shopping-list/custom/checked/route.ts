@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
+import { captureApiError } from '@/lib/errors'
 
 /**
  * DELETE /api/shopping-list/custom/checked
@@ -36,7 +37,11 @@ export async function DELETE() {
 
     return NextResponse.json({ success: true, deletedCount: result.count }, { status: 200 })
   } catch (error) {
-    console.error('Failed to delete checked items:', error)
+    captureApiError(error, {
+      route: '/api/shopping-list/custom/checked',
+      userId: session.user.id,
+      householdId: household.id,
+    })
     return NextResponse.json({ error: 'Failed to delete checked items' }, { status: 500 })
   }
 }

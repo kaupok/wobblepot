@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { getServerBaseURL } from '@/lib/env'
+import { captureApiError } from '@/lib/errors'
 
 const createManualMemberSchema = z.object({
   name: z.string().min(1).max(100),
@@ -117,7 +118,7 @@ export async function GET() {
       }),
     })
   } catch (error) {
-    console.error('Failed to fetch members:', error)
+    captureApiError(error, { route: '/api/households/me/members', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch members' }, { status: 500 })
   }
 }
