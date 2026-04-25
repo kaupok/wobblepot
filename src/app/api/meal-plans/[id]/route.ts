@@ -117,7 +117,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     return NextResponse.json(response, { status: 200 })
   } catch (error) {
-    captureApiError(error, { route: '/api/meal-plans/[id]' })
+    captureApiError(error, { route: '/api/meal-plans/[id]', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch meal plan' }, { status: 500 })
   }
 }

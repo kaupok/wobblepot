@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ ingredients })
   } catch (error) {
-    captureApiError(error, { route: '/api/ingredients' })
+    captureApiError(error, { route: '/api/ingredients', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to search ingredients' }, { status: 500 })
   }
 }

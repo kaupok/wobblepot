@@ -118,7 +118,7 @@ export async function GET() {
       }),
     })
   } catch (error) {
-    captureApiError(error, { route: '/api/households/me/members' })
+    captureApiError(error, { route: '/api/households/me/members', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch members' }, { status: 500 })
   }
 }

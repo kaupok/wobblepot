@@ -23,11 +23,11 @@ const SENSITIVE_KEYS_LOWER = new Set([
   'sessiontoken',
   'authtoken',
   'apikey',
-  'name',
   'firstname',
   'lastname',
   'fullname',
   'displayname',
+  'username',
   'invitecode',
 ])
 

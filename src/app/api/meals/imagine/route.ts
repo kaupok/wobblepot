@@ -257,6 +257,7 @@ async function handlePOST(request: Request) {
   } catch (error) {
     captureApiError(error, {
       route: '/api/meals/imagine',
+      userId: session.user.id,
       feature: 'meal_imagine',
       householdId: household.id,
     })

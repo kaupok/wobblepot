@@ -46,7 +46,10 @@ export async function DELETE(
 
     return new NextResponse(null, { status: 204 })
   } catch (error) {
-    captureApiError(error, { route: '/api/pantry/by-ingredient/[ingredientId]' })
+    captureApiError(error, {
+      route: '/api/pantry/by-ingredient/[ingredientId]',
+      userId: session.user.id,
+    })
     return NextResponse.json({ error: 'Failed to delete pantry item' }, { status: 500 })
   }
 }

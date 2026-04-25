@@ -353,6 +353,7 @@ async function handlePOST(
   } catch (error) {
     captureApiError(error, {
       route: '/api/meal-plans/[id]/entries/[entryId]/regenerate',
+      userId: session.user.id,
       feature: 'meal_regenerate',
     })
     return NextResponse.json({ error: 'Failed to generate alternatives' }, { status: 500 })

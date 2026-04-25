@@ -44,7 +44,7 @@ export async function GET() {
       preferences: household.preferences,
     })
   } catch (error) {
-    captureApiError(error, { route: '/api/households/me' })
+    captureApiError(error, { route: '/api/households/me', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch household' }, { status: 500 })
   }
 }

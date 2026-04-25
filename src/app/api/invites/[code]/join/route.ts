@@ -106,7 +106,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
       },
     })
   } catch (error) {
-    captureApiError(error, { route: '/api/invites/[code]/join' })
+    captureApiError(error, { route: '/api/invites/[code]/join', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to join household' }, { status: 500 })
   }
 }

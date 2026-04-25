@@ -47,20 +47,32 @@ describe('captureApiError', () => {
     process.env.VERCEL_GIT_COMMIT_SHA = 'abc123'
     const err = new Error('boom')
 
-    captureApiError(err, { route: '/api/x', householdId: 'hh-1', feature: 'plan_generate' })
+    captureApiError(err, {
+      route: '/api/x',
+      userId: 'u-1',
+      householdId: 'hh-1',
+      feature: 'plan_generate',
+    })
 
     expect(captureExceptionMock).toHaveBeenCalledOnce()
     const [errorArg, distinctIdArg, propsArg] = captureExceptionMock.mock.calls[0]!
     expect(errorArg).toBe(err)
-    expect(distinctIdArg).toBe('hh-1')
+    expect(distinctIdArg).toBe('u-1')
     expect(propsArg).toMatchObject({
       route: '/api/x',
+      userId: 'u-1',
       householdId: 'hh-1',
       feature: 'plan_generate',
       requestId: 'req-123',
       release: 'abc123',
       errorType: 'Error',
     })
+  })
+
+  it('passes undefined as distinctId when userId is missing', () => {
+    getPosthogServerMock.mockReturnValue({ captureException: captureExceptionMock })
+    captureApiError(new Error('boom'), { route: '/api/x', householdId: 'hh-1' })
+    expect(captureExceptionMock.mock.calls[0]![1]).toBeUndefined()
   })
 
   it('falls back to release="local" when VERCEL_GIT_COMMIT_SHA is unset', () => {

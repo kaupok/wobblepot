@@ -46,10 +46,19 @@ describe('sanitizeEventProperties', () => {
       InviteCode: 'XYZ',
       firstName: 'Anu',
       lastName: 'Tamm',
+      Username: 'anu123',
       household_id: 'hh_1',
       route: '/api/things',
     })
     expect(out).toEqual({ household_id: 'hh_1', route: '/api/things' })
+  })
+
+  it('preserves a top-level `name` property (e.g. meal name)', () => {
+    const out = sanitizeEventProperties({
+      name: 'Spaghetti Bolognese',
+      route: '/api/meals',
+    })
+    expect(out).toEqual({ name: 'Spaghetti Bolognese', route: '/api/meals' })
   })
 
   it('redacts known free-text keys', () => {

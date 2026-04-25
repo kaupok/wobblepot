@@ -222,7 +222,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ meals: mealsWithNutrition, nextCursor })
   } catch (error) {
-    captureApiError(error, { route: '/api/households/me/meals' })
+    captureApiError(error, { route: '/api/households/me/meals', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch meals' }, { status: 500 })
   }
 }

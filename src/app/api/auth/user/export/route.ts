@@ -240,7 +240,7 @@ export async function GET() {
       },
     })
   } catch (error) {
-    captureApiError(error, { route: '/api/auth/user/export' })
+    captureApiError(error, { route: '/api/auth/user/export', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to export data' }, { status: 500 })
   }
 }

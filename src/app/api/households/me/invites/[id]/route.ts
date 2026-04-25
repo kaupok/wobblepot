@@ -47,7 +47,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
     return new NextResponse(null, { status: 204 })
   } catch (error) {
-    captureApiError(error, { route: '/api/households/me/invites/[id]' })
+    captureApiError(error, { route: '/api/households/me/invites/[id]', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to delete invite' }, { status: 500 })
   }
 }

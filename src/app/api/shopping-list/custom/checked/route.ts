@@ -39,6 +39,7 @@ export async function DELETE() {
   } catch (error) {
     captureApiError(error, {
       route: '/api/shopping-list/custom/checked',
+      userId: session.user.id,
       householdId: household.id,
     })
     return NextResponse.json({ error: 'Failed to delete checked items' }, { status: 500 })

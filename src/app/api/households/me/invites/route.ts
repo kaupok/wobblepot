@@ -164,7 +164,7 @@ export async function GET() {
       }),
     })
   } catch (error) {
-    captureApiError(error, { route: '/api/households/me/invites' })
+    captureApiError(error, { route: '/api/households/me/invites', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch invites' }, { status: 500 })
   }
 }

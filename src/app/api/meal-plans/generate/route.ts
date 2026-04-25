@@ -155,6 +155,7 @@ async function handlePOST(request: Request) {
       if (error instanceof MealPlanValidationError) {
         captureApiError(error, {
           route: '/api/meal-plans/generate',
+          userId: session.user.id,
           feature: 'plan_fill_empty',
           householdId: household.id,
         })
@@ -177,6 +178,7 @@ async function handlePOST(request: Request) {
 
       captureApiError(error, {
         route: '/api/meal-plans/generate',
+        userId: session.user.id,
         feature: 'plan_fill_empty',
         householdId: household.id,
       })
@@ -197,6 +199,7 @@ async function handlePOST(request: Request) {
     } catch (error) {
       captureApiError(error, {
         route: '/api/meal-plans/generate',
+        userId: session.user.id,
         feature: 'plan_empty',
         householdId: household.id,
       })
@@ -227,6 +230,7 @@ async function handlePOST(request: Request) {
     if (error instanceof MealPlanValidationError) {
       captureApiError(error, {
         route: '/api/meal-plans/generate',
+        userId: session.user.id,
         feature: 'plan_generate',
         householdId: household.id,
       })
@@ -246,6 +250,7 @@ async function handlePOST(request: Request) {
 
     captureApiError(error, {
       route: '/api/meal-plans/generate',
+      userId: session.user.id,
       feature: 'plan_generate',
       householdId: household.id,
     })

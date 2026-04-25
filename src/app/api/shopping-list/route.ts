@@ -189,7 +189,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response, { status: 200 })
   } catch (error) {
-    captureApiError(error, { route: '/api/shopping-list' })
+    captureApiError(error, { route: '/api/shopping-list', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch shopping list' }, { status: 500 })
   }
 }

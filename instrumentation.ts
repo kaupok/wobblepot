@@ -72,7 +72,8 @@ function extractDistinctIdFromCookie(
       const parsed = JSON.parse(decodeURIComponent(rawValue)) as { distinct_id?: unknown }
       if (typeof parsed.distinct_id === 'string') return parsed.distinct_id
     } catch {
-      return undefined
+      // Malformed PostHog cookie — keep scanning; another cookie may parse.
+      continue
     }
   }
   return undefined

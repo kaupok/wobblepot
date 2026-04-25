@@ -72,7 +72,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     return NextResponse.json({ success: true, deletedCount: result.count })
   } catch (error) {
-    captureApiError(error, { route: '/api/meal-plans/[id]/entries' })
+    captureApiError(error, { route: '/api/meal-plans/[id]/entries', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to delete entries' }, { status: 500 })
   }
 }
@@ -181,7 +181,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       note: entry.note,
     })
   } catch (error) {
-    captureApiError(error, { route: '/api/meal-plans/[id]/entries', householdId: household.id })
+    captureApiError(error, {
+      route: '/api/meal-plans/[id]/entries',
+      userId: session.user.id,
+      householdId: household.id,
+    })
     return NextResponse.json({ error: 'Failed to create entry' }, { status: 500 })
   }
 }

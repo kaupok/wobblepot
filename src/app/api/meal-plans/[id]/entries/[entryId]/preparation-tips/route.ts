@@ -210,6 +210,7 @@ async function handlePOST(
   } catch (error) {
     captureApiError(error, {
       route: '/api/meal-plans/[id]/entries/[entryId]/preparation-tips',
+      userId: session.user.id,
       feature: 'preparation_tips',
     })
 

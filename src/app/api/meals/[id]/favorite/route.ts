@@ -61,7 +61,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     return NextResponse.json({ id: favorite.id, mealId, isFavorite: true }, { status: 201 })
   } catch (error) {
-    captureApiError(error, { route: '/api/meals/[id]/favorite' })
+    captureApiError(error, { route: '/api/meals/[id]/favorite', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to favorite meal' }, { status: 500 })
   }
 }
@@ -98,7 +98,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     return NextResponse.json({ mealId, isFavorite: false })
   } catch (error) {
-    captureApiError(error, { route: '/api/meals/[id]/favorite' })
+    captureApiError(error, { route: '/api/meals/[id]/favorite', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to unfavorite meal' }, { status: 500 })
   }
 }

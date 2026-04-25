@@ -85,6 +85,7 @@ export async function POST(request: Request) {
   } catch (error) {
     captureApiError(error, {
       route: '/api/meals/imagine/review',
+      userId: session.user.id,
       feature: 'meal_review_quantities',
       householdId: household.id,
     })

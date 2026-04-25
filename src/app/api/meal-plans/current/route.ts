@@ -210,7 +210,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response, { status: 200 })
   } catch (error) {
-    captureApiError(error, { route: '/api/meal-plans/current' })
+    captureApiError(error, { route: '/api/meal-plans/current', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch current meal plan' }, { status: 500 })
   }
 }

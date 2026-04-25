@@ -125,7 +125,7 @@ export async function POST(request: Request) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return NextResponse.json({ error: 'Item already exists' }, { status: 409 })
     }
-    captureApiError(error, { route: '/api/shopping-list/custom' })
+    captureApiError(error, { route: '/api/shopping-list/custom', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to create item' }, { status: 500 })
   }
 }

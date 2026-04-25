@@ -7,7 +7,12 @@ export interface ApiErrorContext {
   /** Static route literal, e.g. `/api/meal-plans/generate`. Omitted for
    *  errors caught outside a route handler (e.g. `externalFetch`). */
   route?: string
-  /** Optional household id when a session was available before the throw. */
+  /** Authenticated user id; used as PostHog `distinct_id` so server errors
+   *  attribute to the same person record as the client's `posthog.identify`
+   *  call (see `PostHogProvider.tsx`). Omitted for unauthenticated paths. */
+  userId?: string
+  /** Optional household id; surfaced as a property for filtering rather
+   *  than as the distinct_id, to keep server/client identity consistent. */
   householdId?: string
   /** AI feature name when applicable (matches `AiUsage.feature`). */
   feature?: string
@@ -46,7 +51,7 @@ export function captureApiError(error: unknown, context: ApiErrorContext): void 
       properties.$exception_fingerprint = fingerprint
     }
 
-    client.captureException(error, context.householdId, properties)
+    client.captureException(error, context.userId, properties)
   } catch {
     // Swallow — capture failures must never propagate.
   }

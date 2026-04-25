@@ -177,6 +177,7 @@ async function handlePOST(request: Request) {
 
     captureApiError(error, {
       route: '/api/recipes/parse',
+      userId: session.user.id,
       feature: 'recipe_parse',
     })
     return NextResponse.json(

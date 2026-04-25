@@ -105,7 +105,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         : null,
     })
   } catch (error) {
-    captureApiError(error, { route: '/api/households/me/members/[id]' })
+    captureApiError(error, { route: '/api/households/me/members/[id]', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch member' }, { status: 500 })
   }
 }

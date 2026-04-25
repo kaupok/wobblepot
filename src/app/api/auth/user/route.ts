@@ -91,7 +91,7 @@ export async function DELETE() {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    captureApiError(error, { route: '/api/auth/user' })
+    captureApiError(error, { route: '/api/auth/user', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 })
   }
 }

@@ -298,7 +298,11 @@ export async function GET(request: NextRequest) {
       hasMore: offset + meals.length < total,
     })
   } catch (error) {
-    captureApiError(error, { route: '/api/meals', householdId: household.id })
+    captureApiError(error, {
+      route: '/api/meals',
+      userId: session.user.id,
+      householdId: household.id,
+    })
     return NextResponse.json({ error: 'Failed to fetch meals' }, { status: 500 })
   }
 }

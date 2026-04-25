@@ -205,7 +205,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ items, windowDays: days })
   } catch (error) {
-    captureApiError(error, { route: '/api/pantry' })
+    captureApiError(error, { route: '/api/pantry', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch pantry items' }, { status: 500 })
   }
 }

@@ -187,7 +187,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       allergens,
     })
   } catch (error) {
-    captureApiError(error, { route: '/api/households/me/meals/[id]' })
+    captureApiError(error, { route: '/api/households/me/meals/[id]', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch meal' }, { status: 500 })
   }
 }

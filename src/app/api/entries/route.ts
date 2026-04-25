@@ -135,7 +135,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ entries: formattedEntries, planId: plan.id }, { status: 200 })
   } catch (error) {
-    captureApiError(error, { route: '/api/entries', householdId: household.id })
+    captureApiError(error, {
+      route: '/api/entries',
+      userId: session.user.id,
+      householdId: household.id,
+    })
     return NextResponse.json({ error: 'Failed to fetch entries' }, { status: 500 })
   }
 }

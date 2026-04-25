@@ -297,6 +297,7 @@ async function handlePOST(
   } catch (error) {
     captureApiError(error, {
       route: '/api/meal-plans/[id]/entries/[entryId]/suggestions',
+      userId: session.user.id,
       feature: 'meal_suggestions',
     })
     return NextResponse.json({ error: 'Failed to generate suggestions' }, { status: 500 })
