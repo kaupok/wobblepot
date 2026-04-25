@@ -376,15 +376,16 @@ The failure mode this prevents: checking one file, finding nothing, and generali
 
 ## Reference
 
-| Document                                               | Contents                                      |
-| ------------------------------------------------------ | --------------------------------------------- |
-| [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md)           | Product vision, decisions, domain logic       |
-| [docs/TYPOGRAPHY.md](docs/TYPOGRAPHY.md)               | Full typography component guide with examples |
-| [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)           | Branch workflow, recovery procedures          |
-| [docs/ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md) | Environment variable setup                    |
-| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)               | Production deployment process                 |
-| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)             | Bundle optimization guide                     |
-| [docs/MCP_SETUP.md](docs/MCP_SETUP.md)                 | MCP server configuration and troubleshooting  |
-| [docs/CHROME_TESTING.md](docs/CHROME_TESTING.md)       | Browser testing with Chrome extension         |
-| [docs/VOICE_REVIEW.md](docs/VOICE_REVIEW.md)           | Voice review setup and usage                  |
-| [docs/PARALLEL_WORKFLOW.md](docs/PARALLEL_WORKFLOW.md) | Parallel Claude Code with git worktrees       |
+| Document                                               | Contents                                                 |
+| ------------------------------------------------------ | -------------------------------------------------------- |
+| [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md)           | Product vision, decisions, domain logic                  |
+| [docs/TYPOGRAPHY.md](docs/TYPOGRAPHY.md)               | Full typography component guide with examples            |
+| [docs/FEATURE_FLAGS.md](docs/FEATURE_FLAGS.md)         | Feature flag pattern, kill-switches, fail-open semantics |
+| [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)           | Branch workflow, recovery procedures                     |
+| [docs/ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md) | Environment variable setup                               |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)               | Production deployment process                            |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)             | Bundle optimization guide                                |
+| [docs/MCP_SETUP.md](docs/MCP_SETUP.md)                 | MCP server configuration and troubleshooting             |
+| [docs/CHROME_TESTING.md](docs/CHROME_TESTING.md)       | Browser testing with Chrome extension                    |
+| [docs/VOICE_REVIEW.md](docs/VOICE_REVIEW.md)           | Voice review setup and usage                             |
+| [docs/PARALLEL_WORKFLOW.md](docs/PARALLEL_WORKFLOW.md) | Parallel Claude Code with git worktrees                  |
