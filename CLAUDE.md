@@ -366,6 +366,8 @@ This applies to `/ideate`, `/refine-backlog`, `/plan-issue`, and any content tha
 
 The failure mode this prevents: checking one file, finding nothing, and generalising to "the feature doesn't exist" — then taking bad actions like promoting a shipped issue to a blocker.
 
+**Don't use `ScheduleWakeup` as a "fallback" inside skills with defined endpoints.** Skills like `/auto-implement`, `/implement-issue`, `/merge`, `/code-review` complete naturally (success, failure, or user input). If you're waiting on a long-running thing (CI, build, deploy), use `Bash` with `run_in_background: true` and an `until`-poll — that emits a single completion notification when the loop exits. A wake-up scheduled "just in case" will fire after the work has already finished and re-trigger the skill on stale state (HON-529 cycle re-fired `/auto-implement 529` ~9 minutes after the PR had already merged). `ScheduleWakeup` is for true polling/iteration use cases (`/loop`, watching for an external state change like a Linear issue moving to "In Review"), not for defined-endpoint work.
+
 ## Review Focus
 
 - Flag actual bugs and logic errors
