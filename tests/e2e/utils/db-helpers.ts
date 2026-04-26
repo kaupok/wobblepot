@@ -2,7 +2,7 @@
  * Seed/cleanup helpers for E2E tests that need DB state Playwright can't
  * create through the UI (e.g. an invite code for the HON-488 sign-up gate).
  *
- * The test-only `/api/__test__/signup-codes` endpoint is gated on
+ * The test-only `/api/e2e-seed` endpoint is gated on
  * `RATE_LIMIT_BYPASS_ACTIVE` and returns 404 outside ci/test/dev — see the
  * route for details. We talk to it over HTTP rather than importing the
  * generated Prisma client directly: that client is bundled for Next.js and
@@ -12,7 +12,7 @@
 const baseURL = (): string => process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'
 
 export async function seedInviteCode(): Promise<string> {
-  const res = await fetch(`${baseURL()}/api/__test__/signup-codes`, { method: 'POST' })
+  const res = await fetch(`${baseURL()}/api/e2e-seed`, { method: 'POST' })
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     throw new Error(
@@ -25,7 +25,7 @@ export async function seedInviteCode(): Promise<string> {
 }
 
 export async function deleteInviteCode(code: string): Promise<void> {
-  await fetch(`${baseURL()}/api/__test__/signup-codes?code=${encodeURIComponent(code)}`, {
+  await fetch(`${baseURL()}/api/e2e-seed?code=${encodeURIComponent(code)}`, {
     method: 'DELETE',
   })
 }

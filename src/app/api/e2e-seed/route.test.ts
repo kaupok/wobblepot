@@ -21,7 +21,7 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-describe('POST /api/__test__/signup-codes — production gate', () => {
+describe('POST /api/e2e-seed — production gate', () => {
   it('returns 404 when RATE_LIMIT_BYPASS_ACTIVE is false (production / staging / preview)', async () => {
     setBypass(false)
     const { POST } = await import('./route')
@@ -41,7 +41,7 @@ describe('POST /api/__test__/signup-codes — production gate', () => {
   })
 })
 
-describe('DELETE /api/__test__/signup-codes — production gate', () => {
+describe('DELETE /api/e2e-seed — production gate', () => {
   it('returns 404 when RATE_LIMIT_BYPASS_ACTIVE is false', async () => {
     setBypass(false)
     const { DELETE } = await import('./route')
