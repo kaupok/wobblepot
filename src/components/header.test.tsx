@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Header } from './header'
 import enMessages from '../../messages/en.json'
 
-// Resolve `getTranslations('header')` against the real en catalog so the RSC
+// Resolve `getTranslations('nav')` against the real en catalog so the RSC
 // Server Component renders the expected chrome strings without pulling in the
 // full next-intl request pipeline.
 vi.mock('next-intl/server', () => ({
@@ -35,14 +35,26 @@ vi.mock('./header-actions', () => ({
 
 // Mock Navigation components
 vi.mock('./navigation', () => ({
-  NavigationLeft: ({ session, hasHousehold }: { session: unknown; hasHousehold: boolean }) => (
+  NavigationLeft: ({
+    isAuthenticated,
+    hasHousehold,
+  }: {
+    isAuthenticated: boolean
+    hasHousehold: boolean
+  }) => (
     <nav data-testid="navigation-left">
-      {session && hasHousehold ? 'authenticated-nav-left' : 'hidden-nav-left'}
+      {isAuthenticated && hasHousehold ? 'authenticated-nav-left' : 'hidden-nav-left'}
     </nav>
   ),
-  NavigationRight: ({ session, hasHousehold }: { session: unknown; hasHousehold: boolean }) => (
+  NavigationRight: ({
+    isAuthenticated,
+    hasHousehold,
+  }: {
+    isAuthenticated: boolean
+    hasHousehold: boolean
+  }) => (
     <nav data-testid="navigation-right">
-      {session && hasHousehold ? 'authenticated-nav-right' : 'hidden-nav-right'}
+      {isAuthenticated && hasHousehold ? 'authenticated-nav-right' : 'hidden-nav-right'}
     </nav>
   ),
 }))

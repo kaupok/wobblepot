@@ -9,7 +9,7 @@ import { MobileNav } from './mobile-nav'
 export async function Header() {
   const session = await getSession()
   const hasHousehold = session ? await getHasHousehold(session.user.id) : false
-  const t = await getTranslations('header')
+  const t = await getTranslations('nav')
 
   return (
     <header className="bg-background fixed top-0 right-0 left-0 z-50 border-b pt-[env(safe-area-inset-top,0px)]">
@@ -24,10 +24,10 @@ export async function Header() {
           <Link href="/" className="transition-opacity hover:opacity-70">
             <Heading variant="h4">Honkadori</Heading>
           </Link>
-          <NavigationLeft session={session} hasHousehold={hasHousehold} />
+          <NavigationLeft isAuthenticated={Boolean(session)} hasHousehold={hasHousehold} />
         </div>
         <div className="flex items-center gap-8">
-          <NavigationRight session={session} hasHousehold={hasHousehold} />
+          <NavigationRight isAuthenticated={Boolean(session)} hasHousehold={hasHousehold} />
           <HeaderActions session={session} hasHousehold={hasHousehold} />
           <MobileNav session={session} hasHousehold={hasHousehold} />
         </div>

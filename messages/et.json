@@ -8,13 +8,224 @@
     "feature3": "Jälgib, mis sul käepärast on",
     "privateBeta": "Oleme suletud beetaversioonis. Registreerumiseks on vaja kutsekoodi."
   },
-  "signup": {
-    "privateBetaBanner": "Suletud beeta – registreerumiseks on vaja kutsekoodi.",
-    "inviteCodeLabel": "Kutsekood",
-    "inviteCodeHint": "Sisesta kutses saadud kood."
+  "common": {
+    "loading": "Laen…",
+    "tryAgain": "Proovi uuesti",
+    "goHome": "Mine avalehele"
   },
-  "header": {
-    "skipToContent": "Liigu sisu juurde"
+  "nav": {
+    "skipToContent": "Liigu sisu juurde",
+    "primary": {
+      "ariaLabel": "Põhinavigatsioon",
+      "today": "Täna",
+      "pantryAndShopping": "Sahver ja pood"
+    },
+    "settings": {
+      "ariaLabel": "Sätted",
+      "myRecipes": "Minu retseptid",
+      "household": "Leibkond"
+    },
+    "tabs": {
+      "ariaLabel": "Põhinavigatsioon",
+      "today": "Täna",
+      "shopping": "Pood",
+      "recipes": "Retseptid",
+      "household": "Leibkond"
+    },
+    "actions": {
+      "userMenu": "Kasutajamenüü",
+      "toggleMenu": "Ava menüü",
+      "account": "Konto",
+      "accountMenu": "Konto menüü",
+      "profile": "Profiil",
+      "signIn": "Logi sisse",
+      "signUp": "Loo konto",
+      "signOut": "Logi välja",
+      "signingOut": "Välja logimine…",
+      "lightMode": "Hele režiim",
+      "darkMode": "Tume režiim",
+      "toggleTheme": "Vaheta teemat"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "metaTitle": "Logi sisse",
+      "title": "Logi sisse",
+      "description": "Logi oma kontosse",
+      "emailLabel": "E-post",
+      "passwordLabel": "Parool",
+      "forgotPasswordLink": "Unustasid parooli?",
+      "submit": "Logi sisse",
+      "submitting": "Sisse logimine…",
+      "dontHaveAccount": "Pole veel kontot?",
+      "signUpLink": "Loo konto",
+      "resetSuccess": "Parool on edukalt vahetatud. Saad nüüd uue parooliga sisse logida.",
+      "slowRequest": "See võtab oodatust kauem aega. Palun oota…",
+      "navigationFailed": "Sisselogimine õnnestus, aga lehe avamine ebaõnnestus. Värskenda lehte."
+    },
+    "signUp": {
+      "metaTitle": "Loo konto",
+      "title": "Loo konto",
+      "description": "Loo uus konto, et alustada",
+      "nameLabel": "Nimi",
+      "emailLabel": "E-post",
+      "passwordLabel": "Parool",
+      "passwordHint": "Kasuta vähemalt 12 märki. Väldi paroole, mis on varasematest andmeleketest tuntud.",
+      "submit": "Loo konto",
+      "submitting": "Konto loomine…",
+      "alreadyHaveAccount": "Konto on juba olemas?",
+      "signInLink": "Logi sisse",
+      "privateBetaBanner": "Suletud beeta – registreerumiseks on vaja kutsekoodi.",
+      "privateBetaNoticeLabel": "Suletud beeta märguanne",
+      "inviteCodeLabel": "Kutsekood",
+      "inviteCodeHint": "Sisesta kutses saadud kood.",
+      "slowRequest": "See võtab oodatust kauem aega. Palun oota…",
+      "navigationFailed": "Konto loomine õnnestus, aga lehe avamine ebaõnnestus. Värskenda lehte."
+    },
+    "forgotPassword": {
+      "metaTitle": "Unustasid parooli",
+      "title": "Unustasid parooli?",
+      "description": "Sisesta oma e-posti aadress ja saadame parooli vahetamise lingi",
+      "emailLabel": "E-post",
+      "emailPlaceholder": "sina@example.com",
+      "submit": "Saada link",
+      "submitting": "Lingi saatmine…",
+      "success": "Kui sellele aadressile on konto registreeritud, saadame varsti parooli vahetamise lingi.",
+      "rememberPassword": "Tuli parool meelde?",
+      "signInLink": "Logi sisse"
+    },
+    "resetPassword": {
+      "metaTitle": "Vaheta parool",
+      "title": "Vaheta parool",
+      "description": "Sisesta uus parool",
+      "newPasswordLabel": "Uus parool",
+      "newPasswordPlaceholder": "Vähemalt 12 märki",
+      "confirmPasswordLabel": "Kinnita parool",
+      "confirmPasswordPlaceholder": "Sisesta parool uuesti",
+      "passwordHint": "Kasuta vähemalt 12 märki. Väldi paroole, mis on varasematest andmeleketest tuntud.",
+      "submit": "Vaheta parool",
+      "submitting": "Parooli vahetamine…",
+      "rememberPassword": "Tuli parool meelde?",
+      "signInLink": "Logi sisse"
+    },
+    "invite": {
+      "metaTitle": "Liitu leibkonnaga",
+      "alreadyMember": {
+        "title": "Sa oled juba liige",
+        "description": "Sa oled juba leibkonna „{householdName}\" liige",
+        "body": "Korraga saad olla ainult ühe leibkonna liige. Teise leibkonnaga liitumiseks pead esmalt praegusest lahkuma.",
+        "action": "Mine avalehele"
+      },
+      "invalid": {
+        "title": "Kutse on aegunud",
+        "description": "See kutse pole enam kehtiv",
+        "body": "See kutselink on aegunud või kasutatud maksimaalse arv kordi. Palu leibkonna omanikult uut kutset.",
+        "action": "Mine avalehele"
+      },
+      "valid": {
+        "title": "Liitu leibkonnaga",
+        "titleNamed": "Liitu kasutajana „{memberName}\"",
+        "description": "Sind on kutsutud leibkonnaga liituma",
+        "descriptionNamed": "Võta oma profiil üle ja liitu leibkonnaga",
+        "bodyHouseholdOnly": "Sind on kutsutud liituma leibkonnaga <strong>{householdName}</strong>.",
+        "bodyMember": "Sind on kutsutud liituma leibkonnaga <strong>{householdName}</strong> kasutajana <strong>{memberName}</strong>.",
+        "subtextHouseholdOnly": "Pärast liitumist saad selle leibkonna söögiplaani vaadata ja sellega kaasa lüüa.",
+        "subtextMember": "Sinu profiil on eelistustega juba seadistatud. Pärast liitumist seotakse sind selle olemasoleva profiiliga.",
+        "action": "Liitu leibkonnaga",
+        "actionNamed": "Liitu kasutajana „{memberName}\"",
+        "joining": "Liitumine…"
+      },
+      "errors": {
+        "alreadyInHousehold": "Sa oled juba ühe leibkonna liige.",
+        "inviteInvalid": "See kutse on aegunud või jõudnud maksimaalse kasutuste arvuni.",
+        "joinFailed": "Leibkonnaga liitumine ebaõnnestus",
+        "generic": "Tekkis viga. Palun proovi uuesti."
+      }
+    }
+  },
+  "errors": {
+    "boundary": {
+      "tryAgain": "Proovi uuesti",
+      "errorIdLabel": "Vea ID:",
+      "detailsLabel": "Vea üksikasjad",
+      "generic": {
+        "title": "Oih! Midagi läks valesti",
+        "body": "Lehe laadimisel tekkis viga."
+      },
+      "signIn": {
+        "title": "Sisselogimist ei õnnestunud avada",
+        "body": "Sisselogimise lehe laadimisel tekkis viga. Palun proovi uuesti."
+      },
+      "signUp": {
+        "title": "Konto loomist ei õnnestunud avada",
+        "body": "Konto loomise lehe laadimisel tekkis viga. Palun proovi uuesti."
+      },
+      "forgotPassword": {
+        "title": "Parooli vahetamist ei õnnestunud avada",
+        "body": "Selle lehe laadimisel tekkis viga. Palun proovi uuesti."
+      },
+      "resetPassword": {
+        "title": "Parooli vahetamist ei õnnestunud avada",
+        "body": "Selle lehe laadimisel tekkis viga. Palun proovi uuesti."
+      },
+      "invite": {
+        "title": "Kutset ei õnnestunud töödelda",
+        "body": "Kutselingi töötlemisel tekkis viga. Palun proovi uuesti."
+      }
+    },
+    "notFound": {
+      "metaTitle": "Lehte ei leitud",
+      "title": "Lehte ei leitud",
+      "body": "Otsitavat lehte pole olemas või on see liigutatud.",
+      "action": "Mine avalehele"
+    },
+    "auth": {
+      "unexpected": "Tekkis ootamatu viga. Palun proovi uuesti.",
+      "inviteCodeRequired": "Suletud beetas on registreerumiseks vaja kutsekoodi.",
+      "inviteCodeInvalid": "See kutsekood ei kehti, on aegunud või juba kasutatud.",
+      "invalidCredentials": "Sisestatud e-post või parool on vale. Palun proovi uuesti.",
+      "incorrectPassword": "Sisestatud parool on vale. Palun proovi uuesti.",
+      "accountAlreadyExists": "Selle e-posti aadressiga konto on juba olemas. Proovi hoopis sisse logida.",
+      "csrf": "Turvakontroll ebaõnnestus. Värskenda lehte ja proovi uuesti.",
+      "tokenExpired": "See parooli vahetamise link on aegunud. Palun küsi uus.",
+      "tokenInvalid": "See parooli vahetamise link ei kehti. Palun küsi uus.",
+      "resetUserNotFound": "Kui sellele aadressile on konto registreeritud, saadame parooli vahetamise lingi.",
+      "userNotFound": "Selle e-posti aadressiga kontot ei leitud.",
+      "invalidEmail": "Palun sisesta kehtiv e-posti aadress.",
+      "breachedPassword": "See parool esineb teadaolevates andmeleketes. Palun vali mõni muu.",
+      "passwordTooShort": "Parool peab olema vähemalt 12 märki pikk.",
+      "passwordWeak": "Palun vali tugevam parool.",
+      "tooManyAttempts": "Liiga palju katseid. Palun proovi mõne minuti pärast uuesti.",
+      "network": "Serveriga ei õnnestunud ühenduda. Kontrolli internetiühendust ja proovi uuesti.",
+      "timeout": "Päring aegus. Kontrolli ühendust ja proovi uuesti.",
+      "internalServer": "Serveril on probleeme. Palun proovi hetke pärast uuesti.",
+      "serviceUnavailable": "Teenus on ajutiselt kättesaamatu. Palun proovi hiljem uuesti."
+    }
+  },
+  "validation": {
+    "passwordsDoNotMatch": "Paroolid ei kattu",
+    "passwordTooShort": "Parool peab olema vähemalt 12 märki pikk",
+    "noResetToken": "Parooli vahetamise tõendit ei leitud. Palun küsi uus parooli vahetamise link."
+  },
+  "consent": {
+    "banner": {
+      "ariaLabel": "Küpsiste nõusolek",
+      "header": "Kasutame küpsiseid",
+      "body": "Olulised küpsised hoiavad sind sisse logituna. Analüütika küpsised aitavad mõista, kuidas rakendust kasutatakse, et seda parendada. Saad oma valikut alati jaluse kaudu muuta.",
+      "acceptAll": "Nõustu kõigega",
+      "essentialOnly": "Ainult olulised"
+    },
+    "settings": {
+      "trigger": "Küpsiste sätted",
+      "title": "Küpsiste sätted",
+      "description": "Olulised küpsised on alati sees – need hoiavad sind sisse logituna. Analüütika küpsised on vabatahtlikud ja aitavad meil rakendust parendada.",
+      "currentChoice": "Praegune valik:",
+      "stateNotSet": "Pole valitud",
+      "stateAnalyticsOn": "Analüütika sees",
+      "stateEssentialOnly": "Ainult olulised",
+      "essentialOnly": "Ainult olulised",
+      "acceptAnalytics": "Nõustu analüütikaga"
+    }
   },
   "household": {
     "localeLabel": "Keel",

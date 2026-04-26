@@ -2,7 +2,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import userEvent from '@testing-library/user-event'
-import ForgotPasswordPage from './page'
+import { ForgotPasswordForm } from './ForgotPasswordForm'
 
 // Mock auth client
 vi.mock('@/lib/auth-client', () => ({
@@ -11,25 +11,27 @@ vi.mock('@/lib/auth-client', () => ({
   },
 }))
 
-// Mock error helper
-vi.mock('@/lib/auth-errors', () => ({
-  getUserFriendlyError: vi.fn((msg) => msg),
+// Mock the friendly-error hook so tests assert on raw server messages without
+// coupling to the localized catalog copy. Catalog → key mapping is exercised
+// in src/lib/auth-errors.test.ts.
+vi.mock('@/lib/auth-errors-client', () => ({
+  useAuthErrorMessage: () => (msg: string) => msg,
 }))
 
-describe('ForgotPasswordPage', () => {
+describe('ForgotPasswordForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   describe('rendering', () => {
     it('renders forgot password form with heading', () => {
-      render(<ForgotPasswordPage />)
+      render(<ForgotPasswordForm />)
 
       expect(screen.getByRole('heading', { name: /forgot password/i })).toBeInTheDocument()
     })
 
     it('renders email input with label', () => {
-      render(<ForgotPasswordPage />)
+      render(<ForgotPasswordForm />)
 
       expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
       expect(screen.getByLabelText(/email/i)).toHaveAttribute('type', 'email')
@@ -37,20 +39,20 @@ describe('ForgotPasswordPage', () => {
     })
 
     it('renders send reset link button', () => {
-      render(<ForgotPasswordPage />)
+      render(<ForgotPasswordForm />)
 
       expect(screen.getByRole('button', { name: /send reset link/i })).toBeInTheDocument()
     })
 
     it('renders sign in link', () => {
-      render(<ForgotPasswordPage />)
+      render(<ForgotPasswordForm />)
 
       const link = screen.getByRole('link', { name: /sign in/i })
       expect(link).toHaveAttribute('href', '/sign-in')
     })
 
     it('displays description text', () => {
-      render(<ForgotPasswordPage />)
+      render(<ForgotPasswordForm />)
 
       expect(
         screen.getByText(/enter your email address and we'll send you a link/i),
@@ -61,7 +63,7 @@ describe('ForgotPasswordPage', () => {
   describe('form interaction', () => {
     it('updates email input on user type', async () => {
       const user = userEvent.setup()
-      render(<ForgotPasswordPage />)
+      render(<ForgotPasswordForm />)
 
       const emailInput = screen.getByLabelText(/email/i)
       await user.type(emailInput, 'test@example.com')
@@ -78,7 +80,7 @@ describe('ForgotPasswordPage', () => {
       })
 
       const user = userEvent.setup()
-      render(<ForgotPasswordPage />)
+      render(<ForgotPasswordForm />)
 
       await user.type(screen.getByLabelText(/email/i), 'test@example.com')
       await user.click(screen.getByRole('button', { name: /send reset link/i }))
@@ -105,7 +107,7 @@ describe('ForgotPasswordPage', () => {
       vi.mocked(authClient.requestPasswordReset).mockReturnValue(submitPromise)
 
       const user = userEvent.setup()
-      render(<ForgotPasswordPage />)
+      render(<ForgotPasswordForm />)
 
       await user.type(screen.getByLabelText(/email/i), 'test@example.com')
       await user.click(screen.getByRole('button', { name: /send reset link/i }))
@@ -134,7 +136,7 @@ describe('ForgotPasswordPage', () => {
       })
 
       const user = userEvent.setup()
-      render(<ForgotPasswordPage />)
+      render(<ForgotPasswordForm />)
 
       await user.type(screen.getByLabelText(/email/i), 'test@example.com')
       await user.click(screen.getByRole('button', { name: /send reset link/i }))
@@ -155,7 +157,7 @@ describe('ForgotPasswordPage', () => {
       })
 
       const user = userEvent.setup()
-      render(<ForgotPasswordPage />)
+      render(<ForgotPasswordForm />)
 
       await user.type(screen.getByLabelText(/email/i), 'test@example.com')
       await user.click(screen.getByRole('button', { name: /send reset link/i }))
@@ -175,7 +177,7 @@ describe('ForgotPasswordPage', () => {
       })
 
       const user = userEvent.setup()
-      render(<ForgotPasswordPage />)
+      render(<ForgotPasswordForm />)
 
       await user.type(screen.getByLabelText(/email/i), 'test@example.com')
       await user.click(screen.getByRole('button', { name: /send reset link/i }))
@@ -205,7 +207,7 @@ describe('ForgotPasswordPage', () => {
       })
 
       const user = userEvent.setup()
-      render(<ForgotPasswordPage />)
+      render(<ForgotPasswordForm />)
 
       await user.type(screen.getByLabelText(/email/i), 'nonexistent@example.com')
       await user.click(screen.getByRole('button', { name: /send reset link/i }))
@@ -233,7 +235,7 @@ describe('ForgotPasswordPage', () => {
       })
 
       const user = userEvent.setup()
-      render(<ForgotPasswordPage />)
+      render(<ForgotPasswordForm />)
 
       await user.type(screen.getByLabelText(/email/i), 'nonexistent@example.com')
       await user.click(screen.getByRole('button', { name: /send reset link/i }))
@@ -260,7 +262,7 @@ describe('ForgotPasswordPage', () => {
       })
 
       const user = userEvent.setup()
-      render(<ForgotPasswordPage />)
+      render(<ForgotPasswordForm />)
 
       await user.type(screen.getByLabelText(/email/i), 'nonexistent@example.com')
       await user.click(screen.getByRole('button', { name: /send reset link/i }))
@@ -287,7 +289,7 @@ describe('ForgotPasswordPage', () => {
       })
 
       const user = userEvent.setup()
-      render(<ForgotPasswordPage />)
+      render(<ForgotPasswordForm />)
 
       await user.type(screen.getByLabelText(/email/i), 'nonexistent@example.com')
       await user.click(screen.getByRole('button', { name: /send reset link/i }))
@@ -316,7 +318,7 @@ describe('ForgotPasswordPage', () => {
       })
 
       const user = userEvent.setup()
-      render(<ForgotPasswordPage />)
+      render(<ForgotPasswordForm />)
 
       await user.type(screen.getByLabelText(/email/i), 'test@example.com')
       await user.click(screen.getByRole('button', { name: /send reset link/i }))
@@ -342,7 +344,7 @@ describe('ForgotPasswordPage', () => {
       })
 
       const user = userEvent.setup()
-      render(<ForgotPasswordPage />)
+      render(<ForgotPasswordForm />)
 
       await user.type(screen.getByLabelText(/email/i), 'test@example.com')
       await user.click(screen.getByRole('button', { name: /send reset link/i }))
@@ -357,7 +359,7 @@ describe('ForgotPasswordPage', () => {
       vi.mocked(authClient.requestPasswordReset).mockRejectedValue(new Error('Connection failed'))
 
       const user = userEvent.setup()
-      render(<ForgotPasswordPage />)
+      render(<ForgotPasswordForm />)
 
       await user.type(screen.getByLabelText(/email/i), 'test@example.com')
       await user.click(screen.getByRole('button', { name: /send reset link/i }))
@@ -389,7 +391,7 @@ describe('ForgotPasswordPage', () => {
       )
 
       const user = userEvent.setup()
-      render(<ForgotPasswordPage />)
+      render(<ForgotPasswordForm />)
 
       await user.type(screen.getByLabelText(/email/i), 'test@example.com')
       await user.click(screen.getByRole('button', { name: /send reset link/i }))

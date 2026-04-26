@@ -10,8 +10,9 @@ import { SignUpForm } from './SignUpForm'
 import { Card, CardContent } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
 
-export const metadata: Metadata = {
-  title: 'Sign up',
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('auth.signUp')
+  return { title: t('metaTitle') }
 }
 
 export default async function SignUpPage() {
@@ -24,14 +25,15 @@ export default async function SignUpPage() {
     redirect(hasMembership ? '/' : '/onboarding')
   }
 
-  const [inviteRequired, t] = await Promise.all([
+  const [inviteRequired, t, tCommon] = await Promise.all([
     getServerFlag('invite_code_required', 'anonymous'),
-    getTranslations('signup'),
+    getTranslations('auth.signUp'),
+    getTranslations('common'),
   ])
 
   return (
     <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
-      <Suspense fallback={<LoadingFallback />}>
+      <Suspense fallback={<LoadingFallback message={tCommon('loading')} />}>
         <SignUpForm
           inviteRequired={inviteRequired}
           privateBetaBanner={t('privateBetaBanner')}
@@ -43,11 +45,11 @@ export default async function SignUpPage() {
   )
 }
 
-function LoadingFallback() {
+function LoadingFallback({ message }: { message: string }) {
   return (
     <Card className="w-full max-w-md">
       <CardContent className="flex items-center justify-center p-8">
-        <Body variant="muted">Loading...</Body>
+        <Body variant="muted">{message}</Body>
       </CardContent>
     </Card>
   )

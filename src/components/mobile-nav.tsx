@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Menu } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { authClient } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
@@ -17,6 +18,7 @@ interface MobileNavProps {
 
 export function MobileNav({ session, hasHousehold }: MobileNavProps) {
   const router = useRouter()
+  const t = useTranslations('nav.actions')
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -46,14 +48,14 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
       <SheetTrigger asChild>
         <Button variant="ghost" size="sm" className="md:hidden">
           <Menu className="h-5 w-5" />
-          <span className="sr-only">Toggle menu</span>
+          <span className="sr-only">{t('toggleMenu')}</span>
         </Button>
       </SheetTrigger>
       <SheetContent side="right">
         <SheetHeader>
-          <SheetTitle>Account</SheetTitle>
+          <SheetTitle>{t('account')}</SheetTitle>
         </SheetHeader>
-        <nav aria-label="Account menu" className="mt-6 flex flex-col px-4">
+        <nav aria-label={t('accountMenu')} className="mt-6 flex flex-col px-4">
           {session ? (
             <>
               <div className="flex flex-col gap-4">
@@ -63,7 +65,7 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
                     className="hover:text-primary text-sm font-medium transition-colors"
                     onClick={() => setOpen(false)}
                   >
-                    Profile
+                    {t('profile')}
                   </Link>
                 )}
                 <button
@@ -71,7 +73,7 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
                   onClick={handleSignOut}
                   disabled={isLoading}
                 >
-                  {isLoading ? 'Signing out...' : 'Sign out'}
+                  {isLoading ? t('signingOut') : t('signOut')}
                 </button>
               </div>
             </>
@@ -82,14 +84,14 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
                 className="hover:text-primary text-sm font-medium transition-colors"
                 onClick={() => setOpen(false)}
               >
-                Sign in
+                {t('signIn')}
               </Link>
               <Link
                 href="/sign-up"
                 className="hover:text-primary text-sm font-medium transition-colors"
                 onClick={() => setOpen(false)}
               >
-                Sign up
+                {t('signUp')}
               </Link>
             </div>
           )}

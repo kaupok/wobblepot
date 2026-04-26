@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { authClient } from '@/lib/auth-client'
-import { getUserFriendlyError } from '@/lib/auth-errors'
+import { useAuthErrorMessage } from '@/lib/auth-errors-client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,6 +15,9 @@ import { Heading, Body } from '@/components/ui/typography'
 export function ResetPasswordForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const t = useTranslations('auth.resetPassword')
+  const tValidation = useTranslations('validation')
+  const friendlyError = useAuthErrorMessage()
   const [token, setToken] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -26,9 +30,9 @@ export function ResetPasswordForm() {
     if (tokenParam) {
       setToken(tokenParam)
     } else {
-      setError('No reset token found. Please request a new password reset link.')
+      setError(tValidation('noResetToken'))
     }
-  }, [searchParams])
+  }, [searchParams, tValidation])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,18 +40,18 @@ export function ResetPasswordForm() {
 
     // Validate passwords match
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match')
+      setError(tValidation('passwordsDoNotMatch'))
       return
     }
 
     // Validate password length
     if (newPassword.length < 12) {
-      setError('Password must be at least 12 characters long')
+      setError(tValidation('passwordTooShort'))
       return
     }
 
     if (!token) {
-      setError('No reset token found. Please request a new password reset link.')
+      setError(tValidation('noResetToken'))
       return
     }
 
@@ -65,17 +69,15 @@ export function ResetPasswordForm() {
             router.push('/sign-in?reset=success')
           },
           onError: (ctx) => {
-            const errorMessage = ctx.error?.message || 'Failed to reset password'
-            setError(getUserFriendlyError(errorMessage))
+            const errorMessage = ctx.error?.message || ''
+            setError(friendlyError(errorMessage))
           },
         },
       )
     } catch (err) {
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : 'Unable to connect. Please check your internet connection.'
-      setError(getUserFriendlyError(errorMessage))
+      // Non-Error throws are rare but historically mapped to the network copy.
+      const errorMessage = err instanceof Error ? err.message : 'network'
+      setError(friendlyError(errorMessage))
     } finally {
       setIsLoading(false)
     }
@@ -84,14 +86,14 @@ export function ResetPasswordForm() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <Heading variant="h4">Reset password</Heading>
-        <Body variant="muted">Enter your new password below</Body>
+        <Heading variant="h4">{t('title')}</Heading>
+        <Body variant="muted">{t('description')}</Body>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent>
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="newPassword">New password</Label>
+              <Label htmlFor="newPassword">{t('newPasswordLabel')}</Label>
               <Input
                 id="newPassword"
                 type="password"
@@ -100,15 +102,15 @@ export function ResetPasswordForm() {
                 required
                 disabled={isLoading || !token}
                 minLength={12}
-                placeholder="At least 12 characters"
+                placeholder={t('newPasswordPlaceholder')}
                 aria-describedby="password-hint"
               />
               <Body id="password-hint" variant="small" className="text-muted-foreground">
-                Use at least 12 characters. Avoid passwords from past data breaches.
+                {t('passwordHint')}
               </Body>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="confirmPassword">Confirm password</Label>
+              <Label htmlFor="confirmPassword">{t('confirmPasswordLabel')}</Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -117,7 +119,7 @@ export function ResetPasswordForm() {
                 required
                 disabled={isLoading || !token}
                 minLength={12}
-                placeholder="Re-enter your password"
+                placeholder={t('confirmPasswordPlaceholder')}
               />
             </div>
             {error && (
@@ -130,12 +132,12 @@ export function ResetPasswordForm() {
         <CardFooter className="pt-6">
           <div className="flex w-full flex-col gap-4">
             <Button type="submit" className="w-full" disabled={isLoading || !token}>
-              {isLoading ? 'Resetting password...' : 'Reset password'}
+              {isLoading ? t('submitting') : t('submit')}
             </Button>
             <Body variant="small" className="text-muted-foreground text-center">
-              Remember your password?{' '}
+              {t('rememberPassword')}{' '}
               <Link href="/sign-in" className="text-primary hover:underline">
-                Sign in
+                {t('signInLink')}
               </Link>
             </Body>
           </div>

@@ -1,10 +1,26 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import NotFound from './not-found'
+import enMessages from '../../messages/en.json'
+
+// Resolve `getTranslations('errors.notFound')` against the real en catalog so
+// the async server component renders without pulling in the next-intl request
+// pipeline.
+vi.mock('next-intl/server', () => ({
+  getTranslations: vi.fn(async (namespace: string) => {
+    const segments = namespace.split('.')
+    let cursor: unknown = enMessages
+    for (const segment of segments) {
+      cursor = (cursor as Record<string, unknown>)?.[segment]
+    }
+    return (key: string) => (cursor as Record<string, string>)?.[key] ?? key
+  }),
+}))
 
 describe('NotFound', () => {
-  it('renders the heading and description', () => {
-    render(<NotFound />)
+  it('renders the heading and description', async () => {
+    const component = await NotFound()
+    render(component)
 
     expect(screen.getByRole('heading', { name: /page not found/i })).toBeInTheDocument()
     expect(
@@ -12,8 +28,9 @@ describe('NotFound', () => {
     ).toBeInTheDocument()
   })
 
-  it('renders a link to the home page', () => {
-    render(<NotFound />)
+  it('renders a link to the home page', async () => {
+    const component = await NotFound()
+    render(component)
 
     const link = screen.getByRole('link', { name: /go home/i })
     expect(link).toBeInTheDocument()

@@ -1,8 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { createSession } from '@/stories/fixtures'
 import { NavigationLeft, NavigationRight } from './navigation'
-
-const authedSession = createSession()
 
 const meta = {
   title: 'Feature/Navigation/Navigation',
@@ -13,7 +10,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Desktop top-nav link groups rendered inside the `Header`. `NavigationLeft` covers daily operational views (Today, Pantry & shopping); `NavigationRight` covers configuration (My recipes, Household). Both render `null` when no session or no household — the desktop nav only exists after onboarding.',
+          'Desktop top-nav link groups rendered inside the `Header`. `NavigationLeft` covers daily operational views (Today, Pantry & shopping); `NavigationRight` covers configuration (My recipes, Household). Both render `null` when not authenticated or no household — the desktop nav only exists after onboarding.',
       },
     },
   },
@@ -30,17 +27,17 @@ type Story = StoryObj<typeof meta>
 // autodocs; individual stories render whichever variant they care about.
 
 export const LeftWithHousehold: Story = {
-  args: { session: authedSession, hasHousehold: true },
+  args: { isAuthenticated: true, hasHousehold: true },
   render: (args) => <NavigationLeft {...args} />,
 }
 
 export const RightWithHousehold: Story = {
-  args: { session: authedSession, hasHousehold: true },
+  args: { isAuthenticated: true, hasHousehold: true },
   render: (args) => <NavigationRight {...args} />,
 }
 
 export const BothAllVariants: Story = {
-  args: { session: authedSession, hasHousehold: true },
+  args: { isAuthenticated: true, hasHousehold: true },
   parameters: {
     docs: {
       description: {
@@ -58,12 +55,11 @@ export const BothAllVariants: Story = {
 }
 
 export const HiddenWhenLoggedOut: Story = {
-  args: { session: null, hasHousehold: false },
+  args: { isAuthenticated: false, hasHousehold: false },
   parameters: {
     docs: {
       description: {
-        story:
-          'Renders `null` for both left and right when there is no session (sign-in / sign-up screens).',
+        story: 'Renders `null` for both left and right when not authenticated.',
       },
     },
   },
@@ -77,7 +73,7 @@ export const HiddenWhenLoggedOut: Story = {
 }
 
 export const HiddenDuringOnboarding: Story = {
-  args: { session: authedSession, hasHousehold: false },
+  args: { isAuthenticated: true, hasHousehold: false },
   parameters: {
     docs: {
       description: {

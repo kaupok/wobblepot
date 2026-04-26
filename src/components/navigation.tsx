@@ -1,25 +1,29 @@
+'use client'
+
 import Link from 'next/link'
-import type { Session } from '@/lib/auth'
+import { useTranslations } from 'next-intl'
 
 interface NavigationProps {
-  session: Session | null
+  isAuthenticated: boolean
   hasHousehold: boolean
 }
 
 /**
  * Left navigation - daily operational views
- * (Today, Meal plan, Pantry & shopping)
+ * (Today, Pantry & shopping)
  */
-export function NavigationLeft({ session, hasHousehold }: NavigationProps) {
-  if (!session || !hasHousehold) return null
+export function NavigationLeft({ isAuthenticated, hasHousehold }: NavigationProps) {
+  const t = useTranslations('nav.primary')
+
+  if (!isAuthenticated || !hasHousehold) return null
 
   return (
-    <nav aria-label="Primary" className="hidden items-center gap-6 md:flex">
+    <nav aria-label={t('ariaLabel')} className="hidden items-center gap-6 md:flex">
       <Link href="/" className="hover:text-primary text-sm font-medium transition-colors">
-        Today
+        {t('today')}
       </Link>
       <Link href="/shopping" className="hover:text-primary text-sm font-medium transition-colors">
-        Pantry & shopping
+        {t('pantryAndShopping')}
       </Link>
     </nav>
   )
@@ -29,16 +33,18 @@ export function NavigationLeft({ session, hasHousehold }: NavigationProps) {
  * Right navigation - settings/configuration views
  * (My recipes, Household)
  */
-export function NavigationRight({ session, hasHousehold }: NavigationProps) {
-  if (!session || !hasHousehold) return null
+export function NavigationRight({ isAuthenticated, hasHousehold }: NavigationProps) {
+  const t = useTranslations('nav.settings')
+
+  if (!isAuthenticated || !hasHousehold) return null
 
   return (
-    <nav aria-label="Settings" className="hidden items-center gap-6 md:flex">
+    <nav aria-label={t('ariaLabel')} className="hidden items-center gap-6 md:flex">
       <Link href="/recipes" className="hover:text-primary text-sm font-medium transition-colors">
-        My recipes
+        {t('myRecipes')}
       </Link>
       <Link href="/household" className="hover:text-primary text-sm font-medium transition-colors">
-        Household
+        {t('household')}
       </Link>
     </nav>
   )

@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Heading, Body, Pre } from '@/components/ui/typography'
 import { useEffect } from 'react'
@@ -12,6 +13,8 @@ export default function SignUpError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const t = useTranslations('errors.boundary')
+
   useEffect(() => {
     void captureClientError(error, { digest: error.digest })
   }, [error])
@@ -20,14 +23,18 @@ export default function SignUpError({
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
       <div className="max-w-md text-center">
         <div className="flex flex-col gap-3">
-          <Heading variant="h2">Couldn&apos;t load sign up</Heading>
-          <Body>We had trouble loading the sign-up page. Please try again.</Body>
-          {error.digest && <Body variant="muted">Error ID: {error.digest}</Body>}
+          <Heading variant="h2">{t('signUp.title')}</Heading>
+          <Body>{t('signUp.body')}</Body>
+          {error.digest && (
+            <Body variant="muted">
+              {t('errorIdLabel')} {error.digest}
+            </Body>
+          )}
         </div>
         {process.env.NODE_ENV === 'development' && (
           <div className="mt-4 mb-4">
             <details className="text-left">
-              <summary className="cursor-pointer font-semibold">Error details</summary>
+              <summary className="cursor-pointer font-semibold">{t('detailsLabel')}</summary>
               <Pre className="text-destructive text-xs">
                 {error.message}
                 {error.stack && `\n\n${error.stack}`}
@@ -35,7 +42,7 @@ export default function SignUpError({
             </details>
           </div>
         )}
-        <Button onClick={reset}>Try again</Button>
+        <Button onClick={reset}>{t('tryAgain')}</Button>
       </div>
     </div>
   )
