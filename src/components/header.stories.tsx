@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import Link from 'next/link'
 import { http, HttpResponse } from 'msw'
+import { useTranslations } from 'next-intl'
 import { Heading } from '@/components/ui/typography'
 import type { Session } from '@/lib/auth'
 import { createSession } from '@/stories/fixtures'
@@ -27,13 +28,14 @@ interface HeaderPresentationProps {
 }
 
 function HeaderPresentation({ session, hasHousehold }: HeaderPresentationProps) {
+  const t = useTranslations('nav')
   return (
     <header className="bg-background fixed top-0 right-0 left-0 z-50 border-b pt-[env(safe-area-inset-top,0px)]">
       <a
         href="#main-content"
         className="focus:bg-background focus:text-foreground sr-only focus:not-sr-only focus:absolute focus:z-50 focus:px-4 focus:py-2 focus:ring-2 focus:ring-offset-2"
       >
-        Skip to content
+        {t('skipToContent')}
       </a>
       <div className="mx-auto flex h-16 w-full max-w-[1152px] items-center justify-between px-4">
         <div className="flex items-center gap-8">

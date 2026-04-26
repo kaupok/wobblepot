@@ -1,150 +1,101 @@
 import { describe, it, expect } from 'vitest'
-import { getUserFriendlyError } from './auth-errors'
+import { getAuthErrorKey } from './auth-errors'
 
-describe('getUserFriendlyError', () => {
+describe('getAuthErrorKey', () => {
   describe('authentication errors', () => {
     it('handles invalid credentials error', () => {
-      expect(getUserFriendlyError('Invalid credentials')).toBe(
-        'The email or password you entered is incorrect. Please try again.',
-      )
-      expect(getUserFriendlyError('invalid credentials provided')).toBe(
-        'The email or password you entered is incorrect. Please try again.',
-      )
+      expect(getAuthErrorKey('Invalid credentials')).toBe('invalidCredentials')
+      expect(getAuthErrorKey('invalid credentials provided')).toBe('invalidCredentials')
     })
 
     it('handles user not found error', () => {
-      expect(getUserFriendlyError('User not found')).toBe(
-        'No account found with this email address.',
-      )
-      expect(getUserFriendlyError('No user exists')).toBe(
-        'No account found with this email address.',
-      )
+      expect(getAuthErrorKey('User not found')).toBe('userNotFound')
+      expect(getAuthErrorKey('No user exists')).toBe('userNotFound')
     })
 
     it('handles incorrect password error', () => {
-      expect(getUserFriendlyError('Password incorrect')).toBe(
-        'The password you entered is incorrect. Please try again.',
-      )
-      expect(getUserFriendlyError('Incorrect password provided')).toBe(
-        'The password you entered is incorrect. Please try again.',
-      )
+      expect(getAuthErrorKey('Password incorrect')).toBe('incorrectPassword')
+      expect(getAuthErrorKey('Incorrect password provided')).toBe('incorrectPassword')
     })
   })
 
   describe('account existence errors', () => {
     it('handles account already exists error', () => {
-      expect(getUserFriendlyError('User already exists')).toBe(
-        'An account with this email address already exists. Try signing in instead.',
-      )
-      expect(getUserFriendlyError('Email already registered')).toBe(
-        'An account with this email address already exists. Try signing in instead.',
-      )
+      expect(getAuthErrorKey('User already exists')).toBe('accountAlreadyExists')
+      expect(getAuthErrorKey('Email already registered')).toBe('accountAlreadyExists')
     })
   })
 
   describe('validation errors', () => {
     it('handles invalid email error', () => {
-      expect(getUserFriendlyError('Invalid email format')).toBe(
-        'Please enter a valid email address.',
-      )
-      expect(getUserFriendlyError('Invalid email address')).toBe(
-        'Please enter a valid email address.',
-      )
+      expect(getAuthErrorKey('Invalid email format')).toBe('invalidEmail')
+      expect(getAuthErrorKey('Invalid email address')).toBe('invalidEmail')
     })
 
     it('handles password too short error', () => {
-      expect(getUserFriendlyError('Password too short')).toBe(
-        'Password must be at least 12 characters long.',
-      )
-      expect(getUserFriendlyError('Password minimum length not met')).toBe(
-        'Password must be at least 12 characters long.',
-      )
+      expect(getAuthErrorKey('Password too short')).toBe('passwordTooShort')
+      expect(getAuthErrorKey('Password minimum length not met')).toBe('passwordTooShort')
     })
 
     it('handles weak password error', () => {
-      expect(getUserFriendlyError('Password is too weak')).toBe(
-        'Please choose a stronger password.',
-      )
-      expect(getUserFriendlyError('Weak password provided')).toBe(
-        'Please choose a stronger password.',
-      )
+      expect(getAuthErrorKey('Password is too weak')).toBe('passwordWeak')
+      expect(getAuthErrorKey('Weak password provided')).toBe('passwordWeak')
     })
 
     it('handles breached/compromised password error', () => {
-      const expected = 'That password appears in known data breaches. Please pick a different one.'
       expect(
-        getUserFriendlyError(
+        getAuthErrorKey(
           'That password appears in known data breaches. Please pick a different one.',
         ),
-      ).toBe(expected)
-      expect(getUserFriendlyError('The password you entered has been compromised.')).toBe(expected)
-      expect(getUserFriendlyError('Password found in data breach')).toBe(expected)
-      expect(getUserFriendlyError('This password is pwned')).toBe(expected)
+      ).toBe('breachedPassword')
+      expect(getAuthErrorKey('The password you entered has been compromised.')).toBe(
+        'breachedPassword',
+      )
+      expect(getAuthErrorKey('Password found in data breach')).toBe('breachedPassword')
+      expect(getAuthErrorKey('This password is pwned')).toBe('breachedPassword')
     })
   })
 
   describe('rate limiting errors', () => {
     it('handles too many attempts error', () => {
-      expect(getUserFriendlyError('Too many login attempts')).toBe(
-        'Too many attempts. Please try again in a few minutes.',
-      )
-      expect(getUserFriendlyError('Too many requests')).toBe(
-        'Too many attempts. Please try again in a few minutes.',
-      )
+      expect(getAuthErrorKey('Too many login attempts')).toBe('tooManyAttempts')
+      expect(getAuthErrorKey('Too many requests')).toBe('tooManyAttempts')
     })
   })
 
   describe('network errors', () => {
     it('handles network error', () => {
-      expect(getUserFriendlyError('Network error occurred')).toBe(
-        'Unable to connect to the server. Please check your internet connection and try again.',
-      )
-      expect(getUserFriendlyError('Fetch failed')).toBe(
-        'Unable to connect to the server. Please check your internet connection and try again.',
-      )
+      expect(getAuthErrorKey('Network error occurred')).toBe('network')
+      expect(getAuthErrorKey('Fetch failed')).toBe('network')
     })
 
     it('handles timeout error', () => {
-      expect(getUserFriendlyError('Request timeout')).toBe(
-        'Request timed out. Please check your connection and try again.',
-      )
-      expect(getUserFriendlyError('Connection timed out')).toBe(
-        'Request timed out. Please check your connection and try again.',
-      )
+      expect(getAuthErrorKey('Request timeout')).toBe('timeout')
+      expect(getAuthErrorKey('Connection timed out')).toBe('timeout')
     })
   })
 
   describe('server errors', () => {
     it('handles internal server error', () => {
-      expect(getUserFriendlyError('Internal server error')).toBe(
-        'Server is experiencing issues. Please try again in a moment.',
-      )
-      expect(getUserFriendlyError('Error 500')).toBe(
-        'Server is experiencing issues. Please try again in a moment.',
-      )
+      expect(getAuthErrorKey('Internal server error')).toBe('internalServer')
+      expect(getAuthErrorKey('Error 500')).toBe('internalServer')
     })
 
     it('handles service unavailable error', () => {
-      expect(getUserFriendlyError('Service unavailable')).toBe(
-        'Service is temporarily unavailable. Please try again later.',
-      )
-      expect(getUserFriendlyError('Error 503')).toBe(
-        'Service is temporarily unavailable. Please try again later.',
-      )
+      expect(getAuthErrorKey('Service unavailable')).toBe('serviceUnavailable')
+      expect(getAuthErrorKey('Error 503')).toBe('serviceUnavailable')
     })
   })
 
   describe('invite-code errors', () => {
-    it('maps the missing-code message to the private-beta copy', () => {
+    it('maps the missing-code message to the inviteCodeRequired key', () => {
       // Matches the exact APIError message thrown by validateAndClaimInviteCode.
-      expect(getUserFriendlyError('An invite code is required.')).toBe(
-        'An invite code is required to sign up while we are in private beta.',
-      )
+      expect(getAuthErrorKey('An invite code is required.')).toBe('inviteCodeRequired')
     })
 
-    it('maps the invalid/expired/used-code message to the bad-code copy', () => {
-      expect(getUserFriendlyError('This invite code is invalid, expired, or already used.')).toBe(
-        'That invite code is invalid, expired, or has already been used.',
+    it('maps the invalid/expired/used-code message to the inviteCodeInvalid key', () => {
+      expect(getAuthErrorKey('This invite code is invalid, expired, or already used.')).toBe(
+        'inviteCodeInvalid',
       )
     })
 
@@ -152,130 +103,81 @@ describe('getUserFriendlyError', () => {
       // Better Auth wraps the throw in a FORBIDDEN response; without the
       // ordering in auth-errors.ts the keyword "forbidden" upstream of the
       // user message could swallow these into the CSRF copy.
-      expect(getUserFriendlyError('forbidden: An invite code is required.')).toBe(
-        'An invite code is required to sign up while we are in private beta.',
-      )
+      expect(getAuthErrorKey('forbidden: An invite code is required.')).toBe('inviteCodeRequired')
     })
   })
 
   describe('security errors', () => {
     it('handles CSRF error', () => {
-      expect(getUserFriendlyError('CSRF token invalid')).toBe(
-        'Security validation failed. Please refresh the page and try again.',
-      )
-      expect(getUserFriendlyError('Forbidden request')).toBe(
-        'Security validation failed. Please refresh the page and try again.',
-      )
-    })
-
-    it('prioritizes CSRF errors over token errors', () => {
-      // CSRF errors should be caught before password reset token errors
-      expect(getUserFriendlyError('CSRF token invalid')).toBe(
-        'Security validation failed. Please refresh the page and try again.',
-      )
+      expect(getAuthErrorKey('CSRF token invalid')).toBe('csrf')
+      expect(getAuthErrorKey('Forbidden request')).toBe('csrf')
     })
   })
 
   describe('password reset errors', () => {
     it('handles expired token error', () => {
-      expect(getUserFriendlyError('Token expired')).toBe(
-        'This password reset link has expired. Please request a new one.',
-      )
-      expect(getUserFriendlyError('Reset token has expired')).toBe(
-        'This password reset link has expired. Please request a new one.',
-      )
-      expect(getUserFriendlyError('Password reset token expired')).toBe(
-        'This password reset link has expired. Please request a new one.',
-      )
+      expect(getAuthErrorKey('Token expired')).toBe('tokenExpired')
+      expect(getAuthErrorKey('Reset token has expired')).toBe('tokenExpired')
+      expect(getAuthErrorKey('Password reset token expired')).toBe('tokenExpired')
     })
 
     it('handles invalid token error', () => {
-      expect(getUserFriendlyError('Invalid token')).toBe(
-        'This password reset link is invalid. Please request a new one.',
-      )
-      expect(getUserFriendlyError('Token is invalid or has been used')).toBe(
-        'This password reset link is invalid. Please request a new one.',
-      )
-      expect(getUserFriendlyError('Password reset token invalid')).toBe(
-        'This password reset link is invalid. Please request a new one.',
-      )
+      expect(getAuthErrorKey('Invalid token')).toBe('tokenInvalid')
+      expect(getAuthErrorKey('Token is invalid or has been used')).toBe('tokenInvalid')
+      expect(getAuthErrorKey('Password reset token invalid')).toBe('tokenInvalid')
     })
 
     it('handles user not found during password reset', () => {
-      expect(getUserFriendlyError('User not found for password reset')).toBe(
-        'If an account exists with this email, you will receive a reset link.',
-      )
-      expect(getUserFriendlyError('Email not found during reset attempt')).toBe(
-        'If an account exists with this email, you will receive a reset link.',
-      )
-      expect(getUserFriendlyError('No user found for reset')).toBe(
-        'If an account exists with this email, you will receive a reset link.',
-      )
+      expect(getAuthErrorKey('User not found for password reset')).toBe('resetUserNotFound')
+      expect(getAuthErrorKey('Email not found during reset attempt')).toBe('resetUserNotFound')
+      expect(getAuthErrorKey('No user found for reset')).toBe('resetUserNotFound')
     })
 
     it('does not match generic user not found without reset context', () => {
-      // Should return the original "No account found" message, not the reset-specific one
-      expect(getUserFriendlyError('User not found')).toBe(
-        'No account found with this email address.',
-      )
-      expect(getUserFriendlyError('No user exists')).toBe(
-        'No account found with this email address.',
-      )
+      expect(getAuthErrorKey('User not found')).toBe('userNotFound')
+      expect(getAuthErrorKey('No user exists')).toBe('userNotFound')
     })
   })
 
   describe('edge cases', () => {
-    it('handles empty string', () => {
-      expect(getUserFriendlyError('')).toBe('An unexpected error occurred. Please try again.')
+    it('returns null for empty string', () => {
+      expect(getAuthErrorKey('')).toBeNull()
     })
 
-    it('handles unmapped error message', () => {
-      const customError = 'Some custom error message'
-      expect(getUserFriendlyError(customError)).toBe(customError)
+    it('returns null for unmapped error message', () => {
+      expect(getAuthErrorKey('Some custom error message')).toBeNull()
     })
 
     it('handles case-insensitive matching', () => {
-      expect(getUserFriendlyError('INVALID CREDENTIALS')).toBe(
-        'The email or password you entered is incorrect. Please try again.',
-      )
-      expect(getUserFriendlyError('Network ERROR')).toBe(
-        'Unable to connect to the server. Please check your internet connection and try again.',
-      )
+      expect(getAuthErrorKey('INVALID CREDENTIALS')).toBe('invalidCredentials')
+      expect(getAuthErrorKey('Network ERROR')).toBe('network')
     })
 
     it('handles partial keyword matches', () => {
-      expect(getUserFriendlyError('The provided credentials are invalid for this user')).toBe(
-        'The email or password you entered is incorrect. Please try again.',
+      expect(getAuthErrorKey('The provided credentials are invalid for this user')).toBe(
+        'invalidCredentials',
       )
-      expect(getUserFriendlyError('A network connection error has occurred')).toBe(
-        'Unable to connect to the server. Please check your internet connection and try again.',
-      )
+      expect(getAuthErrorKey('A network connection error has occurred')).toBe('network')
     })
   })
 
   describe('real-world error scenarios', () => {
     it('handles offline scenario', () => {
-      expect(getUserFriendlyError('Fetch failed')).toBe(
-        'Unable to connect to the server. Please check your internet connection and try again.',
-      )
+      expect(getAuthErrorKey('Fetch failed')).toBe('network')
     })
 
     it('handles slow connection', () => {
-      expect(getUserFriendlyError('Request timed out after 30s')).toBe(
-        'Request timed out. Please check your connection and try again.',
-      )
+      expect(getAuthErrorKey('Request timed out after 30s')).toBe('timeout')
     })
 
     it('handles duplicate registration', () => {
-      expect(getUserFriendlyError('User with this email already exists in database')).toBe(
-        'An account with this email address already exists. Try signing in instead.',
+      expect(getAuthErrorKey('User with this email already exists in database')).toBe(
+        'accountAlreadyExists',
       )
     })
 
     it('handles login with wrong password', () => {
-      expect(getUserFriendlyError('The password provided is incorrect')).toBe(
-        'The password you entered is incorrect. Please try again.',
-      )
+      expect(getAuthErrorKey('The password provided is incorrect')).toBe('incorrectPassword')
     })
   })
 })

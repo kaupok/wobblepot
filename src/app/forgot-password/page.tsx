@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { authClient } from '@/lib/auth-client'
-import { getUserFriendlyError } from '@/lib/auth-errors'
+import { useAuthErrorMessage } from '@/lib/auth-errors-client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,6 +12,8 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 
 export default function ForgotPasswordPage() {
+  const t = useTranslations('auth.forgotPassword')
+  const friendlyError = useAuthErrorMessage()
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -48,16 +51,13 @@ export default function ForgotPasswordPage() {
             }
 
             // Only show actual errors (network, rate limiting, etc.)
-            setError(getUserFriendlyError(errorMessage))
+            setError(friendlyError(errorMessage))
           },
         },
       )
     } catch (err) {
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : 'Unable to connect. Please check your internet connection.'
-      setError(getUserFriendlyError(errorMessage))
+      const errorMessage = err instanceof Error ? err.message : ''
+      setError(friendlyError(errorMessage))
     } finally {
       setIsLoading(false)
     }
@@ -67,10 +67,8 @@ export default function ForgotPasswordPage() {
     <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <Heading variant="h4">Forgot password</Heading>
-          <Body variant="muted">
-            Enter your email address and we&apos;ll send you a link to reset your password
-          </Body>
+          <Heading variant="h4">{t('title')}</Heading>
+          <Body variant="muted">{t('description')}</Body>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent>
@@ -78,14 +76,13 @@ export default function ForgotPasswordPage() {
               {success ? (
                 <div className="flex flex-col gap-2">
                   <Body variant="small" className="text-green-600" role="status">
-                    If an account exists with this email, you will receive a password reset link
-                    shortly.
+                    {t('success')}
                   </Body>
                 </div>
               ) : (
                 <>
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">{t('emailLabel')}</Label>
                     <Input
                       id="email"
                       type="email"
@@ -93,7 +90,7 @@ export default function ForgotPasswordPage() {
                       onChange={(e) => setEmail(e.target.value)}
                       required
                       disabled={isLoading}
-                      placeholder="you@example.com"
+                      placeholder={t('emailPlaceholder')}
                     />
                   </div>
                   {error && (
@@ -109,13 +106,13 @@ export default function ForgotPasswordPage() {
             <div className="flex w-full flex-col gap-4">
               {!success && (
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? 'Sending reset link...' : 'Send reset link'}
+                  {isLoading ? t('submitting') : t('submit')}
                 </Button>
               )}
               <Body variant="small" className="text-muted-foreground text-center">
-                Remember your password?{' '}
+                {t('rememberPassword')}{' '}
                 <Link href="/sign-in" className="text-primary hover:underline">
-                  Sign in
+                  {t('signInLink')}
                 </Link>
               </Body>
             </div>

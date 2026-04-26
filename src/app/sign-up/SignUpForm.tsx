@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { authClient } from '@/lib/auth-client'
-import { getUserFriendlyError } from '@/lib/auth-errors'
+import { useAuthErrorMessage } from '@/lib/auth-errors-client'
 import { getValidReturnUrl } from '@/lib/utils'
 import { track } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
@@ -29,6 +30,8 @@ export function SignUpForm({
   const router = useRouter()
   const searchParams = useSearchParams()
   const returnUrl = getValidReturnUrl(searchParams.get('returnUrl'))
+  const t = useTranslations('auth.signUp')
+  const friendlyError = useAuthErrorMessage()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -67,23 +70,18 @@ export function SignUpForm({
             router.push(returnUrl)
             router.refresh()
           } catch {
-            setError(
-              'Account created successfully, but navigation failed. Please refresh the page.',
-            )
+            setError(t('navigationFailed'))
           }
         },
         onError: (ctx) => {
-          const errorMessage = ctx.error?.message || 'Failed to sign up'
-          setError(getUserFriendlyError(errorMessage))
+          const errorMessage = ctx.error?.message || ''
+          setError(friendlyError(errorMessage))
         },
       })
     } catch (err) {
       // Handle exceptions thrown by authClient (e.g., network errors when offline)
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : 'Unable to connect. Please check your internet connection.'
-      setError(getUserFriendlyError(errorMessage))
+      const errorMessage = err instanceof Error ? err.message : ''
+      setError(friendlyError(errorMessage))
     } finally {
       clearTimeout(timeoutId)
       setIsLoading(false)
@@ -94,8 +92,8 @@ export function SignUpForm({
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <Heading variant="h4">Sign up</Heading>
-        <Body variant="muted">Create a new account to get started</Body>
+        <Heading variant="h4">{t('title')}</Heading>
+        <Body variant="muted">{t('description')}</Body>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent>
@@ -104,13 +102,13 @@ export function SignUpForm({
               <div
                 className="border-primary/30 bg-primary/5 rounded-md border px-3 py-2"
                 role="note"
-                aria-label="Private beta notice"
+                aria-label={t('privateBetaNoticeLabel')}
               >
                 <Body variant="small">{privateBetaBanner}</Body>
               </div>
             )}
             <div className="flex flex-col gap-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">{t('nameLabel')}</Label>
               <Input
                 id="name"
                 type="text"
@@ -123,7 +121,7 @@ export function SignUpForm({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('emailLabel')}</Label>
               <Input
                 id="email"
                 type="email"
@@ -136,7 +134,7 @@ export function SignUpForm({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('passwordLabel')}</Label>
               <Input
                 id="password"
                 type="password"
@@ -149,7 +147,7 @@ export function SignUpForm({
                 aria-describedby={error ? 'form-error' : 'password-hint'}
               />
               <Body id="password-hint" variant="small" className="text-muted-foreground">
-                Use at least 12 characters. Avoid passwords from past data breaches.
+                {t('passwordHint')}
               </Body>
             </div>
             {inviteRequired && (
@@ -179,7 +177,7 @@ export function SignUpForm({
             )}
             {isSlowRequest && !error && (
               <Body variant="small" className="text-muted-foreground">
-                This is taking longer than expected. Please wait...
+                {t('slowRequest')}
               </Body>
             )}
           </div>
@@ -187,10 +185,10 @@ export function SignUpForm({
         <CardFooter className="pt-6">
           <div className="flex w-full flex-col gap-4">
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Creating account...' : 'Sign up'}
+              {isLoading ? t('submitting') : t('submit')}
             </Button>
             <Body variant="small" className="text-muted-foreground text-center">
-              Already have an account?{' '}
+              {t('alreadyHaveAccount')}{' '}
               <Link
                 href={
                   returnUrl !== '/'
@@ -199,7 +197,7 @@ export function SignUpForm({
                 }
                 className="text-primary hover:underline"
               >
-                Sign in
+                {t('signInLink')}
               </Link>
             </Body>
           </div>

@@ -1,9 +1,16 @@
+import type { Metadata } from 'next'
 import { redirect, notFound } from 'next/navigation'
 import { headers } from 'next/headers'
+import { getTranslations } from 'next-intl/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { JoinHouseholdCard } from './JoinHouseholdCard'
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('auth.invite')
+  return { title: t('metaTitle') }
+}
 
 interface InvitePageProps {
   params: Promise<{ code: string }>

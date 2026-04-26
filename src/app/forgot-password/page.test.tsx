@@ -11,9 +11,11 @@ vi.mock('@/lib/auth-client', () => ({
   },
 }))
 
-// Mock error helper
-vi.mock('@/lib/auth-errors', () => ({
-  getUserFriendlyError: vi.fn((msg) => msg),
+// Mock the friendly-error hook so tests assert on raw server messages without
+// coupling to the localized catalog copy. Catalog → key mapping is exercised
+// in src/lib/auth-errors.test.ts.
+vi.mock('@/lib/auth-errors-client', () => ({
+  useAuthErrorMessage: () => (msg: string) => msg,
 }))
 
 describe('ForgotPasswordPage', () => {

@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Header } from './header'
 import enMessages from '../../messages/en.json'
 
-// Resolve `getTranslations('header')` against the real en catalog so the RSC
+// Resolve `getTranslations('nav')` against the real en catalog so the RSC
 // Server Component renders the expected chrome strings without pulling in the
 // full next-intl request pipeline.
 vi.mock('next-intl/server', () => ({

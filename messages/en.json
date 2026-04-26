@@ -8,13 +8,223 @@
     "feature3": "Tracks what you have on hand",
     "privateBeta": "We're in private beta. You'll need an invite code to sign up."
   },
-  "signup": {
-    "privateBetaBanner": "Private beta — sign-up is by invite code only.",
-    "inviteCodeLabel": "Invite code",
-    "inviteCodeHint": "Paste the code from your invitation."
+  "common": {
+    "loading": "Loading…",
+    "tryAgain": "Try again",
+    "goHome": "Go home"
   },
-  "header": {
-    "skipToContent": "Skip to content"
+  "nav": {
+    "skipToContent": "Skip to content",
+    "primary": {
+      "ariaLabel": "Primary",
+      "today": "Today",
+      "pantryAndShopping": "Pantry & shopping"
+    },
+    "settings": {
+      "ariaLabel": "Settings",
+      "myRecipes": "My recipes",
+      "household": "Household"
+    },
+    "tabs": {
+      "ariaLabel": "Primary",
+      "today": "Today",
+      "shopping": "Shopping",
+      "recipes": "Recipes",
+      "household": "Household"
+    },
+    "actions": {
+      "userMenu": "User menu",
+      "toggleMenu": "Toggle menu",
+      "account": "Account",
+      "profile": "Profile",
+      "signIn": "Sign in",
+      "signUp": "Sign up",
+      "signOut": "Sign out",
+      "signingOut": "Signing out…",
+      "lightMode": "Light mode",
+      "darkMode": "Dark mode",
+      "toggleTheme": "Toggle theme"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "metaTitle": "Sign in",
+      "title": "Sign in",
+      "description": "Sign in to your account",
+      "emailLabel": "Email",
+      "passwordLabel": "Password",
+      "forgotPasswordLink": "Forgot password?",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "dontHaveAccount": "Don't have an account?",
+      "signUpLink": "Sign up",
+      "resetSuccess": "Your password has been reset successfully. You can now sign in with your new password.",
+      "slowRequest": "This is taking longer than expected. Please wait…",
+      "navigationFailed": "Authentication successful, but navigation failed. Please refresh the page."
+    },
+    "signUp": {
+      "metaTitle": "Sign up",
+      "title": "Sign up",
+      "description": "Create a new account to get started",
+      "nameLabel": "Name",
+      "emailLabel": "Email",
+      "passwordLabel": "Password",
+      "passwordHint": "Use at least 12 characters. Avoid passwords from past data breaches.",
+      "submit": "Sign up",
+      "submitting": "Creating account…",
+      "alreadyHaveAccount": "Already have an account?",
+      "signInLink": "Sign in",
+      "privateBetaBanner": "Private beta — sign-up is by invite code only.",
+      "privateBetaNoticeLabel": "Private beta notice",
+      "inviteCodeLabel": "Invite code",
+      "inviteCodeHint": "Paste the code from your invitation.",
+      "slowRequest": "This is taking longer than expected. Please wait…",
+      "navigationFailed": "Account created successfully, but navigation failed. Please refresh the page."
+    },
+    "forgotPassword": {
+      "metaTitle": "Forgot password",
+      "title": "Forgot password",
+      "description": "Enter your email address and we'll send you a link to reset your password",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "submit": "Send reset link",
+      "submitting": "Sending reset link…",
+      "success": "If an account exists with this email, you will receive a password reset link shortly.",
+      "rememberPassword": "Remember your password?",
+      "signInLink": "Sign in"
+    },
+    "resetPassword": {
+      "metaTitle": "Reset password",
+      "title": "Reset password",
+      "description": "Enter your new password below",
+      "newPasswordLabel": "New password",
+      "newPasswordPlaceholder": "At least 12 characters",
+      "confirmPasswordLabel": "Confirm password",
+      "confirmPasswordPlaceholder": "Re-enter your password",
+      "passwordHint": "Use at least 12 characters. Avoid passwords from past data breaches.",
+      "submit": "Reset password",
+      "submitting": "Resetting password…",
+      "rememberPassword": "Remember your password?",
+      "signInLink": "Sign in"
+    },
+    "invite": {
+      "metaTitle": "Join household",
+      "alreadyMember": {
+        "title": "Already a member",
+        "description": "You are already a member of \"{householdName}\"",
+        "body": "You can only be a member of one household at a time. To join a different household, you would need to leave your current one first.",
+        "action": "Go to dashboard"
+      },
+      "invalid": {
+        "title": "Invite expired",
+        "description": "This invite is no longer valid",
+        "body": "This invite link has expired or reached its maximum number of uses. Please ask the household owner for a new invite.",
+        "action": "Go to home"
+      },
+      "valid": {
+        "title": "Join household",
+        "titleNamed": "Join as {memberName}",
+        "description": "You've been invited to join a household",
+        "descriptionNamed": "Claim your profile and join the household",
+        "bodyHouseholdOnly": "You've been invited to join {householdName}.",
+        "bodyMember": "You've been invited to join {householdName} as {memberName}.",
+        "subtextHouseholdOnly": "Once you join, you'll be able to view and participate in meal planning for this household.",
+        "subtextMember": "Your profile has already been set up with preferences. Once you join, you'll be connected to this existing profile.",
+        "action": "Join household",
+        "actionNamed": "Join as {memberName}",
+        "joining": "Joining…"
+      },
+      "errors": {
+        "alreadyInHousehold": "You are already a member of a household.",
+        "inviteInvalid": "This invite has expired or reached its maximum uses.",
+        "joinFailed": "Failed to join household",
+        "generic": "An error occurred. Please try again."
+      }
+    }
+  },
+  "errors": {
+    "boundary": {
+      "tryAgain": "Try again",
+      "errorIdLabel": "Error ID:",
+      "detailsLabel": "Error details",
+      "generic": {
+        "title": "Oops! Something went wrong",
+        "body": "We encountered an error while loading this page."
+      },
+      "signIn": {
+        "title": "Couldn't load sign in",
+        "body": "We had trouble loading the sign-in page. Please try again."
+      },
+      "signUp": {
+        "title": "Couldn't load sign up",
+        "body": "We had trouble loading the sign-up page. Please try again."
+      },
+      "forgotPassword": {
+        "title": "Couldn't load password reset",
+        "body": "We had trouble loading this page. Please try again."
+      },
+      "resetPassword": {
+        "title": "Couldn't load password reset",
+        "body": "We had trouble loading this page. Please try again."
+      },
+      "invite": {
+        "title": "Couldn't process this invite",
+        "body": "We had trouble processing the invite link. Please try again."
+      }
+    },
+    "notFound": {
+      "metaTitle": "Page not found",
+      "title": "Page not found",
+      "body": "The page you're looking for doesn't exist or has been moved.",
+      "action": "Go home"
+    },
+    "auth": {
+      "unexpected": "An unexpected error occurred. Please try again.",
+      "inviteCodeRequired": "An invite code is required to sign up while we are in private beta.",
+      "inviteCodeInvalid": "That invite code is invalid, expired, or has already been used.",
+      "invalidCredentials": "The email or password you entered is incorrect. Please try again.",
+      "incorrectPassword": "The password you entered is incorrect. Please try again.",
+      "accountAlreadyExists": "An account with this email address already exists. Try signing in instead.",
+      "csrf": "Security validation failed. Please refresh the page and try again.",
+      "tokenExpired": "This password reset link has expired. Please request a new one.",
+      "tokenInvalid": "This password reset link is invalid. Please request a new one.",
+      "resetUserNotFound": "If an account exists with this email, you will receive a reset link.",
+      "userNotFound": "No account found with this email address.",
+      "invalidEmail": "Please enter a valid email address.",
+      "breachedPassword": "That password appears in known data breaches. Please pick a different one.",
+      "passwordTooShort": "Password must be at least 12 characters long.",
+      "passwordWeak": "Please choose a stronger password.",
+      "tooManyAttempts": "Too many attempts. Please try again in a few minutes.",
+      "network": "Unable to connect to the server. Please check your internet connection and try again.",
+      "timeout": "Request timed out. Please check your connection and try again.",
+      "internalServer": "Server is experiencing issues. Please try again in a moment.",
+      "serviceUnavailable": "Service is temporarily unavailable. Please try again later."
+    }
+  },
+  "validation": {
+    "passwordsDoNotMatch": "Passwords do not match",
+    "passwordTooShort": "Password must be at least 12 characters long",
+    "noResetToken": "No reset token found. Please request a new password reset link."
+  },
+  "consent": {
+    "banner": {
+      "ariaLabel": "Cookie consent",
+      "header": "We use cookies",
+      "body": "Essential cookies keep you signed in. Analytics cookies help us understand how the app is used so we can improve it. You can change this any time from the footer.",
+      "acceptAll": "Accept all",
+      "essentialOnly": "Essential only"
+    },
+    "settings": {
+      "trigger": "Cookie settings",
+      "title": "Cookie settings",
+      "description": "Essential cookies are always on — they keep you signed in. Analytics cookies are optional and help us improve the app.",
+      "currentChoice": "Current choice:",
+      "stateNotSet": "Not set",
+      "stateAnalyticsOn": "Analytics on",
+      "stateEssentialOnly": "Essential only",
+      "essentialOnly": "Essential only",
+      "acceptAnalytics": "Accept analytics"
+    }
   },
   "household": {
     "localeLabel": "Language",

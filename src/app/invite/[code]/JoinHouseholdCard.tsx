@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
@@ -21,6 +22,7 @@ export function JoinHouseholdCard({
   code,
 }: JoinHouseholdCardProps) {
   const router = useRouter()
+  const t = useTranslations('auth.invite')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -36,11 +38,11 @@ export function JoinHouseholdCard({
       if (!response.ok) {
         const data = await response.json()
         if (data.error === 'already_in_household') {
-          setError('You are already a member of a household.')
+          setError(t('errors.alreadyInHousehold'))
         } else if (data.error === 'invite_invalid') {
-          setError('This invite has expired or reached its maximum uses.')
+          setError(t('errors.inviteInvalid'))
         } else {
-          setError(data.message || 'Failed to join household')
+          setError(data.message || t('errors.joinFailed'))
         }
         return
       }
@@ -48,7 +50,7 @@ export function JoinHouseholdCard({
       router.push('/')
       router.refresh()
     } catch {
-      setError('An error occurred. Please try again.')
+      setError(t('errors.generic'))
     } finally {
       setIsLoading(false)
     }
@@ -58,18 +60,15 @@ export function JoinHouseholdCard({
     return (
       <Card className="w-full max-w-md">
         <CardHeader>
-          <Heading variant="h4">Already a member</Heading>
-          <Body variant="muted">You are already a member of &ldquo;{householdName}&rdquo;</Body>
+          <Heading variant="h4">{t('alreadyMember.title')}</Heading>
+          <Body variant="muted">{t('alreadyMember.description', { householdName })}</Body>
         </CardHeader>
         <CardContent>
-          <Body>
-            You can only be a member of one household at a time. To join a different household, you
-            would need to leave your current one first.
-          </Body>
+          <Body>{t('alreadyMember.body')}</Body>
         </CardContent>
         <CardFooter>
           <Button asChild className="w-full">
-            <Link href="/">Go to dashboard</Link>
+            <Link href="/">{t('alreadyMember.action')}</Link>
           </Button>
         </CardFooter>
       </Card>
@@ -80,18 +79,15 @@ export function JoinHouseholdCard({
     return (
       <Card className="w-full max-w-md">
         <CardHeader>
-          <Heading variant="h4">Invite expired</Heading>
-          <Body variant="muted">This invite is no longer valid</Body>
+          <Heading variant="h4">{t('invalid.title')}</Heading>
+          <Body variant="muted">{t('invalid.description')}</Body>
         </CardHeader>
         <CardContent>
-          <Body>
-            This invite link has expired or reached its maximum number of uses. Please ask the
-            household owner for a new invite.
-          </Body>
+          <Body>{t('invalid.body')}</Body>
         </CardContent>
         <CardFooter>
           <Button asChild variant="outline" className="w-full">
-            <Link href="/">Go to home</Link>
+            <Link href="/">{t('invalid.action')}</Link>
           </Button>
         </CardFooter>
       </Card>
@@ -101,29 +97,22 @@ export function JoinHouseholdCard({
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <Heading variant="h4">{memberName ? `Join as ${memberName}` : 'Join household'}</Heading>
+        <Heading variant="h4">
+          {memberName ? t('valid.titleNamed', { memberName }) : t('valid.title')}
+        </Heading>
         <Body variant="muted">
-          {memberName
-            ? 'Claim your profile and join the household'
-            : "You've been invited to join a household"}
+          {memberName ? t('valid.descriptionNamed') : t('valid.description')}
         </Body>
       </CardHeader>
       <CardContent>
         <div className="flex flex-col gap-4">
           <Body>
-            You&apos;ve been invited to join <strong>{householdName}</strong>
-            {memberName && (
-              <>
-                {' '}
-                as <strong>{memberName}</strong>
-              </>
-            )}
-            .
+            {memberName
+              ? t('valid.bodyMember', { householdName, memberName })
+              : t('valid.bodyHouseholdOnly', { householdName })}
           </Body>
           <Body variant="muted">
-            {memberName
-              ? "Your profile has already been set up with preferences. Once you join, you'll be connected to this existing profile."
-              : "Once you join, you'll be able to view and participate in meal planning for this household."}
+            {memberName ? t('valid.subtextMember') : t('valid.subtextHouseholdOnly')}
           </Body>
         </div>
       </CardContent>
@@ -135,7 +124,11 @@ export function JoinHouseholdCard({
             </Body>
           )}
           <Button onClick={handleJoin} disabled={isLoading} className="w-full">
-            {isLoading ? 'Joining...' : memberName ? `Join as ${memberName}` : 'Join household'}
+            {isLoading
+              ? t('valid.joining')
+              : memberName
+                ? t('valid.actionNamed', { memberName })
+                : t('valid.action')}
           </Button>
         </div>
       </CardFooter>
