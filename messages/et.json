@@ -22,13 +22,60 @@
     "localeOption": {
       "en": "Inglise",
       "et": "Eesti"
-    }
+    },
+    "dietaryNone": "Pole eelistust"
   },
   "enums": {
     "MealType": {
       "breakfast": "Hommikusöök",
       "lunch": "Lõunasöök",
       "dinner": "Õhtusöök"
+    },
+    "IngredientCategory": {
+      "protein": "Valgud",
+      "carb": "Süsivesikud",
+      "vegetable": "Aedviljad",
+      "fruit": "Puuviljad",
+      "dairy": "Piimatooted",
+      "fat": "Õlid ja rasvad",
+      "legume": "Kaunviljad",
+      "condiment": "Kastmed",
+      "spice": "Vürtsid"
+    },
+    "ProteinType": {
+      "poultry": "Linnuliha",
+      "beef": "Veiseliha",
+      "pork": "Sealiha",
+      "lamb": "Lambaliha",
+      "fish": "Kala",
+      "eggs": "Munad",
+      "legume": "Kaunviljad",
+      "dairy": "Piimatooted",
+      "none": "Taimne"
+    },
+    "Unit": {
+      "g": "g",
+      "piece": "tk"
+    },
+    "Allergen": {
+      "gluten": "Gluteen",
+      "dairy": "Piimatooted",
+      "eggs": "Munad",
+      "nuts": "Pähklid",
+      "peanuts": "Maapähklid",
+      "soy": "Soja",
+      "fish": "Kala",
+      "shellfish": "Karbid",
+      "sesame": "Seesam"
+    },
+    "DietaryType": {
+      "vegetarian": "Taimetoitlane",
+      "vegan": "Vegan",
+      "pescatarian": "Pestsetariaan"
+    },
+    "HouseholdRole": {
+      "owner": "Omanik",
+      "member": "Liige"
     }
   }
 }

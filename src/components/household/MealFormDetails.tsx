@@ -4,7 +4,31 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Heading } from '@/components/ui/typography'
-import { type MealTypeValue, MEAL_TYPES } from './meal-form-types'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
+import { type MealTypeValue, MEAL_TYPE_VALUES } from './meal-form-types'
+
+function MealTypeCheckboxRow({
+  value,
+  checked,
+  disabled,
+  onCheckedChange,
+}: {
+  value: MealTypeValue
+  checked: boolean
+  disabled: boolean
+  onCheckedChange: (checked: boolean) => void
+}) {
+  const label = useEnumLabel('MealType', value)
+  const id = `mealtype-${value}`
+  return (
+    <div className="flex items-center gap-2">
+      <Checkbox id={id} checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
+      <Label htmlFor={id} className="font-normal">
+        {label}
+      </Label>
+    </div>
+  )
+}
 
 interface MealFormDetailsProps {
   suitableFor: MealTypeValue[]
@@ -32,18 +56,14 @@ export function MealFormDetails({
       <div className="flex flex-col gap-2">
         <Label>Suitable for</Label>
         <div className="flex gap-4">
-          {MEAL_TYPES.map((mealType) => (
-            <div key={mealType.value} className="flex items-center gap-2">
-              <Checkbox
-                id={`mealtype-${mealType.value}`}
-                checked={suitableFor.includes(mealType.value)}
-                onCheckedChange={(checked) => onMealTypeToggle(mealType.value, checked === true)}
-                disabled={disabled}
-              />
-              <Label htmlFor={`mealtype-${mealType.value}`} className="font-normal">
-                {mealType.label}
-              </Label>
-            </div>
+          {MEAL_TYPE_VALUES.map((mealType) => (
+            <MealTypeCheckboxRow
+              key={mealType}
+              value={mealType}
+              checked={suitableFor.includes(mealType)}
+              disabled={disabled}
+              onCheckedChange={(checked) => onMealTypeToggle(mealType, checked === true)}
+            />
           ))}
         </div>
       </div>

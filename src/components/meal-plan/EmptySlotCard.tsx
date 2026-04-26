@@ -7,13 +7,8 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { MealSelectorModal } from './MealSelectorModal'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { MealType } from '@/generated/prisma/enums'
-
-const mealTypeLabels: Record<MealType, string> = {
-  breakfast: 'Breakfast',
-  lunch: 'Lunch',
-  dinner: 'Dinner',
-}
 
 interface EmptySlotCardProps {
   planId: string
@@ -27,6 +22,7 @@ export function EmptySlotCard({ planId, date, mealType, householdSize }: EmptySl
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [entryId, setEntryId] = useState<string | null>(null)
+  const mealTypeLabel = useEnumLabel('MealType', mealType)
   // Track if a meal was selected (onSwapComplete called)
   const hasSelectedRef = useRef(false)
 
@@ -84,7 +80,7 @@ export function EmptySlotCard({ planId, date, mealType, householdSize }: EmptySl
       <Card className="gap-2 border-dashed py-2">
         <CardHeader className="px-3 pb-0">
           <Body variant="caption" className="tracking-wide uppercase">
-            {mealTypeLabels[mealType]}
+            {mealTypeLabel}
           </Body>
         </CardHeader>
         <CardContent className="px-3 pb-1">

@@ -15,7 +15,6 @@ import type { CustomItemData } from '@/components/shopping/CustomItemInput'
 
 interface ShoppingListGroup {
   category: IngredientCategory
-  categoryLabel: string
   items: ShoppingItemData[]
 }
 

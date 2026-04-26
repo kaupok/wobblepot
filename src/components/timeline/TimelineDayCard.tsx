@@ -3,15 +3,19 @@
 import { MealCard } from '@/components/meal-plan/MealCard'
 import { Body } from '@/components/ui/typography'
 import { TimelineEmptySlot } from './TimelineEmptySlot'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { TimelineDay, PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
 import type { MealType } from '@/generated/prisma/enums'
 
 const mealTypeOrder = { breakfast: 0, lunch: 1, dinner: 2 } as const
 
-const mealTypeLabels: Record<MealType, string> = {
-  breakfast: 'Breakfast',
-  lunch: 'Lunch',
-  dinner: 'Dinner',
+function MealTypeLabel({ mealType }: { mealType: MealType }) {
+  const label = useEnumLabel('MealType', mealType)
+  return (
+    <Body variant="caption" className="tracking-wide uppercase">
+      {label}
+    </Body>
+  )
 }
 
 interface TimelineDayCardProps {
@@ -74,9 +78,7 @@ export function TimelineDayCard({
             return (
               <div key={slot.type === 'entry' ? slot.entry.id : `empty-${slot.mealType}`}>
                 <div className="mb-1">
-                  <Body variant="caption" className="tracking-wide uppercase">
-                    {mealTypeLabels[mealType as MealType]}
-                  </Body>
+                  <MealTypeLabel mealType={mealType as MealType} />
                 </div>
                 {slot.type === 'entry' ? (
                   <MealCard

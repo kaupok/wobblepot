@@ -22,13 +22,60 @@
     "localeOption": {
       "en": "English",
       "et": "Estonian"
-    }
+    },
+    "dietaryNone": "No preference"
   },
   "enums": {
     "MealType": {
       "breakfast": "Breakfast",
       "lunch": "Lunch",
       "dinner": "Dinner"
+    },
+    "IngredientCategory": {
+      "protein": "Protein",
+      "carb": "Carbs",
+      "vegetable": "Vegetables",
+      "fruit": "Fruits",
+      "dairy": "Dairy",
+      "fat": "Oils & fats",
+      "legume": "Legumes",
+      "condiment": "Condiments",
+      "spice": "Spices"
+    },
+    "ProteinType": {
+      "poultry": "Poultry",
+      "beef": "Beef",
+      "pork": "Pork",
+      "lamb": "Lamb",
+      "fish": "Fish",
+      "eggs": "Eggs",
+      "legume": "Legumes",
+      "dairy": "Dairy",
+      "none": "No protein"
+    },
+    "Unit": {
+      "g": "g",
+      "piece": "pc"
+    },
+    "Allergen": {
+      "gluten": "Gluten",
+      "dairy": "Dairy",
+      "eggs": "Eggs",
+      "nuts": "Tree nuts",
+      "peanuts": "Peanuts",
+      "soy": "Soy",
+      "fish": "Fish",
+      "shellfish": "Shellfish",
+      "sesame": "Sesame"
+    },
+    "DietaryType": {
+      "vegetarian": "Vegetarian",
+      "vegan": "Vegan",
+      "pescatarian": "Pescatarian"
+    },
+    "HouseholdRole": {
+      "owner": "Owner",
+      "member": "Member"
     }
   }
 }

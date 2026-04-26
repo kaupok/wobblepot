@@ -7,7 +7,14 @@ import { getTranslations } from 'next-intl/server'
  */
 const ENUM_NAMESPACE = 'enums'
 
-export type EnumName = 'MealType'
+export type EnumName =
+  | 'MealType'
+  | 'IngredientCategory'
+  | 'ProteinType'
+  | 'Unit'
+  | 'Allergen'
+  | 'DietaryType'
+  | 'HouseholdRole'
 
 /**
  * Server-side typed enum label lookup.

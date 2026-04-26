@@ -50,7 +50,6 @@ type Story = StoryObj<typeof meta>
 export const Default: Story = {
   args: {
     category: 'protein',
-    categoryLabel: 'Protein',
     items: proteinShoppingItems,
   },
   parameters: {
@@ -66,7 +65,6 @@ export const Default: Story = {
 export const AllCheckedOff: Story = {
   args: {
     category: 'dairy',
-    categoryLabel: 'Dairy',
     items: dairyShoppingItems,
   },
   parameters: {
@@ -82,7 +80,6 @@ export const AllCheckedOff: Story = {
 export const SingleItem: Story = {
   args: {
     category: 'fat',
-    categoryLabel: 'Fat',
     items: [
       createShoppingItem({
         ingredientId: 'olive-oil-single',
@@ -96,7 +93,6 @@ export const SingleItem: Story = {
 export const WithCustomItems: Story = {
   args: {
     category: 'vegetable',
-    categoryLabel: 'Vegetable',
     items: produceShoppingItems,
     customItems: customShoppingItems,
   },
@@ -115,7 +111,6 @@ export const EmptyRendersNothing: Story = {
   name: 'Empty (renders null)',
   args: {
     category: 'protein',
-    categoryLabel: 'Protein',
     items: [],
   },
   parameters: {
@@ -135,7 +130,6 @@ export const EmptyRendersNothing: Story = {
 export const ToggleItemInvokesCallback: Story = {
   args: {
     category: 'protein',
-    categoryLabel: 'Protein',
     items: proteinShoppingItems,
     onToggleItem: fn(),
   },

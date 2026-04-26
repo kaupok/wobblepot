@@ -44,7 +44,7 @@ describe('CustomShoppingItem', () => {
         onDelete={vi.fn()}
       />,
     )
-    expect(screen.getByText('Fat')).toBeInTheDocument()
+    expect(screen.getByText(/Oils & fats/)).toBeInTheDocument()
   })
 
   it('does not show category label for unlinked items', () => {
@@ -56,7 +56,7 @@ describe('CustomShoppingItem', () => {
         onDelete={vi.fn()}
       />,
     )
-    expect(screen.queryByText('Fat')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Oils & fats/)).not.toBeInTheDocument()
   })
 
   it('shows unlink button for linked items', () => {
