@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
 import { getUserFriendlyError } from '@/lib/auth-errors'
 import { getValidReturnUrl } from '@/lib/utils'
+import { track } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -43,6 +44,7 @@ export function SignUpForm() {
         },
         {
           onSuccess: () => {
+            void track('auth:sign_up', {})
             try {
               router.push(returnUrl)
               router.refresh()

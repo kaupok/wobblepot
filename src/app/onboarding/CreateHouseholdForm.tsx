@@ -11,6 +11,7 @@ import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
+import { track } from '@/lib/analytics'
 
 const TOTAL_STEPS = 2
 
@@ -149,6 +150,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
     },
     onSuccess: (data) => {
       if (data) {
+        void track('onboarding:household_created', { household_id: data.id })
         toast.success('Household created')
         router.push('/')
         router.refresh()

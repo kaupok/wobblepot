@@ -16,6 +16,7 @@ import { NoteEditor } from './NoteEditor'
 import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
 import type { EntryRating, MealData, PantryIngredient, PantryItemFull } from './types'
 import type { MealType } from '@/generated/prisma/enums'
+import { track } from '@/lib/analytics'
 
 interface MealCardProps {
   entryId: string
@@ -97,6 +98,26 @@ export function MealCard({
       // Optimistic update
       setStatus(newStatus)
       return { previousStatus }
+    },
+    onSuccess: ({ newStatus }) => {
+      // Fire status-transition analytics from `onSuccess` so we don't track
+      // optimistic updates that the server later rejected (the optimistic
+      // state is reverted in `onError`). `meal` is non-null on this code
+      // path because the empty-slot case returns early above.
+      if (!meal) return
+      if (newStatus === 'completed') {
+        void track('meal_plan:meal_completed', {
+          plan_id: planId,
+          meal_id: meal.id,
+          source: 'meal_card',
+        })
+      } else if (newStatus === 'skipped') {
+        void track('meal_plan:meal_skipped', {
+          plan_id: planId,
+          meal_id: meal.id,
+          source: 'meal_card',
+        })
+      }
     },
     onError: (_err, _vars, context) => {
       // Revert on error
@@ -340,6 +361,7 @@ export function MealCard({
         mealType={mealType}
         householdSize={householdSize}
         currentMealName={meal?.name}
+        currentMealId={meal?.id}
         onSwapComplete={() => router.refresh()}
         mode="swap"
         pantryIngredients={pantryIngredients}
