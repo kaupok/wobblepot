@@ -8,6 +8,7 @@ import {
   type PrefilledIngredient,
 } from '@/components/household/MealForm'
 import type { MealType } from '@/generated/prisma/enums'
+import { track } from '@/lib/analytics'
 
 interface EnhancedPrefilledData {
   name: string
@@ -57,6 +58,13 @@ export function CreateRecipeClient({ defaultServings }: CreateRecipeClientProps)
   }, [prefilled])
 
   const handleSuccess = () => {
+    // `originalRecipeText` is set only by the import flow (RecipeImportClient
+    // → navigateToCreate); the imagine flow's "Edit details" path does not
+    // set it. Firing here means we count saves, not parses — abandoned
+    // parses no longer inflate the activation metric.
+    if (prefilledData?.originalRecipeText) {
+      void track('recipe:imported', { source: 'import_page' })
+    }
     router.push('/recipes')
   }
 

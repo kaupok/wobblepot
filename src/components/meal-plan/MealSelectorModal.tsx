@@ -513,14 +513,19 @@ export function MealSelectorModal({
 
   const handleImaginedMealSaved = async (mealId: string) => {
     setReviewMeal(null) // Close sheet immediately to prevent duplicate saves
+
+    // The meal is already persisted by `ImagineReviewDialog.onSaved` before
+    // this handler runs — fire the event independent of the plan-assignment
+    // PATCH so a transient PATCH failure doesn't drop the activation signal.
+    // Mirrors the standalone imagine page flow in `ImagineClient.tsx`.
+    void track('meal:imagined', { meal_id: mealId, source: 'meal_selector' })
+
     try {
       await apiFetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mealId }),
       })
-
-      void track('meal:imagined', { meal_id: mealId, source: 'meal_selector' })
 
       setIsImagineMode(false)
       onSwapComplete()
