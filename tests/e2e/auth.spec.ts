@@ -102,6 +102,15 @@ test.describe('Authentication flows', () => {
   })
 
   test('password too short prevents form submission', async ({ page }) => {
+    // Pre-grant consent so the bottom-fixed cookie banner doesn't overlap the
+    // Sign up button. With the HON-488 invite-code field the form is taller
+    // and the button now sits in the same vertical region as the banner;
+    // without consent the click is intercepted and the test times out.
+    const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'
+    await page
+      .context()
+      .addCookies([{ name: 'consent-v1', value: 'essential', url: baseURL, sameSite: 'Lax' }])
+
     await page.goto('/sign-up')
     await page.getByLabel('Name').fill(TEST_NAME)
     await page.getByLabel('Email').fill(generateUniqueEmail())

@@ -71,7 +71,12 @@ export async function signUp(
   // server-side flag is `true` — that is the default in CI (PostHog unset).
   // Default behaviour: seed a fresh code and use it. Pass `inviteCode: null`
   // to deliberately submit without one (e.g. negative-path tests).
-  const inviteField = page.getByLabel('Invite code')
+  //
+  // Use the `name="inviteCode"` attribute rather than `getByLabel('Invite
+  // code')` so the helper still works against the Estonian sign-up surface
+  // (where the label is "Kutsekood"). Locale-stable selectors are required
+  // for any helper used by `@i18n platform smoke` tests.
+  const inviteField = page.locator('input[name="inviteCode"]')
   let usedInviteCode: string | null = null
   if (await inviteField.count()) {
     if (options.inviteCode !== null) {
