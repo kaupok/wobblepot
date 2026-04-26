@@ -63,19 +63,18 @@ export async function signUp(
   ])
 
   await page.goto('/sign-up')
-  await page.getByLabel('Name').fill(name)
-  await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill(password)
+  // Locale-stable selectors: the sign-up form chrome is externalized (HON-508),
+  // so label text varies by locale (e.g. "Name" vs "Nimi") for any helper used
+  // by `@i18n platform smoke` tests. Use the input `id` (English-only,
+  // identifier-not-copy) instead of `getByLabel`.
+  await page.locator('input#name').fill(name)
+  await page.locator('input#email').fill(email)
+  await page.locator('input#password').fill(password)
 
   // Invite-code gate (HON-488). The form only renders the field when the
   // server-side flag is `true` — that is the default in CI (PostHog unset).
   // Default behaviour: seed a fresh code and use it. Pass `inviteCode: null`
   // to deliberately submit without one (e.g. negative-path tests).
-  //
-  // Use the `name="inviteCode"` attribute rather than `getByLabel('Invite
-  // code')` so the helper still works against the Estonian sign-up surface
-  // (where the label is "Kutsekood"). Locale-stable selectors are required
-  // for any helper used by `@i18n platform smoke` tests.
   const inviteField = page.locator('input[name="inviteCode"]')
   let usedInviteCode: string | null = null
   if (await inviteField.count()) {
@@ -86,7 +85,9 @@ export async function signUp(
     }
   }
 
-  await page.getByRole('button', { name: 'Sign up' }).click()
+  // Submit button — use `type="submit"` rather than `name: 'Sign up'`, which
+  // changes to "Loo konto" in Estonian.
+  await page.locator('form button[type="submit"]').click()
 
   // Wait for navigation away from sign-up page
   await page.waitForURL((url) => !url.pathname.includes('/sign-up'))
@@ -131,9 +132,10 @@ export async function signIn(
   password: string = TEST_PASSWORD,
 ): Promise<void> {
   await page.goto('/sign-in')
-  await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill(password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  // Locale-stable selectors — see signUp().
+  await page.locator('input#email').fill(email)
+  await page.locator('input#password').fill(password)
+  await page.locator('form button[type="submit"]').click()
 
   // Wait for navigation away from sign-in page
   await page.waitForURL((url) => !url.pathname.includes('/sign-in'))
