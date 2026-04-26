@@ -139,6 +139,13 @@ const serverOnlyEnvSchema = z.object({
     .describe(
       'PostHog personal API key with sourcemap:write scope for posthog-cli. Identical across all environments (one key works for all three projects). Build-time only. Distinct from NEXT_PUBLIC_POSTHOG_KEY (project token used for event capture).',
     ),
+
+  ADMIN_EMAIL: z
+    .string()
+    .email('ADMIN_EMAIL must be a valid email address')
+    .describe(
+      'Email of the single beta admin. Used by isAdmin(session) in src/lib/auth-helpers.ts to gate /admin/signup-codes (HON-488). One person for invite-only beta — switch to a role-based check before opening up admin access.',
+    ),
 })
 
 /**
@@ -236,6 +243,7 @@ export const serverEnv = new Proxy(
     POSTHOG_CLI_HOST: process.env.POSTHOG_CLI_HOST,
     POSTHOG_CLI_PROJECT_ID: process.env.POSTHOG_CLI_PROJECT_ID,
     POSTHOG_CLI_API_KEY: process.env.POSTHOG_CLI_API_KEY,
+    ADMIN_EMAIL: process.env.ADMIN_EMAIL,
   } as z.infer<typeof serverEnvSchema>,
   {
     get(target, prop) {

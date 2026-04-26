@@ -79,6 +79,14 @@ export default async function Home() {
             <Body variant="lead">{t('sub')}</Body>
           </div>
 
+          <div
+            className="border-primary/30 bg-primary/5 max-w-md rounded-md border px-4 py-2"
+            role="note"
+            aria-label="Private beta notice"
+          >
+            <Body variant="small">{t('privateBeta')}</Body>
+          </div>
+
           <Button asChild size="lg">
             <Link href="/sign-up">{t('cta')}</Link>
           </Button>

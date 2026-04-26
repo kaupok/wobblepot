@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test'
+import { seedInviteCode } from './db-helpers'
 
 /**
  * Default test password. Must meet Better Auth's `minPasswordLength` (12+
@@ -23,13 +24,24 @@ export function generateUniqueEmail(): string {
 }
 
 /**
- * Signs up a new user via the UI
- * Waits for redirect away from sign-up page
+ * Signs up a new user via the UI.
+ *
+ * Auto-seeds an invite code via Prisma when the sign-up form has the field
+ * (HON-488). The `invite_code_required` flag defaults to `true` whenever
+ * PostHog is unconfigured (CI default), so existing tests need a code on
+ * each sign-up; passing `inviteCode` explicitly skips the auto-seed.
+ *
+ * Waits for redirect away from sign-up page.
  */
 export async function signUp(
   page: Page,
-  options: { name?: string; email?: string; password?: string } = {},
-): Promise<{ email: string; password: string; name: string }> {
+  options: {
+    name?: string
+    email?: string
+    password?: string
+    inviteCode?: string | null
+  } = {},
+): Promise<{ email: string; password: string; name: string; inviteCode: string | null }> {
   const email = options.email ?? generateUniqueEmail()
   const password = options.password ?? TEST_PASSWORD
   const name = options.name ?? TEST_NAME
@@ -54,12 +66,32 @@ export async function signUp(
   await page.getByLabel('Name').fill(name)
   await page.getByLabel('Email').fill(email)
   await page.getByLabel('Password').fill(password)
+
+  // Invite-code gate (HON-488). The form only renders the field when the
+  // server-side flag is `true` — that is the default in CI (PostHog unset).
+  // Default behaviour: seed a fresh code and use it. Pass `inviteCode: null`
+  // to deliberately submit without one (e.g. negative-path tests).
+  //
+  // Use the `name="inviteCode"` attribute rather than `getByLabel('Invite
+  // code')` so the helper still works against the Estonian sign-up surface
+  // (where the label is "Kutsekood"). Locale-stable selectors are required
+  // for any helper used by `@i18n platform smoke` tests.
+  const inviteField = page.locator('input[name="inviteCode"]')
+  let usedInviteCode: string | null = null
+  if (await inviteField.count()) {
+    if (options.inviteCode !== null) {
+      const code = options.inviteCode ?? (await seedInviteCode())
+      await inviteField.fill(code)
+      usedInviteCode = code
+    }
+  }
+
   await page.getByRole('button', { name: 'Sign up' }).click()
 
   // Wait for navigation away from sign-up page
   await page.waitForURL((url) => !url.pathname.includes('/sign-up'))
 
-  return { email, password, name }
+  return { email, password, name, inviteCode: usedInviteCode }
 }
 
 /**

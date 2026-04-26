@@ -5,7 +5,13 @@
     "cta": "Get started - it's free",
     "feature1": "Personalized for your household",
     "feature2": "Smart shopping lists",
-    "feature3": "Tracks what you have on hand"
+    "feature3": "Tracks what you have on hand",
+    "privateBeta": "We're in private beta. You'll need an invite code to sign up."
+  },
+  "signup": {
+    "privateBetaBanner": "Private beta — sign-up is by invite code only.",
+    "inviteCodeLabel": "Invite code",
+    "inviteCodeHint": "Paste the code from your invitation."
   },
   "header": {
     "skipToContent": "Skip to content"

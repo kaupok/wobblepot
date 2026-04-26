@@ -5,7 +5,13 @@
     "cta": "Alusta – see on tasuta",
     "feature1": "Kohandatud teie leibkonnale",
     "feature2": "Nutikad poenimekirjad",
-    "feature3": "Jälgib, mis sul käepärast on"
+    "feature3": "Jälgib, mis sul käepärast on",
+    "privateBeta": "Oleme suletud beetaversioonis. Registreerumiseks on vaja kutsekoodi."
+  },
+  "signup": {
+    "privateBetaBanner": "Suletud beeta – registreerumiseks on vaja kutsekoodi.",
+    "inviteCodeLabel": "Kutsekood",
+    "inviteCodeHint": "Sisesta kutses saadud kood."
   },
   "header": {
     "skipToContent": "Liigu sisu juurde"

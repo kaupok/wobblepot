@@ -144,6 +144,7 @@ describe('Environment Validation', () => {
         ANTHROPIC_API_KEY: 'sk-ant-test-key',
         UPSTASH_REDIS_REST_URL: 'https://test.upstash.io',
         UPSTASH_REDIS_REST_TOKEN: 'test-token',
+        ADMIN_EMAIL: 'admin@example.com',
       })
       expect(result.success).toBe(true)
     })
@@ -158,6 +159,7 @@ describe('Environment Validation', () => {
         ANTHROPIC_API_KEY: 'sk-ant-test-key',
         UPSTASH_REDIS_REST_URL: 'https://test.upstash.io',
         UPSTASH_REDIS_REST_TOKEN: 'test-token',
+        ADMIN_EMAIL: 'admin@example.com',
       })
       expect(result.success).toBe(true)
     })
@@ -173,6 +175,7 @@ describe('Environment Validation', () => {
         ANTHROPIC_API_KEY: 'sk-ant-test-key',
         UPSTASH_REDIS_REST_URL: 'https://test.upstash.io',
         UPSTASH_REDIS_REST_TOKEN: 'test-token',
+        ADMIN_EMAIL: 'admin@example.com',
       })
       expect(result.success).toBe(true)
       if (result.success) {

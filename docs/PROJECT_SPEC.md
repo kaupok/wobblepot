@@ -4,9 +4,11 @@
 
 ## Current Status
 
-**Mode:** Launch readiness for public EU beta
+**Mode:** Launch readiness for public EU beta — first cohort by invitation only.
 
 Foundation and core flows are complete (AI planning, shopping, pantry, auth, household management). Open work is the launch-readiness band: GDPR/legal, production observability, abuse protection, email deliverability, and launch hygiene (metadata, uptime). Target launch geography is EU-wide including UK-GDPR — the compliance bar is the full GDPR surface, not "soft launch to friends". First real-world user is still a family of 3 (2-year-old, second child on the way); the bar is set at public-beta because retrofitting compliance later is worse than paying the cost upfront.
+
+Sign-up is gated behind single-use invite codes (HON-488) controlled by the `invite_code_required` PostHog kill-switch (default `true`). Flipping the flag to `false` opens public sign-up without a deploy; flipping back re-locks. This shrinks blast radius for the first cohort while keeping us one toggle away from open beta.
 
 <!-- prettier-ignore -->
 ```typescript
@@ -27,7 +29,7 @@ mcp__linear-server__list_issues({})
 
 ### Target Users
 
-Target audience for public EU beta: families with young children across EU/EEA and UK. Initial real-world user: family of 3 (2-year-old, second child on the way).
+Target audience for public EU beta: families with young children across EU/EEA and UK. Initial real-world user: family of 3 (2-year-old, second child on the way). The first cohort joins by invitation only — admin mints `SignupCode` rows at `/admin/signup-codes` and shares them out-of-band; signups without a code return 403 while `invite_code_required` is `true`.
 
 ### Core Value Proposition
 

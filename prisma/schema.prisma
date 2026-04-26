@@ -114,6 +114,8 @@ model User {
   sessions      Session[]
   accounts      Account[]
   householdMemberships HouseholdMember[]
+  signupCodesCreated SignupCode[] @relation("SignupCodeCreatedBy")
+  signupCodeUsed     SignupCode?  @relation("SignupCodeUsedBy")
 
   @@unique([email])
   @@map("user")
@@ -165,6 +167,27 @@ model Verification {
   updatedAt  DateTime @default(now()) @updatedAt
 
   @@map("verification")
+}
+
+// Single-use sign-up codes that gate `/sign-up` while the launch is invite-only.
+// Atomic claim relies on the unique index on `code` plus a row-level UPDATE
+// predicate (see src/lib/signup-codes.ts). `usedById` is unique so a code can
+// link to at most one user.
+model SignupCode {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  createdById String?
+  createdAt   DateTime  @default(now())
+  usedById    String?   @unique
+  usedAt      DateTime?
+  expiresAt   DateTime?
+  note        String?
+
+  createdBy User? @relation("SignupCodeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  usedBy    User? @relation("SignupCodeUsedBy", fields: [usedById], references: [id], onDelete: SetNull)
+
+  @@index([createdById])
+  @@map("signup_code")
 }
 
 // ============================================

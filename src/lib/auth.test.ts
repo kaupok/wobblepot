@@ -122,4 +122,13 @@ describe('auth options wiring', () => {
   it('sets minPasswordLength to 12', () => {
     expect(auth.options.emailAndPassword?.minPasswordLength).toBe(12)
   })
+
+  it('registers the invite-code hooks at the request-level (before + after)', () => {
+    // The hooks are the load-bearing wiring for the HON-488 invite-only gate.
+    // Better Auth only invokes `hooks.before` / `hooks.after` if they are
+    // defined on the root options, so this regression guard catches a missing
+    // or moved hook layer (e.g. accidentally placed under databaseHooks).
+    expect(auth.options.hooks?.before).toBeTypeOf('function')
+    expect(auth.options.hooks?.after).toBeTypeOf('function')
+  })
 })

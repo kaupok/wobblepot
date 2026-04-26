@@ -9,6 +9,16 @@ export function getUserFriendlyError(message: string): string {
 
   const lowerMessage = message.toLowerCase()
 
+  // Invite-code errors (must come before the CSRF/forbidden branch — the
+  // backend throws these as APIError('FORBIDDEN', ...) and the keyword
+  // 'forbidden' would otherwise swallow them into the generic CSRF copy).
+  if (lowerMessage.includes('invite code is required')) {
+    return 'An invite code is required to sign up while we are in private beta.'
+  }
+  if (lowerMessage.includes('invite code') && lowerMessage.includes('invalid')) {
+    return 'That invite code is invalid, expired, or has already been used.'
+  }
+
   // Authentication errors
   if (lowerMessage.includes('invalid') && lowerMessage.includes('credentials')) {
     return 'The email or password you entered is incorrect. Please try again.'

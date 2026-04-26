@@ -1,4 +1,4 @@
-// ROUTES: /sign-up, /sign-in, /onboarding, /, /profile · COMPONENTS: SignUpForm, SignInForm, CreateHouseholdForm, Header (User menu)
+// ROUTES: /sign-up, /sign-in, /onboarding, /, /profile · COMPONENTS: SignUpForm (with HON-488 invite-code gate), SignInForm, CreateHouseholdForm, Header (User menu)
 import { test, expect } from '@playwright/test'
 import {
   generateUniqueEmail,
@@ -102,6 +102,15 @@ test.describe('Authentication flows', () => {
   })
 
   test('password too short prevents form submission', async ({ page }) => {
+    // Pre-grant consent so the bottom-fixed cookie banner doesn't overlap the
+    // Sign up button. With the HON-488 invite-code field the form is taller
+    // and the button now sits in the same vertical region as the banner;
+    // without consent the click is intercepted and the test times out.
+    const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'
+    await page
+      .context()
+      .addCookies([{ name: 'consent-v1', value: 'essential', url: baseURL, sameSite: 'Lax' }])
+
     await page.goto('/sign-up')
     await page.getByLabel('Name').fill(TEST_NAME)
     await page.getByLabel('Email').fill(generateUniqueEmail())
@@ -111,6 +120,36 @@ test.describe('Authentication flows', () => {
 
     // Should stay on sign-up page (HTML5 validation prevents submission)
     await expect(page).toHaveURL('/sign-up')
+  })
+
+  test('invite-only sign-up: missing code is rejected with a friendly error', async ({ page }) => {
+    // The flag defaults to `true` in CI (PostHog unset → fail-open default),
+    // so the form will render the invite-code field. Pass `inviteCode: null`
+    // to deliberately submit without one and assert the rejection.
+    const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'
+    await page
+      .context()
+      .addCookies([{ name: 'consent-v1', value: 'essential', url: baseURL, sameSite: 'Lax' }])
+    await page.goto('/sign-up')
+
+    // The invite-code field MUST be visible — if not, this assertion fails
+    // loud rather than the test silently passing on a server with the gate
+    // turned off.
+    await expect(page.getByLabel('Invite code')).toBeVisible()
+
+    await page.getByLabel('Name').fill(TEST_NAME)
+    await page.getByLabel('Email').fill(generateUniqueEmail())
+    await page.getByLabel('Password').fill(TEST_PASSWORD)
+    // Intentionally do not fill the invite-code field, but bypass the
+    // browser's `required` validator so the form actually submits — we want
+    // to assert the server-side rejection, not the HTML5 layer.
+    await page.getByLabel('Invite code').evaluate((el) => el.removeAttribute('required'))
+    await page.getByRole('button', { name: 'Sign up' }).click()
+
+    // Stay on /sign-up and surface the friendly invite-code error.
+    await expect(page).toHaveURL('/sign-up')
+    const inviteAlert = page.locator('[role="alert"]').filter({ hasText: /invite code/i })
+    await expect(inviteAlert).toBeVisible()
   })
 
   test('returnUrl redirects to specified page after sign in', async ({ page }) => {

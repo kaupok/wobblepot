@@ -1,5 +1,5 @@
 import { betterAuth } from 'better-auth'
-import { APIError } from 'better-auth/api'
+import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { hashPassword } from 'better-auth/crypto'
 import { prismaAdapter } from '@better-auth/prisma-adapter'
 import { prisma, type PrismaClientType } from '@/lib/prisma'
@@ -8,6 +8,7 @@ import { resend, isEmailConfigured } from '@/lib/resend'
 import { generateResetPasswordEmail } from '@/lib/emails/reset-password'
 import { isPasswordBreached } from '@/lib/breached-password'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
+import { linkUsedBy, releaseClaim, validateAndClaimInviteCode } from '@/lib/signup-codes'
 
 const MIN_PASSWORD_LENGTH = 12
 
@@ -169,6 +170,35 @@ export const auth = betterAuth({
         console.error('Failed to send password reset email:', error)
       }
     },
+  },
+
+  /**
+   * Invite-only sign-up gate. The `before` hook validates the invite code
+   * (gated by the `invite_code_required` PostHog kill-switch) and atomically
+   * claims it via a row-level UPDATE; the `after` hook backfills the
+   * `usedById` link once the new user row exists. Both delegate to
+   * `src/lib/signup-codes.ts` so the validation/claim logic stays
+   * unit-testable in isolation. See HON-488.
+   */
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== '/sign-up/email') return
+      await validateAndClaimInviteCode(ctx.body)
+    }),
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== '/sign-up/email') return
+      const userId = ctx.context.newSession?.user?.id
+      if (userId) {
+        await linkUsedBy(ctx.body, userId)
+        return
+      }
+      // Sign-up failed after the atomic claim — Better Auth's endpoint runs
+      // *after* hooks.before, so a Zod validation, USER_ALREADY_EXISTS, or
+      // breached-password rejection at the endpoint layer leaves the code
+      // claimed but unlinked. Release it so the user can retry without
+      // burning the code permanently.
+      await releaseClaim(ctx.body)
+    }),
   },
 })
 

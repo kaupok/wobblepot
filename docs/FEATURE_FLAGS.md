@@ -12,11 +12,11 @@ Experiment flags (variant / multivariate) are not in scope at launch — only sa
 
 All three default to `true` (the safe value). A PostHog outage keeps the product running and `invite_code_required` keeps sign-up locked down.
 
-| Flag                    | Default | What flipping to `false` does                                                                                                                          |
-| ----------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ai_generation_enabled` | `true`  | `/api/meal-plans/generate` returns 503 without hitting Anthropic. Use during an Anthropic outage, a runaway-cost incident, or a bad prompt regression. |
-| `recipe_import_enabled` | `true`  | `/api/recipes/parse` returns 503. Use to disable the highest-risk external-input surface (SSRF, parser crashes, non-recipe content) without a deploy.  |
-| `invite_code_required`  | `true`  | `/sign-up` no longer requires a `SignupCode`. Flip from `true → false` when opening sign-up to the public; flip back to lock down. (Wired in HON-488.) |
+| Flag                    | Default | What flipping to `false` does                                                                                                                                                                                  |
+| ----------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ai_generation_enabled` | `true`  | `/api/meal-plans/generate` returns 503 without hitting Anthropic. Use during an Anthropic outage, a runaway-cost incident, or a bad prompt regression.                                                         |
+| `recipe_import_enabled` | `true`  | `/api/recipes/parse` returns 503. Use to disable the highest-risk external-input surface (SSRF, parser crashes, non-recipe content) without a deploy.                                                          |
+| `invite_code_required`  | `true`  | `/sign-up` no longer requires a `SignupCode`. Flip from `true → false` when opening sign-up to the public; flip back to lock down. Wired into Better Auth's request-level `hooks.before` middleware (HON-488). |
 
 ## Reading a flag (server)
 

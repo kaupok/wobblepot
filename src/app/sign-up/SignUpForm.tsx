@@ -13,13 +13,26 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 
-export function SignUpForm() {
+interface SignUpFormProps {
+  inviteRequired: boolean
+  privateBetaBanner: string
+  inviteCodeLabel: string
+  inviteCodeHint: string
+}
+
+export function SignUpForm({
+  inviteRequired,
+  privateBetaBanner,
+  inviteCodeLabel,
+  inviteCodeHint,
+}: SignUpFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const returnUrl = getValidReturnUrl(searchParams.get('returnUrl'))
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSlowRequest, setIsSlowRequest] = useState(false)
@@ -36,30 +49,34 @@ export function SignUpForm() {
     }, 10000)
 
     try {
-      await authClient.signUp.email(
-        {
-          email,
-          password,
-          name,
+      // Better Auth's email signup endpoint forwards unknown body fields to
+      // the request-level `hooks.before` middleware (see src/lib/auth.ts).
+      // The invite code is consumed there; it must NOT be persisted on the
+      // user row, so it is intentionally not in `additionalFields`.
+      const payload: Record<string, unknown> = { email, password, name }
+      if (inviteRequired) {
+        payload.inviteCode = inviteCode
+      }
+      await authClient.signUp.email(payload as Parameters<typeof authClient.signUp.email>[0], {
+        onSuccess: () => {
+          // Fire-and-forget analytics; HON-476 wires `auth:sign_up` into the
+          // funnel taxonomy. Awaiting would make a slow PostHog request gate
+          // the redirect, so we intentionally drop the promise.
+          void track('auth:sign_up', {})
+          try {
+            router.push(returnUrl)
+            router.refresh()
+          } catch {
+            setError(
+              'Account created successfully, but navigation failed. Please refresh the page.',
+            )
+          }
         },
-        {
-          onSuccess: () => {
-            void track('auth:sign_up', {})
-            try {
-              router.push(returnUrl)
-              router.refresh()
-            } catch {
-              setError(
-                'Account created successfully, but navigation failed. Please refresh the page.',
-              )
-            }
-          },
-          onError: (ctx) => {
-            const errorMessage = ctx.error?.message || 'Failed to sign up'
-            setError(getUserFriendlyError(errorMessage))
-          },
+        onError: (ctx) => {
+          const errorMessage = ctx.error?.message || 'Failed to sign up'
+          setError(getUserFriendlyError(errorMessage))
         },
-      )
+      })
     } catch (err) {
       // Handle exceptions thrown by authClient (e.g., network errors when offline)
       const errorMessage =
@@ -83,6 +100,15 @@ export function SignUpForm() {
       <form onSubmit={handleSubmit}>
         <CardContent>
           <div className="flex flex-col gap-4">
+            {inviteRequired && (
+              <div
+                className="border-primary/30 bg-primary/5 rounded-md border px-3 py-2"
+                role="note"
+                aria-label="Private beta notice"
+              >
+                <Body variant="small">{privateBetaBanner}</Body>
+              </div>
+            )}
             <div className="flex flex-col gap-2">
               <Label htmlFor="name">Name</Label>
               <Input
@@ -126,6 +152,26 @@ export function SignUpForm() {
                 Use at least 12 characters. Avoid passwords from past data breaches.
               </Body>
             </div>
+            {inviteRequired && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="inviteCode">{inviteCodeLabel}</Label>
+                <Input
+                  id="inviteCode"
+                  name="inviteCode"
+                  type="text"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  required
+                  autoComplete="off"
+                  disabled={isLoading}
+                  aria-invalid={!!error}
+                  aria-describedby={error ? 'form-error' : 'invite-code-hint'}
+                />
+                <Body id="invite-code-hint" variant="small" className="text-muted-foreground">
+                  {inviteCodeHint}
+                </Body>
+              </div>
+            )}
             {error && (
               <Body id="form-error" variant="small" className="text-destructive" role="alert">
                 {error}
