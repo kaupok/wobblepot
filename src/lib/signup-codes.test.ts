@@ -5,6 +5,7 @@ import {
   INVITE_CODE_REQUIRED_MESSAGE,
   getInviteCodeFromBody,
   linkUsedBy,
+  releaseClaim,
   validateAndClaimInviteCode,
 } from './signup-codes'
 
@@ -170,7 +171,73 @@ describe('linkUsedBy', () => {
     await expect(
       linkUsedBy({ inviteCode: 'good' }, 'user_1', { db: db as never }),
     ).resolves.toBeUndefined()
+    // Log MUST include `code` and `userId` so admins can recover from the row
+    // by hand — see the docstring on linkUsedBy and the review thread that
+    // surfaced the missing context.
     expect(console.warn).toHaveBeenCalledWith('[signup-code] failed to link usedById', {
+      code: 'good',
+      userId: 'user_1',
+      err: error,
+    })
+  })
+
+  it('warns with the code and userId when zero rows match (admin recovery path)', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ count: 0 })
+    const db = makeDb(updateMany)
+
+    await linkUsedBy({ inviteCode: 'good' }, 'user_1', { db: db as never })
+
+    expect(console.warn).toHaveBeenCalledWith('[signup-code] linkUsedBy matched zero rows', {
+      code: 'good',
+      userId: 'user_1',
+    })
+  })
+})
+
+describe('releaseClaim', () => {
+  it('skips when no code is on the body', async () => {
+    const db = makeDb()
+    await releaseClaim({}, { db: db as never })
+    expect(db.signupCode.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('clears usedAt on a claimed-but-unlinked code', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 })
+    const db = makeDb(updateMany)
+
+    await releaseClaim({ inviteCode: 'good' }, { db: db as never })
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { code: 'good', usedById: null, usedAt: { not: null } },
+      data: { usedAt: null },
+    })
+    expect(console.warn).toHaveBeenCalledWith(
+      '[signup-code] released unlinked claim after sign-up failure',
+      { code: 'good' },
+    )
+  })
+
+  it('does not roll back a claim that was already linked to a user', async () => {
+    // The `usedById: null` predicate is the safety belt — if a user already
+    // claimed and linked the code, releaseClaim's updateMany matches zero
+    // rows. No rollback, no warn (nothing to recover from).
+    const updateMany = vi.fn().mockResolvedValue({ count: 0 })
+    const db = makeDb(updateMany)
+
+    await releaseClaim({ inviteCode: 'good' }, { db: db as never })
+
+    expect(updateMany).toHaveBeenCalledTimes(1)
+    expect(console.warn).not.toHaveBeenCalled()
+  })
+
+  it('swallows DB errors so a release failure does not bubble up to Better Auth', async () => {
+    const error = new Error('connection lost')
+    const updateMany = vi.fn().mockRejectedValue(error)
+    const db = makeDb(updateMany)
+
+    await expect(releaseClaim({ inviteCode: 'good' }, { db: db as never })).resolves.toBeUndefined()
+    expect(console.warn).toHaveBeenCalledWith('[signup-code] failed to release claim', {
+      code: 'good',
       err: error,
     })
   })

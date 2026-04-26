@@ -75,11 +75,49 @@ export async function linkUsedBy(
   if (!code) return
 
   try {
-    await db.signupCode.updateMany({
+    const result = await db.signupCode.updateMany({
       where: { code, usedById: null },
       data: { usedById: userId },
     })
+    if (result.count === 0) {
+      // Either someone else linked first (impossible in normal flow given the
+      // atomic claim) or the row vanished. Either way, the failure is the
+      // exact case admins want to know about — log enough to recover.
+      console.warn('[signup-code] linkUsedBy matched zero rows', { code, userId })
+    }
   } catch (err) {
-    console.warn('[signup-code] failed to link usedById', { err })
+    console.warn('[signup-code] failed to link usedById', { code, userId, err })
+  }
+}
+
+/**
+ * Release a previously-claimed code so it can be used again. Called from the
+ * after-hook when sign-up fails *after* the atomic claim — without this, the
+ * user hits a friendly error (HIBP-breached password, duplicate email, etc.)
+ * but their invite code is permanently burned with no user attached.
+ *
+ * The `usedById: null` predicate is the safety belt: if Better Auth somehow
+ * ran the after-hook twice and the first run already linked the code, we
+ * MUST NOT roll the claim back. Only release codes that were claimed but
+ * never linked.
+ */
+export async function releaseClaim(
+  body: unknown,
+  options: Pick<SignupCodeOptions, 'db'> = {},
+): Promise<void> {
+  const db = options.db ?? prisma
+  const code = getInviteCodeFromBody(body)
+  if (!code) return
+
+  try {
+    const result = await db.signupCode.updateMany({
+      where: { code, usedById: null, usedAt: { not: null } },
+      data: { usedAt: null },
+    })
+    if (result.count > 0) {
+      console.warn('[signup-code] released unlinked claim after sign-up failure', { code })
+    }
+  } catch (err) {
+    console.warn('[signup-code] failed to release claim', { code, err })
   }
 }

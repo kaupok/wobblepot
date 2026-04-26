@@ -8,7 +8,7 @@ import { resend, isEmailConfigured } from '@/lib/resend'
 import { generateResetPasswordEmail } from '@/lib/emails/reset-password'
 import { isPasswordBreached } from '@/lib/breached-password'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
-import { linkUsedBy, validateAndClaimInviteCode } from '@/lib/signup-codes'
+import { linkUsedBy, releaseClaim, validateAndClaimInviteCode } from '@/lib/signup-codes'
 
 const MIN_PASSWORD_LENGTH = 12
 
@@ -188,8 +188,16 @@ export const auth = betterAuth({
     after: createAuthMiddleware(async (ctx) => {
       if (ctx.path !== '/sign-up/email') return
       const userId = ctx.context.newSession?.user?.id
-      if (!userId) return
-      await linkUsedBy(ctx.body, userId)
+      if (userId) {
+        await linkUsedBy(ctx.body, userId)
+        return
+      }
+      // Sign-up failed after the atomic claim — Better Auth's endpoint runs
+      // *after* hooks.before, so a Zod validation, USER_ALREADY_EXISTS, or
+      // breached-password rejection at the endpoint layer leaves the code
+      // claimed but unlinked. Release it so the user can retry without
+      // burning the code permanently.
+      await releaseClaim(ctx.body)
     }),
   },
 })

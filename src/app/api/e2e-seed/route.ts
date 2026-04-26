@@ -41,6 +41,9 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Missing ?code=<value>' }, { status: 400 })
   }
 
-  await prisma.signupCode.deleteMany({ where: { code } })
-  return NextResponse.json({ ok: true })
+  // Mirror the admin DELETE — only remove unused codes. Claimed codes are an
+  // audit record of who signed up with which invite, even in test, so a
+  // helper accidentally targeting a real attribution row stays a no-op.
+  const result = await prisma.signupCode.deleteMany({ where: { code, usedAt: null } })
+  return NextResponse.json({ ok: true, deleted: result.count })
 }

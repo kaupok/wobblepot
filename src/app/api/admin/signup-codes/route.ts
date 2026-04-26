@@ -12,8 +12,8 @@ const createSchema = z.object({
   note: z.string().trim().max(NOTE_MAX_LENGTH).optional(),
 })
 
-// Shape returned by both GET and POST so the admin client can render a row
-// from either response without branching on which endpoint produced it.
+// Shape selected from Prisma. Includes the nested `usedBy` relation so we
+// can flatten its email into a top-level field below.
 const CODE_SELECT = {
   id: true,
   code: true,
@@ -23,6 +23,34 @@ const CODE_SELECT = {
   note: true,
   usedBy: { select: { email: true } },
 } as const
+
+interface PrismaSignupCodeRow {
+  id: string
+  code: string
+  createdAt: Date
+  usedAt: Date | null
+  expiresAt: Date | null
+  note: string | null
+  usedBy: { email: string } | null
+}
+
+/**
+ * Flatten the Prisma row to the wire shape the admin client expects
+ * (`SignupCodeRow` in `SignupCodesClient.tsx`). Keeping the API response
+ * shape in lockstep with the page-level `initialCodes` prop avoids the
+ * "Used by unknown" regression when `useQuery` refetches.
+ */
+function serialiseCode(row: PrismaSignupCodeRow) {
+  return {
+    id: row.id,
+    code: row.code,
+    createdAt: row.createdAt.toISOString(),
+    usedAt: row.usedAt ? row.usedAt.toISOString() : null,
+    expiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
+    note: row.note,
+    usedByEmail: row.usedBy?.email ?? null,
+  }
+}
 
 async function requireAdmin() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -44,7 +72,7 @@ export async function GET() {
     select: CODE_SELECT,
   })
 
-  return NextResponse.json({ codes })
+  return NextResponse.json({ codes: codes.map(serialiseCode) })
 }
 
 export async function POST(request: Request) {
@@ -77,5 +105,5 @@ export async function POST(request: Request) {
     select: CODE_SELECT,
   })
 
-  return NextResponse.json({ code: created }, { status: 201 })
+  return NextResponse.json({ code: serialiseCode(created) }, { status: 201 })
 }

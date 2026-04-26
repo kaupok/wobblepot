@@ -48,17 +48,17 @@ describe('GET /api/admin/signup-codes', () => {
     expect(res.status).toBe(404)
   })
 
-  it('returns the list of codes for the admin', async () => {
+  it('returns the list of codes for the admin (flattened wire shape)', async () => {
     getSession.mockResolvedValue(adminSession)
     findMany.mockResolvedValue([
       {
         id: 'c1',
         code: 'abc',
-        createdAt: new Date(),
-        usedAt: null,
+        createdAt: new Date('2026-04-25T12:00:00Z'),
+        usedAt: new Date('2026-04-25T13:00:00Z'),
         expiresAt: null,
-        note: null,
-        usedBy: null,
+        note: 'For Anna',
+        usedBy: { email: 'anna@example.com' },
       },
     ])
 
@@ -66,6 +66,18 @@ describe('GET /api/admin/signup-codes', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.codes).toHaveLength(1)
+    // The wire shape MUST match SignupCodeRow (flat usedByEmail) — the client
+    // refetches via useQuery and rendering breaks if the API returns the
+    // nested usedBy.email shape Prisma produces.
+    expect(body.codes[0]).toEqual({
+      id: 'c1',
+      code: 'abc',
+      createdAt: '2026-04-25T12:00:00.000Z',
+      usedAt: '2026-04-25T13:00:00.000Z',
+      expiresAt: null,
+      note: 'For Anna',
+      usedByEmail: 'anna@example.com',
+    })
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({ take: 100, orderBy: { createdAt: 'desc' } }),
     )
@@ -90,7 +102,7 @@ describe('POST /api/admin/signup-codes', () => {
     create.mockImplementation(async ({ data }) => ({
       id: 'c1',
       ...data,
-      createdAt: new Date(),
+      createdAt: new Date('2026-04-25T12:00:00Z'),
       usedAt: null,
       expiresAt: null,
       usedBy: null,
@@ -106,6 +118,9 @@ describe('POST /api/admin/signup-codes', () => {
     const body = await res.json()
     expect(body.code.code).toMatch(/^[\w-]{12}$/)
     expect(body.code.note).toBe('For Anna')
+    // POST returns the same flat shape as GET — see the GET test above.
+    expect(body.code.usedByEmail).toBeNull()
+    expect(typeof body.code.createdAt).toBe('string')
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ createdById: 'admin_1', note: 'For Anna' }),
