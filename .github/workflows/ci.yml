@@ -1,10 +1,23 @@
 name: CI
 
+# Skip CI for docs-only changes (HON-529). main has no required status
+# checks today, so docs-only PRs simply show no CI status and remain
+# mergeable. If CI ever becomes a required check, switch to the
+# dummy-job pattern (a second workflow with the same `name:` that
+# triggers on these paths and exits 0 immediately) so PRs don't hang.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -85,8 +98,25 @@ jobs:
       - name: Run unit tests
         run: pnpm test
 
+      # Cache the ~150 MB Chromium download across runs. Playwright is pinned
+      # in pnpm-lock.yaml, so the lockfile hash is a stable cache key (HON-529).
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+
       - name: Install Playwright chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --with-deps chromium
+
+      # On cache hit the browser binary is restored, but `--with-deps`
+      # OS-level libraries are not in ~/.cache/ms-playwright. Install just
+      # the deps (~5s) so headless launch doesn't fail with missing libs.
+      - name: Install Playwright system deps (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
 
       - name: Run Storybook a11y tests
         run: pnpm test-storybook:ci
