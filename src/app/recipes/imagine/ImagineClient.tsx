@@ -14,6 +14,7 @@ import { toast } from 'sonner'
 import type { PrefilledIngredient } from '@/components/household/MealForm'
 import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import { convertToPrefilledData, type ImaginedMealResponse } from '@/lib/imagine-utils'
+import { track } from '@/lib/analytics'
 
 const MAX_IMAGES = 3
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
@@ -173,7 +174,8 @@ export function ImagineClient() {
     })
   }
 
-  const handleReviewSaved = (_mealId: string) => {
+  const handleReviewSaved = (mealId: string) => {
+    void track('meal:imagined', { meal_id: mealId, source: 'imagine_page' })
     setReviewMeal(null)
     toast.success('Meal saved to your library')
   }

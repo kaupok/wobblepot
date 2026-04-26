@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
+import { track } from '@/lib/analytics'
 import type { PantryItemData } from './PantryItem'
 import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
 
@@ -113,6 +114,7 @@ export function InlineAddItem({
       }
 
       const data = await response.json()
+      void track('pantry:item_added', { source: 'pantry_inline' })
       onItemAdded(data)
       setQuery('')
       setResults([])

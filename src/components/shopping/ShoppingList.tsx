@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { CategoryGroup } from './CategoryGroup'
 import type { ShoppingItemData } from './ShoppingItem'
+import { track } from '@/lib/analytics'
 
 interface ShoppingListGroup {
   category: IngredientCategory
@@ -79,6 +80,14 @@ export function ShoppingList({
       })
 
       return { previousIds }
+    },
+    onSuccess: (_data, { purchased }) => {
+      // Spec: only fire on the purchased transition, not unpurchase. The
+      // unpurchase event would dilute the funnel without adding a question
+      // we currently want to answer.
+      if (purchased) {
+        void track('shopping:item_purchased', { source: 'shopping_list' })
+      }
     },
     onError: (_err, _vars, context) => {
       // Revert to snapshot on error

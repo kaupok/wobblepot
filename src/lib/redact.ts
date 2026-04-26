@@ -59,6 +59,19 @@ export function redactFreeText(s: string): string {
  * by the SDK, not by our captures.
  *
  * Pure: returns a new object, never mutates input.
+ *
+ * GOTCHA — posthog-js stamps the project token at `properties.token` (no `$`
+ * prefix) inside `calculateEventProperties`. The PostHog ingest authenticates
+ * by reading `api_key` or `token` from the request body, so an event without
+ * either is rejected with `401 "event submitted without an api_key"`. This
+ * sanitizer strips `'token'` as a sensitive key — which is the right policy
+ * for arbitrary `captureException` payloads where users could attach an
+ * OAuth token to a thrown error — but it means the `before_send` callsite
+ * MUST re-add `properties.token` after sanitization, otherwise every client
+ * event 401s. See `src/components/PostHogProvider.tsx` for the restoration.
+ * `posthog-node` is unaffected: it adds `api_key` at the envelope level
+ * after `before_send` runs, so a stripped `properties.token` is harmless
+ * server-side.
  */
 export function sanitizeEventProperties(
   properties: Record<string, unknown> | undefined,

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
 import { getUserFriendlyError } from '@/lib/auth-errors'
 import { getValidReturnUrl } from '@/lib/utils'
+import { track } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -58,6 +59,10 @@ export function SignUpForm({
       }
       await authClient.signUp.email(payload as Parameters<typeof authClient.signUp.email>[0], {
         onSuccess: () => {
+          // Fire-and-forget analytics; HON-476 wires `auth:sign_up` into the
+          // funnel taxonomy. Awaiting would make a slow PostHog request gate
+          // the redirect, so we intentionally drop the promise.
+          void track('auth:sign_up', {})
           try {
             router.push(returnUrl)
             router.refresh()

@@ -263,6 +263,11 @@ export function RecipeImportClient() {
         return
       }
 
+      // `recipe:imported` fires when the user actually saves the recipe to
+      // their library on `/recipes/create` (see `CreateRecipeClient`), not
+      // when the parse succeeds. Counting parses inflates the activation
+      // metric with abandoned attempts.
+
       // Handle medium confidence — show warning with options
       if (data.confidenceTier === 'medium') {
         setWarning({
