@@ -6,8 +6,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
-import { formatCategory } from '@/components/household/meal-form-types'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { UnmatchedIngredientData, IngredientResult } from './IngredientRow'
+import type { IngredientCategory } from '@/generated/prisma/enums'
+
+function CategoryHint({ category }: { category: IngredientCategory }) {
+  const label = useEnumLabel('IngredientCategory', category)
+  return <Body variant="muted">({label})</Body>
+}
 
 interface UnmatchedIngredientRowProps {
   data: UnmatchedIngredientData
@@ -195,7 +201,7 @@ export function UnmatchedIngredientRow({
               >
                 <div className="flex items-center gap-2">
                   <Body>{ingredient.name}</Body>
-                  <Body variant="muted">({formatCategory(ingredient.category)})</Body>
+                  <CategoryHint category={ingredient.category} />
                 </div>
               </button>
             ))}

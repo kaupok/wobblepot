@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Body } from '@/components/ui/typography'
 import { Pencil, Trash2, User, Crown, Mail } from 'lucide-react'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { Member, MemberInvite } from '@/types/member'
 
 const PORTION_LABELS: Record<number, string> = {
@@ -49,6 +50,7 @@ export function MemberCard({
     member.preferences?.displayName || member.user?.name || member.name || 'Unknown member'
   const isManual = member.userId === null
   const isOwner = member.role === 'owner'
+  const ownerLabel = useEnumLabel('HouseholdRole', 'owner')
   const portionMultiplier = member.preferences?.portionMultiplier ?? 1.0
 
   const handleRemove = async () => {
@@ -90,7 +92,7 @@ export function MemberCard({
               <Body className="font-medium">{displayName}</Body>
               {isOwner && (
                 <Badge variant="secondary" className="text-xs">
-                  Owner
+                  {ownerLabel}
                 </Badge>
               )}
               {isManual && !member.invite?.isActive && (

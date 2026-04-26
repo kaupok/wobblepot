@@ -1,9 +1,12 @@
+'use client'
+
 import { Clock, ExternalLink, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Body, Heading, type HeadingVariant } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { getIngredientAvailabilitySets } from './AvailabilityIndicator'
 import { NutritionSummary } from './NutritionSummary'
+import { useTranslations } from 'next-intl'
 import type { MealComponent, NutritionData, PantryIngredient } from './types'
 import type { MealType } from '@/generated/prisma/enums'
 
@@ -27,13 +30,14 @@ interface MealCardBaseProps {
   nameHeadingLevel?: HeadingVariant
 }
 
-function formatMealTypes(types: MealType[]): string {
-  return types.map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join(', ')
+function MealTypeList({ types }: { types: MealType[] }) {
+  const t = useTranslations('enums.MealType')
+  return <>{types.map((value) => t(value)).join(', ')}</>
 }
 
-function formatProteinType(type: string): string {
-  if (type === 'none') return 'No protein'
-  return type.charAt(0).toUpperCase() + type.slice(1)
+function ProteinTypeBody({ type }: { type: string }) {
+  const t = useTranslations('enums.ProteinType')
+  return <>{t(type)}</>
 }
 
 /**
@@ -95,7 +99,7 @@ export function MealCardBase({
       <div className="flex flex-wrap items-center gap-1.5">
         {meal.suitableFor && meal.suitableFor.length > 0 && (
           <Body variant="small" className="text-muted-foreground">
-            {formatMealTypes(meal.suitableFor)}
+            <MealTypeList types={meal.suitableFor} />
           </Body>
         )}
         {meal.suitableFor && meal.suitableFor.length > 0 && (
@@ -104,7 +108,7 @@ export function MealCardBase({
           </Body>
         )}
         <Body variant="small" className="text-muted-foreground">
-          {formatProteinType(meal.primaryProteinType)}
+          <ProteinTypeBody type={meal.primaryProteinType} />
         </Body>
       </div>
 

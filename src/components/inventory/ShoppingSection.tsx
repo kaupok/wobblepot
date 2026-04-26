@@ -33,7 +33,6 @@ const SORT_STORAGE_KEY = 'shopping-list-sort-mode'
 
 interface ShoppingListGroup {
   category: IngredientCategory
-  categoryLabel: string
   items: ShoppingItemData[]
 }
 
@@ -434,7 +433,6 @@ export function ShoppingSection({
                 <CategoryGroup
                   key={group.category}
                   category={group.category}
-                  categoryLabel={group.categoryLabel}
                   items={group.items}
                   customItems={linkedCustomByCategory.get(group.category)}
                   onToggleItem={handleToggle}
@@ -451,7 +449,6 @@ export function ShoppingSection({
                   <CategoryGroup
                     key={category}
                     category={category as IngredientCategory}
-                    categoryLabel={category.charAt(0).toUpperCase() + category.slice(1)}
                     items={[]}
                     customItems={items}
                     onToggleItem={handleToggle}

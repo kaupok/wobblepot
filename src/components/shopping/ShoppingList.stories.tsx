@@ -65,7 +65,7 @@ export const Empty: Story = {
 
 export const SingleCategory: Story = {
   args: {
-    groups: [{ category: 'protein', categoryLabel: 'Protein', items: proteinShoppingItems }],
+    groups: [{ category: 'protein', items: proteinShoppingItems }],
     initialPurchasedIds: new Set<string>(),
   },
 }
@@ -75,10 +75,9 @@ export const MultipleCategories: Story = {
     groups: [
       {
         category: 'vegetable',
-        categoryLabel: 'Vegetable',
         items: produceShoppingItems,
       },
-      { category: 'protein', categoryLabel: 'Protein', items: proteinShoppingItems },
+      { category: 'protein', items: proteinShoppingItems },
     ],
     initialPurchasedIds: new Set<string>(['salmon-fillet']),
   },
@@ -122,7 +121,7 @@ export const ErrorState: Story = {
 // contrast waiver applies.
 export const ChecksOffItem: Story = {
   args: {
-    groups: [{ category: 'protein', categoryLabel: 'Protein', items: proteinShoppingItems }],
+    groups: [{ category: 'protein', items: proteinShoppingItems }],
     initialPurchasedIds: new Set<string>(),
   },
   parameters: { a11y: inactiveStateA11y },

@@ -11,7 +11,6 @@ import { track } from '@/lib/analytics'
 
 interface ShoppingListGroup {
   category: IngredientCategory
-  categoryLabel: string
   items: ShoppingItemData[]
 }
 
@@ -164,7 +163,6 @@ export function ShoppingList({
               <CategoryGroup
                 key={group.category}
                 category={group.category}
-                categoryLabel={group.categoryLabel}
                 items={group.items}
                 onToggleItem={handleToggle}
                 pendingIds={pendingIds}

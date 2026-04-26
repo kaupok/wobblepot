@@ -2,6 +2,7 @@
 
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { Body } from '@/components/ui/typography'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { ShoppingItem, type ShoppingItemData } from './ShoppingItem'
 import { CustomShoppingItem } from './CustomShoppingItem'
 import type { CustomItemData } from './CustomItemInput'
@@ -24,7 +25,6 @@ const CATEGORY_EMOJI: Record<IngredientCategory, string> = {
 
 interface CategoryGroupProps {
   category: IngredientCategory
-  categoryLabel: string
   items: ShoppingItemData[]
   customItems?: CustomItemData[]
   onToggleItem: (ingredientId: string, purchased: boolean) => void
@@ -37,7 +37,6 @@ interface CategoryGroupProps {
 
 export function CategoryGroup({
   category,
-  categoryLabel,
   items,
   customItems,
   onToggleItem,
@@ -48,6 +47,7 @@ export function CategoryGroup({
   disabled,
 }: CategoryGroupProps) {
   const emoji = CATEGORY_EMOJI[category]
+  const categoryLabel = useEnumLabel('IngredientCategory', category)
   const computedPurchasedCount = items.filter((item) => item.purchased).length
   const customCheckedCount = customItems?.filter((item) => item.checked).length ?? 0
   const totalCount = items.length + (customItems?.length ?? 0)

@@ -21,6 +21,7 @@ import { Heading, Body } from '@/components/ui/typography'
 import { TagInput, type TagInputRef } from '@/components/tag-input'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { PUBLIC_LOCALES, isPublicLocale, type Locale } from '@/lib/i18n/locales'
+import { MEAL_TYPE_VALUES } from '@/components/household/meal-form-types'
 
 // Types matching Prisma enums
 type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian'
@@ -36,26 +37,53 @@ type Allergen =
   | 'sesame'
 type MealType = 'breakfast' | 'lunch' | 'dinner'
 
-const DIETARY_TYPES: { value: DietaryType | 'none'; label: string }[] = [
-  { value: 'none', label: 'No preference' },
-  { value: 'vegetarian', label: 'Vegetarian' },
-  { value: 'vegan', label: 'Vegan' },
-  { value: 'pescatarian', label: 'Pescatarian' },
+const DIETARY_TYPE_VALUES: readonly DietaryType[] = ['vegetarian', 'vegan', 'pescatarian']
+const ALLERGEN_VALUES: readonly Allergen[] = [
+  'gluten',
+  'dairy',
+  'eggs',
+  'nuts',
+  'peanuts',
+  'soy',
+  'fish',
+  'shellfish',
+  'sesame',
 ]
+function DietaryTypeRadio({ value }: { value: DietaryType }) {
+  const label = useEnumLabel('DietaryType', value)
+  const id = `dietary-${value}`
+  return (
+    <div className="flex items-center gap-2">
+      <RadioGroupItem value={value} id={id} />
+      <Label htmlFor={id} className="font-normal">
+        {label}
+      </Label>
+    </div>
+  )
+}
 
-const ALLERGENS: { value: Allergen; label: string }[] = [
-  { value: 'gluten', label: 'Gluten' },
-  { value: 'dairy', label: 'Dairy' },
-  { value: 'eggs', label: 'Eggs' },
-  { value: 'nuts', label: 'Tree nuts' },
-  { value: 'peanuts', label: 'Peanuts' },
-  { value: 'soy', label: 'Soy' },
-  { value: 'fish', label: 'Fish' },
-  { value: 'shellfish', label: 'Shellfish' },
-  { value: 'sesame', label: 'Sesame' },
-]
-
-const MEAL_TYPE_VALUES: MealType[] = ['breakfast', 'lunch', 'dinner']
+function AllergenCheckbox({
+  value,
+  checked,
+  disabled,
+  onCheckedChange,
+}: {
+  value: Allergen
+  checked: boolean
+  disabled: boolean
+  onCheckedChange: (checked: boolean) => void
+}) {
+  const label = useEnumLabel('Allergen', value)
+  const id = `allergen-${value}`
+  return (
+    <div className="flex items-center gap-2">
+      <Checkbox id={id} checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
+      <Label htmlFor={id} className="font-normal">
+        {label}
+      </Label>
+    </div>
+  )
+}
 
 function MealTypeCheckbox({
   mealType,
@@ -312,33 +340,28 @@ export function HouseholdSettingsForm({
                 disabled={isLoading}
                 className="flex flex-wrap gap-4"
               >
-                {DIETARY_TYPES.map((type) => (
-                  <div key={type.value} className="flex items-center gap-2">
-                    <RadioGroupItem value={type.value} id={`dietary-${type.value}`} />
-                    <Label htmlFor={`dietary-${type.value}`} className="font-normal">
-                      {type.label}
-                    </Label>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="none" id="dietary-none" />
+                  <Label htmlFor="dietary-none" className="font-normal">
+                    {t('dietaryNone')}
+                  </Label>
+                </div>
+                {DIETARY_TYPE_VALUES.map((value) => (
+                  <DietaryTypeRadio key={value} value={value} />
                 ))}
               </RadioGroup>
             </div>
             <div className="flex flex-col gap-2">
               <Label>Allergens to avoid</Label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {ALLERGENS.map((allergen) => (
-                  <div key={allergen.value} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`allergen-${allergen.value}`}
-                      checked={allergensToAvoid.includes(allergen.value)}
-                      onCheckedChange={(checked) =>
-                        handleAllergenToggle(allergen.value, checked === true)
-                      }
-                      disabled={isLoading}
-                    />
-                    <Label htmlFor={`allergen-${allergen.value}`} className="font-normal">
-                      {allergen.label}
-                    </Label>
-                  </div>
+                {ALLERGEN_VALUES.map((allergen) => (
+                  <AllergenCheckbox
+                    key={allergen}
+                    value={allergen}
+                    checked={allergensToAvoid.includes(allergen)}
+                    disabled={isLoading}
+                    onCheckedChange={(checked) => handleAllergenToggle(allergen, checked)}
+                  />
                 ))}
               </div>
             </div>

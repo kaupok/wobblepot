@@ -5,7 +5,14 @@ import { Search, Plus, Loader2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
-import { type IngredientResult, formatCategory } from './meal-form-types'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
+import { type IngredientResult } from './meal-form-types'
+import type { IngredientCategory } from '@/generated/prisma/enums'
+
+function CategoryHint({ category }: { category: IngredientCategory }) {
+  const label = useEnumLabel('IngredientCategory', category)
+  return <Body variant="muted">({label})</Body>
+}
 
 interface IngredientSearchProps {
   disabled: boolean
@@ -176,7 +183,7 @@ export function IngredientSearch({
                   <Body className={isAdded ? 'text-muted-foreground' : undefined}>
                     {ingredient.name}
                   </Body>
-                  <Body variant="muted">({formatCategory(ingredient.category)})</Body>
+                  <CategoryHint category={ingredient.category} />
                 </div>
                 {isAdded ? (
                   <Body variant="muted">Added</Body>

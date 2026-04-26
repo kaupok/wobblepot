@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { track } from '@/lib/analytics'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { PantryItemData } from './PantryItem'
 import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
 
@@ -22,8 +23,9 @@ interface InlineAddItemProps {
   pantryIngredientIds?: Set<string>
 }
 
-function formatCategory(category: IngredientCategory): string {
-  return category.charAt(0).toUpperCase() + category.slice(1)
+function CategoryHint({ category }: { category: IngredientCategory }) {
+  const label = useEnumLabel('IngredientCategory', category)
+  return <Body variant="muted">({label})</Body>
 }
 
 export function InlineAddItem({
@@ -195,7 +197,7 @@ export function InlineAddItem({
                   <Body className={isInPantry ? 'text-muted-foreground' : undefined}>
                     {ingredient.name}
                   </Body>
-                  <Body variant="muted">({formatCategory(ingredient.category)})</Body>
+                  <CategoryHint category={ingredient.category} />
                   {isInPantry && (
                     <span className="text-muted-foreground flex items-center gap-1 text-xs">
                       <Check className="h-3 w-3" />

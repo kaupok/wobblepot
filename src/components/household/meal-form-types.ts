@@ -3,11 +3,7 @@ import type { IngredientRowData } from '@/components/recipes/IngredientRow'
 
 export type MealTypeValue = 'breakfast' | 'lunch' | 'dinner'
 
-export const MEAL_TYPES: { value: MealTypeValue; label: string }[] = [
-  { value: 'breakfast', label: 'Breakfast' },
-  { value: 'lunch', label: 'Lunch' },
-  { value: 'dinner', label: 'Dinner' },
-]
+export const MEAL_TYPE_VALUES: readonly MealTypeValue[] = ['breakfast', 'lunch', 'dinner'] as const
 
 export interface IngredientResult {
   id: string
@@ -107,12 +103,12 @@ export interface MealFormProps {
   onCancel: () => void
 }
 
+// Display 'g' for gram quantities; hide the unit for piece-counted items (the
+// number alone reads more naturally — "5 lemons" not "5 pcs lemons"). Estonian
+// translations live in the catalog under `enums.Unit.*` for any future
+// consumer that wants to render piece units explicitly.
 export function formatUnit(unit: Unit): string {
   return unit === 'g' ? 'g' : ''
-}
-
-export function formatCategory(category: IngredientCategory): string {
-  return category.charAt(0).toUpperCase() + category.slice(1)
 }
 
 export function formatIngredientList(names: string[], maxDisplay: number = 3): string {

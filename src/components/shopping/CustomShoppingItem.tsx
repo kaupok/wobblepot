@@ -5,19 +5,9 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Body } from '@/components/ui/typography'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import type { IngredientCategory } from '@/generated/prisma/enums'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { CustomItemData } from './CustomItemInput'
-
-const CATEGORY_LABELS: Record<string, string> = {
-  protein: 'Protein',
-  vegetable: 'Vegetable',
-  fruit: 'Fruit',
-  dairy: 'Dairy',
-  carb: 'Carb',
-  legume: 'Legume',
-  fat: 'Fat',
-  condiment: 'Condiment',
-  spice: 'Spice',
-}
 
 interface CustomShoppingItemProps {
   item: CustomItemData
@@ -26,6 +16,11 @@ interface CustomShoppingItemProps {
   onDelete: (id: string) => void
   disabled?: boolean
   pending?: boolean
+}
+
+function CategoryBadge({ category }: { category: IngredientCategory }) {
+  const label = useEnumLabel('IngredientCategory', category)
+  return <Body variant="caption">{label}</Body>
 }
 
 export function CustomShoppingItem({
@@ -69,9 +64,7 @@ export function CustomShoppingItem({
             {item.name}
           </Body>
           {item.ingredientCategory && (
-            <Body variant="caption">
-              {CATEGORY_LABELS[item.ingredientCategory] ?? item.ingredientCategory}
-            </Body>
+            <CategoryBadge category={item.ingredientCategory as IngredientCategory} />
           )}
         </div>
       </label>

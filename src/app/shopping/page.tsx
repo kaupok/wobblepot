@@ -23,7 +23,6 @@ interface ShoppingListItem {
 
 interface ShoppingListGroup {
   category: IngredientCategory
-  categoryLabel: string
   items: ShoppingListItem[]
 }
 
@@ -146,7 +145,6 @@ export default async function ShoppingPage({ searchParams }: ShoppingPageProps) 
   // Transform data for shopping section
   const groups = shoppingList.groups.map((group) => ({
     category: group.category,
-    categoryLabel: group.categoryLabel,
     items: group.items.map((item) => ({
       ingredientId: item.ingredientId,
       name: item.name,
