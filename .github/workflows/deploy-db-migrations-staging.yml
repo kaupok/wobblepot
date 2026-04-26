@@ -3,6 +3,9 @@ name: Deploy DB migrations [staging]
 on:
   push:
     branches: [main]
+  # Manual trigger lets us re-seed staging on demand without pushing a no-op
+  # change to a seed file (HON-529). The seed step always runs on dispatch.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,6 +23,21 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Skip the seed step when nothing under prisma/seed*.ts or
+      # prisma/schema.prisma changed in this push. Re-seeding identical data
+      # was ~16% of monthly Actions minutes (HON-529). On workflow_dispatch
+      # we skip detection and always run the seed (handled by the seed step's
+      # `if:` below) — paths-filter has no base ref on manual triggers.
+      - name: Detect seed-source changes
+        if: github.event_name == 'push'
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            seed:
+              - 'prisma/seed*.ts'
+              - 'prisma/schema.prisma'
 
       - name: Enable Corepack
         run: corepack enable
@@ -55,6 +73,7 @@ jobs:
         run: pnpm prisma migrate deploy
 
       - name: Seed database [staging]
+        if: steps.filter.outputs.seed == 'true' || github.event_name == 'workflow_dispatch'
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
           DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_STAGING }}
