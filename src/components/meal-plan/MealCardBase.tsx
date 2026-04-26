@@ -1,3 +1,5 @@
+'use client'
+
 import { Clock, ExternalLink, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Body, Heading, type HeadingVariant } from '@/components/ui/typography'

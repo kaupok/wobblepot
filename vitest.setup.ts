@@ -10,10 +10,11 @@ import enMessages from './messages/en.json'
 // namespace + key against the English catalog; fall back to the key.
 //
 // Tests that genuinely need locale switching (e.g. enum-label.test.tsx,
-// CategoryGroup.test.tsx) wrap explicitly with `<NextIntlClientProvider>`,
-// which takes precedence over this mock because they import the real
-// next-intl exports through different paths in the renderer. To support both,
-// we let them call the wrapper but have the mock respond to the bare hook.
+// CategoryGroup.test.tsx) call `vi.unmock('next-intl')` at the top of the
+// file to disable this mock entirely and use the real next-intl exports.
+// Without that unmock, the no-op `NextIntlClientProvider` below would swallow
+// the test's explicit locale/messages props and silently render against the
+// English fallback regardless of the locale prop.
 vi.mock('next-intl', async () => {
   const actual = await vi.importActual<typeof import('next-intl')>('next-intl')
   function resolve(path: string): string {

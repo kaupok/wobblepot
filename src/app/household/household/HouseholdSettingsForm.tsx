@@ -21,6 +21,7 @@ import { Heading, Body } from '@/components/ui/typography'
 import { TagInput, type TagInputRef } from '@/components/tag-input'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { PUBLIC_LOCALES, isPublicLocale, type Locale } from '@/lib/i18n/locales'
+import { MEAL_TYPE_VALUES } from '@/components/household/meal-form-types'
 
 // Types matching Prisma enums
 type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian'
@@ -48,8 +49,6 @@ const ALLERGEN_VALUES: readonly Allergen[] = [
   'shellfish',
   'sesame',
 ]
-const MEAL_TYPE_VALUES: MealType[] = ['breakfast', 'lunch', 'dinner']
-
 function DietaryTypeRadio({ value }: { value: DietaryType }) {
   const label = useEnumLabel('DietaryType', value)
   const id = `dietary-${value}`
