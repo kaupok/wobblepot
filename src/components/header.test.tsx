@@ -35,14 +35,26 @@ vi.mock('./header-actions', () => ({
 
 // Mock Navigation components
 vi.mock('./navigation', () => ({
-  NavigationLeft: ({ session, hasHousehold }: { session: unknown; hasHousehold: boolean }) => (
+  NavigationLeft: ({
+    isAuthenticated,
+    hasHousehold,
+  }: {
+    isAuthenticated: boolean
+    hasHousehold: boolean
+  }) => (
     <nav data-testid="navigation-left">
-      {session && hasHousehold ? 'authenticated-nav-left' : 'hidden-nav-left'}
+      {isAuthenticated && hasHousehold ? 'authenticated-nav-left' : 'hidden-nav-left'}
     </nav>
   ),
-  NavigationRight: ({ session, hasHousehold }: { session: unknown; hasHousehold: boolean }) => (
+  NavigationRight: ({
+    isAuthenticated,
+    hasHousehold,
+  }: {
+    isAuthenticated: boolean
+    hasHousehold: boolean
+  }) => (
     <nav data-testid="navigation-right">
-      {session && hasHousehold ? 'authenticated-nav-right' : 'hidden-nav-right'}
+      {isAuthenticated && hasHousehold ? 'authenticated-nav-right' : 'hidden-nav-right'}
     </nav>
   ),
 }))

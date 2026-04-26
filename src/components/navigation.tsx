@@ -2,10 +2,9 @@
 
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import type { Session } from '@/lib/auth'
 
 interface NavigationProps {
-  session: Session | null
+  isAuthenticated: boolean
   hasHousehold: boolean
 }
 
@@ -13,10 +12,10 @@ interface NavigationProps {
  * Left navigation - daily operational views
  * (Today, Pantry & shopping)
  */
-export function NavigationLeft({ session, hasHousehold }: NavigationProps) {
+export function NavigationLeft({ isAuthenticated, hasHousehold }: NavigationProps) {
   const t = useTranslations('nav.primary')
 
-  if (!session || !hasHousehold) return null
+  if (!isAuthenticated || !hasHousehold) return null
 
   return (
     <nav aria-label={t('ariaLabel')} className="hidden items-center gap-6 md:flex">
@@ -34,10 +33,10 @@ export function NavigationLeft({ session, hasHousehold }: NavigationProps) {
  * Right navigation - settings/configuration views
  * (My recipes, Household)
  */
-export function NavigationRight({ session, hasHousehold }: NavigationProps) {
+export function NavigationRight({ isAuthenticated, hasHousehold }: NavigationProps) {
   const t = useTranslations('nav.settings')
 
-  if (!session || !hasHousehold) return null
+  if (!isAuthenticated || !hasHousehold) return null
 
   return (
     <nav aria-label={t('ariaLabel')} className="hidden items-center gap-6 md:flex">

@@ -108,8 +108,15 @@ export function JoinHouseholdCard({
         <div className="flex flex-col gap-4">
           <Body>
             {memberName
-              ? t('valid.bodyMember', { householdName, memberName })
-              : t('valid.bodyHouseholdOnly', { householdName })}
+              ? t.rich('valid.bodyMember', {
+                  householdName,
+                  memberName,
+                  strong: (chunks) => <strong>{chunks}</strong>,
+                })
+              : t.rich('valid.bodyHouseholdOnly', {
+                  householdName,
+                  strong: (chunks) => <strong>{chunks}</strong>,
+                })}
           </Body>
           <Body variant="muted">
             {memberName ? t('valid.subtextMember') : t('valid.subtextHouseholdOnly')}

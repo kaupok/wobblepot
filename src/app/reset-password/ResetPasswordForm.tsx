@@ -75,7 +75,8 @@ export function ResetPasswordForm() {
         },
       )
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : ''
+      // Non-Error throws are rare but historically mapped to the network copy.
+      const errorMessage = err instanceof Error ? err.message : 'network'
       setError(friendlyError(errorMessage))
     } finally {
       setIsLoading(false)

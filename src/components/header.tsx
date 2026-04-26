@@ -24,10 +24,10 @@ export async function Header() {
           <Link href="/" className="transition-opacity hover:opacity-70">
             <Heading variant="h4">Honkadori</Heading>
           </Link>
-          <NavigationLeft session={session} hasHousehold={hasHousehold} />
+          <NavigationLeft isAuthenticated={Boolean(session)} hasHousehold={hasHousehold} />
         </div>
         <div className="flex items-center gap-8">
-          <NavigationRight session={session} hasHousehold={hasHousehold} />
+          <NavigationRight isAuthenticated={Boolean(session)} hasHousehold={hasHousehold} />
           <HeaderActions session={session} hasHousehold={hasHousehold} />
           <MobileNav session={session} hasHousehold={hasHousehold} />
         </div>

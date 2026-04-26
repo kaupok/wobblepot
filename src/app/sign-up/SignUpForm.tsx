@@ -79,8 +79,9 @@ export function SignUpForm({
         },
       })
     } catch (err) {
-      // Handle exceptions thrown by authClient (e.g., network errors when offline)
-      const errorMessage = err instanceof Error ? err.message : ''
+      // Handle exceptions thrown by authClient (e.g., network errors when offline).
+      // Non-Error throws are rare but historically mapped to the network copy.
+      const errorMessage = err instanceof Error ? err.message : 'network'
       setError(friendlyError(errorMessage))
     } finally {
       clearTimeout(timeoutId)

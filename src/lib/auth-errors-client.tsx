@@ -1,5 +1,6 @@
 'use client'
 
+import { useCallback } from 'react'
 import { useTranslations } from 'next-intl'
 import { getAuthErrorKey } from './auth-errors'
 
@@ -7,8 +8,9 @@ import { getAuthErrorKey } from './auth-errors'
  * Client-side hook that turns a raw Better Auth error message into a
  * localized, user-friendly string. Use inside auth forms.
  *
- * Returns a stable function so callers can drop it into `setError(...)`
- * callsites without forcing re-renders:
+ * The returned function is memoized via `useCallback`, so callers can
+ * safely list it in `useEffect` / `useCallback` deps without forcing
+ * a render loop:
  *
  *   const friendly = useAuthErrorMessage()
  *   setError(friendly(ctx.error?.message ?? ''))
@@ -21,9 +23,12 @@ import { getAuthErrorKey } from './auth-errors'
  */
 export function useAuthErrorMessage(): (message: string) => string {
   const t = useTranslations('errors.auth')
-  return (message: string): string => {
-    if (!message) return t('unexpected')
-    const key = getAuthErrorKey(message)
-    return key ? t(key) : message
-  }
+  return useCallback(
+    (message: string): string => {
+      if (!message) return t('unexpected')
+      const key = getAuthErrorKey(message)
+      return key ? t(key) : message
+    },
+    [t],
+  )
 }

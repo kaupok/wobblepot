@@ -147,6 +147,10 @@ export async function signIn(
  * Mobile: the mobile nav exposes a direct "Sign out" button inside the sheet.
  */
 export async function signOut(page: Page): Promise<void> {
+  // Use English-text role queries — auth.spec.ts targets the English chrome
+  // explicitly. If a future i18n smoke spec needs to sign out under a non-en
+  // session, switch to locale-stable selectors (data-testid / nth-of-type)
+  // for both the menu trigger and the menuitem here.
   const userMenuTrigger = page.getByRole('button', { name: 'User menu' })
   if (await userMenuTrigger.isVisible()) {
     await userMenuTrigger.click()
