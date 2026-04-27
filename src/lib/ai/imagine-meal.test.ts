@@ -12,12 +12,18 @@ vi.mock('@/lib/env', () => ({
   serverEnv: { ANTHROPIC_API_KEY: 'test-key' },
 }))
 
+vi.mock('./sampling', () => ({
+  logAiSample: vi.fn(),
+}))
+
 import { generateObject } from 'ai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { imagineMeals, ImaginedMealsSchema, type ImaginedMeal } from './imagine-meal'
+import { logAiSample } from './sampling'
 
 const mockGenerateObject = vi.mocked(generateObject)
 const mockCreateAnthropic = vi.mocked(createAnthropic)
+const mockLogAiSample = vi.mocked(logAiSample)
 
 function sampleMeal(overrides: Partial<ImaginedMeal> = {}): ImaginedMeal {
   return {
@@ -221,5 +227,38 @@ describe('imagineMeals', () => {
     const call = mockGenerateObject.mock.calls[0]![0]! as { system: string }
     expect(call.system).toContain('LOCALE:')
     expect(call.system).toContain('Estonian')
+  })
+
+  it('logs an imagine-meal AI sample with the right shape when locale is non-default', async () => {
+    const meals: ImaginedMeal[] = [sampleMeal()]
+    mockGenerateObject.mockResolvedValue({ object: { meals } } as never)
+
+    await imagineMeals(
+      'midagi kanaga',
+      {
+        allergens: ['peanuts'],
+        dietaryType: 'flexitarian',
+        excludedIngredients: ['mushroom'],
+        restrictions: ['low FODMAP'],
+        householdSize: 3,
+      },
+      'et',
+      [{ base64: 'aGV5', mimeType: 'image/jpeg' }],
+    )
+
+    expect(mockLogAiSample).toHaveBeenCalledTimes(1)
+    const args = mockLogAiSample.mock.calls[0]![0]
+    expect(args.callSite).toBe('imagine-meal')
+    expect(args.locale).toBe('et')
+    expect(args.input).toEqual({
+      prompt: 'midagi kanaga',
+      hasImages: true,
+      dietaryType: 'flexitarian',
+      allergens: ['peanuts'],
+      excludedIngredients: ['mushroom'],
+      restrictions: ['low FODMAP'],
+      householdSize: 3,
+    })
+    expect(args.output).toEqual({ meals })
   })
 })

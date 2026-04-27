@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { serverEnv } from '@/lib/env'
 import { IMAGINE_MODEL } from './models'
 import { localeInstruction } from './prompts'
+import { logAiSample } from './sampling'
 import type { AiUsageStats } from './usage'
 
 /**
@@ -171,6 +172,21 @@ The user may attach photos for context — these could show ingredients they hav
     model: IMAGINE_MODEL,
     inputTokens: result.usage?.inputTokens ?? 0,
     outputTokens: result.usage?.outputTokens ?? 0,
+  })
+
+  await logAiSample({
+    callSite: 'imagine-meal',
+    locale,
+    input: {
+      prompt,
+      hasImages: Boolean(images?.length),
+      dietaryType: household.dietaryType,
+      allergens: household.allergens,
+      excludedIngredients: household.excludedIngredients,
+      restrictions: household.restrictions,
+      householdSize: household.householdSize,
+    },
+    output: result.object,
   })
 
   return result.object.meals

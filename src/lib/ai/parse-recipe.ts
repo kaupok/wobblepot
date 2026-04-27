@@ -17,6 +17,7 @@ import { normalizeIngredientName, extractLastWord } from '@/lib/normalize-ingred
 import { HONKADORI_BOT_USER_AGENT, checkRobotsAllowed } from '@/lib/robots'
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
 import { localeInstruction } from './prompts'
+import { logAiSample } from './sampling'
 
 /**
  * Error message emitted when robots.txt disallows the fetch. Used as a sentinel
@@ -705,6 +706,16 @@ export async function parseRecipeText(
       model: RECIPE_MODEL,
       inputTokens: result.usage?.inputTokens ?? 0,
       outputTokens: result.usage?.outputTokens ?? 0,
+    })
+
+    await logAiSample({
+      callSite: 'parse-recipe',
+      locale,
+      input: {
+        textPreview: trimmedText.slice(0, 1000),
+        textLength: trimmedText.length,
+      },
+      output: object,
     })
 
     // Validate we got meaningful data

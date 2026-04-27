@@ -49,12 +49,17 @@ vi.mock('@/lib/ai/usage', async (importOriginal) => {
   }
 })
 
+vi.mock('@/lib/ai/sampling', () => ({
+  logAiSample: vi.fn(),
+}))
+
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { generateObject } from 'ai'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { assertUnderCap } from '@/lib/ai/usage'
+import { logAiSample } from '@/lib/ai/sampling'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -64,6 +69,7 @@ const mockEntryUpdate = vi.mocked(prisma.mealPlanEntry.update)
 const mockGenerateObject = vi.mocked(generateObject)
 const mockCheckRateLimit = vi.mocked(checkRateLimit)
 const mockAssertUnderCap = vi.mocked(assertUnderCap)
+const mockLogAiSample = vi.mocked(logAiSample)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -413,5 +419,60 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(response.status).toBe(200)
     const call = mockGenerateObject.mock.calls[0]?.[0] as { prompt: string }
     expect(call.prompt).not.toContain('LOCALE:')
+  })
+
+  it('logs a preparation-tips-full sample when locale is non-default and meal has no notes', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(buildMembership('et') as never)
+    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    const fullTips = {
+      equipment: ['Pann'],
+      steps: ['Eelsoojendage ahi 200°C-ni'],
+      pitfalls: ['Mitte üle küpsetada'],
+      tip: 'Lase enne lõikamist puhata',
+    }
+    mockGenerateObject.mockResolvedValue({ object: fullTips } as never)
+
+    await callPost()
+
+    expect(mockLogAiSample).toHaveBeenCalledTimes(1)
+    const args = mockLogAiSample.mock.calls[0]![0]
+    expect(args.callSite).toBe('preparation-tips-full')
+    expect(args.locale).toBe('et')
+    expect(args.input).toEqual({
+      mealName: 'Chicken stir fry',
+      householdSize: 4,
+      timeMinutes: 30,
+      ingredientsCount: 1,
+      hasUserNotes: false,
+    })
+    expect(args.output).toEqual(fullTips)
+  })
+
+  it('logs a preparation-tips-supplementary sample when locale is non-default and meal has user notes', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(buildMembership('et') as never)
+    mockEntryFindFirst.mockResolvedValue(
+      sampleEntry({
+        meal: {
+          ...sampleEntry().meal,
+          preparationNotes: 'Eestikeelsed märkused valmistamise kohta',
+        },
+      }) as never,
+    )
+    const supplementary = {
+      pitfalls: ['Hoia silma peal'],
+      tip: 'Lisa soola lõpus',
+    }
+    mockGenerateObject.mockResolvedValue({ object: supplementary } as never)
+
+    await callPost()
+
+    expect(mockLogAiSample).toHaveBeenCalledTimes(1)
+    const args = mockLogAiSample.mock.calls[0]![0]
+    expect(args.callSite).toBe('preparation-tips-supplementary')
+    expect(args.locale).toBe('et')
+    expect((args.input as { hasUserNotes: boolean }).hasUserNotes).toBe(true)
+    expect(args.output).toEqual(supplementary)
   })
 })
