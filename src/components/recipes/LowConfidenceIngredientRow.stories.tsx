@@ -112,6 +112,23 @@ export const WithOriginalText: Story = {
   },
 }
 
+// 600g / 400 servings = 1.5g — locale toggle renders as `1,5g` in et.
+export const EstonianLocale: Story = {
+  args: {
+    data: createLowConfidenceIngredientRowData({ totalQuantity: 600 }),
+    servings: 400,
+  },
+  globals: { locale: 'et' },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Estonian locale — per-serving quantity renders with a comma decimal (`1,5g`) instead of a period.',
+      },
+    },
+  },
+}
+
 // Play stories — verify `onUpdate` / `onRemove` contracts under
 // @storybook/addon-vitest. Radix Select content renders through a portal outside
 // `canvasElement`, so option queries go through `within(document.body)`.

@@ -118,6 +118,29 @@ export const WithoutEditDetails: Story = {
   },
 }
 
+// Locale-toggle story — macros use `formatInteger` (non-breaking-space grouping
+// in et, comma in en) and matched per-serving rows use `formatQuantity` (comma
+// vs period decimal). Defaults already produce a 4-figure calorie value for et
+// grouping to be visible.
+export const EstonianLocale: Story = {
+  args: {
+    meal: createReviewMealData({
+      nutrition: { calories: 1234, protein: 56, carbs: 78, fat: 12 },
+      servings: 400,
+      prefilledIngredients: [createMatchedPrefilledIngredient({ convertedQuantity: 600 })],
+    }),
+  },
+  globals: { locale: 'et' },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Estonian locale — macros use a non-breaking-space thousands grouping (`1 234 kcal`) and the matched per-serving row uses a comma decimal (`1,5g`).',
+      },
+    },
+  },
+}
+
 // Play stories — exercise parent-callback contracts under @storybook/addon-vitest.
 // Radix Dialog content lives outside `canvasElement`, so queries use `within(document.body)`.
 

@@ -1,10 +1,13 @@
 'use client'
 
+import { useLocale } from 'next-intl'
 import { Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { NumberInput } from '@/components/ui/number-input'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
+import { formatQuantity } from '@/lib/i18n/format-number'
+import type { Locale } from '@/lib/i18n/locales'
 import { type MealComponent, formatUnit } from './meal-form-types'
 import type { Unit } from '@/generated/prisma/enums'
 
@@ -29,6 +32,8 @@ export function ComponentList({
   onSetQuantity,
   onMarkAsVague,
 }: ComponentListProps) {
+  const locale = useLocale() as Locale
+
   if (components.length === 0) return null
 
   return (
@@ -50,7 +55,9 @@ export function ComponentList({
                   <span className="text-destructive">Quantity must be greater than 0</span>
                 ) : (
                   <>
-                    {Math.round((comp.totalQuantity / servings) * 10) / 10}
+                    {formatQuantity(comp.totalQuantity / servings, locale, {
+                      maximumFractionDigits: 1,
+                    })}
                     {unitLabel} per serving
                   </>
                 )}

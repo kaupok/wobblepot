@@ -35,6 +35,10 @@ vi.mock('next-intl', async () => {
       const prefix = namespace ? `${namespace}.` : ''
       return (key: string) => resolve(`${prefix}${key}`)
     },
+    // Tests that need locale switching call `vi.unmock('next-intl')` and wrap
+    // in a real provider; the default mock just hands back 'en' so callers
+    // don't need to know whether their component tree uses `useLocale`.
+    useLocale: () => 'en',
     NextIntlClientProvider: ({ children }: { children: ReactNode }) => children,
   }
 })

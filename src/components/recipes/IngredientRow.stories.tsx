@@ -155,6 +155,24 @@ export const PieceUnit: Story = {
   },
 }
 
+// 600g / 400 servings = 1.5g — the locale-toggle story renders this as `1,5g`
+// in et and `1.5g` in en, verifying the locale-aware decimal separator.
+export const EstonianLocale: Story = {
+  args: {
+    data: createMatchedIngredientRowData({ totalQuantity: 600 }),
+    servings: 400,
+  },
+  globals: { locale: 'et' },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Estonian locale — per-serving quantity renders with a comma decimal (`1,5g`) instead of a period.',
+      },
+    },
+  },
+}
+
 // Play story — verify the matched-row quantity flow wires through the
 // dispatcher's `handleQuantityChange` into `onUpdate`.
 export const MatchedQuantityChangeInvokesOnUpdate: Story = {

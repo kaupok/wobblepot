@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
+import { useLocale } from 'next-intl'
 import { Loader2, ChevronDown, ChevronRight, Clock, Baby, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
@@ -18,6 +19,8 @@ import { IngredientRow, type IngredientRowData } from './IngredientRow'
 import type { IngredientResult } from './IngredientRow'
 import { buildFinalComponents, formatUnit } from '@/components/household/meal-form-types'
 import type { PrefilledIngredient } from '@/components/household/meal-form-types'
+import { formatInteger, formatQuantity } from '@/lib/i18n/format-number'
+import type { Locale } from '@/lib/i18n/locales'
 import type { MealType } from '@/generated/prisma/enums'
 
 interface NutritionData {
@@ -153,6 +156,7 @@ export function ImagineReviewDialog({
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isMatchedOpen, setIsMatchedOpen] = useState(false)
+  const locale = useLocale() as Locale
 
   const unresolvedCount = ingredientRows.filter((row) => row.type === 'unmatched').length
   const lowConfidenceCount = ingredientRows.filter((row) => row.type === 'low-confidence').length
@@ -250,8 +254,10 @@ export function ImagineReviewDialog({
         <div className="flex flex-col gap-4">
           {/* Macros summary */}
           <div className="text-muted-foreground text-xs">
-            {Math.round(nutrition.calories)} kcal · {Math.round(nutrition.protein)}g protein ·{' '}
-            {Math.round(nutrition.carbs)}g carbs · {Math.round(nutrition.fat)}g fat
+            {formatInteger(nutrition.calories, locale)} kcal ·{' '}
+            {formatInteger(nutrition.protein, locale)}g protein ·{' '}
+            {formatInteger(nutrition.carbs, locale)}g carbs · {formatInteger(nutrition.fat, locale)}
+            g fat
           </div>
 
           {/* Meta badges */}
@@ -338,7 +344,9 @@ export function ImagineReviewDialog({
                 <div className="mt-2 flex flex-col gap-1">
                   {ingredientRows.map((row, index) => {
                     if (row.type !== 'matched') return null
-                    const perServing = Math.round((row.totalQuantity / meal.servings) * 10) / 10
+                    const perServing = formatQuantity(row.totalQuantity / meal.servings, locale, {
+                      maximumFractionDigits: 1,
+                    })
                     const unitLabel = formatUnit(row.ingredient.defaultUnit)
                     return (
                       <div key={index} className="flex items-center justify-between px-3 py-1">

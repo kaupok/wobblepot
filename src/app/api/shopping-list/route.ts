@@ -7,48 +7,9 @@ import { prisma } from '@/lib/prisma'
 import { computeRollingWindowShoppingList } from '@/lib/meal-planning/shopping-list'
 import { toDateString, parseLocalDate, getTodayInTimezone } from '@/lib/meal-planning/dates'
 import { formatRelativeDate, formatAbsoluteDate } from '@/lib/i18n/format-dates'
+import { formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
 import { getLocale } from '@/lib/i18n/get-locale'
-import { Unit } from '@/generated/prisma/enums'
 import { captureApiError } from '@/lib/errors'
-
-/**
- * Format quantity for display.
- * - Vague: show original phrase (e.g., "to taste")
- * - Pieces: convert grams to pieces using gramsPerPiece, round up for shopping
- * - Grams: show as "Xg" or "X.Xkg" for >= 1000g
- *
- * Note: Quantities are stored in grams for all ingredients.
- * When defaultUnit is 'piece', we convert using gramsPerPiece.
- */
-function formatQuantity(
-  qtyInGrams: number,
-  unit: Unit,
-  gramsPerPiece: number | null,
-  isVague?: boolean,
-  originalPhrase?: string | null,
-): string {
-  // For vague quantities, show the original phrase
-  if (isVague && originalPhrase) {
-    return originalPhrase
-  }
-
-  if (unit === 'piece') {
-    // Convert grams to pieces, round up to ensure sufficient quantity for shopping
-    if (gramsPerPiece && gramsPerPiece > 0) {
-      const pieces = Math.ceil(qtyInGrams / gramsPerPiece)
-      return String(pieces)
-    }
-    // Fallback: if no gramsPerPiece, show as grams
-    return `${Math.round(qtyInGrams)}g`
-  }
-  // Grams
-  if (qtyInGrams >= 1000) {
-    const kg = qtyInGrams / 1000
-    // Remove trailing .0 for whole kg values
-    return kg % 1 === 0 ? `${Math.floor(kg)}kg` : `${kg.toFixed(1)}kg`
-  }
-  return `${Math.round(qtyInGrams)}g`
-}
 
 /**
  * GET /api/shopping-list
@@ -141,10 +102,11 @@ export async function GET(request: NextRequest) {
           name: item.ingredient.name,
           quantity: item.shoppingQuantity,
           unit: item.ingredient.defaultUnit,
-          displayQuantity: formatQuantity(
+          displayQuantity: formatShoppingQuantity(
             item.shoppingQuantity,
             item.ingredient.defaultUnit,
             item.ingredient.gramsPerPiece,
+            locale,
             item.isVague,
             item.originalPhrase,
           ),

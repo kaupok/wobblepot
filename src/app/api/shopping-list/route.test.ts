@@ -40,6 +40,9 @@ vi.mock('@/lib/i18n/get-locale', () => ({
   getLocale: vi.fn(() => Promise.resolve('en')),
 }))
 
+import { getLocale } from '@/lib/i18n/get-locale'
+const mockGetLocale = vi.mocked(getLocale)
+
 vi.mock('next-intl/server', () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }))
@@ -80,6 +83,8 @@ describe('GET /api/shopping-list', () => {
     vi.clearAllMocks()
     // Default: no custom items
     mockCustomItemsFindMany.mockResolvedValue([])
+    // Default locale (per-test overrides allowed)
+    mockGetLocale.mockResolvedValue('en')
   })
 
   it('returns 401 when not authenticated', async () => {
@@ -317,6 +322,58 @@ describe('GET /api/shopping-list', () => {
 
     // 360g / 60g per piece = 6 eggs
     expect(data.groups[0].items[0].displayQuantity).toBe('6')
+  })
+
+  it('formats kilogram quantities with locale-aware decimal separator', async () => {
+    const neededDate = new Date('2026-02-01')
+    const buildResult = () => ({
+      groups: [
+        {
+          category: 'carb' as const,
+          categoryLabel: 'Carbs & grains',
+          items: [
+            {
+              ingredientId: 'ing-rice',
+              ingredient: {
+                id: 'ing-rice',
+                name: 'Rice',
+                category: 'carb' as const,
+                defaultUnit: 'g' as const,
+                gramsPerPiece: null,
+              },
+              neededQuantity: 1500,
+              pantryQuantity: null,
+              shoppingQuantity: 1500,
+              mealCount: 3,
+              earliestNeededDate: neededDate,
+              isVague: false,
+              originalPhrase: null,
+            },
+          ],
+        },
+      ],
+      startDate: '2026-01-31',
+      endDate: '2026-02-06',
+      windowDays: 7 as const,
+      earliestPlanCreatedAt: null,
+    })
+
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockPantryFindMany.mockResolvedValue([])
+
+    // en locale (default) → period decimal
+    mockComputeShoppingList.mockResolvedValue(buildResult())
+    const enResponse = await GET(createMockRequest())
+    const enData = await enResponse.json()
+    expect(enData.groups[0].items[0].displayQuantity).toBe('1.5kg')
+
+    // et locale → comma decimal
+    mockGetLocale.mockResolvedValue('et')
+    mockComputeShoppingList.mockResolvedValue(buildResult())
+    const etResponse = await GET(createMockRequest())
+    const etData = await etResponse.json()
+    expect(etData.groups[0].items[0].displayQuantity).toBe('1,5kg')
   })
 
   it('returns 500 when computation fails', async () => {

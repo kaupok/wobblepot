@@ -1,3 +1,6 @@
+'use client'
+
+import { useLocale } from 'next-intl'
 import { HelpCircle, X, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
@@ -9,6 +12,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { formatUnit } from '@/components/household/meal-form-types'
+import { formatQuantity } from '@/lib/i18n/format-number'
+import type { Locale } from '@/lib/i18n/locales'
 import { QuantityControls } from './QuantityControls'
 import type { LowConfidenceIngredientData, IngredientRowData } from './IngredientRow'
 
@@ -35,7 +40,10 @@ export function LowConfidenceIngredientRow({
   onSetQuantity,
   onMarkAsVague,
 }: LowConfidenceIngredientRowProps) {
-  const perServing = Math.round((data.totalQuantity / servings) * 10) / 10
+  const locale = useLocale() as Locale
+  const perServing = formatQuantity(data.totalQuantity / servings, locale, {
+    maximumFractionDigits: 1,
+  })
   const isInvalidQuantity = !data.isVague && data.totalQuantity <= 0
   const unitLabel = formatUnit(data.ingredient.defaultUnit)
   const isDuplicate = duplicateIndices && duplicateIndices.length > 0

@@ -1,10 +1,13 @@
 'use client'
 
 import { useRef } from 'react'
+import { useLocale } from 'next-intl'
 import { Check, X, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { formatUnit } from '@/components/household/meal-form-types'
+import { formatQuantity } from '@/lib/i18n/format-number'
+import type { Locale } from '@/lib/i18n/locales'
 import { QuantityControls } from './QuantityControls'
 import { UnmatchedIngredientRow } from './UnmatchedIngredientRow'
 import { LowConfidenceIngredientRow } from './LowConfidenceIngredientRow'
@@ -88,6 +91,7 @@ export function IngredientRow({
 }: IngredientRowProps) {
   // Preserve the last quantity when toggling between vague and specific
   const lastQuantityRef = useRef<number | null>(null)
+  const locale = useLocale() as Locale
 
   const handleQuantityChange = (newQuantity: number) => {
     if (data.type === 'matched' || data.type === 'low-confidence') {
@@ -152,7 +156,9 @@ export function IngredientRow({
   }
 
   // Matched (high confidence)
-  const perServing = Math.round((data.totalQuantity / servings) * 10) / 10
+  const perServing = formatQuantity(data.totalQuantity / servings, locale, {
+    maximumFractionDigits: 1,
+  })
   const isInvalidQuantity = !data.isVague && data.totalQuantity <= 0
   const unitLabel = formatUnit(data.ingredient.defaultUnit)
   const isDuplicate = duplicateIndices && duplicateIndices.length > 0
