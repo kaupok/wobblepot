@@ -66,6 +66,15 @@ describe('formatShoppingQuantity', () => {
       expect(formatShoppingQuantity(500, 'piece', null, 'en')).toBe('500g')
       expect(formatShoppingQuantity(500, 'piece', 0, 'en')).toBe('500g')
     })
+
+    it('does not switch to kg in the piece-unit fallback past 1000g', () => {
+      // kg is meaningless for a piece-unit ingredient (e.g. lemons) — the
+      // fallback always renders grams. Catches the regression where the
+      // piece branch falls through to the qtyInGrams >= 1000 kg branch.
+      expect(formatShoppingQuantity(1500, 'piece', null, 'en')).toBe('1,500g')
+      expect(formatShoppingQuantity(2000, 'piece', null, 'en')).toBe('2,000g')
+      expect(formatShoppingQuantity(1500, 'piece', 0, 'en')).toBe('1,500g')
+    })
   })
 
   describe('vague quantities', () => {

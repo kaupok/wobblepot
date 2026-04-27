@@ -70,9 +70,11 @@ describe('ImagineReviewDialog locale formatting', () => {
     })
   })
 
-  // The matched bucket on this dialog renders inside a Radix Collapsible that
-  // is closed by default — its content is unmounted, so the per-serving line
-  // is not in the DOM until the user opens it. The render path itself is
-  // identical to the `IngredientRow` matched render and is already covered by
-  // `IngredientRow.test.tsx`. Asserting here would just duplicate coverage.
+  // The matched bucket renders inline `<Body>` rows (not `IngredientRow`
+  // instances) inside a Radix Collapsible that is closed by default — its
+  // content is unmounted until the user opens it. The bucket uses the same
+  // `formatQuantity(value, locale, { maximumFractionDigits: 1 })` call as
+  // `IngredientRow`, so the locale-aware behaviour of `formatQuantity` is
+  // already covered by `IngredientRow.test.tsx`; opening the bucket via a
+  // user interaction here would only re-test the same code path.
 })

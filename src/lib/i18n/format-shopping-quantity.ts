@@ -27,9 +27,15 @@ export function formatShoppingQuantity(
     return originalPhrase
   }
 
-  if (unit === 'piece' && gramsPerPiece && gramsPerPiece > 0) {
-    const pieces = Math.ceil(qtyInGrams / gramsPerPiece)
-    return formatInteger(pieces, locale)
+  if (unit === 'piece') {
+    if (gramsPerPiece && gramsPerPiece > 0) {
+      const pieces = Math.ceil(qtyInGrams / gramsPerPiece)
+      return formatInteger(pieces, locale)
+    }
+    // Fallback: piece-unit ingredient without `gramsPerPiece` always renders
+    // as grams. Don't convert to kg, even past the 1000g threshold — kg of
+    // a piece-unit item (e.g. lemons) is meaningless.
+    return `${formatInteger(qtyInGrams, locale)}g`
   }
 
   if (qtyInGrams >= 1000) {
