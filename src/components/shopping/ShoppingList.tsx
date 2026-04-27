@@ -113,12 +113,15 @@ export function ShoppingList({
   const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0)
   const purchasedCount = purchasedIds.size
 
-  // Format date range for display
-  const dateRangeLabel = `${formatDateRange(
+  // Format date range for display. `withYear` lets ICU place the year correctly
+  // for both same-year ("Apr 5 – 11, 2026") and cross-year ranges, instead of
+  // manually appending and getting duplicate years on cross-year ranges.
+  const dateRangeLabel = formatDateRange(
     parseLocalDate(planStartDate),
     parseLocalDate(planEndDate),
     locale,
-  )}, ${parseLocalDate(planEndDate).getFullYear()}`
+    { withYear: true },
+  )
 
   // Check if all items are purchased - return null, parent should handle
   if (purchasedCount === totalItems && totalItems > 0) {

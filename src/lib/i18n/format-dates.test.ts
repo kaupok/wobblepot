@@ -41,6 +41,29 @@ describe('formatDateRange', () => {
     expect(out).toContain('Apr')
     expect(out).toContain('May')
   })
+
+  it('omits year by default for same-year ranges', () => {
+    const out = formatDateRange(new Date(2026, 3, 5), new Date(2026, 3, 11), 'en')
+    expect(out).not.toMatch(/\d{4}/)
+  })
+
+  it('renders the year exactly once with withYear: true (same-year range)', () => {
+    const out = formatDateRange(new Date(2026, 3, 5), new Date(2026, 3, 11), 'en', {
+      withYear: true,
+    })
+    const yearOccurrences = out.match(/2026/g) ?? []
+    expect(yearOccurrences.length).toBe(1)
+  })
+
+  it('renders both years on a cross-year range without duplication', () => {
+    // Cross-year ranges always include the year (ICU forces it). Manually
+    // appending another year — the previous bug — would produce
+    // "Dec 29, 2025 – Jan 4, 2026, 2026". The new helper lets ICU place years
+    // and asserts each year shows up exactly once.
+    const out = formatDateRange(new Date(2025, 11, 29), new Date(2026, 0, 4), 'en')
+    expect((out.match(/2025/g) ?? []).length).toBe(1)
+    expect((out.match(/2026/g) ?? []).length).toBe(1)
+  })
 })
 
 describe('formatDayMonth', () => {
@@ -156,5 +179,27 @@ describe('formatRelativeDate', () => {
   it('returns the past translation when target is before reference', () => {
     const yesterday = new Date(2026, 0, 11)
     expect(formatRelativeDate(yesterday, 'en', mockT, { referenceDate: reference })).toBe('[past]')
+  })
+
+  it('uses the supplied timeZone for the calendar-day comparison', () => {
+    // 2026-03-15T22:30:00Z is March 15 in UTC but already March 16 in
+    // Europe/Tallinn (UTC+2 standard). With `timeZone: 'Europe/Tallinn'`,
+    // a March 16 target compared against a March 15-22:30Z reference must
+    // therefore land on "today", not "tomorrow".
+    const reference22Z = new Date('2026-03-15T22:30:00Z')
+    const target = new Date('2026-03-16T01:00:00Z') // March 16 in Tallinn AND UTC
+    expect(
+      formatRelativeDate(target, 'en', mockT, {
+        referenceDate: reference22Z,
+        timeZone: 'Europe/Tallinn',
+      }),
+    ).toBe('[today]')
+    // In UTC it's still "tomorrow" (March 15 → March 16) — same args, no tz override.
+    expect(
+      formatRelativeDate(target, 'en', mockT, {
+        referenceDate: reference22Z,
+        timeZone: 'UTC',
+      }),
+    ).toBe('[tomorrow]')
   })
 })
