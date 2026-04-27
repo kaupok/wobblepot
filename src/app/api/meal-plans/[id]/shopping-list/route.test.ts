@@ -47,6 +47,9 @@ vi.mock('@/lib/i18n/get-locale', () => ({
   getLocale: vi.fn(() => Promise.resolve('en')),
 }))
 
+import { getLocale } from '@/lib/i18n/get-locale'
+const mockGetLocale = vi.mocked(getLocale)
+
 vi.mock('next-intl/server', () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }))
@@ -91,6 +94,8 @@ const mockPlan = {
 describe('GET /api/meal-plans/[id]/shopping-list', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Default locale (per-test overrides allowed)
+    mockGetLocale.mockResolvedValue('en')
   })
 
   it('returns 401 when not authenticated', async () => {
@@ -423,5 +428,45 @@ describe('GET /api/meal-plans/[id]/shopping-list', () => {
 
     expect(response.status).toBe(200)
     expect(data.groups[0].items[0].displayQuantity).toBe('2kg')
+  })
+
+  it('uses comma decimal separator in et locale for fractional kg', async () => {
+    mockGetSession.mockResolvedValue(mockSession)
+    mockGetMembership.mockResolvedValue(mockMembership)
+    mockFindUnique.mockResolvedValue(mockPlan as never)
+    mockGetLocale.mockResolvedValue('et')
+
+    mockComputeShoppingList.mockResolvedValue([
+      {
+        category: 'carb',
+        categoryLabel: 'Carbs & grains',
+        items: [
+          {
+            ingredientId: 'ing-rice',
+            ingredient: {
+              id: 'ing-rice',
+              name: 'Rice',
+              category: 'carb',
+              defaultUnit: 'g',
+              gramsPerPiece: null,
+            },
+            neededQuantity: 1500,
+            pantryQuantity: null,
+            shoppingQuantity: 1500,
+            mealCount: 3,
+            earliestNeededDate: new Date('2099-01-27T00:00:00.000Z'),
+            isVague: false,
+            originalPhrase: null,
+          },
+        ],
+      },
+    ] as never)
+    mockFindManyPantry.mockResolvedValue([])
+
+    const response = await GET(createRequest(), { params: createParams() })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.groups[0].items[0].displayQuantity).toBe('1,5kg')
   })
 })

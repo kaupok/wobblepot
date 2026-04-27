@@ -153,3 +153,26 @@ export const WithInvalidQuantity: Story = {
     },
   },
 }
+
+// 600g / 400 servings = 1.5g — locale toggle renders the per-serving line as
+// `1,5g per serving` in et, `1.5g per serving` in en.
+export const EstonianLocale: Story = {
+  args: {
+    components: [
+      createMealFormComponent({
+        ingredient: createIngredientResult({ id: 'chicken-thigh' }),
+        totalQuantity: 600,
+      }),
+    ],
+    servings: 400,
+  },
+  globals: { locale: 'et' },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Estonian locale — per-serving quantity renders with a comma decimal (`1,5g per serving`) instead of a period.',
+      },
+    },
+  },
+}
