@@ -381,6 +381,7 @@ The failure mode this prevents: checking one file, finding nothing, and generali
 | Document                                               | Contents                                                 |
 | ------------------------------------------------------ | -------------------------------------------------------- |
 | [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md)           | Product vision, decisions, domain logic                  |
+| [docs/LOCALIZATION.md](docs/LOCALIZATION.md)           | i18n philosophy, three-tier model, AI sample review tool |
 | [docs/TYPOGRAPHY.md](docs/TYPOGRAPHY.md)               | Full typography component guide with examples            |
 | [docs/FEATURE_FLAGS.md](docs/FEATURE_FLAGS.md)         | Feature flag pattern, kill-switches, fail-open semantics |
 | [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)           | Branch workflow, recovery procedures                     |
