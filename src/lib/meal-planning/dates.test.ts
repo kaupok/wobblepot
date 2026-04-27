@@ -5,20 +5,14 @@ import {
   toDateString,
   parseLocalDate,
   isMonday,
-  formatDateDisplay,
   getCurrentWeekMonday,
   isSunday,
   getDaysRemaining,
   getRemainingWeekDates,
   getTodayInTimezone,
-  formatRelativeDate,
-  formatAbsoluteDate,
   getStartOfTodayInTimezone,
   getUrgencyBucket,
   getMondayOfWeek,
-  formatDayMonth,
-  formatDayShort,
-  formatDateRange,
 } from './dates'
 
 describe('dates utilities', () => {
@@ -199,23 +193,6 @@ describe('dates utilities', () => {
       expect(isMonday(new Date(2025, 0, 16))).toBe(false) // Thursday
       expect(isMonday(new Date(2025, 0, 17))).toBe(false) // Friday
       expect(isMonday(new Date(2025, 0, 18))).toBe(false) // Saturday
-    })
-  })
-
-  describe('formatDateDisplay', () => {
-    it('formats date with day name and YYYY-MM-DD', () => {
-      const monday = new Date(2025, 0, 13)
-      expect(formatDateDisplay(monday)).toBe('Mon 2025-01-13')
-    })
-
-    it('handles all days of the week', () => {
-      expect(formatDateDisplay(new Date(2025, 0, 12))).toBe('Sun 2025-01-12')
-      expect(formatDateDisplay(new Date(2025, 0, 13))).toBe('Mon 2025-01-13')
-      expect(formatDateDisplay(new Date(2025, 0, 14))).toBe('Tue 2025-01-14')
-      expect(formatDateDisplay(new Date(2025, 0, 15))).toBe('Wed 2025-01-15')
-      expect(formatDateDisplay(new Date(2025, 0, 16))).toBe('Thu 2025-01-16')
-      expect(formatDateDisplay(new Date(2025, 0, 17))).toBe('Fri 2025-01-17')
-      expect(formatDateDisplay(new Date(2025, 0, 18))).toBe('Sat 2025-01-18')
     })
   })
 
@@ -436,76 +413,6 @@ describe('dates utilities', () => {
     })
   })
 
-  describe('formatRelativeDate', () => {
-    it('returns "Today" for same day', () => {
-      const today = new Date('2026-01-20')
-      const reference = new Date('2026-01-20')
-      expect(formatRelativeDate(today, reference)).toBe('Today')
-    })
-
-    it('returns "Tomorrow" for next day', () => {
-      const tomorrow = new Date('2026-01-21')
-      const reference = new Date('2026-01-20')
-      expect(formatRelativeDate(tomorrow, reference)).toBe('Tomorrow')
-    })
-
-    it('returns day name for dates 2-7 days away', () => {
-      const reference = new Date('2026-01-20') // Tuesday
-
-      // 2 days away (Thursday, Jan 22)
-      expect(formatRelativeDate(new Date('2026-01-22'), reference)).toBe('Thursday')
-      // 3 days away (Friday, Jan 23)
-      expect(formatRelativeDate(new Date('2026-01-23'), reference)).toBe('Friday')
-      // 7 days away (Tuesday, Jan 27)
-      expect(formatRelativeDate(new Date('2026-01-27'), reference)).toBe('Tuesday')
-    })
-
-    it('returns "In X days" for dates more than 7 days away', () => {
-      const reference = new Date('2026-01-20')
-      // 8 days away
-      expect(formatRelativeDate(new Date('2026-01-28'), reference)).toBe('In 8 days')
-      // 14 days away
-      expect(formatRelativeDate(new Date('2026-02-03'), reference)).toBe('In 14 days')
-    })
-
-    it('returns "Past" for dates in the past', () => {
-      const past = new Date('2026-01-18')
-      const reference = new Date('2026-01-20')
-      expect(formatRelativeDate(past, reference)).toBe('Past')
-    })
-
-    it('uses current date as reference when not provided', () => {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const tomorrow = new Date(today)
-      tomorrow.setDate(tomorrow.getDate() + 1)
-      expect(formatRelativeDate(tomorrow)).toBe('Tomorrow')
-    })
-
-    it('handles time differences within same day', () => {
-      // Both are Jan 20, regardless of time
-      const morning = new Date('2026-01-20T08:00:00')
-      const evening = new Date('2026-01-20T20:00:00')
-      expect(formatRelativeDate(evening, morning)).toBe('Today')
-    })
-  })
-
-  describe('formatAbsoluteDate', () => {
-    it('formats date as "Jan 20" style', () => {
-      const date = new Date('2026-01-20')
-      expect(formatAbsoluteDate(date)).toBe('Jan 20')
-    })
-
-    it('handles different months', () => {
-      expect(formatAbsoluteDate(new Date('2026-02-15'))).toBe('Feb 15')
-      expect(formatAbsoluteDate(new Date('2026-12-25'))).toBe('Dec 25')
-    })
-
-    it('handles single digit days', () => {
-      expect(formatAbsoluteDate(new Date('2026-03-05'))).toBe('Mar 5')
-    })
-  })
-
   describe('getStartOfTodayInTimezone', () => {
     beforeEach(() => {
       vi.useFakeTimers()
@@ -687,59 +594,6 @@ describe('dates utilities', () => {
       const originalTime = date.getTime()
       getMondayOfWeek(date)
       expect(date.getTime()).toBe(originalTime)
-    })
-  })
-
-  describe('formatDayMonth', () => {
-    it('formats single-digit day', () => {
-      expect(formatDayMonth(new Date(2026, 1, 5))).toBe('5 Feb')
-    })
-
-    it('formats double-digit day', () => {
-      expect(formatDayMonth(new Date(2026, 1, 18))).toBe('18 Feb')
-    })
-
-    it('formats all months correctly', () => {
-      expect(formatDayMonth(new Date(2026, 0, 1))).toBe('1 Jan')
-      expect(formatDayMonth(new Date(2026, 5, 15))).toBe('15 Jun')
-      expect(formatDayMonth(new Date(2026, 11, 25))).toBe('25 Dec')
-    })
-  })
-
-  describe('formatDayShort', () => {
-    it('returns correct short day names', () => {
-      expect(formatDayShort(new Date(2026, 1, 16))).toBe('Mon')
-      expect(formatDayShort(new Date(2026, 1, 17))).toBe('Tue')
-      expect(formatDayShort(new Date(2026, 1, 18))).toBe('Wed')
-      expect(formatDayShort(new Date(2026, 1, 19))).toBe('Thu')
-      expect(formatDayShort(new Date(2026, 1, 20))).toBe('Fri')
-      expect(formatDayShort(new Date(2026, 1, 21))).toBe('Sat')
-      expect(formatDayShort(new Date(2026, 1, 22))).toBe('Sun')
-    })
-  })
-
-  describe('formatDateRange', () => {
-    it('formats same-month range', () => {
-      const start = new Date(2026, 3, 5) // Apr 5
-      const end = new Date(2026, 3, 11) // Apr 11
-      expect(formatDateRange(start, end)).toBe('Apr 5 – 11')
-    })
-
-    it('formats cross-month range', () => {
-      const start = new Date(2026, 3, 28) // Apr 28
-      const end = new Date(2026, 4, 4) // May 4
-      expect(formatDateRange(start, end)).toBe('Apr 28 – May 4')
-    })
-
-    it('formats cross-year range', () => {
-      const start = new Date(2026, 11, 29) // Dec 29
-      const end = new Date(2027, 0, 4) // Jan 4
-      expect(formatDateRange(start, end)).toBe('Dec 29 – Jan 4')
-    })
-
-    it('formats single-day range', () => {
-      const date = new Date(2026, 3, 5) // Apr 5
-      expect(formatDateRange(date, date)).toBe('Apr 5 – 5')
     })
   })
 })

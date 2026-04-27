@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useLocale, useTranslations } from 'next-intl'
 import { ChefHat } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -13,6 +14,8 @@ import {
   getDaysCountOptions,
   computeEndDate,
 } from '@/lib/meal-planning/day-picker'
+import type { Locale } from '@/lib/i18n/locales'
+import type { DatesTranslator } from '@/lib/i18n/format-dates'
 import { track } from '@/lib/analytics'
 
 const CLIENT_TIMEOUT_MS = 45000
@@ -23,7 +26,9 @@ interface FirstTimeSetupProps {
 
 export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
   const router = useRouter()
-  const startDateOptions = getStartDateOptions()
+  const locale = useLocale() as Locale
+  const tDates = useTranslations('dates') as DatesTranslator
+  const startDateOptions = getStartDateOptions({ locale, t: tDates })
   const daysCountOptions = getDaysCountOptions()
 
   const [selectedDate, setSelectedDate] = useState(startDateOptions[0]?.date ?? '')

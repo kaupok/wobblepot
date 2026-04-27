@@ -1,6 +1,10 @@
 /**
  * Date utilities for meal planning.
  * All dates are handled as local midnight to avoid timezone shift issues.
+ *
+ * Display-side date / time formatting (with locale + timezone) lives in
+ * `src/lib/i18n/format-dates.ts`. This module is intentionally locale-agnostic —
+ * it deals in `Date` objects and YYYY-MM-DD strings only.
  */
 
 /**
@@ -80,14 +84,6 @@ export function isWeekday(date: Date): boolean {
 }
 
 /**
- * Format a date for display (e.g., "Mon 2026-01-12").
- */
-export function formatDateDisplay(date: Date): string {
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  return `${days[date.getDay()]} ${toDateString(date)}`
-}
-
-/**
  * Get Monday of the previous week.
  * Returns the Monday 7 days before the current week's Monday.
  */
@@ -152,6 +148,11 @@ export function getDaysRemaining(timezone?: string): number {
 /**
  * Get the current date as YYYY-MM-DD string in the specified timezone.
  * Used for "today" highlighting when the household timezone differs from browser timezone.
+ *
+ * The `'en-CA'` argument is a parser-format selector — `en-CA` is the only
+ * Intl locale that emits ISO `YYYY-MM-DD` from `Intl.DateTimeFormat` with these
+ * options. The output is never shown to the user, so this string is
+ * intentionally locale-agnostic.
  */
 export function getTodayInTimezone(timezone: string): string {
   const now = new Date()
@@ -187,60 +188,6 @@ export function getRemainingWeekDates(startDate: Date): Date[] {
 }
 
 /**
- * Format a date as a relative string for display in shopping lists.
- * - "Today" if same day
- * - "Tomorrow" if next day
- * - Day name ("Monday", "Tuesday", etc.) if within 7 days
- * - "In X days" if beyond 7 days
- *
- * @param date - The date to format
- * @param referenceDate - The date to compare against (defaults to today)
- */
-export function formatRelativeDate(date: Date, referenceDate?: Date): string {
-  const today = referenceDate ?? new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const target = new Date(date)
-  target.setHours(0, 0, 0, 0)
-
-  const diffMs = target.getTime() - today.getTime()
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
-
-  if (diffDays === 0) {
-    return 'Today'
-  }
-  if (diffDays === 1) {
-    return 'Tomorrow'
-  }
-  if (diffDays > 1 && diffDays <= 7) {
-    const days = [
-      'Sunday',
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-    ] as const
-    return days[target.getDay()] as string
-  }
-  if (diffDays > 7) {
-    return `In ${diffDays} days`
-  }
-  // Past dates (shouldn't happen for shopping list but handle gracefully)
-  return 'Past'
-}
-
-/**
- * Format a date as an absolute short date for tooltips (e.g., "Jan 20").
- *
- * @param date - The date to format
- */
-export function formatAbsoluteDate(date: Date): string {
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-
-/**
  * Get the start of today (midnight) as a Date in the specified timezone.
  * Returns a Date object that represents midnight in the given timezone,
  * suitable for database date comparisons.
@@ -263,35 +210,6 @@ export function getMondayOfWeek(date: Date): Date {
   const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
   d.setDate(d.getDate() - daysSinceMonday)
   return d
-}
-
-/**
- * Format a date as "18 Feb" (day + abbreviated month).
- */
-export function formatDayMonth(date: Date): string {
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ]
-  return `${date.getDate()} ${months[date.getMonth()]}`
-}
-
-/**
- * Get the short day name for a date (e.g., "Mon", "Tue").
- */
-export function formatDayShort(date: Date): string {
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
-  return days[date.getDay()] as string
 }
 
 /**
@@ -324,26 +242,6 @@ export function getDatesBetween(startDate: Date, endDate: Date): Date[] {
   }
 
   return dates
-}
-
-/**
- * Format a date range as a compact string.
- * Same month: "Apr 5 – 11"
- * Different months: "Apr 28 – May 4"
- *
- * @param start - Start date (inclusive)
- * @param end - End date (inclusive)
- */
-export function formatDateRange(start: Date, end: Date): string {
-  const startMonth = start.toLocaleDateString('en-US', { month: 'short' })
-  const endMonth = end.toLocaleDateString('en-US', { month: 'short' })
-  const startDay = start.getDate()
-  const endDay = end.getDate()
-
-  if (startMonth === endMonth) {
-    return `${startMonth} ${startDay} – ${endDay}`
-  }
-  return `${startMonth} ${startDay} – ${endMonth} ${endDay}`
 }
 
 export type UrgencyBucket = 'today' | 'tomorrow' | 'this-week' | 'later'
@@ -399,6 +297,11 @@ export type MealType = keyof typeof MEAL_TIME_CUTOFFS
  * Check if a meal's time window has passed for today.
  * Used to determine when to show the "Did you make it?" prompt.
  *
+ * The `'en-US'` argument is a parser-format selector — only the numeric hour
+ * digit is read from `formatter.format(now)` and compared to a constant. The
+ * output is never shown to the user, so this string is intentionally
+ * locale-agnostic.
+ *
  * @param mealType - The type of meal (breakfast, lunch, dinner)
  * @param timezone - IANA timezone string (e.g., 'Europe/Tallinn')
  * @returns true if the meal's time window has passed
@@ -412,38 +315,4 @@ export function hasMealTimePassed(mealType: MealType, timezone: string): boolean
   })
   const currentHour = parseInt(formatter.format(now), 10)
   return currentHour >= MEAL_TIME_CUTOFFS[mealType]
-}
-
-/**
- * Format a relative date label for catch-up prompts.
- * Returns "Yesterday's", "2 days ago", etc.
- *
- * @param dateString - The date in YYYY-MM-DD format
- * @param mealType - The type of meal
- * @param referenceDate - The date to compare against (defaults to today)
- */
-export function formatCatchUpLabel(
-  dateString: string,
-  mealType: string,
-  referenceDate?: Date,
-): string {
-  const today = referenceDate ?? new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const target = parseLocalDate(dateString)
-  const diffMs = today.getTime() - target.getTime()
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
-
-  const mealLabel = mealType.toLowerCase()
-
-  if (diffDays === 1) {
-    return `Yesterday's ${mealLabel}`
-  }
-  if (diffDays === 2) {
-    return `2 days ago - ${mealLabel}`
-  }
-
-  // For older dates, show the day name
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-  return `${days[target.getDay()]}'s ${mealLabel}`
 }

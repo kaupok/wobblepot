@@ -1,5 +1,17 @@
 import { z } from 'zod'
 
+/**
+ * Both `en` and `et` are LTR languages — no RTL handling is wired in the app.
+ * Adding a future RTL locale (Arabic, Hebrew, Persian, …) requires:
+ *   1. Add the locale to `KNOWN_LOCALES`.
+ *   2. Add a `direction` field to a parallel map (`'ltr' | 'rtl'`).
+ *   3. Set `<html dir>` from that map in `src/app/layout.tsx` alongside `lang`.
+ *   4. Audit Tailwind utility usage for direction-sensitive classes
+ *      (`mr-`, `ml-`, `pl-`, `pr-`, …) and switch to logical equivalents
+ *      (`ms-`, `me-`, `ps-`, `pe-`).
+ *
+ * Tracked as deferred work — punted intentionally per HON-511 scope.
+ */
 export const KNOWN_LOCALES = ['en', 'et'] as const
 
 // Subset of KNOWN_LOCALES that general users may pick in the locale selector.

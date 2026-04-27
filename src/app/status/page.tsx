@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 import { AlertCircle, CheckCircle2, XCircle } from 'lucide-react'
 import {
   getStatusSnapshot,
@@ -12,9 +13,12 @@ import { Heading, Body } from '@/components/ui/typography'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
-export const metadata: Metadata = {
-  title: 'Status',
-  description: 'Live system status for Honkadori',
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('meta.status')
+  return {
+    title: t('title'),
+    description: t('description'),
+  }
 }
 
 export const dynamic = 'force-dynamic'

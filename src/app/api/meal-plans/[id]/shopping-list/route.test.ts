@@ -34,8 +34,21 @@ vi.mock('@/lib/meal-planning/shopping-list', () => ({
 
 vi.mock('@/lib/meal-planning/dates', () => ({
   toDateString: vi.fn((d: Date) => d.toISOString().split('T')[0]),
+  parseLocalDate: vi.fn(() => new Date('2099-01-26T00:00:00.000Z')),
+  getTodayInTimezone: vi.fn(() => '2099-01-26'),
+}))
+
+vi.mock('@/lib/i18n/format-dates', () => ({
   formatRelativeDate: vi.fn(() => 'Tomorrow'),
   formatAbsoluteDate: vi.fn(() => 'Mon 27 Jan'),
+}))
+
+vi.mock('@/lib/i18n/get-locale', () => ({
+  getLocale: vi.fn(() => Promise.resolve('en')),
+}))
+
+vi.mock('next-intl/server', () => ({
+  getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }))
 
 import { auth } from '@/lib/auth'

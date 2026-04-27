@@ -1,4 +1,6 @@
-import { toDateString, formatDayMonth, formatDayShort } from './dates'
+import { toDateString } from './dates'
+import { formatDayMonth, formatDayShort, type DatesTranslator } from '@/lib/i18n/format-dates'
+import type { Locale } from '@/lib/i18n/locales'
 
 export interface DayOption {
   label: string
@@ -10,35 +12,41 @@ export interface DaysCountOption {
   label: string
 }
 
+interface StartDateOptionsArgs {
+  /** Override "today" for testability. Defaults to `new Date()`. */
+  today?: Date
+  /** Active locale, used for the named-day labels. */
+  locale: Locale
+  /** Translator scoped to the `dates` namespace (`today`, `tomorrow`, ...). */
+  t: DatesTranslator
+}
+
 /**
  * Generate start-date options for the first-time meal plan generation screen.
  *
  * Options:
- * - Today (always shown)
- * - Tomorrow (shown if today is not Saturday)
- * - Named weekdays with dates (remaining days of the week after tomorrow, up to 5 total)
- *
- * @param today - Override for testability (defaults to current date)
+ * - "Today" / "Täna" (always shown)
+ * - "Tomorrow" / "Homme"
+ * - Three named days that follow, formatted as `<short weekday> (<day month>)`
+ *   in the active locale.
  */
-export function getStartDateOptions(today?: Date): DayOption[] {
+export function getStartDateOptions(args: StartDateOptionsArgs): DayOption[] {
+  const { today, locale, t } = args
   const d = today ? new Date(today) : new Date()
   d.setHours(0, 0, 0, 0)
   const options: DayOption[] = []
 
-  // Today (always shown)
-  options.push({ label: 'Today', date: toDateString(d) })
+  options.push({ label: t('today'), date: toDateString(d) })
 
-  // Tomorrow
   const tomorrow = new Date(d)
   tomorrow.setDate(d.getDate() + 1)
-  options.push({ label: 'Tomorrow', date: toDateString(tomorrow) })
+  options.push({ label: t('tomorrow'), date: toDateString(tomorrow) })
 
-  // Next few days (up to 5 options total)
   for (let offset = 2; offset <= 4; offset++) {
     const date = new Date(d)
     date.setDate(d.getDate() + offset)
     options.push({
-      label: `${formatDayShort(date)} (${formatDayMonth(date)})`,
+      label: `${formatDayShort(date, locale)} (${formatDayMonth(date, locale)})`,
       date: toDateString(date),
     })
   }
@@ -48,7 +56,9 @@ export function getStartDateOptions(today?: Date): DayOption[] {
 
 /**
  * Generate days-count options for flexible date range selection.
- * Returns options for how many days to generate a plan for.
+ * Returns options for how many days to generate a plan for. The caller is
+ * expected to localize the labels at the render site (currently English-only
+ * pending HON-509 — the values are stable and the labels are short).
  */
 export function getDaysCountOptions(): DaysCountOption[] {
   return [

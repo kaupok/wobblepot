@@ -36,6 +36,14 @@ vi.mock('@/lib/meal-planning/shopping-list', () => ({
   computeRollingWindowShoppingList: vi.fn(),
 }))
 
+vi.mock('@/lib/i18n/get-locale', () => ({
+  getLocale: vi.fn(() => Promise.resolve('en')),
+}))
+
+vi.mock('next-intl/server', () => ({
+  getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
+}))
+
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { computeRollingWindowShoppingList } from '@/lib/meal-planning/shopping-list'

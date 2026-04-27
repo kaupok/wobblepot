@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { headers } from 'next/headers'
 import { NextIntlClientProvider } from 'next-intl'
-import { getMessages } from 'next-intl/server'
+import { getMessages, getTranslations } from 'next-intl/server'
 import './globals.css'
 import { Toaster } from 'sonner'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -13,6 +13,7 @@ import { ConsentProvider } from '@/components/ConsentProvider'
 import { getSession, getHouseholdIdForUser } from '@/lib/session'
 import { readConsentCookieServer } from '@/lib/consent.server'
 import { getLocale } from '@/lib/i18n/get-locale'
+import { toOgLocale } from '@/lib/i18n/og-locale'
 import { bootstrapFlags } from '@/lib/feature-flags'
 import Providers from '@/app/providers'
 import '@/lib/env'
@@ -38,37 +39,47 @@ export const viewport: Viewport = {
   ],
 }
 
-export const metadata: Metadata = {
-  metadataBase: new URL(getServerBaseURL()),
-  title: { default: 'Honkadori', template: '%s · Honkadori' },
-  description: 'AI-powered weekly meal planning for families',
-  openGraph: {
-    title: 'Honkadori',
-    description: 'AI-powered weekly meal planning for families',
-    url: '/',
-    siteName: 'Honkadori',
-    images: [{ url: '/og-image.png', width: 1200, height: 630 }],
-    type: 'website',
-    locale: 'en_US',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Honkadori',
-    description: 'AI-powered weekly meal planning for families',
-    images: ['/og-image.png'],
-  },
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'Honkadori',
-  },
-  icons: {
-    icon: [
-      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
-    ],
-    apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('meta.root')
+  const locale = await getLocale()
+  const title = t('title')
+  const titleTemplate = t('titleTemplate')
+  const description = t('description')
+  const ogTitle = t('ogTitle')
+  const ogDescription = t('ogDescription')
+
+  return {
+    metadataBase: new URL(getServerBaseURL()),
+    title: { default: title, template: titleTemplate },
+    description,
+    openGraph: {
+      title: ogTitle,
+      description: ogDescription,
+      url: '/',
+      siteName: title,
+      images: [{ url: '/og-image.png', width: 1200, height: 630 }],
+      type: 'website',
+      locale: toOgLocale(locale),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: ogTitle,
+      description: ogDescription,
+      images: ['/og-image.png'],
+    },
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'default',
+      title,
+    },
+    icons: {
+      icon: [
+        { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+        { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+      ],
+      apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+    },
+  }
 }
 
 export default async function RootLayout({
