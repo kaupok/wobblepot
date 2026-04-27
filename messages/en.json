@@ -1,4 +1,43 @@
 {
+  "meta": {
+    "root": {
+      "title": "Honkadori",
+      "titleTemplate": "%s · Honkadori",
+      "description": "AI-powered weekly meal planning for families",
+      "ogTitle": "Honkadori",
+      "ogDescription": "AI-powered weekly meal planning for families"
+    },
+    "bot": {
+      "title": "Honkadori-Bot",
+      "description": "About Honkadori-Bot — the user-agent Honkadori sends when fetching recipe URLs you explicitly submit via the import feature."
+    },
+    "status": {
+      "title": "Status",
+      "description": "Live system status for Honkadori"
+    },
+    "admin": {
+      "signupCodes": {
+        "title": "Signup codes"
+      }
+    }
+  },
+  "dates": {
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "inDays": "{count, plural, one {In # day} other {In # days}}",
+    "past": "Past"
+  },
+  "shopping": {
+    "itemCount": "{count, plural, =0 {No items} one {# item} other {# items}}"
+  },
+  "pantry": {
+    "ingredientCount": "{count, plural, =0 {No items} one {# item} other {# items}}",
+    "ingredientCountInStock": "{count, plural, =0 {No items in stock} one {# item in stock} other {# items in stock}}"
+  },
+  "recipes": {
+    "mealCount": "{count, plural, =0 {No recipes} one {# recipe} other {# recipes}}",
+    "mealCountMore": "{count, plural, one {#+ recipe} other {#+ recipes}}"
+  },
   "landing": {
     "headline": "Meal planning for busy families",
     "sub": "AI-powered weekly meal plans tailored to your household's preferences, dietary needs, and what's already in your pantry.",

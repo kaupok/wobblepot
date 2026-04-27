@@ -2,12 +2,16 @@
 
 import { toast } from 'sonner'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useLocale, useTranslations } from 'next-intl'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { CategoryGroup } from './CategoryGroup'
 import type { ShoppingItemData } from './ShoppingItem'
 import { track } from '@/lib/analytics'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
+import { formatDateRange } from '@/lib/i18n/format-dates'
+import type { Locale } from '@/lib/i18n/locales'
 
 interface ShoppingListGroup {
   category: IngredientCategory
@@ -30,6 +34,8 @@ export function ShoppingList({
   initialPurchasedIds,
 }: ShoppingListProps) {
   const queryClient = useQueryClient()
+  const locale = useLocale() as Locale
+  const tShopping = useTranslations('shopping')
   const queryKey = ['shopping-list', planId, 'purchased']
 
   // Seed cache with server-provided data; no real queryFn needed
@@ -108,17 +114,11 @@ export function ShoppingList({
   const purchasedCount = purchasedIds.size
 
   // Format date range for display
-  const formatDateRange = (start: string, end: string) => {
-    const startDate = new Date(start + 'T00:00:00')
-    const endDate = new Date(end + 'T00:00:00')
-    const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
-
-    const startStr = startDate.toLocaleDateString('en-US', options)
-    const endStr = endDate.toLocaleDateString('en-US', options)
-    const year = endDate.getFullYear()
-
-    return `${startStr} - ${endStr}, ${year}`
-  }
+  const dateRangeLabel = `${formatDateRange(
+    parseLocalDate(planStartDate),
+    parseLocalDate(planEndDate),
+    locale,
+  )}, ${parseLocalDate(planEndDate).getFullYear()}`
 
   // Check if all items are purchased - return null, parent should handle
   if (purchasedCount === totalItems && totalItems > 0) {
@@ -145,7 +145,7 @@ export function ShoppingList({
       <CardHeader>
         <div className="flex flex-col gap-1">
           <Heading variant="h4">Shopping list</Heading>
-          <Body variant="muted">For: {formatDateRange(planStartDate, planEndDate)}</Body>
+          <Body variant="muted">For: {dateRangeLabel}</Body>
         </div>
       </CardHeader>
       <CardContent>
@@ -153,7 +153,7 @@ export function ShoppingList({
           {/* Summary bar */}
           <div className="bg-muted/50 flex items-center justify-end rounded-lg px-4 py-3">
             <Body variant="muted">
-              {totalItems} {totalItems === 1 ? 'item' : 'items'} • {purchasedCount} purchased
+              {tShopping('itemCount', { count: totalItems })} • {purchasedCount} purchased
             </Body>
           </div>
 

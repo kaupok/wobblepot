@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { PantryItem, type PantryItemData } from './PantryItem'
@@ -13,6 +14,7 @@ interface PantryListProps {
 
 export function PantryList({ initialItems }: PantryListProps) {
   const [items, setItems] = useState<PantryItemData[]>(initialItems)
+  const tPantry = useTranslations('pantry')
 
   const staples = items.filter((item) => item.isStaple)
   const onHand = items.filter((item) => !item.isStaple)
@@ -115,9 +117,7 @@ export function PantryList({ initialItems }: PantryListProps) {
                 <Body variant="small" className="text-muted-foreground">
                   Staples (always stocked)
                 </Body>
-                <Body variant="muted">
-                  {staples.length} {staples.length === 1 ? 'item' : 'items'}
-                </Body>
+                <Body variant="muted">{tPantry('ingredientCount', { count: staples.length })}</Body>
               </div>
               <div className="flex flex-col gap-2">
                 {staples.map((item) => (
@@ -138,9 +138,7 @@ export function PantryList({ initialItems }: PantryListProps) {
                 <Body variant="small" className="text-muted-foreground">
                   On hand
                 </Body>
-                <Body variant="muted">
-                  {onHand.length} {onHand.length === 1 ? 'item' : 'items'}
-                </Body>
+                <Body variant="muted">{tPantry('ingredientCount', { count: onHand.length })}</Body>
               </div>
               <div className="flex flex-col gap-2">
                 {onHand.map((item) => (

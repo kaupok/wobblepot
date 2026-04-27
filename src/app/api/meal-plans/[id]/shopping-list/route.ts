@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { getTranslations } from 'next-intl/server'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { computeShoppingList } from '@/lib/meal-planning/shopping-list'
-import { toDateString, formatRelativeDate, formatAbsoluteDate } from '@/lib/meal-planning/dates'
+import { toDateString, parseLocalDate, getTodayInTimezone } from '@/lib/meal-planning/dates'
+import { formatRelativeDate, formatAbsoluteDate } from '@/lib/i18n/format-dates'
+import { getLocale } from '@/lib/i18n/get-locale'
 import { Unit } from '@/generated/prisma/enums'
 import { captureApiError } from '@/lib/errors'
 
@@ -99,6 +102,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       household.locale,
     )
 
+    // Resolve locale + a date-namespace translator for the relative-date label.
+    // The reference for "today" is the household's local day, not the server's,
+    // so a household in Europe/Tallinn at 23:30 local sees the right label
+    // even when the server clock is in a different timezone.
+    const locale = await getLocale()
+    const tDates = await getTranslations('dates')
+    const todayInTz = parseLocalDate(getTodayInTimezone(household.timezone))
+
     // Fetch pantry items for purchase tracking
     const pantryItems = await prisma.pantryItem.findMany({
       where: { householdId: household.id },
@@ -138,8 +149,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           mealCount: item.mealCount,
           purchased,
           neededByDate: toDateString(item.earliestNeededDate),
-          neededByRelative: formatRelativeDate(item.earliestNeededDate),
-          neededByAbsolute: formatAbsoluteDate(item.earliestNeededDate),
+          neededByRelative: formatRelativeDate(item.earliestNeededDate, locale, tDates, {
+            referenceDate: todayInTz,
+            timeZone: household.timezone,
+          }),
+          neededByAbsolute: formatAbsoluteDate(item.earliestNeededDate, locale, {
+            timeZone: household.timezone,
+          }),
           isVague: item.isVague,
         }
       })

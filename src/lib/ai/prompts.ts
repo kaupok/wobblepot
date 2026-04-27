@@ -1,4 +1,4 @@
-import { formatDateDisplay, toDateString } from '@/lib/meal-planning/dates'
+import { toDateString } from '@/lib/meal-planning/dates'
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
 import type { PromptInput, CandidatePools } from './types'
 import type { MealSlot, SlotRequirement } from '@/lib/meal-planning/slots'
@@ -8,6 +8,16 @@ import type { MealType } from '@/generated/prisma/enums'
 const LOCALE_LABELS: Record<string, string> = {
   en: 'English',
   et: 'Estonian',
+}
+
+/**
+ * AI-prompt-specific date format ("Mon 2026-01-12"). Machine-stable and
+ * locale-agnostic by design — the user never sees this string, and Claude
+ * parses it consistently regardless of the household locale.
+ */
+const AI_WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+function formatDateForPrompt(date: Date): string {
+  return `${AI_WEEKDAY_SHORT[date.getDay()]} ${toDateString(date)}`
 }
 
 /**
@@ -56,7 +66,7 @@ function formatRequiredSlots(slots: SlotRequirement[], pools: CandidatePools): s
     .map((slot) => {
       const pool = slot.proteinType === 'fish' ? pools.fish : pools.legume
       const formattedCandidates = JSON.stringify(formatCandidates(pool))
-      return `- ${formatDateDisplay(slot.date)} ${slot.mealType}: MUST be ${slot.proteinType.toUpperCase()}
+      return `- ${formatDateForPrompt(slot.date)} ${slot.mealType}: MUST be ${slot.proteinType.toUpperCase()}
   Candidates: ${formattedCandidates}`
     })
     .join('\n')
@@ -85,7 +95,7 @@ function formatRemainingSlots(
   const sections: string[] = []
 
   for (const [mealType, mealSlots] of slotsByMealType) {
-    const dates = mealSlots.map((s) => formatDateDisplay(s.date)).join(', ')
+    const dates = mealSlots.map((s) => formatDateForPrompt(s.date)).join(', ')
     // For dinner, use the "any" pool (which is dinner candidates)
     // For other meal types, use their specific pool
     const candidates =

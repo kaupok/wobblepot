@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
@@ -14,7 +15,9 @@ import {
 } from '@/components/ui/select'
 import { GeneratingOverlay } from '@/components/meal-plan/GeneratingOverlay'
 import { computeEndDate } from '@/lib/meal-planning/day-picker'
-import { parseLocalDate, formatDateRange } from '@/lib/meal-planning/dates'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
+import { formatDateRange } from '@/lib/i18n/format-dates'
+import type { Locale } from '@/lib/i18n/locales'
 import { track } from '@/lib/analytics'
 
 const CLIENT_TIMEOUT_MS = 45000
@@ -33,6 +36,7 @@ interface FillDaysActionProps {
 
 export function FillDaysAction({ planId, firstEmptyDate }: FillDaysActionProps) {
   const router = useRouter()
+  const locale = useLocale() as Locale
   const [days, setDays] = useState('7')
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -42,8 +46,8 @@ export function FillDaysAction({ planId, firstEmptyDate }: FillDaysActionProps) 
     const endExclusive = parseLocalDate(computeEndDate(firstEmptyDate, Number(days)))
     const endInclusive = new Date(endExclusive)
     endInclusive.setDate(endInclusive.getDate() - 1)
-    return formatDateRange(start, endInclusive)
-  }, [firstEmptyDate, days])
+    return formatDateRange(start, endInclusive, locale)
+  }, [firstEmptyDate, days, locale])
 
   async function handleFill() {
     setIsGenerating(true)

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Plus, Loader2, Sparkles } from 'lucide-react'
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -16,6 +17,7 @@ type MealsPage = { meals: MealData[]; nextCursor: string | null }
 
 export function RecipesPageClient() {
   const queryClient = useQueryClient()
+  const tRecipes = useTranslations('recipes')
 
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -102,7 +104,9 @@ export function RecipesPageClient() {
               <Body variant="muted">
                 {isLoading
                   ? 'Loading...'
-                  : `${meals.length}${hasNextPage ? '+' : ''} recipe${meals.length === 1 ? '' : 's'}`}
+                  : hasNextPage
+                    ? tRecipes('mealCountMore', { count: meals.length })
+                    : tRecipes('mealCount', { count: meals.length })}
               </Body>
               <div className="flex gap-2">
                 <Button variant="outline" asChild>

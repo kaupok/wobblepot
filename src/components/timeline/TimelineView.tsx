@@ -2,16 +2,14 @@
 
 import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { useLocale, useTranslations } from 'next-intl'
 import { TimelineDayCard } from './TimelineDayCard'
 import { TimelinePastSection } from './TimelinePastSection'
 import { FillDaysAction } from './FillDaysAction'
 import { UrgentShopping } from './UrgentShopping'
-import {
-  parseLocalDate,
-  toDateString,
-  isWeekday,
-  formatAbsoluteDate,
-} from '@/lib/meal-planning/dates'
+import { parseLocalDate, toDateString, isWeekday } from '@/lib/meal-planning/dates'
+import { formatAbsoluteDate, formatDayLong } from '@/lib/i18n/format-dates'
+import type { Locale } from '@/lib/i18n/locales'
 import type {
   PlanEntry,
   PantryIngredient,
@@ -49,17 +47,19 @@ function getDayLabel(
   dateStr: string,
   todayStr: string,
   tomorrowStr: string,
+  locale: Locale,
+  todayLabel: string,
+  tomorrowLabel: string,
 ): { label: string; isToday: boolean; isTomorrow: boolean } {
   if (dateStr === todayStr) {
-    return { label: 'Today', isToday: true, isTomorrow: false }
+    return { label: todayLabel, isToday: true, isTomorrow: false }
   }
   if (dateStr === tomorrowStr) {
-    return { label: 'Tomorrow', isToday: false, isTomorrow: true }
+    return { label: tomorrowLabel, isToday: false, isTomorrow: true }
   }
   const date = parseLocalDate(dateStr)
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
   return {
-    label: `${days[date.getDay()]} ${formatAbsoluteDate(date)}`,
+    label: `${formatDayLong(date, locale)} ${formatAbsoluteDate(date, locale)}`,
     isToday: false,
     isTomorrow: false,
   }
@@ -76,6 +76,8 @@ export function TimelineView({
   todayDate,
 }: TimelineViewProps) {
   const router = useRouter()
+  const locale = useLocale() as Locale
+  const tDates = useTranslations('dates')
 
   const { pastDays, futureDays, firstEmptyDate } = useMemo(() => {
     const todayParsed = parseLocalDate(todayDate)
@@ -105,7 +107,14 @@ export function TimelineView({
     while (current <= endParsed) {
       const dateStr = toDateString(current)
       const isPast = dateStr < todayDate
-      const { label, isToday, isTomorrow } = getDayLabel(dateStr, todayDate, tomorrowDate)
+      const { label, isToday, isTomorrow } = getDayLabel(
+        dateStr,
+        todayDate,
+        tomorrowDate,
+        locale,
+        tDates('today'),
+        tDates('tomorrow'),
+      )
 
       // Get expected meal types for this day
       const expectedTypes: MealType[] = isWeekday(current)
@@ -144,7 +153,7 @@ export function TimelineView({
     const future = allDays.filter((d) => !d.isPast)
 
     return { pastDays: past, futureDays: future, firstEmptyDate: firstEmpty }
-  }, [entries, todayDate, expectedMealTypes])
+  }, [entries, todayDate, expectedMealTypes, locale, tDates])
 
   function handleEntryUpdated() {
     router.refresh()

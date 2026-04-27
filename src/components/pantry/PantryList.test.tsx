@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
+// The vitest setup mock returns the raw catalog string; this suite checks the
+// ICU-resolved plural output, so use the real next-intl provider instead.
+vi.unmock('next-intl')
 import { render, screen } from '@testing-library/react'
+import { NextIntlClientProvider } from 'next-intl'
+import type { ReactNode } from 'react'
+import enMessages from '../../../messages/en.json'
 import { PantryList } from './PantryList'
 import type { PantryItemData } from './PantryItem'
 
@@ -9,6 +15,14 @@ vi.mock('./InlineAddItem', () => ({
     <div data-testid="inline-add-item">Add item</div>
   ),
 }))
+
+function renderInLocale(node: ReactNode) {
+  return render(
+    <NextIntlClientProvider locale="en" messages={enMessages}>
+      {node}
+    </NextIntlClientProvider>,
+  )
+}
 
 const stapleItem: PantryItemData = {
   id: 'item-1',
@@ -36,37 +50,37 @@ const anotherOnHandItem: PantryItemData = {
 
 describe('PantryList', () => {
   it('shows empty state when no items', () => {
-    render(<PantryList initialItems={[]} />)
+    renderInLocale(<PantryList initialItems={[]} />)
     expect(screen.getByText('Your pantry')).toBeInTheDocument()
     expect(screen.getByText(/Your pantry is empty/)).toBeInTheDocument()
   })
 
   it('renders the inline add item component', () => {
-    render(<PantryList initialItems={[]} />)
+    renderInLocale(<PantryList initialItems={[]} />)
     expect(screen.getByTestId('inline-add-item')).toBeInTheDocument()
   })
 
   it('shows staples section when there are staple items', () => {
-    render(<PantryList initialItems={[stapleItem]} />)
+    renderInLocale(<PantryList initialItems={[stapleItem]} />)
     expect(screen.getByText('Staples (always stocked)')).toBeInTheDocument()
     expect(screen.getByText('1 item')).toBeInTheDocument()
     expect(screen.getByText('Salt')).toBeInTheDocument()
   })
 
   it('shows on hand section when there are non-staple items', () => {
-    render(<PantryList initialItems={[onHandItem]} />)
+    renderInLocale(<PantryList initialItems={[onHandItem]} />)
     expect(screen.getByText('On hand')).toBeInTheDocument()
     expect(screen.getByText('1 item')).toBeInTheDocument()
     expect(screen.getByText('Chicken breast')).toBeInTheDocument()
   })
 
   it('shows correct plural item counts', () => {
-    render(<PantryList initialItems={[onHandItem, anotherOnHandItem]} />)
+    renderInLocale(<PantryList initialItems={[onHandItem, anotherOnHandItem]} />)
     expect(screen.getByText('2 items')).toBeInTheDocument()
   })
 
   it('shows both sections when there are staple and on-hand items', () => {
-    render(<PantryList initialItems={[stapleItem, onHandItem]} />)
+    renderInLocale(<PantryList initialItems={[stapleItem, onHandItem]} />)
     expect(screen.getByText('Staples (always stocked)')).toBeInTheDocument()
     expect(screen.getByText('On hand')).toBeInTheDocument()
     expect(screen.getByText('Salt')).toBeInTheDocument()
@@ -74,14 +88,14 @@ describe('PantryList', () => {
   })
 
   it('shows footer hint text when items exist', () => {
-    render(<PantryList initialItems={[onHandItem]} />)
+    renderInLocale(<PantryList initialItems={[onHandItem]} />)
     expect(
       screen.getByText('Mark items as staples to exclude them from shopping lists'),
     ).toBeInTheDocument()
   })
 
   it('does not show footer hint in empty state', () => {
-    render(<PantryList initialItems={[]} />)
+    renderInLocale(<PantryList initialItems={[]} />)
     expect(
       screen.queryByText('Mark items as staples to exclude them from shopping lists'),
     ).not.toBeInTheDocument()

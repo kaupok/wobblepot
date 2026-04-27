@@ -4,6 +4,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { useState } from 'react'
 import { ChevronDown, Star, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Button } from '@/components/ui/button'
@@ -31,6 +32,7 @@ export function PantrySection({
   onPantryItemRemoved,
 }: PantrySectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
+  const tPantry = useTranslations('pantry')
 
   const staples = items.filter((item) => item.isStaple)
   const onHand = items.filter((item) => !item.isStaple)
@@ -114,9 +116,7 @@ export function PantrySection({
                 <Body variant="small" className="text-muted-foreground">
                   Staples (always stocked)
                 </Body>
-                <Body variant="muted">
-                  {staples.length} {staples.length === 1 ? 'item' : 'items'}
-                </Body>
+                <Body variant="muted">{tPantry('ingredientCount', { count: staples.length })}</Body>
               </div>
               <div className="flex flex-col gap-2">
                 {staples.map((item) => (
@@ -138,9 +138,7 @@ export function PantrySection({
                 <Body variant="small" className="text-muted-foreground">
                   On hand
                 </Body>
-                <Body variant="muted">
-                  {onHand.length} {onHand.length === 1 ? 'item' : 'items'}
-                </Body>
+                <Body variant="muted">{tPantry('ingredientCount', { count: onHand.length })}</Body>
               </div>
               <div className="flex flex-col gap-2">
                 {onHand.map((item) => (
@@ -176,7 +174,7 @@ export function PantrySection({
                 <div className="flex flex-col gap-1">
                   <Heading variant="h4">Your pantry</Heading>
                   <Body variant="muted">
-                    {items.length} {items.length === 1 ? 'item' : 'items'} in stock
+                    {tPantry('ingredientCountInStock', { count: items.length })}
                   </Body>
                 </div>
                 <ChevronDown

@@ -1,5 +1,11 @@
-import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
+// `useLocale()` requires the real next-intl context; the global mock only
+// stubs `useTranslations` and falls through to the real `useLocale`.
+vi.unmock('next-intl')
+import { render, screen } from '@testing-library/react'
+import { NextIntlClientProvider } from 'next-intl'
+import type { ReactNode } from 'react'
+import enMessages from '../../../messages/en.json'
 import { TimelineView } from './TimelineView'
 import type { PlanEntry, ExpectedMealTypes } from '@/components/meal-plan/types'
 
@@ -9,6 +15,14 @@ vi.mock('next/navigation', () => ({
     refresh: vi.fn(),
   })),
 }))
+
+function renderInLocale(node: ReactNode) {
+  return render(
+    <NextIntlClientProvider locale="en" messages={enMessages}>
+      {node}
+    </NextIntlClientProvider>,
+  )
+}
 
 // Mock child components to isolate unit logic
 vi.mock('./TimelineDayCard', () => ({
@@ -51,7 +65,7 @@ const defaultProps = {
 
 describe('TimelineView', () => {
   it('renders past section and future day cards', () => {
-    render(<TimelineView {...defaultProps} />)
+    renderInLocale(<TimelineView {...defaultProps} />)
 
     // Past section is always rendered (shows 0 days if empty)
     expect(screen.getByTestId('past-section')).toBeInTheDocument()
@@ -101,7 +115,7 @@ describe('TimelineView', () => {
       },
     ]
 
-    render(<TimelineView {...defaultProps} entries={entries} />)
+    renderInLocale(<TimelineView {...defaultProps} entries={entries} />)
 
     // Today (Mar 29) should have 1 entry
     expect(screen.getByTestId('day-card-2026-03-29')).toHaveTextContent('1 entries')
@@ -111,14 +125,14 @@ describe('TimelineView', () => {
 
   it('computes empty slots from expected meal types', () => {
     // No entries, so all expected slots should be empty
-    render(<TimelineView {...defaultProps} />)
+    renderInLocale(<TimelineView {...defaultProps} />)
 
     // Today expects dinner (Sunday = weekend), should have 1 empty slot
     expect(screen.getByTestId('day-card-2026-03-29')).toHaveTextContent('0 entries, 1 empty')
   })
 
   it('shows fill days action when there are empty future slots', () => {
-    render(<TimelineView {...defaultProps} />)
+    renderInLocale(<TimelineView {...defaultProps} />)
 
     // Empty slots exist, so fill days action should show
     expect(screen.getByTestId('fill-days')).toBeInTheDocument()
@@ -151,7 +165,7 @@ describe('TimelineView', () => {
       })
     }
 
-    render(<TimelineView {...defaultProps} entries={entries} />)
+    renderInLocale(<TimelineView {...defaultProps} entries={entries} />)
 
     // No empty future slots, so fill days action should be hidden
     expect(screen.queryByTestId('fill-days')).not.toBeInTheDocument()
@@ -178,7 +192,7 @@ describe('TimelineView', () => {
       },
     ]
 
-    render(<TimelineView {...defaultProps} entries={entries} />)
+    renderInLocale(<TimelineView {...defaultProps} entries={entries} />)
 
     // Past section should have days
     expect(screen.getByTestId('past-section')).toHaveTextContent('1 past days')

@@ -1,15 +1,19 @@
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import { auth } from '@/lib/auth'
 import { isAdmin } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { Heading, Body } from '@/components/ui/typography'
 import { SignupCodesClient, type SignupCodeRow } from './SignupCodesClient'
 
-export const metadata: Metadata = {
-  title: 'Signup codes',
-  robots: { index: false, follow: false },
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('meta.admin.signupCodes')
+  return {
+    title: t('title'),
+    robots: { index: false, follow: false },
+  }
 }
 
 export default async function AdminSignupCodesPage() {

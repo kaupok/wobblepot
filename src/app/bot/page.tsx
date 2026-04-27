@@ -1,10 +1,13 @@
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 import { Body, Code, Heading, Li, Ul } from '@/components/ui/typography'
 
-export const metadata: Metadata = {
-  title: 'Honkadori-Bot',
-  description:
-    'About Honkadori-Bot — the user-agent Honkadori sends when fetching recipe URLs you explicitly submit via the import feature.',
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('meta.bot')
+  return {
+    title: t('title'),
+    description: t('description'),
+  }
 }
 
 export default function BotPage() {
