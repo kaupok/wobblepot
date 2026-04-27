@@ -12,11 +12,17 @@ vi.mock('@/lib/env', () => ({
   serverEnv: { ANTHROPIC_API_KEY: 'test-key' },
 }))
 
+vi.mock('./sampling', () => ({
+  logAiSample: vi.fn(),
+}))
+
 import { generateObject } from 'ai'
 import { reviewMealQuantities, type ReviewIngredient } from './review-quantities'
 import { REVIEW_MODEL } from './models'
+import { logAiSample } from './sampling'
 
 const mockGenerateObject = vi.mocked(generateObject)
+const mockLogAiSample = vi.mocked(logAiSample)
 
 const sampleIngredients: ReviewIngredient[] = [
   {
@@ -132,5 +138,32 @@ describe('reviewMealQuantities', () => {
     const call = mockGenerateObject.mock.calls[0]![0]! as { system: string }
     expect(call.system).toContain('LOCALE:')
     expect(call.system).toContain('Estonian')
+  })
+
+  it('logs a review-quantities AI sample without leaking ingredient IDs when locale is non-default', async () => {
+    const aiResponse = {
+      ingredients: [
+        { ingredientId: 'ing-chicken', quantityPerServing: 150 },
+        { ingredientId: 'ing-oil', quantityPerServing: 8 },
+      ],
+    }
+    mockGenerateObject.mockResolvedValue({ object: aiResponse } as never)
+
+    await reviewMealQuantities('Kanaprae', 4, sampleIngredients, 'et')
+
+    expect(mockLogAiSample).toHaveBeenCalledTimes(1)
+    const args = mockLogAiSample.mock.calls[0]![0]
+    expect(args.callSite).toBe('review-quantities')
+    expect(args.locale).toBe('et')
+    expect(args.input).toEqual({
+      mealName: 'Kanaprae',
+      servings: 4,
+      ingredients: [
+        { name: 'Chicken breast', quantityPerServing: 150, unit: 'g' },
+        { name: 'Olive oil', quantityPerServing: 60, unit: 'g' },
+      ],
+    })
+    expect(JSON.stringify(args.input)).not.toContain('ing-chicken')
+    expect(args.output).toEqual(aiResponse)
   })
 })

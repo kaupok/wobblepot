@@ -15,6 +15,7 @@ import {
 } from '@/lib/ai/preparation-tips'
 import { parseStoredTips } from '@/lib/tips'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import { logAiSample } from '@/lib/ai/sampling'
 import {
   AiCostCapExceededError,
   assertUnderCap,
@@ -170,6 +171,19 @@ async function handlePOST(
         outputTokens: result.usage?.outputTokens ?? 0,
       })
 
+      await logAiSample({
+        callSite: 'preparation-tips-supplementary',
+        locale: household.locale,
+        input: {
+          mealName,
+          householdSize,
+          timeMinutes,
+          ingredientsCount: entry.meal.components.length,
+          hasUserNotes: true,
+        },
+        output: result.object,
+      })
+
       tips = result.object
     } else {
       const prompt = buildFullTipsPrompt({
@@ -195,6 +209,19 @@ async function handlePOST(
         model: TIPS_MODEL,
         inputTokens: result.usage?.inputTokens ?? 0,
         outputTokens: result.usage?.outputTokens ?? 0,
+      })
+
+      await logAiSample({
+        callSite: 'preparation-tips-full',
+        locale: household.locale,
+        input: {
+          mealName,
+          householdSize,
+          timeMinutes,
+          ingredientsCount: entry.meal.components.length,
+          hasUserNotes: false,
+        },
+        output: result.object,
       })
 
       tips = result.object

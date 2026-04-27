@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { serverEnv } from '@/lib/env'
 import { REVIEW_MODEL } from './models'
 import { localeInstruction } from './prompts'
+import { logAiSample } from './sampling'
 import type { AiUsageStats } from './usage'
 
 export interface ReviewIngredient {
@@ -96,6 +97,21 @@ Return all ingredients with corrected quantities per serving. Keep reasonable qu
     model: REVIEW_MODEL,
     inputTokens: result.usage?.inputTokens ?? 0,
     outputTokens: result.usage?.outputTokens ?? 0,
+  })
+
+  await logAiSample({
+    callSite: 'review-quantities',
+    locale,
+    input: {
+      mealName,
+      servings,
+      ingredients: ingredients.map((ing) => ({
+        name: ing.name,
+        quantityPerServing: ing.quantityPerServing,
+        unit: ing.unit,
+      })),
+    },
+    output: result.object,
   })
 
   return result.object

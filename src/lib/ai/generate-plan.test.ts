@@ -62,6 +62,10 @@ vi.mock('./repair-plan', () => ({
   repairPlan: vi.fn(),
 }))
 
+vi.mock('./sampling', () => ({
+  logAiSample: vi.fn(),
+}))
+
 // Import after mocks
 import { prisma } from '@/lib/prisma'
 import { generateObject } from 'ai'
@@ -71,6 +75,7 @@ import { validatePlan } from './validate-plan'
 import { repairPlan } from './repair-plan'
 import { generateMealPlan, createEmptyPlan, fillEmptySlots } from './generate-plan'
 import { NoEmptySlotsError } from './types'
+import { logAiSample } from './sampling'
 
 // Type assertions for mocks
 const mockGetCandidates = vi.mocked(getCandidates)
@@ -89,6 +94,7 @@ const mockMealPlanCreate = vi.mocked(prisma.mealPlan.create)
 const mockFavoriteMealFindMany = vi.mocked(prisma.favoriteMeal.findMany)
 const mockPantryItemFindMany = vi.mocked(prisma.pantryItem.findMany)
 const mockTransaction = vi.mocked(prisma.$transaction)
+const mockLogAiSample = vi.mocked(logAiSample)
 
 // Create mock prisma object to pass to transaction callbacks
 const mockPrisma = {
@@ -894,6 +900,34 @@ describe('generateMealPlan', () => {
       expect(call?.prompt).toContain('LOCALE:')
       expect(call?.prompt).toContain('Estonian')
     })
+
+    it('logs a generate-plan AI sample when locale is non-default', async () => {
+      mockGetCandidates.mockResolvedValue([createCandidate()])
+      const aiEntries = [{ date: '2026-01-12', mealType: 'dinner', mealId: 'meal-1' }]
+      mockGenerateObject.mockResolvedValue({ object: { entries: aiEntries } } as never)
+      mockMealFindMany.mockResolvedValue([])
+      mockValidatePlan.mockReturnValue({ valid: true, errors: [] })
+      mockMealPlanFindUnique.mockResolvedValue({
+        id: 'plan-1',
+        householdId: 'household-1',
+      } as never)
+      mockMealPlanFindUniqueOrThrow.mockResolvedValue({ id: 'plan-1', entries: [] } as never)
+      mockTransaction.mockImplementation(async (fn) => fn(mockPrisma as never) as never)
+
+      await generateMealPlan({ ...defaultOptions, locale: 'et' }).catch(() => {})
+
+      expect(mockLogAiSample).toHaveBeenCalledTimes(1)
+      const args = mockLogAiSample.mock.calls[0]![0]
+      expect(args.callSite).toBe('generate-plan')
+      expect(args.locale).toBe('et')
+      const input = args.input as Record<string, unknown>
+      expect(Array.isArray(input.mealTypes)).toBe(true)
+      expect(typeof input.totalEntries).toBe('number')
+      expect(input.restrictionsCount).toBe(0)
+      expect(input.hasPantry).toBe(false)
+      expect(input.candidatePoolSizes).toBeDefined()
+      expect(args.output).toEqual({ entries: aiEntries })
+    })
   })
 })
 
@@ -1170,5 +1204,36 @@ describe('fillEmptySlots', () => {
       ])
 
     await expect(fillEmptySlots(fillOptions)).rejects.toThrow(/fish/i)
+  })
+
+  it('logs a fill-empty-slots AI sample when locale is non-default', async () => {
+    mockMealPlanFindUnique
+      .mockResolvedValueOnce({
+        id: 'plan-1',
+        householdId: 'household-1',
+        entries: [],
+      } as never)
+      .mockResolvedValueOnce({ id: 'plan-1', entries: [] } as never)
+
+    mockGetCandidates.mockResolvedValue([createCandidate({ id: 'meal-new' })])
+    const aiEntries = [{ date: '2026-01-18', mealType: 'dinner', mealId: 'meal-new' }]
+    mockGenerateObject.mockResolvedValue({ object: { entries: aiEntries } } as never)
+    mockMealFindMany.mockResolvedValue([
+      {
+        id: 'meal-new',
+        name: 'Meal new',
+        primaryProteinType: ProteinType.poultry,
+        kidFriendly: true,
+      },
+    ] as never)
+    mockValidatePlan.mockReturnValue({ valid: true, errors: [] })
+
+    await fillEmptySlots({ ...fillOptions, locale: 'et' }).catch(() => {})
+
+    expect(mockLogAiSample).toHaveBeenCalledTimes(1)
+    const args = mockLogAiSample.mock.calls[0]![0]
+    expect(args.callSite).toBe('fill-empty-slots')
+    expect(args.locale).toBe('et')
+    expect(args.output).toEqual({ entries: aiEntries })
   })
 })

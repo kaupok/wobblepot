@@ -55,6 +55,9 @@ next-env.d.ts
 # temporary files
 /.temp
 
+# AI output samples (HON-504): dev-only JSONL files for ongoing voice review
+/.ai-samples
+
 # Claude Code local settings (may contain secrets)
 .claude/settings.local.json
 

@@ -18,6 +18,10 @@ vi.mock('@/lib/env', () => ({
   serverEnv: { ANTHROPIC_API_KEY: 'test-key' },
 }))
 
+vi.mock('./sampling', () => ({
+  logAiSample: vi.fn(),
+}))
+
 const mockCheckRobotsAllowed = vi.fn()
 vi.mock('@/lib/robots', () => ({
   HONKADORI_BOT_USER_AGENT: 'Honkadori-Bot/1.0 (+https://honkadori.xyz/bot)',
@@ -60,6 +64,9 @@ import type {
 
 const mockQueryRaw = vi.mocked(prisma.$queryRaw)
 const mockGenerateObject = vi.mocked(generateObject)
+
+import { logAiSample } from './sampling'
+const mockLogAiSample = vi.mocked(logAiSample)
 
 describe('RecipeParseError', () => {
   it('creates error with correct name and message', () => {
@@ -465,6 +472,44 @@ describe('parseRecipeText', () => {
     await expect(parseRecipeText('Some recipe text that is long enough')).rejects.toThrow(
       'Failed to parse the recipe',
     )
+  })
+
+  it('logs a parse-recipe AI sample with input preview and full extraction when locale is non-default', async () => {
+    const extraction = {
+      name: 'Kana riisiga',
+      description: null,
+      preparationNotes: null,
+      timeMinutes: 30,
+      servings: 4,
+      mealTypes: ['dinner'],
+      kidFriendly: true,
+      recipeConfidence: 90,
+      ingredients: [
+        {
+          name: 'chicken breast',
+          quantity: 500,
+          unit: 'g',
+          originalText: '500g kanafilee',
+          isVague: false,
+          vaguePhrase: null,
+          isDried: null,
+        },
+      ],
+    }
+    mockGenerateObject.mockResolvedValue({ object: extraction } as never)
+
+    const longInput = 'Eesti kana ja riis retsept '.repeat(60)
+    await parseRecipeText(longInput, 'et')
+
+    expect(mockLogAiSample).toHaveBeenCalledTimes(1)
+    const args = mockLogAiSample.mock.calls[0]![0]
+    expect(args.callSite).toBe('parse-recipe')
+    expect(args.locale).toBe('et')
+    expect(args.input).toEqual({
+      textPreview: longInput.trim().slice(0, 1000),
+      textLength: longInput.trim().length,
+    })
+    expect(args.output).toEqual(extraction)
   })
 })
 

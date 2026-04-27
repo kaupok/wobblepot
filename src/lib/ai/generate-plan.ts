@@ -14,6 +14,7 @@ import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
 import { PLANNING_MODEL } from './models'
 import { buildMealPlanPrompt } from './prompts'
+import { logAiSample } from './sampling'
 import { validatePlan } from './validate-plan'
 import { repairPlan } from './repair-plan'
 import {
@@ -356,6 +357,23 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
 
   const { object } = result
 
+  await logAiSample({
+    callSite: 'generate-plan',
+    locale,
+    input: {
+      mealTypes: uniqueMealTypes,
+      totalEntries: allSlots.length,
+      restrictionsCount: restrictions.length,
+      hasPantry: pantryIngredients.length > 0,
+      candidatePoolSizes: {
+        fish: candidatePools.fish.length,
+        legume: candidatePools.legume.length,
+        any: candidatePools.any.length,
+      },
+    },
+    output: { entries: object.entries },
+  })
+
   // Hydrate with meal details
   const hydratedPlan = await hydratePlan(object.entries)
 
@@ -697,6 +715,23 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
   })
 
   const { object } = result
+
+  await logAiSample({
+    callSite: 'fill-empty-slots',
+    locale,
+    input: {
+      mealTypes: uniqueMealTypes,
+      totalEntries: fillableSlots.length,
+      restrictionsCount: restrictions.length,
+      hasPantry: pantryIngredients.length > 0,
+      candidatePoolSizes: {
+        fish: candidatePools.fish.length,
+        legume: candidatePools.legume.length,
+        any: candidatePools.any.length,
+      },
+    },
+    output: { entries: object.entries },
+  })
 
   // Hydrate with meal details
   const hydratedPlan = await hydratePlan(object.entries)
