@@ -60,7 +60,7 @@ These are settled. Don't re-open without cause.
 - `format-dates.ts`: locale-aware weekday / month / relative-date rendering. Always pass the household's locale, never hardcode `en-US`.
 - `parse-number.ts`: input-side counterpart to `formatQuantity` — accepts `1,5 kg` from Estonian users and parses to `1.5`.
 - `og-locale.ts`: maps app locales to OpenGraph locale strings for per-route metadata.
-- `plurals.tsx`: ICU MessageFormat plural support via `next-intl`.
+- ICU MessageFormat plural rules live in the `messages/{en,et}.json` catalogs; `next-intl` resolves them at render time. `src/lib/i18n/plurals.test.tsx` covers the contract.
 - `content.ts`: `translateIngredient` and friends — resolves the right display string for translatable content.
 
 ### AI surfaces (Tier 1)
@@ -70,7 +70,7 @@ These are settled. Don't re-open without cause.
 - AI response caches must include `locale` in the key to avoid cross-locale contamination.
 - After every successful `generateObject` call, `logAiSample` (see [Reviewing AI output quality](#reviewing-ai-output-quality)) emits a structured JSON line if the locale is non-default.
 
-The Estonian recipe-parser surface is intentionally gated until ingredient translations land (HON-506) — Estonian input without translation data creates duplicate household-scoped ingredient rows that need admin cleanup later.
+The Estonian recipe-parser surface is intentionally gated until ingredient translations land (HON-506) — Estonian input without translation data creates duplicate household-scoped ingredient rows that need admin cleanup later (HON-514). The gate lives at `src/app/api/recipes/parse/route.ts` in `resolveParserLocale`, controlled by the `FEATURE_RECIPE_PARSER_ET` env flag (set to `"1"` or `"true"` to enable). When unset, any non-default locale collapses back to English — despite the `_ET` suffix the flag is effectively a binary on/off for the non-English path. Flip it as part of HON-506's merge.
 
 ### Form input parsing
 
@@ -122,7 +122,7 @@ Each line is a single JSON record after the prefix. Retention is bounded by Verc
 2. Add a label for the locale in `LOCALE_LABELS` in `src/lib/ai/prompts.ts` so the AI gets a human-readable language name.
 3. Create `messages/<locale>.json` and translate every key. Run `pnpm dev` and exercise every chrome surface to surface gaps.
 4. Translate seeded content via the `IngredientTranslation` and `MealTranslation` tables. AI-assisted first pass + native-speaker review.
-5. Verify Estonian recipe-parser-style flows aren't gated against the new locale incorrectly (see `parse-recipe.ts` and any `PUBLIC_LOCALES` checks at onboarding).
+5. Audit any locale-gating flags before exposing the new locale: `FEATURE_RECIPE_PARSER_ET` in `src/app/api/recipes/parse/route.ts` collapses every non-default locale to English unless flipped on, so a new locale can't reach the recipe parser without env work or a generalisation of the flag. Also check onboarding `PUBLIC_LOCALES` paths.
 6. **RTL languages only:** add a `direction` field to a parallel map, set `<html dir>` from it in `src/app/layout.tsx`, and audit Tailwind direction-sensitive utilities (`mr-`, `ml-`, `pl-`, `pr-` → `me-`, `ms-`, `pe-`, `ps-`). Tracked as deferred — the codebase currently assumes LTR.
 7. Pilot-test with a target user before adding to `PUBLIC_LOCALES`.
 8. Add to `PUBLIC_LOCALES` to expose in the locale selector. Verify transactional email templates exist in the locale (see HON-513) before flipping public.
