@@ -1,6 +1,7 @@
 import { act, render, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ConsentDecision } from '@/lib/consent'
+import { MealPlanValidationError } from '@/lib/ai/types'
 import GlobalError from './global-error'
 
 const { posthogMock, envMock, consentMock } = vi.hoisted(() => ({
@@ -66,6 +67,9 @@ describe('GlobalError', () => {
 
     await waitFor(() => expect(posthogMock.captureException).toHaveBeenCalledTimes(1))
     expect(posthogMock.init).toHaveBeenCalledTimes(1)
+    // Mirrors PostHogProvider's init — without `before_send` and `defaults` the
+    // PII sanitiser is silently dropped for the rest of the session because
+    // posthog-js no-ops re-init.
     expect(posthogMock.init).toHaveBeenCalledWith(
       'phc_test',
       expect.objectContaining({
@@ -73,11 +77,14 @@ describe('GlobalError', () => {
         person_profiles: 'identified_only',
         capture_pageview: false,
         disable_session_recording: true,
+        defaults: '2026-01-30',
+        before_send: expect.any(Function),
       }),
     )
     expect(posthogMock.captureException).toHaveBeenCalledWith(err, {
       $exception_source: 'app.global-error',
       digest: 'abc-123',
+      errorType: 'Error',
     })
   })
 
@@ -92,7 +99,25 @@ describe('GlobalError', () => {
     expect(posthogMock.captureException).toHaveBeenCalledWith(err, {
       $exception_source: 'app.global-error',
       digest: 'abc-123',
+      errorType: 'Error',
     })
+  })
+
+  it('attaches $exception_fingerprint for typed errors so PostHog groups them stably', async () => {
+    consentMock.read.mockReturnValue('all')
+    posthogMock.__loaded = true
+    const err = new MealPlanValidationError('bad plan')
+    render(<GlobalError error={err} reset={reset} />)
+
+    await waitFor(() => expect(posthogMock.captureException).toHaveBeenCalledTimes(1))
+    expect(posthogMock.captureException).toHaveBeenCalledWith(
+      err,
+      expect.objectContaining({
+        $exception_source: 'app.global-error',
+        errorType: 'MealPlanValidationError',
+        $exception_fingerprint: 'MealPlanValidation',
+      }),
+    )
   })
 
   it('does not init or capture when the PostHog env vars are unset', async () => {
