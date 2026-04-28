@@ -35,10 +35,13 @@ export async function onRequestError(
   const distinctId = extractDistinctIdFromCookie(request.headers.cookie)
 
   try {
-    // `captureExceptionImmediate` ties the awaited promise to a single HTTP send rather
-    // than the background batch queue, so the event lands before the serverless isolate
-    // terminates. Vercel's request-context primitives (`waitUntil`, `next/after`) are
-    // unbound inside `instrumentation.onRequestError` and cannot be used here.
+    // `captureExceptionImmediate` is *intended* to tie the awaited promise to a single
+    // HTTP send rather than the background batch queue. NOTE: in posthog-node@5.21.2
+    // the function body is missing a `return` before `addPendingPromise(...)` (see
+    // `node_modules/posthog-node/dist/client.mjs:512`), so the await may resolve before
+    // the HTTP send completes. Empirical verification on a Vercel preview deploy is
+    // tracked in HON-533. Vercel's request-context primitives (`waitUntil`, `next/after`)
+    // are unbound inside `instrumentation.onRequestError` and cannot be used here.
     await client.captureExceptionImmediate(err, distinctId, {
       $exception_source: 'instrumentation.onRequestError',
       path: request.path,

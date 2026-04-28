@@ -134,7 +134,7 @@ describe('onRequestError', () => {
     await expect(onRequestError(new Error('x'), baseRequest)).resolves.toBeUndefined()
   })
 
-  it('swallows async rejections from captureExceptionImmediate', async () => {
+  it("swallows async rejections when captureExceptionImmediate's promise rejects (defensive — current posthog-node@5.21.2 does not actually reject from this entry point)", async () => {
     getPosthogServerMock.mockReturnValue({
       captureExceptionImmediate: () => Promise.reject(new Error('send-failed')),
     })
