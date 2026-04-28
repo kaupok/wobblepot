@@ -3,7 +3,9 @@
 import { Button } from '@/components/ui/button'
 import { Heading, Body } from '@/components/ui/typography'
 import { useEffect } from 'react'
-import { captureClientError } from '@/lib/errors-client'
+import { clientEnv } from '@/lib/env'
+import { decisionToGranted } from '@/lib/consent'
+import { readConsentCookieClient } from '@/lib/consent.client'
 
 export default function GlobalError({
   error,
@@ -13,7 +15,28 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
-    void captureClientError(error, { digest: error.digest, $exception_source: 'app.global-error' })
+    void (async () => {
+      try {
+        // global-error renders outside layout providers — PostHogProvider never mounts, so init here.
+        if (decisionToGranted(readConsentCookieClient()) !== true) return
+        if (!clientEnv.NEXT_PUBLIC_POSTHOG_KEY || !clientEnv.NEXT_PUBLIC_POSTHOG_HOST) return
+        const { default: posthog } = await import('posthog-js')
+        if (!posthog.__loaded) {
+          posthog.init(clientEnv.NEXT_PUBLIC_POSTHOG_KEY as string, {
+            api_host: clientEnv.NEXT_PUBLIC_POSTHOG_HOST as string,
+            person_profiles: 'identified_only',
+            capture_pageview: false,
+            disable_session_recording: true,
+          })
+        }
+        posthog.captureException(error, {
+          $exception_source: 'app.global-error',
+          digest: error.digest,
+        })
+      } catch {
+        // Swallow — capture must never crash the error UI.
+      }
+    })()
   }, [error])
 
   return (
