@@ -22,6 +22,17 @@ export function getPosthogServer(): PostHog | null {
         return { ...event, properties: sanitizeEventProperties(event.properties) }
       },
     })
+
+    // Vercel Node functions run on AWS Lambda, which sends SIGTERM with a small
+    // grace window (500ms–6s) before SIGKILL. Drain the in-memory queue inside
+    // that window — request-context primitives (`waitUntil`, `next/after`) are
+    // unbound inside `instrumentation.onRequestError`, so the per-request flush
+    // path doesn't survive isolate teardown otherwise.
+    if (process.env.VERCEL && process.env.NEXT_RUNTIME === 'nodejs') {
+      process.once('SIGTERM', () => {
+        void globalForPosthog.posthog?.shutdown(2000)
+      })
+    }
   }
 
   return globalForPosthog.posthog

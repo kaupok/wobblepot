@@ -1,21 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const constructorSpy = vi.fn()
-const shutdownSpy = vi.fn(async () => {})
+const shutdownSpy = vi.fn(async (_timeout?: number) => {})
 
 vi.mock('posthog-node', () => {
   class MockPostHog {
     constructor(key: string, opts: Record<string, unknown>) {
       constructorSpy(key, opts)
     }
-    async shutdown() {
-      await shutdownSpy()
+    async shutdown(timeout?: number) {
+      await shutdownSpy(timeout)
     }
   }
   return { PostHog: MockPostHog }
 })
 
 describe('posthog-server', () => {
+  let processOnceSpy: ReturnType<typeof vi.spyOn>
+
   beforeEach(() => {
     vi.resetModules()
     constructorSpy.mockClear()
@@ -23,12 +25,18 @@ describe('posthog-server', () => {
     delete (globalThis as { posthog?: unknown }).posthog
     delete process.env.NEXT_PUBLIC_POSTHOG_KEY
     delete process.env.NEXT_PUBLIC_POSTHOG_HOST
+    delete process.env.VERCEL
+    delete process.env.NEXT_RUNTIME
+    processOnceSpy = vi.spyOn(process, 'once').mockImplementation(() => process)
   })
 
   afterEach(() => {
+    processOnceSpy.mockRestore()
     delete (globalThis as { posthog?: unknown }).posthog
     delete process.env.NEXT_PUBLIC_POSTHOG_KEY
     delete process.env.NEXT_PUBLIC_POSTHOG_HOST
+    delete process.env.VERCEL
+    delete process.env.NEXT_RUNTIME
   })
 
   it('returns null when NEXT_PUBLIC_POSTHOG_KEY is unset', async () => {
@@ -87,5 +95,62 @@ describe('posthog-server', () => {
 
     getPosthogServer()
     expect(constructorSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it('registers a one-time SIGTERM handler that calls shutdown(2000) on Vercel Node', async () => {
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test'
+    process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://eu.i.posthog.com'
+    process.env.VERCEL = '1'
+    process.env.NEXT_RUNTIME = 'nodejs'
+
+    const { getPosthogServer } = await import('@/lib/posthog-server')
+    getPosthogServer()
+
+    expect(processOnceSpy).toHaveBeenCalledTimes(1)
+    const [signal, handler] = processOnceSpy.mock.calls[0]!
+    expect(signal).toBe('SIGTERM')
+    expect(typeof handler).toBe('function')
+
+    await (handler as () => void | Promise<void>)()
+    expect(shutdownSpy).toHaveBeenCalledTimes(1)
+    expect(shutdownSpy).toHaveBeenCalledWith(2000)
+  })
+
+  it('does not register a SIGTERM handler outside Vercel', async () => {
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test'
+    process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://eu.i.posthog.com'
+    process.env.NEXT_RUNTIME = 'nodejs'
+    // VERCEL deliberately unset
+
+    const { getPosthogServer } = await import('@/lib/posthog-server')
+    getPosthogServer()
+
+    expect(processOnceSpy).not.toHaveBeenCalled()
+  })
+
+  it('does not register a SIGTERM handler outside the nodejs runtime', async () => {
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test'
+    process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://eu.i.posthog.com'
+    process.env.VERCEL = '1'
+    process.env.NEXT_RUNTIME = 'edge'
+
+    const { getPosthogServer } = await import('@/lib/posthog-server')
+    getPosthogServer()
+
+    expect(processOnceSpy).not.toHaveBeenCalled()
+  })
+
+  it('registers the SIGTERM handler at most once across getPosthogServer calls', async () => {
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test'
+    process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://eu.i.posthog.com'
+    process.env.VERCEL = '1'
+    process.env.NEXT_RUNTIME = 'nodejs'
+
+    const { getPosthogServer } = await import('@/lib/posthog-server')
+    getPosthogServer()
+    getPosthogServer()
+    getPosthogServer()
+
+    expect(processOnceSpy).toHaveBeenCalledTimes(1)
   })
 })
