@@ -1,5 +1,3 @@
-import { waitUntil } from '@vercel/functions'
-
 /**
  * Next.js instrumentation hook. The `onRequestError` export is the safety net
  * for any error that escapes a route's try/catch — uncaught throws in RSCs,
@@ -37,19 +35,16 @@ export async function onRequestError(
   const distinctId = extractDistinctIdFromCookie(request.headers.cookie)
 
   try {
-    client.captureException(err, distinctId, {
+    // `captureExceptionImmediate` ties the awaited promise to a single HTTP send rather
+    // than the background batch queue, so the event lands before the serverless isolate
+    // terminates. Vercel's request-context primitives (`waitUntil`, `next/after`) are
+    // unbound inside `instrumentation.onRequestError` and cannot be used here.
+    await client.captureExceptionImmediate(err, distinctId, {
       $exception_source: 'instrumentation.onRequestError',
       path: request.path,
       method: request.method,
       release: process.env.VERCEL_GIT_COMMIT_SHA ?? 'local',
     })
-    // Vercel terminates the isolate as soon as the user-visible response is sent — `await
-    // client.flush()` resolves "successfully" on a killed function and the event never lands.
-    // `waitUntil` is the documented primitive to extend the function past the response, even
-    // outside a request scope (`next/after` would throw here). Outside Vercel `waitUntil` is a
-    // no-op; in a persistent Node process (e.g. `pnpm dev`) the flush HTTP request fires and
-    // completes naturally before the event loop drains.
-    waitUntil(client.flush().catch(() => {}))
   } catch {
     // Swallow — instrumentation must never crash a request.
   }
@@ -62,8 +57,8 @@ const POSTHOG_COOKIE_SUFFIX = '_posthog'
  * PostHog stores its persistence in a cookie named `ph_<token>_posthog`
  * with a JSON value containing `distinct_id`. This pulls the distinct id out
  * of the request cookie header. Returns `undefined` when the cookie is
- * missing or unparseable — `captureException(err, undefined, ...)` is a
- * valid call and PostHog falls back to its server-side anon id.
+ * missing or unparseable — the PostHog capture API accepts an undefined
+ * distinct id and falls back to its server-side anonymous id.
  */
 function extractDistinctIdFromCookie(
   cookieHeader: string | string[] | undefined,
