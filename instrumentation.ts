@@ -1,3 +1,5 @@
+import { waitUntil } from '@vercel/functions'
+
 /**
  * Next.js instrumentation hook. The `onRequestError` export is the safety net
  * for any error that escapes a route's try/catch — uncaught throws in RSCs,
@@ -41,8 +43,13 @@ export async function onRequestError(
       method: request.method,
       release: process.env.VERCEL_GIT_COMMIT_SHA ?? 'local',
     })
-    // Framework awaits this — keeps the isolate alive until the flush HTTP request completes.
-    await client.flush()
+    // Vercel terminates the isolate as soon as the user-visible response is sent — `await
+    // client.flush()` resolves "successfully" on a killed function and the event never lands.
+    // `waitUntil` is the documented primitive to extend the function past the response, even
+    // outside a request scope (`next/after` would throw here). Outside Vercel `waitUntil` is a
+    // no-op; in a persistent Node process (e.g. `pnpm dev`) the flush HTTP request fires and
+    // completes naturally before the event loop drains.
+    waitUntil(client.flush().catch(() => {}))
   } catch {
     // Swallow — instrumentation must never crash a request.
   }
