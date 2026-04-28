@@ -47,7 +47,8 @@ export async function onRequestError(
     // client.flush()` resolves "successfully" on a killed function and the event never lands.
     // `waitUntil` is the documented primitive to extend the function past the response, even
     // outside a request scope (`next/after` would throw here). Outside Vercel `waitUntil` is a
-    // no-op; local dev's persistent Node process flushes on posthog-node's interval anyway.
+    // no-op; in a persistent Node process (e.g. `pnpm dev`) the flush HTTP request fires and
+    // completes naturally before the event loop drains.
     waitUntil(client.flush().catch(() => {}))
   } catch {
     // Swallow — instrumentation must never crash a request.
