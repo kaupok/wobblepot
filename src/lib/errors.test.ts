@@ -4,8 +4,14 @@ import { captureClientError } from './errors-client'
 import { MealPlanValidationError, InsufficientCandidatesError } from '@/lib/ai/types'
 
 const captureExceptionMock = vi.fn()
+const flushMock = vi.fn()
 const getRequestIdMock = vi.fn()
 const getPosthogServerMock = vi.fn()
+
+vi.mock('next/server', () => ({
+  // Invoke the callback synchronously so tests can observe its effects.
+  after: (fn: () => void) => fn(),
+}))
 
 vi.mock('@/lib/posthog-server', () => ({
   getPosthogServer: () => getPosthogServerMock(),
@@ -30,6 +36,7 @@ vi.mock('posthog-js', () => ({
 describe('captureApiError', () => {
   beforeEach(() => {
     captureExceptionMock.mockReset()
+    flushMock.mockReset()
     getRequestIdMock.mockReset()
     getPosthogServerMock.mockReset()
     delete process.env.VERCEL_GIT_COMMIT_SHA
@@ -42,7 +49,10 @@ describe('captureApiError', () => {
   })
 
   it('captures with requestId, release, route, and errorType', () => {
-    getPosthogServerMock.mockReturnValue({ captureException: captureExceptionMock })
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+      flush: flushMock,
+    })
     getRequestIdMock.mockReturnValue('req-123')
     process.env.VERCEL_GIT_COMMIT_SHA = 'abc123'
     const err = new Error('boom')
@@ -70,19 +80,28 @@ describe('captureApiError', () => {
   })
 
   it('passes undefined as distinctId when userId is missing', () => {
-    getPosthogServerMock.mockReturnValue({ captureException: captureExceptionMock })
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+      flush: flushMock,
+    })
     captureApiError(new Error('boom'), { route: '/api/x', householdId: 'hh-1' })
     expect(captureExceptionMock.mock.calls[0]![1]).toBeUndefined()
   })
 
   it('falls back to release="local" when VERCEL_GIT_COMMIT_SHA is unset', () => {
-    getPosthogServerMock.mockReturnValue({ captureException: captureExceptionMock })
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+      flush: flushMock,
+    })
     captureApiError(new Error('boom'), { route: '/api/x' })
     expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({ release: 'local' })
   })
 
   it('attaches $exception_fingerprint for typed errors', () => {
-    getPosthogServerMock.mockReturnValue({ captureException: captureExceptionMock })
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+      flush: flushMock,
+    })
     const err = new MealPlanValidationError('bad plan')
     captureApiError(err, { route: '/api/meal-plans/generate' })
     expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({
@@ -92,7 +111,10 @@ describe('captureApiError', () => {
   })
 
   it('attaches a fingerprint for InsufficientCandidatesError', () => {
-    getPosthogServerMock.mockReturnValue({ captureException: captureExceptionMock })
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+      flush: flushMock,
+    })
     const err = new InsufficientCandidatesError('fish')
     captureApiError(err, { route: '/api/meal-plans/generate' })
     expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({
@@ -101,7 +123,10 @@ describe('captureApiError', () => {
   })
 
   it('does not attach fingerprint for unknown errors', () => {
-    getPosthogServerMock.mockReturnValue({ captureException: captureExceptionMock })
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+      flush: flushMock,
+    })
     captureApiError(new Error('boom'), { route: '/api/x' })
     expect(captureExceptionMock.mock.calls[0]![2].$exception_fingerprint).toBeUndefined()
   })
@@ -114,9 +139,22 @@ describe('captureApiError', () => {
   })
 
   it('handles non-Error throws (string, number, undefined)', () => {
-    getPosthogServerMock.mockReturnValue({ captureException: captureExceptionMock })
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+      flush: flushMock,
+    })
     captureApiError('string-throw', { route: '/api' })
     expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({ errorType: 'string' })
+  })
+
+  it('schedules a flush via next/after to keep serverless isolates alive', () => {
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+      flush: flushMock,
+    })
+    captureApiError(new Error('boom'), { route: '/api/x' })
+    expect(captureExceptionMock).toHaveBeenCalledOnce()
+    expect(flushMock).toHaveBeenCalledOnce()
   })
 })
 

@@ -6,7 +6,7 @@ import { PostHogProvider as PHProvider, usePostHog } from '@posthog/react'
 import type { PostHog } from 'posthog-js'
 import { clientEnv } from '@/lib/env'
 import { useAnalyticsConsent } from '@/components/ConsentProvider'
-import { sanitizeEventProperties } from '@/lib/redact'
+import { postHogBeforeSend } from '@/lib/posthog-before-send'
 import type { BootstrapData } from '@/lib/feature-flags'
 
 interface PostHogProviderProps {
@@ -69,20 +69,7 @@ export function PostHogProvider({
         capture_pageview: false,
         disable_session_recording: true,
         defaults: '2026-01-30',
-        before_send: (cr) => {
-          if (!cr) return cr
-          const sanitized = sanitizeEventProperties(cr.properties) ?? cr.properties
-          // posthog-js stamps the project token at properties.token; the PII
-          // sanitizer strips it as a sensitive key, which makes /e/ and /i/v0/e/
-          // reject every event as "submitted without an api_key". Restore the
-          // SDK-set token after sanitization. The token is the public
-          // NEXT_PUBLIC_ project key, not a user secret — already in the
-          // browser bundle.
-          if (cr.properties && 'token' in cr.properties) {
-            sanitized.token = cr.properties.token
-          }
-          return { ...cr, properties: sanitized }
-        },
+        before_send: postHogBeforeSend,
         // Conditional spread keeps the option absent (rather than `undefined`)
         // so PostHog's default behaviour applies when no bootstrap is provided.
         ...(bootstrap ? { bootstrap } : {}),

@@ -41,6 +41,8 @@ export async function onRequestError(
       method: request.method,
       release: process.env.VERCEL_GIT_COMMIT_SHA ?? 'local',
     })
+    // Framework awaits this — keeps the isolate alive until the flush HTTP request completes.
+    await client.flush()
   } catch {
     // Swallow — instrumentation must never crash a request.
   }

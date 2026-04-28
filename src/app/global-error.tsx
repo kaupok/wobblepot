@@ -3,7 +3,11 @@
 import { Button } from '@/components/ui/button'
 import { Heading, Body } from '@/components/ui/typography'
 import { useEffect } from 'react'
-import { captureClientError } from '@/lib/errors-client'
+import { clientEnv } from '@/lib/env'
+import { decisionToGranted } from '@/lib/consent'
+import { readConsentCookieClient } from '@/lib/consent.client'
+import { errorTypeOf, fingerprintFor } from '@/lib/errors-shared'
+import { postHogBeforeSend } from '@/lib/posthog-before-send'
 
 export default function GlobalError({
   error,
@@ -13,7 +17,38 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
-    void captureClientError(error, { digest: error.digest, $exception_source: 'app.global-error' })
+    void (async () => {
+      try {
+        // global-error renders outside layout providers — PostHogProvider never mounts, so init here.
+        if (decisionToGranted(readConsentCookieClient()) !== true) return
+        if (!clientEnv.NEXT_PUBLIC_POSTHOG_KEY || !clientEnv.NEXT_PUBLIC_POSTHOG_HOST) return
+        const { default: posthog } = await import('posthog-js')
+        if (!posthog.__loaded) {
+          // Mirror PostHogProvider's init — once posthog-js initialises, re-init is a no-op,
+          // so a minimal config here would silently drop the sanitiser for the rest of the session.
+          posthog.init(clientEnv.NEXT_PUBLIC_POSTHOG_KEY as string, {
+            api_host: clientEnv.NEXT_PUBLIC_POSTHOG_HOST as string,
+            person_profiles: 'identified_only',
+            capture_pageview: false,
+            disable_session_recording: true,
+            defaults: '2026-01-30',
+            before_send: postHogBeforeSend,
+          })
+        }
+        const properties: Record<string, unknown> = {
+          $exception_source: 'app.global-error',
+          digest: error.digest,
+          errorType: errorTypeOf(error),
+        }
+        const fingerprint = fingerprintFor(error)
+        if (fingerprint) {
+          properties.$exception_fingerprint = fingerprint
+        }
+        posthog.captureException(error, properties)
+      } catch {
+        // Swallow — capture must never crash the error UI.
+      }
+    })()
   }, [error])
 
   return (

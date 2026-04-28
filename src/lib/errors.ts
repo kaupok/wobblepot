@@ -1,4 +1,5 @@
 import 'server-only'
+import { after } from 'next/server'
 import { getPosthogServer } from '@/lib/posthog-server'
 import { getRequestId } from '@/lib/request-id'
 import { errorTypeOf, fingerprintFor } from '@/lib/errors-shared'
@@ -52,6 +53,13 @@ export function captureApiError(error: unknown, context: ApiErrorContext): void 
     }
 
     client.captureException(error, context.userId, properties)
+    try {
+      // Vercel isolates terminate on response — extend lifetime so the async flush completes.
+      after(() => client.flush())
+    } catch {
+      // Outside a request scope (e.g. background script) — capture is queued; long-lived
+      // processes flush on posthog-node's interval, serverless ones drop and that's fine.
+    }
   } catch {
     // Swallow — capture failures must never propagate.
   }
