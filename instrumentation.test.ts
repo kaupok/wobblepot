@@ -1,13 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const waitUntilMock = vi.fn()
 const getPosthogServerMock = vi.fn()
-const captureExceptionMock = vi.fn()
-const flushMock = vi.fn()
-
-vi.mock('@vercel/functions', () => ({
-  waitUntil: (promise: Promise<unknown>) => waitUntilMock(promise),
-}))
+const captureExceptionImmediateMock = vi.fn()
 
 vi.mock('@/lib/posthog-server', () => ({
   getPosthogServer: () => getPosthogServerMock(),
@@ -23,11 +17,9 @@ const baseRequest = {
 
 describe('onRequestError', () => {
   beforeEach(() => {
-    waitUntilMock.mockReset()
     getPosthogServerMock.mockReset()
-    captureExceptionMock.mockReset()
-    flushMock.mockReset()
-    flushMock.mockResolvedValue(undefined)
+    captureExceptionImmediateMock.mockReset()
+    captureExceptionImmediateMock.mockResolvedValue(undefined)
     process.env.NEXT_RUNTIME = 'nodejs'
     delete process.env.VERCEL_GIT_COMMIT_SHA
   })
@@ -40,28 +32,26 @@ describe('onRequestError', () => {
     process.env.NEXT_RUNTIME = 'edge'
     await onRequestError(new Error('boom'), baseRequest)
     expect(getPosthogServerMock).not.toHaveBeenCalled()
-    expect(waitUntilMock).not.toHaveBeenCalled()
+    expect(captureExceptionImmediateMock).not.toHaveBeenCalled()
   })
 
   it('no-ops when PostHog is not configured (client null)', async () => {
     getPosthogServerMock.mockReturnValue(null)
     await onRequestError(new Error('boom'), baseRequest)
-    expect(captureExceptionMock).not.toHaveBeenCalled()
-    expect(waitUntilMock).not.toHaveBeenCalled()
+    expect(captureExceptionImmediateMock).not.toHaveBeenCalled()
   })
 
-  it('captures with source/path/method/release and schedules flush via waitUntil', async () => {
+  it('captures with source/path/method/release via captureExceptionImmediate', async () => {
     getPosthogServerMock.mockReturnValue({
-      captureException: captureExceptionMock,
-      flush: flushMock,
+      captureExceptionImmediate: captureExceptionImmediateMock,
     })
     process.env.VERCEL_GIT_COMMIT_SHA = 'sha-abc'
     const err = new Error('boom')
 
     await onRequestError(err, { ...baseRequest, path: '/api/foo', method: 'POST' })
 
-    expect(captureExceptionMock).toHaveBeenCalledOnce()
-    const [errArg, distinctIdArg, propsArg] = captureExceptionMock.mock.calls[0]!
+    expect(captureExceptionImmediateMock).toHaveBeenCalledOnce()
+    const [errArg, distinctIdArg, propsArg] = captureExceptionImmediateMock.mock.calls[0]!
     expect(errArg).toBe(err)
     expect(distinctIdArg).toBeUndefined()
     expect(propsArg).toEqual({
@@ -70,100 +60,84 @@ describe('onRequestError', () => {
       method: 'POST',
       release: 'sha-abc',
     })
-
-    expect(waitUntilMock).toHaveBeenCalledOnce()
-    const promiseArg = waitUntilMock.mock.calls[0]![0] as Promise<unknown>
-    expect(typeof promiseArg.then).toBe('function')
   })
 
   it('falls back to release="local" when VERCEL_GIT_COMMIT_SHA is unset', async () => {
     getPosthogServerMock.mockReturnValue({
-      captureException: captureExceptionMock,
-      flush: flushMock,
+      captureExceptionImmediate: captureExceptionImmediateMock,
     })
     await onRequestError(new Error('x'), baseRequest)
-    expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({ release: 'local' })
+    expect(captureExceptionImmediateMock.mock.calls[0]![2]).toMatchObject({ release: 'local' })
   })
 
   it('extracts distinct id from a PostHog cookie among other cookies', async () => {
     getPosthogServerMock.mockReturnValue({
-      captureException: captureExceptionMock,
-      flush: flushMock,
+      captureExceptionImmediate: captureExceptionImmediateMock,
     })
     const cookieValue = encodeURIComponent(JSON.stringify({ distinct_id: 'user-42' }))
     await onRequestError(new Error('x'), {
       ...baseRequest,
       headers: { cookie: `theme=dark; ph_phc_TOKEN_posthog=${cookieValue}; foo=bar` },
     })
-    expect(captureExceptionMock.mock.calls[0]![1]).toBe('user-42')
+    expect(captureExceptionImmediateMock.mock.calls[0]![1]).toBe('user-42')
   })
 
   it('handles cookie header passed as an array', async () => {
     getPosthogServerMock.mockReturnValue({
-      captureException: captureExceptionMock,
-      flush: flushMock,
+      captureExceptionImmediate: captureExceptionImmediateMock,
     })
     const cookieValue = encodeURIComponent(JSON.stringify({ distinct_id: 'user-7' }))
     await onRequestError(new Error('x'), {
       ...baseRequest,
       headers: { cookie: ['foo=bar', `ph_phc_X_posthog=${cookieValue}`] },
     })
-    expect(captureExceptionMock.mock.calls[0]![1]).toBe('user-7')
+    expect(captureExceptionImmediateMock.mock.calls[0]![1]).toBe('user-7')
   })
 
   it('returns undefined distinct id when cookie is missing', async () => {
     getPosthogServerMock.mockReturnValue({
-      captureException: captureExceptionMock,
-      flush: flushMock,
+      captureExceptionImmediate: captureExceptionImmediateMock,
     })
     await onRequestError(new Error('x'), { ...baseRequest, headers: {} })
-    expect(captureExceptionMock.mock.calls[0]![1]).toBeUndefined()
+    expect(captureExceptionImmediateMock.mock.calls[0]![1]).toBeUndefined()
   })
 
   it('returns undefined distinct id when PostHog cookie value is not valid JSON', async () => {
     getPosthogServerMock.mockReturnValue({
-      captureException: captureExceptionMock,
-      flush: flushMock,
+      captureExceptionImmediate: captureExceptionImmediateMock,
     })
     await onRequestError(new Error('x'), {
       ...baseRequest,
       headers: { cookie: 'ph_phc_TOKEN_posthog=not-json' },
     })
-    expect(captureExceptionMock.mock.calls[0]![1]).toBeUndefined()
+    expect(captureExceptionImmediateMock.mock.calls[0]![1]).toBeUndefined()
   })
 
   it('returns undefined distinct id when JSON parses but distinct_id is not a string', async () => {
     getPosthogServerMock.mockReturnValue({
-      captureException: captureExceptionMock,
-      flush: flushMock,
+      captureExceptionImmediate: captureExceptionImmediateMock,
     })
     const cookieValue = encodeURIComponent(JSON.stringify({ distinct_id: 42 }))
     await onRequestError(new Error('x'), {
       ...baseRequest,
       headers: { cookie: `ph_phc_TOKEN_posthog=${cookieValue}` },
     })
-    expect(captureExceptionMock.mock.calls[0]![1]).toBeUndefined()
+    expect(captureExceptionImmediateMock.mock.calls[0]![1]).toBeUndefined()
   })
 
-  it('swallows errors from captureException and does not schedule flush', async () => {
+  it('swallows synchronous errors thrown from captureExceptionImmediate', async () => {
     getPosthogServerMock.mockReturnValue({
-      captureException: () => {
+      captureExceptionImmediate: () => {
         throw new Error('client-failed')
       },
-      flush: flushMock,
     })
     await expect(onRequestError(new Error('x'), baseRequest)).resolves.toBeUndefined()
-    expect(waitUntilMock).not.toHaveBeenCalled()
   })
 
-  it('catches flush rejections so they cannot surface as unhandled promise rejections', async () => {
+  it("swallows async rejections when captureExceptionImmediate's promise rejects (defensive — current posthog-node@5.21.2 does not actually reject from this entry point)", async () => {
     getPosthogServerMock.mockReturnValue({
-      captureException: captureExceptionMock,
-      flush: () => Promise.reject(new Error('flush-failed')),
+      captureExceptionImmediate: () => Promise.reject(new Error('send-failed')),
     })
-    await onRequestError(new Error('x'), baseRequest)
-    expect(waitUntilMock).toHaveBeenCalledOnce()
-    const promiseArg = waitUntilMock.mock.calls[0]![0] as Promise<unknown>
-    await expect(promiseArg).resolves.toBeUndefined()
+    await expect(onRequestError(new Error('x'), baseRequest)).resolves.toBeUndefined()
   })
 })
