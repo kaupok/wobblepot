@@ -30,7 +30,11 @@ export function getPosthogServer(): PostHog | null {
     // path doesn't survive isolate teardown otherwise.
     if (process.env.VERCEL && process.env.NEXT_RUNTIME === 'nodejs') {
       process.once('SIGTERM', () => {
-        void globalForPosthog.posthog?.shutdown(2000)
+        // `shutdown(timeout)` rejects with a string when the timeout fires
+        // before the queue drains. Swallow it — partial drain is fine, and an
+        // unhandled rejection would crash the isolate before SIGKILL (Node 22
+        // default `--unhandled-rejections=throw`), defeating the flush.
+        globalForPosthog.posthog?.shutdown(2000).catch(() => {})
       })
     }
   }

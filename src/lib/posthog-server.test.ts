@@ -140,6 +140,33 @@ describe('posthog-server', () => {
     expect(processOnceSpy).not.toHaveBeenCalled()
   })
 
+  it('SIGTERM handler swallows shutdown rejections (partial drain is acceptable)', async () => {
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test'
+    process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://eu.i.posthog.com'
+    process.env.VERCEL = '1'
+    process.env.NEXT_RUNTIME = 'nodejs'
+    shutdownSpy.mockRejectedValueOnce('Timeout while shutting down PostHog.')
+
+    const unhandledRejections: unknown[] = []
+    const onUnhandled = (reason: unknown) => unhandledRejections.push(reason)
+    process.on('unhandledRejection', onUnhandled)
+
+    try {
+      const { getPosthogServer } = await import('@/lib/posthog-server')
+      getPosthogServer()
+
+      const [, handler] = processOnceSpy.mock.calls[0]!
+      expect(() => (handler as () => void)()).not.toThrow()
+
+      await new Promise((resolve) => setImmediate(resolve))
+
+      expect(unhandledRejections).toEqual([])
+      expect(shutdownSpy).toHaveBeenCalledTimes(1)
+    } finally {
+      process.off('unhandledRejection', onUnhandled)
+    }
+  })
+
   it('registers the SIGTERM handler at most once across getPosthogServer calls', async () => {
     process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test'
     process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://eu.i.posthog.com'
