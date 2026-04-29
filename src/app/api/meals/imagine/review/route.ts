@@ -11,6 +11,7 @@ import {
   respondCapExceeded,
 } from '@/lib/ai/usage'
 import { captureApiError } from '@/lib/errors'
+import { withRequestId } from '@/lib/request-id'
 
 const reviewRequestSchema = z.object({
   mealName: z.string().min(1),
@@ -27,7 +28,7 @@ const reviewRequestSchema = z.object({
     .min(1),
 })
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const session = await auth.api.getSession({
     headers: await headers(),
   })
@@ -92,3 +93,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to review quantities' }, { status: 500 })
   }
 }
+
+export const POST = withRequestId(handlePOST)
