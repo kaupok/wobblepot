@@ -9,6 +9,14 @@
  *
  * Runs only in the Node.js runtime; the edge runtime cannot use the
  * `posthog-node` SDK and is a no-op here.
+ *
+ * **File location matters.** The Next.js docs say `instrumentation.ts` may
+ * live at the project root *or* at `src/instrumentation.ts`. Empirically on
+ * Next.js 16 + Turbopack + Vercel, only `src/` is loaded into Node-runtime
+ * serverless functions — a root-level file gets bundled but never executed,
+ * silently dropping every `onRequestError` event. PRs #581–#586 each shipped
+ * a different "fix" for HON-533 with the file at the root and none of them
+ * ever ran on Node. Keep this file in `src/`.
  */
 interface RequestErrorRequest {
   path: string
