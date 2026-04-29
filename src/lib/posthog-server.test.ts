@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const constructorSpy = vi.fn()
 const shutdownSpy = vi.fn(async (_timeout?: number) => {})
+const waitUntilMock = vi.fn()
 
 vi.mock('posthog-node', () => {
   class MockPostHog {
@@ -14,6 +15,10 @@ vi.mock('posthog-node', () => {
   }
   return { PostHog: MockPostHog }
 })
+
+vi.mock('@vercel/functions', () => ({
+  waitUntil: waitUntilMock,
+}))
 
 describe('posthog-server', () => {
   let processOnceSpy: ReturnType<typeof vi.spyOn>
@@ -69,6 +74,18 @@ describe('posthog-server', () => {
         flushInterval: 0,
       }),
     )
+  })
+
+  it("passes Vercel's waitUntil so the SDK can extend the function lifetime", async () => {
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test'
+    process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://eu.i.posthog.com'
+
+    const { getPosthogServer } = await import('@/lib/posthog-server')
+    getPosthogServer()
+
+    expect(constructorSpy).toHaveBeenCalledTimes(1)
+    const opts = constructorSpy.mock.calls[0]![1] as { waitUntil?: unknown }
+    expect(opts.waitUntil).toBe(waitUntilMock)
   })
 
   it('returns the same instance across calls (singleton)', async () => {
