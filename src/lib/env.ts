@@ -116,6 +116,13 @@ const serverOnlyEnvSchema = z.object({
       'Gate for the Estonian recipe-parser surface. When unset or "0"/"false", Estonian-household recipe parsing falls back to English to avoid creating duplicate household-scoped ingredient rows before HON-506 seeds Estonian translation data. Flip to "1" once HON-506 ships. See src/app/api/recipes/parse/route.ts.',
     ),
 
+  ENABLE_DEBUG_ERRORS: z
+    .enum(['1', 'true', '0', 'false'])
+    .optional()
+    .describe(
+      'HON-526 §2 verification gate. When "1" / "true" AND NEXT_PUBLIC_APP_ENV is not "production", the /debug/errors page and /api/debug/errors route activate; otherwise they 404. Removed in the HON-526 cleanup PR.',
+    ),
+
   POSTHOG_CLI_HOST: z
     .string()
     .url('POSTHOG_CLI_HOST must be a valid URL')
@@ -240,6 +247,7 @@ export const serverEnv = new Proxy(
     STATUS_INCIDENT_MESSAGE: process.env.STATUS_INCIDENT_MESSAGE,
     E2E_DISABLE_RATE_LIMIT: process.env.E2E_DISABLE_RATE_LIMIT,
     FEATURE_RECIPE_PARSER_ET: process.env.FEATURE_RECIPE_PARSER_ET,
+    ENABLE_DEBUG_ERRORS: process.env.ENABLE_DEBUG_ERRORS,
     POSTHOG_CLI_HOST: process.env.POSTHOG_CLI_HOST,
     POSTHOG_CLI_PROJECT_ID: process.env.POSTHOG_CLI_PROJECT_ID,
     POSTHOG_CLI_API_KEY: process.env.POSTHOG_CLI_API_KEY,
