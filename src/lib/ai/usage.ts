@@ -17,6 +17,7 @@ import { NextResponse } from 'next/server'
 import type { AiFeature } from '@/generated/prisma/enums'
 import { getPosthogServer } from '@/lib/posthog-server'
 import { prisma } from '@/lib/prisma'
+import { getRequestId } from '@/lib/request-id'
 import { estimateCostUsd } from './pricing'
 
 export interface AiUsageStats {
@@ -159,6 +160,12 @@ export async function recordAiUsage(input: RecordAiUsageInput): Promise<void> {
     outputTokens: input.outputTokens,
   })
 
+  // Resolve once and reuse so the DB row and PostHog event always see the
+  // same id. Explicit input wins (tests, future workers); the AsyncLocalStorage
+  // value populated by `withRequestId` is the ambient fallback for normal
+  // route-handler calls.
+  const requestId = input.requestId ?? getRequestId() ?? null
+
   try {
     await prisma.aiUsage.create({
       data: {
@@ -170,7 +177,7 @@ export async function recordAiUsage(input: RecordAiUsageInput): Promise<void> {
         estimatedCostUsd: cost,
         success: input.success ?? true,
         retryCount: input.retryCount ?? 0,
-        requestId: input.requestId ?? null,
+        requestId,
       },
     })
   } catch (error) {
@@ -192,7 +199,7 @@ export async function recordAiUsage(input: RecordAiUsageInput): Promise<void> {
         $ai_model: input.model,
         $ai_total_cost_usd: cost,
         $ai_provider: 'anthropic',
-        $ai_trace_id: input.requestId ?? undefined,
+        $ai_trace_id: requestId ?? undefined,
         $ai_is_error: !(input.success ?? true),
         feature: input.feature,
         household_id: input.householdId,

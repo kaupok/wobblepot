@@ -14,14 +14,20 @@ vi.mock('@/lib/posthog-server', () => ({
   getPosthogServer: vi.fn(),
 }))
 
+vi.mock('@/lib/request-id', () => ({
+  getRequestId: vi.fn(),
+}))
+
 import { prisma } from '@/lib/prisma'
 import { getPosthogServer } from '@/lib/posthog-server'
+import { getRequestId } from '@/lib/request-id'
 import { AiCostCapExceededError, assertUnderCap, getMonthBoundaries, recordAiUsage } from './usage'
 
 const mockHouseholdFindUnique = vi.mocked(prisma.household.findUnique)
 const mockAggregate = vi.mocked(prisma.aiUsage.aggregate)
 const mockCreate = vi.mocked(prisma.aiUsage.create)
 const mockGetPosthogServer = vi.mocked(getPosthogServer)
+const mockGetRequestId = vi.mocked(getRequestId)
 
 let mockCapture: ReturnType<typeof vi.fn>
 
@@ -29,6 +35,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockCapture = vi.fn()
   mockGetPosthogServer.mockReturnValue({ capture: mockCapture } as never)
+  mockGetRequestId.mockReturnValue(undefined)
 })
 
 describe('getMonthBoundaries', () => {
@@ -273,5 +280,74 @@ describe('recordAiUsage › PostHog streaming', () => {
     })
 
     expect(mockCapture).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('recordAiUsage › requestId resolution', () => {
+  it('prefers the explicit input.requestId over the AsyncLocalStorage value', async () => {
+    mockCreate.mockResolvedValue({} as never)
+    mockGetRequestId.mockReturnValue('als-id')
+
+    await recordAiUsage({
+      householdId: 'h1',
+      feature: 'recipe_parse',
+      model: 'claude-sonnet-4-6',
+      inputTokens: 100,
+      outputTokens: 50,
+      requestId: 'explicit-id',
+    })
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ requestId: 'explicit-id' }),
+    })
+    expect(mockCapture).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: expect.objectContaining({ $ai_trace_id: 'explicit-id' }),
+      }),
+    )
+  })
+
+  it('falls back to getRequestId() when input.requestId is omitted', async () => {
+    mockCreate.mockResolvedValue({} as never)
+    mockGetRequestId.mockReturnValue('als-id')
+
+    await recordAiUsage({
+      householdId: 'h1',
+      feature: 'recipe_parse',
+      model: 'claude-sonnet-4-6',
+      inputTokens: 100,
+      outputTokens: 50,
+    })
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ requestId: 'als-id' }),
+    })
+    expect(mockCapture).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: expect.objectContaining({ $ai_trace_id: 'als-id' }),
+      }),
+    )
+  })
+
+  it('writes null to the DB and undefined to PostHog when neither source provides an id', async () => {
+    mockCreate.mockResolvedValue({} as never)
+    // mockGetRequestId returns undefined by default (set in beforeEach).
+
+    await recordAiUsage({
+      householdId: 'h1',
+      feature: 'recipe_parse',
+      model: 'claude-sonnet-4-6',
+      inputTokens: 100,
+      outputTokens: 50,
+    })
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ requestId: null }),
+    })
+    expect(mockCapture).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: expect.objectContaining({ $ai_trace_id: undefined }),
+      }),
+    )
   })
 })
