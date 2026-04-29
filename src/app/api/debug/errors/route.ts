@@ -6,15 +6,16 @@ import { captureApiError } from '@/lib/errors'
 import { externalFetch } from '@/lib/external-fetch'
 import { MealPlanValidationError } from '@/lib/ai/types'
 import { withRequestId } from '@/lib/request-id'
+import { serverEnv } from '@/lib/env'
 
 // Debug endpoints for HON-526 §2 verification. Each `?case=` exercises a specific
-// PostHog capture path. Gated by ENABLE_DEBUG_ERRORS=true AND non-production app env.
-// Removed in the HON-526 cleanup PR.
+// PostHog capture path. Gated by ENABLE_DEBUG_ERRORS=1 (or "true") AND non-production
+// app env. Removed in the HON-526 cleanup PR.
 
 function debugDisabled(): boolean {
-  return (
-    process.env.ENABLE_DEBUG_ERRORS !== 'true' || process.env.NEXT_PUBLIC_APP_ENV === 'production'
-  )
+  const raw = serverEnv.ENABLE_DEBUG_ERRORS
+  const enabled = raw === '1' || raw === 'true'
+  return !enabled || serverEnv.NEXT_PUBLIC_APP_ENV === 'production'
 }
 
 async function handle(request: Request): Promise<Response> {

@@ -1,15 +1,15 @@
 import { notFound } from 'next/navigation'
 import { Heading, Body } from '@/components/ui/typography'
+import { serverEnv } from '@/lib/env'
 import { DebugErrorButtons } from './DebugErrorButtons'
 
-// Debug page for HON-526 §2 verification. Gated by ENABLE_DEBUG_ERRORS=true
-// AND non-production app env; 404s otherwise. Removed in cleanup PR.
+// Debug page for HON-526 §2 verification. Gated by ENABLE_DEBUG_ERRORS=1
+// (or "true") AND non-production app env; 404s otherwise. Removed in cleanup PR.
 
 export default function DebugErrorsPage() {
-  if (
-    process.env.ENABLE_DEBUG_ERRORS !== 'true' ||
-    process.env.NEXT_PUBLIC_APP_ENV === 'production'
-  ) {
+  const raw = serverEnv.ENABLE_DEBUG_ERRORS
+  const enabled = raw === '1' || raw === 'true'
+  if (!enabled || serverEnv.NEXT_PUBLIC_APP_ENV === 'production') {
     notFound()
   }
 
