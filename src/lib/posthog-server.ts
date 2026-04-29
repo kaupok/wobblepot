@@ -23,11 +23,13 @@ export function getPosthogServer(): PostHog | null {
       },
     })
 
-    // Vercel Node functions run on AWS Lambda, which sends SIGTERM with a small
-    // grace window (500ms–6s) before SIGKILL. Drain the in-memory queue inside
-    // that window — request-context primitives (`waitUntil`, `next/after`) are
-    // unbound inside `instrumentation.onRequestError`, so the per-request flush
-    // path doesn't survive isolate teardown otherwise.
+    // Defensive backstop: drain the in-memory queue when the isolate is
+    // actually shutting down (idle timeout, scale-down, deploy churn). The
+    // primary per-request flush mechanisms — `await captureExceptionImmediate`
+    // in `instrumentation.onRequestError`, and `next/after(() => flush())` in
+    // `captureApiError` — handle the hot path. This handler complements them
+    // by catching queued events that hadn't drained when AWS Lambda delivers
+    // SIGTERM (with a 500ms–6s grace window before SIGKILL).
     if (process.env.VERCEL && process.env.NEXT_RUNTIME === 'nodejs') {
       process.once('SIGTERM', () => {
         // `shutdown(timeout)` rejects with a string when the timeout fires
