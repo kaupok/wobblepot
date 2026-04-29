@@ -1,4 +1,5 @@
 import 'server-only'
+import { waitUntil } from '@vercel/functions'
 import { PostHog } from 'posthog-node'
 import { serverEnv } from '@/lib/env'
 import { sanitizeEventProperties } from '@/lib/redact'
@@ -17,19 +18,26 @@ export function getPosthogServer(): PostHog | null {
       host: serverEnv.NEXT_PUBLIC_POSTHOG_HOST,
       flushAt: 1,
       flushInterval: 0,
+      // Hand the SDK Vercel's `waitUntil` so it can extend the function's
+      // lifetime past the response while the queued event flushes — the
+      // primitive that actually keeps a Vercel isolate alive on this path.
+      // Outside Vercel, `@vercel/functions`'s `waitUntil` is a no-op
+      // (`getContext().waitUntil?.(p)`), and the SDK guards the call with
+      // try/catch — so this is safe to set unconditionally and works in dev.
+      // This is the pattern Sentry's `captureRequestError` uses, and PostHog's
+      // own SDK docstring on this option points at exactly this Vercel setup.
+      waitUntil,
       before_send: (event) => {
         if (!event) return event
         return { ...event, properties: sanitizeEventProperties(event.properties) }
       },
     })
 
-    // Defensive backstop: drain the in-memory queue when the isolate is
-    // actually shutting down (idle timeout, scale-down, deploy churn). The
-    // primary per-request flush mechanisms — `await captureExceptionImmediate`
-    // in `instrumentation.onRequestError`, and `next/after(() => flush())` in
-    // `captureApiError` — handle the hot path. This handler complements them
-    // by catching queued events that hadn't drained when AWS Lambda delivers
-    // SIGTERM (with a 500ms–6s grace window before SIGKILL).
+    // Defensive backstop for events that haven't drained when the isolate
+    // actually shuts down (idle timeout, scale-down, deploy churn). The
+    // per-request flush is now owned by the SDK's `waitUntil` integration —
+    // this handler only catches the residue. AWS Lambda gives a 500ms–6s
+    // SIGTERM grace window before SIGKILL.
     if (process.env.VERCEL && process.env.NEXT_RUNTIME === 'nodejs') {
       process.once('SIGTERM', () => {
         // `shutdown(timeout)` rejects with a string when the timeout fires
