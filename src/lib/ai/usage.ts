@@ -5,14 +5,17 @@
  * `AiCostCapExceededError` when the household has spent at or above its cap
  * for the current calendar month (computed in the household's local timezone).
  *
- * `recordAiUsage` is fire-and-forget: it writes a usage row but never throws.
- * A DB hiccup must not break AI features — the cap is a safety valve, not a
- * critical path dependency. PostHog streaming for visualisation lives in HON-475;
- * this module is the in-app source of truth.
+ * `recordAiUsage` is fire-and-forget: it writes a usage row and mirrors a
+ * `$ai_generation` event to PostHog. The two paths are independent failure
+ * domains — neither suppresses the other. A failure on either side must not
+ * break AI features — the cap is a safety valve, not a critical path
+ * dependency. The DB row is the in-app source of truth; the PostHog event
+ * drives dashboards and alerts.
  */
 
 import { NextResponse } from 'next/server'
 import type { AiFeature } from '@/generated/prisma/enums'
+import { getPosthogServer } from '@/lib/posthog-server'
 import { prisma } from '@/lib/prisma'
 import { estimateCostUsd } from './pricing'
 
@@ -142,7 +145,9 @@ export async function assertUnderCap(householdId: string, now: Date = new Date()
 }
 
 /**
- * Write an `ai_usage` row. Never throws — DB hiccups are logged and swallowed.
+ * Write an `ai_usage` row and mirror a `$ai_generation` event to PostHog.
+ * Never throws — DB and PostHog failures are each logged and swallowed
+ * independently.
  *
  * Compute `estimatedCostUsd` from the model's price table. Unknown models
  * record `$0` (still useful for visibility into how often that model is used).
@@ -170,6 +175,32 @@ export async function recordAiUsage(input: RecordAiUsageInput): Promise<void> {
     })
   } catch (error) {
     console.error('Failed to record AI usage:', error)
+  }
+
+  // PostHog mirror — independent failure domain from the DB write so a
+  // PostHog outage doesn't suppress DB writes (and vice-versa). Per-request
+  // flush is handled by the SDK's `flushAt: 1 + waitUntil` config in
+  // `posthog-server.ts`; no `flush()` needed at the call site.
+  try {
+    const posthog = getPosthogServer()
+    posthog?.capture({
+      distinctId: input.householdId,
+      event: '$ai_generation',
+      properties: {
+        $ai_input_tokens: input.inputTokens,
+        $ai_output_tokens: input.outputTokens,
+        $ai_model: input.model,
+        $ai_total_cost_usd: cost,
+        $ai_provider: 'anthropic',
+        $ai_trace_id: input.requestId ?? undefined,
+        $ai_is_error: !(input.success ?? true),
+        feature: input.feature,
+        household_id: input.householdId,
+        retry_count: input.retryCount ?? 0,
+      },
+    })
+  } catch (error) {
+    console.error('Failed to stream AI usage to PostHog:', error)
   }
 }
 
