@@ -35,11 +35,15 @@ export async function onRequestError(
   const distinctId = extractDistinctIdFromCookie(request.headers.cookie)
 
   try {
-    // Queue only — `waitUntil` and `next/after` are silent no-ops in this hook
-    // on Vercel Node because the request-context primitives they depend on are
-    // unbound here. The SIGTERM handler in `posthog-server.ts` is what drains
-    // the queue before isolate teardown.
-    client.captureException(err, distinctId, {
+    // `captureExceptionImmediate` bypasses the in-memory queue and awaits the
+    // HTTP send directly. posthog-node 5.21.2 had a missing `return` in this
+    // primitive that resolved the await before the fetch completed; fixed
+    // upstream in 5.28.3 (PostHog/posthog-js#3243). With that fix in place,
+    // awaiting it from `onRequestError` keeps the Vercel function alive long
+    // enough for the request to land — `waitUntil` / `next/after` remain
+    // unusable here because their request-context primitives are unbound
+    // inside this hook.
+    await client.captureExceptionImmediate(err, distinctId, {
       $exception_source: 'instrumentation.onRequestError',
       path: request.path,
       method: request.method,
