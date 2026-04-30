@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { AlertTriangle, Search, X, Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
@@ -28,6 +29,7 @@ export function UnmatchedIngredientRow({
   onRemove,
   onResolve,
 }: UnmatchedIngredientRowProps) {
+  const t = useTranslations('recipes.ingredientRow')
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<IngredientResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
@@ -140,7 +142,7 @@ export function UnmatchedIngredientRow({
               {data.isVague && data.originalPhrase ? (
                 <span className="italic">{data.originalPhrase}</span>
               ) : (
-                <>Original: {data.originalText}</>
+                t('originalLabel', { text: data.originalText })
               )}
             </Body>
           </div>
@@ -154,7 +156,7 @@ export function UnmatchedIngredientRow({
           className="text-amber-700 hover:bg-amber-100 hover:text-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/50"
         >
           <X className="mr-1 h-4 w-4" />
-          Drop
+          {t('drop')}
         </Button>
       </div>
 
@@ -172,7 +174,7 @@ export function UnmatchedIngredientRow({
               }
             }}
             onKeyDown={handleSearchKeyDown}
-            placeholder="Search ingredients..."
+            placeholder={t('searchPlaceholder')}
             className="pr-9 pl-9"
             disabled={disabled}
           />
@@ -211,7 +213,7 @@ export function UnmatchedIngredientRow({
         {searchQuery.trim() && !isSearching && searchResults.length === 0 && (
           <div className="bg-popover absolute top-full z-10 mt-1 w-full rounded-md border p-3 shadow-md">
             <Body variant="muted" className="text-center">
-              No ingredients found
+              {t('noResults')}
             </Body>
           </div>
         )}

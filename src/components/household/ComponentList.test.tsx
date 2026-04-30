@@ -64,6 +64,6 @@ describe('ComponentList per-serving formatting', () => {
       />,
       'et',
     )
-    expect(screen.getByText(/1,5g per serving/)).toBeInTheDocument()
+    expect(screen.getByText(/1,5g portsjoni kohta/)).toBeInTheDocument()
   })
 })

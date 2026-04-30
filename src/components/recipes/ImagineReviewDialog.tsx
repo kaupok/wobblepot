@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, ChevronDown, ChevronRight, Clock, Baby, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
@@ -19,6 +19,7 @@ import { IngredientRow, type IngredientRowData } from './IngredientRow'
 import type { IngredientResult } from './IngredientRow'
 import { buildFinalComponents, formatUnit } from '@/components/household/meal-form-types'
 import type { PrefilledIngredient } from '@/components/household/meal-form-types'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { formatInteger, formatQuantity } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
 import type { MealType } from '@/generated/prisma/enums'
@@ -137,10 +138,9 @@ function toPrefilledIngredients(rows: IngredientRowData[]): PrefilledIngredient[
   })
 }
 
-const MEAL_TYPE_LABELS: Record<string, string> = {
-  breakfast: 'Breakfast',
-  lunch: 'Lunch',
-  dinner: 'Dinner',
+function MealTypeBadge({ type }: { type: MealType }) {
+  const label = useEnumLabel('MealType', type)
+  return <Badge variant="secondary">{label}</Badge>
 }
 
 export function ImagineReviewDialog({
@@ -150,6 +150,9 @@ export function ImagineReviewDialog({
   onSaved,
   onEditDetails,
 }: ImagineReviewDialogProps) {
+  const t = useTranslations('recipes.review')
+  const tForm = useTranslations('recipes.form')
+  const tDetail = useTranslations('meal-plan.detail')
   const [ingredientRows, setIngredientRows] = useState<IngredientRowData[]>(() =>
     initIngredientRows(meal.prefilledIngredients),
   )
@@ -229,13 +232,13 @@ export function ImagineReviewDialog({
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || 'Failed to save meal')
+        throw new Error(data.error || t('errors.saveFailed'))
       }
 
       const data = await response.json()
       onSaved(data.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      setError(err instanceof Error ? err.message : t('errors.generic'))
     } finally {
       setIsSaving(false)
     }
@@ -254,10 +257,12 @@ export function ImagineReviewDialog({
         <div className="flex flex-col gap-4">
           {/* Macros summary */}
           <div className="text-muted-foreground text-xs">
-            {formatInteger(nutrition.calories, locale)} kcal ·{' '}
-            {formatInteger(nutrition.protein, locale)}g protein ·{' '}
-            {formatInteger(nutrition.carbs, locale)}g carbs · {formatInteger(nutrition.fat, locale)}
-            g fat
+            {t('nutritionLine', {
+              calories: formatInteger(nutrition.calories, locale),
+              protein: formatInteger(nutrition.protein, locale),
+              carbs: formatInteger(nutrition.carbs, locale),
+              fat: formatInteger(nutrition.fat, locale),
+            })}
           </div>
 
           {/* Meta badges */}
@@ -265,19 +270,17 @@ export function ImagineReviewDialog({
             {meal.timeMinutes && (
               <Badge variant="outline">
                 <Clock className="h-3 w-3" />
-                {meal.timeMinutes} min
+                {tDetail('timeMinutes', { count: meal.timeMinutes })}
               </Badge>
             )}
             {meal.kidFriendly && (
               <Badge variant="outline">
                 <Baby className="h-3 w-3" />
-                Kid-friendly
+                {t('kidFriendly')}
               </Badge>
             )}
             {meal.mealTypes.map((type) => (
-              <Badge key={type} variant="secondary">
-                {MEAL_TYPE_LABELS[type] ?? type}
-              </Badge>
+              <MealTypeBadge key={type} type={type} />
             ))}
           </div>
 
@@ -287,12 +290,12 @@ export function ImagineReviewDialog({
               <div className="flex gap-2">
                 {unresolvedCount > 0 && (
                   <Badge variant="outline" className="text-amber-700 dark:text-amber-400">
-                    {unresolvedCount} unmatched
+                    {tForm('unmatchedBadge', { count: unresolvedCount })}
                   </Badge>
                 )}
                 {lowConfidenceCount > 0 && (
                   <Badge variant="outline" className="text-blue-700 dark:text-blue-400">
-                    {lowConfidenceCount} to verify
+                    {tForm('toVerifyBadge', { count: lowConfidenceCount })}
                   </Badge>
                 )}
               </div>
@@ -336,7 +339,7 @@ export function ImagineReviewDialog({
                     <ChevronRight className="text-muted-foreground h-4 w-4" />
                   )}
                   <Body variant="small" className="font-medium">
-                    {matchedCount} ingredient{matchedCount !== 1 ? 's' : ''} matched
+                    {t('matchedCollapse', { count: matchedCount })}
                   </Body>
                 </button>
               </CollapsibleTrigger>
@@ -382,10 +385,10 @@ export function ImagineReviewDialog({
             {isSaving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
+                {t('saving')}
               </>
             ) : (
-              'Save meal'
+              t('save')
             )}
           </Button>
           {onEditDetails && (
@@ -395,7 +398,7 @@ export function ImagineReviewDialog({
               disabled={isSaving}
               className="text-muted-foreground hover:text-foreground text-center text-sm underline transition-colors disabled:pointer-events-none disabled:opacity-50"
             >
-              Edit details
+              {t('editDetails')}
             </button>
           )}
         </DialogFooter>

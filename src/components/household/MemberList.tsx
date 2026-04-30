@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { Heading, Body } from '@/components/ui/typography'
 import { Skeleton } from '@/components/ui/skeleton'
 import { MemberCard } from './MemberCard'
@@ -29,6 +30,7 @@ function MemberCardSkeleton() {
 }
 
 export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
+  const t = useTranslations('household.members')
   const [members, setMembers] = useState<Member[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -40,12 +42,12 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
       try {
         const response = await fetch('/api/households/me/members')
         if (!response.ok) {
-          throw new Error('Failed to fetch members')
+          throw new Error('fetch-failed')
         }
         const data = await response.json()
         setMembers(data.members)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred')
+        setError(err instanceof Error ? err.message : 'fetch-failed')
       } finally {
         setIsLoading(false)
       }
@@ -89,8 +91,8 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
     <>
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-1">
-          <Heading variant="h2">Members</Heading>
-          <Body variant="muted">Manage household members and their portion sizes</Body>
+          <Heading variant="h2">{t('heading')}</Heading>
+          <Body variant="muted">{t('description')}</Body>
         </div>
 
         <div className="flex flex-col gap-6">
@@ -107,7 +109,7 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
             </Body>
           ) : members.length === 0 ? (
             <div className="rounded-lg border border-dashed p-8 text-center">
-              <Body variant="muted">No members found.</Body>
+              <Body variant="muted">{t('empty')}</Body>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
@@ -129,8 +131,7 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
 
           {!isOwner && (
             <Body variant="muted" className="text-sm">
-              You can only edit your own preferences. Contact the household owner to update other
-              members.
+              {t('nonOwnerNotice')}
             </Body>
           )}
         </div>
@@ -150,7 +151,9 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
           onOpenChange={(open) => !open && setInvitingMember(null)}
           memberId={invitingMember.id}
           memberName={
-            invitingMember.preferences?.displayName || invitingMember.name || 'this member'
+            invitingMember.preferences?.displayName ||
+            invitingMember.name ||
+            t('fallbackInviteName')
           }
           existingInvite={invitingMember.invite}
           onInviteCreated={(invite) => handleInviteCreated(invitingMember.id, invite)}

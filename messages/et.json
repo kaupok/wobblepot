@@ -312,7 +312,187 @@
   },
   "recipes": {
     "mealCount": "{count, plural, =0 {Retsepte pole} one {# retsept} other {# retsepti}}",
-    "mealCountMore": "{count, plural, one {#+ retsept} other {#+ retsepti}}"
+    "mealCountMore": "{count, plural, one {#+ retsept} other {#+ retsepti}}",
+    "library": {
+      "title": "Minu retseptid",
+      "description": "Loo ja halda oma leibkonna retsepte",
+      "searchPlaceholder": "Otsi retsepte…",
+      "searchAria": "Otsi retsepte",
+      "loading": "Laen…",
+      "imagineButton": "Mõtle välja toit",
+      "addButton": "Lisa retsept",
+      "loadMore": "Lae rohkem",
+      "loadingMore": "Laen…",
+      "emptySearch": "Päringule „{query}\" vastavaid retsepte ei leitud",
+      "loadFailed": "Toitude laadimine ebaõnnestus",
+      "loadMoreFailed": "Rohkemate toitude laadimine ebaõnnestus"
+    },
+    "imagine": {
+      "title": "Mõtle välja toit",
+      "description": "Kirjelda, mida sooviksid süüa, või tee foto, ja pakume välja 3 toiduideed.",
+      "promptPlaceholder": "Midagi tervislikku kanaga ja värske salatiga…",
+      "attachAria": "Lisa fotosid",
+      "removeImageAria": "Eemalda „{filename}\"",
+      "generate": "Mõtle toidud välja",
+      "generating": "Mõtlen ideid…",
+      "cancel": "Tühista",
+      "fineTuning": "Lihvin retsepti…",
+      "select": "Vali",
+      "savedToast": "Toit lisati sinu raamatukokku",
+      "errors": {
+        "promptOrPhotoRequired": "Kirjelda, millist toitu soovid, või lisa foto",
+        "tooManyImages": "Saad lisada kuni {max} fotot",
+        "wrongImageType": "Fotod peavad olema JPEG, PNG või WebP",
+        "imageTooLarge": "Iga foto peab olema kuni 5 MB",
+        "imagineFailed": "Toiduideede koostamine ebaõnnestus. Palun proovi uuesti.",
+        "generic": "Toiduideede koostamine ebaõnnestus"
+      }
+    },
+    "import": {
+      "title": "Impordi retsept",
+      "description": "Kleebi retsept või URL ja eraldame koostisosad sinu eest. Märgi ka portsjonite arv, muidu eeldame 4.",
+      "placeholder": "Kleebi retsept või URL siia…\n\nNäited:\nhttps://example.com/kanapraad\n\nVõi kleebi retsepti tekst otse:\nKanapraad (4 portsjonit)\n- 500g kanafilee\n- 2 sl sojakastet\n- 1 punane paprika",
+      "submit": "Impordi retsept",
+      "submitting": "Impordin retsepti…",
+      "cancel": "Tühista",
+      "footerOr": "või",
+      "createManuallyLink": "loo käsitsi",
+      "warningDefault": "Me pole kindlad, kas see on terviklik retsept. Tulemused võivad olla puudulikud.",
+      "continueAnyway": "Jätka ikkagi",
+      "tryDifferent": "Proovi teist teksti",
+      "steps": {
+        "fetchingPage": "Laen lehe…",
+        "extractingRecipe": "Eraldan retsepti…",
+        "matchingIngredients": "Sobitan koostisosi…"
+      },
+      "errors": {
+        "empty": "Palun kleebi retsept või URL",
+        "parseFailed": "Retsepti töötlemine ebaõnnestus",
+        "parseGeneric": "Retsepti töötlemine ebaõnnestus. Palun proovi uuesti."
+      }
+    },
+    "edit": {
+      "mealNotFound": "Toitu ei leitud",
+      "loadFailed": "Toidu laadimine ebaõnnestus",
+      "backToRecipes": "Tagasi retseptide juurde"
+    },
+    "form": {
+      "titleEdit": "Muuda toitu",
+      "titleCreate": "Loo toit",
+      "descriptionEdit": "Uuenda oma retsepti üksikasju",
+      "descriptionCreate": "Lisa uus toit oma leibkonna kogusse",
+      "originalTextLabel": "Algne retsepti tekst",
+      "ingredientsHeading": "Koostisosad",
+      "ingredientsHelper": "Sisesta kogu retsepti jaoks vajalik kogus ({count, plural, one {# portsjon} other {# portsjonit}}). Arvutame ühe portsjoni koguse automaatselt.",
+      "noIngredients": "Koostisosi pole veel lisatud. Kasuta ülaltoodud otsingut.",
+      "nutritionPerServing": "Toiteväärtus portsjoni kohta",
+      "nutritionApproximate": "Ligikaudne — {count, plural, one {# koostisosa pole arvestatud} other {# koostisosa pole arvestatud}}",
+      "toVerifyBadge": "{count} kontrollida",
+      "unmatchedBadge": "{count} sobitamata",
+      "preparationNotesLabel": "Valmistusjuhised",
+      "preparationNotesHelper": "Kuidas seda toitu valmistada? Sammud, nõuanded või muud märkused.",
+      "preparationNotesPlaceholder": "Vabatahtlik – nt sammud, küpsetamise nõuanded",
+      "sourceUrlLabel": "Algallika URL",
+      "sourceUrlPlaceholder": "https://example.com/retsept",
+      "sourceUrlClearAria": "Tühjenda algallika URL",
+      "cancel": "Tühista",
+      "saving": "Salvestan…",
+      "update": "Uuenda toitu",
+      "create": "Loo toit",
+      "successCreated": "Toit loodi",
+      "successUpdated": "Toit uuendati",
+      "alreadyAdded": "„{name}\" on juba lisatud",
+      "errors": {
+        "nameRequired": "Nimi on kohustuslik",
+        "mealTypeRequired": "Vali vähemalt üks söögikord",
+        "servingsRange": "Portsjoneid peab olema 1 kuni 50",
+        "prepTimeRange": "Valmistusaeg peab olema 1 kuni 480 minutit",
+        "createFailed": "Toidu loomine ebaõnnestus",
+        "updateFailed": "Toidu uuendamine ebaõnnestus",
+        "generic": "Tekkis viga"
+      },
+      "discardDialog": {
+        "title": "Loobu imporditud retseptist?",
+        "description": "Kas oled kindel, et soovid sellest imporditud retseptist loobuda? Kõik muudatused kaovad.",
+        "keepEditing": "Jätka muutmist",
+        "discard": "Loobu"
+      },
+      "basic": {
+        "heading": "Põhiandmed",
+        "nameLabel": "Toidu nimi",
+        "namePlaceholder": "nt kanapraad",
+        "descriptionLabel": "Kirjeldus (vabatahtlik)",
+        "descriptionPlaceholder": "Lühike toidu kirjeldus…",
+        "servingsLabel": "Retsept on (portsjonit)"
+      },
+      "details": {
+        "heading": "Lisaandmed",
+        "suitableForLabel": "Sobib",
+        "timeMinutesLabel": "Valmistusaeg (minutit)",
+        "timeMinutesPlaceholder": "nt 30",
+        "kidFriendlyLabel": "Lastesõbralik"
+      },
+      "componentList": {
+        "perServing": "{quantity}{unit} portsjoni kohta",
+        "invalidQuantity": "Kogus peab olema suurem kui 0",
+        "setQuantity": "Määra kogus",
+        "noQuantity": "Kogus määramata",
+        "duplicateRow": "{count, plural, one {Kasutusel ka real {rows}} other {Kasutusel ka ridadel {rows}}}",
+        "totalQuantityAria": "„{name}\" üldkogus"
+      },
+      "ingredientSearch": {
+        "placeholder": "Otsi rohkem koostisosi…",
+        "noResults": "Koostisosi ei leitud",
+        "added": "Lisatud"
+      }
+    },
+    "ingredientRow": {
+      "removeAria": "Eemalda koostisosa",
+      "invalidQuantity": "Kogus peab olema suurem kui 0",
+      "perServing": "{quantity}{unit} portsjoni kohta",
+      "duplicateRow": "{count, plural, one {Kasutusel ka real {rows}} other {Kasutusel ka ridadel {rows}}}",
+      "originalLabel": "Algne: {text}",
+      "searchPlaceholder": "Otsi koostisosi…",
+      "noResults": "Koostisosi ei leitud",
+      "drop": "Jäta välja",
+      "verifyMatch": "Kontrolli sobitust:",
+      "bestMatchSuffix": "{name} (parim sobitus)",
+      "confirm": "Kinnita",
+      "verifyMatchAria": "Kontrolli koostisosa sobitust",
+      "quantityAria": "Kogus"
+    },
+    "review": {
+      "nutritionLine": "{calories} kcal · {protein}g valku · {carbs}g süsivesikuid · {fat}g rasva",
+      "kidFriendly": "Lastesõbralik",
+      "matchedCollapse": "{count, plural, one {# sobitatud koostisosa} other {# sobitatud koostisosa}}",
+      "save": "Salvesta toit",
+      "saving": "Salvestan…",
+      "editDetails": "Muuda üksikasju",
+      "errors": {
+        "saveFailed": "Toidu salvestamine ebaõnnestus",
+        "generic": "Tekkis viga"
+      }
+    },
+    "list": {
+      "emptyHeading": "Toite veel pole",
+      "emptyBody": "Loo oma esimene retsept, et alustada",
+      "addToFavoritesAria": "Lisa lemmikutesse",
+      "removeFromFavoritesAria": "Eemalda lemmikutest",
+      "editAria": "Muuda toitu",
+      "deleteAria": "Kustuta toit",
+      "favoriteUpdateFailed": "Lemmiku uuendamine ebaõnnestus",
+      "addedToFavorites": "Lisati lemmikutesse",
+      "removedFromFavorites": "Eemaldati lemmikutest",
+      "deleted": "Toit kustutati",
+      "deleteFailed": "Toidu kustutamine ebaõnnestus",
+      "deleteDialog": {
+        "title": "Kustuta toit",
+        "description": "Kas oled kindel, et soovid kustutada „{name}\"? Seda ei saa tagasi võtta.",
+        "confirm": "Kustuta",
+        "cancel": "Tühista",
+        "deleting": "Kustutan…"
+      }
+    }
   },
   "landing": {
     "headline": "Söögiplaanid hõivatud peredele",
@@ -500,6 +680,38 @@
       "invite": {
         "title": "Kutset ei õnnestunud töödelda",
         "body": "Kutselingi töötlemisel tekkis viga. Palun proovi uuesti."
+      },
+      "recipes": {
+        "title": "Retsepte ei õnnestunud laadida",
+        "body": "Retseptide laadimisel tekkis viga. Palun proovi uuesti."
+      },
+      "recipesImagine": {
+        "title": "Toiduideede genereerijat ei õnnestunud avada",
+        "body": "Selle lehe laadimisel tekkis viga. Palun proovi uuesti."
+      },
+      "recipesImport": {
+        "title": "Retsepti importi ei õnnestunud avada",
+        "body": "Retsepti impordi lehe laadimisel tekkis viga. Palun proovi uuesti."
+      },
+      "recipesCreate": {
+        "title": "Retsepti loojat ei õnnestunud avada",
+        "body": "Retsepti loomise lehe laadimisel tekkis viga. Palun proovi uuesti."
+      },
+      "recipesEdit": {
+        "title": "Retsepti muutjat ei õnnestunud avada",
+        "body": "Retsepti muutja laadimisel tekkis viga. Palun proovi uuesti."
+      },
+      "household": {
+        "title": "Leibkonna sätteid ei õnnestunud laadida",
+        "body": "Leibkonna sätete laadimisel tekkis viga. Palun proovi uuesti."
+      },
+      "profile": {
+        "title": "Sinu profiili ei õnnestunud laadida",
+        "body": "Profiili laadimisel tekkis viga. Palun proovi uuesti."
+      },
+      "onboarding": {
+        "title": "Sissejuhatust ei õnnestunud avada",
+        "body": "Seadistuse lehe laadimisel tekkis viga. Palun proovi uuesti."
       }
     },
     "notFound": {
@@ -563,7 +775,186 @@
       "en": "Inglise",
       "et": "Eesti"
     },
-    "dietaryNone": "Pole eelistust"
+    "dietaryNone": "Pole eelistust",
+    "pageTitle": "Leibkond",
+    "settings": {
+      "heading": "Leibkonna sätted",
+      "description": "Seadista leibkonna eelistused söögiplaani jaoks",
+      "saveButton": "Salvesta sätted",
+      "saving": "Salvestan…",
+      "savedToast": "Sätted salvestatud",
+      "saveFailed": "Sätete salvestamine ebaõnnestus",
+      "ownerOnlyNotice": "Ainult leibkonna omanik saab muuta nime, ajavööndit ja keelt.",
+      "errorGeneric": "Tekkis viga",
+      "basicHeading": "Põhiandmed",
+      "nameLabel": "Leibkonna nimi",
+      "timezoneLabel": "Ajavöönd",
+      "timezonePlaceholder": "Vali ajavöönd",
+      "preferencesHeading": "Toidueelistused",
+      "dietaryTypeLabel": "Toitumisviis",
+      "allergensLabel": "Vältida tuleb allergeene",
+      "restrictionsLabel": "Toitumispiirangud",
+      "restrictionsPlaceholder": "nt madal sool, halal",
+      "restrictionsHelper": "Sisesta piirang ja vajuta Enter või kliki kõrvale, et lisada",
+      "excludedHeading": "Välditavad koostisosad",
+      "excludedLabel": "Koostisosad, mida vältida",
+      "excludedPlaceholder": "nt koriander, seened",
+      "excludedHelper": "Koostisosad, mida tahaksid söögisoovitustes vältida",
+      "mealSchedulingHeading": "Söögikorrad",
+      "weekdayMealsLabel": "Tööpäevadel planeeritavad söögikorrad",
+      "weekendMealsLabel": "Nädalavahetustel planeeritavad söögikorrad"
+    },
+    "members": {
+      "heading": "Liikmed",
+      "description": "Halda leibkonna liikmeid ja nende portsjonisuuruseid",
+      "empty": "Liikmeid ei leitud.",
+      "nonOwnerNotice": "Saad muuta ainult oma eelistusi. Teiste liikmete uuendamiseks võta ühendust leibkonna omanikuga.",
+      "fallbackInviteName": "see liige",
+      "unknownName": "Tundmatu liige",
+      "manualBadge": "Käsitsi",
+      "invitePendingBadge": "Kutse ootel",
+      "inviteAria": "Kutsu liituma",
+      "editAria": "Muuda eelistusi",
+      "removeAria": "Eemalda liige",
+      "removeDialog": {
+        "title": "Eemalda liige",
+        "description": "Kas oled kindel, et soovid eemaldada „{name}\" leibkonnast? Seda ei saa tagasi võtta.",
+        "confirm": "Eemalda"
+      },
+      "removeFailed": "Liikme eemaldamine ebaõnnestus",
+      "removed": "Liige eemaldati"
+    },
+    "portion": {
+      "small": "Väike",
+      "regular": "Tavaline",
+      "large": "Suur",
+      "extraLarge": "Eriti suur",
+      "label": "{label} portsjon ({multiplier}x)",
+      "custom": "Kohandatud portsjon ({multiplier}x)",
+      "preset": "{label} ({multiplier}x)",
+      "size": "Portsjoni suurus",
+      "helper": "x tavaline portsjon",
+      "invalid": "Portsjoni suurus peab olema vahemikus 0,5 kuni 3,0",
+      "aria": "Portsjoni kordaja"
+    },
+    "addMember": {
+      "trigger": "Lisa liige",
+      "title": "Lisa leibkonna liige",
+      "description": "Lisa pereliige, kellel pole oma kontot, näiteks laps.",
+      "nameLabel": "Nimi",
+      "namePlaceholder": "Sisesta nimi",
+      "displayNameLabel": "Hüüdnimi (vabatahtlik)",
+      "displayNamePlaceholder": "nt põnn, väikseke",
+      "displayNameHelper": "Kuidas seda liiget leibkonnas kuvada",
+      "cancel": "Tühista",
+      "submit": "Lisa liige",
+      "submitting": "Lisan…",
+      "addedToast": "Liige lisatud",
+      "errors": {
+        "nameRequired": "Nimi on kohustuslik",
+        "addFailed": "Liikme lisamine ebaõnnestus"
+      }
+    },
+    "editMember": {
+      "title": "Muuda „{name}\" eelistusi",
+      "description": "Uuenda selle liikme portsjoni suurust.",
+      "nameLabel": "Nimi",
+      "namePlaceholder": "Sisesta nimi",
+      "displayNameLabel": "Hüüdnimi",
+      "displayNamePlaceholder": "nt Ema, Isa, Aleks",
+      "displayNameHelper": "Kuidas seda liiget leibkonnas kuvada",
+      "cancel": "Tühista",
+      "submit": "Salvesta eelistused",
+      "submitting": "Salvestan…",
+      "savedToast": "Eelistused salvestatud",
+      "fallbackName": "liige",
+      "errors": {
+        "saveFailed": "Eelistuste salvestamine ebaõnnestus"
+      }
+    },
+    "invite": {
+      "title": "Kutsu „{name}\"",
+      "descriptionActive": "Jaga seda linki, et nad saaksid oma profiili üle võtta.",
+      "descriptionPending": "Loo selle liikme jaoks link, et nad saaksid liituda ja oma profiili üle võtta.",
+      "linkLabel": "Kutselink",
+      "copy": "Kopeeri",
+      "copied": "Kopeeritud!",
+      "expires": "See kutse aegub {date}.",
+      "regenerate": "Loo uus link",
+      "regenerating": "Loon…",
+      "regenerateWarning": "See tühistab praeguse lingi.",
+      "body": "Kui „{name}\" seda linki kasutab, loovad nad konto ja seotakse automaatselt sinu leibkonnas oleva profiiliga.",
+      "cancel": "Tühista",
+      "create": "Loo kutselink",
+      "creating": "Loon…",
+      "done": "Valmis",
+      "copySuccess": "Link kopeeriti lõikepuhvrisse",
+      "copyFailed": "Lingi kopeerimine ebaõnnestus. Palun kopeeri käsitsi.",
+      "errors": {
+        "createFailed": "Kutse loomine ebaõnnestus",
+        "generic": "Tekkis viga"
+      }
+    }
+  },
+  "profile": {
+    "title": "Profiil",
+    "description": "Sinu konto andmed",
+    "nameLabel": "Nimi",
+    "emailLabel": "E-post",
+    "yourDataHeading": "Sinu andmed",
+    "yourDataDescription": "Lae alla koopia oma profiilist, leibkonna andmetest, söögiplaanidest ja sätetest JSON-failina.",
+    "downloadButton": "Lae andmed alla",
+    "dangerHeading": "Ohutsoon",
+    "dangerDescription": "Kustuta oma konto ja kõik seotud andmed jäädavalt.",
+    "delete": {
+      "trigger": "Kustuta konto",
+      "title": "Kustuta konto",
+      "confirmation": "Kas oled kindel, et soovid oma konto kustutada? Seda ei saa tagasi võtta.",
+      "willDelete": "Jäädavalt kustutatakse järgnev:",
+      "list": {
+        "profile": "Sinu profiil ja konto andmed",
+        "preferences": "Sinu eelistused ja sätted",
+        "householdAll": "Sinu leibkond „{householdName}\" ja kõik selle andmed (söögiplaanid, sahvri tooted jms)",
+        "membership": "Sinu liikmesus „{householdName}\""
+      },
+      "cannotDeleteOwner": "Hoiatus: kontot ei saa kustutada, sest oled „{householdName}\" omanik ja seal on {count, plural, one {# muu liige} other {# muud liiget}}. Palun anna omandiõigus üle või eemalda enne teised liikmed.",
+      "accountLine": "Konto: {email}",
+      "cancel": "Tühista",
+      "confirm": "Kustuta konto",
+      "deleting": "Kustutan…",
+      "errors": {
+        "deleteFailed": "Konto kustutamine ebaõnnestus",
+        "unexpected": "Tekkis ootamatu viga"
+      }
+    }
+  },
+  "onboarding": {
+    "step": "Samm {current} / {total}",
+    "nameStepTitle": "Loo oma leibkond",
+    "nameStepDescription": "Anna leibkonnale nimi, et alustada",
+    "membersStepTitle": "Leibkonna liikmed",
+    "membersStepDescription": "Räägi meile oma leibkonnast",
+    "householdSizeLabel": "Mitu inimest on sinu leibkonnas?",
+    "decreaseAria": "Vähenda leibkonna suurust",
+    "increaseAria": "Suurenda leibkonna suurust",
+    "membersLabel": "Liikmed",
+    "membersHelper": "Nimesid ja tüüpe saad hiljem sätetes muuta.",
+    "memberAria": "{index}. liikme nimi",
+    "adult": "Täiskasvanu",
+    "child": "Laps",
+    "defaultName": "{type} {index}",
+    "nameLabel": "Leibkonna nimi",
+    "back": "Tagasi",
+    "continue": "Jätka",
+    "submit": "Loo leibkond",
+    "submitting": "Loon…",
+    "createdToast": "Leibkond loodud",
+    "errors": {
+      "nameRequired": "Leibkonna nimi on kohustuslik",
+      "network": "Ühendus ebaõnnestus. Palun kontrolli internetiühendust.",
+      "generic": "Tekkis viga",
+      "createFailed": "Leibkonna loomine ebaõnnestus"
+    }
   },
   "enums": {
     "MealType": {

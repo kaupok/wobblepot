@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
+import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -34,6 +35,8 @@ export function MemberInviteDialog({
   existingInvite,
   onInviteCreated,
 }: MemberInviteDialogProps) {
+  const t = useTranslations('household.invite')
+  const locale = useLocale()
   const [error, setError] = useState('')
   const [createdInvite, setCreatedInvite] = useState<MemberInvite | null>(existingInvite)
   const [copied, setCopied] = useState(false)
@@ -51,7 +54,7 @@ export function MemberInviteDialog({
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || 'Failed to create invite')
+        throw new Error(data.error || t('errors.createFailed'))
       }
 
       return response.json()
@@ -66,7 +69,7 @@ export function MemberInviteDialog({
       onInviteCreated(newInvite)
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      setError(err instanceof Error ? err.message : t('errors.generic'))
     },
   })
 
@@ -98,10 +101,10 @@ export function MemberInviteDialog({
     try {
       await navigator.clipboard.writeText(createdInvite.url)
       setCopied(true)
-      toast.success('Link copied to clipboard')
+      toast.success(t('copySuccess'))
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      toast.error('Failed to copy link. Please copy manually.')
+      toast.error(t('copyFailed'))
     }
   }
 
@@ -112,18 +115,16 @@ export function MemberInviteDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Invite {memberName}</DialogTitle>
+          <DialogTitle>{t('title', { name: memberName })}</DialogTitle>
           <DialogDescription>
-            {hasActiveInvite
-              ? 'Share this link for them to claim their profile.'
-              : 'Create a link for this member to join and claim their profile.'}
+            {hasActiveInvite ? t('descriptionActive') : t('descriptionPending')}
           </DialogDescription>
         </DialogHeader>
 
         {hasActiveInvite && displayInvite ? (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="invite-link">Invite link</Label>
+              <Label htmlFor="invite-link">{t('linkLabel')}</Label>
               <div className="flex gap-2">
                 <Input
                   id="invite-link"
@@ -132,33 +133,30 @@ export function MemberInviteDialog({
                   className="font-mono text-sm"
                 />
                 <Button variant="outline" onClick={handleCopy} className="shrink-0">
-                  {copied ? 'Copied!' : 'Copy'}
+                  {copied ? t('copied') : t('copy')}
                 </Button>
               </div>
             </div>
             <Body variant="muted">
-              This invite expires{' '}
-              {new Date(displayInvite.expiresAt).toLocaleDateString(undefined, {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
+              {t('expires', {
+                date: new Date(displayInvite.expiresAt).toLocaleDateString(locale, {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                }),
               })}
-              .
             </Body>
             <div className="flex flex-col gap-2">
               <Button variant="outline" onClick={handleCreateInvite} disabled={isLoading}>
-                {isLoading ? 'Creating...' : 'Generate new link'}
+                {isLoading ? t('regenerating') : t('regenerate')}
               </Button>
-              <Body variant="caption">This will invalidate the current link.</Body>
+              <Body variant="caption">{t('regenerateWarning')}</Body>
             </div>
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            <Body>
-              When {memberName} uses this link, they&apos;ll create an account and automatically be
-              connected to their existing profile in your household.
-            </Body>
+            <Body>{t('body', { name: memberName })}</Body>
             {error && (
               <Body variant="small" className="text-destructive">
                 {error}
@@ -169,14 +167,14 @@ export function MemberInviteDialog({
 
         <DialogFooter>
           {hasActiveInvite ? (
-            <Button onClick={() => handleOpenChange(false)}>Done</Button>
+            <Button onClick={() => handleOpenChange(false)}>{t('done')}</Button>
           ) : (
             <>
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-                Cancel
+                {t('cancel')}
               </Button>
               <Button onClick={handleCreateInvite} disabled={isLoading}>
-                {isLoading ? 'Creating...' : 'Create invite link'}
+                {isLoading ? t('creating') : t('create')}
               </Button>
             </>
           )}

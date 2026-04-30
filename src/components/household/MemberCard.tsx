@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -10,17 +11,11 @@ import { Pencil, Trash2, User, Crown, Mail } from 'lucide-react'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { Member, MemberInvite } from '@/types/member'
 
-const PORTION_LABELS: Record<number, string> = {
-  0.75: 'Small',
-  1: 'Regular',
-  1.5: 'Large',
-  2: 'Extra large',
-}
-
-function getPortionLabel(multiplier: number): string {
-  const label = PORTION_LABELS[multiplier]
-  if (label) return `${label} portion (${multiplier}x)`
-  return `Custom portion (${multiplier}x)`
+const PORTION_PRESET_KEYS: Record<number, 'small' | 'regular' | 'large' | 'extraLarge'> = {
+  0.75: 'small',
+  1: 'regular',
+  1.5: 'large',
+  2: 'extraLarge',
 }
 
 interface MemberCardProps {
@@ -43,15 +38,24 @@ export function MemberCard({
   onRemove,
   onInvite,
 }: MemberCardProps) {
+  const tMembers = useTranslations('household.members')
+  const tPortion = useTranslations('household.portion')
   const [showRemoveDialog, setShowRemoveDialog] = useState(false)
   const [isRemoving, setIsRemoving] = useState(false)
 
   const displayName =
-    member.preferences?.displayName || member.user?.name || member.name || 'Unknown member'
+    member.preferences?.displayName || member.user?.name || member.name || tMembers('unknownName')
   const isManual = member.userId === null
   const isOwner = member.role === 'owner'
   const ownerLabel = useEnumLabel('HouseholdRole', 'owner')
   const portionMultiplier = member.preferences?.portionMultiplier ?? 1.0
+  const presetKey = PORTION_PRESET_KEYS[portionMultiplier]
+  const portionLabel = presetKey
+    ? tPortion('label', {
+        label: tPortion(presetKey),
+        multiplier: portionMultiplier,
+      })
+    : tPortion('custom', { multiplier: portionMultiplier })
 
   const handleRemove = async () => {
     setIsRemoving(true)
@@ -62,14 +66,14 @@ export function MemberCard({
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to remove member')
+        throw new Error(errorData.error || tMembers('removeFailed'))
       }
 
       setShowRemoveDialog(false)
       onRemove(member.id)
-      toast.success('Member removed')
+      toast.success(tMembers('removed'))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to remove member')
+      toast.error(err instanceof Error ? err.message : tMembers('removeFailed'))
     } finally {
       setIsRemoving(false)
     }
@@ -97,12 +101,12 @@ export function MemberCard({
               )}
               {isManual && !member.invite?.isActive && (
                 <Badge variant="outline" className="text-xs">
-                  Manual
+                  {tMembers('manualBadge')}
                 </Badge>
               )}
               {member.invite?.isActive && (
                 <Badge variant="secondary" className="text-xs">
-                  Invite pending
+                  {tMembers('invitePendingBadge')}
                 </Badge>
               )}
             </div>
@@ -113,7 +117,7 @@ export function MemberCard({
                 variant="ghost"
                 size="icon"
                 onClick={() => onInvite(member)}
-                aria-label="Invite to join"
+                aria-label={tMembers('inviteAria')}
               >
                 <Mail className="h-4 w-4" />
               </Button>
@@ -123,7 +127,7 @@ export function MemberCard({
                 variant="ghost"
                 size="icon"
                 onClick={() => onEdit(member)}
-                aria-label="Edit preferences"
+                aria-label={tMembers('editAria')}
               >
                 <Pencil className="h-4 w-4" />
               </Button>
@@ -133,7 +137,7 @@ export function MemberCard({
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowRemoveDialog(true)}
-                aria-label="Remove member"
+                aria-label={tMembers('removeAria')}
                 className="text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
                 <Trash2 className="h-4 w-4" />
@@ -145,7 +149,7 @@ export function MemberCard({
         {/* Portion size */}
         <div className="pl-12">
           <Body variant="muted" className="text-sm">
-            {getPortionLabel(portionMultiplier)}
+            {portionLabel}
           </Body>
         </div>
       </div>
@@ -153,9 +157,9 @@ export function MemberCard({
       <ConfirmDialog
         open={showRemoveDialog}
         onOpenChange={setShowRemoveDialog}
-        title="Remove member"
-        description={`Are you sure you want to remove ${displayName} from the household? This action cannot be undone.`}
-        confirmLabel="Remove"
+        title={tMembers('removeDialog.title')}
+        description={tMembers('removeDialog.description', { name: displayName })}
+        confirmLabel={tMembers('removeDialog.confirm')}
         variant="destructive"
         onConfirm={handleRemove}
         isLoading={isRemoving}

@@ -1,3 +1,6 @@
+'use client'
+
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { NumberInput } from '@/components/ui/number-input'
 import { cn } from '@/lib/utils'
@@ -23,10 +26,13 @@ export function QuantityControls({
   onSetQuantity,
   onMarkAsVague,
 }: QuantityControlsProps) {
+  const t = useTranslations('recipes.ingredientRow')
+  const tForm = useTranslations('recipes.form.componentList')
+
   if (isVague) {
     return (
       <Button type="button" variant="outline" size="sm" onClick={onSetQuantity} disabled={disabled}>
-        Set quantity
+        {tForm('setQuantity')}
       </Button>
     )
   }
@@ -44,7 +50,7 @@ export function QuantityControls({
           onValueChange={(v) => {
             if (v !== null) onQuantityChange(v)
           }}
-          aria-label="Quantity"
+          aria-label={t('quantityAria')}
           className="w-20 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
           disabled={disabled}
         />
@@ -55,7 +61,7 @@ export function QuantityControls({
         )}
       </div>
       <Button type="button" variant="outline" size="sm" onClick={onMarkAsVague} disabled={disabled}>
-        No quantity
+        {tForm('noQuantity')}
       </Button>
     </>
   )

@@ -32,20 +32,30 @@ vi.mock('next-intl', async () => {
   function applyValues(template: string, values?: Record<string, string | number>): string {
     if (!values) return template
     // Handle ICU plurals: `{count, plural, =0 {…} one {…} other {…}}`
-    const pluralRe = /\{(\w+),\s*plural,\s*((?:[^{}]|\{[^{}]*\})*)\}/g
+    // The plural body may contain two levels of nested braces (arms with
+    // their own `{rows}` placeholders), so both regexes accept up to that
+    // depth. Deeper nesting is unsupported here — mirror the production
+    // catalog if you need more.
+    const pluralRe = /\{(\w+),\s*plural,\s*((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}/g
     let out = template.replace(pluralRe, (_match, varName: string, body: string) => {
       const raw = values[varName]
       const count = typeof raw === 'number' ? raw : Number(raw)
       const arms = new Map<string, string>()
-      // Body looks like: =0 {No items} one {# item} other {# items}
-      const armRe = /(=\d+|zero|one|two|few|many|other)\s*\{([^{}]*)\}/g
+      // Body looks like: =0 {No items} one {# item} other {# items {rows}}
+      const armRe = /(=\d+|zero|one|two|few|many|other)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/g
       let armMatch: RegExpExecArray | null
       while ((armMatch = armRe.exec(body)) !== null) {
         arms.set(armMatch[1] ?? '', armMatch[2] ?? '')
       }
       const pick =
         arms.get(`=${count}`) ?? (count === 1 ? arms.get('one') : null) ?? arms.get('other') ?? ''
-      return pick.replace(/#/g, String(count))
+      // Resolve any nested `{name}` placeholders within the picked arm body
+      // before substituting `#` for the count itself.
+      const resolved = pick.replace(/\{(\w+)\}/g, (_m, name: string) => {
+        const v = values[name]
+        return v === undefined ? `{${name}}` : String(v)
+      })
+      return resolved.replace(/#/g, String(count))
     })
     // Handle plain placeholders: `{name}`
     out = out.replace(/\{(\w+)\}/g, (_match, name: string) => {

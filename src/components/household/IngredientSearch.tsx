@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useId } from 'react'
 import { Search, Plus, Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
@@ -25,6 +26,7 @@ export function IngredientSearch({
   existingIngredientIds,
   onAddIngredient,
 }: IngredientSearchProps) {
+  const t = useTranslations('recipes.form.ingredientSearch')
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<IngredientResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
@@ -137,7 +139,7 @@ export function IngredientSearch({
             }
           }}
           onKeyDown={handleSearchKeyDown}
-          placeholder="Search to add more ingredients..."
+          placeholder={t('placeholder')}
           className="pr-9 pl-9"
           disabled={disabled}
           role="combobox"
@@ -186,7 +188,7 @@ export function IngredientSearch({
                   <CategoryHint category={ingredient.category} />
                 </div>
                 {isAdded ? (
-                  <Body variant="muted">Added</Body>
+                  <Body variant="muted">{t('added')}</Body>
                 ) : (
                   <Plus className="text-muted-foreground h-4 w-4" />
                 )}
@@ -199,7 +201,7 @@ export function IngredientSearch({
       {searchQuery.trim() && !isSearching && searchResults.length === 0 && (
         <div className="bg-popover absolute top-full z-10 mt-1 w-full rounded-md border p-3 shadow-md">
           <Body variant="muted" className="text-center">
-            No ingredients found
+            {t('noResults')}
           </Body>
         </div>
       )}

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Plus } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NumberInput } from '@/components/ui/number-input'
@@ -20,18 +21,21 @@ import {
 } from '@/components/ui/dialog'
 import type { Member } from '@/types/member'
 
-const PORTION_PRESETS = [
-  { label: 'Small', value: 0.75 },
-  { label: 'Regular', value: 1.0 },
-  { label: 'Large', value: 1.5 },
-  { label: 'Extra large', value: 2.0 },
-]
+const PORTION_PRESETS: Array<{ key: 'small' | 'regular' | 'large' | 'extraLarge'; value: number }> =
+  [
+    { key: 'small', value: 0.75 },
+    { key: 'regular', value: 1.0 },
+    { key: 'large', value: 1.5 },
+    { key: 'extraLarge', value: 2.0 },
+  ]
 
 interface AddMemberDialogProps {
   onMemberAdded: (member: Member) => void
 }
 
 export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
+  const t = useTranslations('household.addMember')
+  const tPortion = useTranslations('household.portion')
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -56,7 +60,7 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to add member')
+        throw new Error(errorData.error || t('errors.addFailed'))
       }
 
       return response.json()
@@ -64,10 +68,10 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
     onSuccess: (newMember) => {
       onMemberAdded(newMember)
       handleOpenChange(false)
-      toast.success('Member added')
+      toast.success(t('addedToast'))
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      setError(err instanceof Error ? err.message : t('errors.addFailed'))
     },
   })
 
@@ -94,12 +98,12 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
 
     const trimmedName = name.trim()
     if (!trimmedName) {
-      setError('Name is required')
+      setError(t('errors.nameRequired'))
       return
     }
 
     if (portionMultiplier < 0.5 || portionMultiplier > 3.0) {
-      setPortionError('Portion size must be between 0.5 and 3.0')
+      setPortionError(tPortion('invalid'))
       return
     }
 
@@ -112,7 +116,7 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
       return
     }
     if (value < 0.5 || value > 3.0) {
-      setPortionError('Portion size must be between 0.5 and 3.0')
+      setPortionError(tPortion('invalid'))
       return
     }
     setPortionError(null)
@@ -124,29 +128,27 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
       <DialogTrigger asChild>
         <Button>
           <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-          Add member
+          {t('trigger')}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Add household member</DialogTitle>
-            <DialogDescription>
-              Add a family member who doesn&apos;t have an account, such as a child.
-            </DialogDescription>
+            <DialogTitle>{t('title')}</DialogTitle>
+            <DialogDescription>{t('description')}</DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-6 py-4">
             {/* Name (required) */}
             <div className="flex flex-col gap-2">
-              <Label htmlFor="add-member-name">Name</Label>
+              <Label htmlFor="add-member-name">{t('nameLabel')}</Label>
               <Input
                 id="add-member-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 maxLength={100}
-                placeholder="Enter name"
+                placeholder={t('namePlaceholder')}
                 disabled={isLoading}
                 required
               />
@@ -154,24 +156,24 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
 
             {/* Display name */}
             <div className="flex flex-col gap-2">
-              <Label htmlFor="add-member-displayName">Display name (optional)</Label>
+              <Label htmlFor="add-member-displayName">{t('displayNameLabel')}</Label>
               <Input
                 id="add-member-displayName"
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 maxLength={50}
-                placeholder="e.g., kiddo, little one"
+                placeholder={t('displayNamePlaceholder')}
                 disabled={isLoading}
               />
               <Body variant="muted" className="text-sm">
-                How this member appears in the household
+                {t('displayNameHelper')}
               </Body>
             </div>
 
             {/* Portion size */}
             <div className="flex flex-col gap-2">
-              <Label>Portion size</Label>
+              <Label>{tPortion('size')}</Label>
               <div className="flex flex-wrap gap-2">
                 {PORTION_PRESETS.map((preset) => (
                   <Button
@@ -182,7 +184,7 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
                     onClick={() => setPortionMultiplier(preset.value)}
                     disabled={isLoading}
                   >
-                    {preset.label} ({preset.value}x)
+                    {tPortion('preset', { label: tPortion(preset.key), multiplier: preset.value })}
                   </Button>
                 ))}
               </div>
@@ -193,9 +195,9 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
                   className="w-24"
                   disabled={isLoading}
                   aria-invalid={!!portionError}
-                  aria-label="Portion multiplier"
+                  aria-label={tPortion('aria')}
                 />
-                <Body variant="muted">x standard portion</Body>
+                <Body variant="muted">{tPortion('helper')}</Body>
               </div>
               {portionError && (
                 <Body variant="small" className="text-destructive">
@@ -213,10 +215,10 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-              Cancel
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Adding...' : 'Add member'}
+              {isLoading ? t('submitting') : t('submit')}
             </Button>
           </DialogFooter>
         </form>

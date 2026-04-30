@@ -1,6 +1,6 @@
 'use client'
 
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { HelpCircle, X, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
@@ -41,6 +41,7 @@ export function LowConfidenceIngredientRow({
   onMarkAsVague,
 }: LowConfidenceIngredientRowProps) {
   const locale = useLocale() as Locale
+  const t = useTranslations('recipes.ingredientRow')
   const perServing = formatQuantity(data.totalQuantity / servings, locale, {
     maximumFractionDigits: 1,
   })
@@ -84,25 +85,26 @@ export function LowConfidenceIngredientRow({
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-col gap-0.5">
               <Body className="text-blue-700 dark:text-blue-400">{data.extractedName}</Body>
-              {data.originalText && <Body variant="muted">Original: {data.originalText}</Body>}
+              {data.originalText && (
+                <Body variant="muted">{t('originalLabel', { text: data.originalText })}</Body>
+              )}
               <Body variant="muted">
                 {data.isVague && data.originalPhrase ? (
                   <span className="italic">{data.originalPhrase}</span>
                 ) : isInvalidQuantity ? (
-                  <span className="text-destructive">Quantity must be greater than 0</span>
+                  <span className="text-destructive">{t('invalidQuantity')}</span>
                 ) : (
-                  <>
-                    {perServing}
-                    {unitLabel} per serving
-                  </>
+                  t('perServing', { quantity: perServing, unit: unitLabel })
                 )}
               </Body>
               {isDuplicate && (
                 <div className="mt-1 flex items-center gap-1.5">
                   <Info className="h-3 w-3 shrink-0 text-amber-600" />
                   <Body variant="small" className="text-amber-700 dark:text-amber-400">
-                    Also used in row{duplicateIndices.length > 1 ? 's' : ''}{' '}
-                    {duplicateIndices.map((i) => i + 1).join(', ')}
+                    {t('duplicateRow', {
+                      count: duplicateIndices.length,
+                      rows: duplicateIndices.map((i) => i + 1).join(', '),
+                    })}
                   </Body>
                 </div>
               )}
@@ -124,7 +126,7 @@ export function LowConfidenceIngredientRow({
                 size="sm"
                 onClick={onRemove}
                 disabled={disabled}
-                aria-label="Remove ingredient"
+                aria-label={t('removeAria')}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -134,19 +136,19 @@ export function LowConfidenceIngredientRow({
           {/* Disambiguation dropdown */}
           <div className="flex items-center gap-2">
             <Body variant="small" className="text-blue-700 dark:text-blue-400">
-              Verify match:
+              {t('verifyMatch')}
             </Body>
             <Select
               value={data.ingredient.id}
               onValueChange={handleAlternativeSelect}
               disabled={disabled}
             >
-              <SelectTrigger className="w-[200px]" aria-label="Verify ingredient match">
+              <SelectTrigger className="w-[200px]" aria-label={t('verifyMatchAria')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={data.ingredient.id}>
-                  {data.ingredient.name} (best match)
+                  {t('bestMatchSuffix', { name: data.ingredient.name })}
                 </SelectItem>
                 {data.alternatives
                   .filter((alt) => alt.id !== data.ingredient.id)
@@ -158,7 +160,7 @@ export function LowConfidenceIngredientRow({
               </SelectContent>
             </Select>
             <Button type="button" size="sm" onClick={handleConfirmBestMatch} disabled={disabled}>
-              Confirm
+              {t('confirm')}
             </Button>
           </div>
         </div>

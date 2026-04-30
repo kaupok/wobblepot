@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import { getTranslations } from 'next-intl/server'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
 import { Heading, Body } from '@/components/ui/typography'
@@ -26,25 +27,27 @@ export default async function ProfilePage() {
   const memberCount = await getHouseholdMemberCount(membership.householdId)
   const isOwner = membership.role === 'owner'
 
+  const t = await getTranslations('profile')
+
   return (
     <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <Heading variant="h4">Profile</Heading>
-          <Body variant="muted">Your account information</Body>
+          <Heading variant="h4">{t('title')}</Heading>
+          <Body variant="muted">{t('description')}</Body>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1">
                 <Body variant="small" className="text-muted-foreground">
-                  Name
+                  {t('nameLabel')}
                 </Body>
                 <Body>{session.user.name}</Body>
               </div>
               <div className="flex flex-col gap-1">
                 <Body variant="small" className="text-muted-foreground">
-                  Email
+                  {t('emailLabel')}
                 </Body>
                 <Body>{session.user.email}</Body>
               </div>
@@ -53,15 +56,12 @@ export default async function ProfilePage() {
             <Separator />
 
             <div className="flex flex-col gap-3">
-              <Heading variant="h4">Your data</Heading>
-              <Body variant="muted">
-                Download a copy of your profile, household data, meal plans, and settings as a JSON
-                file.
-              </Body>
+              <Heading variant="h4">{t('yourDataHeading')}</Heading>
+              <Body variant="muted">{t('yourDataDescription')}</Body>
               <div>
                 <Button asChild variant="outline">
                   <a href="/api/auth/user/export" download>
-                    Download my data
+                    {t('downloadButton')}
                   </a>
                 </Button>
               </div>
@@ -70,8 +70,8 @@ export default async function ProfilePage() {
             <Separator />
 
             <div className="flex flex-col gap-3">
-              <Heading variant="h4">Danger zone</Heading>
-              <Body variant="muted">Permanently delete your account and all associated data.</Body>
+              <Heading variant="h4">{t('dangerHeading')}</Heading>
+              <Body variant="muted">{t('dangerDescription')}</Body>
               <div>
                 <DeleteAccountDialog
                   userEmail={session.user.email}
