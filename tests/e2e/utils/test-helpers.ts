@@ -98,27 +98,38 @@ export async function signUp(
 /**
  * Creates a household during onboarding.
  * Onboarding is a 2-step flow: step 1 = household name, step 2 = members.
+ *
+ * Locale-stable selectors: the onboarding form chrome is externalized
+ * (HON-510), so label and button text vary by locale. The `@i18n platform
+ * smoke` test runs this helper under an `et-EE` browser session — chrome
+ * during onboarding renders in Estonian (no household exists yet, so the
+ * resolver picks up Accept-Language). We use the input `id="name"` and
+ * structural button-type selectors instead of `getByRole('button', { name })`
+ * to stay locale-agnostic.
  */
 export async function createHousehold(page: Page, householdName?: string): Promise<void> {
   await page.waitForURL('/onboarding')
 
   if (householdName) {
-    await page.getByLabel('Household name').clear()
-    await page.getByLabel('Household name').fill(householdName)
+    await page.locator('input#name').clear()
+    await page.locator('input#name').fill(householdName)
   }
 
-  // Step 1 → 2: advance past the household-name step
-  await page.getByRole('button', { name: 'Continue' }).click()
+  // Step 1 → 2: advance past the household-name step. Step 1 contains exactly
+  // one button (Continue, `type="button"`); step 2 has many type-button
+  // buttons (Back, Adult, Child, +/-) plus the submit button, so this selector
+  // is only unambiguous in step 1.
+  await page.locator('form button[type="button"]').click()
 
   // The form has a 100ms guard (`justTransitioned`) that ignores submissions
   // immediately after a step transition, to prevent Enter-key race conditions.
-  // Wait for step 2 to render, then for the guard window to elapse, before
-  // clicking the submit button — otherwise the click is silently swallowed.
-  await expect(page.getByRole('heading', { name: 'Household members' })).toBeVisible()
+  // Wait for step 2's submit button to render, then for the guard window to
+  // elapse, before clicking — otherwise the click is silently swallowed.
+  await expect(page.locator('form button[type="submit"]')).toBeVisible()
   await page.waitForTimeout(150)
 
   // Step 2: submit with defaults (1 member)
-  await page.getByRole('button', { name: 'Create household' }).click()
+  await page.locator('form button[type="submit"]').click()
   await page.waitForURL('/')
 }
 
