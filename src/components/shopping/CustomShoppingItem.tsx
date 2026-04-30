@@ -1,6 +1,7 @@
 'use client'
 
 import { X, Unlink } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Body } from '@/components/ui/typography'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -31,6 +32,7 @@ export function CustomShoppingItem({
   disabled,
   pending,
 }: CustomShoppingItemProps) {
+  const tShopping = useTranslations('shopping')
   const handleCheckedChange = (checked: boolean | 'indeterminate') => {
     if (checked === 'indeterminate') return
     onToggle(item.id, checked)
@@ -52,7 +54,10 @@ export function CustomShoppingItem({
           onCheckedChange={handleCheckedChange}
           disabled={disabled}
           className="h-5 w-5"
-          aria-label={`Mark ${item.name} as ${item.checked ? 'not purchased' : 'purchased'}`}
+          aria-label={tShopping('ariaToggleItem', {
+            name: item.name,
+            state: item.checked ? tShopping('stateNotPurchased') : tShopping('statePurchased'),
+          })}
         />
         <div className="flex items-baseline gap-2">
           <Body
@@ -76,13 +81,13 @@ export function CustomShoppingItem({
                 type="button"
                 onClick={() => onUnlink(item.id)}
                 className="text-muted-foreground hover:text-foreground rounded p-1 transition-colors"
-                aria-label={`Unlink ${item.name} from ingredient`}
+                aria-label={tShopping('ariaUnlink', { name: item.name })}
               >
                 <Unlink className="h-3.5 w-3.5" />
               </button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Unlink from ingredient</p>
+              <p>{tShopping('unlinkTooltip')}</p>
             </TooltipContent>
           </Tooltip>
         )}
@@ -92,13 +97,13 @@ export function CustomShoppingItem({
               type="button"
               onClick={() => onDelete(item.id)}
               className="text-muted-foreground hover:text-destructive rounded p-1 transition-colors"
-              aria-label={`Remove ${item.name}`}
+              aria-label={tShopping('ariaRemove', { name: item.name })}
             >
               <X className="h-3.5 w-3.5" />
             </button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Remove item</p>
+            <p>{tShopping('removeTooltip')}</p>
           </TooltipContent>
         </Tooltip>
       </div>

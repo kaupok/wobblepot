@@ -129,7 +129,7 @@ export const SearchAndSelectInvokesCallbacks: Story = {
     const body = within(document.body)
     await body.findByRole('dialog')
 
-    const searchInput = await body.findByPlaceholderText('Search meal library...')
+    const searchInput = await body.findByPlaceholderText('Search meal library…')
     await userEvent.type(searchInput, 'chicken')
 
     // Debounced search (300 ms) → MSW returns library meals

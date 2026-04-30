@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import {
@@ -68,6 +69,9 @@ export function ShoppingSection({
   externalUnpurchasedIds,
   onExternalUnpurchaseProcessed,
 }: ShoppingSectionProps) {
+  const tShopping = useTranslations('shopping')
+  const tErrors = useTranslations('shopping.errors')
+  const tSort = useTranslations('shopping.sort')
   const [purchasedIds, setPurchasedIds] = useState<Set<string>>(initialPurchasedIds)
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
   const [sortMode, setSortMode] = useState<SortMode>('category')
@@ -193,7 +197,7 @@ export function ShoppingSection({
   }, [customItems])
 
   const getWindowLabel = () => {
-    return windowDays === 14 ? 'Next 14 days' : 'Next 7 days'
+    return windowDays === 14 ? tShopping('windowNext14') : tShopping('windowNext7')
   }
 
   const handleToggle = async (ingredientId: string, purchased: boolean) => {
@@ -221,7 +225,7 @@ export function ShoppingSection({
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to update item')
+        throw new Error(data.error || tErrors('updateFailed'))
       }
 
       // Notify parent about pantry changes (for real-time update)
@@ -255,7 +259,7 @@ export function ShoppingSection({
         return next
       })
 
-      const message = error instanceof Error ? error.message : 'Failed to update item'
+      const message = error instanceof Error ? error.message : tErrors('updateFailed')
       toast.error(message)
     } finally {
       setPendingIds((prev) => {
@@ -287,14 +291,14 @@ export function ShoppingSection({
 
         if (!response.ok) {
           const data = await response.json().catch(() => ({}))
-          throw new Error(data.error || 'Failed to update item')
+          throw new Error(data.error || tErrors('updateFailed'))
         }
       } catch (error) {
         // Revert optimistic update
         setCustomItems((prev) =>
           prev.map((item) => (item.id === id ? { ...item, checked: !checked } : item)),
         )
-        const message = error instanceof Error ? error.message : 'Failed to update item'
+        const message = error instanceof Error ? error.message : tErrors('updateFailed')
         toast.error(message)
       } finally {
         setPendingCustomIds((prev) => {
@@ -307,46 +311,52 @@ export function ShoppingSection({
     [pendingCustomIds],
   )
 
-  const handleCustomUnlink = useCallback(async (id: string) => {
-    // Optimistic update
-    setCustomItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, ingredientId: null, ingredientCategory: null } : item,
-      ),
-    )
+  const handleCustomUnlink = useCallback(
+    async (id: string) => {
+      // Optimistic update
+      setCustomItems((prev) =>
+        prev.map((item) =>
+          item.id === id ? { ...item, ingredientId: null, ingredientCategory: null } : item,
+        ),
+      )
 
-    try {
-      const response = await fetch(`/api/shopping-list/custom/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ingredientId: null }),
-      })
+      try {
+        const response = await fetch(`/api/shopping-list/custom/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ingredientId: null }),
+        })
 
-      if (!response.ok) {
-        throw new Error('Failed to unlink item')
+        if (!response.ok) {
+          throw new Error(tErrors('unlinkFailed'))
+        }
+      } catch {
+        // Revert on error — refetch would be better but this is simpler for now
+        toast.error(tErrors('unlinkFailed'))
       }
-    } catch {
-      // Revert on error — refetch would be better but this is simpler for now
-      toast.error('Failed to unlink item')
-    }
-  }, [])
+    },
+    [tErrors],
+  )
 
-  const handleCustomDelete = useCallback(async (id: string) => {
-    // Optimistic update
-    setCustomItems((prev) => prev.filter((item) => item.id !== id))
+  const handleCustomDelete = useCallback(
+    async (id: string) => {
+      // Optimistic update
+      setCustomItems((prev) => prev.filter((item) => item.id !== id))
 
-    try {
-      const response = await fetch(`/api/shopping-list/custom/${id}`, {
-        method: 'DELETE',
-      })
+      try {
+        const response = await fetch(`/api/shopping-list/custom/${id}`, {
+          method: 'DELETE',
+        })
 
-      if (!response.ok) {
-        throw new Error('Failed to remove item')
+        if (!response.ok) {
+          throw new Error(tErrors('removeFailed'))
+        }
+      } catch {
+        toast.error(tErrors('removeFailed'))
       }
-    } catch {
-      toast.error('Failed to remove item')
-    }
-  }, [])
+    },
+    [tErrors],
+  )
 
   const handleClearChecked = useCallback(async () => {
     const checkedIds = new Set(customItems.filter((i) => i.checked).map((i) => i.id))
@@ -361,12 +371,12 @@ export function ShoppingSection({
       })
 
       if (!response.ok) {
-        throw new Error('Failed to clear checked items')
+        throw new Error(tErrors('clearCheckedFailed'))
       }
     } catch {
-      toast.error('Failed to clear checked items')
+      toast.error(tErrors('clearCheckedFailed'))
     }
-  }, [customItems])
+  }, [customItems, tErrors])
 
   const isPending = pendingIds.size > 0 || pendingCustomIds.size > 0
 
@@ -390,10 +400,10 @@ export function ShoppingSection({
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div className="flex flex-col gap-1">
-            <Heading variant="h4">Shopping list</Heading>
+            <Heading variant="h4">{tShopping('title')}</Heading>
             <Body variant="muted">
-              {getWindowLabel()} · {totalItems} {totalItems === 1 ? 'item' : 'items'} ·{' '}
-              {totalPurchased} purchased
+              {getWindowLabel()} · {tShopping('itemCount', { count: totalItems })} ·{' '}
+              {tShopping('purchasedTail', { count: totalPurchased })}
             </Body>
           </div>
           <div className="flex items-center gap-2">
@@ -405,18 +415,18 @@ export function ShoppingSection({
                 className="text-muted-foreground"
               >
                 <Trash2 className="mr-1 h-3.5 w-3.5" />
-                Clear checked
+                {tShopping('clearChecked')}
               </Button>
             )}
             {mounted && (
               <Select value={sortMode} onValueChange={handleSortModeChange}>
-                <SelectTrigger size="sm" className="w-[150px]" aria-label="Sort items">
+                <SelectTrigger size="sm" className="w-[150px]" aria-label={tShopping('ariaSort')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="category">By category</SelectItem>
-                  <SelectItem value="urgency">By urgency</SelectItem>
-                  <SelectItem value="alphabetical">Alphabetical</SelectItem>
+                  <SelectItem value="category">{tSort('category')}</SelectItem>
+                  <SelectItem value="urgency">{tSort('urgency')}</SelectItem>
+                  <SelectItem value="alphabetical">{tSort('alphabetical')}</SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -463,7 +473,7 @@ export function ShoppingSection({
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
                     <Body variant="small" className="text-muted-foreground font-medium">
-                      📝 Other ({unlinkedCustomItems.length})
+                      {tShopping('otherSection', { count: unlinkedCustomItems.length })}
                     </Body>
                     {unlinkedCustomItems.filter((i) => i.checked).length > 0 && (
                       <Body variant="muted">
@@ -505,7 +515,7 @@ export function ShoppingSection({
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
                     <Body variant="small" className="text-muted-foreground font-medium">
-                      📝 Custom items ({customItems.length})
+                      {tShopping('customItemsSection', { count: customItems.length })}
                     </Body>
                     {checkedCustomCount > 0 && (
                       <Body variant="muted">

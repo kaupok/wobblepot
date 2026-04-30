@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
@@ -25,6 +26,7 @@ export function TimelineEmptySlot({
   pantryIngredients = [],
 }: TimelineEmptySlotProps) {
   const router = useRouter()
+  const tCard = useTranslations('meal-plan.card')
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [entryId, setEntryId] = useState<string | null>(null)
@@ -43,14 +45,14 @@ export function TimelineEmptySlot({
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || 'Failed to create entry')
+        throw new Error(data.error || tCard('createEntryFailed'))
       }
 
       const data = await response.json()
       setEntryId(data.id)
       setIsSelectorOpen(true)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to add meal slot')
+      toast.error(err instanceof Error ? err.message : tCard('createEntryFailed'))
     } finally {
       setIsCreating(false)
     }
@@ -78,7 +80,7 @@ export function TimelineEmptySlot({
   return (
     <>
       <div className="flex items-center justify-between rounded-lg border border-dashed px-3 py-2">
-        <Body variant="caption">No meal planned</Body>
+        <Body variant="caption">{tCard('noMealPlanned')}</Body>
         <Button
           variant="outline"
           size="sm"
@@ -86,7 +88,7 @@ export function TimelineEmptySlot({
           onClick={handlePickMeal}
           disabled={isCreating}
         >
-          {isCreating ? 'Adding...' : 'Pick a meal'}
+          {isCreating ? tCard('adding') : tCard('pickMeal')}
         </Button>
       </div>
       {entryId && (

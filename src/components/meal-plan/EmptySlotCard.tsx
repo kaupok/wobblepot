@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
@@ -19,6 +20,7 @@ interface EmptySlotCardProps {
 
 export function EmptySlotCard({ planId, date, mealType, householdSize }: EmptySlotCardProps) {
   const router = useRouter()
+  const tCard = useTranslations('meal-plan.card')
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [entryId, setEntryId] = useState<string | null>(null)
@@ -40,14 +42,14 @@ export function EmptySlotCard({ planId, date, mealType, householdSize }: EmptySl
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || 'Failed to create entry')
+        throw new Error(data.error || tCard('createEntryFailed'))
       }
 
       const data = await response.json()
       setEntryId(data.id)
       setIsSelectorOpen(true)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to add meal slot')
+      toast.error(err instanceof Error ? err.message : tCard('createEntryFailed'))
     } finally {
       setIsCreating(false)
     }
@@ -84,7 +86,7 @@ export function EmptySlotCard({ planId, date, mealType, householdSize }: EmptySl
           </Body>
         </CardHeader>
         <CardContent className="px-3 pb-1">
-          <Body variant="caption">No meal selected</Body>
+          <Body variant="caption">{tCard('noMealSelected')}</Body>
         </CardContent>
         <CardFooter className="px-3 pt-0">
           <Button
@@ -94,7 +96,7 @@ export function EmptySlotCard({ planId, date, mealType, householdSize }: EmptySl
             onClick={handleAddMeal}
             disabled={isCreating}
           >
-            {isCreating ? 'Adding...' : 'Add meal'}
+            {isCreating ? tCard('adding') : tCard('addMeal')}
           </Button>
         </CardFooter>
       </Card>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Star, Trash2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -34,6 +35,7 @@ interface PantryItemProps {
 }
 
 export function PantryItem({ item, onToggleStaple, onRemove }: PantryItemProps) {
+  const tPantry = useTranslations('pantry')
   const [isToggling, setIsToggling] = useState(false)
   const [isRemoving, setIsRemoving] = useState(false)
   const [showRemoveDialog, setShowRemoveDialog] = useState(false)
@@ -66,7 +68,7 @@ export function PantryItem({ item, onToggleStaple, onRemove }: PantryItemProps) 
           onClick={handleToggle}
           disabled={isToggling}
           className="h-8 w-8"
-          aria-label={item.isStaple ? 'Remove from staples' : 'Mark as staple'}
+          aria-label={item.isStaple ? tPantry('ariaUnstaple') : tPantry('ariaToggleStaple')}
         >
           <Star
             className={cn(
@@ -84,7 +86,7 @@ export function PantryItem({ item, onToggleStaple, onRemove }: PantryItemProps) 
         size="icon"
         onClick={() => setShowRemoveDialog(true)}
         className="text-muted-foreground hover:text-destructive h-8 w-8"
-        aria-label={`Remove ${item.ingredient.name}`}
+        aria-label={tPantry('ariaRemove', { name: item.ingredient.name })}
       >
         <Trash2 className="h-4 w-4" />
       </Button>
@@ -92,9 +94,9 @@ export function PantryItem({ item, onToggleStaple, onRemove }: PantryItemProps) 
       <ConfirmDialog
         open={showRemoveDialog}
         onOpenChange={setShowRemoveDialog}
-        title="Remove from pantry"
-        description={`Are you sure you want to remove ${item.ingredient.name} from your pantry?`}
-        confirmLabel="Remove"
+        title={tPantry('removeDialog.title')}
+        description={tPantry('removeDialog.description', { name: item.ingredient.name })}
+        confirmLabel={tPantry('removeDialog.confirm')}
         variant="destructive"
         onConfirm={handleRemove}
         isLoading={isRemoving}

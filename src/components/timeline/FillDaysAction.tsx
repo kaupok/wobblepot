@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
@@ -22,12 +22,7 @@ import { track } from '@/lib/analytics'
 
 const CLIENT_TIMEOUT_MS = 45000
 
-const DAY_OPTIONS = [
-  { value: '3', label: '3 days' },
-  { value: '5', label: '5 days' },
-  { value: '7', label: '7 days' },
-  { value: '14', label: '14 days' },
-]
+const DAY_OPTION_VALUES = ['3', '5', '7', '14'] as const
 
 interface FillDaysActionProps {
   planId: string
@@ -37,6 +32,8 @@ interface FillDaysActionProps {
 export function FillDaysAction({ planId, firstEmptyDate }: FillDaysActionProps) {
   const router = useRouter()
   const locale = useLocale() as Locale
+  const tFill = useTranslations('meal-plan.fillDays')
+  const tErrors = useTranslations('meal-plan.errors')
   const [days, setDays] = useState('7')
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -75,9 +72,9 @@ export function FillDaysAction({ planId, firstEmptyDate }: FillDaysActionProps) 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
         if (response.status === 429) {
-          setError('Rate limit exceeded. Please try again later.')
+          setError(tErrors('rateLimit'))
         } else {
-          setError(data.message || 'Failed to generate meals. Please try again.')
+          setError(data.message || tErrors('generationFailed'))
         }
         return
       }
@@ -92,9 +89,9 @@ export function FillDaysAction({ planId, firstEmptyDate }: FillDaysActionProps) 
     } catch (err) {
       clearTimeout(timeoutId)
       if (err instanceof Error && err.name === 'AbortError') {
-        setError('Generation timed out. Please try again.')
+        setError(tErrors('generationTimeout'))
       } else {
-        setError('Something went wrong. Please try again.')
+        setError(tErrors('generic'))
       }
     } finally {
       setIsGenerating(false)
@@ -109,23 +106,23 @@ export function FillDaysAction({ planId, firstEmptyDate }: FillDaysActionProps) 
           <Sparkles className="text-primary h-4 w-4 shrink-0" />
           <div className="flex flex-1 items-center gap-2">
             <Body variant="small" className="shrink-0">
-              Fill {dateRangeLabel}
+              {tFill('label', { dateRange: dateRangeLabel })}
             </Body>
             <Select value={days} onValueChange={setDays}>
-              <SelectTrigger className="h-8 w-[100px]" aria-label="Number of days to fill">
+              <SelectTrigger className="h-8 w-[100px]" aria-label={tFill('ariaDays')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {DAY_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                {DAY_OPTION_VALUES.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {tFill('dayOption', { count: Number(value) })}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <Button size="sm" onClick={handleFill} disabled={isGenerating}>
-            {isGenerating ? 'Generating...' : 'Generate'}
+            {isGenerating ? tFill('submitting') : tFill('submit')}
           </Button>
         </div>
         {error && (

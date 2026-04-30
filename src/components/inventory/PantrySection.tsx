@@ -50,13 +50,13 @@ export function PantrySection({
       })
 
       if (!response.ok) {
-        throw new Error('Failed to update item')
+        throw new Error(tPantry('errors.updateFailed'))
       }
     } catch {
       onItemsChange((prev) =>
         prev.map((item) => (item.id === id ? { ...item, isStaple: currentIsStaple } : item)),
       )
-      toast.error('Failed to update item')
+      toast.error(tPantry('errors.updateFailed'))
     }
   }
 
@@ -70,10 +70,10 @@ export function PantrySection({
       })
 
       if (!response.ok) {
-        throw new Error('Failed to remove item')
+        throw new Error(tPantry('errors.removeFailed'))
       }
 
-      toast.success('Item removed from pantry')
+      toast.success(tPantry('success.removed'))
 
       // Notify parent so shopping list can uncheck this item
       if (removedItem && onPantryItemRemoved) {
@@ -83,7 +83,7 @@ export function PantrySection({
       if (removedItem) {
         onItemsChange((prev) => [...prev, removedItem])
       }
-      toast.error('Failed to remove item')
+      toast.error(tPantry('errors.removeFailed'))
     }
   }
 
@@ -100,10 +100,7 @@ export function PantrySection({
         <div className="flex flex-col gap-4">
           <InlineAddItem onItemAdded={handleItemAdded} pantryIngredientIds={pantryIngredientIds} />
           <div className="rounded-lg border border-dashed p-6 text-center">
-            <Body variant="muted">
-              Your pantry is empty. Add staples like olive oil, salt, and rice to exclude them from
-              shopping lists.
-            </Body>
+            <Body variant="muted">{tPantry('empty')}</Body>
           </div>
         </div>
       ) : (
@@ -114,7 +111,7 @@ export function PantrySection({
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <Body variant="small" className="text-muted-foreground">
-                  Staples (always stocked)
+                  {tPantry('stapleSection')}
                 </Body>
                 <Body variant="muted">{tPantry('ingredientCount', { count: staples.length })}</Body>
               </div>
@@ -136,7 +133,7 @@ export function PantrySection({
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <Body variant="small" className="text-muted-foreground">
-                  On hand
+                  {tPantry('onHandSection')}
                 </Body>
                 <Body variant="muted">{tPantry('ingredientCount', { count: onHand.length })}</Body>
               </div>
@@ -156,7 +153,7 @@ export function PantrySection({
 
           <div className="border-t pt-3">
             <Body variant="muted" className="text-center">
-              Mark items as staples to exclude them from shopping lists
+              {tPantry('footerHint')}
             </Body>
           </div>
         </div>
@@ -172,7 +169,7 @@ export function PantrySection({
             <CollapsibleTrigger asChild>
               <button className="flex w-full items-center justify-between text-left">
                 <div className="flex flex-col gap-1">
-                  <Heading variant="h4">Your pantry</Heading>
+                  <Heading variant="h4">{tPantry('title')}</Heading>
                   <Body variant="muted">
                     {tPantry('ingredientCountInStock', { count: items.length })}
                   </Body>
@@ -197,8 +194,8 @@ export function PantrySection({
   return (
     <Card className="w-full">
       <CardHeader>
-        <Heading variant="h4">Your pantry</Heading>
-        <Body variant="muted">Manage your household inventory</Body>
+        <Heading variant="h4">{tPantry('title')}</Heading>
+        <Body variant="muted">{tPantry('subtitle')}</Body>
       </CardHeader>
       <CardContent>{content}</CardContent>
     </Card>
@@ -218,6 +215,7 @@ function PantryItemRow({
   onToggleStaple,
   onRemove,
 }: PantryItemRowProps) {
+  const tPantry = useTranslations('pantry')
   const [isToggling, setIsToggling] = useState(false)
   const [isRemoving, setIsRemoving] = useState(false)
   const [showRemoveDialog, setShowRemoveDialog] = useState(false)
@@ -255,7 +253,7 @@ function PantryItemRow({
           onClick={handleToggle}
           disabled={isToggling}
           className="h-8 w-8"
-          aria-label={item.isStaple ? 'Remove from staples' : 'Mark as staple'}
+          aria-label={item.isStaple ? tPantry('ariaUnstaple') : tPantry('ariaToggleStaple')}
         >
           <Star
             className={cn(
@@ -270,7 +268,10 @@ function PantryItemRow({
           <Body>{item.ingredient.name}</Body>
           {item.neededQuantity !== undefined && item.neededQuantity > 0 && (
             <Body variant="caption">
-              {item.neededDisplayQuantity} needed in next {item.windowDays} days
+              {tPantry('neededInWindow', {
+                quantity: item.neededDisplayQuantity ?? '',
+                days: item.windowDays ?? 0,
+              })}
             </Body>
           )}
         </div>
@@ -280,7 +281,7 @@ function PantryItemRow({
         size="icon"
         onClick={() => setShowRemoveDialog(true)}
         className="text-muted-foreground hover:text-destructive h-8 w-8"
-        aria-label={`Remove ${item.ingredient.name}`}
+        aria-label={tPantry('ariaRemove', { name: item.ingredient.name })}
       >
         <Trash2 className="h-4 w-4" />
       </Button>
@@ -288,9 +289,9 @@ function PantryItemRow({
       <ConfirmDialog
         open={showRemoveDialog}
         onOpenChange={setShowRemoveDialog}
-        title="Remove from pantry"
-        description={`Are you sure you want to remove ${item.ingredient.name} from your pantry?`}
-        confirmLabel="Remove"
+        title={tPantry('removeDialog.title')}
+        description={tPantry('removeDialog.description', { name: item.ingredient.name })}
+        confirmLabel={tPantry('removeDialog.confirm')}
         variant="destructive"
         onConfirm={handleRemove}
         isLoading={isRemoving}

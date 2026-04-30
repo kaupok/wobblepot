@@ -40,7 +40,7 @@ describe('NoteEditor', () => {
     it('enters edit mode when "Add note" button is clicked', async () => {
       render(<NoteEditor {...defaultProps} />)
       await userEvent.click(screen.getByText('Add note'))
-      expect(screen.getByPlaceholderText('Add a note...')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('Add a note…')).toBeInTheDocument()
     })
 
     it('enters edit mode when existing note is clicked', async () => {
@@ -61,7 +61,7 @@ describe('NoteEditor', () => {
       render(<NoteEditor {...defaultProps} />)
       await userEvent.click(screen.getByText('Add note'))
 
-      const textarea = screen.getByPlaceholderText('Add a note...')
+      const textarea = screen.getByPlaceholderText('Add a note…')
       await userEvent.type(textarea, 'Hello')
       expect(screen.getByText('5/200')).toBeInTheDocument()
     })
@@ -70,7 +70,7 @@ describe('NoteEditor', () => {
       render(<NoteEditor {...defaultProps} />)
       await userEvent.click(screen.getByText('Add note'))
 
-      const textarea = screen.getByPlaceholderText('Add a note...')
+      const textarea = screen.getByPlaceholderText('Add a note…')
       const longText = 'a'.repeat(250)
       fireEvent.change(textarea, { target: { value: longText } })
 
@@ -95,7 +95,7 @@ describe('NoteEditor', () => {
       render(<NoteEditor {...defaultProps} />)
       await userEvent.click(screen.getByText('Add note'))
 
-      const textarea = screen.getByPlaceholderText('Add a note...')
+      const textarea = screen.getByPlaceholderText('Add a note…')
       await userEvent.type(textarea, 'New note')
       await userEvent.click(screen.getByText('Save'))
 
@@ -116,7 +116,7 @@ describe('NoteEditor', () => {
       render(<NoteEditor {...defaultProps} />)
       await userEvent.click(screen.getByText('Add note'))
 
-      const textarea = screen.getByPlaceholderText('Add a note...')
+      const textarea = screen.getByPlaceholderText('Add a note…')
       await userEvent.type(textarea, 'New note')
       fireEvent.keyDown(textarea, { key: 'Enter' })
 
@@ -129,7 +129,7 @@ describe('NoteEditor', () => {
       render(<NoteEditor {...defaultProps} />)
       await userEvent.click(screen.getByText('Add note'))
 
-      const textarea = screen.getByPlaceholderText('Add a note...')
+      const textarea = screen.getByPlaceholderText('Add a note…')
       await userEvent.type(textarea, 'Some text')
       fireEvent.keyDown(textarea, { key: 'Escape' })
 
@@ -143,7 +143,7 @@ describe('NoteEditor', () => {
       render(<NoteEditor {...defaultProps} onNoteChange={onNoteChange} />)
       await userEvent.click(screen.getByText('Add note'))
 
-      const textarea = screen.getByPlaceholderText('Add a note...')
+      const textarea = screen.getByPlaceholderText('Add a note…')
       await userEvent.type(textarea, 'New note')
       await userEvent.click(screen.getByText('Save'))
 

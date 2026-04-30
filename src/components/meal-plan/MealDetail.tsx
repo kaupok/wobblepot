@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { NutritionDisclaimer } from '@/components/NutritionDisclaimer'
 import { NutritionSummary } from './NutritionSummary'
@@ -63,6 +64,7 @@ export function MealDetail({
   onHowToPrepare,
   onHideTips,
 }: MealDetailProps) {
+  const tDetail = useTranslations('meal-plan.detail')
   // Effective servings: use explicit prop if provided, otherwise householdSize
   const effectiveServings = servings ?? householdSize
 
@@ -86,11 +88,13 @@ export function MealDetail({
       {/* Time + Kid-friendly badge */}
       <div className="flex flex-wrap items-center gap-1.5">
         {meal.timeMinutes && (
-          <span className="text-muted-foreground text-xs">{meal.timeMinutes} min</span>
+          <span className="text-muted-foreground text-xs">
+            {tDetail('timeMinutes', { count: meal.timeMinutes })}
+          </span>
         )}
         {meal.kidFriendly && (
           <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400">
-            Kid-friendly
+            {tDetail('kidFriendly')}
           </span>
         )}
       </div>
@@ -111,14 +115,14 @@ export function MealDetail({
           headerElement={
             showServingControl ? (
               <span className="flex items-center gap-1 text-sm font-semibold">
-                Ingredients (
+                {tDetail('ingredientsHeaderInlinePrefix')}
                 <ServingControl
                   servings={effectiveServings}
                   householdSize={householdSize}
                   onServingsChange={onServingsChange}
                   disabled={hideAvailability}
                 />
-                )
+                {tDetail('ingredientsHeaderInlineSuffix')}
               </span>
             ) : undefined
           }
@@ -139,14 +143,14 @@ export function MealDetail({
                 {tips && onHideTips && (
                   <div className="mt-3 flex justify-center">
                     <Button variant="ghost" size="sm" onClick={onHideTips}>
-                      Hide tips
+                      {tDetail('hideTips')}
                     </Button>
                   </div>
                 )}
               </div>
             ) : (
               <Button variant="outline" size="sm" onClick={onHowToPrepare}>
-                How to prepare
+                {tDetail('howToPrepare')}
               </Button>
             )}
           </div>

@@ -4,6 +4,7 @@ import { MealCard } from '@/components/meal-plan/MealCard'
 import { Body } from '@/components/ui/typography'
 import { TimelineEmptySlot } from './TimelineEmptySlot'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
+import { useTranslations } from 'next-intl'
 import type { TimelineDay, PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
 import type { MealType } from '@/generated/prisma/enums'
 
@@ -35,6 +36,7 @@ export function TimelineDayCard({
   pantryItems,
   onEntryUpdated: _onEntryUpdated,
 }: TimelineDayCardProps) {
+  const tDay = useTranslations('meal-plan.day')
   // Build a combined list of entries and empty slots, sorted by meal type
   type SlotItem =
     | { type: 'entry'; entry: (typeof day.entries)[0]; order: number }
@@ -67,7 +69,7 @@ export function TimelineDayCard({
         </span>
       </div>
       {slots.length === 0 ? (
-        <span className="text-muted-foreground text-xs">No meals planned</span>
+        <span className="text-muted-foreground text-xs">{tDay('noMealsPlanned')}</span>
       ) : (
         <div className="flex flex-col gap-2">
           {slots.map((slot) => {

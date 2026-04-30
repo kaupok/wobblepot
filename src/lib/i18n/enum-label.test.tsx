@@ -38,6 +38,7 @@ const ENUM_VALUES: Record<EnumName, readonly string[]> = {
   Allergen: ['gluten', 'dairy', 'eggs', 'nuts', 'peanuts', 'soy', 'fish', 'shellfish', 'sesame'],
   DietaryType: ['vegetarian', 'vegan', 'pescatarian'],
   HouseholdRole: ['owner', 'member'],
+  MealPlanEntryStatus: ['planned', 'completed', 'skipped'],
 }
 
 const ENUM_NAMES = Object.keys(ENUM_VALUES) as EnumName[]

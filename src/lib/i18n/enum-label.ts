@@ -15,6 +15,7 @@ export type EnumName =
   | 'Allergen'
   | 'DietaryType'
   | 'HouseholdRole'
+  | 'MealPlanEntryStatus'
 
 /**
  * Server-side typed enum label lookup.

@@ -37,14 +37,14 @@ export function PantryList({ initialItems }: PantryListProps) {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to update item')
+        throw new Error(tPantry('errors.updateFailed'))
       }
     } catch {
       // Revert on error
       setItems((prev) =>
         prev.map((item) => (item.id === id ? { ...item, isStaple: currentIsStaple } : item)),
       )
-      toast.error('Failed to update item')
+      toast.error(tPantry('errors.updateFailed'))
     }
   }
 
@@ -59,16 +59,16 @@ export function PantryList({ initialItems }: PantryListProps) {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to remove item')
+        throw new Error(tPantry('errors.removeFailed'))
       }
 
-      toast.success('Item removed from pantry')
+      toast.success(tPantry('success.removed'))
     } catch {
       // Revert on error
       if (removedItem) {
         setItems((prev) => [...prev, removedItem])
       }
-      toast.error('Failed to remove item')
+      toast.error(tPantry('errors.removeFailed'))
     }
   }
 
@@ -80,8 +80,8 @@ export function PantryList({ initialItems }: PantryListProps) {
     return (
       <Card className="w-full">
         <CardHeader>
-          <Heading variant="h4">Your pantry</Heading>
-          <Body variant="muted">Manage your household inventory</Body>
+          <Heading variant="h4">{tPantry('title')}</Heading>
+          <Body variant="muted">{tPantry('subtitle')}</Body>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4">
@@ -90,10 +90,7 @@ export function PantryList({ initialItems }: PantryListProps) {
               pantryIngredientIds={pantryIngredientIds}
             />
             <div className="rounded-lg border border-dashed p-8 text-center">
-              <Body variant="muted">
-                Your pantry is empty. Add staples like olive oil, salt, and rice to exclude them
-                from shopping lists.
-              </Body>
+              <Body variant="muted">{tPantry('empty')}</Body>
             </div>
           </div>
         </CardContent>
@@ -104,8 +101,8 @@ export function PantryList({ initialItems }: PantryListProps) {
   return (
     <Card className="w-full">
       <CardHeader>
-        <Heading variant="h4">Your pantry</Heading>
-        <Body variant="muted">Manage your household inventory</Body>
+        <Heading variant="h4">{tPantry('title')}</Heading>
+        <Body variant="muted">{tPantry('subtitle')}</Body>
       </CardHeader>
       <CardContent>
         <div className="flex flex-col gap-6">
@@ -115,7 +112,7 @@ export function PantryList({ initialItems }: PantryListProps) {
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <Body variant="small" className="text-muted-foreground">
-                  Staples (always stocked)
+                  {tPantry('stapleSection')}
                 </Body>
                 <Body variant="muted">{tPantry('ingredientCount', { count: staples.length })}</Body>
               </div>
@@ -136,7 +133,7 @@ export function PantryList({ initialItems }: PantryListProps) {
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <Body variant="small" className="text-muted-foreground">
-                  On hand
+                  {tPantry('onHandSection')}
                 </Body>
                 <Body variant="muted">{tPantry('ingredientCount', { count: onHand.length })}</Body>
               </div>
@@ -155,7 +152,7 @@ export function PantryList({ initialItems }: PantryListProps) {
 
           <div className="border-t pt-4">
             <Body variant="muted" className="text-center">
-              Mark items as staples to exclude them from shopping lists
+              {tPantry('footerHint')}
             </Body>
           </div>
         </div>

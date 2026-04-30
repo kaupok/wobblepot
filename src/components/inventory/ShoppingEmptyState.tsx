@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
@@ -31,41 +32,38 @@ interface ShoppingEmptyStateProps {
   windowDays?: number
 }
 
-const CONTENT: Record<
+const VARIANT_KEYS: Record<
   ShoppingEmptyStateVariant,
-  {
-    heading: string
-    description: string | ((windowDays: number) => string)
-    buttonLabel?: string
-    buttonHref?: string
-  }
+  { heading: string; body: string; bodyDays?: boolean; cta?: string; href?: string }
 > = {
   'no-plan': {
-    heading: 'No meal plan yet',
-    description: 'Generate a meal plan to see your shopping list.',
-    buttonLabel: 'Generate plan',
-    buttonHref: '/meal-plan',
+    heading: 'noPlanHeading',
+    body: 'noPlanBody',
+    cta: 'noPlanCta',
+    href: '/meal-plan',
   },
   'all-purchased': {
-    heading: 'All done!',
-    description: 'Your pantry is stocked for the week.',
+    heading: 'allDoneHeading',
+    body: 'allDoneBody',
   },
   'nothing-needed': {
-    heading: 'Nothing to buy',
-    description: (windowDays: number) =>
-      `Your pantry has everything you need for the next ${windowDays} days.`,
+    heading: 'nothingHeading',
+    body: 'nothingBody',
+    bodyDays: true,
   },
   error: {
-    heading: 'Something went wrong',
-    description: "We couldn't load your shopping list. Please try again.",
-    buttonLabel: 'Go to dashboard',
-    buttonHref: '/meal-plan',
+    heading: 'errorHeading',
+    body: 'errorBody',
+    cta: 'errorCta',
+    href: '/meal-plan',
   },
 }
 
 export function ShoppingEmptyState({ variant, windowDays = 7 }: ShoppingEmptyStateProps) {
   const router = useRouter()
-  const content = CONTENT[variant]
+  const t = useTranslations('shopping.emptyState')
+  const tShopping = useTranslations('shopping')
+  const keys = VARIANT_KEYS[variant]
   const [mounted, setMounted] = useState(false)
 
   // Initialize after mount (SSR-safe) and check stored preference
@@ -88,11 +86,7 @@ export function ShoppingEmptyState({ variant, windowDays = 7 }: ShoppingEmptySta
     router.push(`/shopping?days=${days}`)
   }
 
-  const description =
-    typeof content.description === 'function'
-      ? content.description(windowDays)
-      : content.description
-
+  const description = keys.bodyDays ? t(keys.body, { days: windowDays }) : t(keys.body)
   const showWindowPicker = variant === 'nothing-needed'
 
   return (
@@ -100,15 +94,15 @@ export function ShoppingEmptyState({ variant, windowDays = 7 }: ShoppingEmptySta
       {showWindowPicker && (
         <CardHeader>
           <div className="flex items-center justify-between gap-2">
-            <Heading variant="h2">Shopping list</Heading>
+            <Heading variant="h2">{tShopping('title')}</Heading>
             {mounted && (
               <Select value={String(windowDays)} onValueChange={handleWindowChange}>
-                <SelectTrigger size="sm" className="w-[100px]" aria-label="Time window">
+                <SelectTrigger size="sm" className="w-[100px]" aria-label={t('ariaTimeWindow')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="7">7 days</SelectItem>
-                  <SelectItem value="14">14 days</SelectItem>
+                  <SelectItem value="7">{t('windowOption7')}</SelectItem>
+                  <SelectItem value="14">{t('windowOption14')}</SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -120,12 +114,12 @@ export function ShoppingEmptyState({ variant, windowDays = 7 }: ShoppingEmptySta
           className={`flex flex-col items-center justify-center gap-4 text-center ${showWindowPicker ? 'py-8' : ''}`}
         >
           <div className="flex flex-col items-center gap-2">
-            <Heading variant="h2">{content.heading}</Heading>
+            <Heading variant="h2">{t(keys.heading)}</Heading>
             <Body variant="muted">{description}</Body>
           </div>
-          {content.buttonLabel && content.buttonHref && (
+          {keys.cta && keys.href && (
             <Button asChild>
-              <Link href={content.buttonHref}>{content.buttonLabel}</Link>
+              <Link href={keys.href}>{t(keys.cta)}</Link>
             </Button>
           )}
         </div>

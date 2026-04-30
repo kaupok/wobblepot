@@ -29,11 +29,37 @@ vi.mock('next-intl', async () => {
     }
     return typeof node === 'string' ? node : path
   }
+  function applyValues(template: string, values?: Record<string, string | number>): string {
+    if (!values) return template
+    // Handle ICU plurals: `{count, plural, =0 {…} one {…} other {…}}`
+    const pluralRe = /\{(\w+),\s*plural,\s*([^}]*?)\}/g
+    let out = template.replace(pluralRe, (_match, varName: string, body: string) => {
+      const raw = values[varName]
+      const count = typeof raw === 'number' ? raw : Number(raw)
+      const arms = new Map<string, string>()
+      // Body looks like: =0 {No items} one {# item} other {# items}
+      const armRe = /(=\d+|zero|one|two|few|many|other)\s*\{([^{}]*)\}/g
+      let armMatch: RegExpExecArray | null
+      while ((armMatch = armRe.exec(body)) !== null) {
+        arms.set(armMatch[1] ?? '', armMatch[2] ?? '')
+      }
+      const pick =
+        arms.get(`=${count}`) ?? (count === 1 ? arms.get('one') : null) ?? arms.get('other') ?? ''
+      return pick.replace(/#/g, String(count))
+    })
+    // Handle plain placeholders: `{name}`
+    out = out.replace(/\{(\w+)\}/g, (_match, name: string) => {
+      const v = values[name]
+      return v === undefined ? `{${name}}` : String(v)
+    })
+    return out
+  }
   return {
     ...actual,
     useTranslations: (namespace?: string) => {
       const prefix = namespace ? `${namespace}.` : ''
-      return (key: string) => resolve(`${prefix}${key}`)
+      return (key: string, values?: Record<string, string | number>) =>
+        applyValues(resolve(`${prefix}${key}`), values)
     },
     // Tests that need locale switching call `vi.unmock('next-intl')` and wrap
     // in a real provider; the default mock just hands back 'en' so callers

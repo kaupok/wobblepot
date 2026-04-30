@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,8 @@ export function MealDetailModal({
   onServingOverrideChange,
 }: MealDetailModalProps) {
   const router = useRouter()
+  const tDetail = useTranslations('meal-plan.detail')
+  const tServing = useTranslations('meal-plan.serving')
   const [localServings, setLocalServings] = useState(servingOverride ?? householdSize)
   const { togglingIngredientIds, optimisticOverrides, handleToggleAvailability } =
     useIngredientAvailability({
@@ -82,7 +85,7 @@ export function MealDetailModal({
 
         if (!response.ok) {
           setLocalServings(previousServings)
-          toast.error('Failed to update servings')
+          toast.error(tServing('updateFailed'))
           return false
         }
 
@@ -91,11 +94,11 @@ export function MealDetailModal({
         return true
       } catch {
         setLocalServings(previousServings)
-        toast.error('Failed to update servings')
+        toast.error(tServing('updateFailed'))
         return false
       }
     },
-    [planId, entryId, householdSize, localServings, onServingOverrideChange],
+    [planId, entryId, householdSize, localServings, onServingOverrideChange, tServing],
   )
 
   return (
@@ -103,7 +106,9 @@ export function MealDetailModal({
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md md:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{meal.name}</DialogTitle>
-          <DialogDescription className="sr-only">Details for {meal.name}</DialogDescription>
+          <DialogDescription className="sr-only">
+            {tDetail('ariaDetailsFor', { mealName: meal.name })}
+          </DialogDescription>
         </DialogHeader>
         {/* Note section at top of modal */}
         <div className="border-muted mb-2 border-b pb-3">

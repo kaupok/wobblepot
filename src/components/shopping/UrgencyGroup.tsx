@@ -1,14 +1,15 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import type { UrgencyBucket } from '@/lib/meal-planning/dates'
 import { Body } from '@/components/ui/typography'
 import { ShoppingItem, type ShoppingItemData } from './ShoppingItem'
 
-const URGENCY_LABELS: Record<UrgencyBucket, string> = {
-  today: 'Today',
-  tomorrow: 'Tomorrow',
-  'this-week': 'This week',
-  later: 'Later',
+const URGENCY_KEYS: Record<UrgencyBucket, 'today' | 'tomorrow' | 'thisWeek' | 'later'> = {
+  today: 'today',
+  tomorrow: 'tomorrow',
+  'this-week': 'thisWeek',
+  later: 'later',
 }
 
 interface UrgencyGroupProps {
@@ -26,7 +27,8 @@ export function UrgencyGroup({
   disabled,
   pendingIds,
 }: UrgencyGroupProps) {
-  const label = URGENCY_LABELS[bucket]
+  const tUrgency = useTranslations('dates.urgency')
+  const label = tUrgency(URGENCY_KEYS[bucket])
   const purchasedCount = items.filter((item) => item.purchased).length
   const totalCount = items.length
 
