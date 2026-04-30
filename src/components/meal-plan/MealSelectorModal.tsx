@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { Loader2, Sparkles, ArrowLeft, ImagePlus, X } from 'lucide-react'
 import {
   Dialog,
@@ -103,6 +104,8 @@ export function MealSelectorModal({
   mode,
   pantryIngredients,
 }: MealSelectorModalProps) {
+  const tSelector = useTranslations('meal-plan.selector')
+  const tImagine = useTranslations('meal-plan.selector.imagine')
   // Search state
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -325,7 +328,7 @@ export function MealSelectorModal({
       onSwapComplete()
       handleOpenChange(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update meal')
+      setError(err instanceof Error ? err.message : tSelector('updateMealFailed'))
       setSelectingId(null)
     }
   }
@@ -359,17 +362,17 @@ export function MealSelectorModal({
 
       const available = MAX_IMAGES - imagineImages.length
       if (files.length > available) {
-        toast.error(`You can attach up to ${MAX_IMAGES} images`)
+        toast.error(tImagine('tooManyImages', { max: MAX_IMAGES }))
         return
       }
 
       for (const file of files) {
         if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-          toast.error('Images must be JPEG, PNG, or WebP')
+          toast.error(tImagine('wrongImageType'))
           return
         }
         if (file.size > MAX_IMAGE_SIZE) {
-          toast.error('Each image must be 5 MB or less')
+          toast.error(tImagine('imageTooLarge'))
           return
         }
       }
@@ -378,7 +381,7 @@ export function MealSelectorModal({
       objectUrlsRef.current = [...objectUrlsRef.current, ...newUrls]
       setImagineImages((prev) => [...prev, ...files])
     },
-    [imagineImages.length],
+    [imagineImages.length, tImagine],
   )
 
   const removeImagineImage = useCallback((index: number) => {
@@ -392,7 +395,7 @@ export function MealSelectorModal({
 
   const handleImagineGenerate = async () => {
     if (!imaginePrompt.trim() && imagineImages.length === 0) {
-      setImagineError('Please describe what kind of meal you want or attach a photo')
+      setImagineError(tImagine('promptOrPhotoRequired'))
       return
     }
 
@@ -430,14 +433,14 @@ export function MealSelectorModal({
       const data = await response.json()
 
       if (!response.ok || !data.success) {
-        setImagineError(data.error || data.message || 'Failed to generate meal ideas')
+        setImagineError(data.error || data.message || tImagine('imagineFailed'))
         return
       }
 
       setImaginedMeals(data.meals)
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
-      setImagineError('Failed to generate meal ideas. Please try again.')
+      setImagineError(tImagine('imagineFailed'))
     } finally {
       abortControllerRef.current = null
       setIsImagining(false)
@@ -531,17 +534,17 @@ export function MealSelectorModal({
       onSwapComplete()
       handleOpenChange(false)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to assign meal to plan')
+      toast.error(err instanceof Error ? err.message : tImagine('assignFailed'))
     }
   }
 
-  const title = mode === 'swap' ? 'Choose a different meal' : 'Add a meal'
+  const title = mode === 'swap' ? tSelector('swapTitle') : tSelector('addTitle')
   const description =
     mode === 'swap'
       ? currentMealName
-        ? `Replace "${currentMealName}" with something else`
-        : 'Select one of these alternatives that match your preferences'
-      : 'Select a meal for this slot'
+        ? tSelector('swapDescription', { name: currentMealName })
+        : tSelector('swapDescriptionGeneric')
+      : tSelector('addDescription')
 
   return (
     <>
@@ -562,7 +565,7 @@ export function MealSelectorModal({
                 onClick={handleExitImagineMode}
               >
                 <ArrowLeft className="mr-1 h-4 w-4" />
-                Back to library
+                {tImagine('back')}
               </Button>
 
               <div className="flex gap-2">
@@ -572,7 +575,7 @@ export function MealSelectorModal({
                     setImaginePrompt(e.target.value)
                     setImagineError(null)
                   }}
-                  placeholder="Something healthy with chicken and a fresh salad..."
+                  placeholder={tImagine('promptPlaceholder')}
                   rows={3}
                   className="min-w-0 flex-1 resize-none"
                   disabled={isImagining}
@@ -598,7 +601,7 @@ export function MealSelectorModal({
                   className="h-10 w-10 shrink-0 self-end"
                   disabled={isImagining || imagineImages.length >= MAX_IMAGES}
                   onClick={() => fileInputRef.current?.click()}
-                  aria-label="Attach photos"
+                  aria-label={tImagine('attachAria')}
                 >
                   <ImagePlus className="h-4 w-4" />
                 </Button>
@@ -619,7 +622,7 @@ export function MealSelectorModal({
                         onClick={() => removeImagineImage(index)}
                         disabled={isImagining}
                         className="bg-background/80 absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full border shadow-sm"
-                        aria-label={`Remove ${file.name}`}
+                        aria-label={tImagine('removeImageAria', { filename: file.name })}
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -647,18 +650,18 @@ export function MealSelectorModal({
                   {isImagining ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Generating ideas...
+                      {tImagine('generating')}
                     </>
                   ) : (
                     <>
                       <Sparkles className="mr-2 h-4 w-4" />
-                      Imagine meals
+                      {tImagine('generate')}
                     </>
                   )}
                 </Button>
                 {isImagining && (
                   <Button variant="ghost" size="sm" onClick={handleImagineCancel}>
-                    Cancel
+                    {tImagine('cancel')}
                   </Button>
                 )}
               </div>
@@ -682,10 +685,10 @@ export function MealSelectorModal({
                               {reviewingMealId === meal.id ? (
                                 <>
                                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  Fine-tuning recipe...
+                                  {tImagine('fineTuning')}
                                 </>
                               ) : (
-                                'Select'
+                                tImagine('select')
                               )}
                             </Button>
                           </CardFooter>
@@ -701,7 +704,7 @@ export function MealSelectorModal({
               <div className="flex gap-2">
                 <Input
                   type="search"
-                  placeholder="Search meal library..."
+                  placeholder={tSelector('searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="min-w-0 flex-1"
@@ -710,7 +713,7 @@ export function MealSelectorModal({
                   variant="outline"
                   size="icon"
                   onClick={() => setIsImagineMode(true)}
-                  title="Imagine a meal"
+                  title={tSelector('imagineButton')}
                   className="shrink-0"
                 >
                   <Sparkles className="h-4 w-4" />
@@ -725,7 +728,7 @@ export function MealSelectorModal({
                   onCheckedChange={(checked) => handleMyRecipesToggle(checked === true)}
                 />
                 <Label htmlFor="my-recipes-only" className="cursor-pointer text-sm font-normal">
-                  My recipes only
+                  {tSelector('myRecipesOnly')}
                 </Label>
               </div>
 
@@ -733,10 +736,14 @@ export function MealSelectorModal({
               {!isLoading && !error && (
                 <Body variant="small" className="text-muted-foreground">
                   {isMyRecipesBrowseMode
-                    ? `My recipes${myRecipesTotal > 0 ? ` (${myRecipesTotal})` : ''}`
+                    ? myRecipesTotal > 0
+                      ? tSelector('myRecipesHeader', { count: myRecipesTotal })
+                      : tSelector('myRecipesHeaderNoCount')
                     : isSearchMode
-                      ? `Search results${hasSearched ? ` (${searchTotal})` : ''}`
-                      : 'Suggestions'}
+                      ? hasSearched
+                        ? tSelector('searchResults', { count: searchTotal })
+                        : tSelector('searchResultsNoCount')
+                      : tSelector('suggestions')}
                 </Body>
               )}
 
@@ -782,10 +789,16 @@ export function MealSelectorModal({
                         disabled={isSearching || isLoadingMyRecipes}
                       >
                         {isSearching || isLoadingMyRecipes
-                          ? 'Loading...'
+                          ? tSelector('loading')
                           : isMyRecipesBrowseMode
-                            ? `Load more (${accumulatedMyRecipes.length} of ${myRecipesTotal})`
-                            : `Load more (${accumulatedSearch.length} of ${searchTotal})`}
+                            ? tSelector('loadMore', {
+                                loaded: accumulatedMyRecipes.length,
+                                total: myRecipesTotal,
+                              })
+                            : tSelector('loadMore', {
+                                loaded: accumulatedSearch.length,
+                                total: searchTotal,
+                              })}
                       </Button>
                     </div>
                   )}
@@ -798,11 +811,13 @@ export function MealSelectorModal({
                 isMyRecipesBrowseMode &&
                 accumulatedMyRecipes.length === 0 && (
                   <Body variant="muted" className="text-center">
-                    No custom recipes yet. Try{' '}
-                    <a href="/recipes/import" className="text-primary underline">
-                      importing a recipe
-                    </a>{' '}
-                    first.
+                    {tSelector.rich('emptyMyRecipes', {
+                      link: (chunks) => (
+                        <a href="/recipes/import" className="text-primary underline">
+                          {chunks}
+                        </a>
+                      ),
+                    })}
                   </Body>
                 )}
 
@@ -815,8 +830,8 @@ export function MealSelectorModal({
                 accumulatedSearch.length === 0 && (
                   <Body variant="muted" className="text-center">
                     {myRecipesOnly
-                      ? `No custom recipes found matching "${searchQuery}"`
-                      : `No meals found matching "${searchQuery}"`}
+                      ? tSelector('emptySearchCustom', { query: searchQuery })
+                      : tSelector('emptySearch', { query: searchQuery })}
                   </Body>
                 )}
 
@@ -827,7 +842,7 @@ export function MealSelectorModal({
                 !isMyRecipesBrowseMode &&
                 suggestions.length === 0 && (
                   <Body variant="muted" className="text-center">
-                    No suggestions available. Try searching for a meal.
+                    {tSelector('noSuggestions')}
                   </Body>
                 )}
             </div>

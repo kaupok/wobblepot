@@ -25,14 +25,290 @@
     "today": "Täna",
     "tomorrow": "Homme",
     "inDays": "{count, plural, one {# päeva pärast} other {# päeva pärast}}",
-    "past": "Möödas"
+    "past": "Möödas",
+    "urgency": {
+      "today": "Täna",
+      "tomorrow": "Homme",
+      "thisWeek": "Sel nädalal",
+      "later": "Hiljem"
+    }
   },
   "shopping": {
-    "itemCount": "{count, plural, =0 {Tooteid pole} one {# toode} other {# toodet}}"
+    "itemCount": "{count, plural, =0 {Tooteid pole} one {# toode} other {# toodet}}",
+    "title": "Poenimekiri",
+    "dateRangePrefix": "Periood: {range}",
+    "windowNext7": "Järgmised 7 päeva",
+    "windowNext14": "Järgmised 14 päeva",
+    "summary": "{itemCount} • {purchasedCount} ostetud",
+    "purchasedTail": "{count} ostetud",
+    "ariaSort": "Sorteeri tooteid",
+    "sort": {
+      "category": "Kategooria järgi",
+      "urgency": "Kiireloomulisuse järgi",
+      "alphabetical": "Tähestiku järgi"
+    },
+    "clearChecked": "Kustuta märgitud",
+    "otherSection": "📝 Muu ({count})",
+    "customItemsSection": "📝 Lisatud tooted ({count})",
+    "customInputPlaceholder": "Lisa toode…",
+    "customInputAria": "Lisa toode poenimekirja",
+    "ariaToggleItem": "Märgi „{name}\" kui {state}",
+    "stateNotPurchased": "ostmata",
+    "statePurchased": "ostetud",
+    "neededByTooltip": "Vaja {date}-ks",
+    "ariaUnlink": "Eemalda „{name}\" ühendus koostisosaga",
+    "unlinkTooltip": "Eemalda ühendus koostisosaga",
+    "ariaRemove": "Eemalda „{name}\"",
+    "removeTooltip": "Eemalda toode",
+    "errors": {
+      "alreadyOnList": "See toode on juba nimekirjas",
+      "addFailed": "Toote lisamine ebaõnnestus",
+      "updateFailed": "Toote uuendamine ebaõnnestus",
+      "unlinkFailed": "Ühenduse eemaldamine ebaõnnestus",
+      "removeFailed": "Toote eemaldamine ebaõnnestus",
+      "clearCheckedFailed": "Märgitud toodete kustutamine ebaõnnestus"
+    },
+    "emptyState": {
+      "noPlanHeading": "Söögiplaani veel pole",
+      "noPlanBody": "Loo söögiplaan, et näha poenimekirja.",
+      "noPlanCta": "Loo plaan",
+      "allDoneHeading": "Kõik tehtud!",
+      "allDoneBody": "Sahver on nädalaks varustatud.",
+      "allDoneCta": "Vaata sahvrit",
+      "nothingHeading": "Pole midagi osta",
+      "nothingBody": "Sul on järgmiseks {days} päevaks sahvris kõik vajalik olemas.",
+      "nothingBodyShort": "Sul on selleks nädalaks sahvris kõik vajalik olemas.",
+      "nothingCta": "Vaata sahvrit",
+      "errorHeading": "Midagi läks valesti",
+      "errorBody": "Poenimekirja ei õnnestunud laadida. Palun proovi uuesti.",
+      "errorCta": "Mine avalehele",
+      "ariaTimeWindow": "Ajavahemik",
+      "windowOption7": "7 päeva",
+      "windowOption14": "14 päeva"
+    }
   },
   "pantry": {
     "ingredientCount": "{count, plural, =0 {Tooteid pole} one {# toode} other {# toodet}}",
-    "ingredientCountInStock": "{count, plural, =0 {Tooteid pole laos} one {# toode laos} other {# toodet laos}}"
+    "ingredientCountInStock": "{count, plural, =0 {Tooteid pole laos} one {# toode laos} other {# toodet laos}}",
+    "title": "Sinu sahver",
+    "subtitle": "Halda leibkonna varusid",
+    "empty": "Sahver on tühi. Lisa põhitooteid nagu oliiviõli, sool ja riis, et neid poenimekirjast välja jätta.",
+    "footerHint": "Märgi tooted põhitoodeteks, et need poenimekirjast välja jätta",
+    "stapleSection": "Põhitooted (alati varuks)",
+    "onHandSection": "Käepärast",
+    "ariaToggleStaple": "Märgi põhitooteks",
+    "ariaUnstaple": "Eemalda põhitoodete hulgast",
+    "ariaRemove": "Eemalda „{name}\"",
+    "neededInWindow": "Järgmise {days} päeva jooksul on vaja {quantity}",
+    "addPlaceholder": "Lisa koostisosa sahvrisse…",
+    "inPantry": "Sahvris",
+    "noResults": "Koostisosi ei leitud",
+    "removeDialog": {
+      "title": "Eemalda sahvrist",
+      "description": "Kas oled kindel, et soovid eemaldada „{name}\" oma sahvrist?",
+      "confirm": "Eemalda"
+    },
+    "errors": {
+      "updateFailed": "Toote uuendamine ebaõnnestus",
+      "removeFailed": "Toote eemaldamine ebaõnnestus",
+      "addFailed": "Toote lisamine sahvrisse ebaõnnestus"
+    },
+    "success": {
+      "removed": "Toode eemaldati sahvrist",
+      "added": "„{name}\" lisati sahvrisse"
+    },
+    "alreadyInPantry": "„{name}\" on juba sinu sahvris"
+  },
+  "today": {
+    "shoppingTitle": "Pood",
+    "viewFullList": "Vaata tervet nimekirja",
+    "allSet": "Järgmiseks 2 päevaks on sul kõik vajalik olemas",
+    "summaryToday": "{count} tänaseks",
+    "summaryTomorrow": "{count} homseks",
+    "summaryNeed": "Vaja: {parts}",
+    "purchasedCollapse": "{count, plural, one {# toode ostetud} other {# toodet ostetud}}",
+    "backToPlan": "Tagasi plaani juurde"
+  },
+  "meal-plan": {
+    "generating": {
+      "heading": "Koostan sinu söögiplaani…",
+      "progress1": "Vaatan üle sinu eelistused…",
+      "progress2": "Otsin tasakaalustatud toite…",
+      "progress3": "Hoolitsen, et nädal oleks vaheldusrikas…",
+      "progress4": "Peaaegu valmis…",
+      "slow": "Võtab oodatust kauem aega, palun oota…"
+    },
+    "firstTime": {
+      "welcome": "Tere tulemast Honkadorisse, {userName}!",
+      "welcomeNoName": "Tere tulemast Honkadorisse!",
+      "subhead": "Loo oma esimene söögiplaan, et alustada.",
+      "startFromLabel": "Algus",
+      "daysCountLabel": "Mitu päeva",
+      "submit": "Loo söögiplaan",
+      "submitting": "Koostan…"
+    },
+    "fillDays": {
+      "label": "Täida {dateRange}",
+      "submit": "Loo",
+      "submitting": "Koostan…",
+      "ariaDays": "Täidetavate päevade arv",
+      "dayOption": "{count, plural, one {# päev} other {# päeva}}"
+    },
+    "errors": {
+      "rateLimit": "Päringute piirmäär on täis. Palun proovi hiljem uuesti.",
+      "generationTimeout": "Plaani koostamine aegus. Palun proovi uuesti.",
+      "generationFailed": "Toitude koostamine ebaõnnestus. Palun proovi uuesti.",
+      "generic": "Midagi läks valesti. Palun proovi uuesti."
+    },
+    "card": {
+      "noMealPlanned": "Toitu pole planeeritud",
+      "noMealSelected": "Toitu pole valitud",
+      "addMeal": "Lisa toit",
+      "adding": "Lisan…",
+      "pickMeal": "Vali toit",
+      "note": "Märkus",
+      "swap": "Vaheta",
+      "clear": "Eemalda",
+      "rate": "Hinda",
+      "servings": "{count, plural, one {# portsjon} other {# portsjonit}}",
+      "statusUpdateFailed": "Oleku uuendamine ebaõnnestus. Palun proovi uuesti.",
+      "clearFailed": "Toidu eemaldamine ebaõnnestus. Palun proovi uuesti.",
+      "createEntryFailed": "Toidukoha lisamine ebaõnnestus"
+    },
+    "noteEditor": {
+      "placeholder": "Lisa märkus…",
+      "addNote": "Lisa märkus",
+      "save": "Salvesta",
+      "saving": "Salvestan…",
+      "cancel": "Tühista",
+      "ariaLabel": "Toidu märkus",
+      "saveFailed": "Märkuse salvestamine ebaõnnestus"
+    },
+    "rating": {
+      "prompt": "Kuidas oli?",
+      "thumbsUp": "Pöial üles",
+      "thumbsDown": "Pöial alla",
+      "dismiss": "Sulge hinnang",
+      "saveFailed": "Hinnangu salvestamine ebaõnnestus",
+      "ariaCurrent": "Hinnang: {direction}. Klõpsa, et muuta.",
+      "directionUp": "pöial üles",
+      "directionDown": "pöial alla"
+    },
+    "status": {
+      "ariaLabel": "Toidu olek"
+    },
+    "alternative": {
+      "select": "Vali",
+      "selecting": "Valin…"
+    },
+    "selector": {
+      "swapTitle": "Vali teine toit",
+      "addTitle": "Lisa toit",
+      "swapDescription": "Asenda „{name}\" mõne muuga",
+      "swapDescriptionGeneric": "Vali üks neist alternatiividest, mis sobivad sinu eelistustega",
+      "addDescription": "Vali sellele kohale toit",
+      "searchPlaceholder": "Otsi retseptide hulgast…",
+      "myRecipesOnly": "Ainult minu retseptid",
+      "suggestions": "Soovitused",
+      "searchResults": "Otsingutulemused ({count})",
+      "searchResultsNoCount": "Otsingutulemused",
+      "myRecipesHeader": "Minu retseptid ({count})",
+      "myRecipesHeaderNoCount": "Minu retseptid",
+      "loadMore": "Lae rohkem ({loaded} / {total})",
+      "loading": "Laadin…",
+      "imagineButton": "Mõtle välja toit",
+      "noSuggestions": "Soovitusi pole. Proovi otsida toitu.",
+      "emptyMyRecipes": "Sul pole veel oma retsepte. Proovi <link>retsepti importida</link>.",
+      "emptySearchCustom": "Päringule „{query}\" vastavaid oma retsepte ei leitud",
+      "emptySearch": "Päringule „{query}\" vastavaid toite ei leitud",
+      "updateMealFailed": "Toidu uuendamine ebaõnnestus",
+      "imagine": {
+        "back": "Tagasi raamatukokku",
+        "promptPlaceholder": "Midagi tervislikku kanaga ja värske salatiga…",
+        "attachAria": "Lisa fotosid",
+        "removeImageAria": "Eemalda „{filename}\"",
+        "generate": "Mõtle toidud välja",
+        "generating": "Mõtlen ideid…",
+        "cancel": "Tühista",
+        "fineTuning": "Lihvin retsepti…",
+        "select": "Vali",
+        "promptOrPhotoRequired": "Kirjelda, millist toitu soovid, või lisa foto",
+        "tooManyImages": "Saad lisada kuni {max} fotot",
+        "wrongImageType": "Fotod peavad olema JPEG, PNG või WebP",
+        "imageTooLarge": "Iga foto peab olema kuni 5 MB",
+        "imagineFailed": "Toiduideede koostamine ebaõnnestus. Palun proovi uuesti.",
+        "assignFailed": "Toidu plaani lisamine ebaõnnestus"
+      }
+    },
+    "detail": {
+      "kidFriendly": "Lastesõbralik",
+      "timeMinutes": "{count} min",
+      "ingredientsHeader": "Koostisosad ({count} portsjonit)",
+      "ingredientsHeaderInline": "Koostisosad (<servings>portsjonid</servings>)",
+      "staplesPrefix": "Põhitooted: {list}",
+      "viewSource": "Vaata algset retsepti",
+      "howToPrepare": "Kuidas valmistada",
+      "hideTips": "Peida juhised",
+      "ariaDetailsFor": "„{mealName}\" üksikasjad"
+    },
+    "tips": {
+      "equipment": "Vajaminev varustus",
+      "steps": "Sammud",
+      "pitfalls": "Tähelepanu",
+      "tip": "Nõuanne",
+      "userNotes": "Sinu märkused",
+      "additionalTips": "Lisanõuanded",
+      "header": "Valmistusjuhised",
+      "retry": "Proovi uuesti"
+    },
+    "nutrition": {
+      "summaryHeader": "Toiteväärtus (portsjoni kohta)",
+      "calories": "Kalorid",
+      "protein": "Valgud",
+      "carbs": "Süsivesikud",
+      "fat": "Rasvad",
+      "compact": {
+        "protein": "valku",
+        "carbs": "süsivesikuid",
+        "fat": "rasva"
+      },
+      "vagueDisclaimer": "*sisaldab hinnanguid umbmääraste koguste jaoks"
+    },
+    "serving": {
+      "label": "Portsjoneid",
+      "labelWithCount": "{count} portsjonit",
+      "custom": "(kohandatud)",
+      "ariaLabel": "Portsjonite arv",
+      "ariaButton": "{count} portsjonit. Klõpsa, et muuta.",
+      "updateFailed": "Portsjonite uuendamine ebaõnnestus"
+    },
+    "availability": {
+      "haveAll": "Kõik koostisosad olemas",
+      "missing": "{count, plural, one {# koostisosa puudu} other {# koostisosa puudu}}",
+      "ariaToggle": "Märgi „{name}\" kui {state}",
+      "stateAvailable": "olemas",
+      "stateUnavailable": "puudu"
+    },
+    "deduction": {
+      "title": "Märgi tehtuks",
+      "willDeduct": "„{mealName}\" tehtuks märkimisel arvatakse sahvrist maha:",
+      "noDeduction": "Märgi „{mealName}\" tehtuks? Sahvris muudatusi ei tehta.",
+      "noPantryItemsBody": "Kõik koostisosad on kas põhitooted, ei ole sahvris või toidul polegi koostisosi.",
+      "remove": "eemalda",
+      "confirm": "Kinnita",
+      "updating": "Uuendan…",
+      "pieceQuantity": "{count, plural, =0 {0 tk} one {# tk} other {# tk}}",
+      "gramsQuantity": "{count}g",
+      "someQuantity": "veidi"
+    },
+    "past": {
+      "show": "Näita möödunud toite",
+      "hide": "Peida möödunud toidud",
+      "catchUp": "{count, plural, one {# järgi teha} other {# järgi teha}}"
+    },
+    "day": {
+      "noMealsPlanned": "Toite pole planeeritud"
+    }
   },
   "recipes": {
     "mealCount": "{count, plural, =0 {Retsepte pole} one {# retsept} other {# retsepti}}",
@@ -50,7 +326,13 @@
   "common": {
     "loading": "Laen…",
     "tryAgain": "Proovi uuesti",
-    "goHome": "Mine avalehele"
+    "goHome": "Mine avalehele",
+    "cancel": "Tühista",
+    "save": "Salvesta",
+    "remove": "Eemalda",
+    "confirm": "Kinnita",
+    "clear": "Eemalda",
+    "back": "Tagasi"
   },
   "nav": {
     "skipToContent": "Liigu sisu juurde",
@@ -191,6 +473,14 @@
         "title": "Oih! Midagi läks valesti",
         "body": "Lehe laadimisel tekkis viga."
       },
+      "mealPlan": {
+        "title": "Söögiplaani ei õnnestunud laadida",
+        "body": "Söögiplaani laadimisel tekkis viga. Palun proovi uuesti."
+      },
+      "shopping": {
+        "title": "Poenimekirja ei õnnestunud laadida",
+        "body": "Poenimekirja laadimisel tekkis viga. Palun proovi uuesti."
+      },
       "signIn": {
         "title": "Sisselogimist ei õnnestunud avada",
         "body": "Sisselogimise lehe laadimisel tekkis viga. Palun proovi uuesti."
@@ -326,6 +616,11 @@
     "HouseholdRole": {
       "owner": "Omanik",
       "member": "Liige"
+    },
+    "MealPlanEntryStatus": {
+      "planned": "Planeeritud",
+      "completed": "Tehtud",
+      "skipped": "Vahele jäetud"
     }
   }
 }

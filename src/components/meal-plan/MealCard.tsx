@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
@@ -50,6 +51,7 @@ export function MealCard({
   servingOverride: initialServingOverride,
 }: MealCardProps) {
   const router = useRouter()
+  const tCard = useTranslations('meal-plan.card')
   const [status, setStatus] = useState<MealStatus>(initialStatus)
   const [rating, setRating] = useState<EntryRating | null>(initialRating ?? null)
   const [showRatingPrompt, setShowRatingPrompt] = useState(false)
@@ -88,7 +90,7 @@ export function MealCard({
       })
 
       if (!response.ok) {
-        throw new Error('Failed to update status')
+        throw new Error(tCard('statusUpdateFailed'))
       }
 
       return { newStatus, deductPantry }
@@ -124,7 +126,7 @@ export function MealCard({
       if (context?.previousStatus) {
         setStatus(context.previousStatus)
       }
-      toast.error('Failed to update status. Please try again.')
+      toast.error(tCard('statusUpdateFailed'))
     },
   })
 
@@ -135,14 +137,14 @@ export function MealCard({
       })
 
       if (!response.ok) {
-        throw new Error('Failed to clear meal')
+        throw new Error(tCard('clearFailed'))
       }
     },
     onSuccess: () => {
       router.refresh()
     },
     onError: () => {
-      toast.error('Failed to clear meal. Please try again.')
+      toast.error(tCard('clearFailed'))
     },
   })
 
@@ -192,7 +194,7 @@ export function MealCard({
                 {note}
               </Body>
             ) : (
-              <Body variant="caption">No meal planned</Body>
+              <Body variant="caption">{tCard('noMealPlanned')}</Body>
             )}
             {canEdit && (
               <NoteEditor
@@ -212,7 +214,7 @@ export function MealCard({
                 className="h-7 w-full text-xs"
                 onClick={() => setIsSelectorOpen(true)}
               >
-                Add meal
+                {tCard('addMeal')}
               </Button>
             </CardFooter>
           )}
@@ -256,7 +258,7 @@ export function MealCard({
                   className="h-5 px-1.5 text-xs"
                   onClick={() => setIsNoteEditing(true)}
                 >
-                  Note
+                  {tCard('note')}
                 </Button>
                 <Button
                   variant="ghost"
@@ -264,7 +266,7 @@ export function MealCard({
                   className="h-5 px-1.5 text-xs"
                   onClick={() => setIsRegenerateModalOpen(true)}
                 >
-                  Swap
+                  {tCard('swap')}
                 </Button>
                 <Button
                   variant="ghost"
@@ -273,7 +275,7 @@ export function MealCard({
                   onClick={handleClear}
                   disabled={isClearing}
                 >
-                  Clear
+                  {tCard('clear')}
                 </Button>
               </div>
             )}
@@ -284,7 +286,7 @@ export function MealCard({
             )}
             {hasServingOverride && (
               <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                {effectiveServings} servings
+                {tCard('servings', { count: effectiveServings })}
               </span>
             )}
             {status === 'completed' && rating && !showRatingPrompt && (
@@ -330,7 +332,7 @@ export function MealCard({
         )}
         {status === 'completed' && !rating && !showRatingPrompt && !isReadOnly && (
           <CardContent className="flex items-center gap-1.5 px-3 pb-1">
-            <span className="text-muted-foreground text-xs">Rate</span>
+            <span className="text-muted-foreground text-xs">{tCard('rate')}</span>
             <MealRatingInline
               planId={planId}
               entryId={entryId}

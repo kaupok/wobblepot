@@ -28,6 +28,8 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
   const router = useRouter()
   const locale = useLocale() as Locale
   const tDates = useTranslations('dates') as DatesTranslator
+  const tFirst = useTranslations('meal-plan.firstTime')
+  const tErrors = useTranslations('meal-plan.errors')
   const startDateOptions = getStartDateOptions({ locale, t: tDates })
   const daysCountOptions = getDaysCountOptions()
 
@@ -61,9 +63,9 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
         if (response.status === 429) {
-          setError('Rate limit exceeded. Please try again later.')
+          setError(tErrors('rateLimit'))
         } else {
-          setError(data.message || 'Failed to generate meals. Please try again.')
+          setError(data.message || tErrors('generationFailed'))
         }
         return
       }
@@ -78,9 +80,9 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
     } catch (err) {
       clearTimeout(timeoutId)
       if (err instanceof Error && err.name === 'AbortError') {
-        setError('Generation timed out. Please try again.')
+        setError(tErrors('generationTimeout'))
       } else {
-        setError('Something went wrong. Please try again.')
+        setError(tErrors('generic'))
       }
     } finally {
       setIsGenerating(false)
@@ -97,13 +99,15 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
               <ChefHat className="text-primary h-8 w-8" />
             </div>
             <div className="flex flex-col gap-2 text-center">
-              <Heading variant="h2">Welcome to Honkadori{userName ? `, ${userName}` : ''}!</Heading>
-              <Body variant="muted">Plan your first meals to get started.</Body>
+              <Heading variant="h2">
+                {userName ? tFirst('welcome', { userName }) : tFirst('welcomeNoName')}
+              </Heading>
+              <Body variant="muted">{tFirst('subhead')}</Body>
             </div>
 
             <div className="flex w-full flex-col gap-4">
               <section className="flex flex-col gap-2">
-                <Label className="text-sm font-semibold">Start from</Label>
+                <Label className="text-sm font-semibold">{tFirst('startFromLabel')}</Label>
                 <div className="flex flex-wrap gap-2">
                   {startDateOptions.map((option) => (
                     <Button
@@ -120,7 +124,7 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
               </section>
 
               <section className="flex flex-col gap-2">
-                <Label className="text-sm font-semibold">How many days</Label>
+                <Label className="text-sm font-semibold">{tFirst('daysCountLabel')}</Label>
                 <div className="flex flex-wrap gap-2">
                   {daysCountOptions.map((option) => (
                     <Button
@@ -144,7 +148,7 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
             )}
 
             <Button onClick={handleGenerate} disabled={isGenerating} size="lg" className="w-full">
-              {isGenerating ? 'Generating...' : 'Generate meal plan'}
+              {isGenerating ? tFirst('submitting') : tFirst('submit')}
             </Button>
           </CardContent>
         </Card>

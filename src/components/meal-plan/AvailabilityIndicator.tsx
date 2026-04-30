@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl'
 import type { MealAvailability, MealData, PantryIngredient } from './types'
 
 interface AvailabilityIndicatorProps {
@@ -50,17 +51,19 @@ export function computeMealAvailability(
 }
 
 export function AvailabilityIndicator({ availability }: AvailabilityIndicatorProps) {
+  const t = useTranslations('meal-plan.availability')
+
   if (availability.isReady) {
     return (
       <span className="inline-flex items-center justify-center rounded-full bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
-        Have all ingredients
+        {t('haveAll')}
       </span>
     )
   }
 
   return (
     <span className="inline-flex items-center justify-center rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-      {availability.missingCount} ingredients missing
+      {t('missing', { count: availability.missingCount })}
     </span>
   )
 }

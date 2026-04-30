@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { ThumbsUp, ThumbsDown, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
@@ -16,6 +17,7 @@ interface MealRatingPromptProps {
 }
 
 export function MealRatingPrompt({ planId, entryId, onRated, onDismiss }: MealRatingPromptProps) {
+  const t = useTranslations('meal-plan.rating')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   async function handleRate(rating: EntryRating) {
@@ -28,13 +30,13 @@ export function MealRatingPrompt({ planId, entryId, onRated, onDismiss }: MealRa
       })
 
       if (!response.ok) {
-        toast.error('Failed to save rating')
+        toast.error(t('saveFailed'))
         return
       }
 
       onRated?.(rating)
     } catch {
-      toast.error('Failed to save rating')
+      toast.error(t('saveFailed'))
     } finally {
       setIsSubmitting(false)
     }
@@ -43,7 +45,7 @@ export function MealRatingPrompt({ planId, entryId, onRated, onDismiss }: MealRa
   return (
     <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 dark:bg-green-900/20">
       <Body variant="small" className="text-green-700 dark:text-green-400">
-        How was it?
+        {t('prompt')}
       </Body>
       <div className="flex gap-1">
         <Button
@@ -52,7 +54,7 @@ export function MealRatingPrompt({ planId, entryId, onRated, onDismiss }: MealRa
           className="h-7 w-7 p-0"
           onClick={() => handleRate('up')}
           disabled={isSubmitting}
-          aria-label="Thumbs up"
+          aria-label={t('thumbsUp')}
         >
           <ThumbsUp className="h-4 w-4" />
         </Button>
@@ -62,7 +64,7 @@ export function MealRatingPrompt({ planId, entryId, onRated, onDismiss }: MealRa
           className="h-7 w-7 p-0"
           onClick={() => handleRate('down')}
           disabled={isSubmitting}
-          aria-label="Thumbs down"
+          aria-label={t('thumbsDown')}
         >
           <ThumbsDown className="h-4 w-4" />
         </Button>
@@ -73,7 +75,7 @@ export function MealRatingPrompt({ planId, entryId, onRated, onDismiss }: MealRa
         className="text-muted-foreground ml-auto h-6 w-6 p-0"
         onClick={onDismiss}
         disabled={isSubmitting}
-        aria-label="Dismiss rating"
+        aria-label={t('dismiss')}
       >
         <X className="h-3.5 w-3.5" />
       </Button>
@@ -87,6 +89,7 @@ interface RatingBadgeProps {
 }
 
 export function RatingBadge({ rating, onClick }: RatingBadgeProps) {
+  const t = useTranslations('meal-plan.rating')
   const isUp = rating === 'up'
 
   const badge = (
@@ -108,7 +111,9 @@ export function RatingBadge({ rating, onClick }: RatingBadgeProps) {
         type="button"
         onClick={onClick}
         className="cursor-pointer"
-        aria-label={`Rating: ${isUp ? 'thumbs up' : 'thumbs down'}. Click to change.`}
+        aria-label={t('ariaCurrent', {
+          direction: isUp ? t('directionUp') : t('directionDown'),
+        })}
       >
         {badge}
       </button>
@@ -131,6 +136,7 @@ export function MealRatingInline({
   rating,
   onRatingChange,
 }: MealRatingInlineProps) {
+  const t = useTranslations('meal-plan.rating')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   async function handleRate(newRating: EntryRating) {
@@ -152,11 +158,11 @@ export function MealRatingInline({
       if (!response.ok) {
         // Revert on error
         onRatingChange?.(previousRating)
-        toast.error('Failed to save rating')
+        toast.error(t('saveFailed'))
       }
     } catch {
       onRatingChange?.(previousRating)
-      toast.error('Failed to save rating')
+      toast.error(t('saveFailed'))
     } finally {
       setIsSubmitting(false)
     }
@@ -174,7 +180,7 @@ export function MealRatingInline({
             ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
             : 'text-muted-foreground hover:bg-muted',
         )}
-        aria-label="Thumbs up"
+        aria-label={t('thumbsUp')}
         aria-pressed={rating === 'up'}
       >
         <ThumbsUp className="h-3.5 w-3.5" />
@@ -189,7 +195,7 @@ export function MealRatingInline({
             ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
             : 'text-muted-foreground hover:bg-muted',
         )}
-        aria-label="Thumbs down"
+        aria-label={t('thumbsDown')}
         aria-pressed={rating === 'down'}
       >
         <ThumbsDown className="h-3.5 w-3.5" />

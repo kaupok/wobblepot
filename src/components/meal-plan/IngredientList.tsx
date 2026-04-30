@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useTranslations } from 'next-intl'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Body, Ul, Li } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
@@ -75,6 +76,8 @@ export function IngredientList({
   compact = false,
   headerElement,
 }: IngredientListProps) {
+  const tDetail = useTranslations('meal-plan.detail')
+  const tAvailability = useTranslations('meal-plan.availability')
   // Build maps for availability and staple status
   const { availableIds, stapleIds } = useMemo(() => {
     if (!pantryIngredients) {
@@ -119,13 +122,13 @@ export function IngredientList({
       return `${comp.ingredient.name} (${qty})`
     })
 
-    return `Staples: ${items.join(', ')}`
-  }, [stapleComponents, servings])
+    return tDetail('staplesPrefix', { list: items.join(', ') })
+  }, [stapleComponents, servings, tDetail])
 
   // Default header label
   const defaultHeader = (
     <Body variant="small" className={cn('font-semibold', compact && 'text-xs')}>
-      Ingredients (serves {servings})
+      {tDetail('ingredientsHeader', { count: servings })}
     </Body>
   )
 
@@ -163,7 +166,12 @@ export function IngredientList({
                   checked={hasIt}
                   onCheckedChange={(checked) => handleCheckedChange(comp.ingredientId, checked)}
                   className={cn('h-4 w-4', compact && 'h-3 w-3')}
-                  aria-label={`Mark ${comp.ingredient.name} as ${hasIt ? 'not available' : 'available'}`}
+                  aria-label={tAvailability('ariaToggle', {
+                    name: comp.ingredient.name,
+                    state: hasIt
+                      ? tAvailability('stateUnavailable')
+                      : tAvailability('stateAvailable'),
+                  })}
                 />
               )}
               <span>{comp.ingredient.name}</span>

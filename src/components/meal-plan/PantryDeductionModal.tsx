@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useTranslations } from 'next-intl'
 import {
   Dialog,
   DialogContent,
@@ -75,13 +76,7 @@ export function computeDeductions(
   return deductions
 }
 
-function formatQuantity(quantity: number | null, unit: 'g' | 'piece'): string {
-  if (quantity === null) return 'some'
-  if (unit === 'piece') {
-    return quantity === 1 ? '1 piece' : `${quantity} pieces`
-  }
-  return `${Math.round(quantity)}g`
-}
+type FormatQuantityFn = (quantity: number | null, unit: 'g' | 'piece') => string
 
 export function PantryDeductionModal({
   open,
@@ -93,6 +88,17 @@ export function PantryDeductionModal({
   onConfirm,
   isLoading = false,
 }: PantryDeductionModalProps) {
+  const t = useTranslations('meal-plan.deduction')
+  const tCommon = useTranslations('common')
+
+  const formatQuantity: FormatQuantityFn = (quantity, unit) => {
+    if (quantity === null) return t('someQuantity')
+    if (unit === 'piece') {
+      return t('pieceQuantity', { count: quantity })
+    }
+    return t('gramsQuantity', { count: Math.round(quantity) })
+  }
+
   const deductions = useMemo(
     () => computeDeductions(components, householdSize, pantryItems),
     [components, householdSize, pantryItems],
@@ -104,11 +110,9 @@ export function PantryDeductionModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Mark as completed</DialogTitle>
+          <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>
-            {hasDeductions
-              ? `Marking "${mealName}" as completed will deduct the following from your pantry:`
-              : `Mark "${mealName}" as completed? No pantry items will be affected.`}
+            {hasDeductions ? t('willDeduct', { mealName }) : t('noDeduction', { mealName })}
           </DialogDescription>
         </DialogHeader>
 
@@ -122,7 +126,7 @@ export function PantryDeductionModal({
                     {formatQuantity(item.currentQuantity, item.unit)}
                     {' → '}
                     {item.willBeRemoved ? (
-                      <span className="text-destructive">remove</span>
+                      <span className="text-destructive">{t('remove')}</span>
                     ) : (
                       formatQuantity(item.newQuantity, item.unit)
                     )}
@@ -133,18 +137,14 @@ export function PantryDeductionModal({
           </div>
         )}
 
-        {!hasDeductions && (
-          <Body variant="muted">
-            Either all ingredients are staples, not in your pantry, or the meal has no ingredients.
-          </Body>
-        )}
+        {!hasDeductions && <Body variant="muted">{t('noPantryItemsBody')}</Body>}
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
-            Cancel
+            {tCommon('cancel')}
           </Button>
           <Button onClick={onConfirm} disabled={isLoading}>
-            {isLoading ? 'Updating...' : 'Confirm'}
+            {isLoading ? t('updating') : t('confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>

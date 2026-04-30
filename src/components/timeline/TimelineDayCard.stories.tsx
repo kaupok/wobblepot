@@ -225,6 +225,6 @@ export const PickMealFromEmptySlot: Story = {
     const canvas = within(canvasElement)
     const pick = canvas.getByRole('button', { name: /pick a meal/i })
     await userEvent.click(pick)
-    await expect(canvas.getByRole('button', { name: /adding\.\.\./i })).toBeDisabled()
+    await expect(canvas.getByRole('button', { name: /adding…/i })).toBeDisabled()
   },
 }

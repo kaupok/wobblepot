@@ -1,12 +1,12 @@
 'use client'
 
 import { Clock, ExternalLink, Users } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Body, Heading, type HeadingVariant } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { getIngredientAvailabilitySets } from './AvailabilityIndicator'
 import { NutritionSummary } from './NutritionSummary'
-import { useTranslations } from 'next-intl'
 import type { MealComponent, NutritionData, PantryIngredient } from './types'
 import type { MealType } from '@/generated/prisma/enums'
 
@@ -50,6 +50,7 @@ export function MealCardBase({
   pantryIngredients,
   nameHeadingLevel = 'h4',
 }: MealCardBaseProps) {
+  const tDetail = useTranslations('meal-plan.detail')
   const hasPantryData = pantryIngredients && pantryIngredients.length > 0
   const { availableIds, stapleIds } = hasPantryData
     ? getIngredientAvailabilitySets(pantryIngredients)
@@ -71,7 +72,7 @@ export function MealCardBase({
           rel="noopener noreferrer"
           className="text-primary hover:text-primary/80 inline-flex items-center gap-1 text-sm underline"
         >
-          View original recipe
+          {tDetail('viewSource')}
           <ExternalLink className="h-3 w-3" />
         </a>
       )}
@@ -84,13 +85,13 @@ export function MealCardBase({
         {meal.timeMinutes && (
           <div className="text-muted-foreground flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            <Body variant="small">{meal.timeMinutes} min</Body>
+            <Body variant="small">{tDetail('timeMinutes', { count: meal.timeMinutes })}</Body>
           </div>
         )}
         {meal.kidFriendly && (
           <Badge variant="secondary" className="text-xs">
             <Users className="mr-1 h-3 w-3" />
-            Kid-friendly
+            {tDetail('kidFriendly')}
           </Badge>
         )}
       </div>

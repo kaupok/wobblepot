@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { TimelineDayCard } from './TimelineDayCard'
 import type { TimelineDay, PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
@@ -23,6 +24,7 @@ export function TimelinePastSection({
   pantryItems,
   onEntryUpdated,
 }: TimelinePastSectionProps) {
+  const tPast = useTranslations('meal-plan.past')
   const [isExpanded, setIsExpanded] = useState(false)
 
   // Count past entries that still need action (planned status)
@@ -46,10 +48,10 @@ export function TimelinePastSection({
         ) : (
           <ChevronDown className="mr-1 h-4 w-4" />
         )}
-        {isExpanded ? 'Hide past meals' : 'Show past meals'}
+        {isExpanded ? tPast('hide') : tPast('show')}
         {plannedCount > 0 && (
           <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-            {plannedCount} to catch up
+            {tPast('catchUp', { count: plannedCount })}
           </span>
         )}
       </Button>

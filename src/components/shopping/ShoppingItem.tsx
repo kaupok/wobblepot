@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Body } from '@/components/ui/typography'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -24,6 +25,7 @@ interface ShoppingItemProps {
 }
 
 export function ShoppingItem({ item, onToggle, disabled, pending }: ShoppingItemProps) {
+  const tShopping = useTranslations('shopping')
   const handleCheckedChange = (checked: boolean | 'indeterminate') => {
     if (checked === 'indeterminate') return
     onToggle(item.ingredientId, checked)
@@ -45,7 +47,10 @@ export function ShoppingItem({ item, onToggle, disabled, pending }: ShoppingItem
           onCheckedChange={handleCheckedChange}
           disabled={disabled}
           className="h-5 w-5"
-          aria-label={`Mark ${item.name} as ${item.purchased ? 'not purchased' : 'purchased'}`}
+          aria-label={tShopping('ariaToggleItem', {
+            name: item.name,
+            state: item.purchased ? tShopping('stateNotPurchased') : tShopping('statePurchased'),
+          })}
         />
         <div className="flex items-baseline gap-2">
           <Body
@@ -80,7 +85,7 @@ export function ShoppingItem({ item, onToggle, disabled, pending }: ShoppingItem
           </span>
         </TooltipTrigger>
         <TooltipContent>
-          <p>Needed by {item.neededByAbsolute}</p>
+          <p>{tShopping('neededByTooltip', { date: item.neededByAbsolute })}</p>
         </TooltipContent>
       </Tooltip>
     </label>

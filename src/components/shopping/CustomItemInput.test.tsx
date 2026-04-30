@@ -12,7 +12,7 @@ function renderInput(props: Partial<Parameters<typeof CustomItemInput>[0]> = {})
 describe('CustomItemInput', () => {
   it('renders the input with placeholder', () => {
     renderInput()
-    expect(screen.getByPlaceholderText('Add an item...')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Add an item…')).toBeInTheDocument()
   })
 
   it('has proper aria label', () => {
@@ -25,7 +25,7 @@ describe('CustomItemInput', () => {
     const onItemAdded = vi.fn()
     renderInput({ onItemAdded })
 
-    const input = screen.getByPlaceholderText('Add an item...')
+    const input = screen.getByPlaceholderText('Add an item…')
     await user.click(input)
     await user.keyboard('{Enter}')
 
@@ -34,6 +34,6 @@ describe('CustomItemInput', () => {
 
   it('disables input when disabled prop is true', () => {
     renderInput({ disabled: true })
-    expect(screen.getByPlaceholderText('Add an item...')).toBeDisabled()
+    expect(screen.getByPlaceholderText('Add an item…')).toBeDisabled()
   })
 })

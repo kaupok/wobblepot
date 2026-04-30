@@ -63,7 +63,7 @@ export function ShoppingList({
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
-        throw new Error(data.error || 'Failed to update item')
+        throw new Error(data.error || tShopping('errors.updateFailed'))
       }
     },
     onMutate: async ({ ingredientId, purchased }) => {
@@ -99,7 +99,7 @@ export function ShoppingList({
       if (context?.previousIds) {
         queryClient.setQueryData(queryKey, context.previousIds)
       }
-      toast.error(_err instanceof Error ? _err.message : 'Failed to update item')
+      toast.error(_err instanceof Error ? _err.message : tShopping('errors.updateFailed'))
     },
   })
 
@@ -147,8 +147,8 @@ export function ShoppingList({
     <Card className="w-full">
       <CardHeader>
         <div className="flex flex-col gap-1">
-          <Heading variant="h4">Shopping list</Heading>
-          <Body variant="muted">For: {dateRangeLabel}</Body>
+          <Heading variant="h4">{tShopping('title')}</Heading>
+          <Body variant="muted">{tShopping('dateRangePrefix', { range: dateRangeLabel })}</Body>
         </div>
       </CardHeader>
       <CardContent>
@@ -156,7 +156,10 @@ export function ShoppingList({
           {/* Summary bar */}
           <div className="bg-muted/50 flex items-center justify-end rounded-lg px-4 py-3">
             <Body variant="muted">
-              {tShopping('itemCount', { count: totalItems })} • {purchasedCount} purchased
+              {tShopping('summary', {
+                itemCount: tShopping('itemCount', { count: totalItems }),
+                purchasedCount,
+              })}
             </Body>
           </div>
 

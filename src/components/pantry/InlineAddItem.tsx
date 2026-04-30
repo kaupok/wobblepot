@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Search, Plus, Loader2, Check } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
@@ -32,6 +33,7 @@ export function InlineAddItem({
   onItemAdded,
   pantryIngredientIds = new Set(),
 }: InlineAddItemProps) {
+  const tPantry = useTranslations('pantry')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<IngredientResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -109,10 +111,10 @@ export function InlineAddItem({
 
       if (!response.ok) {
         if (response.status === 409) {
-          toast.error(`${ingredient.name} is already in your pantry`)
+          toast.error(tPantry('alreadyInPantry', { name: ingredient.name }))
           return
         }
-        throw new Error('Failed to add item')
+        throw new Error(tPantry('errors.addFailed'))
       }
 
       const data = await response.json()
@@ -121,9 +123,9 @@ export function InlineAddItem({
       setQuery('')
       setResults([])
       setShowDropdown(false)
-      toast.success(`${ingredient.name} added to pantry`)
+      toast.success(tPantry('success.added', { name: ingredient.name }))
     } catch {
-      toast.error('Failed to add item to pantry')
+      toast.error(tPantry('errors.addFailed'))
     } finally {
       setIsAdding(false)
     }
@@ -164,7 +166,7 @@ export function InlineAddItem({
             }
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Add ingredient to pantry..."
+          placeholder={tPantry('addPlaceholder')}
           className="pr-9 pl-9"
           disabled={isAdding}
         />
@@ -201,7 +203,7 @@ export function InlineAddItem({
                   {isInPantry && (
                     <span className="text-muted-foreground flex items-center gap-1 text-xs">
                       <Check className="h-3 w-3" />
-                      In pantry
+                      {tPantry('inPantry')}
                     </span>
                   )}
                 </div>
@@ -215,7 +217,7 @@ export function InlineAddItem({
       {query.trim() && !isLoading && results.length === 0 && (
         <div className="bg-popover absolute top-full z-10 mt-1 w-full rounded-md border p-3 shadow-md">
           <Body variant="muted" className="text-center">
-            No ingredients found
+            {tPantry('noResults')}
           </Body>
         </div>
       )}

@@ -45,9 +45,7 @@ export const Generating: Story = {
     const canvas = within(canvasElement)
     const generate = canvas.getByRole('button', { name: /^generate$/i })
     await userEvent.click(generate)
-    await waitFor(() =>
-      expect(canvas.getByRole('button', { name: /generating\.\.\./i })).toBeDisabled(),
-    )
+    await waitFor(() => expect(canvas.getByRole('button', { name: /generating…/i })).toBeDisabled())
   },
 }
 

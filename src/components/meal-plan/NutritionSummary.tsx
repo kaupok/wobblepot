@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl'
 import { Body } from '@/components/ui/typography'
 import type { NutritionData, MealComponent } from './types'
 
@@ -12,13 +13,15 @@ function hasVagueIngredients(components?: Pick<MealComponent, 'isVague'>[]): boo
 }
 
 export function NutritionSummary({ nutrition, compact, components }: NutritionSummaryProps) {
+  const t = useTranslations('meal-plan.nutrition')
   const hasVague = hasVagueIngredients(components)
 
   if (compact) {
     return (
       <div className="text-muted-foreground text-xs">
-        {Math.round(nutrition.calories)} kcal · {Math.round(nutrition.protein)}g protein ·{' '}
-        {Math.round(nutrition.carbs)}g carbs · {Math.round(nutrition.fat)}g fat
+        {Math.round(nutrition.calories)} kcal · {Math.round(nutrition.protein)}g{' '}
+        {t('compact.protein')} · {Math.round(nutrition.carbs)}g {t('compact.carbs')} ·{' '}
+        {Math.round(nutrition.fat)}g {t('compact.fat')}
         {hasVague && '*'}
       </div>
     )
@@ -27,19 +30,20 @@ export function NutritionSummary({ nutrition, compact, components }: NutritionSu
   return (
     <div className="flex flex-col gap-3">
       <Body variant="small" className="font-semibold">
-        Nutrition (per serving){hasVague && '*'}
+        {t('summaryHeader')}
+        {hasVague && '*'}
       </Body>
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-        <span className="text-muted-foreground">Calories</span>
+        <span className="text-muted-foreground">{t('calories')}</span>
         <span>{Math.round(nutrition.calories)} kcal</span>
-        <span className="text-muted-foreground">Protein</span>
+        <span className="text-muted-foreground">{t('protein')}</span>
         <span>{Math.round(nutrition.protein)}g</span>
-        <span className="text-muted-foreground">Carbs</span>
+        <span className="text-muted-foreground">{t('carbs')}</span>
         <span>{Math.round(nutrition.carbs)}g</span>
-        <span className="text-muted-foreground">Fat</span>
+        <span className="text-muted-foreground">{t('fat')}</span>
         <span>{Math.round(nutrition.fat)}g</span>
       </div>
-      {hasVague && <Body variant="caption">*includes estimates for vague quantities</Body>}
+      {hasVague && <Body variant="caption">{t('vagueDisclaimer')}</Body>}
     </div>
   )
 }

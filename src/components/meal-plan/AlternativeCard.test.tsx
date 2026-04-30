@@ -166,12 +166,12 @@ describe('AlternativeCard', () => {
       expect(onSelect).toHaveBeenCalledWith('meal-1')
     })
 
-    it('shows Selecting... when isSelecting is true', () => {
+    it('shows Selecting… when isSelecting is true', () => {
       render(
         <AlternativeCard meal={mockMeal} householdSize={3} onSelect={vi.fn()} isSelecting={true} />,
       )
 
-      expect(screen.getByRole('button', { name: 'Selecting...' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Selecting…' })).toBeInTheDocument()
     })
 
     it('disables Select button when isSelecting is true', () => {
@@ -179,7 +179,7 @@ describe('AlternativeCard', () => {
         <AlternativeCard meal={mockMeal} householdSize={3} onSelect={vi.fn()} isSelecting={true} />,
       )
 
-      expect(screen.getByRole('button', { name: 'Selecting...' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Selecting…' })).toBeDisabled()
     })
   })
 })

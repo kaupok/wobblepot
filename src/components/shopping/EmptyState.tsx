@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { Heading, Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 
@@ -10,52 +11,48 @@ interface EmptyStateProps {
   variant: EmptyStateVariant
 }
 
-const CONTENT: Record<
+const VARIANT_KEYS: Record<
   EmptyStateVariant,
-  {
-    heading: string
-    description: string
-    buttonLabel: string
-    buttonHref: string
-  }
+  { heading: string; body: string; cta: string; href: string }
 > = {
   'no-plan': {
-    heading: 'No meal plan yet',
-    description: 'Generate a meal plan to see your shopping list.',
-    buttonLabel: 'Generate plan',
-    buttonHref: '/meal-plan',
+    heading: 'noPlanHeading',
+    body: 'noPlanBody',
+    cta: 'noPlanCta',
+    href: '/meal-plan',
   },
   'all-purchased': {
-    heading: 'All done!',
-    description: 'Your pantry is stocked for the week.',
-    buttonLabel: 'View pantry',
-    buttonHref: '/pantry',
+    heading: 'allDoneHeading',
+    body: 'allDoneBody',
+    cta: 'allDoneCta',
+    href: '/pantry',
   },
   'nothing-needed': {
-    heading: 'Nothing to buy',
-    description: 'Your pantry has everything you need for this week.',
-    buttonLabel: 'View pantry',
-    buttonHref: '/pantry',
+    heading: 'nothingHeading',
+    body: 'nothingBodyShort',
+    cta: 'nothingCta',
+    href: '/pantry',
   },
   error: {
-    heading: 'Something went wrong',
-    description: "We couldn't load your shopping list. Please try again.",
-    buttonLabel: 'Go to dashboard',
-    buttonHref: '/meal-plan',
+    heading: 'errorHeading',
+    body: 'errorBody',
+    cta: 'errorCta',
+    href: '/meal-plan',
   },
 }
 
 export function EmptyState({ variant }: EmptyStateProps) {
-  const content = CONTENT[variant]
+  const t = useTranslations('shopping.emptyState')
+  const keys = VARIANT_KEYS[variant]
 
   return (
     <div className="flex min-h-[300px] flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-8 text-center">
       <div className="flex flex-col items-center gap-2">
-        <Heading variant="h2">{content.heading}</Heading>
-        <Body variant="muted">{content.description}</Body>
+        <Heading variant="h2">{t(keys.heading)}</Heading>
+        <Body variant="muted">{t(keys.body)}</Body>
       </div>
       <Button asChild>
-        <Link href={content.buttonHref}>{content.buttonLabel}</Link>
+        <Link href={keys.href}>{t(keys.cta)}</Link>
       </Button>
     </div>
   )

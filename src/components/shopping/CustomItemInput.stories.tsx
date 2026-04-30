@@ -37,7 +37,7 @@ export const Empty: Story = {}
 export const WithText: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const input = canvas.getByPlaceholderText('Add an item...')
+    const input = canvas.getByPlaceholderText('Add an item…')
     await userEvent.type(input, 'Olive oil')
   },
 }
@@ -54,7 +54,7 @@ export const SubmitInvokesCallback: Story = {
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    const input = canvas.getByPlaceholderText<HTMLInputElement>('Add an item...')
+    const input = canvas.getByPlaceholderText<HTMLInputElement>('Add an item…')
     await userEvent.type(input, '  Paper towels  ')
     await userEvent.keyboard('{Enter}')
 
@@ -72,7 +72,7 @@ export const EmptySubmitIsNoOp: Story = {
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    const input = canvas.getByPlaceholderText('Add an item...')
+    const input = canvas.getByPlaceholderText('Add an item…')
     await userEvent.click(input)
     await userEvent.keyboard('{Enter}')
     // No network call, no callback.

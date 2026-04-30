@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
@@ -31,6 +32,7 @@ export function NoteEditor({
   isEditing: controlledIsEditing,
   onEditingChange,
 }: NoteEditorProps) {
+  const t = useTranslations('meal-plan.noteEditor')
   const [uncontrolledIsEditing, setUncontrolledIsEditing] = useState(false)
   const isControlled = controlledIsEditing !== undefined
   const isEditing = isControlled ? controlledIsEditing : uncontrolledIsEditing
@@ -81,14 +83,14 @@ export function NoteEditor({
       })
 
       if (!response.ok) {
-        toast.error('Failed to save note')
+        toast.error(t('saveFailed'))
         return
       }
 
       onNoteChange?.(newNote)
       setIsEditing(false)
     } catch {
-      toast.error('Failed to save note')
+      toast.error(t('saveFailed'))
     } finally {
       setIsSaving(false)
     }
@@ -117,8 +119,8 @@ export function NoteEditor({
           value={editValue}
           onChange={(e) => setEditValue(e.target.value.slice(0, MAX_NOTE_LENGTH))}
           onKeyDown={handleKeyDown}
-          aria-label="Meal note"
-          placeholder="Add a note..."
+          aria-label={t('ariaLabel')}
+          placeholder={t('placeholder')}
           rows={compact ? 1 : 2}
           className={cn(
             'border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring w-full resize-none rounded-md border px-2 py-1 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
@@ -138,7 +140,7 @@ export function NoteEditor({
               onClick={handleCancel}
               disabled={isSaving}
             >
-              Cancel
+              {t('cancel')}
             </Button>
             <Button
               variant="default"
@@ -147,7 +149,7 @@ export function NoteEditor({
               onClick={handleSave}
               disabled={isSaving}
             >
-              {isSaving ? 'Saving...' : 'Save'}
+              {isSaving ? t('saving') : t('save')}
             </Button>
           </div>
         </div>
@@ -191,7 +193,7 @@ export function NoteEditor({
       )}
     >
       <span className="text-sm">+</span>
-      <span>Add note</span>
+      <span>{t('addNote')}</span>
     </button>
   )
 }

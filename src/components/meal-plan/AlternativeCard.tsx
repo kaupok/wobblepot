@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { MealCardBase } from './MealCardBase'
@@ -19,6 +20,7 @@ export function AlternativeCard({
   isSelecting,
   pantryIngredients,
 }: AlternativeCardProps) {
+  const t = useTranslations('meal-plan.alternative')
   return (
     <Card className="flex h-full flex-col">
       <CardContent className="flex-1 p-4 pb-2">
@@ -26,7 +28,7 @@ export function AlternativeCard({
       </CardContent>
       <CardFooter className="p-4 pt-0">
         <Button className="w-full" onClick={() => onSelect(meal.id)} disabled={isSelecting}>
-          {isSelecting ? 'Selecting...' : 'Select'}
+          {isSelecting ? t('selecting') : t('select')}
         </Button>
       </CardFooter>
     </Card>

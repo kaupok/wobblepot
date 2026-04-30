@@ -25,14 +25,290 @@
     "today": "Today",
     "tomorrow": "Tomorrow",
     "inDays": "{count, plural, one {In # day} other {In # days}}",
-    "past": "Past"
+    "past": "Past",
+    "urgency": {
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "thisWeek": "This week",
+      "later": "Later"
+    }
   },
   "shopping": {
-    "itemCount": "{count, plural, =0 {No items} one {# item} other {# items}}"
+    "itemCount": "{count, plural, =0 {No items} one {# item} other {# items}}",
+    "title": "Shopping list",
+    "dateRangePrefix": "For: {range}",
+    "windowNext7": "Next 7 days",
+    "windowNext14": "Next 14 days",
+    "summary": "{itemCount} • {purchasedCount} purchased",
+    "purchasedTail": "{count} purchased",
+    "ariaSort": "Sort items",
+    "sort": {
+      "category": "By category",
+      "urgency": "By urgency",
+      "alphabetical": "Alphabetical"
+    },
+    "clearChecked": "Clear checked",
+    "otherSection": "📝 Other ({count})",
+    "customItemsSection": "📝 Custom items ({count})",
+    "customInputPlaceholder": "Add an item…",
+    "customInputAria": "Add custom item to shopping list",
+    "ariaToggleItem": "Mark {name} as {state}",
+    "stateNotPurchased": "not purchased",
+    "statePurchased": "purchased",
+    "neededByTooltip": "Needed by {date}",
+    "ariaUnlink": "Unlink {name} from ingredient",
+    "unlinkTooltip": "Unlink from ingredient",
+    "ariaRemove": "Remove {name}",
+    "removeTooltip": "Remove item",
+    "errors": {
+      "alreadyOnList": "Item already on the list",
+      "addFailed": "Failed to add item",
+      "updateFailed": "Failed to update item",
+      "unlinkFailed": "Failed to unlink item",
+      "removeFailed": "Failed to remove item",
+      "clearCheckedFailed": "Failed to clear checked items"
+    },
+    "emptyState": {
+      "noPlanHeading": "No meal plan yet",
+      "noPlanBody": "Generate a meal plan to see your shopping list.",
+      "noPlanCta": "Generate plan",
+      "allDoneHeading": "All done!",
+      "allDoneBody": "Your pantry is stocked for the week.",
+      "allDoneCta": "View pantry",
+      "nothingHeading": "Nothing to buy",
+      "nothingBody": "Your pantry has everything you need for the next {days} days.",
+      "nothingBodyShort": "Your pantry has everything you need for this week.",
+      "nothingCta": "View pantry",
+      "errorHeading": "Something went wrong",
+      "errorBody": "We couldn't load your shopping list. Please try again.",
+      "errorCta": "Go to dashboard",
+      "ariaTimeWindow": "Time window",
+      "windowOption7": "7 days",
+      "windowOption14": "14 days"
+    }
   },
   "pantry": {
     "ingredientCount": "{count, plural, =0 {No items} one {# item} other {# items}}",
-    "ingredientCountInStock": "{count, plural, =0 {No items in stock} one {# item in stock} other {# items in stock}}"
+    "ingredientCountInStock": "{count, plural, =0 {No items in stock} one {# item in stock} other {# items in stock}}",
+    "title": "Your pantry",
+    "subtitle": "Manage your household inventory",
+    "empty": "Your pantry is empty. Add staples like olive oil, salt, and rice to exclude them from shopping lists.",
+    "footerHint": "Mark items as staples to exclude them from shopping lists",
+    "stapleSection": "Staples (always stocked)",
+    "onHandSection": "On hand",
+    "ariaToggleStaple": "Mark as staple",
+    "ariaUnstaple": "Remove from staples",
+    "ariaRemove": "Remove {name}",
+    "neededInWindow": "{quantity} needed in next {days} days",
+    "addPlaceholder": "Add ingredient to pantry…",
+    "inPantry": "In pantry",
+    "noResults": "No ingredients found",
+    "removeDialog": {
+      "title": "Remove from pantry",
+      "description": "Are you sure you want to remove {name} from your pantry?",
+      "confirm": "Remove"
+    },
+    "errors": {
+      "updateFailed": "Failed to update item",
+      "removeFailed": "Failed to remove item",
+      "addFailed": "Failed to add item to pantry"
+    },
+    "success": {
+      "removed": "Item removed from pantry",
+      "added": "{name} added to pantry"
+    },
+    "alreadyInPantry": "{name} is already in your pantry"
+  },
+  "today": {
+    "shoppingTitle": "Shopping",
+    "viewFullList": "View full list",
+    "allSet": "You're all set for the next 2 days",
+    "summaryToday": "{count} for today",
+    "summaryTomorrow": "{count} for tomorrow",
+    "summaryNeed": "Need {parts}",
+    "purchasedCollapse": "{count, plural, one {# item purchased} other {# items purchased}}",
+    "backToPlan": "Back to plan"
+  },
+  "meal-plan": {
+    "generating": {
+      "heading": "Generating your meal plan…",
+      "progress1": "Analyzing your preferences…",
+      "progress2": "Finding balanced meals…",
+      "progress3": "Ensuring variety for the week…",
+      "progress4": "Almost there…",
+      "slow": "Taking longer than expected, please wait…"
+    },
+    "firstTime": {
+      "welcome": "Welcome to Honkadori, {userName}!",
+      "welcomeNoName": "Welcome to Honkadori!",
+      "subhead": "Plan your first meals to get started.",
+      "startFromLabel": "Start from",
+      "daysCountLabel": "How many days",
+      "submit": "Generate meal plan",
+      "submitting": "Generating…"
+    },
+    "fillDays": {
+      "label": "Fill {dateRange}",
+      "submit": "Generate",
+      "submitting": "Generating…",
+      "ariaDays": "Number of days to fill",
+      "dayOption": "{count, plural, one {# day} other {# days}}"
+    },
+    "errors": {
+      "rateLimit": "Rate limit exceeded. Please try again later.",
+      "generationTimeout": "Generation timed out. Please try again.",
+      "generationFailed": "Failed to generate meals. Please try again.",
+      "generic": "Something went wrong. Please try again."
+    },
+    "card": {
+      "noMealPlanned": "No meal planned",
+      "noMealSelected": "No meal selected",
+      "addMeal": "Add meal",
+      "adding": "Adding…",
+      "pickMeal": "Pick a meal",
+      "note": "Note",
+      "swap": "Swap",
+      "clear": "Clear",
+      "rate": "Rate",
+      "servings": "{count, plural, one {# serving} other {# servings}}",
+      "statusUpdateFailed": "Failed to update status. Please try again.",
+      "clearFailed": "Failed to clear meal. Please try again.",
+      "createEntryFailed": "Failed to add meal slot"
+    },
+    "noteEditor": {
+      "placeholder": "Add a note…",
+      "addNote": "Add note",
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "ariaLabel": "Meal note",
+      "saveFailed": "Failed to save note"
+    },
+    "rating": {
+      "prompt": "How was it?",
+      "thumbsUp": "Thumbs up",
+      "thumbsDown": "Thumbs down",
+      "dismiss": "Dismiss rating",
+      "saveFailed": "Failed to save rating",
+      "ariaCurrent": "Rating: {direction}. Click to change.",
+      "directionUp": "thumbs up",
+      "directionDown": "thumbs down"
+    },
+    "status": {
+      "ariaLabel": "Meal status"
+    },
+    "alternative": {
+      "select": "Select",
+      "selecting": "Selecting…"
+    },
+    "selector": {
+      "swapTitle": "Choose a different meal",
+      "addTitle": "Add a meal",
+      "swapDescription": "Replace \"{name}\" with something else",
+      "swapDescriptionGeneric": "Select one of these alternatives that match your preferences",
+      "addDescription": "Select a meal for this slot",
+      "searchPlaceholder": "Search meal library…",
+      "myRecipesOnly": "My recipes only",
+      "suggestions": "Suggestions",
+      "searchResults": "Search results ({count})",
+      "searchResultsNoCount": "Search results",
+      "myRecipesHeader": "My recipes ({count})",
+      "myRecipesHeaderNoCount": "My recipes",
+      "loadMore": "Load more ({loaded} of {total})",
+      "loading": "Loading…",
+      "imagineButton": "Imagine a meal",
+      "noSuggestions": "No suggestions available. Try searching for a meal.",
+      "emptyMyRecipes": "No custom recipes yet. Try <link>importing a recipe</link> first.",
+      "emptySearchCustom": "No custom recipes found matching \"{query}\"",
+      "emptySearch": "No meals found matching \"{query}\"",
+      "updateMealFailed": "Failed to update meal",
+      "imagine": {
+        "back": "Back to library",
+        "promptPlaceholder": "Something healthy with chicken and a fresh salad…",
+        "attachAria": "Attach photos",
+        "removeImageAria": "Remove {filename}",
+        "generate": "Imagine meals",
+        "generating": "Generating ideas…",
+        "cancel": "Cancel",
+        "fineTuning": "Fine-tuning recipe…",
+        "select": "Select",
+        "promptOrPhotoRequired": "Please describe what kind of meal you want or attach a photo",
+        "tooManyImages": "You can attach up to {max} images",
+        "wrongImageType": "Images must be JPEG, PNG, or WebP",
+        "imageTooLarge": "Each image must be 5 MB or less",
+        "imagineFailed": "Failed to generate meal ideas. Please try again.",
+        "assignFailed": "Failed to assign meal to plan"
+      }
+    },
+    "detail": {
+      "kidFriendly": "Kid-friendly",
+      "timeMinutes": "{count} min",
+      "ingredientsHeader": "Ingredients (serves {count})",
+      "ingredientsHeaderInline": "Ingredients (<servings>servings</servings>)",
+      "staplesPrefix": "Staples: {list}",
+      "viewSource": "View original recipe",
+      "howToPrepare": "How to prepare",
+      "hideTips": "Hide tips",
+      "ariaDetailsFor": "Details for {mealName}"
+    },
+    "tips": {
+      "equipment": "Equipment needed",
+      "steps": "Steps",
+      "pitfalls": "Watch out for",
+      "tip": "Tip",
+      "userNotes": "Your notes",
+      "additionalTips": "Additional tips",
+      "header": "Preparation tips",
+      "retry": "Retry"
+    },
+    "nutrition": {
+      "summaryHeader": "Nutrition (per serving)",
+      "calories": "Calories",
+      "protein": "Protein",
+      "carbs": "Carbs",
+      "fat": "Fat",
+      "compact": {
+        "protein": "protein",
+        "carbs": "carbs",
+        "fat": "fat"
+      },
+      "vagueDisclaimer": "*includes estimates for vague quantities"
+    },
+    "serving": {
+      "label": "Serves",
+      "labelWithCount": "Serves {count}",
+      "custom": "(custom)",
+      "ariaLabel": "Number of servings",
+      "ariaButton": "Serves {count}. Click to edit.",
+      "updateFailed": "Failed to update servings"
+    },
+    "availability": {
+      "haveAll": "Have all ingredients",
+      "missing": "{count, plural, one {# ingredient missing} other {# ingredients missing}}",
+      "ariaToggle": "Mark {name} as {state}",
+      "stateAvailable": "available",
+      "stateUnavailable": "not available"
+    },
+    "deduction": {
+      "title": "Mark as completed",
+      "willDeduct": "Marking \"{mealName}\" as completed will deduct the following from your pantry:",
+      "noDeduction": "Mark \"{mealName}\" as completed? No pantry items will be affected.",
+      "noPantryItemsBody": "Either all ingredients are staples, not in your pantry, or the meal has no ingredients.",
+      "remove": "remove",
+      "confirm": "Confirm",
+      "updating": "Updating…",
+      "pieceQuantity": "{count, plural, =0 {0 pieces} one {# piece} other {# pieces}}",
+      "gramsQuantity": "{count}g",
+      "someQuantity": "some"
+    },
+    "past": {
+      "show": "Show past meals",
+      "hide": "Hide past meals",
+      "catchUp": "{count, plural, one {# to catch up} other {# to catch up}}"
+    },
+    "day": {
+      "noMealsPlanned": "No meals planned"
+    }
   },
   "recipes": {
     "mealCount": "{count, plural, =0 {No recipes} one {# recipe} other {# recipes}}",
@@ -50,7 +326,13 @@
   "common": {
     "loading": "Loading…",
     "tryAgain": "Try again",
-    "goHome": "Go home"
+    "goHome": "Go home",
+    "cancel": "Cancel",
+    "save": "Save",
+    "remove": "Remove",
+    "confirm": "Confirm",
+    "clear": "Clear",
+    "back": "Back"
   },
   "nav": {
     "skipToContent": "Skip to content",
@@ -191,6 +473,14 @@
         "title": "Oops! Something went wrong",
         "body": "We encountered an error while loading this page."
       },
+      "mealPlan": {
+        "title": "Couldn't load your meal plan",
+        "body": "We had trouble loading your meal plan. Please try again."
+      },
+      "shopping": {
+        "title": "Couldn't load your shopping list",
+        "body": "We had trouble loading your shopping list. Please try again."
+      },
       "signIn": {
         "title": "Couldn't load sign in",
         "body": "We had trouble loading the sign-in page. Please try again."
@@ -326,6 +616,11 @@
     "HouseholdRole": {
       "owner": "Owner",
       "member": "Member"
+    },
+    "MealPlanEntryStatus": {
+      "planned": "Planned",
+      "completed": "Completed",
+      "skipped": "Skipped"
     }
   }
 }

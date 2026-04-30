@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { ArrowLeft } from 'lucide-react'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { Button } from '@/components/ui/button'
@@ -41,6 +42,7 @@ export function InventoryPage({
   windowDays,
 }: InventoryPageProps) {
   const router = useRouter()
+  const tToday = useTranslations('today')
   const [isMobile, setIsMobile] = useState(false)
   const [pantryItems, setPantryItems] = useState<PantryItemData[]>(initialPantryItems)
   const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(new Set())
@@ -103,7 +105,7 @@ export function InventoryPage({
         <Button variant="outline" size="sm" asChild>
           <Link href="/meal-plan">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to plan
+            {tToday('backToPlan')}
           </Link>
         </Button>
       </div>

@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { Plus, Loader2 } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 
@@ -21,6 +22,8 @@ interface CustomItemInputProps {
 }
 
 export function CustomItemInput({ onItemAdded, disabled }: CustomItemInputProps) {
+  const tShopping = useTranslations('shopping')
+  const tErrors = useTranslations('shopping.errors')
   const [value, setValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -36,10 +39,10 @@ export function CustomItemInput({ onItemAdded, disabled }: CustomItemInputProps)
 
       if (!response.ok) {
         if (response.status === 409) {
-          toast.error('Item already on the list')
+          toast.error(tErrors('alreadyOnList'))
           return null
         }
-        throw new Error(data.error || 'Failed to add item')
+        throw new Error(data.error || tErrors('addFailed'))
       }
 
       return {
@@ -59,7 +62,7 @@ export function CustomItemInput({ onItemAdded, disabled }: CustomItemInputProps)
       }
     },
     onError: (error) => {
-      const message = error instanceof Error ? error.message : 'Failed to add item'
+      const message = error instanceof Error ? error.message : tErrors('addFailed')
       toast.error(message)
     },
   })
@@ -87,10 +90,10 @@ export function CustomItemInput({ onItemAdded, disabled }: CustomItemInputProps)
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Add an item..."
+        placeholder={tShopping('customInputPlaceholder')}
         className="pr-9 pl-9"
         disabled={disabled || isSubmitting}
-        aria-label="Add custom item to shopping list"
+        aria-label={tShopping('customInputAria')}
       />
       {isSubmitting && (
         <Loader2 className="text-muted-foreground absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin" />

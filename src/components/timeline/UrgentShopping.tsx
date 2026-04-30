@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Check, ChevronDown, ChevronUp, ShoppingCart } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
@@ -23,6 +24,7 @@ interface UrgentShoppingProps {
 }
 
 export function UrgentShopping({ items }: UrgentShoppingProps) {
+  const tToday = useTranslations('today')
   const [isPurchasedExpanded, setIsPurchasedExpanded] = useState(false)
 
   // Filter to only today and tomorrow items, sorted by urgency (today first)
@@ -48,19 +50,19 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Shopping</CardTitle>
+          <CardTitle>{tToday('shoppingTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center gap-2 py-6 text-center">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
               <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
             </span>
-            <Body variant="muted">You&apos;re all set for the next 2 days</Body>
+            <Body variant="muted">{tToday('allSet')}</Body>
           </div>
         </CardContent>
         <CardFooter>
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/shopping">View full list</Link>
+            <Link href="/shopping">{tToday('viewFullList')}</Link>
           </Button>
         </CardFooter>
       </Card>
@@ -69,18 +71,18 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
 
   const summaryParts: string[] = []
   if (todayCount > 0) {
-    summaryParts.push(`${todayCount} for today`)
+    summaryParts.push(tToday('summaryToday', { count: todayCount }))
   }
   if (tomorrowCount > 0) {
-    summaryParts.push(`${tomorrowCount} for tomorrow`)
+    summaryParts.push(tToday('summaryTomorrow', { count: tomorrowCount }))
   }
-  const summary = `Need ${summaryParts.join(', ')}`
+  const summary = tToday('summaryNeed', { parts: summaryParts.join(', ') })
 
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Shopping</CardTitle>
+          <CardTitle>{tToday('shoppingTitle')}</CardTitle>
           <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
             <ShoppingCart className="h-4 w-4" />
             <span className="text-sm font-medium">{unpurchasedItems.length}</span>
@@ -122,7 +124,7 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
               >
                 <span className="text-muted-foreground flex items-center gap-1">
                   <Check className="h-3 w-3" />
-                  {purchasedItems.length} item{purchasedItems.length === 1 ? '' : 's'} purchased
+                  {tToday('purchasedCollapse', { count: purchasedItems.length })}
                 </span>
                 {isPurchasedExpanded ? (
                   <ChevronUp className="text-muted-foreground h-3 w-3" />
@@ -149,7 +151,7 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
       </CardContent>
       <CardFooter>
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/shopping">View full list</Link>
+          <Link href="/shopping">{tToday('viewFullList')}</Link>
         </Button>
       </CardFooter>
     </Card>

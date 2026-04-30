@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
 
@@ -23,6 +24,7 @@ export function ServingControl({
   onServingsChange,
   disabled = false,
 }: ServingControlProps) {
+  const t = useTranslations('meal-plan.serving')
   const [isEditing, setIsEditing] = useState(false)
   const [inputValue, setInputValue] = useState(String(servings))
   const [isUpdating, setIsUpdating] = useState(false)
@@ -100,7 +102,7 @@ export function ServingControl({
   if (isEditing) {
     return (
       <span className="inline-flex items-center gap-1">
-        <span className="text-muted-foreground">Serves</span>
+        <span className="text-muted-foreground">{t('label')}</span>
         <input
           ref={inputRef}
           type="text"
@@ -115,7 +117,7 @@ export function ServingControl({
             'focus:border-primary focus:ring-primary focus:ring-1 focus:outline-none',
             isUpdating && 'opacity-50',
           )}
-          aria-label="Number of servings"
+          aria-label={t('ariaLabel')}
         />
       </span>
     )
@@ -133,10 +135,10 @@ export function ServingControl({
         !isOverridden && 'text-muted-foreground',
         (disabled || isUpdating) && 'cursor-not-allowed opacity-50',
       )}
-      aria-label={`Serves ${servings}. Click to edit.`}
+      aria-label={t('ariaButton', { count: servings })}
     >
-      Serves {servings}
-      {isOverridden && <span className="text-xs">(custom)</span>}
+      {t('labelWithCount', { count: servings })}
+      {isOverridden && <span className="text-xs">{t('custom')}</span>}
     </button>
   )
 }

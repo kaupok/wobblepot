@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -14,10 +15,11 @@ interface PreparationTipsProps {
 }
 
 function UserNotes({ notes }: { notes: string }) {
+  const t = useTranslations('meal-plan.tips')
   return (
     <div className="flex flex-col gap-1 border-t pt-4">
       <Body variant="small" className="font-medium">
-        Your notes
+        {t('userNotes')}
       </Body>
       <Body variant="small" className="text-muted-foreground whitespace-pre-line">
         {notes}
@@ -33,6 +35,7 @@ export function PreparationTips({
   onRetry,
   preparationNotes,
 }: PreparationTipsProps) {
+  const t = useTranslations('meal-plan.tips')
   const hasNotes = !!preparationNotes?.trim()
 
   if (isLoading) {
@@ -42,7 +45,7 @@ export function PreparationTips({
         <div className="flex flex-col gap-4 border-t pt-4">
           <div className="flex flex-col gap-2">
             <Body variant="small" className="font-medium">
-              {hasNotes ? 'Additional tips' : 'Equipment needed'}
+              {hasNotes ? t('additionalTips') : t('equipment')}
             </Body>
             <div className="flex flex-col gap-1.5">
               <Skeleton className="h-4 w-3/4" />
@@ -53,7 +56,7 @@ export function PreparationTips({
           {!hasNotes && (
             <div className="flex flex-col gap-2">
               <Body variant="small" className="font-medium">
-                Steps
+                {t('steps')}
               </Body>
               <div className="flex flex-col gap-1.5">
                 <Skeleton className="h-4 w-full" />
@@ -65,7 +68,7 @@ export function PreparationTips({
           )}
           <div className="flex flex-col gap-2">
             <Body variant="small" className="font-medium">
-              Watch out for
+              {t('pitfalls')}
             </Body>
             <div className="flex flex-col gap-1.5">
               <Skeleton className="h-4 w-11/12" />
@@ -83,12 +86,12 @@ export function PreparationTips({
         {hasNotes && <UserNotes notes={preparationNotes!} />}
         <div className="flex flex-col gap-2 border-t pt-4">
           <Body variant="small" className="font-medium">
-            Preparation tips
+            {t('header')}
           </Body>
           <div className="flex items-center gap-2">
             <Body variant="muted">{error}</Body>
             <Button variant="outline" size="sm" onClick={onRetry}>
-              Retry
+              {t('retry')}
             </Button>
           </div>
         </div>
@@ -114,7 +117,7 @@ export function PreparationTips({
         {tips.equipment && tips.equipment.length > 0 && (
           <div className="flex flex-col gap-1">
             <Body variant="small" className="font-medium">
-              Equipment needed
+              {t('equipment')}
             </Body>
             <ul className="text-muted-foreground list-disc pl-5 text-sm">
               {tips.equipment.map((item, i) => (
@@ -126,7 +129,7 @@ export function PreparationTips({
         {tips.steps && tips.steps.length > 0 && (
           <div className="flex flex-col gap-1">
             <Body variant="small" className="font-medium">
-              Steps
+              {t('steps')}
             </Body>
             <ol className="text-muted-foreground list-decimal pl-5 text-sm">
               {tips.steps.map((step, i) => (
@@ -140,7 +143,7 @@ export function PreparationTips({
         {tips.pitfalls.length > 0 && (
           <div className="flex flex-col gap-1">
             <Body variant="small" className="font-medium">
-              Watch out for
+              {t('pitfalls')}
             </Body>
             <ul className="text-muted-foreground list-disc pl-5 text-sm">
               {tips.pitfalls.map((pitfall, i) => (
@@ -152,7 +155,7 @@ export function PreparationTips({
         {tips.tip && (
           <div className="border-primary/20 bg-primary/5 rounded-md border-l-4 px-3 py-2">
             <Body variant="small" className="font-medium">
-              Tip
+              {t('tip')}
             </Body>
             <Body variant="small">{tips.tip}</Body>
           </div>
