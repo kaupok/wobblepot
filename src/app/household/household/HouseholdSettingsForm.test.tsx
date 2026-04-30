@@ -369,7 +369,7 @@ describe('HouseholdSettingsForm', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
 
-      expect(screen.getByRole('button', { name: 'Saving...' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled()
     })
 
     it('handles network failure gracefully', async () => {

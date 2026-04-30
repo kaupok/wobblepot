@@ -1,6 +1,6 @@
 'use client'
 
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { NumberInput } from '@/components/ui/number-input'
@@ -33,6 +33,7 @@ export function ComponentList({
   onMarkAsVague,
 }: ComponentListProps) {
   const locale = useLocale() as Locale
+  const t = useTranslations('recipes.form.componentList')
 
   if (components.length === 0) return null
 
@@ -52,22 +53,24 @@ export function ComponentList({
                 {comp.isVague && comp.originalPhrase ? (
                   <span className="italic">{comp.originalPhrase}</span>
                 ) : isInvalidQuantity ? (
-                  <span className="text-destructive">Quantity must be greater than 0</span>
+                  <span className="text-destructive">{t('invalidQuantity')}</span>
                 ) : (
-                  <>
-                    {formatQuantity(comp.totalQuantity / servings, locale, {
+                  t('perServing', {
+                    quantity: formatQuantity(comp.totalQuantity / servings, locale, {
                       maximumFractionDigits: 1,
-                    })}
-                    {unitLabel} per serving
-                  </>
+                    }),
+                    unit: unitLabel,
+                  })
                 )}
               </Body>
               {isDuplicate && (
                 <div className="mt-1 flex items-center gap-1.5">
                   <Info className="h-3 w-3 shrink-0 text-amber-600" />
                   <Body variant="small" className="text-amber-700 dark:text-amber-400">
-                    Also used in row{otherIndices.length > 1 ? 's' : ''}{' '}
-                    {otherIndices.map((i) => i + 1).join(', ')}
+                    {t('duplicateRow', {
+                      count: otherIndices.length,
+                      rows: otherIndices.map((i) => i + 1).join(', '),
+                    })}
                   </Body>
                 </div>
               )}
@@ -82,7 +85,7 @@ export function ComponentList({
                   disabled={disabled}
                   className="text-muted-foreground hover:text-foreground"
                 >
-                  Set quantity
+                  {t('setQuantity')}
                 </Button>
               ) : (
                 <>
@@ -99,7 +102,7 @@ export function ComponentList({
                       }}
                       className="w-20 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                       disabled={disabled}
-                      aria-label={`Total quantity for ${comp.ingredient.name}`}
+                      aria-label={t('totalQuantityAria', { name: comp.ingredient.name })}
                     />
                     {unitLabel && (
                       <span className="text-muted-foreground bg-muted border-l px-2 py-1.5 text-sm">
@@ -115,7 +118,7 @@ export function ComponentList({
                     disabled={disabled}
                     className="text-muted-foreground hover:text-foreground"
                   >
-                    No quantity
+                    {t('noQuantity')}
                   </Button>
                 </>
               )}

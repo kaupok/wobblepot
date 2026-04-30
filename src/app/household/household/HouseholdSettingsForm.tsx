@@ -137,6 +137,7 @@ export function HouseholdSettingsForm({
   isOwner,
 }: HouseholdSettingsFormProps) {
   const t = useTranslations('household')
+  const tSettings = useTranslations('household.settings')
   const router = useRouter()
 
   // Basic info state
@@ -203,12 +204,12 @@ export function HouseholdSettingsForm({
       for (const response of responses) {
         if (!response.ok) {
           const errorData = await response.json()
-          throw new Error(errorData.error || 'Failed to save settings')
+          throw new Error(errorData.error || tSettings('saveFailed'))
         }
       }
     },
     onSuccess: () => {
-      toast.success('Settings saved')
+      toast.success(tSettings('savedToast'))
       // Re-render the server tree so NextIntlClientProvider / `<html lang>` /
       // server-rendered header pick up a changed household.locale without a
       // manual reload. (Not TanStack cache invalidation — this is SSR content
@@ -216,7 +217,7 @@ export function HouseholdSettingsForm({
       router.refresh()
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      setError(err instanceof Error ? err.message : tSettings('errorGeneric'))
     },
   })
 
@@ -255,16 +256,16 @@ export function HouseholdSettingsForm({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <Heading variant="h2">Household settings</Heading>
-        <Body variant="muted">Configure your household preferences for meal planning</Body>
+        <Heading variant="h2">{tSettings('heading')}</Heading>
+        <Body variant="muted">{tSettings('description')}</Body>
       </div>
       <form onSubmit={handleSubmit}>
         <div className="flex flex-col gap-8">
           {/* Section 1: Basic Info */}
           <section className="flex flex-col gap-4">
-            <Heading variant="h4">Basic information</Heading>
+            <Heading variant="h4">{tSettings('basicHeading')}</Heading>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="name">Household name</Label>
+              <Label htmlFor="name">{tSettings('nameLabel')}</Label>
               <Input
                 id="name"
                 type="text"
@@ -278,7 +279,7 @@ export function HouseholdSettingsForm({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="timezone">Timezone</Label>
+              <Label htmlFor="timezone">{tSettings('timezoneLabel')}</Label>
               <Select value={timezone} onValueChange={setTimezone} disabled={isLoading || !isOwner}>
                 <SelectTrigger
                   id="timezone"
@@ -286,7 +287,7 @@ export function HouseholdSettingsForm({
                   aria-invalid={!!error}
                   aria-describedby={error ? 'form-error' : undefined}
                 >
-                  <SelectValue placeholder="Select timezone" />
+                  <SelectValue placeholder={tSettings('timezonePlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {TIMEZONES.map((tz) => (
@@ -322,18 +323,14 @@ export function HouseholdSettingsForm({
               </Select>
               <Body variant="muted">{t('localeHelperText')}</Body>
             </div>
-            {!isOwner && (
-              <Body variant="muted">
-                Only the household owner can edit name, timezone, and language.
-              </Body>
-            )}
+            {!isOwner && <Body variant="muted">{tSettings('ownerOnlyNotice')}</Body>}
           </section>
 
           {/* Section 2: Dietary Preferences */}
           <section className="flex flex-col gap-4">
-            <Heading variant="h4">Dietary preferences</Heading>
+            <Heading variant="h4">{tSettings('preferencesHeading')}</Heading>
             <div className="flex flex-col gap-2">
-              <Label>Dietary type</Label>
+              <Label>{tSettings('dietaryTypeLabel')}</Label>
               <RadioGroup
                 value={dietaryType}
                 onValueChange={(value) => setDietaryType(value as DietaryType | 'none')}
@@ -352,7 +349,7 @@ export function HouseholdSettingsForm({
               </RadioGroup>
             </div>
             <div className="flex flex-col gap-2">
-              <Label>Allergens to avoid</Label>
+              <Label>{tSettings('allergensLabel')}</Label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {ALLERGEN_VALUES.map((allergen) => (
                   <AllergenCheckbox
@@ -366,41 +363,41 @@ export function HouseholdSettingsForm({
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="restrictions">Dietary restrictions</Label>
+              <Label htmlFor="restrictions">{tSettings('restrictionsLabel')}</Label>
               <TagInput
                 ref={restrictionsRef}
                 id="restrictions"
                 value={restrictions}
                 onChange={setRestrictions}
-                placeholder="e.g., low sodium, halal"
+                placeholder={tSettings('restrictionsPlaceholder')}
                 disabled={isLoading}
               />
-              <Body variant="muted">Type a restriction and press Enter or click away to add</Body>
+              <Body variant="muted">{tSettings('restrictionsHelper')}</Body>
             </div>
           </section>
 
           {/* Section 3: Excluded Ingredients */}
           <section className="flex flex-col gap-4">
-            <Heading variant="h4">Excluded ingredients</Heading>
+            <Heading variant="h4">{tSettings('excludedHeading')}</Heading>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="excluded">Ingredients to exclude</Label>
+              <Label htmlFor="excluded">{tSettings('excludedLabel')}</Label>
               <TagInput
                 ref={excludedIngredientsRef}
                 id="excluded"
                 value={excludedIngredients}
                 onChange={setExcludedIngredients}
-                placeholder="e.g., cilantro, mushrooms"
+                placeholder={tSettings('excludedPlaceholder')}
                 disabled={isLoading}
               />
-              <Body variant="muted">Ingredients you want to avoid in meal suggestions</Body>
+              <Body variant="muted">{tSettings('excludedHelper')}</Body>
             </div>
           </section>
 
           {/* Section 4: Meal Scheduling */}
           <section className="flex flex-col gap-4">
-            <Heading variant="h4">Meal scheduling</Heading>
+            <Heading variant="h4">{tSettings('mealSchedulingHeading')}</Heading>
             <div className="flex flex-col gap-2">
-              <Label>Weekday meals to plan</Label>
+              <Label>{tSettings('weekdayMealsLabel')}</Label>
               <div className="flex gap-4">
                 {MEAL_TYPE_VALUES.map((mealType) => (
                   <MealTypeCheckbox
@@ -415,7 +412,7 @@ export function HouseholdSettingsForm({
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <Label>Weekend meals to plan</Label>
+              <Label>{tSettings('weekendMealsLabel')}</Label>
               <div className="flex gap-4">
                 {MEAL_TYPE_VALUES.map((mealType) => (
                   <MealTypeCheckbox
@@ -439,7 +436,7 @@ export function HouseholdSettingsForm({
               </Body>
             )}
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Saving...' : 'Save settings'}
+              {isLoading ? tSettings('saving') : tSettings('saveButton')}
             </Button>
           </div>
         </div>

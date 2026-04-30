@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef } from 'react'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Check, X, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
@@ -92,6 +92,7 @@ export function IngredientRow({
   // Preserve the last quantity when toggling between vague and specific
   const lastQuantityRef = useRef<number | null>(null)
   const locale = useLocale() as Locale
+  const t = useTranslations('recipes.ingredientRow')
 
   const handleQuantityChange = (newQuantity: number) => {
     if (data.type === 'matched' || data.type === 'low-confidence') {
@@ -172,20 +173,19 @@ export function IngredientRow({
           {data.isVague && data.originalPhrase ? (
             <span className="italic">{data.originalPhrase}</span>
           ) : isInvalidQuantity ? (
-            <span className="text-destructive">Quantity must be greater than 0</span>
+            <span className="text-destructive">{t('invalidQuantity')}</span>
           ) : (
-            <>
-              {perServing}
-              {unitLabel} per serving
-            </>
+            t('perServing', { quantity: perServing, unit: unitLabel })
           )}
         </Body>
         {isDuplicate && (
           <div className="mt-1 flex items-center gap-1.5">
             <Info className="h-3 w-3 shrink-0 text-amber-600" />
             <Body variant="small" className="text-amber-700 dark:text-amber-400">
-              Also used in row{duplicateIndices.length > 1 ? 's' : ''}{' '}
-              {duplicateIndices.map((i) => i + 1).join(', ')}
+              {t('duplicateRow', {
+                count: duplicateIndices.length,
+                rows: duplicateIndices.map((i) => i + 1).join(', '),
+              })}
             </Body>
           </div>
         )}
@@ -207,7 +207,7 @@ export function IngredientRow({
           size="sm"
           onClick={onRemove}
           disabled={disabled}
-          aria-label="Remove ingredient"
+          aria-label={t('removeAria')}
         >
           <X className="h-4 w-4" />
         </Button>

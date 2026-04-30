@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -49,12 +50,14 @@ export function MealFormDetails({
   onKidFriendlyChange,
   disabled,
 }: MealFormDetailsProps) {
+  const t = useTranslations('recipes.form.details')
+
   return (
     <section className="flex flex-col gap-4">
-      <Heading variant="h4">Additional details</Heading>
+      <Heading variant="h4">{t('heading')}</Heading>
 
       <div className="flex flex-col gap-2">
-        <Label>Suitable for</Label>
+        <Label>{t('suitableForLabel')}</Label>
         <div className="flex gap-4">
           {MEAL_TYPE_VALUES.map((mealType) => (
             <MealTypeCheckboxRow
@@ -69,7 +72,7 @@ export function MealFormDetails({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="timeMinutes">Prep time (minutes)</Label>
+        <Label htmlFor="timeMinutes">{t('timeMinutesLabel')}</Label>
         <Input
           id="timeMinutes"
           type="text"
@@ -77,7 +80,7 @@ export function MealFormDetails({
           value={timeMinutes}
           onChange={(e) => onTimeMinutesChange(e.target.value)}
           disabled={disabled}
-          placeholder="e.g., 30"
+          placeholder={t('timeMinutesPlaceholder')}
         />
       </div>
 
@@ -89,7 +92,7 @@ export function MealFormDetails({
           disabled={disabled}
         />
         <Label htmlFor="kidFriendly" className="font-normal">
-          Kid-friendly
+          {t('kidFriendlyLabel')}
         </Label>
       </div>
     </section>

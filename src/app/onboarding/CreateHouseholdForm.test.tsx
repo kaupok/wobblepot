@@ -409,7 +409,7 @@ describe('CreateHouseholdForm', () => {
       await navigateToFinalStep()
       await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
 
-      expect(screen.getByRole('button', { name: 'Creating...' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Creating…' })).toBeDisabled()
     })
 
     it('shows error message on API failure', async () => {

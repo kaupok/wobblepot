@@ -48,7 +48,7 @@ describe('IngredientRow per-serving formatting', () => {
       <IngredientRow data={matched} servings={400} onUpdate={vi.fn()} onRemove={vi.fn()} />,
       'et',
     )
-    expect(screen.getByText(/1,5g per serving/)).toBeInTheDocument()
+    expect(screen.getByText(/1,5g portsjoni kohta/)).toBeInTheDocument()
   })
 
   it('renders period decimal in en for fractional per-serving quantity', () => {

@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { Minus, Plus } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NumberInput } from '@/components/ui/number-input'
@@ -28,6 +29,7 @@ interface MemberRow {
 
 export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
   const router = useRouter()
+  const t = useTranslations('onboarding')
   const [currentStep, setCurrentStep] = useState(1)
   const [error, setError] = useState('')
   // Guard against race condition when transitioning from step 1 to 2
@@ -88,15 +90,15 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
       }
     }
 
-    const typeLabel = row.portionType === 'child' ? 'Child' : 'Adult'
-    return `${typeLabel} ${typeCount}`
+    const typeLabel = row.portionType === 'child' ? t('child') : t('adult')
+    return t('defaultName', { type: typeLabel, index: typeCount })
   }
 
   const handleNext = () => {
     setError('')
 
     if (currentStep === 1 && !name.trim()) {
-      setError('Household name is required')
+      setError(t('errors.nameRequired'))
       return
     }
 
@@ -132,7 +134,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
           }),
         })
       } catch {
-        throw new Error('Unable to connect. Please check your internet connection.')
+        throw new Error(t('errors.network'))
       }
 
       const data = await response.json()
@@ -143,7 +145,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
           router.refresh()
           return
         }
-        throw new Error(data.message || data.error || 'Failed to create household')
+        throw new Error(data.message || data.error || t('errors.createFailed'))
       }
 
       return data
@@ -151,13 +153,13 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
     onSuccess: (data) => {
       if (data) {
         void track('onboarding:household_created', { household_id: data.id })
-        toast.success('Household created')
+        toast.success(t('createdToast'))
         router.push('/')
         router.refresh()
       }
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      setError(err instanceof Error ? err.message : t('errors.generic'))
     },
   })
 
@@ -181,7 +183,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
         return (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="name">Household name</Label>
+              <Label htmlFor="name">{t('nameLabel')}</Label>
               <Input
                 id="name"
                 type="text"
@@ -200,7 +202,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
         return (
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="householdSize">How many people in your household?</Label>
+              <Label htmlFor="householdSize">{t('householdSizeLabel')}</Label>
               <div className="flex items-center gap-3">
                 <Button
                   type="button"
@@ -209,7 +211,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
                   onClick={() => handleHouseholdSizeChange(householdSize - 1)}
                   disabled={isLoading || householdSize <= 1}
                   className="h-9 w-9 p-0"
-                  aria-label="Decrease household size"
+                  aria-label={t('decreaseAria')}
                 >
                   <Minus className="h-4 w-4" aria-hidden="true" />
                 </Button>
@@ -228,7 +230,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
                   onClick={() => handleHouseholdSizeChange(householdSize + 1)}
                   disabled={isLoading || householdSize >= 10}
                   className="h-9 w-9 p-0"
-                  aria-label="Increase household size"
+                  aria-label={t('increaseAria')}
                 >
                   <Plus className="h-4 w-4" aria-hidden="true" />
                 </Button>
@@ -236,8 +238,8 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
             </div>
 
             <div className="flex flex-col gap-3">
-              <Label>Members</Label>
-              <Body variant="muted">You can edit names and types later in settings.</Body>
+              <Label>{t('membersLabel')}</Label>
+              <Body variant="muted">{t('membersHelper')}</Body>
               <div className="flex flex-col gap-2">
                 {memberRows.map((row, index) => (
                   <div key={index} className="flex items-center gap-2">
@@ -249,7 +251,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
                       disabled={isLoading || index === 0}
                       maxLength={100}
                       className="flex-1"
-                      aria-label={`Member ${index + 1} name`}
+                      aria-label={t('memberAria', { index: index + 1 })}
                     />
                     <div className="flex gap-1">
                       <Button
@@ -260,7 +262,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
                         disabled={isLoading || index === 0}
                         className="h-9 px-3 text-xs"
                       >
-                        Adult
+                        {t('adult')}
                       </Button>
                       <Button
                         type="button"
@@ -270,7 +272,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
                         disabled={isLoading || index === 0}
                         className="h-9 px-3 text-xs"
                       >
-                        Child
+                        {t('child')}
                       </Button>
                     </div>
                   </div>
@@ -288,9 +290,9 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
   const getStepTitle = () => {
     switch (currentStep) {
       case 1:
-        return 'Create your household'
+        return t('nameStepTitle')
       case 2:
-        return 'Household members'
+        return t('membersStepTitle')
       default:
         return ''
     }
@@ -299,9 +301,9 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
   const getStepDescription = () => {
     switch (currentStep) {
       case 1:
-        return 'Give your household a name to get started'
+        return t('nameStepDescription')
       case 2:
-        return 'Tell us about your household'
+        return t('membersStepDescription')
       default:
         return ''
     }
@@ -311,9 +313,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
     <Card className="w-full max-w-md">
       <CardHeader>
         <div className="flex flex-col gap-2">
-          <Body variant="muted">
-            Step {currentStep} of {TOTAL_STEPS}
-          </Body>
+          <Body variant="muted">{t('step', { current: currentStep, total: TOTAL_STEPS })}</Body>
           <Heading variant="h4">{getStepTitle()}</Heading>
           <Body variant="muted">{getStepDescription()}</Body>
         </div>
@@ -332,18 +332,18 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
         <CardFooter className="flex justify-between gap-2 pt-6">
           {currentStep > 1 ? (
             <Button type="button" variant="outline" onClick={handleBack} disabled={isLoading}>
-              Back
+              {t('back')}
             </Button>
           ) : (
             <div />
           )}
           {currentStep < TOTAL_STEPS ? (
             <Button type="button" onClick={handleNext} disabled={isLoading}>
-              Continue
+              {t('continue')}
             </Button>
           ) : (
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Creating...' : 'Create household'}
+              {isLoading ? t('submitting') : t('submit')}
             </Button>
           )}
         </CardFooter>

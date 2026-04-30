@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, ArrowLeft, Sparkles, ImagePlus, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
@@ -53,6 +54,7 @@ function SkeletonCard() {
 
 export function ImagineClient() {
   const router = useRouter()
+  const t = useTranslations('recipes.imagine')
   const [prompt, setPrompt] = useState('')
   const [images, setImages] = useState<File[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
@@ -91,17 +93,17 @@ export function ImagineClient() {
 
       const available = MAX_IMAGES - images.length
       if (files.length > available) {
-        toast.error(`You can attach up to ${MAX_IMAGES} images`)
+        toast.error(t('errors.tooManyImages', { max: MAX_IMAGES }))
         return
       }
 
       for (const file of files) {
         if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-          toast.error('Images must be JPEG, PNG, or WebP')
+          toast.error(t('errors.wrongImageType'))
           return
         }
         if (file.size > MAX_IMAGE_SIZE) {
-          toast.error('Each image must be 5 MB or less')
+          toast.error(t('errors.imageTooLarge'))
           return
         }
       }
@@ -110,7 +112,7 @@ export function ImagineClient() {
       objectUrlsRef.current = [...objectUrlsRef.current, ...newUrls]
       setImages((prev) => [...prev, ...files])
     },
-    [images.length],
+    [images.length, t],
   )
 
   const navigateToCreate = async (meal: ImaginedMealResponse) => {
@@ -177,7 +179,7 @@ export function ImagineClient() {
   const handleReviewSaved = (mealId: string) => {
     void track('meal:imagined', { meal_id: mealId, source: 'imagine_page' })
     setReviewMeal(null)
-    toast.success('Meal saved to your library')
+    toast.success(t('savedToast'))
   }
 
   const handleEditDetails = (currentIngredients: PrefilledIngredient[]) => {
@@ -198,7 +200,7 @@ export function ImagineClient() {
 
   const handleGenerate = async () => {
     if (!prompt.trim() && images.length === 0) {
-      setError('Please describe what kind of meal you want or attach a photo')
+      setError(t('errors.promptOrPhotoRequired'))
       return
     }
 
@@ -236,7 +238,7 @@ export function ImagineClient() {
       const data = await response.json()
 
       if (!response.ok || !data.success) {
-        setError(data.error || data.message || 'Failed to generate meal ideas')
+        setError(data.error || data.message || t('errors.generic'))
         return
       }
 
@@ -245,7 +247,7 @@ export function ImagineClient() {
       if (err instanceof Error && err.name === 'AbortError') {
         return
       }
-      setError('Failed to generate meal ideas. Please try again.')
+      setError(t('errors.imagineFailed'))
     } finally {
       abortControllerRef.current = null
       setIsGenerating(false)
@@ -263,12 +265,9 @@ export function ImagineClient() {
                   <ArrowLeft className="h-4 w-4" />
                 </Link>
               </Button>
-              <Heading variant="h4">Imagine a meal</Heading>
+              <Heading variant="h4">{t('title')}</Heading>
             </div>
-            <Body variant="muted">
-              Describe what you&apos;re in the mood for or snap a photo, and we&apos;ll suggest 3
-              meal ideas.
-            </Body>
+            <Body variant="muted">{t('description')}</Body>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col gap-4">
@@ -279,7 +278,7 @@ export function ImagineClient() {
                     setPrompt(e.target.value)
                     setError('')
                   }}
-                  placeholder="Something healthy with chicken and a fresh salad..."
+                  placeholder={t('promptPlaceholder')}
                   rows={3}
                   className="min-w-0 flex-1 resize-none"
                   disabled={isGenerating}
@@ -305,7 +304,7 @@ export function ImagineClient() {
                   className="h-10 w-10 shrink-0 self-end"
                   disabled={isGenerating || images.length >= MAX_IMAGES}
                   onClick={() => fileInputRef.current?.click()}
-                  aria-label="Attach photos"
+                  aria-label={t('attachAria')}
                 >
                   <ImagePlus className="h-4 w-4" />
                 </Button>
@@ -325,7 +324,7 @@ export function ImagineClient() {
                         onClick={() => removeImage(index)}
                         disabled={isGenerating}
                         className="bg-background/80 absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full border shadow-sm"
-                        aria-label={`Remove ${file.name}`}
+                        aria-label={t('removeImageAria', { filename: file.name })}
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -351,18 +350,18 @@ export function ImagineClient() {
               {isGenerating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating ideas...
+                  {t('generating')}
                 </>
               ) : (
                 <>
                   <Sparkles className="mr-2 h-4 w-4" />
-                  Imagine meals
+                  {t('generate')}
                 </>
               )}
             </Button>
             {isGenerating && (
               <Button variant="ghost" size="sm" onClick={handleCancel}>
-                Cancel
+                {t('cancel')}
               </Button>
             )}
           </CardFooter>
@@ -387,10 +386,10 @@ export function ImagineClient() {
                         {reviewingMealId === meal.id ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Fine-tuning recipe...
+                            {t('fineTuning')}
                           </>
                         ) : (
-                          'Select'
+                          t('select')
                         )}
                       </Button>
                     </CardFooter>

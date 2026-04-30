@@ -312,7 +312,187 @@
   },
   "recipes": {
     "mealCount": "{count, plural, =0 {No recipes} one {# recipe} other {# recipes}}",
-    "mealCountMore": "{count, plural, one {#+ recipe} other {#+ recipes}}"
+    "mealCountMore": "{count, plural, one {#+ recipe} other {#+ recipes}}",
+    "library": {
+      "title": "My recipes",
+      "description": "Create and manage your household's custom recipes",
+      "searchPlaceholder": "Search recipes…",
+      "searchAria": "Search recipes",
+      "loading": "Loading…",
+      "imagineButton": "Imagine a meal",
+      "addButton": "Add recipe",
+      "loadMore": "Load more",
+      "loadingMore": "Loading…",
+      "emptySearch": "No recipes found matching \"{query}\"",
+      "loadFailed": "Failed to load meals",
+      "loadMoreFailed": "Failed to load more meals"
+    },
+    "imagine": {
+      "title": "Imagine a meal",
+      "description": "Describe what you're in the mood for or snap a photo, and we'll suggest 3 meal ideas.",
+      "promptPlaceholder": "Something healthy with chicken and a fresh salad…",
+      "attachAria": "Attach photos",
+      "removeImageAria": "Remove {filename}",
+      "generate": "Imagine meals",
+      "generating": "Generating ideas…",
+      "cancel": "Cancel",
+      "fineTuning": "Fine-tuning recipe…",
+      "select": "Select",
+      "savedToast": "Meal saved to your library",
+      "errors": {
+        "promptOrPhotoRequired": "Please describe what kind of meal you want or attach a photo",
+        "tooManyImages": "You can attach up to {max} images",
+        "wrongImageType": "Images must be JPEG, PNG, or WebP",
+        "imageTooLarge": "Each image must be 5 MB or less",
+        "imagineFailed": "Failed to generate meal ideas. Please try again.",
+        "generic": "Failed to generate meal ideas"
+      }
+    },
+    "import": {
+      "title": "Import recipe",
+      "description": "Paste a recipe or drop a URL and we'll extract the ingredients for you. Include how many servings it makes, otherwise we'll assume 4.",
+      "placeholder": "Paste a recipe or URL here…\n\nExamples:\nhttps://example.com/chicken-stir-fry\n\nOr paste recipe text directly:\nChicken Stir Fry (serves 4)\n- 500g chicken breast\n- 2 tbsp soy sauce\n- 1 red bell pepper",
+      "submit": "Import recipe",
+      "submitting": "Importing recipe…",
+      "cancel": "Cancel",
+      "footerOr": "or",
+      "createManuallyLink": "create manually",
+      "warningDefault": "We're not confident this is a complete recipe. The results may be incomplete.",
+      "continueAnyway": "Continue anyway",
+      "tryDifferent": "Try different text",
+      "steps": {
+        "fetchingPage": "Fetching page…",
+        "extractingRecipe": "Extracting recipe…",
+        "matchingIngredients": "Matching ingredients…"
+      },
+      "errors": {
+        "empty": "Please paste a recipe or URL first",
+        "parseFailed": "Failed to parse recipe",
+        "parseGeneric": "Failed to parse recipe. Please try again."
+      }
+    },
+    "edit": {
+      "mealNotFound": "Meal not found",
+      "loadFailed": "Failed to load meal",
+      "backToRecipes": "Back to recipes"
+    },
+    "form": {
+      "titleEdit": "Edit meal",
+      "titleCreate": "Create meal",
+      "descriptionEdit": "Update your custom meal details",
+      "descriptionCreate": "Add a new meal to your household collection",
+      "originalTextLabel": "Original recipe text",
+      "ingredientsHeading": "Ingredients",
+      "ingredientsHelper": "Enter the total quantity needed for the entire recipe ({count, plural, one {# serving} other {# servings}}). We will calculate per-serving amounts automatically.",
+      "noIngredients": "No ingredients added yet. Search above to add some.",
+      "nutritionPerServing": "Nutrition per serving",
+      "nutritionApproximate": "Approximate — {count, plural, one {# ingredient not included} other {# ingredients not included}}",
+      "toVerifyBadge": "{count} to verify",
+      "unmatchedBadge": "{count} unmatched",
+      "preparationNotesLabel": "Preparation notes",
+      "preparationNotesHelper": "How do you prepare this meal? Steps, tips, or other notes.",
+      "preparationNotesPlaceholder": "Optional — e.g., steps, cooking tips",
+      "sourceUrlLabel": "Source URL",
+      "sourceUrlPlaceholder": "https://example.com/recipe",
+      "sourceUrlClearAria": "Clear source URL",
+      "cancel": "Cancel",
+      "saving": "Saving…",
+      "update": "Update meal",
+      "create": "Create meal",
+      "successCreated": "Meal created",
+      "successUpdated": "Meal updated",
+      "alreadyAdded": "{name} is already added",
+      "errors": {
+        "nameRequired": "Name is required",
+        "mealTypeRequired": "Select at least one meal type",
+        "servingsRange": "Servings must be between 1 and 50",
+        "prepTimeRange": "Prep time must be between 1 and 480 minutes",
+        "createFailed": "Failed to create meal",
+        "updateFailed": "Failed to update meal",
+        "generic": "An error occurred"
+      },
+      "discardDialog": {
+        "title": "Discard imported recipe?",
+        "description": "Are you sure you want to discard this imported recipe? All changes will be lost.",
+        "keepEditing": "Keep editing",
+        "discard": "Discard"
+      },
+      "basic": {
+        "heading": "Basic information",
+        "nameLabel": "Meal name",
+        "namePlaceholder": "e.g., Chicken stir fry",
+        "descriptionLabel": "Description (optional)",
+        "descriptionPlaceholder": "Brief description of the meal…",
+        "servingsLabel": "Recipe makes (servings)"
+      },
+      "details": {
+        "heading": "Additional details",
+        "suitableForLabel": "Suitable for",
+        "timeMinutesLabel": "Prep time (minutes)",
+        "timeMinutesPlaceholder": "e.g., 30",
+        "kidFriendlyLabel": "Kid-friendly"
+      },
+      "componentList": {
+        "perServing": "{quantity}{unit} per serving",
+        "invalidQuantity": "Quantity must be greater than 0",
+        "setQuantity": "Set quantity",
+        "noQuantity": "No quantity",
+        "duplicateRow": "{count, plural, one {Also used in row {rows}} other {Also used in rows {rows}}}",
+        "totalQuantityAria": "Total quantity for {name}"
+      },
+      "ingredientSearch": {
+        "placeholder": "Search to add more ingredients…",
+        "noResults": "No ingredients found",
+        "added": "Added"
+      }
+    },
+    "ingredientRow": {
+      "removeAria": "Remove ingredient",
+      "invalidQuantity": "Quantity must be greater than 0",
+      "perServing": "{quantity}{unit} per serving",
+      "duplicateRow": "{count, plural, one {Also used in row {rows}} other {Also used in rows {rows}}}",
+      "originalLabel": "Original: {text}",
+      "searchPlaceholder": "Search ingredients…",
+      "noResults": "No ingredients found",
+      "drop": "Drop",
+      "verifyMatch": "Verify match:",
+      "bestMatchSuffix": "{name} (best match)",
+      "confirm": "Confirm",
+      "verifyMatchAria": "Verify ingredient match",
+      "quantityAria": "Quantity"
+    },
+    "review": {
+      "nutritionLine": "{calories} kcal · {protein}g protein · {carbs}g carbs · {fat}g fat",
+      "kidFriendly": "Kid-friendly",
+      "matchedCollapse": "{count, plural, one {# ingredient matched} other {# ingredients matched}}",
+      "save": "Save meal",
+      "saving": "Saving…",
+      "editDetails": "Edit details",
+      "errors": {
+        "saveFailed": "Failed to save meal",
+        "generic": "An error occurred"
+      }
+    },
+    "list": {
+      "emptyHeading": "No meals yet",
+      "emptyBody": "Create your first custom meal to get started",
+      "addToFavoritesAria": "Add to favorites",
+      "removeFromFavoritesAria": "Remove from favorites",
+      "editAria": "Edit meal",
+      "deleteAria": "Delete meal",
+      "favoriteUpdateFailed": "Failed to update favorite",
+      "addedToFavorites": "Added to favorites",
+      "removedFromFavorites": "Removed from favorites",
+      "deleted": "Meal deleted",
+      "deleteFailed": "Failed to delete meal",
+      "deleteDialog": {
+        "title": "Delete meal",
+        "description": "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
+        "confirm": "Delete",
+        "cancel": "Cancel",
+        "deleting": "Deleting…"
+      }
+    }
   },
   "landing": {
     "headline": "Meal planning for busy families",
@@ -500,6 +680,38 @@
       "invite": {
         "title": "Couldn't process this invite",
         "body": "We had trouble processing the invite link. Please try again."
+      },
+      "recipes": {
+        "title": "Couldn't load recipes",
+        "body": "We had trouble loading your recipes. Please try again."
+      },
+      "recipesImagine": {
+        "title": "Couldn't load recipe imagination",
+        "body": "We had trouble loading this page. Please try again."
+      },
+      "recipesImport": {
+        "title": "Couldn't load recipe import",
+        "body": "We had trouble loading the recipe import page. Please try again."
+      },
+      "recipesCreate": {
+        "title": "Couldn't load recipe creator",
+        "body": "We had trouble loading the recipe creation page. Please try again."
+      },
+      "recipesEdit": {
+        "title": "Couldn't load recipe editor",
+        "body": "We had trouble loading the recipe editor. Please try again."
+      },
+      "household": {
+        "title": "Couldn't load household settings",
+        "body": "We had trouble loading your household settings. Please try again."
+      },
+      "profile": {
+        "title": "Couldn't load your profile",
+        "body": "We had trouble loading your profile. Please try again."
+      },
+      "onboarding": {
+        "title": "Couldn't load onboarding",
+        "body": "We had trouble loading the setup process. Please try again."
       }
     },
     "notFound": {
@@ -563,7 +775,186 @@
       "en": "English",
       "et": "Estonian"
     },
-    "dietaryNone": "No preference"
+    "dietaryNone": "No preference",
+    "pageTitle": "Household",
+    "settings": {
+      "heading": "Household settings",
+      "description": "Configure your household preferences for meal planning",
+      "saveButton": "Save settings",
+      "saving": "Saving…",
+      "savedToast": "Settings saved",
+      "saveFailed": "Failed to save settings",
+      "ownerOnlyNotice": "Only the household owner can edit name, timezone, and language.",
+      "errorGeneric": "An error occurred",
+      "basicHeading": "Basic information",
+      "nameLabel": "Household name",
+      "timezoneLabel": "Timezone",
+      "timezonePlaceholder": "Select timezone",
+      "preferencesHeading": "Dietary preferences",
+      "dietaryTypeLabel": "Dietary type",
+      "allergensLabel": "Allergens to avoid",
+      "restrictionsLabel": "Dietary restrictions",
+      "restrictionsPlaceholder": "e.g., low sodium, halal",
+      "restrictionsHelper": "Type a restriction and press Enter or click away to add",
+      "excludedHeading": "Excluded ingredients",
+      "excludedLabel": "Ingredients to exclude",
+      "excludedPlaceholder": "e.g., cilantro, mushrooms",
+      "excludedHelper": "Ingredients you want to avoid in meal suggestions",
+      "mealSchedulingHeading": "Meal scheduling",
+      "weekdayMealsLabel": "Weekday meals to plan",
+      "weekendMealsLabel": "Weekend meals to plan"
+    },
+    "members": {
+      "heading": "Members",
+      "description": "Manage household members and their portion sizes",
+      "empty": "No members found.",
+      "nonOwnerNotice": "You can only edit your own preferences. Contact the household owner to update other members.",
+      "fallbackInviteName": "this member",
+      "unknownName": "Unknown member",
+      "manualBadge": "Manual",
+      "invitePendingBadge": "Invite pending",
+      "inviteAria": "Invite to join",
+      "editAria": "Edit preferences",
+      "removeAria": "Remove member",
+      "removeDialog": {
+        "title": "Remove member",
+        "description": "Are you sure you want to remove {name} from the household? This action cannot be undone.",
+        "confirm": "Remove"
+      },
+      "removeFailed": "Failed to remove member",
+      "removed": "Member removed"
+    },
+    "portion": {
+      "small": "Small",
+      "regular": "Regular",
+      "large": "Large",
+      "extraLarge": "Extra large",
+      "label": "{label} portion ({multiplier}x)",
+      "custom": "Custom portion ({multiplier}x)",
+      "preset": "{label} ({multiplier}x)",
+      "size": "Portion size",
+      "helper": "x standard portion",
+      "invalid": "Portion size must be between 0.5 and 3.0",
+      "aria": "Portion multiplier"
+    },
+    "addMember": {
+      "trigger": "Add member",
+      "title": "Add household member",
+      "description": "Add a family member who doesn't have an account, such as a child.",
+      "nameLabel": "Name",
+      "namePlaceholder": "Enter name",
+      "displayNameLabel": "Display name (optional)",
+      "displayNamePlaceholder": "e.g., kiddo, little one",
+      "displayNameHelper": "How this member appears in the household",
+      "cancel": "Cancel",
+      "submit": "Add member",
+      "submitting": "Adding…",
+      "addedToast": "Member added",
+      "errors": {
+        "nameRequired": "Name is required",
+        "addFailed": "Failed to add member"
+      }
+    },
+    "editMember": {
+      "title": "Edit preferences for {name}",
+      "description": "Update portion size for this member.",
+      "nameLabel": "Name",
+      "namePlaceholder": "Enter name",
+      "displayNameLabel": "Display name",
+      "displayNamePlaceholder": "e.g., Mom, Dad, Alex",
+      "displayNameHelper": "How this member appears in the household",
+      "cancel": "Cancel",
+      "submit": "Save preferences",
+      "submitting": "Saving…",
+      "savedToast": "Preferences saved",
+      "fallbackName": "member",
+      "errors": {
+        "saveFailed": "Failed to save preferences"
+      }
+    },
+    "invite": {
+      "title": "Invite {name}",
+      "descriptionActive": "Share this link for them to claim their profile.",
+      "descriptionPending": "Create a link for this member to join and claim their profile.",
+      "linkLabel": "Invite link",
+      "copy": "Copy",
+      "copied": "Copied!",
+      "expires": "This invite expires {date}.",
+      "regenerate": "Generate new link",
+      "regenerating": "Creating…",
+      "regenerateWarning": "This will invalidate the current link.",
+      "body": "When {name} uses this link, they'll create an account and automatically be connected to their existing profile in your household.",
+      "cancel": "Cancel",
+      "create": "Create invite link",
+      "creating": "Creating…",
+      "done": "Done",
+      "copySuccess": "Link copied to clipboard",
+      "copyFailed": "Failed to copy link. Please copy manually.",
+      "errors": {
+        "createFailed": "Failed to create invite",
+        "generic": "An error occurred"
+      }
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "description": "Your account information",
+    "nameLabel": "Name",
+    "emailLabel": "Email",
+    "yourDataHeading": "Your data",
+    "yourDataDescription": "Download a copy of your profile, household data, meal plans, and settings as a JSON file.",
+    "downloadButton": "Download my data",
+    "dangerHeading": "Danger zone",
+    "dangerDescription": "Permanently delete your account and all associated data.",
+    "delete": {
+      "trigger": "Delete account",
+      "title": "Delete account",
+      "confirmation": "Are you sure you want to delete your account? This action cannot be undone.",
+      "willDelete": "The following will be permanently deleted:",
+      "list": {
+        "profile": "Your profile and account data",
+        "preferences": "Your preferences and settings",
+        "householdAll": "Your household \"{householdName}\" and all its data (meal plans, pantry items, etc.)",
+        "membership": "Your membership in \"{householdName}\""
+      },
+      "cannotDeleteOwner": "Warning: You cannot delete your account because you are the owner of \"{householdName}\" with {count, plural, one {# other member} other {# other members}}. Please transfer ownership or remove other members first.",
+      "accountLine": "Account: {email}",
+      "cancel": "Cancel",
+      "confirm": "Delete account",
+      "deleting": "Deleting…",
+      "errors": {
+        "deleteFailed": "Failed to delete account",
+        "unexpected": "An unexpected error occurred"
+      }
+    }
+  },
+  "onboarding": {
+    "step": "Step {current} of {total}",
+    "nameStepTitle": "Create your household",
+    "nameStepDescription": "Give your household a name to get started",
+    "membersStepTitle": "Household members",
+    "membersStepDescription": "Tell us about your household",
+    "householdSizeLabel": "How many people in your household?",
+    "decreaseAria": "Decrease household size",
+    "increaseAria": "Increase household size",
+    "membersLabel": "Members",
+    "membersHelper": "You can edit names and types later in settings.",
+    "memberAria": "Member {index} name",
+    "adult": "Adult",
+    "child": "Child",
+    "defaultName": "{type} {index}",
+    "nameLabel": "Household name",
+    "back": "Back",
+    "continue": "Continue",
+    "submit": "Create household",
+    "submitting": "Creating…",
+    "createdToast": "Household created",
+    "errors": {
+      "nameRequired": "Household name is required",
+      "network": "Unable to connect. Please check your internet connection.",
+      "generic": "An error occurred",
+      "createFailed": "Failed to create household"
+    }
   },
   "enums": {
     "MealType": {

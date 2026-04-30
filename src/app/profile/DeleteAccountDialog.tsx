@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { authClient } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
 import {
@@ -30,6 +31,7 @@ export function DeleteAccountDialog({
   isOwner,
   memberCount,
 }: DeleteAccountDialogProps) {
+  const t = useTranslations('profile.delete')
   const router = useRouter()
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState('')
@@ -46,7 +48,7 @@ export function DeleteAccountDialog({
 
       if (!response.ok) {
         const data = await response.json()
-        setError(data.message || 'Failed to delete account')
+        setError(data.message || t('errors.deleteFailed'))
         setIsDeleting(false)
         return
       }
@@ -64,7 +66,7 @@ export function DeleteAccountDialog({
         },
       })
     } catch {
-      setError('An unexpected error occurred')
+      setError(t('errors.unexpected'))
       setIsDeleting(false)
     }
   }
@@ -74,42 +76,36 @@ export function DeleteAccountDialog({
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant="destructive">Delete account</Button>
+        <Button variant="destructive">{t('trigger')}</Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete account</AlertDialogTitle>
+          <AlertDialogTitle>{t('title')}</AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="flex flex-col gap-3">
-              <Body variant="muted">
-                Are you sure you want to delete your account? This action cannot be undone.
-              </Body>
+              <Body variant="muted">{t('confirmation')}</Body>
 
-              <Body variant="muted">The following will be permanently deleted:</Body>
+              <Body variant="muted">{t('willDelete')}</Body>
               <ul className="text-muted-foreground list-inside list-disc text-sm">
-                <li>Your profile and account data</li>
-                <li>Your preferences and settings</li>
+                <li>{t('list.profile')}</li>
+                <li>{t('list.preferences')}</li>
                 {isOwner && householdName && !hasOtherMembers && (
-                  <li>
-                    Your household &quot;{householdName}&quot; and all its data (meal plans, pantry
-                    items, etc.)
-                  </li>
+                  <li>{t('list.householdAll', { householdName })}</li>
                 )}
-                {!isOwner && householdName && (
-                  <li>Your membership in &quot;{householdName}&quot;</li>
-                )}
+                {!isOwner && householdName && <li>{t('list.membership', { householdName })}</li>}
               </ul>
 
               {hasOtherMembers && (
                 <Body variant="muted" className="text-destructive">
-                  Warning: You cannot delete your account because you are the owner of &quot;
-                  {householdName}&quot; with {memberCount! - 1} other member(s). Please transfer
-                  ownership or remove other members first.
+                  {t('cannotDeleteOwner', {
+                    householdName: householdName ?? '',
+                    count: (memberCount ?? 1) - 1,
+                  })}
                 </Body>
               )}
 
               <Body variant="small" className="text-muted-foreground">
-                Account: {userEmail}
+                {t('accountLine', { email: userEmail })}
               </Body>
 
               {error && <Body className="text-destructive">{error}</Body>}
@@ -117,13 +113,13 @@ export function DeleteAccountDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isDeleting}>{t('cancel')}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
             disabled={isDeleting || hasOtherMembers}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            {isDeleting ? 'Deleting...' : 'Delete account'}
+            {isDeleting ? t('deleting') : t('confirm')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

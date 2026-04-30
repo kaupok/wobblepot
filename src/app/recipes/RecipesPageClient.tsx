@@ -18,6 +18,7 @@ type MealsPage = { meals: MealData[]; nextCursor: string | null }
 export function RecipesPageClient() {
   const queryClient = useQueryClient()
   const tRecipes = useTranslations('recipes')
+  const tLibrary = useTranslations('recipes.library')
 
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -51,12 +52,12 @@ export function RecipesPageClient() {
   const meals = data?.pages.flatMap((page) => page.meals) ?? []
 
   useEffect(() => {
-    if (error) toast.error('Failed to load meals')
-  }, [error])
+    if (error) toast.error(tLibrary('loadFailed'))
+  }, [error, tLibrary])
 
   useEffect(() => {
-    if (isFetchNextPageError) toast.error('Failed to load more meals')
-  }, [isFetchNextPageError])
+    if (isFetchNextPageError) toast.error(tLibrary('loadMoreFailed'))
+  }, [isFetchNextPageError, tLibrary])
 
   const updatePages = (mapper: (meal: MealData) => MealData | null) => {
     queryClient.setQueriesData<InfiniteData<MealsPage>>({ queryKey: ['meals'] }, (old) => {
@@ -87,23 +88,23 @@ export function RecipesPageClient() {
     <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
       <Card className="w-full max-w-2xl">
         <CardHeader>
-          <Heading variant="h4">My recipes</Heading>
-          <Body variant="muted">Create and manage your household&apos;s custom recipes</Body>
+          <Heading variant="h4">{tLibrary('title')}</Heading>
+          <Body variant="muted">{tLibrary('description')}</Body>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-6">
             <Input
               type="search"
-              placeholder="Search recipes..."
+              placeholder={tLibrary('searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              aria-label="Search recipes"
+              aria-label={tLibrary('searchAria')}
             />
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <Body variant="muted">
                 {isLoading
-                  ? 'Loading...'
+                  ? tLibrary('loading')
                   : hasNextPage
                     ? tRecipes('mealCountMore', { count: meals.length })
                     : tRecipes('mealCount', { count: meals.length })}
@@ -112,13 +113,13 @@ export function RecipesPageClient() {
                 <Button variant="outline" asChild>
                   <Link href="/recipes/imagine">
                     <Sparkles className="mr-2 h-4 w-4" />
-                    Imagine a meal
+                    {tLibrary('imagineButton')}
                   </Link>
                 </Button>
                 <Button asChild>
                   <Link href="/recipes/import">
                     <Plus className="mr-2 h-4 w-4" />
-                    Add recipe
+                    {tLibrary('addButton')}
                   </Link>
                 </Button>
               </div>
@@ -130,9 +131,7 @@ export function RecipesPageClient() {
               </div>
             ) : isSearchEmpty ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Body variant="muted">
-                  No recipes found matching &ldquo;{debouncedSearch}&rdquo;
-                </Body>
+                <Body variant="muted">{tLibrary('emptySearch', { query: debouncedSearch })}</Body>
               </div>
             ) : (
               <>
@@ -151,10 +150,10 @@ export function RecipesPageClient() {
                       {isFetchingNextPage ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Loading...
+                          {tLibrary('loadingMore')}
                         </>
                       ) : (
-                        'Load more'
+                        tLibrary('loadMore')
                       )}
                     </Button>
                   </div>

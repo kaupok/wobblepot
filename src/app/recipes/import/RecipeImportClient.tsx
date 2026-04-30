@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, ArrowLeft, Sparkles, AlertTriangle } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
@@ -157,13 +158,12 @@ function isUrl(text: string): boolean {
   return /^https?:\/\//i.test(text.trim()) || /^www\./i.test(text.trim())
 }
 
-const URL_STEPS = ['Fetching page...', 'Extracting recipe...', 'Matching ingredients...']
-const TEXT_STEPS = ['Extracting recipe...', 'Matching ingredients...']
 const URL_STEP_DELAYS = [0, 4000, 10000]
 const TEXT_STEP_DELAYS = [0, 4000]
 
 export function RecipeImportClient() {
   const router = useRouter()
+  const t = useTranslations('recipes.import')
   const [recipeText, setRecipeText] = useState('')
   const [isParsing, setIsParsing] = useState(false)
   const [error, setError] = useState('')
@@ -175,6 +175,15 @@ export function RecipeImportClient() {
     message: string
     recipe: ParsedRecipeData
   } | null>(null)
+
+  const urlSteps = useMemo(
+    () => [t('steps.fetchingPage'), t('steps.extractingRecipe'), t('steps.matchingIngredients')],
+    [t],
+  )
+  const textSteps = useMemo(
+    () => [t('steps.extractingRecipe'), t('steps.matchingIngredients')],
+    [t],
+  )
 
   useEffect(() => {
     return () => {
@@ -201,7 +210,7 @@ export function RecipeImportClient() {
       return () => clearTimeout(clearTimer)
     }
 
-    const steps = isUrl(recipeText) ? URL_STEPS : TEXT_STEPS
+    const steps = isUrl(recipeText) ? urlSteps : textSteps
     const delays = isUrl(recipeText) ? URL_STEP_DELAYS : TEXT_STEP_DELAYS
 
     // Show first step immediately
@@ -237,7 +246,7 @@ export function RecipeImportClient() {
 
   const handleParse = async () => {
     if (!recipeText.trim()) {
-      setError('Please paste a recipe or URL first')
+      setError(t('errors.empty'))
       return
     }
 
@@ -259,7 +268,7 @@ export function RecipeImportClient() {
       const data = await response.json()
 
       if (!response.ok || !data.success) {
-        setError(data.error || 'Failed to parse recipe')
+        setError(data.error || t('errors.parseFailed'))
         return
       }
 
@@ -271,9 +280,7 @@ export function RecipeImportClient() {
       // Handle medium confidence — show warning with options
       if (data.confidenceTier === 'medium') {
         setWarning({
-          message:
-            data.confidenceWarning ||
-            "We're not confident this is a complete recipe. The results may be incomplete.",
+          message: data.confidenceWarning || t('warningDefault'),
           recipe: data.recipe,
         })
         return
@@ -284,7 +291,7 @@ export function RecipeImportClient() {
       if (err instanceof Error && err.name === 'AbortError') {
         return
       }
-      setError('Failed to parse recipe. Please try again.')
+      setError(t('errors.parseGeneric'))
     } finally {
       abortControllerRef.current = null
       setIsParsing(false)
@@ -301,12 +308,9 @@ export function RecipeImportClient() {
                 <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
-            <Heading variant="h4">Import recipe</Heading>
+            <Heading variant="h4">{t('title')}</Heading>
           </div>
-          <Body variant="muted">
-            Paste a recipe or drop a URL and we&apos;ll extract the ingredients for you. Include how
-            many servings it makes, otherwise we&apos;ll assume 4.
-          </Body>
+          <Body variant="muted">{t('description')}</Body>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4">
@@ -317,7 +321,7 @@ export function RecipeImportClient() {
                 setError('')
                 setWarning(null)
               }}
-              placeholder={`Paste a recipe or URL here...\n\nExamples:\nhttps://example.com/chicken-stir-fry\n\nOr paste recipe text directly:\nChicken Stir Fry (serves 4)\n- 500g chicken breast\n- 2 tbsp soy sauce\n- 1 red bell pepper`}
+              placeholder={t('placeholder')}
               rows={12}
               className="resize-none"
               disabled={isParsing}
@@ -341,7 +345,7 @@ export function RecipeImportClient() {
                         variant="outline"
                         onClick={() => navigateToCreate(warning.recipe)}
                       >
-                        Continue anyway
+                        {t('continueAnyway')}
                       </Button>
                       <Button
                         size="sm"
@@ -351,7 +355,7 @@ export function RecipeImportClient() {
                           setRecipeText('')
                         }}
                       >
-                        Try different text
+                        {t('tryDifferent')}
                       </Button>
                     </div>
                   </div>
@@ -373,25 +377,25 @@ export function RecipeImportClient() {
                   className="transition-opacity duration-150"
                   style={{ opacity: stepVisible ? 1 : 0 }}
                 >
-                  {progressStep || 'Importing recipe...'}
+                  {progressStep || t('submitting')}
                 </span>
               </>
             ) : (
               <>
                 <Sparkles className="mr-2 h-4 w-4" />
-                Import recipe
+                {t('submit')}
               </>
             )}
           </Button>
           {isParsing ? (
             <Button variant="ghost" size="sm" onClick={handleCancel}>
-              Cancel
+              {t('cancel')}
             </Button>
           ) : (
             <Body variant="muted" className="text-center">
-              or{' '}
+              {t('footerOr')}{' '}
               <Link href="/recipes/create" className="text-primary underline">
-                create manually
+                {t('createManuallyLink')}
               </Link>
             </Body>
           )}

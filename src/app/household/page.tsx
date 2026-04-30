@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import { getTranslations } from 'next-intl/server'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { Heading } from '@/components/ui/typography'
@@ -22,13 +23,14 @@ export default async function HouseholdPage() {
     redirect('/')
   }
 
+  const t = await getTranslations('household')
   const isOwner = membership.role === 'owner'
   const { household } = membership
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <Heading>Household</Heading>
+        <Heading>{t('pageTitle')}</Heading>
       </div>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Pencil, Trash2, Heart } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
@@ -54,6 +55,7 @@ interface MealListProps {
 }
 
 export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
+  const t = useTranslations('recipes.list')
   const [deleteConfirmMeal, setDeleteConfirmMeal] = useState<MealData | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null)
@@ -67,14 +69,14 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to delete meal')
+        throw new Error('delete-failed')
       }
 
       onDelete(deleteConfirmMeal.id)
-      toast.success('Meal deleted')
+      toast.success(t('deleted'))
       setDeleteConfirmMeal(null)
     } catch {
-      toast.error('Failed to delete meal')
+      toast.error(t('deleteFailed'))
     } finally {
       setIsDeleting(false)
     }
@@ -89,13 +91,13 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to update favorite')
+        throw new Error('favorite-failed')
       }
 
       onToggleFavorite(meal.id, !meal.isFavorite)
-      toast.success(meal.isFavorite ? 'Removed from favorites' : 'Added to favorites')
+      toast.success(meal.isFavorite ? t('removedFromFavorites') : t('addedToFavorites'))
     } catch {
-      toast.error('Failed to update favorite')
+      toast.error(t('favoriteUpdateFailed'))
     } finally {
       setTogglingFavorite(null)
     }
@@ -104,8 +106,8 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
   if (meals.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <Body variant="muted">No meals yet</Body>
-        <Body variant="muted">Create your first custom meal to get started</Body>
+        <Body variant="muted">{t('emptyHeading')}</Body>
+        <Body variant="muted">{t('emptyBody')}</Body>
       </div>
     )
   }
@@ -124,13 +126,15 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
                   size="sm"
                   onClick={() => handleToggleFavorite(meal)}
                   disabled={togglingFavorite === meal.id}
-                  aria-label={meal.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                  aria-label={
+                    meal.isFavorite ? t('removeFromFavoritesAria') : t('addToFavoritesAria')
+                  }
                 >
                   <Heart
                     className={cn('h-4 w-4', meal.isFavorite && 'fill-red-500 text-red-500')}
                   />
                 </Button>
-                <Button variant="ghost" size="sm" asChild aria-label="Edit meal">
+                <Button variant="ghost" size="sm" asChild aria-label={t('editAria')}>
                   <Link href={`/recipes/${meal.id}/edit`}>
                     <Pencil className="h-4 w-4" />
                   </Link>
@@ -139,7 +143,7 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
                   variant="ghost"
                   size="sm"
                   onClick={() => setDeleteConfirmMeal(meal)}
-                  aria-label="Delete meal"
+                  aria-label={t('deleteAria')}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -152,15 +156,13 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
       <ConfirmDialog
         open={deleteConfirmMeal !== null}
         onOpenChange={(open) => !open && setDeleteConfirmMeal(null)}
-        title="Delete meal"
+        title={t('deleteDialog.title')}
         description={
-          deleteConfirmMeal
-            ? `Are you sure you want to delete "${deleteConfirmMeal.name}"? This action cannot be undone.`
-            : ''
+          deleteConfirmMeal ? t('deleteDialog.description', { name: deleteConfirmMeal.name }) : ''
         }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        loadingLabel="Deleting..."
+        confirmLabel={t('deleteDialog.confirm')}
+        cancelLabel={t('deleteDialog.cancel')}
+        loadingLabel={t('deleteDialog.deleting')}
         variant="destructive"
         onConfirm={handleDelete}
         isLoading={isDeleting}

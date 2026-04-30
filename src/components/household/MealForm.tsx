@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
 import { ChevronDown, ChevronRight, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
@@ -42,6 +43,7 @@ import type { Unit } from '@/generated/prisma/enums'
 export type { MealFormData, PrefilledIngredient } from './meal-form-types'
 
 export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFormProps) {
+  const t = useTranslations('recipes.form')
   const isEditing = !!meal?.id
   const hasPrefilledIngredients = !!meal?.prefilledIngredients?.length
   const originalRecipeText = meal?.originalRecipeText
@@ -271,7 +273,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
     (ingredient: IngredientResult) => {
       const existingIds = getAllIngredientIds()
       if (existingIds.includes(ingredient.id)) {
-        toast.error(`${ingredient.name} is already added`)
+        toast.error(t('alreadyAdded', { name: ingredient.name }))
         return
       }
 
@@ -295,7 +297,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
         ])
       }
     },
-    [getAllIngredientIds, isImportMode, ingredientRows, components],
+    [getAllIngredientIds, isImportMode, ingredientRows, components, t],
   )
 
   const removeComponent = (ingredientId: string) => {
@@ -369,18 +371,18 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
     setError('')
 
     if (!name.trim()) {
-      setError('Name is required')
+      setError(t('errors.nameRequired'))
       return
     }
 
     if (suitableFor.length === 0) {
-      setError('Select at least one meal type')
+      setError(t('errors.mealTypeRequired'))
       return
     }
 
     const servingsNum = parseLocalizedNumber(servings, { integer: true })
     if (servingsNum === null || servingsNum < 1 || servingsNum > 50) {
-      setError('Servings must be between 1 and 50')
+      setError(t('errors.servingsRange'))
       return
     }
 
@@ -403,7 +405,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
         ? parseLocalizedNumber(timeMinutes, { integer: true })
         : null
       if (timeMinutes && (timeMinutesNum === null || timeMinutesNum < 1 || timeMinutesNum > 480)) {
-        setError('Prep time must be between 1 and 480 minutes')
+        setError(t('errors.prepTimeRange'))
         setIsSubmitting(false)
         return
       }
@@ -431,13 +433,15 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || `Failed to ${isEditing ? 'update' : 'create'} meal`)
+        throw new Error(
+          data.error || (isEditing ? t('errors.updateFailed') : t('errors.createFailed')),
+        )
       }
 
-      toast.success(isEditing ? 'Meal updated' : 'Meal created')
+      toast.success(isEditing ? t('successUpdated') : t('successCreated'))
       onSuccess()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      setError(err instanceof Error ? err.message : t('errors.generic'))
     } finally {
       setIsSubmitting(false)
     }
@@ -450,12 +454,8 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
   return (
     <Card className="w-full max-w-2xl">
       <CardHeader>
-        <Heading variant="h4">{isEditing ? 'Edit meal' : 'Create meal'}</Heading>
-        <Body variant="muted">
-          {isEditing
-            ? 'Update your custom meal details'
-            : 'Add a new meal to your household collection'}
-        </Body>
+        <Heading variant="h4">{isEditing ? t('titleEdit') : t('titleCreate')}</Heading>
+        <Body variant="muted">{isEditing ? t('descriptionEdit') : t('descriptionCreate')}</Body>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent>
@@ -474,7 +474,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
                       <ChevronRight className="text-muted-foreground h-4 w-4" />
                     )}
                     <Body variant="small" className="font-medium">
-                      Original recipe text
+                      {t('originalTextLabel')}
                     </Body>
                   </button>
                 </CollapsibleTrigger>
@@ -501,26 +501,23 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
             {/* Ingredients Section */}
             <section className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
-                <Heading variant="h4">Ingredients</Heading>
+                <Heading variant="h4">{t('ingredientsHeading')}</Heading>
                 {isImportMode && (unresolvedCount > 0 || lowConfidenceCount > 0) && (
                   <div className="flex gap-2">
                     {lowConfidenceCount > 0 && (
                       <Badge variant="outline" className="text-blue-700 dark:text-blue-400">
-                        {lowConfidenceCount} to verify
+                        {t('toVerifyBadge', { count: lowConfidenceCount })}
                       </Badge>
                     )}
                     {unresolvedCount > 0 && (
                       <Badge variant="outline" className="text-amber-700 dark:text-amber-400">
-                        {unresolvedCount} unmatched
+                        {t('unmatchedBadge', { count: unresolvedCount })}
                       </Badge>
                     )}
                   </div>
                 )}
               </div>
-              <Body variant="muted">
-                Enter the total quantity needed for the entire recipe ({servingsNum} servings). We
-                will calculate per-serving amounts automatically.
-              </Body>
+              <Body variant="muted">{t('ingredientsHelper', { count: servingsNum })}</Body>
 
               {/* Import mode: show ingredient rows with match states */}
               {isImportMode && ingredientRows.length > 0 && (
@@ -571,7 +568,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
 
               {!hasIngredients && (
                 <div className="border-muted rounded-md border border-dashed p-6 text-center">
-                  <Body variant="muted">No ingredients added yet. Search above to add some.</Body>
+                  <Body variant="muted">{t('noIngredients')}</Body>
                 </div>
               )}
 
@@ -579,7 +576,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
               {nutritionSummary.matchedCount > 0 && (
                 <div className="bg-muted/50 rounded-md border px-3 py-2">
                   <div className="mb-1">
-                    <Body variant="caption">Nutrition per serving</Body>
+                    <Body variant="caption">{t('nutritionPerServing')}</Body>
                   </div>
                   <NutritionSummary
                     nutrition={nutritionSummary.nutrition}
@@ -589,8 +586,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
                   {nutritionSummary.unmatchedCount > 0 && (
                     <div className="mt-1">
                       <Body variant="caption">
-                        Approximate — {nutritionSummary.unmatchedCount} ingredient
-                        {nutritionSummary.unmatchedCount > 1 ? 's' : ''} not included
+                        {t('nutritionApproximate', { count: nutritionSummary.unmatchedCount })}
                       </Body>
                     </div>
                   )}
@@ -613,15 +609,13 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
 
             {/* Preparation Notes Section */}
             <section className="flex flex-col gap-2">
-              <Label htmlFor="preparationNotes">Preparation notes</Label>
-              <Body variant="muted">
-                How do you prepare this meal? Steps, tips, or other notes.
-              </Body>
+              <Label htmlFor="preparationNotes">{t('preparationNotesLabel')}</Label>
+              <Body variant="muted">{t('preparationNotesHelper')}</Body>
               <Textarea
                 id="preparationNotes"
                 value={preparationNotes}
                 onChange={(e) => setPreparationNotes(e.target.value)}
-                placeholder="Optional — e.g., steps, cooking tips"
+                placeholder={t('preparationNotesPlaceholder')}
                 rows={5}
                 maxLength={5000}
                 disabled={isSubmitting}
@@ -631,14 +625,14 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
 
             {/* Source URL Section */}
             <section className="flex flex-col gap-2">
-              <Label htmlFor="sourceUrl">Source URL</Label>
+              <Label htmlFor="sourceUrl">{t('sourceUrlLabel')}</Label>
               <div className="flex gap-2">
                 <Input
                   id="sourceUrl"
                   type="url"
                   value={sourceUrl}
                   onChange={(e) => setSourceUrl(e.target.value)}
-                  placeholder="https://example.com/recipe"
+                  placeholder={t('sourceUrlPlaceholder')}
                   disabled={isSubmitting}
                 />
                 {sourceUrl && (
@@ -648,7 +642,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
                     size="icon"
                     onClick={() => setSourceUrl('')}
                     disabled={isSubmitting}
-                    aria-label="Clear source URL"
+                    aria-label={t('sourceUrlClearAria')}
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -672,10 +666,10 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
                 disabled={isSubmitting}
                 className="flex-1"
               >
-                Cancel
+                {t('cancel')}
               </Button>
               <Button type="submit" disabled={isSubmitting} className="flex-1">
-                {isSubmitting ? 'Saving...' : isEditing ? 'Update meal' : 'Create meal'}
+                {isSubmitting ? t('saving') : isEditing ? t('update') : t('create')}
               </Button>
             </div>
           </div>
@@ -686,18 +680,16 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
       <AlertDialog open={showDiscardConfirmation} onOpenChange={setShowDiscardConfirmation}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Discard imported recipe?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to discard this imported recipe? All changes will be lost.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t('discardDialog.title')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('discardDialog.description')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogCancel>{t('discardDialog.keepEditing')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDiscard}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Discard
+              {t('discardDialog.discard')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

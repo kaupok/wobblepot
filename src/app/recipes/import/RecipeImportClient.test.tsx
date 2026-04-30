@@ -32,15 +32,15 @@ describe('RecipeImportClient progress steps', () => {
     fireEvent.click(button)
 
     // First step shows immediately
-    expect(screen.getByText('Fetching page...')).toBeInTheDocument()
+    expect(screen.getByText('Fetching page…')).toBeInTheDocument()
 
     // After 4s, transitions to second step
     act(() => vi.advanceTimersByTime(4000 + 150))
-    expect(screen.getByText('Extracting recipe...')).toBeInTheDocument()
+    expect(screen.getByText('Extracting recipe…')).toBeInTheDocument()
 
     // After 10s total, transitions to third step
     act(() => vi.advanceTimersByTime(6000 + 150))
-    expect(screen.getByText('Matching ingredients...')).toBeInTheDocument()
+    expect(screen.getByText('Matching ingredients…')).toBeInTheDocument()
   })
 
   it('shows text progress steps when importing plain text', () => {
@@ -55,12 +55,12 @@ describe('RecipeImportClient progress steps', () => {
     fireEvent.click(button)
 
     // First step shows immediately (no "Fetching page..." for text)
-    expect(screen.getByText('Extracting recipe...')).toBeInTheDocument()
-    expect(screen.queryByText('Fetching page...')).not.toBeInTheDocument()
+    expect(screen.getByText('Extracting recipe…')).toBeInTheDocument()
+    expect(screen.queryByText('Fetching page…')).not.toBeInTheDocument()
 
     // After 4s, transitions to second step
     act(() => vi.advanceTimersByTime(4000 + 150))
-    expect(screen.getByText('Matching ingredients...')).toBeInTheDocument()
+    expect(screen.getByText('Matching ingredients…')).toBeInTheDocument()
   })
 
   it('clears progress steps on error', async () => {
@@ -81,7 +81,7 @@ describe('RecipeImportClient progress steps', () => {
     fireEvent.click(button)
 
     // Step is visible during parsing
-    expect(screen.getByText('Fetching page...')).toBeInTheDocument()
+    expect(screen.getByText('Fetching page…')).toBeInTheDocument()
 
     // Let the fetch resolve (error) and timers run
     await act(async () => {
@@ -90,9 +90,9 @@ describe('RecipeImportClient progress steps', () => {
 
     // Error shown, progress step cleared
     expect(screen.getByText('Failed to parse')).toBeInTheDocument()
-    expect(screen.queryByText('Fetching page...')).not.toBeInTheDocument()
-    expect(screen.queryByText('Extracting recipe...')).not.toBeInTheDocument()
-    expect(screen.queryByText('Matching ingredients...')).not.toBeInTheDocument()
+    expect(screen.queryByText('Fetching page…')).not.toBeInTheDocument()
+    expect(screen.queryByText('Extracting recipe…')).not.toBeInTheDocument()
+    expect(screen.queryByText('Matching ingredients…')).not.toBeInTheDocument()
   })
 })
 

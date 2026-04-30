@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -24,12 +25,14 @@ export function MealFormBasicInfo({
   onServingsChange,
   disabled,
 }: MealFormBasicInfoProps) {
+  const t = useTranslations('recipes.form.basic')
+
   return (
     <section className="flex flex-col gap-4">
-      <Heading variant="h4">Basic information</Heading>
+      <Heading variant="h4">{t('heading')}</Heading>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="name">Meal name</Label>
+        <Label htmlFor="name">{t('nameLabel')}</Label>
         <Input
           id="name"
           type="text"
@@ -38,25 +41,25 @@ export function MealFormBasicInfo({
           maxLength={200}
           required
           disabled={disabled}
-          placeholder="e.g., Chicken stir fry"
+          placeholder={t('namePlaceholder')}
         />
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="description">Description (optional)</Label>
+        <Label htmlFor="description">{t('descriptionLabel')}</Label>
         <Textarea
           id="description"
           value={description}
           onChange={(e) => onDescriptionChange(e.target.value)}
           maxLength={1000}
           disabled={disabled}
-          placeholder="Brief description of the meal..."
+          placeholder={t('descriptionPlaceholder')}
           rows={2}
         />
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="servings">Recipe makes (servings)</Label>
+        <Label htmlFor="servings">{t('servingsLabel')}</Label>
         <Input
           id="servings"
           type="text"
