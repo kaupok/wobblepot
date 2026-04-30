@@ -170,7 +170,7 @@
       "swap": "Swap",
       "clear": "Clear",
       "rate": "Rate",
-      "servings": "{count} servings",
+      "servings": "{count, plural, one {# serving} other {# servings}}",
       "statusUpdateFailed": "Failed to update status. Please try again.",
       "clearFailed": "Failed to clear meal. Please try again.",
       "createEntryFailed": "Failed to add meal slot"
@@ -218,9 +218,7 @@
       "loading": "Loading…",
       "imagineButton": "Imagine a meal",
       "noSuggestions": "No suggestions available. Try searching for a meal.",
-      "emptyMyRecipesPrefix": "No custom recipes yet. Try ",
-      "emptyMyRecipesLink": "importing a recipe",
-      "emptyMyRecipesSuffix": " first.",
+      "emptyMyRecipes": "No custom recipes yet. Try <link>importing a recipe</link> first.",
       "emptySearchCustom": "No custom recipes found matching \"{query}\"",
       "emptySearch": "No meals found matching \"{query}\"",
       "updateMealFailed": "Failed to update meal",
@@ -246,8 +244,7 @@
       "kidFriendly": "Kid-friendly",
       "timeMinutes": "{count} min",
       "ingredientsHeader": "Ingredients (serves {count})",
-      "ingredientsHeaderInlinePrefix": "Ingredients (",
-      "ingredientsHeaderInlineSuffix": ")",
+      "ingredientsHeaderInline": "Ingredients (<servings>servings</servings>)",
       "staplesPrefix": "Staples: {list}",
       "viewSource": "View original recipe",
       "howToPrepare": "How to prepare",
@@ -270,6 +267,11 @@
       "protein": "Protein",
       "carbs": "Carbs",
       "fat": "Fat",
+      "compact": {
+        "protein": "protein",
+        "carbs": "carbs",
+        "fat": "fat"
+      },
       "vagueDisclaimer": "*includes estimates for vague quantities"
     },
     "serving": {

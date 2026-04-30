@@ -32,7 +32,7 @@ vi.mock('next-intl', async () => {
   function applyValues(template: string, values?: Record<string, string | number>): string {
     if (!values) return template
     // Handle ICU plurals: `{count, plural, =0 {…} one {…} other {…}}`
-    const pluralRe = /\{(\w+),\s*plural,\s*([^}]*?)\}/g
+    const pluralRe = /\{(\w+),\s*plural,\s*((?:[^{}]|\{[^{}]*\})*)\}/g
     let out = template.replace(pluralRe, (_match, varName: string, body: string) => {
       const raw = values[varName]
       const count = typeof raw === 'number' ? raw : Number(raw)

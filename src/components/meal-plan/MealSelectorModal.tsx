@@ -811,11 +811,13 @@ export function MealSelectorModal({
                 isMyRecipesBrowseMode &&
                 accumulatedMyRecipes.length === 0 && (
                   <Body variant="muted" className="text-center">
-                    {tSelector('emptyMyRecipesPrefix')}
-                    <a href="/recipes/import" className="text-primary underline">
-                      {tSelector('emptyMyRecipesLink')}
-                    </a>
-                    {tSelector('emptyMyRecipesSuffix')}
+                    {tSelector.rich('emptyMyRecipes', {
+                      link: (chunks) => (
+                        <a href="/recipes/import" className="text-primary underline">
+                          {chunks}
+                        </a>
+                      ),
+                    })}
                   </Body>
                 )}
 

@@ -20,8 +20,8 @@ export function NutritionSummary({ nutrition, compact, components }: NutritionSu
     return (
       <div className="text-muted-foreground text-xs">
         {Math.round(nutrition.calories)} kcal · {Math.round(nutrition.protein)}g{' '}
-        {t('protein').toLowerCase()} · {Math.round(nutrition.carbs)}g {t('carbs').toLowerCase()} ·{' '}
-        {Math.round(nutrition.fat)}g {t('fat').toLowerCase()}
+        {t('compact.protein')} · {Math.round(nutrition.carbs)}g {t('compact.carbs')} ·{' '}
+        {Math.round(nutrition.fat)}g {t('compact.fat')}
         {hasVague && '*'}
       </div>
     )

@@ -266,14 +266,17 @@ function PantryItemRow({
         </Button>
         <div className="flex flex-col">
           <Body>{item.ingredient.name}</Body>
-          {item.neededQuantity !== undefined && item.neededQuantity > 0 && (
-            <Body variant="caption">
-              {tPantry('neededInWindow', {
-                quantity: item.neededDisplayQuantity ?? '',
-                days: item.windowDays ?? 0,
-              })}
-            </Body>
-          )}
+          {item.neededQuantity !== undefined &&
+            item.neededQuantity > 0 &&
+            item.neededDisplayQuantity &&
+            item.windowDays !== undefined && (
+              <Body variant="caption">
+                {tPantry('neededInWindow', {
+                  quantity: item.neededDisplayQuantity,
+                  days: item.windowDays,
+                })}
+              </Body>
+            )}
         </div>
       </div>
       <Button

@@ -170,7 +170,7 @@
       "swap": "Vaheta",
       "clear": "Eemalda",
       "rate": "Hinda",
-      "servings": "{count} portsjonit",
+      "servings": "{count, plural, one {# portsjon} other {# portsjonit}}",
       "statusUpdateFailed": "Oleku uuendamine ebaõnnestus. Palun proovi uuesti.",
       "clearFailed": "Toidu eemaldamine ebaõnnestus. Palun proovi uuesti.",
       "createEntryFailed": "Toidukoha lisamine ebaõnnestus"
@@ -218,9 +218,7 @@
       "loading": "Laadin…",
       "imagineButton": "Mõtle välja toit",
       "noSuggestions": "Soovitusi pole. Proovi otsida toitu.",
-      "emptyMyRecipesPrefix": "Sul pole veel oma retsepte. Proovi ",
-      "emptyMyRecipesLink": "retsepti importida",
-      "emptyMyRecipesSuffix": ".",
+      "emptyMyRecipes": "Sul pole veel oma retsepte. Proovi <link>retsepti importida</link>.",
       "emptySearchCustom": "Päringule „{query}\" vastavaid oma retsepte ei leitud",
       "emptySearch": "Päringule „{query}\" vastavaid toite ei leitud",
       "updateMealFailed": "Toidu uuendamine ebaõnnestus",
@@ -246,8 +244,7 @@
       "kidFriendly": "Lastesõbralik",
       "timeMinutes": "{count} min",
       "ingredientsHeader": "Koostisosad ({count} portsjonit)",
-      "ingredientsHeaderInlinePrefix": "Koostisosad (",
-      "ingredientsHeaderInlineSuffix": ")",
+      "ingredientsHeaderInline": "Koostisosad (<servings>portsjonid</servings>)",
       "staplesPrefix": "Põhitooted: {list}",
       "viewSource": "Vaata algset retsepti",
       "howToPrepare": "Kuidas valmistada",
@@ -270,6 +267,11 @@
       "protein": "Valgud",
       "carbs": "Süsivesikud",
       "fat": "Rasvad",
+      "compact": {
+        "protein": "valku",
+        "carbs": "süsivesikuid",
+        "fat": "rasva"
+      },
       "vagueDisclaimer": "*sisaldab hinnanguid umbmääraste koguste jaoks"
     },
     "serving": {
