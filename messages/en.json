@@ -548,6 +548,9 @@
       "toggleTheme": "Toggle theme"
     }
   },
+  "footer": {
+    "support": "Email support"
+  },
   "auth": {
     "signIn": {
       "metaTitle": "Sign in",
@@ -649,6 +652,7 @@
       "tryAgain": "Try again",
       "errorIdLabel": "Error ID:",
       "detailsLabel": "Error details",
+      "supportPrompt": "Need help? Email <link>{email}</link>.",
       "generic": {
         "title": "Oops! Something went wrong",
         "body": "We encountered an error while loading this page."

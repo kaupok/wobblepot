@@ -12,6 +12,7 @@ import {
 import { Heading, Body } from '@/components/ui/typography'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { SUPPORT_EMAIL, SUPPORT_EMAIL_HREF } from '@/lib/support'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('meta.status')
@@ -22,8 +23,6 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export const dynamic = 'force-dynamic'
-
-const SUPPORT_EMAIL = 'support@honkadori.xyz'
 
 const COMPONENTS: { key: 'db' | 'auth' | 'ai'; label: string; description: string }[] = [
   { key: 'ai', label: 'AI pipeline', description: 'Meal plan generation via Claude' },
@@ -68,7 +67,7 @@ export default async function StatusPage() {
       <div className="border-t pt-6">
         <Body variant="muted">
           Something looks wrong? Email us at{' '}
-          <a className="underline" href={`mailto:${SUPPORT_EMAIL}`}>
+          <a className="underline" href={SUPPORT_EMAIL_HREF}>
             {SUPPORT_EMAIL}
           </a>{' '}
           or return to the{' '}

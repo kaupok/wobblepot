@@ -1,4 +1,4 @@
-import { act, render, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ConsentDecision } from '@/lib/consent'
 import { MealPlanValidationError } from '@/lib/ai/types'
@@ -130,5 +130,13 @@ describe('GlobalError', () => {
     })
     expect(posthogMock.init).not.toHaveBeenCalled()
     expect(posthogMock.captureException).not.toHaveBeenCalled()
+  })
+
+  it('renders the support email link regardless of consent state', () => {
+    consentMock.read.mockReturnValue(null)
+    render(<GlobalError error={makeError()} reset={reset} />)
+
+    const link = screen.getByRole('link', { name: /support@honkadori\.xyz/i })
+    expect(link).toHaveAttribute('href', 'mailto:support@honkadori.xyz')
   })
 })
