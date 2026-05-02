@@ -87,5 +87,5 @@ Example:
 
 - **[`src/app/api/health/route.ts`](../../src/app/api/health/route.ts)** (HON-454) — uptime-monitor-facing endpoint with 200/503 semantics. Distinct from `/api/status`, which always returns 200 and carries the state in the payload.
 - **HON-484** — uptime monitoring configured against `/api/health`.
-- **HON-487** — support email definition. When that lands, align the `SUPPORT_EMAIL` constant in [`src/app/status/page.tsx`](../../src/app/status/page.tsx) with whatever HON-487 settles on.
+- **HON-487** — support email definition (shipped). The `SUPPORT_EMAIL` constant lives in [`src/lib/support.ts`](../../src/lib/support.ts); `/status` and the rest of the surfaces import from there. Triage and SLAs are documented in [`dsr-intake.md`](./dsr-intake.md).
 - **HON-482** — breach notification runbook. Status-page copy and the breach email template should share tone and the same support contact.

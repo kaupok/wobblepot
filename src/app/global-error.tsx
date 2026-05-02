@@ -8,6 +8,7 @@ import { decisionToGranted } from '@/lib/consent'
 import { readConsentCookieClient } from '@/lib/consent.client'
 import { errorTypeOf, fingerprintFor } from '@/lib/errors-shared'
 import { postHogBeforeSend } from '@/lib/posthog-before-send'
+import { SUPPORT_EMAIL, SUPPORT_EMAIL_HREF } from '@/lib/support'
 
 export default function GlobalError({
   error,
@@ -60,6 +61,15 @@ export default function GlobalError({
               <Heading>Something went wrong!</Heading>
               <Body>An unexpected error occurred. We apologize for the inconvenience.</Body>
               {error.digest && <Body variant="muted">Error ID: {error.digest}</Body>}
+            </div>
+            <div className="mt-4">
+              <Body variant="muted">
+                Need help? Email{' '}
+                <a className="underline" href={SUPPORT_EMAIL_HREF}>
+                  {SUPPORT_EMAIL}
+                </a>
+                .
+              </Body>
             </div>
             <Button onClick={reset}>Try again</Button>
           </div>

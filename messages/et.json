@@ -548,6 +548,9 @@
       "toggleTheme": "Vaheta teemat"
     }
   },
+  "footer": {
+    "support": "Kirjuta tugile"
+  },
   "auth": {
     "signIn": {
       "metaTitle": "Logi sisse",
@@ -649,6 +652,7 @@
       "tryAgain": "Proovi uuesti",
       "errorIdLabel": "Vea ID:",
       "detailsLabel": "Vea üksikasjad",
+      "supportPrompt": "Vajad abi? Kirjuta <link>{email}</link>.",
       "generic": {
         "title": "Oih! Midagi läks valesti",
         "body": "Lehe laadimisel tekkis viga."

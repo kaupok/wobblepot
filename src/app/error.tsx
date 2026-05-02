@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Heading, Body, Pre } from '@/components/ui/typography'
 import { captureClientError } from '@/lib/errors-client'
+import { SUPPORT_EMAIL, SUPPORT_EMAIL_HREF } from '@/lib/support'
 
 export default function Error({
   error,
@@ -40,6 +41,18 @@ export default function Error({
             </Pre>
           </details>
         )}
+        <div className="mt-4">
+          <Body variant="muted">
+            {t.rich('supportPrompt', {
+              email: SUPPORT_EMAIL,
+              link: (chunks) => (
+                <a className="underline" href={SUPPORT_EMAIL_HREF}>
+                  {chunks}
+                </a>
+              ),
+            })}
+          </Body>
+        </div>
         <Button onClick={reset}>{t('tryAgain')}</Button>
       </div>
     </div>
