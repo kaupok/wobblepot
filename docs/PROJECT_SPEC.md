@@ -1,6 +1,6 @@
-# Honkadori: AI-Powered Family Meal Planning
+# Wobblepot: AI-Powered Family Meal Planning
 
-> **Naming note:** 'Honkadori' is the parent company / legal entity for this product — used for vendor accounts (PostHog org, Neon org, etc.), DPAs, subprocessor listings, and the staging domain `honkadori.xyz`. The user-facing product/service name is separate and not yet finalised. This doc's title reflects the working internal name; final user-facing branding is TBD.
+> **Naming note:** **Wobblepot** (pronounced "WOB-bul-pot") is the user-facing product brand. _Honkadori OÜ_ is the parent legal entity — used for vendor accounts (PostHog org, Neon org, etc.), DPAs, subprocessor listings, AKI registration, and the staging domain `honkadori.xyz`. All user-facing email lives on `wobblepot.com`; legal-entity attribution (Honkadori OÜ) appears in policy text, not in the email address. Brand decision recorded in HON-539; brand swap of in-code references from `honkadori.xyz` to `wobblepot.com` lands in HON-538.
 
 ## Current Status
 
@@ -42,6 +42,25 @@ AI-powered meal planning that generates personalized weekly ingredient-based mea
 - Family-focused features
 - Flexibility to adjust plans
 - No VC bloat - simple, clean, user-friendly
+
+### Brand voice and tone
+
+**Voice:** Warm, family-coded, playful, kitchen-evocative. The name itself paints the image — a pot wobbling on the stove, Roald-Dahl-character energy. Sits alongside the parent entity Honkadori (a term from Japanese waka poetry meaning "allusive variation" — referencing a foundational poem to create something new) — both names favor character and resonance over generic descriptors.
+
+**Tone in marketing and long-form copy:**
+
+- Plain language over jargon. Avoid food-industry buzzwords ("artisanal," "curated," "elevated").
+- Direct and helpful, not aspirational. Users are tired parents at 5pm, not lifestyle-magazine readers.
+- Light-touch personality: a small playful turn of phrase is welcome; constant whimsy is not.
+- Never precious about the AI angle. AI is the engine, not the story.
+
+**Tone in product chrome (buttons, labels, errors):**
+
+- Sentence case throughout (per CLAUDE.md text-casing rule).
+- Imperative for actions ("Add meal," "Skip dinner").
+- Friendly but operational for empty states and errors — explain what happened and what to do next, not what went wrong technically.
+
+**Pronunciation:** "WOB-bul-pot" — three syllables, stress on the first.
 
 ---
 
