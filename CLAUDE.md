@@ -6,7 +6,7 @@ In conversational responses, prioritize brevity. Keep explanations concise and d
 
 A Next.js 16 project with React 19, using TypeScript, Tailwind CSS, and shadcn/ui components.
 
-**Product:** AI-powered family meal planning app for households. 'Honkadori' is the parent company / legal entity (used for vendor accounts, DPAs, subprocessor listings, and the staging domain `honkadori.xyz`) — the user-facing service name is separate and not yet finalised.
+**Product:** AI-powered family meal planning app for households. The user-facing brand is **Wobblepot** (pronounced "WOB-bul-pot"). _Honkadori OÜ_ is the parent legal entity — used for vendor accounts, DPAs, subprocessor listings, AKI registration, and the staging domain `honkadori.xyz`. All user-facing email lives on `wobblepot.com`; legal-entity attribution appears in policy text only. Brand swap of in-code references from `honkadori.xyz` to `wobblepot.com` lands in HON-538.
 
 **Product Spec:** The full product spec is in [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md). Read it before starting implementation work.
 
