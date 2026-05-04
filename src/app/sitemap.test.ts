@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/env', () => ({
-  getServerBaseURL: () => 'https://honkadori.xyz',
+  getServerBaseURL: () => 'https://wobblepot.com',
 }))
 
 describe('sitemap', () => {
@@ -11,7 +11,7 @@ describe('sitemap', () => {
 
     expect(result).toHaveLength(2)
     expect(result[0]).toMatchObject({
-      url: 'https://honkadori.xyz',
+      url: 'https://wobblepot.com',
       changeFrequency: 'weekly',
       priority: 1,
     })
@@ -22,7 +22,7 @@ describe('sitemap', () => {
     const result = sitemap()
 
     expect(result[1]).toMatchObject({
-      url: 'https://honkadori.xyz/bot',
+      url: 'https://wobblepot.com/bot',
       changeFrequency: 'yearly',
       priority: 0.3,
     })

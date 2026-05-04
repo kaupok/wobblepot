@@ -8,7 +8,7 @@ vi.mock('@/lib/upstash', () => ({
   getRedis: () => ({ get: mockGet, set: mockSet }),
 }))
 
-import { checkRobotsAllowed, HONKADORI_BOT_USER_AGENT, HONKADORI_BOT_TOKEN } from './robots'
+import { checkRobotsAllowed, WOBBLEPOT_BOT_USER_AGENT, WOBBLEPOT_BOT_TOKEN } from './robots'
 
 describe('checkRobotsAllowed', () => {
   let fetchSpy: ReturnType<typeof vi.spyOn>
@@ -40,7 +40,7 @@ describe('checkRobotsAllowed', () => {
     expect(fetchSpy).toHaveBeenCalledWith(
       'https://example.com/robots.txt',
       expect.objectContaining({
-        headers: expect.objectContaining({ 'User-Agent': HONKADORI_BOT_USER_AGENT }),
+        headers: expect.objectContaining({ 'User-Agent': WOBBLEPOT_BOT_USER_AGENT }),
       }),
     )
   })
@@ -58,7 +58,7 @@ describe('checkRobotsAllowed', () => {
   })
 
   it('returns false and logs disallow when the UA token is disallowed for the path', async () => {
-    const body = `User-agent: ${HONKADORI_BOT_TOKEN}\nDisallow: /private/\n`
+    const body = `User-agent: ${WOBBLEPOT_BOT_TOKEN}\nDisallow: /private/\n`
     fetchSpy.mockResolvedValue(
       new Response(body, { status: 200, headers: { 'content-type': 'text/plain' } }),
     )

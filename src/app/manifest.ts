@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Honkadori',
-    short_name: 'Honkadori',
+    name: 'Wobblepot',
+    short_name: 'Wobblepot',
     description: 'AI-powered weekly meal planning for families',
     start_url: '/',
     scope: '/',

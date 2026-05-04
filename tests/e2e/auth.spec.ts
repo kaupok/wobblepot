@@ -28,7 +28,7 @@ test.describe('Authentication flows', () => {
 
     // Should redirect to home with the first-time setup card
     await expect(page).toHaveURL('/')
-    await expect(page.getByText(`Welcome to Honkadori, ${name}!`)).toBeVisible()
+    await expect(page.getByText(`Welcome to Wobblepot, ${name}!`)).toBeVisible()
   })
 
   test('sign in -> view profile', { tag: '@smoke' }, async ({ page }) => {

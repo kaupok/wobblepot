@@ -14,7 +14,7 @@ import {
 } from '@/lib/vague-quantities'
 import { applyIngredientAlias } from '@/lib/ingredient-aliases'
 import { normalizeIngredientName, extractLastWord } from '@/lib/normalize-ingredient'
-import { HONKADORI_BOT_USER_AGENT, checkRobotsAllowed } from '@/lib/robots'
+import { WOBBLEPOT_BOT_USER_AGENT, checkRobotsAllowed } from '@/lib/robots'
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
 import { localeInstruction } from './prompts'
 import { logAiSample } from './sampling'
@@ -290,7 +290,7 @@ export async function fetchRecipeFromUrl(url: string): Promise<string> {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(15000),
       headers: {
-        'User-Agent': HONKADORI_BOT_USER_AGENT,
+        'User-Agent': WOBBLEPOT_BOT_USER_AGENT,
         Accept: 'text/html,application/xhtml+xml,*/*',
       },
       redirect: 'follow',

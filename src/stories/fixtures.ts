@@ -957,7 +957,7 @@ export function createMemberPreferences(
  */
 export function createMemberInvite(overrides: Partial<MemberInvite> = {}): MemberInvite {
   return {
-    url: 'https://honkadori.xyz/invite/abc123',
+    url: 'https://wobblepot.com/invite/abc123',
     expiresAt: '2026-04-24T12:00:00.000Z',
     isActive: true,
     ...overrides,

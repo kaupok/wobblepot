@@ -40,7 +40,7 @@ export async function isPasswordBreached(password: string): Promise<boolean> {
         signal: controller.signal,
         headers: {
           'Add-Padding': 'true',
-          'User-Agent': 'Honkadori-Password-Check',
+          'User-Agent': 'Wobblepot-Password-Check',
         },
       },
       { feature: 'breached_password_check' },

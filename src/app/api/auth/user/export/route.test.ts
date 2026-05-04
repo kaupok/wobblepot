@@ -268,7 +268,7 @@ describe('GET /api/auth/user/export', () => {
       const response = await GET()
       expect(response.headers.get('Content-Type')).toBe('application/json')
       expect(response.headers.get('Content-Disposition')).toBe(
-        'attachment; filename="honkadori-export-user-attach-2026-07-15.json"',
+        'attachment; filename="wobblepot-export-user-attach-2026-07-15.json"',
       )
       expect(response.headers.get('Cache-Control')).toBe('no-store')
     } finally {

@@ -136,7 +136,7 @@ describe('GlobalError', () => {
     consentMock.read.mockReturnValue(null)
     render(<GlobalError error={makeError()} reset={reset} />)
 
-    const link = screen.getByRole('link', { name: /support@honkadori\.xyz/i })
-    expect(link).toHaveAttribute('href', 'mailto:support@honkadori.xyz')
+    const link = screen.getByRole('link', { name: /support@wobblepot\.com/i })
+    expect(link).toHaveAttribute('href', 'mailto:support@wobblepot.com')
   })
 })

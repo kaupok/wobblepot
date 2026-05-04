@@ -14,9 +14,9 @@ export default function BotPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
       <div className="flex flex-col gap-4">
-        <Heading>About Honkadori-Bot</Heading>
+        <Heading>About Wobblepot-Bot</Heading>
         <Body variant="lead">
-          Honkadori-Bot fetches recipe pages that users explicitly submit through the recipe import
+          Wobblepot-Bot fetches recipe pages that users explicitly submit through the recipe import
           feature. It is not a crawler.
         </Body>
       </div>
@@ -25,10 +25,10 @@ export default function BotPage() {
         <Heading variant="h2">User-agent</Heading>
         <Body>The bot identifies itself with the following User-Agent string:</Body>
         <Body>
-          <Code>Honkadori-Bot/1.0 (+https://honkadori.xyz/bot)</Code>
+          <Code>Wobblepot-Bot/1.0 (+https://wobblepot.com/bot)</Code>
         </Body>
         <Body variant="muted">
-          For <Code>robots.txt</Code> matching, the token is <Code>Honkadori-Bot/1.0</Code>.
+          For <Code>robots.txt</Code> matching, the token is <Code>Wobblepot-Bot/1.0</Code>.
         </Body>
       </div>
 
@@ -71,8 +71,8 @@ export default function BotPage() {
         <Ul>
           <Li>
             <Body>
-              Honkadori-Bot honours <Code>robots.txt</Code>. If your rules disallow{' '}
-              <Code>Honkadori-Bot/1.0</Code> (or <Code>*</Code>) for a URL, we will not fetch it.
+              Wobblepot-Bot honours <Code>robots.txt</Code>. If your rules disallow{' '}
+              <Code>Wobblepot-Bot/1.0</Code> (or <Code>*</Code>) for a URL, we will not fetch it.
             </Body>
           </Li>
           <Li>
@@ -94,12 +94,12 @@ export default function BotPage() {
         <Heading variant="h2">Contact</Heading>
         <Body>
           If you want us to stop (or start) fetching your site, or you have questions about how
-          Honkadori handles content, email{' '}
-          <a className="underline" href="mailto:privacy@honkadori.xyz">
-            privacy@honkadori.xyz
+          Wobblepot handles content, email{' '}
+          <a className="underline" href="mailto:privacy@wobblepot.com">
+            privacy@wobblepot.com
           </a>
           . The quickest way to deny us is to add a <Code>Disallow</Code> rule for{' '}
-          <Code>Honkadori-Bot/1.0</Code> in your <Code>robots.txt</Code>.
+          <Code>Wobblepot-Bot/1.0</Code> in your <Code>robots.txt</Code>.
         </Body>
       </div>
     </div>

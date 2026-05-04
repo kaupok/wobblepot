@@ -6,5 +6,5 @@ test('home renders with heading', async ({ page }) => {
   await expect(
     page.getByRole('main').getByRole('heading', { name: 'Meal planning for busy families' }),
   ).toBeVisible()
-  await expect(page.getByRole('banner').getByRole('heading', { name: 'Honkadori' })).toBeVisible()
+  await expect(page.getByRole('banner').getByRole('heading', { name: 'Wobblepot' })).toBeVisible()
 })

@@ -15,8 +15,8 @@ describe('Footer', () => {
   it('renders a support email link with the correct mailto href', () => {
     renderFooter({ granted: true, grant: vi.fn(), withdraw: vi.fn() })
 
-    const link = screen.getByRole('link', { name: /support@honkadori\.xyz/i })
-    expect(link).toHaveAttribute('href', 'mailto:support@honkadori.xyz')
+    const link = screen.getByRole('link', { name: /support@wobblepot\.com/i })
+    expect(link).toHaveAttribute('href', 'mailto:support@wobblepot.com')
   })
 
   it('renders the cookie settings trigger alongside support', () => {

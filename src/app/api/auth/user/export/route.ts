@@ -229,7 +229,7 @@ export async function GET() {
     }
 
     const dateStr = now.toISOString().slice(0, 10)
-    const filename = `honkadori-export-${userId}-${dateStr}.json`
+    const filename = `wobblepot-export-${userId}-${dateStr}.json`
 
     return new NextResponse(JSON.stringify(envelope), {
       status: 200,

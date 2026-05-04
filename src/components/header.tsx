@@ -22,7 +22,7 @@ export async function Header() {
       <div className="mx-auto flex h-16 w-full max-w-[1152px] items-center justify-between px-4">
         <div className="flex items-center gap-8">
           <Link href="/" className="transition-opacity hover:opacity-70">
-            <Heading variant="h4">Honkadori</Heading>
+            <Heading variant="h4">Wobblepot</Heading>
           </Link>
           <NavigationLeft isAuthenticated={Boolean(session)} hasHousehold={hasHousehold} />
         </div>

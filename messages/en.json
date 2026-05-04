@@ -1,19 +1,19 @@
 {
   "meta": {
     "root": {
-      "title": "Honkadori",
-      "titleTemplate": "%s · Honkadori",
+      "title": "Wobblepot",
+      "titleTemplate": "%s · Wobblepot",
       "description": "AI-powered weekly meal planning for families",
-      "ogTitle": "Honkadori",
+      "ogTitle": "Wobblepot",
       "ogDescription": "AI-powered weekly meal planning for families"
     },
     "bot": {
-      "title": "Honkadori-Bot",
-      "description": "About Honkadori-Bot — the user-agent Honkadori sends when fetching recipe URLs you explicitly submit via the import feature."
+      "title": "Wobblepot-Bot",
+      "description": "About Wobblepot-Bot — the user-agent Wobblepot sends when fetching recipe URLs you explicitly submit via the import feature."
     },
     "status": {
       "title": "Status",
-      "description": "Live system status for Honkadori"
+      "description": "Live system status for Wobblepot"
     },
     "admin": {
       "signupCodes": {
@@ -139,8 +139,8 @@
       "slow": "Taking longer than expected, please wait…"
     },
     "firstTime": {
-      "welcome": "Welcome to Honkadori, {userName}!",
-      "welcomeNoName": "Welcome to Honkadori!",
+      "welcome": "Welcome to Wobblepot, {userName}!",
+      "welcomeNoName": "Welcome to Wobblepot!",
       "subhead": "Plan your first meals to get started.",
       "startFromLabel": "Start from",
       "daysCountLabel": "How many days",
