@@ -4,7 +4,7 @@ import { hashPassword } from 'better-auth/crypto'
 import { prismaAdapter } from '@better-auth/prisma-adapter'
 import { prisma, type PrismaClientType } from '@/lib/prisma'
 import { serverEnv, getServerBaseURL } from '@/lib/env'
-import { resend, isEmailConfigured } from '@/lib/resend'
+import { resend, isEmailConfigured, EMAIL_SENDERS, envSubject } from '@/lib/resend'
 import { generateResetPasswordEmail } from '@/lib/emails/reset-password'
 import { isPasswordBreached } from '@/lib/breached-password'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
@@ -144,9 +144,7 @@ export const auth = betterAuth({
      * to prevent account enumeration attacks.
      */
     sendResetPassword: async ({ user, url }) => {
-      // Check if email is configured (for CI/build environments)
-      const fromEmail = serverEnv.RESEND_FROM_EMAIL
-      if (!isEmailConfigured() || !resend || !fromEmail) {
+      if (!isEmailConfigured() || !resend) {
         // eslint-disable-next-line no-console
         console.warn('Email not configured. Password reset email not sent.')
         if (process.env.NODE_ENV === 'development') {
@@ -156,16 +154,17 @@ export const auth = betterAuth({
         return
       }
 
-      const emailContent = generateResetPasswordEmail({ resetUrl: url })
+      const { subject, ...rest } = generateResetPasswordEmail({ resetUrl: url })
 
       try {
         await resend.emails.send({
-          from: fromEmail,
+          from: EMAIL_SENDERS.auth,
           to: user.email,
-          ...emailContent,
+          subject: envSubject(subject),
+          ...rest,
         })
       } catch (error) {
-        // Log error but don't throw - prevents account enumeration
+        // Don't throw - prevents account enumeration via timing/error differences.
         // eslint-disable-next-line no-console
         console.error('Failed to send password reset email:', error)
       }

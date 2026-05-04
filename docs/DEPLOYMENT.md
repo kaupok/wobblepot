@@ -113,6 +113,14 @@ This allows:
 - ✅ Staging environment - Auto-deploy from main
 - ❌ Production environment - Manual deploy only
 
+### Email deliverability
+
+Resend + Cloudflare DNS setup, FROM-address conventions, DMARC reading, and
+the escalation path (`p=none` → `quarantine` → `reject`, tracked in HON-480)
+live in [EMAIL_SETUP.md](./EMAIL_SETUP.md). Confirm `RESEND_API_KEY` is set
+in Vercel **production** before promoting any change that touches an email
+send-site.
+
 ### Rollback Procedure
 
 If production deployment fails:
