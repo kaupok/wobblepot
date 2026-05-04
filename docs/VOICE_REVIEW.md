@@ -74,7 +74,7 @@ Optionally specify a focus area:
 ### What happens
 
 1. **Pre-flight** — Claude verifies Chrome and VoiceMode are available, starts services if needed, and loads the project backlog from Linear
-2. **Navigation** — Claude opens `https://honkadori.xyz/` in Chrome and handles authentication
+2. **Navigation** — Claude opens `https://wobblepot.dev/` in Chrome and handles authentication
 3. **Voice conversation** — Claude greets you and asks what to focus on. You talk back and forth naturally while Claude navigates pages, takes screenshots, and checks the console
 4. **Issue creation** — When you spot something worth tracking, discuss it verbally. Claude drafts a Linear issue, reads you the title, and creates it after your confirmation
 5. **Summary** — When you're done, Claude speaks a summary and also outputs it as text for reference

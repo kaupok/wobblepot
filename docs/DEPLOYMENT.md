@@ -40,7 +40,7 @@ definitions. Summary for deployment decisions:
    on the PR.
 3. **Staging-smoke** (`.github/workflows/staging-smoke.yml`) — runs after the
    staging DB-migration workflow succeeds on `main`. Executes `@smoke`-tagged
-   specs against `https://honkadori.xyz`. **Failure blocks production
+   specs against `https://wobblepot.dev`. **Failure blocks production
    promotion** — do not run the production deploy workflows below until
    staging-smoke is green on the same commit.
 

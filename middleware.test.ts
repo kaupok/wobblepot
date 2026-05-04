@@ -54,7 +54,7 @@ describe('middleware', () => {
   it('sets Content-Security-Policy header with nonce', async () => {
     const { middleware } = await import('./middleware')
     const { NextRequest } = await import('next/server')
-    const req = new NextRequest('https://honkadori.xyz/')
+    const req = new NextRequest('https://wobblepot.dev/')
 
     middleware(req)
 
@@ -66,7 +66,7 @@ describe('middleware', () => {
   it('does not include unsafe-inline on script-src', async () => {
     const { middleware } = await import('./middleware')
     const { NextRequest } = await import('next/server')
-    const req = new NextRequest('https://honkadori.xyz/')
+    const req = new NextRequest('https://wobblepot.dev/')
 
     middleware(req)
 
@@ -78,7 +78,7 @@ describe('middleware', () => {
   it('includes strict-dynamic in production script-src', async () => {
     const { middleware } = await import('./middleware')
     const { NextRequest } = await import('next/server')
-    const req = new NextRequest('https://honkadori.xyz/')
+    const req = new NextRequest('https://wobblepot.dev/')
 
     middleware(req)
 
@@ -90,7 +90,7 @@ describe('middleware', () => {
   it('forwards nonce via x-nonce request header', async () => {
     const { middleware } = await import('./middleware')
     const { NextRequest } = await import('next/server')
-    const req = new NextRequest('https://honkadori.xyz/')
+    const req = new NextRequest('https://wobblepot.dev/')
 
     middleware(req)
 
@@ -103,13 +103,13 @@ describe('middleware', () => {
     const { middleware } = await import('./middleware')
     const { NextRequest } = await import('next/server')
 
-    middleware(new NextRequest('https://honkadori.xyz/'))
+    middleware(new NextRequest('https://wobblepot.dev/'))
     const nonce1 = nextMock.requestHeaders.get('x-nonce')
 
     nextMock.requestHeaders.clear()
     nextMock.responseHeaders.clear()
 
-    middleware(new NextRequest('https://honkadori.xyz/page'))
+    middleware(new NextRequest('https://wobblepot.dev/page'))
     const nonce2 = nextMock.requestHeaders.get('x-nonce')
 
     expect(nonce1).not.toEqual(nonce2)
@@ -118,7 +118,7 @@ describe('middleware', () => {
   it('nonce in request header matches nonce in CSP', async () => {
     const { middleware } = await import('./middleware')
     const { NextRequest } = await import('next/server')
-    const req = new NextRequest('https://honkadori.xyz/')
+    const req = new NextRequest('https://wobblepot.dev/')
 
     middleware(req)
 
@@ -130,7 +130,7 @@ describe('middleware', () => {
   it('includes all required CSP directives', async () => {
     const { middleware } = await import('./middleware')
     const { NextRequest } = await import('next/server')
-    const req = new NextRequest('https://honkadori.xyz/')
+    const req = new NextRequest('https://wobblepot.dev/')
 
     middleware(req)
 
@@ -152,7 +152,7 @@ describe('middleware', () => {
   it('includes PostHog domains in img-src and connect-src', async () => {
     const { middleware } = await import('./middleware')
     const { NextRequest } = await import('next/server')
-    const req = new NextRequest('https://honkadori.xyz/')
+    const req = new NextRequest('https://wobblepot.dev/')
 
     middleware(req)
 
@@ -168,7 +168,7 @@ describe('middleware', () => {
   it('includes upgrade-insecure-requests in production', async () => {
     const { middleware } = await import('./middleware')
     const { NextRequest } = await import('next/server')
-    const req = new NextRequest('https://honkadori.xyz/')
+    const req = new NextRequest('https://wobblepot.dev/')
 
     middleware(req)
 

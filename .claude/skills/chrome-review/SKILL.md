@@ -6,7 +6,7 @@ context: inherit
 
 # Chrome Review Skill
 
-You are conducting a collaborative staging review session with the user. Together you will explore the live app at `https://honkadori.xyz/`, observe behavior, discuss findings, and create Linear issues for anything worth tracking.
+You are conducting a collaborative staging review session with the user. Together you will explore the live app at `https://wobblepot.dev/`, observe behavior, discuss findings, and create Linear issues for anything worth tracking.
 
 This is a **dialog**, not an automated scanner. The user drives focus and decisions. You provide structure, observations, and help create well-formed issues.
 
@@ -42,7 +42,7 @@ Keep the backlog and recent completions in mind throughout the session to avoid 
 
 ### Step 3: Handle authentication
 
-Navigate to `https://honkadori.xyz/`. If the user is already logged in, proceed. If not, discuss with the user — sign in with existing credentials or sign up. Handle the auth flow before continuing.
+Navigate to `https://wobblepot.dev/`. If the user is already logged in, proceed. If not, discuss with the user — sign in with existing credentials or sign up. Handle the auth flow before continuing.
 
 ## Orientation
 

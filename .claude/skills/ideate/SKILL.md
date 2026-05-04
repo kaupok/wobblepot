@@ -64,7 +64,7 @@ Then ask targeted questions to sharpen the idea. Focus on:
 3. **User experience**: How should this feel to use? Key interactions?
 4. **Edge cases**: What tricky scenarios should we consider?
 
-If Chrome is available and the idea touches an existing part of the app, navigate to that area on staging (`https://honkadori.xyz/`) to see its current state. This grounds the conversation in reality rather than assumptions.
+If Chrome is available and the idea touches an existing part of the app, navigate to that area on staging (`https://wobblepot.dev/`) to see its current state. This grounds the conversation in reality rather than assumptions.
 
 ## Phase 2: Shape Through Discussion
 
@@ -147,7 +147,7 @@ After creating all issues, summarize:
 
 ## Browsing the App
 
-When Chrome tools are available, use them to bring visual context into the conversation. The staging app is at `https://honkadori.xyz/`.
+When Chrome tools are available, use them to bring visual context into the conversation. The staging app is at `https://wobblepot.dev/`.
 
 ### App page map
 

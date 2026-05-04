@@ -6,7 +6,7 @@ In conversational responses, prioritize brevity. Keep explanations concise and d
 
 A Next.js 16 project with React 19, using TypeScript, Tailwind CSS, and shadcn/ui components.
 
-**Product:** AI-powered family meal planning app for households. The user-facing brand is **Wobblepot** (pronounced "WOB-bul-pot"). _Honkadori OÜ_ is the parent legal entity — used for vendor accounts, DPAs, subprocessor listings, AKI registration, and the staging domain `honkadori.xyz`. All user-facing copy and email lives on `wobblepot.com`; legal-entity attribution appears in policy text only.
+**Product:** AI-powered family meal planning app for households. The user-facing brand is **Wobblepot** (pronounced "WOB-bul-pot"). _Honkadori OÜ_ is the parent legal entity — used for vendor accounts, DPAs, subprocessor listings, AKI registration. All user-facing copy and email lives on `wobblepot.com`; staging is on `wobblepot.dev`; legal-entity attribution appears in policy text only.
 
 **Product Spec:** The full product spec is in [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md). Read it before starting implementation work.
 
@@ -334,7 +334,7 @@ See [`.storybook/README.md`](./.storybook/README.md) for the play-function patte
 
 **Fully autonomous:** `/auto-implement HON-XX` runs the entire cycle unattended.
 
-**Staging review:** `/chrome-review` — Interactive exploration of staging (`honkadori.xyz`) using Chrome. Discuss findings and create Linear issues collaboratively. Requires `claude --chrome` or `/chrome`.
+**Staging review:** `/chrome-review` — Interactive exploration of staging (`wobblepot.dev`) using Chrome. Discuss findings and create Linear issues collaboratively. Requires `claude --chrome` or `/chrome`.
 
 **Voice review:** `/voice-review` — Voice-powered staging review combining VoiceMode + Chrome. Talk through the app hands-free, discuss findings by speaking, and create Linear issues. Requires `claude --chrome` or `/chrome` and VoiceMode MCP server. See [docs/VOICE_REVIEW.md](docs/VOICE_REVIEW.md).
 

@@ -9,7 +9,7 @@ environments, all from the same `tests/e2e/*.spec.ts` files.
 | ----------------- | --------------------------------------------------------------------------------- | -------------------------------- | ----------------------------- |
 | **CI E2E**        | Every push / PR (`.github/workflows/ci.yml`)                                      | Docker Postgres sidecar          | All specs **except `@ai`**    |
 | **Preview-smoke** | Vercel preview deploy succeeds **and PR has `smoke` label** (`preview-smoke.yml`) | Vercel preview URL + Neon branch | `--grep=@smoke` (includes AI) |
-| **Staging-smoke** | Staging DB-migration workflow succeeds on `main` (`staging-smoke.yml`)            | `https://honkadori.xyz`          | `--grep=@smoke` (includes AI) |
+| **Staging-smoke** | Staging DB-migration workflow succeeds on `main` (`staging-smoke.yml`)            | `https://wobblepot.dev`          | `--grep=@smoke` (includes AI) |
 
 Staging-smoke failure blocks production promotion — see
 [`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md).
@@ -126,7 +126,7 @@ purely content.
 | `ANTHROPIC_API_KEY_CI`          | CI                           | Yes                | Tier 1 skips `@ai` specs so runtime AI spend is effectively zero. The key is still needed for `pnpm build` to resolve lazy env references cleanly. Reuse staging. |
 | `UPSTASH_REDIS_REST_URL_CI`     | CI                           | Yes                | Same Upstash DB as staging. Rate-limiter keys are dimensioned (ip/household/user) and CI runner IPs / fresh IDs don't collide with real traffic.                  |
 | `UPSTASH_REDIS_REST_TOKEN_CI`   | CI                           | Yes                | Paired with above.                                                                                                                                                |
-| `SMOKE_TEST_EMAIL`              | CI / preview-smoke / staging | n/a                | Stable seeded account. Pick any value — e.g. `smoke+ci@honkadori.xyz`.                                                                                            |
+| `SMOKE_TEST_EMAIL`              | CI / preview-smoke / staging | n/a                | Stable seeded account. Pick any value — e.g. `smoke+ci@wobblepot.dev`.                                                                                            |
 | `SMOKE_TEST_PASSWORD`           | CI / preview-smoke / staging | n/a                | ≥ 12 chars (HON-464 minimum) and must not be in HIBP's breach list (auth.ts rejects known-breached passwords on sign-up).                                         |
 | `FORGOT_PASSWORD_TEST_EMAIL`    | CI / preview-smoke / staging | n/a                | Separate seeded account so reset-password specs don't affect the smoke account.                                                                                   |
 | `FORGOT_PASSWORD_TEST_PASSWORD` | CI / preview-smoke / staging | n/a                | Same constraints as `SMOKE_TEST_PASSWORD`.                                                                                                                        |
@@ -137,7 +137,7 @@ accounts, the **Vercel env vars** for those environments also need
 values — otherwise the seed step `scripts/maybe-migrate.sh` → `pnpm db:seed`
 skips the `seedTestUsers()` branch.
 
-`STAGING_URL` is a **variable** (not a secret) — default `https://honkadori.xyz`.
+`STAGING_URL` is a **variable** (not a secret) — default `https://wobblepot.dev`.
 
 ## File layout
 
