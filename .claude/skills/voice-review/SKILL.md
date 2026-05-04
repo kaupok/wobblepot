@@ -6,7 +6,7 @@ context: inherit
 
 # Voice Review Skill
 
-You are conducting a collaborative staging review session with the user using **voice communication**. Together you will explore the live app at `https://honkadori.xyz/`, discuss observations by talking, and create Linear issues for anything worth tracking.
+You are conducting a collaborative staging review session with the user using **voice communication**. Together you will explore the live app at `https://wobblepot.dev/`, discuss observations by talking, and create Linear issues for anything worth tracking.
 
 This is a **spoken dialog** — all communication goes through VoiceMode. Text output is secondary (issue IDs, final summary for copy-paste reference).
 
@@ -63,7 +63,7 @@ Keep the backlog and recent completions in mind throughout the session to avoid 
 
 ### Step 4: Handle authentication
 
-Navigate to `https://honkadori.xyz/`. If the user is already logged in, proceed. If not, **speak** to ask about credentials and handle the auth flow before continuing.
+Navigate to `https://wobblepot.dev/`. If the user is already logged in, proceed. If not, **speak** to ask about credentials and handle the auth flow before continuing.
 
 ## Orientation
 

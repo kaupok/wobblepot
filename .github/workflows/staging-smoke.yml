@@ -30,7 +30,7 @@ jobs:
     env:
       # STAGING_URL is a repository variable so it can be updated without code
       # changes. Falls back to the production staging domain when unset.
-      PLAYWRIGHT_BASE_URL: ${{ vars.STAGING_URL || 'https://honkadori.xyz' }}
+      PLAYWRIGHT_BASE_URL: ${{ vars.STAGING_URL || 'https://wobblepot.dev' }}
       SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
       SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
       FORGOT_PASSWORD_TEST_EMAIL: ${{ secrets.FORGOT_PASSWORD_TEST_EMAIL }}
