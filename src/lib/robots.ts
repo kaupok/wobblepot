@@ -1,14 +1,14 @@
 import robotsParser from 'robots-parser'
 import { getRedis } from '@/lib/upstash'
 
-export const HONKADORI_BOT_USER_AGENT = 'Honkadori-Bot/1.0 (+https://honkadori.xyz/bot)'
+export const WOBBLEPOT_BOT_USER_AGENT = 'Wobblepot-Bot/1.0 (+https://wobblepot.com/bot)'
 
 /**
  * The token portion of the UA, used for robots.txt matching.
  * robots.txt rules match against the token (before the space and paren comment),
  * not the full parenthesised UA string.
  */
-export const HONKADORI_BOT_TOKEN = 'Honkadori-Bot/1.0'
+export const WOBBLEPOT_BOT_TOKEN = 'Wobblepot-Bot/1.0'
 
 const ROBOTS_FETCH_TIMEOUT_MS = 5_000
 const ROBOTS_CACHE_TTL_SECONDS = 60 * 60 * 24
@@ -41,7 +41,7 @@ function decideFromBody(url: string, robotsUrl: string, body: string, origin: st
   // Empty body (no rules) — robots-parser returns undefined for isAllowed.
   // Treat as allowed per the Robots Exclusion spec (no policy = no restriction).
   const robots = robotsParser(robotsUrl, body)
-  const allowed = robots.isAllowed(url, HONKADORI_BOT_TOKEN) ?? true
+  const allowed = robots.isAllowed(url, WOBBLEPOT_BOT_TOKEN) ?? true
 
   if (!allowed) {
     // eslint-disable-next-line no-console
@@ -52,7 +52,7 @@ function decideFromBody(url: string, robotsUrl: string, body: string, origin: st
 }
 
 /**
- * Check whether Honkadori-Bot is allowed to fetch the given URL according to
+ * Check whether Wobblepot-Bot is allowed to fetch the given URL according to
  * the origin's robots.txt. Caches the robots.txt *body* per origin so each
  * URL's decision is computed fresh (rules are path-scoped).
  *
@@ -76,7 +76,7 @@ export async function checkRobotsAllowed(url: string): Promise<boolean> {
   try {
     const response = await fetch(robotsUrl, {
       signal: AbortSignal.timeout(ROBOTS_FETCH_TIMEOUT_MS),
-      headers: { 'User-Agent': HONKADORI_BOT_USER_AGENT },
+      headers: { 'User-Agent': WOBBLEPOT_BOT_USER_AGENT },
       redirect: 'follow',
     })
 

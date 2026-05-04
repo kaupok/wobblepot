@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/env', () => ({
-  getServerBaseURL: () => 'https://honkadori.xyz',
+  getServerBaseURL: () => 'https://wobblepot.com',
 }))
 
 describe('robots', () => {
@@ -35,6 +35,6 @@ describe('robots', () => {
     const { default: robots } = await import('./robots')
     const result = robots()
 
-    expect(result.sitemap).toBe('https://honkadori.xyz/sitemap.xml')
+    expect(result.sitemap).toBe('https://wobblepot.com/sitemap.xml')
   })
 })

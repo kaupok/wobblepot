@@ -38,7 +38,7 @@ export default async function StatusPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-8">
       <div className="flex flex-col gap-2">
         <Heading variant="h2">Status</Heading>
-        <Body variant="muted">Live health of Honkadori&apos;s core services.</Body>
+        <Body variant="muted">Live health of Wobblepot&apos;s core services.</Body>
       </div>
 
       {snapshot.incidentMessage ? (

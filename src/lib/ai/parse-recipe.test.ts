@@ -24,8 +24,8 @@ vi.mock('./sampling', () => ({
 
 const mockCheckRobotsAllowed = vi.fn()
 vi.mock('@/lib/robots', () => ({
-  HONKADORI_BOT_USER_AGENT: 'Honkadori-Bot/1.0 (+https://honkadori.xyz/bot)',
-  HONKADORI_BOT_TOKEN: 'Honkadori-Bot/1.0',
+  WOBBLEPOT_BOT_USER_AGENT: 'Wobblepot-Bot/1.0 (+https://wobblepot.com/bot)',
+  WOBBLEPOT_BOT_TOKEN: 'Wobblepot-Bot/1.0',
   checkRobotsAllowed: (url: string) => mockCheckRobotsAllowed(url),
 }))
 
@@ -2005,7 +2005,7 @@ describe('fetchRecipeFromUrl', () => {
     )
   })
 
-  it('uses the Honkadori-Bot User-Agent', async () => {
+  it('uses the Wobblepot-Bot User-Agent', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
         '<html><body><p>Some recipe content that is long enough to pass the check</p></body></html>',
@@ -2022,7 +2022,7 @@ describe('fetchRecipeFromUrl', () => {
       'https://example.com/recipe',
       expect.objectContaining({
         headers: expect.objectContaining({
-          'User-Agent': 'Honkadori-Bot/1.0 (+https://honkadori.xyz/bot)',
+          'User-Agent': 'Wobblepot-Bot/1.0 (+https://wobblepot.com/bot)',
         }),
       }),
     )

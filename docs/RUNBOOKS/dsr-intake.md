@@ -4,7 +4,7 @@ Operator runbook for the public support address introduced in HON-487.
 
 ## What this covers
 
-- Where `support@honkadori.xyz` mail lands and who reads it.
+- Where `support@wobblepot.com` mail lands and who reads it.
 - How to triage a GDPR data-subject request (DSR): export, deletion, rectification, complaint.
 - The SLAs we have committed to in the privacy policy and the auto-reply.
 
@@ -12,7 +12,7 @@ This is not a customer-service playbook for general feature questions; it is the
 
 ## Inbox
 
-- **Address:** `support@honkadori.xyz`
+- **Address:** `support@wobblepot.com`
 - **Routing:** mail is delivered to the data-controller's monitored mailbox. Configuration lives outside the repository (DNS / mail provider). See "Re-creating the auto-reply" below if the provider is changed.
 - **Surfaces that publish this address:**
   - `src/components/footer.tsx` — every page (authed + public)
@@ -87,7 +87,7 @@ The mail provider sends this auto-reply on every incoming message. The copy live
 >
 > For anything urgent or related to a security or privacy concern, please mention it in your message so we can prioritise.
 >
-> — The Honkadori team
+> — The Wobblepot team
 
 Constraints on the copy:
 

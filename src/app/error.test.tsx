@@ -24,7 +24,7 @@ describe('error.tsx (route error boundary)', () => {
       </NextIntlClientProvider>,
     )
 
-    const link = screen.getByRole('link', { name: /support@honkadori\.xyz/i })
-    expect(link).toHaveAttribute('href', 'mailto:support@honkadori.xyz')
+    const link = screen.getByRole('link', { name: /support@wobblepot\.com/i })
+    expect(link).toHaveAttribute('href', 'mailto:support@wobblepot.com')
   })
 })

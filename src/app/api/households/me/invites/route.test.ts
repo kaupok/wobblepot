@@ -30,7 +30,7 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 vi.mock('@/lib/env', () => ({
-  getServerBaseURL: vi.fn(() => 'https://app.honkadori.com'),
+  getServerBaseURL: vi.fn(() => 'https://wobblepot.com'),
 }))
 
 vi.mock('nanoid', () => ({
@@ -239,7 +239,7 @@ describe('POST /api/households/me/invites', () => {
     expect(response.status).toBe(201)
     expect(data.id).toBe('invite-123')
     expect(data.code).toBe('abc123xyz456')
-    expect(data.url).toBe('https://app.honkadori.com/invite/abc123xyz456')
+    expect(data.url).toBe('https://wobblepot.com/invite/abc123xyz456')
     expect(data.memberId).toBe('member-456')
     expect(data.memberName).toBe('Baby')
     expect(data.maxUses).toBe(1)

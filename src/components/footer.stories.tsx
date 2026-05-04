@@ -42,8 +42,8 @@ type Story = StoryObj<FooterStoryArgs>
 export const Default: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const link = await canvas.findByRole('link', { name: /support@honkadori\.xyz/i })
-    await expect(link).toHaveAttribute('href', 'mailto:support@honkadori.xyz')
+    const link = await canvas.findByRole('link', { name: /support@wobblepot\.com/i })
+    await expect(link).toHaveAttribute('href', 'mailto:support@wobblepot.com')
   },
 }
 

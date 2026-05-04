@@ -117,7 +117,7 @@ export const Error: Story = {
 
 export const CopyInviteLink: Story = {
   args: {
-    existingInvite: createMemberInvite({ url: 'https://honkadori.xyz/invite/copy-test' }),
+    existingInvite: createMemberInvite({ url: 'https://wobblepot.com/invite/copy-test' }),
   },
   play: async () => {
     const writeText = fn(async () => undefined)
@@ -131,7 +131,7 @@ export const CopyInviteLink: Story = {
     await userEvent.click(copyButton)
 
     await waitFor(() =>
-      expect(writeText).toHaveBeenCalledWith('https://honkadori.xyz/invite/copy-test'),
+      expect(writeText).toHaveBeenCalledWith('https://wobblepot.com/invite/copy-test'),
     )
     await body.findByRole('button', { name: /copied/i })
   },

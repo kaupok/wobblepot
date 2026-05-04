@@ -38,7 +38,7 @@ from the apex (not the subdomain) for human-driven reply threads, but:
 Re-add to `EMAIL_SENDERS` once the provider is chosen and the apex (or
 chosen mailbox) is verified. The display address for inbound / `mailto:`
 links lives in [`src/lib/support.ts`](../src/lib/support.ts) (`SUPPORT_EMAIL`)
-and will swap to `support@wobblepot.com` as part of HON-538.
+— `support@wobblepot.com` (swapped in HON-538).
 
 ## Vercel environment variables
 

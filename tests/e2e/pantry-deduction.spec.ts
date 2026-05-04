@@ -35,7 +35,7 @@ test.describe('Pantry deduction on meal completion', { tag: ['@smoke', '@ai'] },
 
     // Generate the first meal plan from the FirstTimeSetup CTA on "/".
     await page.goto('/')
-    await expect(page.getByRole('heading', { name: /^Welcome to Honkadori/ })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /^Welcome to Wobblepot/ })).toBeVisible()
 
     // Wait for the generate POST to resolve before reading /api/entries. Text-
     // based waits (e.g. "Today") don't work here: FirstTimeSetup itself
@@ -53,7 +53,7 @@ test.describe('Pantry deduction on meal completion', { tag: ['@smoke', '@ai'] },
     // After a successful generate, FirstTimeSetup unmounts in favour of
     // TimelineView — wait for the Welcome heading to disappear so we know the
     // server-rendered plan has hydrated.
-    await expect(page.getByRole('heading', { name: /^Welcome to Honkadori/ })).toBeHidden()
+    await expect(page.getByRole('heading', { name: /^Welcome to Wobblepot/ })).toBeHidden()
 
     // Discover plan + entries via API so we know a concrete ingredient and
     // quantityPerServing to drive the deduction assertion.

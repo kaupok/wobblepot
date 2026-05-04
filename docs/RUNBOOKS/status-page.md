@@ -69,11 +69,11 @@ Keep the tone consistent with the support email (HON-487) and the breach notific
 - Plain language. No jargon or acronyms.
 - State **what** is affected in user-visible terms ("Meal plan generation") rather than system terms ("Anthropic API 529").
 - State **what we are doing** ("We are investigating"). Do not over-promise ETAs unless one is concrete.
-- Close with the support email: `support@honkadori.xyz`.
+- Close with the support email: `support@wobblepot.com`.
 
 Example:
 
-> Meal plan generation is currently intermittent. We are investigating and will update this page as the situation evolves. If you need help in the meantime, email support@honkadori.xyz.
+> Meal plan generation is currently intermittent. We are investigating and will update this page as the situation evolves. If you need help in the meantime, email support@wobblepot.com.
 
 ## During an incident
 

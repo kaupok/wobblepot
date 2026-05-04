@@ -81,7 +81,7 @@ describe('Header component', () => {
     const component = await Header()
     render(component)
 
-    expect(screen.getByRole('heading', { name: 'Honkadori' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Wobblepot' })).toBeInTheDocument()
   })
 
   it('renders heading as link to homepage', async () => {
@@ -91,7 +91,7 @@ describe('Header component', () => {
     const component = await Header()
     render(component)
 
-    const link = screen.getByRole('link', { name: 'Honkadori' })
+    const link = screen.getByRole('link', { name: 'Wobblepot' })
     expect(link).toHaveAttribute('href', '/')
   })
 

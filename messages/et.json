@@ -1,19 +1,19 @@
 {
   "meta": {
     "root": {
-      "title": "Honkadori",
-      "titleTemplate": "%s · Honkadori",
+      "title": "Wobblepot",
+      "titleTemplate": "%s · Wobblepot",
       "description": "Tehisintellekti abil loodud nädalased söögiplaanid peredele",
-      "ogTitle": "Honkadori",
+      "ogTitle": "Wobblepot",
       "ogDescription": "Tehisintellekti abil loodud nädalased söögiplaanid peredele"
     },
     "bot": {
-      "title": "Honkadori-Bot",
-      "description": "Honkadori-Bot — kasutajaagent, millega Honkadori laeb retseptilehti, mille kasutaja ise impordi kaudu sisestab."
+      "title": "Wobblepot-Bot",
+      "description": "Wobblepot-Bot — kasutajaagent, millega Wobblepot laeb retseptilehti, mille kasutaja ise impordi kaudu sisestab."
     },
     "status": {
       "title": "Olek",
-      "description": "Honkadori teenuste reaalajas olek"
+      "description": "Wobblepoti teenuste reaalajas olek"
     },
     "admin": {
       "signupCodes": {
@@ -139,8 +139,8 @@
       "slow": "Võtab oodatust kauem aega, palun oota…"
     },
     "firstTime": {
-      "welcome": "Tere tulemast Honkadorisse, {userName}!",
-      "welcomeNoName": "Tere tulemast Honkadorisse!",
+      "welcome": "Tere tulemast Wobblepotti, {userName}!",
+      "welcomeNoName": "Tere tulemast Wobblepotti!",
       "subhead": "Loo oma esimene söögiplaan, et alustada.",
       "startFromLabel": "Algus",
       "daysCountLabel": "Mitu päeva",

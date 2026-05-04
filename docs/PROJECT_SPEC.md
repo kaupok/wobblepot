@@ -1,6 +1,6 @@
 # Wobblepot: AI-Powered Family Meal Planning
 
-> **Naming note:** **Wobblepot** (pronounced "WOB-bul-pot") is the user-facing product brand. _Honkadori OÜ_ is the parent legal entity — used for vendor accounts (PostHog org, Neon org, etc.), DPAs, subprocessor listings, AKI registration, and the staging domain `honkadori.xyz`. All user-facing email lives on `wobblepot.com`; legal-entity attribution (Honkadori OÜ) appears in policy text, not in the email address. Brand decision recorded in HON-539; brand swap of in-code references from `honkadori.xyz` to `wobblepot.com` lands in HON-538.
+> **Naming note:** **Wobblepot** (pronounced "WOB-bul-pot") is the user-facing product brand. _Honkadori OÜ_ is the parent legal entity — used for vendor accounts (PostHog org, Neon org, etc.), DPAs, subprocessor listings, AKI registration, and the staging domain `honkadori.xyz`. All user-facing copy and email lives on `wobblepot.com`; legal-entity attribution (Honkadori OÜ) appears in policy text, not in the email address. Brand decision recorded in HON-539; in-code brand swap completed in HON-538.
 
 ## Current Status
 

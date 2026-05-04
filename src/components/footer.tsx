@@ -11,7 +11,7 @@ export function Footer() {
   return (
     <footer className="border-t px-4 py-6 pb-[calc(1.5rem+5rem+env(safe-area-inset-bottom,0px))] md:pb-6">
       <div className="mx-auto flex max-w-[1152px] flex-col items-center gap-2 sm:flex-row sm:justify-between">
-        <Body variant="muted">© {year} Honkadori</Body>
+        <Body variant="muted">© {year} Wobblepot</Body>
         <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-4">
           <a href={SUPPORT_EMAIL_HREF} className="text-muted-foreground text-sm hover:underline">
             {t('support')} <span className="sr-only">({SUPPORT_EMAIL})</span>
