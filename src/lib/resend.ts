@@ -32,11 +32,15 @@ export function isEmailConfigured(): boolean {
  * Purpose-specific FROM addresses. All envs share the same sending domain
  * (`mail.wobblepot.com`); env disambiguation lives in the subject prefix via
  * `envSubject`. Rationale + revisit triggers in `docs/EMAIL_SETUP.md`.
+ *
+ * `support` outbound is intentionally absent: the apex `wobblepot.com` isn't
+ * verified in Resend, the provider is undecided (Resend apex / Workspace /
+ * Fastmail), and there's no send-site yet. Display address for inbound /
+ * mailto: links lives in `src/lib/support.ts` (`SUPPORT_EMAIL`).
  */
 export const EMAIL_SENDERS = {
   auth: 'Wobblepot <auth@mail.wobblepot.com>',
   notifications: 'Wobblepot <notifications@mail.wobblepot.com>',
-  support: 'Wobblepot Support <support@wobblepot.com>',
 } as const
 
 export type EmailSender = keyof typeof EMAIL_SENDERS

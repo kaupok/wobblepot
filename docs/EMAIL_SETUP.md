@@ -24,7 +24,21 @@ Defined as code constants in [`src/lib/resend.ts`](../src/lib/resend.ts) →
 | --------------- | ---------------------------------------------- | -------------------------------------------------------- |
 | `auth`          | `Wobblepot <auth@mail.wobblepot.com>`          | Sign-up verification, password reset, magic links        |
 | `notifications` | `Wobblepot <notifications@mail.wobblepot.com>` | Meal-plan ready, shopping reminders, future product mail |
-| `support`       | `Wobblepot Support <support@wobblepot.com>`    | Human-driven support replies (apex, not subdomain)       |
+
+**`support@wobblepot.com` outbound is deferred.** Architecturally it sends
+from the apex (not the subdomain) for human-driven reply threads, but:
+
+- The apex `wobblepot.com` isn't verified in Resend (free tier = 1 domain,
+  occupied by `mail.wobblepot.com`).
+- The provider for support outbound is undecided — Resend apex (requires
+  Pro tier) vs. Google Workspace vs. Fastmail.
+- No send-site needs it yet (HON-487 wired the inbound/display surface, not
+  outbound replies).
+
+Re-add to `EMAIL_SENDERS` once the provider is chosen and the apex (or
+chosen mailbox) is verified. The display address for inbound / `mailto:`
+links lives in [`src/lib/support.ts`](../src/lib/support.ts) (`SUPPORT_EMAIL`)
+and will swap to `support@wobblepot.com` as part of HON-538.
 
 ## Vercel environment variables
 
