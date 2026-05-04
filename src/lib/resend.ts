@@ -1,18 +1,13 @@
 import { Resend } from 'resend'
-import { serverEnv } from '@/lib/env'
+import { clientEnv, serverEnv } from '@/lib/env'
 
 /**
- * Resend Client Singleton
- *
- * This pattern prevents multiple instances of Resend client in development
- * due to Next.js hot reloading. In production, a single instance is created.
- *
- * Returns null if RESEND_API_KEY is not configured, allowing graceful
- * degradation in environments where email is not needed (CI, builds).
+ * Singleton pattern: prevents multiple instances under Next.js hot reload.
+ * Returns null when RESEND_API_KEY is unset so CI/builds/local can boot without
+ * email being configured — the send-site short-circuits via `isEmailConfigured`.
  *
  * @see https://resend.com/docs/send-with-nodejs
  */
-
 const globalForResend = globalThis as unknown as {
   resend: Resend | null | undefined
 }
@@ -29,9 +24,28 @@ export const resend = globalForResend.resend ?? createResendClient()
 
 if (process.env.NODE_ENV !== 'production') globalForResend.resend = resend
 
-/**
- * Check if email sending is configured
- */
 export function isEmailConfigured(): boolean {
-  return resend !== null && !!serverEnv.RESEND_FROM_EMAIL
+  return resend !== null
+}
+
+/**
+ * Purpose-specific FROM addresses. All envs share the same sending domain
+ * (`mail.wobblepot.com`); env disambiguation lives in the subject prefix via
+ * `envSubject`. Rationale + revisit triggers in `docs/EMAIL_SETUP.md`.
+ */
+export const EMAIL_SENDERS = {
+  auth: 'Wobblepot <auth@mail.wobblepot.com>',
+  notifications: 'Wobblepot <notifications@mail.wobblepot.com>',
+  support: 'Wobblepot Support <support@wobblepot.com>',
+} as const
+
+export type EmailSender = keyof typeof EMAIL_SENDERS
+
+/**
+ * Prefixes the subject with `[Staging]` outside production so testers can
+ * tell at a glance which env the email came from. Apply at every send-site —
+ * we don't have a wrapper around `resend.emails.send` (one send-site today).
+ */
+export function envSubject(subject: string): string {
+  return clientEnv.NEXT_PUBLIC_APP_ENV === 'production' ? subject : `[Staging] ${subject}`
 }

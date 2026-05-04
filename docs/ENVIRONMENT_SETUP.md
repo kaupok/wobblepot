@@ -99,47 +99,32 @@ Server-only variables are only accessible in server-side code (API routes, Serve
 
 ## Email Service (Resend)
 
-Resend is used for transactional emails (password reset, etc.).
+Resend powers transactional email (password reset, future notifications).
+Full operator guide — DNS records, FROM-address conventions, DMARC, escalation
+plan — lives in [EMAIL_SETUP.md](./EMAIL_SETUP.md). This section covers only
+the env-var side.
 
-### Setup
+### Local development
 
-1. Create an account at [resend.com](https://resend.com)
-2. Get your API key from [resend.com/api-keys](https://resend.com/api-keys)
-3. Add to `.env`:
-   ```bash
-   RESEND_API_KEY=re_xxx
-   RESEND_FROM_EMAIL=onboarding@resend.dev
-   ```
+Leave `RESEND_API_KEY` unset — `isEmailConfigured()` returns false and the
+password-reset send-site logs the reset URL to console instead of trying to
+deliver. No Resend account needed for local work.
 
-### Development vs Production
+To exercise the real send path locally, set in `.env.local`:
 
-**Development:**
+```bash
+RESEND_API_KEY=re_xxx
+NEXT_PUBLIC_APP_ENV=staging   # so subjects get the [Staging] prefix
+```
 
-- Use `onboarding@resend.dev` as the from email (Resend's test address)
-- Emails can only be sent to the account owner's email
-- No domain verification required
+Get a key from [resend.com/api-keys](https://resend.com/api-keys). Sends are
+billed against the shared account; staging-tier delivery only — never test
+with `NEXT_PUBLIC_APP_ENV=production` from a dev machine.
 
-**Production:**
+### FROM addresses
 
-- Verify your domain in Resend dashboard
-- Use a verified email like `noreply@yourdomain.com`
-- Full email delivery to any recipient
-
-### Domain Verification
-
-For production use:
-
-1. Go to [resend.com/domains](https://resend.com/domains)
-2. Add your domain
-3. Add the required DNS records (MX, TXT for SPF/DKIM)
-4. Wait for verification (usually < 24 hours)
-5. Update `RESEND_FROM_EMAIL` to use your domain
-
-### Testing
-
-- Check [resend.com/emails](https://resend.com/emails) for sent email logs
-- Development emails only reach the account owner
-- Use Resend's email preview to test templates
+Code constants in [`src/lib/resend.ts`](../src/lib/resend.ts) → `EMAIL_SENDERS`.
+Not env-configurable; see [EMAIL_SETUP.md](./EMAIL_SETUP.md) for the rationale.
 
 ## Upstash Redis (rate limiting)
 

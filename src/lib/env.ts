@@ -73,13 +73,9 @@ const serverOnlyEnvSchema = z.object({
     .string()
     .min(1, 'RESEND_API_KEY is required for email sending')
     .optional()
-    .describe('Resend API key for sending emails (get from https://resend.com/api-keys)'),
-
-  RESEND_FROM_EMAIL: z
-    .string()
-    .email('RESEND_FROM_EMAIL must be a valid email address')
-    .optional()
-    .describe('Email address to send from (must be verified in Resend)'),
+    .describe(
+      'Resend API key for sending emails (get from https://resend.com/api-keys). FROM addresses are code constants in src/lib/resend.ts (EMAIL_SENDERS) — see docs/EMAIL_SETUP.md.',
+    ),
 
   UPSTASH_REDIS_REST_URL: z
     .string()
@@ -234,7 +230,6 @@ export const serverEnv = new Proxy(
     DATABASE_URL_UNPOOLED: process.env.DATABASE_URL_UNPOOLED,
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
-    RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
     STATUS_INCIDENT_MESSAGE: process.env.STATUS_INCIDENT_MESSAGE,
