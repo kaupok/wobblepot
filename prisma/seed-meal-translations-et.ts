@@ -103,7 +103,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
   {
     enName: 'Pork Chops with Apple',
     et: {
-      name: 'Seakotletid õunaga',
+      name: 'Seakotletid karamelliseeritud õunaga',
       description: 'Pannil praetud seakotletid karamelliseeritud õunaga.',
     },
   },
@@ -179,7 +179,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
   {
     enName: 'Grilled Cod with Quinoa',
     et: {
-      name: 'Grillitud tursk kinoa salati',
+      name: 'Grillitud tursk kinoa salatiga',
       description: 'Kerge grillitud tursk kinoa, tomatite ja kurgiga.',
     },
   },
@@ -428,7 +428,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
   {
     enName: 'Pad Thai Vegetables',
     et: {
-      name: 'Köögivilja Pad Thai',
+      name: 'Köögivilja Pad Thai paprikaga',
       description: 'Riisiinuudlid köögiviljadega hapus-magusas kastmes.',
     },
   },
@@ -553,7 +553,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
   {
     enName: 'Teriyaki Chicken Bowl',
     et: {
-      name: 'Teriyaki kanakauss',
+      name: 'Teriyaki kanafileekauss',
       description: 'Grillitud kana teriyakikaste, riisi ja brokoliga.',
     },
   },
@@ -924,7 +924,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
   {
     enName: 'Chicken Teriyaki Bowl',
     et: {
-      name: 'Teriyaki kanakauss',
+      name: 'Teriyaki kanakoivakauss',
       description: 'Glaseeritud kana riisi ja köögiviljadega.',
     },
   },
@@ -1033,7 +1033,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
     enName: 'Steak Frites',
     et: {
       name: 'Steak frites',
-      description: 'Pannil praetud steik krõbeda friikartuli.',
+      description: 'Pannil praetud steik krõbedate friikartulitega.',
     },
   },
   {
@@ -1341,7 +1341,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
   {
     enName: 'Vegetable Pad Thai',
     et: {
-      name: 'Köögivilja Pad Thai',
+      name: 'Köögivilja Pad Thai munaga',
       description: 'Tai nuudlid köögiviljade ja maapähklitega.',
     },
   },
@@ -1619,7 +1619,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
   {
     enName: 'Pork and Apple',
     et: {
-      name: 'Seakotletid õunaga',
+      name: 'Seakotletid õuna ja salveiga',
       description: 'Seakotletid karamelliseeritud õuna ja salveiga.',
     },
   },

@@ -556,6 +556,19 @@ function validateMealTranslationCoverage(
     }
   }
 
+  const byEtName = new Map<string, string[]>()
+  for (const t of translations) {
+    if (!mealNames.has(t.enName)) continue
+    const list = byEtName.get(t.et.name) ?? []
+    list.push(t.enName)
+    byEtName.set(t.et.name, list)
+  }
+  for (const [etName, ens] of byEtName) {
+    if (ens.length > 1) {
+      errors.push(`Duplicate et name '${etName}' used by distinct meals: ${ens.join(', ')}`)
+    }
+  }
+
   return { errors, warnings }
 }
 
