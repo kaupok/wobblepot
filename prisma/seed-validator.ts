@@ -17,6 +17,7 @@ import { baseIngredients, baseMeals } from './seed'
 import { newIngredients, newMeals } from './seed-expansion'
 import { comprehensiveIngredients } from './seed-comprehensive'
 import { importCoverageIngredients } from './seed-import-coverage'
+import { mealTranslationsEt, type MealTranslationEt } from './seed-meal-translations-et'
 import { INGREDIENT_ALIASES } from '../src/lib/ingredient-aliases'
 import type { IngredientInput } from './seed-types'
 
@@ -517,6 +518,47 @@ function checkDuplicateMealsMulti(sources: Record<string, Meal[]>): ValidationRe
   return { errors, warnings }
 }
 
+function validateMealTranslationCoverage(
+  meals: Meal[],
+  translations: MealTranslationEt[],
+): ValidationResult {
+  const errors: string[] = []
+  const warnings: string[] = []
+
+  const translationByName = new Map<string, MealTranslationEt>()
+  for (const t of translations) {
+    if (translationByName.has(t.enName)) {
+      errors.push(`Duplicate et translation entry for meal '${t.enName}'`)
+      continue
+    }
+    translationByName.set(t.enName, t)
+  }
+
+  const mealNames = new Set(meals.map((m) => m.name))
+
+  for (const meal of meals) {
+    const t = translationByName.get(meal.name)
+    if (!t) {
+      errors.push(`Missing et translation for meal '${meal.name}'`)
+      continue
+    }
+    if (!t.et.name.trim()) {
+      errors.push(`Empty et name for meal '${meal.name}'`)
+    }
+    if (t.et.description !== null && !t.et.description.trim()) {
+      warnings.push(`Empty et description for meal '${meal.name}'`)
+    }
+  }
+
+  for (const t of translations) {
+    if (!mealNames.has(t.enName)) {
+      warnings.push(`Orphaned et translation for '${t.enName}' — no matching meal in seed data`)
+    }
+  }
+
+  return { errors, warnings }
+}
+
 function reportCategoryCoverage(ingredients: Ingredient[]): void {
   const byCategory = new Map<string, number>()
   const bySubcategory = new Map<string, number>()
@@ -595,6 +637,9 @@ async function main() {
     checkPieceUnitQuantities(allMeals, ingredientMap),
     checkMealComponentCounts(allMeals),
     validateIngredientAliases(ingredientNames),
+
+    // Translation coverage
+    validateMealTranslationCoverage(allMeals, mealTranslationsEt),
   ]
 
   // Aggregate results
@@ -613,6 +658,7 @@ async function main() {
   console.log(`   ${allIngredients.length} ingredients (${sourceCounts})`)
   console.log(`   ${allMeals.length} meals (${mealCounts})`)
   console.log(`   ${Object.keys(INGREDIENT_ALIASES).length} ingredient aliases`)
+  console.log(`   ${mealTranslationsEt.length} et meal translations`)
 
   // Category coverage report
   reportCategoryCoverage(allIngredients)

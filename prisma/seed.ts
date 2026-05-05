@@ -7,6 +7,7 @@ import type { IngredientInput } from './seed-types'
 import { newIngredients, newMeals } from './seed-expansion'
 import { comprehensiveIngredients } from './seed-comprehensive'
 import { importCoverageIngredients } from './seed-import-coverage'
+import { mealTranslationsEt } from './seed-meal-translations-et'
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL!,
@@ -3823,6 +3824,45 @@ async function seedMeals() {
   console.log(`Seeded ${seededCount} meals (${skippedCount} skipped)`)
 }
 
+async function seedMealTranslationsEt() {
+  console.log('Seeding meal translations (et)...')
+
+  let seededCount = 0
+  let skippedCount = 0
+
+  for (const entry of mealTranslationsEt) {
+    const meal = await prisma.meal.findFirst({
+      where: { name: entry.enName, householdId: null },
+    })
+
+    if (!meal) {
+      console.warn(`Skipping translation for "${entry.enName}" — meal not found`)
+      skippedCount++
+      continue
+    }
+
+    await prisma.mealTranslation.upsert({
+      where: { mealId_locale: { mealId: meal.id, locale: 'et' } },
+      create: {
+        mealId: meal.id,
+        locale: 'et',
+        name: entry.et.name,
+        description: entry.et.description,
+        preparationNotes: null,
+      },
+      update: {
+        name: entry.et.name,
+        description: entry.et.description,
+        preparationNotes: null,
+      },
+    })
+
+    seededCount++
+  }
+
+  console.log(`Seeded ${seededCount} meal translations (et) (${skippedCount} skipped)`)
+}
+
 // ============================================
 // E2E TEST USER SEEDING
 // ============================================
@@ -3917,6 +3957,7 @@ async function seedTestUsers() {
 async function main() {
   await seedIngredients()
   await seedMeals()
+  await seedMealTranslationsEt()
   await seedTestUsers()
 }
 
