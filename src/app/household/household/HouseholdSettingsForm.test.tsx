@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import enMessages from '../../../../messages/en.json'
 import { HouseholdSettingsForm } from './HouseholdSettingsForm'
+import { KNOWN_LOCALES, PUBLIC_LOCALES } from '@/lib/i18n/locales'
 import { createQueryWrapper } from '@/test/query-wrapper'
 
 vi.mock('sonner', () => ({
@@ -69,6 +70,7 @@ function renderForm(overrides: Partial<Parameters<typeof HouseholdSettingsForm>[
     household: defaultHousehold,
     preferences: defaultPreferences,
     isOwner: true,
+    publicLocales: PUBLIC_LOCALES,
     ...overrides,
   }
   function Wrapper({ children }: { children: ReactNode }) {
@@ -422,6 +424,22 @@ describe('HouseholdSettingsForm', () => {
 
       const englishOption = screen.getByRole('option', { name: 'English' })
       expect(englishOption).not.toHaveAttribute('aria-disabled', 'true')
+    })
+
+    it('exposes every prop locale as selectable when the wider set is passed (FEATURE_PUBLIC_LOCALES_FULL on)', async () => {
+      renderForm({
+        household: { ...defaultHousehold, locale: 'en' },
+        publicLocales: KNOWN_LOCALES,
+      })
+
+      const localeTrigger = screen.getByRole('combobox', { name: /language/i })
+      await userEvent.click(localeTrigger)
+
+      const englishOption = await screen.findByRole('option', { name: 'English' })
+      const estonianOption = await screen.findByRole('option', { name: 'Estonian' })
+
+      expect(englishOption).not.toHaveAttribute('aria-disabled', 'true')
+      expect(estonianOption).not.toHaveAttribute('aria-disabled', 'true')
     })
   })
 })

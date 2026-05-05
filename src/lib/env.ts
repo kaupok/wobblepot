@@ -112,6 +112,13 @@ const serverOnlyEnvSchema = z.object({
       'Gate for the Estonian recipe-parser surface. When unset or "0"/"false", Estonian-household recipe parsing falls back to English to avoid creating duplicate household-scoped ingredient rows before HON-506 seeds Estonian translation data. Flip to "1" once HON-506 ships. See src/app/api/recipes/parse/route.ts.',
     ),
 
+  FEATURE_PUBLIC_LOCALES_FULL: z
+    .enum(['1', 'true', '0', 'false'])
+    .optional()
+    .describe(
+      'Staging-only widen of PUBLIC_LOCALES to KNOWN_LOCALES so we can dogfood the Estonian experience without direct DB writes. When "1"/"true", the household locale selector and onboarding clamp expose every KNOWN_LOCALES entry; otherwise behavior matches PUBLIC_LOCALES (en only). Set on staging Vercel; leave unset on production until HON-512 + HON-513 close. See src/lib/i18n/locales.ts.',
+    ),
+
   POSTHOG_CLI_HOST: z
     .string()
     .url('POSTHOG_CLI_HOST must be a valid URL')
@@ -235,6 +242,7 @@ export const serverEnv = new Proxy(
     STATUS_INCIDENT_MESSAGE: process.env.STATUS_INCIDENT_MESSAGE,
     E2E_DISABLE_RATE_LIMIT: process.env.E2E_DISABLE_RATE_LIMIT,
     FEATURE_RECIPE_PARSER_ET: process.env.FEATURE_RECIPE_PARSER_ET,
+    FEATURE_PUBLIC_LOCALES_FULL: process.env.FEATURE_PUBLIC_LOCALES_FULL,
     POSTHOG_CLI_HOST: process.env.POSTHOG_CLI_HOST,
     POSTHOG_CLI_PROJECT_ID: process.env.POSTHOG_CLI_PROJECT_ID,
     POSTHOG_CLI_API_KEY: process.env.POSTHOG_CLI_API_KEY,

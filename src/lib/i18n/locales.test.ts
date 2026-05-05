@@ -4,7 +4,9 @@ import {
   KNOWN_LOCALES,
   LocaleSchema,
   PUBLIC_LOCALES,
+  effectivePublicLocales,
   isDefaultLocale,
+  isEffectivelyPublicLocale,
   isKnownLocale,
   isPublicLocale,
 } from './locales'
@@ -89,6 +91,30 @@ describe('locales', () => {
     it('returns false for unknown locales', () => {
       expect(isPublicLocale('fr')).toBe(false)
       expect(isPublicLocale('')).toBe(false)
+    })
+  })
+
+  describe('effectivePublicLocales', () => {
+    it('returns PUBLIC_LOCALES when the flag is off', () => {
+      expect(effectivePublicLocales(false)).toBe(PUBLIC_LOCALES)
+    })
+
+    it('returns KNOWN_LOCALES when the flag is on', () => {
+      expect(effectivePublicLocales(true)).toBe(KNOWN_LOCALES)
+    })
+  })
+
+  describe('isEffectivelyPublicLocale', () => {
+    it('matches PUBLIC_LOCALES when the flag is off', () => {
+      expect(isEffectivelyPublicLocale('en', false)).toBe(true)
+      expect(isEffectivelyPublicLocale('et', false)).toBe(false)
+      expect(isEffectivelyPublicLocale('fr', false)).toBe(false)
+    })
+
+    it('matches KNOWN_LOCALES when the flag is on', () => {
+      expect(isEffectivelyPublicLocale('en', true)).toBe(true)
+      expect(isEffectivelyPublicLocale('et', true)).toBe(true)
+      expect(isEffectivelyPublicLocale('fr', true)).toBe(false)
     })
   })
 })

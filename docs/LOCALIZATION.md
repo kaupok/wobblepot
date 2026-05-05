@@ -48,7 +48,7 @@ These are settled. Don't re-open without cause.
 
 `src/lib/i18n/`:
 
-- `locales.ts` — `KNOWN_LOCALES = ['en', 'et']`, `PUBLIC_LOCALES = ['en']`, `LocaleSchema`, `DEFAULT_LOCALE = 'en'`, helpers `isKnownLocale` / `isPublicLocale` / `isDefaultLocale`. **`KNOWN_LOCALES` is what the DB and API accept; `PUBLIC_LOCALES` is what the locale selector exposes to general users.** Keep `PUBLIC_LOCALES` narrower than `KNOWN_LOCALES` until transactional emails are localized (HON-513) and the partner-test iteration has closed — otherwise users land in localized UI but receive English emails.
+- `locales.ts` — `KNOWN_LOCALES = ['en', 'et']`, `PUBLIC_LOCALES = ['en']`, `LocaleSchema`, `DEFAULT_LOCALE = 'en'`, helpers `isKnownLocale` / `isPublicLocale` / `isDefaultLocale`, plus `effectivePublicLocales(fullPublicEnabled)` / `isEffectivelyPublicLocale(locale, fullPublicEnabled)` for the `FEATURE_PUBLIC_LOCALES_FULL` env override. **`KNOWN_LOCALES` is what the DB and API accept; `PUBLIC_LOCALES` is what the locale selector exposes to general users.** Keep `PUBLIC_LOCALES` narrower than `KNOWN_LOCALES` until transactional emails are localized (HON-513) and the partner-test iteration has closed — otherwise users land in localized UI but receive English emails. The dogfooding env flag (next paragraph) lets us widen this on staging without changing production behavior.
 - `accept-language.ts`, `resolve-locale.ts` — pre-household locale resolution from headers.
 - `get-locale.ts`, `request.ts` — server-side locale plumbing for `next-intl`.
 
@@ -71,6 +71,8 @@ These are settled. Don't re-open without cause.
 - After every successful `generateObject` call, `logAiSample` (see [Reviewing AI output quality](#reviewing-ai-output-quality)) emits a structured JSON line if the locale is non-default.
 
 The Estonian recipe-parser surface is intentionally gated until ingredient translations land (HON-506) — Estonian input without translation data creates duplicate household-scoped ingredient rows that need admin cleanup later (HON-514). The gate lives at `src/app/api/recipes/parse/route.ts` in `resolveParserLocale`, controlled by the `FEATURE_RECIPE_PARSER_ET` env flag (set to `"1"` or `"true"` to enable). When unset, any non-default locale collapses back to English — despite the `_ET` suffix the flag is effectively a binary on/off for the non-English path. Flip it as part of HON-506's merge.
+
+The locale-selector and onboarding-clamp surfaces have a parallel staging-only widen: `FEATURE_PUBLIC_LOCALES_FULL` (set to `"1"` or `"true"`) makes `effectivePublicLocales` return `KNOWN_LOCALES` instead of `PUBLIC_LOCALES`. Set on staging Vercel so we can dogfood the Estonian experience end-to-end without direct DB writes; leave unset on production until HON-512 closes and HON-513 ships. With the flag on, in-app chrome switches to Estonian for Estonian-Accept-Language households (and any household that picks `et` from the selector), but transactional emails remain English — that gap is exactly what staging dogfooding is meant to surface, but it's a known gap. Wired in `src/app/household/page.tsx` (selector) and `src/app/api/households/route.ts` (onboarding clamp). Retirement: when `PUBLIC_LOCALES` widens to `['en', 'et'] as const`, drop the env flag at the same time.
 
 ### Form input parsing
 
@@ -122,7 +124,7 @@ Each line is a single JSON record after the prefix. Retention is bounded by Verc
 2. Add a label for the locale in `LOCALE_LABELS` in `src/lib/ai/prompts.ts` so the AI gets a human-readable language name.
 3. Create `messages/<locale>.json` and translate every key. Run `pnpm dev` and exercise every chrome surface to surface gaps.
 4. Translate seeded content via the `IngredientTranslation` and `MealTranslation` tables. AI-assisted first pass + native-speaker review.
-5. Audit any locale-gating flags before exposing the new locale: `FEATURE_RECIPE_PARSER_ET` in `src/app/api/recipes/parse/route.ts` collapses every non-default locale to English unless flipped on, so a new locale can't reach the recipe parser without env work or a generalisation of the flag. Also check onboarding `PUBLIC_LOCALES` paths.
+5. Audit any locale-gating flags before exposing the new locale: `FEATURE_RECIPE_PARSER_ET` in `src/app/api/recipes/parse/route.ts` collapses every non-default locale to English unless flipped on, so a new locale can't reach the recipe parser without env work or a generalisation of the flag. `FEATURE_PUBLIC_LOCALES_FULL` widens the selector + onboarding clamp from `PUBLIC_LOCALES` to `KNOWN_LOCALES` per environment — when adding a third locale, decide whether to widen `PUBLIC_LOCALES` directly or rely on the env flag for staging-only exposure. Also check onboarding `PUBLIC_LOCALES` paths.
 6. **RTL languages only:** add a `direction` field to a parallel map, set `<html dir>` from it in `src/app/layout.tsx`, and audit Tailwind direction-sensitive utilities (`mr-`, `ml-`, `pl-`, `pr-` → `me-`, `ms-`, `pe-`, `ps-`). Tracked as deferred — the codebase currently assumes LTR.
 7. Pilot-test with a target user before adding to `PUBLIC_LOCALES`.
 8. Add to `PUBLIC_LOCALES` to expose in the locale selector. Verify transactional email templates exist in the locale (see HON-513) before flipping public.

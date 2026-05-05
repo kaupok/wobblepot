@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
+import { serverEnv } from '@/lib/env'
 import { prisma } from '@/lib/prisma'
 import { MealType } from '@/generated/prisma/enums'
 import { resolveLocale } from '@/lib/i18n/resolve-locale'
-import { DEFAULT_LOCALE, isPublicLocale } from '@/lib/i18n/locales'
+import { DEFAULT_LOCALE, isEffectivelyPublicLocale } from '@/lib/i18n/locales'
 
 const createHouseholdSchema = z.object({
   name: z.string().min(1).max(100),
@@ -50,12 +51,16 @@ export async function POST(request: Request) {
   // public enablement conditions (e.g. email-template localization) haven't
   // cleared yet; partner households opt into non-public locales via direct DB
   // write, which bypasses this path. The clamp is a no-op once PUBLIC_LOCALES
-  // widens to the full KNOWN_LOCALES set.
+  // widens to the full KNOWN_LOCALES set. `FEATURE_PUBLIC_LOCALES_FULL` widens
+  // the effective set per-environment for staging dogfooding (HON-544).
+  const fullPublicEnabled =
+    serverEnv.FEATURE_PUBLIC_LOCALES_FULL === '1' ||
+    serverEnv.FEATURE_PUBLIC_LOCALES_FULL === 'true'
   const resolved = resolveLocale({
     householdLocale: null,
     acceptLanguage: requestHeaders.get('accept-language'),
   })
-  const locale = isPublicLocale(resolved) ? resolved : DEFAULT_LOCALE
+  const locale = isEffectivelyPublicLocale(resolved, fullPublicEnabled) ? resolved : DEFAULT_LOCALE
 
   // Create household, membership, preferences, and optional members in a transaction
   try {
