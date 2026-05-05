@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { HouseholdSettingsForm } from './HouseholdSettingsForm'
+import { KNOWN_LOCALES, PUBLIC_LOCALES } from '@/lib/i18n/locales'
 
 const meta = {
   title: 'Feature/HouseholdSettingsForm',
@@ -53,6 +54,7 @@ export const Default: Story = {
       weekendMealTypes: [...basePreferences.weekendMealTypes],
     },
     isOwner: true,
+    publicLocales: PUBLIC_LOCALES,
   },
   parameters: {
     docs: {
@@ -78,12 +80,39 @@ export const EstonianHouseholdCurrent: Story = {
       weekendMealTypes: [...basePreferences.weekendMealTypes],
     },
     isOwner: true,
+    publicLocales: PUBLIC_LOCALES,
   },
   parameters: {
     docs: {
       description: {
         story:
           'Household whose persisted `locale` falls outside `PUBLIC_LOCALES` — reached via a direct DB write, or `Accept-Language` auto-resolution at onboarding when `et` was still public. The selector preserves the current state by rendering Estonian as a disabled option; English remains the only selectable value.',
+      },
+    },
+  },
+}
+
+export const FullPublicLocales: Story = {
+  args: {
+    household: {
+      id: 'household-full',
+      name: 'Staging household',
+      timezone: 'Europe/Tallinn',
+      locale: 'en',
+    },
+    preferences: {
+      ...basePreferences,
+      weekdayMealTypes: [...basePreferences.weekdayMealTypes],
+      weekendMealTypes: [...basePreferences.weekendMealTypes],
+    },
+    isOwner: true,
+    publicLocales: KNOWN_LOCALES,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Staging dogfooding view (`FEATURE_PUBLIC_LOCALES_FULL=1`): the locale selector exposes every `KNOWN_LOCALES` entry. Both English and Estonian are selectable. In-app chrome will switch to Estonian; transactional emails remain English until HON-513 ships — that gap is exactly what staging is meant to surface.',
       },
     },
   },
@@ -103,6 +132,7 @@ export const NonOwner: Story = {
       weekendMealTypes: [...basePreferences.weekendMealTypes],
     },
     isOwner: false,
+    publicLocales: PUBLIC_LOCALES,
   },
   parameters: {
     docs: {

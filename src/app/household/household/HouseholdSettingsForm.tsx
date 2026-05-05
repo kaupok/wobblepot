@@ -20,7 +20,7 @@ import {
 import { Heading, Body } from '@/components/ui/typography'
 import { TagInput, type TagInputRef } from '@/components/tag-input'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
-import { PUBLIC_LOCALES, isPublicLocale, type Locale } from '@/lib/i18n/locales'
+import { type Locale } from '@/lib/i18n/locales'
 import { MEAL_TYPE_VALUES } from '@/components/household/meal-form-types'
 
 // Types matching Prisma enums
@@ -129,12 +129,18 @@ interface HouseholdSettingsFormProps {
     weekendMealTypes: MealType[]
   } | null
   isOwner: boolean
+  // Locales the selector should expose. Resolved on the server from
+  // PUBLIC_LOCALES + the FEATURE_PUBLIC_LOCALES_FULL env override (HON-544).
+  // Households whose persisted locale falls outside this set still render the
+  // current value as a disabled option.
+  publicLocales: readonly Locale[]
 }
 
 export function HouseholdSettingsForm({
   household,
   preferences,
   isOwner,
+  publicLocales,
 }: HouseholdSettingsFormProps) {
   const t = useTranslations('household')
   const tSettings = useTranslations('household.settings')
@@ -309,12 +315,12 @@ export function HouseholdSettingsForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {!isPublicLocale(locale) && (
+                  {!publicLocales.includes(locale) && (
                     <SelectItem value={locale} disabled>
                       {t(`localeOption.${locale}`)}
                     </SelectItem>
                   )}
-                  {PUBLIC_LOCALES.map((code) => (
+                  {publicLocales.map((code) => (
                     <SelectItem key={code} value={code}>
                       {t(`localeOption.${code}`)}
                     </SelectItem>

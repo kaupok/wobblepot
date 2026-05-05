@@ -24,6 +24,10 @@ export const KNOWN_LOCALES = ['en', 'et'] as const
 // otherwise the selector lands users in a half-finished experience (localized UI,
 // English emails). Lift by widening to `['en', 'et'] as const` once both
 // conditions are met.
+//
+// Per-environment override: `FEATURE_PUBLIC_LOCALES_FULL=1` widens the effective
+// set to KNOWN_LOCALES at runtime — see `effectivePublicLocales` /
+// `isEffectivelyPublicLocale`. Used on staging for dogfooding (HON-544).
 export const PUBLIC_LOCALES = ['en'] as const
 
 export type Locale = (typeof KNOWN_LOCALES)[number]
@@ -39,6 +43,18 @@ export function isKnownLocale(value: string): value is Locale {
 
 export function isPublicLocale(value: string): value is PublicLocale {
   return (PUBLIC_LOCALES as readonly string[]).includes(value)
+}
+
+// `FEATURE_PUBLIC_LOCALES_FULL`-aware variant of PUBLIC_LOCALES. Server callers
+// read the env flag (via `serverEnv.FEATURE_PUBLIC_LOCALES_FULL === '1' || === 'true'`)
+// and pass the resolved boolean here so client code stays free of env imports
+// and the flag is straightforward to thread through tests as a prop.
+export function effectivePublicLocales(fullPublicEnabled: boolean): readonly Locale[] {
+  return fullPublicEnabled ? KNOWN_LOCALES : PUBLIC_LOCALES
+}
+
+export function isEffectivelyPublicLocale(value: string, fullPublicEnabled: boolean): boolean {
+  return (effectivePublicLocales(fullPublicEnabled) as readonly string[]).includes(value)
 }
 
 export function isDefaultLocale(locale: string | null | undefined): boolean {
