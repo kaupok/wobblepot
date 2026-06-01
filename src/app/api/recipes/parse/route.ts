@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { serverEnv } from '@/lib/env'
 import { getHouseholdMembership } from '@/lib/household'
 import {
   parseAndMatchRecipe,
@@ -10,7 +9,6 @@ import {
   RecipeParseError,
   ROBOTS_DISALLOWED_MESSAGE,
 } from '@/lib/ai/parse-recipe'
-import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import {
   AiCostCapExceededError,
@@ -23,17 +21,15 @@ import { getServerFlag } from '@/lib/feature-flags'
 import { captureApiError } from '@/lib/errors'
 
 /**
- * HON-502 gate: Estonian recipe parsing is held behind an opt-in env flag
- * until HON-506 seeds Estonian ingredient translations. Without that data,
- * Estonian input creates household-scoped duplicate ingredient rows that
- * later require admin cleanup via HON-514. Flip `FEATURE_RECIPE_PARSER_ET`
- * to `"1"` (or `"true"`) as part of HON-506's merge.
+ * Resolve the locale the recipe parser runs in. The `FEATURE_RECIPE_PARSER_ET`
+ * gate (HON-502) held Estonian parsing back until HON-506 seeded Estonian
+ * ingredient translations; with that data landed the gate is retired and the
+ * household locale threads straight through. Every `KNOWN_LOCALES` value now
+ * has translation coverage, so the matcher resolves Estonian ingredient names
+ * directly instead of creating household-scoped duplicates.
  */
 function resolveParserLocale(householdLocale: string): string {
-  if (householdLocale === DEFAULT_LOCALE) return householdLocale
-  const flag = serverEnv.FEATURE_RECIPE_PARSER_ET
-  if (flag === '1' || flag === 'true') return householdLocale
-  return DEFAULT_LOCALE
+  return householdLocale
 }
 
 const parseRecipeSchema = z.object({

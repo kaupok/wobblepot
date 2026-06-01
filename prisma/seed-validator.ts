@@ -18,6 +18,11 @@ import { newIngredients, newMeals } from './seed-expansion'
 import { comprehensiveIngredients } from './seed-comprehensive'
 import { importCoverageIngredients } from './seed-import-coverage'
 import { mealTranslationsEt, type MealTranslationEt } from './seed-meal-translations-et'
+import {
+  ingredientTranslationsEt,
+  type IngredientTranslationEt,
+} from './seed-ingredient-translations-et'
+import { normalizeIngredientKey } from '../src/lib/i18n/ingredient-key'
 import { INGREDIENT_ALIASES } from '../src/lib/ingredient-aliases'
 import type { IngredientInput } from './seed-types'
 
@@ -572,6 +577,68 @@ function validateMealTranslationCoverage(
   return { errors, warnings }
 }
 
+function validateIngredientTranslationCoverage(
+  ingredients: Ingredient[],
+  translations: IngredientTranslationEt[],
+): ValidationResult {
+  const errors: string[] = []
+  const warnings: string[] = []
+
+  // Key on the normalized name (matches the seeder's lookup) so apostrophe /
+  // casing / spacing variants can't slip a row past coverage — the HON-507 bug.
+  const translationByKey = new Map<string, IngredientTranslationEt>()
+  for (const t of translations) {
+    const key = normalizeIngredientKey(t.en)
+    if (translationByKey.has(key)) {
+      errors.push(`Duplicate et translation entry for ingredient '${t.en}'`)
+      continue
+    }
+    translationByKey.set(key, t)
+  }
+
+  // Dedupe ingredient names the same way the seed does (first occurrence wins,
+  // global pool is name-keyed) before checking coverage.
+  const ingredientKeys = new Set<string>()
+  for (const ing of ingredients) {
+    const key = normalizeIngredientKey(ing.name)
+    if (ingredientKeys.has(key)) continue
+    ingredientKeys.add(key)
+
+    const t = translationByKey.get(key)
+    if (!t) {
+      errors.push(`Missing et translation for ingredient '${ing.name}'`)
+      continue
+    }
+    if (!t.et.trim()) {
+      errors.push(`Empty et name for ingredient '${ing.name}'`)
+    }
+  }
+
+  for (const t of translations) {
+    if (!ingredientKeys.has(normalizeIngredientKey(t.en))) {
+      warnings.push(`Orphaned et translation for '${t.en}' — no matching ingredient in seed data`)
+    }
+  }
+
+  // Distinct English ingredients legitimately collapse to one Estonian name
+  // (cilantro/coriander → koriander, eggplant/aubergine → baklažaan), so a
+  // shared et name is a warning here — not an error as it is for meals.
+  const byEtName = new Map<string, string[]>()
+  for (const t of translations) {
+    if (!ingredientKeys.has(normalizeIngredientKey(t.en))) continue
+    const list = byEtName.get(t.et) ?? []
+    list.push(t.en)
+    byEtName.set(t.et, list)
+  }
+  for (const [etName, ens] of byEtName) {
+    if (ens.length > 1) {
+      warnings.push(`Shared et name '${etName}' used by distinct ingredients: ${ens.join(', ')}`)
+    }
+  }
+
+  return { errors, warnings }
+}
+
 function reportCategoryCoverage(ingredients: Ingredient[]): void {
   const byCategory = new Map<string, number>()
   const bySubcategory = new Map<string, number>()
@@ -653,6 +720,7 @@ async function main() {
 
     // Translation coverage
     validateMealTranslationCoverage(allMeals, mealTranslationsEt),
+    validateIngredientTranslationCoverage(allIngredients, ingredientTranslationsEt),
   ]
 
   // Aggregate results
@@ -672,6 +740,7 @@ async function main() {
   console.log(`   ${allMeals.length} meals (${mealCounts})`)
   console.log(`   ${Object.keys(INGREDIENT_ALIASES).length} ingredient aliases`)
   console.log(`   ${mealTranslationsEt.length} et meal translations`)
+  console.log(`   ${ingredientTranslationsEt.length} et ingredient translations`)
 
   // Category coverage report
   reportCategoryCoverage(allIngredients)

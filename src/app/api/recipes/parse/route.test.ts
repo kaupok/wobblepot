@@ -1,15 +1,12 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// The feature-flag gate reads serverEnv.FEATURE_RECIPE_PARSER_ET. Tests
-// flip this value directly to cover both gate branches. Hoisted so the
-// vi.mock factory below can see it (vi.mock is hoisted above imports).
-const { mockServerEnv } = vi.hoisted(() => ({
-  mockServerEnv: { FEATURE_RECIPE_PARSER_ET: undefined as string | undefined },
-}))
-
+// Stub the env module so the real Zod validation (and any transitively-imported
+// serverEnv reads, e.g. from @/lib/ai/usage) don't run in the node test env.
+// The Estonian recipe-parser gate (FEATURE_RECIPE_PARSER_ET) was retired in
+// HON-506, so there is no flag to flip anymore.
 vi.mock('@/lib/env', () => ({
-  serverEnv: mockServerEnv,
+  serverEnv: {},
 }))
 
 import { extractUrlAndContext, POST } from './route'
@@ -230,7 +227,7 @@ describe('POST /api/recipes/parse RecipeParseError handling', () => {
   })
 })
 
-describe('POST /api/recipes/parse FEATURE_RECIPE_PARSER_ET gate', () => {
+describe('POST /api/recipes/parse locale threading (gate retired in HON-506)', () => {
   const mockSession = { user: { id: 'user-1' }, session: { id: 's-1' } }
 
   function membership(locale: string) {
@@ -263,7 +260,6 @@ describe('POST /api/recipes/parse FEATURE_RECIPE_PARSER_ET gate', () => {
       limit: 20,
       resetAt: new Date(Date.now() + 3_600_000),
     })
-    mockServerEnv.FEATURE_RECIPE_PARSER_ET = undefined
   })
 
   function jsonRequest(body: unknown) {
@@ -285,7 +281,7 @@ describe('POST /api/recipes/parse FEATURE_RECIPE_PARSER_ET gate', () => {
     expect(matchOptions).toMatchObject({ householdId: 'household-42', locale: 'en' })
   })
 
-  it('collapses Estonian locale to English when FEATURE_RECIPE_PARSER_ET is unset (default)', async () => {
+  it('threads Estonian locale straight through with no env flag set (gate retired)', async () => {
     mockGetMembership.mockResolvedValue(membership('et') as never)
     successfulParse()
 
@@ -293,39 +289,6 @@ describe('POST /api/recipes/parse FEATURE_RECIPE_PARSER_ET gate', () => {
 
     expect(mockParseAndMatchRecipe).toHaveBeenCalledTimes(1)
     const matchOptions = mockParseAndMatchRecipe.mock.calls[0]![3]!
-    expect(matchOptions).toMatchObject({ householdId: 'household-42', locale: 'en' })
-  })
-
-  it('collapses Estonian locale to English when FEATURE_RECIPE_PARSER_ET is "0"', async () => {
-    mockServerEnv.FEATURE_RECIPE_PARSER_ET = '0'
-    mockGetMembership.mockResolvedValue(membership('et') as never)
-    successfulParse()
-
-    await POST(jsonRequest({ text: 'Eesti retsept: 400g kana, 200g riisi, soola.' }))
-
-    const matchOptions = mockParseAndMatchRecipe.mock.calls[0]![3]!
-    expect(matchOptions).toMatchObject({ locale: 'en' })
-  })
-
-  it('passes Estonian locale through when FEATURE_RECIPE_PARSER_ET is "1"', async () => {
-    mockServerEnv.FEATURE_RECIPE_PARSER_ET = '1'
-    mockGetMembership.mockResolvedValue(membership('et') as never)
-    successfulParse()
-
-    await POST(jsonRequest({ text: 'Eesti retsept: 400g kana, 200g riisi, soola.' }))
-
-    const matchOptions = mockParseAndMatchRecipe.mock.calls[0]![3]!
     expect(matchOptions).toMatchObject({ householdId: 'household-42', locale: 'et' })
-  })
-
-  it('passes Estonian locale through when FEATURE_RECIPE_PARSER_ET is "true"', async () => {
-    mockServerEnv.FEATURE_RECIPE_PARSER_ET = 'true'
-    mockGetMembership.mockResolvedValue(membership('et') as never)
-    successfulParse()
-
-    await POST(jsonRequest({ text: 'Eesti retsept: 400g kana, 200g riisi, soola.' }))
-
-    const matchOptions = mockParseAndMatchRecipe.mock.calls[0]![3]!
-    expect(matchOptions).toMatchObject({ locale: 'et' })
   })
 })

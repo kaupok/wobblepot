@@ -8,6 +8,8 @@ import { newIngredients, newMeals } from './seed-expansion'
 import { comprehensiveIngredients } from './seed-comprehensive'
 import { importCoverageIngredients } from './seed-import-coverage'
 import { mealTranslationsEt } from './seed-meal-translations-et'
+import { ingredientTranslationsEt } from './seed-ingredient-translations-et'
+import { normalizeIngredientKey } from '../src/lib/i18n/ingredient-key'
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL!,
@@ -3863,6 +3865,59 @@ async function seedMealTranslationsEt() {
   console.log(`Seeded ${seededCount} meal translations (et) (${skippedCount} skipped)`)
 }
 
+async function seedIngredientTranslationsEt() {
+  console.log('Seeding ingredient translations (et)...')
+
+  // Build a normalized English-name → Estonian lookup. Keying on the normalized
+  // name (not the raw string) guards against the apostrophe/spacing drift that
+  // silently dropped meal rows in HON-507. See normalizeIngredientKey.
+  const byKey = new Map<string, string>()
+  for (const entry of ingredientTranslationsEt) {
+    const key = normalizeIngredientKey(entry.en)
+    if (byKey.has(key)) {
+      throw new Error(`Duplicate et ingredient translation entry for "${entry.en}"`)
+    }
+    byKey.set(key, entry.et)
+  }
+
+  // Reconcile against the LIVE global ingredient set rather than iterating the
+  // translation array: every seeded global Ingredient must end up with an `et`
+  // row, so a missing translation is a hard failure (proves the "every row" AC).
+  const globals = await prisma.ingredient.findMany({
+    where: { householdId: null },
+    select: { id: true, name: true },
+  })
+
+  const missing: string[] = []
+  let seededCount = 0
+
+  for (const ingredient of globals) {
+    const et = byKey.get(normalizeIngredientKey(ingredient.name))
+    if (!et) {
+      missing.push(ingredient.name)
+      continue
+    }
+
+    await prisma.ingredientTranslation.upsert({
+      where: { ingredientId_locale: { ingredientId: ingredient.id, locale: 'et' } },
+      create: { ingredientId: ingredient.id, locale: 'et', name: et },
+      update: { name: et },
+    })
+
+    seededCount++
+  }
+
+  if (missing.length > 0) {
+    const preview = missing.slice(0, 20).join(', ')
+    const suffix = missing.length > 20 ? `, …(+${missing.length - 20} more)` : ''
+    throw new Error(
+      `Missing et translation for ${missing.length} global ingredient(s): ${preview}${suffix}`,
+    )
+  }
+
+  console.log(`Seeded ${seededCount} ingredient translations (et)`)
+}
+
 // ============================================
 // E2E TEST USER SEEDING
 // ============================================
@@ -3958,6 +4013,7 @@ async function main() {
   await seedIngredients()
   await seedMeals()
   await seedMealTranslationsEt()
+  await seedIngredientTranslationsEt()
   await seedTestUsers()
 }
 
