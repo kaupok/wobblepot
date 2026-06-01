@@ -23,13 +23,21 @@ Find the next unblocked issue and return a concise implementation summary.
 
 ## Arguments
 
-- `--auto` — enable no-human-input mode. Also triggered implicitly when the user asks for issues doable "without input", "autonomously", "fully by an agent", "pure code", or similar phrasing. When in doubt, prefer the explicit flag — the natural-language trigger exists for ergonomics, not as the source of truth.
+- `--auto` — enable no-human-input mode. **Must be passed explicitly as the literal token `--auto` in the skill invocation's args.** Never infer auto mode from natural-language phrasing, prior conversation, or surrounding context. This skill has previously triggered auto mode without the flag (twice as of 2026-05-07); the explicit flag is now the *only* path in.
 
 ## Workflow
 
 0. **Parse arguments**
 
-   Set `autoMode = true` if the invocation contains `--auto`, or if the user's request used natural-language equivalents (see Arguments section). Otherwise `autoMode = false`.
+   Default: `autoMode = false`.
+
+   Set `autoMode = true` **only** if the skill invocation's `command-args` (or equivalent argument string) contains the literal token `--auto`. Do not infer it from:
+   - The user's natural-language prompt accompanying the invocation
+   - Prior conversation turns
+   - Project context, the current phase, or what "would make sense"
+   - A bare `/next-issue` invocation with no args
+
+   If unsure, `autoMode = false`. The user can always re-run with `--auto` if they wanted it; the inverse (silently filtering out issues the user wanted to see) is the failure mode this rule prevents.
 
 1. **Read project context**
 
@@ -173,4 +181,4 @@ If no unblocked issues survive the filters, emit the matching "no candidates" fo
 - Always include the `gitBranchName` from Linear in the parallel commands
 - The `wt auto` command accepts branch names and extracts the issue ID automatically
 - **Every returned candidate must have passed step 4's hard filters via a `get_issue` call with `includeRelations: true`.** Never surface a candidate based on `list_issues` output alone — that endpoint hides `relations` and can disagree with the prose "Blocked by" section. If fewer than 3 candidates survive the filters, return only what survives; do not pad the list.
-- When the user asks for a refined variation ("find me three without blockers", "that don't need input", "pure code only"), re-invoke this skill rather than ad-hoc-delegating to a general-purpose agent — the skill's filters are the reason it exists. For the no-human-input variation prefer `/next-issue --auto` over natural-language phrasing.
+- When the user asks for a refined variation ("find me three without blockers", "that don't need input", "pure code only"), re-invoke this skill with the explicit `--auto` flag (e.g. `/next-issue --auto`) rather than ad-hoc-delegating to a general-purpose agent — the skill's filters are the reason it exists. **Auto mode requires the literal `--auto` token in args; never infer it from prose.**
