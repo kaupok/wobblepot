@@ -6,7 +6,6 @@ import type { ReactNode } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import enMessages from '../../../../messages/en.json'
 import { HouseholdSettingsForm } from './HouseholdSettingsForm'
-import { KNOWN_LOCALES, PUBLIC_LOCALES } from '@/lib/i18n/locales'
 import { createQueryWrapper } from '@/test/query-wrapper'
 
 vi.mock('sonner', () => ({
@@ -70,7 +69,6 @@ function renderForm(overrides: Partial<Parameters<typeof HouseholdSettingsForm>[
     household: defaultHousehold,
     preferences: defaultPreferences,
     isOwner: true,
-    publicLocales: PUBLIC_LOCALES,
     ...overrides,
   }
   function Wrapper({ children }: { children: ReactNode }) {
@@ -399,38 +397,8 @@ describe('HouseholdSettingsForm', () => {
   })
 
   describe('locale selector', () => {
-    it('shows only public locales when household locale is public', async () => {
+    it('exposes English and Estonian as selectable options', async () => {
       renderForm({ household: { ...defaultHousehold, locale: 'en' } })
-
-      const localeTrigger = screen.getByRole('combobox', { name: /language/i })
-      await userEvent.click(localeTrigger)
-
-      const englishOption = await screen.findByRole('option', { name: 'English' })
-      expect(englishOption).toBeInTheDocument()
-      expect(englishOption).not.toHaveAttribute('aria-disabled', 'true')
-      expect(screen.queryByRole('option', { name: 'Estonian' })).not.toBeInTheDocument()
-    })
-
-    it('shows a disabled option for the current locale when it is not public', async () => {
-      renderForm({ household: { ...defaultHousehold, locale: 'et' } })
-
-      const localeTrigger = screen.getByRole('combobox', { name: /language/i })
-      expect(localeTrigger).toHaveTextContent('Estonian')
-
-      await userEvent.click(localeTrigger)
-
-      const estonianOption = await screen.findByRole('option', { name: 'Estonian' })
-      expect(estonianOption).toHaveAttribute('aria-disabled', 'true')
-
-      const englishOption = screen.getByRole('option', { name: 'English' })
-      expect(englishOption).not.toHaveAttribute('aria-disabled', 'true')
-    })
-
-    it('exposes every prop locale as selectable when the wider set is passed (FEATURE_PUBLIC_LOCALES_FULL on)', async () => {
-      renderForm({
-        household: { ...defaultHousehold, locale: 'en' },
-        publicLocales: KNOWN_LOCALES,
-      })
 
       const localeTrigger = screen.getByRole('combobox', { name: /language/i })
       await userEvent.click(localeTrigger)
@@ -440,6 +408,13 @@ describe('HouseholdSettingsForm', () => {
 
       expect(englishOption).not.toHaveAttribute('aria-disabled', 'true')
       expect(estonianOption).not.toHaveAttribute('aria-disabled', 'true')
+    })
+
+    it('reflects the household locale on the trigger', () => {
+      renderForm({ household: { ...defaultHousehold, locale: 'et' } })
+
+      const localeTrigger = screen.getByRole('combobox', { name: /language/i })
+      expect(localeTrigger).toHaveTextContent('Estonian')
     })
   })
 })

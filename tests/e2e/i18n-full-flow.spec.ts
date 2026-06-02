@@ -15,10 +15,10 @@ import { ingredientTranslationsEt } from '../../prisma/seed-ingredient-translati
  * `/api/e2e-seed` invite endpoint (ci/test/dev only), so it cannot run against
  * the shared preview/staging environments the smoke tiers target.
  *
- * Locale is forced via `PATCH /api/households/me { locale: 'et' }` after
- * onboarding, because onboarding clamps non-public locales to `en`
- * (isEffectivelyPublicLocale) and `et` is not yet public — and the public flip
- * (HON-549) is blocked by this very spec, so we must not depend on it.
+ * As of HON-549 the public flip has shipped: `PUBLIC_LOCALES = ['en', 'et']`
+ * and the onboarding clamp is gone. The Estonian Accept-Language header now
+ * round-trips into `Household.locale = 'et'` during sign-up, so no manual
+ * locale forcing is needed.
  *
  * Assertions cross-reference the rendered UI against the seeded `et` translation
  * tables (imported as plain data) so they stay deterministic despite random AI
@@ -74,34 +74,28 @@ test.describe(
       const etIngredientNames = new Set(ingredientTranslationsEt.map((i) => i.et))
       const enIngredientNames = new Set(ingredientTranslationsEt.map((i) => i.en))
 
-      // ── 1. Sign up + onboarding. Onboarding clamps the household to `en`. ──
+      // ── 1. Sign up + onboarding. With HON-549 shipped, the Estonian
+      //       Accept-Language header (`test.use({ locale: 'et-EE' })`)
+      //       round-trips into `Household.locale = 'et'` directly. ──
       await signUpWithHousehold(page)
 
-      // ── 2. Generate the first plan while still `en`: the English "Generate
-      //       meal plan" CTA is a stable selector. Entries are locale-independent
-      //       — only their *display* flips once we switch the household to et. ──
+      // ── 2. Confirm Estonian chrome is live before generating the plan. ──
       await page.goto('/')
-      await expect(page.getByRole('heading', { name: /^Welcome to Wobblepot/ })).toBeVisible()
+      await expect(page.locator('html')).toHaveAttribute('lang', 'et')
+      await expect(page.getByRole('heading', { name: /^Tere tulemast Wobblepotti/ })).toBeVisible()
+
+      // ── 3. Generate the first plan via the Estonian CTA. ──
       const [generateResponse] = await Promise.all([
         page.waitForResponse(
           (r) => r.url().endsWith('/api/meal-plans/generate') && r.request().method() === 'POST',
           { timeout: 90_000 },
         ),
-        page.getByRole('button', { name: 'Generate meal plan' }).click(),
+        page.getByRole('button', { name: 'Loo söögiplaan' }).click(),
       ])
       expect(generateResponse.ok()).toBe(true)
-      await expect(page.getByRole('heading', { name: /^Welcome to Wobblepot/ })).toBeHidden()
+      await expect(page.getByRole('heading', { name: /^Tere tulemast Wobblepotti/ })).toBeHidden()
 
-      // ── 3. Force the household locale to `et` (documented opt-in path). ──
-      const patch = await page.request.patch('/api/households/me', { data: { locale: 'et' } })
-      expect(patch.ok(), 'PATCH /api/households/me { locale: et } should succeed').toBe(true)
-      expect((await patch.json()).locale).toBe('et')
-
-      // ── 4. Reload → server resolves the household locale → Estonian chrome. ──
-      await page.goto('/')
-      await expect(page.locator('html')).toHaveAttribute('lang', 'et')
-
-      // ── 5. Read the generated entries (now et-translated by /api/entries). ──
+      // ── 4. Read the generated entries (et-translated by /api/entries). ──
       const today = new Date()
       const windowStart = new Date(today)
       windowStart.setDate(windowStart.getDate() - 7)
@@ -118,7 +112,7 @@ test.describe(
       )
       expect(mealEntries.length, 'generated plan should contain meals').toBeGreaterThan(0)
 
-      // ── 6. Meal plan: a card shows a seeded *Estonian* meal name. Prefer an
+      // ── 5. Meal plan: a card shows a seeded *Estonian* meal name. Prefer an
       //       entry that proves name + description + ingredient localization in
       //       one modal, using distinctly-Estonian strings (et ≠ en) so it can't
       //       pass on an English echo. ──
@@ -158,7 +152,7 @@ test.describe(
         page.getByRole('button', { name: etMealName, exact: true }).first(),
       ).toBeVisible()
 
-      // ── 7. Meal detail: et name (dialog title), et description, and et
+      // ── 6. Meal detail: et name (dialog title), et description, and et
       //       ingredient names all render — the timeline detail is fully
       //       localized, not just the title (HON-547 review). ──
       await page.getByRole('button', { name: etMealName, exact: true }).first().click()
@@ -172,7 +166,7 @@ test.describe(
       await page.keyboard.press('Escape')
       await expect(detailDialog).toBeHidden()
 
-      // ── 8. Comma-decimal numbers: open a meal whose piece quantity is
+      // ── 7. Comma-decimal numbers: open a meal whose piece quantity is
       //       fractional and assert it renders with an Estonian decimal comma. ──
       const membersResponse = await page.request.get('/api/households/me/members')
       expect(membersResponse.ok()).toBe(true)
@@ -212,7 +206,7 @@ test.describe(
       await page.keyboard.press('Escape')
       await expect(commaDialog).toBeHidden()
 
-      // ── 9. Shopping list: Estonian chrome, category headers, ingredient names. ──
+      // ── 8. Shopping list: Estonian chrome, category headers, ingredient names. ──
       await page.goto('/shopping')
       await expect(page.locator('html')).toHaveAttribute('lang', 'et')
       await expect(page.getByRole('heading', { name: 'Poenimekiri' })).toBeVisible() // shopping list
@@ -244,7 +238,7 @@ test.describe(
       ).toBeTruthy()
       await expect(page.getByText(etItem!.name).first()).toBeVisible()
 
-      // ── 10. Mark the item purchased → it lands in the pantry. ──
+      // ── 9. Mark the item purchased → it lands in the pantry. ──
       const itemRow = page.locator('label').filter({ hasText: etItem!.name }).first()
       await expect(itemRow).toBeVisible()
       const [purchaseResponse] = await Promise.all([
@@ -268,7 +262,7 @@ test.describe(
         )
         .toBe(true)
 
-      // ── 11. Imagine a meal: AI output is Estonian. ──
+      // ── 10. Imagine a meal: AI output is Estonian. ──
       await page.goto('/recipes/imagine')
       await expect(page.locator('html')).toHaveAttribute('lang', 'et')
       const promptBox = page.locator('textarea').first()
@@ -298,7 +292,7 @@ test.describe(
       // …and the first imagined meal renders on the page.
       await expect(page.getByText(imagined.meals[0]!.name).first()).toBeVisible()
 
-      // ── 12. <html lang="et"> held throughout the flow. ──
+      // ── 11. <html lang="et"> held throughout the flow. ──
       await expect(page.locator('html')).toHaveAttribute('lang', 'et')
     })
   },

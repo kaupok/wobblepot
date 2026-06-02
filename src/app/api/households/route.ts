@@ -2,11 +2,9 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { serverEnv } from '@/lib/env'
 import { prisma } from '@/lib/prisma'
 import { MealType } from '@/generated/prisma/enums'
 import { resolveLocale } from '@/lib/i18n/resolve-locale'
-import { DEFAULT_LOCALE, isEffectivelyPublicLocale } from '@/lib/i18n/locales'
 
 const createHouseholdSchema = z.object({
   name: z.string().min(1).max(100),
@@ -46,21 +44,13 @@ export async function POST(request: Request) {
 
   // Onboarding has no household yet — resolver falls through to Accept-Language.
   // Persisting the result here prevents the chrome locale from snapping back to
-  // English the moment the household row exists. Clamped to PUBLIC_LOCALES so a
-  // non-English browser doesn't silently land a general user on a locale whose
-  // public enablement conditions (e.g. email-template localization) haven't
-  // cleared yet; partner households opt into non-public locales via direct DB
-  // write, which bypasses this path. The clamp is a no-op once PUBLIC_LOCALES
-  // widens to the full KNOWN_LOCALES set. `FEATURE_PUBLIC_LOCALES_FULL` widens
-  // the effective set per-environment for staging dogfooding (HON-544).
-  const fullPublicEnabled =
-    serverEnv.FEATURE_PUBLIC_LOCALES_FULL === '1' ||
-    serverEnv.FEATURE_PUBLIC_LOCALES_FULL === 'true'
-  const resolved = resolveLocale({
+  // English the moment the household row exists. `resolveLocale` guarantees the
+  // return value is in `KNOWN_LOCALES`, which equals `PUBLIC_LOCALES` today
+  // (HON-549), so no clamp is needed.
+  const locale = resolveLocale({
     householdLocale: null,
     acceptLanguage: requestHeaders.get('accept-language'),
   })
-  const locale = isEffectivelyPublicLocale(resolved, fullPublicEnabled) ? resolved : DEFAULT_LOCALE
 
   // Create household, membership, preferences, and optional members in a transaction
   try {

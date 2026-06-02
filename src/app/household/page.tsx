@@ -2,12 +2,11 @@ import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { getTranslations } from 'next-intl/server'
 import { auth } from '@/lib/auth'
-import { serverEnv } from '@/lib/env'
 import { getHouseholdMembership } from '@/lib/household'
 import { Heading } from '@/components/ui/typography'
 import { HouseholdSettingsForm } from './household/HouseholdSettingsForm'
 import { MemberList } from '@/components/household/MemberList'
-import { DEFAULT_LOCALE, effectivePublicLocales, isKnownLocale } from '@/lib/i18n/locales'
+import { DEFAULT_LOCALE, isKnownLocale } from '@/lib/i18n/locales'
 
 export default async function HouseholdPage() {
   const session = await auth.api.getSession({
@@ -28,14 +27,6 @@ export default async function HouseholdPage() {
   const isOwner = membership.role === 'owner'
   const { household } = membership
 
-  // FEATURE_PUBLIC_LOCALES_FULL=1 widens the selector to KNOWN_LOCALES on
-  // staging for dogfooding (HON-544). Read on the server so client code stays
-  // free of env imports and the prop is testable in isolation.
-  const fullPublicEnabled =
-    serverEnv.FEATURE_PUBLIC_LOCALES_FULL === '1' ||
-    serverEnv.FEATURE_PUBLIC_LOCALES_FULL === 'true'
-  const publicLocales = effectivePublicLocales(fullPublicEnabled)
-
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
@@ -52,7 +43,6 @@ export default async function HouseholdPage() {
               timezone: household.timezone,
               locale: isKnownLocale(household.locale) ? household.locale : DEFAULT_LOCALE,
             }}
-            publicLocales={publicLocales}
             preferences={
               household.preferences
                 ? {
