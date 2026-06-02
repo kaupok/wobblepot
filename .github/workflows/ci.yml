@@ -98,6 +98,13 @@ jobs:
       - name: Run unit tests
         run: pnpm test
 
+      # Seed-data gate (HON-551): static validation of the seed TS arrays —
+      # cross-file duplicates, naming conventions, nutritional plausibility,
+      # and et translation coverage. No DB needed, so it runs in the cheap
+      # static-check block and fails fast before the Playwright install.
+      - name: Validate seed data
+        run: pnpm db:validate
+
       # Cache the ~150 MB Chromium download across runs. Playwright is pinned
       # in pnpm-lock.yaml, so the lockfile hash is a stable cache key (HON-529).
       - name: Cache Playwright browsers

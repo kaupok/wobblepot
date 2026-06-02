@@ -1428,7 +1428,7 @@ export const baseIngredients = [
   {
     name: 'serrano pepper',
     category: 'vegetable',
-    subcategory: 'fruit-vegetable',
+    subcategory: 'pepper',
     defaultUnit: 'g',
     gramsPerPiece: 15,
     allergens: [],
