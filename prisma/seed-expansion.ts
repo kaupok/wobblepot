@@ -1454,18 +1454,6 @@ export const newIngredients = [
     fiber: 2.8,
   },
   {
-    name: 'serrano pepper',
-    category: 'vegetable',
-    subcategory: 'pepper',
-    defaultUnit: 'g',
-    allergens: [],
-    calories: 32,
-    protein: 1.7,
-    carbs: 7,
-    fat: 0.4,
-    fiber: 3.9,
-  },
-  {
     name: 'poblano pepper',
     category: 'vegetable',
     subcategory: 'pepper',

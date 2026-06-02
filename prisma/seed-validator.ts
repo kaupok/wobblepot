@@ -319,6 +319,20 @@ function validateIngredientAliases(ingredientNames: Set<string>): ValidationResu
   return { errors, warnings }
 }
 
+// Proper-noun ingredient names exempt from the all-lowercase rule. These are
+// nationalities / place names that are intentionally capitalized for display.
+// Casing is display-only: matching normalizes via normalizeIngredientKey
+// (lowercase), and the aliases (src/lib/ingredient-aliases.ts), the et
+// translations, and the add_indian_ingredients migration all reference these
+// capitalized forms consistently. A new proper-noun ingredient must be added
+// here deliberately, keeping the lowercase rule strict for every other name. See HON-551.
+const PROPER_NOUN_INGREDIENT_NAMES = new Set<string>([
+  'Indian pickle',
+  'Cumberland sausage',
+  'Japanese curry roux',
+  'Japanese rice',
+])
+
 function validateNamingConventions(ingredients: Ingredient[]): ValidationResult {
   const errors: string[] = []
   const warnings: string[] = []
@@ -326,7 +340,7 @@ function validateNamingConventions(ingredients: Ingredient[]): ValidationResult 
   for (const ing of ingredients) {
     const name = ing.name
 
-    if (name !== name.toLowerCase()) {
+    if (!PROPER_NOUN_INGREDIENT_NAMES.has(name) && name !== name.toLowerCase()) {
       errors.push(`${name}: name must be lowercase`)
     }
 
