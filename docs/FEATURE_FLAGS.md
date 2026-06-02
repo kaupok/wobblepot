@@ -87,6 +87,21 @@ For kill-switches, "safe" = `true`. The product stays up; the lock-down stays lo
 - **Kill-switches** stay forever by design — they're insurance.
 - **Experiment / product flags** must have an owner and an expected resolution date captured in PostHog. Once the experiment ships (or is killed), retire the flag and remove the code path within one release.
 
+### Retiring an env-var flag
+
+Some gates are plain environment variables validated in `src/lib/env.ts` — a temporary `FEATURE_*` that waits on a migration or a data backfill, an E2E bypass — rather than PostHog flags. Unlike a PostHog kill-switch, these are meant to be **removed once their condition is met**: a left-behind env flag is dead config that drifts between the codebase and the Vercel / CI dashboards.
+
+Retire one in a single PR for the code side, and don't forget the deploy targets for the ops side:
+
+- [ ] `src/lib/env.ts` — the Zod schema entry **and** the `serverEnv` proxy mapping line.
+- [ ] `.env.example` — the documented placeholder.
+- [ ] Every read (`serverEnv.FEATURE_…`) and the tests that exercised the gate.
+- [ ] Docs that describe the gate — grep the flag name across `docs/`.
+- [ ] **Vercel → Settings → Environment Variables**, in _every_ environment (Production / Preview / Development). This is the step with no code-review trigger, so it falls on the PR author / merger — call it out explicitly in the PR description.
+- [ ] GitHub Actions secrets / variables, if any workflow injected it (grep `.github/`).
+
+Removing it from `env.ts` is safe even while a stale value still sits in Vercel: `serverEnv` validates lazily, per accessed key, against an allowlist, so an unread var is inert and can't throw at boot. That's a convenience for ordering the cleanup — not a reason to skip the dashboard step. Automatically surfacing Vercel-side orphans (so the manual step can't be silently missed) is tracked in HON-550.
+
 ## Gotchas
 
 - **Latency telemetry.** A frequent 100ms timeout in production is a signal that PostHog's EU region is slow for us, not a flag-check bug. Watch via PostHog ingest latency metrics — not via our error tracker (which would itself depend on PostHog).
