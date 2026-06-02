@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { toDateString, parseLocalDate } from '@/lib/meal-planning/dates'
 import { parseStoredTips } from '@/lib/tips'
+import { mealTranslationsInclude, translateMeal } from '@/lib/i18n/content'
 import type { MealPlanEntryStatus } from '@/generated/prisma/enums'
 import { captureApiError } from '@/lib/errors'
 
@@ -31,6 +32,9 @@ export async function GET(request: NextRequest) {
   }
 
   const { household } = membership
+  // Translate seeded meal name/description into the household's locale so the
+  // timeline renders Estonian (en is a no-op via isDefaultLocale). HON-547.
+  const locale = household.locale
 
   // Parse query params
   const startDateParam = request.nextUrl.searchParams.get('startDate')
@@ -92,46 +96,55 @@ export async function GET(request: NextRequest) {
                 ingredient: true,
               },
             },
+            ...mealTranslationsInclude(locale),
           },
         },
       },
       orderBy: [{ date: 'asc' }, { mealType: 'asc' }],
     })
 
-    const formattedEntries = entries.map((entry) => ({
-      id: entry.id,
-      date: toDateString(entry.date),
-      mealType: entry.mealType,
-      status: entry.status,
-      rating: entry.rating,
-      preparationTips: entry.preparationTips ? parseStoredTips(entry.preparationTips) : null,
-      note: entry.note,
-      servingOverride: entry.servingOverride,
-      meal: entry.meal
-        ? {
-            id: entry.meal.id,
-            name: entry.meal.name,
-            kidFriendly: entry.meal.kidFriendly,
-            timeMinutes: entry.meal.timeMinutes,
-            preparationNotes: entry.meal.preparationNotes,
-            primaryProteinType: entry.meal.primaryProteinType,
-            nutrition: computeMealNutrition(entry.meal.components),
-            components: entry.meal.components.map((comp) => ({
-              ingredientId: comp.ingredientId,
-              quantityPerServing: comp.quantityPerServing,
-              isVague: comp.isVague,
-              originalPhrase: comp.originalPhrase,
-              ingredient: {
-                id: comp.ingredient.id,
-                name: comp.ingredient.name,
-                category: comp.ingredient.category,
-                defaultUnit: comp.ingredient.defaultUnit,
-                gramsPerPiece: comp.ingredient.gramsPerPiece,
-              },
-            })),
-          }
-        : null,
-    }))
+    const formattedEntries = entries.map((entry) => {
+      // Coalesce the locale's MealTranslation over the canonical English fields
+      // (per-field fallback). For en this returns the meal unchanged.
+      const translatedMeal = entry.meal ? translateMeal(entry.meal, locale) : null
+
+      return {
+        id: entry.id,
+        date: toDateString(entry.date),
+        mealType: entry.mealType,
+        status: entry.status,
+        rating: entry.rating,
+        preparationTips: entry.preparationTips ? parseStoredTips(entry.preparationTips) : null,
+        note: entry.note,
+        servingOverride: entry.servingOverride,
+        meal:
+          entry.meal && translatedMeal
+            ? {
+                id: entry.meal.id,
+                name: translatedMeal.name,
+                description: translatedMeal.description ?? null,
+                kidFriendly: entry.meal.kidFriendly,
+                timeMinutes: entry.meal.timeMinutes,
+                preparationNotes: translatedMeal.preparationNotes ?? null,
+                primaryProteinType: entry.meal.primaryProteinType,
+                nutrition: computeMealNutrition(entry.meal.components),
+                components: entry.meal.components.map((comp) => ({
+                  ingredientId: comp.ingredientId,
+                  quantityPerServing: comp.quantityPerServing,
+                  isVague: comp.isVague,
+                  originalPhrase: comp.originalPhrase,
+                  ingredient: {
+                    id: comp.ingredient.id,
+                    name: comp.ingredient.name,
+                    category: comp.ingredient.category,
+                    defaultUnit: comp.ingredient.defaultUnit,
+                    gramsPerPiece: comp.ingredient.gramsPerPiece,
+                  },
+                })),
+              }
+            : null,
+      }
+    })
 
     return NextResponse.json({ entries: formattedEntries, planId: plan.id }, { status: 200 })
   } catch (error) {
