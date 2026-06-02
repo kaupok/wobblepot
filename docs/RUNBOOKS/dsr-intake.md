@@ -24,13 +24,13 @@ This is not a customer-service playbook for general feature questions; it is the
 
 ## SLAs
 
-| Commitment                                        | Target                                                                                        | Source                                                              |
-| ------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Incoming messages reach a human                   | within 24 hours during working days                                                           | HON-487 acceptance criteria                                         |
-| First substantive response                        | 3 working days                                                                                | auto-reply to incoming mail                                         |
-| GDPR DSR acknowledgement                          | 72 hours from receipt                                                                         | GDPR Art. 12(3) — internal commitment, stricter than the statute    |
-| GDPR DSR fulfilment                               | 30 days from receipt; extendable to 90 days for complex requests with notice to the requester | GDPR Art. 12(3)                                                     |
-| Breach-related mail (subprocessor or user report) | escalate immediately to the breach runbook                                                    | see `docs/RUNBOOKS/breach-notification.md` (HON-482, when it lands) |
+| Commitment                                        | Target                                                                                        | Source                                                                         |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Incoming messages reach a human                   | within 24 hours during working days                                                           | HON-487 acceptance criteria                                                    |
+| First substantive response                        | 3 working days                                                                                | auto-reply to incoming mail                                                    |
+| GDPR DSR acknowledgement                          | 72 hours from receipt                                                                         | GDPR Art. 12(3) — internal commitment, stricter than the statute               |
+| GDPR DSR fulfilment                               | 30 days from receipt; extendable to 90 days for complex requests with notice to the requester | GDPR Art. 12(3)                                                                |
+| Breach-related mail (subprocessor or user report) | escalate immediately to the breach runbook                                                    | see [`docs/RUNBOOKS/breach-notification.md`](breach-notification.md) (HON-482) |
 
 The 24-hour and 3-working-day commitments are softer than the GDPR clock and apply to all mail, not just DSRs. The 72-hour and 30-day commitments only apply to GDPR DSRs and are statutory — do not silently miss them.
 
@@ -108,7 +108,7 @@ If the mail provider changes (e.g. moving from a forwarder to a hosted mailbox):
 
 - `src/lib/support.ts` — shared `SUPPORT_EMAIL` constant
 - `src/app/error.tsx`, `src/app/global-error.tsx`, `src/components/footer.tsx`, `src/app/status/page.tsx` — surfaces that publish the address
-- `docs/RUNBOOKS/breach-notification.md` (HON-482, when it lands) — escalate breach-related mail there; severity classification and the 72-hour AKI clock live in that runbook
+- [`docs/RUNBOOKS/breach-notification.md`](breach-notification.md) (HON-482) — escalate breach-related mail there; severity classification and the 72-hour AKI clock live in that runbook
 - `docs/RUNBOOKS/status-page.md` — same support address; tone of incident-banner copy should match this runbook
 - HON-457 — privacy policy that cites this email as the DSR contact
 - HON-458 — GDPR data-export endpoint; cite when fulfilling export requests once it ships

@@ -10,6 +10,7 @@ Complete guide for deploying Honkadori to staging and production environments.
   - [Why This Process?](#why-this-process)
   - [Vercel Configuration](#vercel-configuration)
   - [Rollback Procedure](#rollback-procedure)
+  - [Security incidents and data breaches](#security-incidents-and-data-breaches)
 
 ## CI Pipeline
 
@@ -133,3 +134,7 @@ If production deployment fails:
 2. **Database rollback**: see [RUNBOOKS/database-recovery.md](RUNBOOKS/database-recovery.md) for migration rollback and PITR procedures.
 
 **Prevention**: Always test thoroughly in staging before production deployment.
+
+### Security incidents and data breaches
+
+A failed deploy that **exposes or corrupts personal data** is not just a rollback — it is a potential GDPR personal-data breach with a statutory 72-hour clock. If a deploy leaks a credential, exposes an unauthenticated endpoint, or corrupts user data, follow [RUNBOOKS/breach-notification.md](RUNBOOKS/breach-notification.md) (GDPR Art. 33/34) **in parallel** with the rollback above. The breach clock starts on awareness — do not wait for the rollback to finish before starting the breach process.
