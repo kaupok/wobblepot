@@ -14,21 +14,13 @@ import { z } from 'zod'
  */
 export const KNOWN_LOCALES = ['en', 'et'] as const
 
-// Subset of KNOWN_LOCALES that general users may pick in the locale selector.
-// DB + API still accept every KNOWN_LOCALES value — this gates the UI path only,
-// so a household whose persisted locale is outside this list (e.g. via a direct
-// DB write, or Accept-Language auto-resolution at onboarding) still round-trips:
-// the selector renders the current value as disabled rather than clamping state
-// on load. Keep this narrower than KNOWN_LOCALES until the matching transactional
-// email templates are localized and the partner-test iteration has closed,
-// otherwise the selector lands users in a half-finished experience (localized UI,
-// English emails). Lift by widening to `['en', 'et'] as const` once both
-// conditions are met.
-//
-// Per-environment override: `FEATURE_PUBLIC_LOCALES_FULL=1` widens the effective
-// set to KNOWN_LOCALES at runtime — see `effectivePublicLocales` /
-// `isEffectivelyPublicLocale`. Used on staging for dogfooding (HON-544).
-export const PUBLIC_LOCALES = ['en'] as const
+// Locales the locale selector and onboarding clamp expose to general users.
+// Today this is identical to `KNOWN_LOCALES`; the distinction is kept so a new
+// locale can be added to `KNOWN_LOCALES` (DB + API + translations land) before
+// being made selectable in the UI. New locales should not be added here until
+// transactional email templates exist in that locale (see HON-513) — otherwise
+// users land in localized UI but receive English emails.
+export const PUBLIC_LOCALES = ['en', 'et'] as const
 
 export type Locale = (typeof KNOWN_LOCALES)[number]
 export type PublicLocale = (typeof PUBLIC_LOCALES)[number]
@@ -43,18 +35,6 @@ export function isKnownLocale(value: string): value is Locale {
 
 export function isPublicLocale(value: string): value is PublicLocale {
   return (PUBLIC_LOCALES as readonly string[]).includes(value)
-}
-
-// `FEATURE_PUBLIC_LOCALES_FULL`-aware variant of PUBLIC_LOCALES. Server callers
-// read the env flag (via `serverEnv.FEATURE_PUBLIC_LOCALES_FULL === '1' || === 'true'`)
-// and pass the resolved boolean here so client code stays free of env imports
-// and the flag is straightforward to thread through tests as a prop.
-export function effectivePublicLocales(fullPublicEnabled: boolean): readonly Locale[] {
-  return fullPublicEnabled ? KNOWN_LOCALES : PUBLIC_LOCALES
-}
-
-export function isEffectivelyPublicLocale(value: string, fullPublicEnabled: boolean): boolean {
-  return (effectivePublicLocales(fullPublicEnabled) as readonly string[]).includes(value)
 }
 
 export function isDefaultLocale(locale: string | null | undefined): boolean {

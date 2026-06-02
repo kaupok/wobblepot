@@ -4,9 +4,7 @@ import {
   KNOWN_LOCALES,
   LocaleSchema,
   PUBLIC_LOCALES,
-  effectivePublicLocales,
   isDefaultLocale,
-  isEffectivelyPublicLocale,
   isKnownLocale,
   isPublicLocale,
 } from './locales'
@@ -70,51 +68,22 @@ describe('locales', () => {
       expect(PUBLIC_LOCALES).toContain(DEFAULT_LOCALE)
       expect(PUBLIC_LOCALES).toContain('en')
     })
+
+    it('contains Estonian (HON-549 — public flip)', () => {
+      expect(PUBLIC_LOCALES).toContain('et')
+    })
   })
 
   describe('isPublicLocale', () => {
-    it('returns true for locales in PUBLIC_LOCALES', () => {
-      expect(isPublicLocale('en')).toBe(true)
-    })
-
-    it('returns false for known locales that are not public', () => {
-      // Every KNOWN_LOCALES entry that is not in PUBLIC_LOCALES must fail the guard.
-      // Guards against a future change that widens PUBLIC_LOCALES without updating
-      // the selector gate logic.
-      for (const locale of KNOWN_LOCALES) {
-        if (!(PUBLIC_LOCALES as readonly string[]).includes(locale)) {
-          expect(isPublicLocale(locale)).toBe(false)
-        }
+    it('returns true for every public locale', () => {
+      for (const locale of PUBLIC_LOCALES) {
+        expect(isPublicLocale(locale)).toBe(true)
       }
     })
 
     it('returns false for unknown locales', () => {
       expect(isPublicLocale('fr')).toBe(false)
       expect(isPublicLocale('')).toBe(false)
-    })
-  })
-
-  describe('effectivePublicLocales', () => {
-    it('returns PUBLIC_LOCALES when the flag is off', () => {
-      expect(effectivePublicLocales(false)).toBe(PUBLIC_LOCALES)
-    })
-
-    it('returns KNOWN_LOCALES when the flag is on', () => {
-      expect(effectivePublicLocales(true)).toBe(KNOWN_LOCALES)
-    })
-  })
-
-  describe('isEffectivelyPublicLocale', () => {
-    it('matches PUBLIC_LOCALES when the flag is off', () => {
-      expect(isEffectivelyPublicLocale('en', false)).toBe(true)
-      expect(isEffectivelyPublicLocale('et', false)).toBe(false)
-      expect(isEffectivelyPublicLocale('fr', false)).toBe(false)
-    })
-
-    it('matches KNOWN_LOCALES when the flag is on', () => {
-      expect(isEffectivelyPublicLocale('en', true)).toBe(true)
-      expect(isEffectivelyPublicLocale('et', true)).toBe(true)
-      expect(isEffectivelyPublicLocale('fr', true)).toBe(false)
     })
   })
 })

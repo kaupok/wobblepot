@@ -105,13 +105,6 @@ const serverOnlyEnvSchema = z.object({
       'E2E-only bypass for the abuse-sensitive rate limiter (CI sign-up tests collide on the shared runner IP). Only activates when NEXT_PUBLIC_APP_ENV is one of ci/test/dev; any other value (production, staging, preview, unset, or typo) throws at module init — see src/lib/rate-limit.ts.',
     ),
 
-  FEATURE_PUBLIC_LOCALES_FULL: z
-    .enum(['1', 'true', '0', 'false'])
-    .optional()
-    .describe(
-      'Staging-only widen of PUBLIC_LOCALES to KNOWN_LOCALES so we can dogfood the Estonian experience without direct DB writes. When "1"/"true", the household locale selector and onboarding clamp expose every KNOWN_LOCALES entry; otherwise behavior matches PUBLIC_LOCALES (en only). Set on staging Vercel; leave unset on production until HON-512 + HON-513 close. See src/lib/i18n/locales.ts.',
-    ),
-
   POSTHOG_CLI_HOST: z
     .string()
     .url('POSTHOG_CLI_HOST must be a valid URL')
@@ -234,7 +227,6 @@ export const serverEnv = new Proxy(
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
     STATUS_INCIDENT_MESSAGE: process.env.STATUS_INCIDENT_MESSAGE,
     E2E_DISABLE_RATE_LIMIT: process.env.E2E_DISABLE_RATE_LIMIT,
-    FEATURE_PUBLIC_LOCALES_FULL: process.env.FEATURE_PUBLIC_LOCALES_FULL,
     POSTHOG_CLI_HOST: process.env.POSTHOG_CLI_HOST,
     POSTHOG_CLI_PROJECT_ID: process.env.POSTHOG_CLI_PROJECT_ID,
     POSTHOG_CLI_API_KEY: process.env.POSTHOG_CLI_API_KEY,
