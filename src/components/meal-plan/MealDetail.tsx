@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import { Body } from '@/components/ui/typography'
 import { NutritionDisclaimer } from '@/components/NutritionDisclaimer'
 import { NutritionSummary } from './NutritionSummary'
 import { IngredientList } from './IngredientList'
@@ -77,6 +78,9 @@ export function MealDetail({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Meal description — seeded MealTranslation renders in the household locale */}
+      {meal.description && <Body variant="muted">{meal.description}</Body>}
+
       {/* Nutrition summary */}
       {meal.nutrition && (
         <div className="flex flex-col gap-1">

@@ -45,6 +45,39 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}
 
+export const WithDescription: Story = {
+  args: {
+    meal: createMeal({
+      description: 'Lemon-garlic roast chicken with crisp potatoes and a bright pan sauce.',
+    }),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Seeded meals carry a description (a localized `MealTranslation` field). It renders as muted body text above the nutrition summary.',
+      },
+    },
+  },
+}
+
+export const LocalizedContent: Story = {
+  args: {
+    meal: createMeal({
+      name: 'Kanakarri',
+      description: 'Kreemjas kanakarri aromaatsete vürtsidega.',
+    }),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Estonian household: the API pre-translates the meal name + description (HON-547), so the detail view renders Estonian seeded content.',
+      },
+    },
+  },
+}
+
 export const WithPantry: Story = {
   args: { pantryIngredients: lemonGarlicChickenPantryWithOil },
 }

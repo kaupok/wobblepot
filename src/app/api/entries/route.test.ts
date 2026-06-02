@@ -255,6 +255,111 @@ describe('GET /api/entries', () => {
     expect(entry.meal.nutrition).toBeDefined()
   })
 
+  it('returns description (null) for en households without re-translating', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockPlanFindUnique.mockResolvedValue({ id: 'plan-1', householdId: 'household-123' } as never)
+    mockEntriesFindMany.mockResolvedValue([
+      {
+        id: 'entry-1',
+        date: new Date('2026-02-03T00:00:00'),
+        mealType: 'dinner',
+        status: 'planned',
+        rating: null,
+        preparationTips: null,
+        note: null,
+        servingOverride: null,
+        meal: {
+          id: 'meal-1',
+          name: 'Spaghetti Bolognese',
+          description: 'Classic beef ragù over spaghetti.',
+          kidFriendly: true,
+          timeMinutes: 45,
+          preparationNotes: null,
+          primaryProteinType: 'red_meat',
+          components: [],
+        },
+      },
+    ] as never)
+
+    const response = await GET(createRequest())
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.entries[0].meal.name).toBe('Spaghetti Bolognese')
+    // English household → canonical description passes through unchanged.
+    expect(data.entries[0].meal.description).toBe('Classic beef ragù over spaghetti.')
+  })
+
+  it('translates seeded meal name + description into the household locale (et)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue({
+      ...mockMembership,
+      household: { ...mockMembership.household, locale: 'et' },
+    } as never)
+    mockPlanFindUnique.mockResolvedValue({ id: 'plan-1', householdId: 'household-123' } as never)
+    mockEntriesFindMany.mockResolvedValue([
+      {
+        id: 'entry-1',
+        date: new Date('2026-02-03T00:00:00'),
+        mealType: 'dinner',
+        status: 'planned',
+        rating: null,
+        preparationTips: null,
+        note: null,
+        servingOverride: null,
+        meal: {
+          id: 'meal-1',
+          name: 'Chicken Curry',
+          description: 'Creamy chicken curry.',
+          kidFriendly: true,
+          timeMinutes: 30,
+          preparationNotes: null,
+          primaryProteinType: 'poultry',
+          // Coalesced over the canonical English fields by translateMeal.
+          translations: [
+            {
+              locale: 'et',
+              name: 'Kanakarri',
+              description: 'Kreemjas kanakarri aromaatsete vürtsidega.',
+              preparationNotes: null,
+            },
+          ],
+          components: [
+            {
+              ingredientId: 'ing-1',
+              quantityPerServing: 200,
+              isVague: false,
+              originalPhrase: null,
+              ingredient: {
+                id: 'ing-1',
+                name: 'chicken breast',
+                category: 'protein',
+                defaultUnit: 'g',
+                gramsPerPiece: null,
+                calories: 165,
+                protein: 31,
+                carbs: 0,
+                fat: 4,
+                translations: [{ locale: 'et', name: 'kanafilee' }],
+              },
+            },
+          ],
+        },
+      },
+    ] as never)
+
+    const response = await GET(createRequest())
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    const meal = data.entries[0].meal
+    expect(meal.name).toBe('Kanakarri')
+    expect(meal.description).toBe('Kreemjas kanakarri aromaatsete vürtsidega.')
+    // Ingredient names are localized too (HON-547 review).
+    expect(meal.components[0].ingredient.name).toBe('kanafilee')
+  })
+
   it('parses stored preparationTips when present', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)

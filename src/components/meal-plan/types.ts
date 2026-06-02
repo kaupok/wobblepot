@@ -25,6 +25,7 @@ export interface NutritionData {
 export interface MealData {
   id: string
   name: string
+  description?: string | null
   kidFriendly: boolean
   timeMinutes?: number | null
   preparationNotes?: string | null
