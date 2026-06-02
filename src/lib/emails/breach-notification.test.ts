@@ -77,4 +77,25 @@ describe('generateBreachNotificationEmail', () => {
     expect(result.text).toContain('What was affected')
     expect(result.text).toContain('What you should do')
   })
+
+  it('escapes HTML-significant characters in operator-typed fields (HTML only)', () => {
+    const result = generateBreachNotificationEmail({
+      summary: 'Some <unauthorized> access & a "leak" happened',
+      impact: 'Records with <tags> & "quotes" were exposed',
+      remediation: 'Change your password & stay alert',
+      supportUrl: 'https://example.com/status?a=1&b=2',
+    })
+
+    // HTML branch is escaped: no raw angle brackets from the input survive.
+    expect(result.html).toContain(
+      'Some &lt;unauthorized&gt; access &amp; a &quot;leak&quot; happened',
+    )
+    expect(result.html).toContain('href="https://example.com/status?a=1&amp;b=2"')
+    expect(result.html).not.toContain('<unauthorized>')
+
+    // Plain text is left raw — no HTML entities there.
+    expect(result.text).toContain('Some <unauthorized> access & a "leak" happened')
+    expect(result.text).toContain('https://example.com/status?a=1&b=2')
+    expect(result.text).not.toContain('&lt;')
+  })
 })

@@ -140,13 +140,14 @@ Triggered only for **High**-severity breaches. The email is plain-language, hone
 
 - **Template (code):** `src/lib/emails/breach-notification.ts` — `generateBreachNotificationEmail({ summary, impact, remediation, supportUrl })` returns `{ subject, html, text }`. Mirrors `reset-password.ts` (inline HTML, plain-text fallback).
 - **Sending:** there is no automated send trigger. At breach time the operator writes the four fields and sends via an ad-hoc script through Resend. Keep `summary`/`impact`/`remediation` short and honest; no legalese.
-- **Support link:** point `supportUrl` at the public status page (`/status`, see [`status-page.md`](status-page.md)) or `support@wobblepot.com` (`src/lib/support.ts`). Keep tone consistent with the status-page and DSR runbooks.
+- **Support link:** `supportUrl` becomes a clickable link in the email, so it **must be absolute** — a bare path or email won't resolve in a mail client. Use either `SUPPORT_EMAIL_HREF` from `src/lib/support.ts` (`mailto:support@wobblepot.com`) or the full status-page URL `https://wobblepot.com/status` (see [`status-page.md`](status-page.md)). Do **not** pass a relative `/status` or a bare `support@wobblepot.com`. Keep tone consistent with the status-page and DSR runbooks.
 
 Suggested field content for a typical High breach:
 
 - `summary`: "We're writing to let you know about a security incident that may have affected your account."
 - `impact`: "Your email address and account details may have been exposed. Your payment information was not affected." (Adjust to the actual scope.)
 - `remediation`: "As a precaution, please change your password and be cautious of emails asking for personal information."
+- `supportUrl`: `https://wobblepot.com/status` (absolute) or `SUPPORT_EMAIL_HREF` (`mailto:support@wobblepot.com`).
 
 ## Ongoing commitment: quarterly dry-run
 

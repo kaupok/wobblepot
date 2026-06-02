@@ -32,6 +32,21 @@ interface EmailContent {
 }
 
 /**
+ * Escapes HTML-significant characters so operator-typed free text (summary,
+ * impact, remediation) and the support URL cannot break the email markup. A
+ * stray `<`, `>`, `&`, or `"` in breach-time prose would otherwise corrupt the
+ * rendered HTML. The plain-text branch needs no escaping.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/**
  * Generates the affected-user breach notification email content.
  *
  * @param options - summary, impact, remediation, and a support URL
@@ -44,6 +59,12 @@ export function generateBreachNotificationEmail(
   const appName = serverEnv.NEXT_PUBLIC_APP_NAME
 
   const subject = `Important security notice about your ${appName} account`
+
+  // Escape operator-typed fields for the HTML branch only; plain text is raw.
+  const safeSummary = escapeHtml(summary)
+  const safeImpact = escapeHtml(impact)
+  const safeRemediation = escapeHtml(remediation)
+  const safeSupportUrl = escapeHtml(supportUrl)
 
   const html = `
 <!DOCTYPE html>
@@ -64,24 +85,24 @@ export function generateBreachNotificationEmail(
                 Important security notice
               </h1>
               <p style="margin: 0 0 24px; font-size: 16px; line-height: 24px; color: #3f3f46;">
-                ${summary}
+                ${safeSummary}
               </p>
               <h2 style="margin: 0 0 12px; font-size: 18px; font-weight: 600; color: #18181b;">
                 What was affected
               </h2>
               <p style="margin: 0 0 24px; font-size: 16px; line-height: 24px; color: #3f3f46;">
-                ${impact}
+                ${safeImpact}
               </p>
               <h2 style="margin: 0 0 12px; font-size: 18px; font-weight: 600; color: #18181b;">
                 What you should do
               </h2>
               <p style="margin: 0 0 32px; font-size: 16px; line-height: 24px; color: #3f3f46;">
-                ${remediation}
+                ${safeRemediation}
               </p>
               <table role="presentation" style="margin: 0 0 32px;">
                 <tr>
                   <td style="background-color: #18181b; border-radius: 6px;">
-                    <a href="${supportUrl}" style="display: inline-block; padding: 12px 24px; font-size: 16px; font-weight: 500; color: #ffffff; text-decoration: none;">
+                    <a href="${safeSupportUrl}" style="display: inline-block; padding: 12px 24px; font-size: 16px; font-weight: 500; color: #ffffff; text-decoration: none;">
                       Get help
                     </a>
                   </td>
