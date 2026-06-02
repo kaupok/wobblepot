@@ -592,7 +592,7 @@ detect_phase() {
   case "$last_marker" in
     "[plan-issue:complete]")      echo "implementing"; return ;;
     "[implement-issue:complete]") echo "reviewing"; return ;;
-    "[code-review:complete]")     echo "committing"; return ;;
+    "[branch-review:complete]")   echo "committing"; return ;;
     "[commit:complete]")          echo "pr-review"; return ;;
     "[create-pr:complete]")       echo "pr-review"; return ;;
     "[review-pr:complete]")       echo "merging"; return ;;

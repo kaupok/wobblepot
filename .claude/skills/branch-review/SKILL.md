@@ -180,7 +180,7 @@ Place each item in one of three buckets:
 Return a structured review with triage (under 1000 words):
 
 ```
-## Code Review: [branch-name]
+## Branch review: [branch-name]
 
 ### Context
 - **PR**: [title](url) or "No PR created"
