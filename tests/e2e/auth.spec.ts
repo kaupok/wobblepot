@@ -9,6 +9,7 @@ import {
   TEST_PASSWORD,
   TEST_NAME,
 } from './utils/test-helpers'
+import { e2eBaseURL } from './utils/db-helpers'
 
 test.describe('Authentication flows', () => {
   test('sign up -> onboarding -> create household -> view home', async ({ page }) => {
@@ -106,7 +107,7 @@ test.describe('Authentication flows', () => {
     // Sign up button. With the HON-488 invite-code field the form is taller
     // and the button now sits in the same vertical region as the banner;
     // without consent the click is intercepted and the test times out.
-    const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'
+    const baseURL = e2eBaseURL()
     await page
       .context()
       .addCookies([{ name: 'consent-v1', value: 'essential', url: baseURL, sameSite: 'Lax' }])
@@ -126,7 +127,7 @@ test.describe('Authentication flows', () => {
     // The flag defaults to `true` in CI (PostHog unset → fail-open default),
     // so the form will render the invite-code field. Pass `inviteCode: null`
     // to deliberately submit without one and assert the rejection.
-    const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'
+    const baseURL = e2eBaseURL()
     await page
       .context()
       .addCookies([{ name: 'consent-v1', value: 'essential', url: baseURL, sameSite: 'Lax' }])

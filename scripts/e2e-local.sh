@@ -34,10 +34,14 @@ cd "$REPO_ROOT"
 
 # Keep in lockstep with scripts/worktree-claude.sh — both pin the same neonctl.
 NEONCTL_VERSION="2.22.0"
-PORT="${E2E_LOCAL_PORT:-3100}"
 BRANCH_PREFIX="e2e-local"
+# Env-tunable knobs (E2E_LOCAL_PORT, E2E_GC_MIN_AGE_HOURS) are re-resolved in
+# resolve_config() *after* load_env, so a value set in .env takes effect too —
+# not only a shell-exported one (mirrors how NEON_* / SMOKE_* are read). The
+# values here are the fallback defaults.
+PORT="3100"
 # Age gate for `gc` so a concurrent run's fresh branch is never reaped.
-GC_MIN_AGE_HOURS="${E2E_GC_MIN_AGE_HOURS:-2}"
+GC_MIN_AGE_HOURS="2"
 
 RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; YELLOW=$'\033[1;33m'; NC=$'\033[0m'
 log()  { printf '%s\n' "$*" >&2; }
@@ -63,6 +67,13 @@ load_env() {
     source "$REPO_ROOT/.env"
     set +a
   fi
+}
+
+# Re-resolve env-tunable config AFTER load_env so .env values win over the
+# top-level defaults. Must be called once at the start of each command.
+resolve_config() {
+  PORT="${E2E_LOCAL_PORT:-$PORT}"
+  GC_MIN_AGE_HOURS="${E2E_GC_MIN_AGE_HOURS:-$GC_MIN_AGE_HOURS}"
 }
 
 require_neon() {
@@ -154,14 +165,14 @@ create_branch() {
 }
 
 cmd_gc() {
-  load_env; require_neon
+  load_env; resolve_config; require_neon
   info "Sweeping orphaned ${BRANCH_PREFIX}-* Neon branches older than ${GC_MIN_AGE_HOURS}h…"
   gc_orphans
   info "GC complete."
 }
 
 cmd_run() {
-  load_env; require_neon
+  load_env; resolve_config; require_neon
 
   local include_ai=0 has_target=0
   local passthrough=()
@@ -180,8 +191,9 @@ cmd_run() {
   trap on_exit EXIT INT TERM
   create_branch
 
-  # Runtime adapter reads DATABASE_URL (pooled); prisma CLI (migrate/seed) reads
-  # DATABASE_URL_UNPOOLED (see prisma.config.ts). Both point at the same branch.
+  # The app runtime AND the seed script (prisma/seed.ts) read DATABASE_URL
+  # (pooled); `prisma migrate` reads DATABASE_URL_UNPOOLED (see prisma.config.ts).
+  # Both point at the same branch, so exporting both covers every consumer.
   export DATABASE_URL="$POOLED"
   export DATABASE_URL_UNPOOLED="$UNPOOLED"
   export NEXT_PUBLIC_APP_ENV="test"
