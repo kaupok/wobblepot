@@ -117,7 +117,7 @@ Format:
 - Separator: `·` (U+00B7 middle dot) between ROUTES and COMPONENTS.
 - Keep it on one line so it stays grep-friendly — `grep -l 'ROUTES.*/profile' tests/e2e/` should cheaply return every spec that touches `/profile`.
 
-The header is load-bearing for the drift-prevention workflow. `/plan-issue` and `/code-review` use it to map a diff of `src/app/**/page.tsx` or modal components back to the specs that need updating in the same PR.
+The header is load-bearing for the drift-prevention workflow. `/plan-issue` and `/branch-review` use it to map a diff of `src/app/**/page.tsx` or modal components back to the specs that need updating in the same PR.
 
 ## Seed fixture contract
 

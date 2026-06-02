@@ -792,7 +792,7 @@ cmd_status() {
       case "$last_marker" in
         "[plan-issue:complete]")      phase="Implementing" ;;
         "[implement-issue:complete]") phase="Reviewing" ;;
-        "[code-review:complete]")     phase="Committing" ;;
+        "[branch-review:complete]")   phase="Committing" ;;
         "[commit:complete]")          phase="PR review" ;;
         "[create-pr:complete]")       phase="PR review" ;;
         "[review-pr:complete]")       phase="Merging" ;;
@@ -1666,7 +1666,7 @@ cmd_watch() {
               case "$last_marker" in
                 "[plan-issue:complete]")      phase="Implementing" ;;
                 "[implement-issue:complete]") phase="Reviewing" ;;
-                "[code-review:complete]")     phase="Committing" ;;
+                "[branch-review:complete]")   phase="Committing" ;;
                 "[commit:complete]")          phase="PR review" ;;
                 "[create-pr:complete]")       phase="PR review" ;;
                 "[review-pr:complete]")       phase="Merging" ;;
