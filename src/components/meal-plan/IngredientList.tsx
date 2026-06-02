@@ -1,10 +1,12 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Body, Ul, Li } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
+import { formatQuantity as formatLocaleQuantity } from '@/lib/i18n/format-number'
+import type { Locale } from '@/lib/i18n/locales'
 import { AvailabilityIndicator, getIngredientAvailabilitySets } from './AvailabilityIndicator'
 import type { MealAvailability, MealComponent, PantryIngredient } from './types'
 
@@ -43,6 +45,7 @@ function formatQuantity(
   quantityPerServing: number,
   householdSize: number,
   unit: 'g' | 'piece',
+  locale: Locale,
   isVague?: boolean,
   originalPhrase?: string | null,
 ): string {
@@ -54,9 +57,10 @@ function formatQuantity(
   const totalQuantity = quantityPerServing * householdSize
 
   if (unit === 'piece') {
-    // Quantity is already in pieces
-    const rounded = Math.round(totalQuantity * 10) / 10
-    return rounded % 1 === 0 ? String(Math.floor(rounded)) : rounded.toFixed(1)
+    // Quantity is already in pieces. Locale-aware so `et` renders "1,5" not
+    // "1.5"; whole counts collapse to "3" and fractions pick up the locale
+    // decimal separator (maximumFractionDigits: 1 matches the prior rounding).
+    return formatLocaleQuantity(totalQuantity, locale, { maximumFractionDigits: 1 })
   }
 
   // For grams, round to nearest integer and add unit
@@ -78,6 +82,7 @@ export function IngredientList({
 }: IngredientListProps) {
   const tDetail = useTranslations('meal-plan.detail')
   const tAvailability = useTranslations('meal-plan.availability')
+  const locale = useLocale() as Locale
   // Build maps for availability and staple status
   const { availableIds, stapleIds } = useMemo(() => {
     if (!pantryIngredients) {
@@ -116,6 +121,7 @@ export function IngredientList({
         comp.quantityPerServing,
         servings,
         comp.ingredient.defaultUnit,
+        locale,
         comp.isVague,
         comp.originalPhrase,
       )
@@ -123,7 +129,7 @@ export function IngredientList({
     })
 
     return tDetail('staplesPrefix', { list: items.join(', ') })
-  }, [stapleComponents, servings, tDetail])
+  }, [stapleComponents, servings, tDetail, locale])
 
   // Default header label
   const defaultHeader = (
@@ -186,6 +192,7 @@ export function IngredientList({
                   comp.quantityPerServing,
                   servings,
                   comp.ingredient.defaultUnit,
+                  locale,
                   comp.isVague,
                   comp.originalPhrase,
                 )}

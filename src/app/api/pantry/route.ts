@@ -5,8 +5,9 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
-import { Unit } from '@/generated/prisma/enums'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
+import { formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
+import type { Locale } from '@/lib/i18n/locales'
 import { captureApiError } from '@/lib/errors'
 
 const createPantryItemSchema = z.object({
@@ -14,41 +15,6 @@ const createPantryItemSchema = z.object({
   quantity: z.number().nullable().optional(),
   isStaple: z.boolean().optional().default(false),
 })
-
-/**
- * Format quantity for display in pantry needed quantities.
- * - Vague: show original phrase (e.g., "to taste")
- * - Pieces: convert grams to pieces using gramsPerPiece, round up
- * - Grams: show as "Xg" or "X.Xkg" for >= 1000g
- */
-function formatQuantity(
-  qtyInGrams: number,
-  unit: Unit,
-  gramsPerPiece: number | null,
-  isVague?: boolean,
-  originalPhrase?: string | null,
-): string {
-  // For vague quantities, show the original phrase
-  if (isVague && originalPhrase) {
-    return originalPhrase
-  }
-
-  if (unit === 'piece') {
-    // Convert grams to pieces, round up to ensure sufficient quantity
-    if (gramsPerPiece && gramsPerPiece > 0) {
-      const pieces = Math.ceil(qtyInGrams / gramsPerPiece)
-      return String(pieces)
-    }
-    // Fallback: if no gramsPerPiece, show as grams
-    return `${Math.round(qtyInGrams)}g`
-  }
-  // Grams
-  if (qtyInGrams >= 1000) {
-    const kg = qtyInGrams / 1000
-    return kg % 1 === 0 ? `${Math.floor(kg)}kg` : `${kg.toFixed(1)}kg`
-  }
-  return `${Math.round(qtyInGrams)}g`
-}
 
 export async function GET(request: NextRequest) {
   const session = await auth.api.getSession({
@@ -189,10 +155,13 @@ export async function GET(request: NextRequest) {
         ...(days && neededInfo !== undefined && neededInfo.quantity > 0
           ? {
               neededQuantity: neededInfo.quantity,
-              neededDisplayQuantity: formatQuantity(
+              // Locale-aware (shared with the shopping-list route) so `et`
+              // households see comma decimals: "1,5kg" instead of "1.5kg".
+              neededDisplayQuantity: formatShoppingQuantity(
                 neededInfo.quantity,
                 item.ingredient.defaultUnit,
                 item.ingredient.gramsPerPiece,
+                household.locale as Locale,
                 neededInfo.isVague,
                 neededInfo.originalPhrase,
               ),

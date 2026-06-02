@@ -93,6 +93,22 @@ export const InviteSent: Story = {
   },
 }
 
+export const InviteSentEstonian: Story = {
+  name: 'Invite sent (Estonian)',
+  args: {
+    existingInvite: createMemberInvite(),
+  },
+  globals: { locale: 'et' },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Active invite under the `et` locale — the expiry date renders via the centralized, localized `formatFullDate` helper (HON-546 item 5).',
+      },
+    },
+  },
+}
+
 export const Error: Story = {
   parameters: {
     msw: { handlers: errorInviteHandlers },

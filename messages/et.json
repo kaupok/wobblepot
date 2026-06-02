@@ -948,6 +948,7 @@
     "child": "Laps",
     "defaultName": "{type} {index}",
     "nameLabel": "Leibkonna nimi",
+    "defaultHouseholdName": "{name} leibkond",
     "back": "Tagasi",
     "continue": "Jätka",
     "submit": "Loo leibkond",

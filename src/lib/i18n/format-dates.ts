@@ -124,6 +124,47 @@ export function formatDateDisplay(
   }).format(date)
 }
 
+/**
+ * Format a full, long-form date: weekday, day, month, and year (e.g.
+ * "Monday, April 5, 2026" / "esmaspäev, 5. aprill 2026"). Used where a date
+ * needs to read unambiguously on its own, such as an invite-expiry line.
+ */
+export function formatFullDate(
+  date: Date,
+  locale: Locale,
+  options: DateFormatOptions = {},
+): string {
+  return new Intl.DateTimeFormat(locale, {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: options.timeZone,
+  }).format(date)
+}
+
+/**
+ * Format a date together with the time of day (e.g. "Apr 5, 2026, 2:30 PM" /
+ * "5. apr 2026, 14:30"). Hour convention (12h vs 24h) follows the locale.
+ * Used for audit-style timestamps; callers that want a fixed language (e.g.
+ * the English-only admin tooling) pass `DEFAULT_LOCALE` explicitly so the
+ * output never depends on the runtime's ambient locale.
+ */
+export function formatDateTime(
+  date: Date,
+  locale: Locale,
+  options: DateFormatOptions = {},
+): string {
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: options.timeZone,
+  }).format(date)
+}
+
 interface RelativeDateOptions extends DateFormatOptions {
   /**
    * Reference date for the "today" comparison. Defaults to `new Date()`.

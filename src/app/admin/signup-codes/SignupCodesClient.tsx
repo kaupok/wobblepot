@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
+import { formatDateTime } from '@/lib/i18n/format-dates'
+import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -118,7 +120,7 @@ export function SignupCodesClient({ initialCodes }: SignupCodesClientProps) {
                     <div className="flex flex-col gap-1">
                       <Body className="font-mono">{row.code}</Body>
                       <Body variant="small" className="text-muted-foreground">
-                        Created {new Date(row.createdAt).toLocaleString()}
+                        Created {formatDateTime(new Date(row.createdAt), DEFAULT_LOCALE)}
                         {row.note ? ` · ${row.note}` : ''}
                         {used ? ` · Used by ${row.usedByEmail ?? 'unknown'}` : ' · Unused'}
                       </Body>

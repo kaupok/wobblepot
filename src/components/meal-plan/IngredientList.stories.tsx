@@ -90,3 +90,14 @@ export const HideAvailability: Story = {
 export const LargerServings: Story = {
   args: { servings: 8, householdSize: 4 },
 }
+
+/**
+ * Estonian locale: piece quantities use a comma decimal separator. At 3 servings
+ * the lemon (0.5 per serving) renders as "1,5" — not "1.5" — exercising the
+ * locale-aware `formatQuantity` path (HON-546 item 1).
+ */
+export const EstonianLocale: Story = {
+  name: 'Estonian (comma decimals)',
+  globals: { locale: 'et' },
+  args: { servings: 3, householdSize: 3 },
+}
