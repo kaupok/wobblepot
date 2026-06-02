@@ -9,10 +9,27 @@
  * does not import cleanly in Playwright's plain-Node runtime.
  */
 
-const baseURL = (): string => process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'
+/**
+ * Base URL for direct (non-`page`) HTTP — invite seeding, consent cookies.
+ *
+ * Resolution order:
+ * 1. `PLAYWRIGHT_BASE_URL` — remote tiers (preview/staging smoke).
+ * 2. `E2E_LOCAL_PORT` — the isolated local runner (`pnpm test:e2e:local`)
+ *    serves on a dedicated port (3100), not 3000. Without this, raw `fetch`
+ *    here would hit :3000 (nothing listening) while `page.*` correctly uses
+ *    Playwright's :3100 baseURL — the two must agree.
+ * 3. `http://localhost:3000` — the default local dev server.
+ *
+ * Mirrors the `localBaseURL` logic in `playwright.config.ts`.
+ */
+export const e2eBaseURL = (): string =>
+  process.env.PLAYWRIGHT_BASE_URL ??
+  (process.env.E2E_LOCAL_PORT
+    ? `http://localhost:${process.env.E2E_LOCAL_PORT}`
+    : 'http://localhost:3000')
 
 export async function seedInviteCode(): Promise<string> {
-  const res = await fetch(`${baseURL()}/api/e2e-seed`, { method: 'POST' })
+  const res = await fetch(`${e2eBaseURL()}/api/e2e-seed`, { method: 'POST' })
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     throw new Error(
@@ -25,7 +42,7 @@ export async function seedInviteCode(): Promise<string> {
 }
 
 export async function deleteInviteCode(code: string): Promise<void> {
-  await fetch(`${baseURL()}/api/e2e-seed?code=${encodeURIComponent(code)}`, {
+  await fetch(`${e2eBaseURL()}/api/e2e-seed?code=${encodeURIComponent(code)}`, {
     method: 'DELETE',
   })
 }
