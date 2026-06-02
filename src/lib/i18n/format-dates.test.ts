@@ -6,6 +6,8 @@ import {
   formatDayShort,
   formatDayLong,
   formatDateDisplay,
+  formatFullDate,
+  formatDateTime,
   formatRelativeDate,
   type DatesTranslator,
 } from './format-dates'
@@ -201,5 +203,43 @@ describe('formatRelativeDate', () => {
         timeZone: 'UTC',
       }),
     ).toBe('[tomorrow]')
+  })
+})
+
+describe('formatFullDate', () => {
+  it('renders the long weekday, month, day, and year in en', () => {
+    const out = formatFullDate(MONDAY, 'en')
+    expect(out).toContain('Monday')
+    expect(out).toContain('January')
+    expect(out).toContain('12')
+    expect(out).toContain('2026')
+  })
+
+  it('renders localized weekday and month in et — guards against missing Intl data', () => {
+    const out = formatFullDate(MONDAY, 'et')
+    expect(out).toContain('esmaspäev')
+    expect(out.toLowerCase()).toContain('jaanuar')
+    expect(out).toContain('2026')
+  })
+})
+
+describe('formatDateTime', () => {
+  // A fixed instant rendered in a fixed timezone so the assertion never depends
+  // on the runtime's ambient zone. 2026-04-05T14:30:00Z.
+  const instant = new Date('2026-04-05T14:30:00Z')
+
+  it('renders date and time in en (12-hour clock)', () => {
+    const out = formatDateTime(instant, 'en', { timeZone: 'UTC' })
+    expect(out).toContain('Apr')
+    expect(out).toContain('2026')
+    expect(out).toContain('2:30')
+  })
+
+  it('renders date and time in et (24-hour clock + localized month)', () => {
+    const out = formatDateTime(instant, 'et', { timeZone: 'UTC' })
+    expect(out.toLowerCase()).toContain('apr')
+    expect(out).toContain('2026')
+    // Estonian uses the 24-hour clock — the meaningful locale split vs en's 2:30 PM.
+    expect(out).toContain('14:30')
   })
 })

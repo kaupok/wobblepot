@@ -948,6 +948,7 @@
     "child": "Child",
     "defaultName": "{type} {index}",
     "nameLabel": "Household name",
+    "defaultHouseholdName": "{name}'s Household",
     "back": "Back",
     "continue": "Continue",
     "submit": "Create household",

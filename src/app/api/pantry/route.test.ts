@@ -311,6 +311,100 @@ describe('GET /api/pantry', () => {
     // Household size 2, so 90 * 2 = 180g, divided by 60g per piece = 3 eggs
     expect(data.items[0].neededDisplayQuantity).toBe('3')
   })
+
+  it('formats kg needed quantities with a period decimal for en households', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockMemberCount.mockResolvedValue(2)
+
+    const mockItems = [
+      {
+        id: 'pantry-1',
+        householdId: 'household-123',
+        ingredientId: 'ing-1',
+        quantity: null,
+        isStaple: false,
+        updatedAt: new Date('2024-01-01'),
+        ingredient: {
+          id: 'ing-1',
+          name: 'Flour',
+          category: 'carb',
+          defaultUnit: 'g',
+          gramsPerPiece: null,
+        },
+      },
+    ]
+    mockFindMany.mockResolvedValue(mockItems as never)
+
+    // 750g per serving × 2 = 1500g → crosses the kg threshold → "1.5kg".
+    mockFindManyEntries.mockResolvedValue([
+      {
+        id: 'entry-1',
+        date: new Date(),
+        status: 'planned',
+        meal: { components: [{ ingredientId: 'ing-1', quantityPerServing: 750 }] },
+      },
+    ] as never)
+
+    const response = await GET(createMockRequest('http://localhost/api/pantry?days=7'))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.items[0].neededQuantity).toBe(1500)
+    expect(data.items[0].neededDisplayQuantity).toBe('1.5kg')
+  })
+
+  it('formats kg needed quantities with a comma decimal for et households', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'Anna', email: 'anna@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    // Estonian household → locale-aware comma decimal separator.
+    mockFindFirst.mockResolvedValue({
+      ...mockMembership,
+      household: { ...mockHousehold, locale: 'et' },
+    } as never)
+    mockMemberCount.mockResolvedValue(2)
+
+    const mockItems = [
+      {
+        id: 'pantry-1',
+        householdId: 'household-123',
+        ingredientId: 'ing-1',
+        quantity: null,
+        isStaple: false,
+        updatedAt: new Date('2024-01-01'),
+        ingredient: {
+          id: 'ing-1',
+          name: 'Jahu',
+          category: 'carb',
+          defaultUnit: 'g',
+          gramsPerPiece: null,
+        },
+      },
+    ]
+    mockFindMany.mockResolvedValue(mockItems as never)
+
+    // Same 1500g, but the et household must read "1,5kg" instead of "1.5kg".
+    mockFindManyEntries.mockResolvedValue([
+      {
+        id: 'entry-1',
+        date: new Date(),
+        status: 'planned',
+        meal: { components: [{ ingredientId: 'ing-1', quantityPerServing: 750 }] },
+      },
+    ] as never)
+
+    const response = await GET(createMockRequest('http://localhost/api/pantry?days=7'))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.items[0].neededQuantity).toBe(1500)
+    expect(data.items[0].neededDisplayQuantity).toBe('1,5kg')
+  })
 })
 
 describe('POST /api/pantry', () => {

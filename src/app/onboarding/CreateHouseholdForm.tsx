@@ -44,8 +44,8 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
     }
   }, [justTransitioned])
 
-  // Step 1: Household name
-  const [name, setName] = useState(`${userName}'s Household`)
+  // Step 1: Household name (localized default; the user can edit it)
+  const [name, setName] = useState(() => t('defaultHouseholdName', { name: userName }))
 
   // Step 2: Members (size-first approach from #348)
   const [householdSize, setHouseholdSize] = useState(1)

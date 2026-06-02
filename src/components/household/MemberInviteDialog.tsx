@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Body } from '@/components/ui/typography'
+import { formatFullDate } from '@/lib/i18n/format-dates'
+import type { Locale } from '@/lib/i18n/locales'
 import {
   Dialog,
   DialogContent,
@@ -36,7 +38,7 @@ export function MemberInviteDialog({
   onInviteCreated,
 }: MemberInviteDialogProps) {
   const t = useTranslations('household.invite')
-  const locale = useLocale()
+  const locale = useLocale() as Locale
   const [error, setError] = useState('')
   const [createdInvite, setCreatedInvite] = useState<MemberInvite | null>(existingInvite)
   const [copied, setCopied] = useState(false)
@@ -139,12 +141,7 @@ export function MemberInviteDialog({
             </div>
             <Body variant="muted">
               {t('expires', {
-                date: new Date(displayInvite.expiresAt).toLocaleDateString(locale, {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                }),
+                date: formatFullDate(new Date(displayInvite.expiresAt), locale),
               })}
             </Body>
             <div className="flex flex-col gap-2">

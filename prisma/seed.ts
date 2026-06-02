@@ -7,7 +7,7 @@ import type { IngredientInput } from './seed-types'
 import { newIngredients, newMeals } from './seed-expansion'
 import { comprehensiveIngredients } from './seed-comprehensive'
 import { importCoverageIngredients } from './seed-import-coverage'
-import { mealTranslationsEt } from './seed-meal-translations-et'
+import { mealTranslationsEt, type MealTranslationEt } from './seed-meal-translations-et'
 import { ingredientTranslationsEt } from './seed-ingredient-translations-et'
 import { normalizeIngredientKey } from '../src/lib/i18n/ingredient-key'
 
@@ -3829,17 +3829,37 @@ async function seedMeals() {
 async function seedMealTranslationsEt() {
   console.log('Seeding meal translations (et)...')
 
-  let seededCount = 0
-  let skippedCount = 0
-
+  // Index translations by their English meal name. Meal names are matched
+  // EXACTLY (not normalized like ingredient keys): "Shepherd's Pie" (beef, in
+  // seed.ts) and "Shepherd s Pie" (lamb, in seed-expansion.ts) are deliberately
+  // distinct meals that normalization would wrongly collapse. A duplicate
+  // enName is therefore a hard error.
+  const byName = new Map<string, MealTranslationEt['et']>()
   for (const entry of mealTranslationsEt) {
-    const meal = await prisma.meal.findFirst({
-      where: { name: entry.enName, householdId: null },
-    })
+    if (byName.has(entry.enName)) {
+      throw new Error(`Duplicate et meal translation entry for "${entry.enName}"`)
+    }
+    byName.set(entry.enName, entry.et)
+  }
 
-    if (!meal) {
-      console.warn(`Skipping translation for "${entry.enName}" — meal not found`)
-      skippedCount++
+  // Reconcile against the LIVE global meal set rather than iterating the
+  // translation array: every seeded global Meal must end up with an `et` row,
+  // so a missing translation is a hard failure. This is the guard that would
+  // have caught the apostrophe/spacing drift behind HON-546 — a seeded meal
+  // silently rendering its English name to `et` households — before it shipped.
+  // Mirrors seedIngredientTranslationsEt's "every row" enforcement.
+  const globals = await prisma.meal.findMany({
+    where: { householdId: null },
+    select: { id: true, name: true },
+  })
+
+  const missing: string[] = []
+  let seededCount = 0
+
+  for (const meal of globals) {
+    const et = byName.get(meal.name)
+    if (!et) {
+      missing.push(meal.name)
       continue
     }
 
@@ -3848,13 +3868,19 @@ async function seedMealTranslationsEt() {
       create: {
         mealId: meal.id,
         locale: 'et',
-        name: entry.et.name,
-        description: entry.et.description,
+        name: et.name,
+        description: et.description,
+        // preparationNotes is intentionally null for every seeded meal: seeded
+        // meals carry no English prep notes either, and the meal-detail prep
+        // section is driven by the AI preparation-tips feature (HON-523). The
+        // field is reserved for user-authored notes, which keep their
+        // creator-time locale per the HON-499 content principle.
+        // (HON-546 item 4 — confirmed intentional, nothing to translate.)
         preparationNotes: null,
       },
       update: {
-        name: entry.et.name,
-        description: entry.et.description,
+        name: et.name,
+        description: et.description,
         preparationNotes: null,
       },
     })
@@ -3862,7 +3888,15 @@ async function seedMealTranslationsEt() {
     seededCount++
   }
 
-  console.log(`Seeded ${seededCount} meal translations (et) (${skippedCount} skipped)`)
+  if (missing.length > 0) {
+    const preview = missing.slice(0, 20).join(', ')
+    const suffix = missing.length > 20 ? `, …(+${missing.length - 20} more)` : ''
+    throw new Error(
+      `Missing et translation for ${missing.length} seeded meal(s): ${preview}${suffix}`,
+    )
+  }
+
+  console.log(`Seeded ${seededCount} meal translations (et)`)
 }
 
 async function seedIngredientTranslationsEt() {
