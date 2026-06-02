@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test'
-import { seedInviteCode } from './db-helpers'
+import { seedInviteCode, e2eBaseURL } from './db-helpers'
 
 /**
  * Default test password. Must meet Better Auth's `minPasswordLength` (12+
@@ -52,7 +52,7 @@ export async function signUp(
   // focused on its real assertion without a per-test "click Accept all"
   // dance. Uses `essential` which satisfies the banner without flipping
   // the analytics flag.
-  const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'
+  const baseURL = e2eBaseURL()
   await page.context().addCookies([
     {
       name: 'consent-v1',

@@ -32,11 +32,35 @@ Vercel preview" check only appears once a run is actually dispatched.
 
 ## Running locally
 
+**Use `pnpm test:e2e:local`.** It runs the suite against a throwaway,
+fully-seeded **Neon branch** — never your dev database — then deletes the
+branch on exit:
+
 ```bash
-pnpm test:e2e                       # Full suite against local dev server
-pnpm test:e2e --grep=@smoke         # Just smoke specs (what tiers 2+3 run)
-pnpm test:e2e --grep-invert=@ai     # What tier 1 runs — no Claude calls
+pnpm test:e2e:local                          # all specs EXCEPT @ai (cost-safe default)
+pnpm test:e2e:local tests/e2e/foo.spec.ts    # one spec (runs @ai if that spec is tagged)
+pnpm test:e2e:local --ai                     # the whole suite INCLUDING @ai specs
+pnpm test:e2e:local --keep                   # leave the branch alive to inspect it
+pnpm test:e2e:local -- --headed --debug      # forward args after `--` to playwright
+pnpm test:e2e:local gc                        # delete orphaned e2e-local-* branches (crash recovery)
 ```
+
+The wrapper (`scripts/e2e-local.sh`) forks an ephemeral branch off
+`NEON_PARENT_BRANCH` (default `staging`), applies migrations, seeds it, and
+starts a **dedicated dev server on port 3100** with `NEXT_PUBLIC_APP_ENV=test`
+and `E2E_DISABLE_RATE_LIMIT=1`. Requires `NEON_API_KEY` + `NEON_PROJECT_ID` in
+`.env` (the same ones the worktree workflow uses — see
+[`docs/PARALLEL_WORKFLOW.md`](../../docs/PARALLEL_WORKFLOW.md)); `@ai` specs also
+need `ANTHROPIC_API_KEY`. Because it runs on :3100 with its own server, a normal
+`pnpm dev` on :3000 can keep running alongside it.
+
+> **Why not just `pnpm test:e2e`?** That boots `pnpm dev`, which loads `.env`
+> and talks to your **real dev database** — every sign-up, household, and meal
+> plan a spec creates is written there for good (specs use unique emails, so the
+> cruft is invisible but real), and `@ai` specs fail outright unless you hand-set
+> the rate-limit bypass. Treat raw `pnpm test:e2e` as the advanced escape hatch:
+> it uses whatever `DATABASE_URL` is in your environment, and reuses an existing
+> :3000 server. Prefer `:local` for day-to-day runs.
 
 To exercise the remote-URL wiring without a local server:
 
