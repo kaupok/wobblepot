@@ -561,7 +561,7 @@ Stop here with failure details.
 
 ```
 [auto-implement] ✓ All checks passing
-[code-review:complete]
+[branch-review:complete]
 [auto-implement] Phase 4/7 complete → Proceeding to Phase 5
 ```
 

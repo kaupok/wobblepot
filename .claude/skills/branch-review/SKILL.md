@@ -1,6 +1,6 @@
 ---
-name: code-review
-description: Review all code changes on the current branch (committed, staged, unstaged, untracked). Pulls in PR and Linear issue context when available.
+name: branch-review
+description: Review all code changes on the current branch (committed, staged, unstaged, untracked) with PR and Linear issue context, then triage into actionable categories. This is the project's full branch-review + triage flow; distinct from the built-in /code-review (diff bug/cleanup review with --fix/--comment/ultra).
 context: fork
 agent: general-purpose
 allowed-tools:
@@ -12,7 +12,7 @@ allowed-tools:
   - mcp__linear-server__list_comments
 ---
 
-# Code Review
+# Branch review
 
 Review all changes on the current branch, provide structured feedback, and triage issues into actionable categories.
 
@@ -252,7 +252,7 @@ Files: `file1.ts`, `file2.ts`, ...
 After outputting the review, add the completion marker:
 
 ```
-[code-review:complete] Review finished - [APPROVE/REQUEST_CHANGES/NEEDS_DISCUSSION]
+[branch-review:complete] Review finished - [APPROVE/REQUEST_CHANGES/NEEDS_DISCUSSION]
 ```
 
 ## Important

@@ -200,6 +200,6 @@ After outputting the review triage, add the completion marker:
 ## Notes
 
 - This skill fetches EXTERNAL review feedback (from the Claude PR reviewer via `scripts/pr-review.sh`)
-- For LOCAL code review before committing, use `/code-review` instead
+- For LOCAL code review before committing, use `/branch-review` instead
 - **Bias toward action** - when in doubt, put it in Address Now
 - **Defer is last resort** - only for work that genuinely takes hours and is out of scope

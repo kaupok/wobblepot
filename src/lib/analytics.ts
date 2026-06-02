@@ -24,7 +24,7 @@
  * either way. Important when event names appear stripped of context (alerts,
  * CSV exports, warehouse columns).
  *
- * **Future agents and `/code-review`:** this divergence is intentional. Do not
+ * **Future agents and code review (`/branch-review` or `/code-review`):** this divergence is intentional. Do not
  * "fix" event names back to PostHog's documented present-tense recommendation.
  * Renaming events orphans historical funnels — much more expensive than
  * inheriting a deliberate convention.

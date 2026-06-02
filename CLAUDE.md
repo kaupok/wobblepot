@@ -320,15 +320,17 @@ See [`.storybook/README.md`](./.storybook/README.md) for the play-function patte
 
 ## Skill Workflow
 
-**Recommended sequence:** `/next-issue` → `/plan-issue HON-XX` → `/implement-issue HON-XX` → `/code-review` → `/commit --pr` → `/triage-pr-comments` → `/commit --push` → `/merge`
+**`/branch-review` vs `/code-review`:** `/branch-review` is _our_ project skill — full current-branch review (committed + staged + unstaged + untracked) with Linear/PR context and triage into actionable categories. `/code-review` is the Claude Code **built-in** — a diff bug/cleanup reviewer with effort levels and `--fix` / `--comment` / `ultra` (cloud) flags. They were renamed apart to avoid a name collision (the built-in shipped `code-review` ~2026-05). Use `/branch-review` for the issue workflow below; reach for the built-in `/code-review --fix` or `ultra` when you want autofix or a deep cloud pass.
 
-**Single session (small issues):** `/code-review` → fix → `/commit --pr` → `/triage-pr-comments` → fix → `/commit --push` → `/merge`
+**Recommended sequence:** `/next-issue` → `/plan-issue HON-XX` → `/implement-issue HON-XX` → `/branch-review` → `/commit --pr` → `/triage-pr-comments` → `/commit --push` → `/merge`
+
+**Single session (small issues):** `/branch-review` → fix → `/commit --pr` → `/triage-pr-comments` → fix → `/commit --push` → `/merge`
 
 **Multi-session (larger issues):**
 
 1. `/next-issue` → `/plan-issue` → approve plan
 2. `/implement-issue` → write code
-3. `/code-review` → fix → `/commit --pr`
+3. `/branch-review` → fix → `/commit --pr`
 4. `/triage-pr-comments` → fix → `/commit --push` (if review comments)
 5. `/merge` (after PR approval)
 
@@ -340,7 +342,7 @@ See [`.storybook/README.md`](./.storybook/README.md) for the play-function patte
 
 **Codebase audit:** `/tech-audit` — Scan for outdated deps, type issues, code quality, test coverage, security patterns, database health, bundle concerns, and pattern adherence. Use `--focus <area>` to audit a single area.
 
-**Cross-session context:** Plans are stored as Linear comments by `/plan-issue`, so `/implement-issue` and `/code-review` can fetch them in new sessions.
+**Cross-session context:** Plans are stored as Linear comments by `/plan-issue`, so `/implement-issue` and `/branch-review` can fetch them in new sessions.
 
 ### Writing for Agents
 
@@ -366,7 +368,7 @@ This applies to `/ideate`, `/refine-backlog`, `/plan-issue`, and any content tha
 
 The failure mode this prevents: checking one file, finding nothing, and generalising to "the feature doesn't exist" — then taking bad actions like promoting a shipped issue to a blocker.
 
-**Don't use `ScheduleWakeup` as a "fallback" inside skills with defined endpoints.** Skills like `/auto-implement`, `/implement-issue`, `/merge`, `/code-review` complete naturally (success, failure, or user input). If you're waiting on a long-running thing (CI, build, deploy), use `Bash` with `run_in_background: true` and an `until`-poll — that emits a single completion notification when the loop exits. A wake-up scheduled "just in case" will fire after the work has already finished and re-trigger the skill on stale state (HON-529 cycle re-fired `/auto-implement 529` ~9 minutes after the PR had already merged). `ScheduleWakeup` is for true polling/iteration use cases (`/loop`, watching for an external state change like a Linear issue moving to "In Review"), not for defined-endpoint work.
+**Don't use `ScheduleWakeup` as a "fallback" inside skills with defined endpoints.** Skills like `/auto-implement`, `/implement-issue`, `/merge`, `/branch-review` complete naturally (success, failure, or user input). If you're waiting on a long-running thing (CI, build, deploy), use `Bash` with `run_in_background: true` and an `until`-poll — that emits a single completion notification when the loop exits. A wake-up scheduled "just in case" will fire after the work has already finished and re-trigger the skill on stale state (HON-529 cycle re-fired `/auto-implement 529` ~9 minutes after the PR had already merged). `ScheduleWakeup` is for true polling/iteration use cases (`/loop`, watching for an external state change like a Linear issue moving to "In Review"), not for defined-endpoint work.
 
 ## Review Focus
 
