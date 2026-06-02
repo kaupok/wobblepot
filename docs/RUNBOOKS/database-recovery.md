@@ -215,7 +215,7 @@ After any recovery, confirm the fix held and nothing new broke:
 
 If the incident involved **personal data being corrupted or exposed** (not just broken, but _disclosed_ to the wrong party or _modified_ in ways users could not have expected), it may trigger GDPR Art. 33 (72-hour supervisory-authority notification) or Art. 34 (notifying affected users).
 
-Escalate immediately via [`docs/RUNBOOKS/breach-notification.md`](breach-notification.md) (landing with [HON-482](https://linear.app/honkadori/issue/HON-482)). The 72-hour clock starts on _awareness_, not on full investigation. Do not wait to finish this runbook before starting the breach process — they run in parallel.
+Escalate immediately via [`docs/RUNBOOKS/breach-notification.md`](breach-notification.md) ([HON-482](https://linear.app/honkadori/issue/HON-482)). The 72-hour clock starts on _awareness_, not on full investigation. Do not wait to finish this runbook before starting the breach process — they run in parallel.
 
 ## Quarterly restore drill
 
@@ -241,7 +241,7 @@ If a drill takes longer than 30 minutes, the runbook has a gap. Fix it.
 - [`docs/DEPLOYMENT.md`](../DEPLOYMENT.md) — standard forward deploys.
 - [`CLAUDE.md`](../../CLAUDE.md) — destructive-command policy (single source of truth).
 - [`docs/RUNBOOKS/neon-branch-gc.md`](neon-branch-gc.md) — automated cleanup of `auto--hon-*` branches (related safety system).
-- [`docs/RUNBOOKS/breach-notification.md`](breach-notification.md) — escalation when personal data is corrupted or exposed ([HON-482](https://linear.app/honkadori/issue/HON-482), lands after this runbook).
+- [`docs/RUNBOOKS/breach-notification.md`](breach-notification.md) — escalation when personal data is corrupted or exposed ([HON-482](https://linear.app/honkadori/issue/HON-482)).
 - [`docs/ENVIRONMENT_SETUP.md`](../ENVIRONMENT_SETUP.md) — where `NEON_API_KEY` / `NEON_PROJECT_ID` come from.
 - [HON-481](https://linear.app/honkadori/issue/HON-481) — account deletion cascade (soft-delete path that reduces the risk of playbook #3).
 - [HON-473](https://linear.app/honkadori/issue/HON-473) — this runbook's tracking issue.
