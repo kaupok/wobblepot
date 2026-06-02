@@ -6,7 +6,12 @@ import { prisma } from '@/lib/prisma'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { toDateString, parseLocalDate } from '@/lib/meal-planning/dates'
 import { parseStoredTips } from '@/lib/tips'
-import { mealTranslationsInclude, translateMeal } from '@/lib/i18n/content'
+import {
+  ingredientTranslationsInclude,
+  mealTranslationsInclude,
+  translateIngredient,
+  translateMeal,
+} from '@/lib/i18n/content'
 import type { MealPlanEntryStatus } from '@/generated/prisma/enums'
 import { captureApiError } from '@/lib/errors'
 
@@ -93,7 +98,7 @@ export async function GET(request: NextRequest) {
           include: {
             components: {
               include: {
-                ingredient: true,
+                ingredient: { include: ingredientTranslationsInclude(locale) },
               },
             },
             ...mealTranslationsInclude(locale),
@@ -135,7 +140,10 @@ export async function GET(request: NextRequest) {
                   originalPhrase: comp.originalPhrase,
                   ingredient: {
                     id: comp.ingredient.id,
-                    name: comp.ingredient.name,
+                    // Localize ingredient names too, so the timeline meal-detail
+                    // doesn't mix an et title/description with en ingredients
+                    // (HON-547 review). en is a no-op via isDefaultLocale.
+                    name: translateIngredient(comp.ingredient, locale).name,
                     category: comp.ingredient.category,
                     defaultUnit: comp.ingredient.defaultUnit,
                     gramsPerPiece: comp.ingredient.gramsPerPiece,

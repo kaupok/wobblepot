@@ -118,10 +118,23 @@ test.describe(
       )
       expect(mealEntries.length, 'generated plan should contain meals').toBeGreaterThan(0)
 
-      // ── 6. Meal plan: a card shows a seeded *Estonian* meal name. Prefer a
-      //       distinctly-Estonian name (et ≠ en) with a description — that pair
-      //       proves /api/entries actually translated, not just echoed English. ──
+      // ── 6. Meal plan: a card shows a seeded *Estonian* meal name. Prefer an
+      //       entry that proves name + description + ingredient localization in
+      //       one modal, using distinctly-Estonian strings (et ≠ en) so it can't
+      //       pass on an English echo. ──
+      const distinctlyEtIngredient = (e: Entry & { meal: NonNullable<Entry['meal']> }) =>
+        e.meal.components
+          .map((c) => c.ingredient.name)
+          .find((n) => etIngredientNames.has(n) && !enIngredientNames.has(n))
+
       const nameEntry =
+        mealEntries.find(
+          (e) =>
+            etMealNames.has(e.meal.name) &&
+            !enMealNames.has(e.meal.name) &&
+            !!etMeals.get(e.meal.name)?.description &&
+            !!distinctlyEtIngredient(e),
+        ) ??
         mealEntries.find(
           (e) =>
             etMealNames.has(e.meal.name) &&
@@ -138,18 +151,24 @@ test.describe(
       ).toBeTruthy()
       const etMealName = nameEntry!.meal.name
       const etMealDescription = etMeals.get(etMealName)!.description!
+      const etIngredientInMeal = distinctlyEtIngredient(nameEntry!)
 
       // The MealCard renders the meal name as the button that opens its detail modal.
       await expect(
         page.getByRole('button', { name: etMealName, exact: true }).first(),
       ).toBeVisible()
 
-      // ── 7. Meal detail: et name (dialog title) + et description render. ──
+      // ── 7. Meal detail: et name (dialog title), et description, and et
+      //       ingredient names all render — the timeline detail is fully
+      //       localized, not just the title (HON-547 review). ──
       await page.getByRole('button', { name: etMealName, exact: true }).first().click()
       const detailDialog = page.getByRole('dialog')
       await expect(detailDialog).toBeVisible()
       await expect(detailDialog.getByRole('heading', { name: etMealName })).toBeVisible()
       await expect(detailDialog.getByText(etMealDescription)).toBeVisible()
+      if (etIngredientInMeal) {
+        await expect(detailDialog.getByText(etIngredientInMeal).first()).toBeVisible()
+      }
       await page.keyboard.press('Escape')
       await expect(detailDialog).toBeHidden()
 

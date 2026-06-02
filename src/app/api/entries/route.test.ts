@@ -341,6 +341,7 @@ describe('GET /api/entries', () => {
                 protein: 31,
                 carbs: 0,
                 fat: 4,
+                translations: [{ locale: 'et', name: 'kanafilee' }],
               },
             },
           ],
@@ -355,6 +356,8 @@ describe('GET /api/entries', () => {
     const meal = data.entries[0].meal
     expect(meal.name).toBe('Kanakarri')
     expect(meal.description).toBe('Kreemjas kanakarri aromaatsete vürtsidega.')
+    // Ingredient names are localized too (HON-547 review).
+    expect(meal.components[0].ingredient.name).toBe('kanafilee')
   })
 
   it('parses stored preparationTips when present', async () => {
