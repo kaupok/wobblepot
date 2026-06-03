@@ -11,7 +11,12 @@ const vagueSalt = createMealComponent({
   originalPhrase: 'to taste',
 })
 
-const componentsWithVagueSalt = [...lemonGarlicChickenComponentsFull, vagueSalt]
+// 350g/serving crosses 1000g total at 3+ servings, exercising the
+// locale-aware grouping on the gram path (HON-556): en "1,400g", et "1400g"
+// (CLDR Estonian only groups at 5+ digits).
+const rice = createMealComponent({ ingredientId: 'short-grain-rice', quantityPerServing: 350 })
+
+const componentsWithVagueSalt = [...lemonGarlicChickenComponentsFull, rice, vagueSalt]
 
 const meta = {
   title: 'Meal plan/IngredientList',
@@ -94,7 +99,10 @@ export const LargerServings: Story = {
 /**
  * Estonian locale: piece quantities use a comma decimal separator. At 3 servings
  * the lemon (0.5 per serving) renders as "1,5" — not "1.5" — exercising the
- * locale-aware `formatQuantity` path (HON-546 item 1).
+ * locale-aware `formatQuantity` path (HON-546 item 1). The rice (350g per
+ * serving → 1050g) exercises the locale-aware gram path: `et` renders
+ * "1050g" — no grouping below 5 digits per CLDR — where `en` would show
+ * "1,050g" (HON-556).
  */
 export const EstonianLocale: Story = {
   name: 'Estonian (comma decimals)',

@@ -514,7 +514,8 @@
     "confirm": "Confirm",
     "clear": "Clear",
     "back": "Back",
-    "nutritionDisclaimer": "Nutrition values are estimates for guidance only and are not medical advice. Consult a healthcare professional for dietary decisions."
+    "nutritionDisclaimer": "Nutrition values are estimates for guidance only and are not medical advice. Consult a healthcare professional for dietary decisions.",
+    "aiUsageCapWarning": "AI usage is at {percentage}% of your monthly cap."
   },
   "nav": {
     "skipToContent": "Skip to content",

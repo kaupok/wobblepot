@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
 
@@ -23,6 +24,7 @@ const SESSION_STORAGE_KEY = 'ai-usage-toast-shown'
  * Renders nothing — the component exists purely for its side effect.
  */
 export function AiUsageToast() {
+  const t = useTranslations('common')
   const { data } = useQuery<AiUsageResponse>({
     queryKey: ['ai-usage'],
     queryFn: () => apiFetch<AiUsageResponse>('/api/households/me/ai-usage'),
@@ -41,8 +43,12 @@ export function AiUsageToast() {
     if (alreadyShown === monthKey) return
 
     window.sessionStorage.setItem(SESSION_STORAGE_KEY, monthKey)
-    toast.warning(`AI usage is at ${Math.round(data.percentage)}% of your monthly cap.`)
-  }, [data])
+    // Clamp to 99 so a household at e.g. 99.6% (below cap, AI routes still
+    // serving) never reads a misleading "100%" — the ≥100 over-cap state has
+    // its own handling (429 from AI routes) and is excluded by the gate above.
+    const percentage = Math.min(99, Math.round(data.percentage))
+    toast.warning(t('aiUsageCapWarning', { percentage }))
+  }, [data, t])
 
   return null
 }
