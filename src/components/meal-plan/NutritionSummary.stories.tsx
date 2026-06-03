@@ -40,3 +40,15 @@ export const CompactWithVagueEstimates: Story = {
     components: [{ isVague: true }],
   },
 }
+
+/**
+ * Four-digit values exercise the locale-aware `formatInteger` path (HON-556):
+ * under the Storybook locale toggle, `en` renders "1,250 kcal" while `et`
+ * renders "1250 kcal" — CLDR Estonian only groups at 5+ digits ("10 000"),
+ * so the absence of the en comma is the locale-correct behavior here.
+ */
+export const FourDigitCalories: Story = {
+  args: {
+    nutrition: { calories: 1250, protein: 95, carbs: 130, fat: 48 },
+  },
+}

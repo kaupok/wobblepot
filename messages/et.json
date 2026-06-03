@@ -514,7 +514,8 @@
     "confirm": "Kinnita",
     "clear": "Eemalda",
     "back": "Tagasi",
-    "nutritionDisclaimer": "Toiteväärtused on üksnes hinnangulised juhised, mitte meditsiiniline nõuanne. Toitumisotsuste tegemiseks pöördu tervishoiutöötaja poole."
+    "nutritionDisclaimer": "Toiteväärtused on üksnes hinnangulised juhised, mitte meditsiiniline nõuanne. Toitumisotsuste tegemiseks pöördu tervishoiutöötaja poole.",
+    "aiUsageCapWarning": "AI-kasutus on jõudnud {percentage}%-ni sinu kuu limiidist."
   },
   "nav": {
     "skipToContent": "Liigu sisu juurde",

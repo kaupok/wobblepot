@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
 
@@ -23,6 +24,7 @@ const SESSION_STORAGE_KEY = 'ai-usage-toast-shown'
  * Renders nothing — the component exists purely for its side effect.
  */
 export function AiUsageToast() {
+  const t = useTranslations('common')
   const { data } = useQuery<AiUsageResponse>({
     queryKey: ['ai-usage'],
     queryFn: () => apiFetch<AiUsageResponse>('/api/households/me/ai-usage'),
@@ -41,8 +43,8 @@ export function AiUsageToast() {
     if (alreadyShown === monthKey) return
 
     window.sessionStorage.setItem(SESSION_STORAGE_KEY, monthKey)
-    toast.warning(`AI usage is at ${Math.round(data.percentage)}% of your monthly cap.`)
-  }, [data])
+    toast.warning(t('aiUsageCapWarning', { percentage: Math.round(data.percentage) }))
+  }, [data, t])
 
   return null
 }

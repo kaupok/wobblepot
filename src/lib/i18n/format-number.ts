@@ -25,6 +25,8 @@ export function formatQuantity(
 /**
  * Locale-aware integer formatter. Picks up locale grouping conventions
  * (e.g. en uses comma as a thousands separator, et uses a non-breaking space).
+ * Note: CLDR Estonian only groups at 5+ digits — `1250` renders "1250" in et
+ * (vs "1,250" in en); the NBSP separator first appears at "10 000".
  * Use for calorie / macro / count values.
  */
 export function formatInteger(value: number, locale: Locale): string {
