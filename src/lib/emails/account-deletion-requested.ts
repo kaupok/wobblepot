@@ -18,7 +18,7 @@ import { LEGAL_ENTITY_NAME } from '@/lib/support'
  */
 
 interface AccountDeletionRequestedEmailOptions {
-  /** When the account is hard-deleted (request time + 30 days). */
+  /** When the account is hard-deleted — the cron-aligned purge instant. */
   purgeDate: Date
   /** Address the user emails to cancel deletion within the grace window. */
   recoveryEmail: string

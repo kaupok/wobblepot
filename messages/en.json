@@ -922,7 +922,7 @@
         "membership": "Your membership in \"{householdName}\""
       },
       "graceNote": "We'll email you the exact deletion date and how to cancel. You'll be signed out on all devices now.",
-      "scheduledToast": "Account scheduled for deletion on {date, date, long}. Check your email to cancel.",
+      "scheduledToast": "Account scheduled for deletion on {date}. Check your email to cancel.",
       "cannotDeleteOwner": "Warning: You cannot delete your account because you are the owner of \"{householdName}\" with {count, plural, one {# other member} other {# other members}}. Please transfer ownership or remove other members first.",
       "accountLine": "Account: {email}",
       "cancel": "Cancel",

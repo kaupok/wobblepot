@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { authClient } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
@@ -33,6 +33,7 @@ export function DeleteAccountDialog({
   memberCount,
 }: DeleteAccountDialogProps) {
   const t = useTranslations('profile.delete')
+  const locale = useLocale()
   const router = useRouter()
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState('')
@@ -56,9 +57,16 @@ export function DeleteAccountDialog({
 
       // Surface the scheduled purge date returned by the route. The Toaster is
       // mounted at the root layout, so this survives the redirect below.
+      // Format in UTC to match the confirmation email (next-intl has no timeZone
+      // configured, so its default would use the browser zone and could show a
+      // different calendar day than the email — see HON-481 review).
       const { purgeScheduledFor } = (await response.json()) as { purgeScheduledFor?: string }
       if (purgeScheduledFor) {
-        toast.success(t('scheduledToast', { date: new Date(purgeScheduledFor) }))
+        const date = new Intl.DateTimeFormat(locale, {
+          dateStyle: 'long',
+          timeZone: 'UTC',
+        }).format(new Date(purgeScheduledFor))
+        toast.success(t('scheduledToast', { date }))
       }
 
       // Sign out and redirect

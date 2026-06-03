@@ -104,23 +104,24 @@ enum AiFeature {
 // Run the generate command again if adding Better Auth plugins that require new tables
 
 model User {
-  id            String    @id
-  name          String
-  email         String
-  emailVerified Boolean   @default(false)
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @default(now()) @updatedAt
+  id                   String            @id
+  name                 String
+  email                String
+  emailVerified        Boolean           @default(false)
+  image                String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @default(now()) @updatedAt
   // GDPR Art. 17 soft-delete (HON-481). `deletedAt` non-null means the user
   // requested deletion; sign-in is blocked while set. `purgeScheduledFor` is
-  // when the daily cron hard-cascades the account (request time + 30 days).
-  deletedAt         DateTime?
-  purgeScheduledFor DateTime?
-  sessions      Session[]
-  accounts      Account[]
+  // when the daily cron hard-cascades the account — the first 03:00 UTC cron
+  // run at/after request time + 30 days (see route.ts computePurgeInstant).
+  deletedAt            DateTime?
+  purgeScheduledFor    DateTime?
+  sessions             Session[]
+  accounts             Account[]
   householdMemberships HouseholdMember[]
-  signupCodesCreated SignupCode[] @relation("SignupCodeCreatedBy")
-  signupCodeUsed     SignupCode?  @relation("SignupCodeUsedBy")
+  signupCodesCreated   SignupCode[]      @relation("SignupCodeCreatedBy")
+  signupCodeUsed       SignupCode?       @relation("SignupCodeUsedBy")
 
   @@unique([email])
   @@index([purgeScheduledFor])
@@ -208,16 +209,16 @@ model Household {
   aiCapUsd  Decimal  @default(5.00) @db.Decimal(10, 4)
   createdAt DateTime @default(now())
 
-  members              HouseholdMember[]
-  preferences          HouseholdPreferences?
-  mealPlans            MealPlan[]
-  meals                Meal[]
-  pantryItems          PantryItem[]
-  invites              HouseholdInvite[]
-  favoriteMeals        FavoriteMeal[]
-  customShoppingItems  CustomShoppingItem[]
-  aiUsage              AiUsage[]
-  ingredients          Ingredient[]
+  members             HouseholdMember[]
+  preferences         HouseholdPreferences?
+  mealPlans           MealPlan[]
+  meals               Meal[]
+  pantryItems         PantryItem[]
+  invites             HouseholdInvite[]
+  favoriteMeals       FavoriteMeal[]
+  customShoppingItems CustomShoppingItem[]
+  aiUsage             AiUsage[]
+  ingredients         Ingredient[]
 
   @@map("household")
 }
@@ -354,10 +355,10 @@ model Meal {
   deletedAt          DateTime?
   household          Household?  @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
-  components    MealComponent[]
-  planEntries   MealPlanEntry[]
-  favoritedBy   FavoriteMeal[]
-  translations  MealTranslation[]
+  components   MealComponent[]
+  planEntries  MealPlanEntry[]
+  favoritedBy  FavoriteMeal[]
+  translations MealTranslation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -469,12 +470,12 @@ model PantryItem {
 }
 
 model CustomShoppingItem {
-  id           String      @id @default(cuid())
+  id           String   @id @default(cuid())
   householdId  String
   name         String
   ingredientId String?
-  checked      Boolean     @default(false)
-  createdAt    DateTime    @default(now())
+  checked      Boolean  @default(false)
+  createdAt    DateTime @default(now())
 
   household  Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
   ingredient Ingredient? @relation(fields: [ingredientId], references: [id])

@@ -922,7 +922,7 @@
         "membership": "Sinu liikmesus „{householdName}\""
       },
       "graceNote": "Saadame sulle e-kirja täpse kustutamiskuupäeva ja tühistamise juhistega. Sind logitakse nüüd kõikidest seadmetest välja.",
-      "scheduledToast": "Konto on planeeritud kustutamiseks {date, date, long}. Tühistamiseks vaata oma e-posti.",
+      "scheduledToast": "Konto on planeeritud kustutamiseks {date}. Tühistamiseks vaata oma e-posti.",
       "cannotDeleteOwner": "Hoiatus: kontot ei saa kustutada, sest oled „{householdName}\" omanik ja seal on {count, plural, one {# muu liige} other {# muud liiget}}. Palun anna omandiõigus üle või eemalda enne teised liikmed.",
       "accountLine": "Konto: {email}",
       "cancel": "Tühista",

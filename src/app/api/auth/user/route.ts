@@ -12,6 +12,35 @@ import { PRIVACY_EMAIL } from '@/lib/support'
 const GRACE_WINDOW_DAYS = 30
 
 /**
+ * UTC hour the purge cron runs. MUST match the schedule in `vercel.json`
+ * (`"0 3 * * *"`). Used to align `purgeScheduledFor` to the actual cron run so
+ * the confirmation email's date is the real deletion date, not an estimate.
+ */
+const PURGE_CRON_UTC_HOUR = 3
+
+/**
+ * The instant the account will actually be hard-deleted: the first cron run
+ * (PURGE_CRON_UTC_HOUR:00 UTC) strictly after `now + 30 days`.
+ *
+ * Aligning to the cron run instead of using a bare `now + 30 days` means:
+ * - the user always gets at least the full 30-day grace window (we never purge
+ *   early — deletion is irreversible, so we err toward keeping data),
+ * - the date in the confirmation email/toast is the real deletion date,
+ * - retention is therefore 30 days plus up to one cron interval (≤24h). That
+ *   bounded overage is the deliberate trade-off for the recovery guarantee;
+ *   see docs/RUNBOOKS/gdpr-deletion.md.
+ */
+function computePurgeInstant(now: Date): Date {
+  const earliest = new Date(now.getTime() + GRACE_WINDOW_DAYS * 24 * 60 * 60 * 1000)
+  const purge = new Date(earliest)
+  purge.setUTCHours(PURGE_CRON_UTC_HOUR, 0, 0, 0)
+  if (purge <= earliest) {
+    purge.setUTCDate(purge.getUTCDate() + 1)
+  }
+  return purge
+}
+
+/**
  * Sends the deletion-confirmation email. Best-effort: the soft-delete is
  * already committed by the time this runs, so a Resend failure is logged but
  * never thrown — we must not trap the user in a half-deleted state, and the
@@ -89,7 +118,7 @@ export async function DELETE() {
     }
 
     const now = new Date()
-    const purgeScheduledFor = new Date(now.getTime() + GRACE_WINDOW_DAYS * 24 * 60 * 60 * 1000)
+    const purgeScheduledFor = computePurgeInstant(now)
 
     // Soft-delete: mark the account and sign the user out everywhere. Household
     // data and the user row are left intact until the grace window expires.

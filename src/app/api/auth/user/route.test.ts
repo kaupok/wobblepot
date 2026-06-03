@@ -60,7 +60,8 @@ const mockTransaction = vi.mocked(prisma.$transaction)
 const mockIsEmailConfigured = vi.mocked(isEmailConfigured)
 const mockSend = vi.mocked(resend!.emails.send)
 
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
+const DAY_MS = 24 * 60 * 60 * 1000
+const THIRTY_DAYS_MS = 30 * DAY_MS
 
 /** Wires `$transaction` to run the callback against a fake tx, capturing the
  *  soft-delete mocks so tests can assert on them. */
@@ -119,7 +120,7 @@ describe('DELETE /api/auth/user', () => {
     expect(mockTransaction).not.toHaveBeenCalled()
   })
 
-  it('soft-deletes: sets deletedAt + a ~30-day purge date and deletes sessions', async () => {
+  it('soft-deletes: sets deletedAt + a cron-aligned purge instant and deletes sessions', async () => {
     mockGetSession.mockResolvedValue(signedInUser)
     mockIsUserSoleOwner.mockResolvedValue({ isSoleOwner: false })
     const { userUpdate, sessionDeleteMany } = mockSoftDeleteTx()
@@ -131,7 +132,6 @@ describe('DELETE /api/auth/user', () => {
     expect(data.success).toBe(true)
     expect(data.purgeScheduledFor).toBeTruthy()
 
-    // user.update called with both fields, ~30 days apart
     expect(userUpdate).toHaveBeenCalledOnce()
     const updateArg = userUpdate.mock.calls[0]![0] as {
       where: { id: string }
@@ -140,16 +140,23 @@ describe('DELETE /api/auth/user', () => {
     expect(updateArg.where).toEqual({ id: 'user-123' })
     expect(updateArg.data.deletedAt).toBeInstanceOf(Date)
     expect(updateArg.data.purgeScheduledFor).toBeInstanceOf(Date)
-    const diff = updateArg.data.purgeScheduledFor.getTime() - updateArg.data.deletedAt.getTime()
-    expect(diff).toBe(THIRTY_DAYS_MS)
+
+    // Purge is the first 03:00 UTC cron run at/after the 30-day mark: aligned to
+    // 03:00:00.000 UTC, never before 30 days, never more than a cron interval after.
+    const purge = updateArg.data.purgeScheduledFor
+    expect(purge.getUTCHours()).toBe(3)
+    expect(purge.getUTCMinutes()).toBe(0)
+    expect(purge.getUTCSeconds()).toBe(0)
+    expect(purge.getUTCMilliseconds()).toBe(0)
+    const diff = purge.getTime() - updateArg.data.deletedAt.getTime()
+    expect(diff).toBeGreaterThanOrEqual(THIRTY_DAYS_MS)
+    expect(diff).toBeLessThan(THIRTY_DAYS_MS + DAY_MS)
 
     // sessions invalidated
     expect(sessionDeleteMany).toHaveBeenCalledWith({ where: { userId: 'user-123' } })
 
     // returned purge date matches the persisted one
-    expect(new Date(data.purgeScheduledFor).getTime()).toBe(
-      updateArg.data.purgeScheduledFor.getTime(),
-    )
+    expect(new Date(data.purgeScheduledFor).getTime()).toBe(purge.getTime())
   })
 
   it('sends the confirmation email after a successful soft-delete', async () => {

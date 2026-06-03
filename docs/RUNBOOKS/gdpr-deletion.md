@@ -10,7 +10,8 @@ User clicks "Delete account" (/profile → DeleteAccountDialog)
         ▼
 DELETE /api/auth/user
   • sole-owner-with-other-members guard (rejects; must transfer ownership first)
-  • set user.deletedAt = now, user.purgeScheduledFor = now + 30 days
+  • set user.deletedAt = now, user.purgeScheduledFor = first 03:00 UTC run
+    at/after (now + 30 days)  ← the real deletion instant (see note below)
   • delete all sessions  → signed out everywhere
   • send confirmation email (states purge date + how to cancel)
         │
@@ -32,6 +33,14 @@ Hard cascade complete → row gone → backup copies clear within ~24h (Neon PIT
 ```
 
 The hard cascade lives in `src/lib/auth/purge-user.ts` (`purgeUser`), shared by the cron. The soft-delete and the cron never run destructive SQL by hand — they use Prisma + the schema's `onDelete: Cascade` rules.
+
+### Why `purgeScheduledFor` is aligned to the cron run
+
+`purgeScheduledFor` is not a bare `now + 30 days`; it is the **first 03:00 UTC cron run at or after** that mark (`computePurgeInstant` in `route.ts`, keyed off `PURGE_CRON_UTC_HOUR`, which must match `vercel.json`). Two consequences:
+
+- **The confirmation email's date is the real deletion date**, not an estimate that the once-daily cron then misses by a day.
+- **The user always gets at least the full 30 days** to recover — we never purge early, because deletion is irreversible and erring toward keeping data is the safer failure.
+- **Trade-off:** retention is therefore 30 days **plus up to one cron interval (≤24h)**. "Purged within 30 days" in the privacy policy (HON-457) should be read with that batch granularity in mind; tighten by running the cron more than once daily if a stricter bound is ever required. This is the deliberate product call from the HON-481 review — favour the recovery guarantee over a to-the-minute retention bound.
 
 ## Per-model cascade table
 
