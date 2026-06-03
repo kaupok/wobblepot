@@ -16,7 +16,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Site footer rendered on every page (authenticated and public). Shows the support email link and the cookie-settings entry point. HON-457 (privacy/terms links) will extend it.',
+          'Site footer rendered on every page (authenticated and public). Shows the privacy policy and terms of service links (HON-457), the support email link, and the cookie-settings entry point.',
       },
     },
   },
@@ -44,6 +44,11 @@ export const Default: Story = {
     const canvas = within(canvasElement)
     const link = await canvas.findByRole('link', { name: /support@wobblepot\.com/i })
     await expect(link).toHaveAttribute('href', 'mailto:support@wobblepot.com')
+    // Legal links (HON-457)
+    const privacy = await canvas.findByRole('link', { name: /privacy policy/i })
+    await expect(privacy).toHaveAttribute('href', '/privacy')
+    const terms = await canvas.findByRole('link', { name: /terms of service/i })
+    await expect(terms).toHaveAttribute('href', '/terms')
   },
 }
 

@@ -74,6 +74,8 @@ export async function GET() {
             image: true,
             createdAt: true,
             updatedAt: true,
+            acceptedTermsAt: true,
+            acceptedTermsVersion: true,
           },
         })
 
@@ -199,20 +201,12 @@ export async function GET() {
           }),
         )
 
-        // HON-457 will add `acceptedTermsAt` / `acceptedTermsVersion` to the
-        // User model and to the `select` above. Prefer the DB value if
-        // present, stub to null otherwise — placing the explicit keys after
-        // the spread would silently overwrite real values once HON-457 lands.
-        const userWithTerms = user as typeof user & {
-          acceptedTermsAt?: Date | null
-          acceptedTermsVersion?: string | null
-        }
-
+        // Consent fields (HON-457) come straight from the `select` above:
+        // `acceptedTermsAt: Date | null`, `acceptedTermsVersion: number | null`.
+        // Pre-policy users export as nulls.
         return {
           user: {
             ...user,
-            acceptedTermsAt: userWithTerms.acceptedTermsAt ?? null,
-            acceptedTermsVersion: userWithTerms.acceptedTermsVersion ?? null,
             sessions,
           },
           households: households.filter((h): h is NonNullable<typeof h> => h !== null),

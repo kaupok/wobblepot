@@ -1,4 +1,4 @@
-// ROUTES: /sign-up, /sign-in, /onboarding, /, /profile · COMPONENTS: SignUpForm (with HON-488 invite-code gate), SignInForm, CreateHouseholdForm, Header (User menu)
+// ROUTES: /sign-up, /sign-in, /onboarding, /, /profile · COMPONENTS: SignUpForm (with HON-488 invite-code gate + HON-457 terms-consent checkbox), SignInForm, CreateHouseholdForm, Header (User menu)
 import { test, expect } from '@playwright/test'
 import {
   generateUniqueEmail,
@@ -116,6 +116,9 @@ test.describe('Authentication flows', () => {
     await page.getByLabel('Name').fill(TEST_NAME)
     await page.getByLabel('Email').fill(generateUniqueEmail())
     await page.getByLabel('Password').fill('short') // Only 5 chars; auth.ts sets minPasswordLength to 12
+    // Tick the terms-consent checkbox (HON-457) so the submit button enables —
+    // this test asserts the HTML5 password validation, not the consent gate.
+    await page.locator('#acceptTerms').click()
 
     await page.getByRole('button', { name: 'Sign up' }).click()
 
@@ -141,6 +144,10 @@ test.describe('Authentication flows', () => {
     await page.getByLabel('Name').fill(TEST_NAME)
     await page.getByLabel('Email').fill(generateUniqueEmail())
     await page.getByLabel('Password').fill(TEST_PASSWORD)
+    // Tick the terms-consent checkbox (HON-457): the server validates terms
+    // before the invite code, so leaving it unchecked would surface the wrong
+    // rejection — this test asserts the invite-code error specifically.
+    await page.locator('#acceptTerms').click()
     // Intentionally do not fill the invite-code field, but bypass the
     // browser's `required` validator so the form actually submits — we want
     // to assert the server-side rejection, not the HTML5 layer.
@@ -151,6 +158,45 @@ test.describe('Authentication flows', () => {
     await expect(page).toHaveURL('/sign-up')
     const inviteAlert = page.locator('[role="alert"]').filter({ hasText: /invite code/i })
     await expect(inviteAlert).toBeVisible()
+  })
+
+  test('sign-up cannot complete without the terms-consent checkbox (HON-457)', async ({ page }) => {
+    const baseURL = e2eBaseURL()
+    await page
+      .context()
+      .addCookies([{ name: 'consent-v1', value: 'essential', url: baseURL, sameSite: 'Lax' }])
+    await page.goto('/sign-up')
+
+    await page.getByLabel('Name').fill(TEST_NAME)
+    await page.getByLabel('Email').fill(generateUniqueEmail())
+    await page.getByLabel('Password').fill(TEST_PASSWORD)
+
+    // Client layer: submit is disabled while the checkbox is unchecked.
+    const submit = page.locator('form button[type="submit"]')
+    await expect(submit).toBeDisabled()
+
+    // Server layer: force past the client gate (re-enable the button, drop
+    // the `required` validators) and assert the backend still rejects the
+    // sign-up without `acceptedTerms: true`.
+    await submit.evaluate((el) => el.removeAttribute('disabled'))
+    // Strip every HTML5 `required` in the form — including the hidden native
+    // input Radix renders behind the #acceptTerms checkbox button (removing
+    // the attribute from the visible button alone leaves that input's
+    // validator active and the submit silently never fires).
+    await page
+      .locator('form')
+      .first()
+      .evaluate((form) =>
+        form.querySelectorAll('[required]').forEach((el) => el.removeAttribute('required')),
+      )
+    await submit.click()
+
+    // Stay on /sign-up and surface the friendly terms-consent error.
+    await expect(page).toHaveURL('/sign-up')
+    const termsAlert = page
+      .locator('[role="alert"]')
+      .filter({ hasText: /terms of service and privacy policy/i })
+    await expect(termsAlert).toBeVisible()
   })
 
   test('returnUrl redirects to specified page after sign in', async ({ page }) => {

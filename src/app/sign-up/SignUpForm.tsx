@@ -9,6 +9,7 @@ import { useAuthErrorMessage } from '@/lib/auth-errors-client'
 import { getValidReturnUrl } from '@/lib/utils'
 import { track } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
@@ -36,6 +37,7 @@ export function SignUpForm({
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [inviteCode, setInviteCode] = useState('')
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSlowRequest, setIsSlowRequest] = useState(false)
@@ -55,8 +57,10 @@ export function SignUpForm({
       // Better Auth's email signup endpoint forwards unknown body fields to
       // the request-level `hooks.before` middleware (see src/lib/auth.ts).
       // The invite code is consumed there; it must NOT be persisted on the
-      // user row, so it is intentionally not in `additionalFields`.
-      const payload: Record<string, unknown> = { email, password, name }
+      // user row, so it is intentionally not in `additionalFields`. The same
+      // applies to `acceptedTerms`: the server validates the flag and stamps
+      // `acceptedTermsAt` + `acceptedTermsVersion` itself (HON-457).
+      const payload: Record<string, unknown> = { email, password, name, acceptedTerms }
       if (inviteRequired) {
         payload.inviteCode = inviteCode
       }
@@ -171,6 +175,43 @@ export function SignUpForm({
                 </Body>
               </div>
             )}
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="acceptTerms"
+                checked={acceptedTerms}
+                onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+                required
+                disabled={isLoading}
+                aria-invalid={!!error}
+                aria-describedby={error ? 'form-error' : undefined}
+              />
+              <Label htmlFor="acceptTerms" id="consent-label" className="leading-snug font-normal">
+                <span>
+                  {t.rich('consentLabel', {
+                    terms: (chunks) => (
+                      <Link
+                        href="/terms"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline"
+                      >
+                        {chunks}
+                      </Link>
+                    ),
+                    privacy: (chunks) => (
+                      <Link
+                        href="/privacy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline"
+                      >
+                        {chunks}
+                      </Link>
+                    ),
+                  })}
+                </span>
+              </Label>
+            </div>
             {error && (
               <Body id="form-error" variant="small" className="text-destructive" role="alert">
                 {error}
@@ -185,7 +226,14 @@ export function SignUpForm({
         </CardContent>
         <CardFooter className="pt-6">
           <div className="flex w-full flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isLoading || !acceptedTerms}
+              // Tells screen-reader users *why* the button is disabled while
+              // the consent checkbox is unchecked.
+              aria-describedby={!acceptedTerms ? 'consent-label' : undefined}
+            >
               {isLoading ? t('submitting') : t('submit')}
             </Button>
             <Body variant="small" className="text-muted-foreground text-center">

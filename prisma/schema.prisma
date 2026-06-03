@@ -117,6 +117,12 @@ model User {
   // run at/after request time + 30 days (see route.ts computePurgeInstant).
   deletedAt            DateTime?
   purgeScheduledFor    DateTime?
+  // Versioned Terms/Privacy consent captured at sign-up (HON-457). Stamped
+  // server-side in `databaseHooks.user.create.before` (src/lib/auth.ts) —
+  // never client-supplied. Version mirrors CURRENT_TERMS_VERSION
+  // (src/lib/consent.ts); nullable so pre-policy users remain valid rows.
+  acceptedTermsAt      DateTime?
+  acceptedTermsVersion Int?
   sessions             Session[]
   accounts             Account[]
   householdMemberships HouseholdMember[]

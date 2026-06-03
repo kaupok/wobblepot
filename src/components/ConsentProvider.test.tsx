@@ -1,7 +1,22 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+// The provider renders CookieBanner, whose `t.rich` (privacy-policy link)
+// returns React elements — the default vitest next-intl mock (a plain
+// string-resolver) cannot handle it. Use the real provider.
+vi.unmock('next-intl')
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { NextIntlClientProvider } from 'next-intl'
+import type { ReactNode } from 'react'
+import enMessages from '../../messages/en.json'
 import { ConsentProvider, useAnalyticsConsent } from '@/components/ConsentProvider'
+
+function withIntl(children: ReactNode) {
+  return (
+    <NextIntlClientProvider locale="en" messages={enMessages}>
+      {children}
+    </NextIntlClientProvider>
+  )
+}
 
 function clearAllCookies() {
   for (const part of document.cookie.split('; ')) {
@@ -29,9 +44,11 @@ beforeEach(() => {
 describe('ConsentProvider', () => {
   it('starts undecided when no cookie is present and renders the banner', () => {
     render(
-      <ConsentProvider initialDecision={null}>
-        <Probe />
-      </ConsentProvider>,
+      withIntl(
+        <ConsentProvider initialDecision={null}>
+          <Probe />
+        </ConsentProvider>,
+      ),
     )
     expect(screen.getByTestId('granted').textContent).toBe('null')
     expect(screen.getByRole('region', { name: /cookie consent/i })).toBeInTheDocument()
@@ -40,9 +57,11 @@ describe('ConsentProvider', () => {
   it('starts granted when the SSR cookie was "all" and hides the banner', () => {
     document.cookie = 'consent-v1=all; Path=/'
     render(
-      <ConsentProvider initialDecision="all">
-        <Probe />
-      </ConsentProvider>,
+      withIntl(
+        <ConsentProvider initialDecision="all">
+          <Probe />
+        </ConsentProvider>,
+      ),
     )
     expect(screen.getByTestId('granted').textContent).toBe('true')
     expect(screen.queryByRole('region', { name: /cookie consent/i })).not.toBeInTheDocument()
@@ -51,9 +70,11 @@ describe('ConsentProvider', () => {
   it('starts opted-out when the SSR cookie was "essential" and hides the banner', () => {
     document.cookie = 'consent-v1=essential; Path=/'
     render(
-      <ConsentProvider initialDecision="essential">
-        <Probe />
-      </ConsentProvider>,
+      withIntl(
+        <ConsentProvider initialDecision="essential">
+          <Probe />
+        </ConsentProvider>,
+      ),
     )
     expect(screen.getByTestId('granted').textContent).toBe('false')
     expect(screen.queryByRole('region', { name: /cookie consent/i })).not.toBeInTheDocument()
@@ -61,9 +82,11 @@ describe('ConsentProvider', () => {
 
   it('falls back to undecided if the cookie disappears between SSR and hydration', async () => {
     render(
-      <ConsentProvider initialDecision="all">
-        <Probe />
-      </ConsentProvider>,
+      withIntl(
+        <ConsentProvider initialDecision="all">
+          <Probe />
+        </ConsentProvider>,
+      ),
     )
     await act(async () => {
       await Promise.resolve()
@@ -76,9 +99,11 @@ describe('ConsentProvider', () => {
   it('grant() writes the cookie and flips state', async () => {
     const user = userEvent.setup()
     render(
-      <ConsentProvider initialDecision={null}>
-        <Probe />
-      </ConsentProvider>,
+      withIntl(
+        <ConsentProvider initialDecision={null}>
+          <Probe />
+        </ConsentProvider>,
+      ),
     )
 
     await user.click(screen.getByRole('button', { name: 'grant' }))
@@ -90,9 +115,11 @@ describe('ConsentProvider', () => {
   it('withdraw() writes the cookie and flips state', async () => {
     const user = userEvent.setup()
     render(
-      <ConsentProvider initialDecision="all">
-        <Probe />
-      </ConsentProvider>,
+      withIntl(
+        <ConsentProvider initialDecision="all">
+          <Probe />
+        </ConsentProvider>,
+      ),
     )
 
     await user.click(screen.getByRole('button', { name: 'withdraw' }))
@@ -104,9 +131,11 @@ describe('ConsentProvider', () => {
   it('reconciles with the client cookie on mount if SSR and client disagree', async () => {
     document.cookie = 'consent-v1=all; Path=/'
     render(
-      <ConsentProvider initialDecision={null}>
-        <Probe />
-      </ConsentProvider>,
+      withIntl(
+        <ConsentProvider initialDecision={null}>
+          <Probe />
+        </ConsentProvider>,
+      ),
     )
     // Mount effect runs synchronously in RTL; the probe should already show true.
     await act(async () => {

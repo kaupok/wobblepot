@@ -87,6 +87,17 @@ describe('getAuthErrorKey', () => {
     })
   })
 
+  describe('terms-consent errors', () => {
+    it('maps the terms-not-accepted message to the termsNotAccepted key', () => {
+      // Matches the exact APIError message thrown by assertTermsAccepted.
+      expect(
+        getAuthErrorKey(
+          'You must accept the Terms of Service and Privacy Policy to create an account.',
+        ),
+      ).toBe('termsNotAccepted')
+    })
+  })
+
   describe('invite-code errors', () => {
     it('maps the missing-code message to the inviteCodeRequired key', () => {
       // Matches the exact APIError message thrown by validateAndClaimInviteCode.

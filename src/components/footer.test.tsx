@@ -23,4 +23,17 @@ describe('Footer', () => {
     renderFooter({ granted: true, grant: vi.fn(), withdraw: vi.fn() })
     expect(screen.getByRole('button', { name: /cookie settings/i })).toBeInTheDocument()
   })
+
+  it('renders privacy and terms links (HON-457)', () => {
+    renderFooter({ granted: true, grant: vi.fn(), withdraw: vi.fn() })
+
+    expect(screen.getByRole('link', { name: /privacy policy/i })).toHaveAttribute(
+      'href',
+      '/privacy',
+    )
+    expect(screen.getByRole('link', { name: /terms of service/i })).toHaveAttribute(
+      'href',
+      '/terms',
+    )
+  })
 })

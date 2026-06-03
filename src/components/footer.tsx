@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Body } from '@/components/ui/typography'
 import { CookieSettingsTrigger } from '@/components/CookieSettingsTrigger'
@@ -13,6 +14,12 @@ export function Footer() {
       <div className="mx-auto flex max-w-[1152px] flex-col items-center gap-2 sm:flex-row sm:justify-between">
         <Body variant="muted">© {year} Wobblepot</Body>
         <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-4">
+          <Link href="/privacy" className="text-muted-foreground text-sm hover:underline">
+            {t('privacy')}
+          </Link>
+          <Link href="/terms" className="text-muted-foreground text-sm hover:underline">
+            {t('terms')}
+          </Link>
           <a href={SUPPORT_EMAIL_HREF} className="text-muted-foreground text-sm hover:underline">
             {t('support')} <span className="sr-only">({SUPPORT_EMAIL})</span>
           </a>

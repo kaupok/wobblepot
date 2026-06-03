@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -20,7 +21,19 @@ export function CookieBanner() {
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Body variant="small">{t('header')}</Body>
-            <Body variant="muted">{t('body')}</Body>
+            <Body variant="muted">
+              {t('body')}{' '}
+              {t.rich('policyLink', {
+                // Informed consent (GDPR/ePrivacy): the banner must link the
+                // policy it asks consent for — the cookies section of the
+                // privacy policy (HON-457; gap left open by HON-462).
+                link: (chunks) => (
+                  <Link href="/privacy#cookies" className="underline">
+                    {chunks}
+                  </Link>
+                ),
+              })}
+            </Body>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={withdraw}>
