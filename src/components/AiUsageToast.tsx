@@ -43,7 +43,11 @@ export function AiUsageToast() {
     if (alreadyShown === monthKey) return
 
     window.sessionStorage.setItem(SESSION_STORAGE_KEY, monthKey)
-    toast.warning(t('aiUsageCapWarning', { percentage: Math.round(data.percentage) }))
+    // Clamp to 99 so a household at e.g. 99.6% (below cap, AI routes still
+    // serving) never reads a misleading "100%" — the ≥100 over-cap state has
+    // its own handling (429 from AI routes) and is excluded by the gate above.
+    const percentage = Math.min(99, Math.round(data.percentage))
+    toast.warning(t('aiUsageCapWarning', { percentage }))
   }, [data, t])
 
   return null

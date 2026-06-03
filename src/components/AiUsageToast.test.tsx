@@ -64,6 +64,22 @@ describe('AiUsageToast', () => {
     })
   })
 
+  it('clamps the displayed percentage to 99 so a below-cap household never reads "100%"', async () => {
+    mockFetchOnce({
+      spendUsd: 4.98,
+      capUsd: 5,
+      percentage: 99.6,
+      resetAt: '2026-05-01T00:00:00.000Z',
+    })
+
+    const { wrapper } = createQueryWrapper()
+    render(<AiUsageToast />, { wrapper })
+
+    await waitFor(() => {
+      expect(mockToastWarning).toHaveBeenCalledWith('AI usage is at 99% of your monthly cap.')
+    })
+  })
+
   it('does not toast when usage is below 80%', async () => {
     mockFetchOnce({
       spendUsd: 1,
