@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { toast } from 'sonner'
 import { authClient } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
 import {
@@ -53,6 +54,13 @@ export function DeleteAccountDialog({
         return
       }
 
+      // Surface the scheduled purge date returned by the route. The Toaster is
+      // mounted at the root layout, so this survives the redirect below.
+      const { purgeScheduledFor } = (await response.json()) as { purgeScheduledFor?: string }
+      if (purgeScheduledFor) {
+        toast.success(t('scheduledToast', { date: new Date(purgeScheduledFor) }))
+      }
+
       // Sign out and redirect
       await authClient.signOut({
         fetchOptions: {
@@ -94,6 +102,8 @@ export function DeleteAccountDialog({
                 )}
                 {!isOwner && householdName && <li>{t('list.membership', { householdName })}</li>}
               </ul>
+
+              <Body variant="muted">{t('graceNote')}</Body>
 
               {hasOtherMembers && (
                 <Body variant="muted" className="text-destructive">

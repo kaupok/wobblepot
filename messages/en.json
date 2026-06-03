@@ -909,18 +909,20 @@
     "yourDataDescription": "Download a copy of your profile, household data, meal plans, and settings as a JSON file.",
     "downloadButton": "Download my data",
     "dangerHeading": "Danger zone",
-    "dangerDescription": "Permanently delete your account and all associated data.",
+    "dangerDescription": "Schedule your account and all associated data for deletion. A 30-day grace period applies before it becomes permanent.",
     "delete": {
       "trigger": "Delete account",
       "title": "Delete account",
-      "confirmation": "Are you sure you want to delete your account? This action cannot be undone.",
-      "willDelete": "The following will be permanently deleted:",
+      "confirmation": "Your account will be deactivated immediately and permanently deleted after 30 days. You can cancel any time during that period.",
+      "willDelete": "After the 30-day grace period, the following will be permanently deleted:",
       "list": {
         "profile": "Your profile and account data",
         "preferences": "Your preferences and settings",
         "householdAll": "Your household \"{householdName}\" and all its data (meal plans, pantry items, etc.)",
         "membership": "Your membership in \"{householdName}\""
       },
+      "graceNote": "We'll email you the exact deletion date and how to cancel. You'll be signed out on all devices now.",
+      "scheduledToast": "Account scheduled for deletion on {date, date, long}. Check your email to cancel.",
       "cannotDeleteOwner": "Warning: You cannot delete your account because you are the owner of \"{householdName}\" with {count, plural, one {# other member} other {# other members}}. Please transfer ownership or remove other members first.",
       "accountLine": "Account: {email}",
       "cancel": "Cancel",

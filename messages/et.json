@@ -909,18 +909,20 @@
     "yourDataDescription": "Lae alla koopia oma profiilist, leibkonna andmetest, söögiplaanidest ja sätetest JSON-failina.",
     "downloadButton": "Lae andmed alla",
     "dangerHeading": "Ohutsoon",
-    "dangerDescription": "Kustuta oma konto ja kõik seotud andmed jäädavalt.",
+    "dangerDescription": "Planeeri oma konto ja kõik seotud andmed kustutamiseks. Enne jäädavaks muutumist kehtib 30-päevane ajapikendus.",
     "delete": {
       "trigger": "Kustuta konto",
       "title": "Kustuta konto",
-      "confirmation": "Kas oled kindel, et soovid oma konto kustutada? Seda ei saa tagasi võtta.",
-      "willDelete": "Jäädavalt kustutatakse järgnev:",
+      "confirmation": "Sinu konto deaktiveeritakse kohe ja kustutatakse jäädavalt 30 päeva pärast. Saad selle aja jooksul igal ajal tühistada.",
+      "willDelete": "Pärast 30-päevast ajapikendust kustutatakse jäädavalt järgnev:",
       "list": {
         "profile": "Sinu profiil ja konto andmed",
         "preferences": "Sinu eelistused ja sätted",
         "householdAll": "Sinu leibkond „{householdName}\" ja kõik selle andmed (söögiplaanid, sahvri tooted jms)",
         "membership": "Sinu liikmesus „{householdName}\""
       },
+      "graceNote": "Saadame sulle e-kirja täpse kustutamiskuupäeva ja tühistamise juhistega. Sind logitakse nüüd kõikidest seadmetest välja.",
+      "scheduledToast": "Konto on planeeritud kustutamiseks {date, date, long}. Tühistamiseks vaata oma e-posti.",
       "cannotDeleteOwner": "Hoiatus: kontot ei saa kustutada, sest oled „{householdName}\" omanik ja seal on {count, plural, one {# muu liige} other {# muud liiget}}. Palun anna omandiõigus üle või eemalda enne teised liikmed.",
       "accountLine": "Konto: {email}",
       "cancel": "Tühista",

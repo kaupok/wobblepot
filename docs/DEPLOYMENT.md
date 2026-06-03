@@ -138,3 +138,7 @@ If production deployment fails:
 ### Security incidents and data breaches
 
 A failed deploy that **exposes or corrupts personal data** is not just a rollback — it is a potential GDPR personal-data breach with a statutory 72-hour clock. If a deploy leaks a credential, exposes an unauthenticated endpoint, or corrupts user data, follow [RUNBOOKS/breach-notification.md](RUNBOOKS/breach-notification.md) (GDPR Art. 33/34) **in parallel** with the rollback above. The breach clock starts on awareness — do not wait for the rollback to finish before starting the breach process.
+
+### Scheduled jobs (cron)
+
+`vercel.json` defines a daily Vercel Cron at 03:00 UTC that calls `/api/cron/purge-deleted-users` — the GDPR Art. 17 hard-purge of accounts whose 30-day grace window has elapsed. It is authenticated by `CRON_SECRET`, which **must be set on Production** (Vercel auto-injects the `Authorization: Bearer` header on scheduled runs). If `CRON_SECRET` is unset in production the route returns 500 and the purge never runs, breaking the published 30-day retention promise. See [RUNBOOKS/gdpr-deletion.md](RUNBOOKS/gdpr-deletion.md) for the full deletion/recovery flow and the per-model cascade, and [ENVIRONMENT_SETUP.md](ENVIRONMENT_SETUP.md) § "Cron secret" for provisioning.

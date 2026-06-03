@@ -111,6 +111,11 @@ model User {
   image         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @default(now()) @updatedAt
+  // GDPR Art. 17 soft-delete (HON-481). `deletedAt` non-null means the user
+  // requested deletion; sign-in is blocked while set. `purgeScheduledFor` is
+  // when the daily cron hard-cascades the account (request time + 30 days).
+  deletedAt         DateTime?
+  purgeScheduledFor DateTime?
   sessions      Session[]
   accounts      Account[]
   householdMemberships HouseholdMember[]
@@ -118,6 +123,7 @@ model User {
   signupCodeUsed     SignupCode?  @relation("SignupCodeUsedBy")
 
   @@unique([email])
+  @@index([purgeScheduledFor])
   @@map("user")
 }
 

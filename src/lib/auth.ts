@@ -9,6 +9,7 @@ import { generateResetPasswordEmail } from '@/lib/emails/reset-password'
 import { isPasswordBreached } from '@/lib/breached-password'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
 import { linkUsedBy, releaseClaim, validateAndClaimInviteCode } from '@/lib/signup-codes'
+import { assertUserNotSoftDeleted } from '@/lib/auth/soft-delete-guard'
 
 const MIN_PASSWORD_LENGTH = 12
 
@@ -168,6 +169,25 @@ export const auth = betterAuth({
         // eslint-disable-next-line no-console
         console.error('Failed to send password reset email:', error)
       }
+    },
+  },
+
+  /**
+   * Database lifecycle hooks. Blocks session creation for soft-deleted accounts
+   * (GDPR Art. 17 grace window — HON-481): when a user has requested deletion
+   * (`deletedAt` set), `assertUserNotSoftDeleted` throws a generic credential
+   * error, so sign-in fails identically to a wrong password and the deletion
+   * state never leaks. This runs after credentials are verified, so it adds no
+   * read to failed sign-ins. Recovery clears `deletedAt` (see the GDPR-deletion
+   * runbook), after which sign-in works again.
+   */
+  databaseHooks: {
+    session: {
+      create: {
+        before: async (session) => {
+          await assertUserNotSoftDeleted(session.userId)
+        },
+      },
     },
   },
 

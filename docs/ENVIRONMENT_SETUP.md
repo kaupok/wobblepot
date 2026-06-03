@@ -239,6 +239,29 @@ pnpm dlx neonctl@2.22.0 branches list --project-id "$NEON_PROJECT_ID"
 pnpm dlx neonctl@2.22.0 connection-string <branch-name> --project-id "$NEON_PROJECT_ID" --pooled
 ```
 
+## Cron secret (account-deletion purge)
+
+`CRON_SECRET` authenticates the daily GDPR purge cron (`/api/cron/purge-deleted-users`, HON-481), which hard-deletes accounts whose 30-day grace window has elapsed.
+
+### How it works
+
+- The route requires `Authorization: Bearer <CRON_SECRET>` and returns **401** on any mismatch or missing header.
+- [Vercel Cron](https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs) **auto-injects** this header on scheduled invocations whenever a `CRON_SECRET` env var exists on the project — no per-cron config needed. The schedule lives in `vercel.json` (`0 3 * * *`, 03:00 UTC).
+- Validation is `z.string().min(32).optional()`. It is **optional** so local/dev and CI can boot without it (the cron is simply unreachable). In **production** the route returns **500** if it is unset, so a misconfigured deploy fails loud rather than silently never purging.
+
+### Local dev
+
+Leave unset — the purge cron is not scheduled locally. To exercise the route manually, set any 32+ char value and pass it as a Bearer token:
+
+```bash
+CRON_SECRET=$(openssl rand -base64 32)
+curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/purge-deleted-users
+```
+
+### Vercel (deployed environments)
+
+Add `CRON_SECRET` (≥32 chars, e.g. `openssl rand -base64 32`) to **Project Settings → Environment Variables** for Production (and Preview/Staging if you want the cron there). Vercel handles the header automatically once it is set.
+
 ## Validation
 
 All environment variables are validated at startup with clear error messages if validation fails.

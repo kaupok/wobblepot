@@ -135,6 +135,14 @@ const serverOnlyEnvSchema = z.object({
     .describe(
       'Email of the single beta admin. Used by isAdmin(session) in src/lib/auth-helpers.ts to gate /admin/signup-codes (HON-488). One person for invite-only beta — switch to a role-based check before opening up admin access.',
     ),
+
+  CRON_SECRET: z
+    .string()
+    .min(32, 'CRON_SECRET must be at least 32 characters for security')
+    .optional()
+    .describe(
+      'Shared secret for Vercel Cron authentication (HON-481). Vercel auto-injects "Authorization: Bearer <CRON_SECRET>" on scheduled invocations when this env var is set; the purge cron route (/api/cron/purge-deleted-users) rejects any request without it. Optional in dev (cron effectively disabled), but the route returns 500 if unset in production. Generate with: openssl rand -base64 32',
+    ),
 })
 
 /**
@@ -231,6 +239,7 @@ export const serverEnv = new Proxy(
     POSTHOG_CLI_PROJECT_ID: process.env.POSTHOG_CLI_PROJECT_ID,
     POSTHOG_CLI_API_KEY: process.env.POSTHOG_CLI_API_KEY,
     ADMIN_EMAIL: process.env.ADMIN_EMAIL,
+    CRON_SECRET: process.env.CRON_SECRET,
   } as z.infer<typeof serverEnvSchema>,
   {
     get(target, prop) {
