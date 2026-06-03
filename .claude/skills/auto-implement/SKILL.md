@@ -599,7 +599,7 @@ type(scope): Subject line
 
 Body explaining what and why.
 
-Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -780,7 +780,7 @@ git add [changed files]
 git commit -m "$(cat <<'EOF'
 fix: Address review feedback
 
-Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
 EOF
 )"
 git push
