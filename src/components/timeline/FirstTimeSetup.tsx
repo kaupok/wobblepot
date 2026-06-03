@@ -134,7 +134,7 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
                       onClick={() => setDaysCount(option.value)}
                       disabled={isGenerating}
                     >
-                      {option.label}
+                      {tFirst('dayOption', { count: option.value })}
                     </Button>
                   ))}
                 </div>

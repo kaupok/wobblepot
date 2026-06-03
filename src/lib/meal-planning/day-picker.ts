@@ -9,7 +9,6 @@ export interface DayOption {
 
 export interface DaysCountOption {
   value: number
-  label: string
 }
 
 interface StartDateOptionsArgs {
@@ -55,19 +54,12 @@ export function getStartDateOptions(args: StartDateOptionsArgs): DayOption[] {
 }
 
 /**
- * Generate days-count options for flexible date range selection.
- * Returns options for how many days to generate a plan for. The caller is
- * expected to localize the labels at the render site (currently English-only
- * pending HON-509 — the values are stable and the labels are short).
+ * Generate days-count options for flexible date-range selection — how many days
+ * to generate a plan for. Returns values only; the render site localizes each
+ * label via the `meal-plan.firstTime.dayOption` plural message.
  */
 export function getDaysCountOptions(): DaysCountOption[] {
-  return [
-    { value: 3, label: '3 days' },
-    { value: 5, label: '5 days' },
-    { value: 7, label: '7 days' },
-    { value: 10, label: '10 days' },
-    { value: 14, label: '14 days' },
-  ]
+  return [{ value: 3 }, { value: 5 }, { value: 7 }, { value: 10 }, { value: 14 }]
 }
 
 /**
