@@ -144,6 +144,7 @@
       "subhead": "Plan your first meals to get started.",
       "startFromLabel": "Start from",
       "daysCountLabel": "How many days",
+      "dayOption": "{count, plural, one {# day} other {# days}}",
       "submit": "Generate meal plan",
       "submitting": "Generating…"
     },
@@ -512,7 +513,8 @@
     "remove": "Remove",
     "confirm": "Confirm",
     "clear": "Clear",
-    "back": "Back"
+    "back": "Back",
+    "nutritionDisclaimer": "Nutrition values are estimates for guidance only and are not medical advice. Consult a healthcare professional for dietary decisions."
   },
   "nav": {
     "skipToContent": "Skip to content",
@@ -833,9 +835,9 @@
       "regular": "Regular",
       "large": "Large",
       "extraLarge": "Extra large",
-      "label": "{label} portion ({multiplier}x)",
-      "custom": "Custom portion ({multiplier}x)",
-      "preset": "{label} ({multiplier}x)",
+      "label": "{label} portion ({multiplier, number}x)",
+      "custom": "Custom portion ({multiplier, number}x)",
+      "preset": "{label} ({multiplier, number}x)",
       "size": "Portion size",
       "helper": "x standard portion",
       "invalid": "Portion size must be between 0.5 and 3.0",

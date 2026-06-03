@@ -10,7 +10,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Muted-body disclaimer rendered once per page near nutrition blocks. Copy is fixed via `NUTRITION_DISCLAIMER_TEXT`. Currently rendered on `MealDetail` (meal detail surface) and `MealForm` (create/edit). **Future surfaces** that must also render this when they ship: Today-dashboard nutrition rollup and the member-preferences macro-targets UI.',
+          'Muted-body disclaimer rendered once per page near nutrition blocks. Copy is localized via the `common.nutritionDisclaimer` message catalog key. Currently rendered on `MealDetail` (meal detail surface) and `MealForm` (create/edit). **Future surfaces** that must also render this when they ship: Today-dashboard nutrition rollup and the member-preferences macro-targets UI.',
       },
     },
   },

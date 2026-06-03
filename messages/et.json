@@ -144,6 +144,7 @@
       "subhead": "Loo oma esimene söögiplaan, et alustada.",
       "startFromLabel": "Algus",
       "daysCountLabel": "Mitu päeva",
+      "dayOption": "{count, plural, one {# päev} other {# päeva}}",
       "submit": "Loo söögiplaan",
       "submitting": "Koostan…"
     },
@@ -243,7 +244,7 @@
     "detail": {
       "kidFriendly": "Lastesõbralik",
       "timeMinutes": "{count} min",
-      "ingredientsHeader": "Koostisosad ({count} portsjonit)",
+      "ingredientsHeader": "Koostisosad ({count, plural, one {# portsjon} other {# portsjonit}})",
       "ingredientsHeaderInline": "Koostisosad (<servings>portsjonid</servings>)",
       "staplesPrefix": "Põhitooted: {list}",
       "viewSource": "Vaata algset retsepti",
@@ -276,10 +277,10 @@
     },
     "serving": {
       "label": "Portsjoneid",
-      "labelWithCount": "{count} portsjonit",
+      "labelWithCount": "{count, plural, one {# portsjon} other {# portsjonit}}",
       "custom": "(kohandatud)",
       "ariaLabel": "Portsjonite arv",
-      "ariaButton": "{count} portsjonit. Klõpsa, et muuta.",
+      "ariaButton": "{count, plural, one {# portsjon} other {# portsjonit}}. Klõpsa, et muuta.",
       "updateFailed": "Portsjonite uuendamine ebaõnnestus"
     },
     "availability": {
@@ -512,7 +513,8 @@
     "remove": "Eemalda",
     "confirm": "Kinnita",
     "clear": "Eemalda",
-    "back": "Tagasi"
+    "back": "Tagasi",
+    "nutritionDisclaimer": "Toiteväärtused on üksnes hinnangulised juhised, mitte meditsiiniline nõuanne. Toitumisotsuste tegemiseks pöördu tervishoiutöötaja poole."
   },
   "nav": {
     "skipToContent": "Liigu sisu juurde",
@@ -833,9 +835,9 @@
       "regular": "Tavaline",
       "large": "Suur",
       "extraLarge": "Eriti suur",
-      "label": "{label} portsjon ({multiplier}x)",
-      "custom": "Kohandatud portsjon ({multiplier}x)",
-      "preset": "{label} ({multiplier}x)",
+      "label": "{label} portsjon ({multiplier, number}x)",
+      "custom": "Kohandatud portsjon ({multiplier, number}x)",
+      "preset": "{label} ({multiplier, number}x)",
       "size": "Portsjoni suurus",
       "helper": "x tavaline portsjon",
       "invalid": "Portsjoni suurus peab olema vahemikus 0,5 kuni 3,0",
@@ -1009,7 +1011,7 @@
     "DietaryType": {
       "vegetarian": "Taimetoitlane",
       "vegan": "Vegan",
-      "pescatarian": "Pestsetariaan"
+      "pescatarian": "Pesketaarlane"
     },
     "HouseholdRole": {
       "owner": "Omanik",

@@ -115,3 +115,71 @@ describe('dates.inDays plural rendering', () => {
     expect(result.current('inDays', { count: 8 })).toBe('8 päeva pärast')
   })
 })
+
+describe('meal-plan.firstTime.dayOption plural rendering (HON-554 item 3)', () => {
+  it('renders one/other in en', () => {
+    const { result } = renderHook(() => useTranslations('meal-plan.firstTime'), {
+      wrapper: makeWrapper('en'),
+    })
+    expect(result.current('dayOption', { count: 3 })).toBe('3 days')
+    expect(result.current('dayOption', { count: 14 })).toBe('14 days')
+  })
+
+  it('renders one/other in et', () => {
+    const { result } = renderHook(() => useTranslations('meal-plan.firstTime'), {
+      wrapper: makeWrapper('et'),
+    })
+    // All first-run duration options are > 1, so they take the partitive "päeva".
+    expect(result.current('dayOption', { count: 3 })).toBe('3 päeva')
+    expect(result.current('dayOption', { count: 5 })).toBe('5 päeva')
+    expect(result.current('dayOption', { count: 14 })).toBe('14 päeva')
+  })
+})
+
+describe('meal-plan portion (portsjon) numeral agreement in et (HON-554 item 4)', () => {
+  it('ingredients header uses nominative singular for 1, partitive for N>1', () => {
+    const { result } = renderHook(() => useTranslations('meal-plan.detail'), {
+      wrapper: makeWrapper('et'),
+    })
+    expect(result.current('ingredientsHeader', { count: 1 })).toBe('Koostisosad (1 portsjon)')
+    expect(result.current('ingredientsHeader', { count: 4 })).toBe('Koostisosad (4 portsjonit)')
+  })
+
+  it('serving stepper label uses nominative singular for 1, partitive for N>1', () => {
+    const { result } = renderHook(() => useTranslations('meal-plan.serving'), {
+      wrapper: makeWrapper('et'),
+    })
+    expect(result.current('labelWithCount', { count: 1 })).toBe('1 portsjon')
+    expect(result.current('labelWithCount', { count: 4 })).toBe('4 portsjonit')
+    expect(result.current('ariaButton', { count: 1 })).toBe('1 portsjon. Klõpsa, et muuta.')
+  })
+
+  it('en ingredients header is unaffected', () => {
+    const { result } = renderHook(() => useTranslations('meal-plan.detail'), {
+      wrapper: makeWrapper('en'),
+    })
+    expect(result.current('ingredientsHeader', { count: 1 })).toBe('Ingredients (serves 1)')
+    expect(result.current('ingredientsHeader', { count: 4 })).toBe('Ingredients (serves 4)')
+  })
+})
+
+describe('household.portion multiplier decimal separator (HON-554 item 6)', () => {
+  it('renders an Estonian decimal comma in et', () => {
+    const { result } = renderHook(() => useTranslations('household.portion'), {
+      wrapper: makeWrapper('et'),
+    })
+    expect(result.current('preset', { label: 'Väike', multiplier: 0.75 })).toBe('Väike (0,75x)')
+    expect(result.current('preset', { label: 'Suur', multiplier: 1.5 })).toBe('Suur (1,5x)')
+    // Integer multipliers render without a decimal part.
+    expect(result.current('preset', { label: 'Tavaline', multiplier: 1 })).toBe('Tavaline (1x)')
+    expect(result.current('custom', { multiplier: 1.25 })).toBe('Kohandatud portsjon (1,25x)')
+  })
+
+  it('renders a decimal point in en (unchanged)', () => {
+    const { result } = renderHook(() => useTranslations('household.portion'), {
+      wrapper: makeWrapper('en'),
+    })
+    expect(result.current('preset', { label: 'Small', multiplier: 0.75 })).toBe('Small (0.75x)')
+    expect(result.current('preset', { label: 'Large', multiplier: 1.5 })).toBe('Large (1.5x)')
+  })
+})

@@ -108,15 +108,15 @@ describe('getDaysCountOptions', () => {
     expect(options).toHaveLength(5)
   })
 
-  it('returns the correct values and labels', () => {
+  it('returns the correct values', () => {
     const options = getDaysCountOptions()
 
     expect(options).toEqual([
-      { value: 3, label: '3 days' },
-      { value: 5, label: '5 days' },
-      { value: 7, label: '7 days' },
-      { value: 10, label: '10 days' },
-      { value: 14, label: '14 days' },
+      { value: 3 },
+      { value: 5 },
+      { value: 7 },
+      { value: 10 },
+      { value: 14 },
     ])
   })
 
