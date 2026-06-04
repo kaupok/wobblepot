@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
-import Link from 'next/link'
 import { Body, Heading, Li, Ul } from '@/components/ui/typography'
 import {
   Table,
@@ -317,9 +316,14 @@ export default function PrivacyPage() {
           <Li>
             <Body>
               <strong>Access and export</strong> your data — download a machine-readable copy at{' '}
-              <Link className="underline" href="/api/auth/user/export">
+              {/* Plain <a download>, NOT next/link: this is a file-download
+                  Route Handler. <Link> would SPA-navigate instead of
+                  downloading, and its viewport prefetch would silently run
+                  the export and burn a daily rate-limit slot. Mirrors
+                  profile/page.tsx. */}
+              <a className="underline" href="/api/auth/user/export" download>
                 /api/auth/user/export
-              </Link>{' '}
+              </a>{' '}
               while signed in (Art. 15 and 20).
             </Body>
           </Li>
