@@ -144,7 +144,7 @@ describe('GET /api/auth/user/export', () => {
     expect(mockTransaction).not.toHaveBeenCalled()
   })
 
-  it('returns an owner-household export with schemaVersion, stubbed terms fields, and full nested tree', async () => {
+  it('returns an owner-household export with schemaVersion, null consent fields for a legacy (pre-policy) user, and full nested tree', async () => {
     authedAs('user-owner')
 
     const tx = makeTx()
@@ -156,6 +156,9 @@ describe('GET /api/auth/user/export', () => {
       image: null,
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
       updatedAt: new Date('2026-02-01T00:00:00.000Z'),
+      // Legacy row: signed up before the consent capture shipped (HON-457)
+      acceptedTermsAt: null,
+      acceptedTermsVersion: null,
     })
     tx.session.findMany.mockResolvedValue([
       {
@@ -244,6 +247,32 @@ describe('GET /api/auth/user/export', () => {
     expect(ownerHh.customShoppingItems).toHaveLength(1)
     expect(ownerHh.invites).toHaveLength(1)
     expect(ownerHh.aiUsage).toHaveLength(1)
+  })
+
+  it('round-trips real consent values for a consented user (HON-457)', async () => {
+    authedAs('user-consented')
+
+    const tx = makeTx()
+    tx.user.findUnique.mockResolvedValue({
+      id: 'user-consented',
+      name: 'Consented User',
+      email: 'consented@example.com',
+      emailVerified: true,
+      image: null,
+      createdAt: new Date('2026-06-03T10:00:00.000Z'),
+      updatedAt: new Date('2026-06-03T10:00:00.000Z'),
+      acceptedTermsAt: new Date('2026-06-03T10:00:00.000Z'),
+      acceptedTermsVersion: 1,
+    })
+    installTx(tx)
+
+    const response = await GET()
+    const body = JSON.parse(await response.text())
+
+    expect(response.status).toBe(200)
+    expect(body.user.acceptedTermsAt).toBe('2026-06-03T10:00:00.000Z')
+    // Stored as Int (the HON-457 schema), not the string the old stub assumed
+    expect(body.user.acceptedTermsVersion).toBe(1)
   })
 
   it('sets Content-Disposition attachment header with userId + YYYY-MM-DD filename', async () => {

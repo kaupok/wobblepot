@@ -50,6 +50,9 @@ export const Undecided: Story = {
     const body = within(document.body)
     const region = await body.findByRole('region', { name: /cookie consent/i })
     expect(region).toBeInTheDocument()
+    // Informed consent: the banner links the policy it asks consent for (HON-457)
+    const policyLink = await body.findByRole('link', { name: /privacy policy/i })
+    expect(policyLink).toHaveAttribute('href', '/privacy#cookies')
   },
 }
 

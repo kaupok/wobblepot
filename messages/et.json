@@ -19,6 +19,16 @@
       "signupCodes": {
         "title": "Registreerumiskoodid"
       }
+    },
+    "legal": {
+      "privacy": {
+        "title": "Privaatsuspoliitika",
+        "description": "Kuidas Wobblepot sinu andmeid kogub, kasutab ja kaitseb."
+      },
+      "terms": {
+        "title": "Kasutustingimused",
+        "description": "Tingimused, mis kehtivad Wobblepoti kasutamisel."
+      }
     }
   },
   "dates": {
@@ -552,6 +562,8 @@
     }
   },
   "footer": {
+    "privacy": "Privaatsuspoliitika",
+    "terms": "Kasutustingimused",
     "support": "Kirjuta tugile"
   },
   "auth": {
@@ -578,6 +590,7 @@
       "emailLabel": "E-post",
       "passwordLabel": "Parool",
       "passwordHint": "Kasuta vähemalt 12 märki. Väldi paroole, mis on varasematest andmeleketest tuntud.",
+      "consentLabel": "Olen lugenud <terms>kasutustingimusi</terms> ja <privacy>privaatsuspoliitikat</privacy> ning nõustun nendega",
       "submit": "Loo konto",
       "submitting": "Konto loomine…",
       "alreadyHaveAccount": "Konto on juba olemas?",
@@ -729,6 +742,7 @@
     },
     "auth": {
       "unexpected": "Tekkis ootamatu viga. Palun proovi uuesti.",
+      "termsNotAccepted": "Konto loomiseks pead nõustuma kasutustingimuste ja privaatsuspoliitikaga.",
       "inviteCodeRequired": "Suletud beetas on registreerumiseks vaja kutsekoodi.",
       "inviteCodeInvalid": "See kutsekood ei kehti, on aegunud või juba kasutatud.",
       "invalidCredentials": "Sisestatud e-post või parool on vale. Palun proovi uuesti.",
@@ -760,6 +774,7 @@
       "ariaLabel": "Küpsiste nõusolek",
       "header": "Kasutame küpsiseid",
       "body": "Olulised küpsised hoiavad sind sisse logituna. Analüütika küpsised aitavad mõista, kuidas rakendust kasutatakse, et seda parendada. Saad oma valikut alati jaluse kaudu muuta.",
+      "policyLink": "Loe lähemalt meie <link>privaatsuspoliitikast</link>.",
       "acceptAll": "Nõustu kõigega",
       "essentialOnly": "Ainult olulised"
     },

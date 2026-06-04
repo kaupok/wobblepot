@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { auth, createHouseholdForUser, hashPasswordWithBreachCheck } from './auth'
+import {
+  auth,
+  assertTermsAccepted,
+  createHouseholdForUser,
+  hashPasswordWithBreachCheck,
+  stampTermsConsent,
+  TERMS_NOT_ACCEPTED_MESSAGE,
+} from './auth'
+import { CURRENT_TERMS_VERSION } from './consent'
 import { isPasswordBreached } from './breached-password'
 
 // Mock the prisma module
@@ -111,7 +119,55 @@ describe('hashPasswordWithBreachCheck', () => {
   })
 })
 
+describe('assertTermsAccepted', () => {
+  it('passes when acceptedTerms is exactly true', () => {
+    expect(() => assertTermsAccepted({ acceptedTerms: true })).not.toThrow()
+  })
+
+  it.each([
+    ['missing field', {}],
+    ['false', { acceptedTerms: false }],
+    ['truthy string', { acceptedTerms: 'true' }],
+    ['1', { acceptedTerms: 1 }],
+    ['null body', null],
+    ['non-object body', 'acceptedTerms=true'],
+  ])('rejects %s with the friendly message', (_label, body) => {
+    expect(() => assertTermsAccepted(body)).toThrowError(TERMS_NOT_ACCEPTED_MESSAGE)
+  })
+})
+
+describe('stampTermsConsent', () => {
+  it('stamps timestamp + CURRENT_TERMS_VERSION on the email sign-up path', () => {
+    const now = new Date('2026-06-03T12:00:00Z')
+    expect(stampTermsConsent('/sign-up/email', now)).toEqual({
+      acceptedTermsAt: now,
+      acceptedTermsVersion: CURRENT_TERMS_VERSION,
+    })
+  })
+
+  it.each([
+    ['another auth path', '/sign-in/email'],
+    ['a future OAuth callback', '/callback/google'],
+    ['internal creation with no request context', undefined],
+  ])('does not stamp for %s — consent is only validated on email sign-up', (_label, path) => {
+    expect(stampTermsConsent(path)).toBeNull()
+  })
+})
+
 describe('auth options wiring', () => {
+  it('declares the consent columns as non-input additionalFields', () => {
+    // `input: false` is the spoofing guard: without it, Better Auth would
+    // accept `acceptedTermsAt` / `acceptedTermsVersion` from the request
+    // body, letting clients backdate or forge consent (HON-457).
+    const fields = auth.options.user?.additionalFields
+    expect(fields?.acceptedTermsAt).toMatchObject({ type: 'date', input: false })
+    expect(fields?.acceptedTermsVersion).toMatchObject({ type: 'number', input: false })
+  })
+
+  it('registers the user-create database hook that stamps consent', () => {
+    expect(auth.options.databaseHooks?.user?.create?.before).toBeTypeOf('function')
+  })
+
   it('wires hashPasswordWithBreachCheck into emailAndPassword.password.hash', () => {
     // Regression guard: Better Auth reads from `emailAndPassword.password.hash`
     // (see @better-auth/core create-context); placing `password` at the root

@@ -85,6 +85,11 @@ export async function signUp(
     }
   }
 
+  // Terms-consent checkbox (HON-457): required on every sign-up; submit stays
+  // disabled until ticked. Locale-stable id selector — the label copy is
+  // localized. Radix renders a button with role="checkbox", so click, not check.
+  await page.locator('#acceptTerms').click()
+
   // Submit button — use `type="submit"` rather than `name: 'Sign up'`, which
   // changes to "Loo konto" in Estonian.
   await page.locator('form button[type="submit"]').click()
@@ -170,6 +175,14 @@ export async function signOut(page: Page): Promise<void> {
     await page.getByRole('button', { name: 'Sign out' }).click()
   }
   await page.waitForURL('/')
+  // `waitForURL('/')` resolves immediately when the page is ALREADY at '/'
+  // (the usual case — tests sign out right after onboarding lands on '/'),
+  // i.e. potentially before the sign-out POST has cleared the session
+  // cookie. A follow-up `goto('/sign-in')` then races the cookie clear,
+  // sees a live session, and bounces back to '/'. Wait for the signed-out
+  // chrome (header "Sign in" link only renders after router.refresh() with
+  // the session gone) before returning.
+  await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible()
 }
 
 /**

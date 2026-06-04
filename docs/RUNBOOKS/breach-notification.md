@@ -89,17 +89,17 @@ Work top to bottom. One checkbox per step. Copy this block into the incident log
 - **Alternative:** email **info@aki.ee** with AKI's official breach-notification form. AKI publishes an English-language Word template on the page above ("Rikkumisteate vorm andmetöötlejale inglise keelne") — download the current version at submission time rather than relying on a stale local copy.
 - Re-verify the entry-point URL when you submit — agencies move subpaths.
 
-**Template** — fill the placeholders and paste/attach. OÜ controller details use literal `{{...}}` placeholders so they are grep-able and filled once [HON-457](https://linear.app/honkadori/issue/HON-457) finalizes them; do not re-request them at breach time.
+**Template** — fill the placeholders and paste/attach. OÜ controller details were filled by [HON-457](https://linear.app/honkadori/issue/HON-457) and match the privacy policy (`src/lib/support.ts`); do not re-request them at breach time.
 
 ```markdown
 ## Personal data breach notification — GDPR Art. 33
 
 **Controller**
 
-- Legal name: {{ou_legal_name}}
-- Registry code: {{registry_code}}
-- Registered address: {{registered_address}}
-- Contact: {{privacy_email}}
+- Legal name: Honkadori OÜ
+- Registry code: 14197288
+- Registered address: Peetri 11, 10415 Tallinn, Estonia
+- Contact: privacy@wobblepot.com
 
 **Awareness**
 
@@ -129,7 +129,7 @@ Work top to bottom. One checkbox per step. Copy this block into the incident log
 
 **Data Protection contact for follow-up**
 
-- {{privacy_email}}
+- privacy@wobblepot.com
 ```
 
 If a **subprocessor** caused the breach, their DPA defines their notification obligations to us — the filed DPAs live in `compliance/dpas/` (Anthropic, Resend, Vercel, Neon, PostHog), tracked in [`compliance/README.md`](../../compliance/README.md). Cite their breach notice in the "Subprocessor involvement" field; we remain the controller and still owe AKI the Art. 33 notification.

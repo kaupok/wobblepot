@@ -10,8 +10,53 @@ import { isPasswordBreached } from '@/lib/breached-password'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
 import { linkUsedBy, releaseClaim, validateAndClaimInviteCode } from '@/lib/signup-codes'
 import { assertUserNotSoftDeleted } from '@/lib/auth/soft-delete-guard'
+import { CURRENT_TERMS_VERSION } from '@/lib/consent'
 
 const MIN_PASSWORD_LENGTH = 12
+
+export const TERMS_NOT_ACCEPTED_MESSAGE =
+  'You must accept the Terms of Service and Privacy Policy to create an account.'
+
+/**
+ * Server-side gate for the sign-up consent checkbox (HON-457, GDPR Art. 13).
+ * The client sends `acceptedTerms: true` alongside the credentials; anything
+ * else — missing, false, truthy non-boolean — is rejected so a bypassed or
+ * regressed client cannot create an account without recorded consent.
+ * Exported for unit testing, like {@link hashPasswordWithBreachCheck}.
+ */
+export function assertTermsAccepted(body: unknown): void {
+  const accepted =
+    typeof body === 'object' && body !== null
+      ? (body as { acceptedTerms?: unknown }).acceptedTerms
+      : undefined
+  if (accepted !== true) {
+    throw new APIError('BAD_REQUEST', {
+      message: TERMS_NOT_ACCEPTED_MESSAGE,
+      code: 'TERMS_NOT_ACCEPTED',
+    })
+  }
+}
+
+/**
+ * Consent stamp merged into the user row at creation (HON-457). Values are
+ * produced server-side — `acceptedTermsVersion` mirrors CURRENT_TERMS_VERSION
+ * at the moment of sign-up, and both fields are `input: false` in
+ * `additionalFields`, so clients can never supply them.
+ *
+ * `path` guard: `databaseHooks.user.create.before` fires for *every* user
+ * creation. Consent validation lives only on the email sign-up path
+ * (`hooks.before` above), so we stamp only when the creating request is
+ * `/sign-up/email`. A future OAuth flow (or admin/internal creation, where
+ * `path` is undefined) must capture consent on its own surface — do NOT
+ * widen this guard without adding that surface's consent checkbox first.
+ */
+export function stampTermsConsent(path: string | undefined, now: Date = new Date()) {
+  if (path !== '/sign-up/email') return null
+  return {
+    acceptedTermsAt: now,
+    acceptedTermsVersion: CURRENT_TERMS_VERSION,
+  }
+}
 
 const BREACHED_PASSWORD_MESSAGE =
   'That password appears in known data breaches. Please pick a different one.'
@@ -173,6 +218,19 @@ export const auth = betterAuth({
   },
 
   /**
+   * Schema extension for the consent columns (HON-457). `input: false` means
+   * the values can never come from the request body — they are stamped
+   * server-side in `databaseHooks.user.create.before` below. Declaring them
+   * here teaches the adapter the columns so they round-trip on reads.
+   */
+  user: {
+    additionalFields: {
+      acceptedTermsAt: { type: 'date', required: false, input: false },
+      acceptedTermsVersion: { type: 'number', required: false, input: false },
+    },
+  },
+
+  /**
    * Database lifecycle hooks. Blocks session creation for soft-deleted accounts
    * (GDPR Art. 17 grace window — HON-481): when a user has requested deletion
    * (`deletedAt` set), `assertUserNotSoftDeleted` throws a generic credential
@@ -182,6 +240,20 @@ export const auth = betterAuth({
    * runbook), after which sign-in works again.
    */
   databaseHooks: {
+    user: {
+      create: {
+        /**
+         * Stamps `acceptedTermsAt` + `acceptedTermsVersion` on the new user
+         * row (HON-457). See {@link stampTermsConsent} for the path guard —
+         * only email sign-up carries validated consent today.
+         */
+        before: async (user, ctx) => {
+          const consent = stampTermsConsent(ctx?.path)
+          if (!consent) return
+          return { data: { ...user, ...consent } }
+        },
+      },
+    },
     session: {
       create: {
         before: async (session) => {
@@ -202,6 +274,9 @@ export const auth = betterAuth({
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
       if (ctx.path !== '/sign-up/email') return
+      // Terms consent first: rejecting here means the invite code below is
+      // never claimed, so a consent failure can't burn a code (HON-457).
+      assertTermsAccepted(ctx.body)
       await validateAndClaimInviteCode(ctx.body)
     }),
     after: createAuthMiddleware(async (ctx) => {

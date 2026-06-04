@@ -19,6 +19,16 @@
       "signupCodes": {
         "title": "Signup codes"
       }
+    },
+    "legal": {
+      "privacy": {
+        "title": "Privacy policy",
+        "description": "How Wobblepot collects, uses, and protects your data."
+      },
+      "terms": {
+        "title": "Terms of service",
+        "description": "The terms that govern your use of Wobblepot."
+      }
     }
   },
   "dates": {
@@ -552,6 +562,8 @@
     }
   },
   "footer": {
+    "privacy": "Privacy policy",
+    "terms": "Terms of service",
     "support": "Email support"
   },
   "auth": {
@@ -578,6 +590,7 @@
       "emailLabel": "Email",
       "passwordLabel": "Password",
       "passwordHint": "Use at least 12 characters. Avoid passwords from past data breaches.",
+      "consentLabel": "I have read and agree to the <terms>Terms of Service</terms> and <privacy>Privacy Policy</privacy>",
       "submit": "Sign up",
       "submitting": "Creating account…",
       "alreadyHaveAccount": "Already have an account?",
@@ -729,6 +742,7 @@
     },
     "auth": {
       "unexpected": "An unexpected error occurred. Please try again.",
+      "termsNotAccepted": "Please accept the Terms of Service and Privacy Policy to create an account.",
       "inviteCodeRequired": "An invite code is required to sign up while we are in private beta.",
       "inviteCodeInvalid": "That invite code is invalid, expired, or has already been used.",
       "invalidCredentials": "The email or password you entered is incorrect. Please try again.",
@@ -760,6 +774,7 @@
       "ariaLabel": "Cookie consent",
       "header": "We use cookies",
       "body": "Essential cookies keep you signed in. Analytics cookies help us understand how the app is used so we can improve it. You can change this any time from the footer.",
+      "policyLink": "Learn more in our <link>privacy policy</link>.",
       "acceptAll": "Accept all",
       "essentialOnly": "Essential only"
     },

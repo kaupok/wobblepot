@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { decisionToGranted, grantedToDecision, parseConsentDecision } from '@/lib/consent'
+import {
+  CURRENT_TERMS_VERSION,
+  decisionToGranted,
+  grantedToDecision,
+  parseConsentDecision,
+} from '@/lib/consent'
 
 describe('parseConsentDecision', () => {
   it('returns the literal for valid values', () => {
@@ -13,6 +18,16 @@ describe('parseConsentDecision', () => {
     expect(parseConsentDecision('')).toBe(null)
     expect(parseConsentDecision('yes')).toBe(null)
     expect(parseConsentDecision('some')).toBe(null)
+  })
+})
+
+describe('CURRENT_TERMS_VERSION', () => {
+  // AC (HON-457): the constant exists, is non-null, and is a positive
+  // integer — it is the value stamped onto User.acceptedTermsVersion.
+  it('is a non-null positive integer', () => {
+    expect(CURRENT_TERMS_VERSION).not.toBeNull()
+    expect(Number.isInteger(CURRENT_TERMS_VERSION)).toBe(true)
+    expect(CURRENT_TERMS_VERSION).toBeGreaterThanOrEqual(1)
   })
 })
 

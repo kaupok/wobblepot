@@ -11,6 +11,7 @@
  */
 
 export type AuthErrorKey =
+  | 'termsNotAccepted'
   | 'inviteCodeRequired'
   | 'inviteCodeInvalid'
   | 'invalidCredentials'
@@ -45,6 +46,14 @@ export function getAuthErrorKey(message: string): AuthErrorKey | null {
   }
 
   const lowerMessage = message.toLowerCase()
+
+  // Terms-consent gate (HON-457). The backend rejects sign-up without
+  // `acceptedTerms: true`; the client checkbox normally prevents this, so
+  // hitting it means a bypassed or regressed client — still deserves
+  // friendly copy.
+  if (lowerMessage.includes('terms') && lowerMessage.includes('accept')) {
+    return 'termsNotAccepted'
+  }
 
   // Invite-code errors (must come before the CSRF/forbidden branch — the
   // backend throws these as APIError('FORBIDDEN', ...) and the keyword
