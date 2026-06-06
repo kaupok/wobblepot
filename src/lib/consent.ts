@@ -11,10 +11,25 @@ export const CONSENT_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365
  * basis, changed retention) — not for typo/clarity edits. Users whose
  * stored version is below the current one can then be re-prompted at
  * session bootstrap (re-prompt flow is a follow-up issue; sign-up capture
- * is the minimum viable here). Update the "Last updated" date on
- * /privacy and /terms in the same PR as any bump.
+ * is the minimum viable here). Update POLICY_LAST_UPDATED below in the
+ * same PR as any bump — it drives the "Last updated" line on /privacy
+ * and /terms and the sitemap lastModified for those routes (HON-559).
  */
 export const CURRENT_TERMS_VERSION = 1
+
+/**
+ * ISO date (YYYY-MM-DD) of the last material change to the Terms of
+ * Service / Privacy Policy. Single source of truth for the "Last
+ * updated" line on /privacy and /terms and the sitemap `lastModified`
+ * of those routes. Bump alongside CURRENT_TERMS_VERSION.
+ */
+export const POLICY_LAST_UPDATED = '2026-06-03'
+
+/** Human-readable form of POLICY_LAST_UPDATED, e.g. "3 June 2026". */
+export const POLICY_LAST_UPDATED_DISPLAY = new Date(POLICY_LAST_UPDATED).toLocaleDateString(
+  'en-GB',
+  { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' },
+)
 
 export type ConsentDecision = 'essential' | 'all'
 
