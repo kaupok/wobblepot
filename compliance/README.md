@@ -2,7 +2,9 @@
 
 Honkadori OÜ compliance artifacts. Wobblepot is the trade name; all DPAs and vendor agreements are between **Honkadori OÜ** (legal entity) and the vendor.
 
-This folder lives in a private GitHub repo. DPAs do not need to be public — GDPR Art. 28 requires the contracts exist, not that they're published. Public transparency is satisfied by the Processors section in the privacy policy (Art. 13/14).
+This folder lives in a private GitHub repo. DPAs do not need to be public — GDPR Art. 28 requires the contracts exist, not that they're published. Public transparency is satisfied by the processor summary in the privacy policy plus the dedicated `/privacy/subprocessors` page (Art. 13/14, HON-543).
+
+Risk assessment: [`dpia.md`](./dpia.md) — lightweight DPIA covering children's data and AI processing via Anthropic.
 
 ## Pre-launch state (as of 2026-05-05)
 
@@ -30,6 +32,18 @@ This folder lives in a private GitHub repo. DPAs do not need to be public — GD
 | 4   | Neon      | EU SCCs M2/M3 + UK Addendum + Swiss; importer Databricks, Inc. (US) | auto-incorporated via Neon ToS (Databricks DPA §8.1)                          | `dpas/neon-2026-06-02.pdf` (Databricks DPA snapshot)                        | ◐ org name only (free plan) |
 | 5   | PostHog   | EU-US DPF + EU SCCs M2 + UK IDTA + Swiss (US transfer)              | signed 2026-06-02 (PandaDoc; countersigned by PostHog)                        | `dpas/posthog-2026-06-02.pdf`                                               | ☑ 2026-06-02                |
 
+## Vendor directory (audit / procurement reference)
+
+Signing dates and filed copies are in the DPA status table above; this table carries the live links and contacts.
+
+| #   | Vendor    | DPA URL                                                                                                  | Privacy contact                              | Notes                                                                            |
+| --- | --------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------- |
+| 1   | Anthropic | [anthropic.com/legal/data-processing-addendum](https://www.anthropic.com/legal/data-processing-addendum) | privacy@anthropic.com                        | Org converted in place 2026-06-02; keys retained, no rotation                    |
+| 2   | Resend    | [resend.com/legal/dpa](https://resend.com/legal/dpa)                                                     | privacy@resend.com (verify on first contact) | Only countersigned DPA besides PostHog (DocuSign 2026-01-14)                     |
+| 3   | Vercel    | [vercel.com/legal/dpa](https://vercel.com/legal/dpa)                                                     | privacy@vercel.com                           | DPA auto-incorporated via Customer Agreement; no signature                       |
+| 4   | Neon      | [neon.com/dpa](https://neon.com/dpa)                                                                     | privacy@neon.tech (verify on first contact)  | Databricks DPA v3 governs; countersigned copy deferred to paid upgrade (HON-553) |
+| 5   | PostHog   | [posthog.com/dpa](https://posthog.com/dpa)                                                               | privacy@posthog.com                          | Countersigned via PandaDoc 2026-06-02; consent-gated client-side (HON-462)       |
+
 ## Migration notes
 
 - **Anthropic** (2026-06-02): the founder's personal "individual" org (ID `eb00b3ae-f58c-436e-8448-e634d3ac5dcc`) was converted **in place** to a business organization named Honkadori OÜ — existing API keys retained, **no key rotation**. Registered business address + company card set; Business tax ID left blank (Honkadori OÜ is not KMKR-registered). The DPA auto-applies via the Commercial Terms to the entity-of-record. Residual personal prepaid credit (~$19.76) remained on the converted org — future personal API use should move to a separate account to keep company/personal spend clean.
@@ -44,11 +58,12 @@ When adding any new vendor that processes user data:
 1. Sign up using a Honkadori OÜ-controlled account (entity card, not personal)
 2. Sign or accept the DPA — auto-via-terms or counter-sign per vendor
 3. File the PDF as `compliance/dpas/<vendor>-<YYYY-MM-DD>.pdf`
-4. Update the tables above
-5. Update the Processors section in `src/app/(legal)/privacy/page.tsx` in the same PR
+4. Update the tables above (subprocessors, DPA status, vendor directory)
+5. Update the processor summary in `src/app/(legal)/privacy/page.tsx` AND the table in `src/app/(legal)/privacy/subprocessors/page.tsx` in the same PR
 
 ## See also
 
-- Linear HON-459 — account migration + DPA work (in progress)
-- Linear HON-543 — post-beta polish (dedicated subprocessor page, formal DPIA)
-- Linear HON-457 — privacy policy
+- Linear HON-459 — account migration + DPA work (done 2026-06-02)
+- Linear HON-543 — dedicated subprocessor page, DPIA, vendor directory (this doc's last expansion)
+- Linear HON-457 — privacy policy (done 2026-06-04)
+- Linear HON-553 — Neon billing-entity migration + countersigned DPA (open, pre-launch)
