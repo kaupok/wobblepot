@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { POLICY_LAST_UPDATED_DISPLAY } from '@/lib/consent'
 import {
   LEGAL_ENTITY_ADDRESS,
   LEGAL_ENTITY_NAME,
@@ -25,11 +26,9 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-/**
- * Bump alongside CURRENT_TERMS_VERSION (src/lib/consent.ts) on any material
- * change — this is the user-visible anchor for consent versioning.
- */
-const LAST_UPDATED = '3 June 2026'
+// "Last updated" derives from POLICY_LAST_UPDATED (src/lib/consent.ts) —
+// the single source of truth, bumped alongside CURRENT_TERMS_VERSION.
+const LAST_UPDATED = POLICY_LAST_UPDATED_DISPLAY
 
 interface Processor {
   name: string

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
 import Link from 'next/link'
 import { Body, Heading, Li, Ul } from '@/components/ui/typography'
+import { POLICY_LAST_UPDATED_DISPLAY } from '@/lib/consent'
 import {
   LEGAL_ENTITY_ADDRESS,
   LEGAL_ENTITY_NAME,
@@ -18,11 +19,9 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-/**
- * Bump alongside CURRENT_TERMS_VERSION (src/lib/consent.ts) on any material
- * change — this is the user-visible anchor for consent versioning.
- */
-const LAST_UPDATED = '3 June 2026'
+// "Last updated" derives from POLICY_LAST_UPDATED (src/lib/consent.ts) —
+// the single source of truth, bumped alongside CURRENT_TERMS_VERSION.
+const LAST_UPDATED = POLICY_LAST_UPDATED_DISPLAY
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
