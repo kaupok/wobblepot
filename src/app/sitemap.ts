@@ -28,6 +28,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.5,
     },
     {
+      url: `${baseUrl}/privacy/subprocessors`,
+      lastModified: policyLastModified,
+      changeFrequency: 'yearly',
+      priority: 0.3,
+    },
+    {
       url: `${baseUrl}/terms`,
       lastModified: policyLastModified,
       changeFrequency: 'yearly',

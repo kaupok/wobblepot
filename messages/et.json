@@ -25,6 +25,10 @@
         "title": "Privaatsuspoliitika",
         "description": "Kuidas Wobblepot sinu andmeid kogub, kasutab ja kaitseb."
       },
+      "subprocessors": {
+        "title": "Volitatud töötlejad",
+        "description": "Teenusepakkujad, kes töötlevad Wobblepoti kasutajate isikuandmeid, koos piirkondade ja kaitsemeetmetega."
+      },
       "terms": {
         "title": "Kasutustingimused",
         "description": "Tingimused, mis kehtivad Wobblepoti kasutamisel."

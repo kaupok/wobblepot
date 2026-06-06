@@ -1,14 +1,7 @@
 import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
+import Link from 'next/link'
 import { Body, Heading, Li, Ul } from '@/components/ui/typography'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { POLICY_LAST_UPDATED_DISPLAY } from '@/lib/consent'
 import {
   LEGAL_ENTITY_ADDRESS,
@@ -29,67 +22,6 @@ export async function generateMetadata(): Promise<Metadata> {
 // "Last updated" derives from POLICY_LAST_UPDATED (src/lib/consent.ts) —
 // the single source of truth, bumped alongside CURRENT_TERMS_VERSION.
 const LAST_UPDATED = POLICY_LAST_UPDATED_DISPLAY
-
-interface Processor {
-  name: string
-  role: string
-  dataCategories: string
-  region: string
-  transferBasis: string
-  dpaUrl: string
-  note?: string
-}
-
-/**
- * Source of truth: `compliance/README.md` (DPA table, signed under Honkadori
- * OÜ — HON-459). LOUD RULE: when any new vendor that processes user data is
- * added anywhere in the codebase, add a row here AND update
- * `compliance/README.md` in the same PR. Region strings are exact on purpose
- * — "EU (Frankfurt)", not "Europe".
- */
-const PROCESSORS: Processor[] = [
-  {
-    name: 'Anthropic, PBC',
-    role: 'AI meal planning (LLM)',
-    dataCategories: 'Prompts (household preferences, allergens, dietary data) and AI output',
-    region: 'US',
-    transferBasis: 'EU SCCs Module 2 + UK Addendum + EU-US DPF',
-    dpaUrl: 'https://www.anthropic.com/legal/data-processing-addendum',
-  },
-  {
-    name: 'Resend (Plus Five, Inc.)',
-    role: 'Transactional email',
-    dataCategories: 'Email address, message metadata',
-    region: 'US',
-    transferBasis: 'EU SCCs Module 2 + UK SCCs + EU-US DPF',
-    dpaUrl: 'https://resend.com/legal/dpa',
-  },
-  {
-    name: 'Vercel Inc.',
-    role: 'Hosting',
-    dataCategories: 'Request metadata, application logs',
-    region: 'US/EU',
-    transferBasis: 'EU SCCs (2021) Module 2 + UK IDTA',
-    dpaUrl: 'https://vercel.com/legal/dpa',
-  },
-  {
-    name: 'Neon (a Databricks company)',
-    role: 'Database',
-    dataCategories: 'All user records',
-    region: 'EU (Frankfurt); importer Databricks, Inc. (US)',
-    transferBasis: 'EU SCCs Modules 2/3 + UK Addendum + Swiss addendum',
-    dpaUrl: 'https://neon.com/dpa',
-  },
-  {
-    name: 'PostHog, Inc.',
-    role: 'Product analytics + error tracking',
-    dataCategories: 'Usage events, device info',
-    region: 'EU (Frankfurt); processor PostHog, Inc. (US)',
-    transferBasis: 'EU-US DPF + EU SCCs Module 2 + UK IDTA + Swiss addendum',
-    dpaUrl: 'https://posthog.com/dpa',
-    note: 'Active only after you accept analytics cookies.',
-  },
-]
 
 function Section({
   id,
@@ -227,40 +159,26 @@ export default function PrivacyPage() {
         </Body>
       </Section>
 
+      {/* The full processor table (data categories, regions, transfer
+          safeguards, DPA links) lives on /privacy/subprocessors (HON-543).
+          This section names every vendor so the Art. 13/14 recipient
+          disclosure stays on the policy itself. */}
       <Section title="Who processes data for us">
         <Body>
-          We use five processors. All five involve a transfer to the United States, covered by the
-          safeguards listed for each. We have a data processing agreement with every one of them.
+          We use five processors: Anthropic, PBC for AI meal planning, Resend (Plus Five, Inc.) for
+          transactional email, Vercel Inc. for hosting, Neon (a Databricks company) for the
+          database, and PostHog, Inc. for product analytics and error tracking — the latter active
+          only after you accept analytics cookies. All five involve a transfer to the United States
+          covered by appropriate safeguards, and we have a data processing agreement with every one
+          of them.
         </Body>
-        <Table containerLabel="Processors">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Processor</TableHead>
-              <TableHead className="whitespace-normal">Role + data</TableHead>
-              <TableHead className="whitespace-normal">Region</TableHead>
-              <TableHead className="whitespace-normal">Transfer safeguards</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {PROCESSORS.map((p) => (
-              <TableRow key={p.name}>
-                <TableHead scope="row" className="align-top font-medium whitespace-normal">
-                  <a className="underline" href={p.dpaUrl}>
-                    {p.name}
-                  </a>
-                </TableHead>
-                <TableCell className="align-top whitespace-normal">
-                  {p.role} — {p.dataCategories}
-                  {p.note ? ` ${p.note}` : ''}
-                </TableCell>
-                <TableCell className="align-top whitespace-normal">{p.region}</TableCell>
-                <TableCell className="align-top whitespace-normal">{p.transferBasis}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        <Body variant="muted">
-          Each processor name links to the vendor&apos;s data processing agreement.
+        <Body>
+          The full list — data categories shared, processing regions, and transfer safeguards per
+          vendor — is on the{' '}
+          <Link className="underline" href="/privacy/subprocessors">
+            subprocessors page
+          </Link>
+          .
         </Body>
       </Section>
 

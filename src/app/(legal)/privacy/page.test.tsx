@@ -26,21 +26,20 @@ describe('PrivacyPage', () => {
     expect(text).toContain('PostHog, Inc.')
   })
 
-  it('renders the processors table with one row per processor plus header', () => {
+  it('links to the dedicated subprocessors page (HON-543)', () => {
     render(<PrivacyPage />)
-    // 1 header row + 5 processor rows
-    expect(screen.getAllByRole('row')).toHaveLength(6)
+    expect(screen.getByRole('link', { name: 'subprocessors page' })).toHaveAttribute(
+      'href',
+      '/privacy/subprocessors',
+    )
   })
 
-  it('states exact processing regions and transfer safeguards', () => {
+  it('summarises the US transfer and DPA coverage inline (full table on /privacy/subprocessors)', () => {
     const text = renderedText()
-    expect(text).toContain('EU (Frankfurt)')
-    expect(text).toContain('Databricks, Inc. (US)')
-    expect(text).toContain('EU-US DPF')
-    expect(text).toContain('UK IDTA')
-    expect(text).toContain('UK Addendum')
+    expect(text).toContain('transfer to the United States')
+    expect(text).toContain('data processing agreement with every one of them')
     // PostHog is consent-gated (HON-462)
-    expect(text).toContain('Active only after you accept analytics cookies.')
+    expect(text).toContain('active only after you accept analytics cookies')
   })
 
   it('states all retention numbers from the issue scope', () => {

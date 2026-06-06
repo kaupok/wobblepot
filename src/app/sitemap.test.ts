@@ -10,7 +10,7 @@ describe('sitemap', () => {
     const { default: sitemap } = await import('./sitemap')
     const result = sitemap()
 
-    expect(result).toHaveLength(4)
+    expect(result).toHaveLength(5)
     expect(result[0]).toMatchObject({
       url: 'https://wobblepot.com',
       changeFrequency: 'weekly',
@@ -39,12 +39,18 @@ describe('sitemap', () => {
       priority: 0.5,
     })
     expect(result[3]).toMatchObject({
+      url: 'https://wobblepot.com/privacy/subprocessors',
+      changeFrequency: 'yearly',
+      priority: 0.3,
+    })
+    expect(result[4]).toMatchObject({
       url: 'https://wobblepot.com/terms',
       changeFrequency: 'yearly',
       priority: 0.5,
     })
     expect(result[2]!.lastModified).toEqual(new Date(POLICY_LAST_UPDATED))
     expect(result[3]!.lastModified).toEqual(new Date(POLICY_LAST_UPDATED))
+    expect(result[4]!.lastModified).toEqual(new Date(POLICY_LAST_UPDATED))
   })
 
   it('includes lastModified as a Date', async () => {

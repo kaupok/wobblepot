@@ -25,6 +25,10 @@
         "title": "Privacy policy",
         "description": "How Wobblepot collects, uses, and protects your data."
       },
+      "subprocessors": {
+        "title": "Subprocessors",
+        "description": "The vendors that process personal data for Wobblepot, with regions and transfer safeguards."
+      },
       "terms": {
         "title": "Terms of service",
         "description": "The terms that govern your use of Wobblepot."
