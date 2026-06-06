@@ -8,7 +8,11 @@ name: Staging smoke
 
 on:
   workflow_run:
-    workflows: ['Deploy DB migrations [staging]']
+    # The workflows filter is a glob pattern, so unescaped [staging] is a
+    # character class matching a single character — it can never match the
+    # literal "[staging]" in the workflow name. Escape the brackets or this
+    # trigger silently never fires (bug: workflow had 0 runs Apr 22–Jun 6).
+    workflows: ['Deploy DB migrations \[staging\]']
     types: [completed]
   workflow_dispatch:
 
