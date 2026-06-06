@@ -18,12 +18,13 @@ export const CONSENT_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365
 export const CURRENT_TERMS_VERSION = 1
 
 /**
- * ISO date (YYYY-MM-DD) of the last material change to the Terms of
- * Service / Privacy Policy. Single source of truth for the "Last
+ * ISO date (YYYY-MM-DD) of the last published change to the Terms of
+ * Service / Privacy Policy text. Single source of truth for the "Last
  * updated" line on /privacy and /terms and the sitemap `lastModified`
- * of those routes. Bump alongside CURRENT_TERMS_VERSION.
+ * of those routes. Bump on any wording change; material changes also
+ * bump CURRENT_TERMS_VERSION above.
  */
-export const POLICY_LAST_UPDATED = '2026-06-03'
+export const POLICY_LAST_UPDATED = '2026-06-06'
 
 /** Human-readable form of POLICY_LAST_UPDATED, e.g. "3 June 2026". */
 export const POLICY_LAST_UPDATED_DISPLAY = new Date(POLICY_LAST_UPDATED).toLocaleDateString(

@@ -368,10 +368,9 @@ export default function PrivacyPage() {
         <Body>
           Wobblepot accounts are for people aged 16 or over, across all EU and UK jurisdictions.
           Household member profiles can describe children — their allergens and dietary needs are
-          often exactly what a family needs planned around. When you add a member under 16, you
-          confirm that you are their parent or legal guardian and consent to this data being used
-          for meal planning. An explicit in-app acknowledgment for this is part of the member
-          creation flow.
+          often exactly what a family needs planned around. By adding a member under 16, you confirm
+          that you are their parent or legal guardian and consent on their behalf to this data being
+          used for meal planning.
         </Body>
       </Section>
 
