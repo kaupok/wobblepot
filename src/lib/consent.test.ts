@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   CURRENT_TERMS_VERSION,
+  POLICY_LAST_UPDATED,
+  POLICY_LAST_UPDATED_DISPLAY,
   decisionToGranted,
   grantedToDecision,
   parseConsentDecision,
@@ -28,6 +30,25 @@ describe('CURRENT_TERMS_VERSION', () => {
     expect(CURRENT_TERMS_VERSION).not.toBeNull()
     expect(Number.isInteger(CURRENT_TERMS_VERSION)).toBe(true)
     expect(CURRENT_TERMS_VERSION).toBeGreaterThanOrEqual(1)
+  })
+})
+
+describe('POLICY_LAST_UPDATED', () => {
+  // HON-559: drives the sitemap lastModified for /privacy and /terms and
+  // the "Last updated" line on both legal pages.
+  it('is a valid ISO YYYY-MM-DD date', () => {
+    expect(POLICY_LAST_UPDATED).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(Number.isNaN(new Date(POLICY_LAST_UPDATED).getTime())).toBe(false)
+  })
+
+  it('display form derives from the ISO date', () => {
+    const expected = new Date(POLICY_LAST_UPDATED).toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    })
+    expect(POLICY_LAST_UPDATED_DISPLAY).toBe(expected)
   })
 })
 
