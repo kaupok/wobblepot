@@ -121,12 +121,19 @@ export default function SubprocessorsPage() {
               <TableRow key={p.name}>
                 <TableHead scope="row" className="align-top font-medium whitespace-normal">
                   {p.name}
+                  {/* aria-labels keep the 10 links distinguishable in a
+                      screen-reader links list (WCAG 2.4.4) while retaining the
+                      visible text in the accessible name (WCAG 2.5.3). */}
                   <span className="block font-normal">
-                    <a className="underline" href={p.privacyUrl}>
+                    <a
+                      className="underline"
+                      href={p.privacyUrl}
+                      aria-label={`${p.name} privacy policy`}
+                    >
                       Privacy
                     </a>
                     {' · '}
-                    <a className="underline" href={p.dpaUrl}>
+                    <a className="underline" href={p.dpaUrl} aria-label={`${p.name} DPA`}>
                       DPA
                     </a>
                   </span>

@@ -36,15 +36,23 @@ describe('SubprocessorsPage', () => {
     expect(text).toContain('Active only after you accept analytics cookies.')
   })
 
-  it('links every processor to its privacy policy and DPA', () => {
+  it('links every processor to its privacy policy and DPA with vendor-qualified names', () => {
     render(<SubprocessorsPage />)
-    const privacyLinks = screen.getAllByRole('link', { name: 'Privacy' })
-    const dpaLinks = screen.getAllByRole('link', { name: 'DPA' })
+    const externalLinks = screen
+      .getAllByRole('link')
+      .filter((link) => link.getAttribute('href')?.startsWith('https://'))
+    const privacyLinks = externalLinks.filter((link) =>
+      link.getAttribute('aria-label')?.endsWith('privacy policy'),
+    )
+    const dpaLinks = externalLinks.filter((link) =>
+      link.getAttribute('aria-label')?.endsWith('DPA'),
+    )
     expect(privacyLinks).toHaveLength(5)
     expect(dpaLinks).toHaveLength(5)
-    for (const link of [...privacyLinks, ...dpaLinks]) {
-      expect(link.getAttribute('href')).toMatch(/^https:\/\//)
-    }
+    // No two links share an accessible name — distinguishable in a
+    // screen-reader links list (WCAG 2.4.4)
+    const names = externalLinks.map((link) => link.getAttribute('aria-label'))
+    expect(new Set(names).size).toBe(10)
   })
 
   it('links back to the privacy policy', () => {
