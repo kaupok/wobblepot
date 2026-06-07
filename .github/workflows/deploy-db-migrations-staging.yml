@@ -77,4 +77,14 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
           DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_STAGING }}
+          # Plant the E2E fixture accounts (HON-560) — staging-smoke's
+          # pattern-(b) specs sign in with these instead of creating fresh
+          # accounts via /api/e2e-seed (which staging 404s by design).
+          # Without SEED_TEST_USERS=1 the seedTestUsers() branch silently
+          # no-ops and the fixture users never exist on staging.
+          SEED_TEST_USERS: '1'
+          SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
+          SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
+          FORGOT_PASSWORD_TEST_EMAIL: ${{ secrets.FORGOT_PASSWORD_TEST_EMAIL }}
+          FORGOT_PASSWORD_TEST_PASSWORD: ${{ secrets.FORGOT_PASSWORD_TEST_PASSWORD }}
         run: pnpm db:seed

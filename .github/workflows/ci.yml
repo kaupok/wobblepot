@@ -105,6 +105,12 @@ jobs:
       - name: Validate seed data
         run: pnpm db:validate
 
+      # Guardrail (HON-560): @smoke specs run against shared staging, where
+      # /api/e2e-seed 404s by design — fail at PR time if one reaches for a
+      # seed-dependent helper. Static grep, no DB or browser needed.
+      - name: Check @smoke specs are staging-safe
+        run: bash scripts/check-smoke-specs.sh
+
       # Cache the ~150 MB Chromium download across runs. Playwright is pinned
       # in pnpm-lock.yaml, so the lockfile hash is a stable cache key (HON-529).
       - name: Cache Playwright browsers

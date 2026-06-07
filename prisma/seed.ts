@@ -4015,6 +4015,31 @@ async function upsertCredentialUser(spec: TestUserSpec) {
   return user
 }
 
+/**
+ * Ensures the smoke user owns a household. Every authed surface the smoke
+ * spec asserts on (`/`, `/profile`) redirects household-less users to
+ * `/onboarding`, so the pattern-(b) read-only sign-in assertion (HON-560)
+ * needs a household to land anywhere assertable. Idempotent: keyed on the
+ * user's household membership (household name has no unique constraint),
+ * so re-running the seed is a no-op.
+ */
+async function ensureSmokeHousehold(userId: string) {
+  const membership = await prisma.householdMember.findFirst({ where: { userId } })
+  if (membership) {
+    return
+  }
+
+  await prisma.household.create({
+    data: {
+      name: 'Smoke Test Household',
+      members: {
+        create: { userId, role: 'owner' },
+      },
+    },
+  })
+  console.log('  ✓ smoke household created')
+}
+
 async function seedTestUsers() {
   if (process.env.SEED_TEST_USERS !== '1') {
     return
@@ -4038,8 +4063,15 @@ async function seedTestUsers() {
   ]
 
   for (const spec of specs) {
-    await upsertCredentialUser(spec)
+    const user = await upsertCredentialUser(spec)
     console.log(`  ✓ ${spec.label} user: ${spec.email}`)
+
+    // Only the smoke user needs a household — the forgot-password account
+    // exists purely for the reset-email round-trip (HON-479) and never
+    // navigates past sign-in.
+    if (spec.label === 'smoke') {
+      await ensureSmokeHousehold(user.id)
+    }
   }
 }
 

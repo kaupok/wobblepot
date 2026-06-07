@@ -32,7 +32,10 @@ test.describe('Authentication flows', () => {
     await expect(page.getByText(`Welcome to Wobblepot, ${name}!`)).toBeVisible()
   })
 
-  test('sign in -> view profile', { tag: '@smoke' }, async ({ page }) => {
+  // Fresh-signup variant — NOT @smoke: signUp() needs /api/e2e-seed, which
+  // only exists where the rate-limit bypass is active (CI/test/dev). The
+  // staging-safe @smoke sign-in lives in smoke.spec.ts (HON-560).
+  test('sign in -> view profile', async ({ page }) => {
     const email = generateUniqueEmail()
     const name = 'Existing User'
 
