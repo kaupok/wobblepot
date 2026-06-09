@@ -45,6 +45,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Fail fast (HON-560) before any install work if a @smoke spec slipped
+      # in that depends on /api/e2e-seed — staging 404s that route by design,
+      # so such a spec can never pass here regardless of app health.
+      - name: Check @smoke specs are staging-safe
+        run: bash scripts/check-smoke-specs.sh
+
       - name: Enable Corepack
         run: corepack enable
 

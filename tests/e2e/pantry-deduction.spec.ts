@@ -25,7 +25,12 @@ interface Entry {
   } | null
 }
 
-test.describe('Pantry deduction on meal completion', { tag: ['@smoke', '@ai'] }, () => {
+// NOT @smoke (HON-560): the spec signs up a fresh account via /api/e2e-seed
+// (404 outside CI/test/dev — including staging AND preview) and mutates
+// pantry/plan state. It is also @ai, so per-merge staging runs would carry
+// real token cost. It runs via `pnpm test:e2e:local --ai`; tier 1 CI
+// excludes @ai by design (see tests/e2e/README.md).
+test.describe('Pantry deduction on meal completion', { tag: '@ai' }, () => {
   test.setTimeout(90_000)
 
   test('marking a meal completed decrements pantry by quantityPerServing × householdSize', async ({

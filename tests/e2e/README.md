@@ -5,11 +5,11 @@ environments, all from the same `tests/e2e/*.spec.ts` files.
 
 ## Tiers
 
-| Tier              | When                                                                              | Target                           | Specs run                     |
-| ----------------- | --------------------------------------------------------------------------------- | -------------------------------- | ----------------------------- |
-| **CI E2E**        | Every push / PR (`.github/workflows/ci.yml`)                                      | Docker Postgres sidecar          | All specs **except `@ai`**    |
-| **Preview-smoke** | Vercel preview deploy succeeds **and PR has `smoke` label** (`preview-smoke.yml`) | Vercel preview URL + Neon branch | `--grep=@smoke` (includes AI) |
-| **Staging-smoke** | Staging DB-migration workflow succeeds on `main` (`staging-smoke.yml`)            | `https://wobblepot.dev`          | `--grep=@smoke` (includes AI) |
+| Tier              | When                                                                              | Target                           | Specs run                                 |
+| ----------------- | --------------------------------------------------------------------------------- | -------------------------------- | ----------------------------------------- |
+| **CI E2E**        | Every push / PR (`.github/workflows/ci.yml`)                                      | Docker Postgres sidecar          | All specs **except `@ai`**                |
+| **Preview-smoke** | Vercel preview deploy succeeds **and PR has `smoke` label** (`preview-smoke.yml`) | Vercel preview URL + Neon branch | `--grep=@smoke` (fixture-based, no `@ai`) |
+| **Staging-smoke** | Staging DB-migration workflow succeeds on `main` (`staging-smoke.yml`)            | `https://wobblepot.dev`          | `--grep=@smoke` (fixture-based, no `@ai`) |
 
 Staging-smoke failure blocks production promotion — see
 [`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md).
@@ -19,8 +19,10 @@ Staging-smoke failure blocks production promotion — see
 Tier 1 runs on every push. Specs that call Claude (meal-plan generate,
 swap, pantry-deduction) cost real money per run — at this repo's PR
 velocity, running them on every push is a four-to-five-figure annual
-bill. They live in tiers 2 and 3 instead, where "once per PR" and "once
-per merge" cadences are economically reasonable.
+bill. They are also excluded from tiers 2 and 3 (HON-560): every current
+`@ai` spec creates its own account via `/api/e2e-seed`, which only exists
+where the rate-limit bypass is active (CI/test/dev) — preview and staging
+404 it by design. `@ai` specs run via `pnpm test:e2e:local --ai`.
 
 ### Running preview-smoke on a PR
 
@@ -72,22 +74,38 @@ PLAYWRIGHT_BASE_URL=https://preview-xyz.vercel.app \
 ## The `@smoke` tag
 
 `@smoke` is a cluster-wide contract: specs carrying this tag run against
-shared environments (preview, staging) and **must be idempotent**. They
-either:
+shared environments (preview, staging) and **must be idempotent**. In
+principle that allows two shapes:
 
 - (a) create scoped fixtures and clean up on teardown, or
 - (b) operate on an immutable seeded account with read-only assertions.
 
-The locked initial `@smoke` set is:
+In practice **pattern (b) is the only viable shape** (HON-560): account
+creation needs an invite code from `/api/e2e-seed`, and that route 404s
+everywhere the rate-limit bypass is off — staging AND preview, by design
+(see `src/app/api/e2e-seed/route.ts`). A `@smoke` spec must therefore
+never call `signUp()`, `signUpWithHousehold()`, or `seedInviteCode()`.
+Sign in with the seeded fixture accounts below instead.
 
-- `tests/e2e/auth.spec.ts` → `sign in -> view profile`
-- `tests/e2e/meal-plan.spec.ts` → `generate first meal plan`
-- `tests/e2e/meal-plan.spec.ts` → `change meal status persists after refresh`
-- `tests/e2e/invite.spec.ts` → `new user accepts invite and joins household`
-- `tests/e2e/pantry-deduction.spec.ts` → `marking a meal completed decrements pantry…`
+**Guardrail:** `scripts/check-smoke-specs.sh` fails CI (and the
+staging-smoke run itself) if a `@smoke`-tagged spec file references one of
+those helpers. The check is file-scoped, so keep staging-safe `@smoke`
+specs in files that don't import the sign-up path — currently they all
+live in `tests/e2e/smoke.spec.ts`.
 
-Do **not** add `@smoke` to destructive specs (e.g. account deletion —
-ships CI-only via [HON-479](https://linear.app/honkadori/issue/HON-479)).
+The current `@smoke` set is:
+
+- `tests/e2e/smoke.spec.ts` → `home renders with heading`
+- `tests/e2e/smoke.spec.ts` → `seeded smoke user signs in and views profile`
+
+(The original HON-455 locked set listed meal-plan and invite specs deleted
+in the HON-518 drift audit; `pantry-deduction.spec.ts` lost `@smoke` in
+HON-560 — it is `@ai` and seed-dependent.)
+
+Upcoming `@smoke` specs (forgot-password and shopping→pantry via
+[HON-479](https://linear.app/honkadori/issue/HON-479)) must follow the same
+fixture-based convention. Do **not** add `@smoke` to destructive specs
+(e.g. account deletion — ships CI-only via HON-479).
 
 ## Selector conventions
 
@@ -125,11 +143,12 @@ Preview-smoke and staging-smoke rely on fixtures the seed script plants when
 `SEED_TEST_USERS=1` is set in the environment. These are consumed by specs
 that follow pattern (b) — notably those landing via HON-469 and HON-479.
 
-| Fixture                                               | How to reference                                                     | Purpose                                                 |
-| ----------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------- |
-| Smoke test user                                       | `SMOKE_TEST_EMAIL` + `SMOKE_TEST_PASSWORD`                           | Stable credential for read-only sign-in assertions      |
-| Forgot-password test user                             | `FORGOT_PASSWORD_TEST_EMAIL` + `FORGOT_PASSWORD_TEST_PASSWORD`       | Password can be reset per run without cross-spec impact |
-| Plan-eligible meal with concrete `quantityPerServing` | Any meal from `prisma/seed.ts` `baseMeals` with non-vague components | Drives pantry-deduction assertions                      |
+| Fixture                                               | How to reference                                                     | Purpose                                                                                                                                      |
+| ----------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Smoke test user                                       | `SMOKE_TEST_EMAIL` + `SMOKE_TEST_PASSWORD`                           | Stable credential for read-only sign-in assertions                                                                                           |
+| Smoke household ("Smoke Test Household")              | Automatic — owned by the smoke user                                  | Authed routes (`/`, `/profile`, `/shopping`) redirect household-less users to `/onboarding`; without it pattern (b) has nothing to assert on |
+| Forgot-password test user                             | `FORGOT_PASSWORD_TEST_EMAIL` + `FORGOT_PASSWORD_TEST_PASSWORD`       | Password can be reset per run without cross-spec impact                                                                                      |
+| Plan-eligible meal with concrete `quantityPerServing` | Any meal from `prisma/seed.ts` `baseMeals` with non-vague components | Drives pantry-deduction assertions                                                                                                           |
 
 Seeded via `prisma/seed.ts` → `seedTestUsers()`. The function is **gated**
 behind `SEED_TEST_USERS=1` so it never runs against production. Users are
@@ -155,11 +174,23 @@ purely content.
 | `FORGOT_PASSWORD_TEST_EMAIL`    | CI / preview-smoke / staging | n/a                | Separate seeded account so reset-password specs don't affect the smoke account.                                                                                   |
 | `FORGOT_PASSWORD_TEST_PASSWORD` | CI / preview-smoke / staging | n/a                | Same constraints as `SMOKE_TEST_PASSWORD`.                                                                                                                        |
 
-For preview-smoke and staging-smoke to actually find the seeded
-accounts, the **Vercel env vars** for those environments also need
-`SEED_TEST_USERS=1` plus the same `SMOKE_TEST_*` / `FORGOT_PASSWORD_TEST_*`
-values — otherwise the seed step `scripts/maybe-migrate.sh` → `pnpm db:seed`
-skips the `seedTestUsers()` branch.
+Where each environment's seed actually runs (and therefore where the
+`SEED_TEST_USERS=1` + credential env vars must be set):
+
+- **Preview** — `scripts/maybe-migrate.sh` → `pnpm db:seed` during the
+  Vercel build, so the **Vercel preview env vars** need `SEED_TEST_USERS=1`
+  plus the same `SMOKE_TEST_*` / `FORGOT_PASSWORD_TEST_*` values.
+- **Staging** — `maybe-migrate.sh` skips `main`, so seeding happens in the
+  `Deploy DB migrations [staging]` GitHub workflow instead. Its seed step
+  sets `SEED_TEST_USERS=1` and passes the four credential secrets
+  (HON-560). The step only runs when `prisma/seed*.ts` / `schema.prisma`
+  changed in the push — `workflow_dispatch` the migration workflow to
+  re-seed on demand.
+
+Missing env vars don't error — `seedTestUsers()` silently no-ops, and the
+fixture sign-in spec then fails on the remote tier (it fails loudly rather
+than skipping when `PLAYWRIGHT_BASE_URL` is set, precisely so a missing
+secret can't turn the promotion gate into a silent green).
 
 `STAGING_URL` is a **variable** (not a secret) — default `https://wobblepot.dev`.
 
