@@ -12,7 +12,7 @@
 set -e
 
 # Configuration
-REPO_NAME="honkadori"
+REPO_NAME="wobblepot"
 WORKTREE_BASE="$HOME/.worktrees/$REPO_NAME"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"

@@ -23,7 +23,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-REPO_NAME="honkadori"
+REPO_NAME="wobblepot"
 WORKTREE_BASE="$HOME/.worktrees/$REPO_NAME"
 LOG_DIR="$WORKTREE_BASE/logs"
 STATUS_FILE="$WORKTREE_BASE/orchestrator-status.json"
