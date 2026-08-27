@@ -58,7 +58,7 @@ Extract:
 
 **Hard gate (runs in both normal and `--no-plan` mode) — stop before claiming the issue if either holds:**
 
-- `status` is `Done`, `Canceled`, or `Duplicate` — the issue is already closed:
+- `statusType` is `completed`, `canceled`, `duplicate`, or `triage` (Done / Canceled / Duplicate / Triage — match on `statusType`, not the display name, same as `/auto-implement` 2.1) — the issue is closed or not yet refined:
 
   ```
   HON-XX is [status] — nothing to implement. Pick another issue (`/next-issue`) or reopen it in Linear first.

@@ -267,17 +267,17 @@ Extract and note:
 
 **The orchestrator pre-claims.** `scripts/orchestrator.sh` calls `claim_issue()` (state → `In Progress`, assignee left untouched) _before_ it spawns `wt auto HON-XX` → `/auto-implement HON-XX`. On that path the issue is already `In Progress` and unassigned by the time 2.1 runs — that is the normal case, not a conflict. The gate therefore rejects on closed states and on foreign assignees, never on `In Progress` alone.
 
-**Every gate stop must first undo the pre-claim.** If the issue is `In Progress` **and** `assignee` is `null`, it got there via `claim_issue()`, and stopping would strand it: `fetch_todo_issues` only queries Todo, the orchestrator records a 0-commit exit as SUCCESS and cleans up the worktree, and nothing ever moves the issue back. So before printing the stop message, restore Todo so the orchestrator / `/next-issue` can see it again:
+**Every gate stop must first undo the pre-claim.** If the issue is `In Progress` **and** `assignee` is `null` **or me**, it got there via `claim_issue()` (unassigned) or via a previous attempt's 2.2 claim (the orchestrator's `RETRY` re-spawns the same issue after 2.2 already assigned me), and stopping would strand it: `fetch_todo_issues` only queries Todo, the orchestrator records a 0-commit exit as SUCCESS and cleans up the worktree, and nothing ever moves the issue back. So before printing the stop message, restore Todo so the orchestrator / `/next-issue` can see it again:
 
 ```
-mcp__linear-server__save_issue({ id: "HON-XX", state: "Todo" })
+mcp__linear-server__save_issue({ id: "HON-XX", state: "Todo", assignee: null })
 ```
 
-Never touch an issue assigned to someone else — that is theirs, whatever its state. Leave every other state (`Backlog`, `Todo`, `In Review`, closed states, `In Progress` assigned to me) exactly as found: the orchestrator pre-claim is the only write this step reverses.
+Never touch an issue assigned to someone else — that is theirs, whatever its state. Leave every other state (`Backlog`, `Todo`, `In Review`, closed states) exactly as found: the pre-claim (state, and the assignee a retried attempt left behind) is the only write this step reverses.
 
 **Gate on `statusType`, not on the state's display name.** `get_issue` returns `statusType` ∈ { `backlog`, `unstarted`, `started`, `completed`, `canceled`, `duplicate`, `triage` }; state names are workspace-configurable and `Triage` has no "closed" name to match. Keep the human-readable `status` in the stop message.
 
-1. **Status** — stop if `statusType` is `completed`, `canceled`, `duplicate`, or `triage` (a Triage issue is not refined yet — `/next-issue` and Phase 1.4 reject it too). `backlog` / `unstarted` (Backlog, Todo) pass outright. `started` (In Progress, In Review) passes **only if** the assignee check below passes — an in-flight issue assigned to someone else is theirs. Nothing to undo here: an issue in one of these states was not pre-claimed.
+1. **Status** — stop if `statusType` is `completed`, `canceled`, `duplicate`, or `triage` (a Triage issue is not refined yet — `/next-issue` and Phase 1.4 reject it too). `backlog` / `unstarted` (Backlog, Todo) pass outright. `started` covers both `In Progress` and `In Review`, so also read the state name: `In Progress` passes **only if** the assignee check below passes — an in-flight issue assigned to someone else is theirs; `In Review` means a PR is already open — stop (Phase 1.2 rejects it too), and do not undo anything, because a reviewed issue was never pre-claimed by this cycle.
 
    ```
    [auto-implement] ✗ Error: HON-XX is [status] — not open for an autonomous cycle to claim. Pick another issue, or reopen / triage it in Linear first.
