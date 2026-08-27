@@ -64,7 +64,7 @@ Extract:
   HON-XX is [status] — nothing to implement. Pick another issue (`/next-issue`) or reopen it in Linear first.
   ```
 
-- `relations.blockedBy` contains any issue whose status is not `Done` or `Canceled` — list the open blockers and stop:
+- `relations.blockedBy` contains any issue whose status is not `Done`, `Canceled`, or `Duplicate` — list the open blockers and stop:
 
   ```
   HON-XX is blocked by open issues:
