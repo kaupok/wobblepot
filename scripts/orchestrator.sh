@@ -317,9 +317,9 @@ select_next_issue() {
         # may have self-assigned a Todo issue to work on by hand. Same rule as
         # /next-issue step 4 and /auto-implement 1.4 (assignee must be null).
         # Issues a previous run assigned to "me" are not stranded by this:
-        # move_to_backlog writes Backlog (excluded by state here), RETRY
-        # re-spawns without re-entering selection, and the 2.1 gate undo
-        # clears the assignee it reverses.
+        # move_to_backlog clears the assignee when it fails an issue back to
+        # Backlog, so a human re-triage to Todo makes it pickable again; RETRY
+        # re-spawns the same worker without re-entering selection.
         _assigned: (.assignee != null),
         _open_blockers: ([
           .inverseRelations.nodes[]
@@ -967,14 +967,16 @@ move_to_backlog() {
   # Try to add label (best-effort)
   try_add_label "$issue_uuid" "$label_name"
 
-  # Move to Backlog
+  # Move to Backlog and clear the assignee. /auto-implement 2.2 assigns the
+  # issue to the API user; leaving that in place would make select_next_issue
+  # skip the issue as "assigned" forever once a human re-triages it to Todo.
   vars=$(jq -n --arg id "$issue_uuid" --arg state "$STATE_BACKLOG" '{id: $id, stateId: $state}')
   linear_api \
     'mutation($id: String!, $stateId: String!) {
-      issueUpdate(id: $id, input: { stateId: $stateId }) { success }
+      issueUpdate(id: $id, input: { stateId: $stateId, assigneeId: null }) { success }
     }' "$vars" > /dev/null 2>&1 || log WARN "Failed to move $issue_id to Backlog"
 
-  log INFO "Moved $issue_id to Backlog with '$label_name' label"
+  log INFO "Moved $issue_id to Backlog (unassigned) with '$label_name' label"
 }
 
 # ─── Label management (best-effort) ─────────────────────────────────────────

@@ -277,7 +277,7 @@ Never touch an assigned issue — `In Progress` + assignee me is an explicit cla
 
 **Gate on `statusType`, not on the state's display name.** `get_issue` returns `statusType` ∈ { `backlog`, `unstarted`, `started`, `completed`, `canceled`, `duplicate`, `triage` }; state names are workspace-configurable and `Triage` has no "closed" name to match. Keep the human-readable `status` in the stop message.
 
-1. **Status** — stop if `statusType` is `completed`, `canceled`, `duplicate`, or `triage` (a Triage issue is not refined yet — `/next-issue` and Phase 1.4 reject it too). `backlog` / `unstarted` (Backlog, Todo) pass outright. `started` covers both `In Progress` and `In Review`, so also read the state name: `In Progress` passes **only if** the assignee check below passes — an in-flight issue assigned to someone else is theirs; `In Review` means a PR is already open — stop (Phase 1.2 rejects it too), and do not undo anything, because a reviewed issue was never pre-claimed by this cycle.
+1. **Status** — stop if `statusType` is `completed`, `canceled`, `duplicate`, or `triage` (a Triage issue is not refined yet — `/next-issue` and Phase 1.4 reject it too). `backlog` / `unstarted` (Backlog, Todo) pass outright. `started` covers both `In Progress` and `In Review`; both pass **only if** the assignee check below passes. `In Progress` + unassigned is the orchestrator pre-claim. `In Progress` or `In Review` + me is a resumable claim: the orchestrator's `RETRY` re-spawns the same issue after Phase 5 opened a PR and Linear flipped it to `In Review`, and Phase 6 must pick that PR up rather than stop. Either state assigned to someone else is theirs. Nothing to undo on a stop here — a started issue assigned to someone else was not pre-claimed by this cycle.
 
    ```
    [auto-implement] ✗ Error: HON-XX is [status] — not open for an autonomous cycle to claim. Pick another issue, or reopen / triage it in Linear first.
@@ -314,14 +314,14 @@ Never touch an assigned issue — `In Progress` + assignee me is an explicit cla
 
 ### 2.2 Claim issue
 
-Immediately after the gate passes — before any planning work — set status to "In Progress" and assign to self. On the orchestrator path this leaves the status as-is and fills in the assignee that `claim_issue()` left empty; on a direct `/auto-implement HON-XX` invocation it is the actual claim that keeps other agents off the issue.
+Immediately after the gate passes — before any planning work — assign to self, and set status to "In Progress" **only if `statusType` is not already `started`**. Never demote an `In Review` issue: on the orchestrator's `RETRY` path a PR is already open and Phase 6 resumes from it. On the orchestrator's first attempt this fills in the assignee that `claim_issue()` left empty; on a direct `/auto-implement HON-XX` invocation it is the actual claim that keeps other agents off the issue.
 
 ```
-mcp__linear-server__save_issue({
-  id: "HON-XX",
-  state: "In Progress",
-  assignee: "me"
-})
+// statusType backlog / unstarted
+mcp__linear-server__save_issue({ id: "HON-XX", state: "In Progress", assignee: "me" })
+
+// statusType started (In Progress or In Review) — keep the state
+mcp__linear-server__save_issue({ id: "HON-XX", assignee: "me" })
 ```
 
 ### 2.3 MANDATORY: Check relatedTo + epic siblings for recently-merged overlap
