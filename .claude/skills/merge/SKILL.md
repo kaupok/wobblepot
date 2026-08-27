@@ -169,17 +169,9 @@ Extract owner/repo from `gh repo view --json nameWithOwner --jq .nameWithOwner`.
 
 **Post comment to Linear:**
 
-First fetch the issue UUID:
-
 ```
-mcp__linear-server__get_issue({ id: "HON-XX" })
-```
-
-Then post:
-
-```
-mcp__linear-server__create_comment({
-  issueId: "[issue-uuid-from-linear]",
+mcp__linear-server__save_comment({
+  issueId: "HON-XX",
   body: "[summary comment]"
 })
 ```

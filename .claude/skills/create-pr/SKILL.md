@@ -64,7 +64,7 @@ git log origin/main..HEAD --format="%s%n%b"
 If Linear issue ID is in branch name (e.g., `hon-XX`):
 
 ```
-mcp__linear-server__get_issue({ id: "HON-XX" })
+mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
 ```
 
 Extract the issue description - this is the primary source for the Context section.
