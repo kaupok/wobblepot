@@ -818,7 +818,7 @@ $timeout_context"
     fi
 
     local triage_output exit_code=0
-    triage_output=$(echo "$log_tail" | env -u ANTHROPIC_API_KEY claude -p --model claude-sonnet-4-6 "Worker for $issue_id failed ($failure_type).${triage_extra}
+    triage_output=$(echo "$log_tail" | env -u ANTHROPIC_API_KEY claude -p --model claude-sonnet-5 "Worker for $issue_id failed ($failure_type).${triage_extra}
 
 Based on the log from stdin, respond with EXACTLY one word:
 RETRY - transient failure (flaky test, network error, rate limit, timeout)
