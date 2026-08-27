@@ -53,6 +53,7 @@ If no review exists, trigger one:
 ```
 
 ```bash
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
 ./scripts/pr-review.sh ${PR_NUMBER}
 ```
 

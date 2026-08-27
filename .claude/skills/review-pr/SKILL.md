@@ -30,6 +30,8 @@ If no PR exists, inform user: "No PR found for this branch. Create one with `/cr
 ### 2. Run the reviewer
 
 ```bash
+# Fresh shell — re-derive (or substitute the literal number given as the argument)
+PR_NUMBER=$(gh pr view --json number --jq .number)
 ./scripts/pr-review.sh ${PR_NUMBER}
 ```
 

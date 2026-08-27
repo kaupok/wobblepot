@@ -39,10 +39,12 @@ git status --porcelain
 # Get PR status
 gh pr view --json number,title,state,headRefName,mergeable,mergeStateStatus,url 2>/dev/null
 
-# Save the PR number now — after `gh pr merge --delete-branch` HEAD is `main` and a
-# bare `gh pr view` no longer resolves this PR. Steps 2, 2.5 and 5 all use it.
-PR_NUMBER=$(gh pr view --json number --jq .number)
+# Print the PR number — after `gh pr merge --delete-branch` HEAD is `main` and a
+# bare `gh pr view` no longer resolves this PR
+gh pr view --json number --jq .number
 ```
+
+Note the number; you will need to paste it literally into Step 5. Bash tool calls don't share shell variables, so every pre-merge snippet below re-derives `PR_NUMBER` inline, and Step 5 uses a literal `<PR_NUMBER>` placeholder.
 
 **Validation rules:**
 
@@ -65,14 +67,23 @@ Before merging, ensure all CI checks have passed. CI takes 12–45 min; Bash's 6
 ```bash
 # Run with run_in_background: true — emits one completion notification when the loop exits.
 # Bounded to ci.yml's timeout-minutes (45) plus margin: 100 polls × 30 s = 50 min.
-# Exits only once at least one check exists AND none is pending — right after a push the
-# head has zero check runs, and an empty result must not be mistaken for "passed".
+# Settles only when: at least one check exists and none is pending; the sorted name=bucket
+# list is identical on two consecutive polls (fast Vercel/smoke statuses register before the
+# ci.yml job does); and, for a PR with non-docs files, the ci.yml job "Lint, Type Check & Test"
+# is present. Each Bash call is a fresh shell, so PR_NUMBER is derived here — never reused.
 PR_NUMBER=$(gh pr view --json number --jq .number)
+NON_DOCS=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
+PREV=""
 sleep 30  # let GitHub register the workflow run for the pushed commit before the first poll
 for i in $(seq 1 100); do
-  COUNTS=$(gh pr checks "$PR_NUMBER" --json bucket --jq '"\(length) \([.[] | select(.bucket == "pending")] | length)"' 2>/dev/null)
-  TOTAL=${COUNTS%% *}; PENDING=${COUNTS##* }
-  if [ "${TOTAL:-0}" -gt 0 ] && [ "${PENDING:-0}" -eq 0 ]; then echo CI_SETTLED; exit 0; fi
+  CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket --jq 'sort_by(.name) | .[] | "\(.name)=\(.bucket)"' 2>/dev/null)
+  OK=1
+  [ -n "$CUR" ] || OK=0                                                              # at least one check exists
+  printf '%s\n' "$CUR" | grep -q '=pending$' && OK=0                                 # none pending
+  [ -z "$NON_DOCS" ] || printf '%s\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0   # ci.yml job registered (code PRs)
+  [ "$CUR" = "$PREV" ] || OK=0                                                       # identical to the previous poll
+  if [ "$OK" = 1 ]; then echo CI_SETTLED; exit 0; fi
+  PREV=$CUR
   sleep 30
 done
 echo CI_TIMEOUT; exit 1
@@ -82,22 +93,24 @@ If the background task ends with `CI_TIMEOUT`, report and stop — do not merge.
 
 **Behavior:**
 
-- If checks already passed: the loop exits on its first poll
-- If checks still running: polls every 30 s until no check is `pending` (no Bash timeout involved)
+- If checks already passed: the loop settles on its second poll (two identical results, ~90 s including the initial sleep)
+- If checks still running: polls every 30 s until no check is `pending` and the list is stable (no Bash timeout involved)
 - Pass/fail is decided by the verification below, not by the loop
 
 When the notification arrives, verify in the foreground. With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so the `bucket` field is the only signal — anything other than `pass`/`skipping` (`fail` or `cancel`: FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure:
 
 ```bash
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
 gh pr checks "$PR_NUMBER" --json name,bucket,state \
   --jq '.[] | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
 ```
 
 - No output → all checks passed. Proceed.
 - Any line printed → **On failure:** report which checks failed and stop. Do not proceed to merge.
-- `no checks reported on the '<branch>' branch` on stderr (exit 1) → acceptable **only** when every changed file is excluded by `ci.yml` `paths-ignore` (`**/*.md`, `docs/**`, `.github/ISSUE_TEMPLATE/**`), i.e. no workflow was ever going to run. Otherwise checks simply have not been reported for a code change — stop:
+- `no checks reported on the '<branch>' branch` on stderr (exit 1) → acceptable **only** when every changed file is excluded by `ci.yml` `paths-ignore` (`**/*.md`, `docs/**`, `.github/ISSUE_TEMPLATE/**`), i.e. no workflow was ever going to run. Otherwise checks simply have not been reported for a code change — stop. In practice this branch is unreachable here (docs-only PRs still receive Vercel and skipped smoke checks, so `gh pr checks` always reports something); it is kept as a defensive branch — do not rely on it:
 
 ```bash
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
 NON_DOCS=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
 if [ -n "$NON_DOCS" ]; then
   echo "CI did not report checks for a code change"  # STOP — do not proceed
@@ -110,11 +123,12 @@ fi
 
 **Skip this step if `--force` flag is set.**
 
-The Claude review is posted as a PR comment with a `<!-- claude-review -->` marker. It may already exist (triggered by `/create-pr`) or may need to be triggered. Use `PR_NUMBER` saved in Step 1.
+The Claude review is posted as a PR comment with a `<!-- claude-review -->` marker. It may already exist (triggered by `/create-pr`) or may need to be triggered.
 
 Check if review already exists:
 
 ```bash
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
 gh api /repos/:owner/:repo/issues/${PR_NUMBER}/comments \
   --jq '[.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
 ```
@@ -124,6 +138,7 @@ If review exists (count > 0): proceed to Step 3.
 If no review exists, trigger one and wait:
 
 ```bash
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
 ./scripts/pr-review.sh ${PR_NUMBER}
 ```
 
@@ -132,6 +147,7 @@ This spawns `claude -p` and takes several minutes. Run it with `timeout: 600000`
 After the script returns, verify:
 
 ```bash
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
 gh api /repos/:owner/:repo/issues/${PR_NUMBER}/comments \
   --jq '[.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
 ```
@@ -190,14 +206,15 @@ After merging but before local cleanup, post a work summary to the linked Linear
 **Gather PR data:**
 
 ```bash
-# PR details and files — pass the number saved in Step 1. After the squash merge
-# (with --delete-branch) HEAD is `main`, so a bare `gh pr view` no longer resolves this PR.
-gh pr view "$PR_NUMBER" --json number,title,url,commits,files
+# Bash calls don't share variables — substitute the literal PR number captured in
+# Step 1 for <PR_NUMBER>. After the squash merge (with --delete-branch) HEAD is `main`,
+# so a bare `gh pr view` no longer resolves this PR.
+gh pr view <PR_NUMBER> --json number,title,url,commits,files
 
 # Review comments: inline comments + review-level summaries
 # (`:owner/:repo` is auto-filled by gh from the current git remote)
-gh api "/repos/:owner/:repo/pulls/${PR_NUMBER}/comments"
-gh api "/repos/:owner/:repo/pulls/${PR_NUMBER}/reviews"
+gh api /repos/:owner/:repo/pulls/<PR_NUMBER>/comments
+gh api /repos/:owner/:repo/pulls/<PR_NUMBER>/reviews
 ```
 
 **Post comment to Linear:**
