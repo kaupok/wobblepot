@@ -49,6 +49,14 @@ mcp__linear-server__list_issues({
 
 Check if this idea (or parts of it) already exists as issues. Flag any overlaps.
 
+`list_issues` never returns relations, so before presenting any flagged overlap re-fetch it and read the structured fields:
+
+```typescript
+mcp__linear-server__get_issue({ id: 'HON-NNN', includeRelations: true })
+```
+
+Check `status`, `assignee`, and `relations.blockedBy` for each — a Done issue with an attached PR has shipped (build on it, don't re-plan it); an In Progress / assigned issue is someone's active work; an open `blockedBy` chain changes what the new idea can depend on. Present overlaps with that state attached, not just titles.
+
 ### Step 4: Present initial take and ask questions
 
 Share with the user:
@@ -136,6 +144,8 @@ mcp__linear-server__save_issue({
   // parentId: 'parent-uuid' // if sub-issue
 })
 ```
+
+Reference other issues in descriptions as plain text (`HON-NNN`), never hand-copied `<issue id="…">` tags — Linear auto-resolves plain text on save, and a copied UUID controls where the link goes, so it can silently point at the wrong issue.
 
 ### Step 10: Summary
 
