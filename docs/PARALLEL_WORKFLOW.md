@@ -160,7 +160,10 @@ The orchestrator (`scripts/orchestrator.sh`) is a long-running dispatcher that p
 
 - Fetch Todo issues via Linear GraphQL (curl + jq)
 - Filter out issues already being processed by running workers
-- Check `blockedBy` — unblocked if all blockers are Done/Canceled/Duplicate
+- Skip assigned issues — someone owns them (same `assignee: "null"` rule as `/next-issue` and `/auto-implement` Phase 1.4). `move_to_backlog` clears the assignee when it fails an issue back to Backlog, so a re-triaged issue is pickable again. The explicit-ID gate (`/auto-implement HON-XX` 2.1) also accepts `assignee == me` on an `In Progress` issue (my own earlier claim).
+- If the orchestrator is force-killed (second signal), in-flight issues stay `In Progress` **and assigned** — `move_to_backlog` never ran. To re-queue one, move it to Todo **and unassign it**; an assigned issue is skipped.
+- Check `blockedBy` — unblocked only if all blockers are Done/Canceled. A Duplicate blocker never clears on its own: a human follows its `duplicateOf` or fixes the stale relation (same rule as the `/auto-implement` and `/implement-issue` gates)
+- Log every skipped candidate with its reason (`[SKIP] HON-XX assigned`, `[SKIP] HON-XX blocked by HON-YY (Duplicate)`) so a stuck issue is visible in `orchestrator.log` rather than dropped silently
 - Prioritize: issues that `blocks` others first, then by `priority` field
 - Pick one per poll cycle
 
