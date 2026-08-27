@@ -251,7 +251,7 @@ Otherwise, store the issue ID:
 Set status to "In Progress" and assign to self right away, before any planning work. This prevents other agents from picking the same issue concurrently.
 
 ```
-mcp__linear-server__update_issue({
+mcp__linear-server__save_issue({
   id: "HON-XX",
   state: "In Progress",
   assignee: "me"
@@ -388,13 +388,13 @@ Write the plan directly in your response using this structure:
 Post the plan directly to Linear (no approval needed in auto mode):
 
 ```
-mcp__linear-server__create_comment({
-  issueId: "[issue-uuid]",
+mcp__linear-server__save_comment({
+  issueId: "HON-XX",
   body: "[The complete plan from step 2.7]"
 })
 ```
 
-**CRITICAL: Do NOT proceed to Phase 3 until the plan has been successfully posted to Linear.** If the `create_comment` call fails, retry once. If it fails again, stop with error:
+**CRITICAL: Do NOT proceed to Phase 3 until the plan has been successfully posted to Linear.** If the `save_comment` call fails, retry once. If it fails again, stop with error:
 
 ```
 [auto-implement] ✗ Error: Failed to post plan to Linear. Cannot proceed without documented plan.
@@ -874,7 +874,7 @@ The remote branch is still deleted by GitHub. The local worktree branch is prese
 
 After merging but before local cleanup, post a work summary to the Linear issue.
 
-The issue UUID is already in context from Phase 2.1. The PR number and URL are available from Phase 5.4 / Phase 6.2.
+The PR number and URL are available from Phase 5.4 / Phase 6.2.
 
 **Gather PR data:**
 
@@ -892,8 +892,8 @@ Extract owner/repo from `gh repo view --json nameWithOwner --jq .nameWithOwner`.
 **Post comment to Linear:**
 
 ```
-mcp__linear-server__create_comment({
-  issueId: "[issue-uuid]",
+mcp__linear-server__save_comment({
+  issueId: "HON-XX",
   body: "[summary comment]"
 })
 ```

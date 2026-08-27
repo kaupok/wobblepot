@@ -128,8 +128,8 @@ For issues that involve code changes, do a focused codebase scan (2-5 files) to 
 **For refinements:**
 
 ```typescript
-mcp__linear-server__update_issue({
-  id: 'issue-uuid',
+mcp__linear-server__save_issue({
+  id: 'HON-XX',
   title: 'Refined title without [DRAFT]', // Remove [DRAFT] if present; keep as-is for labeled issues
   description: 'Full description with acceptance criteria',
   // Add relationships as needed:
@@ -153,7 +153,7 @@ mcp__linear-server__save_issue({
 **For duplicates:**
 
 ```typescript
-mcp__linear-server__update_issue({
+mcp__linear-server__save_issue({
   id: 'duplicate-issue-id',
   duplicateOf: 'original-issue-id',
   state: 'Duplicate',

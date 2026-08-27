@@ -82,31 +82,21 @@ Verify the plan comment:
 
 Store the plan content for implementation guidance.
 
-### 6. Update issue status
+### 6. Update issue status and assign to self
 
-If current state is not "In Progress":
+If assigned to someone else, warn the user and ask before reassigning.
+
+If current state is not "In Progress" or the issue is unassigned, claim it in a single call:
 
 ```
-mcp__linear-server__update_issue({
+mcp__linear-server__save_issue({
   id: "HON-XX",
-  state: "In Progress"
-})
-```
-
-### 7. Assign to self
-
-If issue is unassigned:
-
-```
-mcp__linear-server__update_issue({
-  id: "HON-XX",
+  state: "In Progress",
   assignee: "me"
 })
 ```
 
-If assigned to someone else, warn the user and ask before reassigning.
-
-### 8. Create or switch to branch
+### 7. Create or switch to branch
 
 First, detect if we're in a worktree:
 
@@ -155,7 +145,7 @@ Verify you're on the correct branch:
 git branch --show-current
 ```
 
-### 9. Begin implementation
+### 8. Begin implementation
 
 CLAUDE.md is already loaded as project instructions — do not re-read it. Read `docs/TYPOGRAPHY.md` only if the issue involves typography components.
 
@@ -178,7 +168,7 @@ Starting with step 1...
 
 Then implement following the plan steps (or issue description if `--no-plan`).
 
-### 10. Signal completion
+### 9. Signal completion
 
 After implementing all steps, output the completion marker exactly as shown:
 
