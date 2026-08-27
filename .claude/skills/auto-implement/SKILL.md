@@ -265,12 +265,22 @@ Extract and note:
 
 **Hard gate — run the three checks in this order (status → assignee → blockers) and stop at the first failure.** An explicit `HON-XX` argument skips Phase 1 entirely, so this is the only filter on that path. The order matters: a closed issue short-circuits before the assignee and blocker checks, so an issue that is itself `Duplicate` (e.g. HON-496) never reaches the blocker check and cannot be used to exercise it.
 
-**The orchestrator pre-claims.** `scripts/orchestrator.sh` calls `claim_issue()` (state → `In Progress`, assignee left untouched) *before* it spawns `wt auto HON-XX` → `/auto-implement HON-XX`. On that path the issue is already `In Progress` and unassigned by the time 2.1 runs — that is the normal case, not a conflict. The gate therefore rejects on closed states and on foreign assignees, never on `In Progress` alone.
+**The orchestrator pre-claims.** `scripts/orchestrator.sh` calls `claim_issue()` (state → `In Progress`, assignee left untouched) _before_ it spawns `wt auto HON-XX` → `/auto-implement HON-XX`. On that path the issue is already `In Progress` and unassigned by the time 2.1 runs — that is the normal case, not a conflict. The gate therefore rejects on closed states and on foreign assignees, never on `In Progress` alone.
 
-1. **Status** — stop if `status` is a closed state: `Done`, `Canceled`, or `Duplicate`. `Backlog` / `Todo` pass outright. `In Progress` / `In Review` pass **only if** the assignee check below passes — an in-flight issue assigned to someone else is theirs.
+**Every gate stop must first undo the pre-claim.** If the issue is `In Progress` **and** `assignee` is `null`, it got there via `claim_issue()`, and stopping would strand it: `fetch_todo_issues` only queries Todo, the orchestrator records a 0-commit exit as SUCCESS and cleans up the worktree, and nothing ever moves the issue back. So before printing the stop message, restore Todo so the orchestrator / `/next-issue` can see it again:
+
+```
+mcp__linear-server__save_issue({ id: "HON-XX", state: "Todo" })
+```
+
+Never touch an issue assigned to someone else — that is theirs, whatever its state. Leave every other state (`Backlog`, `Todo`, `In Review`, closed states, `In Progress` assigned to me) exactly as found: the orchestrator pre-claim is the only write this step reverses.
+
+**Gate on `statusType`, not on the state's display name.** `get_issue` returns `statusType` ∈ { `backlog`, `unstarted`, `started`, `completed`, `canceled`, `duplicate`, `triage` }; state names are workspace-configurable and `Triage` has no "closed" name to match. Keep the human-readable `status` in the stop message.
+
+1. **Status** — stop if `statusType` is `completed`, `canceled`, `duplicate`, or `triage` (a Triage issue is not refined yet — `/next-issue` and Phase 1.4 reject it too). `backlog` / `unstarted` (Backlog, Todo) pass outright. `started` (In Progress, In Review) passes **only if** the assignee check below passes — an in-flight issue assigned to someone else is theirs. Nothing to undo here: an issue in one of these states was not pre-claimed.
 
    ```
-   [auto-implement] ✗ Error: HON-XX is [status] — closed; nothing for an autonomous cycle to claim. Pick another issue or reopen it in Linear first.
+   [auto-implement] ✗ Error: HON-XX is [status] — not open for an autonomous cycle to claim. Pick another issue, or reopen / triage it in Linear first.
    ```
 
 2. **Assignee** — the issue's `assignee` is a user (display name / id), never the literal string `"me"`, so resolve the current user once and compare against that:
@@ -279,28 +289,28 @@ Extract and note:
    mcp__linear-server__get_user({ query: "me" })
    ```
 
-   Note the returned `id` and `name`. The issue passes if `assignee` is `null`, or its id (`assigneeId` / `assignee.id`, when returned) matches the resolved `id` — fall back to comparing the display name only if `get_issue` returns no id. Stop otherwise; do not reassign:
+   Note the returned `id` and `name`. The issue passes if `assignee` is `null`, or its id (`assigneeId` / `assignee.id`, when returned) matches the resolved `id` — fall back to comparing the display name only if `get_issue` returns no id. Stop otherwise; do not reassign and do not change its state (it has an assignee, so it was not pre-claimed):
 
    ```
    [auto-implement] ✗ Error: HON-XX is assigned to [assignee name] — not mine to claim. Unassign it in Linear (or have them hand it over) before running /auto-implement.
    ```
 
-3. **Blockers** — `relations.blockedBy` entries carry only `{ id, title }`; there is no status on them. Re-fetch each blocker, same pattern as Phase 1.4 and `/next-issue`:
+3. **Blockers** — `relations.blockedBy` entries carry only `{ id, title }`; there is no status on them. Re-fetch each blocker, same pattern as Phase 1.4 and `/next-issue`. `includeRelations: true` is mandatory here as on every `get_issue` call (CLAUDE.md) — without it the response has no `relations` key at all, so `duplicateOf` is invisible and the successor hint below can never be given:
 
    ```
    for each blocker in relations.blockedBy:
-     mcp__linear-server__get_issue({ id: blocker.id })
-     → note its status (and duplicateOf, if the status is Duplicate)
+     mcp__linear-server__get_issue({ id: blocker.id, includeRelations: true })
+     → note its status / statusType (and relations.duplicateOf, if statusType is duplicate)
    ```
 
-   An empty `blockedBy` passes. Every blocker must have status `Done` or `Canceled`; otherwise list the open ones and stop:
+   An empty `blockedBy` passes. Every blocker must be `Done` or `Canceled` (`statusType` `completed` / `canceled`); otherwise undo the pre-claim (above), list the open ones and stop:
 
    ```
    [auto-implement] ✗ Error: HON-XX is blocked by open issues:
      - HON-YY ([status]) — [title]
    ```
 
-   A blocker with status `Duplicate` never clears on its own: follow its `duplicateOf` successor if set, otherwise re-point or remove the stale relation in Linear. Do not auto-clear it — `scripts/orchestrator.sh` applies the same Done/Canceled-only rule, so the unattended path agrees.
+   A blocker with `statusType` `duplicate` never clears on its own: follow its `duplicateOf` successor if set, otherwise re-point or remove the stale relation in Linear. Do not auto-clear it — `scripts/orchestrator.sh` applies the same Done/Canceled-only rule (and logs `[SKIP] HON-XX blocked by HON-YY (Duplicate)` each poll), so the unattended path agrees.
 
 ### 2.2 Claim issue
 

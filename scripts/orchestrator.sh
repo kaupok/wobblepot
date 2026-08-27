@@ -36,7 +36,7 @@ STATE_TODO="bcd0f639-33dd-4da8-a081-4d409c0fe5b4"
 STATE_IN_PROGRESS="efa0cbda-898d-440d-a6a9-36e798d00881"
 STATE_DONE="5b47cab2-e519-4532-8aa2-f4926e16bcd7"
 STATE_CANCELED="20dedb1c-9cb4-4db4-8a3a-c2eb39fbd616"
-STATE_DUPLICATE="d173c772-7085-46c9-bece-6a8a74d0ae27"  # not a terminal blocker state — see select_next_issue
+STATE_DUPLICATE="d173c772-7085-46c9-bece-6a8a74d0ae27"  # never clears a blocker — select_next_issue flags it in its [SKIP] log line
 
 # ─── Worker tracking (parallel arrays, bash 3.2 compatible) ──────────────────
 
@@ -246,6 +246,7 @@ fetch_todo_issues() {
         title
         priority
         branchName
+        assignee { id }
         relations {
           nodes {
             type
@@ -271,6 +272,9 @@ fetch_todo_issues() {
 
 # ─── Select next issue ──────────────────────────────────────────────────────
 # Returns: "uuid<TAB>identifier<TAB>branchName<TAB>title" or empty
+# Side effect: one log line per skipped candidate ("[SKIP] HON-XX <reason>") so
+# a stuck issue (assigned, or blocked by something that never clears) is
+# visible in the orchestrator log instead of being dropped silently every poll.
 
 select_next_issue() {
   local response="$1"
@@ -281,10 +285,25 @@ select_next_issue() {
     running="${running:+$running,}$issue"
   done
 
-  echo "$response" | jq -r \
+  # jq emits "SKIP<TAB>level<TAB>identifier<TAB>reason" per rejected candidate,
+  # then at most one "PICK<TAB>uuid<TAB>identifier<TAB>branchName<TAB>title".
+  local line kind level id reason
+  while IFS= read -r line; do
+    kind="${line%%$'\t'*}"
+    case "$kind" in
+      SKIP)
+        IFS=$'\t' read -r kind level id reason <<< "$line"
+        log "$level" "[SKIP] $id $reason"
+        ;;
+      PICK)
+        printf '%s\n' "${line#PICK$'\t'}"
+        ;;
+    esac
+  done < <(echo "$response" | jq -r \
     --arg running "$running" \
     --arg done "$STATE_DONE" \
-    --arg canceled "$STATE_CANCELED" '
+    --arg canceled "$STATE_CANCELED" \
+    --arg duplicate "$STATE_DUPLICATE" '
     # A blocker only clears when Done or Canceled. Duplicate never clears on
     # its own (a human must follow duplicateOf or fix the relation) — this
     # mirrors the /auto-implement, /implement-issue and /next-issue gates.
@@ -292,34 +311,50 @@ select_next_issue() {
     (if $running == "" then [] else ($running | split(",")) end) as $running_list |
 
     .data.issues.nodes
-    # Exclude issues already being worked on
-    | map(select(.identifier as $id | ($running_list | index($id)) | not))
-    # Compute blocking info
     | map(. + {
-        _blocked: ([
+        _running: (.identifier as $id | ($running_list | index($id)) != null),
+        # Assigned issues belong to someone — same rule as /next-issue and
+        # /auto-implement 1.2 (assignee: "null"). Claiming one here would
+        # flip it to In Progress and the worker gate would then abandon it.
+        _assigned: (.assignee != null),
+        _open_blockers: ([
           .inverseRelations.nodes[]
           | select(.type == "blocks")
-          | .issue.state.id
-          | select(. as $s | $terminal | index($s) | not)
-        ] | length > 0),
-        _blocker_in_worker: ([
+          | .issue
+          | select(.state.id as $s | ($terminal | index($s)) == null)
+        ]),
+        _blockers_in_worker: ([
           .inverseRelations.nodes[]
           | select(.type == "blocks")
           | .issue.identifier
-          | select(. as $bid | $running_list | index($bid))
-        ] | length > 0),
+          | select(. as $bid | ($running_list | index($bid)) != null)
+        ]),
         _blocks_count: ([
           .relations.nodes[] | select(.type == "blocks")
         ] | length)
       })
-    # Keep unblocked issues without blockers being processed
-    | map(select(._blocked | not))
-    | map(select(._blocker_in_worker | not))
-    # Sort: blocks others first (desc), then priority (asc, 0=no priority→5)
-    | sort_by([(._blocks_count * -1), (if .priority == 0 then 5 else .priority end)])
-    | if length > 0 then .[0] | [.id, .identifier, (.branchName // ""), .title] | @tsv
-      else empty end
-  '
+    | map(. + {
+        _skip: (
+          if ._running then ["DEBUG", "already running"]
+          elif ._assigned then ["INFO", "assigned"]
+          elif (._blockers_in_worker | length) > 0 then
+            ["DEBUG", "blocker " + (._blockers_in_worker | join(", ")) + " is being worked on"]
+          elif (._open_blockers | length) > 0 then
+            ["INFO",
+             "blocked by " + (._open_blockers | map(.identifier + " (" + .state.name + ")") | join(", "))
+             + (if any(._open_blockers[]; .state.id == $duplicate)
+                then " — a Duplicate blocker never clears on its own; follow its duplicateOf or fix the relation"
+                else "" end)]
+          else null end)
+      })
+    # One SKIP line per rejected candidate
+    | (.[] | select(._skip != null) | ["SKIP", ._skip[0], .identifier, ._skip[1]] | @tsv),
+    # Sort survivors: blocks others first (desc), then priority (asc, 0=no priority→5)
+      ([.[] | select(._skip == null)]
+       | sort_by([(._blocks_count * -1), (if .priority == 0 then 5 else .priority end)])
+       | if length > 0 then .[0] | ["PICK", .id, .identifier, (.branchName // ""), .title] | @tsv
+         else empty end)
+  ')
 }
 
 # ─── Claim issue (move to In Progress) ──────────────────────────────────────
