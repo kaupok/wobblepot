@@ -63,11 +63,22 @@ If PR is already MERGED, skip to Step 6 (local cleanup only).
 Before merging, ensure all CI checks have passed. CI takes 12–45 min; Bash's 600 s foreground cap cannot cover it, so never watch checks in the foreground. Poll in the background (CLAUDE.md → Working style), then verify in the foreground:
 
 ```bash
-# Run with run_in_background: true — emits one completion notification when the loop exits
+# Run with run_in_background: true — emits one completion notification when the loop exits.
+# Bounded to ci.yml's timeout-minutes (45) plus margin: 100 polls × 30 s = 50 min.
+# Exits only once at least one check exists AND none is pending — right after a push the
+# head has zero check runs, and an empty result must not be mistaken for "passed".
 PR_NUMBER=$(gh pr view --json number --jq .number)
 sleep 30  # let GitHub register the workflow run for the pushed commit before the first poll
-until ! gh pr checks "$PR_NUMBER" --json bucket --jq '.[] | select(.bucket == "pending")' 2>/dev/null | grep -q .; do sleep 30; done
+for i in $(seq 1 100); do
+  COUNTS=$(gh pr checks "$PR_NUMBER" --json bucket --jq '"\(length) \([.[] | select(.bucket == "pending")] | length)"' 2>/dev/null)
+  TOTAL=${COUNTS%% *}; PENDING=${COUNTS##* }
+  if [ "${TOTAL:-0}" -gt 0 ] && [ "${PENDING:-0}" -eq 0 ]; then echo CI_SETTLED; exit 0; fi
+  sleep 30
+done
+echo CI_TIMEOUT; exit 1
 ```
+
+If the background task ends with `CI_TIMEOUT`, report and stop — do not merge.
 
 **Behavior:**
 
@@ -84,7 +95,16 @@ gh pr checks "$PR_NUMBER" --json name,bucket,state \
 
 - No output → all checks passed. Proceed.
 - Any line printed → **On failure:** report which checks failed and stop. Do not proceed to merge.
-- `no checks reported on the '<branch>' branch` on stderr (exit 1) → no workflow ran for this PR (docs-only change; `ci.yml` uses `paths-ignore`). Proceed.
+- `no checks reported on the '<branch>' branch` on stderr (exit 1) → acceptable **only** when every changed file is excluded by `ci.yml` `paths-ignore` (`**/*.md`, `docs/**`, `.github/ISSUE_TEMPLATE/**`), i.e. no workflow was ever going to run. Otherwise checks simply have not been reported for a code change — stop:
+
+```bash
+NON_DOCS=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
+if [ -n "$NON_DOCS" ]; then
+  echo "CI did not report checks for a code change"  # STOP — do not proceed
+else
+  echo "DOCS_ONLY"  # no CI workflow runs for these paths — treat as passed
+fi
+```
 
 ### Step 2.5: Wait for Claude Review
 
