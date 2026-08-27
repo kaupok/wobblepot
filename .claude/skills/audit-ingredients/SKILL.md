@@ -25,6 +25,7 @@ Audit the ingredient database for coverage gaps, matching quality, and nutrition
 
 - `--focus coverage` — Run only the coverage audit (generate ingredient names + test matching)
 - `--focus data-quality` — Run only the data quality audit (nutrition + allergens + aliases)
+- `--focus all` — Run both (coverage + data-quality); identical to passing no arguments
 - No arguments — Run both
 
 ## Phase 1: Data Quality Audit
@@ -32,10 +33,11 @@ Audit the ingredient database for coverage gaps, matching quality, and nutrition
 ### Step 1: Run the data quality script
 
 ```bash
-npx tsx scripts/audit-ingredients/audit-data-quality.ts 2>/dev/null > /tmp/audit-data-quality.json
+npx tsx scripts/audit-ingredients/audit-data-quality.ts 2>/tmp/audit-data-quality.log > /tmp/audit-data-quality.json
+echo "exit=$?"
 ```
 
-Then read `/tmp/audit-data-quality.json`.
+Check the exit status before reading the JSON. On failure the script prints `Audit failed: …` to stderr (now in `/tmp/audit-data-quality.log` — typically a missing `DATABASE_URL` or a connection error) and the JSON file is empty or partial; stop and report the log contents instead of interpreting an empty report. On exit 0, read `/tmp/audit-data-quality.json`.
 
 The script queries all ingredients from the database and checks:
 
@@ -73,9 +75,9 @@ Read the JSON output. It contains:
 
 Present findings grouped by severity (critical → warning → info), then by area.
 
-**For critical allergen findings:** These are safety issues. Emphasize that a missing allergen tag could serve unsafe meals to allergic users. Offer to fix these immediately in the seed files.
+**For critical allergen findings:** These are safety issues. Emphasize that a missing allergen tag could serve unsafe meals to allergic users. Put the exact seed-file change at the top of the Step 7 fix list.
 
-**For nutrition findings:** Note which seed file the ingredient is likely in (use Grep to locate it). Offer to fix values.
+**For nutrition findings:** Note which seed file the ingredient is in (use Grep across `prisma/seed*.ts` to locate it) and add the corrected values to the Step 7 fix list.
 
 ---
 
@@ -192,17 +194,41 @@ Read the JSON output. Key sections:
 [specific changes to seed files, aliases, etc.]
 ```
 
-### Step 7: Offer to act on findings
+### Step 7: Emit actionable output
 
-After presenting the report:
+This skill runs as a fork (`context: fork`): it cannot edit files, create Linear issues, or ask the caller a question. Never "offer" to do any of these — end the report with the two paste-ready blocks below so the caller (or the user) can apply them verbatim.
 
-1. **Critical allergen fixes** — Offer to fix allergen tags directly in the seed files. These are safety-critical.
+**7a. Fix list** — one entry per finding that has a concrete code fix, grouped by file. Locate the seed file with Grep (`grep -rn '"<ingredient name>"' prisma/seed*.ts src/lib/ingredient-aliases.ts`) and state the exact before → after change. Order: critical allergen fixes first, then nutrition, then aliases. An entry the caller cannot apply without further investigation is not done.
 
-2. **Nutrition fixes** — Offer to correct calorie-macro mismatches and zero values.
+```
+### Fix list
 
-3. **Missing ingredients** — Offer to create Linear issues for coverage gaps, grouped by category (similar to HON-402-408 pattern).
+#### prisma/seed-comprehensive.ts
+- `prawns`: allergens `['fish']` → `['fish', 'shellfish']` — critical, missing shellfish tag
+- `chicken breast`: `calories: 0` → `calories: 165` (protein 31 / carbs 0 / fat 3.6 per 100g)
+- `egg`: add `gramsPerPiece: 50` — piece-based item missing per-piece weight
 
-4. **Missing aliases** — Offer to add aliases to `src/lib/ingredient-aliases.ts`.
+#### src/lib/ingredient-aliases.ts
+- add `'courgette': 'zucchini'` — regional name, currently unmatched
+- remove `'x': 'y'` — alias target `y` does not exist in the DB
+```
+
+**7b. Linear issue drafts** — for work that is not a one-line fix (coverage gaps, matching-pipeline improvements, systematic nutrition problems), emit one draft per category in "Writing for Agents" format (see CLAUDE.md). Use **one issue per ingredient category** (proteins, dairy, produce, grains, condiments, herbs, nuts, other) rather than one bulk issue, so each resulting PR stays small and reviewable. Reference related issues as plain text (`HON-NNN`), never as `<issue id>` tags.
+
+```
+### Proposed Linear issues
+
+#### 1. Add missing <category> ingredients to seed data
+**Label:** Tech
+**What:** Add the following N ingredients to `prisma/seed-expansion.ts` with nutrition per 100g, allergen tags, and `gramsPerPiece` for piece-based items: <comma-separated list>.
+**Why:** These names are commonly produced by AI Imagine for <cuisines> and currently classify as `unmatched`, so users fall back to manual ingredient entry. Related: HON-NNN.
+**Acceptance criteria:**
+- Each listed ingredient resolves as `exact` or `alias` when run through `scripts/audit-ingredients/audit-coverage.ts`
+- Allergen tags set for every added item containing dairy / fish / shellfish / nuts / soy / sesame / eggs / gluten
+- `scripts/audit-ingredients/audit-data-quality.ts` reports no new findings for the added rows
+```
+
+The caller creates the issues and applies the fixes; this skill only drafts them.
 
 ### Step 8: Completion marker
 

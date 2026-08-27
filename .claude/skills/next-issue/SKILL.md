@@ -1,6 +1,6 @@
 ---
 name: next-issue
-description: Find the next unblocked Linear issue to work on. Use when user says "continue implementation" or asks what to work on next.
+description: Find the next unblocked Linear issue to work on. Use when user says "continue implementation" or asks what to work on next. Auto mode (stricter no-human-input filters) is enabled only by the literal token `--auto` in the skill args — never translate prose like "no input needed" or "pure code only" into `--auto`; ask the user to re-invoke with the flag instead. For refined variations ("three without blockers", etc.) re-invoke this skill rather than ad-hoc delegating to a general-purpose agent — its filters are the reason it exists.
 argument-hint: '[--auto]'
 context: fork
 agent: general-purpose
@@ -13,6 +13,8 @@ allowed-tools:
 ---
 
 # Next Issue Finder
+
+Arguments: $ARGUMENTS
 
 Find the next unblocked issue and return a concise implementation summary.
 
@@ -31,7 +33,7 @@ Find the next unblocked issue and return a concise implementation summary.
 
    Default: `autoMode = false`.
 
-   Set `autoMode = true` **only** if the skill invocation's `command-args` (or equivalent argument string) contains the literal token `--auto`. Do not infer it from:
+   Set `autoMode = true` **only** if `$ARGUMENTS` (the `Arguments:` line at the top of this skill) contains the literal token `--auto`. Do not infer it from:
    - The user's natural-language prompt accompanying the invocation
    - Prior conversation turns
    - Project context, the current phase, or what "would make sense"
