@@ -35,6 +35,8 @@ If no PR exists, inform user: "No PR found for this branch. Create one with `/cr
 
 This runs synchronously. The script handles model selection (Opus), locking, and prompt formatting.
 
+It spawns `claude -p` and takes several minutes. Run it with `timeout: 600000` (or `run_in_background: true` and poll for the `<!-- claude-review -->` comment) — the default 120 s Bash timeout kills it mid-run and leaves a stale `/tmp/claude-review-N.lock`.
+
 ### 3. Report result
 
 If the script exits 0:

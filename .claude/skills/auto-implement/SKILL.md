@@ -659,11 +659,25 @@ Extract PR URL from output.
 
 ### 6.1 Wait for CI
 
+CI takes 12–45 min; Bash's 600 s foreground cap cannot cover it, so never watch checks in the foreground. Poll in the background (CLAUDE.md → Working style), then verify in the foreground:
+
 ```bash
-gh pr checks --watch --interval 10  # Use 600s Bash timeout
+# Run with run_in_background: true — emits one completion notification when the loop exits
+PR_NUMBER=$(gh pr view --json number --jq .number)
+sleep 30  # let GitHub register the workflow run for the pushed commit before the first poll
+until ! gh pr checks "$PR_NUMBER" --json bucket --jq '.[] | select(.bucket == "pending")' 2>/dev/null | grep -q .; do sleep 30; done
 ```
 
-If timeout expires, report and stop.
+When the notification arrives, verify in the foreground. With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so the `bucket` field is the only signal — anything other than `pass`/`skipping` (`fail` or `cancel`: FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure:
+
+```bash
+gh pr checks "$PR_NUMBER" --json name,bucket,state \
+  --jq '.[] | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
+```
+
+- No output → all checks passed. Proceed.
+- Any line printed → CI is failing (check names and states listed).
+- `no checks reported on the '<branch>' branch` on stderr (exit 1) → no workflow ran for this PR (docs-only change; `ci.yml` uses `paths-ignore`). Treat as passed.
 
 If CI fails, attempt to fix (max 2 attempts):
 
@@ -680,7 +694,7 @@ while CI failing and ci_attempts < max_ci_attempts:
     - Stage specific changed files by name and commit:
       git add [changed files] && git commit -m "fix: Address CI failures"
     - Push: git push
-    - Wait: gh pr checks --watch --interval 10  # Use 600s Bash timeout
+    - Wait: re-run the background poll + foreground verification above
 
 If still failing after 2 attempts:
     [auto-implement] ✗ Error: CI checks failing after fix attempts
@@ -701,7 +715,7 @@ Spawn a fresh Claude Code session to review the PR. **You MUST use the script be
 ./scripts/pr-review.sh ${PR_NUMBER}
 ```
 
-This runs synchronously. When it returns, the review has been posted to GitHub.
+This runs synchronously. When it returns, the review has been posted to GitHub. It spawns `claude -p` and takes several minutes — run it with `timeout: 600000` (or `run_in_background: true` and poll for the `<!-- claude-review -->` comment); the default 120 s Bash timeout kills it mid-run and leaves a stale `/tmp/claude-review-N.lock`.
 
 ```
 [auto-implement] Running Claude review for PR #${PR_NUMBER}...
@@ -786,11 +800,7 @@ EOF
 git push
 ```
 
-Wait for CI again:
-
-```bash
-gh pr checks --watch --interval 10  # Use 600s Bash timeout
-```
+Wait for CI again — re-run the 6.1 background poll + foreground verification (never watch checks in the foreground).
 
 ```
 [auto-implement] ✓ Reviews addressed
@@ -825,25 +835,27 @@ Validation:
 
 ### 7.2 Wait for CI
 
-```bash
-gh pr checks --watch --fail-fast --interval 10  # Use 600s Bash timeout
-```
-
-If timeout expires or any check fails, report and stop.
-
-**CRITICAL: After `gh pr checks` completes, verify ALL checks passed — including Vercel deployment:**
+Same mechanism as 6.1 — background poll, then foreground verification. Never watch checks in the foreground (Bash's 600 s cap is shorter than a CI run).
 
 ```bash
-# Verify no failed checks remain (gh pr checks can miss late-arriving failures)
-FAILED=$(gh pr checks --json name,state --jq '[.[] | select(.state == "FAILURE")] | length')
-if [ "$FAILED" != "0" ]; then
-  echo "CI checks still failing:"
-  gh pr checks --json name,state --jq '.[] | select(.state == "FAILURE") | "\(.name): \(.state)"'
-  # STOP — do NOT merge
-fi
+# Run with run_in_background: true — emits one completion notification when the loop exits
+PR_NUMBER=$(gh pr view --json number --jq .number)
+sleep 30  # let GitHub register the workflow run for the pushed commit before the first poll
+until ! gh pr checks "$PR_NUMBER" --json bucket --jq '.[] | select(.bucket == "pending")' 2>/dev/null | grep -q .; do sleep 30; done
 ```
 
-**Do NOT merge if any check shows FAILURE, including Vercel deployment checks.** This is a hard gate — no exceptions.
+**CRITICAL: When the notification arrives, verify ALL checks passed — including Vercel deployment.** With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so inspect `bucket`: anything other than `pass`/`skipping` (`fail` or `cancel` — FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure:
+
+```bash
+gh pr checks "$PR_NUMBER" --json name,bucket,state \
+  --jq '.[] | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
+```
+
+- No output → all checks passed. Proceed to 7.3.
+- Any line printed → **STOP — do NOT merge.** Report the listed checks.
+- `no checks reported on the '<branch>' branch` on stderr (exit 1) → no workflow ran for this PR (docs-only change; `ci.yml` uses `paths-ignore`). Proceed.
+
+**Do NOT merge if any check is in the `fail` or `cancel` bucket, including Vercel deployment checks.** This is a hard gate — no exceptions.
 
 ### 7.3 Merge the PR
 
@@ -879,15 +891,15 @@ The issue UUID is already in context from Phase 2.1. The PR number and URL are a
 **Gather PR data:**
 
 ```bash
-# PR details and files (works after merge — does not depend on branch)
-gh pr view --json number,title,url,commits,files
+# PR details and files — pass the number saved in 6.1. After the squash merge
+# (with --delete-branch) HEAD is `main`, so a bare `gh pr view` no longer resolves this PR.
+gh pr view "$PR_NUMBER" --json number,title,url,commits,files
 
 # Review comments: inline comments + review-level summaries
-gh api /repos/{owner}/{repo}/pulls/{number}/comments
-gh api /repos/{owner}/{repo}/pulls/{number}/reviews
+# (`:owner/:repo` is auto-filled by gh from the current git remote)
+gh api "/repos/:owner/:repo/pulls/${PR_NUMBER}/comments"
+gh api "/repos/:owner/:repo/pulls/${PR_NUMBER}/reviews"
 ```
-
-Extract owner/repo from `gh repo view --json nameWithOwner --jq .nameWithOwner`.
 
 **Post comment to Linear:**
 

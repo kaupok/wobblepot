@@ -22,6 +22,9 @@ Run this command on a feature branch with an existing PR to see external review 
 
 ```bash
 gh pr view --json number,title,headRefName,url,headRepository 2>/dev/null
+
+# Save the PR number for the review script and API calls below
+PR_NUMBER=$(gh pr view --json number --jq .number)
 ```
 
 If no PR exists, inform user: "No PR found for this branch. Create one with `/create-pr` first."
@@ -52,6 +55,8 @@ If no review exists, trigger one:
 ```bash
 ./scripts/pr-review.sh ${PR_NUMBER}
 ```
+
+This spawns `claude -p` and takes several minutes. Run it with `timeout: 600000` (or `run_in_background: true` and poll for the `<!-- claude-review -->` comment) — the default 120 s Bash timeout kills it mid-run and leaves a stale `/tmp/claude-review-N.lock`.
 
 After the script returns:
 
