@@ -246,19 +246,7 @@ Otherwise, store the issue ID:
 [auto-implement] Phase 2/7: Planning implementation for HON-XX
 ```
 
-### 2.1 Claim issue immediately
-
-Set status to "In Progress" and assign to self right away, before any planning work. This prevents other agents from picking the same issue concurrently.
-
-```
-mcp__linear-server__save_issue({
-  id: "HON-XX",
-  state: "In Progress",
-  assignee: "me"
-})
-```
-
-### 2.2 Fetch issue details
+### 2.1 Fetch issue details and gate
 
 ```
 mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
@@ -269,10 +257,42 @@ Extract and note:
 - Issue UUID (for API calls)
 - Title and description
 - `gitBranchName` for later use
-- `blockedBy` relations (should be empty or done)
+- `blockedBy` relations
 - `blocks` relations (what this unblocks)
 - `relatedTo` / `parentId` (for overlap check in 2.3)
+- Current `assignee`
 - Any labels or priority
+
+**Hard gate — stop before claiming if any of these hold.** An explicit `HON-XX` argument skips Phase 1 entirely, so this is the only filter on that path:
+
+- `status` ∉ { `Backlog`, `Todo` } — `In Progress` / `In Review` belong to someone else; `Done` / `Canceled` / `Duplicate` are closed:
+
+  ```
+  HON-XX is [status] — not claimable by an autonomous cycle.
+  ```
+
+- `relations.blockedBy` contains any issue whose status is not `Done` or `Canceled` — list them and stop:
+
+  ```
+  HON-XX is blocked by open issues:
+    - HON-YY ([status]) — [title]
+  ```
+
+  A blocker with status `Duplicate` never clears on its own: follow its `duplicateOf` successor if set, otherwise re-point or remove the stale relation in Linear. Do not auto-clear it.
+
+- `assignee` is set to someone other than me — stop; do not reassign.
+
+### 2.2 Claim issue
+
+Immediately after the gate passes — before any planning work — set status to "In Progress" and assign to self. This prevents other agents from picking the same issue concurrently.
+
+```
+mcp__linear-server__save_issue({
+  id: "HON-XX",
+  state: "In Progress",
+  assignee: "me"
+})
+```
 
 ### 2.3 MANDATORY: Check relatedTo + epic siblings for recently-merged overlap
 

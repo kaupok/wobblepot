@@ -64,13 +64,13 @@ Extract:
   HON-XX is [status] — nothing to implement. Pick another issue (`/next-issue`) or reopen it in Linear first.
   ```
 
-- `relations.blockedBy` contains any issue whose status is not `Done`, `Canceled`, or `Duplicate` — list the open blockers and stop:
+- `relations.blockedBy` contains any issue whose status is not `Done` or `Canceled` — list the open blockers and stop:
 
   ```
   HON-XX is blocked by open issues:
     - HON-YY ([status]) — [title]
     - HON-ZZ ([status]) — [title]
-  Finish the blockers first, or remove the relation in Linear if it is stale.
+  Finish the open blockers first. A blocker with status `Duplicate` never clears on its own: follow its `duplicateOf` successor if set, otherwise re-point or remove the stale relation in Linear.
   ```
 
 Do not proceed to step 4 (or step 6 in `--no-plan` mode) while either condition holds. Claiming a closed or blocked issue would put it back In Progress and hide the real dependency from `/next-issue`.
