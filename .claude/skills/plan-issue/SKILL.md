@@ -1,6 +1,7 @@
 ---
 name: plan-issue
 description: Create an implementation plan for a Linear issue. Explores codebase, writes plan, posts to Linear after approval.
+argument-hint: 'HON-XX'
 context: inherit
 ---
 
@@ -224,14 +225,15 @@ mcp__linear-server__save_comment({
 })
 ```
 
-### 11. Move issue to In Progress
+### 11. Move issue to In Progress and claim it
 
-Update the issue status so other auto-implement sessions won't pick it up:
+Update the issue status and assign it to yourself so other auto-implement sessions won't pick it up (a claimed issue must always have an assignee — matches `/auto-implement` step 2.1):
 
 ```
 mcp__linear-server__save_issue({
   id: "HON-XX",
-  state: "In Progress"
+  state: "In Progress",
+  assignee: "me"
 })
 ```
 

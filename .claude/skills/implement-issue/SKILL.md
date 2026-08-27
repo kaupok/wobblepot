@@ -1,6 +1,7 @@
 ---
 name: implement-issue
 description: Implement an approved plan. Reads plan from Linear, creates branch, and begins implementation.
+argument-hint: 'HON-XX [--no-plan]'
 context: inherit
 ---
 
@@ -21,7 +22,7 @@ Supports optional `--no-plan` flag to skip plan validation for simple issues.
 Extract issue ID and check for flags:
 
 - Issue ID: `HON-XX` or just `XX` (required)
-- `--no-plan`: Skip plan file lookup and validation
+- `--no-plan`: Skip plan lookup and validation (steps 4-5)
 
 If no issue ID provided:
 
@@ -36,8 +37,8 @@ Examples:
 
 If `--no-plan` flag is present:
 
-- Skip steps 3-5 (plan file handling)
-- Fetch issue details directly
+- Still run step 3 — the fetch supplies `gitBranchName` and the status/blocker gate
+- Skip steps 4-5 (plan lookup and validation)
 - Use issue description as implementation guide
 - Continue from step 6 (status update)
 
@@ -53,6 +54,26 @@ Extract:
 - `gitBranchName`
 - Current state
 - Current assignee
+- `relations.blockedBy`
+
+**Hard gate (runs in both normal and `--no-plan` mode) — stop before claiming the issue if either holds:**
+
+- `status` is `Done`, `Canceled`, or `Duplicate` — the issue is already closed:
+
+  ```
+  HON-XX is [status] — nothing to implement. Pick another issue (`/next-issue`) or reopen it in Linear first.
+  ```
+
+- `relations.blockedBy` contains any issue whose status is not `Done` or `Canceled` — list the open blockers and stop:
+
+  ```
+  HON-XX is blocked by open issues:
+    - HON-YY ([status]) — [title]
+    - HON-ZZ ([status]) — [title]
+  Finish the blockers first, or remove the relation in Linear if it is stale.
+  ```
+
+Do not proceed to step 4 (or step 6 in `--no-plan` mode) while either condition holds. Claiming a closed or blocked issue would put it back In Progress and hide the real dependency from `/next-issue`.
 
 ### 4. Find plan from Linear comments
 
@@ -189,6 +210,8 @@ This marker signals to orchestrating skills (like `/auto-implement`) that implem
 | Scenario                    | Handling                                            |
 | --------------------------- | --------------------------------------------------- |
 | Issue doesn't exist         | Error: "Issue HON-XX not found in Linear"           |
+| Issue Done/Canceled/Dup.    | Stop at step 3 gate; do not claim                   |
+| Has open blockers           | Stop at step 3 gate; list blockers                  |
 | Plan not in Linear comments | Offer to run `/plan-issue` or use `--no-plan`       |
 | Plan is for different issue | Error: "Plan in comments is for HON-YY, not HON-XX" |
 | Already on the branch       | Continue without creating new branch                |

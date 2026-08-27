@@ -105,7 +105,7 @@ Note the issue title, description, and any acceptance criteria.
 mcp__linear-server__list_comments({ issueId: "[issue-uuid-from-step-6a]" })
 ```
 
-Look for a comment that starts with `# Plan:` - this is the implementation plan posted by `/implement-issue`.
+Look for a comment that starts with `# Plan:` - this is the implementation plan posted by `/plan-issue`.
 
 If a plan is found:
 

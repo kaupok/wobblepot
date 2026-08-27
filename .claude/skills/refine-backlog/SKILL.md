@@ -125,6 +125,8 @@ For issues that involve code changes, do a focused codebase scan (2-5 files) to 
 
 ### Step 8: Update or create
 
+When writing descriptions, reference other issues as plain text (`HON-NNN`), never hand-copied `<issue id="…">` tags — Linear auto-resolves plain text on save, and a copied UUID controls where the link goes, so it can silently point at the wrong issue.
+
 **For refinements:**
 
 ```typescript
@@ -146,9 +148,11 @@ mcp__linear-server__save_issue({
   title: 'New issue title',
   team: 'Honkadori',
   description: 'Description',
-  blockedBy: ['parent-issue-id'], // if applicable
+  parentId: 'HON-XX', // the issue being split — makes this a sub-issue
 })
 ```
+
+Use `parentId` (sub-issue), not `blockedBy: [parent]` — a child is part of its parent, not blocked by it; marking it blocked would hide it from `/next-issue` and `/auto-implement` until the parent closes, which is backwards. Add `blockedBy` only between siblings that genuinely depend on each other.
 
 **For duplicates:**
 
