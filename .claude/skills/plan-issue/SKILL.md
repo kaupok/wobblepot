@@ -180,6 +180,10 @@ Write the plan directly in your response (not to a file). Use this structure:
 
 [From step 7. Either list the affected specs with a one-line reason each, or — if the scan ran and found no matching specs — write `none — no existing spec asserts on the changed routes/components` so the reviewer sees the scan happened. Omit this section entirely only if step 7 was skipped (step 6 surfaced no route / navigation / visible-copy / modal changes).]
 
+## Storybook stories
+
+[If any file under `src/components/**` is created or modified, list the colocated `.stories.tsx` files to create/update (CLAUDE.md Storybook rule). Otherwise write `none — no component changes`.]
+
 ## Verification
 
 - [ ] [How to test the implementation]

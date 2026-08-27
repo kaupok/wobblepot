@@ -456,6 +456,7 @@ For each implementation step in the plan:
 2. Make changes using Edit or Write tools
 3. Write tests for new functionality (unit tests colocated with source files)
 4. Follow patterns from CLAUDE.md
+5. If `src/components/**` changed → create/update the colocated `.stories.tsx` (CLAUDE.md Storybook rule) and run `pnpm test-storybook:ci`
 
 ```
 [auto-implement] ✓ Implementation complete
@@ -510,6 +511,8 @@ CLAUDE.md is already loaded as project instructions — do not re-read it. Read 
 - **TypeScript**: Type safety, any types, missing types
 - **Tests**: Missing test coverage for new functionality
 - **Performance**: N+1 queries, unnecessary re-renders, large bundle imports
+- **E2E drift**: If the diff includes `src/app/**/page.tsx`, a route URL, a modal/dialog component, or changes user-visible copy in a heading/button/link, grep `tests/e2e/` for stale references via the spec `// ROUTES: … · COMPONENTS: …` headers (`grep -l "ROUTES.*<route>\|COMPONENTS.*<OldName>" tests/e2e/*.spec.ts`; for copy renames also `grep -rn "<exact old copy>" tests/e2e/`) and update affected specs (CLAUDE.md E2E rule)
+- **Storybook**: If the diff touches `src/components/**`, the colocated `.stories.tsx` was created/updated for the new variants and states and `pnpm test-storybook:ci` passes (CLAUDE.md Storybook rule)
 
 ### 4.4 Triage issues
 
@@ -599,10 +602,13 @@ type(scope): Subject line
 
 Body explaining what and why.
 
-Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+Claude-Session: <session URL from the harness instructions, if provided>
 EOF
 )"
 ```
+
+Use the trailers given in the harness/system instructions when they differ from the above.
 
 ### 5.3 Analyze for PR description
 
@@ -826,7 +832,8 @@ git add [changed files]
 git commit -m "$(cat <<'EOF'
 fix: Address review feedback
 
-Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+Claude-Session: <session URL from the harness instructions, if provided>
 EOF
 )"
 git push

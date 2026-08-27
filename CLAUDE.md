@@ -340,7 +340,7 @@ See [`.storybook/README.md`](./.storybook/README.md) for the play-function patte
 
 **Voice review:** `/voice-review` — Voice-powered staging review combining VoiceMode + Chrome. Talk through the app hands-free, discuss findings by speaking, and create Linear issues. Requires `claude --chrome` or `/chrome` and VoiceMode MCP server. See [docs/VOICE_REVIEW.md](docs/VOICE_REVIEW.md).
 
-**Codebase audit:** `/tech-audit` — Scan for outdated deps, type issues, code quality, test coverage, security patterns, database health, bundle concerns, and pattern adherence. Use `--focus <area>` to audit a single area.
+**Codebase audit:** `/tech-audit` — Scan for outdated deps, type issues, code quality, test coverage, security patterns, Prisma query efficiency, bundle concerns, and pattern adherence. Use `--focus <area>` to audit a single area.
 
 **Cross-session context:** Plans are stored as Linear comments by `/plan-issue`, so `/implement-issue` and `/branch-review` can fetch them in new sessions.
 

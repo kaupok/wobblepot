@@ -66,3 +66,6 @@ next-env.d.ts
 
 *storybook.log
 storybook-static
+
+# Claude Code agent worktrees (Agent tool isolation: "worktree")
+.claude/worktrees/
