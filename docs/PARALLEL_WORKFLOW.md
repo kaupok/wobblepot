@@ -56,7 +56,7 @@ Terminal 2: wt new feat/actual-impl     → Execute the plan
 Add to `~/.zshrc` or `~/.bashrc`:
 
 ```bash
-alias wt='~/Projects/honkadori/scripts/worktree-claude.sh'
+alias wt='~/Projects/wobblepot/scripts/worktree-claude.sh'
 ```
 
 Then use `wt new feat/my-feature` from anywhere.
@@ -70,7 +70,7 @@ Then use `wt new feat/my-feature` from anywhere.
 
 ## Worktree Location
 
-All parallel worktrees are created in `~/.worktrees/honkadori/<branch-name>` to keep the project directory clean.
+All parallel worktrees are created in `~/.worktrees/wobblepot/<branch-name>` to keep the project directory clean.
 
 ## Untracked Files
 
@@ -195,11 +195,11 @@ Requires `LINEAR_API_KEY` env var (format: `lin_api_...`).
 [OUTCOME] HON-53 TIMEOUT 1h1m 2-commits phase=reviewing triage=RETRY
 ```
 
-Filter with `grep '\[OUTCOME\]' ~/.worktrees/honkadori/logs/orchestrator.log`.
+Filter with `grep '\[OUTCOME\]' ~/.worktrees/wobblepot/logs/orchestrator.log`.
 
 ### Logs
 
-All logs are written to `~/.worktrees/honkadori/logs/`:
+All logs are written to `~/.worktrees/wobblepot/logs/`:
 
 | File                          | Contents                                     |
 | ----------------------------- | -------------------------------------------- |

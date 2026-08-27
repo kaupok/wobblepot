@@ -15,12 +15,12 @@
 #   ./scripts/worktree-claude.sh cleanup <branch-name>  # Remove worktree (auto-syncs)
 #   ./scripts/worktree-claude.sh cleanup-all            # Remove all parallel worktrees (auto-syncs)
 #
-# Worktrees are created in ~/.worktrees/honkadori/<branch-name>
+# Worktrees are created in ~/.worktrees/wobblepot/<branch-name>
 
 set -e
 
 # Configuration
-REPO_NAME="honkadori"
+REPO_NAME="wobblepot"
 WORKTREE_BASE="$HOME/.worktrees/$REPO_NAME"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
@@ -1490,7 +1490,7 @@ render_log_lines() {
 find_session_jsonl() {
   local search_term="$1"
   local session_dir
-  session_dir=$(find "$HOME/.claude/projects" -maxdepth 1 -type d -iname "*worktrees*honkadori*${search_term}*" 2>/dev/null | head -1)
+  session_dir=$(find "$HOME/.claude/projects" -maxdepth 1 -type d -iname "*worktrees*${REPO_NAME}*${search_term}*" 2>/dev/null | head -1)
   [ -z "$session_dir" ] && REPLY="" && return 1
   REPLY=$(ls -t "$session_dir"/*.jsonl 2>/dev/null | head -1)
   [ -z "$REPLY" ] && return 1
