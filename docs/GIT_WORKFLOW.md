@@ -78,12 +78,13 @@ Use descriptive branch names with prefixes:
 
    Detailed description of changes...
 
-   🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-   Co-Authored-By: Claude <noreply@anthropic.com>
+   Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+   Claude-Session: <session URL from the harness instructions, if provided>
    EOF
    )"
    ```
+
+   Use the trailers given in the harness/system instructions when they differ from the above.
 
 8. **Push to remote:**
 

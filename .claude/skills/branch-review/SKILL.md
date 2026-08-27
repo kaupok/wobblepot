@@ -150,6 +150,7 @@ CLAUDE.md is already loaded as project instructions — do not re-read it. Read 
   ```
 
   If any spec references removed routes or renamed copy, call it out in **Address Now** — stale specs are cheap to miss locally and land as a CI regression. See HON-518 for the drift-batch incident this rule was introduced to prevent.
+- **Storybook drift**: If the diff touches `src/components/**`, verify the colocated `.stories.tsx` was created/updated for the new variants and states (CLAUDE.md Storybook rule) and that `pnpm test-storybook:ci` passes. A missing or stale story is an **Address Now** item.
 
 ### 9. Triage issues
 
@@ -232,6 +233,7 @@ Files: `file1.ts`, `file2.ts`, ...
 - [ ] `pnpm type-check` passes
 - [ ] `pnpm test` passes
 - [ ] If changes touch `src/app/**/page.tsx`, a modal/dialog component, or user-visible copy: grepped `tests/e2e/` `// ROUTES: …` / `// COMPONENTS: …` headers for stale references and updated affected specs (or noted "no E2E impact")
+- [ ] If changes touch `src/components/**`: colocated `.stories.tsx` created/updated and `pnpm test-storybook:ci` passes (or noted "no Storybook impact")
 - [ ] PR description is up to date
 
 ### Verdict

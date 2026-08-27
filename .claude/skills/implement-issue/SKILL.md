@@ -180,6 +180,12 @@ Then implement following the plan steps (or issue description if `--no-plan`).
 
 ### 10. Signal completion
 
+Before signalling completion, confirm the definition of done:
+
+- **E2E drift**: if you touched `src/app/**/page.tsx`, a route URL, navigation/CTA copy, or a modal/dialog, grep `tests/e2e/` via the spec `// ROUTES: … · COMPONENTS: …` headers (`grep -l "ROUTES.*<route>\|COMPONENTS.*<Component>" tests/e2e/*.spec.ts`; for copy renames also `grep -rn "<exact old copy>" tests/e2e/`) and update affected specs (CLAUDE.md E2E rule)
+- **Storybook**: if you touched `src/components/**`, create/update the colocated `.stories.tsx` and run `pnpm test-storybook:ci` (CLAUDE.md Storybook rule)
+- `pnpm lint && pnpm type-check && pnpm test` pass
+
 After implementing all steps, output the completion marker exactly as shown:
 
 ```
