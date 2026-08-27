@@ -4,6 +4,8 @@ description: Upgrade Next.js to the latest version following official migration 
 argument-hint: '[target-version]'
 ---
 
+> **Project notes (Wobblepot):** This project is on Next 16 (see `next` in `package.json`) and uses pnpm with exact version pins — never `@latest`, never `npm install`. Install with `pnpm add next@<exact> react@<exact> react-dom@<exact>` (e.g. `pnpm add next@16.1.6 react@19.2.4 react-dom@19.2.4`) and run codemods with `pnpm dlx @next/codemod@<exact>`. Use the v16 guide, https://nextjs.org/docs/app/guides/upgrading/version-16 — the v14/v15 URLs below are upstream examples, not our upgrade path. Where this skill conflicts with `CLAUDE.md`, `CLAUDE.md` wins.
+
 # Upgrade Next.js
 
 Upgrade the current project to the latest Next.js version following official migration guides.

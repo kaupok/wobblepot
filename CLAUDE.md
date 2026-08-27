@@ -344,6 +344,8 @@ See [`.storybook/README.md`](./.storybook/README.md) for the play-function patte
 
 **Cross-session context:** Plans are stored as Linear comments by `/plan-issue`, so `/implement-issue` and `/branch-review` can fetch them in new sessions.
 
+**Vendor skills:** `better-auth-best-practices`, `create-auth-skill`, `next-best-practices`, `next-cache-components`, and `next-upgrade` are symlinks to `.agents/skills/*` — upstream references (Next.js / Better Auth) installed from skills.sh, not project rules. Where they conflict with this file, this file wins: Prisma adapter (not Drizzle), email/password only (no OAuth yet), pnpm with exact pins (no `@latest`, no `npm install`), TanStack Query for client reads (never `useEffect` + `fetch`), and the Next 16 upgrade guide (not v14/v15). Only `next-upgrade` is user-invocable; the rest are reference-only.
+
 ### Writing for Agents
 
 Specs, plans, and issues are consumed by agents — coding agents (`/auto-implement`), but also product, design, and growth agents. Write for both:
