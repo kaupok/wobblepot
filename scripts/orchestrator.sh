@@ -67,6 +67,10 @@ TEAM_UUID=""
 CONSECUTIVE_FAILURES=0
 MAX_CONSECUTIVE_FAILURES=3
 PAUSED_UNTIL=0
+# Newline-delimited "identifier<TAB>reason" keys already logged as [SKIP], so
+# select_next_issue emits one line per issue+reason instead of repeating it
+# every poll. Persists across polls; must stay global (bash 3.2, no assoc array).
+SEEN_SKIPS=""
 
 # ─── Colors ──────────────────────────────────────────────────────────────────
 
@@ -287,13 +291,18 @@ select_next_issue() {
 
   # jq emits "SKIP<TAB>level<TAB>identifier<TAB>reason" per rejected candidate,
   # then at most one "PICK<TAB>uuid<TAB>identifier<TAB>branchName<TAB>title".
-  local line kind level id reason
+  local line kind level id reason skip_key
   while IFS= read -r line; do
     kind="${line%%$'\t'*}"
     case "$kind" in
       SKIP)
         IFS=$'\t' read -r kind level id reason <<< "$line"
-        log "$level" "[SKIP] $id $reason"
+        # Dedupe per issue+reason so a blocked issue logs once, not every poll.
+        skip_key="$id"$'\t'"$reason"
+        if ! printf '%s' "$SEEN_SKIPS" | grep -qxF -- "$skip_key"; then
+          log "$level" "[SKIP] $id $reason"
+          SEEN_SKIPS="${SEEN_SKIPS}${skip_key}"$'\n'
+        fi
         ;;
       PICK)
         printf '%s\n' "${line#PICK$'\t'}"
@@ -321,11 +330,16 @@ select_next_issue() {
         # Backlog, so a human re-triage to Todo makes it pickable again; RETRY
         # re-spawns the same worker without re-entering selection.
         _assigned: (.assignee != null),
+        # Open blockers a worker is NOT already handling. Excluding in-worker
+        # blockers keeps the two skip branches disjoint, so the open-blocker
+        # branch (and its Duplicate warning) reports whenever a real blocker is
+        # still waiting — even when another blocker is being worked on.
         _open_blockers: ([
           .inverseRelations.nodes[]
           | select(.type == "blocks")
           | .issue
           | select(.state.id as $s | ($terminal | index($s)) == null)
+          | select(.identifier as $bid | ($running_list | index($bid)) == null)
         ]),
         _blockers_in_worker: ([
           .inverseRelations.nodes[]
@@ -341,14 +355,14 @@ select_next_issue() {
         _skip: (
           if ._running then ["DEBUG", "already running"]
           elif ._assigned then ["INFO", "assigned"]
-          elif (._blockers_in_worker | length) > 0 then
-            ["DEBUG", "blocker " + (._blockers_in_worker | join(", ")) + " is being worked on"]
           elif (._open_blockers | length) > 0 then
             ["INFO",
              "blocked by " + (._open_blockers | map(.identifier + " (" + .state.name + ")") | join(", "))
              + (if any(._open_blockers[]; .state.id == $duplicate)
                 then " — a Duplicate blocker never clears on its own; follow its duplicateOf or fix the relation"
                 else "" end)]
+          elif (._blockers_in_worker | length) > 0 then
+            ["DEBUG", "blocker " + (._blockers_in_worker | join(", ")) + " is being worked on"]
           else null end)
       })
     # One SKIP line per rejected candidate
@@ -482,7 +496,7 @@ monitor_workers() {
 
       if [ "$exit_code" -eq 0 ]; then
         log INFO "Worker $issue_id (PID $pid) completed successfully"
-        handle_success "$issue_id" "$branch" "$log_file"
+        handle_success "$issue_id" "$issue_uuid" "$branch" "$log_file"
       else
         log WARN "Worker $issue_id (PID $pid) failed (exit $exit_code)"
         handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "exit:$exit_code" "$title"
@@ -721,7 +735,7 @@ notify() {
 # ─── Handle success ─────────────────────────────────────────────────────────
 
 handle_success() {
-  local issue_id="$1" branch="$2" log_file="$3"
+  local issue_id="$1" issue_uuid="$2" branch="$3" log_file="$4"
 
   # Reset circuit breaker on success
   CONSECUTIVE_FAILURES=0
@@ -744,6 +758,23 @@ handle_success() {
   done
   duration_str=$(format_duration "$duration_secs")
 
+  # A clean exit that produced no commits and did not reach a merge shipped
+  # nothing. Logging it as SUCCESS would leave the issue In Progress and
+  # assigned, which select_next_issue skips forever. Gate it instead: return the
+  # issue to Todo, unassigned, so it is pickable again, and emit a distinct
+  # GATED outcome operators can grep for. The phase guard matters because a
+  # merged run can also show 0 commits once local main advances past its merge;
+  # that run reached phase "done", so it stays a SUCCESS and Linear automation
+  # moves its issue to Done.
+  if [ "${commits:-0}" -eq 0 ] && [ "$phase" != "done" ]; then
+    log WARN "[OUTCOME] $issue_id GATED ${duration_str} 0-commits phase=$phase"
+    notify "Honkadori" "$issue_id produced no commits — returned to Todo"
+    gate_no_commit_success "$issue_uuid" "$issue_id" "$log_file"
+    [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=1
+    cleanup_worker_worktree "$branch"
+    return
+  fi
+
   log INFO "[OUTCOME] $issue_id SUCCESS ${duration_str} ${commits}-commits phase=$phase"
   notify "Honkadori" "$issue_id completed ($commits commits, $duration_str)"
 
@@ -753,6 +784,32 @@ handle_success() {
   log INFO "Cleaning up worktree for $issue_id"
   cleanup_worker_worktree "$branch"
   log INFO "Worker $issue_id complete — worktree cleaned up"
+}
+
+# ─── Gate a no-commit "success" ──────────────────────────────────────────────
+# A worker can exit 0 without producing anything. Comment on the issue, then
+# return it to Todo and clear the assignee (reusing move_issue_unassigned) so a
+# later run can pick it up instead of it being stranded In Progress.
+
+gate_no_commit_success() {
+  local issue_uuid="$1" issue_id="$2" log_file="$3"
+
+  local log_path_note=""
+  [ -n "$log_file" ] && log_path_note=$(printf '\n\n**Full log:** `%s`' "$log_file")
+
+  local body
+  body=$(printf '## Auto-implementation produced no commits\n\nThe worker exited cleanly but made no commits, so nothing shipped. Returned to Todo and unassigned for review.%s' \
+    "$log_path_note")
+
+  local vars
+  vars=$(jq -n --arg id "$issue_uuid" --arg body "$body" '{issueId: $id, body: $body}')
+  linear_api \
+    'mutation($issueId: String!, $body: String!) {
+      commentCreate(input: { issueId: $issueId, body: $body }) { success }
+    }' "$vars" > /dev/null 2>&1 || log WARN "Failed to comment on $issue_id"
+
+  move_issue_unassigned "$issue_uuid" "$issue_id" "$STATE_TODO" "Todo"
+  log INFO "Gated $issue_id → Todo (unassigned, 0 commits)"
 }
 
 # ─── Sanitize logs (strip secrets before posting to Linear) ──────────────────
@@ -917,7 +974,8 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 
     RETRY)
       if [ "$retried" = "0" ] && [ "$SHUTTING_DOWN" = false ]; then
         log INFO "Retrying $issue_id: $title"
-        cleanup_worker_worktree "$branch"
+        # Keep the branch so a respawn can resume an already-pushed branch / open PR.
+        cleanup_worker_worktree "$branch" true
         # Preserve original title on retry (from WORKER_TITLES array)
         spawn_worker "$issue_uuid" "$issue_id" "$branch" "$original_title" "1"
       else
@@ -970,13 +1028,24 @@ move_to_backlog() {
   # Move to Backlog and clear the assignee. /auto-implement 2.2 assigns the
   # issue to the API user; leaving that in place would make select_next_issue
   # skip the issue as "assigned" forever once a human re-triages it to Todo.
-  vars=$(jq -n --arg id "$issue_uuid" --arg state "$STATE_BACKLOG" '{id: $id, stateId: $state}')
+  move_issue_unassigned "$issue_uuid" "$issue_id" "$STATE_BACKLOG" "Backlog"
+
+  log INFO "Moved $issue_id to Backlog (unassigned) with '$label_name' label"
+}
+
+# ─── Move issue to a state, clearing the assignee ────────────────────────────
+# Shared by move_to_backlog, the gated-success path, and force-shutdown drain.
+# Clearing the assignee is essential: /auto-implement assigns the issue to the
+# API user, and select_next_issue skips any assigned issue forever.
+
+move_issue_unassigned() {
+  local issue_uuid="$1" issue_id="$2" state_id="$3" state_label="$4"
+  local vars
+  vars=$(jq -n --arg id "$issue_uuid" --arg state "$state_id" '{id: $id, stateId: $state}')
   linear_api \
     'mutation($id: String!, $stateId: String!) {
       issueUpdate(id: $id, input: { stateId: $stateId, assigneeId: null }) { success }
-    }' "$vars" > /dev/null 2>&1 || log WARN "Failed to move $issue_id to Backlog"
-
-  log INFO "Moved $issue_id to Backlog (unassigned) with '$label_name' label"
+    }' "$vars" > /dev/null 2>&1 || log WARN "Failed to move $issue_id to $state_label"
 }
 
 # ─── Label management (best-effort) ─────────────────────────────────────────
@@ -1036,6 +1105,11 @@ fetch_team_uuid() {
 
 cleanup_worker_worktree() {
   local branch="$1"
+  # keep_branch=true removes only the worktree, preserving the local git branch
+  # and its paired Neon branch. RETRY needs this: a respawn must reuse a branch
+  # that may already have commits pushed and a PR open, so deleting it would
+  # discard that work and block the resume.
+  local keep_branch="${2:-false}"
   [ -z "$branch" ] && return 0
 
   local worktree_path
@@ -1052,11 +1126,12 @@ cleanup_worker_worktree() {
     # Neon logic (name mapping, protected-name guardrail, "not configured"
     # short-circuit) stays in one place. `|| true` in case the helper errors;
     # a failed Neon delete should never block worker cleanup.
-    "$SCRIPT_DIR/worktree-claude.sh" neon-delete "$branch" >/dev/null 2>&1 || true
+    [ "$keep_branch" = false ] && \
+      "$SCRIPT_DIR/worktree-claude.sh" neon-delete "$branch" >/dev/null 2>&1 || true
   else
     log WARN "Failed to remove worktree at $worktree_path — keeping Neon branch"
   fi
-  git -C "$REPO_ROOT" branch -D "$branch" 2>/dev/null || true
+  [ "$keep_branch" = false ] && git -C "$REPO_ROOT" branch -D "$branch" 2>/dev/null || true
   git -C "$REPO_ROOT" worktree prune 2>/dev/null || true
   log DEBUG "Cleaned up worktree: $branch"
 }
@@ -1099,21 +1174,31 @@ sync_permissions() {
 
 # ─── Shutdown ────────────────────────────────────────────────────────────────
 
+# Force shutdown kills workers mid-flight. Return each in-flight issue to Todo
+# and clear the assignee so a future run can pick it up — otherwise it stays In
+# Progress and assigned, which select_next_issue skips forever.
+drain_workers_to_todo() {
+  local i=0
+  while [ $i -lt ${#WORKER_PIDS[@]} ]; do
+    kill_process_tree "${WORKER_PIDS[$i]}"
+    if [ "$DRY_RUN" = false ]; then
+      move_issue_unassigned "${WORKER_ISSUE_UUIDS[$i]}" "${WORKER_ISSUES[$i]}" "$STATE_TODO" "Todo"
+    fi
+    i=$((i + 1))
+  done
+}
+
 shutdown() {
   if [ "$FORCE_SHUTDOWN" = true ]; then
     log WARN "Force shutdown — killing all workers"
-    for pid in ${WORKER_PIDS[@]+"${WORKER_PIDS[@]}"}; do
-      kill_process_tree "$pid"
-    done
+    drain_workers_to_todo
     exit 1
   fi
 
   if [ "$SHUTTING_DOWN" = true ]; then
     FORCE_SHUTDOWN=true
     log WARN "Second signal — force killing workers"
-    for pid in ${WORKER_PIDS[@]+"${WORKER_PIDS[@]}"}; do
-      kill_process_tree "$pid"
-    done
+    drain_workers_to_todo
     exit 1
   fi
 

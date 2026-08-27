@@ -161,9 +161,9 @@ The orchestrator (`scripts/orchestrator.sh`) is a long-running dispatcher that p
 - Fetch Todo issues via Linear GraphQL (curl + jq)
 - Filter out issues already being processed by running workers
 - Skip assigned issues — someone owns them (same `assignee: "null"` rule as `/next-issue` and `/auto-implement` Phase 1.4). `move_to_backlog` clears the assignee when it fails an issue back to Backlog, so a re-triaged issue is pickable again. The explicit-ID gate (`/auto-implement HON-XX` 2.1) also accepts `assignee == me` on an `In Progress` issue (my own earlier claim).
-- If the orchestrator is force-killed (second signal), in-flight issues stay `In Progress` **and assigned** — `move_to_backlog` never ran. To re-queue one, move it to Todo **and unassign it**; an assigned issue is skipped.
+- When a force-kill (second signal) stops the orchestrator, it returns each in-flight issue to Todo **and clears its assignee**. A future run can then pick the issue up. Without this step, the issue stays `In Progress` **and assigned**, and the picker skips it forever.
 - Check `blockedBy` — unblocked only if all blockers are Done/Canceled. A Duplicate blocker never clears on its own: a human follows its `duplicateOf` or fixes the stale relation (same rule as the `/auto-implement` and `/implement-issue` gates)
-- Log every skipped candidate with its reason (`[SKIP] HON-XX assigned`, `[SKIP] HON-XX blocked by HON-YY (Duplicate)`) so a stuck issue is visible in `orchestrator.log` rather than dropped silently
+- Log each skipped candidate once per issue and reason (`[SKIP] HON-XX assigned`, `[SKIP] HON-XX blocked by HON-YY (Duplicate)`), so a stuck issue is visible in `orchestrator.log`. The orchestrator logs each reason one time, not every poll. A changed reason (a blocker moves to a new state) logs again.
 - Prioritize: issues that `blocks` others first, then by `priority` field
 - Pick one per poll cycle
 
@@ -196,7 +196,10 @@ Requires `LINEAR_API_KEY` env var (format: `lin_api_...`).
 ```
 [OUTCOME] HON-51 SUCCESS 35m0s 4-commits phase=merge
 [OUTCOME] HON-53 TIMEOUT 1h1m 2-commits phase=reviewing triage=RETRY
+[OUTCOME] HON-55 GATED 8m0s 0-commits phase=planning
 ```
+
+A worker can exit cleanly but make no commits. Such a worker ships nothing, so the orchestrator logs `GATED`, not `SUCCESS`. It comments on the issue, returns the issue to Todo, and clears the assignee. A future run can then pick the issue up. Without this step, the issue stays `In Progress` and assigned, and the picker skips it forever.
 
 Filter with `grep '\[OUTCOME\]' ~/.worktrees/wobblepot/logs/orchestrator.log`.
 

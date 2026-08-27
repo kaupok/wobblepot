@@ -585,8 +585,15 @@ cmd_auto() {
   git -C "$REPO_ROOT" pull origin main --ff-only 2>/dev/null || \
     echo -e "${YELLOW}Warning: Could not fast-forward main (may be on a different branch)${NC}"
 
-  # Create worktree with new branch from current HEAD
-  git -C "$REPO_ROOT" worktree add -b "$branch" "$worktree_path"
+  # Create the worktree. When the branch already exists — an orchestrator RETRY
+  # that preserved it to resume an open PR — check it out as-is instead of
+  # recreating it from main, which would discard its commits.
+  if git -C "$REPO_ROOT" show-ref --verify --quiet "refs/heads/$branch"; then
+    echo "Reusing existing branch: $branch"
+    git -C "$REPO_ROOT" worktree add "$worktree_path" "$branch"
+  else
+    git -C "$REPO_ROOT" worktree add -b "$branch" "$worktree_path"
+  fi
 
   echo ""
   echo -e "${BLUE}Setting up worktree...${NC}"
