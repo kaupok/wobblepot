@@ -303,8 +303,7 @@ select_next_issue() {
     --arg running "$running" \
     --arg done "$STATE_DONE" \
     --arg canceled "$STATE_CANCELED" \
-    --arg duplicate "$STATE_DUPLICATE" \
-    --arg viewer "${LINEAR_VIEWER_ID:-}" '
+    --arg duplicate "$STATE_DUPLICATE" '
     # A blocker only clears when Done or Canceled. Duplicate never clears on
     # its own (a human must follow duplicateOf or fix the relation) — this
     # mirrors the /auto-implement, /implement-issue and /next-issue gates.
@@ -314,12 +313,14 @@ select_next_issue() {
     .data.issues.nodes
     | map(. + {
         _running: (.identifier as $id | ($running_list | index($id)) != null),
-        # Issues assigned to someone ELSE belong to them — same rule as
-        # /next-issue and /auto-implement 1.2. Issues assigned to this user
-        # stay pickable: /auto-implement 2.2 assigns "me" and move_to_backlog
-        # never clears it, so a blanket assignee != null would strand every
-        # issue that has been run once.
-        _assigned: (.assignee != null and .assignee.id != $viewer),
+        # Any assigned issue belongs to someone — including the operator, who
+        # may have self-assigned a Todo issue to work on by hand. Same rule as
+        # /next-issue step 4 and /auto-implement 1.4 (assignee must be null).
+        # Issues a previous run assigned to "me" are not stranded by this:
+        # move_to_backlog writes Backlog (excluded by state here), RETRY
+        # re-spawns without re-entering selection, and the 2.1 gate undo
+        # clears the assignee it reverses.
+        _assigned: (.assignee != null),
         _open_blockers: ([
           .inverseRelations.nodes[]
           | select(.type == "blocks")
@@ -339,7 +340,7 @@ select_next_issue() {
     | map(. + {
         _skip: (
           if ._running then ["DEBUG", "already running"]
-          elif ._assigned then ["INFO", "assigned to someone else"]
+          elif ._assigned then ["INFO", "assigned"]
           elif (._blockers_in_worker | length) > 0 then
             ["DEBUG", "blocker " + (._blockers_in_worker | join(", ")) + " is being worked on"]
           elif (._open_blockers | length) > 0 then
@@ -1181,9 +1182,6 @@ validate_environment() {
     if [ -n "${test_response:-}" ]; then
       local viewer
       viewer=$(echo "$test_response" | jq -r '.data.viewer.name // empty' 2>/dev/null)
-      # Global: select_next_issue needs the viewer id so issues assigned to
-      # this user (by a previous /auto-implement 2.2 claim) are still pickable.
-      LINEAR_VIEWER_ID=$(echo "$test_response" | jq -r '.data.viewer.id // empty' 2>/dev/null)
       [ -n "$viewer" ] && log INFO "Connected to Linear as: $viewer"
     fi
   fi

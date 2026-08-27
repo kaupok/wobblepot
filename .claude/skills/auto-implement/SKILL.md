@@ -267,13 +267,13 @@ Extract and note:
 
 **The orchestrator pre-claims.** `scripts/orchestrator.sh` calls `claim_issue()` (state → `In Progress`, assignee left untouched) _before_ it spawns `wt auto HON-XX` → `/auto-implement HON-XX`. On that path the issue is already `In Progress` and unassigned by the time 2.1 runs — that is the normal case, not a conflict. The gate therefore rejects on closed states and on foreign assignees, never on `In Progress` alone.
 
-**Every gate stop must first undo the pre-claim.** If the issue is `In Progress` **and** `assignee` is `null` **or me**, it got there via `claim_issue()` (unassigned) or via a previous attempt's 2.2 claim (the orchestrator's `RETRY` re-spawns the same issue after 2.2 already assigned me), and stopping would strand it: `fetch_todo_issues` only queries Todo, the orchestrator records a 0-commit exit as SUCCESS and cleans up the worktree, and nothing ever moves the issue back. So before printing the stop message, restore Todo so the orchestrator / `/next-issue` can see it again:
+**Every gate stop must first undo the pre-claim.** If the issue is `In Progress` **and** `assignee` is `null`, it got there via `claim_issue()` — which writes only the state, never an assignee — and stopping would strand it: `fetch_todo_issues` only queries Todo, the orchestrator records a 0-commit exit as SUCCESS and cleans up the worktree, and nothing ever moves the issue back. So before printing the stop message, restore Todo so the orchestrator / `/next-issue` can see it again:
 
 ```
-mcp__linear-server__save_issue({ id: "HON-XX", state: "Todo", assignee: null })
+mcp__linear-server__save_issue({ id: "HON-XX", state: "Todo" })
 ```
 
-Never touch an issue assigned to someone else — that is theirs, whatever its state. Leave every other state (`Backlog`, `Todo`, `In Review`, closed states) exactly as found: the pre-claim (state, and the assignee a retried attempt left behind) is the only write this step reverses.
+Never touch an assigned issue — `In Progress` + assignee me is an explicit claim (`/plan-issue` step 11, or a previous attempt's 2.2) that a stop must not erase, and anything assigned to someone else is theirs. Leave every other state (`Backlog`, `Todo`, `In Review`, closed states) exactly as found: the unassigned pre-claim is the only write this step reverses. If a gate stops on an issue that is `In Progress` and mine, say so in the stop message and leave it for the operator.
 
 **Gate on `statusType`, not on the state's display name.** `get_issue` returns `statusType` ∈ { `backlog`, `unstarted`, `started`, `completed`, `canceled`, `duplicate`, `triage` }; state names are workspace-configurable and `Triage` has no "closed" name to match. Keep the human-readable `status` in the stop message.
 
