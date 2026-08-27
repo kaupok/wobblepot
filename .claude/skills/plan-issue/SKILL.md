@@ -1,6 +1,7 @@
 ---
 name: plan-issue
 description: Create an implementation plan for a Linear issue. Explores codebase, writes plan, posts to Linear after approval.
+argument-hint: 'HON-XX'
 context: inherit
 ---
 
@@ -41,6 +42,7 @@ Extract and note:
 - Issue UUID (for the `list_comments` call in step 5)
 - Title and description
 - `gitBranchName` for later use
+- Current assignee (decides whether step 11 may claim the issue)
 - `blockedBy` relations (check if blocked)
 - `blocks` relations (what this unblocks)
 - `relatedTo` / `parentId` (for overlap check in step 3)
@@ -224,15 +226,31 @@ mcp__linear-server__save_comment({
 })
 ```
 
-### 11. Move issue to In Progress
+### 11. Move issue to In Progress and claim it
 
-Update the issue status so other auto-implement sessions won't pick it up:
+Update the issue status so other auto-implement sessions won't pick it up. A claimed issue must always have an assignee (matches `/auto-implement` step 2.1), but never take an issue away from a teammate.
+
+**If the issue is unassigned or already assigned to me** (from the assignee noted in step 2), claim it in a single call:
+
+```
+mcp__linear-server__save_issue({
+  id: "HON-XX",
+  state: "In Progress",
+  assignee: "me"
+})
+```
+
+**If assigned to someone else**, keep the existing assignee — move the status only, and warn the user (same handling as `/implement-issue`: warn before reassigning; do not reassign silently):
 
 ```
 mcp__linear-server__save_issue({
   id: "HON-XX",
   state: "In Progress"
 })
+```
+
+```
+HON-XX is assigned to <name>; left assignment unchanged.
 ```
 
 ### 12. Output completion
