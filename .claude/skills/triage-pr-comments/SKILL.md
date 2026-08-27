@@ -4,7 +4,7 @@ description: Fetch PR review comments and triage into actionable categories
 context: inherit
 ---
 
-# PR Review
+# Triage PR comments
 
 Fetches GitHub PR review comments and triages them into actionable categories.
 
@@ -69,24 +69,31 @@ Extract the PR number from Step 1, then fetch both types of comments in parallel
 
 ```bash
 # PR-level comments (general discussion)
-gh api /repos/:owner/:repo/issues/{number}/comments
+gh api /repos/:owner/:repo/issues/{number}/comments \
+  --jq '.[] | {id, author: .user.login, body, created_at}'
 
 # Review comments (inline code comments)
-gh api /repos/:owner/:repo/pulls/{number}/comments
+gh api /repos/:owner/:repo/pulls/{number}/comments \
+  --jq '.[] | {id, author: .user.login, path, line, original_line, body, diff_hunk}'
 
 # Review summaries (top-level text submitted with Approve/Request Changes)
-gh api /repos/:owner/:repo/pulls/{number}/reviews
+gh api /repos/:owner/:repo/pulls/{number}/reviews \
+  --jq '.[] | {id, author: .user.login, state, body}'
 ```
 
 Replace `{number}` with the PR number from Step 1.
 
+All three endpoints expose the author as `.user.login` — keep it in the projection. Step 4's bot filter depends on it.
+
 ### Step 4: Filter and Parse
 
-**Filter out noise:**
+**Filter out noise** — drop only these, keep everything else:
 
-- Empty comments
-- Automated status messages
-- Non-review comments (comments without `<!-- claude-review -->` marker or bold issue titles)
+- Empty comments (blank `body` — e.g. a bare Approve submitted with no text)
+- Bot status comments: `author` ends in `[bot]` (e.g. `vercel[bot]`, `github-actions[bot]`, `linear[bot]`). Deployment previews, CI status, and issue-link stubs are never actionable.
+- The Claude review's own summary comment (`body` starts with `<!-- claude-review -->`) — but only _after_ it has been parsed below. Its confidence score and "No issues found" verdict feed the severity mapping; the summary itself is not a triage item.
+
+**Keep every human comment**, regardless of format. Do not require the `<!-- claude-review -->` marker or a bold issue title — human reviewers write free-form, and this skill exists to surface all external feedback. Human comments go through the same Step 5 rubric as Claude findings. If a human comment carries no obvious severity signal, default it to 🟡 Suggestion and let effort decide. Note the Claude reviewer posts via `gh` under the user's own account, not a `[bot]` login, so the `[bot]` rule never touches its inline findings.
 
 **Parse Claude review format:**
 
@@ -194,12 +201,12 @@ Ready to `/merge` if approved.
 After outputting the review triage, add the completion marker:
 
 ```
-[pr-review:complete] Review triage finished - {X} items to address
+[triage-pr-comments:complete] Review triage finished - {X} items to address
 ```
 
 ## Notes
 
-- This skill fetches EXTERNAL review feedback (from the Claude PR reviewer via `scripts/pr-review.sh`)
+- This skill fetches EXTERNAL review feedback — from the Claude PR reviewer via `scripts/pr-review.sh` and from human reviewers alike
 - For LOCAL code review before committing, use `/branch-review` instead
 - **Bias toward action** - when in doubt, put it in Address Now
 - **Defer is last resort** - only for work that genuinely takes hours and is out of scope
