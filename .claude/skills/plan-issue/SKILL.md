@@ -228,7 +228,7 @@ mcp__linear-server__save_comment({
 
 ### 11. Move issue to In Progress and claim it
 
-Update the issue status so other auto-implement sessions won't pick it up. A claimed issue must always have an assignee (matches `/auto-implement` step 2.1), but never take an issue away from a teammate.
+Update the issue status so other auto-implement sessions won't pick it up. A claimed issue must always have an assignee (matches `/auto-implement` step 2.2 — 2.1 is the pre-claim gate), but never take an issue away from a teammate.
 
 **If the issue is unassigned or already assigned to me** (from the assignee noted in step 2), claim it in a single call:
 

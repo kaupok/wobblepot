@@ -263,28 +263,48 @@ Extract and note:
 - Current `assignee`
 - Any labels or priority
 
-**Hard gate — stop before claiming if any of these hold.** An explicit `HON-XX` argument skips Phase 1 entirely, so this is the only filter on that path:
+**Hard gate — run the three checks in this order (status → assignee → blockers) and stop at the first failure.** An explicit `HON-XX` argument skips Phase 1 entirely, so this is the only filter on that path. The order matters: a closed issue short-circuits before the assignee and blocker checks, so an issue that is itself `Duplicate` (e.g. HON-496) never reaches the blocker check and cannot be used to exercise it.
 
-- `status` ∉ { `Backlog`, `Todo` } — `In Progress` / `In Review` belong to someone else; `Done` / `Canceled` / `Duplicate` are closed:
+**The orchestrator pre-claims.** `scripts/orchestrator.sh` calls `claim_issue()` (state → `In Progress`, assignee left untouched) *before* it spawns `wt auto HON-XX` → `/auto-implement HON-XX`. On that path the issue is already `In Progress` and unassigned by the time 2.1 runs — that is the normal case, not a conflict. The gate therefore rejects on closed states and on foreign assignees, never on `In Progress` alone.
 
-  ```
-  HON-XX is [status] — not claimable by an autonomous cycle.
-  ```
+1. **Status** — stop if `status` is a closed state: `Done`, `Canceled`, or `Duplicate`. `Backlog` / `Todo` pass outright. `In Progress` / `In Review` pass **only if** the assignee check below passes — an in-flight issue assigned to someone else is theirs.
 
-- `relations.blockedBy` contains any issue whose status is not `Done` or `Canceled` — list them and stop:
+   ```
+   [auto-implement] ✗ Error: HON-XX is [status] — closed; nothing for an autonomous cycle to claim. Pick another issue or reopen it in Linear first.
+   ```
 
-  ```
-  HON-XX is blocked by open issues:
-    - HON-YY ([status]) — [title]
-  ```
+2. **Assignee** — the issue's `assignee` is a user (display name / id), never the literal string `"me"`, so resolve the current user once and compare against that:
 
-  A blocker with status `Duplicate` never clears on its own: follow its `duplicateOf` successor if set, otherwise re-point or remove the stale relation in Linear. Do not auto-clear it.
+   ```
+   mcp__linear-server__get_user({ query: "me" })
+   ```
 
-- `assignee` is set to someone other than me — stop; do not reassign.
+   Note the returned `id` and `name`. The issue passes if `assignee` is `null`, or its id (`assigneeId` / `assignee.id`, when returned) matches the resolved `id` — fall back to comparing the display name only if `get_issue` returns no id. Stop otherwise; do not reassign:
+
+   ```
+   [auto-implement] ✗ Error: HON-XX is assigned to [assignee name] — not mine to claim. Unassign it in Linear (or have them hand it over) before running /auto-implement.
+   ```
+
+3. **Blockers** — `relations.blockedBy` entries carry only `{ id, title }`; there is no status on them. Re-fetch each blocker, same pattern as Phase 1.4 and `/next-issue`:
+
+   ```
+   for each blocker in relations.blockedBy:
+     mcp__linear-server__get_issue({ id: blocker.id })
+     → note its status (and duplicateOf, if the status is Duplicate)
+   ```
+
+   An empty `blockedBy` passes. Every blocker must have status `Done` or `Canceled`; otherwise list the open ones and stop:
+
+   ```
+   [auto-implement] ✗ Error: HON-XX is blocked by open issues:
+     - HON-YY ([status]) — [title]
+   ```
+
+   A blocker with status `Duplicate` never clears on its own: follow its `duplicateOf` successor if set, otherwise re-point or remove the stale relation in Linear. Do not auto-clear it — `scripts/orchestrator.sh` applies the same Done/Canceled-only rule, so the unattended path agrees.
 
 ### 2.2 Claim issue
 
-Immediately after the gate passes — before any planning work — set status to "In Progress" and assign to self. This prevents other agents from picking the same issue concurrently.
+Immediately after the gate passes — before any planning work — set status to "In Progress" and assign to self. On the orchestrator path this leaves the status as-is and fills in the assignee that `claim_issue()` left empty; on a direct `/auto-implement HON-XX` invocation it is the actual claim that keeps other agents off the issue.
 
 ```
 mcp__linear-server__save_issue({

@@ -160,7 +160,7 @@ The orchestrator (`scripts/orchestrator.sh`) is a long-running dispatcher that p
 
 - Fetch Todo issues via Linear GraphQL (curl + jq)
 - Filter out issues already being processed by running workers
-- Check `blockedBy` — unblocked if all blockers are Done/Canceled/Duplicate
+- Check `blockedBy` — unblocked only if all blockers are Done/Canceled. A Duplicate blocker never clears on its own: a human follows its `duplicateOf` or fixes the stale relation (same rule as the `/auto-implement` and `/implement-issue` gates)
 - Prioritize: issues that `blocks` others first, then by `priority` field
 - Pick one per poll cycle
 

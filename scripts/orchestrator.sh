@@ -36,7 +36,7 @@ STATE_TODO="bcd0f639-33dd-4da8-a081-4d409c0fe5b4"
 STATE_IN_PROGRESS="efa0cbda-898d-440d-a6a9-36e798d00881"
 STATE_DONE="5b47cab2-e519-4532-8aa2-f4926e16bcd7"
 STATE_CANCELED="20dedb1c-9cb4-4db4-8a3a-c2eb39fbd616"
-STATE_DUPLICATE="d173c772-7085-46c9-bece-6a8a74d0ae27"
+STATE_DUPLICATE="d173c772-7085-46c9-bece-6a8a74d0ae27"  # not a terminal blocker state — see select_next_issue
 
 # ─── Worker tracking (parallel arrays, bash 3.2 compatible) ──────────────────
 
@@ -284,9 +284,11 @@ select_next_issue() {
   echo "$response" | jq -r \
     --arg running "$running" \
     --arg done "$STATE_DONE" \
-    --arg canceled "$STATE_CANCELED" \
-    --arg duplicate "$STATE_DUPLICATE" '
-    [$done, $canceled, $duplicate] as $terminal |
+    --arg canceled "$STATE_CANCELED" '
+    # A blocker only clears when Done or Canceled. Duplicate never clears on
+    # its own (a human must follow duplicateOf or fix the relation) — this
+    # mirrors the /auto-implement, /implement-issue and /next-issue gates.
+    [$done, $canceled] as $terminal |
     (if $running == "" then [] else ($running | split(",")) end) as $running_list |
 
     .data.issues.nodes
