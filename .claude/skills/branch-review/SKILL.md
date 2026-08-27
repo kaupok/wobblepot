@@ -218,7 +218,7 @@ Files: `file1.ts`, `file2.ts`, ...
 2. ...
 (If empty: "None")
 
-**Note:** For each deferred item, propose a specific Linear issue to create. After review is complete, offer to create these issues.
+**Note:** For each deferred item, propose a specific Linear issue to create. After review is complete, list the proposed issues (title + What/Why/Acceptance criteria) for the caller to create.
 
 #### Skip
 1. [Issue description] - [Why disagreed or not actionable]
