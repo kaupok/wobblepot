@@ -81,7 +81,7 @@ When creating a worktree, the script automatically copies these gitignored files
 | `.env`                        | Environment variables (DATABASE_URL, API keys, etc.) |
 | `.claude/settings.local.json` | Claude Code permissions and settings                 |
 
-`PROJECT_ROOT` paths in these files are automatically updated to point to the worktree location.
+Both files are copied to the worktree as-is.
 
 **To add more files:** Edit the `UNTRACKED_FILES` array in `scripts/worktree-claude.sh`.
 

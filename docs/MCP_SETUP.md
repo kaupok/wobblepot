@@ -21,7 +21,7 @@ MCP (Model Context Protocol) is an open protocol that standardizes how AI assist
 **Key benefits:**
 
 - **Context-aware assistance**: Servers provide domain-specific knowledge (Better Auth docs, library documentation)
-- **Enhanced capabilities**: File operations, database queries, sequential thinking, persistent memory
+- **Enhanced capabilities**: Browser automation, package search, Next.js analysis, product analytics
 - **Reduced friction**: Pre-configured servers eliminate repetitive setup and explanation
 - **Team consistency**: Shared `.mcp.json` ensures everyone has the same tools
 
@@ -31,62 +31,13 @@ Our project uses the following MCP servers:
 
 **Configuration locations:**
 
-- **Stdio servers** (in `.mcp.json`): filesystem, sequential-thinking, memory, playwright, npm-package-search, next-devtools
-- **HTTP servers** (in `.mcp.json`): context7, linear-server
+- **Stdio servers** (in `.mcp.json`): playwright, npm-package-search, next-devtools
+- **HTTP servers** (in `.mcp.json`): context7, linear-server, posthog
 - **HTTP servers** (configured globally): better-auth
 
-> **Note**: HTTP servers (better-auth, context7, linear-server) are configured globally via Claude Code and won't appear in the project's `.mcp.json` file. They connect to remote HTTP endpoints and require authentication (API keys or OAuth).
+> **Note**: The `better-auth` server is configured globally via Claude Code and does not appear in the project's `.mcp.json` file. The `context7`, `linear-server`, and `posthog` HTTP servers are in `.mcp.json`. HTTP servers connect to remote endpoints and authenticate with an API key or OAuth.
 
-### 1. Filesystem Server (Official Anthropic)
-
-- **Purpose**: Secure file operations with enhanced capabilities
-- **Capabilities**: Advanced file search, directory navigation, recursive operations
-- **Scope**: Project root (configured via `PROJECT_ROOT` in `.claude/settings.local.json`)
-- **When to use**: Complex file operations, bulk changes, deep directory exploration
-
-### 2. GitHub Server (Official Anthropic) - Optional
-
-- **Status**: Not configured by default (we use `gh` CLI instead)
-- **Purpose**: Direct GitHub API integration
-- **Capabilities**: Repository insights, PR management, issue tracking, workflow triggers
-- **Requirements**: `GITHUB_PERSONAL_ACCESS_TOKEN` in `.claude/settings.local.json`
-- **When to use**: Complex GitHub operations beyond `gh` CLI capabilities
-
-**Setup GitHub token:**
-
-1. Go to [GitHub Settings → Developer settings → Personal access tokens → Fine-grained tokens](https://github.com/settings/tokens?type=beta)
-2. Click "Generate new token"
-3. Configure the token:
-   - **Token name**: Claude Code MCP (or similar)
-   - **Expiration**: 90 days (or as needed)
-   - **Repository access**: Select "All repositories" or specific repos
-   - **Permissions** (Repository permissions):
-     - **Minimum required**: Contents (read), Metadata (read, auto-selected)
-     - **Recommended for full functionality**:
-       - Contents: Read and write
-       - Pull requests: Read and write
-       - Issues: Read and write
-       - Workflows: Read and write
-4. Click "Generate token" and copy it immediately
-5. Add to `.claude/settings.local.json` (see [Environment Variables](#environment-variables) section below)
-
-**Important:** Classic tokens (prefix `ghp_`) won't work - you must use fine-grained tokens (prefix `github_pat_`).
-
-### 3. Sequential Thinking Server (Official Anthropic)
-
-- **Purpose**: Enhanced multi-step planning and problem decomposition
-- **Capabilities**: Structured reasoning, iterative refinement, complex architecture decisions
-- **When to use**: Complex features, architectural planning, debugging tricky issues
-- **Note**: No API keys required
-
-### 4. Memory Server (Official Anthropic)
-
-- **Purpose**: Knowledge graph-based persistent memory across sessions
-- **Capabilities**: Store project decisions, architecture patterns, context retention
-- **When to use**: Document important decisions, track evolving patterns, maintain context
-- **Note**: Memory persists across Claude Code sessions
-
-### 5. Playwright Server (Microsoft)
+### 1. Playwright Server (Microsoft)
 
 - **Purpose**: Browser automation and E2E test generation/debugging
 - **Capabilities**:
@@ -97,7 +48,7 @@ Our project uses the following MCP servers:
 - **When to use**: Writing new E2E tests, debugging test failures, automating browser tasks
 - **Note**: Works with your existing Playwright setup
 
-### 6. npm Package Search Server
+### 2. npm Package Search Server
 
 - **Purpose**: npm registry search and package metadata
 - **Capabilities**:
@@ -108,7 +59,7 @@ Our project uses the following MCP servers:
 - **When to use**: Evaluating new dependencies, checking package versions, finding alternatives
 - **Note**: Helps make informed dependency decisions
 
-### 7. Next.js DevTools Server (Vercel)
+### 3. Next.js DevTools Server (Vercel)
 
 - **Purpose**: Next.js-specific development assistance
 - **Capabilities**:
@@ -119,21 +70,28 @@ Our project uses the following MCP servers:
 - **When to use**: Working on Next.js-specific features, planning upgrades, optimizing performance
 - **Note**: Particularly useful for major Next.js version upgrades
 
-### 8. Better Auth MCP (HTTP server)
-
-- **Purpose**: Better Auth documentation search and AI chat
-- **Capabilities**: Search Better Auth docs, get implementation examples
-- **When to use**: Implementing auth features, troubleshooting Better Auth issues
-- **Note**: Already configured globally via HTTP
-
-### 9. Context7 (HTTP server)
+### 4. Context7 (HTTP server)
 
 - **Purpose**: General library documentation retrieval
 - **Capabilities**: Up-to-date docs for any npm package or library
+- **Authentication**: Requires `CONTEXT7_API_KEY`. The `.mcp.json` entry reads it through the `${CONTEXT7_API_KEY}` header, so set it in `.claude/settings.local.json`.
 - **When to use**: Need API docs for third-party libraries
-- **Note**: Already configured globally via HTTP
+- **Note**: Defined in `.mcp.json` at `https://mcp.context7.com/mcp`
 
-### 10. Linear MCP (HTTP server)
+**Setup Context7 API key:**
+
+1. Go to [context7.com/dashboard](https://context7.com/dashboard) and create an API key
+2. Add it to `.claude/settings.local.json` in the `env` section:
+   ```json
+   {
+     "env": {
+       "CONTEXT7_API_KEY": "your-key-here"
+     }
+   }
+   ```
+3. Restart Claude Code
+
+### 5. Linear MCP (HTTP server)
 
 - **Purpose**: Linear issue and project management integration
 - **Capabilities**:
@@ -142,29 +100,28 @@ Our project uses the following MCP servers:
   - Add comments to issues
   - Search Linear documentation
   - List teams, users, and issue statuses
-- **Authentication**: Requires `LINEAR_API_KEY` in `.claude/settings.local.json`
+- **Authentication**: OAuth. Claude Code prompts for sign-in on first use — the `.mcp.json` entry carries no API key.
 - **When to use**: Creating issues, tracking work, updating task status, managing projects
-- **Note**: Configured globally via HTTP at `https://mcp.linear.app/mcp`
+- **Note**: Defined in `.mcp.json` at `https://mcp.linear.app/mcp`
 
-**Setup Linear API key:**
-
-1. Go to [Linear Settings → API](https://linear.app/settings/api)
-2. Click "Create new API key"
-3. Configure the key:
-   - **Label**: Claude Code MCP (or similar)
-   - **Scopes**: Select "read" and "write" permissions as needed
-4. Copy the generated API key
-5. Add to `.claude/settings.local.json` in the `env` section:
-   ```json
-   {
-     "env": {
-       "LINEAR_API_KEY": "lin_api_your-key-here"
-     }
-   }
-   ```
-6. Restart Claude Code
+> The automation scripts (`scripts/orchestrator.sh`, `scripts/worktree-claude.sh`) read a separate `LINEAR_API_KEY` from `.env` for the Linear GraphQL API. That key is for the scripts, not the MCP server.
 
 **Permission presets:** All Linear MCP tools (`mcp__linear-server__*`) are pre-approved in `.claude/settings.local.json`
+
+### 6. PostHog MCP (HTTP server)
+
+- **Purpose**: Product analytics, feature flags, error tracking, and session replay access
+- **Capabilities**: Query events and insights, manage feature flags and experiments, inspect errors and logs
+- **Authentication**: OAuth. Claude Code prompts for sign-in on first use.
+- **When to use**: Investigating product data, managing flags, checking rollout health
+- **Note**: Defined in `.mcp.json` at `https://mcp.posthog.com/mcp`
+
+### 7. Better Auth MCP (HTTP server)
+
+- **Purpose**: Better Auth documentation search and AI chat
+- **Capabilities**: Search Better Auth docs, get implementation examples
+- **When to use**: Implementing auth features, troubleshooting Better Auth issues
+- **Note**: Configured globally via Claude Code, so it does not appear in `.mcp.json`
 
 ## Verifying MCP Server Status
 
@@ -214,13 +171,14 @@ claude mcp add --transport stdio your-server -- npx -y @modelcontextprotocol/ser
 
 ## Environment Variables
 
-MCP servers requiring environment variables (like `PROJECT_ROOT`, `GITHUB_PERSONAL_ACCESS_TOKEN`, and `LINEAR_API_KEY`) should be configured in `.claude/settings.local.json`:
+Only `CONTEXT7_API_KEY` is interpolated by `.mcp.json` (through the `${CONTEXT7_API_KEY}` header on the `context7` server). Set it in `.claude/settings.local.json`. The `context7`, `linear-server`, and `posthog` servers otherwise authenticate through OAuth and need no key.
+
+`LINEAR_API_KEY` is also listed here, but it is read by the automation scripts (`scripts/orchestrator.sh`, `scripts/worktree-claude.sh`) from `.env`, not by the Linear MCP server. Add it if you run those scripts.
 
 ```json
 {
   "env": {
-    "PROJECT_ROOT": "/absolute/path/to/honkadori",
-    "GITHUB_PERSONAL_ACCESS_TOKEN": "github_pat_your-token-here",
+    "CONTEXT7_API_KEY": "your-key-here",
     "LINEAR_API_KEY": "lin_api_your-key-here"
   },
   "permissions": {
@@ -240,9 +198,8 @@ MCP servers requiring environment variables (like `PROJECT_ROOT`, `GITHUB_PERSON
 
 1. Copy the example file: `cp .claude/settings.local.json.example .claude/settings.local.json`
 2. Edit `.claude/settings.local.json` and replace placeholder values:
-   - `PROJECT_ROOT`: Full absolute path to this project directory
-   - `GITHUB_PERSONAL_ACCESS_TOKEN`: Fine-grained token (see [GitHub Server setup](#2-github-server-official-anthropic))
-   - `LINEAR_API_KEY`: API key from Linear (see [Linear MCP setup](#10-linear-mcp-http-server))
+   - `CONTEXT7_API_KEY`: Context7 API key (see [Context7 setup](#4-context7-http-server))
+   - `LINEAR_API_KEY`: Linear API key for the automation scripts
 3. Restart Claude Code
 
 **Important:** `.claude/settings.local.json` is gitignored and contains secrets. Never commit this file.
@@ -263,35 +220,23 @@ MCP servers requiring environment variables (like `PROJECT_ROOT`, `GITHUB_PERSON
 - Restart Claude Code after changing `.claude/settings.local.json`
 - Check for typos in variable names
 
-### GitHub server authentication fails
+### Context7 authentication fails
 
-**Symptoms:** GitHub MCP server shows "Failed to connect" or authentication errors
+**Symptoms:** The `context7` server shows "Failed to connect" or authentication errors.
 
 **Common causes:**
 
-1. **Using classic token instead of fine-grained**: Classic tokens (prefix `ghp_`) don't work with the GitHub MCP server
-   - **Solution**: Create a new fine-grained token at https://github.com/settings/tokens?type=beta
-   - Fine-grained tokens have prefix `github_pat_`
-
-2. **Insufficient permissions**: Token needs specific repository permissions
-   - **Required**: Contents (read/write), Pull requests (read/write), Issues (read/write), Workflows (read/write)
-   - Check permissions at: GitHub Settings → Developer settings → Personal access tokens → Fine-grained tokens → [your token]
-
-3. **Token in wrong location**: Must be in `.claude/settings.local.json`, not `.env`
-   - Check the `env` section exists in `.claude/settings.local.json`
-   - Verify variable name is exactly `GITHUB_PERSONAL_ACCESS_TOKEN`
-
-4. **Token expired**: Fine-grained tokens expire (check expiration date)
-   - Regenerate at: https://github.com/settings/tokens?type=beta
+1. **`CONTEXT7_API_KEY` not set**: The `.mcp.json` header `${CONTEXT7_API_KEY}` resolves to an empty value.
+   - **Solution**: Add the key to the `env` section of `.claude/settings.local.json`, then restart Claude Code.
+2. **Key in wrong location**: The key must be in `.claude/settings.local.json`, not `.env`.
+   - Check the `env` section exists and the variable name is exactly `CONTEXT7_API_KEY`.
 
 ## Best Practices
 
 1. **Check server status regularly**: Run `claude mcp list` to verify all servers are connected
-2. **Document decisions**: Use Memory MCP to store important architecture decisions
-3. **Use Sequential Thinking for complex tasks**: Invoke it explicitly for architectural planning
-4. **Leverage Better Auth MCP**: Instead of web searches, ask Better Auth MCP directly
-5. **Keep environment variables secure**: Never commit `.env` file, use `.env.example` for documentation
-6. **Share improvements**: If you add a useful MCP server, commit `.mcp.json` and document it here
+2. **Leverage Better Auth MCP**: Instead of web searches, ask Better Auth MCP directly
+3. **Keep environment variables secure**: Never commit `.env` file, use `.env.example` for documentation
+4. **Share improvements**: If you add a useful MCP server, commit `.mcp.json` and document it here
 
 ## Database Operations (Without Postgres MCP)
 
