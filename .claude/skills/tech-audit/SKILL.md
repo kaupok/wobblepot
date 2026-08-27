@@ -121,7 +121,24 @@ grep -rn 'dangerouslySetInnerHTML' src/ --exclude-dir=generated --include='*.ts'
 
 Check auth protection on route pages:
 
-Use Grep to find `page.tsx` files under `src/app/` that are not in `(public)` route groups, and verify they contain session checks (`getSession` or `auth.api`).
+There is no `(public)` route group in this project — the only group is `(legal)`. Treat these pages as intentionally public and skip them:
+
+- `src/app/sign-in`, `sign-up`, `forgot-password`, `reset-password`
+- `src/app/invite/[code]` (invite acceptance happens before sign-in)
+- `src/app/(legal)/**` (`/privacy`, `/privacy/subprocessors`, `/terms`)
+- `src/app/bot`, `src/app/status`
+
+Also skip redirect-only pages whose body is just `redirect()` — `src/app/meal-plan` (→ `/`), `src/app/pantry` (→ `/shopping`), `src/app/household/invites` (→ `/household`) — they never render content.
+
+For every other `page.tsx`, verify it (or its nearest `layout.tsx`) performs a session check. Match any of `getSession`, `auth.api.getSession`, or an import from `@/lib/session` — `src/lib/session.ts` exports the React-`cache`d `getSession` wrapper plus `getHasHousehold` / `getHouseholdIdForUser`:
+
+```bash
+find src/app -name 'page.tsx' \
+  | grep -vE '/(sign-in|sign-up|forgot-password|reset-password|invite|\(legal\)|bot|status|meal-plan|pantry|household/invites)/' \
+  | xargs grep -LE 'getSession|auth\.api\.getSession|@/lib/session'
+```
+
+Every file listed is a candidate unprotected route. Read it before flagging — the root `src/app/page.tsx` may branch on session state rather than redirect, and a page can inherit protection from a parent layout.
 
 Check for client components importing server-only modules:
 
@@ -144,13 +161,7 @@ Check for large dependency imports in client components:
 
 Use Grep to find client component files, then check if they import heavy libraries that could be tree-shaken or moved server-side. Derive the list from `package.json` dependencies (currently notable client-side: `posthog-js`, `ai`, `lucide-react`, `zod`).
 
-Check for barrel imports that might prevent tree-shaking:
-
-```bash
-grep -rn "from '@/components'" src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' || echo "No barrel imports found"
-```
-
-Record findings: client component count, large import concerns, barrel import issues.
+Record findings: client component count, large import concerns.
 
 ### 8. Pattern adherence
 
@@ -221,7 +232,7 @@ Find all `page.tsx` files and check for sibling `loading.tsx` and `error.tsx`:
 
 ```bash
 # List all page.tsx files
-find src/app -name 'page.tsx' -not -path '*/\(public\)/*'
+find src/app -name 'page.tsx'
 ```
 
 For each directory containing a `page.tsx`, check if `loading.tsx` and `error.tsx` exist in the same directory or a parent layout.
@@ -395,7 +406,9 @@ Record findings: unused exports, orphaned files.
 
 **Goal:** Avoid proposing issues that already exist.
 
-Use `mcp__linear-server__list_issues` with `team: "Honkadori"`, `label: "Tech"`, `limit: 100`. Fetch `state: "Backlog"`, `"Todo"`, `"In Progress"`, and `"In Review"` in separate calls.
+Use `mcp__linear-server__list_issues` with `team: "Honkadori"`, `limit: 100`, `fields: ['id', 'title', 'description', 'labels', 'status']`. Fetch `state: "Backlog"`, `"Todo"`, `"In Progress"`, and `"In Review"` in separate calls.
+
+**Do not filter by `label: "Tech"`.** Accessibility, bug, and test-coverage proposals routinely duplicate issues that carry the `Bug` label or no label at all; a Tech-only fetch hides them and the audit re-proposes tracked work. Use the returned `labels` field to note which label the existing issue carries when classifying.
 
 Classify each would-be proposal against returned titles/descriptions:
 
@@ -466,11 +479,21 @@ Items to watch but not urgent (minor pattern deviations, informational).
 ...
 
 ### Proposed Linear Issues
-For significant findings, propose Linear issues. Each proposal is tagged with its section-17 status. All new issues must include the **Tech** label.
+For significant findings, propose Linear issues. Each proposal is tagged with its section-17 status. This skill runs as a fork and cannot create issues — every **New** proposal must be a paste-ready block the caller can create verbatim, in "Writing for Agents" format (see CLAUDE.md), with plain-text `HON-NNN` references. All new issues include the **Tech** label.
 
-1. **[Title]** - New - [Description] - [Priority] - Label: Tech
-2. **[Title]** - Update HON-XX - [What's changed] - [Suggested priority change, if any]
-3. **[Title]** - Duplicate of HON-XX - [Optional comment to add]
+#### 1. [Title] — New
+**Label:** Tech · **Priority:** [Urgent/High/Medium/Low]
+**What:** [Concrete change — file paths, functions, data shapes, expected behaviour]
+**Why:** [The finding, its user or maintenance impact, and key constraints]
+**Acceptance criteria:**
+- [Observable, testable outcome]
+- [Observable, testable outcome]
+
+#### 2. [Title] — Update HON-XX
+[What's changed since the issue was written; suggested priority change, if any]
+
+#### 3. [Title] — Duplicate of HON-XX
+[Optional comment to add to the existing issue]
 ```
 
 ### Triage criteria
