@@ -14,6 +14,13 @@ on:
     # trigger silently never fires (bug: workflow had 0 runs Apr 22–Jun 6).
     workflows: ['Deploy DB migrations \[staging\]']
     types: [completed]
+  # Scheduled probe (every 6h). The push-triggered run above only fires when
+  # main moves; between 2026-06-11 and 2026-08-27 it never did, and a dead
+  # Upstash store took sign-in/sign-up down on prod + staging for weeks with
+  # no red check anywhere. The seeded-user sign-in in smoke.spec.ts exercises
+  # the rate limiter, so this doubles as a liveness check for Redis.
+  schedule:
+    - cron: '23 */6 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -27,6 +34,7 @@ jobs:
     timeout-minutes: 20
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
       github.event.workflow_run.conclusion == 'success'
     permissions:
       contents: read
@@ -99,7 +107,7 @@ jobs:
       - name: Wait for staging deploy to serve ${{ github.event.workflow_run.head_sha || github.sha }}
         env:
           # `workflow_run.head_sha` for the upstream migration workflow,
-          # `github.sha` for manual `workflow_dispatch` triggers.
+          # `github.sha` (= main HEAD) for `workflow_dispatch` and `schedule`.
           EXPECTED_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           set -eu

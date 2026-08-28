@@ -42,7 +42,9 @@ jobs:
           node-version: 22
 
       - name: Install Vercel CLI
-        run: npm install -g vercel@latest
+        # Exact pin (repo convention) — `@latest` silently changes deploy
+        # behaviour between runs. Bump deliberately alongside local CLI.
+        run: npm install -g vercel@54.7.1
 
       - name: Pull Vercel environment information
         env:
