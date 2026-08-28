@@ -69,3 +69,6 @@ storybook-static
 
 # Claude Code agent worktrees (Agent tool isolation: "worktree")
 .claude/worktrees/
+
+# Signed vendor agreements with personal signatory details (executed originals live in vendor consoles / PandaDoc)
+/compliance/private/

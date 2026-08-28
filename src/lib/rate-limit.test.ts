@@ -39,6 +39,14 @@ vi.mock('@/lib/upstash', () => ({
   getRedis: () => ({ __mockRedis: true }),
 }))
 
+// Same reason as `@/lib/upstash` above: the real `@/lib/errors` pulls in
+// `@/lib/posthog-server` → `@/lib/env`, whose module-level validation would
+// throw before the env-guard cases below could assert on the guard itself.
+const mockCaptureApiError = vi.fn()
+vi.mock('@/lib/errors', () => ({
+  captureApiError: (...args: unknown[]) => mockCaptureApiError(...args),
+}))
+
 // Import AFTER mocks so they take effect.
 const { retryAfterSeconds, RATE_LIMIT_CONFIG } = await import('./rate-limit')
 
@@ -47,6 +55,7 @@ describe('rate-limit', () => {
     mockLimit.mockReset()
     ratelimitConstructor.mockReset()
     redisConstructor.mockReset()
+    mockCaptureApiError.mockReset()
     // Drop module cache for limiterCache between tests.
     vi.resetModules()
     // Default: never bypass. Individual tests in the bypass describe block
@@ -217,6 +226,111 @@ describe('rate-limit', () => {
         limit: 5,
         remaining: 0,
         resetAt: new Date(resetMs),
+      })
+    })
+
+    // An Upstash outage used to throw straight out of
+    // `/api/auth/[...all]`, so sign-in, sign-up, and password reset all
+    // returned a bare 500 for ~2.5 months. Rate limiting is abuse protection,
+    // not an auth dependency — it must degrade, not take auth down.
+    describe('Redis failure (fail-open)', () => {
+      const REDIS_DOWN = new Error('WRONGPASS invalid or missing auth token')
+
+      it('allows the request and flags it degraded when the limiter throws', async () => {
+        const { checkRateLimit: fresh } = await import('./rate-limit')
+        mockLimit.mockRejectedValue(REDIS_DOWN)
+
+        const result = await fresh('1.2.3.4', 'sign-in')
+
+        expect(result.allowed).toBe(true)
+        expect(result.degraded).toBe(true)
+      })
+
+      it('reports the failure to PostHog with the feature name', async () => {
+        const { checkRateLimit: fresh } = await import('./rate-limit')
+        mockLimit.mockRejectedValue(REDIS_DOWN)
+
+        await fresh('1.2.3.4', 'sign-in')
+
+        expect(mockCaptureApiError).toHaveBeenCalledWith(
+          REDIS_DOWN,
+          expect.objectContaining({ route: 'rate-limit', feature: 'sign-in', degraded: true }),
+        )
+      })
+
+      it('fails open when the daily window throws but the primary allowed', async () => {
+        const { checkRateLimit: fresh } = await import('./rate-limit')
+        mockLimit
+          .mockResolvedValueOnce({
+            success: true,
+            limit: 20,
+            remaining: 19,
+            reset: Date.now() + 60_000,
+          })
+          .mockRejectedValueOnce(REDIS_DOWN)
+
+        const result = await fresh('1.2.3.4', 'sign-in')
+
+        expect(result.allowed).toBe(true)
+        expect(result.degraded).toBe(true)
+      })
+
+      // The important half of "fail open": a limiter that *answers* with a
+      // denial is a real rate-limit hit and must keep denying.
+      it('still denies when the limiter returns success: false', async () => {
+        const { checkRateLimit: fresh } = await import('./rate-limit')
+        mockLimit.mockResolvedValue({
+          success: false,
+          limit: 20,
+          remaining: 0,
+          reset: Date.now() + 60_000,
+        })
+
+        const result = await fresh('1.2.3.4', 'sign-in')
+
+        expect(result.allowed).toBe(false)
+        expect(result.degraded).toBeUndefined()
+        expect(mockCaptureApiError).not.toHaveBeenCalled()
+      })
+
+      it('does not mark a normally-allowed request as degraded', async () => {
+        const { checkRateLimit: fresh } = await import('./rate-limit')
+        mockLimit.mockResolvedValue({
+          success: true,
+          limit: 20,
+          remaining: 19,
+          reset: Date.now() + 60_000,
+        })
+
+        const result = await fresh('1.2.3.4', 'sign-in')
+
+        expect(result.allowed).toBe(true)
+        expect(result.degraded).toBeUndefined()
+      })
+
+      // A Redis outage on a hot endpoint would otherwise emit one exception
+      // per request.
+      it('throttles reporting to once per feature per window', async () => {
+        const { checkRateLimit: fresh } = await import('./rate-limit')
+        mockLimit.mockRejectedValue(REDIS_DOWN)
+
+        await fresh('1.2.3.4', 'sign-in')
+        await fresh('5.6.7.8', 'sign-in')
+        await fresh('9.9.9.9', 'sign-in')
+
+        expect(mockCaptureApiError).toHaveBeenCalledTimes(1)
+      })
+
+      it('reports each affected feature separately', async () => {
+        const { checkRateLimit: fresh, __resetRateLimitReportThrottle } =
+          await import('./rate-limit')
+        __resetRateLimitReportThrottle()
+        mockLimit.mockRejectedValue(REDIS_DOWN)
+
+        await fresh('1.2.3.4', 'sign-in')
+        await fresh('1.2.3.4', 'sign-up')
+
+        expect(mockCaptureApiError).toHaveBeenCalledTimes(2)
       })
     })
 

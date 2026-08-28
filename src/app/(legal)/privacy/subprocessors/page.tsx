@@ -55,7 +55,7 @@ const PROCESSORS: Processor[] = [
     dpaUrl: 'https://www.anthropic.com/legal/data-processing-addendum',
   },
   {
-    name: 'Resend (Plus Five, Inc.)',
+    name: 'Resend (Plus Five Five, Inc.)',
     role: 'Transactional email',
     dataCategories: 'Email address, message metadata',
     region: 'US',

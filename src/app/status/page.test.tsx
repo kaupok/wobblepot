@@ -19,11 +19,12 @@ describe('StatusPage', () => {
     vi.clearAllMocks()
   })
 
-  it('renders a card for each of the three components', async () => {
+  it('renders a card for each component', async () => {
     mockGetSnapshot.mockResolvedValue({
       db: { status: 'ok', ...baseProbe },
       auth: { status: 'ok', ...baseProbe },
       ai: { status: 'ok', ...baseProbe },
+      rateLimit: { status: 'ok', ...baseProbe },
       timestamp: '2026-04-20T12:00:00.000Z',
     })
     mockComputeOverall.mockReturnValue('ok')
@@ -33,6 +34,7 @@ describe('StatusPage', () => {
     expect(screen.getByText('AI pipeline')).toBeInTheDocument()
     expect(screen.getByText('Auth')).toBeInTheDocument()
     expect(screen.getByText('Database')).toBeInTheDocument()
+    expect(screen.getByText('Rate limiting')).toBeInTheDocument()
     expect(screen.getByText(/All systems operational/i)).toBeInTheDocument()
   })
 
@@ -41,6 +43,7 @@ describe('StatusPage', () => {
       db: { status: 'ok', ...baseProbe },
       auth: { status: 'ok', ...baseProbe },
       ai: { status: 'ok', ...baseProbe },
+      rateLimit: { status: 'ok', ...baseProbe },
       timestamp: '2026-04-20T12:00:00.000Z',
       incidentMessage: 'Scheduled maintenance at 02:00 UTC',
     })
@@ -57,6 +60,7 @@ describe('StatusPage', () => {
       db: { status: 'ok', ...baseProbe },
       auth: { status: 'ok', ...baseProbe },
       ai: { status: 'down', ...baseProbe, error: 'API error' },
+      rateLimit: { status: 'ok', ...baseProbe },
       timestamp: '2026-04-20T12:00:00.000Z',
     })
     mockComputeOverall.mockReturnValue('degraded')
@@ -72,6 +76,7 @@ describe('StatusPage', () => {
       db: { status: 'ok', ...baseProbe },
       auth: { status: 'ok', ...baseProbe },
       ai: { status: 'ok', ...baseProbe },
+      rateLimit: { status: 'ok', ...baseProbe },
       timestamp: '2026-04-20T12:00:00.000Z',
     })
     mockComputeOverall.mockReturnValue('ok')
