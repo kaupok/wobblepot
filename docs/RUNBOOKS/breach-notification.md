@@ -54,14 +54,14 @@ Notes:
 
 When a breach is suspected, this is where the evidence lives. Check the ones relevant to the trigger.
 
-| Source                | What to look for                                                                             | Where                                                                        |
-| --------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| **Vercel logs**       | Runtime errors, unexpected 500s, log-exfiltration patterns, anomalous request volume.        | Vercel dashboard → `honkadori` Team (`team_8RqxMojB9r4a20a5GJyH5Ha9`) → Logs |
-| **Neon console**      | Connection logs, audit trail, unusual query volume, connections from unexpected IPs.         | Neon console → org `org-bitter-scene-29632964` (EU/Frankfurt) → Monitoring   |
-| **Resend dashboard**  | Spikes in send rate, unexpected recipients, delivery-failure bursts (a sign of a list dump). | Resend dashboard → Logs                                                      |
-| **Anthropic console** | API usage anomalies, unexpected key usage, spend spikes.                                     | Anthropic console → org `eb00b3ae-f58c-436e-8448-e634d3ac5dcc` → Usage       |
-| **GitHub audit log**  | Secret exposure in commits, unexpected org/member changes, force-pushes.                     | GitHub → org settings → Audit log; plus secret-scanning alerts               |
-| **PostHog**[^posthog] | Event-traffic anomalies, unusual geography, session-replay of suspicious flows.              | PostHog Cloud EU (Frankfurt) → Activity / Web analytics                      |
+| Source                | What to look for                                                                             | Where                                                                                   |
+| --------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| **Vercel logs**       | Runtime errors, unexpected 500s, log-exfiltration patterns, anomalous request volume.        | Vercel dashboard → `honkadori` Team (team ID in the Vercel dashboard) → Logs            |
+| **Neon console**      | Connection logs, audit trail, unusual query volume, connections from unexpected IPs.         | Neon console → Honkadori OÜ org (org ID in the Neon console; EU/Frankfurt) → Monitoring |
+| **Resend dashboard**  | Spikes in send rate, unexpected recipients, delivery-failure bursts (a sign of a list dump). | Resend dashboard → Logs                                                                 |
+| **Anthropic console** | API usage anomalies, unexpected key usage, spend spikes.                                     | Anthropic console → Honkadori OÜ org (org ID in the Anthropic console) → Usage          |
+| **GitHub audit log**  | Secret exposure in commits, unexpected org/member changes, force-pushes.                     | GitHub → org settings → Audit log; plus secret-scanning alerts                          |
+| **PostHog**[^posthog] | Event-traffic anomalies, unusual geography, session-replay of suspicious flows.              | PostHog Cloud EU (Frankfurt) → Activity / Web analytics                                 |
 
 [^posthog]: PostHog is live (HON-474). Web-analytics + Core Web Vitals event coverage broadens once [HON-460](https://linear.app/honkadori/issue/HON-460) lands; until then PostHog detection is limited to the events already instrumented.
 
@@ -132,7 +132,7 @@ Work top to bottom. One checkbox per step. Copy this block into the incident log
 - privacy@wobblepot.com
 ```
 
-If a **subprocessor** caused the breach, their DPA defines their notification obligations to us — the filed DPAs live in `compliance/dpas/` (Anthropic, Resend, Vercel, Neon, PostHog), tracked in [`compliance/README.md`](../../compliance/README.md). Cite their breach notice in the "Subprocessor involvement" field; we remain the controller and still owe AKI the Art. 33 notification.
+If a **subprocessor** caused the breach, their DPA defines their notification obligations to us — the filed DPAs live in `compliance/dpas/` (Anthropic, Resend, Vercel, Neon); the PostHog DPA was executed via PandaDoc and the countersigned copy is held outside the repo — all tracked in [`compliance/README.md`](../../compliance/README.md). Cite their breach notice in the "Subprocessor involvement" field; we remain the controller and still owe AKI the Art. 33 notification.
 
 ## Affected-user notification (Art. 34)
 
@@ -161,7 +161,7 @@ Once a quarter, the operator runs a hypothetical incident end-to-end through thi
 
 **Dry-run walkthrough (2026-06-02).** Hypothetical: a Neon read-only connection string is committed to a public commit and is live for ~3 hours before GitHub secret-scanning flags it.
 
-1. **Isolate** — rotate the Neon credential in the Neon console (org `org-bitter-scene-29632964`); invalidate the exposed string. ✅ procedure clear.
+1. **Isolate** — rotate the credential in the Neon console (the org ID is read there); invalidate the exposed string. ✅ procedure clear.
 2. **Record awareness** — timestamp = the secret-scanning alert time. ✅
 3. **Assess** — Neon connection/query logs show whether the string was used and which tables were read. The User table holds emails, names, and password hashes. ✅ detection source actionable.
 4. **Classify** — emails + **password hashes** readable → account-takeover risk → **High**. ✅ the "password hash counts toward High" note made this unambiguous.
@@ -173,7 +173,7 @@ Once a quarter, the operator runs a hypothetical incident end-to-end through thi
 **Gaps found and fixed during the dry-run:**
 
 - The severity table originally lacked guidance on password **hashes** — added the explicit "hashes count toward High" note so the classification call is unambiguous under pressure.
-- The detection table now carries the concrete Neon org / Vercel team / Anthropic org identifiers, so the operator does not hunt for them mid-incident.
+- The detection table points at each vendor console (Neon org / Vercel team / Anthropic org); the operator reads the ID there at incident time rather than from this document.
 - Added the "operator unreachable → clock still runs" rule under Decision authority, since the dry-run surfaced the risk of stalling on sign-off.
 
 **Result:** ~25 minutes from awareness to an AKI-ready notification draft — well inside 72h. Pass.

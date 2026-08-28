@@ -53,12 +53,12 @@ Scheduled sweeps read the same variable. Manual `workflow_dispatch` runs can ove
 
 ### GitHub Actions (repo-level)
 
-| Setting                | Kind     | Value                                             | How to set                                        |
-| ---------------------- | -------- | ------------------------------------------------- | ------------------------------------------------- |
-| `NEON_API_KEY`         | secret   | personal Neon API key                             | `gh secret set NEON_API_KEY`                      |
-| `LINEAR_API_KEY`       | secret   | Linear API key (same one used locally)            | `gh secret set LINEAR_API_KEY`                    |
-| `NEON_PROJECT_ID`      | variable | Neon project ID (e.g. `misty-butterfly-89923243`) | `gh variable set NEON_PROJECT_ID --body "<id>"`   |
-| `NEON_CLEANUP_DRY_RUN` | variable | `"1"` (dry-run) or `"0"` (live)                   | `gh variable set NEON_CLEANUP_DRY_RUN --body "1"` |
+| Setting                | Kind     | Value                                           | How to set                                        |
+| ---------------------- | -------- | ----------------------------------------------- | ------------------------------------------------- |
+| `NEON_API_KEY`         | secret   | personal Neon API key                           | `gh secret set NEON_API_KEY`                      |
+| `LINEAR_API_KEY`       | secret   | Linear API key (same one used locally)          | `gh secret set LINEAR_API_KEY`                    |
+| `NEON_PROJECT_ID`      | variable | Neon project ID (read it from the Neon console) | `gh variable set NEON_PROJECT_ID --body "<id>"`   |
+| `NEON_CLEANUP_DRY_RUN` | variable | `"1"` (dry-run) or `"0"` (live)                 | `gh variable set NEON_CLEANUP_DRY_RUN --body "1"` |
 
 ### Vercel (Preview environment)
 
