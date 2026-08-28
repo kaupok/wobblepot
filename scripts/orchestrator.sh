@@ -67,10 +67,17 @@ TEAM_UUID=""
 CONSECUTIVE_FAILURES=0
 MAX_CONSECUTIVE_FAILURES=3
 PAUSED_UNTIL=0
-# Newline-delimited "identifier<TAB>reason" keys already logged as [SKIP], so
-# select_next_issue emits one line per issue+reason instead of repeating it
-# every poll. Persists across polls; must stay global (bash 3.2, no assoc array).
-SEEN_SKIPS=""
+# File of "identifier<TAB>reason" keys already logged as [SKIP], one per line,
+# so select_next_issue emits one line per issue+reason instead of repeating it
+# every poll. A file rather than a variable because main() calls
+# select_next_issue inside $(...): a variable appended there dies with the
+# subshell and every poll would log again. Removed by the EXIT trap.
+SEEN_SKIPS_FILE=$(mktemp -t orchestrator-skips)
+# Comma-separated identifiers of issues gated this run (worker exited 0 with
+# no commits). They go back to Todo unassigned, so without this list the
+# picker would re-select them on the very next poll and respawn the same
+# no-op worker in a loop. Cleared by restarting the orchestrator.
+GATED_ISSUES=""
 
 # ─── Colors ──────────────────────────────────────────────────────────────────
 
@@ -292,6 +299,7 @@ select_next_issue() {
   # jq emits "SKIP<TAB>level<TAB>identifier<TAB>reason" per rejected candidate,
   # then at most one "PICK<TAB>uuid<TAB>identifier<TAB>branchName<TAB>title".
   local line kind level id reason skip_key
+  local gated="$GATED_ISSUES"
   while IFS= read -r line; do
     kind="${line%%$'\t'*}"
     case "$kind" in
@@ -299,9 +307,9 @@ select_next_issue() {
         IFS=$'\t' read -r kind level id reason <<< "$line"
         # Dedupe per issue+reason so a blocked issue logs once, not every poll.
         skip_key="$id"$'\t'"$reason"
-        if ! printf '%s' "$SEEN_SKIPS" | grep -qxF -- "$skip_key"; then
+        if ! grep -qxF -- "$skip_key" "$SEEN_SKIPS_FILE" 2>/dev/null; then
           log "$level" "[SKIP] $id $reason"
-          SEEN_SKIPS="${SEEN_SKIPS}${skip_key}"$'\n'
+          printf '%s\n' "$skip_key" >> "$SEEN_SKIPS_FILE"
         fi
         ;;
       PICK)
@@ -310,6 +318,7 @@ select_next_issue() {
     esac
   done < <(echo "$response" | jq -r \
     --arg running "$running" \
+    --arg gated "$gated" \
     --arg done "$STATE_DONE" \
     --arg canceled "$STATE_CANCELED" \
     --arg duplicate "$STATE_DUPLICATE" '
@@ -318,10 +327,14 @@ select_next_issue() {
     # mirrors the /auto-implement, /implement-issue and /next-issue gates.
     [$done, $canceled] as $terminal |
     (if $running == "" then [] else ($running | split(",")) end) as $running_list |
+    (if $gated == "" then [] else ($gated | split(",")) end) as $gated_list |
 
     .data.issues.nodes
     | map(. + {
         _running: (.identifier as $id | ($running_list | index($id)) != null),
+        # Gated this run: back in Todo and unassigned, so only this list keeps
+        # the picker from respawning the same 0-commit worker every poll.
+        _gated: (.identifier as $id | ($gated_list | index($id)) != null),
         # Any assigned issue belongs to someone — including the operator, who
         # may have self-assigned a Todo issue to work on by hand. Same rule as
         # /next-issue step 4 and /auto-implement 1.4 (assignee must be null).
@@ -354,6 +367,7 @@ select_next_issue() {
     | map(. + {
         _skip: (
           if ._running then ["DEBUG", "already running"]
+          elif ._gated then ["INFO", "gated this run (worker exited with 0 commits) — restart the orchestrator or re-triage by hand to retry"]
           elif ._assigned then ["INFO", "assigned"]
           elif (._open_blockers | length) > 0 then
             ["INFO",
@@ -770,6 +784,7 @@ handle_success() {
     log WARN "[OUTCOME] $issue_id GATED ${duration_str} 0-commits phase=$phase"
     notify "Honkadori" "$issue_id produced no commits — returned to Todo"
     gate_no_commit_success "$issue_uuid" "$issue_id" "$log_file"
+    GATED_ISSUES="${GATED_ISSUES:+$GATED_ISSUES,}$issue_id"
     [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=1
     cleanup_worker_worktree "$branch"
     return
@@ -1181,6 +1196,11 @@ drain_workers_to_todo() {
   local i=0
   while [ $i -lt ${#WORKER_PIDS[@]} ]; do
     kill_process_tree "${WORKER_PIDS[$i]}"
+    # Remove the worktree but keep the git branch and its Neon branch (same
+    # contract as RETRY). A leftover worktree directory would make the next
+    # run's `wt auto` exit 1 with "Worktree already exists" instead of
+    # resuming the branch.
+    cleanup_worker_worktree "${WORKER_BRANCHES[$i]}" true
     if [ "$DRY_RUN" = false ]; then
       move_issue_unassigned "${WORKER_ISSUE_UUIDS[$i]}" "${WORKER_ISSUES[$i]}" "$STATE_TODO" "Todo"
     fi
@@ -1285,7 +1305,7 @@ validate_environment() {
 
 main() {
   acquire_lock
-  trap 'cleanup_status_file; release_lock' EXIT
+  trap 'cleanup_status_file; release_lock; rm -f "$SEEN_SKIPS_FILE"' EXIT
 
   log INFO "═══ Orchestrator starting ═══"
 

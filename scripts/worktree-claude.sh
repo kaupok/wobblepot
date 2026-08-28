@@ -202,7 +202,8 @@ neon_gc_orphans() {
 # patch the worktree's .env to point at it. Self-heals orphan cap via GC retry.
 # Collisions fail loud — require --fresh-db to recreate.
 neon_create_branch_for_worktree() {
-  local git_branch="$1" worktree_env="$2" fresh_db="${3:-0}"
+  local git_branch="$1" worktree_env="$2" fresh_db="${3:-0}" reuse_existing="${4:-0}"
+  local reused=0
   if ! neon_enabled; then
     echo -e "${YELLOW}Neon branching disabled (NEON_API_KEY/NEON_PROJECT_ID not set) — using shared DB${NC}"
     return 0
@@ -244,9 +245,17 @@ neon_create_branch_for_worktree() {
         return 1
       }
     elif echo "$create_out" | grep -qiE "already exists|duplicate"; then
-      echo -e "${RED}Error: Neon branch '$neon_branch' already exists after orphan cleanup.${NC}" >&2
-      echo "Run 'wt cleanup $git_branch' or pass --fresh-db to force recreate." >&2
-      return 1
+      if [ "$reuse_existing" = "1" ]; then
+        # Resuming an existing git branch (orchestrator RETRY or force-kill
+        # recovery): its Neon branch was deliberately kept alongside it, so
+        # reuse it and fall through to fetching its connection strings.
+        echo -e "${YELLOW}Neon branch '$neon_branch' already exists — reusing it${NC}"
+        reused=1
+      else
+        echo -e "${RED}Error: Neon branch '$neon_branch' already exists after orphan cleanup.${NC}" >&2
+        echo "Run 'wt cleanup $git_branch' or pass --fresh-db to force recreate." >&2
+        return 1
+      fi
     else
       echo -e "${RED}Error: Neon branch create failed:${NC}" >&2
       echo "$create_out" >&2
@@ -275,7 +284,11 @@ neon_create_branch_for_worktree() {
 
   update_env_var DATABASE_URL "$pooled" "$worktree_env"
   update_env_var DATABASE_URL_UNPOOLED "$unpooled" "$worktree_env"
-  echo -e "${GREEN}Neon branch '$neon_branch' created (forked from '$parent')${NC}"
+  if [ "$reused" = "1" ]; then
+    echo -e "${GREEN}Neon branch '$neon_branch' reused${NC}"
+  else
+    echo -e "${GREEN}Neon branch '$neon_branch' created (forked from '$parent')${NC}"
+  fi
 }
 
 # Delete the Neon branch that corresponds to a git branch. Never fails the
@@ -588,8 +601,10 @@ cmd_auto() {
   # Create the worktree. When the branch already exists — an orchestrator RETRY
   # that preserved it to resume an open PR — check it out as-is instead of
   # recreating it from main, which would discard its commits.
+  local reuse_branch=0
   if git -C "$REPO_ROOT" show-ref --verify --quiet "refs/heads/$branch"; then
     echo "Reusing existing branch: $branch"
+    reuse_branch=1
     git -C "$REPO_ROOT" worktree add "$worktree_path" "$branch"
   else
     git -C "$REPO_ROOT" worktree add -b "$branch" "$worktree_path"
@@ -618,7 +633,9 @@ cmd_auto() {
   # Provision a Neon branch and patch DATABASE_URL in the worktree .env.
   # No-op when NEON_API_KEY/NEON_PROJECT_ID are unset. Failure is fatal so
   # the orchestrator logs a clean failure and moves on (no silent shared-DB fallback).
-  neon_create_branch_for_worktree "$branch" "$worktree_path/.env" "$fresh_db" || exit 1
+  # A reused branch keeps its Neon branch too (RETRY skips neon-delete), so
+  # tell the helper to reuse it rather than fail on "already exists".
+  neon_create_branch_for_worktree "$branch" "$worktree_path/.env" "$fresh_db" "$reuse_branch" || exit 1
 
   echo ""
   echo -e "${GREEN}Worktree ready!${NC}"
