@@ -161,7 +161,7 @@ Once a quarter, the operator runs a hypothetical incident end-to-end through thi
 
 **Dry-run walkthrough (2026-06-02).** Hypothetical: a Neon read-only connection string is committed to a public commit and is live for ~3 hours before GitHub secret-scanning flags it.
 
-1. **Isolate** — rotate the Neon credential in the Neon console (org ID in the Neon console); invalidate the exposed string. ✅ procedure clear.
+1. **Isolate** — rotate the credential in the Neon console (the org ID is read there); invalidate the exposed string. ✅ procedure clear.
 2. **Record awareness** — timestamp = the secret-scanning alert time. ✅
 3. **Assess** — Neon connection/query logs show whether the string was used and which tables were read. The User table holds emails, names, and password hashes. ✅ detection source actionable.
 4. **Classify** — emails + **password hashes** readable → account-takeover risk → **High**. ✅ the "password hash counts toward High" note made this unambiguous.

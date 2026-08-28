@@ -57,7 +57,7 @@ When adding any new vendor that processes user data:
 
 1. Sign up using a Honkadori OÜ-controlled account (entity card, not personal)
 2. Sign or accept the DPA — auto-via-terms or counter-sign per vendor
-3. File the PDF as `compliance/dpas/<vendor>-<YYYY-MM-DD>.pdf` only if it carries no signatory PII (auto-incorporated terms, unsigned snapshots). Otherwise file it in `compliance/private/` (gitignored) and add a README row saying where the executed copy lives (vendor console, PandaDoc, DocuSign, etc.)
+3. File the PDF as `compliance/dpas/<vendor>-<YYYY-MM-DD>.pdf` only if it carries no signatory PII (auto-incorporated terms, unsigned snapshots). Otherwise file it in `compliance/private/` (gitignored) and add a README row saying where the executed copy lives (vendor console, PandaDoc, DocuSign, etc.). Check the PDF's text with `pdftotext` before filing — `git grep` cannot see PDF text streams, so it will not catch a name or email inside the document.
 4. Update the tables above (subprocessors, DPA status, vendor directory)
 5. Update the processor summary in `src/app/(legal)/privacy/page.tsx` AND the table in `src/app/(legal)/privacy/subprocessors/page.tsx` in the same PR
 
