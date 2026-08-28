@@ -74,10 +74,19 @@ describe('onRequestError', () => {
   })
 
   it.each([
-    ['message "The destination stream closed early"', new Error('The destination stream closed early')],
-    ['code ERR_STREAM_PREMATURE_CLOSE', Object.assign(new Error('premature close'), { code: 'ERR_STREAM_PREMATURE_CLOSE' })],
+    [
+      'message "The destination stream closed early"',
+      new Error('The destination stream closed early'),
+    ],
+    [
+      'code ERR_STREAM_PREMATURE_CLOSE',
+      Object.assign(new Error('premature close'), { code: 'ERR_STREAM_PREMATURE_CLOSE' }),
+    ],
     ['name AbortError', Object.assign(new Error('aborted'), { name: 'AbortError' })],
-    ['digest NEXT_REDIRECT', Object.assign(new Error('redirect'), { digest: 'NEXT_REDIRECT;replace;/home;307;' })],
+    [
+      'digest NEXT_REDIRECT',
+      Object.assign(new Error('redirect'), { digest: 'NEXT_REDIRECT;replace;/home;307;' }),
+    ],
     ['digest NEXT_NOT_FOUND', Object.assign(new Error('not found'), { digest: 'NEXT_NOT_FOUND' })],
   ])('skips framework noise: %s', async (_label, err) => {
     getPosthogServerMock.mockReturnValue({
