@@ -173,7 +173,7 @@ Once a quarter, the operator runs a hypothetical incident end-to-end through thi
 **Gaps found and fixed during the dry-run:**
 
 - The severity table originally lacked guidance on password **hashes** — added the explicit "hashes count toward High" note so the classification call is unambiguous under pressure.
-- The detection table now carries console pointers for the Neon org / Vercel team / Anthropic org, so the operator knows where to look mid-incident.
+- The detection table points at each vendor console (Neon org / Vercel team / Anthropic org); the operator reads the ID there at incident time rather than from this document.
 - Added the "operator unreachable → clock still runs" rule under Decision authority, since the dry-run surfaced the risk of stalling on sign-off.
 
 **Result:** ~25 minutes from awareness to an AKI-ready notification draft — well inside 72h. Pass.
