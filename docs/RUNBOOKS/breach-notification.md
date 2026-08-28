@@ -132,7 +132,7 @@ Work top to bottom. One checkbox per step. Copy this block into the incident log
 - privacy@wobblepot.com
 ```
 
-If a **subprocessor** caused the breach, their DPA defines their notification obligations to us — the filed DPAs live in `compliance/dpas/` (Anthropic, Resend, Vercel, Neon, PostHog), tracked in [`compliance/README.md`](../../compliance/README.md). Cite their breach notice in the "Subprocessor involvement" field; we remain the controller and still owe AKI the Art. 33 notification.
+If a **subprocessor** caused the breach, their DPA defines their notification obligations to us — the filed DPAs live in `compliance/dpas/` (Anthropic, Resend, Vercel, Neon); the PostHog DPA was executed via PandaDoc and the countersigned copy is held outside the repo — all tracked in [`compliance/README.md`](../../compliance/README.md). Cite their breach notice in the "Subprocessor involvement" field; we remain the controller and still owe AKI the Art. 33 notification.
 
 ## Affected-user notification (Art. 34)
 
@@ -173,7 +173,7 @@ Once a quarter, the operator runs a hypothetical incident end-to-end through thi
 **Gaps found and fixed during the dry-run:**
 
 - The severity table originally lacked guidance on password **hashes** — added the explicit "hashes count toward High" note so the classification call is unambiguous under pressure.
-- The detection table now carries the concrete Neon org / Vercel team / Anthropic org identifiers, so the operator does not hunt for them mid-incident.
+- The detection table now carries console pointers for the Neon org / Vercel team / Anthropic org, so the operator knows where to look mid-incident.
 - Added the "operator unreachable → clock still runs" rule under Decision authority, since the dry-run surfaced the risk of stalling on sign-off.
 
 **Result:** ~25 minutes from awareness to an AKI-ready notification draft — well inside 72h. Pass.
