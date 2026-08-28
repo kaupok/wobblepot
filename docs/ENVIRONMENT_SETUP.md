@@ -130,7 +130,9 @@ Not env-configurable; see [EMAIL_SETUP.md](./EMAIL_SETUP.md) for the rationale.
 
 Upstash Redis backs the rate limiter introduced in HON-451. It gates all AI endpoints (`/api/meal-plans/generate`, `/api/meals/imagine`, `/api/recipes/parse`, meal-plan preparation tips + suggestions) plus the three abuse-sensitive auth POSTs (`/sign-up/email`, `/sign-in/email`, `/request-password-reset`) via `RATE_LIMITED_PATHS` in [`src/app/api/auth/[...all]/route.ts`](../src/app/api/auth/[...all]/route.ts). Both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` must be set.
 
-**When Redis is unreachable, `checkRateLimit` fails open**: the request is allowed through _uncounted_, flagged `degraded: true`, and reported to PostHog. Rate limiting is abuse protection, not an authentication dependency — previously an Upstash failure threw out of the auth route as a bare 500 and took sign-in, sign-up, and password reset down with it. That failure mode went unnoticed for ~2.5 months on staging because `/api/status` only probed Postgres.
+**When Redis is unreachable, `checkRateLimit` fails open**: the request is allowed through _uncounted_, flagged `degraded: true`, and reported to PostHog. Rate limiting is abuse protection, not an authentication dependency — previously an Upstash failure threw out of every caller as a bare 500, taking down sign-in, sign-up, password reset, all the AI routes, and data export. That happened on **production and staging** for ~2.5 months without anyone noticing, because `/api/status` only probed Postgres.
+
+The cause was not a rotated token: the Vercel-native **Free** store was archived by Upstash for inactivity after a Jun 11 → Aug 27 gap with zero traffic, and every request then failed with `getaddrinfo ENOTFOUND <store>.upstash.io`. Hence the plan recommendation below.
 
 So a broken Upstash config no longer breaks the product — it silently removes abuse protection. Watch for it via the `rateLimit` component on `/status` (and `rateLimit` in `/api/status`), which probes Redis directly with a `PING`.
 
@@ -144,21 +146,26 @@ So a broken Upstash config no longer breaks the product — it silently removes 
 
 1. Install the [Upstash Redis integration](https://vercel.com/marketplace/upstash) on the `honkadori` project. Recommended settings:
    - **Create New Upstash Account (Vercel Native)** for simpler billing.
+   - **Plan: pay-as-you-go, not Free.** Upstash **archives Free stores after a period of inactivity**, which is exactly how rate limiting silently died across production and staging for ~2.5 months. A low-traffic project is the worst case for a Free store: long quiet stretches are normal, so the store gets archived and every rate-limit-gated request starts failing DNS resolution. Pay-as-you-go stores are not archived and cost effectively nothing at this volume.
    - **Eviction: ON** — keys have TTLs, so eviction never drops anything load-bearing; it just keeps the endpoint healthy if the DB fills up.
    - Environments: Dev / Preview / Production.
-   - Custom Prefix: leave blank.
-2. **Gotcha — env var naming.** The integration injects values under Vercel's legacy KV names (`KV_REST_API_URL`, `KV_REST_API_TOKEN`, `KV_URL`, etc.), not `UPSTASH_REDIS_REST_*`. The app's env schema expects the `UPSTASH_REDIS_REST_*` names, so these don't wire up automatically.
+   - Custom Prefix: `UPSTASH`.
+2. **Gotcha — env var naming.** The integration never injects `UPSTASH_REDIS_REST_*`, which is what the app's env schema reads, so it does not wire up automatically no matter what you do. With the `UPSTASH` custom prefix above it injects `UPSTASH_KV_REST_API_URL`, `UPSTASH_KV_REST_API_TOKEN`, `UPSTASH_KV_URL`, `UPSTASH_REDIS_URL`, and a read-only token. (Without a prefix you get the legacy unprefixed `KV_*` / `REDIS_URL` names instead — the prefix exists to keep them recognisable.) Copy the REST URL and token into the two vars in step 3 by hand.
 3. In **Project Settings → Environment Variables**, manually add two vars using the values from the Upstash console's **Details → Connect → REST** tab:
    - `UPSTASH_REDIS_REST_URL`
    - `UPSTASH_REDIS_REST_TOKEN`
 
    Scope both to **all** environments — Dev, Preview, Production, and any custom environments (e.g. `staging`). Vercel Marketplace integrations cannot target custom environments (the `...` menu on integration-managed vars only offers Manage / Copy / Remove), so these manual entries are the only way staging gets values.
 
-4. Leave the auto-injected `KV_*` vars in place — they're integration-managed, read-only, and harmless.
+4. Leave the auto-injected `UPSTASH_KV_*` / `UPSTASH_REDIS_URL` vars in place — they're integration-managed, read-only, and harmless. Do delete leftovers from a previous store (unprefixed `KV_*`, `REDIS_URL`): nothing reads them, and they make it ambiguous which store is live.
 
 ### Token rotation
 
-Since the two `UPSTASH_REDIS_REST_*` vars are entered manually, Upstash-side token rotation won't propagate automatically. If you rotate, re-copy from the REST tab into each env scope. **A stale token is the most likely cause of a `rateLimit: down` on `/status`** — that, or a free-tier DB deleted after inactivity. Because the limiter now fails open, nothing user-facing breaks when this happens, so `/status` is the only signal you get.
+**The most likely cause of a `rateLimit: down` on `/status` is an archived store** — see the plan note above; a Free store goes away after enough quiet, and the symptom is `getaddrinfo ENOTFOUND <store>.upstash.io` on every rate-limit-gated request.
+
+Second most likely is a stale token: because the two `UPSTASH_REDIS_REST_*` vars are entered manually, Upstash-side rotation doesn't propagate. If you rotate, re-copy from the REST tab into each env scope.
+
+Either way, the limiter now fails open, so nothing user-facing breaks — `/status` is the only signal you get.
 
 ### Verify after provisioning
 

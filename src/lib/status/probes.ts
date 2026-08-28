@@ -130,10 +130,12 @@ export async function probeAuth(): Promise<ProbeResult> {
  * Probe the rate limiter's Upstash Redis backing with a `PING`.
  *
  * Auth deliberately no longer *fails* when Redis is down (`checkRateLimit`
- * fails open), which means nothing else on this page would show
- * it. Without this probe an Upstash outage is invisible: `/status` reported
- * `auth: ok` for ~2.5 months while every rate-limited POST — sign-in, sign-up,
- * password reset, and all AI endpoints — returned a bare 500.
+ * fails open), which means nothing else on this page would show it. Without
+ * this probe an Upstash outage is invisible — and it was: on **production and
+ * staging alike**, `/status` reported `auth: ok` for ~2.5 months while every
+ * rate-limit-gated request (sign-in, sign-up, password reset, all AI routes,
+ * data export) returned a bare 500. The store had been archived by Upstash for
+ * inactivity, so the calls were failing DNS resolution.
  *
  * `down` here means abuse protection is off, not that the product is
  * unavailable, so it lands as `degraded` via `computeOverall`.

@@ -115,8 +115,16 @@ jobs:
                 echo "staging is live on $EXPECTED_SHA"
                 exit 0
               fi
-              # `--is-ancestor` needs both commits locally; a force-push or an
-              # unknown SHA makes it error, which must not abort the loop.
+              # `fetch-depth: 0` snapshots history at job start, so a push to
+              # main *during* the poll leaves us serving a SHA we've never
+              # heard of. Fetch once on first sight of an unknown commit
+              # rather than burning the remaining budget on it.
+              if ! git cat-file -e "$actual_sha^{commit}" 2>/dev/null; then
+                echo "  $actual_sha is not in local history — fetching origin/main"
+                git fetch --quiet origin main 2>/dev/null || true
+              fi
+              # `--is-ancestor` needs both commits locally; a force-push or a
+              # still-unknown SHA makes it error, which must not abort the loop.
               if git merge-base --is-ancestor "$EXPECTED_SHA" "$actual_sha" 2>/dev/null; then
                 echo "staging is live on $actual_sha, a descendant of $EXPECTED_SHA — good enough"
                 exit 0

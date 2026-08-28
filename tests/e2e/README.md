@@ -158,12 +158,17 @@ path.
 
 ### Treat remote-tier artifacts as public
 
-Playwright's page snapshot records `input.value` verbatim — including
-`type="password"` fields, which the PNG screenshot correctly renders as dots.
-So a failing preview-smoke / staging-smoke run had the fixture password sitting
-in cleartext inside `error-context.md` and the trace, published as a 14-day
-artifact that anyone with repo read access can download. GitHub's secret
-masking only covers log output; it does not reach inside artifact files.
+A failing preview-smoke / staging-smoke run used to publish the fixture
+password in cleartext, as a 14-day artifact anyone with repo read access could
+download. GitHub's secret masking only covers log output; it does not reach
+inside artifact files. Both leaks below were confirmed by unzipping a real
+staging-smoke artifact:
+
+1. **Page snapshot** — Playwright records `input.value` verbatim, including
+   `type="password"` fields that the PNG screenshot correctly renders as dots.
+   Lands in `error-context.md` and inside the trace.
+2. **Trace network log** — `0-trace.network` carries full request bodies, so the
+   sign-in POST payload holds the password independently of the snapshot.
 
 Two guards, both in place:
 
@@ -172,12 +177,13 @@ Two guards, both in place:
   HTML reporter copies them. Listed first in `playwright.config.ts` because the
   HTML reporter reads those files in its `onEnd`. Add any new credential env var
   to its `SECRET_ENV_VARS` list.
-- `playwright.config.ts` → `use.trace` — traces are `off` on remote tiers, since
-  a zip carries the same values in a form the reporter cannot scrub. Local runs
-  and the tier-1 build-and-run CI job are unaffected.
+- `playwright.config.ts` → `use.trace` — traces are `off` on remote tiers. This
+  is what closes leak (2): a zip cannot be text-scrubbed. Local runs and the
+  tier-1 build-and-run CI job are unaffected.
 
-To debug a remote failure with a full trace, re-run with `E2E_KEEP_TRACES=1` and
-treat the resulting artifact as credential-bearing.
+To debug a remote failure with a full trace, re-run with `E2E_KEEP_TRACES=1`.
+The result is credential-bearing: keep it local, don't upload it as a CI
+artifact, and delete it when you're done.
 
 Consequently: **these accounts must stay read-only and staging/preview-only.**
 Never point `SMOKE_TEST_*` at an account that exists in the production database.

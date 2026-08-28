@@ -262,13 +262,21 @@ async function limitOrFailOpen(
  * preserving the sliding-window atomicity guarantee per call). If the primary
  * allows but the daily denies, the returned result reflects the daily limit.
  *
- * When Redis is unreachable (bad/rotated Upstash credentials, deleted database,
+ * When Redis is unreachable (archived/deleted store, rotated credentials,
  * network error) the check **fails open**: the request is allowed with
  * `degraded: true` and the failure is reported to PostHog. Rate limiting is
- * abuse protection, not an authentication dependency — previously an Upstash
- * outage threw out of `/api/auth/[...all]` as a bare 500 and took sign-in,
- * sign-up, and password reset down with it. `probeRateLimit` in
- * `src/lib/status/probes.ts` is what surfaces the degraded state.
+ * abuse protection, not a dependency of the features it guards — previously an
+ * Upstash outage threw out of every caller as a bare 500, taking down sign-in,
+ * sign-up, password reset, all the AI routes, and data export, on production
+ * and staging alike, for ~2.5 months.
+ *
+ * The trade-off this accepts: while Redis is down there is **no app-level abuse
+ * protection** on those endpoints. The only backstop is Better Auth's built-in
+ * in-memory IP limiter (3 sign-ups/sign-ins per 10 s), which is per-instance
+ * and so weak under serverless fan-out. That is the right call for this product
+ * — a locked-out household is a worse outcome than a window of un-throttled
+ * sign-up attempts — but it is a real trade, not a free win. `probeRateLimit`
+ * in `src/lib/status/probes.ts` is what makes the window visible.
  *
  * @param identifier - Caller-supplied opaque string (e.g. `household.id`, IP).
  *                     Paired with the feature's dimension to form the Redis key.

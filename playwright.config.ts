@@ -63,20 +63,27 @@ export default defineConfig({
     // killed mid-run (more useful than `on-first-retry` when CI is
     // still stabilising — see HON-518).
     //
-    // Remote tiers are the exception. The trace embeds Playwright's page
-    // snapshot, which records `input.value` verbatim — including
-    // `type="password"` fields, which the PNG screenshot correctly renders as
-    // dots. On preview-smoke and staging-smoke those fields hold
-    // `SMOKE_TEST_PASSWORD` / `FORGOT_PASSWORD_TEST_PASSWORD`, so a failing run
-    // published the fixture credentials in cleartext inside a 14-day artifact
-    // any repo reader can download — GitHub secret masking does not reach
-    // inside artifact file contents. A zip is not text-scrubbable, so drop it;
-    // the `redact-secrets` reporter below handles the text attachments (the
-    // same snapshot also lands in `error-context.md`), and screenshots stay on
-    // because they are masked and the most useful single artifact.
+    // Remote tiers are the exception, because a failing run there published
+    // the fixture credentials in cleartext inside a 14-day artifact any repo
+    // reader could download — GitHub secret masking does not reach inside
+    // artifact file contents. Two independent leaks, both confirmed by
+    // unzipping a real staging-smoke artifact:
     //
-    // Set `E2E_KEEP_TRACES=1` to opt back in when debugging a remote failure,
-    // and treat what it produces as credential-bearing.
+    //   1. Playwright's page snapshot records `input.value` verbatim, including
+    //      `type="password"` fields that the PNG screenshot correctly renders
+    //      as dots. It lands in `error-context.md` and inside the trace.
+    //   2. The trace's `0-trace.network` carries full request bodies, so the
+    //      sign-in POST payload holds the password whether or not the snapshot
+    //      does.
+    //
+    // (1) is text, so the `redact-secrets` reporter below scrubs it. (2) lives
+    // in a zip that cannot be text-scrubbed, so drop the trace entirely on
+    // remote tiers. Screenshots stay on: they are masked, and they are the most
+    // useful single artifact.
+    //
+    // Set `E2E_KEEP_TRACES=1` to opt back in when debugging a remote failure.
+    // What it produces is credential-bearing — do not upload it as a CI
+    // artifact, and delete it when you are done.
     trace: remoteBaseURL && !keepRemoteTraces ? 'off' : 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
