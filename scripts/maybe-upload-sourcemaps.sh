@@ -49,12 +49,19 @@ mkdir -p "$FILTERED_DIR"
 # Chunks over the limit trigger 413s; skipping them costs symbolization
 # only for the oversized bundles, which is strictly better than failing
 # the whole upload.
-while IFS= read -r file; do
-  rel="${file#"$CHUNKS_DIR"/}"
-  dest="$FILTERED_DIR/$rel"
-  mkdir -p "$(dirname "$dest")"
-  cp "$file" "$dest"
-done < <(find "$CHUNKS_DIR" -type f -size -10M \( -name "*.js" -o -name "*.map" \))
+#
+# Piped rather than `done < <(find ...)`: process substitution needs /dev/fd,
+# which is intermittently absent in Vercel's build container and fails with
+# "/dev/fd/63: No such file or directory" (took out the 29f980a staging deploy
+# and several previews on 2026-08-27). Nothing after the loop needs variables
+# set inside it, so the subshell a pipe implies is harmless.
+find "$CHUNKS_DIR" -type f -size -10M \( -name "*.js" -o -name "*.map" \) -print0 \
+  | while IFS= read -r -d '' file; do
+      rel="${file#"$CHUNKS_DIR"/}"
+      dest="$FILTERED_DIR/$rel"
+      mkdir -p "$(dirname "$dest")"
+      cp "$file" "$dest"
+    done
 
 echo "maybe-upload-sourcemaps: uploading to PostHog (release=$VERCEL_GIT_COMMIT_SHA)"
 pnpm dlx "$POSTHOG_CLI_PACKAGE" --host "$POSTHOG_CLI_HOST" sourcemap upload \

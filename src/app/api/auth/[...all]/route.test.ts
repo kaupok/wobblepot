@@ -150,4 +150,21 @@ describe('Better Auth catch-all route (/api/auth/[...all])', () => {
     expect(bodies[0]).toBe('{"error":"Too many requests"}')
     expect(bodies[0]).not.toMatch(/sign-in|sign_in|sign-up|password|email|account/i)
   })
+
+  // `checkRateLimit` fails open on an Upstash outage. This route
+  // must let that through untouched — an outage in abuse protection is not a
+  // reason to refuse a sign-in.
+  it('hands a degraded (fail-open) result to Better Auth like any allowed request', async () => {
+    mockCheckRateLimit.mockResolvedValue({ ...allow(), degraded: true })
+    const route = await import('./route')
+
+    const request = new Request('http://localhost/api/auth/sign-in/email', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'real@user.com', password: 'correct-horse-battery' }),
+    })
+    const response = await route.POST(request)
+
+    expect(mockPostHandler).toHaveBeenCalledTimes(1)
+    expect(response.status).toBe(200)
+  })
 })

@@ -156,12 +156,45 @@ upserted (idempotent) — re-running the seed is safe. Passwords are hashed
 with `hashPassword` from `better-auth/crypto`, matching the runtime auth
 path.
 
+### Treat remote-tier artifacts as public
+
+A failing preview-smoke / staging-smoke run used to publish the fixture
+password in cleartext, as a 14-day artifact anyone with repo read access could
+download. GitHub's secret masking only covers log output; it does not reach
+inside artifact files. Both leaks below were confirmed by unzipping a real
+staging-smoke artifact:
+
+1. **Page snapshot** — Playwright records `input.value` verbatim, including
+   `type="password"` fields that the PNG screenshot correctly renders as dots.
+   Lands in `error-context.md` and inside the trace.
+2. **Trace network log** — `0-trace.network` carries full request bodies, so the
+   sign-in POST payload holds the password independently of the snapshot.
+
+Two guards, both in place:
+
+- `tests/e2e/reporters/redact-secrets.ts` — a reporter that scrubs the values of
+  `SMOKE_TEST_*` / `FORGOT_PASSWORD_TEST_*` out of text attachments before the
+  HTML reporter copies them. Listed first in `playwright.config.ts` because the
+  HTML reporter reads those files in its `onEnd`. Add any new credential env var
+  to its `SECRET_ENV_VARS` list.
+- `playwright.config.ts` → `use.trace` — traces are `off` on remote tiers. This
+  is what closes leak (2): a zip cannot be text-scrubbed. Local runs and the
+  tier-1 build-and-run CI job are unaffected.
+
+To debug a remote failure with a full trace, re-run with `E2E_KEEP_TRACES=1`.
+The result is credential-bearing: keep it local, don't upload it as a CI
+artifact, and delete it when you're done.
+
+Consequently: **these accounts must stay read-only and staging/preview-only.**
+Never point `SMOKE_TEST_*` at an account that exists in the production database.
+
 ## Required GitHub Actions secrets
 
 The `_CI` suffixed secrets can all reuse the same values as the matching
 staging/prod env vars — they're only separate so you can rotate CI
 independently if you ever want to. The test-user credentials are
-purely content.
+purely content — but see "Treat remote-tier artifacts as public" above before
+assuming they stay secret.
 
 | Secret                          | Used by                      | Can reuse staging? | Notes                                                                                                                                                             |
 | ------------------------------- | ---------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |

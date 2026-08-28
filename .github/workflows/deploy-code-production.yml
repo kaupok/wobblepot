@@ -32,17 +32,19 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
 
       - name: Install Vercel CLI
-        run: npm install -g vercel@latest
+        # Exact pin (repo convention) — `@latest` silently changes deploy
+        # behaviour between runs. Bump deliberately alongside local CLI.
+        run: npm install -g vercel@54.7.1
 
       - name: Pull Vercel environment information
         env:

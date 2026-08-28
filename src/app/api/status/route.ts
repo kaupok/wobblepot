@@ -25,6 +25,7 @@ export async function GET() {
       db: toPublic(snapshot.db),
       auth: toPublic(snapshot.auth),
       ai: toPublic(snapshot.ai),
+      rateLimit: toPublic(snapshot.rateLimit),
     },
     incidentMessage: snapshot.incidentMessage,
     timestamp: snapshot.timestamp,

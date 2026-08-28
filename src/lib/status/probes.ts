@@ -3,6 +3,7 @@ import { generateObject } from 'ai'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
+import { getRedis } from '@/lib/upstash'
 
 export type ProbeStatus = 'ok' | 'down'
 
@@ -17,6 +18,7 @@ export interface StatusSnapshot {
   db: ProbeResult
   auth: ProbeResult
   ai: ProbeResult
+  rateLimit: ProbeResult
   timestamp: string
   incidentMessage?: string
 }
@@ -25,6 +27,7 @@ export type OverallStatus = 'ok' | 'degraded' | 'down'
 
 const DB_TIMEOUT_MS = 2000
 const AUTH_TIMEOUT_MS = 2000
+const RATE_LIMIT_TIMEOUT_MS = 2000
 const AI_TIMEOUT_MS = 10_000
 const CACHE_TTL_MS = 60_000
 
@@ -124,6 +127,37 @@ export async function probeAuth(): Promise<ProbeResult> {
 }
 
 /**
+ * Probe the rate limiter's Upstash Redis backing with a `PING`.
+ *
+ * Auth deliberately no longer *fails* when Redis is down (`checkRateLimit`
+ * fails open), which means nothing else on this page would show it. Without
+ * this probe an Upstash outage is invisible — and it was: on **production and
+ * staging alike**, `/status` reported `auth: ok` for ~2.5 months while every
+ * rate-limit-gated request (sign-in, sign-up, password reset, all AI routes,
+ * data export) returned a bare 500. The store had been archived by Upstash for
+ * inactivity, so the calls were failing DNS resolution.
+ *
+ * `down` here means abuse protection is off, not that the product is
+ * unavailable, so it lands as `degraded` via `computeOverall`.
+ */
+export async function probeRateLimit(): Promise<ProbeResult> {
+  return runCached('rateLimit', async () => {
+    const { error, latencyMs } = await measure(() =>
+      // `getRedis()` reads serverEnv and can throw synchronously on a
+      // misconfigured deploy — call it inside `measure` so that counts as a
+      // probe failure rather than escaping to the caller.
+      withTimeout(
+        Promise.resolve().then(() => getRedis().ping()),
+        RATE_LIMIT_TIMEOUT_MS,
+      ),
+    )
+    const checkedAt = new Date().toISOString()
+    if (error) return { status: 'down', checkedAt, latencyMs, error: error.message }
+    return { status: 'ok', checkedAt, latencyMs }
+  })
+}
+
+/**
  * Probe the AI pipeline end-to-end: SDK → Anthropic API → model returns a
  * structured response. Uses Haiku to keep probe cost negligible; result is
  * cached 60s so a hammered /status page can't turn into a cost vector.
@@ -149,25 +183,36 @@ export async function probeAi(): Promise<ProbeResult> {
 }
 
 /**
- * Run all three probes in parallel and return a snapshot plus any operator-set
+ * Run every probe in parallel and return a snapshot plus any operator-set
  * incident message. Probes are individually cached and timeout-bounded, so one
  * slow component does not stall the others.
  */
 export async function getStatusSnapshot(): Promise<StatusSnapshot> {
-  const [db, auth, ai] = await Promise.all([probeDatabase(), probeAuth(), probeAi()])
+  const [db, auth, ai, rateLimit] = await Promise.all([
+    probeDatabase(),
+    probeAuth(),
+    probeAi(),
+    probeRateLimit(),
+  ])
   return {
     db,
     auth,
     ai,
+    rateLimit,
     timestamp: new Date().toISOString(),
     incidentMessage: serverEnv.STATUS_INCIDENT_MESSAGE || undefined,
   }
 }
 
 export function computeOverall(
-  snapshot: Pick<StatusSnapshot, 'db' | 'auth' | 'ai'>,
+  snapshot: Pick<StatusSnapshot, 'db' | 'auth' | 'ai' | 'rateLimit'>,
 ): OverallStatus {
-  const statuses = [snapshot.db.status, snapshot.auth.status, snapshot.ai.status]
+  const statuses = [
+    snapshot.db.status,
+    snapshot.auth.status,
+    snapshot.ai.status,
+    snapshot.rateLimit.status,
+  ]
   if (statuses.every((s) => s === 'ok')) return 'ok'
   if (statuses.every((s) => s === 'down')) return 'down'
   return 'degraded'
