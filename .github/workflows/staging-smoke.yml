@@ -43,7 +43,11 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          # Full history so the wait step below can ask whether the SHA staging
+          # is serving is a *descendant* of the one we're waiting for.
+          fetch-depth: 0
 
       # Fail fast (HON-560) before any install work if a @smoke spec slipped
       # in that depends on /api/e2e-seed — staging 404s that route by design,
@@ -55,7 +59,7 @@ jobs:
         run: corepack enable
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -66,7 +70,7 @@ jobs:
       # Cache the ~150 MB Chromium download across runs (HON-529).
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
@@ -82,9 +86,16 @@ jobs:
       # Vercel auto-deploys staging on main, but the deploy may still be in
       # flight when this workflow starts — or worse, the *previous* build
       # is still what's serving. Poll /api/status until its `commitSha`
-      # field matches the commit that triggered the upstream workflow, so
-      # we only run smoke tests against the build the migrations were
-      # intended for.
+      # field reports the commit that triggered the upstream workflow, or a
+      # descendant of it, so we only run smoke tests against a build that
+      # includes the migrations this run was scheduled for.
+      #
+      # Accepting descendants matters: pushes to main often land minutes
+      # apart, and this workflow's `concurrency` group serialises runs. By
+      # the time a queued run starts polling, staging can already be serving
+      # a *newer* commit — an exact-SHA match can then never succeed and the
+      # step burns its whole budget before failing. Two runs failed this way
+      # on 2026-08-27.
       - name: Wait for staging deploy to serve ${{ github.event.workflow_run.head_sha || github.sha }}
         env:
           # `workflow_run.head_sha` for the upstream migration workflow,
@@ -93,18 +104,36 @@ jobs:
         run: |
           set -eu
           url="${PLAYWRIGHT_BASE_URL%/}/api/status"
-          echo "Waiting for $url to report commitSha=$EXPECTED_SHA"
-          for attempt in $(seq 1 30); do
+          attempts=60
+          interval=10
+          echo "Waiting for $url to report commitSha=$EXPECTED_SHA (or a descendant)"
+          for attempt in $(seq 1 "$attempts"); do
             body=$(curl -sf --max-time 5 "$url" || true)
             actual_sha=$(echo "$body" | jq -r '.commitSha // empty' 2>/dev/null || true)
-            if [ -n "$actual_sha" ] && [ "$actual_sha" = "$EXPECTED_SHA" ]; then
-              echo "staging is live on $EXPECTED_SHA"
-              exit 0
+            if [ -n "$actual_sha" ]; then
+              if [ "$actual_sha" = "$EXPECTED_SHA" ]; then
+                echo "staging is live on $EXPECTED_SHA"
+                exit 0
+              fi
+              # `fetch-depth: 0` snapshots history at job start, so a push to
+              # main *during* the poll leaves us serving a SHA we've never
+              # heard of. Fetch once on first sight of an unknown commit
+              # rather than burning the remaining budget on it.
+              if ! git cat-file -e "$actual_sha^{commit}" 2>/dev/null; then
+                echo "  $actual_sha is not in local history — fetching origin/main"
+                git fetch --quiet origin main 2>/dev/null || true
+              fi
+              # `--is-ancestor` needs both commits locally; a force-push or a
+              # still-unknown SHA makes it error, which must not abort the loop.
+              if git merge-base --is-ancestor "$EXPECTED_SHA" "$actual_sha" 2>/dev/null; then
+                echo "staging is live on $actual_sha, a descendant of $EXPECTED_SHA — good enough"
+                exit 0
+              fi
             fi
-            echo "attempt $attempt: staging commitSha=${actual_sha:-unknown}, waiting for $EXPECTED_SHA"
-            sleep 10
+            echo "attempt $attempt/$attempts: staging commitSha=${actual_sha:-unknown}, waiting for $EXPECTED_SHA"
+            sleep "$interval"
           done
-          echo "staging never reported commitSha=$EXPECTED_SHA after 5 minutes" >&2
+          echo "staging never reported commitSha=$EXPECTED_SHA (or a descendant) after $((attempts * interval / 60)) minutes" >&2
           exit 1
 
       - name: Run @smoke specs against staging
@@ -113,7 +142,7 @@ jobs:
       - name: Upload Playwright report
         if: always()
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report-staging-${{ github.sha }}
           path: playwright-report/

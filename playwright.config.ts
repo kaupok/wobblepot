@@ -3,6 +3,14 @@ import { defineConfig } from '@playwright/test'
 const remoteBaseURL = process.env.PLAYWRIGHT_BASE_URL
 const isCI = !!process.env.CI
 
+// Resolved relative to this config file so the reporter loads the same way
+// whichever directory Playwright is invoked from.
+const redactSecretsReporter = './tests/e2e/reporters/redact-secrets.ts'
+
+// Escape hatch for the remote-tier trace suppression in `use.trace` below.
+const keepRemoteTraces =
+  process.env.E2E_KEEP_TRACES === '1' || process.env.E2E_KEEP_TRACES === 'true'
+
 // Set by scripts/e2e-local.sh (`pnpm test:e2e:local`): run against an isolated
 // Neon branch via a dedicated dev server on its own port. We must NOT reuse a
 // hand-run :3000 server — that one loads .env and points at the real dev DB,
@@ -54,13 +62,39 @@ export default defineConfig({
     // failing test so `test-results/` has data even when a step is
     // killed mid-run (more useful than `on-first-retry` when CI is
     // still stabilising — see HON-518).
-    trace: 'retain-on-failure',
+    //
+    // Remote tiers are the exception, because a failing run there published
+    // the fixture credentials in cleartext inside a 14-day artifact any repo
+    // reader could download — GitHub secret masking does not reach inside
+    // artifact file contents. Two independent leaks, both confirmed by
+    // unzipping a real staging-smoke artifact:
+    //
+    //   1. Playwright's page snapshot records `input.value` verbatim, including
+    //      `type="password"` fields that the PNG screenshot correctly renders
+    //      as dots. It lands in `error-context.md` and inside the trace.
+    //   2. The trace's `0-trace.network` carries full request bodies, so the
+    //      sign-in POST payload holds the password whether or not the snapshot
+    //      does.
+    //
+    // (1) is text, so the `redact-secrets` reporter below scrubs it. (2) lives
+    // in a zip that cannot be text-scrubbed, so drop the trace entirely on
+    // remote tiers. Screenshots stay on: they are masked, and they are the most
+    // useful single artifact.
+    //
+    // Set `E2E_KEEP_TRACES=1` to opt back in when debugging a remote failure.
+    // What it produces is credential-bearing — do not upload it as a CI
+    // artifact, and delete it when you are done.
+    trace: remoteBaseURL && !keepRemoteTraces ? 'off' : 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
   webServer,
   timeout: isCI ? 60_000 : 30_000,
-  // `list` goes first so CI gets per-test progress streamed to stdout
-  // (otherwise `github` buffers everything and a hung suite prints nothing
-  // before the job is killed).
-  reporter: isCI ? [['list'], ['github'], ['html']] : [['list']],
+  // `redact-secrets` must come before `html`: it scrubs fixture credentials out
+  // of text attachments in `onTestEnd`, and `html` copies them in `onEnd`.
+  // `list` goes next so CI gets per-test progress streamed to stdout (otherwise
+  // `github` buffers everything and a hung suite prints nothing before the job
+  // is killed).
+  reporter: isCI
+    ? [[redactSecretsReporter], ['list'], ['github'], ['html']]
+    : [[redactSecretsReporter], ['list']],
 })
