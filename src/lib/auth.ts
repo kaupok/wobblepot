@@ -11,6 +11,7 @@ import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
 import { linkUsedBy, releaseClaim, validateAndClaimInviteCode } from '@/lib/signup-codes'
 import { assertUserNotSoftDeleted } from '@/lib/auth/soft-delete-guard'
 import { CURRENT_TERMS_VERSION } from '@/lib/consent'
+import { timeSignupStep } from '@/lib/signup-timing'
 
 const MIN_PASSWORD_LENGTH = 12
 
@@ -67,13 +68,13 @@ const BREACHED_PASSWORD_MESSAGE =
  * verify it is actually used by `emailAndPassword.password.hash`.
  */
 export async function hashPasswordWithBreachCheck(password: string): Promise<string> {
-  if (await isPasswordBreached(password)) {
+  if (await timeSignupStep('hibp', () => isPasswordBreached(password))) {
     throw new APIError('BAD_REQUEST', {
       message: BREACHED_PASSWORD_MESSAGE,
       code: 'PASSWORD_COMPROMISED',
     })
   }
-  return hashPassword(password)
+  return timeSignupStep('scrypt', () => hashPassword(password))
 }
 
 /**
@@ -277,7 +278,7 @@ export const auth = betterAuth({
       // Terms consent first: rejecting here means the invite code below is
       // never claimed, so a consent failure can't burn a code (HON-457).
       assertTermsAccepted(ctx.body)
-      await validateAndClaimInviteCode(ctx.body)
+      await timeSignupStep('invite-code', () => validateAndClaimInviteCode(ctx.body))
     }),
     after: createAuthMiddleware(async (ctx) => {
       if (ctx.path !== '/sign-up/email') return

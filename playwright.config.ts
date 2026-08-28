@@ -55,7 +55,12 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
-  workers: isCI ? 1 : undefined,
+  // CI runs 1 worker against a prebuilt `next start`. Locally the default
+  // (`undefined` → ~50% of cores) fanned several workers at a single-process
+  // `next dev`, so their sign-ups queued on one event loop behind the serial
+  // HIBP + scrypt + Neon work and blew the 30s budget (HON-569). Cap local
+  // parallelism to 2 to bound that contention; override with `--workers=N`.
+  workers: isCI ? 1 : 2,
   use: {
     baseURL: remoteBaseURL ?? localBaseURL ?? 'http://localhost:3000',
     // `retain-on-failure` captures traces + screenshots for every

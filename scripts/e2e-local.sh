@@ -200,6 +200,9 @@ cmd_run() {
   # Bypass the IP rate limiter AND enable /api/e2e-seed (the invite-code minter
   # sign-up needs). Permitted because NEXT_PUBLIC_APP_ENV is a SAFE_ENV.
   export E2E_DISABLE_RATE_LIMIT="1"
+  # Log per-step sign-up timings (hibp / scrypt / invite-code / total) so the
+  # latency that intermittently blows the 30s budget is measurable (HON-569).
+  export SIGNUP_TIMING_LOG="1"
   # Tells playwright.config.ts to start its own dev server on this port (never
   # reusing a stale :3000 server that would point at your real DB).
   export E2E_LOCAL_PORT="$PORT"
@@ -213,6 +216,20 @@ cmd_run() {
 
   info "Applying migrations to the ephemeral branch…"
   pnpm prisma migrate deploy
+
+  # Warm the POOLED Neon endpoint the app runtime connects through (DATABASE_URL)
+  # before the first sign-up. Neon suspends idle compute, so the first query
+  # after a cold branch pays a wake-up round trip; without this it lands on the
+  # first spec's POST /api/auth/sign-up/email. `migrate deploy` above warms the
+  # compute via the UNPOOLED endpoint, but the pooler has its own cold path.
+  #
+  # Prisma 7's `db execute` takes no `--url`; it reads the datasource from
+  # prisma.config.ts, which uses DATABASE_URL_UNPOOLED. Override that var for
+  # this one call so the warm-up hits the pooled endpoint. Non-fatal: a failed
+  # warm-up must not abort the run (HON-569).
+  info "Warming the pooled Neon endpoint…"
+  echo 'SELECT 1;' | DATABASE_URL_UNPOOLED="$POOLED" pnpm prisma db execute --stdin \
+    || warn "pooled warm-up query failed (non-fatal); continuing."
 
   info "Seeding the ephemeral branch…"
   pnpm db:seed
