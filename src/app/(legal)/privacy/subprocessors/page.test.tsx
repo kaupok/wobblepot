@@ -12,7 +12,7 @@ describe('SubprocessorsPage', () => {
   it('lists all 5 processors, with Neon disclosed as a Databricks company', () => {
     const text = renderedText()
     expect(text).toContain('Anthropic, PBC')
-    expect(text).toContain('Resend (Plus Five, Inc.)')
+    expect(text).toContain('Resend (Plus Five Five, Inc.)')
     expect(text).toContain('Vercel Inc.')
     expect(text).toContain('Neon (a Databricks company)')
     expect(text).toContain('PostHog, Inc.')
