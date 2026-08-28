@@ -165,8 +165,8 @@ export default function PrivacyPage() {
           disclosure stays on the policy itself. */}
       <Section title="Who processes data for us">
         <Body>
-          We use five processors: Anthropic, PBC for AI meal planning, Resend (Plus Five Five, Inc.) for
-          transactional email, Vercel Inc. for hosting, Neon (a Databricks company) for the
+          We use five processors: Anthropic, PBC for AI meal planning, Resend (Plus Five Five, Inc.)
+          for transactional email, Vercel Inc. for hosting, Neon (a Databricks company) for the
           database, and PostHog, Inc. for product analytics and error tracking — the latter active
           only after you accept analytics cookies. All five involve a transfer to the United States
           covered by appropriate safeguards, and we have a data processing agreement with every one
