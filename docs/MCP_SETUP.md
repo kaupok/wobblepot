@@ -104,7 +104,7 @@ Our project uses the following MCP servers:
 - **When to use**: Creating issues, tracking work, updating task status, managing projects
 - **Note**: Defined in `.mcp.json` at `https://mcp.linear.app/mcp`
 
-> The automation scripts (`scripts/orchestrator.sh`, `scripts/worktree-claude.sh`) read a separate `LINEAR_API_KEY` from `.env` for the Linear GraphQL API. That key is for the scripts, not the MCP server.
+> The automation scripts use a separate `LINEAR_API_KEY` for the Linear GraphQL API — it is for the scripts, not the MCP server. `scripts/worktree-claude.sh` sources it from `.env` (see `.env.example`); `scripts/orchestrator.sh` reads it from its environment, so export it in your shell or keep it in the `env` block of `.claude/settings.local.json` when launching from a Claude Code session. Create one at [Linear Settings → API](https://linear.app/settings/api).
 
 **Permission presets:** All Linear MCP tools (`mcp__linear-server__*`) are pre-approved in `.claude/settings.local.json`
 
@@ -173,7 +173,9 @@ claude mcp add --transport stdio your-server -- npx -y @modelcontextprotocol/ser
 
 Only `CONTEXT7_API_KEY` is interpolated by `.mcp.json` (through the `${CONTEXT7_API_KEY}` header on the `context7` server). Set it in `.claude/settings.local.json`. The `context7`, `linear-server`, and `posthog` servers otherwise authenticate through OAuth and need no key.
 
-`LINEAR_API_KEY` is also listed here, but it is read by the automation scripts (`scripts/orchestrator.sh`, `scripts/worktree-claude.sh`) from `.env`, not by the Linear MCP server. Add it if you run those scripts.
+**Checking for drift:** `grep -o '\${[A-Z_]*}' .mcp.json` lists every variable `.mcp.json` interpolates. This section should document exactly that set — if the two disagree, this doc is stale.
+
+`LINEAR_API_KEY` is also listed here, but the Linear MCP server does not use it — it is for the automation scripts (see the note under [Linear MCP](#5-linear-mcp-http-server)). Put it in `.env` as well, which is where `scripts/worktree-claude.sh` reads it.
 
 ```json
 {
@@ -199,7 +201,7 @@ Only `CONTEXT7_API_KEY` is interpolated by `.mcp.json` (through the `${CONTEXT7_
 1. Copy the example file: `cp .claude/settings.local.json.example .claude/settings.local.json`
 2. Edit `.claude/settings.local.json` and replace placeholder values:
    - `CONTEXT7_API_KEY`: Context7 API key (see [Context7 setup](#4-context7-http-server))
-   - `LINEAR_API_KEY`: Linear API key for the automation scripts
+   - `LINEAR_API_KEY`: Linear API key for the automation scripts (also add it to `.env`)
 3. Restart Claude Code
 
 **Important:** `.claude/settings.local.json` is gitignored and contains secrets. Never commit this file.
