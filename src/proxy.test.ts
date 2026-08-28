@@ -45,18 +45,18 @@ vi.mock('next/server', () => {
   }
 })
 
-describe('middleware', () => {
+describe('proxy', () => {
   beforeEach(() => {
     nextMock.responseHeaders.clear()
     nextMock.requestHeaders.clear()
   })
 
   it('sets Content-Security-Policy header with nonce', async () => {
-    const { middleware } = await import('./middleware')
+    const { proxy } = await import('./proxy')
     const { NextRequest } = await import('next/server')
     const req = new NextRequest('https://wobblepot.dev/')
 
-    middleware(req)
+    proxy(req)
 
     const csp = nextMock.responseHeaders.get('Content-Security-Policy')
     expect(csp).toBeDefined()
@@ -64,11 +64,11 @@ describe('middleware', () => {
   })
 
   it('does not include unsafe-inline on script-src', async () => {
-    const { middleware } = await import('./middleware')
+    const { proxy } = await import('./proxy')
     const { NextRequest } = await import('next/server')
     const req = new NextRequest('https://wobblepot.dev/')
 
-    middleware(req)
+    proxy(req)
 
     const csp = nextMock.responseHeaders.get('Content-Security-Policy')!
     const scriptSrc = csp.split(';').find((d) => d.trim().startsWith('script-src'))!
@@ -76,11 +76,11 @@ describe('middleware', () => {
   })
 
   it('includes strict-dynamic in production script-src', async () => {
-    const { middleware } = await import('./middleware')
+    const { proxy } = await import('./proxy')
     const { NextRequest } = await import('next/server')
     const req = new NextRequest('https://wobblepot.dev/')
 
-    middleware(req)
+    proxy(req)
 
     const csp = nextMock.responseHeaders.get('Content-Security-Policy')!
     const scriptSrc = csp.split(';').find((d) => d.trim().startsWith('script-src'))!
@@ -88,11 +88,11 @@ describe('middleware', () => {
   })
 
   it('forwards nonce via x-nonce request header', async () => {
-    const { middleware } = await import('./middleware')
+    const { proxy } = await import('./proxy')
     const { NextRequest } = await import('next/server')
     const req = new NextRequest('https://wobblepot.dev/')
 
-    middleware(req)
+    proxy(req)
 
     const nonce = nextMock.requestHeaders.get('x-nonce')
     expect(nonce).toBeDefined()
@@ -100,27 +100,27 @@ describe('middleware', () => {
   })
 
   it('generates unique nonces per request', async () => {
-    const { middleware } = await import('./middleware')
+    const { proxy } = await import('./proxy')
     const { NextRequest } = await import('next/server')
 
-    middleware(new NextRequest('https://wobblepot.dev/'))
+    proxy(new NextRequest('https://wobblepot.dev/'))
     const nonce1 = nextMock.requestHeaders.get('x-nonce')
 
     nextMock.requestHeaders.clear()
     nextMock.responseHeaders.clear()
 
-    middleware(new NextRequest('https://wobblepot.dev/page'))
+    proxy(new NextRequest('https://wobblepot.dev/page'))
     const nonce2 = nextMock.requestHeaders.get('x-nonce')
 
     expect(nonce1).not.toEqual(nonce2)
   })
 
   it('nonce in request header matches nonce in CSP', async () => {
-    const { middleware } = await import('./middleware')
+    const { proxy } = await import('./proxy')
     const { NextRequest } = await import('next/server')
     const req = new NextRequest('https://wobblepot.dev/')
 
-    middleware(req)
+    proxy(req)
 
     const nonce = nextMock.requestHeaders.get('x-nonce')!
     const csp = nextMock.responseHeaders.get('Content-Security-Policy')!
@@ -128,11 +128,11 @@ describe('middleware', () => {
   })
 
   it('includes all required CSP directives', async () => {
-    const { middleware } = await import('./middleware')
+    const { proxy } = await import('./proxy')
     const { NextRequest } = await import('next/server')
     const req = new NextRequest('https://wobblepot.dev/')
 
-    middleware(req)
+    proxy(req)
 
     const csp = nextMock.responseHeaders.get('Content-Security-Policy')!
     const directives = csp.split(';').map((d) => d.trim().split(' ')[0])
@@ -150,11 +150,11 @@ describe('middleware', () => {
   })
 
   it('includes PostHog domains in img-src and connect-src', async () => {
-    const { middleware } = await import('./middleware')
+    const { proxy } = await import('./proxy')
     const { NextRequest } = await import('next/server')
     const req = new NextRequest('https://wobblepot.dev/')
 
-    middleware(req)
+    proxy(req)
 
     const csp = nextMock.responseHeaders.get('Content-Security-Policy')!
     const imgSrc = csp.split(';').find((d) => d.trim().startsWith('img-src'))!
@@ -166,11 +166,11 @@ describe('middleware', () => {
   })
 
   it('includes upgrade-insecure-requests in production', async () => {
-    const { middleware } = await import('./middleware')
+    const { proxy } = await import('./proxy')
     const { NextRequest } = await import('next/server')
     const req = new NextRequest('https://wobblepot.dev/')
 
-    middleware(req)
+    proxy(req)
 
     const csp = nextMock.responseHeaders.get('Content-Security-Policy')!
     expect(csp).toContain('upgrade-insecure-requests')
