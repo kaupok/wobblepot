@@ -128,7 +128,11 @@ Not env-configurable; see [EMAIL_SETUP.md](./EMAIL_SETUP.md) for the rationale.
 
 ## Upstash Redis (rate limiting)
 
-Upstash Redis backs the rate limiter introduced in HON-451. All AI endpoints (`/api/meal-plans/generate`, `/api/meals/imagine`, `/api/recipes/parse`, meal-plan preparation tips + suggestions) require `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`; missing values cause a 500 on the first rate-limit-gated request.
+Upstash Redis backs the rate limiter introduced in HON-451. It gates all AI endpoints (`/api/meal-plans/generate`, `/api/meals/imagine`, `/api/recipes/parse`, meal-plan preparation tips + suggestions) plus the three abuse-sensitive auth POSTs (`/sign-up/email`, `/sign-in/email`, `/request-password-reset`) via `RATE_LIMITED_PATHS` in [`src/app/api/auth/[...all]/route.ts`](../src/app/api/auth/[...all]/route.ts). Both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` must be set.
+
+**When Redis is unreachable, `checkRateLimit` fails open**: the request is allowed through _uncounted_, flagged `degraded: true`, and reported to PostHog. Rate limiting is abuse protection, not an authentication dependency — previously an Upstash failure threw out of the auth route as a bare 500 and took sign-in, sign-up, and password reset down with it. That failure mode went unnoticed for ~2.5 months on staging because `/api/status` only probed Postgres.
+
+So a broken Upstash config no longer breaks the product — it silently removes abuse protection. Watch for it via the `rateLimit` component on `/status` (and `rateLimit` in `/api/status`), which probes Redis directly with a `PING`.
 
 ### Local dev
 
@@ -154,13 +158,14 @@ Upstash Redis backs the rate limiter introduced in HON-451. All AI endpoints (`/
 
 ### Token rotation
 
-Since the two `UPSTASH_REDIS_REST_*` vars are entered manually, Upstash-side token rotation won't propagate automatically. If you rotate, re-copy from the REST tab into each env scope. Low-risk for rate limiting.
+Since the two `UPSTASH_REDIS_REST_*` vars are entered manually, Upstash-side token rotation won't propagate automatically. If you rotate, re-copy from the REST tab into each env scope. **A stale token is the most likely cause of a `rateLimit: down` on `/status`** — that, or a free-tier DB deleted after inactivity. Because the limiter now fails open, nothing user-facing breaks when this happens, so `/status` is the only signal you get.
 
 ### Verify after provisioning
 
+- `/api/status` → `components.rateLimit.status` is `ok` (and `overall` is not `degraded`).
 - Preview deploy: `/api/meal-plans/generate` returns 200, not 500.
 - Upstash Data Browser shows keys like `ratelimit:household:plan-generation:{id}` after an AI call.
-- Trigger 6 generations within an hour from the same household → the 6th returns 429 with a `Retry-After` header.
+- Trigger 6 generations within an hour from the same household → the 6th returns 429 with a `Retry-After` header. If it doesn't, the limiter is failing open — check `rateLimit` on `/status`.
 
 ## PostHog (analytics, errors, source maps)
 

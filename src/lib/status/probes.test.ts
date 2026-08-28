@@ -22,12 +22,18 @@ vi.mock('@ai-sdk/anthropic', () => ({
   createAnthropic: () => (modelId: string) => ({ modelId }),
 }))
 
+vi.mock('@/lib/upstash', () => ({
+  getRedis: vi.fn(),
+}))
+
 import { prisma } from '@/lib/prisma'
 import { generateObject } from 'ai'
+import { getRedis } from '@/lib/upstash'
 import {
   probeDatabase,
   probeAuth,
   probeAi,
+  probeRateLimit,
   computeOverall,
   getStatusSnapshot,
   __resetProbeCache,
@@ -36,6 +42,12 @@ import {
 const mockQueryRaw = vi.mocked(prisma.$queryRaw)
 const mockSessionCount = vi.mocked(prisma.session.count)
 const mockGenerateObject = vi.mocked(generateObject)
+const mockGetRedis = vi.mocked(getRedis)
+
+/** Stub Upstash so `getRedis().ping()` behaves as the test needs. */
+function stubRedisPing(impl: () => Promise<string>): void {
+  mockGetRedis.mockReturnValue({ ping: impl } as unknown as ReturnType<typeof getRedis>)
+}
 
 describe('probeDatabase', () => {
   beforeEach(() => {
@@ -138,6 +150,53 @@ describe('probeAi', () => {
   })
 })
 
+describe('probeRateLimit', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    __resetProbeCache()
+  })
+
+  it('returns ok when Redis responds to PING', async () => {
+    stubRedisPing(() => Promise.resolve('PONG'))
+
+    const result = await probeRateLimit()
+
+    expect(result.status).toBe('ok')
+    expect(result.error).toBeUndefined()
+  })
+
+  it('returns down when Redis rejects', async () => {
+    stubRedisPing(() => Promise.reject(new Error('WRONGPASS invalid token')))
+
+    const result = await probeRateLimit()
+
+    expect(result.status).toBe('down')
+    expect(result.error).toBe('WRONGPASS invalid token')
+  })
+
+  it('returns down on timeout', async () => {
+    stubRedisPing(() => new Promise((resolve) => setTimeout(() => resolve('PONG'), 5000)))
+
+    const result = await probeRateLimit()
+
+    expect(result.status).toBe('down')
+    expect(result.error).toMatch(/timeout/i)
+  }, 10_000)
+
+  // A misconfigured deploy makes `getRedis()` throw synchronously while reading
+  // serverEnv — that must read as a down probe, not escape to the caller.
+  it('returns down when getRedis throws synchronously', async () => {
+    mockGetRedis.mockImplementation(() => {
+      throw new Error('UPSTASH_REDIS_REST_URL must be a valid URL')
+    })
+
+    const result = await probeRateLimit()
+
+    expect(result.status).toBe('down')
+    expect(result.error).toMatch(/UPSTASH_REDIS_REST_URL/)
+  })
+})
+
 describe('probe cache', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -175,6 +234,7 @@ describe('computeOverall', () => {
         db: { status: 'ok', ...base },
         auth: { status: 'ok', ...base },
         ai: { status: 'ok', ...base },
+        rateLimit: { status: 'ok', ...base },
       }),
     ).toBe('ok')
   })
@@ -185,6 +245,20 @@ describe('computeOverall', () => {
         db: { status: 'ok', ...base },
         auth: { status: 'down', ...base },
         ai: { status: 'ok', ...base },
+        rateLimit: { status: 'ok', ...base },
+      }),
+    ).toBe('degraded')
+  })
+
+  // The regression this whole change exists for: rate limiting down while
+  // everything else is up must NOT read as "ok".
+  it('returns degraded when only the rate limiter is down', () => {
+    expect(
+      computeOverall({
+        db: { status: 'ok', ...base },
+        auth: { status: 'ok', ...base },
+        ai: { status: 'ok', ...base },
+        rateLimit: { status: 'down', ...base },
       }),
     ).toBe('degraded')
   })
@@ -195,6 +269,7 @@ describe('computeOverall', () => {
         db: { status: 'down', ...base },
         auth: { status: 'down', ...base },
         ai: { status: 'down', ...base },
+        rateLimit: { status: 'down', ...base },
       }),
     ).toBe('down')
   })
@@ -210,19 +285,21 @@ describe('getStatusSnapshot', () => {
     __resetProbeCache()
   })
 
-  it('returns all three component probes plus a timestamp', async () => {
+  it('returns every component probe plus a timestamp', async () => {
     mockQueryRaw.mockResolvedValueOnce([{ '?column?': 1 }])
     mockSessionCount.mockResolvedValueOnce(1)
     mockGenerateObject.mockResolvedValueOnce({
       object: { ok: true },
       usage: { inputTokens: 5, outputTokens: 1 },
     } as never)
+    stubRedisPing(() => Promise.resolve('PONG'))
 
     const snapshot = await getStatusSnapshot()
 
     expect(snapshot.db.status).toBe('ok')
     expect(snapshot.auth.status).toBe('ok')
     expect(snapshot.ai.status).toBe('ok')
+    expect(snapshot.rateLimit.status).toBe('ok')
     expect(typeof snapshot.timestamp).toBe('string')
     expect(snapshot.incidentMessage).toBeUndefined()
   })

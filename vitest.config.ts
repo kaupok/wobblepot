@@ -52,7 +52,18 @@ export default defineConfig({
           setupFiles: ['./vitest.setup.ts'],
           globals: true,
           include: ['**/*.{test,spec}.?(c|m)[jt]s?(x)'],
-          exclude: ['**/node_modules/**', '**/dist/**', 'tests/e2e/**', 'e2e/**', '**/*.stories.*'],
+          // `tests/e2e/**/*.spec.ts` belongs to Playwright (see
+          // `playwright.config.ts` → `testMatch`). Colocated `.test.ts` files
+          // there are Vitest's, same split as everywhere else in the repo —
+          // that's how the e2e harness itself (reporters, helpers) gets unit
+          // tested without spinning up a browser.
+          exclude: [
+            '**/node_modules/**',
+            '**/dist/**',
+            'tests/e2e/**/*.spec.*',
+            'e2e/**',
+            '**/*.stories.*',
+          ],
           env: {
             NODE_ENV: 'test',
             NEXT_PUBLIC_APP_NAME: 'TestApp',

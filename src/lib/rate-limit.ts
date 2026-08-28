@@ -19,6 +19,7 @@
 
 import { Ratelimit, type Duration } from '@upstash/ratelimit'
 import { getRedis } from '@/lib/upstash'
+import { captureApiError } from '@/lib/errors'
 
 // E2E bypass: allows CI to skip the IP-dimensioned rate limiter that would
 // otherwise trip on the shared GitHub-runner IP after ~5 sign-ups. Refuses
@@ -113,6 +114,13 @@ export interface RateLimitResult {
   limit: number
   remaining: number
   resetAt: Date
+  /**
+   * Set when Redis was unreachable and the request was allowed through
+   * *without* being counted (see {@link checkRateLimit}). Callers that care —
+   * e.g. a surface that wants to refuse rather than run uncounted — can branch
+   * on it; the auth route deliberately does not.
+   */
+  degraded?: boolean
 }
 
 type WindowSlot = 'primary' | 'daily'
@@ -173,6 +181,76 @@ function toResult(response: LimiterResponse): RateLimitResult {
 }
 
 /**
+ * Fail-open result used when Redis itself is unavailable. Deliberately NOT the
+ * same as a bypass: `degraded` marks the request as uncounted so the caller and
+ * `/status` can tell "allowed because under the limit" from "allowed because we
+ * couldn't check".
+ */
+function degradedResult(feature: RateLimitFeature): RateLimitResult {
+  const cfg = RATE_LIMIT_CONFIG[feature]
+  return {
+    allowed: true,
+    limit: cfg.limit,
+    remaining: cfg.limit,
+    resetAt: new Date(Date.now() + 60_000),
+    degraded: true,
+  }
+}
+
+/** Last report timestamp per feature, for {@link reportLimiterFailure}. */
+const lastReportedAt = new Map<RateLimitFeature, number>()
+const REPORT_THROTTLE_MS = 60_000
+
+/**
+ * Report an Upstash failure to PostHog, at most once per minute per feature.
+ *
+ * A Redis outage on a hot endpoint would otherwise emit one exception per
+ * request. `captureApiError` never throws, but keep the whole thing in a
+ * try/catch anyway — reporting must not be able to convert a degraded
+ * rate-limiter into a failed request.
+ */
+function reportLimiterFailure(feature: RateLimitFeature, error: unknown): void {
+  try {
+    const now = Date.now()
+    const last = lastReportedAt.get(feature)
+    if (last !== undefined && now - last < REPORT_THROTTLE_MS) return
+    lastReportedAt.set(feature, now)
+
+    // eslint-disable-next-line no-console
+    console.error(
+      `[rate-limit] Upstash unavailable for feature=${feature}; failing open (requests are NOT being counted)`,
+      error,
+    )
+    captureApiError(error, { route: 'rate-limit', feature, degraded: true })
+  } catch {
+    // Swallow — see above.
+  }
+}
+
+/** Test-only: clear the report throttle so cases don't leak into each other. */
+export function __resetRateLimitReportThrottle(): void {
+  lastReportedAt.clear()
+}
+
+/**
+ * Run one limiter window, converting an *infrastructure* failure into a
+ * fail-open result. Only thrown errors fail open — a limiter that returns
+ * `success: false` is a real denial and must still deny.
+ */
+async function limitOrFailOpen(
+  limiter: Ratelimit,
+  identifier: string,
+  feature: RateLimitFeature,
+): Promise<LimiterResponse | 'degraded'> {
+  try {
+    return (await limiter.limit(identifier)) as LimiterResponse
+  } catch (error) {
+    reportLimiterFailure(feature, error)
+    return 'degraded'
+  }
+}
+
+/**
  * Atomically check whether an identifier is allowed to make a request for
  * a given feature. This both checks *and* records — do NOT call a second
  * method to "commit" the request; that shape existed only for the old
@@ -183,6 +261,14 @@ function toResult(response: LimiterResponse): RateLimitResult {
  * limiter is skipped (so a denied request is only charged against one window,
  * preserving the sliding-window atomicity guarantee per call). If the primary
  * allows but the daily denies, the returned result reflects the daily limit.
+ *
+ * When Redis is unreachable (bad/rotated Upstash credentials, deleted database,
+ * network error) the check **fails open**: the request is allowed with
+ * `degraded: true` and the failure is reported to PostHog. Rate limiting is
+ * abuse protection, not an authentication dependency — previously an Upstash
+ * outage threw out of `/api/auth/[...all]` as a bare 500 and took sign-in,
+ * sign-up, and password reset down with it. `probeRateLimit` in
+ * `src/lib/status/probes.ts` is what surfaces the degraded state.
  *
  * @param identifier - Caller-supplied opaque string (e.g. `household.id`, IP).
  *                     Paired with the feature's dimension to form the Redis key.
@@ -203,17 +289,34 @@ export async function checkRateLimit(
     }
   }
 
-  const primary = getLimiter(feature, 'primary')
-  // Primary always exists — this cast is safe because every feature has a
-  // primary window by construction of RATE_LIMIT_CONFIG.
-  const primaryResponse = (await primary!.limit(identifier)) as LimiterResponse
+  // Limiter construction reaches for `serverEnv.UPSTASH_REDIS_REST_*`, so it can
+  // throw on a misconfigured deploy before any network call happens. Keep it
+  // inside the fail-open boundary.
+  let primary: Ratelimit | null
+  let daily: Ratelimit | null
+  try {
+    primary = getLimiter(feature, 'primary')
+    daily = getLimiter(feature, 'daily')
+  } catch (error) {
+    reportLimiterFailure(feature, error)
+    return degradedResult(feature)
+  }
+
+  // Primary always exists — this non-null assertion is safe because every
+  // feature has a primary window by construction of RATE_LIMIT_CONFIG.
+  const primaryResponse = await limitOrFailOpen(primary!, identifier, feature)
+  if (primaryResponse === 'degraded') {
+    return degradedResult(feature)
+  }
   if (!primaryResponse.success) {
     return toResult(primaryResponse)
   }
 
-  const daily = getLimiter(feature, 'daily')
   if (daily) {
-    const dailyResponse = (await daily.limit(identifier)) as LimiterResponse
+    const dailyResponse = await limitOrFailOpen(daily, identifier, feature)
+    if (dailyResponse === 'degraded') {
+      return degradedResult(feature)
+    }
     if (!dailyResponse.success) {
       return toResult(dailyResponse)
     }

@@ -156,12 +156,39 @@ upserted (idempotent) — re-running the seed is safe. Passwords are hashed
 with `hashPassword` from `better-auth/crypto`, matching the runtime auth
 path.
 
+### Treat remote-tier artifacts as public
+
+Playwright's page snapshot records `input.value` verbatim — including
+`type="password"` fields, which the PNG screenshot correctly renders as dots.
+So a failing preview-smoke / staging-smoke run had the fixture password sitting
+in cleartext inside `error-context.md` and the trace, published as a 14-day
+artifact that anyone with repo read access can download. GitHub's secret
+masking only covers log output; it does not reach inside artifact files.
+
+Two guards, both in place:
+
+- `tests/e2e/reporters/redact-secrets.ts` — a reporter that scrubs the values of
+  `SMOKE_TEST_*` / `FORGOT_PASSWORD_TEST_*` out of text attachments before the
+  HTML reporter copies them. Listed first in `playwright.config.ts` because the
+  HTML reporter reads those files in its `onEnd`. Add any new credential env var
+  to its `SECRET_ENV_VARS` list.
+- `playwright.config.ts` → `use.trace` — traces are `off` on remote tiers, since
+  a zip carries the same values in a form the reporter cannot scrub. Local runs
+  and the tier-1 build-and-run CI job are unaffected.
+
+To debug a remote failure with a full trace, re-run with `E2E_KEEP_TRACES=1` and
+treat the resulting artifact as credential-bearing.
+
+Consequently: **these accounts must stay read-only and staging/preview-only.**
+Never point `SMOKE_TEST_*` at an account that exists in the production database.
+
 ## Required GitHub Actions secrets
 
 The `_CI` suffixed secrets can all reuse the same values as the matching
 staging/prod env vars — they're only separate so you can rotate CI
 independently if you ever want to. The test-user credentials are
-purely content.
+purely content — but see "Treat remote-tier artifacts as public" above before
+assuming they stay secret.
 
 | Secret                          | Used by                      | Can reuse staging? | Notes                                                                                                                                                             |
 | ------------------------------- | ---------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
