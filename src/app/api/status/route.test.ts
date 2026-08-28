@@ -23,6 +23,7 @@ describe('GET /api/status', () => {
       db: { status: 'ok', ...baseProbe },
       auth: { status: 'ok', ...baseProbe },
       ai: { status: 'ok', ...baseProbe },
+      rateLimit: { status: 'ok', ...baseProbe },
       timestamp: '2026-04-20T12:00:00.000Z',
     })
     mockComputeOverall.mockReturnValue('ok')
@@ -35,6 +36,7 @@ describe('GET /api/status', () => {
     expect(body.components.db.status).toBe('ok')
     expect(body.components.auth.status).toBe('ok')
     expect(body.components.ai.status).toBe('ok')
+    expect(body.components.rateLimit.status).toBe('ok')
     expect(body.incidentMessage).toBeUndefined()
   })
 
@@ -47,6 +49,7 @@ describe('GET /api/status', () => {
         ...baseProbe,
         error: "P1001: Can't reach database server at 'ep-xyz.us-east-2.aws.neon.tech'",
       },
+      rateLimit: { status: 'ok', ...baseProbe },
       timestamp: '2026-04-20T12:00:00.000Z',
     })
     mockComputeOverall.mockReturnValue('degraded')
@@ -72,6 +75,11 @@ describe('GET /api/status', () => {
         error: 'Invalid `prisma.session.count()` invocation: Table public.session does not exist',
       },
       ai: { status: 'down', ...baseProbe, error: 'Anthropic request rid=abc123 failed' },
+      rateLimit: {
+        status: 'down',
+        ...baseProbe,
+        error: 'WRONGPASS invalid token for https://tidy-gopher-12345.upstash.io',
+      },
       timestamp: '2026-04-20T12:00:00.000Z',
     })
     mockComputeOverall.mockReturnValue('down')
@@ -82,10 +90,12 @@ describe('GET /api/status', () => {
     expect(body.components.db.error).toBeUndefined()
     expect(body.components.auth.error).toBeUndefined()
     expect(body.components.ai.error).toBeUndefined()
+    expect(body.components.rateLimit.error).toBeUndefined()
     const asText = JSON.stringify(body)
     expect(asText).not.toMatch(/neon\.tech/i)
     expect(asText).not.toMatch(/prisma/i)
     expect(asText).not.toMatch(/rid=abc123/i)
+    expect(asText).not.toMatch(/upstash\.io/i)
   })
 
   it('returns 200 with overall down when every probe is down', async () => {
@@ -93,6 +103,7 @@ describe('GET /api/status', () => {
       db: { status: 'down', ...baseProbe },
       auth: { status: 'down', ...baseProbe },
       ai: { status: 'down', ...baseProbe },
+      rateLimit: { status: 'down', ...baseProbe },
       timestamp: '2026-04-20T12:00:00.000Z',
     })
     mockComputeOverall.mockReturnValue('down')
@@ -112,6 +123,7 @@ describe('GET /api/status', () => {
         db: { status: 'ok', ...baseProbe },
         auth: { status: 'ok', ...baseProbe },
         ai: { status: 'ok', ...baseProbe },
+        rateLimit: { status: 'ok', ...baseProbe },
         timestamp: '2026-04-20T12:00:00.000Z',
       })
       mockComputeOverall.mockReturnValue('ok')
@@ -134,6 +146,7 @@ describe('GET /api/status', () => {
         db: { status: 'ok', ...baseProbe },
         auth: { status: 'ok', ...baseProbe },
         ai: { status: 'ok', ...baseProbe },
+        rateLimit: { status: 'ok', ...baseProbe },
         timestamp: '2026-04-20T12:00:00.000Z',
       })
       mockComputeOverall.mockReturnValue('ok')
@@ -152,6 +165,7 @@ describe('GET /api/status', () => {
       db: { status: 'ok', ...baseProbe },
       auth: { status: 'ok', ...baseProbe },
       ai: { status: 'ok', ...baseProbe },
+      rateLimit: { status: 'ok', ...baseProbe },
       timestamp: '2026-04-20T12:00:00.000Z',
       incidentMessage: 'Scheduled maintenance in progress',
     })

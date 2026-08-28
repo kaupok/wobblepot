@@ -56,7 +56,7 @@ Terminal 2: wt new feat/actual-impl     → Execute the plan
 Add to `~/.zshrc` or `~/.bashrc`:
 
 ```bash
-alias wt='~/Projects/honkadori/scripts/worktree-claude.sh'
+alias wt='~/Projects/wobblepot/scripts/worktree-claude.sh'
 ```
 
 Then use `wt new feat/my-feature` from anywhere.
@@ -70,7 +70,7 @@ Then use `wt new feat/my-feature` from anywhere.
 
 ## Worktree Location
 
-All parallel worktrees are created in `~/.worktrees/honkadori/<branch-name>` to keep the project directory clean.
+All parallel worktrees are created in `~/.worktrees/wobblepot/<branch-name>` to keep the project directory clean.
 
 ## Untracked Files
 
@@ -160,7 +160,10 @@ The orchestrator (`scripts/orchestrator.sh`) is a long-running dispatcher that p
 
 - Fetch Todo issues via Linear GraphQL (curl + jq)
 - Filter out issues already being processed by running workers
-- Check `blockedBy` — unblocked if all blockers are Done/Canceled/Duplicate
+- Skip assigned issues — someone owns them (same `assignee: "null"` rule as `/next-issue` and `/auto-implement` Phase 1.4). `move_to_backlog` clears the assignee when it fails an issue back to Backlog, so a re-triaged issue is pickable again. The explicit-ID gate (`/auto-implement HON-XX` 2.1) also accepts `assignee == me` on an `In Progress` issue (my own earlier claim).
+- If the orchestrator is force-killed (second signal), in-flight issues stay `In Progress` **and assigned** — `move_to_backlog` never ran. To re-queue one, move it to Todo **and unassign it**; an assigned issue is skipped.
+- Check `blockedBy` — unblocked only if all blockers are Done/Canceled. A Duplicate blocker never clears on its own: a human follows its `duplicateOf` or fixes the stale relation (same rule as the `/auto-implement` and `/implement-issue` gates)
+- Log every skipped candidate with its reason (`[SKIP] HON-XX assigned`, `[SKIP] HON-XX blocked by HON-YY (Duplicate)`) so a stuck issue is visible in `orchestrator.log` rather than dropped silently
 - Prioritize: issues that `blocks` others first, then by `priority` field
 - Pick one per poll cycle
 
@@ -195,11 +198,11 @@ Requires `LINEAR_API_KEY` env var (format: `lin_api_...`).
 [OUTCOME] HON-53 TIMEOUT 1h1m 2-commits phase=reviewing triage=RETRY
 ```
 
-Filter with `grep '\[OUTCOME\]' ~/.worktrees/honkadori/logs/orchestrator.log`.
+Filter with `grep '\[OUTCOME\]' ~/.worktrees/wobblepot/logs/orchestrator.log`.
 
 ### Logs
 
-All logs are written to `~/.worktrees/honkadori/logs/`:
+All logs are written to `~/.worktrees/wobblepot/logs/`:
 
 | File                          | Contents                                     |
 | ----------------------------- | -------------------------------------------- |

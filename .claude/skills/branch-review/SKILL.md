@@ -105,7 +105,7 @@ Note the issue title, description, and any acceptance criteria.
 mcp__linear-server__list_comments({ issueId: "[issue-uuid-from-step-6a]" })
 ```
 
-Look for a comment that starts with `# Plan:` - this is the implementation plan posted by `/implement-issue`.
+Look for a comment that starts with `# Plan:` - this is the implementation plan posted by `/plan-issue`.
 
 If a plan is found:
 
@@ -150,6 +150,7 @@ CLAUDE.md is already loaded as project instructions — do not re-read it. Read 
   ```
 
   If any spec references removed routes or renamed copy, call it out in **Address Now** — stale specs are cheap to miss locally and land as a CI regression. See HON-518 for the drift-batch incident this rule was introduced to prevent.
+- **Storybook drift**: If the diff touches `src/components/**`, verify the colocated `.stories.tsx` was created/updated for the new variants and states (CLAUDE.md Storybook rule) and that `pnpm test-storybook:ci` passes. A missing or stale story is an **Address Now** item.
 
 ### 9. Triage issues
 
@@ -217,7 +218,7 @@ Files: `file1.ts`, `file2.ts`, ...
 2. ...
 (If empty: "None")
 
-**Note:** For each deferred item, propose a specific Linear issue to create. After review is complete, offer to create these issues.
+**Note:** For each deferred item, propose a specific Linear issue to create. After review is complete, list the proposed issues (title + What/Why/Acceptance criteria) for the caller to create.
 
 #### Skip
 1. [Issue description] - [Why disagreed or not actionable]
@@ -232,6 +233,7 @@ Files: `file1.ts`, `file2.ts`, ...
 - [ ] `pnpm type-check` passes
 - [ ] `pnpm test` passes
 - [ ] If changes touch `src/app/**/page.tsx`, a modal/dialog component, or user-visible copy: grepped `tests/e2e/` `// ROUTES: …` / `// COMPONENTS: …` headers for stale references and updated affected specs (or noted "no E2E impact")
+- [ ] If changes touch `src/components/**`: colocated `.stories.tsx` created/updated and `pnpm test-storybook:ci` passes (or noted "no Storybook impact")
 - [ ] PR description is up to date
 
 ### Verdict

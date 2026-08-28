@@ -24,10 +24,19 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export const dynamic = 'force-dynamic'
 
-const COMPONENTS: { key: 'db' | 'auth' | 'ai'; label: string; description: string }[] = [
+const COMPONENTS: {
+  key: 'db' | 'auth' | 'ai' | 'rateLimit'
+  label: string
+  description: string
+}[] = [
   { key: 'ai', label: 'AI pipeline', description: 'Meal plan generation via Claude' },
   { key: 'auth', label: 'Auth', description: 'Sign-in and session management' },
   { key: 'db', label: 'Database', description: 'Primary PostgreSQL store' },
+  {
+    key: 'rateLimit',
+    label: 'Rate limiting',
+    description: 'Abuse protection for auth and AI endpoints',
+  },
 ]
 
 export default async function StatusPage() {

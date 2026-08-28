@@ -49,6 +49,14 @@ mcp__linear-server__list_issues({
 
 Check if this idea (or parts of it) already exists as issues. Flag any overlaps.
 
+`list_issues` never returns relations, so before presenting any flagged overlap re-fetch it and read the structured fields:
+
+```typescript
+mcp__linear-server__get_issue({ id: 'HON-NNN', includeRelations: true })
+```
+
+Check `status`, `assignee`, and `relations.blockedBy` for each — a Done issue with an attached PR has shipped (build on it, don't re-plan it); an In Progress / assigned issue is someone's active work; an open `blockedBy` chain changes what the new idea can depend on. Present overlaps with that state attached, not just titles.
+
 ### Step 4: Present initial take and ask questions
 
 Share with the user:
@@ -137,6 +145,8 @@ mcp__linear-server__save_issue({
 })
 ```
 
+Reference other issues in descriptions as plain text (`HON-NNN`), never hand-copied `<issue id="…">` tags — Linear auto-resolves plain text on save, and a copied UUID controls where the link goes, so it can silently point at the wrong issue.
+
 ### Step 10: Summary
 
 After creating all issues, summarize:
@@ -151,21 +161,7 @@ When Chrome tools are available, use them to bring visual context into the conve
 
 ### App page map
 
-| Route                                 | Feature                                     |
-| ------------------------------------- | ------------------------------------------- |
-| `/`                                   | Today dashboard (meals, shopping, catch-up) |
-| `/meal-plan`                          | Weekly meal plan with status controls       |
-| `/shopping`                           | Shopping list with urgency grouping         |
-| `/pantry`                             | Pantry inventory management                 |
-| `/recipes`                            | Meal library browser                        |
-| `/recipes/import`                     | AI recipe import from URL                   |
-| `/household`                          | Household settings and members              |
-| `/household/invites`                  | Invite link management                      |
-| `/profile`                            | User profile and account settings           |
-| `/onboarding`                         | New user setup flow                         |
-| `/sign-in`, `/sign-up`               | Authentication                              |
-| `/forgot-password`, `/reset-password` | Password recovery                           |
-| `/invite/[code]`                      | Join household via invite                   |
+Page map: see `docs/CHROME_TESTING.md` → Page map (regenerate from `find src/app -name page.tsx` if routes changed). It also lists the redirect stubs (`/meal-plan`, `/pantry`, `/household/invites`) — landing on their targets is expected behaviour, not a bug.
 
 ### How to browse during ideation
 

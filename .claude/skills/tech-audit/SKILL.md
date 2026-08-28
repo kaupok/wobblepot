@@ -1,7 +1,7 @@
 ---
 name: tech-audit
-description: Scan the codebase for outdated deps, type issues, code quality, test coverage, security patterns, database health, bundle concerns, pattern adherence, architecture, and accessibility. Outputs a structured triage report.
-argument-hint: '[--focus deps|types|quality|tests|security|database|bundle|patterns|api|routes|complexity|data-fetching|react|a11y|prisma|dead-code]'
+description: Scan the codebase for outdated deps, type issues, code quality, test coverage, security patterns, Prisma query efficiency, bundle concerns, pattern adherence, architecture, and accessibility. Outputs a structured triage report.
+argument-hint: '[--focus deps|types|quality|tests|security|bundle|patterns|api|routes|complexity|data-fetching|react|a11y|prisma|dead-code]'
 context: fork
 allowed-tools:
   - Bash
@@ -13,11 +13,11 @@ allowed-tools:
 
 # Tech Audit
 
-Perform a comprehensive codebase health audit across sixteen focus areas and produce a structured triage report.
+Perform a comprehensive codebase health audit across fifteen focus areas and produce a structured triage report.
 
 ## Arguments
 
-- `--focus <area>`: Run only a specific audit area. Valid values: `deps`, `types`, `quality`, `tests`, `security`, `database`, `bundle`, `patterns`, `api`, `routes`, `complexity`, `data-fetching`, `react`, `a11y`, `prisma`, `dead-code`. If omitted, run all areas.
+- `--focus <area>`: Run only a specific audit area. Valid values: `deps`, `types`, `quality`, `tests`, `security`, `bundle`, `patterns`, `api`, `routes`, `complexity`, `data-fetching`, `react`, `a11y`, `prisma`, `dead-code`. If omitted, run all areas.
 
 ## Instructions
 
@@ -61,7 +61,7 @@ pnpm type-check 2>&1 || true
 Scan for `any` usage in source files (excluding node_modules, .next, generated files):
 
 ```bash
-grep -rn ': any\b\|as any\b\|<any>' src/ --include='*.ts' --include='*.tsx' || echo "No 'any' usage found"
+grep -rn ': any\b\|as any\b\|<any>' src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' || echo "No 'any' usage found"
 ```
 
 Record findings: type error count, `any` usage locations.
@@ -79,10 +79,10 @@ Scan for quality markers:
 
 ```bash
 # TODO/FIXME/HACK comments
-grep -rn 'TODO\|FIXME\|HACK' src/ --include='*.ts' --include='*.tsx' || echo "No TODO/FIXME/HACK found"
+grep -rn 'TODO\|FIXME\|HACK' src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' || echo "No TODO/FIXME/HACK found"
 
 # console.log statements (should not be in production code)
-grep -rn 'console\.log' src/ --include='*.ts' --include='*.tsx' || echo "No console.log found"
+grep -rn 'console\.log' src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' || echo "No console.log found"
 ```
 
 Record findings: lint error count, TODO/FIXME/HACK count, console.log locations.
@@ -110,18 +110,35 @@ Scan for:
 
 ```bash
 # Hardcoded secrets or API keys (common patterns)
-grep -rn 'apiKey\s*=\s*["'"'"']\|api_key\s*=\s*["'"'"']\|secret\s*=\s*["'"'"']\|password\s*=\s*["'"'"']' src/ --include='*.ts' --include='*.tsx' || echo "No potential secrets found"
+grep -rn 'apiKey\s*=\s*["'"'"']\|api_key\s*=\s*["'"'"']\|secret\s*=\s*["'"'"']\|password\s*=\s*["'"'"']' src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' || echo "No potential secrets found"
 
 # Raw SQL queries (should use Prisma)
-grep -rn '\$queryRaw\|\$executeRaw\|\.query(' src/ --include='*.ts' --include='*.tsx' || echo "No raw SQL found"
+grep -rn '\$queryRaw\|\$executeRaw\|\.query(' src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' || echo "No raw SQL found"
 
 # dangerouslySetInnerHTML
-grep -rn 'dangerouslySetInnerHTML' src/ --include='*.ts' --include='*.tsx' || echo "No dangerouslySetInnerHTML found"
+grep -rn 'dangerouslySetInnerHTML' src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' || echo "No dangerouslySetInnerHTML found"
 ```
 
 Check auth protection on route pages:
 
-Use Grep to find `page.tsx` files under `src/app/` that are not in `(public)` route groups, and verify they contain session checks (`getSession` or `auth.api`).
+There is no `(public)` route group in this project — the only group is `(legal)`. Treat these pages as intentionally public and skip them:
+
+- `src/app/sign-in`, `sign-up`, `forgot-password`, `reset-password`
+- `src/app/invite/[code]` (invite acceptance happens before sign-in)
+- `src/app/(legal)/**` (`/privacy`, `/privacy/subprocessors`, `/terms`)
+- `src/app/bot`, `src/app/status`
+
+Also skip redirect-only pages whose body is just `redirect()` — `src/app/meal-plan` (→ `/`), `src/app/pantry` (→ `/shopping`), `src/app/household/invites` (→ `/household`) — they never render content.
+
+For every other `page.tsx`, verify it (or its nearest `layout.tsx`) performs a session check. Match any of `getSession`, `auth.api.getSession`, or an import from `@/lib/session` — `src/lib/session.ts` exports the React-`cache`d `getSession` wrapper plus `getHasHousehold` / `getHouseholdIdForUser`:
+
+```bash
+find src/app -name 'page.tsx' \
+  | grep -vE '/(sign-in|sign-up|forgot-password|reset-password|invite|\(legal\)|bot|status|meal-plan|pantry|household/invites)/' \
+  | xargs grep -LE 'getSession|auth\.api\.getSession|@/lib/session'
+```
+
+Every file listed is a candidate unprotected route. Read it before flagging — the root `src/app/page.tsx` may branch on session state rather than redirect, and a page can inherit protection from a parent layout.
 
 Check for client components importing server-only modules:
 
@@ -137,20 +154,14 @@ Audit client components:
 
 ```bash
 # Count 'use client' directives
-grep -rn "'use client'" src/ --include='*.ts' --include='*.tsx' -l || echo "No client components"
+grep -rn "'use client'" src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' -l || echo "No client components"
 ```
 
 Check for large dependency imports in client components:
 
-Use Grep to find client component files, then check if they import heavy libraries (e.g., `date-fns`, `lodash`, `moment`, `zod`) that could be tree-shaken or moved server-side.
+Use Grep to find client component files, then check if they import heavy libraries that could be tree-shaken or moved server-side. Derive the list from `package.json` dependencies (currently notable client-side: `posthog-js`, `ai`, `lucide-react`, `zod`).
 
-Check for barrel imports that might prevent tree-shaking:
-
-```bash
-grep -rn "from '@/components'" src/ --include='*.ts' --include='*.tsx' || echo "No barrel imports found"
-```
-
-Record findings: client component count, large import concerns, barrel import issues.
+Record findings: client component count, large import concerns.
 
 ### 8. Pattern adherence
 
@@ -160,27 +171,27 @@ Check for raw HTML heading/paragraph elements instead of Typography components:
 
 ```bash
 # Raw <h1>-<h4> or <p> tags in components (should use Heading/Body)
-grep -rn '<h[1-4]\b\|<p\b' src/ --include='*.tsx' | grep -v 'node_modules\|\.test\.' || echo "No raw HTML typography found"
+grep -rn '<h[1-4]\b\|<p\b' src/ --exclude-dir=generated --include='*.tsx' | grep -v 'node_modules\|\.test\.' || echo "No raw HTML typography found"
 ```
 
 Check for layout classes on Typography components:
 
 ```bash
 # Typography with layout classes (mt-, mb-, p-, mx-, etc.)
-grep -rn '<Heading\|<Body\|<Blockquote' src/ --include='*.tsx' | grep -E 'className=.*\b(m[tblrxy]?-|p[tblrxy]?-|gap-)' || echo "No layout classes on Typography"
+grep -rn '<Heading\|<Body\|<Blockquote' src/ --exclude-dir=generated --include='*.tsx' | grep -E 'className=.*\b(m[tblrxy]?-|p[tblrxy]?-|gap-)' || echo "No layout classes on Typography"
 ```
 
 Check for relative imports (should use `@/` prefix):
 
 ```bash
-grep -rn "from '\.\./\|from '\.\/" src/ --include='*.ts' --include='*.tsx' | grep -v '\.test\.\|node_modules' || echo "No relative imports found"
+grep -rn "from '\.\./\|from '\.\/" src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' | grep -v '\.test\.\|node_modules' || echo "No relative imports found"
 ```
 
 Check for non-sentence-case UI text in common patterns:
 
 ```bash
 # Button text with multiple capitalized words (potential Title Case violations)
-grep -rn '<Button' src/ --include='*.tsx' | grep -oP '>([A-Z][a-z]+ ){2,}' || echo "No obvious title case violations"
+grep -rn '<Button' src/ --exclude-dir=generated --include='*.tsx' | grep -oE '>([A-Z][a-z]+ ){2,}' || echo "No obvious title case violations"
 ```
 
 Record findings: raw HTML elements, Typography layout violations, relative imports, casing issues.
@@ -221,7 +232,7 @@ Find all `page.tsx` files and check for sibling `loading.tsx` and `error.tsx`:
 
 ```bash
 # List all page.tsx files
-find src/app -name 'page.tsx' -not -path '*/\(public\)/*'
+find src/app -name 'page.tsx'
 ```
 
 For each directory containing a `page.tsx`, check if `loading.tsx` and `error.tsx` exist in the same directory or a parent layout.
@@ -236,7 +247,7 @@ Record findings: pages missing loading.tsx (especially async ones), pages missin
 
 ```bash
 # Find source files over 300 lines
-find src/ \( -name '*.ts' -o -name '*.tsx' \) | grep -v node_modules | grep -v '.test.' | xargs wc -l | sort -rn | head -20
+find src/ -not -path '*/generated/*' \( -name '*.ts' -o -name '*.tsx' \) | grep -v node_modules | grep -v '.test.' | xargs wc -l | sort -rn | head -20
 ```
 
 For the top files, note:
@@ -248,7 +259,7 @@ Also check for deeply nested logic (multiple levels of if/else, ternaries):
 
 ```bash
 # Functions with high indentation depth (rough proxy for complexity)
-grep -rn '          ' src/ --include='*.ts' --include='*.tsx' | grep -v 'node_modules\|\.test\.\|\.css' | head -20
+grep -rn '          ' src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' | grep -v 'node_modules\|\.test\.\|\.css' | head -20
 ```
 
 Record findings: file line counts, specific files over threshold, deeply nested code.
@@ -292,7 +303,7 @@ Check for useEffect without cleanup for subscriptions/listeners:
 
 ```bash
 # useEffect calls that add event listeners but may lack cleanup
-grep -rn 'useEffect' src/ --include='*.ts' --include='*.tsx' -l
+grep -rn 'useEffect' src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' -l
 ```
 
 Read files with useEffect and check for:
@@ -305,7 +316,7 @@ Also check for clickable non-interactive elements:
 
 ```bash
 # div/span with onClick (should usually be button)
-grep -rn '<div.*onClick\|<span.*onClick' src/ --include='*.tsx' | grep -v '\.test\.' || echo "No clickable divs found"
+grep -rn '<div.*onClick\|<span.*onClick' src/ --exclude-dir=generated --include='*.tsx' | grep -v '\.test\.' || echo "No clickable divs found"
 ```
 
 Record findings: effects missing cleanup, suppressed hook warnings, clickable divs.
@@ -316,13 +327,13 @@ Record findings: effects missing cleanup, suppressed hook warnings, clickable di
 
 ```bash
 # Images without alt text (next/image requires alt, but check for raw <img>)
-grep -rn '<img' src/ --include='*.tsx' | grep -v 'alt=' | grep -v '\.test\.' || echo "No images without alt found"
+grep -rn '<img' src/ --exclude-dir=generated --include='*.tsx' | grep -v 'alt=' | grep -v '\.test\.' || echo "No images without alt found"
 
 # Icon-only buttons without accessible names
-grep -rn '<Button' src/ --include='*.tsx' | grep -v 'aria-label\|sr-only\|>[A-Za-z]' || echo "No icon-only buttons without labels found"
+grep -rn '<Button' src/ --exclude-dir=generated --include='*.tsx' | grep -v 'aria-label\|sr-only\|>[A-Za-z]' || echo "No icon-only buttons without labels found"
 
 # Missing form labels
-grep -rn '<input\|<select\|<textarea' src/ --include='*.tsx' | grep -v 'aria-label\|id=.*\|\.test\.' | head -20
+grep -rn '<input\|<select\|<textarea' src/ --exclude-dir=generated --include='*.tsx' | grep -v 'aria-label\|id=.*\|\.test\.' | head -20
 ```
 
 Also check for:
@@ -333,10 +344,10 @@ Also check for:
 
 ```bash
 # tabIndex anti-pattern
-grep -rn 'tabIndex=["{][1-9]' src/ --include='*.tsx' || echo "No tabIndex anti-patterns"
+grep -rn 'tabIndex=["{][1-9]' src/ --exclude-dir=generated --include='*.tsx' || echo "No tabIndex anti-patterns"
 
 # Generic link text
-grep -rn '>click here<\|>here<\|>read more<' src/ --include='*.tsx' -i || echo "No generic link text found"
+grep -rn '>click here<\|>here<\|>read more<' src/ --exclude-dir=generated --include='*.tsx' -i || echo "No generic link text found"
 ```
 
 Record findings: images without alt, unlabeled buttons, missing form labels, tabIndex issues.
@@ -347,7 +358,7 @@ Record findings: images without alt, unlabeled buttons, missing form labels, tab
 
 ```bash
 # Find all Prisma query calls
-grep -rn 'prisma\.' src/ --include='*.ts' --include='*.tsx' | grep -v 'node_modules\|\.test\.\|import\|type\|//' | head -40
+grep -rn 'prisma\.' src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' | grep -v 'node_modules\|\.test\.\|import\|type\|//' | head -40
 ```
 
 Read files with Prisma queries and check for:
@@ -359,7 +370,7 @@ Read files with Prisma queries and check for:
 
 ```bash
 # findMany without take/limit
-grep -rn 'findMany' src/ --include='*.ts' | grep -v 'take\|limit\|\.test\.' || echo "No unbounded findMany found"
+grep -rn 'findMany' src/ --exclude-dir=generated --include='*.ts' | grep -v 'take\|limit\|\.test\.' || echo "No unbounded findMany found"
 ```
 
 Record findings: N+1 risks, missing select optimization, unbounded queries.
@@ -384,7 +395,7 @@ Also check for unused local files:
 ```bash
 # Files that might be orphaned (not imported anywhere)
 # Check a few specific patterns
-grep -rn "from '@/lib/" src/ --include='*.ts' --include='*.tsx' | grep -oP "'@/lib/[^']+'" | sort -u
+grep -rn "from '@/lib/" src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' | grep -oE "'@/lib/[^']+'" | sort -u
 ```
 
 Compare the list of files in `src/lib/` against what's actually imported.
@@ -395,7 +406,9 @@ Record findings: unused exports, orphaned files.
 
 **Goal:** Avoid proposing issues that already exist.
 
-Use `mcp__linear-server__list_issues` with `team: "Honkadori"`, `label: "Tech"`, `limit: 100`. Fetch `state: "Backlog"`, `"Todo"`, `"In Progress"`, and `"In Review"` in separate calls.
+Use `mcp__linear-server__list_issues` with `team: "Honkadori"`, `limit: 100`, `fields: ['id', 'title', 'description', 'labels', 'status']`. Fetch `state: "Backlog"`, `"Todo"`, `"In Progress"`, and `"In Review"` in separate calls.
+
+**Do not filter by `label: "Tech"`.** Accessibility, bug, and test-coverage proposals routinely duplicate issues that carry the `Bug` label or no label at all; a Tech-only fetch hides them and the audit re-proposes tracked work. Use the returned `labels` field to note which label the existing issue carries when classifying.
 
 Classify each would-be proposal against returned titles/descriptions:
 
@@ -424,7 +437,6 @@ After running all applicable sections, compile the report:
 | Code Quality | [pass/warn/fail] | [brief summary] |
 | Test Coverage | [pass/warn/fail] | [brief summary] |
 | Security | [pass/warn/fail] | [brief summary] |
-| Database | [pass/warn/fail] | [brief summary] |
 | Bundle | [pass/warn/fail] | [brief summary] |
 | Patterns | [pass/warn/fail] | [brief summary] |
 | API Consistency | [pass/warn/fail] | [brief summary] |
@@ -467,11 +479,21 @@ Items to watch but not urgent (minor pattern deviations, informational).
 ...
 
 ### Proposed Linear Issues
-For significant findings, propose Linear issues. Each proposal is tagged with its section-17 status. All new issues must include the **Tech** label.
+For significant findings, propose Linear issues. Each proposal is tagged with its section-17 status. This skill runs as a fork and cannot create issues — every **New** proposal must be a paste-ready block the caller can create verbatim, in "Writing for Agents" format (see CLAUDE.md), with plain-text `HON-NNN` references. All new issues include the **Tech** label.
 
-1. **[Title]** - New - [Description] - [Priority] - Label: Tech
-2. **[Title]** - Update HON-XX - [What's changed] - [Suggested priority change, if any]
-3. **[Title]** - Duplicate of HON-XX - [Optional comment to add]
+#### 1. [Title] — New
+**Label:** Tech · **Priority:** [Urgent/High/Medium/Low]
+**What:** [Concrete change — file paths, functions, data shapes, expected behaviour]
+**Why:** [The finding, its user or maintenance impact, and key constraints]
+**Acceptance criteria:**
+- [Observable, testable outcome]
+- [Observable, testable outcome]
+
+#### 2. [Title] — Update HON-XX
+[What's changed since the issue was written; suggested priority change, if any]
+
+#### 3. [Title] — Duplicate of HON-XX
+[Optional comment to add to the existing issue]
 ```
 
 ### Triage criteria

@@ -14,13 +14,15 @@ This is a **spoken dialog** — all communication goes through VoiceMode. Text o
 
 ### Step 1: Verify Chrome mode
 
-Check that Chrome browser tools are available. If not, stop and output as text (voice is not yet verified):
+If no `mcp__claude-in-chrome__*` tools are listed in this session, stop and output as text (voice is not yet verified) telling the user to run `claude --chrome` or `/chrome`:
 
 > This skill requires Chrome mode. Start a new session with `claude --chrome` or run `/chrome` to enable it.
 
 ### Step 2: Verify and start VoiceMode services
 
-Check that Whisper (STT), Kokoro (TTS), and VoiceMode (HTTP server) are running:
+If no `mcp__voicemode__*` tools are listed in this session, stop and output as text directing the user to `docs/VOICE_REVIEW.md` for VoiceMode MCP server setup. Do not continue.
+
+Otherwise, check that Whisper (STT), Kokoro (TTS), and VoiceMode (HTTP server) are running:
 
 ```typescript
 // Run in parallel
@@ -80,21 +82,15 @@ mcp__voicemode__converse({
 
 ### App page map for reference
 
-| Route                                 | Feature                                     |
-| ------------------------------------- | ------------------------------------------- |
-| `/`                                   | Today dashboard (meals, shopping, catch-up) |
-| `/meal-plan`                          | Weekly meal plan with status controls       |
-| `/shopping`                           | Shopping list with urgency grouping         |
-| `/pantry`                             | Pantry inventory management                 |
-| `/recipes`                            | Meal library browser                        |
-| `/recipes/import`                     | AI recipe import from URL                   |
-| `/household`                          | Household settings and members              |
-| `/household/invites`                  | Invite link management                      |
-| `/profile`                            | User profile and account settings           |
-| `/onboarding`                         | New user setup flow                         |
-| `/sign-in`, `/sign-up`                | Authentication                              |
-| `/forgot-password`, `/reset-password` | Password recovery                           |
-| `/invite/[code]`                      | Join household via invite                   |
+Page map: see `docs/CHROME_TESTING.md` → Page map (regenerate from `find src/app -name page.tsx` if routes changed). It also lists the redirect stubs (`/meal-plan`, `/pantry`, `/household/invites`) — landing on their targets is expected behaviour, not a bug.
+
+Default itinerary for a broad sweep — start here, then branch out using the full map:
+
+1. `/` — Today dashboard (landing page when signed out)
+2. `/recipes` — Meal library, plus `/recipes/create`, `/recipes/imagine`, `/recipes/import`
+3. `/shopping` — Shopping list and pantry
+4. `/household` — Household settings, members, invites
+5. `/onboarding` — Create-household flow (needs an account without a household)
 
 ## Exploration Loop
 
@@ -172,7 +168,7 @@ Why this matters.
 - [ ] Criterion 2`,
   // Set these only when discussed with user:
   // priority: 3,
-  // labels: ['bug'],
+  // labels: ['Bug'],
   // blockedBy: ['HON-XX'],
   // relatedTo: ['HON-YY'],
 })

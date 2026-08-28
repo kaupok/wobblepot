@@ -1,6 +1,7 @@
 ---
 name: plan-issue
 description: Create an implementation plan for a Linear issue. Explores codebase, writes plan, posts to Linear after approval.
+argument-hint: 'HON-XX'
 context: inherit
 ---
 
@@ -38,9 +39,10 @@ mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
 
 Extract and note:
 
-- Issue UUID (for API calls in steps 5 and 10)
+- Issue UUID (for the `list_comments` call in step 5)
 - Title and description
 - `gitBranchName` for later use
+- Current assignee (decides whether step 11 may claim the issue)
 - `blockedBy` relations (check if blocked)
 - `blocks` relations (what this unblocks)
 - `relatedTo` / `parentId` (for overlap check in step 3)
@@ -180,6 +182,10 @@ Write the plan directly in your response (not to a file). Use this structure:
 
 [From step 7. Either list the affected specs with a one-line reason each, or — if the scan ran and found no matching specs — write `none — no existing spec asserts on the changed routes/components` so the reviewer sees the scan happened. Omit this section entirely only if step 7 was skipped (step 6 surfaced no route / navigation / visible-copy / modal changes).]
 
+## Storybook stories
+
+[If any file under `src/components/**` is created or modified, list the colocated `.stories.tsx` files to create/update (CLAUDE.md Storybook rule). Otherwise write `none — no component changes`.]
+
 ## Verification
 
 - [ ] [How to test the implementation]
@@ -214,21 +220,37 @@ If the user wants changes, revise the plan and ask again.
 Once approved, post the plan you wrote in step 8 to Linear:
 
 ```
-mcp__linear-server__create_comment({
-  issueId: "issue-uuid",
+mcp__linear-server__save_comment({
+  issueId: "HON-XX",
   body: "[The complete plan from step 8, including the markdown structure]"
 })
 ```
 
-### 11. Move issue to In Progress
+### 11. Move issue to In Progress and claim it
 
-Update the issue status so other auto-implement sessions won't pick it up:
+Update the issue status so other auto-implement sessions won't pick it up. A claimed issue must always have an assignee (matches `/auto-implement` step 2.2 — 2.1 is the pre-claim gate), but never take an issue away from a teammate.
+
+**If the issue is unassigned or already assigned to me** (from the assignee noted in step 2), claim it in a single call:
 
 ```
-mcp__linear-server__update_issue({
+mcp__linear-server__save_issue({
+  id: "HON-XX",
+  state: "In Progress",
+  assignee: "me"
+})
+```
+
+**If assigned to someone else**, keep the existing assignee — move the status only, and warn the user (same handling as `/implement-issue`: warn before reassigning; do not reassign silently):
+
+```
+mcp__linear-server__save_issue({
   id: "HON-XX",
   state: "In Progress"
 })
+```
+
+```
+HON-XX is assigned to <name>; left assignment unchanged.
 ```
 
 ### 12. Output completion

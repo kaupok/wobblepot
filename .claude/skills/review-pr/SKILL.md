@@ -6,7 +6,7 @@ context: inherit
 
 # Review PR
 
-Run the Claude PR reviewer (Opus) on the current branch's PR. The reviewer reads the diff, explores the codebase, and posts findings as GitHub PR comments.
+Run the Claude PR reviewer on the current branch's PR using the model set by `CLAUDE_REVIEW_MODEL` (default in `scripts/pr-review.sh`). The reviewer reads the diff, explores the codebase, and posts findings as GitHub PR comments.
 
 ## Usage
 
@@ -30,10 +30,14 @@ If no PR exists, inform user: "No PR found for this branch. Create one with `/cr
 ### 2. Run the reviewer
 
 ```bash
+# Fresh shell — re-derive (or substitute the literal number given as the argument)
+PR_NUMBER=$(gh pr view --json number --jq .number)
 ./scripts/pr-review.sh ${PR_NUMBER}
 ```
 
-This runs synchronously. The script handles model selection (Opus), locking, and prompt formatting.
+This runs synchronously. The script handles model selection (the model set by `CLAUDE_REVIEW_MODEL`, default in `scripts/pr-review.sh`), locking, and prompt formatting.
+
+It spawns `claude -p` and takes several minutes. Run it with `timeout: 600000` (or `run_in_background: true` and poll for the `<!-- claude-review -->` comment) — the default 120 s Bash timeout kills it mid-run and leaves a stale `/tmp/claude-review-N.lock`.
 
 ### 3. Report result
 

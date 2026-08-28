@@ -246,19 +246,7 @@ Otherwise, store the issue ID:
 [auto-implement] Phase 2/7: Planning implementation for HON-XX
 ```
 
-### 2.1 Claim issue immediately
-
-Set status to "In Progress" and assign to self right away, before any planning work. This prevents other agents from picking the same issue concurrently.
-
-```
-mcp__linear-server__update_issue({
-  id: "HON-XX",
-  state: "In Progress",
-  assignee: "me"
-})
-```
-
-### 2.2 Fetch issue details
+### 2.1 Fetch issue details and gate
 
 ```
 mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
@@ -269,10 +257,72 @@ Extract and note:
 - Issue UUID (for API calls)
 - Title and description
 - `gitBranchName` for later use
-- `blockedBy` relations (should be empty or done)
+- `blockedBy` relations
 - `blocks` relations (what this unblocks)
 - `relatedTo` / `parentId` (for overlap check in 2.3)
+- Current `assignee`
 - Any labels or priority
+
+**Hard gate — run the three checks in this order (status → assignee → blockers) and stop at the first failure.** An explicit `HON-XX` argument skips Phase 1 entirely, so this is the only filter on that path. The order matters: a closed issue short-circuits before the assignee and blocker checks, so an issue that is itself `Duplicate` (e.g. HON-496) never reaches the blocker check and cannot be used to exercise it.
+
+**The orchestrator pre-claims.** `scripts/orchestrator.sh` calls `claim_issue()` (state → `In Progress`, assignee left untouched) _before_ it spawns `wt auto HON-XX` → `/auto-implement HON-XX`. On that path the issue is already `In Progress` and unassigned by the time 2.1 runs — that is the normal case, not a conflict. The gate therefore rejects on closed states and on foreign assignees, never on `In Progress` alone.
+
+**Every gate stop must first undo the pre-claim.** If the issue is `In Progress` **and** `assignee` is `null`, it got there via `claim_issue()` — which writes only the state, never an assignee — and stopping would strand it: `fetch_todo_issues` only queries Todo, the orchestrator records a 0-commit exit as SUCCESS and cleans up the worktree, and nothing ever moves the issue back. So before printing the stop message, restore Todo so the orchestrator / `/next-issue` can see it again:
+
+```
+mcp__linear-server__save_issue({ id: "HON-XX", state: "Todo" })
+```
+
+Never touch an assigned issue — `In Progress` + assignee me is an explicit claim (`/plan-issue` step 11, or a previous attempt's 2.2) that a stop must not erase, and anything assigned to someone else is theirs. Leave every other state (`Backlog`, `Todo`, `In Review`, closed states) exactly as found: the unassigned pre-claim is the only write this step reverses. If a gate stops on an issue that is `In Progress` and mine, say so in the stop message and leave it for the operator.
+
+**Gate on `statusType`, not on the state's display name.** `get_issue` returns `statusType` ∈ { `backlog`, `unstarted`, `started`, `completed`, `canceled`, `duplicate`, `triage` }; state names are workspace-configurable and `Triage` has no "closed" name to match. Keep the human-readable `status` in the stop message.
+
+1. **Status** — stop if `statusType` is `completed`, `canceled`, `duplicate`, or `triage` (a Triage issue is not refined yet — `/next-issue` and Phase 1.4 reject it too). `backlog` / `unstarted` (Backlog, Todo) pass outright. `started` covers both `In Progress` and `In Review`, so also read the state name. `In Progress` passes **only if** the assignee check below passes (unassigned = the orchestrator pre-claim; me = my own earlier claim). `In Review` always stops: a PR is already open, `claim_issue()` never writes that state so it is never a pre-claim, and this skill has no step that resumes an existing PR (a `RETRY` after Phase 5 would recreate the branch from `origin/main` and fail on push). Nothing to undo on either stop — neither case was pre-claimed by this cycle.
+
+   ```
+   [auto-implement] ✗ Error: HON-XX is In Review — a PR is already open. Resume is not supported; finish or close that PR by hand, then move the issue back to Todo.
+   ```
+
+   ```
+   [auto-implement] ✗ Error: HON-XX is [status] — not open for an autonomous cycle to claim. Pick another issue, or reopen / triage it in Linear first.
+   ```
+
+2. **Assignee** — the issue's `assignee` is a user (display name / id), never the literal string `"me"`, so resolve the current user once and compare against that:
+
+   ```
+   mcp__linear-server__get_user({ query: "me" })
+   ```
+
+   Note the returned `id` and `name`. The issue passes if `assignee` is `null`, or its id (`assigneeId` / `assignee.id`, when returned) matches the resolved `id` — fall back to comparing the display name only if `get_issue` returns no id. Stop otherwise; do not reassign and do not change its state (it has an assignee, so it was not pre-claimed):
+
+   ```
+   [auto-implement] ✗ Error: HON-XX is assigned to [assignee name] — not mine to claim. Unassign it in Linear (or have them hand it over) before running /auto-implement.
+   ```
+
+3. **Blockers** — `relations.blockedBy` entries carry only `{ id, title }`; there is no status on them. Re-fetch each blocker, same pattern as Phase 1.4 and `/next-issue`. `includeRelations: true` is mandatory here as on every `get_issue` call (CLAUDE.md) — without it the response has no `relations` key at all, so `duplicateOf` is invisible and the successor hint below can never be given:
+
+   ```
+   for each blocker in relations.blockedBy:
+     mcp__linear-server__get_issue({ id: blocker.id, includeRelations: true })
+     → note its status / statusType (and relations.duplicateOf, if statusType is duplicate)
+   ```
+
+   An empty `blockedBy` passes. Every blocker must be `Done` or `Canceled` (`statusType` `completed` / `canceled`); otherwise undo the pre-claim (above), list the open ones and stop:
+
+   ```
+   [auto-implement] ✗ Error: HON-XX is blocked by open issues:
+     - HON-YY ([status]) — [title]
+   ```
+
+   A blocker with `statusType` `duplicate` never clears on its own: follow its `duplicateOf` successor if set, otherwise re-point or remove the stale relation in Linear. Do not auto-clear it — `scripts/orchestrator.sh` applies the same Done/Canceled-only rule (and logs `[SKIP] HON-XX blocked by HON-YY (Duplicate)` each poll), so the unattended path agrees.
+
+### 2.2 Claim issue
+
+Immediately after the gate passes — before any planning work — set status to "In Progress" and assign to self. On the orchestrator's first attempt this fills in the assignee that `claim_issue()` left empty; on a direct `/auto-implement HON-XX` invocation it is the actual claim that keeps other agents off the issue. (`In Review` never reaches this step — see the status check.)
+
+```
+mcp__linear-server__save_issue({ id: "HON-XX", state: "In Progress", assignee: "me" })
+```
 
 ### 2.3 MANDATORY: Check relatedTo + epic siblings for recently-merged overlap
 
@@ -388,13 +438,13 @@ Write the plan directly in your response using this structure:
 Post the plan directly to Linear (no approval needed in auto mode):
 
 ```
-mcp__linear-server__create_comment({
-  issueId: "[issue-uuid]",
+mcp__linear-server__save_comment({
+  issueId: "HON-XX",
   body: "[The complete plan from step 2.7]"
 })
 ```
 
-**CRITICAL: Do NOT proceed to Phase 3 until the plan has been successfully posted to Linear.** If the `create_comment` call fails, retry once. If it fails again, stop with error:
+**CRITICAL: Do NOT proceed to Phase 3 until the plan has been successfully posted to Linear.** If the `save_comment` call fails, retry once. If it fails again, stop with error:
 
 ```
 [auto-implement] ✗ Error: Failed to post plan to Linear. Cannot proceed without documented plan.
@@ -456,6 +506,7 @@ For each implementation step in the plan:
 2. Make changes using Edit or Write tools
 3. Write tests for new functionality (unit tests colocated with source files)
 4. Follow patterns from CLAUDE.md
+5. If `src/components/**` changed → create/update the colocated `.stories.tsx` (CLAUDE.md Storybook rule) and run `pnpm test-storybook:ci`
 
 ```
 [auto-implement] ✓ Implementation complete
@@ -510,6 +561,8 @@ CLAUDE.md is already loaded as project instructions — do not re-read it. Read 
 - **TypeScript**: Type safety, any types, missing types
 - **Tests**: Missing test coverage for new functionality
 - **Performance**: N+1 queries, unnecessary re-renders, large bundle imports
+- **E2E drift**: If the diff includes `src/app/**/page.tsx`, a route URL, a modal/dialog component, or changes user-visible copy in a heading/button/link, grep `tests/e2e/` for stale references via the spec `// ROUTES: … · COMPONENTS: …` headers (`grep -l "ROUTES.*<route>\|COMPONENTS.*<OldName>" tests/e2e/*.spec.ts`; for copy renames also `grep -rn "<exact old copy>" tests/e2e/`) and update affected specs (CLAUDE.md E2E rule)
+- **Storybook**: If the diff touches `src/components/**`, the colocated `.stories.tsx` was created/updated for the new variants and states and `pnpm test-storybook:ci` passes (CLAUDE.md Storybook rule)
 
 ### 4.4 Triage issues
 
@@ -599,10 +652,13 @@ type(scope): Subject line
 
 Body explaining what and why.
 
-Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+Claude-Session: <session URL from the harness instructions, if provided>
 EOF
 )"
 ```
+
+Use the trailers given in the harness/system instructions when they differ from the above.
 
 ### 5.3 Analyze for PR description
 
@@ -659,11 +715,56 @@ Extract PR URL from output.
 
 ### 6.1 Wait for CI
 
+CI takes 12–45 min; Bash's 600 s foreground cap cannot cover it, so never watch checks in the foreground. Poll in the background (CLAUDE.md → Working style), then verify in the foreground:
+
 ```bash
-gh pr checks --watch --interval 10  # Use 600s Bash timeout
+# Run with run_in_background: true — emits one completion notification when the loop exits.
+# Bounded to ci.yml's timeout-minutes (45) plus margin: 100 polls × 30 s = 50 min.
+# Settles only when: at least one check exists and none is pending; the sorted name=bucket
+# list is identical on two consecutive polls (fast Vercel/smoke statuses register before the
+# ci.yml job does); and, for a PR with non-docs files, the ci.yml job "Lint, Type Check & Test"
+# is present. Each Bash call is a fresh shell, so PR_NUMBER is derived here — never reused.
+PR_NUMBER=$(gh pr view --json number --jq .number)
+NON_DOCS=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
+PREV=""
+sleep 30  # let GitHub register the workflow run for the pushed commit before the first poll
+for i in $(seq 1 100); do
+  CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket --jq 'sort_by(.name) | .[] | "\(.name)=\(.bucket)"' 2>/dev/null)
+  OK=1
+  [ -n "$CUR" ] || OK=0                                                              # at least one check exists
+  printf '%s\n' "$CUR" | grep -q '=pending$' && OK=0                                 # none pending
+  [ -z "$NON_DOCS" ] || printf '%s\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0   # ci.yml job registered (code PRs)
+  [ "$CUR" = "$PREV" ] || OK=0                                                       # identical to the previous poll
+  if [ "$OK" = 1 ]; then echo CI_SETTLED; exit 0; fi
+  PREV=$CUR
+  sleep 30
+done
+echo CI_TIMEOUT; exit 1
 ```
 
-If timeout expires, report and stop.
+If the background task ends with `CI_TIMEOUT`, report and stop — do not merge.
+
+When the notification arrives, verify in the foreground. With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so the `bucket` field is the only signal — anything other than `pass`/`skipping` (`fail` or `cancel`: FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure:
+
+```bash
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
+gh pr checks "$PR_NUMBER" --json name,bucket,state \
+  --jq '.[] | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
+```
+
+- No output → all checks passed. Proceed.
+- Any line printed → CI is failing (check names and states listed).
+- `no checks reported on the '<branch>' branch` on stderr (exit 1) → acceptable **only** when every changed file is excluded by `ci.yml` `paths-ignore` (`**/*.md`, `docs/**`, `.github/ISSUE_TEMPLATE/**`), i.e. no workflow was ever going to run. Otherwise checks simply have not been reported for a code change — stop. In practice this branch is unreachable here (docs-only PRs still receive Vercel and skipped smoke checks, so `gh pr checks` always reports something); it is kept as a defensive branch — do not rely on it:
+
+```bash
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
+NON_DOCS=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
+if [ -n "$NON_DOCS" ]; then
+  echo "CI did not report checks for a code change"  # STOP — do not proceed
+else
+  echo "DOCS_ONLY"  # no CI workflow runs for these paths — treat as passed
+fi
+```
 
 If CI fails, attempt to fix (max 2 attempts):
 
@@ -680,7 +781,7 @@ while CI failing and ci_attempts < max_ci_attempts:
     - Stage specific changed files by name and commit:
       git add [changed files] && git commit -m "fix: Address CI failures"
     - Push: git push
-    - Wait: gh pr checks --watch --interval 10  # Use 600s Bash timeout
+    - Wait: re-run the background poll + foreground verification above
 
 If still failing after 2 attempts:
     [auto-implement] ✗ Error: CI checks failing after fix attempts
@@ -695,13 +796,14 @@ gh pr view --json number,title,headRefName,url
 
 ### 6.3 Trigger Claude review
 
-Spawn a fresh Claude Code session to review the PR. **You MUST use the script below — do NOT inline the review prompt or spawn claude directly.** The script handles model selection (Opus), locking, and prompt formatting.
+Spawn a fresh Claude Code session to review the PR. **You MUST use the script below — do NOT inline the review prompt or spawn claude directly.** The script handles model selection (the model set by `CLAUDE_REVIEW_MODEL`, default in `scripts/pr-review.sh`), locking, and prompt formatting.
 
 ```bash
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
 ./scripts/pr-review.sh ${PR_NUMBER}
 ```
 
-This runs synchronously. When it returns, the review has been posted to GitHub.
+This runs synchronously. When it returns, the review has been posted to GitHub. It spawns `claude -p` and takes several minutes — run it with `timeout: 600000` (or `run_in_background: true` and poll for the `<!-- claude-review -->` comment); the default 120 s Bash timeout kills it mid-run and leaves a stale `/tmp/claude-review-N.lock`.
 
 ```
 [auto-implement] Running Claude review for PR #${PR_NUMBER}...
@@ -780,17 +882,14 @@ git add [changed files]
 git commit -m "$(cat <<'EOF'
 fix: Address review feedback
 
-Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+Claude-Session: <session URL from the harness instructions, if provided>
 EOF
 )"
 git push
 ```
 
-Wait for CI again:
-
-```bash
-gh pr checks --watch --interval 10  # Use 600s Bash timeout
-```
+Wait for CI again — re-run the 6.1 background poll + foreground verification (never watch checks in the foreground).
 
 ```
 [auto-implement] ✓ Reviews addressed
@@ -825,25 +924,58 @@ Validation:
 
 ### 7.2 Wait for CI
 
+Same mechanism as 6.1 — background poll, then foreground verification. Never watch checks in the foreground (Bash's 600 s cap is shorter than a CI run).
+
 ```bash
-gh pr checks --watch --fail-fast --interval 10  # Use 600s Bash timeout
+# Run with run_in_background: true — emits one completion notification when the loop exits.
+# Bounded to ci.yml's timeout-minutes (45) plus margin: 100 polls × 30 s = 50 min.
+# Settles only when: at least one check exists and none is pending; the sorted name=bucket
+# list is identical on two consecutive polls (fast Vercel/smoke statuses register before the
+# ci.yml job does); and, for a PR with non-docs files, the ci.yml job "Lint, Type Check & Test"
+# is present. Each Bash call is a fresh shell, so PR_NUMBER is derived here — never reused.
+PR_NUMBER=$(gh pr view --json number --jq .number)
+NON_DOCS=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
+PREV=""
+sleep 30  # let GitHub register the workflow run for the pushed commit before the first poll
+for i in $(seq 1 100); do
+  CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket --jq 'sort_by(.name) | .[] | "\(.name)=\(.bucket)"' 2>/dev/null)
+  OK=1
+  [ -n "$CUR" ] || OK=0                                                              # at least one check exists
+  printf '%s\n' "$CUR" | grep -q '=pending$' && OK=0                                 # none pending
+  [ -z "$NON_DOCS" ] || printf '%s\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0   # ci.yml job registered (code PRs)
+  [ "$CUR" = "$PREV" ] || OK=0                                                       # identical to the previous poll
+  if [ "$OK" = 1 ]; then echo CI_SETTLED; exit 0; fi
+  PREV=$CUR
+  sleep 30
+done
+echo CI_TIMEOUT; exit 1
 ```
 
-If timeout expires or any check fails, report and stop.
+If the background task ends with `CI_TIMEOUT`, report and stop — do not merge.
 
-**CRITICAL: After `gh pr checks` completes, verify ALL checks passed — including Vercel deployment:**
+**CRITICAL: When the notification arrives, verify ALL checks passed — including Vercel deployment.** With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so inspect `bucket`: anything other than `pass`/`skipping` (`fail` or `cancel` — FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure:
 
 ```bash
-# Verify no failed checks remain (gh pr checks can miss late-arriving failures)
-FAILED=$(gh pr checks --json name,state --jq '[.[] | select(.state == "FAILURE")] | length')
-if [ "$FAILED" != "0" ]; then
-  echo "CI checks still failing:"
-  gh pr checks --json name,state --jq '.[] | select(.state == "FAILURE") | "\(.name): \(.state)"'
-  # STOP — do NOT merge
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
+gh pr checks "$PR_NUMBER" --json name,bucket,state \
+  --jq '.[] | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
+```
+
+- No output → all checks passed. Proceed to 7.3.
+- Any line printed → **STOP — do NOT merge.** Report the listed checks.
+- `no checks reported on the '<branch>' branch` on stderr (exit 1) → acceptable **only** when every changed file is excluded by `ci.yml` `paths-ignore` (`**/*.md`, `docs/**`, `.github/ISSUE_TEMPLATE/**`), i.e. no workflow was ever going to run. Otherwise checks simply have not been reported for a code change — stop. In practice this branch is unreachable here (docs-only PRs still receive Vercel and skipped smoke checks, so `gh pr checks` always reports something); it is kept as a defensive branch — do not rely on it:
+
+```bash
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
+NON_DOCS=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
+if [ -n "$NON_DOCS" ]; then
+  echo "CI did not report checks for a code change"  # STOP — do not proceed
+else
+  echo "DOCS_ONLY"  # no CI workflow runs for these paths — treat as passed
 fi
 ```
 
-**Do NOT merge if any check shows FAILURE, including Vercel deployment checks.** This is a hard gate — no exceptions.
+**Do NOT merge if any check is in the `fail` or `cancel` bucket, including Vercel deployment checks.** This is a hard gate — no exceptions.
 
 ### 7.3 Merge the PR
 
@@ -874,26 +1006,27 @@ The remote branch is still deleted by GitHub. The local worktree branch is prese
 
 After merging but before local cleanup, post a work summary to the Linear issue.
 
-The issue UUID is already in context from Phase 2.1. The PR number and URL are available from Phase 5.4 / Phase 6.2.
+The PR number and URL are available from Phase 5.4 / Phase 6.2.
 
 **Gather PR data:**
 
 ```bash
-# PR details and files (works after merge — does not depend on branch)
-gh pr view --json number,title,url,commits,files
+# Bash calls don't share variables — substitute the literal PR number captured in
+# Phase 6.2 for <PR_NUMBER>. After the squash merge (with --delete-branch) HEAD is `main`,
+# so a bare `gh pr view` no longer resolves this PR.
+gh pr view <PR_NUMBER> --json number,title,url,commits,files
 
 # Review comments: inline comments + review-level summaries
-gh api /repos/{owner}/{repo}/pulls/{number}/comments
-gh api /repos/{owner}/{repo}/pulls/{number}/reviews
+# (`:owner/:repo` is auto-filled by gh from the current git remote)
+gh api /repos/:owner/:repo/pulls/<PR_NUMBER>/comments
+gh api /repos/:owner/:repo/pulls/<PR_NUMBER>/reviews
 ```
-
-Extract owner/repo from `gh repo view --json nameWithOwner --jq .nameWithOwner`.
 
 **Post comment to Linear:**
 
 ```
-mcp__linear-server__create_comment({
-  issueId: "[issue-uuid]",
+mcp__linear-server__save_comment({
+  issueId: "HON-XX",
   body: "[summary comment]"
 })
 ```

@@ -11,13 +11,30 @@ Detailed git workflow procedures and troubleshooting for the Honkadori project.
 
 ## Branch Naming Convention
 
-Use descriptive branch names with prefixes:
+Which scheme to use depends on who is creating the branch and whether a Linear issue is the source:
+
+| Scheme                   | When                                                                                                    | Example                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `<username>/hon-NN-slug` | Local or interactive work on a Linear issue — use `gitBranchName` verbatim                              | `kaupokorv/hon-51-feature-name`   |
+| `posthog/hon-NN-slug`    | PostHog Desktop agent, Linear-sourced — `gitBranchName` with the username segment replaced by `posthog` | `posthog/hon-123-add-pantry-sync` |
+| `posthog/<slug>`         | PostHog Desktop agent, no Linear issue behind the task                                                  | `posthog/fix-login-redirect`      |
+| `<type>/<slug>`          | Manual work with no Linear issue                                                                        | `feat/auth-improvements`          |
+
+**Anything Linear-sourced must carry the `hon-NN` token.** That token is what makes Linear auto-link
+the branch, move the issue to In Review when the PR opens, and attach the PR — drop it and all three
+stop working silently.
+
+For the manual `<type>/<slug>` scheme, use these prefixes:
 
 - `feat/` - New features (e.g., `feat/auth-improvements`)
 - `fix/` - Bug fixes (e.g., `fix/login-error`)
 - `docs/` - Documentation only (e.g., `docs/update-readme`)
 - `refactor/` - Code refactoring (e.g., `refactor/extract-utility`)
 - `chore/` - Maintenance tasks (e.g., `chore/update-deps`)
+
+**Never use the `auto-` or `auto/` prefix for a git branch.** It's reserved for the ephemeral Neon
+database branches created by the parallel workflow, which are garbage-collected by prefix match —
+see [PARALLEL_WORKFLOW.md](PARALLEL_WORKFLOW.md).
 
 ## Complete Workflow Steps
 
@@ -78,12 +95,13 @@ Use descriptive branch names with prefixes:
 
    Detailed description of changes...
 
-   🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-   Co-Authored-By: Claude <noreply@anthropic.com>
+   Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+   Claude-Session: <session URL from the harness instructions, if provided>
    EOF
    )"
    ```
+
+   Use the trailers given in the harness/system instructions when they differ from the above.
 
 8. **Push to remote:**
 

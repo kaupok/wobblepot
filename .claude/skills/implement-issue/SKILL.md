@@ -1,6 +1,7 @@
 ---
 name: implement-issue
 description: Implement an approved plan. Reads plan from Linear, creates branch, and begins implementation.
+argument-hint: 'HON-XX [--no-plan]'
 context: inherit
 ---
 
@@ -21,7 +22,7 @@ Supports optional `--no-plan` flag to skip plan validation for simple issues.
 Extract issue ID and check for flags:
 
 - Issue ID: `HON-XX` or just `XX` (required)
-- `--no-plan`: Skip plan file lookup and validation
+- `--no-plan`: Skip plan lookup and validation (steps 4-5)
 
 If no issue ID provided:
 
@@ -36,8 +37,8 @@ Examples:
 
 If `--no-plan` flag is present:
 
-- Skip steps 3-5 (plan file handling)
-- Fetch issue details directly
+- Still run step 3 — the fetch supplies `gitBranchName` and the status/blocker gate
+- Skip steps 4-5 (plan lookup and validation)
 - Use issue description as implementation guide
 - Continue from step 6 (status update)
 
@@ -53,6 +54,26 @@ Extract:
 - `gitBranchName`
 - Current state
 - Current assignee
+- `relations.blockedBy`
+
+**Hard gate (runs in both normal and `--no-plan` mode) — stop before claiming the issue if either holds:**
+
+- `statusType` is `completed`, `canceled`, `duplicate`, or `triage` (Done / Canceled / Duplicate / Triage — match on `statusType`, not the display name, same as `/auto-implement` 2.1) — the issue is closed or not yet refined:
+
+  ```
+  HON-XX is [status] — nothing to implement. Pick another issue (`/next-issue`) or reopen it in Linear first.
+  ```
+
+- `relations.blockedBy` contains any issue whose status is not `Done` or `Canceled` — entries carry only `{ id, title }`, so re-fetch each one with `mcp__linear-server__get_issue({ id, includeRelations: true })` to read its status (and `relations.duplicateOf`, which is absent without `includeRelations`) — list the open blockers and stop:
+
+  ```
+  HON-XX is blocked by open issues:
+    - HON-YY ([status]) — [title]
+    - HON-ZZ ([status]) — [title]
+  Finish the open blockers first. A blocker with status `Duplicate` never clears on its own: follow its `duplicateOf` successor if set, otherwise re-point or remove the stale relation in Linear.
+  ```
+
+Do not proceed to step 4 (or step 6 in `--no-plan` mode) while either condition holds. Claiming a closed or blocked issue would put it back In Progress and hide the real dependency from `/next-issue`.
 
 ### 4. Find plan from Linear comments
 
@@ -82,31 +103,21 @@ Verify the plan comment:
 
 Store the plan content for implementation guidance.
 
-### 6. Update issue status
+### 6. Update issue status and assign to self
 
-If current state is not "In Progress":
+If assigned to someone else, warn the user and ask before reassigning.
+
+If current state is not "In Progress" or the issue is unassigned, claim it in a single call:
 
 ```
-mcp__linear-server__update_issue({
+mcp__linear-server__save_issue({
   id: "HON-XX",
-  state: "In Progress"
-})
-```
-
-### 7. Assign to self
-
-If issue is unassigned:
-
-```
-mcp__linear-server__update_issue({
-  id: "HON-XX",
+  state: "In Progress",
   assignee: "me"
 })
 ```
 
-If assigned to someone else, warn the user and ask before reassigning.
-
-### 8. Create or switch to branch
+### 7. Create or switch to branch
 
 First, detect if we're in a worktree:
 
@@ -155,7 +166,7 @@ Verify you're on the correct branch:
 git branch --show-current
 ```
 
-### 9. Begin implementation
+### 8. Begin implementation
 
 CLAUDE.md is already loaded as project instructions — do not re-read it. Read `docs/TYPOGRAPHY.md` only if the issue involves typography components.
 
@@ -178,7 +189,13 @@ Starting with step 1...
 
 Then implement following the plan steps (or issue description if `--no-plan`).
 
-### 10. Signal completion
+### 9. Signal completion
+
+Before signalling completion, confirm the definition of done:
+
+- **E2E drift**: if you touched `src/app/**/page.tsx`, a route URL, navigation/CTA copy, or a modal/dialog, grep `tests/e2e/` via the spec `// ROUTES: … · COMPONENTS: …` headers (`grep -l "ROUTES.*<route>\|COMPONENTS.*<Component>" tests/e2e/*.spec.ts`; for copy renames also `grep -rn "<exact old copy>" tests/e2e/`) and update affected specs (CLAUDE.md E2E rule)
+- **Storybook**: if you touched `src/components/**`, create/update the colocated `.stories.tsx` and run `pnpm test-storybook:ci` (CLAUDE.md Storybook rule)
+- `pnpm lint && pnpm type-check && pnpm test` pass
 
 After implementing all steps, output the completion marker exactly as shown:
 
@@ -193,6 +210,8 @@ This marker signals to orchestrating skills (like `/auto-implement`) that implem
 | Scenario                    | Handling                                            |
 | --------------------------- | --------------------------------------------------- |
 | Issue doesn't exist         | Error: "Issue HON-XX not found in Linear"           |
+| Issue Done/Canceled/Dup.    | Stop at step 3 gate; do not claim                   |
+| Has open blockers           | Stop at step 3 gate; list blockers                  |
 | Plan not in Linear comments | Offer to run `/plan-issue` or use `--no-plan`       |
 | Plan is for different issue | Error: "Plan in comments is for HON-YY, not HON-XX" |
 | Already on the branch       | Continue without creating new branch                |
