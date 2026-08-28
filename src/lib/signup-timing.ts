@@ -15,8 +15,7 @@ import 'server-only'
  * (or `true`) to enable — the local E2E runner sets it. Read directly from
  * `process.env`, mirroring `E2E_DISABLE_RATE_LIMIT` in `src/lib/rate-limit.ts`.
  */
-const ENABLED =
-  process.env.SIGNUP_TIMING_LOG === '1' || process.env.SIGNUP_TIMING_LOG === 'true'
+const ENABLED = process.env.SIGNUP_TIMING_LOG === '1' || process.env.SIGNUP_TIMING_LOG === 'true'
 
 /**
  * Time an async step and log its duration when timing is enabled. Returns the
