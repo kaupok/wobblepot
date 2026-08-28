@@ -17,7 +17,7 @@ Risk assessment: [`dpia.md`](./dpia.md) — lightweight DPIA covering children's
 | #   | Vendor                      | Counterparty entity                      | Role                                 | Processing region  |
 | --- | --------------------------- | ---------------------------------------- | ------------------------------------ | ------------------ |
 | 1   | Anthropic                   | Anthropic, PBC (verify on first invoice) | LLM — prompts + AI-generated content | US                 |
-| 2   | Resend                      | Plus Five, Inc.                          | Transactional email                  | US                 |
+| 2   | Resend                      | Plus Five Five, Inc.                     | Transactional email                  | US                 |
 | 3   | Vercel                      | Vercel Inc.                              | Hosting, request metadata, logs      | US/EU              |
 | 4   | Neon (a Databricks company) | Neon, LLC (importer: Databricks, Inc.)   | Database — all user records          | **EU (Frankfurt)** |
 | 5   | PostHog                     | PostHog, Inc.                            | Product analytics + error tracking   | EU (Frankfurt)     |
