@@ -270,10 +270,13 @@ neon_create_branch_for_worktree() {
     --project-id "$NEON_PROJECT_ID" 2>/dev/null)
 
   if [ -z "$pooled" ] || [ -z "$unpooled" ]; then
-    echo -e "${RED}Error: Neon branch created but could not fetch connection strings.${NC}" >&2
-    # Don't leak the branch we just created. Best-effort delete.
-    pnpm dlx "neonctl@$NEONCTL_VERSION" branches delete "$neon_branch" \
-      --project-id "$NEON_PROJECT_ID" >/dev/null 2>&1 || true
+    echo -e "${RED}Error: could not fetch connection strings for Neon branch '$neon_branch'.${NC}" >&2
+    if [ "$reused" = "0" ]; then
+      # Don't leak the branch we just created. Best-effort delete. A reused
+      # branch was not created here and holds the work being resumed — keep it.
+      pnpm dlx "neonctl@$NEONCTL_VERSION" branches delete "$neon_branch" \
+        --project-id "$NEON_PROJECT_ID" >/dev/null 2>&1 || true
+    fi
     return 1
   fi
 
