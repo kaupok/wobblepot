@@ -72,7 +72,11 @@ PAUSED_UNTIL=0
 # every poll. A file rather than a variable because main() calls
 # select_next_issue inside $(...): a variable appended there dies with the
 # subshell and every poll would log again. Removed by the EXIT trap.
-SEEN_SKIPS_FILE=$(mktemp -t orchestrator-skips)
+# Explicit XXXXXXXX template rather than `mktemp -t orchestrator-skips`:
+# BSD/macOS mktemp appends the random suffix to a -t prefix, but GNU
+# coreutils requires the template to end in at least three X's and fails
+# outright otherwise — which made this line abort the script on Linux.
+SEEN_SKIPS_FILE=$(mktemp "${TMPDIR:-/tmp}/orchestrator-skips.XXXXXXXX")
 # main() re-installs a fuller EXIT trap; this one covers the early exits in
 # argument parsing and acquire_lock so the temp file never leaks.
 trap 'rm -f "$SEEN_SKIPS_FILE"' EXIT
@@ -360,8 +364,14 @@ select_next_issue() {
         # ignores label removal until restart (HON-562, 2026-08-30).
         _gated: (.identifier as $id | ($gated_list | index($id)) != null),
         # Durable form of the gate: the label survives restarts, so a
-        # deterministic 0-commit issue is not re-picked every run.
-        _gated_label: (([.labels.nodes[]?.name] | index("Gated")) != null),
+        # deterministic 0-commit issue is not re-picked every run. `Stranded`
+        # gates for a different reason but needs the same treatment: that path
+        # deliberately preserves the worktree, and `wt auto` hard-exits when one
+        # already exists (worktree-claude.sh:568), so re-picking the issue would
+        # fail the worker in seconds and land it in Backlog via handle_failure.
+        # Holds the matching label NAME (or null) rather than a boolean, so the
+        # SKIP line can name the label the operator actually has to remove.
+        _gate_label: ([.labels.nodes[]?.name] | map(select(. == "Gated" or . == "Stranded")) | .[0]),
         # Any assigned issue belongs to someone — including the operator, who
         # may have self-assigned a Todo issue to work on by hand. Same rule as
         # /next-issue step 4 and /auto-implement 1.4 (assignee must be null).
@@ -396,7 +406,8 @@ select_next_issue() {
           if ._running then ["DEBUG", "already running"]
           # Only the label gates; a stale in-memory entry (label removed) is
           # cleaned up via the UNGATE line and the candidate stays eligible.
-          elif ._gated_label then ["INFO", "gated (a worker exited with 0 commits) — fix the cause, then remove the Gated label or re-triage to retry"]
+          elif ._gate_label == "Gated" then ["INFO", "gated (a worker exited with 0 commits) — fix the cause, then remove the Gated label or re-triage to retry"]
+          elif ._gate_label == "Stranded" then ["INFO", "stranded (a worker left an unmerged PR; its worktree is preserved) — finish or close the PR, release with `wt cleanup <branch>`, then remove the Stranded label"]
           elif ._assigned then ["INFO", "assigned"]
           elif (._open_blockers | length) > 0 then
             ["INFO",
@@ -409,7 +420,7 @@ select_next_issue() {
           else null end)
       })
     # One UNGATE line per stale in-memory gate (label removed by operator)
-    | (.[] | select(._gated and (._gated_label | not)) | ["UNGATE", .identifier] | @tsv),
+    | (.[] | select(._gated and (._gate_label | not)) | ["UNGATE", .identifier] | @tsv),
     # One SKIP line per rejected candidate
       (.[] | select(._skip != null) | ["SKIP", ._skip[0], .identifier, ._skip[1]] | @tsv),
     # Sort survivors: blocks others first (desc), then priority (asc, 0=no priority→5)
@@ -540,7 +551,7 @@ monitor_workers() {
       wait "$pid" 2>/dev/null || exit_code=$?
 
       if [ "$exit_code" -eq 0 ]; then
-        log INFO "Worker $issue_id (PID $pid) completed successfully"
+        log INFO "Worker $issue_id (PID $pid) exited cleanly (exit 0)"
         handle_success "$issue_id" "$issue_uuid" "$branch" "$log_file"
       else
         log WARN "Worker $issue_id (PID $pid) failed (exit $exit_code)"
@@ -777,6 +788,50 @@ count_commits() {
   fi
 }
 
+# Resolve the pull request for a branch, if any.
+# Prints "state<TAB>number<TAB>url" (state ∈ OPEN | CLOSED | MERGED), or nothing
+# when gh is missing/unauthenticated or no PR was ever opened. Callers must
+# treat "nothing" as unknown, never as "no PR therefore fine" — handle_success
+# only asks this question on a path where a false SUCCESS is the failure mode.
+pr_for_branch() {
+  local branch="$1"
+  [ -z "$branch" ] && return 0
+  command -v gh &> /dev/null || return 0
+  # gh resolves the repo from the working directory. The orchestrator can be
+  # started from anywhere, so pin it to REPO_ROOT in a subshell rather than
+  # inheriting whatever cwd the operator happened to have.
+  # `.[0] // empty` matters: on an empty result `.[0]` is null and the array
+  # construction would emit a literal "<TAB>null<TAB>" row, which reads as a
+  # PR numbered "null" downstream. Emit nothing instead.
+  ( cd "$REPO_ROOT" && gh pr list --head "$branch" --state all --limit 1 \
+      --json state,number,url --jq '.[0] // empty | [.state, (.number|tostring), .url] | @tsv' \
+  ) 2>/dev/null || true
+}
+
+# Summarize a PR's CI as green | pending | failing | unknown. Mirrors the
+# bucket rules /auto-implement Phase 6.1 uses: pass and skipping are fine,
+# pending means still running, anything else (fail/cancel) is failing.
+pr_ci_state() {
+  local pr_number="$1"
+  [ -z "$pr_number" ] && echo "unknown" && return
+  command -v gh &> /dev/null || { echo "unknown"; return; }
+
+  local buckets
+  # Same cwd pinning as pr_for_branch — without it gh cannot find the repo.
+  buckets=$( ( cd "$REPO_ROOT" && gh pr checks "$pr_number" --json bucket --jq '.[].bucket' ) 2>/dev/null ) || {
+    echo "unknown"; return
+  }
+  [ -z "$buckets" ] && { echo "unknown"; return; }
+
+  if printf '%s\n' "$buckets" | grep -qx 'pending'; then
+    echo "pending"
+  elif printf '%s\n' "$buckets" | grep -qvxE 'pass|skipping'; then
+    echo "failing"
+  else
+    echo "green"
+  fi
+}
+
 # Send macOS notification
 notify() {
   local title="$1" message="$2"
@@ -822,6 +877,24 @@ handle_success() {
   done
   duration_str=$(format_duration "$duration_secs")
 
+  # Resolve the PR once, ahead of BOTH incompleteness checks below. Each of them
+  # condemns a run that did not reach "done", and both are wrong when the run
+  # actually merged: detect_phase can miss the "[merge:complete]" marker and fall
+  # through to "planning", and a merged run whose worktree is already gone counts
+  # 0 commits. Confirming against the PR first keeps a lagging phase from
+  # manufacturing either a false GATED or a false STRANDED. Skipped entirely when
+  # the phase already says "done" — that run needs no confirmation, and this is a
+  # network round-trip.
+  local pr_state="" pr_number="" pr_url="" pr_info="" pr_merged=false
+  if [ "$phase" != "done" ]; then
+    pr_info=$(pr_for_branch "$branch")
+    [ -n "$pr_info" ] && IFS=$'\t' read -r pr_state pr_number pr_url <<< "$pr_info"
+    if [ "$pr_state" = "MERGED" ]; then
+      log INFO "$issue_id: phase reported '$phase' but PR #$pr_number is merged — treating as success"
+      pr_merged=true
+    fi
+  fi
+
   # A clean exit that produced no commits and did not reach a merge shipped
   # nothing. Logging it as SUCCESS would leave the issue In Progress and
   # assigned, which select_next_issue skips forever. Gate it instead: return the
@@ -830,7 +903,7 @@ handle_success() {
   # merged run can also show 0 commits once local main advances past its merge;
   # that run reached phase "done", so it stays a SUCCESS and Linear automation
   # moves its issue to Done.
-  if [ "${commits:-0}" -eq 0 ] && [ "$phase" != "done" ]; then
+  if [ "${commits:-0}" -eq 0 ] && [ "$phase" != "done" ] && [ "$pr_merged" = false ]; then
     log WARN "[OUTCOME] $issue_id GATED ${duration_str} 0-commits phase=$phase"
     notify "Honkadori" "$issue_id produced no commits — returned to Todo"
     gate_no_commit_success "$issue_uuid" "$issue_id" "$log_file"
@@ -841,6 +914,48 @@ handle_success() {
     note_consecutive_failure
     [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=1
     cleanup_worker_worktree "$branch"
+    return
+  fi
+
+  # A clean exit with commits that never reached "done" did not merge anything.
+  # This is the headless-worker failure mode (HON-573): the process exits the
+  # moment a turn ends, so a worker that ended its turn waiting on CI dies with
+  # an open, unmerged PR. Logging that as SUCCESS hid it twice over — the
+  # outcome line said the cycle finished, and cleanup then deleted the worktree,
+  # local branch and Neon branch that a resume needs.
+  #
+  # A MERGED PR (confirmed above) falls through to SUCCESS; everything else —
+  # open, closed, never created, or unknowable because gh is missing — is
+  # STRANDED, because on this path a false SUCCESS is the expensive answer.
+  if [ "$phase" != "done" ] && [ "$pr_merged" = false ]; then
+    local ci_state pr_ref="none"
+    ci_state=$(pr_ci_state "$pr_number")
+    [ -n "$pr_number" ] && pr_ref="#$pr_number"
+    log WARN "[OUTCOME] $issue_id STRANDED ${duration_str} ${commits}-commits phase=$phase pr=${pr_ref} ci=${ci_state}"
+    notify "Honkadori" "$issue_id stranded at $phase — PR $pr_ref not merged"
+    record_stranded "$issue_uuid" "$issue_id" "$branch" "$log_file" "$pr_url" "$pr_ref" "$pr_state" "$ci_state" "$phase"
+    # With a PR, In Review is the accurate state and record_stranded leaves it
+    # alone. With no PR — none opened, or gh missing/unauthenticated, which
+    # validate_environment only WARNs about — Linear never moved the issue, so
+    # it is still In Progress and assigned where claim_issue and /auto-implement
+    # Phase 2.2 left it. fetch_todo_issues queries Todo only and
+    # select_next_issue skips assigned issues, so it would never be seen again.
+    # Hand it back the way gate_no_commit_success does; the Stranded label added
+    # by record_stranded keeps the picker off it until an operator clears it.
+    if [ -z "$pr_number" ]; then
+      restore_todo_if_in_progress "$issue_uuid" "$issue_id"
+    fi
+    # An incomplete cycle is a failure to ship, so it counts toward the
+    # circuit breaker: a systemic stranding must not walk the whole Todo
+    # queue one worker per poll.
+    note_consecutive_failure
+    [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=1
+    # Deliberately no cleanup_worker_worktree: the worktree, local branch and
+    # Neon branch are exactly what finishing this run by hand requires. Nothing
+    # reclaims them once the operator is done, so the release command has to
+    # travel with the resume command — otherwise every stranded run leaks a
+    # worktree (a full pnpm install) and blocks any respawn on that branch.
+    log WARN "Preserved worktree and branch for $issue_id — resume with: wt resume $branch (release with: wt cleanup $branch)"
     return
   fi
 
@@ -884,6 +999,66 @@ gate_no_commit_success() {
   try_add_label "$issue_uuid" "Gated"
   restore_todo_if_in_progress "$issue_uuid" "$issue_id"
   log INFO "Gated $issue_id → Todo (unassigned, labelled Gated, 0 commits)"
+}
+
+# ─── Record a stranded (unmerged) run ────────────────────────────────────────
+# The worker exited cleanly with commits but never merged. Make that visible
+# where a human will look — on the issue itself — rather than only in
+# orchestrator.log. This function only adds the label and the comment; it never
+# touches issue state, because with an open PR Linear automation has already
+# moved the issue to In Review and that is the accurate state. The no-PR case,
+# where nothing moved the issue at all, is handled by the caller.
+
+record_stranded() {
+  local issue_uuid="$1" issue_id="$2" branch="$3" log_file="$4"
+  local pr_url="$5" pr_ref="$6" pr_state="$7" ci_state="$8" phase="$9"
+
+  # pr_ref is "#650" — the shape the outcome log line wants. Every operator
+  # instruction below needs the bare number instead: `gh pr merge` rejects a
+  # leading "#" as a ref, and a shell pasting the command reads "#650" as the
+  # start of a comment and silently drops the argument.
+  local pr_num="${pr_ref#\#}"
+
+  # OPEN and CLOSED must not read the same. A deliberately-closed PR handed a
+  # "merge it" instruction either wastes the operator's time or, worse, gets
+  # work someone closed on purpose reopened and merged.
+  local pr_note="No PR could be resolved for \`$branch\` — either none was opened, or \`gh\` is unavailable to this orchestrator."
+  if [ -n "$pr_url" ] && [ "$pr_state" = "OPEN" ]; then
+    pr_note=$(printf '**Open PR:** %s (CI: `%s`)' "$pr_url" "$ci_state")
+  elif [ -n "$pr_url" ]; then
+    pr_note=$(printf '**PR %s — %s, never merged** (CI: `%s`)' "$pr_url" "$pr_state" "$ci_state")
+  fi
+
+  local log_path_note=""
+  [ -n "$log_file" ] && log_path_note=$(printf '\n**Worker log:** `%s`' "$log_file")
+
+  local next_step
+  if [ "$pr_state" = "OPEN" ]; then
+    next_step="Review the PR, then merge it by hand once CI is green."
+    case "$ci_state" in
+      green)   next_step=$(printf 'CI is green — this run is one `gh pr merge --squash %s` from done.' "$pr_num") ;;
+      failing) next_step="CI is failing — fix on the preserved branch, push, then merge." ;;
+      pending) next_step="CI is still running — wait for it, then merge." ;;
+    esac
+  elif [ -n "$pr_url" ]; then
+    next_step=$(printf 'The PR is %s and was never merged — reopen it (`gh pr reopen %s`) or open a fresh one from the preserved branch. Do not assume it can be merged as-is.' "$pr_state" "$pr_num")
+  else
+    next_step="No PR exists for this branch. Resume the worktree and finish the cycle by hand, or check that \`gh\` is installed and authenticated for the orchestrator."
+  fi
+
+  local body
+  body=$(printf '## Auto-implementation stranded at `%s`\n\nThe worker exited cleanly but never merged, so the cycle is incomplete. %s%s\n\n**Preserved for resume:** the worktree, local branch `%s` and its Neon branch were *not* cleaned up. Resume with `wt resume %s`, and release them with `wt cleanup %s` once the run is finished — nothing else reclaims them.\n\n%s' \
+    "$phase" "$pr_note" "$log_path_note" "$branch" "$branch" "$branch" "$next_step")
+
+  local vars
+  vars=$(jq -n --arg id "$issue_uuid" --arg body "$body" '{issueId: $id, body: $body}')
+  linear_api \
+    'mutation($issueId: String!, $body: String!) {
+      commentCreate(input: { issueId: $issueId, body: $body }) { success }
+    }' "$vars" > /dev/null 2>&1 || log WARN "Failed to comment on $issue_id"
+
+  try_add_label "$issue_uuid" "Stranded"
+  log WARN "Stranded $issue_id at phase=$phase (pr=$pr_ref ci=$ci_state) — artifacts preserved"
 }
 
 # ─── Sanitize logs (strip secrets before posting to Linear) ──────────────────
@@ -1161,6 +1336,9 @@ try_add_label() {
   if [ -z "$label_id" ] && [ -n "$TEAM_UUID" ]; then
     local color="#e5484d"
     [ "$label_name" = "Needs attention" ] && color="#f76b15"
+    # Stranded is not a failure — the work is sound and the PR is open, it just
+    # needs a human to finish it. A distinct colour keeps it out of the red band.
+    [ "$label_name" = "Stranded" ] && color="#bb87fc"
     local vars
     vars=$(jq -n --arg name "$label_name" --arg team "$TEAM_UUID" --arg color "$color" \
       '{name: $name, teamId: $team, color: $color}')
@@ -1358,6 +1536,13 @@ validate_environment() {
     log WARN "Claude CLI not found — failure triage will use defaults"
   fi
 
+  # Not fatal: without gh, handle_success cannot confirm a PR's state, so a
+  # non-"done" exit is classified STRANDED (the conservative answer) instead of
+  # being checked. Outcomes stay honest, they just lose their PR/CI detail.
+  if ! command -v gh &> /dev/null; then
+    log WARN "gh CLI not found — stranded runs will be reported without PR/CI detail"
+  fi
+
   if [ ! -x "$SCRIPT_DIR/worktree-claude.sh" ]; then
     log ERROR "worktree-claude.sh not found or not executable"
     errors=$((errors + 1))
@@ -1500,4 +1685,10 @@ main() {
   fi
 }
 
-main
+# Only run the loop when executed, not when sourced. scripts/orchestrator.test.ts
+# sources this file to drive handle_success directly with stubbed collaborators;
+# without the guard, sourcing would acquire the instance lock and start polling
+# Linear for real.
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+  main
+fi
