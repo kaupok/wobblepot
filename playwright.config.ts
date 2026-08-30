@@ -52,6 +52,10 @@ const webServer = remoteBaseURL
 export default defineConfig({
   testDir: 'tests/e2e', // <-- only look here
   testMatch: ['**/*.spec.ts'], // <-- only *.spec.ts
+  // Pre-compiles auth-critical routes on local dev servers so parallel workers
+  // don't stampede Turbopack's first-hit compile (HON-569). No-op in CI and on
+  // remote tiers — see shouldWarmDevServer().
+  globalSetup: './tests/e2e/utils/warm-dev-server.ts',
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
