@@ -9,6 +9,14 @@ const globalForPosthog = globalThis as unknown as {
 }
 
 export function getPosthogServer(): PostHog | null {
+  // Vitest exercises real route catch-blocks that call `captureApiError`, plus
+  // real analytics captures. With `flushAt: 1` / `flushInterval: 0` those
+  // fixture errors ship to the live project and bury genuine exceptions. Return
+  // no client under test — one gate covers every server-side capture path.
+  if (process.env.VITEST) {
+    return null
+  }
+
   if (!serverEnv.NEXT_PUBLIC_POSTHOG_KEY || !serverEnv.NEXT_PUBLIC_POSTHOG_HOST) {
     return null
   }

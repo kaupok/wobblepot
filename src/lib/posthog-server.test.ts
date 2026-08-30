@@ -22,6 +22,7 @@ vi.mock('@vercel/functions', () => ({
 
 describe('posthog-server', () => {
   let processOnceSpy: ReturnType<typeof vi.spyOn>
+  const originalVitest = process.env.VITEST
 
   beforeEach(() => {
     vi.resetModules()
@@ -32,6 +33,10 @@ describe('posthog-server', () => {
     delete process.env.NEXT_PUBLIC_POSTHOG_HOST
     delete process.env.VERCEL
     delete process.env.NEXT_RUNTIME
+    // The runner sets VITEST, which the test-guard treats as "return no client".
+    // Clear it so the construction tests below reach the real client path; the
+    // guard itself gets its own test that sets VITEST back.
+    delete process.env.VITEST
     processOnceSpy = vi.spyOn(process, 'once').mockImplementation(() => process)
   })
 
@@ -42,6 +47,21 @@ describe('posthog-server', () => {
     delete process.env.NEXT_PUBLIC_POSTHOG_HOST
     delete process.env.VERCEL
     delete process.env.NEXT_RUNTIME
+    if (originalVitest === undefined) {
+      delete process.env.VITEST
+    } else {
+      process.env.VITEST = originalVitest
+    }
+  })
+
+  it('returns null under Vitest so fixture errors never reach the live project', async () => {
+    process.env.VITEST = 'true'
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test'
+    process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://eu.i.posthog.com'
+
+    const { getPosthogServer } = await import('@/lib/posthog-server')
+    expect(getPosthogServer()).toBeNull()
+    expect(constructorSpy).not.toHaveBeenCalled()
   })
 
   it('returns null when NEXT_PUBLIC_POSTHOG_KEY is unset', async () => {
