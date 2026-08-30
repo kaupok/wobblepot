@@ -81,7 +81,7 @@ When creating a worktree, the script automatically copies these gitignored files
 | `.env`                        | Environment variables (DATABASE_URL, API keys, etc.) |
 | `.claude/settings.local.json` | Claude Code permissions and settings                 |
 
-`PROJECT_ROOT` paths in these files are automatically updated to point to the worktree location.
+Both files are copied verbatim. When Neon branching is enabled, `DATABASE_URL` and `DATABASE_URL_UNPOOLED` in the worktree's copy of `.env` are then patched to point at the fresh Neon branch (see the Neon section below).
 
 **To add more files:** Edit the `UNTRACKED_FILES` array in `scripts/worktree-claude.sh`.
 
@@ -161,9 +161,9 @@ The orchestrator (`scripts/orchestrator.sh`) is a long-running dispatcher that p
 - Fetch Todo issues via Linear GraphQL (curl + jq)
 - Filter out issues already being processed by running workers
 - Skip assigned issues — someone owns them (same `assignee: "null"` rule as `/next-issue` and `/auto-implement` Phase 1.4). `move_to_backlog` clears the assignee when it fails an issue back to Backlog, so a re-triaged issue is pickable again. The explicit-ID gate (`/auto-implement HON-XX` 2.1) also accepts `assignee == me` on an `In Progress` issue (my own earlier claim).
-- If the orchestrator is force-killed (second signal), in-flight issues stay `In Progress` **and assigned** — `move_to_backlog` never ran. To re-queue one, move it to Todo **and unassign it**; an assigned issue is skipped.
+- When a force-kill (second signal) stops the orchestrator, it waits for each worker to exit (SIGTERM, then SIGKILL after 10s), removes its worktree (keeping the git branch and its Neon branch, as RETRY does) and returns the issue to Todo **and clears its assignee** — but only while the issue is still `In Progress`; an issue Linear's PR automation already moved to `In Review` keeps that state. A future run then picks the issue up and `wt auto` resumes the existing branch. Without this step, the issue stays `In Progress` **and assigned**, and the picker skips it forever.
 - Check `blockedBy` — unblocked only if all blockers are Done/Canceled. A Duplicate blocker never clears on its own: a human follows its `duplicateOf` or fixes the stale relation (same rule as the `/auto-implement` and `/implement-issue` gates)
-- Log every skipped candidate with its reason (`[SKIP] HON-XX assigned`, `[SKIP] HON-XX blocked by HON-YY (Duplicate)`) so a stuck issue is visible in `orchestrator.log` rather than dropped silently
+- Log each skipped candidate once per issue and reason (`[SKIP] HON-XX assigned`, `[SKIP] HON-XX blocked by HON-YY (Duplicate)`), so a stuck issue is visible in `orchestrator.log`. The orchestrator logs each reason one time, not every poll. A changed reason (a blocker moves to a new state) logs again.
 - Prioritize: issues that `blocks` others first, then by `priority` field
 - Pick one per poll cycle
 
@@ -196,7 +196,12 @@ Requires `LINEAR_API_KEY` env var (format: `lin_api_...`).
 ```
 [OUTCOME] HON-51 SUCCESS 35m0s 4-commits phase=merge
 [OUTCOME] HON-53 TIMEOUT 1h1m 2-commits phase=reviewing triage=RETRY
+[OUTCOME] HON-55 GATED 8m0s 0-commits phase=planning
 ```
+
+A worker can exit cleanly but make no commits. Such a worker ships nothing, so the orchestrator logs `GATED`, not `SUCCESS`. It comments on the issue, adds the `Gated` label, and — if the issue is still `In Progress` — returns it to Todo and clears the assignee. Without this step, the issue stays `In Progress` and assigned, and the picker skips it forever. A gated exit counts toward the circuit breaker like any other failure.
+
+The picker skips any Todo issue carrying the `Gated` label (`[SKIP] HON-XX gated …`), and also skips issues gated earlier in the same run in case the label write failed: the issue is back in Todo and unassigned, so without that skip the next poll — or the next restart — would re-pick it and respawn the same no-op worker in a loop. Fix the cause, then remove the label (or re-triage) to make it pickable again.
 
 Filter with `grep '\[OUTCOME\]' ~/.worktrees/wobblepot/logs/orchestrator.log`.
 

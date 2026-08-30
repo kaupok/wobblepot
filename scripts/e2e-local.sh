@@ -254,7 +254,9 @@ main() {
   case "${1:-run}" in
     gc)               shift; cmd_gc "$@" ;;
     -h|--help|help)   usage ;;
-    run)              shift; cmd_run "$@" ;;
+    # `${1:-run}` also matches an empty argv, where a bare `shift` returns 1
+    # and `set -e` aborts before anything runs — so only shift a real "run".
+    run)              if [ $# -gt 0 ]; then shift; fi; cmd_run "$@" ;;
     *)                cmd_run "$@" ;;
   esac
 }
