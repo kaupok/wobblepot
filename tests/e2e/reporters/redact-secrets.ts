@@ -31,6 +31,10 @@ const SECRET_ENV_VARS = [
   'SMOKE_TEST_EMAIL',
   'FORGOT_PASSWORD_TEST_PASSWORD',
   'FORGOT_PASSWORD_TEST_EMAIL',
+  // Runner-only Resend read key (HON-479). Never appears in a page snapshot,
+  // but it does travel in an Authorization header that a network log would
+  // record, so keep it in the sweep.
+  'RESEND_TEST_API_KEY',
 ] as const
 
 const REDACTED = '[redacted]'

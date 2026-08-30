@@ -47,6 +47,11 @@ jobs:
       SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
       FORGOT_PASSWORD_TEST_EMAIL: ${{ secrets.FORGOT_PASSWORD_TEST_EMAIL }}
       FORGOT_PASSWORD_TEST_PASSWORD: ${{ secrets.FORGOT_PASSWORD_TEST_PASSWORD }}
+      # Read-capable Resend key for the runner (HON-479): lets
+      # forgot-password.spec.ts open the reset email the app just sent. Not
+      # provisioned yet — while unset the spec skips instead of failing, so the
+      # gate stays meaningful. See tests/e2e/README.md § "Reading email in specs".
+      RESEND_TEST_API_KEY: ${{ secrets.RESEND_TEST_API_KEY }}
       NEXT_TELEMETRY_DISABLED: 1
 
     steps:

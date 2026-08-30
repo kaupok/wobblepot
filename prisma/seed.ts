@@ -4023,13 +4023,13 @@ async function upsertCredentialUser(spec: TestUserSpec) {
  * user's household membership (household name has no unique constraint),
  * so re-running the seed is a no-op.
  */
-async function ensureSmokeHousehold(userId: string) {
+async function ensureSmokeHousehold(userId: string): Promise<string> {
   const membership = await prisma.householdMember.findFirst({ where: { userId } })
   if (membership) {
-    return
+    return membership.householdId
   }
 
-  await prisma.household.create({
+  const household = await prisma.household.create({
     data: {
       name: 'Smoke Test Household',
       members: {
@@ -4038,6 +4038,33 @@ async function ensureSmokeHousehold(userId: string) {
     },
   })
   console.log('  ✓ smoke household created')
+  return household.id
+}
+
+/**
+ * Ensures the smoke household owns a meal plan.
+ *
+ * `MealPlan` is a dateless container (`{ id, householdId, createdAt }`) — only
+ * its entries carry dates — so seeding one can never go stale. That is exactly
+ * what the shopping→pantry smoke spec (HON-479) needs: the rolling-window
+ * shopping list is derived purely from `MealPlanEntry` rows in
+ * `[today, today + 7)`, and a plan is the only thing an entry can hang off.
+ *
+ * Deliberately no seeded *entries*: a fixed date would fall out of the window
+ * within a week and turn the staging-smoke promotion gate permanently red
+ * (the HON-560 failure mode). The spec creates its own entry against today's
+ * date and deletes it on teardown.
+ *
+ * Idempotent — `MealPlan.householdId` is unique, so this is a no-op on re-seed.
+ */
+async function ensureSmokeMealPlan(householdId: string) {
+  const existing = await prisma.mealPlan.findUnique({ where: { householdId } })
+  if (existing) {
+    return
+  }
+
+  await prisma.mealPlan.create({ data: { householdId } })
+  console.log('  ✓ smoke meal plan created')
 }
 
 async function seedTestUsers() {
@@ -4070,7 +4097,8 @@ async function seedTestUsers() {
     // exists purely for the reset-email round-trip (HON-479) and never
     // navigates past sign-in.
     if (spec.label === 'smoke') {
-      await ensureSmokeHousehold(user.id)
+      const householdId = await ensureSmokeHousehold(user.id)
+      await ensureSmokeMealPlan(householdId)
     }
   }
 }

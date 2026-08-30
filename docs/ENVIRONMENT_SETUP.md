@@ -121,6 +121,26 @@ Get a key from [resend.com/api-keys](https://resend.com/api-keys). Sends are
 billed against the shared account; staging-tier delivery only — never test
 with `NEXT_PUBLIC_APP_ENV=production` from a dev machine.
 
+### `RESEND_TEST_API_KEY` — the E2E runner's read key
+
+Separate from `RESEND_API_KEY`, and never read by the app. The Playwright
+forgot-password spec (HON-479) needs to open the reset email the app just sent,
+which on preview and staging is only possible through Resend's read endpoints
+(`GET /emails`, `GET /emails/{id}`).
+
+- **Scope:** read access to the same Resend team the app sends from. A
+  send-only key will not work; a full-access key works but is more than needed.
+- **Where it goes:** GitHub Actions secrets, consumed by the preview-smoke and
+  staging-smoke workflows. It is a _test-runner_ variable — do **not** add it to
+  Vercel.
+- **When it is unset:** tier 1 CI and `pnpm test:e2e:local` fall back to the
+  test-only `/api/e2e-support` back-channel and still run the full flow; the
+  remote tiers skip the spec rather than failing, so the promotion gate stays
+  meaningful. Provisioning the key is what enables it there.
+
+Details and the backend-selection logic: `tests/e2e/README.md` §
+"Reading email in specs".
+
 ### FROM addresses
 
 Code constants in [`src/lib/resend.ts`](../src/lib/resend.ts) → `EMAIL_SENDERS`.
