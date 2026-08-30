@@ -143,7 +143,9 @@ async function householdState(householdId: string) {
   })
 
   if (!household) {
-    return NextResponse.json({ exists: false, members: 0, pantryItems: 0, mealPlans: 0 })
+    // Bare shape on purpose, matching userState: fabricated zero counts read
+    // as measurements and let specs assert constants without noticing.
+    return NextResponse.json({ exists: false })
   }
 
   const [members, pantryItems, mealPlans] = await Promise.all([
@@ -166,7 +168,9 @@ export async function GET(request: Request) {
 
     if (action === 'household-state') {
       const householdId = param(url, 'householdId')
-      return householdId ? householdState(householdId) : missingParam('householdId')
+      // `await` matters: returning the bare promise would resolve outside this
+      // try/catch, so a Prisma failure would bypass the { error } contract.
+      return householdId ? await householdState(householdId) : missingParam('householdId')
     }
 
     if (action === 'reset-token' || action === 'user-state') {
@@ -174,7 +178,7 @@ export async function GET(request: Request) {
       if (!email) {
         return missingParam('email')
       }
-      return action === 'reset-token' ? resetToken(email) : userState(email)
+      return action === 'reset-token' ? await resetToken(email) : await userState(email)
     }
 
     return unknownAction(action)

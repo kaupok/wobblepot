@@ -96,10 +96,15 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
 
     const date = targetDate()
     const { entries, planId } = await listEntries(page.request)
+    // Deliberately a hard failure, not a skip: on remote tiers a silent skip
+    // would green the promotion gate with no coverage (HON-560's rule for
+    // missing fixtures). The message carries the backfill path instead.
     expect(
       planId,
-      'The smoke household has no meal plan. Re-run the seed with SEED_TEST_USERS=1 — ' +
-        'prisma/seed.ts ensureSmokeMealPlan() creates the container this spec hangs its entry off.',
+      'The smoke household has no meal plan container (prisma/seed.ts ensureSmokeMealPlan(), new in HON-479). ' +
+        'Tier 1 seeds it every run. On staging it appears once the "Deploy DB migrations [staging]" seed step ' +
+        'has re-run (workflow_dispatch it to backfill); preview branches pick it up once they fork from the ' +
+        're-seeded parent. Red here means the fixture is missing, not that the app broke.',
     ).not.toBeNull()
 
     await clearFixtureSlot(page.request, planId!, entries, date)

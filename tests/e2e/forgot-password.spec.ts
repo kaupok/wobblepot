@@ -75,11 +75,17 @@ test.describe('Forgot password', { tag: '@smoke' }, () => {
     await expect(page.getByRole('status')).toBeVisible()
 
     const resetUrl = await resolveResetUrl({ email, requestedAt })
+    // A readable inbox that yields no reset email is a delivery regression —
+    // the exact failure this spec exists to catch — so it must fail, not skip.
+    // Only the tiers with no way to read the link at all downgrade to a skip.
+    if (resetUrl === null && canReadEmail()) {
+      throw new Error(
+        'RESEND_TEST_API_KEY is set but no reset email with a usable link arrived within the poll budget',
+      )
+    }
     test.skip(
       resetUrl === null,
-      canReadEmail()
-        ? 'No reset email arrived in the Resend test inbox within the poll budget'
-        : 'No way to read the reset link on this tier: set RESEND_TEST_API_KEY, or run where /api/e2e-support is enabled (E2E_DISABLE_RATE_LIMIT=1 + NEXT_PUBLIC_APP_ENV of ci/test/dev)',
+      'No way to read the reset link on this tier: set RESEND_TEST_API_KEY, or run where /api/e2e-support is enabled (E2E_DISABLE_RATE_LIMIT=1 + NEXT_PUBLIC_APP_ENV of ci/test/dev)',
     )
 
     let restored = false

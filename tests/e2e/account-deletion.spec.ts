@@ -2,6 +2,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { signUpWithHousehold } from './utils/test-helpers'
 import {
+  expectUserExists,
   expirePurgeWindow,
   fetchHouseholdState,
   fetchUserState,
@@ -37,7 +38,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 /** Copy that must never appear on a failed sign-in for a deleted account. */
 const LEAKY_PHRASES = [/deleted/i, /deletion/i, /grace/i, /scheduled/i]
 
-function expectWithinGraceWindow(state: UserState): void {
+function expectWithinGraceWindow(state: Extract<UserState, { exists: true }>): void {
   expect(state.deletedAt, 'deletedAt should be stamped on soft-delete').not.toBeNull()
   expect(state.purgeScheduledFor, 'purgeScheduledFor should be stamped').not.toBeNull()
 
@@ -61,8 +62,7 @@ test.describe('Account deletion (grace window)', () => {
     })
 
     // Baseline: a live account with its household intact.
-    const before = await fetchUserState(email)
-    expect(before.exists).toBe(true)
+    const before = expectUserExists(await fetchUserState(email), 'the freshly signed-up user')
     expect(before.deletedAt).toBeNull()
     expect(before.memberships).toBe(1)
     expect(before.households).toBe(1)
@@ -86,8 +86,7 @@ test.describe('Account deletion (grace window)', () => {
     await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible()
 
     // Soft, not hard: the row and the household survive the window.
-    const soft = await fetchUserState(email)
-    expect(soft.exists).toBe(true)
+    const soft = expectUserExists(await fetchUserState(email), 'the soft-deleted user')
     expectWithinGraceWindow(soft)
     expect(soft.sessions, 'all sessions should be invalidated on soft-delete').toBe(0)
     expect(soft.memberships, 'household membership survives until the purge').toBe(1)
@@ -137,18 +136,17 @@ test.describe('Account deletion (grace window)', () => {
     const { purged } = await runPurgeCron()
     expect(purged).toBeGreaterThanOrEqual(1)
 
-    // Full cascade: the user row is gone, and so is the household it owned
-    // (with its meal plan and pantry rows) — checked household-side, because
-    // once the user is deleted there is nothing left to join through.
+    // Full cascade: the user row is gone, and so is the household it owned —
+    // checked household-side, because once the user is deleted there is
+    // nothing left to join through. Row-level cascade of pantry/meal-plan
+    // data is owned by src/lib/auth/purge-user.test.ts; this throwaway
+    // household holds no such rows, so counting them here would prove nothing.
     const after = await fetchUserState(email)
     expect(after.exists, 'the user row should be hard-deleted by the purge').toBe(false)
 
     for (const householdId of soft.householdIds) {
       const household = await fetchHouseholdState(householdId)
       expect(household.exists, `household ${householdId} survived the purge`).toBe(false)
-      expect(household.members).toBe(0)
-      expect(household.pantryItems).toBe(0)
-      expect(household.mealPlans).toBe(0)
     }
 
     // The strongest form of "opaque": a purged account and a soft-deleted one

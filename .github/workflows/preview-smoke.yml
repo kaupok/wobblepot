@@ -5,9 +5,10 @@ name: Preview smoke
 # @smoke-tagged Playwright specs against the real preview URL, backed by
 # a per-PR Neon branch via maybe-migrate.sh. Since HON-560 the @smoke set
 # is fixture-based only (no @ai, no /api/e2e-seed — that route 404s on
-# preview too); the seeded accounts come from the Vercel preview env
-# setting SEED_TEST_USERS=1 (see tests/e2e/README.md → seed fixture
-# contract).
+# preview too); nothing seeds during a preview build — the fixtures are
+# whatever the per-PR Neon branch inherited from its parent when it forked
+# (see tests/e2e/README.md → seed fixture contract for where each tier's
+# seed actually runs).
 #
 # The label gate predates HON-560 (it was added when @smoke still included
 # AI-calling specs) and stays: prod-parity E2E once per PR at

@@ -184,18 +184,15 @@ describe('GET /api/e2e-support?action=household-state', () => {
     expect(await res.json()).toEqual({ error: 'Missing ?householdId=<value>' })
   })
 
-  it('reports a purged household as gone with zeroed counts', async () => {
+  it('reports a purged household as gone', async () => {
     mockPrisma.household.findUnique.mockResolvedValue(null)
     const { GET } = await import('./route')
 
     const res = await GET(new Request(url('?action=household-state&householdId=h1')))
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({
-      exists: false,
-      members: 0,
-      pantryItems: 0,
-      mealPlans: 0,
-    })
+    // Bare shape, same as user-state: no fabricated zero counts for a row
+    // that no longer exists.
+    expect(await res.json()).toEqual({ exists: false })
     // No point counting rows that cascade-deleted with the household.
     expect(mockPrisma.householdMember.count).not.toHaveBeenCalled()
   })

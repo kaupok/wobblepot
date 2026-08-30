@@ -20,23 +20,45 @@ export interface ResetTokenPayload {
   expiresAt: string
 }
 
-export interface UserState {
-  exists: boolean
-  deletedAt: string | null
-  purgeScheduledFor: string | null
-  householdIds: string[]
-  sessions: number
-  memberships: number
-  households: number
-  pantryItems: number
-  mealPlans: number
-}
+// Discriminated on `exists`: the route answers a bare `{ exists: false }` for
+// a purged row (user-state and household-state alike), so the count fields are
+// only real on the `exists: true` arm. Keeping them required on both arms let
+// specs read fields that were never in the response.
+export type UserState =
+  | { exists: false }
+  | {
+      exists: true
+      deletedAt: string | null
+      purgeScheduledFor: string | null
+      householdIds: string[]
+      sessions: number
+      memberships: number
+      households: number
+      pantryItems: number
+      mealPlans: number
+    }
 
-export interface HouseholdState {
-  exists: boolean
-  members: number
-  pantryItems: number
-  mealPlans: number
+export type HouseholdState =
+  | { exists: false }
+  | {
+      exists: true
+      members: number
+      pantryItems: number
+      mealPlans: number
+    }
+
+/**
+ * Narrows a `UserState` to its existing variant, failing loudly when the row
+ * is gone — the type-safe way to reach the count fields.
+ */
+export function expectUserExists(
+  state: UserState,
+  label: string,
+): Extract<UserState, { exists: true }> {
+  if (!state.exists) {
+    throw new Error(`[e2e/e2e-support] expected ${label} to exist, but the user row is gone`)
+  }
+  return state
 }
 
 function supportURL(action: string, params: Record<string, string>): string {
