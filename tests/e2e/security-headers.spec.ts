@@ -1,10 +1,11 @@
-// ROUTES: / · COMPONENTS: middleware (CSP)
+// ROUTES: / · COMPONENTS: src/proxy.ts (CSP)
 import { test, expect } from '@playwright/test'
 
 /**
- * Real-response CSP check (HON-561). `middleware.test.ts` unit-tests the
+ * Real-response CSP check (HON-561). `src/proxy.test.ts` unit-tests the
  * header builder in isolation, but only a live HTTP response proves the
- * middleware actually runs and sets the header. The Next.js middleware
+ * proxy actually runs and sets the header (a root-level `middleware.ts` was
+ * silently skipped by `next dev` — HON-568). The Next.js middleware
  * bypass advisories fail this way: the CSP silently disappears while the
  * app still serves. Carries `@smoke` so the staging tier — the closest
  * mirror of production — asserts the CSP is present on every promotion.
