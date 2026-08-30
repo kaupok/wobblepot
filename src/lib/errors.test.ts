@@ -1,9 +1,10 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { captureApiError } from './errors'
+import { captureApiError, captureExternalApiTimeout } from './errors'
 import { captureClientError } from './errors-client'
 import { MealPlanValidationError, InsufficientCandidatesError } from '@/lib/ai/types'
 
 const captureExceptionMock = vi.fn()
+const captureMock = vi.fn()
 const flushMock = vi.fn()
 const getRequestIdMock = vi.fn()
 const getPosthogServerMock = vi.fn()
@@ -40,12 +41,14 @@ describe('captureApiError', () => {
     getRequestIdMock.mockReset()
     getPosthogServerMock.mockReset()
     // Default to a deployed release so capture-path tests exercise capture.
-    // The local-dev skip is covered by its own test below.
-    process.env.VERCEL_GIT_COMMIT_SHA = 'deadbeef'
+    // The local-machine skip is covered by its own test below.
+    vi.stubEnv('VERCEL_GIT_COMMIT_SHA', 'deadbeef')
+    // Hermetic against a developer who has the escape hatch set in `.env`.
+    vi.stubEnv('POSTHOG_CAPTURE_LOCAL', '')
   })
 
   afterEach(() => {
-    delete process.env.VERCEL_GIT_COMMIT_SHA
+    vi.unstubAllEnvs()
   })
 
   it('no-ops silently when PostHog is not configured', () => {
@@ -54,8 +57,8 @@ describe('captureApiError', () => {
     expect(captureExceptionMock).not.toHaveBeenCalled()
   })
 
-  it('skips capture on a local dev server (release=local)', () => {
-    delete process.env.VERCEL_GIT_COMMIT_SHA
+  it('skips capture on a local machine (release=local)', () => {
+    vi.stubEnv('VERCEL_GIT_COMMIT_SHA', '')
     getPosthogServerMock.mockReturnValue({
       captureException: captureExceptionMock,
       flush: flushMock,
@@ -63,6 +66,18 @@ describe('captureApiError', () => {
     captureApiError(new Error('boom'), { route: '/api/x' })
     expect(captureExceptionMock).not.toHaveBeenCalled()
     expect(getPosthogServerMock).not.toHaveBeenCalled()
+  })
+
+  it('captures on a local machine when POSTHOG_CAPTURE_LOCAL opts in', () => {
+    vi.stubEnv('VERCEL_GIT_COMMIT_SHA', '')
+    vi.stubEnv('POSTHOG_CAPTURE_LOCAL', '1')
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+      flush: flushMock,
+    })
+    captureApiError(new Error('boom'), { route: '/api/x' })
+    expect(captureExceptionMock).toHaveBeenCalledOnce()
+    expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({ release: 'local' })
   })
 
   it('captures with requestId, release, route, and errorType', () => {
@@ -163,6 +178,86 @@ describe('captureApiError', () => {
     captureApiError(new Error('boom'), { route: '/api/x' })
     expect(captureExceptionMock).toHaveBeenCalledOnce()
     expect(flushMock).toHaveBeenCalledOnce()
+  })
+})
+
+describe('captureExternalApiTimeout', () => {
+  beforeEach(() => {
+    captureMock.mockReset()
+    captureExceptionMock.mockReset()
+    getRequestIdMock.mockReset()
+    getPosthogServerMock.mockReset()
+    vi.stubEnv('VERCEL_GIT_COMMIT_SHA', 'deadbeef')
+    vi.stubEnv('POSTHOG_CAPTURE_LOCAL', '')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('records an analytics event, not an exception', () => {
+    getRequestIdMock.mockReturnValue('req-1')
+    getPosthogServerMock.mockReturnValue({ capture: captureMock })
+
+    captureExternalApiTimeout({
+      feature: 'breached_password_check',
+      url: 'https://api.example.com/x',
+    })
+
+    expect(captureExceptionMock).not.toHaveBeenCalled()
+    expect(captureMock).toHaveBeenCalledOnce()
+    expect(captureMock.mock.calls[0]![0]).toMatchObject({
+      distinctId: 'req-1',
+      event: 'external_api_timeout',
+      properties: {
+        feature: 'breached_password_check',
+        url: 'https://api.example.com/x',
+        requestId: 'req-1',
+        release: 'deadbeef',
+      },
+    })
+  })
+
+  it('prefers userId as distinct id when the caller has one', () => {
+    getRequestIdMock.mockReturnValue('req-1')
+    getPosthogServerMock.mockReturnValue({ capture: captureMock })
+
+    captureExternalApiTimeout({ feature: 'test', userId: 'user-9' })
+
+    expect(captureMock.mock.calls[0]![0]).toMatchObject({ distinctId: 'user-9' })
+  })
+
+  it('falls back to "system" outside a request scope', () => {
+    getRequestIdMock.mockReturnValue(undefined)
+    getPosthogServerMock.mockReturnValue({ capture: captureMock })
+
+    captureExternalApiTimeout({ feature: 'test' })
+
+    expect(captureMock.mock.calls[0]![0]).toMatchObject({ distinctId: 'system' })
+  })
+
+  it('skips on a local machine', () => {
+    vi.stubEnv('VERCEL_GIT_COMMIT_SHA', '')
+    getPosthogServerMock.mockReturnValue({ capture: captureMock })
+
+    captureExternalApiTimeout({ feature: 'test' })
+
+    expect(captureMock).not.toHaveBeenCalled()
+    expect(getPosthogServerMock).not.toHaveBeenCalled()
+  })
+
+  it('no-ops when PostHog is not configured', () => {
+    getPosthogServerMock.mockReturnValue(null)
+    expect(() => captureExternalApiTimeout({ feature: 'test' })).not.toThrow()
+  })
+
+  it('swallows capture failures', () => {
+    getPosthogServerMock.mockReturnValue({
+      capture: () => {
+        throw new Error('posthog-down')
+      },
+    })
+    expect(() => captureExternalApiTimeout({ feature: 'test' })).not.toThrow()
   })
 })
 

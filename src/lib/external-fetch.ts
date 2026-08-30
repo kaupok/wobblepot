@@ -1,5 +1,5 @@
 import 'server-only'
-import { captureApiError } from '@/lib/errors'
+import { captureApiError, captureExternalApiTimeout } from '@/lib/errors'
 
 export interface ExternalFetchContext {
   /** Logical feature making the call, e.g. `breached_password_check`. */
@@ -18,8 +18,9 @@ export interface ExternalFetchContext {
  * - On a non-2xx response, the response is returned as-is. The caller still
  *   decides how to handle it (some callers may treat 4xx as a normal signal).
  * - On a thrown network error, the throw is captured and re-thrown unchanged.
- * - On a caller-initiated abort (`init.signal` aborted), the throw is
- *   re-thrown without capture — a deliberate abort is control flow, not a fault.
+ * - On a caller-initiated abort (`init.signal` aborted), the throw is re-thrown
+ *   and recorded as an `external_api_timeout` analytics event rather than an
+ *   exception — see `isCallerAbort` for why.
  *
  * This is for calls where a non-2xx is alert-worthy (Anthropic 500, Resend
  * 502, HIBP 503). Calls where 4xx is expected (e.g. user-supplied URL
@@ -34,9 +35,14 @@ export async function externalFetch(
   try {
     response = await fetch(input, init)
   } catch (error) {
-    // The caller aborted on purpose (e.g. the HIBP timeout that fails open).
-    // Re-throw without capturing — this is control flow, not a fault.
-    if (init?.signal?.aborted) throw error
+    if (isCallerAbort(init, error)) {
+      captureExternalApiTimeout({
+        ...context,
+        $exception_source: 'externalFetch.timeout',
+        url: redactUrl(input),
+      })
+      throw error
+    }
 
     captureApiError(error, {
       ...context,
@@ -56,6 +62,33 @@ export async function externalFetch(
   }
 
   return response
+}
+
+/**
+ * True when the rejection is the caller's own deadline landing rather than a
+ * network fault.
+ *
+ * Both halves matter. The signal says the caller asked to stop; the error name
+ * says *this* rejection is that abort, not a genuine failure that happened to
+ * race the deadline. Checking the signal alone would swallow a real connection
+ * reset that arrived in the same tick as the timer.
+ *
+ * `controller.abort()` rejects fetch with `AbortError`; `AbortSignal.timeout()`
+ * rejects with `TimeoutError`. Both are a deadline the caller chose, so both
+ * count here. (`onRequestError` in `instrumentation.ts` takes the opposite line
+ * on `TimeoutError` — an abort that escapes all the way to the framework was
+ * nobody's deliberate control flow, so it stays an exception there.)
+ *
+ * Matched by duck-typed `name`, like `isFrameworkNoise` in `instrumentation.ts`.
+ * `instanceof Error` would be wrong: fetch rejects with a `DOMException`, and
+ * whether that inherits from `Error` is realm-dependent — true in Node, false
+ * under jsdom.
+ */
+function isCallerAbort(init: RequestInit | undefined, error: unknown): boolean {
+  if (!init?.signal?.aborted) return false
+  if (typeof error !== 'object' || error === null) return false
+  const { name } = error as { name?: unknown }
+  return name === 'AbortError' || name === 'TimeoutError'
 }
 
 /**

@@ -22,6 +22,8 @@
  * a different "fix" for HON-533 with the file at the root and none of them
  * ever ran on Node. Keep this file in `src/`.
  */
+import { getRelease, shouldSkipLocalCapture } from '@/lib/release'
+
 interface RequestErrorRequest {
   path: string
   method: string
@@ -41,9 +43,11 @@ export async function onRequestError(
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
 
   // Skip local dev servers. Their errors pollute the shared project and fire
-  // first-seen alerts, which trains the team to ignore those alerts.
-  const release = process.env.VERCEL_GIT_COMMIT_SHA ?? 'local'
-  if (release === 'local') return
+  // first-seen alerts, which trains the team to ignore those alerts. Shared
+  // with `captureApiError` so the rule has one definition. Safe to import
+  // statically — `release.ts` is dependency-free, unlike `posthog-server.ts`
+  // below, which must stay lazy to keep `posthog-node` out of the edge bundle.
+  if (shouldSkipLocalCapture()) return
 
   // Skip framework noise: aborted-stream throws from cancelled RSC prefetches,
   // and Next's redirect/not-found control-flow throws. Neither is a real fault.
@@ -67,7 +71,7 @@ export async function onRequestError(
       $exception_source: 'instrumentation.onRequestError',
       path: request.path,
       method: request.method,
-      release,
+      release: getRelease(),
     })
   } catch {
     // Swallow — instrumentation must never crash a request.
