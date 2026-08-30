@@ -20,11 +20,13 @@ describe('onRequestError', () => {
     getPosthogServerMock.mockReset()
     captureExceptionMock.mockReset()
     process.env.NEXT_RUNTIME = 'nodejs'
-    delete process.env.VERCEL_GIT_COMMIT_SHA
+    // Non-local release by default so capture runs; local-skip has its own test.
+    process.env.VERCEL_GIT_COMMIT_SHA = 'sha-test'
   })
 
   afterEach(() => {
     delete process.env.NEXT_RUNTIME
+    delete process.env.VERCEL_GIT_COMMIT_SHA
   })
 
   it('no-ops when NEXT_RUNTIME is not "nodejs"', async () => {
@@ -61,12 +63,52 @@ describe('onRequestError', () => {
     })
   })
 
-  it('falls back to release="local" when VERCEL_GIT_COMMIT_SHA is unset', async () => {
+  it('skips capture when release is local (VERCEL_GIT_COMMIT_SHA unset)', async () => {
+    delete process.env.VERCEL_GIT_COMMIT_SHA
     getPosthogServerMock.mockReturnValue({
       captureException: captureExceptionMock,
     })
-    await onRequestError(new Error('x'), baseRequest)
-    expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({ release: 'local' })
+    await onRequestError(new Error('boom'), baseRequest)
+    expect(getPosthogServerMock).not.toHaveBeenCalled()
+    expect(captureExceptionMock).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    [
+      'message "The destination stream closed early"',
+      new Error('The destination stream closed early'),
+    ],
+    [
+      'code ERR_STREAM_PREMATURE_CLOSE',
+      Object.assign(new Error('premature close'), { code: 'ERR_STREAM_PREMATURE_CLOSE' }),
+    ],
+    ['name AbortError', Object.assign(new Error('aborted'), { name: 'AbortError' })],
+    [
+      'digest NEXT_REDIRECT',
+      Object.assign(new Error('redirect'), { digest: 'NEXT_REDIRECT;replace;/home;307;' }),
+    ],
+    [
+      'digest NEXT_HTTP_ERROR_FALLBACK;404',
+      Object.assign(new Error('not found'), { digest: 'NEXT_HTTP_ERROR_FALLBACK;404' }),
+    ],
+    [
+      'digest NEXT_HTTP_ERROR_FALLBACK;403',
+      Object.assign(new Error('forbidden'), { digest: 'NEXT_HTTP_ERROR_FALLBACK;403' }),
+    ],
+  ])('skips framework noise: %s', async (_label, err) => {
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+    })
+    await onRequestError(err, baseRequest)
+    expect(captureExceptionMock).not.toHaveBeenCalled()
+  })
+
+  it('captures a genuine application error', async () => {
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+    })
+    await onRequestError(new Error('real failure'), baseRequest)
+    expect(captureExceptionMock).toHaveBeenCalledOnce()
   })
 
   it('extracts distinct id from a PostHog cookie among other cookies', async () => {

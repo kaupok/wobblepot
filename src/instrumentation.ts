@@ -7,6 +7,10 @@
  * Per-route helpers in `src/lib/errors.ts` add richer context (route literal,
  * householdId, feature). This hook is the floor, not the ceiling.
  *
+ * It captures only genuine faults. It drops Next.js framework noise (aborted
+ * RSC-prefetch streams, redirect/not-found control-flow throws) and every
+ * error from a local dev server, so the shared project stays clean.
+ *
  * Runs only in the Node.js runtime; the edge runtime cannot use the
  * `posthog-node` SDK and is a no-op here.
  *
@@ -36,6 +40,15 @@ export async function onRequestError(
 ): Promise<void> {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
 
+  // Skip local dev servers. Their errors pollute the shared project and fire
+  // first-seen alerts, which trains the team to ignore those alerts.
+  const release = process.env.VERCEL_GIT_COMMIT_SHA ?? 'local'
+  if (release === 'local') return
+
+  // Skip framework noise: aborted-stream throws from cancelled RSC prefetches,
+  // and Next's redirect/not-found control-flow throws. Neither is a real fault.
+  if (isFrameworkNoise(err)) return
+
   const { getPosthogServer } = await import('@/lib/posthog-server')
   const client = getPosthogServer()
   if (!client) return
@@ -54,11 +67,63 @@ export async function onRequestError(
       $exception_source: 'instrumentation.onRequestError',
       path: request.path,
       method: request.method,
-      release: process.env.VERCEL_GIT_COMMIT_SHA ?? 'local',
+      release,
     })
   } catch {
     // Swallow — instrumentation must never crash a request.
   }
+}
+
+// Aborted-stream throws Next.js raises when the browser cancels an in-flight
+// RSC prefetch (navigation, hot reload). Matched by message substring, error
+// name, or Node stream error code.
+const ABORTED_STREAM_MESSAGES = [
+  'The destination stream closed early',
+  'ERR_STREAM_PREMATURE_CLOSE',
+]
+
+// Next.js digest prefixes for `redirect()` and the HTTP-access fallbacks
+// (`notFound()` → `NEXT_HTTP_ERROR_FALLBACK;404`, `unauthorized()` → `;401`,
+// `forbidden()` → `;403`). These are control-flow throws, not errors. Next
+// normally drops them itself before calling `onRequestError` (see
+// `isNextRouterError` in its app-render error handler); this is a cheap
+// backstop for any path that forwards them anyway.
+const NEXT_CONTROL_FLOW_DIGESTS = ['NEXT_REDIRECT', 'NEXT_HTTP_ERROR_FALLBACK']
+
+/**
+ * True when the error is Next.js framework noise rather than an application
+ * fault — a cancelled RSC prefetch or a redirect/not-found control-flow throw.
+ */
+function isFrameworkNoise(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false
+
+  const { name, message, code, digest } = err as {
+    name?: unknown
+    message?: unknown
+    code?: unknown
+    digest?: unknown
+  }
+
+  // Trade-off: this also drops any route that lets a manual `AbortController`
+  // abort escape. Today none does (the HIBP check and status probes catch
+  // theirs), and `AbortSignal.timeout()` throws `TimeoutError`, which still
+  // captures. Revisit if a route starts surfacing raw aborts.
+  if (name === 'AbortError') return true
+  if (code === 'ERR_STREAM_PREMATURE_CLOSE') return true
+
+  if (typeof digest === 'string') {
+    for (const prefix of NEXT_CONTROL_FLOW_DIGESTS) {
+      if (digest === prefix || digest.startsWith(`${prefix};`)) return true
+    }
+  }
+
+  if (typeof message === 'string') {
+    for (const needle of ABORTED_STREAM_MESSAGES) {
+      if (message.includes(needle)) return true
+    }
+  }
+
+  return false
 }
 
 const POSTHOG_COOKIE_PREFIX = 'ph_'
