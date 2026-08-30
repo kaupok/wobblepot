@@ -25,13 +25,10 @@ WORKTREE_BASE="$HOME/.worktrees/$REPO_NAME"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 
-# Untracked files to copy to worktrees
-# Format: "source_path:needs_path_update"
-# - source_path: path relative to repo root
-# - needs_path_update: "true" if PROJECT_ROOT should be updated to worktree path
+# Untracked files to copy to worktrees, relative to repo root.
 UNTRACKED_FILES=(
-  ".env:true"
-  ".claude/settings.local.json:true"
+  ".env"
+  ".claude/settings.local.json"
 )
 
 # Colors for output
@@ -202,7 +199,8 @@ neon_gc_orphans() {
 # patch the worktree's .env to point at it. Self-heals orphan cap via GC retry.
 # Collisions fail loud — require --fresh-db to recreate.
 neon_create_branch_for_worktree() {
-  local git_branch="$1" worktree_env="$2" fresh_db="${3:-0}"
+  local git_branch="$1" worktree_env="$2" fresh_db="${3:-0}" reuse_existing="${4:-0}"
+  local reused=0
   if ! neon_enabled; then
     echo -e "${YELLOW}Neon branching disabled (NEON_API_KEY/NEON_PROJECT_ID not set) — using shared DB${NC}"
     return 0
@@ -244,9 +242,17 @@ neon_create_branch_for_worktree() {
         return 1
       }
     elif echo "$create_out" | grep -qiE "already exists|duplicate"; then
-      echo -e "${RED}Error: Neon branch '$neon_branch' already exists after orphan cleanup.${NC}" >&2
-      echo "Run 'wt cleanup $git_branch' or pass --fresh-db to force recreate." >&2
-      return 1
+      if [ "$reuse_existing" = "1" ]; then
+        # Resuming an existing git branch (orchestrator RETRY or force-kill
+        # recovery): its Neon branch was deliberately kept alongside it, so
+        # reuse it and fall through to fetching its connection strings.
+        echo -e "${YELLOW}Neon branch '$neon_branch' already exists — reusing it${NC}"
+        reused=1
+      else
+        echo -e "${RED}Error: Neon branch '$neon_branch' already exists after orphan cleanup.${NC}" >&2
+        echo "Run 'wt cleanup $git_branch' or pass --fresh-db to force recreate." >&2
+        return 1
+      fi
     else
       echo -e "${RED}Error: Neon branch create failed:${NC}" >&2
       echo "$create_out" >&2
@@ -261,10 +267,13 @@ neon_create_branch_for_worktree() {
     --project-id "$NEON_PROJECT_ID" 2>/dev/null)
 
   if [ -z "$pooled" ] || [ -z "$unpooled" ]; then
-    echo -e "${RED}Error: Neon branch created but could not fetch connection strings.${NC}" >&2
-    # Don't leak the branch we just created. Best-effort delete.
-    pnpm dlx "neonctl@$NEONCTL_VERSION" branches delete "$neon_branch" \
-      --project-id "$NEON_PROJECT_ID" >/dev/null 2>&1 || true
+    echo -e "${RED}Error: could not fetch connection strings for Neon branch '$neon_branch'.${NC}" >&2
+    if [ "$reused" = "0" ]; then
+      # Don't leak the branch we just created. Best-effort delete. A reused
+      # branch was not created here and holds the work being resumed — keep it.
+      pnpm dlx "neonctl@$NEONCTL_VERSION" branches delete "$neon_branch" \
+        --project-id "$NEON_PROJECT_ID" >/dev/null 2>&1 || true
+    fi
     return 1
   fi
 
@@ -275,7 +284,11 @@ neon_create_branch_for_worktree() {
 
   update_env_var DATABASE_URL "$pooled" "$worktree_env"
   update_env_var DATABASE_URL_UNPOOLED "$unpooled" "$worktree_env"
-  echo -e "${GREEN}Neon branch '$neon_branch' created (forked from '$parent')${NC}"
+  if [ "$reused" = "1" ]; then
+    echo -e "${GREEN}Neon branch '$neon_branch' reused${NC}"
+  else
+    echo -e "${GREEN}Neon branch '$neon_branch' created (forked from '$parent')${NC}"
+  fi
 }
 
 # Delete the Neon branch that corresponds to a git branch. Never fails the
@@ -326,13 +339,12 @@ print_usage() {
   echo "  $0 cleanup feat/api-caching"
 }
 
-# Copy a single untracked file to worktree with optional PROJECT_ROOT substitution
-# Args: $1=source_repo, $2=source_path, $3=dest_dir, $4=needs_path_update ("true"/"false")
+# Copy a single untracked file to worktree.
+# Args: $1=source_repo, $2=source_path, $3=dest_dir
 copy_untracked_file() {
   local source_repo="$1"
   local source_path="$2"
   local dest_dir="$3"
-  local needs_path_update="$4"
   local source_file="$source_repo/$source_path"
   local dest_file="$dest_dir/$source_path"
 
@@ -344,16 +356,7 @@ copy_untracked_file() {
   # Create destination directory if needed
   mkdir -p "$(dirname "$dest_file")"
 
-  if [ "$needs_path_update" = "true" ]; then
-    # Update PROJECT_ROOT to point to the worktree path
-    # Handles both JSON format ("PROJECT_ROOT": "/path") and env format (PROJECT_ROOT=/path)
-    sed -e "s|\"PROJECT_ROOT\": \"$source_repo\"|\"PROJECT_ROOT\": \"$dest_dir\"|g" \
-        -e "s|^PROJECT_ROOT=$source_repo$|PROJECT_ROOT=$dest_dir|g" \
-        -e "s|^PROJECT_ROOT=\"$source_repo\"$|PROJECT_ROOT=\"$dest_dir\"|g" \
-        "$source_file" > "$dest_file"
-  else
-    cp "$source_file" "$dest_file"
-  fi
+  cp "$source_file" "$dest_file"
 
   return 0
 }
@@ -367,13 +370,10 @@ copy_untracked_files() {
   local skipped=()
 
   for entry in "${UNTRACKED_FILES[@]}"; do
-    local source_path="${entry%%:*}"
-    local needs_path_update="${entry##*:}"
-
-    if copy_untracked_file "$main_repo" "$source_path" "$worktree_path" "$needs_path_update"; then
-      copied+=("$source_path")
+    if copy_untracked_file "$main_repo" "$entry" "$worktree_path"; then
+      copied+=("$entry")
     else
-      skipped+=("$source_path")
+      skipped+=("$entry")
     fi
   done
 
@@ -585,8 +585,17 @@ cmd_auto() {
   git -C "$REPO_ROOT" pull origin main --ff-only 2>/dev/null || \
     echo -e "${YELLOW}Warning: Could not fast-forward main (may be on a different branch)${NC}"
 
-  # Create worktree with new branch from current HEAD
-  git -C "$REPO_ROOT" worktree add -b "$branch" "$worktree_path"
+  # Create the worktree. When the branch already exists — an orchestrator RETRY
+  # that preserved it to resume an open PR — check it out as-is instead of
+  # recreating it from main, which would discard its commits.
+  local reuse_branch=0
+  if git -C "$REPO_ROOT" show-ref --verify --quiet "refs/heads/$branch"; then
+    echo "Reusing existing branch: $branch"
+    reuse_branch=1
+    git -C "$REPO_ROOT" worktree add "$worktree_path" "$branch"
+  else
+    git -C "$REPO_ROOT" worktree add -b "$branch" "$worktree_path"
+  fi
 
   echo ""
   echo -e "${BLUE}Setting up worktree...${NC}"
@@ -611,7 +620,9 @@ cmd_auto() {
   # Provision a Neon branch and patch DATABASE_URL in the worktree .env.
   # No-op when NEON_API_KEY/NEON_PROJECT_ID are unset. Failure is fatal so
   # the orchestrator logs a clean failure and moves on (no silent shared-DB fallback).
-  neon_create_branch_for_worktree "$branch" "$worktree_path/.env" "$fresh_db" || exit 1
+  # A reused branch keeps its Neon branch too (RETRY skips neon-delete), so
+  # tell the helper to reuse it rather than fail on "already exists".
+  neon_create_branch_for_worktree "$branch" "$worktree_path/.env" "$fresh_db" "$reuse_branch" || exit 1
 
   echo ""
   echo -e "${GREEN}Worktree ready!${NC}"
