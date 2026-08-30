@@ -83,7 +83,9 @@ trap 'rm -f "$SEEN_SKIPS_FILE"' EXIT
 # Comma-separated identifiers of issues gated this run (worker exited 0 with
 # no commits). They go back to Todo unassigned, so without this list the
 # picker would re-select them on the very next poll and respawn the same
-# no-op worker in a loop. Cleared by restarting the orchestrator.
+# no-op worker in a loop whenever the durable Gated-label write failed. An
+# entry is dropped as soon as selection sees the issue without its Gated
+# label (operator removed it — the retry signal); a restart also clears it.
 GATED_ISSUES=""
 
 # ─── Colors ──────────────────────────────────────────────────────────────────
@@ -320,6 +322,19 @@ select_next_issue() {
           printf '%s\n' "$skip_key" >> "$SEEN_SKIPS_FILE"
         fi
         ;;
+      UNGATE)
+        IFS=$'\t' read -r kind id <<< "$line"
+        # Operator removed the Gated label — drop the stale in-memory entry so
+        # the issue is eligible again (this poll already treats it as un-gated).
+        local rebuilt="" g
+        IFS=',' read -ra _gated_arr <<< "$GATED_ISSUES"
+        for g in ${_gated_arr[@]+"${_gated_arr[@]}"}; do
+          [ "$g" = "$id" ] && continue
+          rebuilt="${rebuilt:+$rebuilt,}$g"
+        done
+        GATED_ISSUES="$rebuilt"
+        log INFO "[UNGATE] $id — Gated label removed by operator; eligible again"
+        ;;
       PICK)
         printf '%s\n' "${line#PICK$'\t'}"
         ;;
@@ -340,15 +355,22 @@ select_next_issue() {
     .data.issues.nodes
     | map(. + {
         _running: (.identifier as $id | ($running_list | index($id)) != null),
-        # Gated this run: back in Todo and unassigned, so only this list keeps
-        # the picker from respawning the same 0-commit worker every poll.
+        # Gated this run (in-memory). The durable gate is the label below; this
+        # entry exists so a gated issue cannot be respawned even when the label
+        # write failed. When the label is ABSENT while the in-memory entry
+        # remains, an operator removed the label — the documented retry signal —
+        # so the entry is stale and must un-gate (emitted as an UNGATE line,
+        # handled in the bash loop). Without this, a running orchestrator
+        # ignores label removal until restart (HON-562, 2026-08-30).
         _gated: (.identifier as $id | ($gated_list | index($id)) != null),
-        # Durable form of the same gate: the label survives restarts, so a
+        # Durable form of the gate: the label survives restarts, so a
         # deterministic 0-commit issue is not re-picked every run. `Stranded`
         # gates for a different reason but needs the same treatment: that path
         # deliberately preserves the worktree, and `wt auto` hard-exits when one
         # already exists (worktree-claude.sh:568), so re-picking the issue would
         # fail the worker in seconds and land it in Backlog via handle_failure.
+        # Holds the matching label NAME (or null) rather than a boolean, so the
+        # SKIP line can name the label the operator actually has to remove.
         _gate_label: ([.labels.nodes[]?.name] | map(select(. == "Gated" or . == "Stranded")) | .[0]),
         # Any assigned issue belongs to someone — including the operator, who
         # may have self-assigned a Todo issue to work on by hand. Same rule as
@@ -382,7 +404,9 @@ select_next_issue() {
     | map(. + {
         _skip: (
           if ._running then ["DEBUG", "already running"]
-          elif (._gated or ._gate_label == "Gated") then ["INFO", "gated (a worker exited with 0 commits) — fix the cause, then remove the Gated label or re-triage to retry"]
+          # Only the label gates; a stale in-memory entry (label removed) is
+          # cleaned up via the UNGATE line and the candidate stays eligible.
+          elif ._gate_label == "Gated" then ["INFO", "gated (a worker exited with 0 commits) — fix the cause, then remove the Gated label or re-triage to retry"]
           elif ._gate_label == "Stranded" then ["INFO", "stranded (a worker left an unmerged PR; its worktree is preserved) — finish or close the PR, release with `wt cleanup <branch>`, then remove the Stranded label"]
           elif ._assigned then ["INFO", "assigned"]
           elif (._open_blockers | length) > 0 then
@@ -395,8 +419,10 @@ select_next_issue() {
             ["DEBUG", "blocker " + (._blockers_in_worker | join(", ")) + " is being worked on"]
           else null end)
       })
+    # One UNGATE line per stale in-memory gate (label removed by operator)
+    | (.[] | select(._gated and (._gate_label | not)) | ["UNGATE", .identifier] | @tsv),
     # One SKIP line per rejected candidate
-    | (.[] | select(._skip != null) | ["SKIP", ._skip[0], .identifier, ._skip[1]] | @tsv),
+      (.[] | select(._skip != null) | ["SKIP", ._skip[0], .identifier, ._skip[1]] | @tsv),
     # Sort survivors: blocks others first (desc), then priority (asc, 0=no priority→5)
       ([.[] | select(._skip == null)]
        | sort_by([(._blocks_count * -1), (if .priority == 0 then 5 else .priority end)])

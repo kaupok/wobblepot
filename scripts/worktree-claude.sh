@@ -580,10 +580,13 @@ cmd_auto() {
   echo "Location: $worktree_path"
   echo ""
 
-  # Pull latest main so the worktree branches from up-to-date code
-  echo "Pulling latest main..."
-  git -C "$REPO_ROOT" pull origin main --ff-only 2>/dev/null || \
-    echo -e "${YELLOW}Warning: Could not fast-forward main (may be on a different branch)${NC}"
+  # Fetch so the worktree branches from up-to-date origin/main. Fetch, not
+  # pull: the parent checkout may be sitting on someone's feature branch
+  # (parallel sessions do work there), and a pull would either fail or merge
+  # into that branch.
+  echo "Fetching latest origin/main..."
+  git -C "$REPO_ROOT" fetch origin main 2>/dev/null || \
+    echo -e "${YELLOW}Warning: Could not fetch origin/main (offline?) — branching from the last-known ref${NC}"
 
   # Create the worktree. When the branch already exists — an orchestrator RETRY
   # that preserved it to resume an open PR — check it out as-is instead of
@@ -594,7 +597,11 @@ cmd_auto() {
     reuse_branch=1
     git -C "$REPO_ROOT" worktree add "$worktree_path" "$branch"
   else
-    git -C "$REPO_ROOT" worktree add -b "$branch" "$worktree_path"
+    # Explicit start ref: `worktree add -b` with no ref branches from the
+    # parent checkout's HEAD, which is only `main` by convention — a parallel
+    # session's feature checkout would silently leak its commits into every
+    # autonomous branch (observed 2026-08-30 with HON-550's checkout).
+    git -C "$REPO_ROOT" worktree add -b "$branch" "$worktree_path" origin/main
   fi
 
   echo ""

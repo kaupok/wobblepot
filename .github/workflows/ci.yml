@@ -64,6 +64,11 @@ jobs:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_CI }}
       UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL_CI }}
       UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN_CI }}
+      # Not a secret: both sides of the bearer check live inside this job. The
+      # account-deletion E2E spec (HON-479) calls the real purge cron with it
+      # instead of adding a test-only branch to the production route. 32+ chars
+      # to satisfy the env schema.
+      CRON_SECRET: ci-e2e-cron-secret-not-a-real-credential
       SEED_TEST_USERS: '1'
       SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
       SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}

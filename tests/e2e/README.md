@@ -83,33 +83,87 @@ principle that allows two shapes:
 - (a) create scoped fixtures and clean up on teardown, or
 - (b) operate on an immutable seeded account with read-only assertions.
 
-In practice **pattern (b) is the only viable shape** (HON-560): account
-creation needs an invite code from `/api/e2e-seed`, and that route 404s
-everywhere the rate-limit bypass is off — staging AND preview, by design
-(see `src/app/api/e2e-seed/route.ts`). A `@smoke` spec must therefore
-never call `signUp()`, `signUpWithHousehold()`, or `seedInviteCode()`.
-Sign in with the seeded fixture accounts below instead.
+The hard constraint (HON-560): **account creation is off-limits.** It needs
+an invite code from `/api/e2e-seed`, and that route 404s everywhere the
+rate-limit bypass is off — staging AND preview, by design (see
+`src/app/api/e2e-seed/route.ts`). A `@smoke` spec must therefore never call
+`signUp()`, `signUpWithHousehold()`, or `seedInviteCode()`. Sign in with the
+seeded fixture accounts below instead. The same 404 applies to the
+`/api/e2e-support` back-channel (below), so a `@smoke` spec may only use that
+as a fallback that degrades to `test.skip` — never as its primary path.
+
+Within that constraint both shapes are allowed. Pattern (b) is the default;
+pattern (a) is legitimate when the behaviour under test is inherently
+stateful, as long as the fixture is scoped to a seeded household and torn
+down in a `finally`. `shopping-to-pantry.spec.ts` is the worked example: it
+creates one meal-plan entry against the seeded smoke household, drives the
+purchase toggle, and deletes the entry (and any pantry row) whatever happens.
 
 **Guardrail:** `scripts/check-smoke-specs.sh` fails CI (and the
 staging-smoke run itself) if a `@smoke`-tagged spec file references one of
-those helpers. The check is file-scoped, so keep staging-safe `@smoke`
-specs in files that don't import the sign-up path — currently
-`tests/e2e/smoke.spec.ts` and `tests/e2e/security-headers.spec.ts`.
+the sign-up helpers. The check is file-scoped, so keep staging-safe `@smoke`
+specs in files that don't import the sign-up path.
 
 The current `@smoke` set is:
 
 - `tests/e2e/smoke.spec.ts` → `home renders with heading`
 - `tests/e2e/smoke.spec.ts` → `seeded smoke user signs in and views profile`
 - `tests/e2e/security-headers.spec.ts` → `home response carries a nonce-based CSP` (HON-561; no sign-in, no seed — asserts the proxy (`src/proxy.ts`) ran on a real response)
+- `tests/e2e/shopping-to-pantry.spec.ts` → `marking an item purchased moves it to the pantry, un-purchasing returns it` (HON-479; pattern (a), self-cleaning)
+- `tests/e2e/forgot-password.spec.ts` → `request reset → set a new password → sign in with it` (HON-479; **skips unless a reset link is readable** — see "Reading email in specs")
 
 (The original HON-455 locked set listed meal-plan and invite specs deleted
 in the HON-518 drift audit; `pantry-deduction.spec.ts` lost `@smoke` in
 HON-560 — it is `@ai` and seed-dependent.)
 
-Upcoming `@smoke` specs (forgot-password and shopping→pantry via
-[HON-479](https://linear.app/honkadori/issue/HON-479)) must follow the same
-fixture-based convention. Do **not** add `@smoke` to destructive specs
-(e.g. account deletion — ships CI-only via HON-479).
+Do **not** add `@smoke` to destructive specs. `tests/e2e/account-deletion.spec.ts`
+(HON-479) is the standing example: it signs up a throwaway account, hard-deletes
+rows, and needs the back-channel, so it runs in tier 1 CI and locally only.
+
+## Test-only routes
+
+Two routes exist purely for E2E, both gated on `RATE_LIMIT_BYPASS_ACTIVE`
+(`E2E_DISABLE_RATE_LIMIT=1` **and** `NEXT_PUBLIC_APP_ENV` of `ci`/`test`/`dev`)
+and returning **404** everywhere else — production, staging and preview included:
+
+| Route              | Purpose                                                                                                                                                                                                                                                        |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/e2e-seed`    | Mints a single-use invite code for the HON-488 sign-up gate.                                                                                                                                                                                                   |
+| `/api/e2e-support` | Back-channel for state Playwright can't reach through the UI (HON-479): `?action=reset-token`, `?action=user-state`, `?action=household-state`, and `POST ?action=expire-purge` (back-dates `purgeScheduledFor` so the purge cron sees the window as elapsed). |
+
+`expire-purge` exists so the **production** cron route stays free of test-only
+branches: the account-deletion spec back-dates the timestamp, then calls
+`/api/cron/purge-deleted-users` for real with `CRON_SECRET`. That secret is a
+fixed literal in `.github/workflows/ci.yml` and `scripts/e2e-local.sh` — both
+sides of the bearer check live inside the test environment, so it is content,
+not a credential.
+
+Use the typed client in `tests/e2e/utils/e2e-support.ts` rather than raw
+`fetch`, so a route rename breaks in one place.
+
+## Reading email in specs
+
+Specs that need to read outbound mail (`forgot-password`, and the optional
+email assertion in `account-deletion`) go through
+`tests/e2e/utils/mail-helpers.ts`, which has two backends:
+
+1. **Resend** — set `RESEND_TEST_API_KEY` to a _read-capable_ Resend API key on
+   the same team the app sends from. The helper polls `GET /emails`, matches on
+   recipient + subject + a send-time lower bound, then pulls the body with
+   `GET /emails/{id}`. This is the only backend that works on preview and
+   staging, where the app really sends mail.
+2. **Back-channel** — tier 1 CI and `pnpm test:e2e:local` have no
+   `RESEND_API_KEY` at all, so `sendResetPassword` short-circuits and no email
+   is ever produced. There the helper reads the token from
+   `/api/e2e-support?action=reset-token` and rebuilds Better Auth's own
+   `/api/auth/reset-password/:token` link, so everything from the click onwards
+   is the real flow.
+
+With neither available, `forgot-password.spec.ts` **skips**. That is
+deliberate: `RESEND_TEST_API_KEY` has to be minted by a human, and failing hard
+in the meantime would leave the production-promotion gate red on every merge —
+the exact failure HON-560 fixed. Provisioning the key is what turns this spec
+on for tiers 2 and 3.
 
 ## Selector conventions
 
@@ -147,12 +201,13 @@ Preview-smoke and staging-smoke rely on fixtures the seed script plants when
 `SEED_TEST_USERS=1` is set in the environment. These are consumed by specs
 that follow pattern (b) — notably those landing via HON-469 and HON-479.
 
-| Fixture                                               | How to reference                                                     | Purpose                                                                                                                                      |
-| ----------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Smoke test user                                       | `SMOKE_TEST_EMAIL` + `SMOKE_TEST_PASSWORD`                           | Stable credential for read-only sign-in assertions                                                                                           |
-| Smoke household ("Smoke Test Household")              | Automatic — owned by the smoke user                                  | Authed routes (`/`, `/profile`, `/shopping`) redirect household-less users to `/onboarding`; without it pattern (b) has nothing to assert on |
-| Forgot-password test user                             | `FORGOT_PASSWORD_TEST_EMAIL` + `FORGOT_PASSWORD_TEST_PASSWORD`       | Password can be reset per run without cross-spec impact                                                                                      |
-| Plan-eligible meal with concrete `quantityPerServing` | Any meal from `prisma/seed.ts` `baseMeals` with non-vague components | Drives pantry-deduction assertions                                                                                                           |
+| Fixture                                               | How to reference                                                     | Purpose                                                                                                                                                                                                                                                                                                       |
+| ----------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Smoke test user                                       | `SMOKE_TEST_EMAIL` + `SMOKE_TEST_PASSWORD`                           | Stable credential for read-only sign-in assertions                                                                                                                                                                                                                                                            |
+| Smoke household ("Smoke Test Household")              | Automatic — owned by the smoke user                                  | Authed routes (`/`, `/profile`, `/shopping`) redirect household-less users to `/onboarding`; without it pattern (b) has nothing to assert on                                                                                                                                                                  |
+| Smoke household meal plan                             | Automatic — `ensureSmokeMealPlan()`                                  | An empty `MealPlan` container. `MealPlan` is dateless (`@@unique([householdId])`), so it never goes stale; `shopping-to-pantry.spec.ts` hangs its own dated entry off it. Deliberately **no** seeded entries — a fixed date would drop out of the 7-day rolling window within a week and redden staging-smoke |
+| Forgot-password test user                             | `FORGOT_PASSWORD_TEST_EMAIL` + `FORGOT_PASSWORD_TEST_PASSWORD`       | Password can be reset per run without cross-spec impact. Has **no household** on purpose — it never navigates past sign-in, so signed-in assertions use the session endpoint, not `/profile`                                                                                                                  |
+| Plan-eligible meal with concrete `quantityPerServing` | Any meal from `prisma/seed.ts` `baseMeals` with non-vague components | Drives pantry-deduction assertions                                                                                                                                                                                                                                                                            |
 
 Seeded via `prisma/seed.ts` → `seedTestUsers()`. The function is **gated**
 behind `SEED_TEST_USERS=1` so it never runs against production. Users are
@@ -200,23 +255,27 @@ independently if you ever want to. The test-user credentials are
 purely content — but see "Treat remote-tier artifacts as public" above before
 assuming they stay secret.
 
-| Secret                          | Used by                      | Can reuse staging? | Notes                                                                                                                                                             |
-| ------------------------------- | ---------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BETTER_AUTH_SECRET_CI`         | CI                           | Yes                | Signs sessions in the CI runner. Sessions are DB-backed — a leaked secret can't forge a session without the matching DB row, so sharing is benign.                |
-| `ANTHROPIC_API_KEY_CI`          | CI                           | Yes                | Tier 1 skips `@ai` specs so runtime AI spend is effectively zero. The key is still needed for `pnpm build` to resolve lazy env references cleanly. Reuse staging. |
-| `UPSTASH_REDIS_REST_URL_CI`     | CI                           | Yes                | Same Upstash DB as staging. Rate-limiter keys are dimensioned (ip/household/user) and CI runner IPs / fresh IDs don't collide with real traffic.                  |
-| `UPSTASH_REDIS_REST_TOKEN_CI`   | CI                           | Yes                | Paired with above.                                                                                                                                                |
-| `SMOKE_TEST_EMAIL`              | CI / preview-smoke / staging | n/a                | Stable seeded account. Pick any value — e.g. `smoke+ci@wobblepot.dev`.                                                                                            |
-| `SMOKE_TEST_PASSWORD`           | CI / preview-smoke / staging | n/a                | ≥ 12 chars (HON-464 minimum) and must not be in HIBP's breach list (auth.ts rejects known-breached passwords on sign-up).                                         |
-| `FORGOT_PASSWORD_TEST_EMAIL`    | CI / preview-smoke / staging | n/a                | Separate seeded account so reset-password specs don't affect the smoke account.                                                                                   |
-| `FORGOT_PASSWORD_TEST_PASSWORD` | CI / preview-smoke / staging | n/a                | Same constraints as `SMOKE_TEST_PASSWORD`.                                                                                                                        |
+| Secret                          | Used by                      | Can reuse staging?  | Notes                                                                                                                                                                                                                                                                                               |
+| ------------------------------- | ---------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BETTER_AUTH_SECRET_CI`         | CI                           | Yes                 | Signs sessions in the CI runner. Sessions are DB-backed — a leaked secret can't forge a session without the matching DB row, so sharing is benign.                                                                                                                                                  |
+| `ANTHROPIC_API_KEY_CI`          | CI                           | Yes                 | Tier 1 skips `@ai` specs so runtime AI spend is effectively zero. The key is still needed for `pnpm build` to resolve lazy env references cleanly. Reuse staging.                                                                                                                                   |
+| `UPSTASH_REDIS_REST_URL_CI`     | CI                           | Yes                 | Same Upstash DB as staging. Rate-limiter keys are dimensioned (ip/household/user) and CI runner IPs / fresh IDs don't collide with real traffic.                                                                                                                                                    |
+| `UPSTASH_REDIS_REST_TOKEN_CI`   | CI                           | Yes                 | Paired with above.                                                                                                                                                                                                                                                                                  |
+| `SMOKE_TEST_EMAIL`              | CI / preview-smoke / staging | n/a                 | Stable seeded account. Pick any value — e.g. `smoke+ci@wobblepot.dev`.                                                                                                                                                                                                                              |
+| `SMOKE_TEST_PASSWORD`           | CI / preview-smoke / staging | n/a                 | ≥ 12 chars (HON-464 minimum) and must not be in HIBP's breach list (auth.ts rejects known-breached passwords on sign-up).                                                                                                                                                                           |
+| `FORGOT_PASSWORD_TEST_EMAIL`    | CI / preview-smoke / staging | n/a                 | Separate seeded account so reset-password specs don't affect the smoke account.                                                                                                                                                                                                                     |
+| `FORGOT_PASSWORD_TEST_PASSWORD` | CI / preview-smoke / staging | n/a                 | Same constraints as `SMOKE_TEST_PASSWORD`.                                                                                                                                                                                                                                                          |
+| `RESEND_TEST_API_KEY`           | preview-smoke / staging      | No — mint a new one | **Not provisioned yet.** A _read-capable_ Resend API key on the same team the app sends from, used by the Playwright runner (never by the app) to fetch delivered mail. Until it exists, `forgot-password.spec.ts` skips on tiers 2/3. Distinct from `RESEND_API_KEY`, which is the app's send key. |
 
 Where each environment's seed actually runs (and therefore where the
 `SEED_TEST_USERS=1` + credential env vars must be set):
 
-- **Preview** — `scripts/maybe-migrate.sh` → `pnpm db:seed` during the
-  Vercel build, so the **Vercel preview env vars** need `SEED_TEST_USERS=1`
-  plus the same `SMOKE_TEST_*` / `FORGOT_PASSWORD_TEST_*` values.
+- **Preview** — nothing seeds during the Vercel build: `scripts/maybe-migrate.sh`
+  runs `prisma migrate deploy` and nothing else. A preview Neon branch is a
+  copy-on-write fork of its parent, so the fixtures it has are the ones the
+  parent branch already held — i.e. whatever the staging seed below planted.
+  A fixture added to `seedTestUsers()` only reaches preview once the staging
+  seed has run and new preview branches fork from the updated parent.
 - **Staging** — `maybe-migrate.sh` skips `main`, so seeding happens in the
   `Deploy DB migrations [staging]` GitHub workflow instead. Its seed step
   sets `SEED_TEST_USERS=1` and passes the four credential secrets
@@ -233,8 +292,12 @@ secret can't turn the promotion gate into a silent green).
 
 ## File layout
 
-| File                              | Purpose                                         |
-| --------------------------------- | ----------------------------------------------- |
-| `tests/e2e/*.spec.ts`             | Specs                                           |
-| `tests/e2e/utils/test-helpers.ts` | Shared helpers (sign-up, sign-in, meal-plan)    |
-| `playwright.config.ts`            | Top-level config (CI-aware webServer + baseURL) |
+| File                              | Purpose                                                                 |
+| --------------------------------- | ----------------------------------------------------------------------- |
+| `tests/e2e/*.spec.ts`             | Specs                                                                   |
+| `tests/e2e/utils/test-helpers.ts` | Shared helpers (sign-up, sign-in, meal-plan)                            |
+| `tests/e2e/utils/db-helpers.ts`   | `/api/e2e-seed` client + `e2eBaseURL()`                                 |
+| `tests/e2e/utils/e2e-support.ts`  | `/api/e2e-support` back-channel client + purge-cron trigger             |
+| `tests/e2e/utils/fixtures.ts`     | Seeded-fixture credentials (skip locally / fail loudly on remote tiers) |
+| `tests/e2e/utils/mail-helpers.ts` | Reading outbound email (Resend backend, back-channel fallback)          |
+| `playwright.config.ts`            | Top-level config (CI-aware webServer + baseURL)                         |
