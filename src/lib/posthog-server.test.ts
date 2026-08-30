@@ -32,6 +32,12 @@ describe('posthog-server', () => {
     delete process.env.NEXT_PUBLIC_POSTHOG_HOST
     delete process.env.VERCEL
     delete process.env.NEXT_RUNTIME
+    // The runner sets VITEST, which the module treats as "return no client".
+    // Blank it so the construction tests below reach the real client path; the
+    // gate itself gets its own test that stubs VITEST back on. `stubEnv` keeps
+    // the mutation scoped — `unstubAllEnvs` restores the runner's value even if
+    // a test throws part-way through.
+    vi.stubEnv('VITEST', '')
     processOnceSpy = vi.spyOn(process, 'once').mockImplementation(() => process)
   })
 
@@ -42,6 +48,17 @@ describe('posthog-server', () => {
     delete process.env.NEXT_PUBLIC_POSTHOG_HOST
     delete process.env.VERCEL
     delete process.env.NEXT_RUNTIME
+    vi.unstubAllEnvs()
+  })
+
+  it('returns null under Vitest so fixture errors never reach the live project', async () => {
+    vi.stubEnv('VITEST', 'true')
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test'
+    process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://eu.i.posthog.com'
+
+    const { getPosthogServer } = await import('@/lib/posthog-server')
+    expect(getPosthogServer()).toBeNull()
+    expect(constructorSpy).not.toHaveBeenCalled()
   })
 
   it('returns null when NEXT_PUBLIC_POSTHOG_KEY is unset', async () => {

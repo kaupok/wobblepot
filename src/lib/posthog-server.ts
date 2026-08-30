@@ -9,6 +9,22 @@ const globalForPosthog = globalThis as unknown as {
 }
 
 export function getPosthogServer(): PostHog | null {
+  // Vitest exercises real route catch-blocks that call `captureApiError`, plus
+  // real analytics captures. With `flushAt: 1` / `flushInterval: 0` those
+  // fixture errors ship to the live project and bury genuine exceptions. Return
+  // no client under test — one gate covers every server-side capture path.
+  //
+  // Only developer machines were affected: CI sets no `NEXT_PUBLIC_POSTHOG_KEY`,
+  // so the key check below already short-circuited there.
+  //
+  // Consequence: a test cannot assert capture *through* this module. Mock
+  // `@/lib/posthog-server` (or `@/lib/errors`) and assert on the mock — the
+  // pattern `errors.test.ts`, `feature-flags.test.ts`, `ai/usage.test.ts`, and
+  // `instrumentation.test.ts` already use.
+  if (process.env.VITEST) {
+    return null
+  }
+
   if (!serverEnv.NEXT_PUBLIC_POSTHOG_KEY || !serverEnv.NEXT_PUBLIC_POSTHOG_HOST) {
     return null
   }
