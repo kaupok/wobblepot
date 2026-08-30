@@ -81,7 +81,7 @@ When creating a worktree, the script automatically copies these gitignored files
 | `.env`                        | Environment variables (DATABASE_URL, API keys, etc.) |
 | `.claude/settings.local.json` | Claude Code permissions and settings                 |
 
-Both files are copied to the worktree as-is.
+Both files are copied verbatim. When Neon branching is enabled, `DATABASE_URL` and `DATABASE_URL_UNPOOLED` in the worktree's copy of `.env` are then patched to point at the fresh Neon branch (see the Neon section below).
 
 **To add more files:** Edit the `UNTRACKED_FILES` array in `scripts/worktree-claude.sh`.
 

@@ -143,6 +143,12 @@ if [ -f ".env" ]; then
   else
     warning "DATABASE_URL_UNPOOLED not set (required for migrations)"
   fi
+
+  if check_env_var "LINEAR_API_KEY"; then
+    success "LINEAR_API_KEY is set (for the automation scripts)"
+  else
+    info "LINEAR_API_KEY not set (optional - needed by orchestrator.sh, worktree-claude.sh, neon-cleanup.sh)"
+  fi
 else
   error ".env file not found. Copy from .env.example: cp .env.example .env"
 fi

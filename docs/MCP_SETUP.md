@@ -171,9 +171,9 @@ claude mcp add --transport stdio your-server -- npx -y @modelcontextprotocol/ser
 
 ## Environment Variables
 
-Only `CONTEXT7_API_KEY` is interpolated by `.mcp.json` (through the `${CONTEXT7_API_KEY}` header on the `context7` server). Set it in `.claude/settings.local.json`. The `context7`, `linear-server`, and `posthog` servers otherwise authenticate through OAuth and need no key.
+Only `CONTEXT7_API_KEY` is interpolated by `.mcp.json` (through the `${CONTEXT7_API_KEY}` header on the `context7` server). Set it in `.claude/settings.local.json`. `linear-server` and `posthog` authenticate through OAuth and need no key.
 
-**Checking for drift:** `grep -o '\${[A-Z_]*}' .mcp.json` lists every variable `.mcp.json` interpolates. This section should document exactly that set — if the two disagree, this doc is stale.
+**Checking for drift:** `grep -o '\${[A-Z0-9_]*}' .mcp.json` lists every variable `.mcp.json` interpolates. This section should document exactly that set — if the two disagree, this doc is stale.
 
 `LINEAR_API_KEY` is also listed here, but the Linear MCP server does not use it — it is for the automation scripts (see the note under [Linear MCP](#5-linear-mcp-http-server)). Put it in `.env` as well, which is where `scripts/worktree-claude.sh` reads it.
 
@@ -192,8 +192,8 @@ Only `CONTEXT7_API_KEY` is interpolated by `.mcp.json` (through the `${CONTEXT7_
 **Important notes:**
 
 - `.claude/settings.local.json` is gitignored (safe for secrets)
-- The `.mcp.json` uses `${VAR}` syntax to reference these variables
-- Don't put MCP secrets in `.env` (that file is for app environment variables)
+- `.mcp.json` references `CONTEXT7_API_KEY` with `${VAR}` syntax; the other servers use OAuth
+- Don't put MCP secrets in `.env` — that file is for app environment variables and the automation scripts' keys (`LINEAR_API_KEY`, `NEON_*`), which are not MCP secrets
 - Restart Claude Code after modifying `.claude/settings.local.json`
 
 **Setup steps:**
