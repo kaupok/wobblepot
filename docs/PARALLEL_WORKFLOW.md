@@ -207,7 +207,12 @@ Requires `LINEAR_API_KEY` env var (format: `lin_api_...`).
 ```bash
 gh pr merge --squash <PR>          # ci=green — one step from done
 wt resume <branch>                 # ci=failing/pending — pick the work back up
+wt cleanup <branch>                # ALWAYS, once finished — release the artifacts
 ```
+
+The release step is not optional. Nothing else reclaims a preserved worktree (a full `pnpm install`), and `wt auto` hard-exits when one already exists — so an unreleased worktree blocks every future run on that branch. The `Stranded` label is what keeps the picker off the issue until you have done it: `select_next_issue` skips `Stranded` exactly as it skips `Gated`, so remove the label only after `wt cleanup`.
+
+If no PR could be resolved at all — none was opened, or `gh` is missing or unauthenticated — Linear never moved the issue anywhere, so it is still `In Progress` and assigned where `claim_issue` left it. That path returns the issue to Todo and clears the assignee (as the gated path does), leaving the `Stranded` label as the gate. A PR in any other state is left alone: `In Review` is the accurate state when a PR exists. A `CLOSED`-but-unmerged PR is reported as such and told to reopen rather than merge — `gh pr merge` on a closed PR fails.
 
 Before deciding a run is stranded, the orchestrator re-checks the PR: a `MERGED` PR is reported as `SUCCESS` even if the phase marker was missing, so a lagging `detect_phase` cannot manufacture a false stranding. Without `gh` on `PATH` the PR cannot be checked at all, and the run is reported `STRANDED` without PR detail — the conservative answer, since a false `SUCCESS` here deletes the branch. Like `GATED`, a stranded exit counts toward the circuit breaker.
 

@@ -761,7 +761,11 @@ CI takes 12–45 min. Bash's 600 s cap is per *call*, not per turn, so wait in *
 Run the block below in the **foreground** with `timeout: 540000`:
 
 ```bash
-# One chunk = 16 polls × 30 s ≈ 8 min, safely under Bash's 600 s cap.
+# One chunk = 16 polls, 15 sleeps × 30 s ≈ 480 s of sleep (510 s on chunk 1,
+# which also waits for GitHub to register the run) plus ~18 gh calls — under the
+# prescribed 540 s timeout with room to spare. The 16th sleep is skipped on
+# purpose: it would only delay CI_WAITING, and it is what used to push chunk 1
+# past the cap, where the call is killed and prints no marker at all.
 # Prints exactly one marker on its last line:
 #   CI_SETTLED  → terminal — proceed to the foreground verification below
 #   CI_WAITING  → NOT terminal — re-issue this exact command (budget: 6 chunks ≈ 48 min,
@@ -775,6 +779,14 @@ Run the block below in the **foreground** with `timeout: 540000`:
 PR_NUMBER=$(gh pr view --json number --jq .number)
 NON_DOCS=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
 PREV_FILE="/tmp/ci-poll-$PR_NUMBER.prev"; CHUNK_FILE="/tmp/ci-poll-$PR_NUMBER.chunks"
+# Reap state left by an abandoned episode (a killed call, a worker timeout).
+# It is keyed only by PR number, so a RETRY worker on the same PR would inherit
+# the spent budget — 2 chunks instead of 6 — and hit CI_TIMEOUT on CI that was
+# always going to take 30 min, re-stranding the PR through the state file. A
+# stale PREV is worse: it can match the first CUR and settle the poll without
+# ever running the two-consecutive-poll stability check. A live episode
+# re-issues within seconds, so age separates the two cleanly.
+[ -n "$(find "$CHUNK_FILE" -mmin +10 2>/dev/null)" ] && rm -f "$PREV_FILE" "$CHUNK_FILE"
 CHUNKS=$(( $(cat "$CHUNK_FILE" 2>/dev/null || echo 0) + 1 )); echo "$CHUNKS" > "$CHUNK_FILE"
 PREV=$(cat "$PREV_FILE" 2>/dev/null || true)
 [ "$CHUNKS" = 1 ] && sleep 30  # let GitHub register the workflow run for the pushed commit
@@ -787,7 +799,7 @@ for i in $(seq 1 16); do
   [ "$CUR" = "$PREV" ] || OK=0                                                       # identical to the previous poll
   PREV=$CUR; printf '%s' "$CUR" > "$PREV_FILE"
   if [ "$OK" = 1 ]; then rm -f "$PREV_FILE" "$CHUNK_FILE"; echo CI_SETTLED; exit 0; fi
-  sleep 30
+  [ "$i" -lt 16 ] && sleep 30   # the 16th sleep would only delay CI_WAITING
 done
 if [ "$CHUNKS" -ge 6 ]; then rm -f "$PREV_FILE" "$CHUNK_FILE"; echo CI_TIMEOUT; exit 1; fi
 echo "CI_WAITING (chunk $CHUNKS/6)"
@@ -796,6 +808,7 @@ echo "CI_WAITING (chunk $CHUNKS/6)"
 Act on the marker:
 
 - `CI_WAITING` — re-issue the same command immediately. **This is not a stopping point.** Never end a turn on it, and never write a message like "CI is still running, I'll merge once it settles" — that sentence is the bug this pattern exists to prevent.
+- **No marker at all** (the Bash call was killed at its timeout, or errored before the loop) — treat it exactly as `CI_WAITING` and re-issue. The chunk counter was already incremented, so the budget shrinks by one and a repeat lands on `CI_TIMEOUT` rather than looping forever. A missing marker is never a reason to end the turn.
 - `CI_TIMEOUT` — terminal: report and stop. Do not merge.
 - `CI_SETTLED` — continue to the verification below.
 
@@ -984,7 +997,11 @@ Same mechanism as 6.1 — foreground wait-chunks, then foreground verification. 
 Run the block below in the **foreground** with `timeout: 540000`:
 
 ```bash
-# One chunk = 16 polls × 30 s ≈ 8 min, safely under Bash's 600 s cap.
+# One chunk = 16 polls, 15 sleeps × 30 s ≈ 480 s of sleep (510 s on chunk 1,
+# which also waits for GitHub to register the run) plus ~18 gh calls — under the
+# prescribed 540 s timeout with room to spare. The 16th sleep is skipped on
+# purpose: it would only delay CI_WAITING, and it is what used to push chunk 1
+# past the cap, where the call is killed and prints no marker at all.
 # Prints exactly one marker on its last line:
 #   CI_SETTLED  → terminal — proceed to the foreground verification below
 #   CI_WAITING  → NOT terminal — re-issue this exact command (budget: 6 chunks ≈ 48 min,
@@ -998,6 +1015,14 @@ Run the block below in the **foreground** with `timeout: 540000`:
 PR_NUMBER=$(gh pr view --json number --jq .number)
 NON_DOCS=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
 PREV_FILE="/tmp/ci-poll-$PR_NUMBER.prev"; CHUNK_FILE="/tmp/ci-poll-$PR_NUMBER.chunks"
+# Reap state left by an abandoned episode (a killed call, a worker timeout).
+# It is keyed only by PR number, so a RETRY worker on the same PR would inherit
+# the spent budget — 2 chunks instead of 6 — and hit CI_TIMEOUT on CI that was
+# always going to take 30 min, re-stranding the PR through the state file. A
+# stale PREV is worse: it can match the first CUR and settle the poll without
+# ever running the two-consecutive-poll stability check. A live episode
+# re-issues within seconds, so age separates the two cleanly.
+[ -n "$(find "$CHUNK_FILE" -mmin +10 2>/dev/null)" ] && rm -f "$PREV_FILE" "$CHUNK_FILE"
 CHUNKS=$(( $(cat "$CHUNK_FILE" 2>/dev/null || echo 0) + 1 )); echo "$CHUNKS" > "$CHUNK_FILE"
 PREV=$(cat "$PREV_FILE" 2>/dev/null || true)
 [ "$CHUNKS" = 1 ] && sleep 30  # let GitHub register the workflow run for the pushed commit
@@ -1010,7 +1035,7 @@ for i in $(seq 1 16); do
   [ "$CUR" = "$PREV" ] || OK=0                                                       # identical to the previous poll
   PREV=$CUR; printf '%s' "$CUR" > "$PREV_FILE"
   if [ "$OK" = 1 ]; then rm -f "$PREV_FILE" "$CHUNK_FILE"; echo CI_SETTLED; exit 0; fi
-  sleep 30
+  [ "$i" -lt 16 ] && sleep 30   # the 16th sleep would only delay CI_WAITING
 done
 if [ "$CHUNKS" -ge 6 ]; then rm -f "$PREV_FILE" "$CHUNK_FILE"; echo CI_TIMEOUT; exit 1; fi
 echo "CI_WAITING (chunk $CHUNKS/6)"
@@ -1019,6 +1044,7 @@ echo "CI_WAITING (chunk $CHUNKS/6)"
 Act on the marker:
 
 - `CI_WAITING` — re-issue the same command immediately. **This is not a stopping point.** Never end a turn on it, and never write a message like "CI is still running, I'll merge once it settles" — that sentence is the bug this pattern exists to prevent.
+- **No marker at all** (the Bash call was killed at its timeout, or errored before the loop) — treat it exactly as `CI_WAITING` and re-issue. The chunk counter was already incremented, so the budget shrinks by one and a repeat lands on `CI_TIMEOUT` rather than looping forever. A missing marker is never a reason to end the turn.
 - `CI_TIMEOUT` — terminal: report and stop. Do not merge.
 - `CI_SETTLED` — continue to the verification below.
 

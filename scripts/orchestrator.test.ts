@@ -114,6 +114,86 @@ describe('orchestrator.sh', () => {
       expect(out).toContain('[OUTCOME] HON-999 STRANDED')
       expect(out).not.toContain('SUCCESS')
     })
+
+    it('reports SUCCESS for a merged PR even when the worktree is already gone', () => {
+      // count_commits reads `main..HEAD` in the worktree; once that is removed
+      // it returns 0. Resolving the PR before the 0-commit gate is what keeps
+      // this from being labelled GATED and pushed back to Todo after it shipped.
+      const out = classify(0, 'planning', 'MERGED', 'green')
+
+      expect(out).toContain('[OUTCOME] HON-999 SUCCESS')
+      expect(out).not.toContain('GATED')
+      expect(out).not.toContain('LABEL:Gated')
+      expect(out).not.toContain('RESTORE_TODO')
+    })
+  })
+
+  // The Linear comment is the only place most operators see a stranding, so its
+  // wording has to survive being pasted into a shell and must not describe a
+  // closed PR as mergeable.
+  describe('record_stranded operator instructions', () => {
+    it('emits a bare PR number the shell will not read as a comment', () => {
+      const out = classify(3, 'pr-review', 'OPEN', 'green')
+
+      expect(out).toContain('gh pr merge --squash 650')
+      // `#650` starts a comment: the argument is dropped and `gh pr merge`
+      // resolves against whatever branch the operator's cwd is on.
+      expect(out).not.toContain('gh pr merge --squash #650')
+    })
+
+    it('distinguishes a closed PR from an open one', () => {
+      const out = classify(3, 'pr-review', 'CLOSED', 'green')
+
+      expect(out).toContain('CLOSED, never merged')
+      expect(out).not.toContain('**Open PR:**')
+      // `gh pr merge` on a closed PR fails; reopening is the real next step.
+      expect(out).not.toContain('gh pr merge')
+      expect(out).toContain('gh pr reopen 650')
+    })
+
+    it('names the release command alongside the resume command', () => {
+      // Nothing reclaims a preserved worktree, and `wt auto` hard-exits when one
+      // already exists — so the operator has to be told how to release it.
+      const out = classify(3, 'pr-review', 'OPEN', 'green')
+
+      expect(out).toContain('resume with: wt resume test-branch')
+      expect(out).toContain('release with: wt cleanup test-branch')
+      expect(out).toContain('wt cleanup test-branch')
+    })
+
+    it('returns a stranded run with no PR to Todo', () => {
+      // With no PR, Linear never moved the issue out of In Progress and
+      // /auto-implement left it assigned — select_next_issue would skip it
+      // forever. The Stranded label keeps the picker off it in the meantime.
+      const out = classify(3, 'pr-review', 'NONE', 'unknown')
+
+      expect(out).toContain('RESTORE_TODO:HON-999')
+      expect(out).toContain('LABEL:Stranded')
+    })
+
+    it('leaves the issue in In Review when a PR exists', () => {
+      // Linear automation already moved it there, and that is the accurate
+      // state — overwriting it with Todo would misreport an open PR.
+      expect(classify(3, 'pr-review', 'OPEN', 'green')).not.toContain('RESTORE_TODO')
+    })
+  })
+
+  // The harness keeps orchestrator.sh's `set -e` on (only `-u` is relaxed), so a
+  // statement that returns non-zero on one of these paths aborts mid-function
+  // and the trailing log line never appears. That is the ee9ad31 defect class.
+  describe('errexit safety under production shell semantics', () => {
+    it.each(['OPEN', 'CLOSED', 'NONE'] as PrState[])(
+      'runs handle_success to completion with a %s PR',
+      (pr) => {
+        expect(classify(3, 'pr-review', pr, 'unknown')).toContain(
+          'Preserved worktree and branch for HON-999',
+        )
+      },
+    )
+
+    it('runs the gated path to completion', () => {
+      expect(classify(0, 'planning', 'NONE', 'unknown')).toContain('CLEANUP:test-branch:false')
+    })
   })
 
   // These drive the real helpers against fixture `gh` output. The

@@ -344,8 +344,12 @@ select_next_issue() {
         # the picker from respawning the same 0-commit worker every poll.
         _gated: (.identifier as $id | ($gated_list | index($id)) != null),
         # Durable form of the same gate: the label survives restarts, so a
-        # deterministic 0-commit issue is not re-picked every run.
-        _gated_label: (([.labels.nodes[]?.name] | index("Gated")) != null),
+        # deterministic 0-commit issue is not re-picked every run. `Stranded`
+        # gates for a different reason but needs the same treatment: that path
+        # deliberately preserves the worktree, and `wt auto` hard-exits when one
+        # already exists (worktree-claude.sh:568), so re-picking the issue would
+        # fail the worker in seconds and land it in Backlog via handle_failure.
+        _gate_label: ([.labels.nodes[]?.name] | map(select(. == "Gated" or . == "Stranded")) | .[0]),
         # Any assigned issue belongs to someone — including the operator, who
         # may have self-assigned a Todo issue to work on by hand. Same rule as
         # /next-issue step 4 and /auto-implement 1.4 (assignee must be null).
@@ -378,7 +382,8 @@ select_next_issue() {
     | map(. + {
         _skip: (
           if ._running then ["DEBUG", "already running"]
-          elif (._gated or ._gated_label) then ["INFO", "gated (a worker exited with 0 commits) — fix the cause, then remove the Gated label or re-triage to retry"]
+          elif (._gated or ._gate_label == "Gated") then ["INFO", "gated (a worker exited with 0 commits) — fix the cause, then remove the Gated label or re-triage to retry"]
+          elif ._gate_label == "Stranded" then ["INFO", "stranded (a worker left an unmerged PR; its worktree is preserved) — finish or close the PR, release with `wt cleanup <branch>`, then remove the Stranded label"]
           elif ._assigned then ["INFO", "assigned"]
           elif (._open_blockers | length) > 0 then
             ["INFO",
@@ -846,6 +851,24 @@ handle_success() {
   done
   duration_str=$(format_duration "$duration_secs")
 
+  # Resolve the PR once, ahead of BOTH incompleteness checks below. Each of them
+  # condemns a run that did not reach "done", and both are wrong when the run
+  # actually merged: detect_phase can miss the "[merge:complete]" marker and fall
+  # through to "planning", and a merged run whose worktree is already gone counts
+  # 0 commits. Confirming against the PR first keeps a lagging phase from
+  # manufacturing either a false GATED or a false STRANDED. Skipped entirely when
+  # the phase already says "done" — that run needs no confirmation, and this is a
+  # network round-trip.
+  local pr_state="" pr_number="" pr_url="" pr_info="" pr_merged=false
+  if [ "$phase" != "done" ]; then
+    pr_info=$(pr_for_branch "$branch")
+    [ -n "$pr_info" ] && IFS=$'\t' read -r pr_state pr_number pr_url <<< "$pr_info"
+    if [ "$pr_state" = "MERGED" ]; then
+      log INFO "$issue_id: phase reported '$phase' but PR #$pr_number is merged — treating as success"
+      pr_merged=true
+    fi
+  fi
+
   # A clean exit that produced no commits and did not reach a merge shipped
   # nothing. Logging it as SUCCESS would leave the issue In Progress and
   # assigned, which select_next_issue skips forever. Gate it instead: return the
@@ -854,7 +877,7 @@ handle_success() {
   # merged run can also show 0 commits once local main advances past its merge;
   # that run reached phase "done", so it stays a SUCCESS and Linear automation
   # moves its issue to Done.
-  if [ "${commits:-0}" -eq 0 ] && [ "$phase" != "done" ]; then
+  if [ "${commits:-0}" -eq 0 ] && [ "$phase" != "done" ] && [ "$pr_merged" = false ]; then
     log WARN "[OUTCOME] $issue_id GATED ${duration_str} 0-commits phase=$phase"
     notify "Honkadori" "$issue_id produced no commits — returned to Todo"
     gate_no_commit_success "$issue_uuid" "$issue_id" "$log_file"
@@ -875,35 +898,39 @@ handle_success() {
   # outcome line said the cycle finished, and cleanup then deleted the worktree,
   # local branch and Neon branch that a resume needs.
   #
-  # Confirm against the PR before condemning the run: a genuinely merged run
-  # whose "[merge:complete]" marker never made it to the log would otherwise be
-  # mislabelled. A MERGED PR falls through to SUCCESS; everything else — open,
-  # closed, never created, or unknowable because gh is missing — is STRANDED,
-  # because on this path a false SUCCESS is the expensive answer.
-  if [ "$phase" != "done" ]; then
-    local pr_info pr_state="" pr_number="" pr_url="" ci_state="unknown"
-    pr_info=$(pr_for_branch "$branch")
-    [ -n "$pr_info" ] && IFS=$'\t' read -r pr_state pr_number pr_url <<< "$pr_info"
-
-    if [ "$pr_state" != "MERGED" ]; then
-      ci_state=$(pr_ci_state "$pr_number")
-      local pr_ref="none"
-      [ -n "$pr_number" ] && pr_ref="#$pr_number"
-      log WARN "[OUTCOME] $issue_id STRANDED ${duration_str} ${commits}-commits phase=$phase pr=${pr_ref} ci=${ci_state}"
-      notify "Honkadori" "$issue_id stranded at $phase — PR $pr_ref not merged"
-      record_stranded "$issue_uuid" "$issue_id" "$branch" "$log_file" "$pr_url" "$pr_ref" "$ci_state" "$phase"
-      # An incomplete cycle is a failure to ship, so it counts toward the
-      # circuit breaker: a systemic stranding must not walk the whole Todo
-      # queue one worker per poll.
-      note_consecutive_failure
-      [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=1
-      # Deliberately no cleanup_worker_worktree: the worktree, local branch and
-      # Neon branch are exactly what finishing this run by hand requires.
-      log WARN "Preserved worktree and branch for $issue_id — resume with: wt resume $branch"
-      return
+  # A MERGED PR (confirmed above) falls through to SUCCESS; everything else —
+  # open, closed, never created, or unknowable because gh is missing — is
+  # STRANDED, because on this path a false SUCCESS is the expensive answer.
+  if [ "$phase" != "done" ] && [ "$pr_merged" = false ]; then
+    local ci_state pr_ref="none"
+    ci_state=$(pr_ci_state "$pr_number")
+    [ -n "$pr_number" ] && pr_ref="#$pr_number"
+    log WARN "[OUTCOME] $issue_id STRANDED ${duration_str} ${commits}-commits phase=$phase pr=${pr_ref} ci=${ci_state}"
+    notify "Honkadori" "$issue_id stranded at $phase — PR $pr_ref not merged"
+    record_stranded "$issue_uuid" "$issue_id" "$branch" "$log_file" "$pr_url" "$pr_ref" "$pr_state" "$ci_state" "$phase"
+    # With a PR, In Review is the accurate state and record_stranded leaves it
+    # alone. With no PR — none opened, or gh missing/unauthenticated, which
+    # validate_environment only WARNs about — Linear never moved the issue, so
+    # it is still In Progress and assigned where claim_issue and /auto-implement
+    # Phase 2.2 left it. fetch_todo_issues queries Todo only and
+    # select_next_issue skips assigned issues, so it would never be seen again.
+    # Hand it back the way gate_no_commit_success does; the Stranded label added
+    # by record_stranded keeps the picker off it until an operator clears it.
+    if [ -z "$pr_number" ]; then
+      restore_todo_if_in_progress "$issue_uuid" "$issue_id"
     fi
-
-    log INFO "$issue_id: phase reported '$phase' but PR #$pr_number is merged — treating as success"
+    # An incomplete cycle is a failure to ship, so it counts toward the
+    # circuit breaker: a systemic stranding must not walk the whole Todo
+    # queue one worker per poll.
+    note_consecutive_failure
+    [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=1
+    # Deliberately no cleanup_worker_worktree: the worktree, local branch and
+    # Neon branch are exactly what finishing this run by hand requires. Nothing
+    # reclaims them once the operator is done, so the release command has to
+    # travel with the resume command — otherwise every stranded run leaks a
+    # worktree (a full pnpm install) and blocks any respawn on that branch.
+    log WARN "Preserved worktree and branch for $issue_id — resume with: wt resume $branch (release with: wt cleanup $branch)"
+    return
   fi
 
   # Reset circuit breaker on a real success
@@ -951,30 +978,51 @@ gate_no_commit_success() {
 # ─── Record a stranded (unmerged) run ────────────────────────────────────────
 # The worker exited cleanly with commits but never merged. Make that visible
 # where a human will look — on the issue itself — rather than only in
-# orchestrator.log. The issue is left in whatever state it is in: an open PR
-# means Linear automation has already moved it to In Review, and that is the
-# accurate state. Only the label and the comment are added.
+# orchestrator.log. This function only adds the label and the comment; it never
+# touches issue state, because with an open PR Linear automation has already
+# moved the issue to In Review and that is the accurate state. The no-PR case,
+# where nothing moved the issue at all, is handled by the caller.
 
 record_stranded() {
   local issue_uuid="$1" issue_id="$2" branch="$3" log_file="$4"
-  local pr_url="$5" pr_ref="$6" ci_state="$7" phase="$8"
+  local pr_url="$5" pr_ref="$6" pr_state="$7" ci_state="$8" phase="$9"
 
+  # pr_ref is "#650" — the shape the outcome log line wants. Every operator
+  # instruction below needs the bare number instead: `gh pr merge` rejects a
+  # leading "#" as a ref, and a shell pasting the command reads "#650" as the
+  # start of a comment and silently drops the argument.
+  local pr_num="${pr_ref#\#}"
+
+  # OPEN and CLOSED must not read the same. A deliberately-closed PR handed a
+  # "merge it" instruction either wastes the operator's time or, worse, gets
+  # work someone closed on purpose reopened and merged.
   local pr_note="No PR could be resolved for \`$branch\` — either none was opened, or \`gh\` is unavailable to this orchestrator."
-  [ -n "$pr_url" ] && pr_note=$(printf '**Open PR:** %s (CI: `%s`)' "$pr_url" "$ci_state")
+  if [ -n "$pr_url" ] && [ "$pr_state" = "OPEN" ]; then
+    pr_note=$(printf '**Open PR:** %s (CI: `%s`)' "$pr_url" "$ci_state")
+  elif [ -n "$pr_url" ]; then
+    pr_note=$(printf '**PR %s — %s, never merged** (CI: `%s`)' "$pr_url" "$pr_state" "$ci_state")
+  fi
 
   local log_path_note=""
   [ -n "$log_file" ] && log_path_note=$(printf '\n**Worker log:** `%s`' "$log_file")
 
-  local next_step="Review the PR, then merge it by hand once CI is green."
-  case "$ci_state" in
-    green)   next_step=$(printf 'CI is green — this run is one `gh pr merge --squash %s` from done.' "$pr_ref") ;;
-    failing) next_step="CI is failing — fix on the preserved branch, push, then merge." ;;
-    pending) next_step="CI is still running — wait for it, then merge." ;;
-  esac
+  local next_step
+  if [ "$pr_state" = "OPEN" ]; then
+    next_step="Review the PR, then merge it by hand once CI is green."
+    case "$ci_state" in
+      green)   next_step=$(printf 'CI is green — this run is one `gh pr merge --squash %s` from done.' "$pr_num") ;;
+      failing) next_step="CI is failing — fix on the preserved branch, push, then merge." ;;
+      pending) next_step="CI is still running — wait for it, then merge." ;;
+    esac
+  elif [ -n "$pr_url" ]; then
+    next_step=$(printf 'The PR is %s and was never merged — reopen it (`gh pr reopen %s`) or open a fresh one from the preserved branch. Do not assume it can be merged as-is.' "$pr_state" "$pr_num")
+  else
+    next_step="No PR exists for this branch. Resume the worktree and finish the cycle by hand, or check that \`gh\` is installed and authenticated for the orchestrator."
+  fi
 
   local body
-  body=$(printf '## Auto-implementation stranded at `%s`\n\nThe worker exited cleanly but never merged, so the cycle is incomplete. %s%s\n\n**Preserved for resume:** the worktree, local branch `%s` and its Neon branch were *not* cleaned up. Resume with `wt resume %s`.\n\n%s' \
-    "$phase" "$pr_note" "$log_path_note" "$branch" "$branch" "$next_step")
+  body=$(printf '## Auto-implementation stranded at `%s`\n\nThe worker exited cleanly but never merged, so the cycle is incomplete. %s%s\n\n**Preserved for resume:** the worktree, local branch `%s` and its Neon branch were *not* cleaned up. Resume with `wt resume %s`, and release them with `wt cleanup %s` once the run is finished — nothing else reclaims them.\n\n%s' \
+    "$phase" "$pr_note" "$log_path_note" "$branch" "$branch" "$branch" "$next_step")
 
   local vars
   vars=$(jq -n --arg id "$issue_uuid" --arg body "$body" '{issueId: $id, body: $body}')
