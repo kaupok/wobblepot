@@ -210,6 +210,12 @@ cmd_run() {
   # (fallback localhost:3000). Pin it to the test port so CSRF origin checks
   # don't reject sign-up on :$PORT. See src/lib/env.ts getServerBaseURL().
   export NEXT_PUBLIC_APP_URL="http://localhost:$PORT"
+  # Both sides of the purge-cron bearer check live in this process tree, so a
+  # fixed literal is fine — the account-deletion spec (HON-479) calls the real
+  # /api/cron/purge-deleted-users with it rather than the route growing a
+  # test-only branch. Mirrors the value in .github/workflows/ci.yml. 32+ chars
+  # to satisfy the env schema.
+  export CRON_SECRET="${CRON_SECRET:-local-e2e-cron-secret-not-a-real-credential}"
   # Seed the smoke fixtures only when their credentials are present (they live
   # in CI secrets, not local .env). The base meal/translation seed always runs.
   [ -n "${SMOKE_TEST_EMAIL:-}" ] && export SEED_TEST_USERS="1"
