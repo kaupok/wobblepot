@@ -194,12 +194,26 @@ Requires `LINEAR_API_KEY` env var (format: `lin_api_...`).
 **Structured outcome logging:** Every worker completion logs a parseable `[OUTCOME]` line to `orchestrator.log`:
 
 ```
-[OUTCOME] HON-51 SUCCESS 35m0s 4-commits phase=merge
+[OUTCOME] HON-51 SUCCESS 35m0s 4-commits phase=done
 [OUTCOME] HON-53 TIMEOUT 1h1m 2-commits phase=reviewing triage=RETRY
 [OUTCOME] HON-55 GATED 8m0s 0-commits phase=planning
+[OUTCOME] HON-570 STRANDED 12m3s 3-commits phase=pr-review pr=#650 ci=green
 ```
 
-A worker can exit cleanly but make no commits. Such a worker ships nothing, so the orchestrator logs `GATED`, not `SUCCESS`. It comments on the issue, adds the `Gated` label, and — if the issue is still `In Progress` — returns it to Todo and clears the assignee. Without this step, the issue stays `In Progress` and assigned, and the picker skips it forever. A gated exit counts toward the circuit breaker like any other failure.
+`SUCCESS` is logged only for a run that reached `phase=done` — i.e. actually merged. Every other clean exit is `GATED` (shipped nothing) or `STRANDED` (shipped commits but never merged).
+
+**Stranded runs.** A worker can exit cleanly with commits and an open, unmerged PR. That is an incomplete cycle, not a success: the merge never happened and the issue parks in In Review. The orchestrator logs `STRANDED` with the PR number and its CI state (`green` / `pending` / `failing` / `unknown`), comments on the Linear issue with the PR URL and worker log path, adds the `Stranded` label — and **skips cleanup entirely**, so the worktree, local git branch and paired Neon branch all survive. Those artifacts are what finishing the run by hand requires:
+
+```bash
+gh pr merge --squash <PR>          # ci=green — one step from done
+wt resume <branch>                 # ci=failing/pending — pick the work back up
+```
+
+Before deciding a run is stranded, the orchestrator re-checks the PR: a `MERGED` PR is reported as `SUCCESS` even if the phase marker was missing, so a lagging `detect_phase` cannot manufacture a false stranding. Without `gh` on `PATH` the PR cannot be checked at all, and the run is reported `STRANDED` without PR detail — the conservative answer, since a false `SUCCESS` here deletes the branch. Like `GATED`, a stranded exit counts toward the circuit breaker.
+
+The usual cause is a worker that ended its turn waiting on something: in the headless spawn the process exits when a turn ends, so a backgrounded CI poll dies with it. `/auto-implement`'s Execution Model forbids that (foreground wait-chunks instead) — a fresh `STRANDED` line means either that rule was broken or the worker hit a real stop.
+
+A worker can also exit cleanly but make no commits. Such a worker ships nothing, so the orchestrator logs `GATED`, not `SUCCESS`. It comments on the issue, adds the `Gated` label, and — if the issue is still `In Progress` — returns it to Todo and clears the assignee. Without this step, the issue stays `In Progress` and assigned, and the picker skips it forever. A gated exit counts toward the circuit breaker like any other failure.
 
 The picker skips any Todo issue carrying the `Gated` label (`[SKIP] HON-XX gated …`), and also skips issues gated earlier in the same run in case the label write failed: the issue is back in Todo and unassigned, so without that skip the next poll — or the next restart — would re-pick it and respawn the same no-op worker in a loop. Fix the cause, then remove the label (or re-triage) to make it pickable again.
 

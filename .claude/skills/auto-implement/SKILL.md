@@ -24,7 +24,16 @@ Auto-discovery (no arg) only surfaces issues `/auto-implement` can finish end-to
 
 Execute phases 0-7 sequentially. Stop only on error or completion.
 
-**Every turn must end in a terminal state.** In the orchestrator's headless spawn (`worktree-claude.sh auto` → `claude "$prompt"`, no TTY) the process can exit the moment a turn ends, and the orchestrator then treats the run as finished: a clean exit with 0 commits returns the issue to Todo labelled `Gated`, and cleanup deletes the worktree and the local branch either way. Never end a turn whose last message describes in-flight work in future tense ("E2E is still running — I'll pick up when it lands" is how HON-562's first run lost a fully green batch on 2026-08-30). The last message of a turn must be a phase marker, an explicit error stop, or the final completion marker. The only acceptable pending state at end-of-turn is a `run_in_background` wrapper whose completion notification resumes the cycle (the Phase 6.1 CI poll, the Phase 3.3 verification wait) — and by that point every completed batch must already be committed AND pushed, so nothing is lost if the process dies instead of resuming.
+**Every turn must end in a terminal state — there is no pending-work exception.** In the orchestrator's headless spawn (`worktree-claude.sh auto` → `claude --dangerously-skip-permissions … "$prompt"`, no TTY, stdout redirected to a log) the process exits the moment a turn ends. There is no session left to deliver a `run_in_background` completion notification to, so any backgrounded work dies with the process and the code that was supposed to run "when the poll returns" never runs at all. The orchestrator then treats the run as finished and cleans up.
+
+Both halves of that have already cost a run:
+
+- **Uncommitted work is destroyed.** HON-562's first run ended a turn with "E2E is still running — I'll pick up when it lands" and lost a fully green batch (2026-08-30).
+- **A finished PR is stranded.** HON-570 (PR #650) and HON-571 (PR #651) ended their turns beside a Phase 6.1 CI poll. HON-570's worker exited 36 seconds later — before the poll's opening `sleep 30` had even elapsed. Both PRs sat open and unmerged until a human merged them by hand ~45 minutes later (HON-573).
+
+So: never end a turn whose last message describes in-flight work in future tense ("CI is re-running — I'll merge once it settles" is exactly the sentence that stranded #651). The last message of a turn must be a phase marker, an explicit error stop, or the final completion marker.
+
+**Backgrounding a command is allowed; ending the turn beside it is not.** When a command outruns Bash's 600 s foreground cap, you may start it with `run_in_background: true` — but the same turn must then *wait on it* with foreground wait-chunks until it reaches a terminal marker (the pattern in Phase 3.3, 6.1 and 7.2). A tool call in flight cannot end a turn, and the 600 s cap is per call, not per turn, so chained foreground waits cover an arbitrarily long job. Committing and pushing each batch (Phase 3.3) is still required — it is what makes a process death survivable — but it is not a licence to end the turn early.
 
 ## Argument Parsing
 
@@ -516,9 +525,27 @@ When the plan splits the work into sequential batches (dependency refreshes, mig
 
 - Commit each batch as soon as its fast gate passes (`pnpm lint && pnpm type-check && pnpm test`, plus `pnpm build` when the plan calls for it), following the Phase 5.1/5.2 staging and message conventions.
 - Push after the first batch commit (`git push -u origin $(git branch --show-current)`) and after each subsequent one. Phase 5 then skips straight to PR creation (5.3) for what is already pushed.
-- Long-running verification (`pnpm test:e2e:local`, large `pnpm test-storybook:ci` runs) executes AFTER the batch's commit is pushed, via `run_in_background: true` as one self-contained command that prints a terminal marker on its last line (e.g. `... && echo E2E_PASS || echo E2E_FAIL`) — same shape as the Phase 6.1 CI poll. When the completion notification arrives, verify the marker in the foreground. On failure, fix forward with a follow-up commit in the same batch — never rewrite a pushed batch commit. Do not start the next batch until the verification result is in.
+- Long-running verification (`pnpm test:e2e:local`, large `pnpm test-storybook:ci` runs) executes AFTER the batch's commit is pushed. Such a run outlives Bash's 600 s foreground cap, so start it with `run_in_background: true` as one self-contained command that writes its terminal marker to a file, then **wait on that file in the same turn** with foreground wait-chunks — the Phase 6.1 pattern, applied to a marker file instead of `gh pr checks`:
 
-**Why:** a batch commit gated on long verification is a batch that can be lost. The orchestrator deletes the worktree and local branch on every worker exit and gates clean 0-commit exits (HON-562, 2026-08-30: batch 1 was fully green but uncommitted while E2E was still seeding; the worker's turn ended, the process exited, and everything was discarded). Pushed commits are the only state that survives a worker death.
+  ```bash
+  # Start (run_in_background: true) — the marker file is the only handoff.
+  rm -f /tmp/batch-verify.done
+  { pnpm test:e2e:local && echo E2E_PASS || echo E2E_FAIL; } > /tmp/batch-verify.log 2>&1
+  tail -1 /tmp/batch-verify.log > /tmp/batch-verify.done
+  ```
+
+  ```bash
+  # Wait (FOREGROUND, timeout: 540000) — re-issue while it prints VERIFY_WAITING.
+  for i in $(seq 1 32); do
+    if [ -s /tmp/batch-verify.done ]; then cat /tmp/batch-verify.done; exit 0; fi
+    sleep 15
+  done
+  echo VERIFY_WAITING
+  ```
+
+  `E2E_PASS` → continue. `E2E_FAIL` → read `/tmp/batch-verify.log` and fix forward with a follow-up commit in the same batch — never rewrite a pushed batch commit. `VERIFY_WAITING` → re-issue the wait; do not end the turn on it. Do not start the next batch until the verification result is in.
+
+**Why:** a batch commit gated on long verification is a batch that can be lost. The orchestrator deletes the worktree and local branch on every worker exit and gates clean 0-commit exits (HON-562, 2026-08-30: batch 1 was fully green but uncommitted while E2E was still seeding; the worker's turn ended, the process exited, and everything was discarded). Pushed commits are the only state that survives a worker death — and the foreground wait is what keeps the process alive long enough to act on the result (HON-573).
 
 ```
 [auto-implement] ✓ Implementation complete
@@ -729,36 +756,50 @@ Extract PR URL from output.
 
 ### 6.1 Wait for CI
 
-CI takes 12–45 min; Bash's 600 s foreground cap cannot cover it, so never watch checks in the foreground. Poll in the background (CLAUDE.md → Working style), then verify in the foreground:
+CI takes 12–45 min. Bash's 600 s cap is per *call*, not per turn, so wait in **foreground chunks**: each call polls for ~8 min and returns a marker, and you re-issue it until the marker is terminal. Do not background this poll — in the headless spawn the process exits when the turn ends and a backgrounded poll dies with it, which is exactly how PRs #650 and #651 were stranded open (see Execution Model).
+
+Run the block below in the **foreground** with `timeout: 540000`:
 
 ```bash
-# Run with run_in_background: true — emits one completion notification when the loop exits.
-# Bounded to ci.yml's timeout-minutes (45) plus margin: 100 polls × 30 s = 50 min.
+# One chunk = 16 polls × 30 s ≈ 8 min, safely under Bash's 600 s cap.
+# Prints exactly one marker on its last line:
+#   CI_SETTLED  → terminal — proceed to the foreground verification below
+#   CI_WAITING  → NOT terminal — re-issue this exact command (budget: 6 chunks ≈ 48 min,
+#                 which covers ci.yml's timeout-minutes of 45)
+#   CI_TIMEOUT  → terminal — report and stop
 # Settles only when: at least one check exists and none is pending; the sorted name=bucket
 # list is identical on two consecutive polls (fast Vercel/smoke statuses register before the
 # ci.yml job does); and, for a PR with non-docs files, the ci.yml job "Lint, Type Check & Test"
-# is present. Each Bash call is a fresh shell, so PR_NUMBER is derived here — never reused.
+# is present. Each Bash call is a fresh shell, so PR_NUMBER is re-derived here and the
+# previous poll's result is carried across chunks in a file — never reuse a shell variable.
 PR_NUMBER=$(gh pr view --json number --jq .number)
 NON_DOCS=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
-PREV=""
-sleep 30  # let GitHub register the workflow run for the pushed commit before the first poll
-for i in $(seq 1 100); do
+PREV_FILE="/tmp/ci-poll-$PR_NUMBER.prev"; CHUNK_FILE="/tmp/ci-poll-$PR_NUMBER.chunks"
+CHUNKS=$(( $(cat "$CHUNK_FILE" 2>/dev/null || echo 0) + 1 )); echo "$CHUNKS" > "$CHUNK_FILE"
+PREV=$(cat "$PREV_FILE" 2>/dev/null || true)
+[ "$CHUNKS" = 1 ] && sleep 30  # let GitHub register the workflow run for the pushed commit
+for i in $(seq 1 16); do
   CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket --jq 'sort_by(.name) | .[] | "\(.name)=\(.bucket)"' 2>/dev/null)
   OK=1
   [ -n "$CUR" ] || OK=0                                                              # at least one check exists
   printf '%s\n' "$CUR" | grep -q '=pending$' && OK=0                                 # none pending
   [ -z "$NON_DOCS" ] || printf '%s\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0   # ci.yml job registered (code PRs)
   [ "$CUR" = "$PREV" ] || OK=0                                                       # identical to the previous poll
-  if [ "$OK" = 1 ]; then echo CI_SETTLED; exit 0; fi
-  PREV=$CUR
+  PREV=$CUR; printf '%s' "$CUR" > "$PREV_FILE"
+  if [ "$OK" = 1 ]; then rm -f "$PREV_FILE" "$CHUNK_FILE"; echo CI_SETTLED; exit 0; fi
   sleep 30
 done
-echo CI_TIMEOUT; exit 1
+if [ "$CHUNKS" -ge 6 ]; then rm -f "$PREV_FILE" "$CHUNK_FILE"; echo CI_TIMEOUT; exit 1; fi
+echo "CI_WAITING (chunk $CHUNKS/6)"
 ```
 
-If the background task ends with `CI_TIMEOUT`, report and stop — do not merge.
+Act on the marker:
 
-When the notification arrives, verify in the foreground. With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so the `bucket` field is the only signal — anything other than `pass`/`skipping` (`fail` or `cancel`: FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure:
+- `CI_WAITING` — re-issue the same command immediately. **This is not a stopping point.** Never end a turn on it, and never write a message like "CI is still running, I'll merge once it settles" — that sentence is the bug this pattern exists to prevent.
+- `CI_TIMEOUT` — terminal: report and stop. Do not merge.
+- `CI_SETTLED` — continue to the verification below.
+
+On `CI_SETTLED`, verify in the same turn. With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so the `bucket` field is the only signal — anything other than `pass`/`skipping` (`fail` or `cancel`: FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure:
 
 ```bash
 PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
@@ -795,7 +836,7 @@ while CI failing and ci_attempts < max_ci_attempts:
     - Stage specific changed files by name and commit:
       git add [changed files] && git commit -m "fix: Address CI failures"
     - Push: git push
-    - Wait: re-run the background poll + foreground verification above
+    - Wait: re-run the foreground wait-chunk + verification above, re-issuing on `CI_WAITING`
 
 If still failing after 2 attempts:
     [auto-implement] ✗ Error: CI checks failing after fix attempts
@@ -817,7 +858,7 @@ PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive,
 ./scripts/pr-review.sh ${PR_NUMBER}
 ```
 
-This runs synchronously. When it returns, the review has been posted to GitHub. It spawns `claude -p` and takes several minutes — run it with `timeout: 600000` (or `run_in_background: true` and poll for the `<!-- claude-review -->` comment); the default 120 s Bash timeout kills it mid-run and leaves a stale `/tmp/claude-review-N.lock`.
+This runs synchronously. When it returns, the review has been posted to GitHub. It spawns `claude -p` and takes several minutes — run it in the **foreground** with `timeout: 600000`; the default 120 s Bash timeout kills it mid-run and leaves a stale `/tmp/claude-review-N.lock`. If it ever outruns 600 s, background it and wait on the `<!-- claude-review -->` comment with foreground wait-chunks in the same turn (Phase 3.3 pattern) — never end the turn beside it.
 
 ```
 [auto-implement] Running Claude review for PR #${PR_NUMBER}...
@@ -903,7 +944,7 @@ EOF
 git push
 ```
 
-Wait for CI again — re-run the 6.1 background poll + foreground verification (never watch checks in the foreground).
+Wait for CI again — re-run the 6.1 foreground wait-chunk + verification, re-issuing on `CI_WAITING` until a terminal marker. Do not end the turn here.
 
 ```
 [auto-implement] ✓ Reviews addressed
@@ -938,36 +979,50 @@ Validation:
 
 ### 7.2 Wait for CI
 
-Same mechanism as 6.1 — background poll, then foreground verification. Never watch checks in the foreground (Bash's 600 s cap is shorter than a CI run).
+Same mechanism as 6.1 — foreground wait-chunks, then foreground verification. Never background this poll and never end the turn beside it; re-issue on `CI_WAITING` until a terminal marker.
+
+Run the block below in the **foreground** with `timeout: 540000`:
 
 ```bash
-# Run with run_in_background: true — emits one completion notification when the loop exits.
-# Bounded to ci.yml's timeout-minutes (45) plus margin: 100 polls × 30 s = 50 min.
+# One chunk = 16 polls × 30 s ≈ 8 min, safely under Bash's 600 s cap.
+# Prints exactly one marker on its last line:
+#   CI_SETTLED  → terminal — proceed to the foreground verification below
+#   CI_WAITING  → NOT terminal — re-issue this exact command (budget: 6 chunks ≈ 48 min,
+#                 which covers ci.yml's timeout-minutes of 45)
+#   CI_TIMEOUT  → terminal — report and stop
 # Settles only when: at least one check exists and none is pending; the sorted name=bucket
 # list is identical on two consecutive polls (fast Vercel/smoke statuses register before the
 # ci.yml job does); and, for a PR with non-docs files, the ci.yml job "Lint, Type Check & Test"
-# is present. Each Bash call is a fresh shell, so PR_NUMBER is derived here — never reused.
+# is present. Each Bash call is a fresh shell, so PR_NUMBER is re-derived here and the
+# previous poll's result is carried across chunks in a file — never reuse a shell variable.
 PR_NUMBER=$(gh pr view --json number --jq .number)
 NON_DOCS=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
-PREV=""
-sleep 30  # let GitHub register the workflow run for the pushed commit before the first poll
-for i in $(seq 1 100); do
+PREV_FILE="/tmp/ci-poll-$PR_NUMBER.prev"; CHUNK_FILE="/tmp/ci-poll-$PR_NUMBER.chunks"
+CHUNKS=$(( $(cat "$CHUNK_FILE" 2>/dev/null || echo 0) + 1 )); echo "$CHUNKS" > "$CHUNK_FILE"
+PREV=$(cat "$PREV_FILE" 2>/dev/null || true)
+[ "$CHUNKS" = 1 ] && sleep 30  # let GitHub register the workflow run for the pushed commit
+for i in $(seq 1 16); do
   CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket --jq 'sort_by(.name) | .[] | "\(.name)=\(.bucket)"' 2>/dev/null)
   OK=1
   [ -n "$CUR" ] || OK=0                                                              # at least one check exists
   printf '%s\n' "$CUR" | grep -q '=pending$' && OK=0                                 # none pending
   [ -z "$NON_DOCS" ] || printf '%s\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0   # ci.yml job registered (code PRs)
   [ "$CUR" = "$PREV" ] || OK=0                                                       # identical to the previous poll
-  if [ "$OK" = 1 ]; then echo CI_SETTLED; exit 0; fi
-  PREV=$CUR
+  PREV=$CUR; printf '%s' "$CUR" > "$PREV_FILE"
+  if [ "$OK" = 1 ]; then rm -f "$PREV_FILE" "$CHUNK_FILE"; echo CI_SETTLED; exit 0; fi
   sleep 30
 done
-echo CI_TIMEOUT; exit 1
+if [ "$CHUNKS" -ge 6 ]; then rm -f "$PREV_FILE" "$CHUNK_FILE"; echo CI_TIMEOUT; exit 1; fi
+echo "CI_WAITING (chunk $CHUNKS/6)"
 ```
 
-If the background task ends with `CI_TIMEOUT`, report and stop — do not merge.
+Act on the marker:
 
-**CRITICAL: When the notification arrives, verify ALL checks passed — including Vercel deployment.** With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so inspect `bucket`: anything other than `pass`/`skipping` (`fail` or `cancel` — FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure:
+- `CI_WAITING` — re-issue the same command immediately. **This is not a stopping point.** Never end a turn on it, and never write a message like "CI is still running, I'll merge once it settles" — that sentence is the bug this pattern exists to prevent.
+- `CI_TIMEOUT` — terminal: report and stop. Do not merge.
+- `CI_SETTLED` — continue to the verification below.
+
+**CRITICAL: On `CI_SETTLED`, verify ALL checks passed — including Vercel deployment.** With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so inspect `bucket`: anything other than `pass`/`skipping` (`fail` or `cancel` — FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure:
 
 ```bash
 PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
