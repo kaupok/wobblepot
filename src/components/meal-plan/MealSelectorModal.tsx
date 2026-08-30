@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Loader2, Sparkles, ArrowLeft, ImagePlus, X } from 'lucide-react'
+import { Loader2, Sparkles, ArrowLeft } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -22,16 +22,14 @@ import { Body } from '@/components/ui/typography'
 import { AlternativeCard } from './AlternativeCard'
 import { MealCardBase } from './MealCardBase'
 import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
+import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
+import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
 import { apiFetch } from '@/lib/api'
 import { convertToPrefilledData, type ImaginedMealResponse } from '@/lib/imagine-utils'
 import { track } from '@/lib/analytics'
 import { toast } from 'sonner'
 import type { AlternativeMeal, MealComponent, NutritionData, PantryIngredient } from './types'
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
-
-const MAX_IMAGES = 3
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
 interface MealSelectorModalProps {
   open: boolean
@@ -126,15 +124,24 @@ export function MealSelectorModal({
   // Imagine mode state
   const [isImagineMode, setIsImagineMode] = useState(false)
   const [imaginePrompt, setImaginePrompt] = useState('')
-  const [imagineImages, setImagineImages] = useState<File[]>([])
   const [imaginedMeals, setImaginedMeals] = useState<ImaginedMealResponse[] | null>(null)
   const [isImagining, setIsImagining] = useState(false)
   const [imagineError, setImagineError] = useState<string | null>(null)
   const [reviewMeal, setReviewMeal] = useState<ReviewMealData | null>(null)
   const [reviewingMealId, setReviewingMealId] = useState<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const objectUrlsRef = useRef<string[]>([])
+
+  const {
+    images: imagineImages,
+    files: imagineImageFiles,
+    handleFileSelect: handleImagineFileSelect,
+    removeImage: removeImagineImage,
+    reset: resetImagineImages,
+  } = useAttachImages({
+    tooManyImages: tImagine('tooManyImages', { max: MAX_ATTACHED_IMAGES }),
+    wrongImageType: tImagine('wrongImageType'),
+    imageTooLarge: tImagine('imageTooLarge'),
+  })
 
   // Determine display mode
   const isSearchMode = debouncedSearch.trim().length > 0
@@ -168,11 +175,9 @@ export function MealSelectorModal({
     [],
   )
 
-  // Clean up object URLs on unmount
   useEffect(() => {
     return () => {
       abortControllerRef.current?.abort()
-      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
     }
   }, [])
 
@@ -193,18 +198,16 @@ export function MealSelectorModal({
         abortControllerRef.current?.abort()
         setIsImagineMode(false)
         setImaginePrompt('')
-        setImagineImages([])
+        resetImagineImages()
         setImaginedMeals(null)
         setIsImagining(false)
         setImagineError(null)
         setReviewMeal(null)
         setReviewingMealId(null)
-        objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
-        objectUrlsRef.current = []
       }
       onOpenChange(newOpen)
     },
-    [onOpenChange],
+    [onOpenChange, resetImagineImages],
   )
 
   function handleMyRecipesToggle(checked: boolean) {
@@ -346,52 +349,12 @@ export function MealSelectorModal({
     abortControllerRef.current?.abort()
     setIsImagineMode(false)
     setImaginePrompt('')
-    setImagineImages([])
+    resetImagineImages()
     setImaginedMeals(null)
     setIsImagining(false)
     setImagineError(null)
     setReviewingMealId(null)
-    objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
-    objectUrlsRef.current = []
-  }, [])
-
-  const handleImagineFileSelect = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(e.target.files ?? [])
-      e.target.value = ''
-
-      const available = MAX_IMAGES - imagineImages.length
-      if (files.length > available) {
-        toast.error(tImagine('tooManyImages', { max: MAX_IMAGES }))
-        return
-      }
-
-      for (const file of files) {
-        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-          toast.error(tImagine('wrongImageType'))
-          return
-        }
-        if (file.size > MAX_IMAGE_SIZE) {
-          toast.error(tImagine('imageTooLarge'))
-          return
-        }
-      }
-
-      const newUrls = files.map((f) => URL.createObjectURL(f))
-      objectUrlsRef.current = [...objectUrlsRef.current, ...newUrls]
-      setImagineImages((prev) => [...prev, ...files])
-    },
-    [imagineImages.length, tImagine],
-  )
-
-  const removeImagineImage = useCallback((index: number) => {
-    setImagineImages((prev) => {
-      const url = objectUrlsRef.current[index]
-      if (url) URL.revokeObjectURL(url)
-      objectUrlsRef.current = objectUrlsRef.current.filter((_, i) => i !== index)
-      return prev.filter((_, i) => i !== index)
-    })
-  }, [])
+  }, [resetImagineImages])
 
   const handleImagineGenerate = async () => {
     if (!imaginePrompt.trim() && imagineImages.length === 0) {
@@ -413,7 +376,7 @@ export function MealSelectorModal({
         if (imaginePrompt.trim()) {
           formData.append('prompt', imaginePrompt.trim())
         }
-        for (const image of imagineImages) {
+        for (const image of imagineImageFiles) {
           formData.append('image', image)
         }
         response = await fetch('/api/meals/imagine', {
@@ -568,7 +531,14 @@ export function MealSelectorModal({
                 {tImagine('back')}
               </Button>
 
-              <div className="flex gap-2">
+              <AttachImages
+                images={imagineImages}
+                onSelect={handleImagineFileSelect}
+                onRemove={removeImagineImage}
+                disabled={isImagining}
+                attachLabel={tImagine('attachAria')}
+                removeImageLabel={(filename) => tImagine('removeImageAria', { filename })}
+              >
                 <Textarea
                   value={imaginePrompt}
                   onChange={(e) => {
@@ -586,50 +556,7 @@ export function MealSelectorModal({
                     }
                   }}
                 />
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  multiple
-                  className="hidden"
-                  onChange={handleImagineFileSelect}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10 shrink-0 self-end"
-                  disabled={isImagining || imagineImages.length >= MAX_IMAGES}
-                  onClick={() => fileInputRef.current?.click()}
-                  aria-label={tImagine('attachAria')}
-                >
-                  <ImagePlus className="h-4 w-4" />
-                </Button>
-              </div>
-
-              {imagineImages.length > 0 && (
-                <div className="flex gap-2">
-                  {imagineImages.map((file, index) => (
-                    <div key={`${file.name}-${file.lastModified}`} className="relative">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- blob URL preview, not optimizable */}
-                      <img
-                        src={objectUrlsRef.current[index]}
-                        alt={file.name}
-                        className="h-16 w-16 rounded-md border object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImagineImage(index)}
-                        disabled={isImagining}
-                        className="bg-background/80 absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full border shadow-sm"
-                        aria-label={tImagine('removeImageAria', { filename: file.name })}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+              </AttachImages>
 
               {imagineError && (
                 <Body variant="small" className="text-destructive">
