@@ -16,15 +16,12 @@ import {
 import { captureApiError } from '@/lib/errors'
 import { deriveProteinType } from '@/lib/meal-planning/protein'
 import { withRequestId } from '@/lib/request-id'
-import type { ExtractedIngredient } from '@/lib/ai/parse-recipe'
+import type { ExtractedIngredient } from '@/lib/ai/recipe-schema'
+import { MAX_ATTACHED_IMAGES, validateImageAttachments } from '@/lib/image-attachments'
 
 const imagineRequestSchema = z.object({
   prompt: z.string().min(1).max(500),
 })
-
-const MAX_IMAGES = 3
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
 async function handlePOST(request: Request) {
   const session = await auth.api.getSession({
@@ -86,19 +83,24 @@ async function handlePOST(request: Request) {
       prompt = promptField.trim()
     }
 
-    const imageFiles = formData.getAll('image')
-    if (imageFiles.length > MAX_IMAGES) {
-      return NextResponse.json({ error: `Maximum ${MAX_IMAGES} images allowed` }, { status: 400 })
+    const imageFields = formData.getAll('image')
+    const imageFiles = imageFields.filter((file) => file instanceof File)
+
+    // Non-File entries can't be encoded, so they're skipped — but they still
+    // occupy a slot against the cap, which is how this endpoint has always
+    // counted them. Passing the difference as `alreadyAttached` keeps that.
+    const rejection = validateImageAttachments(imageFiles, imageFields.length - imageFiles.length)
+    if (rejection) {
+      const error =
+        rejection === 'too-many'
+          ? `Maximum ${MAX_ATTACHED_IMAGES} images allowed`
+          : rejection === 'wrong-type'
+            ? 'Images must be JPEG, PNG, or WebP'
+            : 'Each image must be 5MB or less'
+      return NextResponse.json({ error }, { status: 400 })
     }
 
     for (const file of imageFiles) {
-      if (!(file instanceof File)) continue
-      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-        return NextResponse.json({ error: 'Images must be JPEG, PNG, or WebP' }, { status: 400 })
-      }
-      if (file.size > MAX_IMAGE_SIZE) {
-        return NextResponse.json({ error: 'Each image must be 5MB or less' }, { status: 400 })
-      }
       const base64 = Buffer.from(await file.arrayBuffer()).toString('base64')
       images.push({ base64, mimeType: file.type })
     }

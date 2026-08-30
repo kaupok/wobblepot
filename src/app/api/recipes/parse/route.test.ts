@@ -30,16 +30,17 @@ vi.mock('@/lib/rate-limit', () => ({
 
 vi.mock('@/lib/ai/parse-recipe', () => ({
   parseAndMatchRecipe: vi.fn(),
-  fetchRecipeFromUrl: vi.fn(),
-  RecipeParseError: class RecipeParseError extends Error {
-    constructor(message: string) {
-      super(message)
-      this.name = 'RecipeParseError'
-    }
-  },
-  ROBOTS_DISALLOWED_MESSAGE:
-    "This site doesn't allow automated content extraction. Try pasting the recipe text directly instead.",
 }))
+
+// `RecipeParseError` is deliberately not mocked — the route branches on
+// `instanceof`, so the real class is what makes that branch meaningful.
+vi.mock('@/lib/ai/recipe-fetch', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/ai/recipe-fetch')>()
+  return {
+    ...actual,
+    fetchRecipeFromUrl: vi.fn(),
+  }
+})
 
 const ROBOTS_DISALLOWED_MESSAGE =
   "This site doesn't allow automated content extraction. Try pasting the recipe text directly instead."
@@ -57,7 +58,9 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { assertUnderCap } from '@/lib/ai/usage'
-import { fetchRecipeFromUrl, parseAndMatchRecipe, RecipeParseError } from '@/lib/ai/parse-recipe'
+import { parseAndMatchRecipe } from '@/lib/ai/parse-recipe'
+import { fetchRecipeFromUrl } from '@/lib/ai/recipe-fetch'
+import { RecipeParseError } from '@/lib/ai/recipe-errors'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)

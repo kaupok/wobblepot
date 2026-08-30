@@ -9,7 +9,7 @@ import type { AiUsageStats } from './usage'
 
 /**
  * Schema for a single ingredient in an imagined meal.
- * Matches ExtractedIngredientSchema from parse-recipe.ts.
+ * Matches ExtractedIngredientSchema from recipe-schema.ts.
  *
  * NOTE: Anthropic's structured output API has limited JSON Schema support.
  * Avoid .positive(), .min(), .max(), .int() on numbers.

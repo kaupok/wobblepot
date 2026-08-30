@@ -92,4 +92,30 @@ describe('GET /api/households/me/ai-usage', () => {
     expect(response.status).toBe(200)
     expect(data.percentage).toBe(0)
   })
+
+  it('returns 500 with the { error } JSON shape when the spend lookup throws', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue({
+      household: { id: 'h1', timezone: 'UTC', aiCapUsd: 5 },
+    } as never)
+    mockGetSpend.mockRejectedValue(new Error('db down'))
+
+    const response = await GET()
+    const data = await response.json()
+
+    expect(response.status).toBe(500)
+    expect(typeof data.error).toBe('string')
+    expect(data.error.length).toBeGreaterThan(0)
+  })
+
+  it('returns 500 with the { error } JSON shape when the membership lookup throws', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockRejectedValue(new Error('db down'))
+
+    const response = await GET()
+    const data = await response.json()
+
+    expect(response.status).toBe(500)
+    expect(typeof data.error).toBe('string')
+  })
 })

@@ -82,6 +82,18 @@ describe('GET /api/admin/signup-codes', () => {
       expect.objectContaining({ take: 100, orderBy: { createdAt: 'desc' } }),
     )
   })
+
+  it('returns 500 with the { error } JSON shape when the query throws', async () => {
+    getSession.mockResolvedValue(adminSession)
+    findMany.mockRejectedValue(new Error('db down'))
+
+    const res = await GET()
+
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(typeof body.error).toBe('string')
+    expect(body.error.length).toBeGreaterThan(0)
+  })
 })
 
 describe('POST /api/admin/signup-codes', () => {
@@ -136,5 +148,19 @@ describe('POST /api/admin/signup-codes', () => {
     )
     expect(res.status).toBe(400)
     expect(create).not.toHaveBeenCalled()
+  })
+
+  it('returns 500 with the { error } JSON shape when the insert throws', async () => {
+    getSession.mockResolvedValue(adminSession)
+    create.mockRejectedValue(new Error('db down'))
+
+    const res = await POST(
+      new Request('http://x', { method: 'POST', body: JSON.stringify({ note: 'For Anna' }) }),
+    )
+
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(typeof body.error).toBe('string')
+    expect(body.error.length).toBeGreaterThan(0)
   })
 })

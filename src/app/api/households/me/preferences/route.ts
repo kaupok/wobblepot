@@ -58,55 +58,60 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let body
   try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+    let body
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
 
-  const parsed = updatePreferencesSchema.safeParse(body)
+    const parsed = updatePreferencesSchema.safeParse(body)
 
-  if (!parsed.success) {
-    const errors = parsed.error.flatten().fieldErrors
-    return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
-  }
+    if (!parsed.success) {
+      const errors = parsed.error.flatten().fieldErrors
+      return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
+    }
 
-  const membership = await getHouseholdMembership(session.user.id)
+    const membership = await getHouseholdMembership(session.user.id)
 
-  if (!membership) {
-    return NextResponse.json({ error: 'No household found' }, { status: 404 })
-  }
+    if (!membership) {
+      return NextResponse.json({ error: 'No household found' }, { status: 404 })
+    }
 
-  if (membership.role !== 'owner') {
-    return NextResponse.json(
-      { error: 'Only household owners can update preferences' },
-      { status: 403 },
-    )
-  }
+    if (membership.role !== 'owner') {
+      return NextResponse.json(
+        { error: 'Only household owners can update preferences' },
+        { status: 403 },
+      )
+    }
 
-  // Resolve excluded ingredient names to IDs for filtering
-  let excludedIngredientIds: string[] | undefined
-  if (parsed.data.excludedIngredients) {
-    const ingredients = await prisma.ingredient.findMany({
-      where: {
-        name: {
-          in: parsed.data.excludedIngredients,
-          mode: 'insensitive',
+    // Resolve excluded ingredient names to IDs for filtering
+    let excludedIngredientIds: string[] | undefined
+    if (parsed.data.excludedIngredients) {
+      const ingredients = await prisma.ingredient.findMany({
+        where: {
+          name: {
+            in: parsed.data.excludedIngredients,
+            mode: 'insensitive',
+          },
         },
+        select: { id: true },
+      })
+      excludedIngredientIds = ingredients.map((i) => i.id)
+    }
+
+    const preferences = await prisma.householdPreferences.update({
+      where: { householdId: membership.household.id },
+      data: {
+        ...parsed.data,
+        ...(excludedIngredientIds !== undefined && { excludedIngredientIds }),
       },
-      select: { id: true },
     })
-    excludedIngredientIds = ingredients.map((i) => i.id)
+
+    return NextResponse.json(preferences)
+  } catch (error) {
+    captureApiError(error, { route: '/api/households/me/preferences', userId: session.user.id })
+    return NextResponse.json({ error: 'Failed to update household preferences' }, { status: 500 })
   }
-
-  const preferences = await prisma.householdPreferences.update({
-    where: { householdId: membership.household.id },
-    data: {
-      ...parsed.data,
-      ...(excludedIngredientIds !== undefined && { excludedIngredientIds }),
-    },
-  })
-
-  return NextResponse.json(preferences)
 }

@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, ArrowLeft, Sparkles, ImagePlus, X } from 'lucide-react'
+import { Loader2, ArrowLeft, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
@@ -14,12 +14,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import type { PrefilledIngredient } from '@/components/household/MealForm'
 import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
+import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
+import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
 import { convertToPrefilledData, type ImaginedMealResponse } from '@/lib/imagine-utils'
 import { track } from '@/lib/analytics'
-
-const MAX_IMAGES = 3
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
 function SkeletonCard() {
   return (
@@ -56,64 +54,29 @@ export function ImagineClient() {
   const router = useRouter()
   const t = useTranslations('recipes.imagine')
   const [prompt, setPrompt] = useState('')
-  const [images, setImages] = useState<File[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [reviewingMealId, setReviewingMealId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [meals, setMeals] = useState<ImaginedMealResponse[] | null>(null)
   const [reviewMeal, setReviewMeal] = useState<ReviewMealData | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const objectUrlsRef = useRef<string[]>([])
+
+  const {
+    images,
+    files: imageFiles,
+    handleFileSelect,
+    removeImage,
+  } = useAttachImages({
+    tooManyImages: t('errors.tooManyImages', { max: MAX_ATTACHED_IMAGES }),
+    wrongImageType: t('errors.wrongImageType'),
+    imageTooLarge: t('errors.imageTooLarge'),
+  })
 
   useEffect(() => {
     return () => {
       abortControllerRef.current?.abort()
-      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
     }
   }, [])
-
-  const removeImage = useCallback((index: number) => {
-    setImages((prev) => {
-      const removed = prev[index]
-      if (removed) {
-        const url = objectUrlsRef.current[index]
-        if (url) URL.revokeObjectURL(url)
-        objectUrlsRef.current = objectUrlsRef.current.filter((_, i) => i !== index)
-      }
-      return prev.filter((_, i) => i !== index)
-    })
-  }, [])
-
-  const handleFileSelect = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(e.target.files ?? [])
-      // Reset input so the same file can be re-selected
-      e.target.value = ''
-
-      const available = MAX_IMAGES - images.length
-      if (files.length > available) {
-        toast.error(t('errors.tooManyImages', { max: MAX_IMAGES }))
-        return
-      }
-
-      for (const file of files) {
-        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-          toast.error(t('errors.wrongImageType'))
-          return
-        }
-        if (file.size > MAX_IMAGE_SIZE) {
-          toast.error(t('errors.imageTooLarge'))
-          return
-        }
-      }
-
-      const newUrls = files.map((f) => URL.createObjectURL(f))
-      objectUrlsRef.current = [...objectUrlsRef.current, ...newUrls]
-      setImages((prev) => [...prev, ...files])
-    },
-    [images.length, t],
-  )
 
   const navigateToCreate = async (meal: ImaginedMealResponse) => {
     setReviewingMealId(meal.id)
@@ -218,7 +181,7 @@ export function ImagineClient() {
         if (prompt.trim()) {
           formData.append('prompt', prompt.trim())
         }
-        for (const image of images) {
+        for (const image of imageFiles) {
           formData.append('image', image)
         }
         response = await fetch('/api/meals/imagine', {
@@ -271,7 +234,14 @@ export function ImagineClient() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col gap-4">
-              <div className="flex gap-2">
+              <AttachImages
+                images={images}
+                onSelect={handleFileSelect}
+                onRemove={removeImage}
+                disabled={isGenerating}
+                attachLabel={t('attachAria')}
+                removeImageLabel={(filename) => t('removeImageAria', { filename })}
+              >
                 <Textarea
                   value={prompt}
                   onChange={(e) => {
@@ -289,49 +259,7 @@ export function ImagineClient() {
                     }
                   }}
                 />
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  multiple
-                  className="hidden"
-                  onChange={handleFileSelect}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10 shrink-0 self-end"
-                  disabled={isGenerating || images.length >= MAX_IMAGES}
-                  onClick={() => fileInputRef.current?.click()}
-                  aria-label={t('attachAria')}
-                >
-                  <ImagePlus className="h-4 w-4" />
-                </Button>
-              </div>
-              {images.length > 0 && (
-                <div className="flex gap-2">
-                  {images.map((file, index) => (
-                    <div key={`${file.name}-${file.lastModified}`} className="relative">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- blob URL preview, not optimizable */}
-                      <img
-                        src={objectUrlsRef.current[index]}
-                        alt={file.name}
-                        className="h-16 w-16 rounded-md border object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        disabled={isGenerating}
-                        className="bg-background/80 absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full border shadow-sm"
-                        aria-label={t('removeImageAria', { filename: file.name })}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+              </AttachImages>
               {error && (
                 <Body variant="small" className="text-destructive">
                   {error}

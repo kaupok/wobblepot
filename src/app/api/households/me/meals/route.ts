@@ -236,66 +236,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let body
   try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+    let body
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
 
-  const parsed = createMealSchema.safeParse(body)
+    const parsed = createMealSchema.safeParse(body)
 
-  if (!parsed.success) {
-    const errors = parsed.error.flatten().fieldErrors
-    return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
-  }
+    if (!parsed.success) {
+      const errors = parsed.error.flatten().fieldErrors
+      return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
+    }
 
-  const membership = await getHouseholdMembership(session.user.id)
+    const membership = await getHouseholdMembership(session.user.id)
 
-  if (!membership) {
-    return NextResponse.json({ error: 'No household found' }, { status: 404 })
-  }
+    if (!membership) {
+      return NextResponse.json({ error: 'No household found' }, { status: 404 })
+    }
 
-  const {
-    name,
-    description,
-    preparationNotes,
-    sourceUrl,
-    timeMinutes,
-    kidFriendly,
-    suitableFor,
-    servings,
-    components,
-  } = parsed.data
-
-  // Verify all ingredients exist and fetch their protein types
-  const ingredientIds = components.map((c) => c.ingredientId)
-  const ingredients = await prisma.ingredient.findMany({
-    where: { id: { in: ingredientIds } },
-    select: {
-      id: true,
-      proteinType: true,
-      protein: true,
-    },
-  })
-
-  if (ingredients.length !== ingredientIds.length) {
-    const foundIds = new Set(ingredients.map((i) => i.id))
-    const missingIds = ingredientIds.filter((id) => !foundIds.has(id))
-    return NextResponse.json({ error: 'Some ingredients not found', missingIds }, { status: 400 })
-  }
-
-  // Derive primary protein type from ingredients
-  const ingredientMap = new Map(ingredients.map((i) => [i.id, i]))
-  const componentData = components.map((c) => ({
-    quantityPerServing: c.totalQuantity / servings,
-    ingredient: ingredientMap.get(c.ingredientId)!,
-  }))
-  const primaryProteinType = deriveProteinType(componentData)
-
-  // Create meal with components
-  const meal = await prisma.meal.create({
-    data: {
+    const {
       name,
       description,
       preparationNotes,
@@ -304,108 +266,151 @@ export async function POST(request: Request) {
       kidFriendly,
       suitableFor,
       servings,
-      primaryProteinType,
-      householdId: membership.household.id,
-      components: {
-        create: components.map((c) => ({
-          ingredientId: c.ingredientId,
-          quantityPerServing: c.totalQuantity / servings,
-          isVague: c.isVague ?? false,
-          originalPhrase: c.originalPhrase ?? null,
-        })),
+      components,
+    } = parsed.data
+
+    // Verify all ingredients exist and fetch their protein types
+    const ingredientIds = components.map((c) => c.ingredientId)
+    const ingredients = await prisma.ingredient.findMany({
+      where: { id: { in: ingredientIds } },
+      select: {
+        id: true,
+        proteinType: true,
+        protein: true,
       },
-    },
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      preparationNotes: true,
-      sourceUrl: true,
-      timeMinutes: true,
-      kidFriendly: true,
-      primaryProteinType: true,
-      suitableFor: true,
-      servings: true,
-      createdAt: true,
-      updatedAt: true,
-      components: {
-        select: {
-          ingredientId: true,
-          quantityPerServing: true,
-          isVague: true,
-          originalPhrase: true,
-          ingredient: {
-            select: {
-              id: true,
-              name: true,
-              category: true,
-              defaultUnit: true,
-              gramsPerPiece: true,
-              calories: true,
-              protein: true,
-              carbs: true,
-              fat: true,
-              allergens: true,
+    })
+
+    if (ingredients.length !== ingredientIds.length) {
+      const foundIds = new Set(ingredients.map((i) => i.id))
+      const missingIds = ingredientIds.filter((id) => !foundIds.has(id))
+      return NextResponse.json({ error: 'Some ingredients not found', missingIds }, { status: 400 })
+    }
+
+    // Derive primary protein type from ingredients
+    const ingredientMap = new Map(ingredients.map((i) => [i.id, i]))
+    const componentData = components.map((c) => ({
+      quantityPerServing: c.totalQuantity / servings,
+      ingredient: ingredientMap.get(c.ingredientId)!,
+    }))
+    const primaryProteinType = deriveProteinType(componentData)
+
+    // Create meal with components
+    const meal = await prisma.meal.create({
+      data: {
+        name,
+        description,
+        preparationNotes,
+        sourceUrl,
+        timeMinutes,
+        kidFriendly,
+        suitableFor,
+        servings,
+        primaryProteinType,
+        householdId: membership.household.id,
+        components: {
+          create: components.map((c) => ({
+            ingredientId: c.ingredientId,
+            quantityPerServing: c.totalQuantity / servings,
+            isVague: c.isVague ?? false,
+            originalPhrase: c.originalPhrase ?? null,
+          })),
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        preparationNotes: true,
+        sourceUrl: true,
+        timeMinutes: true,
+        kidFriendly: true,
+        primaryProteinType: true,
+        suitableFor: true,
+        servings: true,
+        createdAt: true,
+        updatedAt: true,
+        components: {
+          select: {
+            ingredientId: true,
+            quantityPerServing: true,
+            isVague: true,
+            originalPhrase: true,
+            ingredient: {
+              select: {
+                id: true,
+                name: true,
+                category: true,
+                defaultUnit: true,
+                gramsPerPiece: true,
+                calories: true,
+                protein: true,
+                carbs: true,
+                fat: true,
+                allergens: true,
+              },
             },
           },
         },
       },
-    },
-  })
+    })
 
-  const nutrition = meal.components.reduce(
-    (acc, comp) => {
-      if (comp.isVague) return acc
-      const factor = comp.quantityPerServing / 100
-      return {
-        calories: acc.calories + comp.ingredient.calories * factor,
-        protein: acc.protein + comp.ingredient.protein * factor,
-        carbs: acc.carbs + comp.ingredient.carbs * factor,
-        fat: acc.fat + comp.ingredient.fat * factor,
-      }
-    },
-    { calories: 0, protein: 0, carbs: 0, fat: 0 },
-  )
-
-  const allergens = [...new Set(meal.components.flatMap((comp) => comp.ingredient.allergens))]
-
-  return NextResponse.json(
-    {
-      id: meal.id,
-      name: meal.name,
-      description: meal.description,
-      preparationNotes: meal.preparationNotes,
-      sourceUrl: meal.sourceUrl,
-      timeMinutes: meal.timeMinutes,
-      kidFriendly: meal.kidFriendly,
-      primaryProteinType: meal.primaryProteinType,
-      suitableFor: meal.suitableFor,
-      servings: meal.servings,
-      isCustom: true,
-      isFavorite: false,
-      createdAt: meal.createdAt,
-      updatedAt: meal.updatedAt,
-      components: meal.components.map((comp) => ({
-        ingredientId: comp.ingredientId,
-        quantityPerServing: comp.quantityPerServing,
-        isVague: comp.isVague,
-        originalPhrase: comp.originalPhrase,
-        ingredient: {
-          id: comp.ingredient.id,
-          name: comp.ingredient.name,
-          category: comp.ingredient.category,
-          defaultUnit: comp.ingredient.defaultUnit,
-          gramsPerPiece: comp.ingredient.gramsPerPiece,
-        },
-      })),
-      nutrition: {
-        calories: Math.round(nutrition.calories),
-        protein: Math.round(nutrition.protein),
-        carbs: Math.round(nutrition.carbs),
-        fat: Math.round(nutrition.fat),
+    const nutrition = meal.components.reduce(
+      (acc, comp) => {
+        if (comp.isVague) return acc
+        const factor = comp.quantityPerServing / 100
+        return {
+          calories: acc.calories + comp.ingredient.calories * factor,
+          protein: acc.protein + comp.ingredient.protein * factor,
+          carbs: acc.carbs + comp.ingredient.carbs * factor,
+          fat: acc.fat + comp.ingredient.fat * factor,
+        }
       },
-      allergens,
-    },
-    { status: 201 },
-  )
+      { calories: 0, protein: 0, carbs: 0, fat: 0 },
+    )
+
+    const allergens = [...new Set(meal.components.flatMap((comp) => comp.ingredient.allergens))]
+
+    return NextResponse.json(
+      {
+        id: meal.id,
+        name: meal.name,
+        description: meal.description,
+        preparationNotes: meal.preparationNotes,
+        sourceUrl: meal.sourceUrl,
+        timeMinutes: meal.timeMinutes,
+        kidFriendly: meal.kidFriendly,
+        primaryProteinType: meal.primaryProteinType,
+        suitableFor: meal.suitableFor,
+        servings: meal.servings,
+        isCustom: true,
+        isFavorite: false,
+        createdAt: meal.createdAt,
+        updatedAt: meal.updatedAt,
+        components: meal.components.map((comp) => ({
+          ingredientId: comp.ingredientId,
+          quantityPerServing: comp.quantityPerServing,
+          isVague: comp.isVague,
+          originalPhrase: comp.originalPhrase,
+          ingredient: {
+            id: comp.ingredient.id,
+            name: comp.ingredient.name,
+            category: comp.ingredient.category,
+            defaultUnit: comp.ingredient.defaultUnit,
+            gramsPerPiece: comp.ingredient.gramsPerPiece,
+          },
+        })),
+        nutrition: {
+          calories: Math.round(nutrition.calories),
+          protein: Math.round(nutrition.protein),
+          carbs: Math.round(nutrition.carbs),
+          fat: Math.round(nutrition.fat),
+        },
+        allergens,
+      },
+      { status: 201 },
+    )
+  } catch (error) {
+    captureApiError(error, { route: '/api/households/me/meals', userId: session.user.id })
+    return NextResponse.json({ error: 'Failed to create meal' }, { status: 500 })
+  }
 }

@@ -293,6 +293,26 @@ describe('PATCH /api/households/me/meals/[id]', () => {
     expect(data.name).toBe('Updated Chicken Bowl')
     expect(data.nutrition).toBeDefined()
   })
+
+  it('returns 500 with the { error } JSON shape when the transaction throws', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockMealFindFirst.mockResolvedValue({ ...mockMealResult, deletedAt: null } as never)
+    mockTransaction.mockRejectedValue(new Error('db down'))
+
+    const request = new Request('http://localhost/api/households/me/meals/meal-1', {
+      method: 'PATCH',
+      body: JSON.stringify({ name: 'Updated Chicken Bowl' }),
+    })
+    const response = await PATCH(request, { params: paramsPromise('meal-1') })
+    const data = await response.json()
+
+    expect(response.status).toBe(500)
+    // `apiFetch` parses the body and surfaces `error` — a bare Next.js 500
+    // would not be JSON at all, which is the regression this guards.
+    expect(typeof data.error).toBe('string')
+    expect(data.error.length).toBeGreaterThan(0)
+  })
 })
 
 describe('DELETE /api/households/me/meals/[id]', () => {
@@ -360,5 +380,22 @@ describe('DELETE /api/households/me/meals/[id]', () => {
       where: { id: 'meal-1' },
       data: { deletedAt: expect.any(Date) },
     })
+  })
+
+  it('returns 500 with the { error } JSON shape when the soft delete throws', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockMealFindFirst.mockResolvedValue({ ...mockMealResult, deletedAt: null } as never)
+    vi.mocked(prisma.meal.update).mockRejectedValue(new Error('db down'))
+
+    const request = new Request('http://localhost/api/households/me/meals/meal-1', {
+      method: 'DELETE',
+    })
+    const response = await DELETE(request, { params: paramsPromise('meal-1') })
+    const data = await response.json()
+
+    expect(response.status).toBe(500)
+    expect(typeof data.error).toBe('string')
+    expect(data.error.length).toBeGreaterThan(0)
   })
 })

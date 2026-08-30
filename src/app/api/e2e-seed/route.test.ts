@@ -39,6 +39,21 @@ describe('POST /api/e2e-seed — production gate', () => {
     const body = await res.json()
     expect(body.code).toMatch(/^e2e-/)
   })
+
+  it('returns 500 with the { error } JSON shape when the insert throws', async () => {
+    setBypass(true)
+    const { POST } = await import('./route')
+    // Imported after `vi.resetModules()` so it is the same mock instance the
+    // freshly-imported route holds.
+    const { prisma } = await import('@/lib/prisma')
+    vi.mocked(prisma.signupCode.create).mockRejectedValueOnce(new Error('db down'))
+
+    const res = await POST()
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(typeof body.error).toBe('string')
+    expect(body.error.length).toBeGreaterThan(0)
+  })
 })
 
 describe('DELETE /api/e2e-seed — production gate', () => {
@@ -64,5 +79,18 @@ describe('DELETE /api/e2e-seed — production gate', () => {
 
     const res = await DELETE(new Request('http://x/?code=abc', { method: 'DELETE' }))
     expect(res.status).toBe(200)
+  })
+
+  it('returns 500 with the { error } JSON shape when the delete throws', async () => {
+    setBypass(true)
+    const { DELETE } = await import('./route')
+    const { prisma } = await import('@/lib/prisma')
+    vi.mocked(prisma.signupCode.deleteMany).mockRejectedValueOnce(new Error('db down'))
+
+    const res = await DELETE(new Request('http://x/?code=abc', { method: 'DELETE' }))
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(typeof body.error).toBe('string')
+    expect(body.error.length).toBeGreaterThan(0)
   })
 })

@@ -42,7 +42,7 @@ These are settled. Don't re-open without cause.
 - `Household.locale: String @default("en")` — BCP 47 tag, validated against `KNOWN_LOCALES` at the API boundary via `LocaleSchema`.
 - `IngredientTranslation(ingredientId, locale, name)` — overlays for global ingredients.
 - `MealTranslation(mealId, locale, name, description, ...)` — overlays for seeded meals.
-- AI- and user-created `Ingredient` rows carry `householdId`; global rows have `householdId IS NULL`. The matcher (`fuzzySearchIngredient` in `src/lib/ai/parse-recipe.ts`) prioritises global > household > translation, so a translation-based match still resolves to the canonical English `ingredient.name`.
+- AI- and user-created `Ingredient` rows carry `householdId`; global rows have `householdId IS NULL`. The matcher (`fuzzySearchIngredient` in `src/lib/ai/fuzzy-ingredient-match.ts`) prioritises global > household > translation, so a translation-based match still resolves to the canonical English `ingredient.name`.
 
 ### Locale resolution
 
