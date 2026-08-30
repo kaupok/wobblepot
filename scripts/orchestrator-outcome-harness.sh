@@ -37,7 +37,7 @@ source "$HARNESS_DIR/orchestrator.sh"
 set +eu
 
 # Keep the harness out of the real ~/.worktrees/wobblepot/logs/orchestrator.log.
-MAIN_LOG=$(mktemp -t orchestrator-harness-log)
+MAIN_LOG=$(mktemp "${TMPDIR:-/tmp}/orchestrator-harness-log.XXXXXXXX")
 trap 'rm -f "$MAIN_LOG"' EXIT
 
 case "$MODE" in

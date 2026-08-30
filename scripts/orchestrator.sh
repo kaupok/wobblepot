@@ -72,7 +72,11 @@ PAUSED_UNTIL=0
 # every poll. A file rather than a variable because main() calls
 # select_next_issue inside $(...): a variable appended there dies with the
 # subshell and every poll would log again. Removed by the EXIT trap.
-SEEN_SKIPS_FILE=$(mktemp -t orchestrator-skips)
+# Explicit XXXXXXXX template rather than `mktemp -t orchestrator-skips`:
+# BSD/macOS mktemp appends the random suffix to a -t prefix, but GNU
+# coreutils requires the template to end in at least three X's and fails
+# outright otherwise — which made this line abort the script on Linux.
+SEEN_SKIPS_FILE=$(mktemp "${TMPDIR:-/tmp}/orchestrator-skips.XXXXXXXX")
 # main() re-installs a fuller EXIT trap; this one covers the early exits in
 # argument parsing and acquire_lock so the temp file never leaks.
 trap 'rm -f "$SEEN_SKIPS_FILE"' EXIT
