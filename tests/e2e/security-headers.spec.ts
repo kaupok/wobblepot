@@ -19,5 +19,14 @@ test.describe('Security headers', { tag: '@smoke' }, () => {
     expect(csp).toMatch(/script-src[^;]*'nonce-[A-Za-z0-9+/=]+'/)
     const scriptSrc = csp!.split(';').find((d) => d.trim().startsWith('script-src'))!
     expect(scriptSrc).not.toContain("'unsafe-inline'")
+
+    // Production shape. CI runs `next start` and the remote tiers hit real
+    // deployments, so all three must carry the non-dev directives; only a
+    // local `next dev` server (NODE_ENV=development) legitimately differs.
+    if (process.env.CI || process.env.PLAYWRIGHT_BASE_URL) {
+      expect(scriptSrc).toContain("'strict-dynamic'")
+      expect(scriptSrc).not.toContain("'unsafe-eval'")
+      expect(csp).toContain('upgrade-insecure-requests')
+    }
   })
 })
