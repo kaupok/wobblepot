@@ -121,138 +121,143 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const householdMembership = await getHouseholdMembership(session.user.id)
-
-  if (!householdMembership) {
-    return NextResponse.json({ error: 'No household found' }, { status: 404 })
-  }
-
-  const member = await prisma.householdMember.findUnique({
-    where: { id: memberId },
-  })
-
-  if (!member || member.householdId !== householdMembership.householdId) {
-    return NextResponse.json({ error: 'Member not found' }, { status: 404 })
-  }
-
-  // Allow owner OR the member themselves to update
-  const isOwner = householdMembership.role === 'owner'
-  const isSelf = householdMembership.id === memberId
-  if (!isOwner && !isSelf) {
-    return NextResponse.json({ error: 'You can only edit your own preferences' }, { status: 403 })
-  }
-
-  let body
   try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+    const householdMembership = await getHouseholdMembership(session.user.id)
 
-  const parsed = updateMemberSchema.safeParse(body)
-
-  if (!parsed.success) {
-    const errors = parsed.error.flatten().fieldErrors
-    return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
-  }
-
-  const { name, preferences } = parsed.data
-
-  // Only allow updating name for manual members (those without userId)
-  if (name !== undefined && member.userId !== null) {
-    return NextResponse.json({ error: 'Cannot update name for linked members' }, { status: 400 })
-  }
-
-  // Manual members (no linked user) require a display name since there's no fallback
-  if (preferences?.displayName === null && member.userId === null) {
-    return NextResponse.json(
-      { error: 'Display name is required for manual members' },
-      { status: 400 },
-    )
-  }
-
-  const updatedMember = await prisma.$transaction(async (tx) => {
-    // Update member name if provided and it's a manual member
-    if (name !== undefined) {
-      await tx.householdMember.update({
-        where: { id: memberId },
-        data: { name },
-      })
+    if (!householdMembership) {
+      return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    // Update preferences if provided
-    if (preferences) {
-      await tx.memberPreferences.upsert({
-        where: { memberId },
-        create: {
-          memberId,
-          displayName: preferences.displayName,
-          portionMultiplier: preferences.portionMultiplier,
-          targetCalories: preferences.targetCalories,
-          targetProtein: preferences.targetProtein,
-          targetCarbs: preferences.targetCarbs,
-          targetFat: preferences.targetFat,
-          dietaryType: preferences.dietaryType,
-          allergens: preferences.allergens,
-          restrictions: preferences.restrictions,
-          excludedIngredients: preferences.excludedIngredients,
-          excludedIngredientIds: preferences.excludedIngredientIds,
-        },
-        update: {
-          displayName: preferences.displayName,
-          portionMultiplier: preferences.portionMultiplier,
-          targetCalories: preferences.targetCalories,
-          targetProtein: preferences.targetProtein,
-          targetCarbs: preferences.targetCarbs,
-          targetFat: preferences.targetFat,
-          dietaryType: preferences.dietaryType,
-          allergens: preferences.allergens,
-          restrictions: preferences.restrictions,
-          excludedIngredients: preferences.excludedIngredients,
-          excludedIngredientIds: preferences.excludedIngredientIds,
-        },
-      })
-    }
-
-    return tx.householdMember.findUnique({
+    const member = await prisma.householdMember.findUnique({
       where: { id: memberId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-          },
-        },
-        preferences: true,
-      },
     })
-  })
 
-  return NextResponse.json({
-    id: updatedMember!.id,
-    userId: updatedMember!.userId,
-    name: updatedMember!.name,
-    role: updatedMember!.role,
-    joinedAt: updatedMember!.joinedAt,
-    user: updatedMember!.user,
-    preferences: updatedMember!.preferences
-      ? {
-          displayName: updatedMember!.preferences.displayName,
-          portionMultiplier: updatedMember!.preferences.portionMultiplier,
-          targetCalories: updatedMember!.preferences.targetCalories,
-          targetProtein: updatedMember!.preferences.targetProtein,
-          targetCarbs: updatedMember!.preferences.targetCarbs,
-          targetFat: updatedMember!.preferences.targetFat,
-          dietaryType: updatedMember!.preferences.dietaryType,
-          allergens: updatedMember!.preferences.allergens,
-          restrictions: updatedMember!.preferences.restrictions,
-          excludedIngredients: updatedMember!.preferences.excludedIngredients,
-          excludedIngredientIds: updatedMember!.preferences.excludedIngredientIds,
-        }
-      : null,
-  })
+    if (!member || member.householdId !== householdMembership.householdId) {
+      return NextResponse.json({ error: 'Member not found' }, { status: 404 })
+    }
+
+    // Allow owner OR the member themselves to update
+    const isOwner = householdMembership.role === 'owner'
+    const isSelf = householdMembership.id === memberId
+    if (!isOwner && !isSelf) {
+      return NextResponse.json({ error: 'You can only edit your own preferences' }, { status: 403 })
+    }
+
+    let body
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
+
+    const parsed = updateMemberSchema.safeParse(body)
+
+    if (!parsed.success) {
+      const errors = parsed.error.flatten().fieldErrors
+      return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
+    }
+
+    const { name, preferences } = parsed.data
+
+    // Only allow updating name for manual members (those without userId)
+    if (name !== undefined && member.userId !== null) {
+      return NextResponse.json({ error: 'Cannot update name for linked members' }, { status: 400 })
+    }
+
+    // Manual members (no linked user) require a display name since there's no fallback
+    if (preferences?.displayName === null && member.userId === null) {
+      return NextResponse.json(
+        { error: 'Display name is required for manual members' },
+        { status: 400 },
+      )
+    }
+
+    const updatedMember = await prisma.$transaction(async (tx) => {
+      // Update member name if provided and it's a manual member
+      if (name !== undefined) {
+        await tx.householdMember.update({
+          where: { id: memberId },
+          data: { name },
+        })
+      }
+
+      // Update preferences if provided
+      if (preferences) {
+        await tx.memberPreferences.upsert({
+          where: { memberId },
+          create: {
+            memberId,
+            displayName: preferences.displayName,
+            portionMultiplier: preferences.portionMultiplier,
+            targetCalories: preferences.targetCalories,
+            targetProtein: preferences.targetProtein,
+            targetCarbs: preferences.targetCarbs,
+            targetFat: preferences.targetFat,
+            dietaryType: preferences.dietaryType,
+            allergens: preferences.allergens,
+            restrictions: preferences.restrictions,
+            excludedIngredients: preferences.excludedIngredients,
+            excludedIngredientIds: preferences.excludedIngredientIds,
+          },
+          update: {
+            displayName: preferences.displayName,
+            portionMultiplier: preferences.portionMultiplier,
+            targetCalories: preferences.targetCalories,
+            targetProtein: preferences.targetProtein,
+            targetCarbs: preferences.targetCarbs,
+            targetFat: preferences.targetFat,
+            dietaryType: preferences.dietaryType,
+            allergens: preferences.allergens,
+            restrictions: preferences.restrictions,
+            excludedIngredients: preferences.excludedIngredients,
+            excludedIngredientIds: preferences.excludedIngredientIds,
+          },
+        })
+      }
+
+      return tx.householdMember.findUnique({
+        where: { id: memberId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+            },
+          },
+          preferences: true,
+        },
+      })
+    })
+
+    return NextResponse.json({
+      id: updatedMember!.id,
+      userId: updatedMember!.userId,
+      name: updatedMember!.name,
+      role: updatedMember!.role,
+      joinedAt: updatedMember!.joinedAt,
+      user: updatedMember!.user,
+      preferences: updatedMember!.preferences
+        ? {
+            displayName: updatedMember!.preferences.displayName,
+            portionMultiplier: updatedMember!.preferences.portionMultiplier,
+            targetCalories: updatedMember!.preferences.targetCalories,
+            targetProtein: updatedMember!.preferences.targetProtein,
+            targetCarbs: updatedMember!.preferences.targetCarbs,
+            targetFat: updatedMember!.preferences.targetFat,
+            dietaryType: updatedMember!.preferences.dietaryType,
+            allergens: updatedMember!.preferences.allergens,
+            restrictions: updatedMember!.preferences.restrictions,
+            excludedIngredients: updatedMember!.preferences.excludedIngredients,
+            excludedIngredientIds: updatedMember!.preferences.excludedIngredientIds,
+          }
+        : null,
+    })
+  } catch (error) {
+    captureApiError(error, { route: '/api/households/me/members/[id]', userId: session.user.id })
+    return NextResponse.json({ error: 'Failed to update member' }, { status: 500 })
+  }
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -266,44 +271,49 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const householdMembership = await getHouseholdMembership(session.user.id)
+  try {
+    const householdMembership = await getHouseholdMembership(session.user.id)
 
-  if (!householdMembership) {
-    return NextResponse.json({ error: 'No household found' }, { status: 404 })
+    if (!householdMembership) {
+      return NextResponse.json({ error: 'No household found' }, { status: 404 })
+    }
+
+    // Only owners can delete members
+    if (householdMembership.role !== 'owner') {
+      return NextResponse.json(
+        { error: 'Only the household owner can remove members' },
+        { status: 403 },
+      )
+    }
+
+    const member = await prisma.householdMember.findUnique({
+      where: { id: memberId },
+    })
+
+    if (!member || member.householdId !== householdMembership.householdId) {
+      return NextResponse.json({ error: 'Member not found' }, { status: 404 })
+    }
+
+    // Prevent owner from deleting themselves
+    if (member.userId === session.user.id) {
+      return NextResponse.json(
+        { error: 'Cannot remove yourself from the household' },
+        { status: 400 },
+      )
+    }
+
+    // Prevent deleting the owner
+    if (member.role === 'owner') {
+      return NextResponse.json({ error: 'Cannot remove the household owner' }, { status: 400 })
+    }
+
+    await prisma.householdMember.delete({
+      where: { id: memberId },
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    captureApiError(error, { route: '/api/households/me/members/[id]', userId: session.user.id })
+    return NextResponse.json({ error: 'Failed to remove member' }, { status: 500 })
   }
-
-  // Only owners can delete members
-  if (householdMembership.role !== 'owner') {
-    return NextResponse.json(
-      { error: 'Only the household owner can remove members' },
-      { status: 403 },
-    )
-  }
-
-  const member = await prisma.householdMember.findUnique({
-    where: { id: memberId },
-  })
-
-  if (!member || member.householdId !== householdMembership.householdId) {
-    return NextResponse.json({ error: 'Member not found' }, { status: 404 })
-  }
-
-  // Prevent owner from deleting themselves
-  if (member.userId === session.user.id) {
-    return NextResponse.json(
-      { error: 'Cannot remove yourself from the household' },
-      { status: 400 },
-    )
-  }
-
-  // Prevent deleting the owner
-  if (member.role === 'owner') {
-    return NextResponse.json({ error: 'Cannot remove the household owner' }, { status: 400 })
-  }
-
-  await prisma.householdMember.delete({
-    where: { id: memberId },
-  })
-
-  return NextResponse.json({ success: true })
 }

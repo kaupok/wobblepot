@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
+import { captureApiError } from '@/lib/errors'
 
 const unpurchaseSchema = z.object({
   ingredientId: z.string().min(1),
@@ -27,84 +28,89 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const membership = await getHouseholdMembership(session.user.id)
-
-  if (!membership) {
-    return NextResponse.json({ error: 'No household found' }, { status: 404 })
-  }
-
-  const { household } = membership
-
-  let body
   try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+    const membership = await getHouseholdMembership(session.user.id)
 
-  const parsed = unpurchaseSchema.safeParse(body)
+    if (!membership) {
+      return NextResponse.json({ error: 'No household found' }, { status: 404 })
+    }
 
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
-      { status: 400 },
-    )
-  }
+    const { household } = membership
 
-  const { ingredientId } = parsed.data
+    let body
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
 
-  // Find the pantry item
-  const pantryItem = await prisma.pantryItem.findUnique({
-    where: {
-      householdId_ingredientId: {
-        householdId: household.id,
-        ingredientId,
+    const parsed = unpurchaseSchema.safeParse(body)
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
+        { status: 400 },
+      )
+    }
+
+    const { ingredientId } = parsed.data
+
+    // Find the pantry item
+    const pantryItem = await prisma.pantryItem.findUnique({
+      where: {
+        householdId_ingredientId: {
+          householdId: household.id,
+          ingredientId,
+        },
       },
-    },
-    select: {
-      id: true,
-      isStaple: true,
-      updatedAt: true,
-    },
-  })
+      select: {
+        id: true,
+        isStaple: true,
+        updatedAt: true,
+      },
+    })
 
-  if (!pantryItem) {
-    return NextResponse.json({ error: 'Item not found in pantry' }, { status: 404 })
-  }
+    if (!pantryItem) {
+      return NextResponse.json({ error: 'Item not found in pantry' }, { status: 404 })
+    }
 
-  // Check if item is a staple
-  if (pantryItem.isStaple) {
-    return NextResponse.json(
-      { error: 'Cannot unpurchase staple items', reason: 'staple' },
-      { status: 400 },
-    )
-  }
+    // Check if item is a staple
+    if (pantryItem.isStaple) {
+      return NextResponse.json(
+        { error: 'Cannot unpurchase staple items', reason: 'staple' },
+        { status: 400 },
+      )
+    }
 
-  // Check if item was added within the unpurchase window
-  const cutoffDate = new Date()
-  cutoffDate.setDate(cutoffDate.getDate() - UNPURCHASE_WINDOW_DAYS)
+    // Check if item was added within the unpurchase window
+    const cutoffDate = new Date()
+    cutoffDate.setDate(cutoffDate.getDate() - UNPURCHASE_WINDOW_DAYS)
 
-  if (pantryItem.updatedAt < cutoffDate) {
+    if (pantryItem.updatedAt < cutoffDate) {
+      return NextResponse.json(
+        {
+          error: 'Cannot unpurchase items added more than 7 days ago',
+          reason: 'too_old',
+        },
+        { status: 400 },
+      )
+    }
+
+    // Delete the pantry item
+    await prisma.pantryItem.delete({
+      where: { id: pantryItem.id },
+    })
+
     return NextResponse.json(
       {
-        error: 'Cannot unpurchase items added more than 7 days ago',
-        reason: 'too_old',
+        success: true,
+        ingredientId,
+        action: 'removed',
       },
-      { status: 400 },
+      { status: 200 },
     )
+  } catch (error) {
+    captureApiError(error, { route: '/api/shopping-list/unpurchase', userId: session.user.id })
+    return NextResponse.json({ error: 'Failed to unmark item as purchased' }, { status: 500 })
   }
-
-  // Delete the pantry item
-  await prisma.pantryItem.delete({
-    where: { id: pantryItem.id },
-  })
-
-  return NextResponse.json(
-    {
-      success: true,
-      ingredientId,
-      action: 'removed',
-    },
-    { status: 200 },
-  )
 }

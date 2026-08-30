@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
+import { captureApiError } from '@/lib/errors'
 
 /**
  * Test-only seed endpoint for E2E tests. Mints a single-use invite code
@@ -24,10 +25,15 @@ export async function POST() {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const code = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-  await prisma.signupCode.create({ data: { code } })
+  try {
+    const code = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    await prisma.signupCode.create({ data: { code } })
 
-  return NextResponse.json({ code }, { status: 201 })
+    return NextResponse.json({ code }, { status: 201 })
+  } catch (error) {
+    captureApiError(error, { route: '/api/e2e-seed' })
+    return NextResponse.json({ error: 'Failed to seed invite code' }, { status: 500 })
+  }
 }
 
 export async function DELETE(request: Request) {
@@ -35,15 +41,20 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const url = new URL(request.url)
-  const code = url.searchParams.get('code')
-  if (!code) {
-    return NextResponse.json({ error: 'Missing ?code=<value>' }, { status: 400 })
-  }
+  try {
+    const url = new URL(request.url)
+    const code = url.searchParams.get('code')
+    if (!code) {
+      return NextResponse.json({ error: 'Missing ?code=<value>' }, { status: 400 })
+    }
 
-  // Mirror the admin DELETE — only remove unused codes. Claimed codes are an
-  // audit record of who signed up with which invite, even in test, so a
-  // helper accidentally targeting a real attribution row stays a no-op.
-  const result = await prisma.signupCode.deleteMany({ where: { code, usedAt: null } })
-  return NextResponse.json({ ok: true, deleted: result.count })
+    // Mirror the admin DELETE — only remove unused codes. Claimed codes are an
+    // audit record of who signed up with which invite, even in test, so a
+    // helper accidentally targeting a real attribution row stays a no-op.
+    const result = await prisma.signupCode.deleteMany({ where: { code, usedAt: null } })
+    return NextResponse.json({ ok: true, deleted: result.count })
+  } catch (error) {
+    captureApiError(error, { route: '/api/e2e-seed' })
+    return NextResponse.json({ error: 'Failed to delete invite code' }, { status: 500 })
+  }
 }
