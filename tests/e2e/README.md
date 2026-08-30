@@ -90,13 +90,14 @@ Sign in with the seeded fixture accounts below instead.
 **Guardrail:** `scripts/check-smoke-specs.sh` fails CI (and the
 staging-smoke run itself) if a `@smoke`-tagged spec file references one of
 those helpers. The check is file-scoped, so keep staging-safe `@smoke`
-specs in files that don't import the sign-up path — currently they all
-live in `tests/e2e/smoke.spec.ts`.
+specs in files that don't import the sign-up path — currently
+`tests/e2e/smoke.spec.ts` and `tests/e2e/security-headers.spec.ts`.
 
 The current `@smoke` set is:
 
 - `tests/e2e/smoke.spec.ts` → `home renders with heading`
 - `tests/e2e/smoke.spec.ts` → `seeded smoke user signs in and views profile`
+- `tests/e2e/security-headers.spec.ts` → `home response carries a nonce-based CSP` (HON-561; no sign-in, no seed — asserts the middleware ran on a real response)
 
 (The original HON-455 locked set listed meal-plan and invite specs deleted
 in the HON-518 drift audit; `pantry-deduction.spec.ts` lost `@smoke` in
