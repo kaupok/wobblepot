@@ -6,8 +6,7 @@
     "padding": 0
   },
   "env": {
-    "PROJECT_ROOT": "/absolute/path/to/honkadori",
-    "GITHUB_PERSONAL_ACCESS_TOKEN": "github_pat_your-token-here",
+    "CONTEXT7_API_KEY": "your-key-here",
     "LINEAR_API_KEY": "lin_api_your-key-here"
   },
   "permissions": {

@@ -25,13 +25,10 @@ WORKTREE_BASE="$HOME/.worktrees/$REPO_NAME"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 
-# Untracked files to copy to worktrees
-# Format: "source_path:needs_path_update"
-# - source_path: path relative to repo root
-# - needs_path_update: "true" if PROJECT_ROOT should be updated to worktree path
+# Untracked files to copy to worktrees, relative to repo root.
 UNTRACKED_FILES=(
-  ".env:true"
-  ".claude/settings.local.json:true"
+  ".env"
+  ".claude/settings.local.json"
 )
 
 # Colors for output
@@ -326,13 +323,12 @@ print_usage() {
   echo "  $0 cleanup feat/api-caching"
 }
 
-# Copy a single untracked file to worktree with optional PROJECT_ROOT substitution
-# Args: $1=source_repo, $2=source_path, $3=dest_dir, $4=needs_path_update ("true"/"false")
+# Copy a single untracked file to worktree.
+# Args: $1=source_repo, $2=source_path, $3=dest_dir
 copy_untracked_file() {
   local source_repo="$1"
   local source_path="$2"
   local dest_dir="$3"
-  local needs_path_update="$4"
   local source_file="$source_repo/$source_path"
   local dest_file="$dest_dir/$source_path"
 
@@ -344,16 +340,7 @@ copy_untracked_file() {
   # Create destination directory if needed
   mkdir -p "$(dirname "$dest_file")"
 
-  if [ "$needs_path_update" = "true" ]; then
-    # Update PROJECT_ROOT to point to the worktree path
-    # Handles both JSON format ("PROJECT_ROOT": "/path") and env format (PROJECT_ROOT=/path)
-    sed -e "s|\"PROJECT_ROOT\": \"$source_repo\"|\"PROJECT_ROOT\": \"$dest_dir\"|g" \
-        -e "s|^PROJECT_ROOT=$source_repo$|PROJECT_ROOT=$dest_dir|g" \
-        -e "s|^PROJECT_ROOT=\"$source_repo\"$|PROJECT_ROOT=\"$dest_dir\"|g" \
-        "$source_file" > "$dest_file"
-  else
-    cp "$source_file" "$dest_file"
-  fi
+  cp "$source_file" "$dest_file"
 
   return 0
 }
@@ -367,13 +354,10 @@ copy_untracked_files() {
   local skipped=()
 
   for entry in "${UNTRACKED_FILES[@]}"; do
-    local source_path="${entry%%:*}"
-    local needs_path_update="${entry##*:}"
-
-    if copy_untracked_file "$main_repo" "$source_path" "$worktree_path" "$needs_path_update"; then
-      copied+=("$source_path")
+    if copy_untracked_file "$main_repo" "$entry" "$worktree_path"; then
+      copied+=("$entry")
     else
-      skipped+=("$source_path")
+      skipped+=("$entry")
     fi
   done
 

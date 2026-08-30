@@ -144,16 +144,10 @@ if [ -f ".env" ]; then
     warning "DATABASE_URL_UNPOOLED not set (required for migrations)"
   fi
 
-  if check_env_var "PROJECT_ROOT"; then
-    success "PROJECT_ROOT is set (for MCP filesystem server)"
+  if check_env_var "LINEAR_API_KEY"; then
+    success "LINEAR_API_KEY is set (for the automation scripts)"
   else
-    warning "PROJECT_ROOT not set (required for filesystem MCP server)"
-  fi
-
-  if check_env_var "GITHUB_PERSONAL_ACCESS_TOKEN"; then
-    success "GITHUB_PERSONAL_ACCESS_TOKEN is set (for GitHub MCP)"
-  else
-    info "GITHUB_PERSONAL_ACCESS_TOKEN not set (optional - needed for GitHub MCP server)"
+    info "LINEAR_API_KEY not set (optional - needed by orchestrator.sh, worktree-claude.sh, neon-cleanup.sh)"
   fi
 else
   error ".env file not found. Copy from .env.example: cp .env.example .env"
