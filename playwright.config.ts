@@ -52,10 +52,21 @@ const webServer = remoteBaseURL
 export default defineConfig({
   testDir: 'tests/e2e', // <-- only look here
   testMatch: ['**/*.spec.ts'], // <-- only *.spec.ts
+  // Pre-compiles auth-critical routes on local dev servers so parallel workers
+  // don't stampede Turbopack's first-hit compile (HON-569). No-op in CI and on
+  // remote tiers — see shouldWarmDevServer().
+  globalSetup: './tests/e2e/utils/warm-dev-server.ts',
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
-  workers: isCI ? 1 : undefined,
+  // CI runs 1 worker against a prebuilt `next start`. Locally the default
+  // (`undefined` → ~50% of cores) fanned several workers at a single-process
+  // `next dev`, so their sign-ups queued on one event loop behind the serial
+  // HIBP + scrypt + Neon work and blew the 30s budget (HON-569). Cap local
+  // parallelism to 2 to bound that contention; override with `--workers=N`.
+  // Remote tiers run from a laptop (PLAYWRIGHT_BASE_URL) hit a real deployment,
+  // not a single-process dev server, so they keep Playwright's default.
+  workers: isCI ? 1 : remoteBaseURL ? undefined : 2,
   use: {
     baseURL: remoteBaseURL ?? localBaseURL ?? 'http://localhost:3000',
     // `retain-on-failure` captures traces + screenshots for every

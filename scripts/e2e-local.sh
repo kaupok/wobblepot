@@ -200,6 +200,9 @@ cmd_run() {
   # Bypass the IP rate limiter AND enable /api/e2e-seed (the invite-code minter
   # sign-up needs). Permitted because NEXT_PUBLIC_APP_ENV is a SAFE_ENV.
   export E2E_DISABLE_RATE_LIMIT="1"
+  # Log per-step sign-up timings (hibp / scrypt / invite-code / total) so the
+  # latency that intermittently blows the 30s budget is measurable (HON-569).
+  export SIGNUP_TIMING_LOG="1"
   # Tells playwright.config.ts to start its own dev server on this port (never
   # reusing a stale :3000 server that would point at your real DB).
   export E2E_LOCAL_PORT="$PORT"

@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { toNextJsHandler } from 'better-auth/next-js'
 import { checkRateLimit, retryAfterSeconds, type RateLimitFeature } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/request-ip'
+import { timeSignupStep } from '@/lib/signup-timing'
 
 const { GET, POST: handleBetterAuthPost } = toNextJsHandler(auth)
 
@@ -51,8 +52,21 @@ async function maybeRateLimit(request: Request): Promise<Response | null> {
   })
 }
 
+function isSignUpEmail(request: Request): boolean {
+  try {
+    return new URL(request.url).pathname.endsWith('/sign-up/email')
+  } catch {
+    return false
+  }
+}
+
 export async function POST(request: Request): Promise<Response> {
   const limited = await maybeRateLimit(request)
   if (limited) return limited
+  // Time the whole sign-up POST so its total sits next to the per-step lines
+  // (hibp / scrypt / invite-code) logged inside Better Auth's hooks (HON-569).
+  if (isSignUpEmail(request)) {
+    return timeSignupStep('total', () => handleBetterAuthPost(request))
+  }
   return handleBetterAuthPost(request)
 }
