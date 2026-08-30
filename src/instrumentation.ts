@@ -82,9 +82,13 @@ const ABORTED_STREAM_MESSAGES = [
   'ERR_STREAM_PREMATURE_CLOSE',
 ]
 
-// Next.js digest prefixes for `redirect()` and `notFound()`. These are
-// control-flow throws the framework catches itself, not errors.
-const NEXT_CONTROL_FLOW_DIGESTS = ['NEXT_REDIRECT', 'NEXT_NOT_FOUND']
+// Next.js digest prefixes for `redirect()` and the HTTP-access fallbacks
+// (`notFound()` → `NEXT_HTTP_ERROR_FALLBACK;404`, `unauthorized()` → `;401`,
+// `forbidden()` → `;403`). These are control-flow throws, not errors. Next
+// normally drops them itself before calling `onRequestError` (see
+// `isNextRouterError` in its app-render error handler); this is a cheap
+// backstop for any path that forwards them anyway.
+const NEXT_CONTROL_FLOW_DIGESTS = ['NEXT_REDIRECT', 'NEXT_HTTP_ERROR_FALLBACK']
 
 /**
  * True when the error is Next.js framework noise rather than an application
@@ -100,6 +104,10 @@ function isFrameworkNoise(err: unknown): boolean {
     digest?: unknown
   }
 
+  // Trade-off: this also drops any route that lets a manual `AbortController`
+  // abort escape. Today none does (the HIBP check and status probes catch
+  // theirs), and `AbortSignal.timeout()` throws `TimeoutError`, which still
+  // captures. Revisit if a route starts surfacing raw aborts.
   if (name === 'AbortError') return true
   if (code === 'ERR_STREAM_PREMATURE_CLOSE') return true
 

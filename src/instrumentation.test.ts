@@ -87,7 +87,14 @@ describe('onRequestError', () => {
       'digest NEXT_REDIRECT',
       Object.assign(new Error('redirect'), { digest: 'NEXT_REDIRECT;replace;/home;307;' }),
     ],
-    ['digest NEXT_NOT_FOUND', Object.assign(new Error('not found'), { digest: 'NEXT_NOT_FOUND' })],
+    [
+      'digest NEXT_HTTP_ERROR_FALLBACK;404',
+      Object.assign(new Error('not found'), { digest: 'NEXT_HTTP_ERROR_FALLBACK;404' }),
+    ],
+    [
+      'digest NEXT_HTTP_ERROR_FALLBACK;403',
+      Object.assign(new Error('forbidden'), { digest: 'NEXT_HTTP_ERROR_FALLBACK;403' }),
+    ],
   ])('skips framework noise: %s', async (_label, err) => {
     getPosthogServerMock.mockReturnValue({
       captureException: captureExceptionMock,
