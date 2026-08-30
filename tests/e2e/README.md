@@ -97,7 +97,7 @@ The current `@smoke` set is:
 
 - `tests/e2e/smoke.spec.ts` → `home renders with heading`
 - `tests/e2e/smoke.spec.ts` → `seeded smoke user signs in and views profile`
-- `tests/e2e/security-headers.spec.ts` → `home response carries a nonce-based CSP` (HON-561; no sign-in, no seed — asserts the middleware ran on a real response)
+- `tests/e2e/security-headers.spec.ts` → `home response carries a nonce-based CSP` (HON-561; no sign-in, no seed — asserts the proxy (`src/proxy.ts`) ran on a real response)
 
 (The original HON-455 locked set listed meal-plan and invite specs deleted
 in the HON-518 drift audit; `pantry-deduction.spec.ts` lost `@smoke` in

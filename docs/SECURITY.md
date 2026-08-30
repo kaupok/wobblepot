@@ -2,11 +2,11 @@
 
 ## Content Security Policy (CSP)
 
-The CSP is delivered via Next.js middleware (`middleware.ts`) with a per-request nonce for script execution.
+The CSP is delivered via Next.js proxy (`src/proxy.ts`) with a per-request nonce for script execution.
 
 ### How it works
 
-1. `middleware.ts` generates a fresh base64 nonce per request
+1. `src/proxy.ts` generates a fresh base64 nonce per request
 2. The nonce is forwarded to layouts via the `x-nonce` request header
 3. `layout.tsx` reads the nonce and passes it to components that inject inline scripts (e.g., `next-themes`)
 4. The CSP header is set on the response with the same nonce
@@ -64,7 +64,7 @@ export default async function Page() {
 
 ### Adding a new connect/image source
 
-Add the domain to the relevant directive in `middleware.ts` `buildCspHeader()`. Document it in the table above.
+Add the domain to the relevant directive in `src/proxy.ts` `buildCspHeader()`. Document it in the table above.
 
 ## Static Headers
 
