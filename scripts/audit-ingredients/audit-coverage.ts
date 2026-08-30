@@ -57,7 +57,7 @@ interface CoverageReport {
 }
 
 // ============================================
-// CONSTANTS (matching parse-recipe.ts thresholds)
+// CONSTANTS (matching the fuzzy-ingredient-match.ts and recipe-confidence.ts thresholds)
 // ============================================
 
 const SIMILARITY_THRESHOLD = 0.45
@@ -101,7 +101,7 @@ async function exactSearch(name: string): Promise<boolean> {
 }
 
 // ============================================
-// MATCHING PIPELINE (mirrors parse-recipe.ts)
+// MATCHING PIPELINE (mirrors matchIngredients in parse-recipe.ts)
 // ============================================
 
 /**
@@ -118,7 +118,7 @@ async function testIngredient(inputName: string): Promise<CoverageResult> {
   let bestMatch: CoverageResult['bestMatch'] = null
   let bestSimilarity = 0
 
-  // Phase 1: Build candidate names (same as parse-recipe.ts)
+  // Phase 1: Build candidate names (same as matchIngredients in parse-recipe.ts)
   const directName = inputName.toLowerCase().trim()
   const aliasName = applyIngredientAlias(directName)
   const normalizedName = normalizeIngredientName(directName)
