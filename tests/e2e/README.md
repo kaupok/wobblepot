@@ -49,8 +49,9 @@ pnpm test:e2e:local gc                        # delete orphaned e2e-local-* bran
 
 The wrapper (`scripts/e2e-local.sh`) forks an ephemeral branch off
 `NEON_PARENT_BRANCH` (default `staging`), applies migrations, seeds it, and
-starts a **dedicated dev server on port 3100** with `NEXT_PUBLIC_APP_ENV=test`
-and `E2E_DISABLE_RATE_LIMIT=1`. Requires `NEON_API_KEY` + `NEON_PROJECT_ID` in
+starts a **dedicated dev server on port 3100** with `NEXT_PUBLIC_APP_ENV=test`,
+`E2E_DISABLE_RATE_LIMIT=1` and `SIGNUP_TIMING_LOG=1` (per-step sign-up timings
+appear as `[WebServer] [signup-timing] step=… ms=…` lines — HON-569). Requires `NEON_API_KEY` + `NEON_PROJECT_ID` in
 `.env` (the same ones the worktree workflow uses — see
 [`docs/PARALLEL_WORKFLOW.md`](../../docs/PARALLEL_WORKFLOW.md)); `@ai` specs also
 need `ANTHROPIC_API_KEY`. Because it runs on :3100 with its own server, a normal

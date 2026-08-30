@@ -217,20 +217,6 @@ cmd_run() {
   info "Applying migrations to the ephemeral branch…"
   pnpm prisma migrate deploy
 
-  # Warm the POOLED Neon endpoint the app runtime connects through (DATABASE_URL)
-  # before the first sign-up. Neon suspends idle compute, so the first query
-  # after a cold branch pays a wake-up round trip; without this it lands on the
-  # first spec's POST /api/auth/sign-up/email. `migrate deploy` above warms the
-  # compute via the UNPOOLED endpoint, but the pooler has its own cold path.
-  #
-  # Prisma 7's `db execute` takes no `--url`; it reads the datasource from
-  # prisma.config.ts, which uses DATABASE_URL_UNPOOLED. Override that var for
-  # this one call so the warm-up hits the pooled endpoint. Non-fatal: a failed
-  # warm-up must not abort the run (HON-569).
-  info "Warming the pooled Neon endpoint…"
-  echo 'SELECT 1;' | DATABASE_URL_UNPOOLED="$POOLED" pnpm prisma db execute --stdin \
-    || warn "pooled warm-up query failed (non-fatal); continuing."
-
   info "Seeding the ephemeral branch…"
   pnpm db:seed
 

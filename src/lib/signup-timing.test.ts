@@ -14,14 +14,15 @@ async function loadWith(value: string | undefined) {
 }
 
 describe('timeSignupStep', () => {
-  let infoSpy: ReturnType<typeof vi.spyOn>
+  // stderr on purpose — see the module doc comment in signup-timing.ts.
+  let warnSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
-    infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
 
   afterEach(() => {
-    infoSpy.mockRestore()
+    warnSpy.mockRestore()
     delete process.env.SIGNUP_TIMING_LOG
   })
 
@@ -33,8 +34,8 @@ describe('timeSignupStep', () => {
   it('logs a structured line with the step name when enabled', async () => {
     const { timeSignupStep } = await loadWith('1')
     await timeSignupStep('scrypt', async () => 'ok')
-    expect(infoSpy).toHaveBeenCalledTimes(1)
-    expect(infoSpy.mock.calls[0][0]).toMatch(/^\[signup-timing\] step=scrypt ms=\d+$/)
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+    expect(warnSpy.mock.calls[0][0]).toMatch(/^\[signup-timing\] step=scrypt ms=\d+$/)
   })
 
   it('logs the duration even when the step throws, then rethrows', async () => {
@@ -45,13 +46,13 @@ describe('timeSignupStep', () => {
         throw boom
       }),
     ).rejects.toBe(boom)
-    expect(infoSpy).toHaveBeenCalledTimes(1)
-    expect(infoSpy.mock.calls[0][0]).toMatch(/^\[signup-timing\] step=total ms=\d+$/)
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+    expect(warnSpy.mock.calls[0][0]).toMatch(/^\[signup-timing\] step=total ms=\d+$/)
   })
 
   it('does not log when disabled', async () => {
     const { timeSignupStep } = await loadWith(undefined)
     await expect(timeSignupStep('hibp', async () => 42)).resolves.toBe(42)
-    expect(infoSpy).not.toHaveBeenCalled()
+    expect(warnSpy).not.toHaveBeenCalled()
   })
 })

@@ -60,7 +60,9 @@ export default defineConfig({
   // `next dev`, so their sign-ups queued on one event loop behind the serial
   // HIBP + scrypt + Neon work and blew the 30s budget (HON-569). Cap local
   // parallelism to 2 to bound that contention; override with `--workers=N`.
-  workers: isCI ? 1 : 2,
+  // Remote tiers run from a laptop (PLAYWRIGHT_BASE_URL) hit a real deployment,
+  // not a single-process dev server, so they keep Playwright's default.
+  workers: isCI ? 1 : remoteBaseURL ? undefined : 2,
   use: {
     baseURL: remoteBaseURL ?? localBaseURL ?? 'http://localhost:3000',
     // `retain-on-failure` captures traces + screenshots for every

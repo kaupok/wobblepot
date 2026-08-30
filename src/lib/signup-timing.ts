@@ -12,8 +12,17 @@ import 'server-only'
  * decided from data.
  *
  * Off by default so production sign-ups stay quiet. Set `SIGNUP_TIMING_LOG=1`
- * (or `true`) to enable — the local E2E runner sets it. Read directly from
- * `process.env`, mirroring `E2E_DISABLE_RATE_LIMIT` in `src/lib/rate-limit.ts`.
+ * (or `true`) to enable — the local E2E runner sets it. Declared in
+ * `src/lib/env.ts` for validation; read directly from `process.env` here,
+ * mirroring `E2E_DISABLE_RATE_LIMIT` in `src/lib/rate-limit.ts`.
+ *
+ * Lines go to **stderr**: Playwright's local webServer discards the dev
+ * server's stdout (`stdout: 'ignore'` in `playwright.config.ts`) and pipes
+ * only stderr, so `console.info` would never reach the test output.
+ *
+ * Scope: handler time only. Turbopack's first-hit compile of the route runs
+ * before the handler and is not included — read it off the dev server's own
+ * `compile:` figure for the same request.
  */
 const ENABLED = process.env.SIGNUP_TIMING_LOG === '1' || process.env.SIGNUP_TIMING_LOG === 'true'
 
@@ -32,6 +41,6 @@ export async function timeSignupStep<T>(step: string, fn: () => Promise<T>): Pro
   } finally {
     const ms = Math.round(performance.now() - start)
     // eslint-disable-next-line no-console
-    console.info(`[signup-timing] step=${step} ms=${ms}`)
+    console.warn(`[signup-timing] step=${step} ms=${ms}`)
   }
 }
