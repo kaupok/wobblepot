@@ -82,7 +82,7 @@ describe('externalFetch', () => {
     expect(captureExternalApiTimeoutMock).toHaveBeenCalledOnce()
     expect(captureExternalApiTimeoutMock.mock.calls[0]![0]).toMatchObject({
       feature: 'test',
-      $exception_source: 'externalFetch.timeout',
+      source: 'externalFetch.timeout',
       url: 'https://api.example.com/x',
     })
   })

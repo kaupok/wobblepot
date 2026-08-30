@@ -38,7 +38,7 @@ export async function externalFetch(
     if (isCallerAbort(init, error)) {
       captureExternalApiTimeout({
         ...context,
-        $exception_source: 'externalFetch.timeout',
+        source: 'externalFetch.timeout',
         url: redactUrl(input),
       })
       throw error

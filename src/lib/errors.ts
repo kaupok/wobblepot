@@ -81,6 +81,10 @@ export function captureApiError(error: unknown, context: ApiErrorContext): void 
  * slowness completely invisible. An analytics event keeps it queryable and
  * alertable on a rate, without entering error tracking.
  *
+ * Callers tag themselves with a plain `source` property rather than the
+ * `$exception_source` used on capture paths — the `$`-prefixed key belongs to
+ * PostHog's exception schema and would misfile this as an error.
+ *
  * Per-request flush is the SDK's job (`flushAt: 1` + `waitUntil` in
  * `posthog-server.ts`), matching the `$ai_generation` mirror in `ai/usage.ts`.
  */
