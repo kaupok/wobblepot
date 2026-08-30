@@ -24,6 +24,8 @@ Auto-discovery (no arg) only surfaces issues `/auto-implement` can finish end-to
 
 Execute phases 0-7 sequentially. Stop only on error or completion.
 
+**Every turn must end in a terminal state.** In the orchestrator's headless spawn (`worktree-claude.sh auto` → `claude "$prompt"`, no TTY) the process can exit the moment a turn ends, and the orchestrator then treats the run as finished: a clean exit with 0 commits returns the issue to Todo labelled `Gated`, and cleanup deletes the worktree and the local branch either way. Never end a turn whose last message describes in-flight work in future tense ("E2E is still running — I'll pick up when it lands" is how HON-562's first run lost a fully green batch on 2026-08-30). The last message of a turn must be a phase marker, an explicit error stop, or the final completion marker. The only acceptable pending state at end-of-turn is a `run_in_background` wrapper whose completion notification resumes the cycle (the Phase 6.1 CI poll, the Phase 3.3 verification wait) — and by that point every completed batch must already be committed AND pushed, so nothing is lost if the process dies instead of resuming.
+
 ## Argument Parsing
 
 Check if an issue ID was provided as argument:
@@ -508,6 +510,16 @@ For each implementation step in the plan:
 4. Follow patterns from CLAUDE.md
 5. If `src/components/**` changed → create/update the colocated `.stories.tsx` (CLAUDE.md Storybook rule) and run `pnpm test-storybook:ci`
 
+### 3.3 Batched plans: commit and push per batch
+
+When the plan splits the work into sequential batches (dependency refreshes, migration series, multi-step refactors), do NOT defer all commits to Phase 5:
+
+- Commit each batch as soon as its fast gate passes (`pnpm lint && pnpm type-check && pnpm test`, plus `pnpm build` when the plan calls for it), following the Phase 5.1/5.2 staging and message conventions.
+- Push after the first batch commit (`git push -u origin $(git branch --show-current)`) and after each subsequent one. Phase 5 then skips straight to PR creation (5.3) for what is already pushed.
+- Long-running verification (`pnpm test:e2e:local`, large `pnpm test-storybook:ci` runs) executes AFTER the batch's commit is pushed, via `run_in_background: true` as one self-contained command that prints a terminal marker on its last line (e.g. `... && echo E2E_PASS || echo E2E_FAIL`) — same shape as the Phase 6.1 CI poll. When the completion notification arrives, verify the marker in the foreground. On failure, fix forward with a follow-up commit in the same batch — never rewrite a pushed batch commit. Do not start the next batch until the verification result is in.
+
+**Why:** a batch commit gated on long verification is a batch that can be lost. The orchestrator deletes the worktree and local branch on every worker exit and gates clean 0-commit exits (HON-562, 2026-08-30: batch 1 was fully green but uncommitted while E2E was still seeding; the worker's turn ended, the process exited, and everything was discarded). Pushed commits are the only state that survives a worker death.
+
 ```
 [auto-implement] ✓ Implementation complete
 [implement-issue:complete]
@@ -627,6 +639,8 @@ Stop here with failure details.
 ```
 
 ### 5.1 Stage changes
+
+If the plan was batched (Phase 3.3) and every batch is already committed and pushed, there may be nothing left to stage — verify with `git status --porcelain` and skip to 5.3.
 
 List changed/untracked files and stage them by name. Do NOT use `git add -A` or `git add .`.
 
