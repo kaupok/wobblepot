@@ -17,7 +17,9 @@ export interface ExternalFetchContext {
  * Behaviour matches `fetch`:
  * - On a non-2xx response, the response is returned as-is. The caller still
  *   decides how to handle it (some callers may treat 4xx as a normal signal).
- * - On a thrown network error or abort, the throw is re-thrown unchanged.
+ * - On a thrown network error, the throw is captured and re-thrown unchanged.
+ * - On a caller-initiated abort (`init.signal` aborted), the throw is
+ *   re-thrown without capture — a deliberate abort is control flow, not a fault.
  *
  * This is for calls where a non-2xx is alert-worthy (Anthropic 500, Resend
  * 502, HIBP 503). Calls where 4xx is expected (e.g. user-supplied URL
@@ -32,6 +34,10 @@ export async function externalFetch(
   try {
     response = await fetch(input, init)
   } catch (error) {
+    // The caller aborted on purpose (e.g. the HIBP timeout that fails open).
+    // Re-throw without capturing — this is control flow, not a fault.
+    if (init?.signal?.aborted) throw error
+
     captureApiError(error, {
       ...context,
       $exception_source: 'externalFetch.networkError',

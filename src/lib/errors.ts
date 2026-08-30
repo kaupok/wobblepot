@@ -32,18 +32,26 @@ export interface ApiErrorContext {
  *   on deploy.
  * - Adds a stable `$exception_fingerprint` for typed errors we throw
  *   ourselves.
+ * - Skips local dev servers (`release === 'local'`), matching `onRequestError`,
+ *   so their errors never reach the shared project.
  * - Silently no-ops when PostHog is not configured (local dev with no key).
  * - Never throws — a PostHog failure must not propagate up the route handler.
  */
 export function captureApiError(error: unknown, context: ApiErrorContext): void {
   try {
+    // Skip local dev servers, matching `onRequestError`. Their errors pollute
+    // the shared project and fire first-seen alerts, which trains the team to
+    // ignore those alerts.
+    const release = process.env.VERCEL_GIT_COMMIT_SHA ?? 'local'
+    if (release === 'local') return
+
     const client = getPosthogServer()
     if (!client) return
 
     const properties: Record<string, unknown> = {
       ...context,
       requestId: getRequestId(),
-      release: process.env.VERCEL_GIT_COMMIT_SHA ?? 'local',
+      release,
       errorType: errorTypeOf(error),
     }
 

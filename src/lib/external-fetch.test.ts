@@ -56,6 +56,23 @@ describe('externalFetch', () => {
     expect(ctxArg).toMatchObject({ feature: 'test', url: 'https://api.example.com/x' })
   })
 
+  it('re-throws a caller-initiated abort without capturing', async () => {
+    const controller = new AbortController()
+    const abortErr = new DOMException('This operation was aborted', 'AbortError')
+    globalThis.fetch = vi.fn(async () => {
+      controller.abort()
+      throw abortErr
+    })
+    await expect(
+      externalFetch(
+        'https://api.example.com/x',
+        { signal: controller.signal },
+        { feature: 'test' },
+      ),
+    ).rejects.toBe(abortErr)
+    expect(captureApiErrorMock).not.toHaveBeenCalled()
+  })
+
   it('strips query string from the captured URL', async () => {
     globalThis.fetch = vi.fn(async () => new Response('boom', { status: 500 }))
     await externalFetch('https://api.example.com/x?token=secret', undefined, {

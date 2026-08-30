@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { captureApiError } from './errors'
 import { captureClientError } from './errors-client'
 import { MealPlanValidationError, InsufficientCandidatesError } from '@/lib/ai/types'
@@ -39,6 +39,12 @@ describe('captureApiError', () => {
     flushMock.mockReset()
     getRequestIdMock.mockReset()
     getPosthogServerMock.mockReset()
+    // Default to a deployed release so capture-path tests exercise capture.
+    // The local-dev skip is covered by its own test below.
+    process.env.VERCEL_GIT_COMMIT_SHA = 'deadbeef'
+  })
+
+  afterEach(() => {
     delete process.env.VERCEL_GIT_COMMIT_SHA
   })
 
@@ -46,6 +52,17 @@ describe('captureApiError', () => {
     getPosthogServerMock.mockReturnValue(null)
     captureApiError(new Error('boom'), { route: '/api/x' })
     expect(captureExceptionMock).not.toHaveBeenCalled()
+  })
+
+  it('skips capture on a local dev server (release=local)', () => {
+    delete process.env.VERCEL_GIT_COMMIT_SHA
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+      flush: flushMock,
+    })
+    captureApiError(new Error('boom'), { route: '/api/x' })
+    expect(captureExceptionMock).not.toHaveBeenCalled()
+    expect(getPosthogServerMock).not.toHaveBeenCalled()
   })
 
   it('captures with requestId, release, route, and errorType', () => {
@@ -86,15 +103,6 @@ describe('captureApiError', () => {
     })
     captureApiError(new Error('boom'), { route: '/api/x', householdId: 'hh-1' })
     expect(captureExceptionMock.mock.calls[0]![1]).toBeUndefined()
-  })
-
-  it('falls back to release="local" when VERCEL_GIT_COMMIT_SHA is unset', () => {
-    getPosthogServerMock.mockReturnValue({
-      captureException: captureExceptionMock,
-      flush: flushMock,
-    })
-    captureApiError(new Error('boom'), { route: '/api/x' })
-    expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({ release: 'local' })
   })
 
   it('attaches $exception_fingerprint for typed errors', () => {
