@@ -169,3 +169,55 @@ jobs:
             test-results/
           retention-days: 7
           if-no-files-found: ignore
+
+  # ==========================================
+  # Vercel env-var drift audit (HON-550)
+  # ==========================================
+  # Surfaces vars configured in Vercel that no code references any more —
+  # the dead-config half of retiring a FEATURE_* gate, which has no other
+  # review trigger. Independent of the `ci` job: read-only, needs no DB or
+  # browser, and must never be the reason a PR is blocked.
+  #
+  # Warn-only for now. The script exits 0 unless `--strict` is passed, and
+  # `continue-on-error` additionally absorbs Vercel API hiccups. Promote to
+  # blocking by adding `--strict` and dropping `continue-on-error` once the
+  # report has stayed trustworthy for a few cycles.
+  env-audit:
+    name: Vercel env-var drift audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    permissions:
+      contents: read
+    # Forked PRs get no secrets, so the audit would fail on an empty token.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # `.vercel/` is gitignored and absent in CI, so project identity comes
+      # from secrets only — never from a checked-in project file.
+      - name: Audit Vercel environment variables
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "::warning::Skipping env-var drift audit — VERCEL_TOKEN / VERCEL_PROJECT_ID not configured. See docs/ENVIRONMENT_SETUP.md."
+            exit 0
+          fi
+          pnpm env:audit

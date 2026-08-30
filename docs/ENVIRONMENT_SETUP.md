@@ -287,6 +287,53 @@ All environment variables are validated at startup with clear error messages if 
 
 **Note:** `NODE_ENV` is managed by Next.js and should be accessed directly from `process.env.NODE_ENV`.
 
+## Drift audit (`pnpm env:audit`)
+
+Vercel's dashboard has no review trigger, so a variable removed from the code can
+linger there as dead config indefinitely. `pnpm env:audit` is a read-only check that
+takes every variable configured in Vercel and asks whether this repo still references
+it anywhere — `process.env` reads, shell `$VAR`, workflow `secrets.*`, `.env.example`.
+
+It reports two tiers:
+
+| Tier         | Meaning                                                                   |
+| ------------ | ------------------------------------------------------------------------- |
+| **ORPHAN**   | The name appears nowhere in the repo. Almost certainly dead config.       |
+| **DOC-ONLY** | The name appears only in Markdown / `.env*` — a half-finished retirement. |
+
+Names written by Vercel Marketplace integrations (`UPSTASH_KV_*`, `UPSTASH_REDIS_URL`)
+are skipped via an ignore list in `scripts/env-audit.ts` — we neither read nor own them.
+
+The audit never deletes anything. Removing a confirmed orphan stays a manual step in
+**Vercel → Settings → Environment Variables**, in every environment it is set in.
+
+### Local use
+
+Requires a linked project (`vercel link` once — it writes the gitignored `.vercel/repo.json`):
+
+```bash
+pnpm env:audit            # warn-only, always exits 0
+pnpm env:audit --strict   # exits 1 when ORPHANs are found
+```
+
+### CI use
+
+The `Vercel env-var drift audit` job in `.github/workflows/ci.yml` runs it on every PR,
+warn-only. `.vercel/` is gitignored and absent in CI, so project identity must come from
+repository secrets — never from a checked-in project file:
+
+| Secret              | Where to get it                                            |
+| ------------------- | ---------------------------------------------------------- |
+| `VERCEL_TOKEN`      | Vercel → Account Settings → Tokens                         |
+| `VERCEL_PROJECT_ID` | Vercel → Project Settings → General → Project ID           |
+| `VERCEL_ORG_ID`     | Vercel → Team Settings → General → Team ID (team projects) |
+
+If `VERCEL_TOKEN` or `VERCEL_PROJECT_ID` is unset the job logs a warning and exits 0, so
+forked PRs (which receive no secrets) are unaffected.
+
+To promote the check to blocking, add `--strict` to the job's `pnpm env:audit` call and
+drop its `continue-on-error: true`.
+
 ## Usage in Code
 
 For usage patterns and examples, see the "Environment Variables" section in CLAUDE.md.
