@@ -26,6 +26,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
+import { appendFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
 // ============================================
@@ -166,7 +167,15 @@ function fetchFromCli(): VercelVar[] {
     stdio: ['ignore', 'pipe', 'ignore'],
     maxBuffer: 10 * 1024 * 1024,
   })
+  const vars = parseEnvLsTable(stdout)
+  if (vars.length === 0) {
+    throw new Error('Parsed no variables from `vercel env ls` — is this project linked?')
+  }
+  return vars
+}
 
+/** Pure table parser, split out so the column positions are pinned by tests. */
+export function parseEnvLsTable(stdout: string): VercelVar[] {
   const byName = new Map<string, Set<string>>()
   for (const line of stdout.split('\n')) {
     const cols = line.trim().split(/ {2,}/)
@@ -184,9 +193,6 @@ function fetchFromCli(): VercelVar[] {
     byName.set(name, set)
   }
 
-  if (byName.size === 0) {
-    throw new Error('Parsed no variables from `vercel env ls` — is this project linked?')
-  }
   return [...byName].map(([name, envs]) => ({ name, environments: [...envs].sort() }))
 }
 
@@ -209,10 +215,21 @@ async function getVercelVars(): Promise<{ vars: VercelVar[]; source: string }> {
 // ============================================
 
 /**
- * Vendored upstream skill docs are not our configuration — a var mentioned
- * only there is not evidence that we use it.
+ * Paths that must not count as evidence a variable is in use:
+ *
+ * - `.agents/` — vendored upstream skill docs, not our configuration.
+ * - This script and its test — their own prose and fixtures name real
+ *   variables (`SEED_TEST_USERS`, `NEON_API_KEY`, `DATABASE_URL`, …). Without
+ *   this exclusion the audit immunises exactly the variables it talks about:
+ *   retire one for real and `files.every(isDocFile)` stays false, so it is
+ *   never reported, not even as DOC-ONLY. The check would silently defeat
+ *   itself, and worse with every fixture added.
  */
-const SCAN_PATHSPEC = [':(exclude).agents/']
+const SCAN_PATHSPEC = [
+  ':(exclude).agents/',
+  ':(exclude)scripts/env-audit.ts',
+  ':(exclude)scripts/env-audit.test.ts',
+]
 
 /** Markdown and `.env*` files document a var; they don't consume it. */
 export function isDocFile(file: string): boolean {
@@ -225,7 +242,7 @@ export function isDocFile(file: string): boolean {
  * genuine orphan. Underscore counts as a word character, so the two stay
  * distinct.
  */
-function referencesFor(name: string): string[] {
+export function referencesFor(name: string): string[] {
   try {
     const stdout = execFileSync(
       'git',
@@ -273,6 +290,44 @@ export function audit(
 // REPORT
 // ============================================
 
+/** One-line rendering shared by the terminal report, annotations and summary. */
+function describe(f: Finding): string {
+  const detail = f.tier === 'DOC-ONLY' ? ` — referenced only in ${f.files.join(', ')}` : ''
+  return `${f.tier.padEnd(8)} ${f.name}${detail}`
+}
+
+/**
+ * The CI job is warn-only and therefore always green — nobody opens the log of
+ * a passing job. Without an annotation and a step summary the report would be
+ * invisible in exactly the case it exists for, and docs/FEATURE_FLAGS.md
+ * promises the opposite.
+ */
+function emitCiOutput(findings: Finding[]): void {
+  if (process.env.GITHUB_ACTIONS !== 'true' || findings.length === 0) return
+
+  for (const f of findings) {
+    const envs = f.environments.length > 0 ? f.environments.join(', ') : 'no environment reported'
+    console.log(`::warning title=Vercel env-var drift::${f.tier}: ${f.name} (${envs})`)
+  }
+
+  const summaryPath = process.env.GITHUB_STEP_SUMMARY
+  if (summaryPath === undefined) return
+  const lines = [
+    '## Vercel env-var drift',
+    '',
+    `${findings.filter((f) => f.tier === 'ORPHAN').length} orphan(s), ` +
+      `${findings.filter((f) => f.tier === 'DOC-ONLY').length} doc-only.`,
+    '',
+    '| Tier | Variable | Environments |',
+    '| --- | --- | --- |',
+    ...findings.map((f) => `| ${f.tier} | \`${f.name}\` | ${f.environments.join(', ') || '—'} |`),
+    '',
+    'Remove confirmed dead vars via Vercel → Settings → Environment Variables.',
+    'See `docs/FEATURE_FLAGS.md` § "Retiring an env-var flag".',
+  ]
+  appendFileSync(summaryPath, `${lines.join('\n')}\n`)
+}
+
 function report(findings: Finding[], vars: VercelVar[], ignored: string[], source: string): void {
   console.log(`\nVercel env-var drift audit — ${vars.length} variables via ${source}`)
   if (ignored.length > 0) {
@@ -285,17 +340,27 @@ function report(findings: Finding[], vars: VercelVar[], ignored: string[], sourc
   }
 
   // Grouped per environment so a var live in Production but dead in
-  // Development is visible as such.
+  // Development is visible as such. A finding whose environment list came back
+  // empty still has to appear somewhere — otherwise the totals below would
+  // report a count with no name attached to it.
   const environments = [...new Set(findings.flatMap((f) => f.environments))].sort()
+  const groups: [string, Finding[]][] = environments.map((env) => [
+    env,
+    findings.filter((f) => f.environments.includes(env)),
+  ])
+  const ungrouped = findings.filter((f) => f.environments.length === 0)
+  if (ungrouped.length > 0) {
+    groups.push(['(no environment reported)', ungrouped])
+  }
 
-  for (const env of environments) {
-    const inEnv = findings.filter((f) => f.environments.includes(env))
+  for (const [env, inEnv] of groups) {
     console.log(`\n${env}`)
-    for (const f of inEnv.sort((a, b) => a.name.localeCompare(b.name))) {
-      const detail = f.tier === 'DOC-ONLY' ? ` — referenced only in ${f.files.join(', ')}` : ''
-      console.log(`  ${f.tier.padEnd(8)} ${f.name}${detail}`)
+    for (const f of [...inEnv].sort((a, b) => a.name.localeCompare(b.name))) {
+      console.log(`  ${describe(f)}`)
     }
   }
+
+  emitCiOutput(findings)
 
   const orphans = findings.filter((f) => f.tier === 'ORPHAN').length
   const docOnly = findings.length - orphans

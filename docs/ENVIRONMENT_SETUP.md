@@ -322,14 +322,17 @@ The `Vercel env-var drift audit` job in `.github/workflows/ci.yml` runs it on ev
 warn-only. `.vercel/` is gitignored and absent in CI, so project identity must come from
 repository secrets — never from a checked-in project file:
 
-| Secret              | Where to get it                                            |
-| ------------------- | ---------------------------------------------------------- |
-| `VERCEL_TOKEN`      | Vercel → Account Settings → Tokens                         |
-| `VERCEL_PROJECT_ID` | Vercel → Project Settings → General → Project ID           |
-| `VERCEL_ORG_ID`     | Vercel → Team Settings → General → Team ID (team projects) |
+| Secret              | Where to get it                                  |
+| ------------------- | ------------------------------------------------ |
+| `VERCEL_TOKEN`      | Vercel → Account Settings → Tokens               |
+| `VERCEL_PROJECT_ID` | Vercel → Project Settings → General → Project ID |
+| `VERCEL_ORG_ID`     | Vercel → Team Settings → General → Team ID       |
 
-If `VERCEL_TOKEN` or `VERCEL_PROJECT_ID` is unset the job logs a warning and exits 0, so
-forked PRs (which receive no secrets) are unaffected.
+All three are required — this project is team-scoped, so a REST call without `teamId`
+returns 403. If any is unset the job logs a warning and exits 0, so forked PRs (which
+receive no secrets) are unaffected. Findings are emitted as GitHub warning annotations
+and a step summary, because a warn-only job is always green and nobody opens the log of
+a passing job.
 
 To promote the check to blocking, add `--strict` to the job's `pnpm env:audit` call and
 drop its `continue-on-error: true`.

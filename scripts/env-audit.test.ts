@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { audit, ignoreReason, isDocFile, type VercelVar } from './env-audit'
+import {
+  audit,
+  ignoreReason,
+  isDocFile,
+  parseEnvLsTable,
+  referencesFor,
+  type VercelVar,
+} from './env-audit'
 
 /**
  * The audit is silent on a clean tree by design, so these tests exist to prove
@@ -101,5 +108,72 @@ describe('audit', () => {
     )
 
     expect(findings[0]?.environments).toEqual(['Development', 'Production', 'staging'])
+  })
+})
+
+describe('parseEnvLsTable', () => {
+  // Columns are separated by 2+ spaces; the name is column 1 and the
+  // environment list column 3. Pinning the shape here because `vercel env ls`
+  // has no --json, so a CLI table change is the realistic way this breaks.
+  const table = [
+    ' name                     value       environments (git branch)          created',
+    ' DATABASE_URL             Encrypted   Production, Preview, staging       3d ago',
+    ' NEON_API_KEY             Encrypted   Preview (kaupo/some-branch)        4m ago',
+    ' UPSTASH_REDIS_REST_URL   Encrypted   Development                        3d ago',
+  ].join('\n')
+
+  it('extracts every name with its environments', () => {
+    expect(parseEnvLsTable(table)).toEqual([
+      { name: 'DATABASE_URL', environments: ['Preview', 'Production', 'staging'] },
+      { name: 'NEON_API_KEY', environments: ['Preview'] },
+      { name: 'UPSTASH_REDIS_REST_URL', environments: ['Development'] },
+    ])
+  })
+
+  it('skips the header row rather than treating it as a variable', () => {
+    expect(parseEnvLsTable(table).map((v) => v.name)).not.toContain('name')
+  })
+
+  it('merges rows that repeat a name across environments', () => {
+    const repeated = [
+      ' CRON_SECRET   Encrypted   Production   3d ago',
+      ' CRON_SECRET   Encrypted   staging      3d ago',
+    ].join('\n')
+
+    expect(parseEnvLsTable(repeated)).toEqual([
+      { name: 'CRON_SECRET', environments: ['Production', 'staging'] },
+    ])
+  })
+
+  it('returns nothing for output with no variable rows', () => {
+    expect(parseEnvLsTable('No Environment Variables found\n')).toEqual([])
+  })
+})
+
+describe('referencesFor', () => {
+  // Runs real `git grep` against this repo.
+  it('finds a variable that the codebase genuinely uses', () => {
+    expect(referencesFor('DATABASE_URL')).toContain('src/lib/env.ts')
+  })
+
+  it('returns empty for a name nothing references', () => {
+    expect(referencesFor('WOBBLEPOT_NO_SUCH_VARIABLE_XYZ')).toEqual([])
+  })
+
+  it('respects word boundaries so a prefix does not match a longer name', () => {
+    // Without `-w`, DATABASE_URL would match DATABASE_URL_UNPOOLED and a
+    // retired DATABASE_URL would look referenced. prisma.ts uses only the
+    // pooled name, so it must not surface for the unpooled one.
+    expect(referencesFor('DATABASE_URL_UNPOOLED')).not.toContain('src/lib/prisma.ts')
+  })
+
+  it("excludes the audit's own files so fixtures cannot immunise a variable", () => {
+    // Every name this test file mentions would otherwise count as a live code
+    // reference, and retiring it for real would produce no finding at all.
+    const files = referencesFor('SEED_TEST_USERS')
+
+    expect(files).not.toContain('scripts/env-audit.test.ts')
+    expect(files).not.toContain('scripts/env-audit.ts')
+    expect(files).toContain('prisma/seed.ts')
   })
 })

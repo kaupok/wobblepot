@@ -215,9 +215,14 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        # VERCEL_ORG_ID is gated alongside the other two: this project is
+        # team-scoped, so without teamId the REST call 403s and the script
+        # exits 1 — which continue-on-error would render as a green check with
+        # no audit having run at all.
         run: |
-          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
-            echo "::warning::Skipping env-var drift audit — VERCEL_TOKEN / VERCEL_PROJECT_ID not configured. See docs/ENVIRONMENT_SETUP.md."
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_PROJECT_ID" ] || [ -z "$VERCEL_ORG_ID" ]; then
+            echo "::warning::Skipping env-var drift audit — VERCEL_TOKEN / VERCEL_PROJECT_ID / VERCEL_ORG_ID not configured. See docs/ENVIRONMENT_SETUP.md."
             exit 0
           fi
-          pnpm env:audit
+          # Same reason: a crash on an always-green job is otherwise silent.
+          pnpm env:audit || echo "::warning title=env-audit failed::The Vercel env-var drift audit did not complete — see this job's log."
