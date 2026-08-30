@@ -16,15 +16,16 @@ import {
 import { captureApiError } from '@/lib/errors'
 import { deriveProteinType } from '@/lib/meal-planning/protein'
 import { withRequestId } from '@/lib/request-id'
-import type { ExtractedIngredient } from '@/lib/ai/parse-recipe'
+import type { ExtractedIngredient } from '@/lib/ai/recipe-schema'
+import {
+  ALLOWED_IMAGE_TYPES,
+  MAX_ATTACHED_IMAGES,
+  MAX_ATTACHED_IMAGE_SIZE,
+} from '@/lib/image-attachments'
 
 const imagineRequestSchema = z.object({
   prompt: z.string().min(1).max(500),
 })
-
-const MAX_IMAGES = 3
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
 async function handlePOST(request: Request) {
   const session = await auth.api.getSession({
@@ -87,8 +88,11 @@ async function handlePOST(request: Request) {
     }
 
     const imageFiles = formData.getAll('image')
-    if (imageFiles.length > MAX_IMAGES) {
-      return NextResponse.json({ error: `Maximum ${MAX_IMAGES} images allowed` }, { status: 400 })
+    if (imageFiles.length > MAX_ATTACHED_IMAGES) {
+      return NextResponse.json(
+        { error: `Maximum ${MAX_ATTACHED_IMAGES} images allowed` },
+        { status: 400 },
+      )
     }
 
     for (const file of imageFiles) {
@@ -96,7 +100,7 @@ async function handlePOST(request: Request) {
       if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
         return NextResponse.json({ error: 'Images must be JPEG, PNG, or WebP' }, { status: 400 })
       }
-      if (file.size > MAX_IMAGE_SIZE) {
+      if (file.size > MAX_ATTACHED_IMAGE_SIZE) {
         return NextResponse.json({ error: 'Each image must be 5MB or less' }, { status: 400 })
       }
       const base64 = Buffer.from(await file.arrayBuffer()).toString('base64')
