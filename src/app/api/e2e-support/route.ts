@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { captureApiError } from '@/lib/errors'
 import { prisma } from '@/lib/prisma'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
 
@@ -159,23 +160,28 @@ export async function GET(request: Request) {
     return notFound()
   }
 
-  const url = new URL(request.url)
-  const action = url.searchParams.get('action')
+  try {
+    const url = new URL(request.url)
+    const action = url.searchParams.get('action')
 
-  if (action === 'household-state') {
-    const householdId = param(url, 'householdId')
-    return householdId ? householdState(householdId) : missingParam('householdId')
-  }
-
-  if (action === 'reset-token' || action === 'user-state') {
-    const email = param(url, 'email')
-    if (!email) {
-      return missingParam('email')
+    if (action === 'household-state') {
+      const householdId = param(url, 'householdId')
+      return householdId ? householdState(householdId) : missingParam('householdId')
     }
-    return action === 'reset-token' ? resetToken(email) : userState(email)
-  }
 
-  return unknownAction(action)
+    if (action === 'reset-token' || action === 'user-state') {
+      const email = param(url, 'email')
+      if (!email) {
+        return missingParam('email')
+      }
+      return action === 'reset-token' ? resetToken(email) : userState(email)
+    }
+
+    return unknownAction(action)
+  } catch (error) {
+    captureApiError(error, { route: '/api/e2e-support' })
+    return NextResponse.json({ error: 'Failed to read E2E support state' }, { status: 500 })
+  }
 }
 
 export async function POST(request: Request) {
@@ -183,28 +189,33 @@ export async function POST(request: Request) {
     return notFound()
   }
 
-  const url = new URL(request.url)
-  const action = url.searchParams.get('action')
+  try {
+    const url = new URL(request.url)
+    const action = url.searchParams.get('action')
 
-  if (action !== 'expire-purge') {
-    return unknownAction(action)
+    if (action !== 'expire-purge') {
+      return unknownAction(action)
+    }
+
+    const email = param(url, 'email')
+    if (!email) {
+      return missingParam('email')
+    }
+
+    // Only ever touches an account that has already requested deletion, so a
+    // stray call can't schedule a live account for purge.
+    const result = await prisma.user.updateMany({
+      where: { email, deletedAt: { not: null } },
+      data: { purgeScheduledFor: new Date(Date.now() - 60_000) },
+    })
+
+    if (result.count === 0) {
+      return NextResponse.json({ error: 'No soft-deleted user with that email' }, { status: 404 })
+    }
+
+    return NextResponse.json({ ok: true, updated: result.count })
+  } catch (error) {
+    captureApiError(error, { route: '/api/e2e-support' })
+    return NextResponse.json({ error: 'Failed to update E2E support state' }, { status: 500 })
   }
-
-  const email = param(url, 'email')
-  if (!email) {
-    return missingParam('email')
-  }
-
-  // Only ever touches an account that has already requested deletion, so a
-  // stray call can't schedule a live account for purge.
-  const result = await prisma.user.updateMany({
-    where: { email, deletedAt: { not: null } },
-    data: { purgeScheduledFor: new Date(Date.now() - 60_000) },
-  })
-
-  if (result.count === 0) {
-    return NextResponse.json({ error: 'No soft-deleted user with that email' }, { status: 404 })
-  }
-
-  return NextResponse.json({ ok: true, updated: result.count })
 }
