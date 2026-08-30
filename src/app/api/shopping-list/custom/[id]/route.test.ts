@@ -344,6 +344,44 @@ describe('PATCH /api/shopping-list/custom/[id]', () => {
     )
     expect(txUpsertSpy).not.toHaveBeenCalled()
   })
+
+  it('returns 500 with the { error } JSON shape when the transaction throws', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockFindUnique.mockResolvedValue({
+      id: 'custom-1',
+      householdId: 'household-123',
+      name: 'Salt',
+      checked: false,
+      ingredientId: null,
+    } as never)
+    mockTransaction.mockRejectedValue(new Error('db down'))
+
+    const response = await patchRequest('custom-1', { checked: true })
+    const data = await response.json()
+
+    expect(response.status).toBe(500)
+    // `apiFetch` parses the body and surfaces `error` — a bare Next.js 500
+    // would not be JSON at all, which is the regression this guards.
+    expect(typeof data.error).toBe('string')
+    expect(data.error.length).toBeGreaterThan(0)
+  })
+
+  it('still returns 400 for malformed JSON — the inner catch wins over the outer one', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockFindUnique.mockResolvedValue({
+      id: 'custom-1',
+      householdId: 'household-123',
+      name: 'Salt',
+    } as never)
+
+    const response = await patchRequest('custom-1', undefined, 'not json')
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Invalid JSON')
+  })
 })
 
 describe('DELETE /api/shopping-list/custom/[id]', () => {
@@ -418,5 +456,23 @@ describe('DELETE /api/shopping-list/custom/[id]', () => {
     expect(response.status).toBe(200)
     expect(data.success).toBe(true)
     expect(mockDelete).toHaveBeenCalledWith({ where: { id: 'custom-1' } })
+  })
+
+  it('returns 500 with the { error } JSON shape when the delete throws', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockFindUnique.mockResolvedValue({
+      id: 'custom-1',
+      householdId: 'household-123',
+      name: 'Salt',
+    } as never)
+    mockDelete.mockRejectedValue(new Error('db down'))
+
+    const response = await deleteRequest('custom-1')
+    const data = await response.json()
+
+    expect(response.status).toBe(500)
+    expect(typeof data.error).toBe('string')
+    expect(data.error.length).toBeGreaterThan(0)
   })
 })

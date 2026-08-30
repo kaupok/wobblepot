@@ -72,34 +72,39 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let body
   try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    let body
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
+
+    const parsed = updatePreferencesSchema.safeParse(body)
+
+    if (!parsed.success) {
+      const errors = parsed.error.flatten().fieldErrors
+      return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
+    }
+
+    const membership = await getHouseholdMembership(session.user.id)
+
+    if (!membership) {
+      return NextResponse.json({ error: 'No household found' }, { status: 404 })
+    }
+
+    const preferences = await prisma.memberPreferences.upsert({
+      where: { memberId: membership.id },
+      create: {
+        memberId: membership.id,
+        ...parsed.data,
+      },
+      update: parsed.data,
+    })
+
+    return NextResponse.json(preferences)
+  } catch (error) {
+    captureApiError(error, { route: '/api/members/me/preferences', userId: session.user.id })
+    return NextResponse.json({ error: 'Failed to update member preferences' }, { status: 500 })
   }
-
-  const parsed = updatePreferencesSchema.safeParse(body)
-
-  if (!parsed.success) {
-    const errors = parsed.error.flatten().fieldErrors
-    return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
-  }
-
-  const membership = await getHouseholdMembership(session.user.id)
-
-  if (!membership) {
-    return NextResponse.json({ error: 'No household found' }, { status: 404 })
-  }
-
-  const preferences = await prisma.memberPreferences.upsert({
-    where: { memberId: membership.id },
-    create: {
-      memberId: membership.id,
-      ...parsed.data,
-    },
-    update: parsed.data,
-  })
-
-  return NextResponse.json(preferences)
 }

@@ -22,92 +22,101 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const membership = await getHouseholdMembership(session.user.id)
-
-  if (!membership) {
-    return NextResponse.json({ error: 'No household found' }, { status: 404 })
-  }
-
-  if (membership.role !== 'owner') {
-    return NextResponse.json({ error: 'Only household owners can create invites' }, { status: 403 })
-  }
-
-  const baseUrl = getServerBaseURL()
-
-  let body: unknown
   try {
-    body = await request.json()
-  } catch {
-    // Allow empty body - schema defaults will be applied
-    body = {}
-  }
+    const membership = await getHouseholdMembership(session.user.id)
 
-  const parsed = createInviteSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Invalid request body', details: parsed.error.flatten().fieldErrors },
-      { status: 400 },
-    )
-  }
+    if (!membership) {
+      return NextResponse.json({ error: 'No household found' }, { status: 404 })
+    }
 
-  const { memberId, expiresInDays } = parsed.data
+    if (membership.role !== 'owner') {
+      return NextResponse.json(
+        { error: 'Only household owners can create invites' },
+        { status: 403 },
+      )
+    }
 
-  // Validate the member exists, belongs to this household, and is a manual member
-  const member = await prisma.householdMember.findFirst({
-    where: {
-      id: memberId,
-      householdId: membership.householdId,
-    },
-  })
+    const baseUrl = getServerBaseURL()
 
-  if (!member) {
-    return NextResponse.json({ error: 'Member not found' }, { status: 404 })
-  }
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      // Allow empty body - schema defaults will be applied
+      body = {}
+    }
 
-  if (member.userId !== null) {
+    const parsed = createInviteSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid request body', details: parsed.error.flatten().fieldErrors },
+        { status: 400 },
+      )
+    }
+
+    const { memberId, expiresInDays } = parsed.data
+
+    // Validate the member exists, belongs to this household, and is a manual member
+    const member = await prisma.householdMember.findFirst({
+      where: {
+        id: memberId,
+        householdId: membership.householdId,
+      },
+    })
+
+    if (!member) {
+      return NextResponse.json({ error: 'Member not found' }, { status: 404 })
+    }
+
+    if (member.userId !== null) {
+      return NextResponse.json(
+        {
+          error:
+            'Can only create invites for manual members (members without a linked user account)',
+        },
+        { status: 400 },
+      )
+    }
+
+    const code = nanoid(12)
+    const expiresAt = new Date()
+    expiresAt.setDate(expiresAt.getDate() + expiresInDays)
+
+    // Upsert: if an invite already exists for this member, replace it
+    const invite = await prisma.householdInvite.upsert({
+      where: { memberId },
+      create: {
+        householdId: membership.householdId,
+        memberId,
+        code,
+        expiresAt,
+        maxUses: 1,
+      },
+      update: {
+        code,
+        expiresAt,
+        usesCount: 0,
+      },
+    })
+
     return NextResponse.json(
       {
-        error: 'Can only create invites for manual members (members without a linked user account)',
+        id: invite.id,
+        code: invite.code,
+        url: `${baseUrl}/invite/${invite.code}`,
+        memberId: invite.memberId,
+        memberName: member.name,
+        expiresAt: invite.expiresAt.toISOString(),
+        maxUses: invite.maxUses,
+        usesCount: invite.usesCount,
+        createdAt: invite.createdAt.toISOString(),
       },
-      { status: 400 },
+      { status: 201 },
     )
+  } catch (error) {
+    captureApiError(error, { route: '/api/households/me/invites', userId: session.user.id })
+    return NextResponse.json({ error: 'Failed to create invite' }, { status: 500 })
   }
-
-  const code = nanoid(12)
-  const expiresAt = new Date()
-  expiresAt.setDate(expiresAt.getDate() + expiresInDays)
-
-  // Upsert: if an invite already exists for this member, replace it
-  const invite = await prisma.householdInvite.upsert({
-    where: { memberId },
-    create: {
-      householdId: membership.householdId,
-      memberId,
-      code,
-      expiresAt,
-      maxUses: 1,
-    },
-    update: {
-      code,
-      expiresAt,
-      usesCount: 0,
-    },
-  })
-
-  return NextResponse.json(
-    {
-      id: invite.id,
-      code: invite.code,
-      url: `${baseUrl}/invite/${invite.code}`,
-      memberId: invite.memberId,
-      memberName: member.name,
-      expiresAt: invite.expiresAt.toISOString(),
-      maxUses: invite.maxUses,
-      usesCount: invite.usesCount,
-      createdAt: invite.createdAt.toISOString(),
-    },
-    { status: 201 },
-  )
 }
 
 export async function GET() {

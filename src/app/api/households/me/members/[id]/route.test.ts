@@ -403,6 +403,78 @@ describe('PATCH /api/households/me/members/[id]', () => {
     expect(response.status).toBe(400)
     expect(data.error).toBe('Display name is required for manual members')
   })
+
+  it('returns 500 with the { error } JSON shape when the transaction throws', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    mockFindFirst.mockResolvedValue({
+      id: 'member-123',
+      householdId: 'household-123',
+      userId: 'user-123',
+      role: 'owner',
+      household: { id: 'household-123', name: 'Test', preferences: null },
+    } as never)
+
+    mockFindUnique.mockResolvedValue({
+      id: 'member-123',
+      householdId: 'household-123',
+      userId: 'user-123',
+      name: 'John Doe',
+      role: 'owner',
+    } as never)
+
+    mockTransaction.mockRejectedValue(new Error('db down'))
+
+    const response = await PATCH(
+      new Request('http://localhost', {
+        method: 'PATCH',
+        body: JSON.stringify({ preferences: { dislikes: [] } }),
+      }),
+      { params: Promise.resolve({ id: 'member-123' }) },
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(500)
+    // `apiFetch` parses the body and surfaces `error` — a bare Next.js 500
+    // would not be JSON at all, which is the regression this guards.
+    expect(typeof data.error).toBe('string')
+    expect(data.error.length).toBeGreaterThan(0)
+  })
+
+  it('still returns 400 for malformed JSON — the inner catch wins over the outer one', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    mockFindFirst.mockResolvedValue({
+      id: 'member-123',
+      householdId: 'household-123',
+      userId: 'user-123',
+      role: 'owner',
+      household: { id: 'household-123', name: 'Test', preferences: null },
+    } as never)
+
+    mockFindUnique.mockResolvedValue({
+      id: 'member-123',
+      householdId: 'household-123',
+      userId: 'user-123',
+      name: 'John Doe',
+      role: 'owner',
+    } as never)
+
+    const response = await PATCH(
+      new Request('http://localhost', { method: 'PATCH', body: 'not json' }),
+      { params: Promise.resolve({ id: 'member-123' }) },
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Invalid JSON')
+  })
 })
 
 describe('DELETE /api/households/me/members/[id]', () => {
@@ -511,5 +583,39 @@ describe('DELETE /api/households/me/members/[id]', () => {
     expect(mockDelete).toHaveBeenCalledWith({
       where: { id: 'member-manual' },
     })
+  })
+
+  it('returns 500 with the { error } JSON shape when the delete throws', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    mockFindFirst.mockResolvedValue({
+      id: 'member-123',
+      householdId: 'household-123',
+      userId: 'user-123',
+      role: 'owner',
+      household: { id: 'household-123', name: 'Test', preferences: null },
+    } as never)
+
+    mockFindUnique.mockResolvedValue({
+      id: 'member-manual',
+      householdId: 'household-123',
+      userId: null,
+      name: 'Test Child',
+      role: 'member',
+    } as never)
+
+    mockDelete.mockRejectedValue(new Error('db down'))
+
+    const response = await DELETE(new Request('http://localhost'), {
+      params: Promise.resolve({ id: 'member-manual' }),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(500)
+    expect(typeof data.error).toBe('string')
+    expect(data.error.length).toBeGreaterThan(0)
   })
 })

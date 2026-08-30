@@ -361,6 +361,48 @@ describe('PATCH /api/pantry/[id]', () => {
       },
     })
   })
+
+  it('returns 500 with the { error } JSON shape when the update throws', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirstMember.mockResolvedValue(mockMembership as never)
+    mockFindFirstPantry.mockResolvedValue(mockPantryItem as never)
+    mockUpdatePantry.mockRejectedValue(new Error('db down'))
+
+    const request = new Request('http://localhost/api/pantry/pantry-123', {
+      method: 'PATCH',
+      body: JSON.stringify({ isStaple: true }),
+    })
+
+    const response = await PATCH(request, { params: Promise.resolve({ id: 'pantry-123' }) })
+    const data = await response.json()
+
+    expect(response.status).toBe(500)
+    // `apiFetch` parses the body and surfaces `error` — a bare Next.js 500
+    // would not be JSON at all, which is the regression this guards.
+    expect(typeof data.error).toBe('string')
+    expect(data.error.length).toBeGreaterThan(0)
+  })
+
+  it('still returns 400 for malformed JSON — the inner catch wins over the outer one', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    const request = new Request('http://localhost/api/pantry/pantry-123', {
+      method: 'PATCH',
+      body: 'not json',
+    })
+
+    const response = await PATCH(request, { params: Promise.resolve({ id: 'pantry-123' }) })
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Invalid JSON')
+  })
 })
 
 describe('DELETE /api/pantry/[id]', () => {
@@ -438,5 +480,26 @@ describe('DELETE /api/pantry/[id]', () => {
     expect(mockDeletePantry).toHaveBeenCalledWith({
       where: { id: 'pantry-123' },
     })
+  })
+
+  it('returns 500 with the { error } JSON shape when the delete throws', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirstMember.mockResolvedValue(mockMembership as never)
+    mockFindFirstPantry.mockResolvedValue(mockPantryItem as never)
+    mockDeletePantry.mockRejectedValue(new Error('db down'))
+
+    const request = new Request('http://localhost/api/pantry/pantry-123', {
+      method: 'DELETE',
+    })
+
+    const response = await DELETE(request, { params: Promise.resolve({ id: 'pantry-123' }) })
+    const data = await response.json()
+
+    expect(response.status).toBe(500)
+    expect(typeof data.error).toBe('string')
+    expect(data.error.length).toBeGreaterThan(0)
   })
 })

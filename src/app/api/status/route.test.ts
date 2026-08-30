@@ -176,4 +176,17 @@ describe('GET /api/status', () => {
 
     expect(body.incidentMessage).toBe('Scheduled maintenance in progress')
   })
+
+  it('returns 500 with the { error } JSON shape when the snapshot throws', async () => {
+    mockGetSnapshot.mockRejectedValue(new Error('probe blew up'))
+
+    const response = await GET()
+
+    expect(response.status).toBe(500)
+    const body = await response.json()
+    // `apiFetch` parses the body and surfaces `error` — a bare Next.js 500
+    // would not be JSON at all, which is the regression this guards.
+    expect(typeof body.error).toBe('string')
+    expect(body.error.length).toBeGreaterThan(0)
+  })
 })

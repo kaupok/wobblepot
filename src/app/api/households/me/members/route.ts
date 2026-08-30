@@ -132,94 +132,102 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const householdMembership = await getHouseholdMembership(session.user.id)
-
-  if (!householdMembership) {
-    return NextResponse.json({ error: 'No household found' }, { status: 404 })
-  }
-
-  // Only owners can add manual members
-  if (householdMembership.role !== 'owner') {
-    return NextResponse.json({ error: 'Only the household owner can add members' }, { status: 403 })
-  }
-
-  let body
   try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+    const householdMembership = await getHouseholdMembership(session.user.id)
 
-  const parsed = createManualMemberSchema.safeParse(body)
-
-  if (!parsed.success) {
-    const errors = parsed.error.flatten().fieldErrors
-    return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
-  }
-
-  const { name, preferences } = parsed.data
-
-  // Create the manual member with preferences in a transaction
-  const member = await prisma.$transaction(async (tx) => {
-    const newMember = await tx.householdMember.create({
-      data: {
-        householdId: householdMembership.householdId,
-        name,
-        role: 'member', // Manual members are always regular members
-      },
-    })
-
-    if (preferences) {
-      await tx.memberPreferences.create({
-        data: {
-          memberId: newMember.id,
-          displayName: preferences.displayName,
-          portionMultiplier: preferences.portionMultiplier,
-          targetCalories: preferences.targetCalories,
-          targetProtein: preferences.targetProtein,
-          targetCarbs: preferences.targetCarbs,
-          targetFat: preferences.targetFat,
-          dietaryType: preferences.dietaryType,
-          allergens: preferences.allergens,
-          restrictions: preferences.restrictions,
-          excludedIngredients: preferences.excludedIngredients,
-          excludedIngredientIds: preferences.excludedIngredientIds,
-        },
-      })
+    if (!householdMembership) {
+      return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    return tx.householdMember.findUnique({
-      where: { id: newMember.id },
-      include: {
-        preferences: true,
-      },
-    })
-  })
+    // Only owners can add manual members
+    if (householdMembership.role !== 'owner') {
+      return NextResponse.json(
+        { error: 'Only the household owner can add members' },
+        { status: 403 },
+      )
+    }
 
-  return NextResponse.json(
-    {
-      id: member!.id,
-      userId: member!.userId,
-      name: member!.name,
-      role: member!.role,
-      joinedAt: member!.joinedAt,
-      user: null,
-      preferences: member!.preferences
-        ? {
-            displayName: member!.preferences.displayName,
-            portionMultiplier: member!.preferences.portionMultiplier,
-            targetCalories: member!.preferences.targetCalories,
-            targetProtein: member!.preferences.targetProtein,
-            targetCarbs: member!.preferences.targetCarbs,
-            targetFat: member!.preferences.targetFat,
-            dietaryType: member!.preferences.dietaryType,
-            allergens: member!.preferences.allergens,
-            restrictions: member!.preferences.restrictions,
-            excludedIngredients: member!.preferences.excludedIngredients,
-          }
-        : null,
-      invite: null,
-    },
-    { status: 201 },
-  )
+    let body
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
+
+    const parsed = createManualMemberSchema.safeParse(body)
+
+    if (!parsed.success) {
+      const errors = parsed.error.flatten().fieldErrors
+      return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
+    }
+
+    const { name, preferences } = parsed.data
+
+    // Create the manual member with preferences in a transaction
+    const member = await prisma.$transaction(async (tx) => {
+      const newMember = await tx.householdMember.create({
+        data: {
+          householdId: householdMembership.householdId,
+          name,
+          role: 'member', // Manual members are always regular members
+        },
+      })
+
+      if (preferences) {
+        await tx.memberPreferences.create({
+          data: {
+            memberId: newMember.id,
+            displayName: preferences.displayName,
+            portionMultiplier: preferences.portionMultiplier,
+            targetCalories: preferences.targetCalories,
+            targetProtein: preferences.targetProtein,
+            targetCarbs: preferences.targetCarbs,
+            targetFat: preferences.targetFat,
+            dietaryType: preferences.dietaryType,
+            allergens: preferences.allergens,
+            restrictions: preferences.restrictions,
+            excludedIngredients: preferences.excludedIngredients,
+            excludedIngredientIds: preferences.excludedIngredientIds,
+          },
+        })
+      }
+
+      return tx.householdMember.findUnique({
+        where: { id: newMember.id },
+        include: {
+          preferences: true,
+        },
+      })
+    })
+
+    return NextResponse.json(
+      {
+        id: member!.id,
+        userId: member!.userId,
+        name: member!.name,
+        role: member!.role,
+        joinedAt: member!.joinedAt,
+        user: null,
+        preferences: member!.preferences
+          ? {
+              displayName: member!.preferences.displayName,
+              portionMultiplier: member!.preferences.portionMultiplier,
+              targetCalories: member!.preferences.targetCalories,
+              targetProtein: member!.preferences.targetProtein,
+              targetCarbs: member!.preferences.targetCarbs,
+              targetFat: member!.preferences.targetFat,
+              dietaryType: member!.preferences.dietaryType,
+              allergens: member!.preferences.allergens,
+              restrictions: member!.preferences.restrictions,
+              excludedIngredients: member!.preferences.excludedIngredients,
+            }
+          : null,
+        invite: null,
+      },
+      { status: 201 },
+    )
+  } catch (error) {
+    captureApiError(error, { route: '/api/households/me/members', userId: session.user.id })
+    return NextResponse.json({ error: 'Failed to add member' }, { status: 500 })
+  }
 }
