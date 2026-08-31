@@ -139,10 +139,60 @@ update_env_var() {
   ' "$file" > "$tmp" && mv "$tmp" "$file"
 }
 
-# Delete Neon branches whose live git worktree no longer exists. Filters to
-# auto-* / kaupo-* prefixes so the GC can't touch hand-managed branches. Skips
-# protected names. Safe to call repeatedly; errors from individual deletes
-# are ignored (best-effort sweep).
+# Neon branch names an automated reaper is allowed to consider: `<prefix>--hon-<N>`
+# with an optional slug tail. Kept in sync with scripts/neon-cleanup.sh's
+# SAFE_BRANCH_REGEX — the two reapers must agree on what "an orchestrator branch"
+# looks like (HON-572). `--` is neon_branch_name's mapping of the git `/`, so this
+# covers both `auto/hon-51` (no-branchName fallback) and Linear's real branch
+# names like `kaupokorv/hon-51-slug`, which is what spawn_worker actually uses.
+NEON_ISSUE_BRANCH_REGEX='^[A-Za-z0-9._-]+--hon-[0-9]+(-[A-Za-z0-9._-]+)?$'
+
+# Pure selection half of neon_gc_orphans: given the `neonctl branches list` JSON
+# and the newline-separated list of live worktree branch names (already mapped
+# through neon_branch_name), print the Neon branches that should be deleted.
+# Split out so scripts/orchestrator.test.ts can exercise the real jq expression
+# and the real protection/worktree filters without touching neonctl.
+neon_gc_orphan_names() {
+  local list_out="$1" live_worktrees="$2"
+
+  # GC reclaims branches the tooling created: `auto-` (the orchestrator's
+  # `wt auto HON-XX` → `auto/hon-XX` → Neon `auto--hon-XX` fallback), any
+  # `<prefix>--hon-<N>[-slug]` (the Linear branch names spawn_worker normally
+  # uses — these had NO reaper at all before HON-572), plus
+  # `${NEON_USER_PREFIX}-` when set (interactive `wt new <prefix>/...`).
+  # Anything else — `feat-`, `fix-`, test scaffolds, hand-managed branches —
+  # stays untouched; users clean those up via `wt cleanup`.
+  # Shape-tolerant: accepts either `[...]` or `{"branches": [...]}` wire formats.
+  # `.branches // .` would throw on a bare array (Cannot index array with string),
+  # so dispatch on type first.
+  local all_neon_branches
+  all_neon_branches=$(echo "$list_out" \
+    | jq -r --arg user_prefix "${NEON_USER_PREFIX:-}" \
+           --arg issue_re "$NEON_ISSUE_BRANCH_REGEX" '
+        if type == "array" then .[]
+        elif .branches then .branches[]
+        else empty end
+        | select(
+            (.name | startswith("auto-"))
+            or (.name | test($issue_re))
+            or ($user_prefix != "" and (.name | startswith($user_prefix + "-")))
+          )
+        | .name')
+
+  local b
+  while IFS= read -r b; do
+    [ -z "$b" ] && continue
+    # A live worktree still points at this branch — it is in use, not an orphan.
+    echo "$live_worktrees" | grep -qxF "$b" && continue
+    is_protected_neon_branch "$b" && continue
+    echo "$b"
+  done <<< "$all_neon_branches"
+}
+
+# Delete Neon branches whose live git worktree no longer exists. Filters to the
+# prefixes/shapes neon_gc_orphan_names recognises so the GC can't touch
+# hand-managed branches. Skips protected names. Safe to call repeatedly; errors
+# from individual deletes are ignored (best-effort sweep).
 neon_gc_orphans() {
   neon_enabled || return 0
   local live_worktrees
@@ -163,36 +213,12 @@ neon_gc_orphans() {
     return 0
   fi
 
-  # GC reclaims branches with known prefixes: `auto-` (always, from the
-  # orchestrator's `wt auto HON-XX` → `auto/hon-XX` → Neon `auto--hon-XX`),
-  # plus `${NEON_USER_PREFIX}-` when set (from interactive `wt new <prefix>/...`).
-  # Anything else — `feat-`, `fix-`, test scaffolds, hand-managed branches —
-  # stays untouched; users clean those up via `wt cleanup`.
-  # Shape-tolerant: accepts either `[...]` or `{"branches": [...]}` wire formats.
-  # `.branches // .` would throw on a bare array (Cannot index array with string),
-  # so dispatch on type first.
-  local all_neon_branches
-  all_neon_branches=$(echo "$list_out" \
-    | jq -r --arg user_prefix "${NEON_USER_PREFIX:-}" '
-        if type == "array" then .[]
-        elif .branches then .branches[]
-        else empty end
-        | select(
-            (.name | startswith("auto-"))
-            or ($user_prefix != "" and (.name | startswith($user_prefix + "-")))
-          )
-        | .name')
   local b
   while IFS= read -r b; do
     [ -z "$b" ] && continue
-    if ! echo "$live_worktrees" | grep -qx "$b"; then
-      if is_protected_neon_branch "$b"; then
-        continue
-      fi
-      pnpm dlx "neonctl@$NEONCTL_VERSION" branches delete "$b" \
-        --project-id "$NEON_PROJECT_ID" >/dev/null 2>&1 || true
-    fi
-  done <<< "$all_neon_branches"
+    pnpm dlx "neonctl@$NEONCTL_VERSION" branches delete "$b" \
+      --project-id "$NEON_PROJECT_ID" >/dev/null 2>&1 || true
+  done <<< "$(neon_gc_orphan_names "$list_out" "$live_worktrees")"
 }
 
 # Create a Neon branch forked from $NEON_PARENT_BRANCH (default: staging) and
@@ -1782,6 +1808,11 @@ cmd_start() {
   local pid_file="$WORKTREE_BASE/orchestrator.pid"
   local log_dir="$WORKTREE_BASE/logs"
   local log_file="$log_dir/orchestrator.log"
+  # orchestrator.sh's log() is the sole writer of $log_file. Its stdout/stderr
+  # go to a separate console log so crash output (set -e aborts, bash errors,
+  # stray tool noise) is still captured without storing every log line twice —
+  # once more with raw ANSI escapes (HON-572).
+  local console_log="$log_dir/orchestrator-console.log"
 
   # Check if already running
   if [ -f "$pid_file" ]; then
@@ -1804,7 +1835,7 @@ cmd_start() {
   mkdir -p "$log_dir"
 
   # Pass through any extra flags (--max-workers, --once, etc.)
-  nohup "$SCRIPT_DIR/orchestrator.sh" "$@" >> "$log_file" 2>&1 &
+  nohup "$SCRIPT_DIR/orchestrator.sh" "$@" >> "$console_log" 2>&1 &
   local new_pid=$!
 
   # Brief wait to check it didn't die immediately
@@ -1812,18 +1843,41 @@ cmd_start() {
   if kill -0 "$new_pid" 2>/dev/null; then
     echo -e "${GREEN}Orchestrator started (PID $new_pid)${NC}"
     echo -e "${DIM}Log: $log_file${NC}"
+    echo -e "${DIM}Console (stdout/stderr): $console_log${NC}"
     echo ""
     echo "Use 'wt watch' for live dashboard, 'wt stop' to stop."
   else
-    echo -e "${RED}Orchestrator failed to start. Check log:${NC}"
+    echo -e "${RED}Orchestrator failed to start. Check logs:${NC}"
     echo -e "${DIM}$log_file${NC}"
+    echo -e "${DIM}$console_log${NC}"
+    # A start-up abort (bad flag, missing dep) never reaches log(), so the
+    # console log is where the reason actually is. Tail both.
     tail -5 "$log_file" 2>/dev/null
+    tail -5 "$console_log" 2>/dev/null
     return 1
   fi
 }
 
+# How long `wt stop` waits for the force-shutdown drain before SIGKILL, in
+# seconds. Pure so it can be asserted without a live orchestrator: max(60,
+# 15 * workers). 15s/worker is the drain's own budget (10s wait_for_exit plus
+# cleanup and a Linear round-trip); the 60s floor covers a missing, empty or
+# unparseable status file, where the count is unknown and guessing low is the
+# failure mode that stranded issues in the first place.
+stop_wait_bound() {
+  local workers="${1:-}"
+  local floor=60 per_worker=15
+
+  [[ "$workers" =~ ^[0-9]+$ ]] || workers=0
+
+  local bound=$(( workers * per_worker ))
+  [ "$bound" -lt "$floor" ] && bound=$floor
+  echo "$bound"
+}
+
 cmd_stop() {
   local pid_file="$WORKTREE_BASE/orchestrator.pid"
+  local status_file="$WORKTREE_BASE/orchestrator-status.json"
 
   if [ ! -f "$pid_file" ]; then
     echo -e "${YELLOW}No orchestrator PID file found.${NC}"
@@ -1859,16 +1913,45 @@ cmd_stop() {
   if kill -0 "$pid" 2>/dev/null; then
     echo -e "${YELLOW}Still running (workers active). Sending second SIGTERM to force kill workers...${NC}"
     kill -TERM "$pid" 2>/dev/null || true
-    sleep 3
+
+    # The force path runs drain_workers_to_todo, which per worker does
+    # kill_process_tree -> wait_for_exit (up to 10s) -> SIGKILL ->
+    # cleanup_worker_worktree -> a Linear round-trip. With 3-5 workers that is
+    # 30-50s. The old flat `sleep 3` killed the orchestrator mid-drain, orphaning
+    # `claude` processes and leaving their issues In Progress + assigned — the
+    # exact state select_next_issue skips forever (HON-572). Scale the wait with
+    # the work instead.
+    local worker_count bound
+    worker_count=$(jq -r '.workers | length' "$status_file" 2>/dev/null) || worker_count=""
+    bound=$(stop_wait_bound "$worker_count")
+    echo -e "${DIM}Draining ${worker_count:-unknown} worker(s) — waiting up to ${bound}s before SIGKILL${NC}"
+
+    local drained=0
+    while kill -0 "$pid" 2>/dev/null && [ "$drained" -lt "$bound" ]; do
+      sleep 1
+      drained=$((drained + 1))
+    done
   fi
 
   if kill -0 "$pid" 2>/dev/null; then
-    echo -e "${YELLOW}Sending SIGKILL...${NC}"
+    echo -e "${YELLOW}Drain did not finish in time. Sending SIGKILL...${NC}"
+    echo -e "${DIM}Check 'wt list' for orphaned worktrees and Linear for issues left In Progress.${NC}"
     kill -9 "$pid" 2>/dev/null || true
   fi
 
   echo -e "${GREEN}Orchestrator stopped.${NC}"
 }
+
+# ─── Entry point ─────────────────────────────────────────────────────────────
+# Everything below runs only when this file is EXECUTED. `wt` is a shell alias
+# that executes the script, so this is behaviour-neutral for every real caller;
+# it exists so scripts/orchestrator-outcome-harness.sh can `source` the file to
+# unit-test pure helpers (neon_gc_orphan_names, stop_wait_bound) without the
+# dispatcher firing print_usage and exiting, and without .env leaking into the
+# test shell.
+if [ "${BASH_SOURCE[0]}" != "${0}" ]; then
+  return 0
+fi
 
 # Load .env so NEON_API_KEY / NEON_PROJECT_ID (and anything else) are
 # available to every subcommand. Silent no-op if .env is missing — commands

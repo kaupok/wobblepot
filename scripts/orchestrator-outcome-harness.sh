@@ -21,13 +21,42 @@
 #     Exercises the REAL helper against fixture JSON, with `gh` itself stubbed.
 #     These cover the jq expression and the bucket classification — the parsing
 #     the `outcome` mode stubs away.
+#
+#   sanitize <env-fixture-path> <text>            (HON-572, finding 1)
+#     Points REPO_ROOT at the fixture's directory and runs the REAL sanitize_log
+#     over <text>, so the .env-value redaction pass is under test with real
+#     secret shapes (regex metacharacters, substrings, sub-8-char values).
+#
+#   failure <triage> <retried> <shutting_down> [repeat]   (HON-572, finding 2)
+#     Drives the REAL handle_failure with spawn_worker / move_to_backlog /
+#     cleanup_worker_worktree / linear_api / try_add_label / notify stubbed,
+#     emitting one synthetic line per side effect. Triage is forced by putting a
+#     `claude` stub first on PATH — the production call goes through
+#     `env -u ANTHROPIC_API_KEY claude`, so a shell function would be bypassed,
+#     and routing through PATH keeps the real verdict parsing under test.
+#     Ends with CONSECUTIVE_FAILURES / PAUSED / the write_status_file JSON.
+#
+#   log-once                                       (HON-572, finding 3)
+#     Calls the REAL log() once with MAIN_LOG on a temp file, then reports what
+#     the file holds. stderr carries log()'s own colored copy, so a test that
+#     captures the two streams separately can assert the file is written exactly
+#     once and carries no ANSI escapes.
+#
+#   neon-gc-select <branches-json> <live-worktrees>  (HON-572, finding 4)
+#     Sources worktree-claude.sh (guarded: sourcing does not run its dispatcher)
+#     and runs the REAL neon_gc_orphan_names — the jq select expression plus the
+#     live-worktree and is_protected_neon_branch filters — over fixture data.
+#     NEON_USER_PREFIX is read from the environment.
+#
+#   stop-wait-bound <worker-count>                 (HON-572, finding 5)
+#     Prints the REAL stop_wait_bound from worktree-claude.sh.
 
 HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Capture every argument BEFORE clearing "$@": orchestrator.sh parses "$@" at
 # top level, so a sourcing script's own positional parameters would otherwise be
 # read as orchestrator flags.
-MODE="${1:-}"; A1="${2:-}"; A2="${3:-}"; A3="${4:-}"; A4="${5:-}"
+MODE="${1:-}"; A1="${2:-}"; A2="${3:-}"; A3="${4:-}"; A4="${5:-}"; A5="${6:-}"
 set --
 
 # shellcheck source=./orchestrator.sh
@@ -118,6 +147,95 @@ case "$MODE" in
     # before the trap ran, so an errexit abort still surfaces as a non-zero exit.
     trap 'cat "$MAIN_LOG"; rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE"' EXIT
     handle_success HON-999 uuid-999 test-branch /tmp/harness-worker.log 2>/dev/null
+    exit 0
+    ;;
+
+  # ─── sanitize_log (HON-572 finding 1) ──────────────────────────────────────
+  sanitize)
+    # sanitize_log reads "$REPO_ROOT/.env"; point REPO_ROOT at the fixture's dir.
+    ENV_FIXTURE="$A1"; TEXT="$A2"
+    REPO_ROOT="$(cd "$(dirname "$ENV_FIXTURE")" && pwd)"
+    sanitize_log "$TEXT"
+    exit 0
+    ;;
+
+  # ─── handle_failure circuit breaker (HON-572 finding 2) ────────────────────
+  failure)
+    TRIAGE="$A1"; RETRIED="$A2"; SHUTTING_DOWN="$A3"; REPEAT="${A4:-1}"
+
+    # Force the triage verdict via a PATH stub rather than a shell function:
+    # handle_failure invokes `env -u ANTHROPIC_API_KEY claude`, which resolves
+    # through PATH and would never see a function. This also leaves the real
+    # exit-code handling and first-word parsing under test.
+    STUB_BIN=$(mktemp -d "${TMPDIR:-/tmp}/orchestrator-harness-bin.XXXXXXXX")
+    printf '#!/bin/sh\nprintf "%%s\\n" "%s"\n' "$TRIAGE" > "$STUB_BIN/claude"
+    chmod +x "$STUB_BIN/claude"
+    PATH="$STUB_BIN:$PATH"
+
+    # Keep write_status_file off the real ~/.worktrees status file.
+    STATUS_FILE=$(mktemp "${TMPDIR:-/tmp}/orchestrator-harness-status.XXXXXXXX")
+    trap 'cat "$MAIN_LOG"; rm -rf "$MAIN_LOG" "$SEEN_SKIPS_FILE" "$STATUS_FILE" "$STUB_BIN"' EXIT
+
+    DRY_RUN=false
+    ORCHESTRATOR_START_TIME="1970-01-01T00:00:00Z"
+
+    count_commits() { echo 0; }
+    detect_phase() { echo "implementing"; }
+    notify() { :; }
+    linear_api() { echo '{"data":{}}'; }
+    try_add_label() { echo "LABEL:$2" >> "$MAIN_LOG"; }
+    cleanup_worker_worktree() { echo "CLEANUP:${1}:${2:-false}" >> "$MAIN_LOG"; }
+    move_to_backlog() { echo "MOVE_TO_BACKLOG:${2}:${4}" >> "$MAIN_LOG"; }
+    spawn_worker() { echo "SPAWN_WORKER:${2}:retry=${5:-0}" >> "$MAIN_LOG"; }
+
+    n=0
+    while [ "$n" -lt "$REPEAT" ]; do
+      handle_failure HON-999 uuid-999 test-branch /tmp/harness-worker.log \
+        "$RETRIED" failed "Fixture title" 2>/dev/null
+      n=$((n + 1))
+    done
+
+    echo "CONSECUTIVE_FAILURES:$CONSECUTIVE_FAILURES" >> "$MAIN_LOG"
+    if [ "$PAUSED_UNTIL" -gt "$(date +%s)" ]; then
+      echo "PAUSED:true" >> "$MAIN_LOG"
+    else
+      echo "PAUSED:false" >> "$MAIN_LOG"
+    fi
+
+    # The breaker value an operator (and `wt status`) actually reads.
+    write_status_file
+    echo "STATUS_JSON:$(jq -c '.circuit_breaker' "$STATUS_FILE")" >> "$MAIN_LOG"
+    exit 0
+    ;;
+
+  # ─── log() writes $MAIN_LOG exactly once (HON-572 finding 3) ───────────────
+  log-once)
+    log INFO "harness-marker"
+    # stdout only — stderr belongs to log() itself, and the test reads the two
+    # streams separately to prove the file copy and the console copy are distinct.
+    echo "FILE_LINES:$(wc -l < "$MAIN_LOG" | tr -d ' ')"
+    echo "FILE_MARKERS:$(grep -c 'harness-marker' "$MAIN_LOG" | tr -d ' ')"
+    echo "FILE_ESCAPES:$(grep -c "$(printf '\033')" "$MAIN_LOG" | tr -d ' ')"
+    exit 0
+    ;;
+
+  # ─── Neon orphan GC selection (HON-572 finding 4) ──────────────────────────
+  neon-gc-select)
+    BRANCHES_JSON="$A1"; LIVE_WORKTREES="$A2"
+    # Sourced, not executed: worktree-claude.sh returns early before its .env
+    # load and command dispatcher when BASH_SOURCE[0] != $0. Done inside this
+    # branch so the other modes keep orchestrator.sh's globals untouched.
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    neon_gc_orphan_names "$BRANCHES_JSON" "$LIVE_WORKTREES"
+    exit 0
+    ;;
+
+  # ─── wt stop drain bound (HON-572 finding 5) ───────────────────────────────
+  stop-wait-bound)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    stop_wait_bound "$A1"
     exit 0
     ;;
 

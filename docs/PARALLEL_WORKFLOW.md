@@ -103,7 +103,13 @@ When `NEON_API_KEY` and `NEON_PROJECT_ID` are set in `.env`, each worktree gets 
 
 When the Neon project hits its branch cap (10 on the free tier), `wt` automatically runs an orphan GC (deletes Neon branches whose git worktree no longer exists) and retries once. If still over cap, it fails loud — no silent fallback to the shared DB.
 
-GC is prefix-scoped so it can't touch hand-managed branches: orchestrator-spawned `auto-*` branches are always eligible, plus `${NEON_USER_PREFIX}-*` when you've set `NEON_USER_PREFIX` in `.env` (use this if you run `wt new <you>/branch-name` for interactive work). Other prefixes (`feat-`, `fix-`, etc.) must be reclaimed manually via `wt cleanup`.
+GC is scoped so it can't touch hand-managed branches. Eligible:
+
+- **`<prefix>--hon-<N>[-slug]`** — anything carrying a HON id, whatever the prefix. This is what the orchestrator actually creates: `spawn_worker` prefers Linear's `branchName`, so a normal run's branch is `kaupokorv/hon-51-slug` → Neon `kaupokorv--hon-51-slug`, not `auto--hon-51`. Until HON-572 no reaper recognised that shape, so a crashed or SIGKILLed orchestrator leaked its Neon branches until the project hit its cap.
+- **`auto-*`** — the no-`branchName` fallback (`wt auto HON-XX` → `auto/hon-XX` → `auto--hon-XX`).
+- **`${NEON_USER_PREFIX}-*`** — when you've set `NEON_USER_PREFIX` in `.env` (use this if you run `wt new <you>/branch-name` for interactive work).
+
+Everything else (`feat-`, `fix-`, test scaffolds) must be reclaimed manually via `wt cleanup`. Protected names (`main`, `staging`, `production`, `preview`) are refused outright, and a branch whose worktree is still live is never touched. The same shapes gate `scripts/neon-cleanup.sh` — the on-merge reaper and the weekly sweep — where the Linear Done/Canceled check and the 24h age gate are the real safety.
 
 **Opt-out:**
 
@@ -172,6 +178,9 @@ The orchestrator (`scripts/orchestrator.sh`) is a long-running dispatcher that p
 - On worker failure, a one-shot `claude -p` call analyzes the log
 - Returns: `RETRY` (respawn, max 1 retry), `BACKLOG` (needs refinement), or `NEEDS_HUMAN` (infra problem)
 - Failed issues get a comment with log tail, a label (`failed`/`needs-attention`), and move to Backlog
+- The log tail is run through `sanitize_log` before it reaches Linear. Redaction is a **literal** match of every `.env` value ≥ 8 chars, plus a `sed` backstop for common secret shapes. It used to be an `awk gsub()`, which reads its pattern as a regex — so a base64 `BETTER_AUTH_SECRET`, a `NEON_API_KEY`, anything with `+ ? . * [ ] ( ) \ ^ $ |` in it, silently failed to match itself and was posted in the clear (HON-572)
+
+**Circuit breaker.** `MAX_CONSECUTIVE_FAILURES` (default 3) pauses new spawns for 10 minutes. The counter follows what actually happened, not what triage said: it is reset **only** when a worker is genuinely respawned, and incremented on every path that ends in Backlog — including a `RETRY` verdict that falls through because the issue was already retried or the orchestrator is shutting down. Resetting on the verdict alone meant a systemic fault whose logs read as transient (rate limit, network flake, the literal word "timeout") produced `fail → RETRY → fail → Backlog` per issue, zeroing the counter each cycle, so the breaker never tripped and the whole Todo queue was swept into Backlog one issue per poll (HON-572).
 
 ### Configuration
 
@@ -228,16 +237,21 @@ Filter with `grep '\[OUTCOME\]' ~/.worktrees/wobblepot/logs/orchestrator.log`.
 
 All logs are written to `~/.worktrees/wobblepot/logs/`:
 
-| File                          | Contents                                     |
-| ----------------------------- | -------------------------------------------- |
-| `orchestrator.log`            | Main loop activity, claims, triage, outcomes |
-| `orchestrator-status.json`    | Machine-readable status for `wt status`      |
-| `worker-HON-XX-TIMESTAMP.log` | Full output from each `wt auto` worker       |
+| File                          | Contents                                               |
+| ----------------------------- | ------------------------------------------------------ |
+| `orchestrator.log`            | Main loop activity, claims, triage, outcomes           |
+| `orchestrator-console.log`    | The orchestrator's raw stdout/stderr (crashes, aborts) |
+| `orchestrator-status.json`    | Machine-readable status for `wt status`                |
+| `worker-HON-XX-TIMESTAMP.log` | Full output from each `wt auto` worker                 |
+
+`orchestrator.log` has exactly one writer — the script's own `log()` — so each line appears once, clean, with no ANSI escapes. `wt start` sends the process's stdout/stderr to `orchestrator-console.log` instead of folding them back into the same file, which used to store every line twice, once escape-wrapped (HON-572). A start-up abort never reaches `log()`, so the console log is where to look when `wt start` reports a failure.
 
 ### Graceful Shutdown
 
 - First `SIGINT`/`SIGTERM` → stops spawning, waits for running workers
-- Second signal → force kills all workers immediately
+- Second signal → force kills all workers immediately, then drains: each worker's issue goes back to Todo unassigned before the orchestrator exits
+
+`wt stop` sends both signals for you and then waits for the drain to finish rather than SIGKILLing on a fixed timer. The wait scales with the work: `max(60s, 15s × active workers)`, read from `orchestrator-status.json`, with the 60s floor used whenever that file is missing or unreadable. Killing partway through the drain is what orphans `claude` processes and strands their issues `In Progress` **and assigned** — the state the picker skips forever.
 
 ### Design: Dumb Dispatcher, Smart Workers
 

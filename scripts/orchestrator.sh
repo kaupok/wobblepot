@@ -167,6 +167,10 @@ log() {
     ERROR) color="$RED" ;;
     DEBUG) color="$DIM" ;;
   esac
+  # Two destinations, deliberately: a colored line on stderr for whoever is
+  # watching, and a clean line in $MAIN_LOG. `log` is the ONLY writer of
+  # $MAIN_LOG — cmd_start must not fold stderr back into the same file, or
+  # every line is stored twice and one copy carries raw ANSI escapes (HON-572).
   printf "${DIM}%s${NC} ${color}%-5s${NC} %s\n" "$ts" "$level" "$*" >&2
   printf "%s %-5s %s\n" "$ts" "$level" "$*" >> "$MAIN_LOG"
 }
@@ -627,7 +631,9 @@ report_worker_status() {
       status="worktree initializing"
     fi
 
-    printf "  ${BLUE}%-8s${NC} %3dm%02ds  %s\n" "$issue_id" "$mins" "$secs" "$status" >&2
+    # log DEBUG already writes this row to stderr AND to $MAIN_LOG. A second
+    # printf to stderr made every row land twice (three times once cmd_start's
+    # `2>&1` folded stderr back into the same file) — HON-572.
     log DEBUG "  $(printf '%-8s %3dm%02ds  %s' "$issue_id" "$mins" "$secs" "$status")"
 
     i=$((i + 1))
@@ -846,7 +852,10 @@ notify() {
 # ─── Handle success ─────────────────────────────────────────────────────────
 
 # ─── Circuit breaker ─────────────────────────────────────────────────────────
-# Shared by handle_failure (non-RETRY triage) and the gated 0-commit path.
+# Called from every path that ends a run without shipping: handle_failure's
+# terminal branches (the ones that call move_to_backlog, whatever triage said),
+# the gated 0-commit path, and the stranded path. handle_failure's retry branch
+# is the sole caller that resets the counter instead.
 
 note_consecutive_failure() {
   CONSECUTIVE_FAILURES=$((CONSECUTIVE_FAILURES + 1))
@@ -1078,8 +1087,23 @@ sanitize_log() {
       value="${value%\'}" ; value="${value#\'}"
       # Only redact values >= 8 chars to avoid false positives
       [ ${#value} -lt 8 ] && continue
-      # Use awk with ENVIRON to avoid backslash escape interpretation from -v
-      result=$(printf '%s' "$result" | VALUE="$value" awk 'BEGIN{s=ENVIRON["VALUE"]; r="[REDACTED]"} {gsub(s,r)}1')
+      # LITERAL replacement, not regex. awk's gsub() treats its first argument
+      # as an ERE, so a secret containing any of `+ ? . * [ ] ( ) \ ^ $ |` —
+      # a base64 BETTER_AUTH_SECRET, most API keys — fails to match itself and
+      # was posted to Linear unredacted (HON-572). index()/substr() cannot be
+      # got wrong the way escaping-into-a-regex can. The loop keeps gsub's
+      # global semantics: every occurrence on the line is replaced.
+      # ENVIRON is used rather than -v so backslashes survive unescaped.
+      result=$(printf '%s' "$result" | VALUE="$value" awk '
+        BEGIN { s = ENVIRON["VALUE"]; r = "[REDACTED]"; n = length(s) }
+        {
+          line = $0; out = ""
+          while (n > 0 && (p = index(line, s)) > 0) {
+            out = out substr(line, 1, p - 1) r
+            line = substr(line, p + n)
+          }
+          print out line
+        }')
     done < "$env_file"
   fi
 
@@ -1207,32 +1231,38 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 
   # Track failure for --once exit code (may be overridden to 0 if retry succeeds)
   [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=1
 
-  # Track consecutive failures for circuit breaker
-  if [ "$triage" != "RETRY" ]; then
-    note_consecutive_failure
-  else
-    CONSECUTIVE_FAILURES=0
-  fi
-
+  # Track consecutive failures for the circuit breaker. The counter follows what
+  # ACTUALLY happens below, not what triage said (HON-572): a RETRY verdict that
+  # falls through to move_to_backlog — already retried, or shutting down — is a
+  # terminal failure like any other. Resetting on the verdict meant a systemic
+  # fault whose logs read as transient (rate limit, network flake, the literal
+  # word "timeout") produced fail -> RETRY -> fail -> Backlog per issue, zeroing
+  # the counter every cycle, so MAX_CONSECUTIVE_FAILURES was never reached and
+  # the orchestrator swept the whole Todo queue into Backlog one issue per poll.
   case "$triage" in
     RETRY)
       if [ "$retried" = "0" ] && [ "$SHUTTING_DOWN" = false ]; then
+        # The only branch that actually retries — the one place a reset is honest.
+        CONSECUTIVE_FAILURES=0
         log INFO "Retrying $issue_id: $title"
         # Keep the branch so a respawn can resume an already-pushed branch / open PR.
         cleanup_worker_worktree "$branch" true
         # Preserve original title on retry (from WORKER_TITLES array)
         spawn_worker "$issue_uuid" "$issue_id" "$branch" "$original_title" "1"
       else
+        note_consecutive_failure
         log WARN "$issue_id already retried, moving to Backlog"
         move_to_backlog "$issue_uuid" "$issue_id" "$log_claude_output" "Failed" \
           "Auto-implementation failed after retry ($failure_type)" "$log_file"
         cleanup_worker_worktree "$branch"
       fi ;;
     BACKLOG)
+      note_consecutive_failure
       move_to_backlog "$issue_uuid" "$issue_id" "$log_claude_output" "Failed" \
         "Auto-implementation failed ($failure_type)" "$log_file"
       cleanup_worker_worktree "$branch" ;;
     NEEDS_HUMAN)
+      note_consecutive_failure
       move_to_backlog "$issue_uuid" "$issue_id" "$log_claude_output" "Needs attention" \
         "Auto-implementation needs human attention ($failure_type)" "$log_file"
       cleanup_worker_worktree "$branch" ;;
