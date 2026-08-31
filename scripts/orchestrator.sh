@@ -54,6 +54,16 @@ WORKER_TITLES=()
 MAX_WORKERS="${ORCHESTRATOR_MAX_WORKERS:-5}"
 POLL_INTERVAL="${ORCHESTRATOR_POLL_INTERVAL:-60}"
 WORKER_TIMEOUT="${ORCHESTRATOR_WORKER_TIMEOUT:-3600}"
+# Wall-clock bound on the Claude triage call in handle_failure. Without it a
+# wedged CLI blocks monitor_workers and the whole poll loop, so the orchestrator
+# stops reaping workers and polling issues while every status file still reads
+# healthy (HON-578).
+TRIAGE_TIMEOUT="${ORCHESTRATOR_TRIAGE_TIMEOUT:-120}"
+# Log retention. The main log is append-only and each worker writes its own
+# file, so unbounded growth eventually trips check_disk_space's 1GB guard and
+# reads as an infrastructure fault (HON-578).
+MAIN_LOG_MAX_BYTES="${ORCHESTRATOR_LOG_MAX_BYTES:-52428800}"          # 50 MB
+WORKER_LOG_MAX_AGE_DAYS="${ORCHESTRATOR_WORKER_LOG_MAX_AGE_DAYS:-14}"
 DRY_RUN=false
 RUN_ONCE=false
 
@@ -173,6 +183,43 @@ log() {
   # every line is stored twice and one copy carries raw ANSI escapes (HON-572).
   printf "${DIM}%s${NC} ${color}%-5s${NC} %s\n" "$ts" "$level" "$*" >&2
   printf "%s %-5s %s\n" "$ts" "$level" "$*" >> "$MAIN_LOG"
+}
+
+# Run a command under a wall-clock bound. Prefers GNU `timeout`, falls back to
+# `gtimeout` (coreutils on macOS); when neither is installed the command runs
+# unbounded, the same as before this guard existed. A hit bound surfaces as
+# exit 124, which the caller treats as a soft failure.
+run_with_timeout() {
+  local secs="$1"; shift
+  if command -v timeout &> /dev/null; then
+    timeout "$secs" "$@"
+  elif command -v gtimeout &> /dev/null; then
+    gtimeout "$secs" "$@"
+  else
+    "$@"
+  fi
+}
+
+# ─── Log rotation and pruning ────────────────────────────────────────────────
+# Called once at startup. Keeps the log directory from growing without bound,
+# which would otherwise trip check_disk_space's 1GB guard (HON-578).
+
+rotate_logs() {
+  # Rotate the append-only main log past the size cap, keeping a single .1
+  # backup, so it cannot grow forever.
+  if [ -f "$MAIN_LOG" ]; then
+    local size
+    size=$(wc -c < "$MAIN_LOG" 2>/dev/null | tr -d ' ') || size=0
+    if [[ "$size" =~ ^[0-9]+$ ]] && [ "$size" -ge "$MAIN_LOG_MAX_BYTES" ]; then
+      mv -f "$MAIN_LOG" "${MAIN_LOG}.1" 2>/dev/null || true
+      log INFO "Rotated orchestrator.log at ${size} bytes (cap ${MAIN_LOG_MAX_BYTES})"
+    fi
+  fi
+
+  # Prune worker logs older than the retention window. Each worker gets its own
+  # file (spawn_worker), so without this the directory grows without bound.
+  find "$LOG_DIR" -maxdepth 1 -name 'worker-*.log' -type f \
+    -mtime "+${WORKER_LOG_MAX_AGE_DAYS}" -delete 2>/dev/null || true
 }
 
 # ─── Status file ─────────────────────────────────────────────────────────────
@@ -1225,19 +1272,29 @@ Last 20 lines before kill:
 $timeout_context"
     fi
 
-    local triage_output exit_code=0
-    triage_output=$(echo "$log_tail" | env -u ANTHROPIC_API_KEY claude -p --model claude-sonnet-5 "Worker for $issue_id failed ($failure_type).${triage_extra}
+    local triage_prompt="Worker for $issue_id failed ($failure_type).${triage_extra}
 
 Based on the log from stdin, respond with EXACTLY one word:
 RETRY - transient failure (flaky test, network error, rate limit, timeout)
 BACKLOG - issue needs refinement (bad description, missing context, wrong approach)
-NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 2>&1) || exit_code=$?
+NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)"
+
+    # A bounded call, because a wedged CLI here blocks monitor_workers and the
+    # whole poll loop. run_with_timeout returns 124 when the bound is hit; that
+    # is a stuck tool, not a diagnosis, so fall back to BACKLOG rather than the
+    # NEEDS_HUMAN branch a real CLI error takes.
+    local triage_output exit_code=0
+    triage_output=$(echo "$log_tail" | run_with_timeout "$TRIAGE_TIMEOUT" \
+      env -u ANTHROPIC_API_KEY claude -p --model claude-sonnet-5 "$triage_prompt" 2>&1) || exit_code=$?
 
     # Extract first word only — Claude may include explanatory text after the keyword
     local triage_result
     triage_result=$(printf '%s' "$triage_output" | awk 'NF{print $1; exit}' | tr -d '[:space:]')
 
-    if [ "$exit_code" -ne 0 ]; then
+    if [ "$exit_code" -eq 124 ]; then
+      log WARN "Claude triage timed out after ${TRIAGE_TIMEOUT}s, falling back to BACKLOG"
+      triage="BACKLOG"
+    elif [ "$exit_code" -ne 0 ]; then
       log WARN "Claude triage failed (exit $exit_code): $(printf '%s' "$triage_output" | head -1)"
       triage="NEEDS_HUMAN"
     else
@@ -1611,6 +1668,42 @@ check_disk_space() {
   return 0
 }
 
+# ─── Validate workflow-state UUIDs ───────────────────────────────────────────
+# The state IDs at the top of this file are hardcoded. A state recreated in the
+# workspace gets a new UUID, and a stale STATE_TODO makes fetch_todo_issues
+# match nothing forever — the queue just looks empty, with no error anywhere.
+# Check each constant against the set Linear returns and emit one ERROR per
+# stale one, naming the constant to fix. Prints the count of stale IDs on
+# stdout so validate_environment can fold it into its error total (HON-578).
+
+validate_state_ids() {
+  local states_json="$1"
+  local known_ids stale=0 pair name id
+
+  known_ids=$(printf '%s' "$states_json" | jq -r '.data.workflowStates.nodes[].id' 2>/dev/null) || known_ids=""
+  if [ -z "$known_ids" ]; then
+    log ERROR "Cannot resolve Linear workflow states — unable to validate state UUIDs"
+    echo 1
+    return
+  fi
+
+  for pair in \
+    "STATE_BACKLOG:$STATE_BACKLOG" \
+    "STATE_TODO:$STATE_TODO" \
+    "STATE_IN_PROGRESS:$STATE_IN_PROGRESS" \
+    "STATE_DONE:$STATE_DONE" \
+    "STATE_CANCELED:$STATE_CANCELED" \
+    "STATE_DUPLICATE:$STATE_DUPLICATE"; do
+    name="${pair%%:*}"; id="${pair#*:}"
+    if ! printf '%s\n' "$known_ids" | grep -qxF "$id"; then
+      log ERROR "Stale workflow-state UUID: $name ($id) is not a HON workflow state — update the constant in scripts/orchestrator.sh"
+      stale=$((stale + 1))
+    fi
+  done
+
+  echo "$stale"
+}
+
 # ─── Validate environment ───────────────────────────────────────────────────
 
 validate_environment() {
@@ -1658,6 +1751,13 @@ validate_environment() {
       viewer=$(echo "$test_response" | jq -r '.data.viewer.name // empty' 2>/dev/null)
       [ -n "$viewer" ] && log INFO "Connected to Linear as: $viewer"
     fi
+
+    # Fail fast on a stale hardcoded state UUID rather than silently polling an
+    # empty queue forever.
+    local states_response state_errors
+    states_response=$(linear_api '{ workflowStates(filter: { team: { key: { eq: "HON" } } }, first: 100) { nodes { id name } } }' 2>/dev/null) || states_response=""
+    state_errors=$(validate_state_ids "$states_response")
+    errors=$((errors + state_errors))
   fi
 
   check_disk_space || errors=$((errors + 1))
@@ -1673,6 +1773,8 @@ validate_environment() {
 main() {
   acquire_lock
   trap 'cleanup_status_file; release_lock; rm -f "$SEEN_SKIPS_FILE"' EXIT
+
+  rotate_logs
 
   log INFO "═══ Orchestrator starting ═══"
 

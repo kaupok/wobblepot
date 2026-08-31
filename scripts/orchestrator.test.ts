@@ -58,6 +58,15 @@ function runHarness(...args: string[]): string {
   })
 }
 
+/** Like runHarness, but threads environment overrides into the harness process. */
+function runHarnessEnv(env: Record<string, string>, ...args: string[]): string {
+  return execFileSync('bash', [harness, ...args], {
+    encoding: 'utf8',
+    timeout: 30_000,
+    env: harnessEnv(env),
+  })
+}
+
 /** Run the real `pr_for_branch` / `pr_ci_state` against fixture `gh` output. */
 function prForBranch(ghJson: unknown): string {
   return runHarness('pr-for-branch', JSON.stringify(ghJson)).trim()
@@ -1022,6 +1031,183 @@ describe('orchestrator.sh', () => {
         expect(line, 'the origin/main worktree add line is gone').toBeDefined()
         expect(line).toContain('--no-track')
       })
+    })
+  })
+
+  // ─── HON-578: bounded triage call ─────────────────────────────────────────
+  // The Claude triage call runs synchronously inside monitor_workers, which the
+  // poll loop calls every cycle. With no bound, a wedged CLI stops issue
+  // polling, worker reaping and timeout enforcement while every status file
+  // still reads healthy. A hit bound is a stuck tool, not a diagnosis, so it
+  // falls back to BACKLOG, not the NEEDS_HUMAN branch a real CLI error takes.
+  describe('handle_failure triage timeout', () => {
+    const driveTriage = (env: Record<string, string>) =>
+      stripTimestamps(runHarnessEnv(env, 'failure', 'RETRY', '0', 'false', '1'))
+
+    it('falls back to BACKLOG when the triage call outlives its bound', () => {
+      // The stubbed verdict is RETRY; the hang must override it.
+      const out = driveTriage({ HARNESS_CLAUDE_SLEEP: '3', ORCHESTRATOR_TRIAGE_TIMEOUT: '1' })
+
+      expect(out).toContain('Claude triage timed out after 1s, falling back to BACKLOG')
+      expect(out).toContain('MOVE_TO_BACKLOG:HON-991:Failed')
+      expect(out).not.toContain('SPAWN_WORKER')
+      // A stuck tool is still a failure to ship, so it counts toward the breaker.
+      expect(out).toContain('CONSECUTIVE_FAILURES:1')
+    })
+
+    it('leaves the healthy path unchanged when the call answers within the bound', () => {
+      // Same RETRY verdict, no hang: it is honoured and the issue is retried.
+      const out = driveTriage({ ORCHESTRATOR_TRIAGE_TIMEOUT: '120' })
+
+      expect(out).not.toContain('timed out')
+      expect(out).toContain('SPAWN_WORKER:HON-991:retry=1')
+    })
+
+    it('routes the triage call through the timeout wrapper', () => {
+      const source = fs.readFileSync(orchestrator, 'utf8')
+      const failureBody = shellFunctionBody(source, 'handle_failure')
+      const wrapper = shellFunctionBody(source, 'run_with_timeout')
+
+      expect(failureBody).toContain('run_with_timeout "$TRIAGE_TIMEOUT"')
+      // Prefers GNU timeout, then gtimeout (coreutils on macOS).
+      expect(wrapper).toContain('timeout "$secs"')
+      expect(wrapper).toContain('gtimeout "$secs"')
+    })
+  })
+
+  // ─── HON-578: log rotation and pruning ────────────────────────────────────
+  // orchestrator.log is append-only and each worker writes its own file, so
+  // unbounded growth eventually trips check_disk_space's 1GB guard and reads as
+  // an infrastructure fault. rotate_logs runs once at startup to bound both.
+  describe('log rotation and pruning', () => {
+    const dirs: string[] = []
+
+    afterAll(() => {
+      for (const d of dirs) fs.rmSync(d, { recursive: true, force: true })
+    })
+
+    function makeDir(): string {
+      const d = fs.mkdtempSync(path.join(os.tmpdir(), 'hon578-logs-'))
+      dirs.push(d)
+      return d
+    }
+
+    const rotate = (dir: string, env: Record<string, string> = {}) =>
+      runHarnessEnv(env, 'rotate-logs', dir)
+
+    it('rotates the main log to .1 once it passes the size cap', () => {
+      const dir = makeDir()
+      fs.writeFileSync(path.join(dir, 'orchestrator.log'), 'x'.repeat(2000))
+      const out = rotate(dir, { ORCHESTRATOR_LOG_MAX_BYTES: '1000' })
+
+      expect(out).toContain('ROTATED_EXISTS:yes')
+      expect(fs.existsSync(path.join(dir, 'orchestrator.log.1'))).toBe(true)
+    })
+
+    it('leaves a main log under the cap in place', () => {
+      const dir = makeDir()
+      fs.writeFileSync(path.join(dir, 'orchestrator.log'), 'x'.repeat(100))
+      const out = rotate(dir, { ORCHESTRATOR_LOG_MAX_BYTES: '1000' })
+
+      expect(out).toContain('ROTATED_EXISTS:no')
+      expect(fs.existsSync(path.join(dir, 'orchestrator.log.1'))).toBe(false)
+    })
+
+    it('prunes worker logs past the retention window but keeps recent ones', () => {
+      const dir = makeDir()
+      const old = path.join(dir, 'worker-HON-1-old.log')
+      const recent = path.join(dir, 'worker-HON-2-new.log')
+      fs.writeFileSync(old, 'old\n')
+      fs.writeFileSync(recent, 'new\n')
+      const twentyDaysAgo = Date.now() / 1000 - 20 * 24 * 3600
+      fs.utimesSync(old, twentyDaysAgo, twentyDaysAgo)
+
+      const out = rotate(dir, { ORCHESTRATOR_WORKER_LOG_MAX_AGE_DAYS: '14' })
+
+      expect(out).toContain('WORKER:worker-HON-2-new.log')
+      expect(out).not.toContain('WORKER:worker-HON-1-old.log')
+      expect(fs.existsSync(old)).toBe(false)
+      expect(fs.existsSync(recent)).toBe(true)
+    })
+
+    it('runs rotate_logs at startup, before the poll loop', () => {
+      const body = shellFunctionBody(fs.readFileSync(orchestrator, 'utf8'), 'main')
+      const rotateIndex = body.indexOf('rotate_logs')
+      const loopIndex = body.indexOf('while true')
+
+      expect(rotateIndex).toBeGreaterThan(-1)
+      expect(loopIndex).toBeGreaterThan(rotateIndex)
+    })
+  })
+
+  // ─── HON-578: workflow-state UUID validation ──────────────────────────────
+  // The state IDs are hardcoded. A state recreated in the workspace gets a new
+  // UUID, and a stale STATE_TODO makes fetch_todo_issues match nothing forever
+  // — the queue just looks empty. validate_environment now resolves each ID
+  // against Linear and fails fast, naming the stale constant.
+  describe('workflow-state UUID validation', () => {
+    // Kept in sync with orchestrator.sh by the last test in this block.
+    const LIVE_STATES = {
+      STATE_BACKLOG: '035a5cef-88de-4334-98a0-b908f61d26a7',
+      STATE_TODO: 'bcd0f639-33dd-4da8-a081-4d409c0fe5b4',
+      STATE_IN_PROGRESS: 'efa0cbda-898d-440d-a6a9-36e798d00881',
+      STATE_DONE: '5b47cab2-e519-4532-8aa2-f4926e16bcd7',
+      STATE_CANCELED: '20dedb1c-9cb4-4db4-8a3a-c2eb39fbd616',
+      STATE_DUPLICATE: 'd173c772-7085-46c9-bece-6a8a74d0ae27',
+    }
+
+    function statesJson(ids: string[]): string {
+      return JSON.stringify({
+        data: { workflowStates: { nodes: ids.map((id) => ({ id, name: id })) } },
+      })
+    }
+
+    const validate = (ids: string[]) =>
+      stripTimestamps(runHarness('validate-states', statesJson(ids)))
+
+    it('passes when every constant resolves to a live state', () => {
+      const out = validate(Object.values(LIVE_STATES))
+
+      expect(out).toContain('STALE_COUNT:0')
+      expect(out).not.toContain('Stale workflow-state UUID')
+    })
+
+    it('names the stale constant when its UUID no longer exists', () => {
+      // Todo recreated: its old UUID is gone, a fresh one takes its place.
+      const others = Object.values(LIVE_STATES).filter((id) => id !== LIVE_STATES.STATE_TODO)
+      const out = validate([...others, 'a-freshly-minted-todo-uuid'])
+
+      expect(out).toContain('STALE_COUNT:1')
+      expect(out).toContain('Stale workflow-state UUID: STATE_TODO')
+      expect(out).toContain(LIVE_STATES.STATE_TODO)
+    })
+
+    it('flags every stale constant, not just the first', () => {
+      const out = validate([LIVE_STATES.STATE_TODO])
+
+      expect(out).toContain('STALE_COUNT:5')
+    })
+
+    it('fails closed when Linear returns nothing', () => {
+      const out = stripTimestamps(runHarness('validate-states', ''))
+
+      expect(out).toContain('STALE_COUNT:1')
+      expect(out).toContain('Cannot resolve Linear workflow states')
+    })
+
+    it('keeps the fixture UUIDs in sync with the orchestrator constants', () => {
+      const source = fs.readFileSync(orchestrator, 'utf8')
+
+      for (const [name, id] of Object.entries(LIVE_STATES)) {
+        expect(source, `${name} drifted from the fixture`).toContain(`${name}="${id}"`)
+      }
+    })
+
+    it('folds the state check into validate_environment', () => {
+      const body = shellFunctionBody(fs.readFileSync(orchestrator, 'utf8'), 'validate_environment')
+
+      expect(body).toContain('validate_state_ids')
+      expect(body).toContain('errors=$((errors + state_errors))')
     })
   })
 })
