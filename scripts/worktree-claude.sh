@@ -730,8 +730,11 @@ wt_detect_phase() {
     "[create-pr:complete]")       echo "PR review"; return ;;
     "[review-pr:complete]")       echo "Merging"; return ;;
     "[merge:complete]")           echo "Done"; return ;;
-    "")                           ;;
-    *)                            echo "Unknown"; return ;;
+    # Any other […:complete] marker — [next-issue:complete],
+    # [triage-pr-comments:complete] and friends are all real — falls through to
+    # the heuristics below rather than blanking the column to "Unknown", which
+    # is what orchestrator.sh's detect_phase already does.
+    *) ;;
   esac
 
   # Strategy 2: auto-implement completion.
@@ -741,11 +744,14 @@ wt_detect_phase() {
 
   # Strategy 3: git heuristics.
   if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
-    # Has THIS branch been pushed? A configured upstream is NOT the same
-    # question — autonomous branches are created from origin/main, which
-    # branch.autoSetupMerge turns into an upstream before a single commit
-    # exists (HON-576). refs/remotes/origin/<branch> is written by the push.
-    if git -C "$wt_path" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+    # Has THIS branch's work been pushed? Three conditions, each closing a
+    # different false positive — see detect_phase in orchestrator.sh for the
+    # long version (HON-576). In short: an upstream is set by the origin/main
+    # start ref before any commit exists, and the remote ref alone survives the
+    # run that created it, so a re-picked issue would inherit a stale one.
+    if [ "$ahead" -gt 0 ] &&
+       git -C "$wt_path" show-ref --verify --quiet "refs/remotes/origin/$branch" &&
+       git -C "$wt_path" merge-base --is-ancestor "refs/remotes/origin/$branch" HEAD 2>/dev/null; then
       echo "PR review"; return
     fi
     if [ "$ahead" -gt 0 ]; then
@@ -886,6 +892,9 @@ cmd_status() {
     if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
       local ahead=0
       ahead=$(git -C "$wt_path" rev-list --count main..HEAD 2>/dev/null) || true
+      # Empty on failure, and `[ "" -gt 0 ]` is a hard error — same guard as
+      # wt_detect_phase applies to its own argument.
+      [[ "$ahead" =~ ^[0-9]+$ ]] || ahead=0
       local dirty=""
       if [ -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)" ]; then
         dirty="+"
@@ -973,10 +982,13 @@ cmd_status() {
 
         # Show PR URL if pushed
         local pr_url
-        # Cheap guard: only ask GitHub about branches that were actually
-        # pushed. `@{upstream}` used to pass on every unpushed autonomous
-        # branch (HON-576), so `gh pr view` ran on each one for nothing.
-        pr_url=$(git -C "$wt_path" show-ref --verify --quiet "refs/remotes/origin/$w_branch" && \
+        # Cheap guard: only ask GitHub about branches whose work is actually on
+        # the remote. `@{upstream}` passed on every unpushed autonomous branch
+        # (HON-576), and a bare remote-ref test would still pass on a ref left
+        # behind by a previous run of the same issue — which makes `gh pr view`
+        # resolve THAT run's PR and print its URL under a worker that has
+        # pushed nothing.
+        pr_url=$(git -C "$wt_path" merge-base --is-ancestor "refs/remotes/origin/$w_branch" HEAD 2>/dev/null && \
           gh pr view "$w_branch" --json url --jq .url 2>/dev/null) || true
         if [ -n "$pr_url" ]; then
           echo ""
@@ -1730,6 +1742,7 @@ cmd_watch() {
             wt_path=$(get_worktree_path "${w_branches[$i]}")
             if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
               ahead=$(git -C "$wt_path" rev-list --count main..HEAD 2>/dev/null) || true
+              [[ "$ahead" =~ ^[0-9]+$ ]] || ahead=0
               [ -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)" ] && dirty="+"
               progress="${ahead} commit(s)${dirty}"
             else

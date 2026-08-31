@@ -731,9 +731,15 @@ describe('orchestrator.sh', () => {
      * worktree-claude.sh produces.
      */
     function makeFixture(
-      opts: { commits?: number; dirty?: boolean; pushed?: boolean; log?: string[] } = {},
+      opts: {
+        commits?: number
+        dirty?: boolean
+        pushed?: boolean
+        staleRemoteRef?: boolean
+        log?: string[]
+      } = {},
     ): Fixture {
-      const { commits = 0, dirty = false, pushed = false, log = [] } = opts
+      const { commits = 0, dirty = false, pushed = false, staleRemoteRef = false, log = [] } = opts
       const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hon576-phase-'))
       fixtureRoots.push(root)
 
@@ -748,6 +754,23 @@ describe('orchestrator.sh', () => {
       git(repo, 'commit', '-qm', 'seed')
       git(repo, 'remote', 'add', 'origin', origin)
       git(repo, 'push', '-q', 'origin', 'main')
+
+      // A previous run of this issue that pushed and was then cleaned up.
+      // `cleanup_worker_worktree` deletes the local branch; nothing prunes
+      // refs/remotes, so the ref outlives the run under the SAME deterministic
+      // branch name the next attempt will use.
+      if (staleRemoteRef) {
+        git(repo, 'branch', 'previous-run', 'main')
+        const scratch = path.join(root, 'scratch')
+        git(repo, 'worktree', 'add', '-q', scratch, 'previous-run')
+        fs.writeFileSync(path.join(scratch, 'previous-work.txt'), 'from run 1\n')
+        git(scratch, 'add', 'previous-work.txt')
+        git(scratch, 'commit', '-qm', 'work from the previous run')
+        git(scratch, 'push', '-q', 'origin', `previous-run:${BRANCH}`)
+        git(repo, 'fetch', '-q', 'origin', `${BRANCH}:refs/remotes/origin/${BRANCH}`)
+        git(repo, 'worktree', 'remove', '--force', scratch)
+        git(repo, 'branch', '-D', 'previous-run')
+      }
 
       // Deliberately WITHOUT --no-track — see the describe() comment.
       git(repo, 'worktree', 'add', '-q', '-b', BRANCH, wt, 'origin/main')
@@ -850,6 +873,48 @@ describe('orchestrator.sh', () => {
       expect(wtPhase(f, 2, false)).toBe('PR review')
     })
 
+    // A remote ref alone only proves "a remote branch by this name exists
+    // locally". Branch names are deterministic per issue and nothing in the
+    // flow prunes refs/remotes, so a re-picked issue whose earlier run pushed
+    // inherits a stale ref — and reproduces the very symptom this PR fixes.
+    describe('a remote ref left behind by a previous run', () => {
+      it('does not make a fresh worktree read as pr-review', () => {
+        const f = makeFixture({ staleRemoteRef: true, dirty: true, log: STARTED })
+
+        expect(git(f.wt, 'show-ref', `refs/remotes/origin/${f.branch}`)).toContain(f.branch)
+        expect(phase(f)).toBe('implementing')
+        expect(wtPhase(f, 0, true)).toBe('Implementing')
+      })
+
+      it('does not make the re-run’s own unpushed commits read as pr-review', () => {
+        const f = makeFixture({ staleRemoteRef: true, commits: 2, log: STARTED })
+
+        expect(phase(f)).toBe('reviewing')
+        expect(wtPhase(f, 2, false)).toBe('Reviewing')
+      })
+
+      it('yields to a real push that supersedes it', () => {
+        // Force-pushing over the stale ref is what the re-run actually does.
+        const f = makeFixture({ staleRemoteRef: true, commits: 2, log: STARTED })
+        git(f.wt, 'push', '-q', '--force', 'origin', f.branch)
+
+        expect(phase(f)).toBe('pr-review')
+        expect(wtPhase(f, 2, false)).toBe('PR review')
+      })
+    })
+
+    it('still reports pr-review after a commit lands on top of what was pushed', () => {
+      // The worker pushes, opens a PR, then commits a review fix. The remote
+      // tip is still an ancestor of HEAD, so the run is still at PR stage.
+      const f = makeFixture({ commits: 1, pushed: true, log: STARTED })
+      fs.writeFileSync(path.join(f.wt, 'review-fix.txt'), 'fix\n')
+      git(f.wt, 'add', 'review-fix.txt')
+      git(f.wt, 'commit', '-qm', 'fix: Address review feedback')
+
+      expect(phase(f)).toBe('pr-review')
+      expect(wtPhase(f, 2, false)).toBe('PR review')
+    })
+
     // Strategy 1 sits above the git heuristics in both implementations; the
     // HON-576 edit is below it and must not have reordered them.
     it.each([
@@ -862,18 +927,43 @@ describe('orchestrator.sh', () => {
       expect(wtPhase(f, 0, true)).toBe(wtExpected)
     })
 
-    describe('static guards', () => {
-      it.each([
-        ['orchestrator.sh', orchestrator],
-        ['worktree-claude.sh', worktreeClaude],
-      ])('%s no longer treats any upstream as a pushed branch', (_name, script) => {
-        const source = fs.readFileSync(script, 'utf8')
+    // The workflow emits markers beyond the seven either function names —
+    // [next-issue:complete], [triage-pr-comments:complete] and friends. Neither
+    // should blank the column; both fall through to the git heuristics.
+    it('falls through to the git state for an unrecognised marker', () => {
+      const f = makeFixture({ dirty: true, log: [...STARTED, '[triage-pr-comments:complete]'] })
 
-        // Asserted on the file, not on behaviour: two of the four original call
-        // sites live inside interactive render loops that no test can reach, so
-        // this is what stops the predicate being reintroduced there.
-        expect(source).not.toContain("rev-parse --abbrev-ref '@{upstream}'")
-        expect(source).toContain('show-ref --verify --quiet "refs/remotes/origin/')
+      expect(phase(f)).toBe('implementing')
+      expect(wtPhase(f, 0, true)).toBe('Implementing')
+    })
+
+    describe('static guards', () => {
+      // Every site that answers "has this branch been pushed", per file. Counted
+      // rather than merely present: two of the four live inside interactive
+      // render loops no test can reach, so reverting one individually has to
+      // fail here or it fails nowhere.
+      it.each([
+        ['orchestrator.sh', orchestrator, 1],
+        ['worktree-claude.sh', worktreeClaude, 2],
+      ])(
+        '%s tests the branch against its own remote ref at all %i site(s)',
+        (_n, script, sites) => {
+          const source = fs.readFileSync(script, 'utf8')
+
+          expect(source).not.toContain("rev-parse --abbrev-ref '@{upstream}'")
+          expect(
+            source.match(/merge-base --is-ancestor "refs\/remotes\/origin\//g) ?? [],
+          ).toHaveLength(sites)
+        },
+      )
+
+      it('guards the PR-URL lookup with the same containment test', () => {
+        // `wt status -v`, the one site that yields a URL rather than a word.
+        const source = fs.readFileSync(worktreeClaude, 'utf8')
+
+        expect(source).toContain(
+          'pr_url=$(git -C "$wt_path" merge-base --is-ancestor "refs/remotes/origin/$w_branch" HEAD',
+        )
       })
 
       it('routes both display call sites through the one helper', () => {

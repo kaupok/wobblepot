@@ -605,6 +605,8 @@ report_worker_status() {
       # Count commits ahead of main
       local ahead=0
       ahead=$(git -C "$wt_path" rev-list --count main..HEAD 2>/dev/null) || true
+      # Empty on failure, and `[ "" -gt 0 ]` is a hard error — see detect_phase.
+      [[ "$ahead" =~ ^[0-9]+$ ]] || ahead=0
 
       # Last commit message (if any commits made)
       local last_msg=""
@@ -737,20 +739,38 @@ detect_phase() {
     local wt_path
     wt_path=$(get_worktree_path "$branch")
     if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
-      # Has THIS branch been pushed? A configured upstream is NOT the same
-      # question: worktree-claude.sh branches autonomous worktrees from
-      # origin/main, and git's branch.autoSetupMerge turns that start ref into
-      # an upstream before a single commit exists — so `@{upstream}` reported
-      # pr-review from worktree creation onward (HON-576).
-      # refs/remotes/origin/<branch> is written by the push itself, so it
-      # answers the question by construction.
-      if git -C "$wt_path" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+      # Commits ahead of main, computed first because it gates the pushed
+      # check below.
+      local ahead=0
+      ahead=$(git -C "$wt_path" rev-list --count main..HEAD 2>/dev/null) || true
+      # rev-list prints nothing when it fails (a pruned worktree admin dir, say),
+      # and `[ "" -gt 0 ]` is a hard error that logs `integer expression
+      # expected` and silently evaluates false.
+      [[ "$ahead" =~ ^[0-9]+$ ]] || ahead=0
+
+      # Has THIS branch's work been pushed? Three conditions, each closing a
+      # different false positive (HON-576):
+      #
+      #   ahead>0    — a branch with no commits of its own cannot be at PR stage.
+      #   show-ref   — a configured upstream is NOT the same question. Autonomous
+      #                worktrees branch from origin/main, and branch.autoSetupMerge
+      #                turns that start ref into an upstream before a single commit
+      #                exists, which is what made `@{upstream}` report pr-review
+      #                from worktree creation onward.
+      #   is-ancestor — the remote ref alone only proves "a remote branch by this
+      #                name exists locally". Branch names are deterministic per
+      #                issue and nothing prunes them, so a re-run of an issue whose
+      #                earlier run pushed would inherit a stale ref and reproduce
+      #                the same symptom. Requiring the remote tip to be contained
+      #                in HEAD ties the answer to this worktree's own history,
+      #                while still holding after the worker adds a commit on top
+      #                of what it pushed.
+      if [ "$ahead" -gt 0 ] &&
+         git -C "$wt_path" show-ref --verify --quiet "refs/remotes/origin/$branch" &&
+         git -C "$wt_path" merge-base --is-ancestor "refs/remotes/origin/$branch" HEAD 2>/dev/null; then
         echo "pr-review"; return
       fi
 
-      # Check commits ahead of main
-      local ahead=0
-      ahead=$(git -C "$wt_path" rev-list --count main..HEAD 2>/dev/null) || true
       if [ "$ahead" -gt 0 ]; then
         local has_dirty=""
         has_dirty=$(git -C "$wt_path" status --porcelain 2>/dev/null) || true
