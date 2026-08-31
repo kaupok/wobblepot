@@ -152,6 +152,14 @@ model Session {
 
 model Account {
   id                    String    @id
+  // Better Auth 1.7 made `issuer` the identity key for an account, replacing
+  // `providerId` in the unique constraint. Providers without an issuer of
+  // their own get a synthetic `local:<urlencoded providerId>`; this app is
+  // email/password only (no socialProviders, no plugins in src/lib/auth.ts),
+  // so `local:credential` is the only issuer it can produce. The default
+  // exists to cover the migrate-before-deploy window, when the previous
+  // Better Auth still INSERTs without this column — see the migration.
+  issuer                String    @default("local:credential")
   accountId             String
   providerId            String
   userId                String
@@ -166,7 +174,7 @@ model Account {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  @@unique([providerId, accountId])
+  @@unique([issuer, accountId])
   @@index([userId])
   @@map("account")
 }

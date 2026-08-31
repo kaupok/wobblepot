@@ -350,6 +350,8 @@ A Linear issue counts as "the source" when the task names a HON-NNN, when the or
 
 **Vendor skills:** `better-auth-best-practices`, `create-auth-skill`, `next-best-practices`, `next-cache-components`, and `next-upgrade` are symlinks to `.agents/skills/*` — upstream references (Next.js / Better Auth) installed from skills.sh, not project rules. Where they conflict with this file, this file wins: Prisma adapter (not Drizzle), email/password only (no OAuth yet), pnpm with exact pins (no `@latest`, no `npm install`), TanStack Query for client reads (never `useEffect` + `fetch`), and the Next 16 upgrade guide (not v14/v15). Only `next-upgrade` is user-invocable; the rest are reference-only.
 
+**Better Auth CLI:** the vendor skills tell you to run `npx @better-auth/cli@latest generate` — that package is deprecated ("Package no longer supported"); it was renamed to `auth`. Neither works here: the CLI loads `src/lib/auth.ts` through jiti, which cannot resolve the `server-only` import it pulls in transitively, so `generate` dies before reading the config. It is therefore not a dependency of this repo. To pick up a Better Auth schema change by hand, read the account/session/user/verification table definitions in `@better-auth/core/dist/db/get-tables.mjs` under `node_modules/.pnpm/` and diff them against `prisma/schema.prisma` (this is how HON-562 found the 1.7 `Account.issuer` field).
+
 ### Writing for Agents
 
 Specs, plans, and issues are consumed by agents — coding agents (`/auto-implement`), but also product, design, and growth agents. Write for both:
@@ -400,3 +402,13 @@ The failure mode this prevents: checking one file, finding nothing, and generali
 | [docs/CHROME_TESTING.md](docs/CHROME_TESTING.md)       | Browser testing with Chrome extension                    |
 | [docs/VOICE_REVIEW.md](docs/VOICE_REVIEW.md)           | Voice review setup and usage                             |
 | [docs/PARALLEL_WORKFLOW.md](docs/PARALLEL_WORKFLOW.md) | Parallel Claude Code with git worktrees                  |
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
