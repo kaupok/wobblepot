@@ -106,6 +106,22 @@
 #     value survives the trip. Only that namespace: a real value from the
 #     developer's environment can never reach test output, and the fixture owns
 #     the prefix.
+#
+#   neon-classify-create <create-output> <neon-branch>              (HON-581)
+#     Sources worktree-claude.sh and runs the REAL neon_classify_create_error
+#     over fixture text. Prints exists | cap | unknown. No neonctl, no control
+#     flow — this is the cheap way to assert that the verdict comes from the
+#     error text and never from the branch name embedded in it.
+#
+#   neon-create <create-output> <git-branch> <reuse> [retry-ok|retry-fail]
+#                                                                   (HON-581)
+#     Drives the REAL neon_create_branch_for_worktree with `pnpm` shadowed by a
+#     shell function, so every neonctl invocation is fixture-driven and the Neon
+#     API is never reached. neon_gc_orphans is stubbed to a marker (its own
+#     selection logic is covered by neon-gc-select above). Prints the function's
+#     merged output, then the ordered call log (CREATE / GC_RAN / DELETE), then
+#     EXIT:<status> — so a test can assert which path ran, how many creates were
+#     attempted, and whether GC landed between them.
 
 HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -470,6 +486,82 @@ EOF
     env -0 | while IFS= read -r -d '' entry; do
       case "$entry" in HON580_*) printf '%s\0' "$entry" ;; esac
     done
+    exit 0
+    ;;
+
+  # ─── Neon create-error classification (HON-581) ────────────────────────────
+  neon-classify-create)
+    # Sourced, not executed — see neon-gc-select above for why that is safe.
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    neon_classify_create_error "$A1" "$A2"
+    exit 0
+    ;;
+
+  # ─── Neon create control flow (HON-581) ────────────────────────────────────
+  neon-create)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    CREATE_FIXTURE="$A1"; GIT_BRANCH="$A2"; REUSE="${A3:-0}"; RETRY="${A4:-retry-fail}"
+
+    # neon_enabled gates the whole function. Both values are nonsense on
+    # purpose: the pnpm stub below intercepts every neonctl call, so if a code
+    # path ever escapes it the request fails auth instead of touching the real
+    # project.
+    NEON_API_KEY="harness-not-a-key"
+    NEON_PROJECT_ID="harness-not-a-project"
+
+    # `create_out=$(pnpm …)` runs the stub in a SUBSHELL, so a shell-variable
+    # counter would reset between the first attempt and the post-GC retry. The
+    # call log is a file for that reason, and it doubles as the ordering record:
+    # GC_RAN has to land between the two CREATE lines, not after both.
+    CALLS_FILE=$(mktemp "${TMPDIR:-/tmp}/neon-create-calls.XXXXXXXX")
+    ENV_FILE=$(mktemp "${TMPDIR:-/tmp}/neon-create-env.XXXXXXXX")
+    trap 'rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE" "$CALLS_FILE" "$ENV_FILE"' EXIT
+
+    # Every neonctl call goes through `pnpm dlx neonctl@<version> …`, so one
+    # function shadows the lot: $3 is the command group, $4 the verb (or, for
+    # connection-string, the branch name).
+    pnpm() {
+      local sub="$3" verb="${4:-}" n
+      case "$sub" in
+        branches)
+          case "$verb" in
+            create)
+              printf 'CREATE\n' >> "$CALLS_FILE"
+              n=$(grep -c '^CREATE$' "$CALLS_FILE")
+              if [ "$n" -ge 2 ] && [ "$RETRY" = "retry-ok" ]; then
+                echo '{"branch":{"name":"harness"}}'
+                return 0
+              fi
+              printf '%s\n' "$CREATE_FIXTURE"
+              return 1
+              ;;
+            delete) printf 'DELETE\n' >> "$CALLS_FILE"; return 0 ;;
+            list) echo '[]'; return 0 ;;
+            *) printf 'UNSTUBBED:%s\n' "$*" >> "$CALLS_FILE"; return 1 ;;
+          esac
+          ;;
+        connection-string)
+          # Only has to be non-empty; $verb is the branch name here.
+          echo "postgres://harness/$verb"
+          return 0
+          ;;
+        *) printf 'UNSTUBBED:%s\n' "$*" >> "$CALLS_FILE"; return 1 ;;
+      esac
+    }
+
+    # The sweep itself is covered by neon-gc-select; here it only has to record
+    # that the cap path reached for it.
+    neon_gc_orphans() { printf 'GC_RAN\n' >> "$CALLS_FILE"; }
+
+    # `|| status=$?` rather than `set +e`: errexit is dynamic, and clearing it
+    # would change the code under test.
+    status=0
+    out=$(neon_create_branch_for_worktree "$GIT_BRANCH" "$ENV_FILE" 0 "$REUSE" 2>&1) || status=$?
+    printf '%s\n' "$out"
+    cat "$CALLS_FILE"
+    echo "EXIT:$status"
     exit 0
     ;;
 

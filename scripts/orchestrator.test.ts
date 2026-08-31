@@ -1621,6 +1621,153 @@ describe('orchestrator.sh', () => {
   // secret. sanitize_log kept them, so it searched the log for a string the log
   // could not contain and the secret shipped unredacted. The issue asked the
   // two to agree on "what counts as a value"; these pin that agreement.
+  // ─── HON-581: Neon create-error classification ────────────────────────────
+  // The cap heuristic used to be tested first, and both greps ran over the raw
+  // neonctl output — which echoes the branch name back. Any branch whose slug
+  // contained `cap`, `limit`, `quota`, `exceed` or `maximum` therefore turned a
+  // plain "already exists" into a reported capacity problem, and the reuse path
+  // the orchestrator RETRY depends on became unreachable. HON-580's own branch
+  // did exactly that: its retry died in 1m1s while PR #667 sat green.
+  describe('HON-581 Neon create-error classification', () => {
+    // The real strings from the incident, not a paraphrase.
+    const HON580_BRANCH =
+      'kaupo/hon-580-orchestrator-script-cleanup-silent-queue-cap-dead-code-stale'
+    const HON580_NEON = HON580_BRANCH.replace('/', '--')
+    const EXISTS_ERROR = `ERROR: branch already exists; branch_name:"${HON580_NEON}"`
+    // A cap error whose branch name is free of the exhaustion substrings, so
+    // the cap path is reached on the error text and nothing else.
+    const CAP_ERROR = 'ERROR: branch limit exceeded for project'
+    const KEYWORDS = ['limit', 'quota', 'cap', 'exceed', 'maximum']
+
+    // Built rather than written as a literal: the escape is a control
+    // character, and a literal one in a regex trips no-control-regex.
+    const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g')
+
+    function classify(output: string, neonBranch: string): string {
+      return runHarness('neon-classify-create', output, neonBranch).trim()
+    }
+
+    function create(
+      output: string,
+      gitBranch: string,
+      reuse: 0 | 1,
+      retry: 'retry-ok' | 'retry-fail' = 'retry-fail',
+    ) {
+      const text = runHarness('neon-create', output, gitBranch, String(reuse), retry).replace(
+        ANSI,
+        '',
+      )
+      const lines = text.split('\n')
+
+      return {
+        text,
+        // The ordered call log the harness appends to: GC has to land BETWEEN
+        // the two creates, which a plain "did GC run" boolean cannot express.
+        calls: lines.filter((l) => ['CREATE', 'GC_RAN', 'DELETE'].includes(l)),
+        exit: Number(lines.find((l) => l.startsWith('EXIT:'))?.slice(5)),
+      }
+    }
+
+    it('takes the reuse path for an already-exists error whose name contains cap', () => {
+      const result = create(EXISTS_ERROR, HON580_BRANCH, 1)
+
+      expect(result.text).toContain('already exists — reusing it')
+      expect(result.text).not.toContain('Neon branch cap hit')
+      // One create, no GC, and no delete — the branch holds the work being
+      // resumed, so anything that touches it is a data-loss bug.
+      expect(result.calls).toEqual(['CREATE'])
+      expect(result.exit).toBe(0)
+    })
+
+    it('hard-fails on the same error when the branch is not being resumed', () => {
+      const result = create(EXISTS_ERROR, HON580_BRANCH, 0)
+
+      expect(result.text).toContain(`Neon branch '${HON580_NEON}' already exists.`)
+      expect(result.text).toContain(`Run 'wt cleanup ${HON580_BRANCH}'`)
+      // The branch name carries `cap` and both messages echo it, so the guard
+      // has to name the cap path's own sentences rather than the substring.
+      expect(result.text).not.toContain('Neon branch cap hit')
+      expect(result.text).not.toContain('cap still exceeded')
+      expect(result.calls).toEqual(['CREATE'])
+      expect(result.exit).toBe(1)
+    })
+
+    it('still runs orphan GC and retries once for a genuine cap error', () => {
+      const result = create(CAP_ERROR, 'kaupo/hon-581-neutral-slug', 0, 'retry-ok')
+
+      expect(result.text).toContain('Neon branch cap hit — running orphan GC...')
+      expect(result.calls).toEqual(['CREATE', 'GC_RAN', 'CREATE'])
+      expect(result.exit).toBe(0)
+    })
+
+    it('retries the cap path exactly once before giving up', () => {
+      const result = create(CAP_ERROR, 'kaupo/hon-581-neutral-slug', 0, 'retry-fail')
+
+      expect(result.text).toContain('Neon branch cap still exceeded after orphan GC.')
+      expect(result.calls).toEqual(['CREATE', 'GC_RAN', 'CREATE'])
+      expect(result.exit).toBe(1)
+    })
+
+    it('falls through to the generic create failure for an unrecognised error', () => {
+      const result = create('ERROR: connection reset by peer', 'kaupo/hon-581-neutral-slug', 1)
+
+      expect(result.text).toContain('Neon branch create failed:')
+      expect(result.text).toContain('ERROR: connection reset by peer')
+      expect(result.calls).toEqual(['CREATE'])
+      expect(result.exit).toBe(1)
+    })
+
+    it.each(KEYWORDS)('reads an already-exists error as exists when the name holds %s', (kw) => {
+      const name = `kaupo--hon-1-queue-${kw}-slug`
+
+      expect(classify(`ERROR: branch already exists; branch_name:"${name}"`, name)).toBe('exists')
+    })
+
+    it.each(KEYWORDS)('never invents a cap verdict from a name holding %s', (kw) => {
+      const name = `kaupo--hon-1-queue-${kw}-slug`
+
+      expect(classify(`ERROR: internal server error; branch_name:"${name}"`, name)).toBe('unknown')
+    })
+
+    it('strips the branch name even when neonctl does not use the branch_name field', () => {
+      // The `branch_name:"…"` sed is the documented shape; the literal removal
+      // is what covers every other way the name can come back.
+      const name = 'kaupo--hon-1-queue-cap-slug'
+
+      expect(classify(`ERROR: could not create ${name}: internal error`, name)).toBe('unknown')
+    })
+
+    it('removes the branch name as a fixed string, not as a pattern', () => {
+      // `.` is legal in a Neon branch name. A regex removal would let `.uota`
+      // eat the real `quota` out of the error text and downgrade a genuine cap
+      // error to unknown. "reached" rather than "exceeded" so `quota` is the
+      // only keyword in play.
+      expect(classify('ERROR: project quota reached', 'kaupo--hon-1-.uota')).toBe('cap')
+    })
+
+    describe('static guards', () => {
+      const source = () => fs.readFileSync(worktreeClaude, 'utf8')
+
+      it('tests the unambiguous exists signal before the cap heuristic', () => {
+        const body = shellFunctionBody(source(), 'neon_classify_create_error')
+
+        expect(body.indexOf('already exists|duplicate')).toBeGreaterThan(-1)
+        expect(body.indexOf('already exists|duplicate')).toBeLessThan(
+          body.indexOf('limit|quota|cap|exceed|maximum'),
+        )
+      })
+
+      it('never matches the raw create output, only the classifier verdict', () => {
+        // Reordering alone fixed the one branch name; routing every match
+        // through the classifier is what keeps a name out of control flow.
+        const body = shellFunctionBody(source(), 'neon_create_branch_for_worktree')
+
+        expect(body).toContain('neon_classify_create_error "$create_out" "$neon_branch"')
+        expect(body).not.toContain('"$create_out" | grep')
+      })
+    })
+  })
+
   describe('env value parity between load_env_file and sanitize_log', () => {
     let envDir: string
 

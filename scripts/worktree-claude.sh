@@ -231,9 +231,50 @@ neon_gc_orphans() {
   done <<< "$(neon_gc_orphan_names "$list_out" "$live_worktrees")"
 }
 
+# Classify a failed `neonctl branches create` from its error text alone.
+# Prints exactly one of: exists | cap | unknown.
+#
+# The branch name is removed from the input before anything is matched. neonctl
+# echoes it back (`branch_name:"…"`), and the exhaustion test below is a plain
+# substring match, so a branch whose slug contains `cap`, `limit`, `quota`,
+# `exceed` or `maximum` would otherwise read as branch exhaustion. That is
+# HON-581: `kaupo--hon-580-…-silent-queue-cap-dead-code-stale` turned a plain
+# "already exists" into a reported capacity problem, and the orchestrator RETRY
+# that needed the reuse path lost it. Two removals, because they fail
+# differently: the `sed` handles the field even when the name we asked for is
+# not what came back, and the literal `${text//…}` handles the name appearing in
+# any other shape. The literal form is a fixed-string replace, so a name
+# carrying regex metacharacters cannot widen it.
+#
+# Order matters more than either. `already exists` / `duplicate` is an
+# unambiguous signal from the API, so it is tested first; the exhaustion
+# keywords are a guess at wording Neon does not document, and only get what is
+# left. Note there is no proximity requirement — the older `grep -qi "branch"`
+# conjunct claimed one but never enforced it, being a second independent grep
+# over the whole output. The cost of dropping it is that a plain rate-limit
+# response now takes the cap path: one best-effort GC sweep, then the retry that
+# branch would have performed anyway.
+neon_classify_create_error() {
+  local text="$1" neon_branch="${2:-}"
+  text=$(printf '%s' "$text" | sed 's/branch_name:[[:space:]]*"[^"]*"//g')
+  if [ -n "$neon_branch" ]; then
+    text=${text//"$neon_branch"/}
+  fi
+
+  if printf '%s' "$text" | grep -qiE "already exists|duplicate"; then
+    echo exists
+  elif printf '%s' "$text" | grep -qiE "limit|quota|cap|exceed|maximum"; then
+    echo cap
+  else
+    echo unknown
+  fi
+}
+
 # Create a Neon branch forked from $NEON_PARENT_BRANCH (default: staging) and
-# patch the worktree's .env to point at it. Self-heals orphan cap via GC retry.
-# Collisions fail loud — require --fresh-db to recreate.
+# patch the worktree's .env to point at it. Self-heals a genuine branch cap via
+# one GC retry. A name collision is reused when $reuse_existing is 1 (the caller
+# is resuming an existing git branch) and fails loud otherwise — pass --fresh-db
+# to recreate.
 neon_create_branch_for_worktree() {
   local git_branch="$1" worktree_env="$2" fresh_db="${3:-0}" reuse_existing="${4:-0}"
   local reused=0
@@ -259,41 +300,44 @@ neon_create_branch_for_worktree() {
       --project-id "$NEON_PROJECT_ID" >/dev/null 2>&1 || true
   fi
 
-  # Attempt create; on cap error run GC and retry once. The cap-error regex
-  # requires "branch" near one of the exhaustion keywords so plain rate-limit
-  # responses (which GC can't help with) don't trigger a pointless sweep.
+  # Attempt create; classify any failure by its error text, with the branch name
+  # excluded from that text (see neon_classify_create_error). An existing branch
+  # is either reused or a hard stop; only genuine exhaustion runs GC and retries.
   local create_out
   create_out=$(pnpm dlx "neonctl@$NEONCTL_VERSION" branches create \
     --project-id "$NEON_PROJECT_ID" --name "$neon_branch" --parent "$parent" \
     --output json 2>&1) || {
-    if echo "$create_out" | grep -qi "branch" \
-       && echo "$create_out" | grep -qiE "limit|quota|cap|exceed|maximum"; then
-      echo -e "${YELLOW}Neon branch cap hit — running orphan GC...${NC}"
-      neon_gc_orphans
-      create_out=$(pnpm dlx "neonctl@$NEONCTL_VERSION" branches create \
-        --project-id "$NEON_PROJECT_ID" --name "$neon_branch" --parent "$parent" \
-        --output json 2>&1) || {
-        echo -e "${RED}Error: Neon branch cap still exceeded after orphan GC.${NC}" >&2
+    case "$(neon_classify_create_error "$create_out" "$neon_branch")" in
+      exists)
+        if [ "$reuse_existing" = "1" ]; then
+          # Resuming an existing git branch (orchestrator RETRY or force-kill
+          # recovery): its Neon branch was deliberately kept alongside it, so
+          # reuse it and fall through to fetching its connection strings.
+          echo -e "${YELLOW}Neon branch '$neon_branch' already exists — reusing it${NC}"
+          reused=1
+        else
+          echo -e "${RED}Error: Neon branch '$neon_branch' already exists.${NC}" >&2
+          echo "Run 'wt cleanup $git_branch' or pass --fresh-db to force recreate." >&2
+          return 1
+        fi
+        ;;
+      cap)
+        echo -e "${YELLOW}Neon branch cap hit — running orphan GC...${NC}"
+        neon_gc_orphans
+        create_out=$(pnpm dlx "neonctl@$NEONCTL_VERSION" branches create \
+          --project-id "$NEON_PROJECT_ID" --name "$neon_branch" --parent "$parent" \
+          --output json 2>&1) || {
+          echo -e "${RED}Error: Neon branch cap still exceeded after orphan GC.${NC}" >&2
+          echo "$create_out" >&2
+          return 1
+        }
+        ;;
+      *)
+        echo -e "${RED}Error: Neon branch create failed:${NC}" >&2
         echo "$create_out" >&2
         return 1
-      }
-    elif echo "$create_out" | grep -qiE "already exists|duplicate"; then
-      if [ "$reuse_existing" = "1" ]; then
-        # Resuming an existing git branch (orchestrator RETRY or force-kill
-        # recovery): its Neon branch was deliberately kept alongside it, so
-        # reuse it and fall through to fetching its connection strings.
-        echo -e "${YELLOW}Neon branch '$neon_branch' already exists — reusing it${NC}"
-        reused=1
-      else
-        echo -e "${RED}Error: Neon branch '$neon_branch' already exists after orphan cleanup.${NC}" >&2
-        echo "Run 'wt cleanup $git_branch' or pass --fresh-db to force recreate." >&2
-        return 1
-      fi
-    else
-      echo -e "${RED}Error: Neon branch create failed:${NC}" >&2
-      echo "$create_out" >&2
-      return 1
-    fi
+        ;;
+    esac
   }
 
   local pooled unpooled

@@ -105,6 +105,10 @@ When `NEON_API_KEY` and `NEON_PROJECT_ID` are set in `.env`, each worktree gets 
 
 When the Neon project hits its branch cap (10 on the free tier), `wt` automatically runs an orphan GC (deletes Neon branches whose git worktree no longer exists) and retries once. If still over cap, it fails loud — no silent fallback to the shared DB.
 
+A create failure only reaches that path if it looks like exhaustion and _nothing else_. `neon_classify_create_error` strips the branch name out of the error text before matching, then tests `already exists` / `duplicate` first and the cap keywords (`limit`, `quota`, `cap`, `exceed`, `maximum`) only afterwards. Both halves matter: the cap test is a substring match, so a branch whose slug carries one of those words — `kaupo--hon-580-…-silent-queue-cap-dead-code-stale`, say — used to be read as a capacity problem, which cost HON-580 the reuse path its RETRY depended on and reported a full project that held 6 branches out of 10 (HON-581).
+
+An `already exists` error is not a failure when the git branch is being resumed: `wt auto`'s retry path passes `reuse_existing=1`, and the deliberately-preserved Neon branch is reused as-is. Outside that path it is still a hard stop — use `--fresh-db` to recreate.
+
 GC is scoped so it can't touch hand-managed branches. Eligible:
 
 - **`<prefix>--hon-<N>[-slug]`** — anything carrying a HON id, whatever the prefix. This is what the orchestrator actually creates: `spawn_worker` prefers Linear's `branchName`, so a normal run's branch is `kaupokorv/hon-51-slug` → Neon `kaupokorv--hon-51-slug`, not `auto--hon-51`. Until HON-572 no reaper recognised that shape, so a crashed or SIGKILLed orchestrator leaked its Neon branches until the project hit its cap.
