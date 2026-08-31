@@ -1598,18 +1598,10 @@ get_worktree_path() {
     return
   fi
   # `/` -> `--` so distinct branches don't collide on one directory (matches
-  # worktree-claude.sh's normalize_branch and neon_branch_name).
+  # worktree-claude.sh's normalize_branch and neon_branch_name). No single-dash
+  # fallback — see the note in worktree-claude.sh's get_worktree_path.
   local normalized="${branch//\//--}"
-  local derived="$WORKTREE_BASE/$normalized"
-  # Legacy single-dash fallback for worktrees created before the change.
-  if [ ! -e "$derived" ]; then
-    local legacy="$WORKTREE_BASE/${branch//\//-}"
-    if [ "$legacy" != "$derived" ] && [ -e "$legacy" ]; then
-      echo "$legacy"
-      return
-    fi
-  fi
-  echo "$derived"
+  echo "$WORKTREE_BASE/$normalized"
 }
 
 sync_permissions() {

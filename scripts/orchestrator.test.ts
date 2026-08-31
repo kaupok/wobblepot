@@ -1327,21 +1327,14 @@ describe('orchestrator.sh', () => {
         }
       })
 
-      it('resolves a legacy single-dash directory that predates the change', () => {
+      // The lookup above this fallback already resolves anything git has
+      // registered, so a single-dash fallback could only fire on an
+      // UNREGISTERED leftover — and handing that back is the very collision
+      // this change removes.
+      it('never hands back a stale single-dash directory', () => {
         const base = fs.mkdtempSync(path.join(os.tmpdir(), 'hon579-wt-'))
         try {
-          // A worktree created under the old `-` mapping.
-          fs.mkdirSync(path.join(base, 'feat-foo-bar'), { recursive: true })
-          expect(worktreePath('feat/foo-bar', base)).toBe(path.join(base, 'feat-foo-bar'))
-        } finally {
-          fs.rmSync(base, { recursive: true, force: true })
-        }
-      })
-
-      it('prefers the new `--` directory when both exist', () => {
-        const base = fs.mkdtempSync(path.join(os.tmpdir(), 'hon579-wt-'))
-        try {
-          fs.mkdirSync(path.join(base, 'feat--foo-bar'), { recursive: true })
+          // The leftover `feat-foo/bar` would have created under the old mapping.
           fs.mkdirSync(path.join(base, 'feat-foo-bar'), { recursive: true })
           expect(worktreePath('feat/foo-bar', base)).toBe(path.join(base, 'feat--foo-bar'))
         } finally {

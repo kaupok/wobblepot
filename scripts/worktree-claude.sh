@@ -447,21 +447,14 @@ get_worktree_path() {
   fi
 
   # Fall back to derived path (for new worktrees).
+  #
+  # No single-dash fallback for worktrees predating the `/` -> `--` change:
+  # the lookup above already resolves anything git has registered, so a
+  # fallback could only ever fire on an UNREGISTERED leftover directory — and
+  # returning that reintroduces the collision this change removes, handing a
+  # new `feat/foo-bar` the stale directory left by `feat-foo/bar`.
   local normalized=$(normalize_branch "$branch")
-  local derived="$WORKTREE_BASE/$normalized"
-
-  # Worktrees created before the `/` -> `--` change live at the old single-dash
-  # path. If the new path has no directory yet but the legacy one does, resolve
-  # to the legacy path so resume/cleanup keep working across the change.
-  if [ ! -e "$derived" ]; then
-    local legacy="$WORKTREE_BASE/${branch//\//-}"
-    if [ "$legacy" != "$derived" ] && [ -e "$legacy" ]; then
-      echo "$legacy"
-      return
-    fi
-  fi
-
-  echo "$derived"
+  echo "$WORKTREE_BASE/$normalized"
 }
 
 # Check if worktree exists
