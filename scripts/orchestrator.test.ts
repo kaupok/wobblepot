@@ -465,6 +465,26 @@ describe('orchestrator.sh', () => {
     })
   })
 
+  // ─── HON-577: raw worker log reaches the triage CLI ───────────────────────
+  // handle_failure captured tail -200 (triage stdin) and tail -20 (timeout
+  // prompt) of the worker log and sent them to the triage CLI with no
+  // sanitize_log call — so any .env value, connection string or `set -x` trace
+  // the log carried went out unredacted. The only sanitize call sat downstream
+  // in move_to_backlog, guarding the Linear comment but not the CLI. The fix
+  // sanitizes at the capture point, the one boundary the log enters.
+  describe('triage input redaction', () => {
+    const triageInput = (out: string) =>
+      stripTimestamps(out).match(/^TRIAGE_INPUT:(.*)$/m)?.[1] ?? ''
+
+    it('redacts worker-log secrets before they reach the triage CLI', () => {
+      const input = triageInput(runHarness('failure', 'BACKLOG', '0', 'false'))
+
+      expect(input).toContain('[REDACTED]')
+      expect(input).not.toContain('supersecretpw')
+      expect(input).not.toContain('lin_api_SECRET')
+    })
+  })
+
   // ─── HON-572 finding 3: duplicated log lines ──────────────────────────────
   // log() writes a colored line to stderr AND a clean line to $MAIN_LOG.
   // cmd_start pointed the orchestrator's stderr at the same file, so every line

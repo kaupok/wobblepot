@@ -35,6 +35,10 @@
 #     `env -u ANTHROPIC_API_KEY claude`, so a shell function would be bypassed,
 #     and routing through PATH keeps the real verdict parsing under test.
 #     `repeat` replays the SAME call N times in one process.
+#     The worker log fed in carries real secret shapes, and the `claude` stub
+#     records everything it receives (stdin + prompt args); the run emits a
+#     TRIAGE_INPUT line so a test can assert the triage input is redacted by the
+#     sanitize-at-capture pass (HON-577).
 #     Ends with CONSECUTIVE_FAILURES / PAUSED / the write_status_file JSON.
 #
 #   failure-seq <triage:retried:shutting_down,...>        (HON-572, finding 2)
@@ -196,15 +200,38 @@ case "$MODE" in
     # through PATH and would never see a function. This also leaves the real
     # exit-code handling and first-word parsing under test. The stub reads the
     # verdict from a file so the sequence can change it between calls.
+    #
+    # The stub also records everything the triage CLI receives — stdin (the log
+    # tail) plus the prompt args (which carry the timeout context) — so a test
+    # can assert the input is redacted (HON-577). It appends across calls, so a
+    # leak on any step of a sequence still surfaces.
     STUB_BIN=$(mktemp -d "${TMPDIR:-/tmp}/orchestrator-harness-bin.XXXXXXXX")
     VERDICT_FILE="$STUB_BIN/verdict"
-    printf '#!/bin/sh\ncat "%s"\n' "$VERDICT_FILE" > "$STUB_BIN/claude"
+    TRIAGE_INPUT_FILE="$STUB_BIN/triage-input"
+    : > "$TRIAGE_INPUT_FILE"
+    cat > "$STUB_BIN/claude" <<EOF
+#!/bin/sh
+cat >> "$TRIAGE_INPUT_FILE"
+printf '%s' "\$*" >> "$TRIAGE_INPUT_FILE"
+cat "$VERDICT_FILE"
+EOF
     chmod +x "$STUB_BIN/claude"
     PATH="$STUB_BIN:$PATH"
 
+    # A worker log carrying real secret shapes, so the sanitize-at-capture pass
+    # in handle_failure is under test end to end: these must be redacted before
+    # the log tail reaches the triage CLI.
+    WORKER_LOG=$(mktemp "${TMPDIR:-/tmp}/orchestrator-harness-worklog.XXXXXXXX")
+    {
+      echo "Starting autonomous Claude Code"
+      echo "----"
+      echo "DATABASE_URL=postgresql://user:supersecretpw@db.example/app"
+      echo "LINEAR_API_KEY=lin_api_SECRET1234567890abcdef"
+    } > "$WORKER_LOG"
+
     # Keep write_status_file off the real ~/.worktrees status file.
     STATUS_FILE=$(mktemp "${TMPDIR:-/tmp}/orchestrator-harness-status.XXXXXXXX")
-    trap 'cat "$MAIN_LOG"; rm -rf "$MAIN_LOG" "$SEEN_SKIPS_FILE" "$STATUS_FILE" "$STUB_BIN"' EXIT
+    trap 'cat "$MAIN_LOG"; rm -rf "$MAIN_LOG" "$SEEN_SKIPS_FILE" "$STATUS_FILE" "$STUB_BIN" "$WORKER_LOG"' EXIT
 
     DRY_RUN=false
     ORCHESTRATOR_START_TIME="1970-01-01T00:00:00Z"
@@ -227,10 +254,12 @@ case "$MODE" in
       SHUTTING_DOWN="$s_shutdown"
       # A distinct issue id per step, so an assertion can tell the calls apart
       # the way a systemic fault walking the Todo queue would.
-      handle_failure "HON-99$STEP" "uuid-99$STEP" "test-branch-$STEP" /tmp/harness-worker.log \
+      handle_failure "HON-99$STEP" "uuid-99$STEP" "test-branch-$STEP" "$WORKER_LOG" \
         "$s_retried" failed "Fixture title" 2>/dev/null
     done
 
+    # Flatten to one line: what the triage CLI actually received across all steps.
+    echo "TRIAGE_INPUT:$(tr '\n' ' ' < "$TRIAGE_INPUT_FILE")" >> "$MAIN_LOG"
     echo "CONSECUTIVE_FAILURES:$CONSECUTIVE_FAILURES" >> "$MAIN_LOG"
     if [ "$PAUSED_UNTIL" -gt "$(date +%s)" ]; then
       echo "PAUSED:true" >> "$MAIN_LOG"
