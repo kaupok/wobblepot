@@ -539,8 +539,11 @@ monitor_workers() {
         log WARN "Worker $issue_id (PID $pid) timed out after ${elapsed}s"
         # Capture last activity before killing for triage context
         if [ -f "$log_file" ]; then
+          # Sanitized before it lands in orchestrator.log: this is the other
+          # place a raw worker log is read, and the main log is the copy that
+          # outlives the worker's own file (HON-577).
           local last_activity
-          last_activity=$(tail -20 "$log_file" 2>/dev/null || echo "(unreadable)")
+          last_activity=$(sanitize_log "$(tail -20 "$log_file" 2>/dev/null || echo "(unreadable)")")
           log DEBUG "Timeout context for $issue_id (last 20 lines before kill):"
           printf '%s\n' "$last_activity" >> "$MAIN_LOG"
         fi
@@ -1187,18 +1190,26 @@ handle_failure() {
   done
   duration_str=$(format_duration "$duration_secs")
 
-  # Get log tail for triage (full tail) and comment (Claude output only)
+  # Get log tail for triage (full tail) and comment (Claude output only).
+  #
+  # Sanitize at the capture point. This is the single boundary where the raw
+  # worker log enters handle_failure, and the log is known to carry .env values,
+  # connection strings and `set -x` traces. Redacting here means no unredacted
+  # copy exists downstream: not the triage CLI stdin, not the triage prompt, and
+  # not the Linear comment move_to_backlog posts. sanitize_log is therefore the
+  # only sanitize call on the failure path — move_to_backlog trusts what it gets
+  # (HON-577; HON-572 hardened sanitize_log but left this call site unwrapped).
   local log_tail="(no log)"
   local log_claude_output="(no log)"
   local timeout_context=""
   if [ -f "$log_file" ]; then
-    log_tail=$(tail -200 "$log_file" 2>/dev/null || echo "(log not readable)")
+    log_tail=$(sanitize_log "$(tail -200 "$log_file" 2>/dev/null || echo "(log not readable)")")
     # Extract only the Claude session output (after worktree setup completes)
     # Falls back to last 30 lines if marker not found
-    log_claude_output=$(extract_claude_output "$log_file")
+    log_claude_output=$(sanitize_log "$(extract_claude_output "$log_file")")
     # For timeouts, capture the last 20 lines as focused context
     if [ "$failure_type" = "timeout" ]; then
-      timeout_context=$(tail -20 "$log_file" 2>/dev/null || echo "(unreadable)")
+      timeout_context=$(sanitize_log "$(tail -20 "$log_file" 2>/dev/null || echo "(unreadable)")")
     fi
   fi
 
@@ -1307,12 +1318,10 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 
 # ─── Move issue to Backlog with comment + label ─────────────────────────────
 
 move_to_backlog() {
-  local issue_uuid="$1" issue_id="$2" log_tail="$3"
+  # $3 arrives already sanitized: handle_failure redacts the worker log at the
+  # capture point, the one boundary where it enters. Do NOT sanitize again here.
+  local issue_uuid="$1" issue_id="$2" sanitized_tail="$3"
   local label_name="$4" summary="$5" log_file="${6:-}"
-
-  # Sanitize log to strip secrets before posting to Linear
-  local sanitized_tail
-  sanitized_tail=$(sanitize_log "$log_tail")
 
   # Add failure comment
   local log_path_note=""
