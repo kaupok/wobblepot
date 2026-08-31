@@ -17,6 +17,16 @@ const adapter = new PrismaPg({
 
 const prisma = new PrismaClient({ adapter })
 
+/**
+ * Issuer Better Auth 1.7 stamps on email/password accounts. Providers without
+ * an issuer of their own get a synthetic `local:<urlencoded providerId>` (see
+ * `createLocalAccountIssuer` in `@better-auth/core`), and `(issuer, accountId)`
+ * is now the account identity key in place of `(providerId, accountId)`.
+ * Inlined rather than imported because `@better-auth/core` is a transitive
+ * dependency here, not a direct one.
+ */
+const CREDENTIAL_ISSUER = 'local:credential'
+
 // Ingredient data with nutritional values per 100g (based on EU sources)
 // Categories: protein, carb, vegetable, fruit, dairy, fat, legume, condiment, spice
 // Units: g (grams) or piece (count-based items)
@@ -3995,8 +4005,8 @@ async function upsertCredentialUser(spec: TestUserSpec) {
 
   await prisma.account.upsert({
     where: {
-      providerId_accountId: {
-        providerId: 'credential',
+      issuer_accountId: {
+        issuer: CREDENTIAL_ISSUER,
         accountId: user.id,
       },
     },
@@ -4005,6 +4015,7 @@ async function upsertCredentialUser(spec: TestUserSpec) {
     },
     create: {
       id: randomUUID(),
+      issuer: CREDENTIAL_ISSUER,
       providerId: 'credential',
       accountId: user.id,
       userId: user.id,
