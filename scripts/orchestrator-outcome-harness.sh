@@ -9,9 +9,9 @@
 # Modes:
 #   outcome <commits> <phase> <pr_state> <ci_state>
 #     Drives handle_success with pr_for_branch / pr_ci_state stubbed.
-#     pr_state ∈ OPEN | MERGED | CLOSED | NONE, where NONE models both "no PR
-#     was ever opened" and "gh is missing or unauthenticated" — pr_for_branch
-#     is silent in all three cases.
+#     pr_state ∈ OPEN | MERGED | CLOSED | NONE | ERROR. NONE is "asked, and no
+#     PR exists"; ERROR is "could not ask" (gh missing, unauthenticated, offline
+#     or rate limited), which pr_for_branch reports as a non-zero status.
 #     Prints the orchestrator's log lines, plus one synthetic line per side
 #     effect (CLEANUP / LABEL / RESTORE_TODO / COMMENT), so a test can assert
 #     artifact retention, Linear bookkeeping and the operator-facing comment
@@ -20,10 +20,11 @@
 #   timeout <commits> <phase> <pr_state> <ci_state>                 (HON-583)
 #     Same stubs as `outcome`, but drives handle_timeout — the path taken when
 #     monitor_workers kills a worker at WORKER_TIMEOUT. handle_failure is
-#     stubbed to a HANDLE_FAILURE:<type> marker, so a test can tell the three
-#     routes apart: STRANDED (unmerged PR), SUCCESS (merged PR), and the
-#     handle_failure fallback (no PR). Everything else is genuine, including
-#     record_stranded's comment body and the cleanup decision.
+#     stubbed to a HANDLE_FAILURE:<type> marker, so a test can tell the routes
+#     apart: SUCCESS (merged PR), STRANDED (unmerged PR, or commits with no PR,
+#     or an ERROR probe), and the handle_failure fallback (probe ran, no PR, no
+#     commits). Everything else is genuine, including record_stranded's comment
+#     body and the cleanup decision.
 #
 #   worker-timeout                                                  (HON-583)
 #     Prints WORKER_TIMEOUT as orchestrator.sh resolved it at source time, so
@@ -208,6 +209,11 @@ case "$MODE" in
     pr_ci_state() { echo "$CI_STATE"; }
 
     pr_for_branch() {
+      # ERROR models a gh that could not answer at all — missing,
+      # unauthenticated, offline, or rate limited. The real helper reports that
+      # as a non-zero status with no output, which is the only thing that
+      # distinguishes it from NONE ("asked, and there is no PR").
+      [ "$PR_STATE" = "ERROR" ] && return 1
       [ "$PR_STATE" = "NONE" ] && return 0
       printf '%s\t%s\t%s\n' "$PR_STATE" "650" "https://github.com/kaupok/honkadori/pull/650"
     }

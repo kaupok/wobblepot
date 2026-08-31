@@ -36,7 +36,7 @@ function shellFunctionBody(source: string, name: string): string {
   return source.slice(start, end)
 }
 
-type PrState = 'OPEN' | 'MERGED' | 'CLOSED' | 'NONE'
+type PrState = 'OPEN' | 'MERGED' | 'CLOSED' | 'NONE' | 'ERROR'
 type CiState = 'green' | 'pending' | 'failing' | 'unknown'
 
 /**
@@ -2030,6 +2030,54 @@ describe('orchestrator.sh', () => {
         'Worker HON-999 complete — worktree cleaned up',
       )
     })
+
+    // handle_timeout routes on "is there a PR"; handle_success routes on "are
+    // there commits". Where those disagree, handle_failure's BACKLOG /
+    // NEEDS_HUMAN / already-retried RETRY arms run cleanup WITHOUT keep_branch —
+    // `git branch -D` plus the paired Neon branch — so an unpushed commit dies.
+    // Raising the budget to 3h makes the mid-implementation kill the typical
+    // remaining timeout, so this is the common case, not a corner.
+    it('strands commits that have no PR yet rather than force-deleting them', () => {
+      const out = classifyTimeout(6, 'implementing', 'NONE', 'unknown')
+
+      expect(out).toContain('[OUTCOME] HON-999 STRANDED')
+      expect(out).toContain('6-commits phase=implementing pr=none')
+      expect(out).not.toContain('HANDLE_FAILURE')
+      expect(out).not.toContain('CLEANUP:')
+      // No PR means Linear never moved the issue, so hand it back — same as the
+      // exit-0 no-PR stranding.
+      expect(out).toContain('RESTORE_TODO:HON-999')
+      expect(out).toContain('LABEL:Stranded')
+    })
+
+    it('matches the exit-0 verdict for commits with no PR', () => {
+      // The two paths must agree on this state; disagreeing is what made one of
+      // them destructive.
+      expect(classifyTimeout(6, 'implementing', 'NONE', 'unknown')).toContain('STRANDED')
+      expect(classify(6, 'implementing', 'NONE', 'unknown')).toContain('STRANDED')
+    })
+
+    it('strands rather than triages when gh could not answer at all', () => {
+      // pr_for_branch is equally silent for "no PR" and for missing /
+      // unauthenticated / offline / rate-limited gh. On this path that silence
+      // decides whether the branch survives, so one rate-limited `gh pr list`
+      // would otherwise reproduce the exact symptom this issue is about.
+      const out = classifyTimeout(3, 'pr-review', 'ERROR', 'unknown')
+
+      expect(out).toContain('[OUTCOME] HON-999 STRANDED')
+      expect(out).not.toContain('HANDLE_FAILURE')
+      expect(out).not.toContain('CLEANUP:')
+    })
+
+    it('triages only when the probe ran, found nothing, and nothing was committed', () => {
+      // The one genuine stall — and the only route out of handle_timeout that
+      // destroys anything.
+      expect(classifyTimeout(0, 'implementing', 'NONE', 'unknown')).toContain(
+        'HANDLE_FAILURE:timeout',
+      )
+      expect(classifyTimeout(0, 'implementing', 'ERROR', 'unknown')).not.toContain('HANDLE_FAILURE')
+      expect(classifyTimeout(1, 'implementing', 'NONE', 'unknown')).not.toContain('HANDLE_FAILURE')
+    })
   })
 
   // One probe, one stranding, one success — called from both paths. Behaviour
@@ -2073,6 +2121,36 @@ describe('orchestrator.sh', () => {
       // The no-PR fallback. Without it a timeout on a worker that shipped
       // nothing would go unreported instead of being triaged.
       expect(shellFunctionBody(source(), 'handle_timeout')).toMatch(/handle_failure .*"timeout"/)
+    })
+
+    it('waits for the killed worker to die before anything can remove its worktree', () => {
+      // SIGTERM returns immediately, and handle_timeout now reaches
+      // cleanup_worker_worktree within seconds on the merged-PR route. A
+      // claude/pnpm tree still alive at that point re-creates the directory
+      // after `git worktree remove` succeeded, orphaning it — and `wt auto`
+      // then hard-exits on every future run for that branch. The old `sleep 2`
+      // only held because handle_failure's triage call sat in between.
+      const body = shellFunctionBody(source(), 'monitor_workers')
+
+      expect(body).toContain('wait_for_exit "$pid" 20 || kill_process_tree "$pid" KILL')
+      expect(body).not.toMatch(/kill_process_tree "\$pid"\n\s*sleep 2/)
+    })
+
+    it('lets pr_for_branch report a query it could not make', () => {
+      // `|| true` here is what collapses "no PR" and "gh is broken" into the
+      // same answer. probe_worker_pr publishes the difference instead.
+      const body = shellFunctionBody(source(), 'pr_for_branch')
+
+      // Anchored on the subshell's own line — the comment above it names the
+      // `|| true` it removed, so a bare substring match would hit that instead.
+      expect(body).not.toContain(') 2>/dev/null || true')
+      // shellFunctionBody stops before the closing brace, so the subshell is the
+      // last thing in it — and its status is therefore the function's.
+      expect(body.trimEnd().endsWith(') 2>/dev/null')).toBe(true)
+      expect(body).toContain('command -v gh &> /dev/null || return 1')
+      expect(shellFunctionBody(source(), 'probe_worker_pr')).toContain(
+        'pr_for_branch "$branch") || WORKER_PR_PROBE_OK=false',
+      )
     })
   })
 

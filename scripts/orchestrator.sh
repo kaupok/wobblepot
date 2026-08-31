@@ -673,8 +673,16 @@ monitor_workers() {
           log DEBUG "Timeout context for $issue_id (last 20 lines before kill):"
           printf '%s\n' "$last_activity" >> "$MAIN_LOG"
         fi
+        # SIGTERM returns immediately. handle_timeout can now reach
+        # cleanup_worker_worktree within seconds on the merged-PR SUCCESS route,
+        # and removing a worktree under a still-live claude/pnpm tree lets that
+        # tree re-create the directory after `git worktree remove` succeeded and
+        # `git branch -D` ran — an orphan nothing reclaims, which then hard-exits
+        # every future `wt auto` on the branch. Same bounded-wait contract as
+        # drain_workers_to_todo; the old `sleep 2` only held because
+        # handle_failure's triage call happened to sit in between.
         kill_process_tree "$pid"
-        sleep 2
+        wait_for_exit "$pid" 20 || kill_process_tree "$pid" KILL
         # NOT handle_failure directly (HON-583): a worker killed at the cap has
         # usually finished and is waiting on CI in-turn. handle_timeout probes
         # for a PR first and falls through to handle_failure only when there
@@ -955,22 +963,30 @@ count_commits() {
 
 # Resolve the pull request for a branch, if any.
 # Prints "state<TAB>number<TAB>url" (state ∈ OPEN | CLOSED | MERGED), or nothing
-# when gh is missing/unauthenticated or no PR was ever opened. Callers must
-# treat "nothing" as unknown, never as "no PR therefore fine" — handle_success
-# only asks this question on a path where a false SUCCESS is the failure mode.
+# when no PR was ever opened.
+#
+# The EXIT STATUS is the second half of the answer, and callers on a destructive
+# path must read it: 0 means the query ran (empty output then really is "no PR"),
+# non-zero means it never ran — gh missing, unauthenticated, offline, or rate
+# limited. Collapsing those into "no PR" is how a green PR gets reported as a
+# failure (HON-583); handle_timeout deletes artifacts on that answer, so it
+# strands instead when the query could not be made.
 pr_for_branch() {
   local branch="$1"
+  # An empty branch is a deliberate skip by the caller, not a failed query.
   [ -z "$branch" ] && return 0
-  command -v gh &> /dev/null || return 0
+  command -v gh &> /dev/null || return 1
   # gh resolves the repo from the working directory. The orchestrator can be
   # started from anywhere, so pin it to REPO_ROOT in a subshell rather than
   # inheriting whatever cwd the operator happened to have.
   # `.[0] // empty` matters: on an empty result `.[0]` is null and the array
   # construction would emit a literal "<TAB>null<TAB>" row, which reads as a
   # PR numbered "null" downstream. Emit nothing instead.
+  # No `|| true`: a failed gh call must reach the caller as a non-zero status,
+  # not as indistinguishable silence.
   ( cd "$REPO_ROOT" && gh pr list --head "$branch" --state all --limit 1 \
       --json state,number,url --jq '.[0] // empty | [.state, (.number|tostring), .url] | @tsv' \
-  ) 2>/dev/null || true
+  ) 2>/dev/null
 }
 
 # Summarize a PR's CI as green | pending | failing | unknown. Mirrors the
@@ -1035,10 +1051,10 @@ note_consecutive_failure() {
 # Resolve the branch's PR once and publish it in globals. Bash cannot return a
 # record, and the callers each need four fields plus a derived verdict.
 #
-# WORKER_PR_MERGED is the only question that decides SUCCESS, and
-# WORKER_PR_NUMBER being empty is the only signal for "no PR at all" — which
-# also covers gh being missing or unauthenticated, since pr_for_branch is
-# silent in every one of those cases and cannot tell them apart.
+# WORKER_PR_MERGED is the only question that decides SUCCESS. WORKER_PR_NUMBER
+# being empty means "no PR" only when WORKER_PR_PROBE_OK is also true —
+# pr_for_branch is equally silent when it could not ask at all, and on the
+# timeout path that difference decides whether the branch survives.
 #
 # The trailing `return 0` is load-bearing under `set -e`: the last statement is
 # a `[ … ] && …` list that returns non-zero whenever the test fails, which would
@@ -1051,9 +1067,10 @@ probe_worker_pr() {
   WORKER_PR_URL=""
   WORKER_PR_REF="none"
   WORKER_PR_MERGED=false
+  WORKER_PR_PROBE_OK=true
 
-  local pr_info
-  pr_info=$(pr_for_branch "$branch")
+  local pr_info=""
+  pr_info=$(pr_for_branch "$branch") || WORKER_PR_PROBE_OK=false
   if [ -n "$pr_info" ]; then
     IFS=$'\t' read -r WORKER_PR_STATE WORKER_PR_NUMBER WORKER_PR_URL <<< "$pr_info"
   fi
@@ -1231,33 +1248,44 @@ handle_success() {
 # both merged by hand).
 #
 # Probe first, then route:
-#   merged PR   → SUCCESS. The cycle finished; the kill landed after the merge.
-#   unmerged PR → STRANDED, identical to the exit-0 path: artifacts preserved,
-#                 Stranded label, In Review left alone, breaker incremented.
-#   no PR       → a genuine stall. Fall through to handle_failure and triage
-#                 exactly as before.
-#
-# The no-PR case deliberately differs from handle_success, which strands an
-# unresolvable PR because a false SUCCESS there deletes the branch. Here the
-# fallback is handle_failure, which preserves the branch on a RETRY and posts
-# the log tail either way — so guessing wrong costs a triage, not the work. It
-# also keeps a gh-less orchestrator on its existing behaviour instead of
-# labelling every single timeout Stranded.
+#   merged PR              → SUCCESS. The kill landed after the merge.
+#   unmerged PR            → STRANDED, identical to the exit-0 path: artifacts
+#                            preserved, Stranded label, In Review left alone,
+#                            breaker incremented.
+#   no PR, but commits     → STRANDED too. handle_failure force-deletes the
+#                            branch on three of its four exits, and commits are
+#                            what the stranded path exists to preserve.
+#   probe never ran        → STRANDED. Silence from a broken gh is not evidence
+#                            of anything, and this is the destructive branch.
+#   no PR and no commits   → a genuine stall. handle_failure, triaged as before.
 handle_timeout() {
   local issue_id="$1" issue_uuid="$2" branch="$3" log_file="$4"
   local retried="$5" title="$6" duration_secs="$7"
 
   probe_worker_pr "$branch"
 
-  if [ -z "$WORKER_PR_NUMBER" ]; then
-    handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "timeout" "$title"
-    return 0
-  fi
-
   local commits phase duration_str
   commits=$(count_commits "$branch")
   phase=$(detect_phase "$log_file" "$branch")
   duration_str=$(format_duration "$duration_secs")
+
+  # The genuine stall, and the only route out of here that destroys anything:
+  # the query ran, it found no PR, and nothing was committed either. Both other
+  # conditions are load-bearing, because handle_failure's BACKLOG / NEEDS_HUMAN
+  # / already-retried arms end in cleanup_worker_worktree WITHOUT keep_branch —
+  # `git branch -D` plus the paired Neon branch, taking any unpushed commit with
+  # them.
+  #   commits > 0        → the same state the exit-0 path strands and preserves.
+  #                        Raising the budget to 3h makes the mid-implementation
+  #                        kill the typical remaining timeout, so this is not a
+  #                        corner case.
+  #   probe failed       → one rate-limited `gh pr list` would otherwise
+  #                        reproduce the exact HON-583 symptom on a worker that
+  #                        was killed watching a green PR.
+  if [ "$WORKER_PR_PROBE_OK" = true ] && [ -z "$WORKER_PR_NUMBER" ] && [ "${commits:-0}" -eq 0 ]; then
+    handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "timeout" "$title"
+    return 0
+  fi
 
   if [ "$WORKER_PR_MERGED" = true ]; then
     log INFO "$issue_id: killed at the timeout in phase '$phase', but PR $WORKER_PR_REF is merged — treating as success"
