@@ -457,12 +457,6 @@ get_worktree_path() {
   echo "$WORKTREE_BASE/$normalized"
 }
 
-# Check if worktree exists
-worktree_exists() {
-  local path="$1"
-  git -C "$REPO_ROOT" worktree list | grep -q "$path"
-}
-
 # Create new worktree
 cmd_new() {
   local branch=""
@@ -796,7 +790,7 @@ cmd_status() {
 
   if [ ! -f "$status_file" ]; then
     echo -e "${YELLOW}No orchestrator status file found.${NC}"
-    echo "Start the orchestrator with: ./scripts/orchestrator.sh"
+    echo "Start the orchestrator with: wt start"
     return
   fi
 
@@ -1078,11 +1072,8 @@ cmd_list() {
     fi
   done
 
-  # Also run the status script if available for more details
-  if [ -f "$SCRIPT_DIR/worktree-status.sh" ]; then
-    echo "─────────────────────────────────────────"
-    echo "Run './scripts/worktree-status.sh' for detailed status"
-  fi
+  echo "─────────────────────────────────────────"
+  echo "Run 'wt status' for orchestrator detail, 'wt watch' for a live dashboard."
 }
 
 # Cleanup a specific worktree
@@ -1979,6 +1970,62 @@ cmd_stop() {
   echo -e "${GREEN}Orchestrator stopped.${NC}"
 }
 
+# ─── .env loading ────────────────────────────────────────────────────────────
+# Read KEY=VALUE pairs out of an env file and export them.
+#
+# Parsed, never sourced. `source` executes the file as shell, so `FOO=$(rm -rf
+# ~)` was a working command rather than a parse error, and the `set -a` that
+# wrapped it exported every assignment — silently clobbering variables the
+# caller had already exported (HON-580). Nothing here evaluates the value; it is
+# only ever assigned as a literal string.
+#
+# The parse follows sanitize_log (orchestrator.sh), so the two agree on what
+# counts as a value: skip comments and blanks, split on the FIRST `=`, strip one
+# matched pair of surrounding quotes. Keys must be shell identifiers; a
+# malformed line is skipped, not fatal, and a missing file is a silent no-op —
+# commands that genuinely require a var validate it explicitly (cmd_start
+# validates LINEAR_API_KEY, neon_enabled validates NEON_*).
+#
+# A `#` after a value is part of the value, not a comment — deliberately, and
+# the one place this differs from `source`. sanitize_log takes the whole
+# remainder of the line as the secret to redact, so stripping a trailing comment
+# here and not there would leave it hunting for a string the log never contains.
+# Put comments on their own line, as .env and .env.example already do.
+load_env_file() {
+  local env_file="$1"
+  [ -f "$env_file" ] || return 0
+
+  local line key value
+  # `|| [ -n "$line" ]` so a final line with no trailing newline is still read.
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"                      # tolerate CRLF
+    line="${line#"${line%%[![:space:]]*}"}"   # trim leading whitespace
+    case "$line" in
+      '' | '#'*) continue ;;
+      'export '*)
+        line="${line#export }"
+        line="${line#"${line%%[![:space:]]*}"}"
+        ;;
+    esac
+
+    [[ "$line" == *=* ]] || continue
+    key="${line%%=*}"
+    value="${line#*=}"
+    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+
+    # One matched pair only: an unbalanced quote is part of the value.
+    if [ "${#value}" -ge 2 ]; then
+      case "$value" in
+        '"'*'"' | "'"*"'") value="${value:1:${#value}-2}" ;;
+      esac
+    fi
+
+    # `|| true` because the script runs under `set -e`: a readonly name in .env
+    # would otherwise abort the dispatcher before it reaches the command router.
+    export "$key=$value" 2> /dev/null || true
+  done < "$env_file"
+}
+
 # ─── Entry point ─────────────────────────────────────────────────────────────
 # Everything below runs only when this file is EXECUTED. `wt` is a shell alias
 # that executes the script, so this is behaviour-neutral for every real caller;
@@ -1990,16 +2037,10 @@ if [ "${BASH_SOURCE[0]}" != "${0}" ]; then
   return 0
 fi
 
-# Load .env so NEON_API_KEY / NEON_PROJECT_ID (and anything else) are
-# available to every subcommand. Silent no-op if .env is missing — commands
-# that genuinely require specific vars validate them explicitly (cmd_start
-# validates LINEAR_API_KEY, neon_enabled validates NEON_*).
-if [ -f "$REPO_ROOT/.env" ]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "$REPO_ROOT/.env"
-  set +a
-fi
+# Make NEON_API_KEY / NEON_PROJECT_ID / LINEAR_API_KEY (and anything else in
+# .env) available to every subcommand. See load_env_file for why this parses
+# rather than sources.
+load_env_file "$REPO_ROOT/.env"
 
 # Main command router
 case "${1:-}" in

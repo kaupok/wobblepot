@@ -4,7 +4,12 @@
 # Polls Linear for Todo issues, claims them (moves each to In Progress), spawns worktree workers,
 # and handles the full lifecycle including failure triage.
 #
-# Usage:
+# Entry point: `wt start [flags]`. The `wt` dispatcher (scripts/worktree-claude.sh)
+# is what loads .env, so running this script directly only works when
+# LINEAR_API_KEY is already exported. The flags below are passed through by
+# `wt start` verbatim.
+#
+# Flags:
 #   ./scripts/orchestrator.sh                          # Run with defaults
 #   ./scripts/orchestrator.sh --max-workers 3          # Limit concurrent workers
 #   ./scripts/orchestrator.sh --dry-run                # Log actions without executing
@@ -64,6 +69,13 @@ TRIAGE_TIMEOUT="${ORCHESTRATOR_TRIAGE_TIMEOUT:-120}"
 # reads as an infrastructure fault (HON-578).
 MAIN_LOG_MAX_BYTES="${ORCHESTRATOR_LOG_MAX_BYTES:-52428800}"          # 50 MB
 WORKER_LOG_MAX_AGE_DAYS="${ORCHESTRATOR_WORKER_LOG_MAX_AGE_DAYS:-14}"
+# How many Todo issues one poll considers. Not paginated: the orchestrator
+# claims at most one issue per cycle, so a deeper page buys nothing. The cost of
+# the cap is that a longer queue is invisible — fetch_todo_issues asks for one
+# row past it and logs a WARN when that row comes back, so the truncation shows
+# up in the log instead of being inferred from a queue that never drains
+# (HON-580).
+LINEAR_TODO_PAGE_SIZE=50
 DRY_RUN=false
 RUN_ONCE=false
 
@@ -351,13 +363,16 @@ linear_api() {
 # ─── Fetch Todo issues with relations ────────────────────────────────────────
 
 fetch_todo_issues() {
-  linear_api '{
+  local response
+  # One row past LINEAR_TODO_PAGE_SIZE: the extra node is what makes the cap
+  # detectable without a second round trip.
+  response=$(linear_api '{
     issues(
       filter: {
         team: { key: { eq: "HON" } }
         state: { id: { eq: "'"$STATE_TODO"'" } }
       }
-      first: 50
+      first: '"$((LINEAR_TODO_PAGE_SIZE + 1))"'
     ) {
       nodes {
         id
@@ -387,7 +402,19 @@ fetch_todo_issues() {
         }
       }
     }
-  }'
+  }') || return 1
+
+  local count
+  count=$(printf '%s' "$response" | jq '.data.issues.nodes | length' 2>/dev/null) || count=0
+  [[ "$count" =~ ^[0-9]+$ ]] || count=0
+
+  if [ "$count" -gt "$LINEAR_TODO_PAGE_SIZE" ]; then
+    log WARN "Todo queue exceeds the $LINEAR_TODO_PAGE_SIZE-issue query cap — issues past the cap are invisible to this poll"
+  fi
+
+  # log() writes stderr and $MAIN_LOG, never stdout, so the WARN above cannot
+  # contaminate the JSON the caller parses.
+  printf '%s\n' "$response"
 }
 
 # ─── Select next issue ──────────────────────────────────────────────────────

@@ -1351,4 +1351,203 @@ describe('orchestrator.sh', () => {
       expect(body).not.toContain("tr '/' '-'")
     })
   })
+  // ─── HON-580: janitorial pass over the orchestrator scripts ───────────────
+  // Five minor HON-572 follow-ups. Each was invisible rather than broken: a
+  // queue that truncated without saying so, a dead function, two hints naming
+  // an entry point that cannot work, and a .env load that executed the file.
+  describe('HON-580 orchestrator script cleanup', () => {
+    describe('Todo queue cap', () => {
+      const fetchTodo = (count: number) => stripTimestamps(runHarness('todo-cap', String(count)))
+
+      it('warns when the queue is deeper than the cap', () => {
+        const out = fetchTodo(51)
+
+        expect(out).toContain('WARN')
+        expect(out).toContain('Todo queue exceeds the 50-issue query cap')
+      })
+
+      it.each([0, 1, 50])('stays silent at %i issues', (count) => {
+        expect(fetchTodo(count)).not.toContain('Todo queue exceeds')
+      })
+
+      it('leaves the JSON the caller parses uncontaminated', () => {
+        // log() writes stderr and $MAIN_LOG. A WARN on stdout would break
+        // select_next_issue's jq parse on exactly the poll that needed it most.
+        expect(fetchTodo(51)).toContain('NODES:51')
+      })
+
+      it('asks for one row past the cap, from the named constant', () => {
+        const source = fs.readFileSync(orchestrator, 'utf8')
+        const body = shellFunctionBody(source, 'fetch_todo_issues')
+
+        expect(source).toContain('LINEAR_TODO_PAGE_SIZE=50')
+        expect(body).toContain('first: \'"$((LINEAR_TODO_PAGE_SIZE + 1))"\'')
+        // The bare literal the query and the message used to drift apart on.
+        expect(body).not.toContain('first: 50')
+      })
+    })
+
+    it('has no dead worktree_exists()', () => {
+      // Zero callers, and its `grep -q "$path"` lacked -F, so a path with regex
+      // metacharacters would have matched wrongly. get_worktree_path does the
+      // real work.
+      expect(fs.readFileSync(worktreeClaude, 'utf8')).not.toContain('worktree_exists')
+    })
+
+    describe('entry point', () => {
+      // ./scripts/orchestrator.sh does not load .env — the wt dispatcher does —
+      // so a direct invocation dies on a missing LINEAR_API_KEY.
+      it('points cmd_status at wt start', () => {
+        const body = shellFunctionBody(fs.readFileSync(worktreeClaude, 'utf8'), 'cmd_status')
+
+        expect(body).not.toContain('./scripts/orchestrator.sh')
+        expect(body).toContain('wt start')
+      })
+
+      it('points PARALLEL_WORKFLOW.md at wt start', () => {
+        const doc = fs.readFileSync(
+          path.join(scriptsDir, '..', 'docs', 'PARALLEL_WORKFLOW.md'),
+          'utf8',
+        )
+
+        // An invocation is a line that RUNS it. Prose naming the path (the
+        // sentence explaining why not to run it) is the point, not a relapse.
+        const invocations = doc
+          .split('\n')
+          .filter((line) => line.trimStart().startsWith('./scripts/orchestrator.sh'))
+
+        expect(invocations).toEqual([])
+        expect(doc).toContain('wt start --dry-run')
+      })
+    })
+
+    it('no longer ships or advertises worktree-status.sh', () => {
+      // Superseded by `wt status` / `wt watch`.
+      expect(fs.existsSync(path.join(scriptsDir, 'worktree-status.sh'))).toBe(false)
+      expect(fs.readFileSync(worktreeClaude, 'utf8')).not.toContain('worktree-status.sh')
+    })
+
+    describe('.env is parsed, not sourced', () => {
+      let dir: string
+
+      /** Run the real load_env_file over a fixture and return KEY -> value. */
+      function loadEnv(contents: string, env: Record<string, string> = {}): Map<string, string> {
+        const file = path.join(dir, '.env')
+        fs.writeFileSync(file, contents)
+        const out = execFileSync('bash', [harness, 'load-env', file], {
+          encoding: 'utf8',
+          timeout: 30_000,
+          env: harnessEnv(env),
+        })
+        return new Map(
+          out
+            .split('\n')
+            .filter(Boolean)
+            .map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]),
+        )
+      }
+
+      beforeAll(() => {
+        dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hon580-env-'))
+      })
+
+      afterAll(() => fs.rmSync(dir, { recursive: true, force: true }))
+
+      it('does not execute a command substitution in a value', () => {
+        // `source` ran the file as shell, so this line was a working command.
+        const canary = path.join(dir, 'pwned')
+        const parsed = loadEnv(`HON580_PWNED=$(touch ${canary})\n`)
+
+        expect(fs.existsSync(canary)).toBe(false)
+        expect(parsed.get('HON580_PWNED')).toBe(`$(touch ${canary})`)
+      })
+
+      it('handles quotes, embedded `=`, comments, blanks and export prefixes', () => {
+        const parsed = loadEnv(
+          [
+            '# a comment',
+            '   # an indented comment',
+            '',
+            'HON580_PLAIN=plainvalue',
+            'HON580_QUOTED="quoted value"',
+            "HON580_SINGLE='single value'",
+            'HON580_EQUALS=postgresql://u:p@h/db?a=1&b=2',
+            'HON580_UNBALANCED="stillquoted',
+            'HON580_EMPTY=',
+            'export HON580_EXPORTED=yes',
+            '',
+          ].join('\n'),
+        )
+
+        expect(parsed.get('HON580_PLAIN')).toBe('plainvalue')
+        expect(parsed.get('HON580_QUOTED')).toBe('quoted value')
+        expect(parsed.get('HON580_SINGLE')).toBe('single value')
+        // Split on the FIRST `=`, so a connection string survives whole.
+        expect(parsed.get('HON580_EQUALS')).toBe('postgresql://u:p@h/db?a=1&b=2')
+        // One matched pair only: an unbalanced quote is part of the value.
+        expect(parsed.get('HON580_UNBALANCED')).toBe('"stillquoted')
+        expect(parsed.get('HON580_EMPTY')).toBe('')
+        expect(parsed.get('HON580_EXPORTED')).toBe('yes')
+      })
+
+      it('skips malformed lines without aborting the load', () => {
+        // The dispatcher runs under `set -e`; a fatal parse would take out every
+        // wt subcommand, not just the bad line.
+        const parsed = loadEnv(
+          [
+            'this line has no equals sign',
+            '123BAD=nope',
+            'HON580_AFTER=reached',
+            'HON580_NOEOL=lastline', // deliberately no trailing newline
+          ].join('\n'),
+        )
+
+        expect(parsed.get('HON580_AFTER')).toBe('reached')
+        expect(parsed.get('HON580_NOEOL')).toBe('lastline')
+        expect(parsed.has('123BAD')).toBe(false)
+      })
+
+      it('tolerates extra whitespace after an export prefix', () => {
+        const parsed = loadEnv('export   HON580_SPACED=yes\n')
+
+        expect(parsed.get('HON580_SPACED')).toBe('yes')
+      })
+
+      it('treats a trailing `#` as part of the value, matching sanitize_log', () => {
+        // The one deliberate divergence from `source`. Stripping it here and
+        // not in sanitize_log would leave redaction hunting for a string the
+        // log never contains.
+        const parsed = loadEnv('HON580_HASH=val # not a comment\n')
+
+        expect(parsed.get('HON580_HASH')).toBe('val # not a comment')
+      })
+
+      it('leaves a pre-existing exported variable it does not name alone', () => {
+        // `set -a` + `source` exported every assignment in the file, silently
+        // clobbering what the caller had already exported.
+        const parsed = loadEnv('HON580_PLAIN=fromfile\n', { HON580_PRE: 'survives' })
+
+        expect(parsed.get('HON580_PRE')).toBe('survives')
+        expect(parsed.get('HON580_PLAIN')).toBe('fromfile')
+      })
+
+      it('is a silent no-op when the file is missing', () => {
+        expect(() =>
+          execFileSync('bash', [harness, 'load-env', path.join(dir, 'nope.env')], {
+            encoding: 'utf8',
+            timeout: 30_000,
+            env: harnessEnv(),
+          }),
+        ).not.toThrow()
+      })
+
+      it('never sources the file', () => {
+        const source = fs.readFileSync(worktreeClaude, 'utf8')
+
+        expect(source).toContain('load_env_file "$REPO_ROOT/.env"')
+        expect(source).not.toContain('source "$REPO_ROOT/.env"')
+        expect(source.split('\n').some((l) => l.trim() === 'set -a')).toBe(false)
+      })
+    })
+  })
 })

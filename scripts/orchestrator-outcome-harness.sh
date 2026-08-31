@@ -93,6 +93,18 @@
 #
 #   normalize-branch <branch>                                       (HON-579)
 #     Sources worktree-claude.sh and prints the REAL normalize_branch.
+#
+#   todo-cap <count>                                                (HON-580)
+#     Drives the REAL fetch_todo_issues with linear_api stubbed to return
+#     exactly <count> nodes, so the cap check on what comes back is under test
+#     without a Linear round trip. Prints NODES:<n> plus whatever landed in
+#     $MAIN_LOG, which is where the cap WARN goes.
+#
+#   load-env <env-file>                                             (HON-580)
+#     Sources worktree-claude.sh and runs the REAL load_env_file over a fixture
+#     .env, then prints the HON580_* namespace. Only that namespace: a real
+#     value from the developer's environment can never reach test output, and
+#     the fixture owns the prefix.
 
 HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -422,6 +434,35 @@ EOF
     # shellcheck source=./worktree-claude.sh
     source "$HARNESS_DIR/worktree-claude.sh"
     normalize_branch "$A1"
+    exit 0
+    ;;
+
+  # ─── Todo queue cap warning (HON-580 finding 1) ────────────────────────────
+  todo-cap)
+    # The GraphQL round trip is not what is under test — the cap check on the
+    # response is. Stub linear_api with exactly A1 synthetic nodes.
+    linear_api() {
+      jq -nc --argjson n "$A1" \
+        '{data: {issues: {nodes: [range($n) | {identifier: ("HON-" + (. | tostring))}]}}}'
+    }
+    trap 'rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE"' EXIT
+    # Proves the WARN did not contaminate the JSON the caller parses: log()
+    # writes stderr and $MAIN_LOG, never stdout.
+    echo "NODES:$(fetch_todo_issues | jq '.data.issues.nodes | length')"
+    cat "$MAIN_LOG"
+    exit 0
+    ;;
+
+  # ─── .env parsing (HON-580 finding 5) ──────────────────────────────────────
+  load-env)
+    # Sourced, not executed — see neon-gc-select above for why that is safe.
+    # Crucially, the guard returns BEFORE worktree-claude.sh's own .env load, so
+    # the only file this mode reads is the fixture.
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    load_env_file "$A1"
+    # The fixture owns the HON580_ prefix; nothing else is printed.
+    env | grep '^HON580_' | sort || true
     exit 0
     ;;
 
