@@ -1069,9 +1069,42 @@ describe('orchestrator.sh', () => {
       const wrapper = shellFunctionBody(source, 'run_with_timeout')
 
       expect(failureBody).toContain('run_with_timeout "$TRIAGE_TIMEOUT"')
-      // Prefers GNU timeout, then gtimeout (coreutils on macOS).
+      // Prefers GNU timeout, then gtimeout (coreutils on macOS), then the
+      // pure-bash watchdog — never an unbounded passthrough.
       expect(wrapper).toContain('timeout "$secs"')
       expect(wrapper).toContain('gtimeout "$secs"')
+      expect(wrapper).toContain('bash_timeout "$secs"')
+      // The passthrough that made the whole guard a no-op wherever coreutils
+      // is absent. `"$@"` alone on a line is the shape to keep out.
+      expect(wrapper).not.toMatch(/^\s*"\$@"\s*$/m)
+    })
+  })
+
+  // ─── HON-578: the coreutils-free fallback ─────────────────────────────────
+  // macOS ships neither `timeout` nor `gtimeout` — both come from coreutils,
+  // which is not installed by default — and the orchestrator's host is a Mac.
+  // So this is the branch that runs in production, while Linux CI always takes
+  // the GNU branch and would never exercise it. Drive it directly.
+  describe('bash_timeout watchdog', () => {
+    const drive = (bound: string, commandSleep: string) =>
+      runHarness('bash-timeout', bound, commandSleep)
+
+    it('reports 124 when the command outlives the bound', () => {
+      const out = drive('1', '4')
+
+      expect(out).toContain('EXIT:124')
+      // Killed before it could echo, so the bound really cut it short.
+      expect(out).not.toContain('piped-stdin')
+    })
+
+    it('passes stdin through and returns the real status inside the bound', () => {
+      const out = drive('5', '0')
+
+      expect(out).toContain('EXIT:0')
+      // Bash gives an async command /dev/null for stdin when job control is
+      // off; without the explicit re-attach the triage CLI would be handed an
+      // empty log and asked to diagnose it.
+      expect(out).toContain('OUT:piped-stdin')
     })
   })
 

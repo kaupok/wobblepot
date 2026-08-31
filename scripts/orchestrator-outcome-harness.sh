@@ -41,6 +41,12 @@
 #     sanitize-at-capture pass (HON-577).
 #     Ends with CONSECUTIVE_FAILURES / PAUSED / the write_status_file JSON.
 #
+#   bash-timeout <bound-secs> <command-sleep-secs>                  (HON-578)
+#     Drives the REAL bash_timeout watchdog — the branch taken on a host with no
+#     coreutils `timeout`, which is every stock macOS, the orchestrator included.
+#     Prints OUT (the command's stdout, proving stdin survived backgrounding)
+#     and EXIT (124 when the bound was hit).
+#
 #   failure-seq <triage:retried:shutting_down,...>        (HON-572, finding 2)
 #     Same stubs, but replays a SEQUENCE of different failures in one process.
 #     This is what models a systemic fault sweeping the queue: every issue fails
@@ -347,6 +353,24 @@ EOF
     for f in "$LOG_DIR"/worker-*.log; do
       [ -e "$f" ] && echo "WORKER:$(basename "$f")"
     done
+    exit 0
+    ;;
+
+  # ─── Pure-bash timeout fallback (HON-578) ──────────────────────────────────
+  bash-timeout)
+    # A1 = the bound, A2 = how long the command sleeps. Drives the REAL
+    # coreutils-free watchdog directly, so Linux CI — which HAS GNU timeout and
+    # would always take the first branch — still covers the branch macOS always
+    # takes. The command reads stdin before sleeping, so OUT also proves the
+    # async job kept the caller's pipe instead of bash's /dev/null default.
+    #
+    # `|| status=$?` rather than `set +e`: errexit is dynamic, and clearing it
+    # would change the code under test.
+    status=0
+    out=$(echo "piped-stdin" | bash_timeout "$A1" \
+      sh -c 'read -r line; sleep "$0"; printf "%s\n" "$line"' "$A2") || status=$?
+    echo "OUT:$out"
+    echo "EXIT:$status"
     exit 0
     ;;
 

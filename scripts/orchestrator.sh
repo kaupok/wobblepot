@@ -185,10 +185,14 @@ log() {
   printf "%s %-5s %s\n" "$ts" "$level" "$*" >> "$MAIN_LOG"
 }
 
-# Run a command under a wall-clock bound. Prefers GNU `timeout`, falls back to
-# `gtimeout` (coreutils on macOS); when neither is installed the command runs
-# unbounded, the same as before this guard existed. A hit bound surfaces as
-# exit 124, which the caller treats as a soft failure.
+# Run a command under a wall-clock bound. A hit bound surfaces as exit 124 —
+# the code GNU `timeout` uses — whichever branch runs, so callers need one test.
+#
+# Prefers GNU `timeout`, then `gtimeout` (coreutils on macOS), then a pure-bash
+# watchdog. The watchdog is not a nicety: macOS ships NEITHER `timeout` nor
+# `gtimeout` (both come from coreutils, which is not installed by default) and
+# the orchestrator's own host is a Mac, so a passthrough fallback would leave
+# this guard a no-op on the one machine it exists to protect.
 run_with_timeout() {
   local secs="$1"; shift
   if command -v timeout &> /dev/null; then
@@ -196,8 +200,52 @@ run_with_timeout() {
   elif command -v gtimeout &> /dev/null; then
     gtimeout "$secs" "$@"
   else
-    "$@"
+    bash_timeout "$secs" "$@"
   fi
+}
+
+# Pure-bash watchdog for hosts without coreutils. Kept a separate function so it
+# is directly testable: CI runs on Linux, which HAS GNU `timeout`, and would
+# otherwise never execute the branch macOS always takes.
+bash_timeout() {
+  local secs="$1"; shift
+  local status=0 cmd_pid watchdog_pid
+
+  # Re-attach stdin explicitly. Bash hands an asynchronous command /dev/null for
+  # stdin whenever job control is off — every non-interactive run, including this
+  # one — which would starve a piped consumer like the triage CLI of the log tail
+  # it is being asked to read. An explicit redirection opts out of that default.
+  exec 3<&0
+  "$@" <&3 &
+  cmd_pid=$!
+  exec 3<&-
+
+  # Poll rather than sleeping the whole bound, so the watchdog exits on its own
+  # as soon as the command finishes and never has to be killed: killing a
+  # background job can make bash write a job-status line to stderr, which the
+  # triage call captures with 2>&1 and would then parse as a verdict.
+  (
+    waited=0
+    while [ "$waited" -lt "$secs" ]; do
+      kill -0 "$cmd_pid" 2>/dev/null || exit 0
+      sleep 1
+      waited=$((waited + 1))
+    done
+    kill -TERM "$cmd_pid" 2>/dev/null || exit 0
+    sleep 2
+    kill -KILL "$cmd_pid" 2>/dev/null || true
+  ) &
+  watchdog_pid=$!
+
+  wait "$cmd_pid" 2>/dev/null || status=$?
+  wait "$watchdog_pid" 2>/dev/null || true
+
+  # A command the watchdog killed exits 143 (128+SIGTERM) or 137 (128+SIGKILL).
+  # Report both as 124 so the caller has one "bound hit" code across all hosts.
+  if [ "$status" -eq 143 ] || [ "$status" -eq 137 ]; then
+    return 124
+  fi
+  return "$status"
 }
 
 # ─── Log rotation and pruning ────────────────────────────────────────────────
