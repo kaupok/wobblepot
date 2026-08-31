@@ -72,9 +72,9 @@ WORKER_LOG_MAX_AGE_DAYS="${ORCHESTRATOR_WORKER_LOG_MAX_AGE_DAYS:-14}"
 # How many Todo issues one poll considers. Not paginated: the orchestrator
 # claims at most one issue per cycle, so a deeper page buys nothing. The cost of
 # the cap is that a longer queue is invisible — fetch_todo_issues asks for one
-# row past it and logs a WARN when that row comes back, so the truncation shows
-# up in the log instead of being inferred from a queue that never drains
-# (HON-580).
+# row past it and logs a WARN naming what it saw when that row comes back, so
+# the truncation shows up in the log instead of being inferred from a queue that
+# never drains (HON-580). The extra row stays in play as a real candidate.
 LINEAR_TODO_PAGE_SIZE=50
 DRY_RUN=false
 RUN_ONCE=false
@@ -408,8 +408,12 @@ fetch_todo_issues() {
   count=$(printf '%s' "$response" | jq '.data.issues.nodes | length' 2>/dev/null) || count=0
   [[ "$count" =~ ^[0-9]+$ ]] || count=0
 
+  # The extra row is live data, not a discarded probe: select_next_issue sorts
+  # across every node it is handed, so nothing is hidden until the queue is
+  # deeper than what this poll actually saw. Reporting the count keeps the line
+  # true at every depth — at exactly cap+1 issues none were missed.
   if [ "$count" -gt "$LINEAR_TODO_PAGE_SIZE" ]; then
-    log WARN "Todo queue exceeds the $LINEAR_TODO_PAGE_SIZE-issue query cap — issues past the cap are invisible to this poll"
+    log WARN "Todo queue is deeper than the $LINEAR_TODO_PAGE_SIZE-issue query cap — this poll considered $count issue(s); anything past them is invisible"
   fi
 
   # log() writes stderr and $MAIN_LOG, never stdout, so the WARN above cannot

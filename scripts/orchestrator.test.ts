@@ -9,6 +9,7 @@ const scriptsDir = path.dirname(fileURLToPath(import.meta.url))
 const orchestrator = path.join(scriptsDir, 'orchestrator.sh')
 const worktreeClaude = path.join(scriptsDir, 'worktree-claude.sh')
 const neonCleanup = path.join(scriptsDir, 'neon-cleanup.sh')
+const e2eLocal = path.join(scriptsDir, 'e2e-local.sh')
 const harness = path.join(scriptsDir, 'orchestrator-outcome-harness.sh')
 
 /**
@@ -84,6 +85,7 @@ describe('orchestrator.sh', () => {
     ['orchestrator.sh', orchestrator],
     ['worktree-claude.sh', worktreeClaude],
     ['neon-cleanup.sh', neonCleanup],
+    ['e2e-local.sh', e2eLocal],
   ])('%s is syntactically valid', (_name, script) => {
     expect(() => execFileSync('bash', ['-n', script], { timeout: 30_000 })).not.toThrow()
   })
@@ -1359,15 +1361,19 @@ describe('orchestrator.sh', () => {
     describe('Todo queue cap', () => {
       const fetchTodo = (count: number) => stripTimestamps(runHarness('todo-cap', String(count)))
 
-      it('warns when the queue is deeper than the cap', () => {
+      it('warns when the queue is deeper than the cap, naming what it saw', () => {
         const out = fetchTodo(51)
 
         expect(out).toContain('WARN')
-        expect(out).toContain('Todo queue exceeds the 50-issue query cap')
+        expect(out).toContain('Todo queue is deeper than the 50-issue query cap')
+        // The count, not the cap: the extra row is a live candidate that
+        // select_next_issue sorts across, so at exactly 51 nothing was missed.
+        // A message asserting otherwise is a false alarm every poll interval.
+        expect(out).toContain('considered 51 issue(s)')
       })
 
       it.each([0, 1, 50])('stays silent at %i issues', (count) => {
-        expect(fetchTodo(count)).not.toContain('Todo queue exceeds')
+        expect(fetchTodo(count)).not.toContain('Todo queue is deeper')
       })
 
       it('leaves the JSON the caller parses uncontaminated', () => {
@@ -1439,11 +1445,15 @@ describe('orchestrator.sh', () => {
           timeout: 30_000,
           env: harnessEnv(env),
         })
+        // NUL-separated records, so a value containing a newline arrives whole.
         return new Map(
           out
-            .split('\n')
+            .split('\0')
             .filter(Boolean)
-            .map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]),
+            .map((entry) => [
+              entry.slice(0, entry.indexOf('=')),
+              entry.slice(entry.indexOf('=') + 1),
+            ]),
         )
       }
 
@@ -1472,9 +1482,9 @@ describe('orchestrator.sh', () => {
             'HON580_QUOTED="quoted value"',
             "HON580_SINGLE='single value'",
             'HON580_EQUALS=postgresql://u:p@h/db?a=1&b=2',
-            'HON580_UNBALANCED="stillquoted',
             'HON580_EMPTY=',
             'export HON580_EXPORTED=yes',
+            'export   HON580_SPACED=yes',
             '',
           ].join('\n'),
         )
@@ -1484,10 +1494,59 @@ describe('orchestrator.sh', () => {
         expect(parsed.get('HON580_SINGLE')).toBe('single value')
         // Split on the FIRST `=`, so a connection string survives whole.
         expect(parsed.get('HON580_EQUALS')).toBe('postgresql://u:p@h/db?a=1&b=2')
-        // One matched pair only: an unbalanced quote is part of the value.
-        expect(parsed.get('HON580_UNBALANCED')).toBe('"stillquoted')
         expect(parsed.get('HON580_EMPTY')).toBe('')
         expect(parsed.get('HON580_EXPORTED')).toBe('yes')
+        expect(parsed.get('HON580_SPACED')).toBe('yes')
+      })
+
+      it('accepts a tab after `export`, as source did', () => {
+        // Matching only a literal `export ` dropped the line with no
+        // diagnostic. On LINEAR_API_KEY that reads as "not set (check .env)"
+        // while the key is sitting in the file.
+        const parsed = loadEnv('export\tHON580_TABBED=tabbed\n')
+
+        expect(parsed.get('HON580_TABBED')).toBe('tabbed')
+      })
+
+      it('joins a quoted value left open across lines', () => {
+        // Taking only the first line exported a plausible WRONG value —
+        // silently truncated, with the opening quote still attached.
+        const parsed = loadEnv('HON580_MULTI="line1\nline2"\nHON580_AFTER=reached\n')
+
+        expect(parsed.get('HON580_MULTI')).toBe('line1\nline2')
+        // The continuation is consumed, not re-parsed as its own assignment.
+        expect(parsed.get('HON580_AFTER')).toBe('reached')
+      })
+
+      it('keeps a quote left unterminated at EOF visible in the value', () => {
+        // Better a visibly malformed string than a plausible wrong one.
+        const parsed = loadEnv('HON580_UNBALANCED="stillquoted\n')
+
+        expect(parsed.get('HON580_UNBALANCED')).toBe('"stillquoted')
+      })
+
+      it('trims an unquoted value the way source did, and only an unquoted one', () => {
+        // A trailing space on LINEAR_API_KEY still passes validate_environment's
+        // `^lin_api_` check, so the failure surfaces as "Cannot connect to
+        // Linear API" rather than anything naming the real cause.
+        const parsed = loadEnv(
+          [
+            'HON580_TRAILWS=lin_api_abc123   ',
+            'HON580_QUOTEDWS="keep me   "',
+            'HON580_COMMENT=val # a comment',
+            'HON580_QCOMMENT="val # kept"',
+            'HON580_HASHINWORD=p@ss#word',
+            '',
+          ].join('\n'),
+        )
+
+        expect(parsed.get('HON580_TRAILWS')).toBe('lin_api_abc123')
+        expect(parsed.get('HON580_QUOTEDWS')).toBe('keep me   ')
+        expect(parsed.get('HON580_COMMENT')).toBe('val')
+        expect(parsed.get('HON580_QCOMMENT')).toBe('val # kept')
+        // The `#` must be whitespace-preceded to start a comment, so a `#`
+        // inside a password survives.
+        expect(parsed.get('HON580_HASHINWORD')).toBe('p@ss#word')
       })
 
       it('skips malformed lines without aborting the load', () => {
@@ -1507,28 +1566,19 @@ describe('orchestrator.sh', () => {
         expect(parsed.has('123BAD')).toBe(false)
       })
 
-      it('tolerates extra whitespace after an export prefix', () => {
-        const parsed = loadEnv('export   HON580_SPACED=yes\n')
+      it('lets .env win over a variable the caller already exported', () => {
+        // Same precedence `set -a` + `source` had, and `wt auto` depends on it.
+        // The fixture must NAME the variable — asserting on one the file never
+        // mentions passes against any implementation, including the old one.
+        const parsed = loadEnv('HON580_PRE=fromfile\n', { HON580_PRE: 'preexisting' })
 
-        expect(parsed.get('HON580_SPACED')).toBe('yes')
+        expect(parsed.get('HON580_PRE')).toBe('fromfile')
       })
 
-      it('treats a trailing `#` as part of the value, matching sanitize_log', () => {
-        // The one deliberate divergence from `source`. Stripping it here and
-        // not in sanitize_log would leave redaction hunting for a string the
-        // log never contains.
-        const parsed = loadEnv('HON580_HASH=val # not a comment\n')
+      it('leaves a variable the file does not name alone', () => {
+        const parsed = loadEnv('HON580_PLAIN=fromfile\n', { HON580_OTHER: 'untouched' })
 
-        expect(parsed.get('HON580_HASH')).toBe('val # not a comment')
-      })
-
-      it('leaves a pre-existing exported variable it does not name alone', () => {
-        // `set -a` + `source` exported every assignment in the file, silently
-        // clobbering what the caller had already exported.
-        const parsed = loadEnv('HON580_PLAIN=fromfile\n', { HON580_PRE: 'survives' })
-
-        expect(parsed.get('HON580_PRE')).toBe('survives')
-        expect(parsed.get('HON580_PLAIN')).toBe('fromfile')
+        expect(parsed.get('HON580_OTHER')).toBe('untouched')
       })
 
       it('is a silent no-op when the file is missing', () => {
@@ -1541,12 +1591,27 @@ describe('orchestrator.sh', () => {
         ).not.toThrow()
       })
 
-      it('never sources the file', () => {
-        const source = fs.readFileSync(worktreeClaude, 'utf8')
+      // e2e-local.sh carries its own copy of the parser — it does not source
+      // worktree-claude.sh — so a `set -a` + `source` relapse there is the same
+      // defect one file over. Assert on both, or the fix half-holds.
+      it.each([
+        ['worktree-claude.sh', worktreeClaude],
+        ['e2e-local.sh', e2eLocal],
+      ])('%s parses .env rather than sourcing it', (_n, script) => {
+        const source = fs.readFileSync(script, 'utf8')
 
         expect(source).toContain('load_env_file "$REPO_ROOT/.env"')
         expect(source).not.toContain('source "$REPO_ROOT/.env"')
         expect(source.split('\n').some((l) => l.trim() === 'set -a')).toBe(false)
+      })
+
+      it('keeps the two copies of the parser in step', () => {
+        // The repo duplicates helpers between scripts for self-containment
+        // (CLAUDE.md); a divergence here is worse than the duplication.
+        const body = (script: string) =>
+          shellFunctionBody(fs.readFileSync(script, 'utf8'), 'load_env_file')
+
+        expect(body(e2eLocal)).toBe(body(worktreeClaude))
       })
     })
   })

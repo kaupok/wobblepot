@@ -102,9 +102,10 @@
 #
 #   load-env <env-file>                                             (HON-580)
 #     Sources worktree-claude.sh and runs the REAL load_env_file over a fixture
-#     .env, then prints the HON580_* namespace. Only that namespace: a real
-#     value from the developer's environment can never reach test output, and
-#     the fixture owns the prefix.
+#     .env, then prints the HON580_* namespace, NUL-separated so a multi-line
+#     value survives the trip. Only that namespace: a real value from the
+#     developer's environment can never reach test output, and the fixture owns
+#     the prefix.
 
 HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -461,8 +462,14 @@ EOF
     # shellcheck source=./worktree-claude.sh
     source "$HARNESS_DIR/worktree-claude.sh"
     load_env_file "$A1"
-    # The fixture owns the HON580_ prefix; nothing else is printed.
-    env | grep '^HON580_' | sort || true
+    # The fixture owns the HON580_ prefix; nothing else is printed. NUL-separated
+    # rather than line-oriented, because `env | grep` prints only the line that
+    # matched — it would drop the tail of a multi-line value and make a
+    # truncating parser look correct, which is one of the things this mode exists
+    # to catch.
+    env -0 | while IFS= read -r -d '' entry; do
+      case "$entry" in HON580_*) printf '%s\0' "$entry" ;; esac
+    done
     exit 0
     ;;
 

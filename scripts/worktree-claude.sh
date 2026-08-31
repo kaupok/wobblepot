@@ -1853,7 +1853,7 @@ cmd_start() {
     fi
   fi
 
-  # .env is sourced by the top-level dispatcher; just validate the orchestrator's
+  # .env is loaded by the top-level dispatcher; just validate the orchestrator's
   # required var here.
   if [ -z "${LINEAR_API_KEY:-}" ]; then
     echo -e "${RED}Error: LINEAR_API_KEY not set (check $REPO_ROOT/.env)${NC}"
@@ -1975,35 +1975,39 @@ cmd_stop() {
 #
 # Parsed, never sourced. `source` executes the file as shell, so `FOO=$(rm -rf
 # ~)` was a working command rather than a parse error, and the `set -a` that
-# wrapped it exported every assignment — silently clobbering variables the
-# caller had already exported (HON-580). Nothing here evaluates the value; it is
-# only ever assigned as a literal string.
+# wrapped it marked every assignment the file made for export, including ones a
+# well-formed-line filter rejects (HON-580). Nothing here evaluates the value;
+# it is only ever assigned as a literal string.
 #
-# The parse follows sanitize_log (orchestrator.sh), so the two agree on what
-# counts as a value: skip comments and blanks, split on the FIRST `=`, strip one
-# matched pair of surrounding quotes. Keys must be shell identifiers; a
-# malformed line is skipped, not fatal, and a missing file is a silent no-op —
-# commands that genuinely require a var validate it explicitly (cmd_start
-# validates LINEAR_API_KEY, neon_enabled validates NEON_*).
+# Precedence is unchanged: .env wins over what the caller already exported.
+# Every `wt` subcommand depends on that — `wt auto` patches DATABASE_URL into a
+# worktree's own .env copy and needs it to beat the parent shell's.
 #
-# A `#` after a value is part of the value, not a comment — deliberately, and
-# the one place this differs from `source`. sanitize_log takes the whole
-# remainder of the line as the secret to redact, so stripping a trailing comment
-# here and not there would leave it hunting for a string the log never contains.
-# Put comments on their own line, as .env and .env.example already do.
+# Otherwise the parse mirrors what `source` did with a well-formed line, since
+# that is the behaviour every existing .env was written against: skip comments
+# and blanks, split on the FIRST `=`, drop trailing whitespace and a
+# whitespace-preceded `#` comment from an unquoted value, and strip one matched
+# pair of surrounding quotes (a quoted value keeps its spaces and its `#` —
+# that is what the quotes are for). A quoted value left open continues on the
+# next line. Keys must be shell identifiers; a malformed line is skipped, not
+# fatal, and a missing file is a silent no-op — commands that genuinely require
+# a var validate it explicitly (cmd_start validates LINEAR_API_KEY,
+# neon_enabled validates NEON_*).
 load_env_file() {
   local env_file="$1"
   [ -f "$env_file" ] || return 0
 
-  local line key value
+  local line key value quote cont
   # `|| [ -n "$line" ]` so a final line with no trailing newline is still read.
   while IFS= read -r line || [ -n "$line" ]; do
     line="${line%$'\r'}"                      # tolerate CRLF
     line="${line#"${line%%[![:space:]]*}"}"   # trim leading whitespace
     case "$line" in
       '' | '#'*) continue ;;
-      'export '*)
-        line="${line#export }"
+      # Both spellings `source` accepted. Matching only a literal `export `
+      # would drop a tab-indented line with no diagnostic at all.
+      'export '* | $'export\t'*)
+        line="${line#export}"
         line="${line#"${line%%[![:space:]]*}"}"
         ;;
     esac
@@ -2013,11 +2017,38 @@ load_env_file() {
     value="${line#*=}"
     [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
 
-    # One matched pair only: an unbalanced quote is part of the value.
-    if [ "${#value}" -ge 2 ]; then
+    # Trim before inspecting quotes, so a value quoted for the sake of a
+    # deliberate trailing space still keeps it.
+    value="${value%"${value##*[![:space:]]}"}"
+
+    quote=""
+    case "$value" in
+      '"'*) quote='"' ;;
+      "'"*) quote="'" ;;
+    esac
+
+    if [ -n "$quote" ]; then
+      # An unclosed quote continues onto the next line, as `source` read it.
+      # `read` here draws from the same redirect as the loop, so the
+      # continuation is consumed rather than re-parsed as its own assignment.
+      # Bounded by EOF: an unterminated value simply runs out of lines.
+      while [ "${#value}" -lt 2 ] || [ "${value: -1}" != "$quote" ]; do
+        IFS= read -r cont || break
+        cont="${cont%$'\r'}"
+        value="$value"$'\n'"${cont%"${cont##*[![:space:]]}"}"
+      done
+      # One matched pair only. A quote left unterminated at EOF is kept in the
+      # value: better a visibly malformed string than a plausible wrong one.
+      if [ "${#value}" -ge 2 ] && [ "${value: -1}" = "$quote" ]; then
+        value="${value:1:${#value}-2}"
+      fi
+    else
+      # `source` started a comment at a whitespace-preceded `#`. Requiring the
+      # whitespace is what keeps a `#` inside a value (`p@ss#word`) intact.
       case "$value" in
-        '"'*'"' | "'"*"'") value="${value:1:${#value}-2}" ;;
+        *[[:space:]]'#'*) value="${value%%[[:space:]]'#'*}" ;;
       esac
+      value="${value%"${value##*[![:space:]]}"}"
     fi
 
     # `|| true` because the script runs under `set -e`: a readonly name in .env

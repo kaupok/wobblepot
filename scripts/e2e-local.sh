@@ -60,13 +60,81 @@ iso_to_epoch() {
   date -u -d "$ts" +%s 2>/dev/null || date -u -j -f '%Y-%m-%dT%H:%M:%S' "$ts" +%s 2>/dev/null || echo 0
 }
 
+# Read KEY=VALUE pairs out of an env file and export them.
+#
+# Deliberately duplicated from scripts/worktree-claude.sh, which this script
+# does not source — keep the two in step. Parsed, never sourced: `source`
+# executes the file as shell, so `FOO=$(rm -rf ~)` was a working command rather
+# than a parse error, and the `set -a` that wrapped it marked every assignment
+# the file made for export (HON-580). See worktree-claude.sh's copy for the
+# full rationale; the parse mirrors what `source` did with a well-formed line,
+# including .env winning over the calling shell.
+load_env_file() {
+  local env_file="$1"
+  [ -f "$env_file" ] || return 0
+
+  local line key value quote cont
+  # `|| [ -n "$line" ]` so a final line with no trailing newline is still read.
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"                      # tolerate CRLF
+    line="${line#"${line%%[![:space:]]*}"}"   # trim leading whitespace
+    case "$line" in
+      '' | '#'*) continue ;;
+      # Both spellings `source` accepted. Matching only a literal `export `
+      # would drop a tab-indented line with no diagnostic at all.
+      'export '* | $'export\t'*)
+        line="${line#export}"
+        line="${line#"${line%%[![:space:]]*}"}"
+        ;;
+    esac
+
+    [[ "$line" == *=* ]] || continue
+    key="${line%%=*}"
+    value="${line#*=}"
+    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+
+    # Trim before inspecting quotes, so a value quoted for the sake of a
+    # deliberate trailing space still keeps it.
+    value="${value%"${value##*[![:space:]]}"}"
+
+    quote=""
+    case "$value" in
+      '"'*) quote='"' ;;
+      "'"*) quote="'" ;;
+    esac
+
+    if [ -n "$quote" ]; then
+      # An unclosed quote continues onto the next line, as `source` read it.
+      # `read` here draws from the same redirect as the loop, so the
+      # continuation is consumed rather than re-parsed as its own assignment.
+      # Bounded by EOF: an unterminated value simply runs out of lines.
+      while [ "${#value}" -lt 2 ] || [ "${value: -1}" != "$quote" ]; do
+        IFS= read -r cont || break
+        cont="${cont%$'\r'}"
+        value="$value"$'\n'"${cont%"${cont##*[![:space:]]}"}"
+      done
+      # One matched pair only. A quote left unterminated at EOF is kept in the
+      # value: better a visibly malformed string than a plausible wrong one.
+      if [ "${#value}" -ge 2 ] && [ "${value: -1}" = "$quote" ]; then
+        value="${value:1:${#value}-2}"
+      fi
+    else
+      # `source` started a comment at a whitespace-preceded `#`. Requiring the
+      # whitespace is what keeps a `#` inside a value (`p@ss#word`) intact.
+      case "$value" in
+        *[[:space:]]'#'*) value="${value%%[[:space:]]'#'*}" ;;
+      esac
+      value="${value%"${value##*[![:space:]]}"}"
+    fi
+
+    # `|| true` because the script runs under `set -e`: a readonly name in .env
+    # would otherwise abort the dispatcher before it reaches the command router.
+    export "$key=$value" 2> /dev/null || true
+  done < "$env_file"
+}
+
 load_env() {
-  if [ -f "$REPO_ROOT/.env" ]; then
-    set -a
-    # shellcheck disable=SC1091
-    source "$REPO_ROOT/.env"
-    set +a
-  fi
+  load_env_file "$REPO_ROOT/.env"
 }
 
 # Re-resolve env-tunable config AFTER load_env so .env values win over the
