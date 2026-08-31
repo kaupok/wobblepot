@@ -340,8 +340,10 @@ pnpm env:audit --strict   # exits 1 when ORPHANs are found
 ### CI use
 
 The `Vercel env-var drift audit` job in `.github/workflows/ci.yml` runs it on every PR,
-warn-only. `.vercel/` is gitignored and absent in CI, so project identity must come from
-repository secrets — never from a checked-in project file:
+blocking. The job calls `pnpm env:audit --strict`, so an ORPHAN finding fails the job. It
+carries no `continue-on-error`, so a script crash fails the job too — a green check proves
+the audit ran and found no drift. `.vercel/` is gitignored and absent in CI, so project
+identity must come from repository secrets — never from a checked-in project file:
 
 | Secret              | Where to get it                                  |
 | ------------------- | ------------------------------------------------ |
@@ -351,12 +353,11 @@ repository secrets — never from a checked-in project file:
 
 All three are required — this project is team-scoped, so a REST call without `teamId`
 returns 403. If any is unset the job logs a warning and exits 0, so forked PRs (which
-receive no secrets) are unaffected. Findings are emitted as GitHub warning annotations
-and a step summary, because a warn-only job is always green and nobody opens the log of
-a passing job.
+receive no secrets) stay green. Findings are also emitted as GitHub warning annotations
+and a step summary for at-a-glance triage; an ORPHAN finding fails the job.
 
-To promote the check to blocking, add `--strict` to the job's `pnpm env:audit` call and
-drop its `continue-on-error: true`.
+DOC-ONLY findings stay non-blocking: `scripts/env-audit.ts` sets a non-zero exit code for
+ORPHAN findings only, so a doc drift reports without blocking the PR.
 
 ## Usage in Code
 

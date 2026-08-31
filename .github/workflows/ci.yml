@@ -181,17 +181,16 @@ jobs:
   # Surfaces vars configured in Vercel that no code references any more —
   # the dead-config half of retiring a FEATURE_* gate, which has no other
   # review trigger. Independent of the `ci` job: read-only, needs no DB or
-  # browser, and must never be the reason a PR is blocked.
+  # browser.
   #
-  # Warn-only for now. The script exits 0 unless `--strict` is passed, and
-  # `continue-on-error` additionally absorbs Vercel API hiccups. Promote to
-  # blocking by adding `--strict` and dropping `continue-on-error` once the
-  # report has stayed trustworthy for a few cycles.
+  # Blocking. `--strict` makes the script exit 1 on an ORPHAN finding, which
+  # fails the job. There is no `continue-on-error`, so a crash fails the job
+  # too — a green check now proves the audit ran and found no drift. DOC-ONLY
+  # findings stay non-blocking: the script exits 1 for ORPHAN only.
   env-audit:
     name: Vercel env-var drift audit
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    continue-on-error: true
     permissions:
       contents: read
     # Forked PRs get no secrets, so the audit would fail on an empty token.
@@ -222,12 +221,13 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
         # VERCEL_ORG_ID is gated alongside the other two: this project is
         # team-scoped, so without teamId the REST call 403s and the script
-        # exits 1 — which continue-on-error would render as a green check with
-        # no audit having run at all.
+        # exits 1. Forked PRs get no secrets, so the guard below skips the
+        # audit for them rather than failing the job on an empty token.
         run: |
           if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_PROJECT_ID" ] || [ -z "$VERCEL_ORG_ID" ]; then
             echo "::warning::Skipping env-var drift audit — VERCEL_TOKEN / VERCEL_PROJECT_ID / VERCEL_ORG_ID not configured. See docs/ENVIRONMENT_SETUP.md."
             exit 0
           fi
-          # Same reason: a crash on an always-green job is otherwise silent.
-          pnpm env:audit || echo "::warning title=env-audit failed::The Vercel env-var drift audit did not complete — see this job's log."
+          # --strict: exit 1 on an ORPHAN finding. No `|| echo` fallback, so a
+          # crash fails the job instead of passing silently.
+          pnpm env:audit --strict
