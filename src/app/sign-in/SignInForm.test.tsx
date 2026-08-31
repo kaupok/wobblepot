@@ -147,6 +147,18 @@ describe('SignInForm', () => {
       expect(status).toBeInTheDocument()
     })
 
+    // The `form-success` handle is the E2E contract (HON-582): `role="status"`
+    // is also what every Skeleton renders, so forgot-password.spec.ts targets
+    // this testid instead. Removing it turns a green unit suite into a red
+    // tier-1 E2E run, so pin it here where the cost is one line.
+    it('success message carries the form-success test handle', () => {
+      mockGet.mockReturnValue('success')
+
+      render(<SignInForm />)
+
+      expect(screen.getByTestId('form-success')).toBe(screen.getByRole('status'))
+    })
+
     it('does not show success message when no reset param in URL', () => {
       mockGet.mockReturnValue(null)
 

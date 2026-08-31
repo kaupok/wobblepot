@@ -176,6 +176,18 @@ Use these selectors, in order of preference:
 - **`data-testid`** only when no accessible-name anchor exists (dynamic grids, icon-only buttons without `aria-label`). Treat each `data-testid` as a commitment: add it sparingly and keep it in the component, not the spec.
 - **Plain text locators** (`getByText('Welcome back')`) are the most brittle — use them only for content that is itself the contract (landing-page hero, legal copy). Expect the spec to need an update when the copy changes.
 
+### `role="status"` is not a selector
+
+`getByRole('status')` looks like the ideal role query for a success banner, and it is a trap. The `Skeleton` primitive (`src/components/ui/skeleton.tsx`) renders `role="status"` on **every** loader, so an unscoped query matches whatever `loading.tsx` is on screen — seven elements on `/sign-in`, nine on the root segment. Playwright then raises a strict-mode violation instead of waiting for the banner, and the spec passes only when the banner wins the race ([HON-582](https://linear.app/honkadori/issue/HON-582)).
+
+Target the banner's own handle instead. Both auth forms expose `data-testid="form-success"` on their `role="status"` banner, pinned by a unit test in each form's `.test.tsx`:
+
+```ts
+await expect(page.getByTestId('form-success')).toContainText(/password has been reset/i)
+```
+
+This is the sanctioned exception to the "`data-testid` only when no accessible-name anchor exists" rule above — a live region's accessible name _is_ its content, so there is no name to anchor on, and the competing elements share its role. Do **not** reach for `.first()` / `.last()` to break the tie: that trades a loud failure for a silent assertion against the wrong element.
+
 Any `waitForTimeout` / ad-hoc `page.waitFor(ms)` is a smell — wait on real state (`waitForResponse`, `toBeVisible`, `toHaveURL`) instead.
 
 ## Spec header convention

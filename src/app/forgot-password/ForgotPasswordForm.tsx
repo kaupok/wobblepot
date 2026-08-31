@@ -76,7 +76,12 @@ export function ForgotPasswordForm() {
           <div className="flex flex-col gap-4">
             {success ? (
               <div className="flex flex-col gap-2">
-                <Body variant="small" className="text-green-600" role="status">
+                <Body
+                  variant="small"
+                  className="text-green-600"
+                  role="status"
+                  data-testid="form-success"
+                >
                   {t('success')}
                 </Body>
               </div>

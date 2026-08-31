@@ -72,7 +72,13 @@ test.describe('Forgot password', { tag: '@smoke' }, () => {
     // The form reports success for unknown addresses too (anti-enumeration),
     // so this only proves the request was accepted — the real proof is that a
     // usable token comes back below.
-    await expect(page.getByRole('status')).toBeVisible()
+    //
+    // Target the banner's own handle, never `getByRole('status')`: the Skeleton
+    // primitive renders `role="status"` too, so an unscoped role query matches
+    // every loader on screen and dies of a strict-mode violation instead of
+    // waiting for the banner (HON-582). A `data-testid` locator resolves to
+    // nothing until the banner mounts, which is exactly what auto-retry wants.
+    await expect(page.getByTestId('form-success')).toBeVisible()
 
     const resetUrl = await resolveResetUrl({ email, requestedAt })
     // A readable inbox that yields no reset email is a delivery regression —
@@ -104,7 +110,12 @@ test.describe('Forgot password', { tag: '@smoke' }, () => {
       // param with `router.replace` as soon as it renders the banner — asserting
       // the URL is a race. Assert the banner itself: it is both the stable
       // signal and the thing the user actually sees.
-      await expect(page.getByRole('status')).toContainText(/password has been reset/i)
+      //
+      // `form-success` (not `getByRole('status')`) for the skeleton reason above:
+      // /sign-in's loading.tsx alone renders seven `role="status"` skeletons. The
+      // copy stays in the assertion because SignInForm's banner is generic state
+      // — the handle proves a banner rendered, the text proves it is this one.
+      await expect(page.getByTestId('form-success')).toContainText(/password has been reset/i)
       await expect(page).toHaveURL(/\/sign-in/)
 
       // The reset actually took: the new password authenticates.

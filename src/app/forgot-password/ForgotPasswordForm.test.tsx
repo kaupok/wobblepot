@@ -146,6 +146,12 @@ describe('ForgotPasswordForm', () => {
           /if an account exists with this email, you will receive a password reset link/i,
         )
       })
+
+      // The `form-success` handle is the E2E contract (HON-582): `role="status"`
+      // is also what every Skeleton renders, so forgot-password.spec.ts targets
+      // this testid instead. Pin it here so removing it fails fast in the unit
+      // suite rather than in a tier-1 E2E run.
+      expect(screen.getByTestId('form-success')).toBe(screen.getByRole('status'))
     })
 
     it('hides form inputs when success state is true', async () => {
