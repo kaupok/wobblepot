@@ -852,10 +852,10 @@ notify() {
 # ─── Handle success ─────────────────────────────────────────────────────────
 
 # ─── Circuit breaker ─────────────────────────────────────────────────────────
-# Called from every path that ends a run without shipping: handle_failure's
-# terminal branches (the ones that call move_to_backlog, whatever triage said),
-# the gated 0-commit path, and the stranded path. handle_failure's retry branch
-# is the sole caller that resets the counter instead.
+# Called from every path that ends a run without shipping: all of handle_failure
+# (retry included — a retry is a failure that gets another chance), the gated
+# 0-commit path, and the stranded path. handle_success holds the only reset, so
+# the counter means "consecutive runs that shipped nothing".
 
 note_consecutive_failure() {
   CONSECUTIVE_FAILURES=$((CONSECUTIVE_FAILURES + 1))
@@ -1231,38 +1231,47 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 
   # Track failure for --once exit code (may be overridden to 0 if retry succeeds)
   [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=1
 
-  # Track consecutive failures for the circuit breaker. The counter follows what
-  # ACTUALLY happens below, not what triage said (HON-572): a RETRY verdict that
-  # falls through to move_to_backlog — already retried, or shutting down — is a
-  # terminal failure like any other. Resetting on the verdict meant a systemic
+  # Every path out of handle_failure is a failure to ship, so every one of them
+  # counts toward the circuit breaker — including the retry, which is a failure
+  # that gets another chance, not a success. handle_success owns the only reset
+  # in the script (see "Reset circuit breaker on a real success"), which is what
+  # makes CONSECUTIVE_FAILURES mean "consecutive runs that shipped nothing".
+  #
+  # HON-572: the counter used to be driven by the triage VERDICT — reset on
+  # RETRY, incremented otherwise — before the case that acts on it. A systemic
   # fault whose logs read as transient (rate limit, network flake, the literal
-  # word "timeout") produced fail -> RETRY -> fail -> Backlog per issue, zeroing
-  # the counter every cycle, so MAX_CONSECUTIVE_FAILURES was never reached and
-  # the orchestrator swept the whole Todo queue into Backlog one issue per poll.
+  # word "timeout") produced fail -> RETRY -> fail -> Backlog per issue and
+  # zeroed the counter every cycle, so MAX_CONSECUTIVE_FAILURES was never
+  # reached and the orchestrator swept the whole Todo queue into Backlog one
+  # issue per poll. Moving the reset onto the spawn_worker branch is NOT enough
+  # either: that branch runs on every issue's FIRST failure, so under the same
+  # systemic fault the counter just oscillates 0 -> 1 -> 0 and still never
+  # reaches the threshold. The breaker only works if nothing here resets it.
+  note_consecutive_failure
+
   case "$triage" in
     RETRY)
       if [ "$retried" = "0" ] && [ "$SHUTTING_DOWN" = false ]; then
-        # The only branch that actually retries — the one place a reset is honest.
-        CONSECUTIVE_FAILURES=0
         log INFO "Retrying $issue_id: $title"
         # Keep the branch so a respawn can resume an already-pushed branch / open PR.
         cleanup_worker_worktree "$branch" true
         # Preserve original title on retry (from WORKER_TITLES array)
         spawn_worker "$issue_uuid" "$issue_id" "$branch" "$original_title" "1"
       else
-        note_consecutive_failure
-        log WARN "$issue_id already retried, moving to Backlog"
+        if [ "$SHUTTING_DOWN" = true ]; then
+          log WARN "$issue_id failed during shutdown, moving to Backlog"
+        else
+          log WARN "$issue_id already retried, moving to Backlog"
+        fi
         move_to_backlog "$issue_uuid" "$issue_id" "$log_claude_output" "Failed" \
           "Auto-implementation failed after retry ($failure_type)" "$log_file"
         cleanup_worker_worktree "$branch"
       fi ;;
     BACKLOG)
-      note_consecutive_failure
       move_to_backlog "$issue_uuid" "$issue_id" "$log_claude_output" "Failed" \
         "Auto-implementation failed ($failure_type)" "$log_file"
       cleanup_worker_worktree "$branch" ;;
     NEEDS_HUMAN)
-      note_consecutive_failure
       move_to_backlog "$issue_uuid" "$issue_id" "$log_claude_output" "Needs attention" \
         "Auto-implementation needs human attention ($failure_type)" "$log_file"
       cleanup_worker_worktree "$branch" ;;
@@ -1530,6 +1539,30 @@ shutdown() {
 
 trap shutdown SIGINT SIGTERM
 
+# Bash will not run a trap while it is waiting on a FOREGROUND command: a
+# SIGTERM arriving during `sleep "$POLL_INTERVAL"` sits pending until the sleep
+# ends, up to 60s later. `wt stop` only allows 15s before it escalates, so the
+# orchestrator routinely had not even begun shutting down by the time the second
+# signal was sent. Backgrounding the sleep and `wait`-ing on it makes the trap
+# fire within a second, because `wait` IS interruptible (HON-572).
+#
+# KNOWN RESIDUAL — the force escalation is still not delivered. Bash also
+# refuses to re-enter a trap handler for a signal whose handler is already
+# running, so the second SIGTERM `cmd_stop` sends while shutdown()'s graceful
+# wait loop is executing is dropped. FORCE_SHUTDOWN is never set,
+# drain_workers_to_todo never runs, and cmd_stop eventually SIGKILLs. Fixing it
+# means restructuring shutdown() to only set flags and letting the main loop
+# perform the drain; that changes shutdown semantics for both Ctrl-C and
+# `wt stop`, so it is deliberately NOT done here — HON-572's execution
+# constraints forbid the live orchestrator run that would validate it. HON-575
+# owns the live `wt stop` verification and this reproduction.
+interruptible_sleep() {
+  local pid
+  sleep "$1" &
+  pid=$!
+  wait "$pid" 2>/dev/null || true
+}
+
 # ─── Disk space check ───────────────────────────────────────────────────────
 
 check_disk_space() {
@@ -1701,9 +1734,9 @@ main() {
 
     # Sleep between polls
     if [ "$RUN_ONCE" = true ] && [ ${#WORKER_PIDS[@]} -gt 0 ]; then
-      sleep 10  # Poll frequently while waiting for worker
+      interruptible_sleep 10  # Poll frequently while waiting for worker
     elif [ "$SHUTTING_DOWN" = false ]; then
-      sleep "$POLL_INTERVAL"
+      interruptible_sleep "$POLL_INTERVAL"
     fi
   done
 

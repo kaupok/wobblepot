@@ -345,32 +345,53 @@ describe('orchestrator.sh', () => {
   // terminal failure — but the counter had already been zeroed, so a systemic
   // fault that reads as transient swept the whole Todo queue into Backlog
   // without ever reaching MAX_CONSECUTIVE_FAILURES.
+  //
+  // handle_failure now holds no reset at all. Moving the reset onto the
+  // spawn_worker branch is not enough: that branch runs on every issue's FIRST
+  // failure, so the counter oscillates 0 -> 1 -> 0 under exactly the fault the
+  // breaker exists to stop. handle_success owns the only reset in the script.
   describe('handle_failure circuit breaker', () => {
-    function drive(triage: string, retried: string, shuttingDown: string, repeat = 1) {
-      const out = stripTimestamps(
-        runHarness('failure', triage, retried, shuttingDown, String(repeat)),
-      )
-      const read = (key: string) => out.match(new RegExp(`^${key}:(.*)$`, 'm'))?.[1] ?? ''
+    type Breaker = {
+      out: string
+      consecutiveFailures: number
+      paused: boolean
+      statusJson: { consecutive_failures: number }
+    }
+
+    function parse(out: string): Breaker {
+      const clean = stripTimestamps(out)
+      const read = (key: string) => clean.match(new RegExp(`^${key}:(.*)$`, 'm'))?.[1] ?? ''
       return {
-        out,
+        out: clean,
         consecutiveFailures: Number(read('CONSECUTIVE_FAILURES')),
         paused: read('PAUSED') === 'true',
         statusJson: JSON.parse(read('STATUS_JSON') || '{}') as { consecutive_failures: number },
       }
     }
 
-    it('resets the counter only on a real retry', () => {
+    function drive(triage: string, retried: string, shuttingDown: string, repeat = 1): Breaker {
+      return parse(runHarness('failure', triage, retried, shuttingDown, String(repeat)))
+    }
+
+    /** Replay a sequence of differing failures in one orchestrator process. */
+    function driveSequence(...steps: string[]): Breaker {
+      return parse(runHarness('failure-seq', steps.join(',')))
+    }
+
+    it('counts a retry as a failure rather than resetting the counter', () => {
+      // A retry is a failure that gets another chance, not a success. Only
+      // handle_success clears the breaker.
       const r = drive('RETRY', '0', 'false')
 
-      expect(r.out).toContain('SPAWN_WORKER:HON-999:retry=1')
+      expect(r.out).toContain('SPAWN_WORKER:HON-991:retry=1')
       expect(r.out).not.toContain('MOVE_TO_BACKLOG')
-      expect(r.consecutiveFailures).toBe(0)
+      expect(r.consecutiveFailures).toBe(1)
     })
 
     it('counts a RETRY verdict that was already retried as a failure', () => {
       const r = drive('RETRY', '1', 'false')
 
-      expect(r.out).toContain('MOVE_TO_BACKLOG:HON-999:Failed')
+      expect(r.out).toContain('MOVE_TO_BACKLOG:HON-991:Failed')
       expect(r.out).not.toContain('SPAWN_WORKER')
       expect(r.consecutiveFailures).toBe(1)
     })
@@ -379,7 +400,7 @@ describe('orchestrator.sh', () => {
       // The shutdown branch is terminal too — no worker is ever respawned.
       const r = drive('RETRY', '0', 'true')
 
-      expect(r.out).toContain('MOVE_TO_BACKLOG:HON-999:Failed')
+      expect(r.out).toContain('MOVE_TO_BACKLOG:HON-991:Failed')
       expect(r.out).not.toContain('SPAWN_WORKER')
       expect(r.consecutiveFailures).toBe(1)
     })
@@ -390,18 +411,50 @@ describe('orchestrator.sh', () => {
     ])('counts a %s verdict as a failure', (triage, label) => {
       const r = drive(triage, '0', 'false')
 
-      expect(r.out).toContain(`MOVE_TO_BACKLOG:HON-999:${label}`)
+      expect(r.out).toContain(`MOVE_TO_BACKLOG:HON-991:${label}`)
       expect(r.consecutiveFailures).toBe(1)
     })
 
     it('engages the breaker after MAX_CONSECUTIVE_FAILURES terminal failures', () => {
-      // This is the runaway the breaker exists to stop: before the fix, a RETRY
-      // verdict zeroed the counter every cycle and it never reached 3.
       const r = drive('RETRY', '1', 'false', 3)
 
       expect(r.consecutiveFailures).toBeGreaterThanOrEqual(3)
       expect(r.paused).toBe(true)
       expect(r.out).toContain('Circuit breaker: 3 consecutive failures')
+    })
+
+    it('engages the breaker when a systemic fault sweeps the queue', () => {
+      // The runaway this exists to stop, replayed as it actually occurs: each
+      // issue fails once at retried=0 (respawned) and again at retried=1
+      // (Backlog), across three different issues. Any reset inside
+      // handle_failure — on the verdict OR on the spawn_worker branch — makes
+      // the counter oscillate here and never reach the threshold. Both earlier
+      // shapes of this code stop at CONSECUTIVE_FAILURES=1 with paused=false.
+      const r = driveSequence(
+        'RETRY:0:false',
+        'RETRY:1:false',
+        'RETRY:0:false',
+        'RETRY:1:false',
+        'RETRY:0:false',
+        'RETRY:1:false',
+      )
+
+      expect(r.out).toContain('SPAWN_WORKER:HON-991:retry=1')
+      expect(r.out).toContain('MOVE_TO_BACKLOG:HON-992:Failed')
+      expect(r.consecutiveFailures).toBeGreaterThanOrEqual(3)
+      expect(r.paused).toBe(true)
+      expect(r.out).toContain('Circuit breaker: 3 consecutive failures')
+    })
+
+    it('lets handle_success clear a breaker that handle_failure never resets', () => {
+      // The counter must still be clearable, or an isolated flake would ratchet
+      // the orchestrator into a permanent pause. handle_success owns that reset.
+      const orchestratorSource = fs.readFileSync(orchestrator, 'utf8')
+      const failureBody = shellFunctionBody(orchestratorSource, 'handle_failure')
+      const successBody = shellFunctionBody(orchestratorSource, 'handle_success')
+
+      expect(failureBody).not.toMatch(/CONSECUTIVE_FAILURES=0/)
+      expect(successBody).toMatch(/CONSECUTIVE_FAILURES=0/)
     })
 
     it('reports the same count in the status file wt status reads', () => {
@@ -600,6 +653,19 @@ describe('orchestrator.sh', () => {
       const bounds = [0, 1, 2, 3, 4, 5, 10].map((n) => bound(String(n)))
 
       expect(bounds).toEqual([...bounds].sort((a, b) => a - b))
+    })
+
+    it('honours the first SIGTERM without waiting out the poll interval', () => {
+      // Bash defers a trap while it waits on a FOREGROUND command, so a SIGTERM
+      // arriving during `sleep "$POLL_INTERVAL"` sat pending for up to 60s —
+      // longer than the 15s cmd_stop allows before it escalates, so the
+      // orchestrator had often not begun shutting down at all. `wait` on a
+      // backgrounded sleep IS interruptible.
+      const source = fs.readFileSync(orchestrator, 'utf8')
+
+      expect(source).toMatch(/^interruptible_sleep\(\) \{$/m)
+      expect(source).toContain('interruptible_sleep "$POLL_INTERVAL"')
+      expect(source).not.toMatch(/^\s*sleep "\$POLL_INTERVAL"\s*$/m)
     })
 
     it('cmd_stop polls for the drain instead of sleeping a flat 3s before SIGKILL', () => {

@@ -34,7 +34,15 @@
 #     `claude` stub first on PATH — the production call goes through
 #     `env -u ANTHROPIC_API_KEY claude`, so a shell function would be bypassed,
 #     and routing through PATH keeps the real verdict parsing under test.
+#     `repeat` replays the SAME call N times in one process.
 #     Ends with CONSECUTIVE_FAILURES / PAUSED / the write_status_file JSON.
+#
+#   failure-seq <triage:retried:shutting_down,...>        (HON-572, finding 2)
+#     Same stubs, but replays a SEQUENCE of different failures in one process.
+#     This is what models a systemic fault sweeping the queue: every issue fails
+#     once at retried=0 and again at retried=1, so a breaker that resets on any
+#     handle_failure branch oscillates instead of tripping. `repeat` cannot
+#     express that — it only replays one identical call.
 #
 #   log-once                                       (HON-572, finding 3)
 #     Calls the REAL log() once with MAIN_LOG on a temp file, then reports what
@@ -160,15 +168,25 @@ case "$MODE" in
     ;;
 
   # ─── handle_failure circuit breaker (HON-572 finding 2) ────────────────────
-  failure)
-    TRIAGE="$A1"; RETRIED="$A2"; SHUTTING_DOWN="$A3"; REPEAT="${A4:-1}"
+  failure | failure-seq)
+    if [ "$MODE" = "failure" ]; then
+      # One repeated call: "<triage>:<retried>:<shutting_down>" x REPEAT.
+      REPEAT="${A4:-1}"
+      SEQUENCE="$A1:$A2:$A3"
+      n=1
+      while [ "$n" -lt "$REPEAT" ]; do SEQUENCE="$SEQUENCE,$A1:$A2:$A3"; n=$((n + 1)); done
+    else
+      SEQUENCE="$A1"
+    fi
 
-    # Force the triage verdict via a PATH stub rather than a shell function:
+    # Force each triage verdict via a PATH stub rather than a shell function:
     # handle_failure invokes `env -u ANTHROPIC_API_KEY claude`, which resolves
     # through PATH and would never see a function. This also leaves the real
-    # exit-code handling and first-word parsing under test.
+    # exit-code handling and first-word parsing under test. The stub reads the
+    # verdict from a file so the sequence can change it between calls.
     STUB_BIN=$(mktemp -d "${TMPDIR:-/tmp}/orchestrator-harness-bin.XXXXXXXX")
-    printf '#!/bin/sh\nprintf "%%s\\n" "%s"\n' "$TRIAGE" > "$STUB_BIN/claude"
+    VERDICT_FILE="$STUB_BIN/verdict"
+    printf '#!/bin/sh\ncat "%s"\n' "$VERDICT_FILE" > "$STUB_BIN/claude"
     chmod +x "$STUB_BIN/claude"
     PATH="$STUB_BIN:$PATH"
 
@@ -188,11 +206,17 @@ case "$MODE" in
     move_to_backlog() { echo "MOVE_TO_BACKLOG:${2}:${4}" >> "$MAIN_LOG"; }
     spawn_worker() { echo "SPAWN_WORKER:${2}:retry=${5:-0}" >> "$MAIN_LOG"; }
 
-    n=0
-    while [ "$n" -lt "$REPEAT" ]; do
-      handle_failure HON-999 uuid-999 test-branch /tmp/harness-worker.log \
-        "$RETRIED" failed "Fixture title" 2>/dev/null
-      n=$((n + 1))
+    STEP=0
+    IFS=',' read -ra STEPS <<< "$SEQUENCE"
+    for step in "${STEPS[@]}"; do
+      STEP=$((STEP + 1))
+      IFS=':' read -r s_triage s_retried s_shutdown <<< "$step"
+      printf '%s\n' "$s_triage" > "$VERDICT_FILE"
+      SHUTTING_DOWN="$s_shutdown"
+      # A distinct issue id per step, so an assertion can tell the calls apart
+      # the way a systemic fault walking the Todo queue would.
+      handle_failure "HON-99$STEP" "uuid-99$STEP" "test-branch-$STEP" /tmp/harness-worker.log \
+        "$s_retried" failed "Fixture title" 2>/dev/null
     done
 
     echo "CONSECUTIVE_FAILURES:$CONSECUTIVE_FAILURES" >> "$MAIN_LOG"

@@ -18,7 +18,7 @@ Owner: [`.github/workflows/neon-cleanup.yml`](../../.github/workflows/neon-clean
 
 All must hold for deletion (enforced in `is_safe_to_delete` in the script):
 
-- Branch name matches `SAFE_BRANCH_REGEX` — `^[A-Za-z0-9._-]+--hon-([0-9]+)(-[A-Za-z0-9._-]+)?$`. Widened from `^auto--hon-[0-9]+$` in HON-572, which matched only the fallback shape and left every real orchestrator branch unreaped. The name filter is not the safety gate — the `primary`/`protected` flags, the allowlist, the Linear Done/Canceled check and the age gate all still have to pass.
+- Branch name matches `SAFE_BRANCH_REGEX` — `^[A-Za-z0-9._-]+--hon-([0-9]+)(-[A-Za-z0-9._-]+)?$`. Widened from `^auto--hon-[0-9]+$` in HON-572, which matched only the fallback shape and left every real orchestrator branch unreaped. The name filter is not the safety gate — the `primary`/`protected` flags and the allowlist still have to pass on both paths, and `sweep` additionally requires the linked Linear issue to be Done/Canceled and the branch to be older than the age gate. (`delete-for-branch` deliberately skips those two: the merge is the signal.)
 - `primary != true` and `protected != true` on the Neon branch record
 - Name is not in the allowlist `{main, staging, dev/kaupo, vercel-dev}`
 - `sweep` only: branch `updated_at` is older than `NEON_CLEANUP_MIN_AGE_HOURS` (default 24)

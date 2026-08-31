@@ -109,7 +109,17 @@ GC is scoped so it can't touch hand-managed branches. Eligible:
 - **`auto-*`** — the no-`branchName` fallback (`wt auto HON-XX` → `auto/hon-XX` → `auto--hon-XX`).
 - **`${NEON_USER_PREFIX}-*`** — when you've set `NEON_USER_PREFIX` in `.env` (use this if you run `wt new <you>/branch-name` for interactive work).
 
-Everything else (`feat-`, `fix-`, test scaffolds) must be reclaimed manually via `wt cleanup`. Protected names (`main`, `staging`, `production`, `preview`) are refused outright, and a branch whose worktree is still live is never touched. The same shapes gate `scripts/neon-cleanup.sh` — the on-merge reaper and the weekly sweep — where the Linear Done/Canceled check and the 24h age gate are the real safety.
+Everything else (`feat-`, `fix-`, test scaffolds) must be reclaimed manually via `wt cleanup`.
+
+Each of the three reapers gates differently — the shared name filter is not itself a safety gate:
+
+| Reaper                              | Runs when                                                   | Gates on                                                                                                                        |
+| ----------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `neon_gc_orphans` (`wt`)            | The Neon branch cap is hit, as a self-heal before one retry | Name shape, no live git worktree, and `is_protected_neon_branch` (`main` / `staging` / `production` / `preview`) — nothing else |
+| `neon-cleanup.sh delete-for-branch` | A PR is merged                                              | Name shape, `default`/`protected` flags, `ALLOWLIST_NAMES`. **No** Linear-status or age gate — the merge is the signal          |
+| `neon-cleanup.sh sweep`             | Weekly cron / manual dispatch                               | All of the above **plus** the linked Linear issue being Done/Canceled and age > 24h                                             |
+
+The `wt` GC is the loosest, and widening its name filter widened it further: a hand-made `<you>/hon-51-slug` branch whose worktree you have already removed is now reclaimable at cap time even if its PR is still open. That is the intended trade — the alternative is the orchestrator failing to provision every worker — but if you want an interactive branch held, keep its worktree, or name it without a HON id.
 
 **Opt-out:**
 
@@ -180,7 +190,9 @@ The orchestrator (`scripts/orchestrator.sh`) is a long-running dispatcher that p
 - Failed issues get a comment with log tail, a label (`failed`/`needs-attention`), and move to Backlog
 - The log tail is run through `sanitize_log` before it reaches Linear. Redaction is a **literal** match of every `.env` value ≥ 8 chars, plus a `sed` backstop for common secret shapes. It used to be an `awk gsub()`, which reads its pattern as a regex — so a base64 `BETTER_AUTH_SECRET`, a `NEON_API_KEY`, anything with `+ ? . * [ ] ( ) \ ^ $ |` in it, silently failed to match itself and was posted in the clear (HON-572)
 
-**Circuit breaker.** `MAX_CONSECUTIVE_FAILURES` (default 3) pauses new spawns for 10 minutes. The counter follows what actually happened, not what triage said: it is reset **only** when a worker is genuinely respawned, and incremented on every path that ends in Backlog — including a `RETRY` verdict that falls through because the issue was already retried or the orchestrator is shutting down. Resetting on the verdict alone meant a systemic fault whose logs read as transient (rate limit, network flake, the literal word "timeout") produced `fail → RETRY → fail → Backlog` per issue, zeroing the counter each cycle, so the breaker never tripped and the whole Todo queue was swept into Backlog one issue per poll (HON-572).
+**Circuit breaker.** `MAX_CONSECUTIVE_FAILURES` (default 3) pauses new spawns for 10 minutes. The counter means _consecutive runs that shipped nothing_: every non-shipping outcome increments it — failed, timed out, gated, stranded, and retried — and **`handle_success` holds the only reset in the script.**
+
+`handle_failure` deliberately contains no reset. It used to reset on a `RETRY` triage verdict, so a systemic fault whose logs read as transient (rate limit, network flake, the literal word "timeout") produced `fail → RETRY → fail → Backlog` per issue and zeroed the counter every cycle; the breaker never tripped and the whole Todo queue was swept into Backlog one issue per poll. Moving that reset onto the branch that actually respawns a worker is _also_ not enough — that branch runs on every issue's first failure, so the counter merely oscillates `0 → 1 → 0` under the same fault. Only a genuine success clears it (HON-572).
 
 ### Configuration
 
@@ -252,6 +264,10 @@ All logs are written to `~/.worktrees/wobblepot/logs/`:
 - Second signal → force kills all workers immediately, then drains: each worker's issue goes back to Todo unassigned before the orchestrator exits
 
 `wt stop` sends both signals for you and then waits for the drain to finish rather than SIGKILLing on a fixed timer. The wait scales with the work: `max(60s, 15s × active workers)`, read from `orchestrator-status.json`, with the 60s floor used whenever that file is missing or unreadable. Killing partway through the drain is what orphans `claude` processes and strands their issues `In Progress` **and assigned** — the state the picker skips forever.
+
+The poll loop sleeps via `interruptible_sleep` (a backgrounded `sleep` plus `wait`) so the first signal is acted on within a second. A plain foreground `sleep "$POLL_INTERVAL"` blocks trap delivery for up to 60s, which is longer than the 15s `wt stop` allows before escalating.
+
+> **Known gap (HON-575).** The _escalation_ still does not reach the force path. Bash will not re-enter a trap handler for a signal whose handler is already running, so the second `SIGTERM` sent while `shutdown()`'s graceful wait loop is executing is dropped: `FORCE_SHUTDOWN` is never set and `drain_workers_to_todo` never runs. Closing it means restructuring `shutdown()` to set flags only and letting the main loop perform the drain. Until then, after a `wt stop` that reports `Drain did not finish in time`, check `wt list` for orphaned worktrees and Linear for issues left `In Progress`.
 
 ### Design: Dumb Dispatcher, Smart Workers
 
