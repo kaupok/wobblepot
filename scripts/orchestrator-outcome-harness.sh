@@ -114,7 +114,7 @@
 #     error text and never from the branch name embedded in it.
 #
 #   neon-create <create-output> <git-branch> <reuse> [retry-ok|retry-fail]
-#                                                                   (HON-581)
+#               [fresh-db]                                          (HON-581)
 #     Drives the REAL neon_create_branch_for_worktree with `pnpm` shadowed by a
 #     shell function, so every neonctl invocation is fixture-driven and the Neon
 #     API is never reached. neon_gc_orphans is stubbed to a marker (its own
@@ -503,6 +503,7 @@ EOF
     # shellcheck source=./worktree-claude.sh
     source "$HARNESS_DIR/worktree-claude.sh"
     CREATE_FIXTURE="$A1"; GIT_BRANCH="$A2"; REUSE="${A3:-0}"; RETRY="${A4:-retry-fail}"
+    FRESH_DB="${A5:-0}"
 
     # neon_enabled gates the whole function. Both values are nonsense on
     # purpose: the pnpm stub below intercepts every neonctl call, so if a code
@@ -558,7 +559,8 @@ EOF
     # `|| status=$?` rather than `set +e`: errexit is dynamic, and clearing it
     # would change the code under test.
     status=0
-    out=$(neon_create_branch_for_worktree "$GIT_BRANCH" "$ENV_FILE" 0 "$REUSE" 2>&1) || status=$?
+    out=$(neon_create_branch_for_worktree \
+      "$GIT_BRANCH" "$ENV_FILE" "$FRESH_DB" "$REUSE" 2>&1) || status=$?
     printf '%s\n' "$out"
     cat "$CALLS_FILE"
     echo "EXIT:$status"

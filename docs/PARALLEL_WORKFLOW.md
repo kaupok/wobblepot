@@ -105,9 +105,13 @@ When `NEON_API_KEY` and `NEON_PROJECT_ID` are set in `.env`, each worktree gets 
 
 When the Neon project hits its branch cap (10 on the free tier), `wt` automatically runs an orphan GC (deletes Neon branches whose git worktree no longer exists) and retries once. If still over cap, it fails loud — no silent fallback to the shared DB.
 
-A create failure only reaches that path if it looks like exhaustion and _nothing else_. `neon_classify_create_error` strips the branch name out of the error text before matching, then tests `already exists` / `duplicate` first and the cap keywords (`limit`, `quota`, `cap`, `exceed`, `maximum`) only afterwards. Both halves matter: the cap test is a substring match, so a branch whose slug carries one of those words — `kaupo--hon-580-…-silent-queue-cap-dead-code-stale`, say — used to be read as a capacity problem, which cost HON-580 the reuse path its RETRY depended on and reported a full project that held 6 branches out of 10 (HON-581).
+A create failure only reaches that path if it looks like exhaustion and _nothing else_. `neon_classify_create_error` strips the branch name out of the error text, then tests `already exists` / `duplicate` first, and reaches a `cap` verdict only when the word `branch` and one of `limit` / `quota` / `cap` / `exceed` / `maximum` appear on the **same line**. All three parts matter, because the keyword test is bare substring matching:
 
-An `already exists` error is not a failure when the git branch is being resumed: `wt auto`'s retry path passes `reuse_existing=1`, and the deliberately-preserved Neon branch is reused as-is. Outside that path it is still a hard stop — use `--fresh-db` to recreate.
+- Without the strip, a branch whose slug carries one of those words — `kaupo--hon-580-…-silent-queue-cap-dead-code-stale`, say — reads as a capacity problem. That cost HON-580 the reuse path its RETRY depended on, and reported a full project that held 6 branches out of 10 (HON-581).
+- Without the ordering, the same name shadows the unambiguous `already exists` signal underneath it.
+- Without the same-line requirement, `Rate limit exceeded`, `insufficient capacity`, even `invalid escape sequence` (es-**cap**-e) call the GC. That is not a harmless sweep: it deletes every Neon branch with no live worktree, project-wide, and a RETRY parks exactly that shape — `cleanup_worker_worktree "$branch" true` removes the worktree and keeps the branch for the respawn. One worker's rate limit must not be able to destroy another worker's retry database.
+
+An `already exists` error is not a failure when the git branch is being resumed: `wt auto`'s retry path passes `reuse_existing=1`, and the deliberately-preserved Neon branch is reused as-is. Outside that path it is still a hard stop — use `--fresh-db` to recreate. `--fresh-db` never falls back to reuse: its pre-delete silences errors, so a branch that still exists afterwards means the delete did not take, and reusing it would hand back the exact database you asked to destroy.
 
 GC is scoped so it can't touch hand-managed branches. Eligible:
 

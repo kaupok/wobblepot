@@ -235,25 +235,33 @@ neon_gc_orphans() {
 # Prints exactly one of: exists | cap | unknown.
 #
 # The branch name is removed from the input before anything is matched. neonctl
-# echoes it back (`branch_name:"…"`), and the exhaustion test below is a plain
-# substring match, so a branch whose slug contains `cap`, `limit`, `quota`,
-# `exceed` or `maximum` would otherwise read as branch exhaustion. That is
-# HON-581: `kaupo--hon-580-…-silent-queue-cap-dead-code-stale` turned a plain
-# "already exists" into a reported capacity problem, and the orchestrator RETRY
-# that needed the reuse path lost it. Two removals, because they fail
-# differently: the `sed` handles the field even when the name we asked for is
-# not what came back, and the literal `${text//…}` handles the name appearing in
-# any other shape. The literal form is a fixed-string replace, so a name
-# carrying regex metacharacters cannot widen it.
+# echoes it back (`branch_name:"…"`), and the exhaustion test below is substring
+# matching, so a branch whose slug contains `cap`, `limit`, `quota`, `exceed` or
+# `maximum` would otherwise read as branch exhaustion. That is HON-581:
+# `kaupo--hon-580-…-silent-queue-cap-dead-code-stale` turned a plain "already
+# exists" into a reported capacity problem, and the orchestrator RETRY that
+# needed the reuse path lost it. Two removals, because they fail differently:
+# the `sed` handles the field even when the name we asked for is not what came
+# back, and the literal `${text//…}` handles the name appearing in any other
+# shape. Quoting the expansion keeps it a fixed-string replace — `${text//$b/}`
+# would read `$b` as a glob. `git check-ref-format` rejects the metacharacters
+# that would bite (`*`, `?`, `[`), so this is defensive rather than load-bearing.
 #
 # Order matters more than either. `already exists` / `duplicate` is an
 # unambiguous signal from the API, so it is tested first; the exhaustion
 # keywords are a guess at wording Neon does not document, and only get what is
-# left. Note there is no proximity requirement — the older `grep -qi "branch"`
-# conjunct claimed one but never enforced it, being a second independent grep
-# over the whole output. The cost of dropping it is that a plain rate-limit
-# response now takes the cap path: one best-effort GC sweep, then the retry that
-# branch would have performed anyway.
+# left.
+#
+# The cap test requires "branch" and a keyword on the SAME LINE, which is the
+# proximity the old `grep -qi "branch"` conjunct claimed and never delivered —
+# it was a second independent grep over the whole output. Proximity is not
+# cosmetic here: `cap` classifies on bare substrings, so `Rate limit exceeded`,
+# `insufficient capacity`, even `invalid escape sequence` (es-CAP-e) would
+# otherwise call neon_gc_orphans. That sweep deletes every Neon branch with no
+# live worktree, project-wide — and handle_failure's RETRY leaves exactly that
+# shape behind (`cleanup_worker_worktree "$branch" true` removes the worktree
+# and keeps the branch). One worker's rate-limit response must not be able to
+# destroy another worker's preserved retry database.
 neon_classify_create_error() {
   local text="$1" neon_branch="${2:-}"
   text=$(printf '%s' "$text" | sed 's/branch_name:[[:space:]]*"[^"]*"//g')
@@ -261,9 +269,10 @@ neon_classify_create_error() {
     text=${text//"$neon_branch"/}
   fi
 
+  local exhaustion="limit|quota|cap|exceed|maximum"
   if printf '%s' "$text" | grep -qiE "already exists|duplicate"; then
     echo exists
-  elif printf '%s' "$text" | grep -qiE "limit|quota|cap|exceed|maximum"; then
+  elif printf '%s' "$text" | grep -qiE "branch.*($exhaustion)|($exhaustion).*branch"; then
     echo cap
   else
     echo unknown
@@ -309,7 +318,15 @@ neon_create_branch_for_worktree() {
     --output json 2>&1) || {
     case "$(neon_classify_create_error "$create_out" "$neon_branch")" in
       exists)
-        if [ "$reuse_existing" = "1" ]; then
+        if [ "$fresh_db" = "1" ]; then
+          # The pre-delete above silences its errors, so a delete that never
+          # took lands here. Reusing now would hand back the exact stale
+          # database --fresh-db was passed to destroy.
+          echo -e "${RED}Error: Neon branch '$neon_branch' still exists after the --fresh-db delete.${NC}" >&2
+          echo "Delete it by hand and retry:" >&2
+          echo "  pnpm dlx neonctl@$NEONCTL_VERSION branches delete '$neon_branch' --project-id \"\$NEON_PROJECT_ID\"" >&2
+          return 1
+        elif [ "$reuse_existing" = "1" ]; then
           # Resuming an existing git branch (orchestrator RETRY or force-kill
           # recovery): its Neon branch was deliberately kept alongside it, so
           # reuse it and fall through to fetching its connection strings.

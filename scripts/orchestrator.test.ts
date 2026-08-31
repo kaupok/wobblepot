@@ -1652,11 +1652,16 @@ describe('orchestrator.sh', () => {
       gitBranch: string,
       reuse: 0 | 1,
       retry: 'retry-ok' | 'retry-fail' = 'retry-fail',
+      freshDb: 0 | 1 = 0,
     ) {
-      const text = runHarness('neon-create', output, gitBranch, String(reuse), retry).replace(
-        ANSI,
-        '',
-      )
+      const text = runHarness(
+        'neon-create',
+        output,
+        gitBranch,
+        String(reuse),
+        retry,
+        String(freshDb),
+      ).replace(ANSI, '')
       const lines = text.split('\n')
 
       return {
@@ -1737,24 +1742,94 @@ describe('orchestrator.sh', () => {
       expect(classify(`ERROR: could not create ${name}: internal error`, name)).toBe('unknown')
     })
 
-    it('removes the branch name as a fixed string, not as a pattern', () => {
-      // `.` is legal in a Neon branch name. A regex removal would let `.uota`
-      // eat the real `quota` out of the error text and downgrade a genuine cap
-      // error to unknown. "reached" rather than "exceeded" so `quota` is the
-      // only keyword in play.
-      expect(classify('ERROR: project quota reached', 'kaupo--hon-1-.uota')).toBe('cap')
+    it('removes the branch name as a fixed string, not as a glob', () => {
+      // `${text//$b/}` would read the name as a GLOB, not a regex — so the
+      // discriminating fixture needs a bracket expression, and `.` (which an
+      // earlier version of this test used) proves nothing. `git
+      // check-ref-format` rejects `[`, so no real branch reaches here; this
+      // pins the helper's contract, not a live scenario. Unquoted, the glob
+      // eats `a--hon-1-branch-limit` out of the text and the verdict collapses
+      // to unknown.
+      const name = 'a--hon-1-branch-[l]imit'
+
+      expect(classify(`ERROR: a--hon-1-branch-limit could not be created`, name)).toBe('cap')
+    })
+
+    // The cap path is destructive: neon_gc_orphans deletes every Neon branch
+    // with no live worktree, project-wide, and handle_failure's RETRY parks
+    // exactly that shape (worktree removed, branch kept) for the respawn to
+    // resume. So an error that merely CONTAINS an exhaustion substring must not
+    // reach it — one worker's rate limit would drop another worker's retry DB.
+    describe('the cap verdict requires branch and a keyword on one line', () => {
+      it.each([
+        ['a rate limit, which GC cannot help with', 'ERROR: Rate limit exceeded'],
+        ['a compute quota, not a branch quota', 'ERROR: compute time quota exceeded'],
+        ['es-CAP-e', 'ERROR: invalid escape sequence in request body'],
+        ['de-LIMIT-er', 'ERROR: unexpected delimiter in response'],
+        ['region capacity', 'ERROR: insufficient capacity in region eu-central-1'],
+      ])('does not read %s as branch exhaustion', (_label, error) => {
+        expect(classify(error, 'kaupo--hon-581-neutral-slug')).toBe('unknown')
+      })
+
+      it.each([
+        ['keyword after branch', 'ERROR: branch limit exceeded for project'],
+        [
+          'keyword before branch',
+          'You have reached the maximum number of branches for this project',
+        ],
+      ])('still reads a genuine cap error (%s) as cap', (_label, error) => {
+        expect(classify(error, 'kaupo--hon-581-neutral-slug')).toBe('cap')
+      })
+
+      it('never sweeps on a rate-limit response', () => {
+        const result = create('ERROR: Rate limit exceeded', 'kaupo/hon-581-neutral-slug', 0)
+
+        expect(result.calls).toEqual(['CREATE'])
+        expect(result.text).toContain('Neon branch create failed:')
+      })
+    })
+
+    // --fresh-db pre-deletes with errors silenced, so a delete that never took
+    // arrives here as "already exists". Reusing then would hand back the exact
+    // stale database the caller asked to destroy — and both docs this branch
+    // touches promise delete-and-recreate.
+    it('refuses to reuse an existing branch when --fresh-db was requested', () => {
+      const result = create(
+        'ERROR: branch already exists',
+        'kaupo/hon-581-neutral-slug',
+        1,
+        'retry-fail',
+        1,
+      )
+
+      expect(result.text).toContain('still exists after the --fresh-db delete')
+      expect(result.text).not.toContain('reusing it')
+      expect(result.calls).toEqual(['DELETE', 'CREATE'])
+      expect(result.exit).toBe(1)
     })
 
     describe('static guards', () => {
       const source = () => fs.readFileSync(worktreeClaude, 'utf8')
 
       it('tests the unambiguous exists signal before the cap heuristic', () => {
+        // Anchored on the two grep calls, not the keyword literals: the
+        // exhaustion list is declared in a local above both of them, so
+        // matching the list itself would compare the wrong pair.
+        const body = shellFunctionBody(source(), 'neon_classify_create_error')
+        const exists = body.indexOf('grep -qiE "already exists|duplicate"')
+        const cap = body.indexOf('grep -qiE "branch.*($exhaustion)')
+
+        expect(exists, 'exists grep not found').toBeGreaterThan(-1)
+        expect(cap, 'cap grep not found').toBeGreaterThan(-1)
+        expect(exists).toBeLessThan(cap)
+      })
+
+      it('requires branch and a keyword on the same line for a cap verdict', () => {
+        // Proximity is what keeps neon_gc_orphans — which deletes other
+        // workers' preserved retry branches — off an unrelated rate limit.
         const body = shellFunctionBody(source(), 'neon_classify_create_error')
 
-        expect(body.indexOf('already exists|duplicate')).toBeGreaterThan(-1)
-        expect(body.indexOf('already exists|duplicate')).toBeLessThan(
-          body.indexOf('limit|quota|cap|exceed|maximum'),
-        )
+        expect(body).toContain('grep -qiE "branch.*($exhaustion)|($exhaustion).*branch"')
       })
 
       it('never matches the raw create output, only the classifier verdict', () => {
