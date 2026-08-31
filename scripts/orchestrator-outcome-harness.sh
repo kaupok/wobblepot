@@ -41,6 +41,12 @@
 #     sanitize-at-capture pass (HON-577).
 #     Ends with CONSECUTIVE_FAILURES / PAUSED / the write_status_file JSON.
 #
+#   bash-timeout <bound-secs> <command-sleep-secs>                  (HON-578)
+#     Drives the REAL bash_timeout watchdog — the branch taken on a host with no
+#     coreutils `timeout`, which is every stock macOS, the orchestrator included.
+#     Prints OUT (the command's stdout, proving stdin survived backgrounding)
+#     and EXIT (124 when the bound was hit).
+#
 #   failure-seq <triage:retried:shutting_down,...>        (HON-572, finding 2)
 #     Same stubs, but replays a SEQUENCE of different failures in one process.
 #     This is what models a systemic fault sweeping the queue: every issue fails
@@ -205,12 +211,21 @@ case "$MODE" in
     # tail) plus the prompt args (which carry the timeout context) — so a test
     # can assert the input is redacted (HON-577). It appends across calls, so a
     # leak on any step of a sequence still surfaces.
+    #
+    # HARNESS_CLAUDE_SLEEP (from the environment) makes it hang before it
+    # answers, so a test can drive the triage timeout path with a short
+    # ORCHESTRATOR_TRIAGE_TIMEOUT and assert the BACKLOG fallback (HON-578).
+    # The sleep comes first, so a stub the bound kills records nothing — which
+    # is what a genuinely wedged CLI does.
     STUB_BIN=$(mktemp -d "${TMPDIR:-/tmp}/orchestrator-harness-bin.XXXXXXXX")
     VERDICT_FILE="$STUB_BIN/verdict"
     TRIAGE_INPUT_FILE="$STUB_BIN/triage-input"
     : > "$TRIAGE_INPUT_FILE"
+    # Unquoted heredoc: the two FILE paths bake in at write time, while `$*` and
+    # $HARNESS_CLAUDE_SLEEP stay literal for the stub to resolve when it runs.
     cat > "$STUB_BIN/claude" <<EOF
 #!/bin/sh
+[ -n "\$HARNESS_CLAUDE_SLEEP" ] && sleep "\$HARNESS_CLAUDE_SLEEP"
 cat >> "$TRIAGE_INPUT_FILE"
 printf '%s' "\$*" >> "$TRIAGE_INPUT_FILE"
 cat "$VERDICT_FILE"
@@ -320,6 +335,55 @@ EOF
     # shellcheck source=./worktree-claude.sh
     source "$HARNESS_DIR/worktree-claude.sh"
     wt_detect_phase "$A1" "$A2" "$A3" "$A4" "$A5"
+    exit 0
+    ;;
+
+  # ─── Log rotation and pruning (HON-578) ────────────────────────────────────
+  rotate-logs)
+    # A1 = a temp log dir the test has pre-populated. Point LOG_DIR / MAIN_LOG
+    # at it and run the REAL rotate_logs; the caps come from the environment
+    # (ORCHESTRATOR_LOG_MAX_BYTES / ORCHESTRATOR_WORKER_LOG_MAX_AGE_DAYS), which
+    # orchestrator.sh already read at source time.
+    LOG_DIR="$A1"
+    MAIN_LOG="$LOG_DIR/orchestrator.log"
+    trap 'rm -f "$SEEN_SKIPS_FILE"' EXIT
+    rotate_logs
+    echo "MAIN_EXISTS:$([ -f "$MAIN_LOG" ] && echo yes || echo no)"
+    echo "ROTATED_EXISTS:$([ -f "${MAIN_LOG}.1" ] && echo yes || echo no)"
+    for f in "$LOG_DIR"/worker-*.log; do
+      [ -e "$f" ] && echo "WORKER:$(basename "$f")"
+    done
+    exit 0
+    ;;
+
+  # ─── Pure-bash timeout fallback (HON-578) ──────────────────────────────────
+  bash-timeout)
+    # A1 = the bound, A2 = how long the command sleeps. Drives the REAL
+    # coreutils-free watchdog directly, so Linux CI — which HAS GNU timeout and
+    # would always take the first branch — still covers the branch macOS always
+    # takes. The command reads stdin before sleeping, so OUT also proves the
+    # async job kept the caller's pipe instead of bash's /dev/null default.
+    #
+    # `|| status=$?` rather than `set +e`: errexit is dynamic, and clearing it
+    # would change the code under test.
+    status=0
+    out=$(echo "piped-stdin" | bash_timeout "$A1" \
+      sh -c 'read -r line; sleep "$0"; printf "%s\n" "$line"' "$A2") || status=$?
+    echo "OUT:$out"
+    echo "EXIT:$status"
+    exit 0
+    ;;
+
+  # ─── Workflow-state UUID validation (HON-578) ──────────────────────────────
+  validate-states)
+    # A1 = the workflowStates JSON Linear would return. Runs the REAL
+    # validate_state_ids against it; no network. The stale count lands on
+    # stdout, and the ERROR lines log() wrote land in $MAIN_LOG, so both are
+    # asserted from one run.
+    trap 'rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE"' EXIT
+    STALE_COUNT=$(validate_state_ids "$A1")
+    echo "STALE_COUNT:$STALE_COUNT"
+    cat "$MAIN_LOG"
     exit 0
     ;;
 
