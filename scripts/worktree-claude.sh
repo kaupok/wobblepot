@@ -627,7 +627,13 @@ cmd_auto() {
     # parent checkout's HEAD, which is only `main` by convention — a parallel
     # session's feature checkout would silently leak its commits into every
     # autonomous branch (observed 2026-08-30 with HON-550's checkout).
-    git -C "$REPO_ROOT" worktree add -b "$branch" "$worktree_path" origin/main
+    #
+    # --no-track is required, not cosmetic: the start ref is remote-tracking, so
+    # git's default branch.autoSetupMerge would set origin/main as this branch's
+    # upstream. That made every phase heuristic read "pushed" from creation
+    # (HON-576) and makes a bare `git pull` in the worktree merge main into the
+    # feature branch. Do not drop the flag.
+    git -C "$REPO_ROOT" worktree add -b "$branch" --no-track "$worktree_path" origin/main
   fi
 
   echo ""
@@ -693,6 +699,73 @@ cmd_resume() {
   cd "$worktree_path"
   # Unset ANTHROPIC_API_KEY so Claude CLI uses Max subscription instead of API credits
   exec env -u ANTHROPIC_API_KEY claude --resume
+}
+
+# Phase shown in the `wt status` / `wt watch` worker tables.
+#
+# `ahead` and `dirty` are passed in rather than recomputed: both call sites
+# already derive them for the progress column, and `wt watch` redraws on a
+# timer — a second `git status` per worker per tick is pure waste.
+#
+# Title Case here vs. kebab-case in orchestrator.sh's detect_phase: the two are
+# read by different audiences (a human table vs. the outcome log and stranded
+# reports). Unifying them across the two scripts is HON-572 follow-up #5.
+#
+# Usage: wt_detect_phase <log_file> <wt_path> <branch> <ahead> <dirty>
+wt_detect_phase() {
+  local log_file="$1" wt_path="$2" branch="$3" ahead="${4:-0}" dirty="${5:-}"
+  # `git rev-list` returns empty on failure, and `[ "" -gt 0 ]` is a hard error.
+  [[ "$ahead" =~ ^[0-9]+$ ]] || ahead=0
+
+  [ -f "$log_file" ] || { echo "Initializing"; return; }
+
+  # Strategy 1: skill markers — these win over every git heuristic below.
+  local last_marker
+  last_marker=$(grep -o '\[[^]]*:complete\]' "$log_file" 2>/dev/null | tail -1) || true
+  case "$last_marker" in
+    "[plan-issue:complete]")      echo "Implementing"; return ;;
+    "[implement-issue:complete]") echo "Reviewing"; return ;;
+    "[branch-review:complete]")   echo "Committing"; return ;;
+    "[commit:complete]")          echo "PR review"; return ;;
+    "[create-pr:complete]")       echo "PR review"; return ;;
+    "[review-pr:complete]")       echo "Merging"; return ;;
+    "[merge:complete]")           echo "Done"; return ;;
+    # Any other […:complete] marker — [next-issue:complete],
+    # [triage-pr-comments:complete] and friends are all real — falls through to
+    # the heuristics below rather than blanking the column to "Unknown", which
+    # is what orchestrator.sh's detect_phase already does.
+    *) ;;
+  esac
+
+  # Strategy 2: auto-implement completion.
+  if grep -qE '\[auto-implement\].*(cycle complete|PR merged)' "$log_file" 2>/dev/null; then
+    echo "Done"; return
+  fi
+
+  # Strategy 3: git heuristics.
+  if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
+    # Has THIS branch's work been pushed? Three conditions, each closing a
+    # different false positive — see detect_phase in orchestrator.sh for the
+    # long version (HON-576). In short: an upstream is set by the origin/main
+    # start ref before any commit exists, and the remote ref alone survives the
+    # run that created it, so a re-picked issue would inherit a stale one.
+    if [ "$ahead" -gt 0 ] &&
+       git -C "$wt_path" show-ref --verify --quiet "refs/remotes/origin/$branch" &&
+       git -C "$wt_path" merge-base --is-ancestor "refs/remotes/origin/$branch" HEAD 2>/dev/null; then
+      echo "PR review"; return
+    fi
+    if [ "$ahead" -gt 0 ]; then
+      if [ -n "$dirty" ]; then echo "Implementing"; else echo "Reviewing"; fi
+      return
+    fi
+    if [ -n "$dirty" ]; then echo "Implementing"; return; fi
+  fi
+
+  # Strategy 4: log content fallback.
+  if grep -q "Starting autonomous Claude Code" "$log_file" 2>/dev/null; then
+    echo "Planning"; return
+  fi
+  echo "Initializing"
 }
 
 # Show orchestrator and worker status
@@ -819,6 +892,9 @@ cmd_status() {
     if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
       local ahead=0
       ahead=$(git -C "$wt_path" rev-list --count main..HEAD 2>/dev/null) || true
+      # Empty on failure, and `[ "" -gt 0 ]` is a hard error — same guard as
+      # wt_detect_phase applies to its own argument.
+      [[ "$ahead" =~ ^[0-9]+$ ]] || ahead=0
       local dirty=""
       if [ -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)" ]; then
         dirty="+"
@@ -829,43 +905,8 @@ cmd_status() {
     fi
 
     # Phase detection: log markers → auto-implement markers → git heuristics
-    local phase="Initializing"
-    if [ -f "$w_log" ]; then
-      local last_marker
-      last_marker=$(grep -o '\[[^]]*:complete\]' "$w_log" 2>/dev/null | tail -1) || true
-      case "$last_marker" in
-        "[plan-issue:complete]")      phase="Implementing" ;;
-        "[implement-issue:complete]") phase="Reviewing" ;;
-        "[branch-review:complete]")   phase="Committing" ;;
-        "[commit:complete]")          phase="PR review" ;;
-        "[create-pr:complete]")       phase="PR review" ;;
-        "[review-pr:complete]")       phase="Merging" ;;
-        "[merge:complete]")           phase="Done" ;;
-        "")
-          # Check auto-implement completion
-          if grep -qE '\[auto-implement\].*(cycle complete|PR merged)' "$w_log" 2>/dev/null; then
-            phase="Done"
-          # Git-based heuristics
-          elif [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
-            if git -C "$wt_path" rev-parse --abbrev-ref '@{upstream}' &>/dev/null; then
-              phase="PR review"
-            elif [ "$ahead" -gt 0 ]; then
-              if [ -n "$dirty" ]; then
-                phase="Implementing"
-              else
-                phase="Reviewing"
-              fi
-            elif [ -n "$dirty" ]; then
-              phase="Implementing"
-            elif grep -q "Starting autonomous Claude Code" "$w_log" 2>/dev/null; then
-              phase="Planning"
-            fi
-          elif grep -q "Starting autonomous Claude Code" "$w_log" 2>/dev/null; then
-            phase="Planning"
-          fi ;;
-        *) phase="Unknown" ;;
-      esac
-    fi
+    local phase
+    phase=$(wt_detect_phase "$w_log" "$wt_path" "$w_branch" "$ahead" "$dirty")
 
     # Worker alive check
     local alive_indicator=""
@@ -941,7 +982,13 @@ cmd_status() {
 
         # Show PR URL if pushed
         local pr_url
-        pr_url=$(git -C "$wt_path" rev-parse --abbrev-ref '@{upstream}' &>/dev/null && \
+        # Cheap guard: only ask GitHub about branches whose work is actually on
+        # the remote. `@{upstream}` passed on every unpushed autonomous branch
+        # (HON-576), and a bare remote-ref test would still pass on a ref left
+        # behind by a previous run of the same issue — which makes `gh pr view`
+        # resolve THAT run's PR and print its URL under a worker that has
+        # pushed nothing.
+        pr_url=$(git -C "$wt_path" merge-base --is-ancestor "refs/remotes/origin/$w_branch" HEAD 2>/dev/null && \
           gh pr view "$w_branch" --json url --jq .url 2>/dev/null) || true
         if [ -n "$pr_url" ]; then
           echo ""
@@ -1691,10 +1738,11 @@ cmd_watch() {
             fi
 
             # Git progress + phase detection
-            local ahead=0 dirty="" wt_path progress phase="Initializing"
+            local ahead=0 dirty="" wt_path progress phase
             wt_path=$(get_worktree_path "${w_branches[$i]}")
             if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
               ahead=$(git -C "$wt_path" rev-list --count main..HEAD 2>/dev/null) || true
+              [[ "$ahead" =~ ^[0-9]+$ ]] || ahead=0
               [ -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)" ] && dirty="+"
               progress="${ahead} commit(s)${dirty}"
             else
@@ -1704,36 +1752,7 @@ cmd_watch() {
 
             # Phase detection (from log markers + git heuristics)
             local w_log="${w_logs[$i]}"
-            if [ -f "$w_log" ]; then
-              local last_marker
-              last_marker=$(grep -o '\[[^]]*:complete\]' "$w_log" 2>/dev/null | tail -1) || true
-              case "$last_marker" in
-                "[plan-issue:complete]")      phase="Implementing" ;;
-                "[implement-issue:complete]") phase="Reviewing" ;;
-                "[branch-review:complete]")   phase="Committing" ;;
-                "[commit:complete]")          phase="PR review" ;;
-                "[create-pr:complete]")       phase="PR review" ;;
-                "[review-pr:complete]")       phase="Merging" ;;
-                "[merge:complete]")           phase="Done" ;;
-                "")
-                  if grep -qE '\[auto-implement\].*(cycle complete|PR merged)' "$w_log" 2>/dev/null; then
-                    phase="Done"
-                  elif [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
-                    if git -C "$wt_path" rev-parse --abbrev-ref '@{upstream}' &>/dev/null; then
-                      phase="PR review"
-                    elif [ "$ahead" -gt 0 ]; then
-                      [ -n "$dirty" ] && phase="Implementing" || phase="Reviewing"
-                    elif [ -n "$dirty" ]; then
-                      phase="Implementing"
-                    elif grep -q "Starting autonomous Claude Code" "$w_log" 2>/dev/null; then
-                      phase="Planning"
-                    fi
-                  elif grep -q "Starting autonomous Claude Code" "$w_log" 2>/dev/null; then
-                    phase="Planning"
-                  fi ;;
-                *) phase="Unknown" ;;
-              esac
-            fi
+            phase=$(wt_detect_phase "$w_log" "$wt_path" "${w_branches[$i]}" "$ahead" "$dirty")
             w_phases+=("$phase")
 
             # Alive check
