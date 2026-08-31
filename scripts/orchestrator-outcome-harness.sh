@@ -80,6 +80,19 @@
 #     the REAL wt_detect_phase, which `wt status` and `wt watch` both call.
 #     Its two call sites live inside interactive render loops, so this helper is
 #     the only part of them a test can reach.
+#
+#   sync-permissions <main-repo-dir> <worktree-dir>                 (HON-579)
+#     Runs orchestrator.sh's REAL sync_permissions with REPO_ROOT pointed at the
+#     fixture main repo. Used to prove concurrent syncs never corrupt the shared
+#     settings file — the mktemp temp-path fix.
+#
+#   worktree-path <branch> [worktree-base]                          (HON-579)
+#     Sources worktree-claude.sh and prints get_worktree_path, optionally with
+#     WORKTREE_BASE overridden to a fixture dir so the `--` mapping and the
+#     legacy single-dash fallback are under test.
+#
+#   normalize-branch <branch>                                       (HON-579)
+#     Sources worktree-claude.sh and prints the REAL normalize_branch.
 
 HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -384,6 +397,31 @@ EOF
     STALE_COUNT=$(validate_state_ids "$A1")
     echo "STALE_COUNT:$STALE_COUNT"
     cat "$MAIN_LOG"
+    exit 0
+    ;;
+
+  # ─── sync_permissions temp-file race (HON-579) ─────────────────────────────
+  sync-permissions)
+    # Runs orchestrator.sh's sync_permissions (already sourced above). It reads
+    # the main settings from "$REPO_ROOT/.claude/settings.local.json".
+    REPO_ROOT="$A1"
+    sync_permissions "$A2"
+    exit 0
+    ;;
+
+  # ─── worktree path derivation (HON-579) ────────────────────────────────────
+  worktree-path)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    [ -n "$A2" ] && WORKTREE_BASE="$A2"
+    get_worktree_path "$A1"
+    exit 0
+    ;;
+
+  normalize-branch)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    normalize_branch "$A1"
     exit 0
     ;;
 

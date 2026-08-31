@@ -1,7 +1,7 @@
 #!/bin/bash
 # Autonomous Issue Orchestrator
 #
-# Polls Linear for Todo issues, claims them atomically, spawns worktree workers,
+# Polls Linear for Todo issues, claims them (moves each to In Progress), spawns worktree workers,
 # and handles the full lifecycle including failure triage.
 #
 # Usage:
@@ -1597,9 +1597,19 @@ get_worktree_path() {
     echo "$actual_path"
     return
   fi
-  local normalized
-  normalized=$(echo "$branch" | tr '/' '-')
-  echo "$WORKTREE_BASE/$normalized"
+  # `/` -> `--` so distinct branches don't collide on one directory (matches
+  # worktree-claude.sh's normalize_branch and neon_branch_name).
+  local normalized="${branch//\//--}"
+  local derived="$WORKTREE_BASE/$normalized"
+  # Legacy single-dash fallback for worktrees created before the change.
+  if [ ! -e "$derived" ]; then
+    local legacy="$WORKTREE_BASE/${branch//\//-}"
+    if [ "$legacy" != "$derived" ] && [ -e "$legacy" ]; then
+      echo "$legacy"
+      return
+    fi
+  fi
+  echo "$derived"
 }
 
 sync_permissions() {
@@ -1619,8 +1629,17 @@ sync_permissions() {
 
   if [ "$new_count" -gt 0 ]; then
     log DEBUG "Syncing $new_count permission(s) from worktree"
-    jq --argjson new "$new_perms" '.permissions.allow += $new | .permissions.allow |= unique' \
-      "$main_settings" > "$main_settings.tmp" && mv "$main_settings.tmp" "$main_settings"
+    # Unique temp in the target dir, not a shared `.tmp` name — see the parallel
+    # note in worktree-claude.sh's sync_permissions. Concurrent workers writing
+    # one fixed temp path corrupt the settings file.
+    local tmp
+    tmp=$(mktemp "${main_settings}.XXXXXX")
+    if jq --argjson new "$new_perms" '.permissions.allow += $new | .permissions.allow |= unique' \
+      "$main_settings" > "$tmp"; then
+      mv "$tmp" "$main_settings"
+    else
+      rm -f "$tmp"
+    fi
   fi
 }
 

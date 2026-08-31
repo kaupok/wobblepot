@@ -1243,4 +1243,119 @@ describe('orchestrator.sh', () => {
       expect(body).toContain('errors=$((errors + state_errors))')
     })
   })
+
+  // ─── HON-579: worker races on a single machine ────────────────────────────
+  // Two independent failure modes surface only when the orchestrator runs more
+  // than one worker: a shared settings.local.json.tmp that concurrent permission
+  // syncs corrupt, and a branch->directory mapping that collapses `feat/foo-bar`
+  // and `feat-foo/bar` onto the same worktree.
+  describe('HON-579 worker races', () => {
+    describe('sync_permissions temp file', () => {
+      it.each([
+        ['orchestrator.sh', orchestrator],
+        ['worktree-claude.sh', worktreeClaude],
+      ])('%s writes via mktemp, not a fixed .tmp path', (_n, script) => {
+        const body = shellFunctionBody(fs.readFileSync(script, 'utf8'), 'sync_permissions')
+
+        expect(body).toContain('mktemp')
+        // The shared path two workers used to collide on.
+        expect(body).not.toContain('settings.local.json.tmp')
+        expect(body).not.toContain('$main_settings.tmp')
+      })
+
+      it('keeps the shared settings file valid JSON under concurrent syncs', () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hon579-perms-'))
+        try {
+          const main = path.join(dir, 'main')
+          fs.mkdirSync(path.join(main, '.claude'), { recursive: true })
+          const mainSettings = path.join(main, '.claude', 'settings.local.json')
+          fs.writeFileSync(
+            mainSettings,
+            JSON.stringify({ permissions: { allow: ['Bash(base:*)'] } }),
+          )
+
+          // Each worktree carries the base permission plus its own new one.
+          const workers = Array.from({ length: 12 }, (_v, i) => {
+            const wt = path.join(dir, `wt-${i}`)
+            fs.mkdirSync(path.join(wt, '.claude'), { recursive: true })
+            fs.writeFileSync(
+              path.join(wt, '.claude', 'settings.local.json'),
+              JSON.stringify({ permissions: { allow: ['Bash(base:*)', `Bash(worker-${i}:*)`] } }),
+            )
+            return wt
+          })
+
+          // Real concurrency: N harness processes race on the one main file.
+          const cmd = `${workers
+            .map((wt) => `bash ${harness} sync-permissions ${main} ${wt} &`)
+            .join('\n')}\nwait\n`
+          execFileSync('bash', ['-c', cmd], { timeout: 60_000, env: harnessEnv() })
+
+          // The bug installed truncated/interleaved JSON. The fix guarantees the
+          // file always parses and never loses the pre-existing permission — the
+          // read-modify-write can still drop a concurrent worker's addition, but
+          // it can no longer corrupt the file.
+          const parsed = JSON.parse(fs.readFileSync(mainSettings, 'utf8'))
+          expect(parsed.permissions.allow).toContain('Bash(base:*)')
+        } finally {
+          fs.rmSync(dir, { recursive: true, force: true })
+        }
+      })
+    })
+
+    describe('branch -> worktree directory mapping', () => {
+      const normalize = (branch: string) => runHarness('normalize-branch', branch).trim()
+      const worktreePath = (branch: string, base = '') =>
+        runHarness('worktree-path', branch, base).trim()
+
+      it('maps `/` to `--`, matching neon_branch_name', () => {
+        expect(normalize('feat/foo-bar')).toBe('feat--foo-bar')
+        expect(normalize('kaupokorv/hon-51-slug')).toBe('kaupokorv--hon-51-slug')
+      })
+
+      it('gives `feat/foo-bar` and `feat-foo/bar` distinct directories', () => {
+        // The collision: `tr / -` mapped both to `feat-foo-bar`.
+        expect(normalize('feat/foo-bar')).not.toBe(normalize('feat-foo/bar'))
+      })
+
+      it('derives the `--` path for a branch with no existing worktree', () => {
+        const base = fs.mkdtempSync(path.join(os.tmpdir(), 'hon579-wt-'))
+        try {
+          expect(worktreePath('feat/foo-bar', base)).toBe(path.join(base, 'feat--foo-bar'))
+        } finally {
+          fs.rmSync(base, { recursive: true, force: true })
+        }
+      })
+
+      it('resolves a legacy single-dash directory that predates the change', () => {
+        const base = fs.mkdtempSync(path.join(os.tmpdir(), 'hon579-wt-'))
+        try {
+          // A worktree created under the old `-` mapping.
+          fs.mkdirSync(path.join(base, 'feat-foo-bar'), { recursive: true })
+          expect(worktreePath('feat/foo-bar', base)).toBe(path.join(base, 'feat-foo-bar'))
+        } finally {
+          fs.rmSync(base, { recursive: true, force: true })
+        }
+      })
+
+      it('prefers the new `--` directory when both exist', () => {
+        const base = fs.mkdtempSync(path.join(os.tmpdir(), 'hon579-wt-'))
+        try {
+          fs.mkdirSync(path.join(base, 'feat--foo-bar'), { recursive: true })
+          fs.mkdirSync(path.join(base, 'feat-foo-bar'), { recursive: true })
+          expect(worktreePath('feat/foo-bar', base)).toBe(path.join(base, 'feat--foo-bar'))
+        } finally {
+          fs.rmSync(base, { recursive: true, force: true })
+        }
+      })
+    })
+
+    it('orchestrator get_worktree_path uses the same `--` mapping', () => {
+      // The copy replicated in orchestrator.sh must not drift back to `tr / -`.
+      const body = shellFunctionBody(fs.readFileSync(orchestrator, 'utf8'), 'get_worktree_path')
+
+      expect(body).toContain('//--')
+      expect(body).not.toContain("tr '/' '-'")
+    })
+  })
 })

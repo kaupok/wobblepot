@@ -84,9 +84,19 @@ sync_permissions() {
       echo "  + $perm"
     done
 
-    # Merge new permissions into main settings
-    jq --argjson new "$new_perms" '.permissions.allow += $new | .permissions.allow |= unique' \
-      "$main_settings" > "$main_settings.tmp" && mv "$main_settings.tmp" "$main_settings"
+    # Merge new permissions into main settings. Write to a unique temp file in
+    # the target directory (mktemp), not a fixed `.tmp` name: two workers that
+    # finish at the same time must not share one temp path, or one jq truncates
+    # the other and the surviving mv installs corrupt JSON. The temp sits beside
+    # the target, so the mv is an atomic same-filesystem rename.
+    local tmp
+    tmp=$(mktemp "${main_settings}.XXXXXX")
+    if jq --argjson new "$new_perms" '.permissions.allow += $new | .permissions.allow |= unique' \
+      "$main_settings" > "$tmp"; then
+      mv "$tmp" "$main_settings"
+    else
+      rm -f "$tmp"
+    fi
 
     echo -e "${GREEN}Permissions synced to $main_settings${NC}"
   fi
@@ -416,9 +426,11 @@ copy_untracked_files() {
   done
 }
 
-# Normalize branch name to filesystem-safe path
+# Normalize branch name to filesystem-safe path. `/` becomes `--`, not a single
+# `-`, so `feat/foo-bar` and `feat-foo/bar` don't derive the same worktree
+# directory — the same collision neon_branch_name guards against.
 normalize_branch() {
-  echo "$1" | tr '/' '-'
+  echo "${1//\//--}"
 }
 
 # Get worktree path for a branch
@@ -434,9 +446,22 @@ get_worktree_path() {
     return
   fi
 
-  # Fall back to derived path (for new worktrees)
+  # Fall back to derived path (for new worktrees).
   local normalized=$(normalize_branch "$branch")
-  echo "$WORKTREE_BASE/$normalized"
+  local derived="$WORKTREE_BASE/$normalized"
+
+  # Worktrees created before the `/` -> `--` change live at the old single-dash
+  # path. If the new path has no directory yet but the legacy one does, resolve
+  # to the legacy path so resume/cleanup keep working across the change.
+  if [ ! -e "$derived" ]; then
+    local legacy="$WORKTREE_BASE/${branch//\//-}"
+    if [ "$legacy" != "$derived" ] && [ -e "$legacy" ]; then
+      echo "$legacy"
+      return
+    fi
+  fi
+
+  echo "$derived"
 }
 
 # Check if worktree exists

@@ -139,7 +139,7 @@ Full setup guide: [ENVIRONMENT_SETUP.md § Neon Database Branching](./ENVIRONMEN
 
 ## Orchestrator (Autonomous Batch Processing)
 
-The orchestrator (`scripts/orchestrator.sh`) is a long-running dispatcher that polls Linear for Todo issues, claims them atomically, spawns `wt auto` workers, and handles the full lifecycle — including failure triage via Claude.
+The orchestrator (`scripts/orchestrator.sh`) is a long-running dispatcher that polls Linear for Todo issues, claims them by moving each to In Progress, spawns `wt auto` workers, and handles the full lifecycle — including failure triage via Claude.
 
 ### Quick Start
 
