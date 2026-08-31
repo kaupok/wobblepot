@@ -85,6 +85,8 @@ Both files are copied verbatim. When Neon branching is enabled, `DATABASE_URL` a
 
 **To add more files:** Edit the `UNTRACKED_FILES` array in `scripts/worktree-claude.sh`.
 
+**How `.env` reaches a `wt` subcommand:** the dispatcher _parses_ it (`load_env_file`), it does not `source` it. Lines are split on the first `=`, one matched pair of surrounding quotes is stripped, and only keys matching `^[A-Za-z_][A-Za-z0-9_]*$` are exported; comments, blanks and malformed lines are skipped without failing the command. Values are never evaluated, so a line like `FOO=$(rm -rf ~)` exports a literal string instead of running — under the old `set -a` + `source` it was a working command (HON-580). Everything else matches what `source` did with a well-formed line, including precedence: `.env` still wins over what the calling shell exported, which is what lets `wt auto` patch `DATABASE_URL` into a worktree's own copy. Trailing whitespace and a whitespace-preceded `#` comment are dropped from an unquoted value; a quoted one keeps both, and a quote left open continues onto the next line. A missing `.env` stays a silent no-op; commands that need a specific var validate it themselves.
+
 ## Per-Worktree Database Isolation
 
 When `NEON_API_KEY` and `NEON_PROJECT_ID` are set in `.env`, each worktree gets its own Neon branch — an isolated copy-on-write database forked from `staging` (or `NEON_PARENT_BRANCH`). This prevents the schema stomping that happens when multiple worktrees share the same dev DB and one runs `pnpm db:migrate`.
@@ -143,19 +145,23 @@ The orchestrator (`scripts/orchestrator.sh`) is a long-running dispatcher that p
 
 ### Quick Start
 
+`wt start` is the entry point. It loads `.env` — which the orchestrator script itself does not, so invoking `./scripts/orchestrator.sh` directly dies on a missing `LINEAR_API_KEY` — and passes every flag through unchanged.
+
 ```bash
 # Dry run — connects to Linear, logs what it would do
-./scripts/orchestrator.sh --dry-run
+wt start --dry-run
 
 # Single issue, full lifecycle
-./scripts/orchestrator.sh --once --max-workers 1
+wt start --once --max-workers 1
 
 # Steady state with 3 concurrent workers
-./scripts/orchestrator.sh --max-workers 3
+wt start --max-workers 3
 
-# Ctrl+C → graceful shutdown (waits for workers)
-# Ctrl+C again → force kill all workers
+# Stop it
+wt stop
 ```
+
+`wt start` backgrounds the orchestrator, so there is no Ctrl+C to press: `wt stop` drains workers back to Todo and then shuts it down. Output lands in two files under `~/.worktrees/wobblepot/logs/` — `orchestrator.log` (the structured log) and `orchestrator-console.log` (stdout/stderr, which is where a start-up abort's reason actually is).
 
 ### How It Works
 
@@ -174,7 +180,7 @@ The orchestrator (`scripts/orchestrator.sh`) is a long-running dispatcher that p
 
 **Issue selection** is mechanical — no Claude session overhead:
 
-- Fetch Todo issues via Linear GraphQL (curl + jq)
+- Fetch Todo issues via Linear GraphQL (curl + jq), bounded by `LINEAR_TODO_PAGE_SIZE` (50). The query asks for one row past it, so a deeper queue is detectable — that row is a real candidate, not a discarded probe — and logs `WARN Todo queue is deeper than the 50-issue query cap`, naming how many it saw. There is no pagination and does not need to be — a poll claims at most one issue — but before HON-580 the truncation was silent, so the orchestrator's view of "what is available" quietly stopped matching Linear's
 - Filter out issues already being processed by running workers
 - Skip assigned issues — someone owns them (same `assignee: "null"` rule as `/next-issue` and `/auto-implement` Phase 1.4). `move_to_backlog` clears the assignee when it fails an issue back to Backlog, so a re-triaged issue is pickable again. The explicit-ID gate (`/auto-implement HON-XX` 2.1) also accepts `assignee == me` on an `In Progress` issue (my own earlier claim).
 - When a force-kill (second signal) stops the orchestrator, it waits for each worker to exit (SIGTERM, then SIGKILL after 10s), removes its worktree (keeping the git branch and its Neon branch, as RETRY does) and returns the issue to Todo **and clears its assignee** — but only while the issue is still `In Progress`; an issue Linear's PR automation already moved to `In Review` keeps that state. A future run then picks the issue up and `wt auto` resumes the existing branch. Without this step, the issue stays `In Progress` **and assigned**, and the picker skips it forever.

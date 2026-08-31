@@ -457,12 +457,6 @@ get_worktree_path() {
   echo "$WORKTREE_BASE/$normalized"
 }
 
-# Check if worktree exists
-worktree_exists() {
-  local path="$1"
-  git -C "$REPO_ROOT" worktree list | grep -q "$path"
-}
-
 # Create new worktree
 cmd_new() {
   local branch=""
@@ -796,7 +790,7 @@ cmd_status() {
 
   if [ ! -f "$status_file" ]; then
     echo -e "${YELLOW}No orchestrator status file found.${NC}"
-    echo "Start the orchestrator with: ./scripts/orchestrator.sh"
+    echo "Start the orchestrator with: wt start"
     return
   fi
 
@@ -1078,11 +1072,8 @@ cmd_list() {
     fi
   done
 
-  # Also run the status script if available for more details
-  if [ -f "$SCRIPT_DIR/worktree-status.sh" ]; then
-    echo "─────────────────────────────────────────"
-    echo "Run './scripts/worktree-status.sh' for detailed status"
-  fi
+  echo "─────────────────────────────────────────"
+  echo "Run 'wt status' for orchestrator detail, 'wt watch' for a live dashboard."
 }
 
 # Cleanup a specific worktree
@@ -1862,7 +1853,7 @@ cmd_start() {
     fi
   fi
 
-  # .env is sourced by the top-level dispatcher; just validate the orchestrator's
+  # .env is loaded by the top-level dispatcher; just validate the orchestrator's
   # required var here.
   if [ -z "${LINEAR_API_KEY:-}" ]; then
     echo -e "${RED}Error: LINEAR_API_KEY not set (check $REPO_ROOT/.env)${NC}"
@@ -1979,6 +1970,93 @@ cmd_stop() {
   echo -e "${GREEN}Orchestrator stopped.${NC}"
 }
 
+# ─── .env loading ────────────────────────────────────────────────────────────
+# Read KEY=VALUE pairs out of an env file and export them.
+#
+# Parsed, never sourced. `source` executes the file as shell, so `FOO=$(rm -rf
+# ~)` was a working command rather than a parse error, and the `set -a` that
+# wrapped it marked every assignment the file made for export, including ones a
+# well-formed-line filter rejects (HON-580). Nothing here evaluates the value;
+# it is only ever assigned as a literal string.
+#
+# Precedence is unchanged: .env wins over what the caller already exported.
+# Every `wt` subcommand depends on that — `wt auto` patches DATABASE_URL into a
+# worktree's own .env copy and needs it to beat the parent shell's.
+#
+# Otherwise the parse mirrors what `source` did with a well-formed line, since
+# that is the behaviour every existing .env was written against: skip comments
+# and blanks, split on the FIRST `=`, drop trailing whitespace and a
+# whitespace-preceded `#` comment from an unquoted value, and strip one matched
+# pair of surrounding quotes (a quoted value keeps its spaces and its `#` —
+# that is what the quotes are for). A quoted value left open continues on the
+# next line. Keys must be shell identifiers; a malformed line is skipped, not
+# fatal, and a missing file is a silent no-op — commands that genuinely require
+# a var validate it explicitly (cmd_start validates LINEAR_API_KEY,
+# neon_enabled validates NEON_*).
+load_env_file() {
+  local env_file="$1"
+  [ -f "$env_file" ] || return 0
+
+  local line key value quote cont
+  # `|| [ -n "$line" ]` so a final line with no trailing newline is still read.
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"                      # tolerate CRLF
+    line="${line#"${line%%[![:space:]]*}"}"   # trim leading whitespace
+    case "$line" in
+      '' | '#'*) continue ;;
+      # Both spellings `source` accepted. Matching only a literal `export `
+      # would drop a tab-indented line with no diagnostic at all.
+      'export '* | $'export\t'*)
+        line="${line#export}"
+        line="${line#"${line%%[![:space:]]*}"}"
+        ;;
+    esac
+
+    [[ "$line" == *=* ]] || continue
+    key="${line%%=*}"
+    value="${line#*=}"
+    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+
+    # Trim before inspecting quotes, so a value quoted for the sake of a
+    # deliberate trailing space still keeps it.
+    value="${value%"${value##*[![:space:]]}"}"
+
+    quote=""
+    case "$value" in
+      '"'*) quote='"' ;;
+      "'"*) quote="'" ;;
+    esac
+
+    if [ -n "$quote" ]; then
+      # An unclosed quote continues onto the next line, as `source` read it.
+      # `read` here draws from the same redirect as the loop, so the
+      # continuation is consumed rather than re-parsed as its own assignment.
+      # Bounded by EOF: an unterminated value simply runs out of lines.
+      while [ "${#value}" -lt 2 ] || [ "${value: -1}" != "$quote" ]; do
+        IFS= read -r cont || break
+        cont="${cont%$'\r'}"
+        value="$value"$'\n'"${cont%"${cont##*[![:space:]]}"}"
+      done
+      # One matched pair only. A quote left unterminated at EOF is kept in the
+      # value: better a visibly malformed string than a plausible wrong one.
+      if [ "${#value}" -ge 2 ] && [ "${value: -1}" = "$quote" ]; then
+        value="${value:1:${#value}-2}"
+      fi
+    else
+      # `source` started a comment at a whitespace-preceded `#`. Requiring the
+      # whitespace is what keeps a `#` inside a value (`p@ss#word`) intact.
+      case "$value" in
+        *[[:space:]]'#'*) value="${value%%[[:space:]]'#'*}" ;;
+      esac
+      value="${value%"${value##*[![:space:]]}"}"
+    fi
+
+    # `|| true` because the script runs under `set -e`: a readonly name in .env
+    # would otherwise abort the dispatcher before it reaches the command router.
+    export "$key=$value" 2> /dev/null || true
+  done < "$env_file"
+}
+
 # ─── Entry point ─────────────────────────────────────────────────────────────
 # Everything below runs only when this file is EXECUTED. `wt` is a shell alias
 # that executes the script, so this is behaviour-neutral for every real caller;
@@ -1990,16 +2068,10 @@ if [ "${BASH_SOURCE[0]}" != "${0}" ]; then
   return 0
 fi
 
-# Load .env so NEON_API_KEY / NEON_PROJECT_ID (and anything else) are
-# available to every subcommand. Silent no-op if .env is missing — commands
-# that genuinely require specific vars validate them explicitly (cmd_start
-# validates LINEAR_API_KEY, neon_enabled validates NEON_*).
-if [ -f "$REPO_ROOT/.env" ]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "$REPO_ROOT/.env"
-  set +a
-fi
+# Make NEON_API_KEY / NEON_PROJECT_ID / LINEAR_API_KEY (and anything else in
+# .env) available to every subcommand. See load_env_file for why this parses
+# rather than sources.
+load_env_file "$REPO_ROOT/.env"
 
 # Main command router
 case "${1:-}" in
