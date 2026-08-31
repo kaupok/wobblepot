@@ -1237,9 +1237,32 @@ sanitize_log() {
     while IFS= read -r line; do
       [[ "$line" =~ ^[[:space:]]*#.*$ || -z "$line" || ! "$line" =~ = ]] && continue
       local value="${line#*=}"
-      # Strip surrounding quotes
-      value="${value%\"}" ; value="${value#\"}"
-      value="${value%\'}" ; value="${value#\'}"
+      # Mirror load_env_file's value parse (worktree-claude.sh) exactly, or
+      # redaction hunts for a string the log cannot contain. The RUNTIME value
+      # is whatever the loader exported, so a trailing ` # comment` and trailing
+      # whitespace are NOT part of the secret: searching for
+      # `abc123 # rotate me` while the log holds `abc123` matches nothing, and
+      # the secret ships unredacted. HON-580 asked the two to agree on what
+      # counts as a value; this is that agreement.
+      #
+      # Not mirrored: a quoted value continued across lines. This loop reads one
+      # line at a time, so such a value redacts only its first fragment.
+      value="${value%"${value##*[![:space:]]}"}"
+      local quote=""
+      case "$value" in
+        '"'*) quote='"' ;;
+        "'"*) quote="'" ;;
+      esac
+      if [ -n "$quote" ]; then
+        if [ "${#value}" -ge 2 ] && [ "${value: -1}" = "$quote" ]; then
+          value="${value:1:${#value}-2}"
+        fi
+      else
+        case "$value" in
+          *[[:space:]]'#'*) value="${value%%[[:space:]]'#'*}" ;;
+        esac
+        value="${value%"${value##*[![:space:]]}"}"
+      fi
       # Only redact values >= 8 chars to avoid false positives
       [ ${#value} -lt 8 ] && continue
       # LITERAL replacement, not regex. awk's gsub() treats its first argument

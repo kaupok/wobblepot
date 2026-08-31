@@ -1615,4 +1615,75 @@ describe('orchestrator.sh', () => {
       })
     })
   })
+  // ─── HON-580: sanitize_log and load_env_file must agree on a value ────────
+  // load_env_file exports what `source` would have: a trailing ` # comment` and
+  // trailing whitespace are stripped, so they are not part of the runtime
+  // secret. sanitize_log kept them, so it searched the log for a string the log
+  // could not contain and the secret shipped unredacted. The issue asked the
+  // two to agree on "what counts as a value"; these pin that agreement.
+  describe('env value parity between load_env_file and sanitize_log', () => {
+    let envDir: string
+
+    // Every value is >= 8 chars so it clears sanitize_log's floor, and each is
+    // distinctive enough that a partial match cannot pass by accident.
+    const COMMENTED = 'abc123xyz789'
+    const TRAILING_WS = 'def456uvw012'
+    const QUOTED = 'ghi789rst345'
+    const HASH_INSIDE = 'p@ss#word12345'
+
+    beforeAll(() => {
+      envDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hon580-parity-'))
+      fs.writeFileSync(
+        path.join(envDir, '.env'),
+        [
+          `COMMENTED=${COMMENTED} # rotate before Sept`,
+          `TRAILING_WS=${TRAILING_WS}   `,
+          `QUOTED="${QUOTED}"`,
+          // No whitespace before the '#', so it is part of the value, not a comment.
+          `HASH_INSIDE=${HASH_INSIDE}`,
+          '',
+        ].join('\n'),
+      )
+    })
+
+    afterAll(() => fs.rmSync(envDir, { recursive: true, force: true }))
+
+    const sanitize = (text: string) => runHarness('sanitize', path.join(envDir, '.env'), text)
+
+    it('redacts a value whose .env line carries a trailing comment', () => {
+      // The leak: the app prints the exported value, with no comment attached.
+      const out = sanitize(`leaked: ${COMMENTED} end`)
+
+      expect(out).toBe('leaked: [REDACTED] end')
+      expect(out).not.toContain(COMMENTED)
+    })
+
+    it('redacts a value whose .env line has trailing whitespace', () => {
+      expect(sanitize(`leaked: ${TRAILING_WS} end`)).toBe('leaked: [REDACTED] end')
+    })
+
+    it('redacts a quoted value as it appears unquoted at runtime', () => {
+      expect(sanitize(`leaked: ${QUOTED} end`)).toBe('leaked: [REDACTED] end')
+    })
+
+    it('keeps a # that is part of the value rather than a comment', () => {
+      // No whitespace before it, so `source` would not have started a comment.
+      expect(sanitize(`leaked: ${HASH_INSIDE} end`)).toBe('leaked: [REDACTED] end')
+    })
+  })
+
+  // ─── HON-580: the duplicated .env parser must not drift ───────────────────
+  // e2e-local.sh carries its own copy of load_env_file because it does not
+  // source worktree-claude.sh. Two copies of a security-sensitive parser drift;
+  // this fails the moment they do, which is the only thing keeping the comment
+  // "keep the two in step" honest.
+  describe('load_env_file copies', () => {
+    it('are byte-identical across worktree-claude.sh and e2e-local.sh', () => {
+      const a = shellFunctionBody(fs.readFileSync(worktreeClaude, 'utf8'), 'load_env_file')
+      const b = shellFunctionBody(fs.readFileSync(e2eLocal, 'utf8'), 'load_env_file')
+
+      expect(a.length).toBeGreaterThan(0)
+      expect(b).toBe(a)
+    })
+  })
 })
