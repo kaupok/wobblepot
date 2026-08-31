@@ -17,6 +17,19 @@
 #     artifact retention, Linear bookkeeping and the operator-facing comment
 #     text as well as the outcome label.
 #
+#   timeout <commits> <phase> <pr_state> <ci_state>                 (HON-583)
+#     Same stubs as `outcome`, but drives handle_timeout — the path taken when
+#     monitor_workers kills a worker at WORKER_TIMEOUT. handle_failure is
+#     stubbed to a HANDLE_FAILURE:<type> marker, so a test can tell the three
+#     routes apart: STRANDED (unmerged PR), SUCCESS (merged PR), and the
+#     handle_failure fallback (no PR). Everything else is genuine, including
+#     record_stranded's comment body and the cleanup decision.
+#
+#   worker-timeout                                                  (HON-583)
+#     Prints WORKER_TIMEOUT as orchestrator.sh resolved it at source time, so
+#     both the default and the ORCHESTRATOR_WORKER_TIMEOUT override are under
+#     test as values rather than as source text.
+#
 #   pr-for-branch <gh-json> | ci-state <gh-json>
 #     Exercises the REAL helper against fixture JSON, with `gh` itself stubbed.
 #     These cover the jq expression and the bucket classification — the parsing
@@ -152,6 +165,12 @@ MAIN_LOG=$(mktemp "${TMPDIR:-/tmp}/orchestrator-harness-log.XXXXXXXX")
 trap 'rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE"' EXIT
 
 case "$MODE" in
+  # ─── Resolved worker timeout (HON-583) ─────────────────────────────────────
+  worker-timeout)
+    echo "$WORKER_TIMEOUT"
+    exit 0
+    ;;
+
   # ─── Real helper, stubbed gh ───────────────────────────────────────────────
   pr-for-branch | ci-state)
     GH_FIXTURE="$A1"
@@ -180,8 +199,8 @@ case "$MODE" in
     exit 0
     ;;
 
-  # ─── handle_success classification ─────────────────────────────────────────
-  outcome)
+  # ─── handle_success / handle_timeout classification ────────────────────────
+  outcome | timeout)
     COMMITS="$A1"; PHASE="$A2"; PR_STATE="$A3"; CI_STATE="$A4"
 
     count_commits() { echo "$COMMITS"; }
@@ -208,17 +227,30 @@ case "$MODE" in
     restore_todo_if_in_progress() { echo "RESTORE_TODO:$2" >> "$MAIN_LOG"; }
     cleanup_worker_worktree() { echo "CLEANUP:${1}:${2:-false}" >> "$MAIN_LOG"; }
 
-    # Print the captured log however handle_success ends. With errexit left on
-    # (above), a stray non-zero statement aborts the script mid-function, and
-    # the EXIT trap is then the only thing that still runs — so the assertions
-    # see a truncated log and a non-zero exit rather than nothing at all.
-    # `handle_success ... || true` would NOT work here: bash disables errexit
-    # inside a function invoked as part of a `||` list, restoring precisely the
-    # semantics this harness exists to stop hiding.
+    # Only the timeout path can reach handle_failure, and its whole triage
+    # machinery (the Claude call, move_to_backlog, respawn) is covered by the
+    # `failure` mode. Here it only needs to be distinguishable from the other
+    # two routes, so record that it ran and with which failure type.
+    handle_failure() { echo "HANDLE_FAILURE:${6}" >> "$MAIN_LOG"; }
+
+    # Print the captured log however the function under test ends. With errexit
+    # left on (above), a stray non-zero statement aborts the script mid-function,
+    # and the EXIT trap is then the only thing that still runs — so the
+    # assertions see a truncated log and a non-zero exit rather than nothing at
+    # all. `handle_success ... || true` would NOT work here: bash disables
+    # errexit inside a function invoked as part of a `||` list, restoring
+    # precisely the semantics this harness exists to stop hiding.
     # No explicit `exit` here: bash exits with the status that was in effect
     # before the trap ran, so an errexit abort still surfaces as a non-zero exit.
     trap 'cat "$MAIN_LOG"; rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE"' EXIT
-    handle_success HON-999 uuid-999 test-branch /tmp/harness-worker.log 2>/dev/null
+    if [ "$MODE" = "outcome" ]; then
+      handle_success HON-999 uuid-999 test-branch /tmp/harness-worker.log 2>/dev/null
+    else
+      # retried=0, a fixture title, and 3600s elapsed — the shape monitor_workers
+      # passes when the kill fires.
+      handle_timeout HON-999 uuid-999 test-branch /tmp/harness-worker.log \
+        0 "Fixture title" 3600 2>/dev/null
+    fi
     exit 0
     ;;
 

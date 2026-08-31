@@ -15,7 +15,7 @@
 #   ./scripts/orchestrator.sh --dry-run                # Log actions without executing
 #   ./scripts/orchestrator.sh --once                   # Single poll cycle, then exit
 #   ./scripts/orchestrator.sh --poll-interval 30       # Poll every 30 seconds
-#   ./scripts/orchestrator.sh --worker-timeout 7200    # 2 hour worker timeout
+#   ./scripts/orchestrator.sh --worker-timeout 7200    # 2 hour worker timeout (default: 3h)
 #
 # Required:
 #   LINEAR_API_KEY env var (format: lin_api_...)
@@ -58,7 +58,7 @@ WORKER_TITLES=()
 
 MAX_WORKERS="${ORCHESTRATOR_MAX_WORKERS:-5}"
 POLL_INTERVAL="${ORCHESTRATOR_POLL_INTERVAL:-60}"
-WORKER_TIMEOUT="${ORCHESTRATOR_WORKER_TIMEOUT:-3600}"
+WORKER_TIMEOUT="${ORCHESTRATOR_WORKER_TIMEOUT:-10800}"  # 3h. HON-583: 1h no longer absorbs the in-turn CI wait
 # Wall-clock bound on the Claude triage call in handle_failure. Without it a
 # wedged CLI blocks monitor_workers and the whole poll loop, so the orchestrator
 # stops reaping workers and polling issues while every status file still reads
@@ -134,7 +134,7 @@ while [[ $# -gt 0 ]]; do
       echo "Options:"
       echo "  --max-workers N      Max concurrent workers (default: 5)"
       echo "  --poll-interval N    Seconds between polls (default: 60)"
-      echo "  --worker-timeout N   Seconds before killing a worker (default: 3600)"
+      echo "  --worker-timeout N   Seconds before killing a worker (default: 10800)"
       echo "  --dry-run            Log actions without executing"
       echo "  --once               Single poll cycle, then exit"
       echo ""
@@ -675,7 +675,11 @@ monitor_workers() {
         fi
         kill_process_tree "$pid"
         sleep 2
-        handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "timeout" "$title"
+        # NOT handle_failure directly (HON-583): a worker killed at the cap has
+        # usually finished and is waiting on CI in-turn. handle_timeout probes
+        # for a PR first and falls through to handle_failure only when there
+        # isn't one — see its header for the routing.
+        handle_timeout "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "$title" "$elapsed"
         to_remove+=("$i")
       fi
     else
@@ -1004,13 +1008,12 @@ notify() {
   fi
 }
 
-# ─── Handle success ─────────────────────────────────────────────────────────
-
 # ─── Circuit breaker ─────────────────────────────────────────────────────────
 # Called from every path that ends a run without shipping: all of handle_failure
 # (retry included — a retry is a failure that gets another chance), the gated
-# 0-commit path, and the stranded path. handle_success holds the only reset, so
-# the counter means "consecutive runs that shipped nothing".
+# 0-commit path, and the stranded path — from both the exit-0 and the timeout
+# route. record_success holds the only reset on an outcome path, so the counter
+# means "consecutive runs that shipped nothing".
 
 note_consecutive_failure() {
   CONSECUTIVE_FAILURES=$((CONSECUTIVE_FAILURES + 1))
@@ -1021,24 +1024,138 @@ note_consecutive_failure() {
   fi
 }
 
+# ─── Shared outcome helpers ──────────────────────────────────────────────────
+# Two paths end a worker run that may nevertheless have shipped a PR: the exit-0
+# path (handle_success) and the WORKER_TIMEOUT kill (handle_timeout). HON-583:
+# the timeout path used to go straight to handle_failure, so a worker that did
+# the whole job and was killed waiting on CI was triaged, retried and bounced to
+# Backlog while its green PR sat open. These three helpers are the shared
+# vocabulary the two paths speak, so they cannot drift apart again.
+
+# Resolve the branch's PR once and publish it in globals. Bash cannot return a
+# record, and the callers each need four fields plus a derived verdict.
+#
+# WORKER_PR_MERGED is the only question that decides SUCCESS, and
+# WORKER_PR_NUMBER being empty is the only signal for "no PR at all" — which
+# also covers gh being missing or unauthenticated, since pr_for_branch is
+# silent in every one of those cases and cannot tell them apart.
+#
+# The trailing `return 0` is load-bearing under `set -e`: the last statement is
+# a `[ … ] && …` list that returns non-zero whenever the test fails, which would
+# abort the caller mid-function. That is the ee9ad31 defect class.
+probe_worker_pr() {
+  local branch="$1"
+
+  WORKER_PR_STATE=""
+  WORKER_PR_NUMBER=""
+  WORKER_PR_URL=""
+  WORKER_PR_REF="none"
+  WORKER_PR_MERGED=false
+
+  local pr_info
+  pr_info=$(pr_for_branch "$branch")
+  if [ -n "$pr_info" ]; then
+    IFS=$'\t' read -r WORKER_PR_STATE WORKER_PR_NUMBER WORKER_PR_URL <<< "$pr_info"
+  fi
+  [ -n "$WORKER_PR_NUMBER" ] && WORKER_PR_REF="#$WORKER_PR_NUMBER"
+  [ "$WORKER_PR_STATE" = "MERGED" ] && WORKER_PR_MERGED=true
+  return 0
+}
+
+# Record a run that shipped: reset the circuit breaker, log SUCCESS, and clean
+# up the worktree, local branch and Neon branch. Reached from a clean exit at
+# phase=done, from either path once the PR is confirmed MERGED.
+record_success() {
+  local issue_id="$1" branch="$2" phase="$3" commits="$4" duration_str="$5"
+
+  # Reset the circuit breaker on a real success. This is the only reset on an
+  # outcome path — the poll loop's pause-expiry clear is the other site — which
+  # is what makes CONSECUTIVE_FAILURES mean "consecutive runs that shipped
+  # nothing".
+  CONSECUTIVE_FAILURES=0
+  PAUSED_UNTIL=0
+
+  log INFO "[OUTCOME] $issue_id SUCCESS ${duration_str} ${commits}-commits phase=$phase"
+  notify "Honkadori" "$issue_id completed ($commits commits, $duration_str)"
+
+  # Track success for --once exit code
+  [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=0
+
+  log INFO "Cleaning up worktree for $issue_id"
+  cleanup_worker_worktree "$branch"
+  log INFO "Worker $issue_id complete — worktree cleaned up"
+  return 0
+}
+
+# Record a run that produced commits but never merged. Assumes probe_worker_pr
+# has already run for this branch. kill_reason ∈ clean | timeout, and is both
+# logged and threaded into the Linear comment: "exited cleanly but never merged"
+# is a lie about a worker the orchestrator killed, and the difference is what
+# tells an operator whether to re-check WORKER_TIMEOUT.
+strand_worker() {
+  local issue_id="$1" issue_uuid="$2" branch="$3" log_file="$4"
+  local phase="$5" commits="$6" duration_str="$7" kill_reason="$8"
+
+  local ci_state
+  ci_state=$(pr_ci_state "$WORKER_PR_NUMBER")
+  log WARN "[OUTCOME] $issue_id STRANDED ${duration_str} ${commits}-commits phase=$phase pr=${WORKER_PR_REF} ci=${ci_state} exit=${kill_reason}"
+  notify "Honkadori" "$issue_id stranded at $phase — PR ${WORKER_PR_REF} not merged"
+  record_stranded "$issue_uuid" "$issue_id" "$branch" "$log_file" \
+    "$WORKER_PR_URL" "$WORKER_PR_REF" "$WORKER_PR_STATE" "$ci_state" "$phase" "$kill_reason"
+
+  # With a PR, In Review is the accurate state and record_stranded leaves it
+  # alone. With no PR — none opened, or gh missing/unauthenticated, which
+  # validate_environment only WARNs about — Linear never moved the issue, so
+  # it is still In Progress and assigned where claim_issue and /auto-implement
+  # Phase 2.2 left it. fetch_todo_issues queries Todo only and
+  # select_next_issue skips assigned issues, so it would never be seen again.
+  # Hand it back the way gate_no_commit_success does; the Stranded label added
+  # by record_stranded keeps the picker off it until an operator clears it.
+  if [ -z "$WORKER_PR_NUMBER" ]; then
+    restore_todo_if_in_progress "$issue_uuid" "$issue_id"
+  fi
+
+  # An incomplete cycle is a failure to ship, so it counts toward the
+  # circuit breaker: a systemic stranding must not walk the whole Todo
+  # queue one worker per poll.
+  note_consecutive_failure
+  [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=1
+
+  # Deliberately no cleanup_worker_worktree: the worktree, local branch and
+  # Neon branch are exactly what finishing this run by hand requires. Nothing
+  # reclaims them once the operator is done, so the release command has to
+  # travel with the resume command — otherwise every stranded run leaks a
+  # worktree (a full pnpm install) and blocks any respawn on that branch.
+  log WARN "Preserved worktree and branch for $issue_id — resume with: wt resume $branch (release with: wt cleanup $branch)"
+  return 0
+}
+
+# Duration of the still-registered worker for an issue, in seconds. Both
+# handle_success and handle_timeout report it; the timeout path already knows
+# the elapsed time, so it passes its own rather than calling this.
+worker_duration_secs() {
+  local issue_id="$1"
+  local i=0
+  while [ $i -lt ${#WORKER_ISSUES[@]} ]; do
+    if [ "${WORKER_ISSUES[$i]}" = "$issue_id" ]; then
+      echo $(( $(date +%s) - ${WORKER_START_TIMES[$i]} ))
+      return 0
+    fi
+    i=$((i + 1))
+  done
+  echo 0
+}
+
+# ─── Handle a worker that exited 0 ──────────────────────────────────────────
+
 handle_success() {
   local issue_id="$1" issue_uuid="$2" branch="$3" log_file="$4"
 
   # Compute outcome details
-  local commits duration_str phase
+  local commits duration_str phase duration_secs
   commits=$(count_commits "$branch")
   phase=$(detect_phase "$log_file" "$branch")
-
-  # Find start time for this worker to compute duration
-  local duration_secs=0
-  local i=0
-  while [ $i -lt ${#WORKER_ISSUES[@]} ]; do
-    if [ "${WORKER_ISSUES[$i]}" = "$issue_id" ]; then
-      duration_secs=$(( $(date +%s) - ${WORKER_START_TIMES[$i]} ))
-      break
-    fi
-    i=$((i + 1))
-  done
+  duration_secs=$(worker_duration_secs "$issue_id")
   duration_str=$(format_duration "$duration_secs")
 
   # Resolve the PR once, ahead of BOTH incompleteness checks below. Each of them
@@ -1048,15 +1165,17 @@ handle_success() {
   # 0 commits. Confirming against the PR first keeps a lagging phase from
   # manufacturing either a false GATED or a false STRANDED. Skipped entirely when
   # the phase already says "done" — that run needs no confirmation, and this is a
-  # network round-trip.
-  local pr_state="" pr_number="" pr_url="" pr_info="" pr_merged=false
+  # network round-trip. Skipping is expressed as an empty branch rather than
+  # skipping the call, so the globals are always reset: the orchestrator is one
+  # long-lived process and the previous worker's PR must not survive into this
+  # one's decision.
+  local probe_branch=""
   if [ "$phase" != "done" ]; then
-    pr_info=$(pr_for_branch "$branch")
-    [ -n "$pr_info" ] && IFS=$'\t' read -r pr_state pr_number pr_url <<< "$pr_info"
-    if [ "$pr_state" = "MERGED" ]; then
-      log INFO "$issue_id: phase reported '$phase' but PR #$pr_number is merged — treating as success"
-      pr_merged=true
-    fi
+    probe_branch="$branch"
+  fi
+  probe_worker_pr "$probe_branch"
+  if [ "$WORKER_PR_MERGED" = true ]; then
+    log INFO "$issue_id: phase reported '$phase' but PR $WORKER_PR_REF is merged — treating as success"
   fi
 
   # A clean exit that produced no commits and did not reach a merge shipped
@@ -1067,7 +1186,7 @@ handle_success() {
   # merged run can also show 0 commits once local main advances past its merge;
   # that run reached phase "done", so it stays a SUCCESS and Linear automation
   # moves its issue to Done.
-  if [ "${commits:-0}" -eq 0 ] && [ "$phase" != "done" ] && [ "$pr_merged" = false ]; then
+  if [ "${commits:-0}" -eq 0 ] && [ "$phase" != "done" ] && [ "$WORKER_PR_MERGED" = false ]; then
     log WARN "[OUTCOME] $issue_id GATED ${duration_str} 0-commits phase=$phase"
     notify "Honkadori" "$issue_id produced no commits — returned to Todo"
     gate_no_commit_success "$issue_uuid" "$issue_id" "$log_file"
@@ -1091,51 +1210,64 @@ handle_success() {
   # A MERGED PR (confirmed above) falls through to SUCCESS; everything else —
   # open, closed, never created, or unknowable because gh is missing — is
   # STRANDED, because on this path a false SUCCESS is the expensive answer.
-  if [ "$phase" != "done" ] && [ "$pr_merged" = false ]; then
-    local ci_state pr_ref="none"
-    ci_state=$(pr_ci_state "$pr_number")
-    [ -n "$pr_number" ] && pr_ref="#$pr_number"
-    log WARN "[OUTCOME] $issue_id STRANDED ${duration_str} ${commits}-commits phase=$phase pr=${pr_ref} ci=${ci_state}"
-    notify "Honkadori" "$issue_id stranded at $phase — PR $pr_ref not merged"
-    record_stranded "$issue_uuid" "$issue_id" "$branch" "$log_file" "$pr_url" "$pr_ref" "$pr_state" "$ci_state" "$phase"
-    # With a PR, In Review is the accurate state and record_stranded leaves it
-    # alone. With no PR — none opened, or gh missing/unauthenticated, which
-    # validate_environment only WARNs about — Linear never moved the issue, so
-    # it is still In Progress and assigned where claim_issue and /auto-implement
-    # Phase 2.2 left it. fetch_todo_issues queries Todo only and
-    # select_next_issue skips assigned issues, so it would never be seen again.
-    # Hand it back the way gate_no_commit_success does; the Stranded label added
-    # by record_stranded keeps the picker off it until an operator clears it.
-    if [ -z "$pr_number" ]; then
-      restore_todo_if_in_progress "$issue_uuid" "$issue_id"
-    fi
-    # An incomplete cycle is a failure to ship, so it counts toward the
-    # circuit breaker: a systemic stranding must not walk the whole Todo
-    # queue one worker per poll.
-    note_consecutive_failure
-    [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=1
-    # Deliberately no cleanup_worker_worktree: the worktree, local branch and
-    # Neon branch are exactly what finishing this run by hand requires. Nothing
-    # reclaims them once the operator is done, so the release command has to
-    # travel with the resume command — otherwise every stranded run leaks a
-    # worktree (a full pnpm install) and blocks any respawn on that branch.
-    log WARN "Preserved worktree and branch for $issue_id — resume with: wt resume $branch (release with: wt cleanup $branch)"
+  # (handle_timeout answers the unknowable case differently — see the comment
+  # there; a kill is evidence of a stall in a way a clean exit is not.)
+  if [ "$phase" != "done" ] && [ "$WORKER_PR_MERGED" = false ]; then
+    strand_worker "$issue_id" "$issue_uuid" "$branch" "$log_file" \
+      "$phase" "$commits" "$duration_str" "clean"
     return
   fi
 
-  # Reset circuit breaker on a real success
-  CONSECUTIVE_FAILURES=0
-  PAUSED_UNTIL=0
+  record_success "$issue_id" "$branch" "$phase" "$commits" "$duration_str"
+}
 
-  log INFO "[OUTCOME] $issue_id SUCCESS ${duration_str} ${commits}-commits phase=$phase"
-  notify "Honkadori" "$issue_id completed ($commits commits, $duration_str)"
+# ─── Handle a worker killed by WORKER_TIMEOUT ────────────────────────────────
+# A timeout is not evidence that the work is incomplete (HON-583). HON-573 made
+# workers wait for CI in-turn rather than backgrounding it, so the usual thing a
+# worker is doing when the clock runs out is watching a finished, green PR. This
+# path used to call handle_failure directly, which never looks for a PR: the run
+# was triaged, retried, and eventually moved to Backlog with a `Needs attention`
+# label while its PR sat open and mergeable (HON-580 → #667, HON-581 → #669,
+# both merged by hand).
+#
+# Probe first, then route:
+#   merged PR   → SUCCESS. The cycle finished; the kill landed after the merge.
+#   unmerged PR → STRANDED, identical to the exit-0 path: artifacts preserved,
+#                 Stranded label, In Review left alone, breaker incremented.
+#   no PR       → a genuine stall. Fall through to handle_failure and triage
+#                 exactly as before.
+#
+# The no-PR case deliberately differs from handle_success, which strands an
+# unresolvable PR because a false SUCCESS there deletes the branch. Here the
+# fallback is handle_failure, which preserves the branch on a RETRY and posts
+# the log tail either way — so guessing wrong costs a triage, not the work. It
+# also keeps a gh-less orchestrator on its existing behaviour instead of
+# labelling every single timeout Stranded.
+handle_timeout() {
+  local issue_id="$1" issue_uuid="$2" branch="$3" log_file="$4"
+  local retried="$5" title="$6" duration_secs="$7"
 
-  # Track success for --once exit code
-  [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=0
+  probe_worker_pr "$branch"
 
-  log INFO "Cleaning up worktree for $issue_id"
-  cleanup_worker_worktree "$branch"
-  log INFO "Worker $issue_id complete — worktree cleaned up"
+  if [ -z "$WORKER_PR_NUMBER" ]; then
+    handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "timeout" "$title"
+    return 0
+  fi
+
+  local commits phase duration_str
+  commits=$(count_commits "$branch")
+  phase=$(detect_phase "$log_file" "$branch")
+  duration_str=$(format_duration "$duration_secs")
+
+  if [ "$WORKER_PR_MERGED" = true ]; then
+    log INFO "$issue_id: killed at the timeout in phase '$phase', but PR $WORKER_PR_REF is merged — treating as success"
+    record_success "$issue_id" "$branch" "$phase" "$commits" "$duration_str"
+    return 0
+  fi
+
+  strand_worker "$issue_id" "$issue_uuid" "$branch" "$log_file" \
+    "$phase" "$commits" "$duration_str" "timeout"
+  return 0
 }
 
 # ─── Gate a no-commit "success" ──────────────────────────────────────────────
@@ -1166,16 +1298,22 @@ gate_no_commit_success() {
 }
 
 # ─── Record a stranded (unmerged) run ────────────────────────────────────────
-# The worker exited cleanly with commits but never merged. Make that visible
-# where a human will look — on the issue itself — rather than only in
-# orchestrator.log. This function only adds the label and the comment; it never
-# touches issue state, because with an open PR Linear automation has already
-# moved the issue to In Review and that is the accurate state. The no-PR case,
-# where nothing moved the issue at all, is handled by the caller.
+# The worker produced commits but never merged. Make that visible where a human
+# will look — on the issue itself — rather than only in orchestrator.log. This
+# function only adds the label and the comment; it never touches issue state,
+# because with an open PR Linear automation has already moved the issue to In
+# Review and that is the accurate state. The no-PR case, where nothing moved the
+# issue at all, is handled by the caller.
+#
+# kill_reason ∈ clean | timeout. It changes only the opening sentence, but that
+# sentence is the operator's whole account of what happened: "exited cleanly" is
+# a lie about a worker the orchestrator killed, and it points the reader at the
+# skill's terminal-turn rule instead of at WORKER_TIMEOUT.
 
 record_stranded() {
   local issue_uuid="$1" issue_id="$2" branch="$3" log_file="$4"
   local pr_url="$5" pr_ref="$6" pr_state="$7" ci_state="$8" phase="$9"
+  local kill_reason="${10:-clean}"
 
   # pr_ref is "#650" — the shape the outcome log line wants. Every operator
   # instruction below needs the bare number instead: `gh pr merge` rejects a
@@ -1210,9 +1348,17 @@ record_stranded() {
     next_step="No PR exists for this branch. Resume the worktree and finish the cycle by hand, or check that \`gh\` is installed and authenticated for the orchestrator."
   fi
 
+  # What happened, in the operator's terms. The timeout wording names the knob
+  # that caused it, because the fix for a run that was 95% done is a bigger
+  # budget, not a re-run.
+  local how="The worker exited cleanly but never merged, so the cycle is incomplete."
+  if [ "$kill_reason" = "timeout" ]; then
+    how=$(printf 'The worker was **killed at `WORKER_TIMEOUT`** before it could merge, so the cycle is incomplete — the work itself may well be finished. If this keeps happening on long issues, raise `ORCHESTRATOR_WORKER_TIMEOUT`.')
+  fi
+
   local body
-  body=$(printf '## Auto-implementation stranded at `%s`\n\nThe worker exited cleanly but never merged, so the cycle is incomplete. %s%s\n\n**Preserved for resume:** the worktree, local branch `%s` and its Neon branch were *not* cleaned up. Resume with `wt resume %s`, and release them with `wt cleanup %s` once the run is finished — nothing else reclaims them.\n\n%s' \
-    "$phase" "$pr_note" "$log_path_note" "$branch" "$branch" "$branch" "$next_step")
+  body=$(printf '## Auto-implementation stranded at `%s`\n\n%s %s%s\n\n**Preserved for resume:** the worktree, local branch `%s` and its Neon branch were *not* cleaned up. Resume with `wt resume %s`, and release them with `wt cleanup %s` once the run is finished — nothing else reclaims them.\n\n%s' \
+    "$phase" "$how" "$pr_note" "$log_path_note" "$branch" "$branch" "$branch" "$next_step")
 
   local vars
   vars=$(jq -n --arg id "$issue_uuid" --arg body "$body" '{issueId: $id, body: $body}')
@@ -1429,9 +1575,10 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)"
 
   # Every path out of handle_failure is a failure to ship, so every one of them
   # counts toward the circuit breaker — including the retry, which is a failure
-  # that gets another chance, not a success. handle_success owns the only reset
-  # in the script (see "Reset circuit breaker on a real success"), which is what
-  # makes CONSECUTIVE_FAILURES mean "consecutive runs that shipped nothing".
+  # that gets another chance, not a success. record_success owns the only reset
+  # on an outcome path (see "Reset the circuit breaker on a real success"), which
+  # is what makes CONSECUTIVE_FAILURES mean "consecutive runs that shipped
+  # nothing".
   #
   # HON-572: the counter used to be driven by the triage VERDICT — reset on
   # RETRY, incremented otherwise — before the case that acts on it. A systemic
