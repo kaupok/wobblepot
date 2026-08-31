@@ -258,8 +258,9 @@ Leaving the vars blank is the opt-out — worktrees print a one-line warning and
 
 - Branch name mapping is deterministic: `auto/hon-339-foo` → Neon branch `auto--hon-339-foo` (slashes become double-dashes so `feat/foo-bar` and `feat-foo/bar` don't collide).
 - `neonctl` runs via `pnpm dlx` with a pinned version — no install step required.
-- When the project hits the branch cap (10 on the free tier), `wt` runs an automatic GC pass to delete branches whose git worktree no longer exists, then retries once.
-- If a Neon branch with the target name already exists after GC, `wt` fails loud. Pass `--fresh-db` to `wt new` / `wt auto` to force delete-and-recreate.
+- A failed `neonctl branches create` is classified from its error text alone, with the branch name stripped out first — `already exists` / `duplicate` is checked before the cap keywords, because the former is an unambiguous API signal and the latter is a guess at undocumented wording (HON-581).
+- A branch that already exists is reused when the git branch is being resumed (an orchestrator RETRY or force-kill recovery), and is a hard stop otherwise. Pass `--fresh-db` to `wt new` / `wt auto` to force delete-and-recreate — that flag never falls back to reuse, since a branch surviving its pre-delete means the delete did not take.
+- Only a genuine cap error triggers the automatic GC pass, which deletes branches whose git worktree no longer exists and then retries once. "Genuine" means `branch` and an exhaustion keyword on the same line: the GC is project-wide, so an unrelated rate-limit response must not reach it.
 
 ### Inspecting branches
 
