@@ -483,6 +483,24 @@ describe('orchestrator.sh', () => {
       expect(input).not.toContain('supersecretpw')
       expect(input).not.toContain('lin_api_SECRET')
     })
+
+    // The issue asks for sanitize_log to be the ONLY accessor, so pin the
+    // invariant rather than the three call sites that happen to exist today:
+    // a new raw read added later fails here instead of leaking silently.
+    // monitor_workers' timeout-context read is one of these — it copies 20 raw
+    // worker-log lines into orchestrator.log, the copy that outlives the
+    // worker's own file.
+    it('leaves no unsanitized read of a worker log', () => {
+      const source = fs.readFileSync(orchestrator, 'utf8')
+      const reads = source
+        .split('\n')
+        .filter((l) => /\$\((?:tail -\d+ "\$log_file"|extract_claude_output )/.test(l))
+
+      expect(reads.length).toBeGreaterThan(0)
+      for (const line of reads) {
+        expect(line, `unsanitized worker-log read: ${line.trim()}`).toContain('sanitize_log')
+      }
+    })
   })
 
   // ─── HON-572 finding 3: duplicated log lines ──────────────────────────────

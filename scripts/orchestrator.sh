@@ -539,8 +539,11 @@ monitor_workers() {
         log WARN "Worker $issue_id (PID $pid) timed out after ${elapsed}s"
         # Capture last activity before killing for triage context
         if [ -f "$log_file" ]; then
+          # Sanitized before it lands in orchestrator.log: this is the other
+          # place a raw worker log is read, and the main log is the copy that
+          # outlives the worker's own file (HON-577).
           local last_activity
-          last_activity=$(tail -20 "$log_file" 2>/dev/null || echo "(unreadable)")
+          last_activity=$(sanitize_log "$(tail -20 "$log_file" 2>/dev/null || echo "(unreadable)")")
           log DEBUG "Timeout context for $issue_id (last 20 lines before kill):"
           printf '%s\n' "$last_activity" >> "$MAIN_LOG"
         fi
