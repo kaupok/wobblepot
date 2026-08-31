@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fn, userEvent, within } from 'storybook/test'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import {
   createIngredientAlternative,
   createLowConfidenceIngredientRowData,
@@ -155,6 +155,18 @@ export const SelectingAlternativeInvokesOnUpdate: Story = {
     const body = within(document.body)
     const option = await body.findByRole('option', { name: /chicken breast/i })
     await userEvent.click(option)
+
+    // Wait for the Select's close sequence to finish before the play function
+    // returns. Radix keeps the content mounted through its exit animation
+    // (`role="listbox"`, `data-state="closed"`) and leaves its `aria-hidden`
+    // layer wrapper in place until then, so the a11y gate — which runs in an
+    // `afterEach` — otherwise audits a half-closed dropdown and reports
+    // `aria-input-field-name` and `aria-hidden-focus` against DOM no user can
+    // reach. Same rationale as `awaitDialogClosed` in `@/stories/a11y-helpers`:
+    // awaiting unmount is the assertion that the close sequence completed.
+    await waitFor(() => {
+      expect(document.querySelectorAll('[role="listbox"]').length).toBe(0)
+    })
 
     await expect(args.onUpdate).toHaveBeenCalledTimes(1)
     await expect(args.onUpdate).toHaveBeenCalledWith(
