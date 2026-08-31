@@ -214,7 +214,7 @@ wt stop
 | -------------------- | ----------------------------- | ------- | ------------------------------- |
 | `--max-workers N`    | `ORCHESTRATOR_MAX_WORKERS`    | 5       | Max concurrent workers          |
 | `--poll-interval N`  | `ORCHESTRATOR_POLL_INTERVAL`  | 60      | Seconds between polls           |
-| `--worker-timeout N` | `ORCHESTRATOR_WORKER_TIMEOUT` | 3600    | Seconds before killing a worker |
+| `--worker-timeout N` | `ORCHESTRATOR_WORKER_TIMEOUT` | 10800   | Seconds before killing a worker |
 | `--dry-run`          | —                             | false   | Log actions without executing   |
 | `--once`             | —                             | false   | Single poll cycle, then exit    |
 
@@ -232,12 +232,13 @@ Requires `LINEAR_API_KEY` env var (format: `lin_api_...`).
 [OUTCOME] HON-51 SUCCESS 35m0s 4-commits phase=done
 [OUTCOME] HON-53 TIMEOUT 1h1m 2-commits phase=reviewing triage=RETRY
 [OUTCOME] HON-55 GATED 8m0s 0-commits phase=planning
-[OUTCOME] HON-570 STRANDED 12m3s 3-commits phase=pr-review pr=#650 ci=green
+[OUTCOME] HON-570 STRANDED 12m3s 3-commits phase=pr-review pr=#650 ci=green exit=clean
+[OUTCOME] HON-580 STRANDED 1h0m 4-commits phase=pr-review pr=#667 ci=green exit=timeout
 ```
 
-`SUCCESS` is logged only for a run that reached `phase=done` — i.e. actually merged. Every other clean exit is `GATED` (shipped nothing) or `STRANDED` (shipped commits but never merged).
+`SUCCESS` is logged only for a run that reached `phase=done` — i.e. actually merged, or confirmed merged against its PR. Every other exit that shipped something is `STRANDED`; one that shipped nothing is `GATED` (clean exit) or `TIMEOUT` / `FAILED` (killed or crashed with no PR).
 
-**Stranded runs.** A worker can exit cleanly with commits and an open, unmerged PR. That is an incomplete cycle, not a success: the merge never happened and the issue parks in In Review. The orchestrator logs `STRANDED` with the PR number and its CI state (`green` / `pending` / `failing` / `unknown`), comments on the Linear issue with the PR URL and worker log path, adds the `Stranded` label — and **skips cleanup entirely**, so the worktree, local git branch and paired Neon branch all survive. Those artifacts are what finishing the run by hand requires:
+**Stranded runs.** A worker can end with commits and an open, unmerged PR. That is an incomplete cycle, not a success: the merge never happened and the issue parks in In Review. `exit=` says which signal ended it — `clean` for an exit-0 worker, `timeout` for one killed at `WORKER_TIMEOUT`. The orchestrator logs `STRANDED` with the PR number and its CI state (`green` / `pending` / `failing` / `unknown`), comments on the Linear issue with the PR URL and worker log path, adds the `Stranded` label — and **skips cleanup entirely**, so the worktree, local git branch and paired Neon branch all survive. Those artifacts are what finishing the run by hand requires:
 
 ```bash
 gh pr merge --squash <PR>          # ci=green — one step from done
@@ -249,9 +250,23 @@ The release step is not optional. Nothing else reclaims a preserved worktree (a 
 
 If no PR could be resolved at all — none was opened, or `gh` is missing or unauthenticated — Linear never moved the issue anywhere, so it is still `In Progress` and assigned where `claim_issue` left it. That path returns the issue to Todo and clears the assignee (as the gated path does), leaving the `Stranded` label as the gate. A PR in any other state is left alone: `In Review` is the accurate state when a PR exists. A `CLOSED`-but-unmerged PR is reported as such and told to reopen rather than merge — `gh pr merge` on a closed PR fails.
 
-Before deciding a run is stranded, the orchestrator re-checks the PR: a `MERGED` PR is reported as `SUCCESS` even if the phase marker was missing, so a lagging `detect_phase` cannot manufacture a false stranding. Without `gh` on `PATH` the PR cannot be checked at all, and the run is reported `STRANDED` without PR detail — the conservative answer, since a false `SUCCESS` here deletes the branch. Like `GATED`, a stranded exit counts toward the circuit breaker.
+Before deciding a run is stranded, the orchestrator re-checks the PR: a `MERGED` PR is reported as `SUCCESS` even if the phase marker was missing, so a lagging `detect_phase` cannot manufacture a false stranding. Without `gh` on `PATH`, or with a `gh` that errors or is rate limited, the PR cannot be checked at all, and the run is reported `STRANDED` without PR detail — the conservative answer on both the exit-0 and the timeout path, since a false verdict deletes the branch either way. Like `GATED`, a stranded exit counts toward the circuit breaker.
 
-The usual cause is a worker that ended its turn waiting on something: in the headless spawn the process exits when a turn ends, so a backgrounded CI poll dies with it. `/auto-implement`'s Execution Model forbids that (foreground wait-chunks instead) — a fresh `STRANDED` line means either that rule was broken or the worker hit a real stop.
+The usual cause is a worker that ended its turn waiting on something: in the headless spawn the process exits when a turn ends, so a backgrounded CI poll dies with it. `/auto-implement`'s Execution Model forbids that (foreground wait-chunks instead) — a fresh `STRANDED exit=clean` line means either that rule was broken or the worker hit a real stop.
+
+**Timeouts are stranding-checked too.** A worker killed at `WORKER_TIMEOUT` is _not_ automatically a failure. Because `/auto-implement` waits for CI in the foreground, the most likely thing a worker is doing when the clock runs out is watching a finished, green PR — so the orchestrator probes for one before triaging:
+
+| State at the moment of the kill  | Outcome                                                                               |
+| -------------------------------- | ------------------------------------------------------------------------------------- |
+| PR merged                        | `SUCCESS` — the cycle finished, the kill just landed after the merge                  |
+| PR open or closed, unmerged      | `STRANDED exit=timeout` — artifacts preserved, exactly as an exit-0 stranding         |
+| No PR, but commits on the branch | `STRANDED exit=timeout` — the same state the exit-0 path preserves                    |
+| `gh` could not answer            | `STRANDED exit=timeout` — silence is not evidence, and this is the destructive branch |
+| No PR and no commits             | `TIMEOUT` — a genuine stall, triaged and possibly retried as before                   |
+
+Only the last row reaches `handle_failure`, and that matters: its `BACKLOG`, `NEEDS_HUMAN` and already-retried `RETRY` arms all end in a cleanup that runs `git branch -D` and deletes the paired Neon branch, so anything not yet pushed dies with them. Before this check existed, every row went to triage: three finished, green PRs (#650, #667, #669) were reported as failures and their issues pushed to Backlog with `Needs attention` while the PRs sat open (HON-573, HON-583). A `STRANDED exit=timeout` line means the work is probably done and just needs a merge — check the PR before re-running anything.
+
+The 3-hour default budget exists for the same reason: waiting for CI in-turn costs 8–12 minutes on top of the implementation, and the previous 1-hour cap killed every run that needed longer at exactly the point it was about to merge. Lower it with `--worker-timeout` if you want faster failure on stuck workers, but not below about 90 minutes.
 
 A worker can also exit cleanly but make no commits. Such a worker ships nothing, so the orchestrator logs `GATED`, not `SUCCESS`. It comments on the issue, adds the `Gated` label, and — if the issue is still `In Progress` — returns it to Todo and clears the assignee. Without this step, the issue stays `In Progress` and assigned, and the picker skips it forever. A gated exit counts toward the circuit breaker like any other failure.
 

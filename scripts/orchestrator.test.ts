@@ -36,7 +36,7 @@ function shellFunctionBody(source: string, name: string): string {
   return source.slice(start, end)
 }
 
-type PrState = 'OPEN' | 'MERGED' | 'CLOSED' | 'NONE'
+type PrState = 'OPEN' | 'MERGED' | 'CLOSED' | 'NONE' | 'ERROR'
 type CiState = 'green' | 'pending' | 'failing' | 'unknown'
 
 /**
@@ -49,6 +49,15 @@ function classify(commits: number, phase: string, pr: PrState, ci: CiState): str
     /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} /gm,
     '',
   )
+}
+
+/**
+ * Same fixtures, but through `handle_timeout` — the path monitor_workers takes
+ * when it kills a worker at WORKER_TIMEOUT. `handle_failure` is stubbed to a
+ * `HANDLE_FAILURE:<type>` marker, so the three routes out are distinguishable.
+ */
+function classifyTimeout(commits: number, phase: string, pr: PrState, ci: CiState): string {
+  return stripTimestamps(runHarness('timeout', String(commits), phase, pr, ci))
 }
 
 function runHarness(...args: string[]): string {
@@ -457,15 +466,24 @@ describe('orchestrator.sh', () => {
       expect(r.out).toContain('Circuit breaker: 3 consecutive failures')
     })
 
-    it('lets handle_success clear a breaker that handle_failure never resets', () => {
+    it('lets the success path clear a breaker that handle_failure never resets', () => {
       // The counter must still be clearable, or an isolated flake would ratchet
-      // the orchestrator into a permanent pause. handle_success owns that reset.
+      // the orchestrator into a permanent pause. record_success owns that reset
+      // — HON-583 moved it there so the exit-0 and timeout paths share it — and
+      // it must stay the only one in the script.
       const orchestratorSource = fs.readFileSync(orchestrator, 'utf8')
       const failureBody = shellFunctionBody(orchestratorSource, 'handle_failure')
-      const successBody = shellFunctionBody(orchestratorSource, 'handle_success')
+      const successBody = shellFunctionBody(orchestratorSource, 'record_success')
 
       expect(failureBody).not.toMatch(/CONSECUTIVE_FAILURES=0/)
       expect(successBody).toMatch(/CONSECUTIVE_FAILURES=0/)
+
+      // No other outcome handler may reset it. (Two resets outside this set are
+      // legitimate and deliberately not counted: the global initialiser, and the
+      // poll loop clearing the counter when a pause expires.)
+      for (const fn of ['handle_success', 'handle_timeout', 'strand_worker']) {
+        expect(shellFunctionBody(orchestratorSource, fn), fn).not.toMatch(/CONSECUTIVE_FAILURES=0/)
+      }
     })
 
     it('reports the same count in the status file wt status reads', () => {
@@ -1906,6 +1924,260 @@ describe('orchestrator.sh', () => {
 
       expect(a.length).toBeGreaterThan(0)
       expect(b).toBe(a)
+    })
+  })
+
+  // ─── HON-583: a timeout is not evidence the work is incomplete ────────────
+  // monitor_workers used to call handle_failure directly on the WORKER_TIMEOUT
+  // kill, and handle_failure never looks for a PR. HON-573 had made workers
+  // wait for CI in-turn, so the usual thing a worker is doing when the clock
+  // runs out is watching a finished, green PR — which was then triaged,
+  // retried, and moved to Backlog with a `Needs attention` label while the PR
+  // sat open and mergeable (HON-580 → #667, HON-581 → #669, both merged by
+  // hand). handle_timeout probes first and routes on the answer.
+  describe('handle_timeout outcome classification', () => {
+    it('reports STRANDED — not TIMEOUT — for a kill with an open, unmerged PR', () => {
+      const out = classifyTimeout(3, 'pr-review', 'OPEN', 'green')
+
+      expect(out).toContain('[OUTCOME] HON-999 STRANDED')
+      expect(out).toContain('3-commits phase=pr-review pr=#650 ci=green')
+      // The two things the old path did: label the run a failure, and triage it.
+      // Matched on the outcome label, not the bare word — the comment body names
+      // WORKER_TIMEOUT on purpose.
+      expect(out).not.toContain('[OUTCOME] HON-999 TIMEOUT')
+      expect(out).not.toContain('triage=')
+      expect(out).not.toContain('HANDLE_FAILURE')
+    })
+
+    it('preserves the worktree, branch and Neon branch, and gates the issue', () => {
+      const out = classifyTimeout(3, 'pr-review', 'OPEN', 'green')
+
+      // Byte-identical bookkeeping to the exit-0 stranded path: no cleanup (which
+      // is what deletes all three artifacts), the Stranded label, and In Review
+      // left alone because Linear already moved it there.
+      expect(out).not.toContain('CLEANUP:')
+      expect(out).toContain('LABEL:Stranded')
+      expect(out).not.toContain('RESTORE_TODO')
+      expect(out).toContain('resume with: wt resume test-branch')
+      expect(out).toContain('release with: wt cleanup test-branch')
+    })
+
+    it('reports SUCCESS when the PR is already merged', () => {
+      // The kill landed after the merge — a merged PR is a finished cycle no
+      // matter which signal ended the worker.
+      const out = classifyTimeout(3, 'pr-review', 'MERGED', 'green')
+
+      expect(out).toContain('[OUTCOME] HON-999 SUCCESS')
+      expect(out).not.toContain('STRANDED')
+      expect(out).not.toContain('HANDLE_FAILURE')
+      expect(out).toContain('CLEANUP:test-branch:false')
+    })
+
+    it('falls through to handle_failure when there is no PR at all', () => {
+      // Nothing shipped, so this is a genuine stall and the old triage is the
+      // right answer. Deliberately unlike handle_success, which strands an
+      // unresolvable PR: there a false SUCCESS deletes the branch, here the
+      // fallback preserves it on a RETRY, so guessing wrong costs a triage.
+      const out = classifyTimeout(0, 'implementing', 'NONE', 'unknown')
+
+      expect(out).toContain('HANDLE_FAILURE:timeout')
+      expect(out).not.toContain('STRANDED')
+      expect(out).not.toContain('SUCCESS')
+      expect(out).not.toContain('LABEL:')
+    })
+
+    it('strands a closed-but-unmerged PR rather than triaging it', () => {
+      const out = classifyTimeout(3, 'pr-review', 'CLOSED', 'unknown')
+
+      expect(out).toContain('[OUTCOME] HON-999 STRANDED')
+      expect(out).toContain('CLOSED, never merged')
+      expect(out).not.toContain('HANDLE_FAILURE')
+    })
+
+    it('names the timeout in the outcome line and the Linear comment', () => {
+      // "The worker exited cleanly" is a lie about a worker the orchestrator
+      // killed, and it points the reader at the skill's terminal-turn rule
+      // instead of at the knob that actually caused this.
+      const out = classifyTimeout(3, 'pr-review', 'OPEN', 'green')
+
+      expect(out).toContain('exit=timeout')
+      expect(out).toContain('killed at `WORKER_TIMEOUT`')
+      expect(out).toContain('ORCHESTRATOR_WORKER_TIMEOUT')
+      expect(out).not.toContain('exited cleanly')
+    })
+
+    it('leaves the exit-0 stranding described as a clean exit', () => {
+      const out = classify(3, 'pr-review', 'OPEN', 'green')
+
+      expect(out).toContain('exit=clean')
+      expect(out).toContain('The worker exited cleanly but never merged')
+      expect(out).not.toContain('killed at `WORKER_TIMEOUT`')
+    })
+
+    // The harness keeps orchestrator.sh's `set -e` on, so a statement that
+    // returns non-zero aborts mid-function and the trailing line never appears.
+    it.each(['OPEN', 'CLOSED'] as PrState[])(
+      'runs handle_timeout to completion with a %s PR',
+      (pr) => {
+        expect(classifyTimeout(3, 'pr-review', pr, 'unknown')).toContain(
+          'Preserved worktree and branch for HON-999',
+        )
+      },
+    )
+
+    it('runs handle_timeout to completion on the merged path', () => {
+      expect(classifyTimeout(3, 'pr-review', 'MERGED', 'green')).toContain(
+        'Worker HON-999 complete — worktree cleaned up',
+      )
+    })
+
+    // handle_timeout routes on "is there a PR"; handle_success routes on "are
+    // there commits". Where those disagree, handle_failure's BACKLOG /
+    // NEEDS_HUMAN / already-retried RETRY arms run cleanup WITHOUT keep_branch —
+    // `git branch -D` plus the paired Neon branch — so an unpushed commit dies.
+    // Raising the budget to 3h makes the mid-implementation kill the typical
+    // remaining timeout, so this is the common case, not a corner.
+    it('strands commits that have no PR yet rather than force-deleting them', () => {
+      const out = classifyTimeout(6, 'implementing', 'NONE', 'unknown')
+
+      expect(out).toContain('[OUTCOME] HON-999 STRANDED')
+      expect(out).toContain('6-commits phase=implementing pr=none')
+      expect(out).not.toContain('HANDLE_FAILURE')
+      expect(out).not.toContain('CLEANUP:')
+      // No PR means Linear never moved the issue, so hand it back — same as the
+      // exit-0 no-PR stranding.
+      expect(out).toContain('RESTORE_TODO:HON-999')
+      expect(out).toContain('LABEL:Stranded')
+    })
+
+    it('matches the exit-0 verdict for commits with no PR', () => {
+      // The two paths must agree on this state; disagreeing is what made one of
+      // them destructive.
+      expect(classifyTimeout(6, 'implementing', 'NONE', 'unknown')).toContain('STRANDED')
+      expect(classify(6, 'implementing', 'NONE', 'unknown')).toContain('STRANDED')
+    })
+
+    it('strands rather than triages when gh could not answer at all', () => {
+      // pr_for_branch is equally silent for "no PR" and for missing /
+      // unauthenticated / offline / rate-limited gh. On this path that silence
+      // decides whether the branch survives, so one rate-limited `gh pr list`
+      // would otherwise reproduce the exact symptom this issue is about.
+      const out = classifyTimeout(3, 'pr-review', 'ERROR', 'unknown')
+
+      expect(out).toContain('[OUTCOME] HON-999 STRANDED')
+      expect(out).not.toContain('HANDLE_FAILURE')
+      expect(out).not.toContain('CLEANUP:')
+    })
+
+    it('triages only when the probe ran, found nothing, and nothing was committed', () => {
+      // The one genuine stall — and the only route out of handle_timeout that
+      // destroys anything.
+      expect(classifyTimeout(0, 'implementing', 'NONE', 'unknown')).toContain(
+        'HANDLE_FAILURE:timeout',
+      )
+      expect(classifyTimeout(0, 'implementing', 'ERROR', 'unknown')).not.toContain('HANDLE_FAILURE')
+      expect(classifyTimeout(1, 'implementing', 'NONE', 'unknown')).not.toContain('HANDLE_FAILURE')
+    })
+  })
+
+  // One probe, one stranding, one success — called from both paths. Behaviour
+  // tests above cover each path in isolation; only a static guard can catch one
+  // path quietly growing its own copy, which is how the timeout path came to
+  // miss stranded detection in the first place.
+  describe('the exit-0 and timeout paths share one implementation', () => {
+    const source = () => fs.readFileSync(orchestrator, 'utf8')
+
+    it.each(['handle_success', 'handle_timeout'])('%s probes through probe_worker_pr', (fn) => {
+      expect(shellFunctionBody(source(), fn)).toContain('probe_worker_pr "$')
+    })
+
+    it.each(['handle_success', 'handle_timeout'])('%s strands through strand_worker', (fn) => {
+      expect(shellFunctionBody(source(), fn)).toContain('strand_worker "$issue_id"')
+    })
+
+    it.each(['handle_success', 'handle_timeout'])('%s succeeds through record_success', (fn) => {
+      expect(shellFunctionBody(source(), fn)).toContain('record_success "$issue_id"')
+    })
+
+    it('resolves the PR in exactly one place', () => {
+      // pr_for_branch outside probe_worker_pr means a second, divergent probe.
+      const calls = source().match(/pr_for_branch "\$/g) ?? []
+
+      expect(calls).toHaveLength(1)
+      expect(shellFunctionBody(source(), 'probe_worker_pr')).toContain('pr_for_branch "$branch"')
+    })
+
+    it('routes the timeout kill through handle_timeout, not handle_failure', () => {
+      // The one-line regression: swapping this back reintroduces the whole bug
+      // and every behaviour test above still passes, because they call
+      // handle_timeout directly.
+      const body = shellFunctionBody(source(), 'monitor_workers')
+
+      expect(body).toContain('handle_timeout "$issue_id"')
+      expect(body).not.toMatch(/handle_failure .*"timeout"/)
+    })
+
+    it('keeps handle_failure reachable from handle_timeout', () => {
+      // The no-PR fallback. Without it a timeout on a worker that shipped
+      // nothing would go unreported instead of being triaged.
+      expect(shellFunctionBody(source(), 'handle_timeout')).toMatch(/handle_failure .*"timeout"/)
+    })
+
+    it('waits for the killed worker to die before anything can remove its worktree', () => {
+      // SIGTERM returns immediately, and handle_timeout now reaches
+      // cleanup_worker_worktree within seconds on the merged-PR route. A
+      // claude/pnpm tree still alive at that point re-creates the directory
+      // after `git worktree remove` succeeded, orphaning it — and `wt auto`
+      // then hard-exits on every future run for that branch. The old `sleep 2`
+      // only held because handle_failure's triage call sat in between.
+      const body = shellFunctionBody(source(), 'monitor_workers')
+
+      expect(body).toContain('wait_for_exit "$pid" 20 || kill_process_tree "$pid" KILL')
+      expect(body).not.toMatch(/kill_process_tree "\$pid"\n\s*sleep 2/)
+    })
+
+    it('lets pr_for_branch report a query it could not make', () => {
+      // `|| true` here is what collapses "no PR" and "gh is broken" into the
+      // same answer. probe_worker_pr publishes the difference instead.
+      const body = shellFunctionBody(source(), 'pr_for_branch')
+
+      // Anchored on the subshell's own line — the comment above it names the
+      // `|| true` it removed, so a bare substring match would hit that instead.
+      expect(body).not.toContain(') 2>/dev/null || true')
+      // shellFunctionBody stops before the closing brace, so the subshell is the
+      // last thing in it — and its status is therefore the function's.
+      expect(body.trimEnd().endsWith(') 2>/dev/null')).toBe(true)
+      expect(body).toContain('command -v gh &> /dev/null || return 1')
+      expect(shellFunctionBody(source(), 'probe_worker_pr')).toContain(
+        'pr_for_branch "$branch") || WORKER_PR_PROBE_OK=false',
+      )
+    })
+  })
+
+  // HON-573 made workers wait for CI in-turn; CI here runs 8-12 min and the
+  // budget was never raised to absorb it, so every run needing more than an
+  // hour died at the cap in pr-review. 10800 is the value the one successful
+  // >1h run was configured with.
+  describe('WORKER_TIMEOUT budget', () => {
+    it('defaults to 10800 seconds', () => {
+      expect(runHarness('worker-timeout').trim()).toBe('10800')
+    })
+
+    it('is still overridden by ORCHESTRATOR_WORKER_TIMEOUT', () => {
+      expect(runHarnessEnv({ ORCHESTRATOR_WORKER_TIMEOUT: '900' }, 'worker-timeout').trim()).toBe(
+        '900',
+      )
+    })
+
+    it('is documented with the value it actually has', () => {
+      // The --help text and the docs table are where an operator reads the
+      // budget; a stale number there sends them tuning a knob that is already set.
+      expect(fs.readFileSync(orchestrator, 'utf8')).toContain(
+        'Seconds before killing a worker (default: 10800)',
+      )
+      expect(
+        fs.readFileSync(path.join(scriptsDir, '..', 'docs', 'PARALLEL_WORKFLOW.md'), 'utf8'),
+      ).toContain('`ORCHESTRATOR_WORKER_TIMEOUT` | 10800')
     })
   })
 })
