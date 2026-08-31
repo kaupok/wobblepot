@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# Garbage-collect stale `auto--hon-*` Neon branches created by `/auto-implement`
-# worktrees. See docs/RUNBOOKS/neon-branch-gc.md for the full runbook.
+# Garbage-collect stale `<prefix>--hon-<N>` Neon branches created by
+# `/auto-implement` worktrees (`auto--hon-51`, `kaupokorv--hon-51-slug`, …).
+# See docs/RUNBOOKS/neon-branch-gc.md for the full runbook.
 #
 # Subcommands:
-#   sweep                              List all auto--hon-* branches, delete
-#                                      those whose linked Linear issue is Done
-#                                      or Canceled and that are > 24h old.
-#   delete-for-branch <git-branch>     Delete the matching auto--hon-<N> Neon
-#                                      branch for a merged PR. HON-ID is
-#                                      derived from the git branch name or the
-#                                      PR_BODY env var (`Closes HON-N` fallback).
+#   sweep                              List all <prefix>--hon-<N> branches,
+#                                      delete those whose linked Linear issue is
+#                                      Done or Canceled and that are > 24h old.
+#   delete-for-branch <git-branch>     Delete the Neon branch paired with a
+#                                      merged PR's head ref (`/` -> `--`), or,
+#                                      when the branch carries no HON id, the
+#                                      `auto--hon-<N>` named by PR_BODY's
+#                                      `Closes HON-N`.
 #                                      Does NOT gate on Linear status — the
 #                                      explicit merge signal is authoritative.
 #
@@ -24,7 +26,7 @@
 #                               the fallback for HON-ID extraction.
 #
 # Safety invariants (MUST all hold for a branch to be deleted):
-#   - Name matches ^auto--hon-[0-9]+$
+#   - Name matches SAFE_BRANCH_REGEX (<prefix>--hon-<N>[-slug])
 #   - primary != true and protected != true (per the Neon branch record)
 #   - Name is not in the hardcoded allowlist {main, staging, dev/kaupo, vercel-dev}
 #   - (sweep only) updated_at is older than NEON_CLEANUP_MIN_AGE_HOURS
@@ -34,7 +36,18 @@ set -euo pipefail
 
 NEON_API_BASE="https://console.neon.tech/api/v2"
 LINEAR_API_URL="https://api.linear.app/graphql"
-SAFE_BRANCH_REGEX='^auto--hon-[0-9]+$'
+# Neon branch names this script is allowed to delete: `<prefix>--hon-<N>` with an
+# optional slug tail. `--` is worktree-claude.sh's neon_branch_name mapping of the
+# git `/`, so this covers the orchestrator's fallback `auto/hon-51` -> `auto--hon-51`
+# AND the Linear branch names spawn_worker actually uses,
+# `kaupokorv/hon-51-slug` -> `kaupokorv--hon-51-slug`. Before HON-572 the pattern
+# was `^auto--hon-[0-9]+$`, which matched only the fallback — so no reaper on any
+# path recognised a real orchestrator branch and they leaked until the branch cap.
+# Widening the NAME filter is safe because it is not the safety gate: default/
+# protected flags, ALLOWLIST_NAMES, the Linear Done/Canceled check and the age
+# gate all still have to pass. Capture group 1 is the HON number.
+# Kept in sync with NEON_ISSUE_BRANCH_REGEX in scripts/worktree-claude.sh.
+SAFE_BRANCH_REGEX='^[A-Za-z0-9._-]+--hon-([0-9]+)(-[A-Za-z0-9._-]+)?$'
 ALLOWLIST_NAMES=(main staging dev/kaupo vercel-dev)
 DRY_RUN="${NEON_CLEANUP_DRY_RUN:-1}"
 MIN_AGE_HOURS="${NEON_CLEANUP_MIN_AGE_HOURS:-24}"
@@ -219,9 +232,12 @@ cmd_sweep() {
 
   local considered=0 deleted=0 skipped_safe=0 skipped_status=0
   while IFS= read -r branch; do
-    local name
+    local name hon_num
     name=$(printf '%s' "$branch" | jq -r '.name')
     [[ "$name" =~ $SAFE_BRANCH_REGEX ]] || continue
+    # Capture the number NOW: is_safe_to_delete runs in a pipeline subshell, but
+    # any later [[ =~ ]] in this shell would clobber BASH_REMATCH.
+    hon_num="${BASH_REMATCH[1]}"
     considered=$((considered + 1))
 
     if ! printf '%s' "$branch" | is_safe_to_delete sweep; then
@@ -230,7 +246,7 @@ cmd_sweep() {
     fi
 
     local hon_id
-    hon_id="HON-${name#auto--hon-}"
+    hon_id="HON-${hon_num}"
     if ! issue_done_or_canceled "$hon_id"; then
       log "skip $name: $hon_id not Done/Canceled (or Linear lookup failed)"
       skipped_status=$((skipped_status + 1))
@@ -271,14 +287,30 @@ cmd_sweep() {
 
 # ─── delete-for-branch (post-merge) ──────────────────────────────────────────
 
-cmd_delete_for_branch() {
+# Map a merged PR's git branch to the Neon branch name to reap, or print nothing
+# when there is none. Pure — no network, no env. Extracted so it is unit-testable
+# from scripts/orchestrator.test.ts.
+#
+# The `/` -> `--` mapping mirrors worktree-claude.sh's neon_branch_name, so
+# `kaupokorv/hon-51-slug` resolves to the Neon branch that actually exists,
+# `kaupokorv--hon-51-slug`. Before HON-572 this matched `^auto--hon-([0-9]+)$`
+# against the raw GIT branch — a shape the head ref never has — so the on-merge
+# reaper only ever fired through the PR_BODY fallback, and even then guessed the
+# name `auto--hon-<N>`, which an orchestrator run does not create.
+neon_branch_target_for_git_branch() {
   local git_branch="${1:-}"
-  [ -n "$git_branch" ] || fail "usage: delete-for-branch <git-branch>"
+  local mapped="${git_branch//\//--}"
 
-  local hon_num=""
-  if [[ "$git_branch" =~ ^auto--hon-([0-9]+)$ ]]; then
-    hon_num="${BASH_REMATCH[1]}"
-  elif [ -n "${PR_BODY:-}" ]; then
+  if [[ "$mapped" =~ $SAFE_BRANCH_REGEX ]]; then
+    printf '%s\n' "$mapped"
+    return 0
+  fi
+
+  # Fallback: no HON id in the branch name (hand-named branch, posthog/<slug>,
+  # …). Read `Closes HON-N` out of the PR body and reap the conventional
+  # `auto--hon-<N>` name, which is all we can infer without the branch.
+  if [ -n "${PR_BODY:-}" ]; then
+    local hon_num
     # GitHub recognises close/fix/resolve (+ closed/fixes/resolved/…) in any case.
     # Left-anchor on start-of-line or whitespace so "Discloses HON-N" doesn't
     # match "closes HON-N" mid-word and wrongly reap an in-flight branch.
@@ -286,10 +318,24 @@ cmd_delete_for_branch() {
       | grep -oiE '(^|[[:space:]])(close[sd]?|fix(e[sd])?|resolve[sd]?)[[:space:]]+HON-[0-9]+' \
       | head -n1 \
       | grep -oE '[0-9]+$' || true)
+    if [ -n "$hon_num" ]; then
+      printf '%s\n' "auto--hon-${hon_num}"
+      return 0
+    fi
   fi
 
-  if [ -z "$hon_num" ]; then
-    log "no auto--hon-<N> branch to reap for '$git_branch' — nothing to do"
+  return 0
+}
+
+cmd_delete_for_branch() {
+  local git_branch="${1:-}"
+  [ -n "$git_branch" ] || fail "usage: delete-for-branch <git-branch>"
+
+  local target_name
+  target_name=$(neon_branch_target_for_git_branch "$git_branch")
+
+  if [ -z "$target_name" ]; then
+    log "no HON-linked Neon branch to reap for '$git_branch' — nothing to do"
     return 0
   fi
 
@@ -302,7 +348,6 @@ cmd_delete_for_branch() {
     fail "missing required env: ${missing[*]}"
   fi
 
-  local target_name="auto--hon-${hon_num}"
   log "delete-for-branch: looking up $target_name (dry_run=$DRY_RUN)"
 
   local response branch
@@ -338,11 +383,11 @@ main() {
 Usage: $(basename "$0") <command> [args]
 
 Commands:
-  sweep                          GC stale auto--hon-* branches (respects
+  sweep                          GC stale <prefix>--hon-<N> branches (respects
                                  Linear status and 24h age gate).
-  delete-for-branch <git-branch> Delete the auto--hon-<N> branch linked to
-                                 a just-merged PR (reads PR_BODY for the
-                                 \`Closes HON-N\` fallback).
+  delete-for-branch <git-branch> Delete the Neon branch paired with a
+                                 just-merged PR's head ref (reads PR_BODY for
+                                 the \`Closes HON-N\` fallback).
 
 Env: NEON_API_KEY, NEON_PROJECT_ID, LINEAR_API_KEY required.
      NEON_CLEANUP_DRY_RUN=1 (default) to simulate, 0 to delete.
@@ -352,4 +397,11 @@ EOF
   esac
 }
 
-main "$@"
+# Only dispatch when EXECUTED. The workflow and the runbook both invoke this as
+# `./scripts/neon-cleanup.sh <cmd>`, so this is behaviour-neutral; it exists so
+# scripts/orchestrator.test.ts can source the file and unit-test the pure
+# helpers (SAFE_BRANCH_REGEX, neon_branch_target_for_git_branch) without an
+# `unknown command` fail and without touching the Neon or Linear APIs.
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+  main "$@"
+fi

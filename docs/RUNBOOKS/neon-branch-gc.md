@@ -2,23 +2,23 @@
 
 ## Why this exists
 
-The parallel-worktree `/auto-implement` workflow creates one Neon branch per HON issue (named `auto--hon-<N>`). The Neon Free tier caps compute endpoints at **10 per project**. Without cleanup, these stale branches drift up to the cap, the Vercel-Neon integration starts racing its own bookkeeping, and Vercel preview env vars get pinned to endpoint names that have already been reaped — surfacing as `P1001: Can't reach database server` in CI. See HON-492 for the incident.
+The parallel-worktree `/auto-implement` workflow creates one Neon branch per HON issue. The name is the git branch with `/` mapped to `--`, so it is usually `<prefix>--hon-<N>-<slug>` (`kaupokorv--hon-51-slug`) — the orchestrator prefers Linear's `branchName` — and `auto--hon-<N>` only on the fallback path. The Neon Free tier caps compute endpoints at **10 per project**. Without cleanup, these stale branches drift up to the cap, the Vercel-Neon integration starts racing its own bookkeeping, and Vercel preview env vars get pinned to endpoint names that have already been reaped — surfacing as `P1001: Can't reach database server` in CI. See HON-492 for the incident.
 
 ## How the automation works
 
 Owner: [`.github/workflows/neon-cleanup.yml`](../../.github/workflows/neon-cleanup.yml) calling [`scripts/neon-cleanup.sh`](../../scripts/neon-cleanup.sh).
 
-| Trigger                                     | Job        | What it does                                                                                                                                                                                                                                                                           |
-| ------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pull_request.closed` with `merged == true` | `on-merge` | Extracts HON-ID from the merged branch name (`auto--hon-<N>`) or from `Closes HON-<N>` in the PR body. Deletes the matching Neon branch. Does not gate on Linear status — the merge is the signal.                                                                                     |
-| `schedule: "17 3 * * 1"` (Monday 03:17 UTC) | `sweep`    | Lists all `auto--hon-*` Neon branches. For each, queries Linear for the linked issue's state. Deletes if state is `Done` / `Canceled`, the branch is > 24h old, and the branch is not `primary` / `protected` / on the hardcoded allowlist. Any Linear API failure → skip (fail-safe). |
-| `workflow_dispatch`                         | `sweep`    | Same as the scheduled sweep. Accepts a `dry_run` input (default `true`).                                                                                                                                                                                                               |
+| Trigger                                     | Job        | What it does                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pull_request.closed` with `merged == true` | `on-merge` | Maps the merged head ref to its Neon branch (`/` → `--`); when the branch carries no HON id, falls back to `auto--hon-<N>` from `Closes HON-<N>` in the PR body. Deletes the matching Neon branch. Does not gate on Linear status — the merge is the signal.                                        |
+| `schedule: "17 3 * * 1"` (Monday 03:17 UTC) | `sweep`    | Lists all `<prefix>--hon-<N>[-slug]` Neon branches. For each, queries Linear for the linked issue's state. Deletes if state is `Done` / `Canceled`, the branch is > 24h old, and the branch is not `primary` / `protected` / on the hardcoded allowlist. Any Linear API failure → skip (fail-safe). |
+| `workflow_dispatch`                         | `sweep`    | Same as the scheduled sweep. Accepts a `dry_run` input (default `true`).                                                                                                                                                                                                                            |
 
 ## Safety invariants
 
 All must hold for deletion (enforced in `is_safe_to_delete` in the script):
 
-- Branch name matches `^auto--hon-[0-9]+$` (no fuzzy matching)
+- Branch name matches `SAFE_BRANCH_REGEX` — `^[A-Za-z0-9._-]+--hon-([0-9]+)(-[A-Za-z0-9._-]+)?$`. Widened from `^auto--hon-[0-9]+$` in HON-572, which matched only the fallback shape and left every real orchestrator branch unreaped. The name filter is not the safety gate — the `primary`/`protected` flags and the allowlist still have to pass on both paths, and `sweep` additionally requires the linked Linear issue to be Done/Canceled and the branch to be older than the age gate. (`delete-for-branch` deliberately skips those two: the merge is the signal.)
 - `primary != true` and `protected != true` on the Neon branch record
 - Name is not in the allowlist `{main, staging, dev/kaupo, vercel-dev}`
 - `sweep` only: branch `updated_at` is older than `NEON_CLEANUP_MIN_AGE_HOURS` (default 24)
@@ -81,7 +81,7 @@ Example `$GITHUB_STEP_SUMMARY` output:
 - Dry run: 0
 ```
 
-- **Considered** — branches whose name matched the regex. Sanity check: should roughly equal the number of `auto--hon-*` branches you see in `neonctl branches list`.
+- **Considered** — branches whose name matched the regex. Sanity check: should roughly equal the number of `*--hon-*` branches you see in `neonctl branches list`.
 - **Skipped (safety)** — regex matched but primary/protected/age guard blocked deletion. Non-zero here usually means a young branch (< 24h) — will be picked up next week.
 - **Skipped (status)** — Linear issue was not yet `Done`/`Canceled`, or the Linear lookup failed. The latter is the fail-safe kicking in.
 - **Deleted** / **Would delete** — depends on `dry_run`. Compare against the list of recently-merged HON issues to spot anything surprising.
@@ -99,6 +99,6 @@ If a live branch was deleted by mistake (for example, if the regex or allowlist 
 
 - `scripts/neon-cleanup.sh` — all logic, including safety invariants
 - `scripts/maybe-migrate.sh` — pre-flight endpoint check (HON-492)
-- `.claude/skills/auto-implement/SKILL.md` — origin of `auto--hon-*` branches
+- `.claude/skills/auto-implement/SKILL.md` — origin of `*--hon-*` branches
 - HON-473 — database recovery runbook (PITR procedures)
 - HON-492 — incident + design that produced this runbook

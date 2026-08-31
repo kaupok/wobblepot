@@ -167,6 +167,10 @@ log() {
     ERROR) color="$RED" ;;
     DEBUG) color="$DIM" ;;
   esac
+  # Two destinations, deliberately: a colored line on stderr for whoever is
+  # watching, and a clean line in $MAIN_LOG. `log` is the ONLY writer of
+  # $MAIN_LOG — cmd_start must not fold stderr back into the same file, or
+  # every line is stored twice and one copy carries raw ANSI escapes (HON-572).
   printf "${DIM}%s${NC} ${color}%-5s${NC} %s\n" "$ts" "$level" "$*" >&2
   printf "%s %-5s %s\n" "$ts" "$level" "$*" >> "$MAIN_LOG"
 }
@@ -627,7 +631,9 @@ report_worker_status() {
       status="worktree initializing"
     fi
 
-    printf "  ${BLUE}%-8s${NC} %3dm%02ds  %s\n" "$issue_id" "$mins" "$secs" "$status" >&2
+    # log DEBUG already writes this row to stderr AND to $MAIN_LOG. A second
+    # printf to stderr made every row land twice (three times once cmd_start's
+    # `2>&1` folded stderr back into the same file) — HON-572.
     log DEBUG "  $(printf '%-8s %3dm%02ds  %s' "$issue_id" "$mins" "$secs" "$status")"
 
     i=$((i + 1))
@@ -846,7 +852,10 @@ notify() {
 # ─── Handle success ─────────────────────────────────────────────────────────
 
 # ─── Circuit breaker ─────────────────────────────────────────────────────────
-# Shared by handle_failure (non-RETRY triage) and the gated 0-commit path.
+# Called from every path that ends a run without shipping: all of handle_failure
+# (retry included — a retry is a failure that gets another chance), the gated
+# 0-commit path, and the stranded path. handle_success holds the only reset, so
+# the counter means "consecutive runs that shipped nothing".
 
 note_consecutive_failure() {
   CONSECUTIVE_FAILURES=$((CONSECUTIVE_FAILURES + 1))
@@ -1078,8 +1087,23 @@ sanitize_log() {
       value="${value%\'}" ; value="${value#\'}"
       # Only redact values >= 8 chars to avoid false positives
       [ ${#value} -lt 8 ] && continue
-      # Use awk with ENVIRON to avoid backslash escape interpretation from -v
-      result=$(printf '%s' "$result" | VALUE="$value" awk 'BEGIN{s=ENVIRON["VALUE"]; r="[REDACTED]"} {gsub(s,r)}1')
+      # LITERAL replacement, not regex. awk's gsub() treats its first argument
+      # as an ERE, so a secret containing any of `+ ? . * [ ] ( ) \ ^ $ |` —
+      # a base64 BETTER_AUTH_SECRET, most API keys — fails to match itself and
+      # was posted to Linear unredacted (HON-572). index()/substr() cannot be
+      # got wrong the way escaping-into-a-regex can. The loop keeps gsub's
+      # global semantics: every occurrence on the line is replaced.
+      # ENVIRON is used rather than -v so backslashes survive unescaped.
+      result=$(printf '%s' "$result" | VALUE="$value" awk '
+        BEGIN { s = ENVIRON["VALUE"]; r = "[REDACTED]"; n = length(s) }
+        {
+          line = $0; out = ""
+          while (n > 0 && (p = index(line, s)) > 0) {
+            out = out substr(line, 1, p - 1) r
+            line = substr(line, p + n)
+          }
+          print out line
+        }')
     done < "$env_file"
   fi
 
@@ -1207,12 +1231,23 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 
   # Track failure for --once exit code (may be overridden to 0 if retry succeeds)
   [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=1
 
-  # Track consecutive failures for circuit breaker
-  if [ "$triage" != "RETRY" ]; then
-    note_consecutive_failure
-  else
-    CONSECUTIVE_FAILURES=0
-  fi
+  # Every path out of handle_failure is a failure to ship, so every one of them
+  # counts toward the circuit breaker — including the retry, which is a failure
+  # that gets another chance, not a success. handle_success owns the only reset
+  # in the script (see "Reset circuit breaker on a real success"), which is what
+  # makes CONSECUTIVE_FAILURES mean "consecutive runs that shipped nothing".
+  #
+  # HON-572: the counter used to be driven by the triage VERDICT — reset on
+  # RETRY, incremented otherwise — before the case that acts on it. A systemic
+  # fault whose logs read as transient (rate limit, network flake, the literal
+  # word "timeout") produced fail -> RETRY -> fail -> Backlog per issue and
+  # zeroed the counter every cycle, so MAX_CONSECUTIVE_FAILURES was never
+  # reached and the orchestrator swept the whole Todo queue into Backlog one
+  # issue per poll. Moving the reset onto the spawn_worker branch is NOT enough
+  # either: that branch runs on every issue's FIRST failure, so under the same
+  # systemic fault the counter just oscillates 0 -> 1 -> 0 and still never
+  # reaches the threshold. The breaker only works if nothing here resets it.
+  note_consecutive_failure
 
   case "$triage" in
     RETRY)
@@ -1223,7 +1258,11 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)" 
         # Preserve original title on retry (from WORKER_TITLES array)
         spawn_worker "$issue_uuid" "$issue_id" "$branch" "$original_title" "1"
       else
-        log WARN "$issue_id already retried, moving to Backlog"
+        if [ "$SHUTTING_DOWN" = true ]; then
+          log WARN "$issue_id failed during shutdown, moving to Backlog"
+        else
+          log WARN "$issue_id already retried, moving to Backlog"
+        fi
         move_to_backlog "$issue_uuid" "$issue_id" "$log_claude_output" "Failed" \
           "Auto-implementation failed after retry ($failure_type)" "$log_file"
         cleanup_worker_worktree "$branch"
@@ -1500,6 +1539,30 @@ shutdown() {
 
 trap shutdown SIGINT SIGTERM
 
+# Bash will not run a trap while it is waiting on a FOREGROUND command: a
+# SIGTERM arriving during `sleep "$POLL_INTERVAL"` sits pending until the sleep
+# ends, up to 60s later. `wt stop` only allows 15s before it escalates, so the
+# orchestrator routinely had not even begun shutting down by the time the second
+# signal was sent. Backgrounding the sleep and `wait`-ing on it makes the trap
+# fire within a second, because `wait` IS interruptible (HON-572).
+#
+# KNOWN RESIDUAL — the force escalation is still not delivered. Bash also
+# refuses to re-enter a trap handler for a signal whose handler is already
+# running, so the second SIGTERM `cmd_stop` sends while shutdown()'s graceful
+# wait loop is executing is dropped. FORCE_SHUTDOWN is never set,
+# drain_workers_to_todo never runs, and cmd_stop eventually SIGKILLs. Fixing it
+# means restructuring shutdown() to only set flags and letting the main loop
+# perform the drain; that changes shutdown semantics for both Ctrl-C and
+# `wt stop`, so it is deliberately NOT done here — HON-572's execution
+# constraints forbid the live orchestrator run that would validate it. HON-575
+# owns the live `wt stop` verification and this reproduction.
+interruptible_sleep() {
+  local pid
+  sleep "$1" &
+  pid=$!
+  wait "$pid" 2>/dev/null || true
+}
+
 # ─── Disk space check ───────────────────────────────────────────────────────
 
 check_disk_space() {
@@ -1671,9 +1734,9 @@ main() {
 
     # Sleep between polls
     if [ "$RUN_ONCE" = true ] && [ ${#WORKER_PIDS[@]} -gt 0 ]; then
-      sleep 10  # Poll frequently while waiting for worker
+      interruptible_sleep 10  # Poll frequently while waiting for worker
     elif [ "$SHUTTING_DOWN" = false ]; then
-      sleep "$POLL_INTERVAL"
+      interruptible_sleep "$POLL_INTERVAL"
     fi
   done
 
