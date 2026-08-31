@@ -737,8 +737,14 @@ detect_phase() {
     local wt_path
     wt_path=$(get_worktree_path "$branch")
     if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
-      # Check if branch has been pushed (upstream tracking = PR stage)
-      if git -C "$wt_path" rev-parse --abbrev-ref '@{upstream}' &>/dev/null; then
+      # Has THIS branch been pushed? A configured upstream is NOT the same
+      # question: worktree-claude.sh branches autonomous worktrees from
+      # origin/main, and git's branch.autoSetupMerge turns that start ref into
+      # an upstream before a single commit exists — so `@{upstream}` reported
+      # pr-review from worktree creation onward (HON-576).
+      # refs/remotes/origin/<branch> is written by the push itself, so it
+      # answers the question by construction.
+      if git -C "$wt_path" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
         echo "pr-review"; return
       fi
 

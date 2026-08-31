@@ -681,4 +681,219 @@ describe('orchestrator.sh', () => {
       expect(killIndex).toBeGreaterThan(pollIndex)
     })
   })
+  // ─── HON-576: phase detection vs. the branch's upstream ───────────────────
+  // e8960e6 started creating autonomous worktrees from an explicit `origin/main`
+  // start ref. git's branch.autoSetupMerge turns a remote-tracking start ref
+  // into the new branch's upstream, so every phase heuristic — all of which
+  // read "has an upstream" as "has been pushed" — reported pr-review from
+  // worktree creation onward, before a single commit existed.
+  //
+  // The fixtures below create the branch the OLD way (no --no-track) on
+  // purpose: that is what reproduces the bogus upstream, so these assertions
+  // pin the predicate rather than the branch-creation flag. The flag is
+  // asserted separately, statically.
+  describe('phase detection on an unpushed branch', () => {
+    const fixtureRoots: string[] = []
+
+    const gitEnv: NodeJS.ProcessEnv = {
+      ...process.env,
+      // Full isolation: a developer's global config (autoSetupMerge, hooks,
+      // gpg signing, init.defaultBranch) must not decide what these fixtures
+      // reproduce.
+      GIT_CONFIG_GLOBAL: '/dev/null',
+      GIT_CONFIG_SYSTEM: '/dev/null',
+      GIT_AUTHOR_NAME: 'harness',
+      GIT_AUTHOR_EMAIL: 'harness@example.test',
+      GIT_COMMITTER_NAME: 'harness',
+      GIT_COMMITTER_EMAIL: 'harness@example.test',
+    }
+
+    function git(cwd: string, ...args: string[]): string {
+      // stderr piped, not inherited: one assertion below expects git to fail,
+      // and its `fatal:` line would otherwise land in the suite output as if
+      // something had gone wrong.
+      return execFileSync('git', args, {
+        cwd,
+        encoding: 'utf8',
+        env: gitEnv,
+        timeout: 30_000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+    }
+
+    const BRANCH = 'kaupo/hon-576-fixture'
+
+    type Fixture = { repo: string; wt: string; branch: string; log: string }
+
+    /**
+     * A miniature of the real layout: a bare origin, a repo whose `main` tracks
+     * it, and a worktree branched from `origin/main` — the shape
+     * worktree-claude.sh produces.
+     */
+    function makeFixture(
+      opts: { commits?: number; dirty?: boolean; pushed?: boolean; log?: string[] } = {},
+    ): Fixture {
+      const { commits = 0, dirty = false, pushed = false, log = [] } = opts
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hon576-phase-'))
+      fixtureRoots.push(root)
+
+      const origin = path.join(root, 'origin.git')
+      const repo = path.join(root, 'repo')
+      const wt = path.join(root, 'wt')
+
+      execFileSync('git', ['init', '-q', '--bare', '-b', 'main', origin], { env: gitEnv })
+      execFileSync('git', ['init', '-q', '-b', 'main', repo], { env: gitEnv })
+      fs.writeFileSync(path.join(repo, 'seed.txt'), 'seed\n')
+      git(repo, 'add', 'seed.txt')
+      git(repo, 'commit', '-qm', 'seed')
+      git(repo, 'remote', 'add', 'origin', origin)
+      git(repo, 'push', '-q', 'origin', 'main')
+
+      // Deliberately WITHOUT --no-track — see the describe() comment.
+      git(repo, 'worktree', 'add', '-q', '-b', BRANCH, wt, 'origin/main')
+
+      for (let n = 1; n <= commits; n++) {
+        fs.writeFileSync(path.join(wt, `work-${n}.txt`), `${n}\n`)
+        git(wt, 'add', `work-${n}.txt`)
+        git(wt, 'commit', '-qm', `work ${n}`)
+      }
+      if (pushed) git(wt, 'push', '-q', 'origin', BRANCH)
+      if (dirty) fs.writeFileSync(path.join(wt, 'uncommitted.txt'), 'in progress\n')
+
+      const logFile = path.join(root, 'worker.log')
+      fs.writeFileSync(logFile, log.length ? `${log.join('\n')}\n` : '')
+
+      return { repo, wt, branch: BRANCH, log: logFile }
+    }
+
+    afterAll(() => {
+      for (const root of fixtureRoots) fs.rmSync(root, { recursive: true, force: true })
+    })
+
+    /** orchestrator.sh's detect_phase — the value that reaches the outcome log. */
+    const phase = (f: Fixture) => runHarness('detect-phase', f.wt, f.branch, f.log).trim()
+
+    /** worktree-claude.sh's wt_detect_phase — the `wt status` / `wt watch` column. */
+    const wtPhase = (f: Fixture, ahead: number, dirty: boolean) =>
+      runHarness('wt-detect-phase', f.log, f.wt, f.branch, String(ahead), dirty ? '+' : '').trim()
+
+    const STARTED = ['Starting autonomous Claude Code']
+
+    it('reproduces the upstream git sets from an origin/main start ref', () => {
+      // Guards the fixture itself: if a future git stops configuring the
+      // upstream here, every assertion below would pass vacuously.
+      const f = makeFixture({})
+
+      expect(git(f.wt, 'rev-parse', '--abbrev-ref', '@{upstream}').trim()).toBe('origin/main')
+    })
+
+    it('--no-track suppresses that upstream', () => {
+      // The mechanism worktree-claude.sh's fix relies on, asserted against the
+      // git actually installed rather than taken on faith.
+      const f = makeFixture({})
+      const wt2 = path.join(f.repo, '..', 'wt-no-track')
+      // Same argument order as worktree-claude.sh's own call.
+      git(
+        f.repo,
+        'worktree',
+        'add',
+        '-q',
+        '-b',
+        'kaupo/hon-576-untracked',
+        '--no-track',
+        wt2,
+        'origin/main',
+      )
+
+      expect(() => git(wt2, 'rev-parse', '--abbrev-ref', '@{upstream}')).toThrow()
+    })
+
+    // The reported regression: 0 commits, dirty tree, bogus upstream.
+    it('reports implementing for a fresh worktree with uncommitted work', () => {
+      const f = makeFixture({ dirty: true, log: STARTED })
+
+      expect(phase(f)).toBe('implementing')
+      expect(wtPhase(f, 0, true)).toBe('Implementing')
+    })
+
+    it('falls back to the log — never pr-review — for a fresh, clean worktree', () => {
+      const started = makeFixture({ log: STARTED })
+      const silent = makeFixture({})
+
+      expect(phase(started)).toBe('planning')
+      expect(phase(silent)).toBe('initializing')
+      expect(wtPhase(started, 0, false)).toBe('Planning')
+      expect(wtPhase(silent, 0, false)).toBe('Initializing')
+    })
+
+    it('reports implementing for commits plus a dirty tree', () => {
+      const f = makeFixture({ commits: 2, dirty: true, log: STARTED })
+
+      expect(phase(f)).toBe('implementing')
+      expect(wtPhase(f, 2, true)).toBe('Implementing')
+    })
+
+    it('reports reviewing for commits that are clean but unpushed', () => {
+      const f = makeFixture({ commits: 2, log: STARTED })
+
+      expect(phase(f)).toBe('reviewing')
+      expect(wtPhase(f, 2, false)).toBe('Reviewing')
+    })
+
+    // The other half of the fix: a genuinely pushed branch must still read
+    // pr-review, or the correction has simply moved the blind spot.
+    it('still reports pr-review once the branch has actually been pushed', () => {
+      const f = makeFixture({ commits: 2, pushed: true, log: STARTED })
+
+      expect(git(f.wt, 'show-ref', `refs/remotes/origin/${f.branch}`)).toContain(f.branch)
+      expect(phase(f)).toBe('pr-review')
+      expect(wtPhase(f, 2, false)).toBe('PR review')
+    })
+
+    // Strategy 1 sits above the git heuristics in both implementations; the
+    // HON-576 edit is below it and must not have reordered them.
+    it.each([
+      ['[commit:complete]', 'pr-review', 'PR review'],
+      ['[merge:complete]', 'done', 'Done'],
+    ])('lets the %s marker win over the git state', (marker, expected, wtExpected) => {
+      const f = makeFixture({ dirty: true, log: [...STARTED, marker] })
+
+      expect(phase(f)).toBe(expected)
+      expect(wtPhase(f, 0, true)).toBe(wtExpected)
+    })
+
+    describe('static guards', () => {
+      it.each([
+        ['orchestrator.sh', orchestrator],
+        ['worktree-claude.sh', worktreeClaude],
+      ])('%s no longer treats any upstream as a pushed branch', (_name, script) => {
+        const source = fs.readFileSync(script, 'utf8')
+
+        // Asserted on the file, not on behaviour: two of the four original call
+        // sites live inside interactive render loops that no test can reach, so
+        // this is what stops the predicate being reintroduced there.
+        expect(source).not.toContain("rev-parse --abbrev-ref '@{upstream}'")
+        expect(source).toContain('show-ref --verify --quiet "refs/remotes/origin/')
+      })
+
+      it('routes both display call sites through the one helper', () => {
+        // Fixing one site and leaving the other is the failure mode this issue
+        // called out: `wt status` and `wt watch` each carried their own copy.
+        const calls =
+          fs.readFileSync(worktreeClaude, 'utf8').match(/phase=\$\(wt_detect_phase /g) ?? []
+
+        expect(calls).toHaveLength(2)
+      })
+
+      it('creates autonomous worktrees with --no-track', () => {
+        const line = fs
+          .readFileSync(worktreeClaude, 'utf8')
+          .split('\n')
+          .find((l) => l.includes('worktree add -b') && l.includes('origin/main'))
+
+        expect(line, 'the origin/main worktree add line is gone').toBeDefined()
+        expect(line).toContain('--no-track')
+      })
+    })
+  })
 })

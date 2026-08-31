@@ -58,6 +58,18 @@
 #
 #   stop-wait-bound <worker-count>                 (HON-572, finding 5)
 #     Prints the REAL stop_wait_bound from worktree-claude.sh.
+#
+#   detect-phase <wt_path> <branch> <log-file>     (HON-576)
+#     Runs the REAL detect_phase with get_worktree_path stubbed to <wt_path>,
+#     so the git heuristics run against a fixture repo built in a temp dir.
+#     Everything else is genuine: the marker grep, the auto-implement grep, the
+#     pushed-branch predicate and the log fallback.
+#
+#   wt-detect-phase <log-file> <wt_path> <branch> <ahead> <dirty>   (HON-576)
+#     Same question for the display path: sources worktree-claude.sh and runs
+#     the REAL wt_detect_phase, which `wt status` and `wt watch` both call.
+#     Its two call sites live inside interactive render loops, so this helper is
+#     the only part of them a test can reach.
 
 HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -260,6 +272,25 @@ case "$MODE" in
     # shellcheck source=./worktree-claude.sh
     source "$HARNESS_DIR/worktree-claude.sh"
     stop_wait_bound "$A1"
+    exit 0
+    ;;
+
+  # ─── detect_phase git heuristics (HON-576) ─────────────────────────────────
+  detect-phase)
+    WT_PATH="$A1"; BRANCH="$A2"; LOG_FILE="$A3"
+    # The only stub: detect_phase resolves the worktree through the real
+    # ~/.worktrees layout, and the fixture lives in a temp dir.
+    get_worktree_path() { echo "$WT_PATH"; }
+    detect_phase "$LOG_FILE" "$BRANCH"
+    exit 0
+    ;;
+
+  # ─── wt status / wt watch phase column (HON-576) ───────────────────────────
+  wt-detect-phase)
+    # Sourced, not executed — see neon-gc-select above for why that is safe.
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    wt_detect_phase "$A1" "$A2" "$A3" "$A4" "$A5"
     exit 0
     ;;
 
