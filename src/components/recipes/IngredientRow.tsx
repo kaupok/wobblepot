@@ -11,19 +11,12 @@ import type { Locale } from '@/lib/i18n/locales'
 import { QuantityControls } from './QuantityControls'
 import { UnmatchedIngredientRow } from './UnmatchedIngredientRow'
 import { LowConfidenceIngredientRow } from './LowConfidenceIngredientRow'
+import type { IngredientResult } from '@/hooks/use-ingredient-search'
 import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
 
-export interface IngredientResult {
-  id: string
-  name: string
-  category: IngredientCategory
-  defaultUnit: Unit
-  gramsPerPiece?: number | null
-  calories?: number
-  protein?: number
-  carbs?: number
-  fat?: number
-}
+// Defined by the search hook that produces it; re-exported here so recipe-row
+// callers keep a single import for the row's types.
+export type { IngredientResult }
 
 export interface IngredientAlternative {
   id: string
