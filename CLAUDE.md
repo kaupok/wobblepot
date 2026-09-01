@@ -340,6 +340,8 @@ A Linear issue counts as "the source" when the task names a HON-NNN, when the or
 
 **Fully autonomous:** `/auto-implement HON-XX` runs the entire cycle unattended.
 
+**PR review is automatic — don't invoke `/review-pr` by hand in the sequence above.** `/commit --pr` chains to `/create-pr`, whose final step invokes `/review-pr` → `scripts/pr-review.sh`, which posts findings as a PR comment marked `<!-- claude-review -->`. That marker is what `/triage-pr-comments` then consumes; `/auto-implement` calls the same script directly. Opening the PR with a raw `gh pr create` instead of `/commit --pr` skips that first trigger, but the review is **not** lost — two later steps self-heal: `/triage-pr-comments` step 2 runs the reviewer when the marker count is 0, and `/merge` step 2.5 does the same before merging (bypass with `/merge --force`). The cost is a review that lands a step late, not a missing one, so don't reach for `/review-pr` to "recover." Invoke it directly only to re-review after a force-push, or to review a PR you didn't open.
+
 **Staging review:** `/chrome-review` — Interactive exploration of staging (`wobblepot.dev`) using Chrome. Discuss findings and create Linear issues collaboratively. Requires `claude --chrome` or `/chrome`.
 
 **Voice review:** `/voice-review` — Voice-powered staging review combining VoiceMode + Chrome. Talk through the app hands-free, discuss findings by speaking, and create Linear issues. Requires `claude --chrome` or `/chrome` and VoiceMode MCP server. See [docs/VOICE_REVIEW.md](docs/VOICE_REVIEW.md).
