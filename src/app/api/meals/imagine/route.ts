@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { imagineMeals } from '@/lib/ai/imagine-meal'
-import { matchIngredients } from '@/lib/ai/parse-recipe'
+import { matchIngredients } from '@/lib/ai/match-ingredients'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import {
   AiCostCapExceededError,

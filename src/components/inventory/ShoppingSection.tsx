@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
@@ -22,15 +22,15 @@ import { CustomItemInput, type CustomItemData } from '@/components/shopping/Cust
 import { CustomShoppingItem } from '@/components/shopping/CustomShoppingItem'
 import { ShoppingEmptyState } from './ShoppingEmptyState'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
-import { getUrgencyBucket, type UrgencyBucket } from '@/lib/meal-planning/dates'
-
-type SortMode = 'category' | 'urgency' | 'alphabetical'
-
-type AlphabeticalItem =
-  | { kind: 'computed'; item: ShoppingItemData }
-  | { kind: 'custom'; item: CustomItemData }
-
-const SORT_STORAGE_KEY = 'shopping-list-sort-mode'
+import {
+  buildAlphabeticalItems,
+  buildUrgencyGroups,
+  getInitialSortMode,
+  splitCustomItems,
+  SORT_STORAGE_KEY,
+  type SortMode,
+} from './shopping-sort'
+import { useCustomShoppingItems } from './use-custom-shopping-items'
 
 interface ShoppingListGroup {
   category: IngredientCategory
@@ -48,13 +48,6 @@ interface ShoppingSectionProps {
   onItemUnpurchased?: (ingredientId: string) => void
   externalUnpurchasedIds?: Set<string>
   onExternalUnpurchaseProcessed?: () => void
-}
-
-function getInitialSortMode(): SortMode {
-  if (typeof window === 'undefined') return 'category'
-  const stored = localStorage.getItem(SORT_STORAGE_KEY)
-  if (stored === 'urgency' || stored === 'alphabetical') return stored
-  return 'category'
 }
 
 export function ShoppingSection({
@@ -76,8 +69,18 @@ export function ShoppingSection({
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
   const [sortMode, setSortMode] = useState<SortMode>('category')
   const [mounted, setMounted] = useState(false)
-  const [customItems, setCustomItems] = useState<CustomItemData[]>(initialCustomItems)
-  const [pendingCustomIds, setPendingCustomIds] = useState<Set<string>>(new Set())
+
+  const {
+    customItems,
+    pendingCustomIds,
+    checkedCustomCount,
+    uncheckedCustomCount,
+    handleCustomItemAdded,
+    handleCustomToggle,
+    handleCustomUnlink,
+    handleCustomDelete,
+    handleClearChecked,
+  } = useCustomShoppingItems(initialCustomItems)
 
   // Initialize sort mode from localStorage after mount (SSR-safe)
   useEffect(() => {
@@ -106,8 +109,6 @@ export function ShoppingSection({
 
   const totalComputedItems = groups.reduce((sum, group) => sum + group.items.length, 0)
   const purchasedComputedCount = purchasedIds.size
-  const uncheckedCustomCount = customItems.filter((i) => !i.checked).length
-  const checkedCustomCount = customItems.filter((i) => i.checked).length
   const totalItems = totalComputedItems + customItems.length
   const totalPurchased = purchasedComputedCount + checkedCustomCount
 
@@ -124,77 +125,30 @@ export function ShoppingSection({
     [groups, purchasedIds],
   )
 
-  // For urgency mode: group all items by urgency bucket
-  const urgencyGroups = useMemo(() => {
-    if (sortMode !== 'urgency') return []
+  // Only the active mode's grouping is computed; the others stay empty.
+  const urgencyGroups = useMemo(
+    () =>
+      sortMode === 'urgency'
+        ? buildUrgencyGroups(enhancedGroups.flatMap((group) => group.items))
+        : [],
+    [enhancedGroups, sortMode],
+  )
 
-    const allItems = enhancedGroups.flatMap((group) => group.items)
+  const alphabeticalItems = useMemo(
+    () =>
+      sortMode === 'alphabetical'
+        ? buildAlphabeticalItems(
+            enhancedGroups.flatMap((group) => group.items),
+            customItems,
+          )
+        : [],
+    [enhancedGroups, customItems, sortMode],
+  )
 
-    // Sort items by date (purchased items stay in their date position, not moved to bottom)
-    const sortedItems = [...allItems].sort((a, b) => a.neededByDate.localeCompare(b.neededByDate))
-
-    // Group by urgency bucket
-    const bucketOrder: UrgencyBucket[] = ['today', 'tomorrow', 'this-week', 'later']
-    const grouped = new Map<UrgencyBucket, ShoppingItemData[]>()
-
-    for (const bucket of bucketOrder) {
-      grouped.set(bucket, [])
-    }
-
-    for (const item of sortedItems) {
-      const bucket = getUrgencyBucket(item.neededByDate)
-      grouped.get(bucket)!.push(item)
-    }
-
-    // Return only non-empty groups in order
-    return bucketOrder
-      .filter((bucket) => grouped.get(bucket)!.length > 0)
-      .map((bucket) => ({
-        bucket,
-        items: grouped.get(bucket)!,
-      }))
-  }, [enhancedGroups, sortMode])
-
-  // For alphabetical mode: flatten all items into a single A-Z sorted list
-  const alphabeticalItems = useMemo(() => {
-    if (sortMode !== 'alphabetical') return []
-
-    const allItems: AlphabeticalItem[] = [
-      ...enhancedGroups.flatMap((group) =>
-        group.items.map((item) => ({ kind: 'computed' as const, item })),
-      ),
-      ...customItems.map((item) => ({ kind: 'custom' as const, item })),
-    ]
-
-    return allItems.sort((a, b) => {
-      const aPurchased = a.kind === 'computed' ? a.item.purchased : a.item.checked
-      const bPurchased = b.kind === 'computed' ? b.item.purchased : b.item.checked
-
-      // Purchased/checked items sort to bottom
-      if (aPurchased !== bPurchased) return aPurchased ? 1 : -1
-
-      // Then sort alphabetically by name
-      return a.item.name.localeCompare(b.item.name)
-    })
-  }, [enhancedGroups, customItems, sortMode])
-
-  // Split custom items into linked (have category) and unlinked
-  const { linkedCustomByCategory, unlinkedCustomItems } = useMemo(() => {
-    const linked = new Map<string, CustomItemData[]>()
-    const unlinked: CustomItemData[] = []
-
-    for (const item of customItems) {
-      if (item.ingredientCategory) {
-        const existing = linked.get(item.ingredientCategory) ?? []
-        existing.push(item)
-        linked.set(item.ingredientCategory, existing)
-      } else {
-        unlinked.push(item)
-      }
-    }
-
-    return { linkedCustomByCategory: linked, unlinkedCustomItems: unlinked }
-  }, [customItems])
+  const { linkedCustomByCategory, unlinkedCustomItems } = useMemo(
+    () => splitCustomItems(customItems),
+    [customItems],
+  )
 
   const getWindowLabel = () => {
     return windowDays === 14 ? tShopping('windowNext14') : tShopping('windowNext7')
@@ -269,114 +223,6 @@ export function ShoppingSection({
       })
     }
   }
-
-  const handleCustomItemAdded = useCallback((item: CustomItemData) => {
-    setCustomItems((prev) => [item, ...prev])
-  }, [])
-
-  const handleCustomToggle = useCallback(
-    async (id: string, checked: boolean) => {
-      if (pendingCustomIds.has(id)) return
-
-      // Optimistic update
-      setCustomItems((prev) => prev.map((item) => (item.id === id ? { ...item, checked } : item)))
-      setPendingCustomIds((prev) => new Set(prev).add(id))
-
-      try {
-        const response = await fetch(`/api/shopping-list/custom/${id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ checked }),
-        })
-
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}))
-          throw new Error(data.error || tErrors('updateFailed'))
-        }
-      } catch (error) {
-        // Revert optimistic update
-        setCustomItems((prev) =>
-          prev.map((item) => (item.id === id ? { ...item, checked: !checked } : item)),
-        )
-        const message = error instanceof Error ? error.message : tErrors('updateFailed')
-        toast.error(message)
-      } finally {
-        setPendingCustomIds((prev) => {
-          const next = new Set(prev)
-          next.delete(id)
-          return next
-        })
-      }
-    },
-    [pendingCustomIds],
-  )
-
-  const handleCustomUnlink = useCallback(
-    async (id: string) => {
-      // Optimistic update
-      setCustomItems((prev) =>
-        prev.map((item) =>
-          item.id === id ? { ...item, ingredientId: null, ingredientCategory: null } : item,
-        ),
-      )
-
-      try {
-        const response = await fetch(`/api/shopping-list/custom/${id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ingredientId: null }),
-        })
-
-        if (!response.ok) {
-          throw new Error(tErrors('unlinkFailed'))
-        }
-      } catch {
-        // Revert on error — refetch would be better but this is simpler for now
-        toast.error(tErrors('unlinkFailed'))
-      }
-    },
-    [tErrors],
-  )
-
-  const handleCustomDelete = useCallback(
-    async (id: string) => {
-      // Optimistic update
-      setCustomItems((prev) => prev.filter((item) => item.id !== id))
-
-      try {
-        const response = await fetch(`/api/shopping-list/custom/${id}`, {
-          method: 'DELETE',
-        })
-
-        if (!response.ok) {
-          throw new Error(tErrors('removeFailed'))
-        }
-      } catch {
-        toast.error(tErrors('removeFailed'))
-      }
-    },
-    [tErrors],
-  )
-
-  const handleClearChecked = useCallback(async () => {
-    const checkedIds = new Set(customItems.filter((i) => i.checked).map((i) => i.id))
-    if (checkedIds.size === 0) return
-
-    // Optimistic update
-    setCustomItems((prev) => prev.filter((item) => !item.checked))
-
-    try {
-      const response = await fetch('/api/shopping-list/custom/checked', {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        throw new Error(tErrors('clearCheckedFailed'))
-      }
-    } catch {
-      toast.error(tErrors('clearCheckedFailed'))
-    }
-  }, [customItems, tErrors])
 
   const isPending = pendingIds.size > 0 || pendingCustomIds.size > 0
 

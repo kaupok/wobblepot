@@ -28,7 +28,7 @@ vi.mock('@/lib/ai/imagine-meal', () => ({
   imagineMeals: vi.fn(),
 }))
 
-vi.mock('@/lib/ai/parse-recipe', () => ({
+vi.mock('@/lib/ai/match-ingredients', () => ({
   matchIngredients: vi.fn(),
 }))
 
@@ -53,7 +53,7 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { imagineMeals } from '@/lib/ai/imagine-meal'
-import { matchIngredients } from '@/lib/ai/parse-recipe'
+import { matchIngredients } from '@/lib/ai/match-ingredients'
 import { prisma } from '@/lib/prisma'
 import { assertUnderCap } from '@/lib/ai/usage'
 

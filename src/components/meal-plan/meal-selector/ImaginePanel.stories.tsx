@@ -108,6 +108,32 @@ export const Generating: Story = {
   },
 }
 
+export const CancelStopsGenerating: Story = {
+  parameters: {
+    msw: { handlers: imaginePending },
+    docs: {
+      description: {
+        story:
+          'Cancel aborts the in-flight request and returns the panel to its idle state. This is the contract the `useMutation` conversion has to preserve: `reset()` has to clear `isPending` even though the aborted fetch settles later, and the resulting AbortError must not surface as an error message.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.type(canvas.getByRole('textbox'), 'something with lentils')
+    await userEvent.click(canvas.getByRole('button', { name: /imagine meals/i }))
+
+    await userEvent.click(await canvas.findByRole('button', { name: /cancel/i }))
+
+    await waitFor(() =>
+      expect(canvas.queryByRole('button', { name: /cancel/i })).not.toBeInTheDocument(),
+    )
+    // Back to the idle label, and the abort produced no error text.
+    await canvas.findByRole('button', { name: /imagine meals/i })
+    await expect(canvas.queryByText(/failed to generate/i)).not.toBeInTheDocument()
+  },
+}
+
 export const WithResults: Story = {
   parameters: {
     msw: { handlers: imagineSuccess },
