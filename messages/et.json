@@ -847,6 +847,7 @@
         "description": "Kas oled kindel, et soovid eemaldada „{name}\" leibkonnast? Seda ei saa tagasi võtta.",
         "confirm": "Eemalda"
       },
+      "loadFailed": "Liikmete laadimine ebaõnnestus",
       "removeFailed": "Liikme eemaldamine ebaõnnestus",
       "removed": "Liige eemaldati"
     },

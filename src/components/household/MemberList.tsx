@@ -88,7 +88,7 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
             </div>
           ) : error ? (
             <Body variant="small" className="text-destructive">
-              {error.message}
+              {t('loadFailed')}
             </Body>
           ) : members.length === 0 ? (
             <div className="rounded-lg border border-dashed p-8 text-center">

@@ -847,6 +847,7 @@
         "description": "Are you sure you want to remove {name} from the household? This action cannot be undone.",
         "confirm": "Remove"
       },
+      "loadFailed": "Failed to load members",
       "removeFailed": "Failed to remove member",
       "removed": "Member removed"
     },
