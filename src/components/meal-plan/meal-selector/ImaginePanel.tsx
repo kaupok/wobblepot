@@ -314,7 +314,9 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
         )}
       </div>
 
-      {/* Rendered outside the surrounding Dialog to avoid z-index issues */}
+      {/* Nested inside the selector's DialogContent, which is fine: DialogPortal
+          puts both dialogs on document.body and Radix's DismissableLayer stack is
+          module-global, so React-tree position does not affect stacking. */}
       {reviewMeal && (
         <ImagineReviewDialog
           open={!!reviewMeal}

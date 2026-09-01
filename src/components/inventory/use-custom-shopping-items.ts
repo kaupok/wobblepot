@@ -7,8 +7,10 @@ import type { CustomItemData } from '@/components/shopping/CustomItemInput'
 
 /**
  * User-added shopping-list rows, separate from the ones computed from the meal
- * plan. Every mutation updates local state first and rolls back on failure —
- * a checkbox that lags behind a round trip feels broken.
+ * plan. Every mutation updates local state first — a checkbox that lags behind a
+ * round trip feels broken. Only the toggle rolls back on failure; unlink, delete
+ * and clear-checked currently do not — see the note on `handleCustomUnlink`
+ * (HON-598).
  */
 export function useCustomShoppingItems(initialCustomItems: CustomItemData[]) {
   const tErrors = useTranslations('shopping.errors')
@@ -76,7 +78,11 @@ export function useCustomShoppingItems(initialCustomItems: CustomItemData[]) {
           throw new Error(tErrors('unlinkFailed'))
         }
       } catch {
-        // Revert on error — refetch would be better but this is simpler for now
+        // NOTE: no rollback — the row stays rendered as unlinked even though the
+        // server still has the link, until the next load. Same for delete and
+        // clear-checked below. Pre-existing behaviour, moved here verbatim from
+        // ShoppingSection; fixing it is HON-598, kept out of this
+        // no-behaviour-change refactor.
         toast.error(tErrors('unlinkFailed'))
       }
     },
