@@ -29,7 +29,7 @@ A Next.js 16 project with React 19, using TypeScript, Tailwind CSS, and shadcn/u
 - **Language**: TypeScript 5.9
 - **Styling**: Tailwind CSS 4.1 with class-variance-authority
 - **Testing**: Vitest for unit tests, Playwright for E2E
-- **Linting**: ESLint 9 + Prettier
+- **Linting**: ESLint 10 + Prettier
 - **Package Manager**: pnpm 10.9
 - **Data Fetching**: TanStack Query (React Query) v5 for client-side
 - **Database**: PostgreSQL (Neon) with Prisma ORM
