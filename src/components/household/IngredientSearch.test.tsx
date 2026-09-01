@@ -145,3 +145,40 @@ describe('IngredientSearch ARIA attributes', () => {
     expect(input).toHaveAttribute('aria-activedescendant', options[1]!.id)
   })
 })
+
+describe('IngredientSearch after a selection', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('does not re-offer the previous query under a new search', async () => {
+    mockFetchSuccess(mockIngredients)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const onAddIngredient = vi.fn()
+
+    renderSearch({ onAddIngredient })
+
+    const input = screen.getByRole('combobox')
+    await user.type(input, 'tom')
+    await vi.advanceTimersByTimeAsync(350)
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
+
+    await user.keyboard('{ArrowDown}{Enter}')
+    expect(onAddIngredient).toHaveBeenCalledTimes(1)
+
+    // Selecting clears the field; typing something unrelated inside the same
+    // debounce window must not re-serve the results fetched for 'tom'.
+    await user.type(input, 'b')
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(input).toHaveAttribute('aria-expanded', 'false')
+
+    await user.keyboard('{Enter}')
+    expect(onAddIngredient).toHaveBeenCalledTimes(1)
+  })
+})

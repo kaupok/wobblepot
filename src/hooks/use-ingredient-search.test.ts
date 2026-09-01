@@ -120,6 +120,51 @@ describe('useIngredientSearch', () => {
     expect(mockFetch).toHaveBeenCalledTimes(1)
   })
 
+  it('drops the previous term instead of reopening it under a new query', async () => {
+    const { result, rerender } = renderSearch('')
+
+    rerender({ query: 'tom' })
+    await flushDebounce()
+    await waitFor(() => expect(result.current.data).toEqual(ingredients))
+
+    // Selecting a result clears the field, then the user types something
+    // unrelated inside the same debounce window — `debounced` still holds
+    // 'tom', and serving its cached results would let Enter re-pick them.
+    rerender({ query: '' })
+    rerender({ query: 'b' })
+
+    await waitFor(() => expect(result.current.data).toBeUndefined())
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+
+    await flushDebounce()
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))
+    expect(searchUrlsCalled()[1]).toBe('/api/ingredients?search=b')
+  })
+
+  it('keeps the current results while the user extends the term', async () => {
+    const { result, rerender } = renderSearch('')
+
+    rerender({ query: 'tom' })
+    await flushDebounce()
+    await waitFor(() => expect(result.current.data).toEqual(ingredients))
+
+    // 'toma' extends 'tom', so the dropdown shouldn't blank out mid-typing.
+    rerender({ query: 'toma' })
+    expect(result.current.data).toEqual(ingredients)
+  })
+
+  it('drops the results when the user deletes back to a shorter term', async () => {
+    const { result, rerender } = renderSearch('')
+
+    rerender({ query: 'tom' })
+    await flushDebounce()
+    await waitFor(() => expect(result.current.data).toEqual(ingredients))
+
+    rerender({ query: 'to' })
+
+    await waitFor(() => expect(result.current.data).toBeUndefined())
+  })
+
   it('surfaces the error from a failed request', async () => {
     mockFetch.mockResolvedValue({
       ok: false,

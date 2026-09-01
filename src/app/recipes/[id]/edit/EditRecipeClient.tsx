@@ -22,10 +22,15 @@ export function EditRecipeClient({ mealId }: EditRecipeClientProps) {
 
   const {
     data: meal,
-    isLoading,
+    isPending,
     error,
   } = useQuery({
     queryKey: ['meal', mealId],
+    // MealForm seeds every field from `meal` in `useState` initialisers, so a
+    // background refetch can't repair a stale first render. Dropping the entry
+    // on unmount keeps a re-opened edit page from serving the pre-save meal
+    // for the client's 60 s `staleTime` — and then PATCHing it back on save.
+    gcTime: 0,
     // The route returns a superset of the form's fields (nutrition, favourite
     // flag, timestamps); `select` picks out the ones the form owns.
     queryFn: () => apiFetch<MealFormData>(`/api/households/me/meals/${mealId}`),
@@ -55,7 +60,10 @@ export function EditRecipeClient({ mealId }: EditRecipeClientProps) {
     router.push('/recipes')
   }
 
-  if (isLoading) {
+  // `isPending` rather than `isLoading`: a fetch paused by the browser being
+  // offline is still pending but not fetching, and must not fall through to the
+  // error branch below.
+  if (isPending) {
     return (
       <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
         <Loader2 className="h-6 w-6 animate-spin" />
@@ -64,7 +72,7 @@ export function EditRecipeClient({ mealId }: EditRecipeClientProps) {
   }
 
   if (error || !meal) {
-    const isNotFound = !error || (error instanceof ApiError && error.status === 404)
+    const isNotFound = error instanceof ApiError && error.status === 404
     return (
       <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
         <div className="flex flex-col items-center gap-4 text-center">

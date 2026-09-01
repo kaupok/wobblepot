@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { EditRecipeClient } from './EditRecipeClient'
 
@@ -66,6 +67,47 @@ describe('EditRecipeClient', () => {
 
     expect(await screen.findByTestId('meal-form')).toHaveTextContent('Chicken and rice')
     expect(mockFetch).toHaveBeenCalledWith('/api/households/me/meals/meal-1', undefined)
+  })
+
+  it('keeps the spinner up while the fetch is paused offline', () => {
+    // An offline mount leaves the query pending but *not* fetching, which must
+    // not be mistaken for "no meal here".
+    onlineManager.setOnline(false)
+    try {
+      mockFetch.mockReturnValue(new Promise(() => {}))
+
+      renderClient()
+
+      expect(screen.queryByText('Meal not found')).not.toBeInTheDocument()
+      expect(screen.queryByText('Failed to load meal')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('meal-form')).not.toBeInTheDocument()
+    } finally {
+      onlineManager.setOnline(true)
+    }
+  })
+
+  it('refetches on remount rather than serving a cached pre-save meal', async () => {
+    // Mirrors `getQueryClient()`: without `gcTime: 0` the 60 s staleTime would
+    // hand the re-opened page the meal as it looked before the last save, and
+    // MealForm freezes whatever it is first handed.
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { staleTime: 60_000, retry: false } },
+    })
+    function Wrapper({ children }: { children: React.ReactNode }) {
+      return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    }
+    mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(mealResponse) })
+
+    const first = render(<EditRecipeClient mealId="meal-1" />, { wrapper: Wrapper })
+    expect(await screen.findByTestId('meal-form')).toBeInTheDocument()
+    first.unmount()
+    // `gcTime: 0` drops the entry on a timer, which a real navigation always
+    // outlasts; yield a macrotask so the test doesn't remount inside the tick.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    render(<EditRecipeClient mealId="meal-1" />, { wrapper: Wrapper })
+
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))
   })
 
   it('shows the not-found copy for a 404', async () => {
