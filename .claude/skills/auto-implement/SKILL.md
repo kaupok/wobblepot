@@ -880,7 +880,7 @@ This runs synchronously. When it returns, the review has been posted to GitHub. 
 Verify the review was posted:
 
 ```bash
-# --paginate + `jq -s 'add'`: the API caps at 30 records, and --jq cannot be used because gh applies it per page (HON-586).
+# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
 gh api --paginate '/repos/:owner/:repo/issues/{number}/comments?per_page=100' \
   | jq -s 'add | [.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
 ```
@@ -906,7 +906,7 @@ Stop here (non-zero exit)
 Fetch the inline review comments posted by the reviewer, dropping any that are no longer anchored:
 
 ```bash
-# --paginate is mandatory: without it the API returns only the first 30 records, and
+# --paginate is mandatory: without it the API returns only the first page, and
 # GitHub orders comments oldest-first, so the newest round is the page that gets
 # dropped. --jq is deliberately NOT used: gh applies it per page, so `| length` /
 # `| last` would emit one result per page. `jq -s 'add'` folds the stream into a
@@ -916,7 +916,13 @@ Fetch the inline review comments posted by the reviewer, dropping any that are n
 # already yields `[]` here; `// []` would only ever fire when the fetch itself
 # produced no output at all (network, auth, rate limit) — turning a failed fetch
 # into a confident "no findings", which is the exact bug this call site is
-# guarding against. Bare `add` errors loudly on that input instead.
+# guarding against.
+#
+# What makes THIS site loud is the `[.[] | …]` below it: `add` over an empty slurp
+# is `null`, and iterating null is a jq error (exit 5). Bare `add` on its own is
+# NOT loud — it prints `null` and exits 0 — so the two gather-only fetches in 7.4
+# spell the guard out with `// error(...)` instead. Uses the system `jq` binary,
+# not gh's embedded one.
 gh api --paginate '/repos/:owner/:repo/pulls/{number}/comments?per_page=100' \
   | jq -s 'add | [.[] | select(.body | startswith("**")) | select(.line != null)]'
 ```
@@ -928,7 +934,7 @@ gh api --paginate '/repos/:owner/:repo/pulls/{number}/comments?per_page=100' \
 Also fetch the summary comment — **the most recent one only**, since each review round appends its own:
 
 ```bash
-# --paginate + `jq -s 'add'`: the API caps at 30 records, and --jq cannot be used because gh applies it per page (HON-586).
+# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
 gh api --paginate '/repos/:owner/:repo/issues/{number}/comments?per_page=100' \
   | jq -rs 'add | [.[] | select(.body | startswith("<!-- claude-review -->"))] | last | .body'
 ```
@@ -1138,9 +1144,12 @@ gh pr view <PR_NUMBER> --json number,title,url,commits,files
 
 # Review comments: inline comments + review-level summaries
 # (`:owner/:repo` is auto-filled by gh from the current git remote)
-# --paginate + `jq -s 'add'`: the API caps at 30 records, and --jq cannot be used because gh applies it per page (HON-586).
-gh api --paginate '/repos/:owner/:repo/pulls/<PR_NUMBER>/comments?per_page=100' | jq -s 'add'
-gh api --paginate '/repos/:owner/:repo/pulls/<PR_NUMBER>/reviews?per_page=100'  | jq -s 'add'
+# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
+# `// error(...)` is the loud-failure guard: unlike the filtered fetches in the review
+# phase, bare `add` returns `null` (exit 0) on empty stdout, which would read as "no
+# comments". A genuinely empty `[]` still passes — only null/false are falsy to `//`.
+gh api --paginate '/repos/:owner/:repo/pulls/<PR_NUMBER>/comments?per_page=100' | jq -s 'add // error("fetch produced no output")'
+gh api --paginate '/repos/:owner/:repo/pulls/<PR_NUMBER>/reviews?per_page=100'  | jq -s 'add // error("fetch produced no output")'
 ```
 
 **Post comment to Linear:**

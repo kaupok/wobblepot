@@ -73,14 +73,22 @@ fi
 LOCK_DIR="/tmp/claude-review-${PR_NUMBER}.lock"
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then
   # Check if the other instance already posted a review
-  # --paginate is mandatory: without it the API returns only the first 30 comments, so a
-  # marker posted after 30 others reads as absent and this stale-lock branch reclaims a lock
-  # it shouldn't. --jq cannot be used alongside it — gh applies --jq per page, which would
-  # emit one length per page instead of one total. `jq -s 'add'` folds the pages into a
-  # single array first. Do not "simplify" this back to --jq (HON-586).
-  if gh api --paginate "/repos/:owner/:repo/issues/${PR_NUMBER}/comments?per_page=100" 2>/dev/null \
+  # --paginate is mandatory: without it the API returns only the first page, so a marker
+  # posted after the first 100 comments reads as absent and this branch reclaims a lock it
+  # shouldn't. --jq cannot be used alongside it — gh applies --jq per page and would emit one
+  # length per page instead of one total; `jq -s 'add'` folds the pages into a single array
+  # first. Do not "simplify" this back to --jq (HON-586).
+  #
+  # The count is captured rather than tested inline because `set -o pipefail` would make an
+  # `if` on this pipeline follow gh's exit status, and --paginate newly makes "marker printed
+  # AND non-zero exit" reachable: gh exits non-zero when a later page fails after earlier pages
+  # (possibly carrying the marker) already printed. That would reclaim a *live* instance's lock
+  # and spawn a duplicate review. `|| true` prints nothing, so a total failure still leaves
+  # MARKER_COUNT empty and falls through to the stale-lock path, which is intended.
+  MARKER_COUNT=$(gh api --paginate "/repos/:owner/:repo/issues/${PR_NUMBER}/comments?per_page=100" 2>/dev/null \
     | jq -s 'add | [.[] | select(.body | startswith("<!-- claude-review -->"))] | length' 2>/dev/null \
-    | grep -q '^[1-9]'; then
+    || true)
+  if printf '%s\n' "$MARKER_COUNT" | grep -q '^[1-9]'; then
     echo -e "${GREEN}Review already posted by another instance.${NC}"
     exit 0
   fi

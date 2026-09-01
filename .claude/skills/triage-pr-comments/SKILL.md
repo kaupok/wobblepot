@@ -34,7 +34,7 @@ If no PR exists, inform user: "No PR found for this branch. Create one with `/cr
 Check if a Claude review already exists:
 
 ```bash
-# --paginate + `jq -s 'add'`: the API caps at 30 records, and --jq cannot be used because gh applies it per page (HON-586).
+# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
 gh api --paginate '/repos/:owner/:repo/issues/{number}/comments?per_page=100' \
   | jq -s 'add | [.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
 ```
@@ -76,17 +76,17 @@ Extract the PR number from Step 1, then fetch both types of comments in parallel
 
 ```bash
 # PR-level comments (general discussion)
-# --paginate + `jq -s 'add'`: the API caps at 30 records, and --jq cannot be used because gh applies it per page (HON-586).
+# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
 gh api --paginate '/repos/:owner/:repo/issues/{number}/comments?per_page=100' \
   | jq -s 'add | .[] | {id, author: .user.login, body, created_at}'
 
 # Review comments (inline code comments)
-# --paginate + `jq -s 'add'`: the API caps at 30 records, and --jq cannot be used because gh applies it per page (HON-586).
+# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
 gh api --paginate '/repos/:owner/:repo/pulls/{number}/comments?per_page=100' \
   | jq -s 'add | .[] | {id, author: .user.login, path, line, original_line, body, diff_hunk}'
 
 # Review summaries (top-level text submitted with Approve/Request Changes)
-# --paginate + `jq -s 'add'`: the API caps at 30 records, and --jq cannot be used because gh applies it per page (HON-586).
+# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
 gh api --paginate '/repos/:owner/:repo/pulls/{number}/reviews?per_page=100' \
   | jq -s 'add | .[] | {id, author: .user.login, state, body}'
 ```
