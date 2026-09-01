@@ -880,8 +880,9 @@ This runs synchronously. When it returns, the review has been posted to GitHub. 
 Verify the review was posted:
 
 ```bash
-gh api /repos/:owner/:repo/issues/{number}/comments \
-  --jq '[.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
+# --paginate + `jq -s 'add'`: the API caps at 30 records, and --jq cannot be used because gh applies it per page (HON-586).
+gh api --paginate '/repos/:owner/:repo/issues/{number}/comments?per_page=100' \
+  | jq -s 'add | [.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
 ```
 
 If the review was posted (count > 0):
@@ -905,8 +906,19 @@ Stop here (non-zero exit)
 Fetch the inline review comments posted by the reviewer, dropping any that are no longer anchored:
 
 ```bash
-gh api /repos/:owner/:repo/pulls/{number}/comments \
-  --jq '[.[] | select(.body | startswith("**")) | select(.line != null)]'
+# --paginate is mandatory: without it the API returns only the first 30 records, and
+# GitHub orders comments oldest-first, so the newest round is the page that gets
+# dropped. --jq is deliberately NOT used: gh applies it per page, so `| length` /
+# `| last` would emit one result per page. `jq -s 'add'` folds the stream into a
+# single array first. Do not "simplify" this back to --jq (HON-586).
+#
+# Do NOT add an `add // []` fallback either. A PR with genuinely zero comments
+# already yields `[]` here; `// []` would only ever fire when the fetch itself
+# produced no output at all (network, auth, rate limit) — turning a failed fetch
+# into a confident "no findings", which is the exact bug this call site is
+# guarding against. Bare `add` errors loudly on that input instead.
+gh api --paginate '/repos/:owner/:repo/pulls/{number}/comments?per_page=100' \
+  | jq -s 'add | [.[] | select(.body | startswith("**")) | select(.line != null)]'
 ```
 
 `select(.line != null)` is required: if a PR has been reviewed more than once, the earlier round's comments are still on the PR, and GitHub orphans them at `line: null` once the code they pointed at moves. Without the filter, 6.5 tries to open a file at a null line (HON-585).
@@ -916,11 +928,14 @@ gh api /repos/:owner/:repo/pulls/{number}/comments \
 Also fetch the summary comment — **the most recent one only**, since each review round appends its own:
 
 ```bash
-gh api /repos/:owner/:repo/issues/{number}/comments \
-  --jq '[.[] | select(.body | startswith("<!-- claude-review -->"))] | last | .body'
+# --paginate + `jq -s 'add'`: the API caps at 30 records, and --jq cannot be used because gh applies it per page (HON-586).
+gh api --paginate '/repos/:owner/:repo/issues/{number}/comments?per_page=100' \
+  | jq -rs 'add | [.[] | select(.body | startswith("<!-- claude-review -->"))] | last | .body'
 ```
 
 Dropping `| last` concatenates every round, so the "No issues found" check below would be judged against a mixture of verdicts from different commits.
+
+This is also why the fetch cannot be written as `--paginate --jq '… | last'`: gh runs `--jq` once per page, so `last` would yield the newest marker *on each page* rather than the newest overall — reinstating the same defect through a different door. The `jq -s 'add'` form evaluates `last` against the whole set (HON-586).
 
 **Triage rules:**
 
@@ -1123,8 +1138,9 @@ gh pr view <PR_NUMBER> --json number,title,url,commits,files
 
 # Review comments: inline comments + review-level summaries
 # (`:owner/:repo` is auto-filled by gh from the current git remote)
-gh api /repos/:owner/:repo/pulls/<PR_NUMBER>/comments
-gh api /repos/:owner/:repo/pulls/<PR_NUMBER>/reviews
+# --paginate + `jq -s 'add'`: the API caps at 30 records, and --jq cannot be used because gh applies it per page (HON-586).
+gh api --paginate '/repos/:owner/:repo/pulls/<PR_NUMBER>/comments?per_page=100' | jq -s 'add'
+gh api --paginate '/repos/:owner/:repo/pulls/<PR_NUMBER>/reviews?per_page=100'  | jq -s 'add'
 ```
 
 **Post comment to Linear:**

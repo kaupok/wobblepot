@@ -55,6 +55,13 @@ if ! command -v gh &> /dev/null; then
   exit 1
 fi
 
+# The comment fetch below slurps paginated output with the system jq rather than
+# gh's embedded --jq — see the note at that call site (HON-586).
+if ! command -v jq &> /dev/null; then
+  echo -e "${RED}Error: jq not found${NC}"
+  exit 1
+fi
+
 # Verify PR exists
 if ! gh pr view "$PR_NUMBER" --json number &> /dev/null; then
   echo -e "${RED}Error: PR #${PR_NUMBER} not found${NC}"
@@ -66,8 +73,14 @@ fi
 LOCK_DIR="/tmp/claude-review-${PR_NUMBER}.lock"
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then
   # Check if the other instance already posted a review
-  if gh api /repos/:owner/:repo/issues/${PR_NUMBER}/comments \
-    --jq '[.[] | select(.body | startswith("<!-- claude-review -->"))] | length' 2>/dev/null | grep -q '^[1-9]'; then
+  # --paginate is mandatory: without it the API returns only the first 30 comments, so a
+  # marker posted after 30 others reads as absent and this stale-lock branch reclaims a lock
+  # it shouldn't. --jq cannot be used alongside it — gh applies --jq per page, which would
+  # emit one length per page instead of one total. `jq -s 'add'` folds the pages into a
+  # single array first. Do not "simplify" this back to --jq (HON-586).
+  if gh api --paginate "/repos/:owner/:repo/issues/${PR_NUMBER}/comments?per_page=100" 2>/dev/null \
+    | jq -s 'add | [.[] | select(.body | startswith("<!-- claude-review -->"))] | length' 2>/dev/null \
+    | grep -q '^[1-9]'; then
     echo -e "${GREEN}Review already posted by another instance.${NC}"
     exit 0
   fi
