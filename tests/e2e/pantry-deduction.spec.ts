@@ -1,4 +1,4 @@
-// ROUTES: /, /shopping · COMPONENTS: FirstTimeSetup, TimelineView, MealCard, PantryList
+// ROUTES: /, /shopping · COMPONENTS: FirstTimeSetup, TimelineView, MealCard, PantrySection
 import { test, expect } from '@playwright/test'
 import { signUpWithHousehold } from './utils/test-helpers'
 
