@@ -90,16 +90,28 @@ export default async function RootLayout({
   const baseURL = getServerBaseURL()
   const nonce = (await headers()).get('x-nonce') ?? undefined
 
-  const session = await getSession()
-  const householdId = session ? await getHouseholdIdForUser(session.user.id) : null
+  // Nothing here depends on the session: the consent cookie, the locale, and
+  // the message catalog resolve independently. `getLocale` does call
+  // `getSession` internally, but both are `cache()`-wrapped in
+  // `@/lib/session`, so the two callers share one in-flight auth lookup.
+  const [session, consentDecision, locale, messages] = await Promise.all([
+    getSession(),
+    readConsentCookieServer(),
+    getLocale(),
+    getMessages(),
+  ])
+
+  // Both of these need the resolved session, but not each other — the
+  // household lookup (Prisma) and the flag bootstrap (PostHog round-trip)
+  // overlap. Feature flags are evaluated server-side so PostHog's client SDK
+  // can answer `isFeatureEnabled` synchronously on first render; fail-open
+  // semantics live in `getServerFlag`, so this never throws and never blocks
+  // the page.
+  const [householdId, bootstrap] = await Promise.all([
+    session ? getHouseholdIdForUser(session.user.id) : Promise.resolve(null),
+    bootstrapFlags(session?.user.id ?? 'anonymous'),
+  ])
   const hasHousehold = householdId !== null
-  const consentDecision = await readConsentCookieServer()
-  const locale = await getLocale()
-  const messages = await getMessages()
-  // Evaluate feature flags server-side so PostHog's client SDK can answer
-  // `isFeatureEnabled` synchronously on first render. Fail-open semantics
-  // live in `getServerFlag`, so this never throws and never blocks the page.
-  const bootstrap = await bootstrapFlags(session?.user.id ?? 'anonymous')
 
   return (
     <html lang={locale} suppressHydrationWarning>

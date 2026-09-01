@@ -27,8 +27,23 @@ export default async function InvitePage({ params }: InvitePageProps) {
     redirect(`/sign-in?returnUrl=/invite/${code}`)
   }
 
-  // Check if user already has a household
-  const existingMembership = await getHouseholdMembership(session.user.id)
+  // The membership check and the invite lookup are independent queries, so
+  // start both together. The branch order below is unchanged: an existing
+  // membership still short-circuits before the invite is inspected.
+  const [existingMembership, invite] = await Promise.all([
+    getHouseholdMembership(session.user.id),
+    prisma.householdInvite.findUnique({
+      where: { code },
+      include: {
+        household: {
+          select: { name: true },
+        },
+        member: {
+          select: { name: true },
+        },
+      },
+    }),
+  ])
 
   if (existingMembership) {
     return (
@@ -42,19 +57,6 @@ export default async function InvitePage({ params }: InvitePageProps) {
       </div>
     )
   }
-
-  // Fetch invite details
-  const invite = await prisma.householdInvite.findUnique({
-    where: { code },
-    include: {
-      household: {
-        select: { name: true },
-      },
-      member: {
-        select: { name: true },
-      },
-    },
-  })
 
   if (!invite) {
     notFound()

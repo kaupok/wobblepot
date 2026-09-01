@@ -24,10 +24,13 @@ export default async function ProfilePage() {
     redirect('/onboarding')
   }
 
-  const memberCount = await getHouseholdMemberCount(membership.householdId)
+  // Independent of each other — the member count is a DB read, the catalog
+  // lookup is not. The auth gate above stays sequential: it redirects.
+  const [memberCount, t] = await Promise.all([
+    getHouseholdMemberCount(membership.householdId),
+    getTranslations('profile'),
+  ])
   const isOwner = membership.role === 'owner'
-
-  const t = await getTranslations('profile')
 
   return (
     <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
