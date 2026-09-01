@@ -17,7 +17,7 @@ Nearly every change here was planned, implemented, reviewed, and merged by Claud
 - [`CLAUDE.md`](CLAUDE.md) is the operating manual the agent reads every session: coding patterns, the definition of done, and rules learned from things that went wrong. Many of its "CRITICAL" lines are scar tissue from a specific incident, referenced by issue number.
 - [`.claude/skills/`](.claude/skills/) holds the sixteen project skills that make up the workflow: `next-issue` → `plan-issue` → `implement-issue` → `branch-review` → `commit --pr` → `triage-pr-comments` → `merge`. `auto-implement` runs the whole cycle unattended for one issue.
 - [`scripts/orchestrator.sh`](scripts/orchestrator.sh) polls Linear for ready issues and spawns one worker per issue, each in its own git worktree with its own Neon database branch. [`docs/PARALLEL_WORKFLOW.md`](docs/PARALLEL_WORKFLOW.md) explains the model; [`scripts/worktree-claude.sh`](scripts/worktree-claude.sh) is the `wt` entry point.
-- [`scripts/pr-review.sh`](scripts/pr-review.sh) posts an automatic Claude review on every pull request. The same skills then triage the comments and address the ones that matter.
+- [`scripts/pr-review.sh`](scripts/pr-review.sh) posts a Claude review on every pull request opened through the workflow. The same skills then triage the comments and address the ones that matter, and the merge skill runs the review first if a PR was opened by hand, so nothing merges unreviewed.
 
 ### Quality gates
 
@@ -63,12 +63,12 @@ Estonian is the first non-English locale. [`docs/LOCALIZATION.md`](docs/LOCALIZA
 
 ## Running it locally
 
-You can, but this is a production application with real vendor dependencies rather than a demo. A full local run needs a PostgreSQL database, an Anthropic API key, and, for the features that use them, Resend and Upstash accounts. [`docs/ENVIRONMENT_SETUP.md`](docs/ENVIRONMENT_SETUP.md) lists every variable and what each one is for.
+You can, but this is a production application with real vendor dependencies rather than a demo. A full local run needs a PostgreSQL database, an Anthropic API key, and, for the features that use them, Resend and Upstash accounts. [`src/lib/env.ts`](src/lib/env.ts) is the authoritative list of every variable and which ones are optional; [`docs/ENVIRONMENT_SETUP.md`](docs/ENVIRONMENT_SETUP.md) covers the vendor setup behind them.
 
 ```bash
 pnpm install
-cp .env.example .env    # fill in DATABASE_URL, BETTER_AUTH_SECRET, ANTHROPIC_API_KEY at minimum
-pnpm db:push
+cp .env.example .env    # at minimum: DATABASE_URL, DATABASE_URL_UNPOOLED, BETTER_AUTH_SECRET, ANTHROPIC_API_KEY
+pnpm db:push            # Prisma CLI commands read DATABASE_URL_UNPOOLED; the app reads DATABASE_URL
 pnpm db:seed
 pnpm dev                # http://localhost:3000
 ```
@@ -77,7 +77,7 @@ Useful commands once it runs:
 
 ```bash
 pnpm lint && pnpm type-check && pnpm test   # the pre-commit bar
-pnpm test:e2e                               # Playwright
+pnpm test:e2e:local                         # Playwright on a throwaway Neon branch (needs NEON_API_KEY)
 pnpm storybook                              # component workbench on port 6006
 pnpm test-storybook:ci                      # every story through axe, once
 pnpm db:studio                              # Prisma Studio
