@@ -9,6 +9,21 @@ const config = defineConfig([
   ...nextVitals,
   ...nextTs,
 
+  // WHY: ESLint 10 workaround (HON-313). `eslint-config-next` sets
+  // `settings.react.version = 'detect'`, and eslint-plugin-react@7.37.5 resolves
+  // that through the `context.getFilename()` API that ESLint 10 removed, so every
+  // react rule throws `TypeError: contextOrFilename.getFilename is not a function`.
+  // Pinning the version explicitly skips the auto-detection branch entirely.
+  // REMOVE WHEN: eslint-plugin-react ships a release containing
+  // https://github.com/jsx-eslint/eslint-plugin-react/pull/4022 and
+  // eslint-config-next picks it up. Tracking: https://github.com/vercel/next.js/issues/89764
+  // ALSO BUMP: on every React major. '19' coerces to 19.0.0, so version-gated react
+  // rules would keep evaluating against 19.0.0 after React 20 lands. No effect today
+  // (a full lint run at '19' vs '19.2.8' is byte-identical).
+  {
+    settings: { react: { version: '19' } },
+  },
+
   // Global ignores
   globalIgnores([
     '.next/**',
