@@ -6,11 +6,22 @@ Complete guide for setting up and managing environment variables in the Honkador
 
 - [Overview](#overview)
 - [Initial Setup](#initial-setup)
+- [Variable reference](#variable-reference)
 - [Special Characters in Values](#special-characters-in-values)
 - [Adding New Environment Variables](#adding-new-environment-variables)
   - [Adding a Public Variable](#adding-a-public-variable-next_public_)
   - [Adding a Server-Only Variable](#adding-a-server-only-variable)
+- [Email Service (Resend)](#email-service-resend)
+- [Upstash Redis (rate limiting)](#upstash-redis-rate-limiting)
+- [PostHog (analytics, errors, source maps)](#posthog-analytics-errors-source-maps)
+- [Neon Database Branching](#neon-database-branching-optional)
+- [Cron secret (account-deletion purge)](#cron-secret-account-deletion-purge)
+- [Admin email](#admin-email)
+- [Application URL](#application-url)
+- [Diagnostics and test-only switches](#diagnostics-and-test-only-switches)
 - [Validation](#validation)
+- [Drift audit](#drift-audit-pnpm-envaudit)
+- [Usage in Code](#usage-in-code)
 
 ## Overview
 
@@ -26,9 +37,43 @@ Environment variables are validated at runtime using Zod. This ensures all requi
    cp .env.example .env
    ```
 
-2. Fill in required values in `.env` (never commit this file - already in .gitignore)
+2. Fill in required values in `.env` (never commit this file - already in .gitignore). The [variable reference](#variable-reference) below says which ones are required and what each does.
 
 3. Environment validation happens automatically on app startup in `src/lib/env.ts`
+
+## Variable reference
+
+`src/lib/env.ts` is the source of truth: every variable the app reads is declared there with a Zod schema and a `.describe()` string. This table mirrors it so you can see the whole surface in one place. "Required" means the schema has no `.optional()`; server-only variables are validated lazily, on first access, so a missing one fails the feature that needs it rather than the boot.
+
+| Variable                                                            | Required             | What it does                                                                                                                                                   |
+| ------------------------------------------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_APP_NAME`                                              | Yes                  | Display name shown in the UI and email subjects.                                                                                                               |
+| `NEXT_PUBLIC_APP_ENV`                                               | Yes                  | One of `dev`, `preview`, `staging`, `production`, `ci`, `test`. Drives email subject prefixes, the rate-limit bypass allowlist, and PostHog project selection. |
+| `NEXT_PUBLIC_APP_URL`                                               | No                   | Base URL override. See [Application URL](#application-url) for the fallback order.                                                                             |
+| `NEXT_PUBLIC_POSTHOG_KEY`                                           | No                   | PostHog project token. Unset disables PostHog entirely. See [PostHog](#posthog-analytics-errors-source-maps).                                                  |
+| `NEXT_PUBLIC_POSTHOG_HOST`                                          | No                   | PostHog ingest host, identical across environments.                                                                                                            |
+| `BETTER_AUTH_SECRET`                                                | Yes                  | Session signing secret, at least 32 characters. `openssl rand -base64 32`.                                                                                     |
+| `DATABASE_URL`                                                      | Yes                  | Pooled Neon connection. Read by the app at runtime through the Prisma adapter.                                                                                 |
+| `DATABASE_URL_UNPOOLED`                                             | Yes                  | Direct Neon connection. Read by the Prisma CLI (`db:push`, `db:migrate`, `db:seed`) through `prisma.config.ts`, and by the migration workflows.                |
+| `ANTHROPIC_API_KEY`                                                 | Yes, for AI features | Every Claude call: meal generation, imagined meals, recipe import, prep tips. Pages that do not call the AI boot without it.                                   |
+| `RESEND_API_KEY`                                                    | No                   | Transactional email. Unset logs the password-reset URL to the console instead. See [Email Service](#email-service-resend).                                     |
+| `UPSTASH_REDIS_REST_URL`                                            | Yes                  | Rate limiting. See [Upstash Redis](#upstash-redis-rate-limiting).                                                                                              |
+| `UPSTASH_REDIS_REST_TOKEN`                                          | Yes                  | Rate limiting.                                                                                                                                                 |
+| `ADMIN_EMAIL`                                                       | Yes, for `/admin`    | The single beta admin. See [Admin email](#admin-email).                                                                                                        |
+| `CRON_SECRET`                                                       | Production only      | Authenticates the account-deletion purge cron. See [Cron secret](#cron-secret-account-deletion-purge).                                                         |
+| `STATUS_INCIDENT_MESSAGE`                                           | No                   | Operator banner on `/status` during an incident. See [Diagnostics and test-only switches](#diagnostics-and-test-only-switches).                                |
+| `E2E_DISABLE_RATE_LIMIT`                                            | No, test-only        | Bypasses the abuse rate limiter for E2E runs. Only honoured when `NEXT_PUBLIC_APP_ENV` is `ci`, `test`, or `dev`; throws at boot anywhere else.                |
+| `SIGNUP_TIMING_LOG`                                                 | No, diagnostics      | Logs per-step sign-up timings to stderr. Set by the local E2E runner.                                                                                          |
+| `POSTHOG_CLI_HOST`, `POSTHOG_CLI_PROJECT_ID`, `POSTHOG_CLI_API_KEY` | No, build-time       | Source-map upload from the Vercel build. Unset locally. See [PostHog](#posthog-analytics-errors-source-maps).                                                  |
+
+Variables read by scripts rather than the app, so not in the schema. They are documented in `.env.example`:
+
+| Variable                                                                    | Read by                                                                                                                     |
+| --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `LINEAR_API_KEY`                                                            | `scripts/orchestrator.sh`, `scripts/worktree-claude.sh`, `scripts/neon-cleanup.sh`                                          |
+| `NEON_API_KEY`, `NEON_PROJECT_ID`, `NEON_PARENT_BRANCH`, `NEON_USER_PREFIX` | Per-worktree database branching and the local E2E runner. See [Neon Database Branching](#neon-database-branching-optional). |
+| `RESEND_TEST_API_KEY`                                                       | The Playwright runner, to read delivered reset emails on the remote tiers.                                                  |
+| `POSTHOG_CAPTURE_LOCAL`                                                     | `src/lib/release.ts`, an escape hatch to force server-side capture from a dev machine. Leave unset.                         |
 
 ## Special Characters in Values
 
@@ -294,6 +339,30 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/purg
 ### Vercel (deployed environments)
 
 Add `CRON_SECRET` (≥32 chars, e.g. `openssl rand -base64 32`) to **Project Settings → Environment Variables** for Production (and Preview/Staging if you want the cron there). Vercel handles the header automatically once it is set.
+
+## Admin email
+
+`ADMIN_EMAIL` is the one account allowed into `/admin/signup-codes` and its API routes (HON-488). `isAdmin(session)` in `src/lib/auth-helpers.ts` compares the signed-in user's email against it, case-insensitively. Nothing else reads it, so the app boots without it; the admin route throws a validation error instead of returning 404 if it is unset.
+
+It is deliberately a single email rather than a role: the invite-only beta has one operator. Switch to a role-based check before opening admin access to anyone else.
+
+## Application URL
+
+`NEXT_PUBLIC_APP_URL` is an override, not a requirement. `getClientBaseURL()` and `getServerBaseURL()` in `src/lib/env.ts` resolve the base URL in this order:
+
+1. `NEXT_PUBLIC_APP_URL`, if set
+2. `NEXT_PUBLIC_VERCEL_URL` / `VERCEL_URL`, which Vercel sets on every deployment
+3. `http://localhost:3000`
+
+Better Auth derives its `baseURL` and `trustedOrigins` from the result, which is why the local E2E runner sets it explicitly to the port it starts the app on. Set it in Vercel only when the deployment URL is not the one users should see, such as a custom domain in front of a preview.
+
+## Diagnostics and test-only switches
+
+Three switches exist for operators and test runners. None should be set in a normal deployment.
+
+- **`STATUS_INCIDENT_MESSAGE`** — free-text banner rendered on `/status` while an incident is in progress. Setting or removing it is a deploy. When to use it and the exact `vercel env` commands are in [docs/RUNBOOKS/status-page.md](./RUNBOOKS/status-page.md).
+- **`E2E_DISABLE_RATE_LIMIT`** — `1` or `true` bypasses the abuse-sensitive rate limiter so CI sign-up tests do not collide on the shared runner IP. `src/lib/rate-limit.ts` only honours it when `NEXT_PUBLIC_APP_ENV` is `ci`, `test`, or `dev`; any other environment throws at module init, so a stray value cannot disable rate limiting in production (HON-521).
+- **`SIGNUP_TIMING_LOG`** — `1` or `true` logs per-step sign-up timings (breached-password check, password hashing, invite-code lookup, total) to stderr. Off by default so production sign-ups stay quiet; `scripts/e2e-local.sh` turns it on to diagnose slow local runs (HON-569).
 
 ## Validation
 
