@@ -1,20 +1,7 @@
-import { cache } from 'react'
 import { headers } from 'next/headers'
-import { getSession } from '@/lib/session'
-import { prisma } from '@/lib/prisma'
+import { getSession, getCachedMembership } from '@/lib/session'
 import { resolveLocale } from './resolve-locale'
 import type { Locale } from './locales'
-
-// Narrow, request-cached lookup so calling `getLocale()` in the root layout
-// doesn't duplicate the `getHouseholdMembership` join that every authenticated
-// page already runs. Only `household.locale` is read.
-const getCachedHouseholdLocale = cache(async (userId: string): Promise<string | null> => {
-  const row = await prisma.householdMember.findFirst({
-    where: { userId },
-    select: { household: { select: { locale: true } } },
-  })
-  return row?.household.locale ?? null
-})
 
 /**
  * Resolve the locale for the current server request.
@@ -25,7 +12,11 @@ export async function getLocale(): Promise<Locale> {
   const acceptLanguage = requestHeaders.get('accept-language')
 
   const session = await getSession()
-  const householdLocale = session ? await getCachedHouseholdLocale(session.user.id) : null
+  // `getCachedMembership` is the request-cached `household_member` read shared
+  // with the root layout and the header, so calling it here adds no query.
+  const householdLocale = session
+    ? ((await getCachedMembership(session.user.id))?.household.locale ?? null)
+    : null
 
   return resolveLocale({ householdLocale, acceptLanguage })
 }
