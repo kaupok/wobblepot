@@ -6,8 +6,7 @@ export type SortMode = 'category' | 'urgency' | 'alphabetical'
 
 /** A row in alphabetical mode — computed shopping items and custom items interleave. */
 export type AlphabeticalItem =
-  | { kind: 'computed'; item: ShoppingItemData }
-  | { kind: 'custom'; item: CustomItemData }
+  { kind: 'computed'; item: ShoppingItemData } | { kind: 'custom'; item: CustomItemData }
 
 export const SORT_STORAGE_KEY = 'shopping-list-sort-mode'
 
