@@ -66,9 +66,7 @@ export interface UnmatchedIngredientData {
 }
 
 export type IngredientRowData =
-  | MatchedIngredientData
-  | LowConfidenceIngredientData
-  | UnmatchedIngredientData
+  MatchedIngredientData | LowConfidenceIngredientData | UnmatchedIngredientData
 
 interface IngredientRowProps {
   data: IngredientRowData

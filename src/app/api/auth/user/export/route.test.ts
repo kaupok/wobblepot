@@ -455,8 +455,7 @@ describe('GET /api/auth/user/export', () => {
 
     // And the session select should not request the token in the first place:
     const sessionCall = tx.session.findMany.mock.calls[0]?.[0] as
-      | { select?: Record<string, unknown> }
-      | undefined
+      { select?: Record<string, unknown> } | undefined
     expect(sessionCall?.select).toBeDefined()
     expect('token' in (sessionCall?.select ?? {})).toBe(false)
   })

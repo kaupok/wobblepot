@@ -29,15 +29,7 @@ global.fetch = mockFetch
 
 type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian'
 type Allergen =
-  | 'gluten'
-  | 'dairy'
-  | 'eggs'
-  | 'nuts'
-  | 'peanuts'
-  | 'soy'
-  | 'fish'
-  | 'shellfish'
-  | 'sesame'
+  'gluten' | 'dairy' | 'eggs' | 'nuts' | 'peanuts' | 'soy' | 'fish' | 'shellfish' | 'sesame'
 type MealType = 'breakfast' | 'lunch' | 'dinner'
 
 const defaultHousehold = {

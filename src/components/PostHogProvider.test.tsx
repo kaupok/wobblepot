@@ -302,8 +302,7 @@ describe('PostHogProvider', () => {
       )
       await waitFor(() => expect(posthogMock.init).toHaveBeenCalledTimes(1))
       const initOptions = posthogMock.init.mock.calls[0]?.[1] as
-        | { before_send?: (cr: CaptureResult | null) => unknown }
-        | undefined
+        { before_send?: (cr: CaptureResult | null) => unknown } | undefined
       const fn = initOptions?.before_send
       expect(fn).toBeTypeOf('function')
       return fn as (cr: CaptureResult | null) => unknown
