@@ -1,8 +1,7 @@
 import type { Metadata } from 'next'
-import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
-import { auth } from '@/lib/auth'
+import { getSession } from '@/lib/session'
 import { isAdmin } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { Heading, Body } from '@/components/ui/typography'
@@ -17,7 +16,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function AdminSignupCodesPage() {
-  const session = await auth.api.getSession({ headers: await headers() })
+  // Deduped with the `/admin` layout's lookup via `cache()` in `@/lib/session`.
+  const session = await getSession()
   // Return 404 (not 403) so the route does not advertise its existence.
   if (!isAdmin(session)) notFound()
 
