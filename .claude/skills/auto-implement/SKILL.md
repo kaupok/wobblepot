@@ -902,26 +902,35 @@ Stop here (non-zero exit)
 
 ### 6.4 Parse and triage review comments
 
-Fetch the inline review comments posted by the reviewer:
+Fetch the inline review comments posted by the reviewer, dropping any that are no longer anchored:
 
 ```bash
 gh api /repos/:owner/:repo/pulls/{number}/comments \
-  --jq '[.[] | select(.body | startswith("**"))]'
+  --jq '[.[] | select(.body | startswith("**")) | select(.line != null)]'
 ```
 
-Also fetch the summary comment:
+`select(.line != null)` is required: if a PR has been reviewed more than once, the earlier round's comments are still on the PR, and GitHub orphans them at `line: null` once the code they pointed at moves. Without the filter, 6.5 tries to open a file at a null line (HON-585).
+
+**Known limitation — this does not catch every stale comment.** A finding from an earlier round that was *addressed* but whose anchor merely shifted keeps `line != null`, and GitHub re-points its `commit_id` to the new head, so it is indistinguishable from a live finding. Filtering on `commit_id == head` does **not** help — verified on PR #667, where comment `3895696376` was addressed by `3a8f1f0` yet still reports `commit_id == head`, `line 417`. `isResolved` / `isOutdated` are both false on it too. Treat a re-reviewed PR's inline list as possibly containing settled findings, and check each against the diff before "fixing" it. Tracked in HON-585.
+
+Also fetch the summary comment — **the most recent one only**, since each review round appends its own:
 
 ```bash
 gh api /repos/:owner/:repo/issues/{number}/comments \
-  --jq '.[] | select(.body | startswith("<!-- claude-review -->")) | .body'
+  --jq '[.[] | select(.body | startswith("<!-- claude-review -->"))] | last | .body'
 ```
+
+Dropping `| last` concatenates every round, so the "No issues found" check below would be judged against a mixture of verdicts from different commits.
 
 **Triage rules:**
 
 The reviewer only posts substantive issues (no nitpicks), so triage is simpler:
 
-- If summary contains "No issues found" → clean review, skip to Phase 7
-- Every inline review comment → **Address Now** (they are all substantive by design)
+- **If the fetch returns no summary at all** → the review did not complete. Do not read this as clean; stop and report, matching 6.3's warning. An absent summary and a clean summary are not the same thing.
+- If the latest summary contains "No issues found" **and** the anchored inline list is empty → clean review, skip to Phase 7
+- Every anchored inline review comment → **Address Now** (they are all substantive by design)
+- **Always read the latest summary body for findings too**, not only when the inline list is empty. `scripts/pr-review.sh` puts out-of-diff findings and anything past its 5-comment inline cap in the summary alone, so summary-only findings routinely arrive *alongside* inline ones. They are Address Now items as well.
+- Never merge on an empty inline list alone.
 - Use effort-first thinking for prioritization:
   - Quick fix → address now
   - Moderate fix → address now
@@ -931,7 +940,8 @@ The reviewer only posts substantive issues (no nitpicks), so triage is simpler:
 
 For each item in "Address Now":
 
-- Extract file path and line number
+- For an inline comment: extract file path and line number — 6.4's `select(.line != null)` guarantees both are present
+- For a summary-only finding: there are no coordinates, so locate the site yourself from the finding's description before editing
 - Read the file at that location
 - Apply the suggested fix using Edit tool
 
