@@ -1,9 +1,8 @@
 import type { Metadata } from 'next'
 import { redirect, notFound } from 'next/navigation'
-import { headers } from 'next/headers'
 import { getTranslations } from 'next-intl/server'
-import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getSession } from '@/lib/session'
 import { getHouseholdMembership } from '@/lib/household'
 import { JoinHouseholdCard } from './JoinHouseholdCard'
 
@@ -19,15 +18,33 @@ interface InvitePageProps {
 export default async function InvitePage({ params }: InvitePageProps) {
   const { code } = await params
 
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  })
+  // `getSession` is `cache()`-wrapped, so this reuses the lookup the root
+  // layout already resolved for this request rather than re-reading `session`.
+  const session = await getSession()
 
   if (!session) {
     redirect(`/sign-in?returnUrl=/invite/${code}`)
   }
 
-  // Check if user already has a household
+  // The membership check and the invite lookup are independent queries, so
+  // start both together. The invite is only awaited on the path that reads it,
+  // so an already-member visit keeps its previous failure isolation: a broken
+  // `household_invite` query can't turn that card into an error page.
+  const invitePromise = prisma.householdInvite.findUnique({
+    where: { code },
+    include: {
+      household: {
+        select: { name: true },
+      },
+      member: {
+        select: { name: true },
+      },
+    },
+  })
+  // The early return below never awaits it — swallow the rejection so it can't
+  // surface as an unhandledRejection. `await invitePromise` still throws.
+  invitePromise.catch(() => {})
+
   const existingMembership = await getHouseholdMembership(session.user.id)
 
   if (existingMembership) {
@@ -43,18 +60,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
     )
   }
 
-  // Fetch invite details
-  const invite = await prisma.householdInvite.findUnique({
-    where: { code },
-    include: {
-      household: {
-        select: { name: true },
-      },
-      member: {
-        select: { name: true },
-      },
-    },
-  })
+  const invite = await invitePromise
 
   if (!invite) {
     notFound()

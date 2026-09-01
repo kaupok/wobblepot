@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
 import { getTranslations } from 'next-intl/server'
-import { auth } from '@/lib/auth'
+import { getSession } from '@/lib/session'
 import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
 import { Heading, Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
@@ -10,9 +9,9 @@ import { Separator } from '@/components/ui/separator'
 import { DeleteAccountDialog } from './DeleteAccountDialog'
 
 export default async function ProfilePage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  })
+  // `getSession` is `cache()`-wrapped, so this reuses the lookup the root
+  // layout already resolved for this request rather than re-reading `session`.
+  const session = await getSession()
 
   if (!session) {
     redirect('/sign-in')
@@ -24,10 +23,13 @@ export default async function ProfilePage() {
     redirect('/onboarding')
   }
 
-  const memberCount = await getHouseholdMemberCount(membership.householdId)
+  // Independent of each other — the member count is a DB read, the catalog
+  // lookup is not. The auth gate above stays sequential: it redirects.
+  const [memberCount, t] = await Promise.all([
+    getHouseholdMemberCount(membership.householdId),
+    getTranslations('profile'),
+  ])
   const isOwner = membership.role === 'owner'
-
-  const t = await getTranslations('profile')
 
   return (
     <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">

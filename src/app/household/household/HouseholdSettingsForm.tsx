@@ -26,15 +26,7 @@ import { MEAL_TYPE_VALUES } from '@/components/household/meal-form-types'
 // Types matching Prisma enums
 type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian'
 type Allergen =
-  | 'gluten'
-  | 'dairy'
-  | 'eggs'
-  | 'nuts'
-  | 'peanuts'
-  | 'soy'
-  | 'fish'
-  | 'shellfish'
-  | 'sesame'
+  'gluten' | 'dairy' | 'eggs' | 'nuts' | 'peanuts' | 'soy' | 'fish' | 'shellfish' | 'sesame'
 type MealType = 'breakfast' | 'lunch' | 'dinner'
 
 const DIETARY_TYPE_VALUES: readonly DietaryType[] = ['vegetarian', 'vegan', 'pescatarian']

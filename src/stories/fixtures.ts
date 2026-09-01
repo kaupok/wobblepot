@@ -1,4 +1,4 @@
-import { MealType, type IngredientCategory } from '@/generated/prisma/enums'
+import { MealType } from '@/generated/prisma/enums'
 import type { MealCardBaseData } from '@/components/meal-plan/MealCardBase'
 import type {
   AlternativeMeal,
@@ -369,29 +369,6 @@ export function createPantryItemData(overrides: Partial<PantryItemData> = {}): P
 }
 
 /**
- * Canonical pantry list used by `PantryList` stories — one staple (salt), one
- * staple aromatic (garlic), and two on-hand items (chicken thigh with a known
- * quantity, rice with "have some"). Exercises both rendered sections.
- */
-export const defaultPantryItems: PantryItemData[] = [
-  createPantryItemData({
-    ingredient: pantryIngredients.salt,
-    isStaple: true,
-  }),
-  createPantryItemData({
-    ingredient: pantryIngredients.garlic,
-    isStaple: true,
-  }),
-  createPantryItemData({
-    ingredient: pantryIngredients['chicken-thigh'],
-    quantity: 500,
-  }),
-  createPantryItemData({
-    ingredient: pantryIngredients['short-grain-rice'],
-  }),
-]
-
-/**
  * Build a `ShoppingItemData` for shopping-list stories. Defaults to an
  * unpurchased 500g chicken breast needed tomorrow. Override any field.
  */
@@ -504,20 +481,6 @@ export const dairyShoppingItems: ShoppingItemData[] = [
     neededByRelative: 'Wednesday',
     neededByAbsolute: 'Wednesday, April 22',
   }),
-]
-
-/**
- * Default `ShoppingList` groups — three categories with mixed states.
- * Uses `IngredientCategory` keys so the emoji map in `CategoryGroup` renders.
- */
-export const shoppingListGroups: Array<{
-  category: IngredientCategory
-  categoryLabel: string
-  items: ShoppingItemData[]
-}> = [
-  { category: 'protein', categoryLabel: 'Protein', items: proteinShoppingItems },
-  { category: 'vegetable', categoryLabel: 'Vegetable', items: produceShoppingItems },
-  { category: 'dairy', categoryLabel: 'Dairy', items: dairyShoppingItems },
 ]
 
 /**

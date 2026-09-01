@@ -213,19 +213,6 @@ export function getMondayOfWeek(date: Date): Date {
 }
 
 /**
- * Get an array of consecutive dates starting from the given date.
- */
-export function getDateRange(startDate: Date, days: number): Date[] {
-  const dates: Date[] = []
-  for (let i = 0; i < days; i++) {
-    const date = new Date(startDate)
-    date.setDate(startDate.getDate() + i)
-    dates.push(date)
-  }
-  return dates
-}
-
-/**
  * Get an array of dates between startDate and endDate (inclusive of start, exclusive of end).
  * Used for flexible date range generation.
  */
@@ -279,40 +266,4 @@ export function getUrgencyBucket(dateString: string, referenceDate?: Date): Urge
   }
 
   return 'later'
-}
-
-/**
- * Meal time window cutoffs in hours (24-hour format).
- * After these times, we prompt users if they made the meal.
- */
-export const MEAL_TIME_CUTOFFS = {
-  breakfast: 10, // 10:00 AM
-  lunch: 14, // 2:00 PM
-  dinner: 20, // 8:00 PM
-} as const
-
-export type MealType = keyof typeof MEAL_TIME_CUTOFFS
-
-/**
- * Check if a meal's time window has passed for today.
- * Used to determine when to show the "Did you make it?" prompt.
- *
- * The `'en-US'` argument is a parser-format selector — only the numeric hour
- * digit is read from `formatter.format(now)` and compared to a constant. The
- * output is never shown to the user, so this string is intentionally
- * locale-agnostic.
- *
- * @param mealType - The type of meal (breakfast, lunch, dinner)
- * @param timezone - IANA timezone string (e.g., 'Europe/Tallinn')
- * @returns true if the meal's time window has passed
- */
-export function hasMealTimePassed(mealType: MealType, timezone: string): boolean {
-  const now = new Date()
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    hour: 'numeric',
-    hour12: false,
-  })
-  const currentHour = parseInt(formatter.format(now), 10)
-  return currentHour >= MEAL_TIME_CUTOFFS[mealType]
 }

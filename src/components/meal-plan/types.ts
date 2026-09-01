@@ -136,15 +136,7 @@ export interface EmptySlot {
 
 export type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian'
 export type Allergen =
-  | 'gluten'
-  | 'dairy'
-  | 'eggs'
-  | 'nuts'
-  | 'peanuts'
-  | 'soy'
-  | 'fish'
-  | 'shellfish'
-  | 'sesame'
+  'gluten' | 'dairy' | 'eggs' | 'nuts' | 'peanuts' | 'soy' | 'fish' | 'shellfish' | 'sesame'
 
 export interface HouseholdPreferencesData {
   dietaryType: DietaryType | null

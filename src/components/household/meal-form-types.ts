@@ -111,7 +111,7 @@ export function formatUnit(unit: Unit): string {
   return unit === 'g' ? 'g' : ''
 }
 
-export function formatIngredientList(names: string[], maxDisplay: number = 3): string {
+function formatIngredientList(names: string[], maxDisplay: number = 3): string {
   if (names.length <= maxDisplay) {
     return names.join(', ')
   }
