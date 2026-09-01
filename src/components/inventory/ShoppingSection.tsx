@@ -308,7 +308,7 @@ export function ShoppingSection({
         })
       }
     },
-    [pendingCustomIds],
+    [pendingCustomIds, tErrors],
   )
 
   const handleCustomUnlink = useCallback(

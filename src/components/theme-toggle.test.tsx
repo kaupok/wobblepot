@@ -1,8 +1,16 @@
-import { render, screen } from '@testing-library/react'
+// Use the real next-intl in this file: the global mock in vitest.setup.ts
+// hardcodes English, so it would pass whether or not the accessible name is
+// externalized. This suite asserts locale-switched rendering.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+vi.unmock('next-intl')
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { NextIntlClientProvider } from 'next-intl'
+import type { PropsWithChildren } from 'react'
 import type { UseThemeProps } from 'next-themes'
 import * as nextThemes from 'next-themes'
+import enMessages from '../../messages/en.json'
+import etMessages from '../../messages/et.json'
 import { ThemeToggle } from './theme-toggle'
 
 // Mock next-themes
@@ -20,6 +28,17 @@ const createMockTheme = (resolvedTheme: string | undefined, setTheme = vi.fn()):
   resolvedTheme,
 })
 
+function makeWrapper(locale: 'en' | 'et') {
+  const messages = locale === 'et' ? etMessages : enMessages
+  return function Wrapper({ children }: PropsWithChildren) {
+    return (
+      <NextIntlClientProvider locale={locale} messages={messages}>
+        {children}
+      </NextIntlClientProvider>
+    )
+  }
+}
+
 describe('ThemeToggle', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -28,15 +47,23 @@ describe('ThemeToggle', () => {
   it('renders button with accessible label', () => {
     mockUseTheme.mockReturnValue(createMockTheme('light'))
 
-    render(<ThemeToggle />)
+    render(<ThemeToggle />, { wrapper: makeWrapper('en') })
     const button = screen.getByRole('button', { name: 'Toggle theme' })
+    expect(button).toBeInTheDocument()
+  })
+
+  it('renders the Estonian accessible label in the et locale', () => {
+    mockUseTheme.mockReturnValue(createMockTheme('light'))
+
+    render(<ThemeToggle />, { wrapper: makeWrapper('et') })
+    const button = screen.getByRole('button', { name: 'Vaheta teemat' })
     expect(button).toBeInTheDocument()
   })
 
   it('renders with outline variant and icon size', () => {
     mockUseTheme.mockReturnValue(createMockTheme('light'))
 
-    render(<ThemeToggle />)
+    render(<ThemeToggle />, { wrapper: makeWrapper('en') })
     const button = screen.getByRole('button')
     expect(button).toHaveClass('relative')
   })
@@ -44,7 +71,7 @@ describe('ThemeToggle', () => {
   it('shows placeholder before hydration', () => {
     mockUseTheme.mockReturnValue(createMockTheme(undefined))
 
-    render(<ThemeToggle />)
+    render(<ThemeToggle />, { wrapper: makeWrapper('en') })
     const button = screen.getByRole('button', { name: 'Toggle theme' })
     expect(button).toBeInTheDocument()
   })
@@ -53,7 +80,7 @@ describe('ThemeToggle', () => {
     const mockSetTheme = vi.fn()
     mockUseTheme.mockReturnValue(createMockTheme('light', mockSetTheme))
 
-    render(<ThemeToggle />)
+    render(<ThemeToggle />, { wrapper: makeWrapper('en') })
     screen.getByRole('button').click()
 
     expect(mockSetTheme).toHaveBeenCalledWith('dark')
@@ -63,7 +90,7 @@ describe('ThemeToggle', () => {
     const mockSetTheme = vi.fn()
     mockUseTheme.mockReturnValue(createMockTheme('dark', mockSetTheme))
 
-    render(<ThemeToggle />)
+    render(<ThemeToggle />, { wrapper: makeWrapper('en') })
     screen.getByRole('button').click()
 
     expect(mockSetTheme).toHaveBeenCalledWith('light')
@@ -76,7 +103,7 @@ describe('ThemeToggle', () => {
     // Light -> Dark
     mockUseTheme.mockReturnValue(createMockTheme('light', mockSetTheme))
 
-    const { rerender } = render(<ThemeToggle />)
+    const { rerender } = render(<ThemeToggle />, { wrapper: makeWrapper('en') })
     await user.click(screen.getByRole('button', { name: 'Toggle theme' }))
     expect(mockSetTheme).toHaveBeenCalledWith('dark')
 
