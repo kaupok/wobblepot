@@ -3,7 +3,8 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { generateMealPlan, createEmptyPlan, fillEmptySlots } from '@/lib/ai/generate-plan'
+import { generateMealPlan, createEmptyPlan } from '@/lib/ai/generate-plan'
+import { fillEmptySlots } from '@/lib/ai/fill-plan'
 import {
   MealPlanValidationError,
   InsufficientCandidatesError,
