@@ -22,7 +22,7 @@ export interface IngredientResult {
   fat?: number
 }
 
-export const INGREDIENT_SEARCH_DEBOUNCE_MS = 300
+const DEBOUNCE_MS = 300
 
 /**
  * Debounced ingredient catalog search shared by the meal form, the recipe
@@ -34,7 +34,7 @@ export const INGREDIENT_SEARCH_DEBOUNCE_MS = 300
  */
 export function useIngredientSearch(query: string) {
   const trimmed = query.trim()
-  const debounced = useDebouncedValue(trimmed, INGREDIENT_SEARCH_DEBOUNCE_MS)
+  const debounced = useDebouncedValue(trimmed, DEBOUNCE_MS)
   const search = trimmed === '' ? '' : debounced
 
   return useQuery({
