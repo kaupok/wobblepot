@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { createQueryWrapper } from '@/test/query-wrapper'
 
 vi.mock('@/lib/api', () => ({ apiFetch: vi.fn() }))
@@ -160,6 +160,83 @@ describe('useMealAlternatives', () => {
       rerender({ search: 'tofu' })
 
       await waitFor(() => expect(result.current.displayedMeals.map((m) => m.id)).toEqual(['t1']))
+      expect(new URL(lastUrl(), 'https://example.test').searchParams.get('offset')).toBe('0')
+    })
+  })
+
+  describe('reset', () => {
+    // MealSelectorModal never unmounts — its callsites only toggle `open` — so the
+    // infinite-query observers stay subscribed and gcTime never collects the pages.
+    // `reset()` is what stops one modal session's pages leaking into the next.
+    it('drops cached pages so the next session starts at offset 0', async () => {
+      mockApiFetch
+        .mockResolvedValueOnce(page(['s1'], { hasMore: true, total: 3 }))
+        .mockResolvedValueOnce(page(['s2'], { hasMore: true, total: 3 }))
+        .mockResolvedValueOnce(page(['s3'], { hasMore: true, total: 3 }))
+
+      const { wrapper } = createQueryWrapper()
+      const { result, rerender } = renderHook(
+        (props: { open: boolean; search: string }) =>
+          useMealAlternatives({ ...baseOptions, ...props }),
+        { wrapper, initialProps: { open: true, search: 'chicken' } },
+      )
+
+      await waitFor(() => expect(result.current.hasMore).toBe(true))
+      result.current.loadMore()
+      await waitFor(() => expect(result.current.displayedMeals).toHaveLength(2))
+
+      // Close: the shell resets its search state and calls reset().
+      act(() => result.current.reset())
+      rerender({ open: false, search: '' })
+
+      const callsAfterClose = mockApiFetch.mock.calls.length
+      expect(callsAfterClose).toBe(2)
+
+      // Reopen and search the same term again.
+      rerender({ open: true, search: 'chicken' })
+
+      await waitFor(() => expect(result.current.displayedMeals).toHaveLength(1))
+      expect(result.current.displayedMeals.map((m) => m.id)).toEqual(['s3'])
+      // Exactly one new request, at offset 0 — not a replay of both cached pages.
+      expect(mockApiFetch.mock.calls.length).toBe(callsAfterClose + 1)
+      expect(new URL(lastUrl(), 'https://example.test').searchParams.get('offset')).toBe('0')
+    })
+
+    it('does not refetch when called while the queries are still enabled', async () => {
+      mockApiFetch.mockResolvedValue(page(['s1'], { hasMore: true, total: 3 }))
+
+      const { result } = render({ search: 'chicken' })
+
+      await waitFor(() => expect(result.current.displayedMeals).toHaveLength(1))
+      const callsBefore = mockApiFetch.mock.calls.length
+
+      // The shell calls reset() from handleOpenChange, i.e. before `open` has
+      // actually flipped to false. Removing a still-active query must not kick
+      // off a replacement fetch.
+      act(() => result.current.reset())
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      expect(mockApiFetch.mock.calls.length).toBe(callsBefore)
+    })
+
+    it('clears my-recipes pages too', async () => {
+      mockApiFetch.mockResolvedValue(page(['c1'], { hasMore: true, total: 5 }))
+
+      const { wrapper } = createQueryWrapper()
+      const { result, rerender } = renderHook(
+        (props: { open: boolean; myRecipesOnly: boolean }) =>
+          useMealAlternatives({ ...baseOptions, ...props }),
+        { wrapper, initialProps: { open: true, myRecipesOnly: true } },
+      )
+
+      await waitFor(() => expect(result.current.displayedMeals).toHaveLength(1))
+
+      act(() => result.current.reset())
+      rerender({ open: false, myRecipesOnly: false })
+      rerender({ open: true, myRecipesOnly: true })
+
+      // A fresh session refetches from scratch rather than replaying the cache.
+      await waitFor(() => expect(result.current.displayedMeals).toHaveLength(1))
       expect(new URL(lastUrl(), 'https://example.test').searchParams.get('offset')).toBe('0')
     })
   })

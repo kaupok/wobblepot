@@ -82,6 +82,7 @@ export function MealSelectorModal({
     isFetchingMore,
     hasMore,
     loadMore,
+    reset,
     total,
     hasLoadedList,
     isSearchMode,
@@ -106,10 +107,13 @@ export function MealSelectorModal({
         setError(null)
         setSelectingId(null)
         setIsImagineMode(false)
+        // Pagination lives in the query cache, and this modal never unmounts,
+        // so cached pages would otherwise be replayed on the next open.
+        reset()
       }
       onOpenChange(newOpen)
     },
-    [onOpenChange],
+    [onOpenChange, reset],
   )
 
   async function handleSelect(mealId: string) {

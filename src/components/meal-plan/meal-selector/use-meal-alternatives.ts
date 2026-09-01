@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback } from 'react'
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import type { AlternativeMeal, MealComponent, NutritionData } from '../types'
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
@@ -72,6 +72,14 @@ export interface UseMealAlternativesResult {
   isFetchingMore: boolean
   hasMore: boolean
   loadMore: () => void
+  /**
+   * Drop every cached search / browse page. `MealSelectorModal` never unmounts —
+   * its callsites only toggle `open` — so the infinite-query observers stay
+   * subscribed and `gcTime` never fires. Without this, reopening the modal
+   * replays every page loaded in the previous session and refetches them all
+   * sequentially. Call it when the modal closes.
+   */
+  reset: () => void
   /** Total matches reported by the server for the active list, 0 for suggestions. */
   total: number
   /** True once a search/browse response has arrived — gates the "no results" copy. */
@@ -164,12 +172,19 @@ export function useMealAlternatives({
     void fetchNextPage?.()
   }, [fetchNextPage])
 
+  const queryClient = useQueryClient()
+  const reset = useCallback(() => {
+    queryClient.removeQueries({ queryKey: ['meal-search'] })
+    queryClient.removeQueries({ queryKey: ['my-recipes'] })
+  }, [queryClient])
+
   return {
     displayedMeals,
     isLoading: activeQuery ? activeQuery.isLoading : isLoadingSuggestions,
     isFetchingMore: activeQuery?.isFetchingNextPage ?? false,
     hasMore: activeQuery?.hasNextPage ?? false,
     loadMore,
+    reset,
     total: pages?.[0]?.total ?? 0,
     hasLoadedList: !!pages,
     isSearchMode,
