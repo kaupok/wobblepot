@@ -129,8 +129,9 @@ Check if review already exists:
 
 ```bash
 PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
-gh api /repos/:owner/:repo/issues/${PR_NUMBER}/comments \
-  --jq '[.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
+# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
+gh api --paginate "/repos/:owner/:repo/issues/${PR_NUMBER}/comments?per_page=100" \
+  | jq -s 'add | [.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
 ```
 
 If review exists (count > 0): proceed to Step 3.
@@ -148,8 +149,9 @@ After the script returns, verify:
 
 ```bash
 PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
-gh api /repos/:owner/:repo/issues/${PR_NUMBER}/comments \
-  --jq '[.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
+# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
+gh api --paginate "/repos/:owner/:repo/issues/${PR_NUMBER}/comments?per_page=100" \
+  | jq -s 'add | [.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
 ```
 
 If review was posted: proceed to Step 3.
@@ -213,8 +215,12 @@ gh pr view <PR_NUMBER> --json number,title,url,commits,files
 
 # Review comments: inline comments + review-level summaries
 # (`:owner/:repo` is auto-filled by gh from the current git remote)
-gh api /repos/:owner/:repo/pulls/<PR_NUMBER>/comments
-gh api /repos/:owner/:repo/pulls/<PR_NUMBER>/reviews
+# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
+# `// error(...)` is the loud-failure guard: unlike the filtered fetches in the review
+# phase, bare `add` returns `null` (exit 0) on empty stdout, which would read as "no
+# comments". A genuinely empty `[]` still passes — only null/false are falsy to `//`.
+gh api --paginate '/repos/:owner/:repo/pulls/<PR_NUMBER>/comments?per_page=100' | jq -s 'add // error("fetch produced no output")'
+gh api --paginate '/repos/:owner/:repo/pulls/<PR_NUMBER>/reviews?per_page=100'  | jq -s 'add // error("fetch produced no output")'
 ```
 
 **Post comment to Linear:**
