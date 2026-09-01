@@ -40,8 +40,7 @@ export const viewport: Viewport = {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations('meta.root')
-  const locale = await getLocale()
+  const [t, locale] = await Promise.all([getTranslations('meta.root'), getLocale()])
   const title = t('title')
   const titleTemplate = t('titleTemplate')
   const description = t('description')
@@ -91,9 +90,11 @@ export default async function RootLayout({
   const nonce = (await headers()).get('x-nonce') ?? undefined
 
   // Nothing here depends on the session: the consent cookie, the locale, and
-  // the message catalog resolve independently. `getLocale` does call
-  // `getSession` internally, but both are `cache()`-wrapped in
-  // `@/lib/session`, so the two callers share one in-flight auth lookup.
+  // the message catalog resolve independently. `getLocale`
+  // (`@/lib/i18n/get-locale`) is not itself cached — what makes this safe is
+  // that the `getSession()` it calls is `cache()`-wrapped in `@/lib/session`.
+  // So this direct call, `getLocale`'s, and `getMessages()`'s (which re-enters
+  // `getLocale` via `src/lib/i18n/request.ts`) share one in-flight auth lookup.
   const [session, consentDecision, locale, messages] = await Promise.all([
     getSession(),
     readConsentCookieServer(),
@@ -102,11 +103,12 @@ export default async function RootLayout({
   ])
 
   // Both of these need the resolved session, but not each other — the
-  // household lookup (Prisma) and the flag bootstrap (PostHog round-trip)
-  // overlap. Feature flags are evaluated server-side so PostHog's client SDK
-  // can answer `isFeatureEnabled` synchronously on first render; fail-open
-  // semantics live in `getServerFlag`, so this never throws and never blocks
-  // the page.
+  // household lookup and the flag bootstrap (PostHog round-trip) overlap. The
+  // household lookup shares `getCachedMembership` with `getLocale` above and
+  // with `<Header />` below, so it is a cache hit rather than a second query.
+  // Feature flags are evaluated server-side so PostHog's client SDK can answer
+  // `isFeatureEnabled` synchronously on first render; fail-open semantics live
+  // in `getServerFlag`, so this never throws and never blocks the page.
   const [householdId, bootstrap] = await Promise.all([
     session ? getHouseholdIdForUser(session.user.id) : Promise.resolve(null),
     bootstrapFlags(session?.user.id ?? 'anonymous'),
