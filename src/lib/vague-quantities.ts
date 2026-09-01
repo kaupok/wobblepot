@@ -172,7 +172,7 @@ const VAGUE_DEFAULTS: Record<VagueCategory, Record<PhraseGroup, number | null>> 
  * Guardrail thresholds: max reasonable quantity per serving.
  * If AI outputs above this, flag for user review.
  */
-export const GUARDRAIL_THRESHOLDS: Partial<Record<VagueCategory, number>> = {
+const GUARDRAIL_THRESHOLDS: Partial<Record<VagueCategory, number>> = {
   mineral: 3, // 3g salt max per serving
   spice: 2, // 2g spice max per serving
   herb_fresh: 15, // 15g fresh herbs max per serving

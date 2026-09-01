@@ -264,8 +264,8 @@ export const defaultHandlers: HttpHandler[] = [
   http.post('/api/meals/:id/favorite', () => HttpResponse.json({ ok: true })),
   http.delete('/api/meals/:id/favorite', () => HttpResponse.json({ ok: true })),
   http.delete('/api/households/me/meals/:id', () => HttpResponse.json({ ok: true })),
-  // Pantry CRUD — used by `InlineAddItem` (POST), `PantryItem` (PATCH for
-  // toggle-staple, DELETE for remove), and `PantryList` (both, via children).
+  // Pantry CRUD — used by `InlineAddItem` (POST) and `PantryItem` (PATCH for
+  // toggle-staple, DELETE for remove).
   http.post('/api/pantry', async ({ request }) => {
     const body = (await request.json().catch(() => ({}))) as {
       ingredientId?: string

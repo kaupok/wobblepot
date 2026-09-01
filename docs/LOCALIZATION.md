@@ -55,7 +55,7 @@ These are settled. Don't re-open without cause.
 ### Chrome (Tier 3)
 
 - `next-intl` for UI strings. Catalogs in `messages/en.json` and `messages/et.json`.
-- `enum-label.ts` provides `getEnumLabel` (server) and `useEnumLabel` (client) for domain-enum rendering — meal types, ingredient categories, dietary types, etc.
+- `enum-label.ts` provides `useEnumLabel` (client) for domain-enum rendering — meal types, ingredient categories, dietary types, etc. There is no server-side variant: render enum labels in a client component, or read `enums.<EnumName>.<value>` via `getTranslations` directly at the RSC call site.
 - `format-number.ts`: `formatQuantity` and `formatInteger` — locale-aware decimal separator (`1.5` vs `1,5`).
 - `format-dates.ts`: locale-aware weekday / month / relative-date rendering. Always pass the household's locale, never hardcode `en-US`.
 - `parse-number.ts`: input-side counterpart to `formatQuantity` — accepts `1,5 kg` from Estonian users and parses to `1.5`.
