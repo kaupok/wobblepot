@@ -902,26 +902,40 @@ Stop here (non-zero exit)
 
 ### 6.4 Parse and triage review comments
 
-Fetch the inline review comments posted by the reviewer:
+Fetch the inline review comments posted by the reviewer. **Scope them to the current head commit** — every review→fix→re-review cycle (6.3 → 6.6 → 6.3) leaves the previous round's comments on the PR, and GitHub orphans them at `line: null` once the code they pointed at moves:
 
 ```bash
-gh api /repos/:owner/:repo/pulls/{number}/comments \
-  --jq '[.[] | select(.body | startswith("**"))]'
+HEAD_SHA=$(gh pr view {number} --json headRefOid --jq .headRefOid)
+HEAD_SHA="$HEAD_SHA" gh api /repos/:owner/:repo/pulls/{number}/comments \
+  --jq '[.[]
+    | select(.body | startswith("**"))
+    | select(.line != null)
+    | select(.commit_id == env.HEAD_SHA)]'
 ```
 
-Also fetch the summary comment:
+Both filters are load-bearing, and neither is optional (HON-585):
+
+- Without `select(.line != null)`, 6.5 has no location to read — the fix loop tries to open a file at a null line.
+- Without `select(.commit_id == env.HEAD_SHA)`, a finding you already fixed in an earlier round re-enters the fix loop and gets "fixed" again, which at best wastes a cycle and at worst reverts the fix that resolved it.
+
+`gh api --jq` uses an embedded jq, which has no `--arg`; pass the sha through the environment as `env.HEAD_SHA` (writing `--jq --arg sha …` fails with `accepts 1 arg(s), received 4`).
+
+Also fetch the summary comment — **the most recent one only**, since each review round appends its own:
 
 ```bash
 gh api /repos/:owner/:repo/issues/{number}/comments \
-  --jq '.[] | select(.body | startswith("<!-- claude-review -->")) | .body'
+  --jq '[.[] | select(.body | startswith("<!-- claude-review -->"))] | last | .body'
 ```
+
+Dropping `| last` concatenates every round, so the "No issues found" check below would be judged against a mixture of verdicts from different commits.
 
 **Triage rules:**
 
 The reviewer only posts substantive issues (no nitpicks), so triage is simpler:
 
-- If summary contains "No issues found" → clean review, skip to Phase 7
-- Every inline review comment → **Address Now** (they are all substantive by design)
+- If the scoped inline list is empty **and** the latest summary contains "No issues found" → clean review, skip to Phase 7
+- If the scoped inline list is empty but the latest summary reports findings → treat the summary body's findings as Address Now items and locate each yourself. An empty inline list is not on its own a clean review: the reviewer may have written a finding in summary prose only, or an inline post may have failed. Never merge on an empty inline list alone.
+- Every remaining inline review comment → **Address Now** (they are all substantive by design)
 - Use effort-first thinking for prioritization:
   - Quick fix → address now
   - Moderate fix → address now
@@ -931,7 +945,7 @@ The reviewer only posts substantive issues (no nitpicks), so triage is simpler:
 
 For each item in "Address Now":
 
-- Extract file path and line number
+- Extract file path and line number — 6.4's `select(.line != null)` guarantees both are present
 - Read the file at that location
 - Apply the suggested fix using Edit tool
 
