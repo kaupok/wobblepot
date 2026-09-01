@@ -9,15 +9,9 @@ import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { track } from '@/lib/analytics'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
+import { useIngredientSearch, type IngredientResult } from '@/hooks/use-ingredient-search'
 import type { PantryItemData } from './PantryItem'
-import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
-
-interface IngredientResult {
-  id: string
-  name: string
-  category: IngredientCategory
-  defaultUnit: Unit
-}
+import type { IngredientCategory } from '@/generated/prisma/enums'
 
 interface InlineAddItemProps {
   onItemAdded: (item: PantryItemData) => void
@@ -35,14 +29,18 @@ export function InlineAddItem({
 }: InlineAddItemProps) {
   const tPantry = useTranslations('pantry')
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<IngredientResult[]>([])
-  const [isLoading, setIsLoading] = useState(false)
   const [isAdding, setIsAdding] = useState(false)
-  const [showDropdown, setShowDropdown] = useState(false)
+  // The dropdown opens as soon as results exist; this only tracks whether the
+  // user dismissed it (Escape, click outside, or after adding an item).
+  const [isDropdownDismissed, setIsDropdownDismissed] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  const { data: results = [], isLoading } = useIngredientSearch(query)
+  const showDropdown = !isDropdownDismissed && results.length > 0
+  // Guard against a result set that shrank under a stale highlight.
+  const activeIndex = highlightedIndex < results.length ? highlightedIndex : -1
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -53,7 +51,7 @@ export function InlineAddItem({
         inputRef.current &&
         !inputRef.current.contains(event.target as Node)
       ) {
-        setShowDropdown(false)
+        setIsDropdownDismissed(true)
       }
     }
 
@@ -61,41 +59,11 @@ export function InlineAddItem({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Search for ingredients
-  useEffect(() => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current)
-    }
-
-    if (!query.trim()) {
-      setResults([])
-      setShowDropdown(false)
-      return
-    }
-
-    debounceRef.current = setTimeout(async () => {
-      setIsLoading(true)
-      try {
-        const response = await fetch(`/api/ingredients?search=${encodeURIComponent(query.trim())}`)
-        if (response.ok) {
-          const data = await response.json()
-          setResults(data.ingredients)
-          setShowDropdown(data.ingredients.length > 0)
-          setHighlightedIndex(-1)
-        }
-      } catch {
-        // Ignore errors - just don't show results
-      } finally {
-        setIsLoading(false)
-      }
-    }, 300)
-
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current)
-      }
-    }
-  }, [query])
+  const handleQueryChange = (value: string) => {
+    setQuery(value)
+    setIsDropdownDismissed(false)
+    setHighlightedIndex(-1)
+  }
 
   const addItem = async (ingredient: IngredientResult) => {
     setIsAdding(true)
@@ -121,8 +89,8 @@ export function InlineAddItem({
       void track('pantry:item_added', { source: 'pantry_inline' })
       onItemAdded(data)
       setQuery('')
-      setResults([])
-      setShowDropdown(false)
+      setIsDropdownDismissed(true)
+      setHighlightedIndex(-1)
       toast.success(tPantry('success.added', { name: ingredient.name }))
     } catch {
       toast.error(tPantry('errors.addFailed'))
@@ -140,14 +108,14 @@ export function InlineAddItem({
       setHighlightedIndex((prev) => Math.max(prev - 1, -1))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      const selectedResult = results[highlightedIndex]
-      if (highlightedIndex >= 0 && selectedResult) {
+      const selectedResult = results[activeIndex]
+      if (activeIndex >= 0 && selectedResult) {
         addItem(selectedResult)
       } else if (results.length === 1 && results[0]) {
         addItem(results[0])
       }
     } else if (e.key === 'Escape') {
-      setShowDropdown(false)
+      setIsDropdownDismissed(true)
       setHighlightedIndex(-1)
     }
   }
@@ -159,12 +127,8 @@ export function InlineAddItem({
         <Input
           ref={inputRef}
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => {
-            if (results.length > 0) {
-              setShowDropdown(true)
-            }
-          }}
+          onChange={(e) => handleQueryChange(e.target.value)}
+          onFocus={() => setIsDropdownDismissed(false)}
           onKeyDown={handleKeyDown}
           placeholder={tPantry('addPlaceholder')}
           className="pr-9 pl-9"
@@ -175,7 +139,7 @@ export function InlineAddItem({
         )}
       </div>
 
-      {showDropdown && results.length > 0 && (
+      {showDropdown && (
         <div
           ref={dropdownRef}
           className="bg-popover absolute top-full z-10 mt-1 w-full rounded-md border shadow-md"
@@ -192,7 +156,7 @@ export function InlineAddItem({
                   'flex w-full items-center justify-between px-3 py-2 text-left transition-colors',
                   'hover:bg-muted focus:bg-muted focus:outline-none',
                   index > 0 && 'border-t',
-                  highlightedIndex === index && 'bg-muted',
+                  activeIndex === index && 'bg-muted',
                 )}
               >
                 <div className="flex items-center gap-2">

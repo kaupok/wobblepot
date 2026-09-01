@@ -1,6 +1,8 @@
+import type { ComponentProps } from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { createQueryWrapper } from '@/test/query-wrapper'
 import { IngredientSearch } from './IngredientSearch'
 import type { IngredientResult } from './meal-form-types'
 
@@ -16,6 +18,20 @@ function mockFetchSuccess(ingredients: IngredientResult[]) {
   })
 }
 
+/** The component reads through `useIngredientSearch`, so it needs a query client. */
+function renderSearch(props: Partial<ComponentProps<typeof IngredientSearch>> = {}) {
+  const { wrapper } = createQueryWrapper()
+  return render(
+    <IngredientSearch
+      disabled={false}
+      existingIngredientIds={[]}
+      onAddIngredient={vi.fn()}
+      {...props}
+    />,
+    { wrapper },
+  )
+}
+
 describe('IngredientSearch ARIA attributes', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
@@ -27,36 +43,28 @@ describe('IngredientSearch ARIA attributes', () => {
   })
 
   it('should have combobox role on input', () => {
-    render(
-      <IngredientSearch disabled={false} existingIngredientIds={[]} onAddIngredient={vi.fn()} />,
-    )
+    renderSearch()
 
     const input = screen.getByRole('combobox')
     expect(input).toBeInTheDocument()
   })
 
   it('should have aria-expanded=false when dropdown is closed', () => {
-    render(
-      <IngredientSearch disabled={false} existingIngredientIds={[]} onAddIngredient={vi.fn()} />,
-    )
+    renderSearch()
 
     const input = screen.getByRole('combobox')
     expect(input).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('should have aria-autocomplete=list on input', () => {
-    render(
-      <IngredientSearch disabled={false} existingIngredientIds={[]} onAddIngredient={vi.fn()} />,
-    )
+    renderSearch()
 
     const input = screen.getByRole('combobox')
     expect(input).toHaveAttribute('aria-autocomplete', 'list')
   })
 
   it('should not have aria-controls when dropdown is closed', () => {
-    render(
-      <IngredientSearch disabled={false} existingIngredientIds={[]} onAddIngredient={vi.fn()} />,
-    )
+    renderSearch()
 
     const input = screen.getByRole('combobox')
     expect(input).not.toHaveAttribute('aria-controls')
@@ -66,9 +74,7 @@ describe('IngredientSearch ARIA attributes', () => {
     mockFetchSuccess(mockIngredients)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-    render(
-      <IngredientSearch disabled={false} existingIngredientIds={[]} onAddIngredient={vi.fn()} />,
-    )
+    renderSearch()
 
     const input = screen.getByRole('combobox')
     await user.type(input, 'tom')
@@ -90,9 +96,7 @@ describe('IngredientSearch ARIA attributes', () => {
     mockFetchSuccess(mockIngredients)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-    render(
-      <IngredientSearch disabled={false} existingIngredientIds={[]} onAddIngredient={vi.fn()} />,
-    )
+    renderSearch()
 
     const input = screen.getByRole('combobox')
     await user.type(input, 'tom')
@@ -119,9 +123,7 @@ describe('IngredientSearch ARIA attributes', () => {
     mockFetchSuccess(mockIngredients)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-    render(
-      <IngredientSearch disabled={false} existingIngredientIds={[]} onAddIngredient={vi.fn()} />,
-    )
+    renderSearch()
 
     const input = screen.getByRole('combobox')
     await user.type(input, 'tom')
