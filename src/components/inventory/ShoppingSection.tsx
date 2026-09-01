@@ -27,8 +27,7 @@ import { getUrgencyBucket, type UrgencyBucket } from '@/lib/meal-planning/dates'
 type SortMode = 'category' | 'urgency' | 'alphabetical'
 
 type AlphabeticalItem =
-  | { kind: 'computed'; item: ShoppingItemData }
-  | { kind: 'custom'; item: CustomItemData }
+  { kind: 'computed'; item: ShoppingItemData } | { kind: 'custom'; item: CustomItemData }
 
 const SORT_STORAGE_KEY = 'shopping-list-sort-mode'
 

@@ -28,15 +28,7 @@ const CANDIDATE_POOL_LIMIT = 50
 
 type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian' | null
 type ProteinType =
-  | 'poultry'
-  | 'beef'
-  | 'pork'
-  | 'lamb'
-  | 'fish'
-  | 'eggs'
-  | 'legume'
-  | 'dairy'
-  | 'none'
+  'poultry' | 'beef' | 'pork' | 'lamb' | 'fish' | 'eggs' | 'legume' | 'dairy' | 'none'
 
 interface SlotRequirement {
   date: Date

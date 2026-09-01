@@ -207,10 +207,7 @@ export class NoEmptySlotsError extends Error {
  * Types of validation errors that can occur in a meal plan.
  */
 export type ValidationErrorType =
-  | 'wrong_protein'
-  | 'consecutive_protein'
-  | 'invalid_meal'
-  | 'duplicate_meal'
+  'wrong_protein' | 'consecutive_protein' | 'invalid_meal' | 'duplicate_meal'
 
 /**
  * A single validation error found in a meal plan.

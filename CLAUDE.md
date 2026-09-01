@@ -25,9 +25,9 @@ A Next.js 16 project with React 19, using TypeScript, Tailwind CSS, and shadcn/u
 
 ## Tech Stack
 
-- **Framework**: Next.js 16.3.3
+- **Framework**: Next.js 16.3.4
 - **Language**: TypeScript 5.9
-- **Styling**: Tailwind CSS 4.1 with class-variance-authority
+- **Styling**: Tailwind CSS 4.3 with class-variance-authority
 - **Testing**: Vitest for unit tests, Playwright for E2E
 - **Linting**: ESLint 10 + Prettier
 - **Package Manager**: pnpm 10.9

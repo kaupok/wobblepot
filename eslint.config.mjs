@@ -32,6 +32,10 @@ const config = defineConfig([
     'coverage/**',
     'storybook-static/**',
     'next-env.d.ts',
+    // Vendored: regenerated verbatim by `msw init public`. msw 2.15 added its own
+    // `/* eslint-disable */` header, which ESLint 10 then reports as an unused
+    // directive on every run.
+    'public/mockServiceWorker.js',
   ]),
 
   // TypeScript-specific rules
