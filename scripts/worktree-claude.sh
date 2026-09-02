@@ -774,11 +774,42 @@ cmd_resume() {
   exec env -u ANTHROPIC_API_KEY claude --resume
 }
 
+# Commits on a worktree's HEAD that are not on origin/main — the ref the
+# worktree was branched from. `wt auto` fetches origin/main immediately before
+# the `worktree add ... origin/main` at cmd_auto above, so this is exactly 0 at
+# creation, and stays equal to the worker's own commits whether origin/main
+# later advances, the worker rebases onto it, or merges it in.
+#
+# NOT the operator's local `main` (HON-601). Nothing in the unattended pipeline
+# advances refs/heads/main, while every merge advances origin/main, so a lagging
+# local main inflated every count by the number of merges the operator had not
+# pulled — which is what made a brand-new worker show `Reviewing` in `wt watch`.
+#
+# Fully qualified refs/remotes/origin/main rather than `origin/main`, matching
+# the pushed-check below, so a local branch literally named `origin/main` can
+# never shadow it. Worktrees share refs with the primary checkout, so the ref
+# resolves from inside the worktree.
+#
+# Prints the count, or nothing when rev-list fails (a pruned worktree admin dir,
+# a missing ref). There is deliberately NO fallback to local main: it would
+# silently reintroduce the bug on exactly the machines where it matters. Callers
+# guard with `[[ "$ahead" =~ ^[0-9]+$ ]] || ahead=0`.
+#
+# Deliberately duplicated in orchestrator.sh, which does not source this script
+# (see the get_worktree_path note there).
+#
+# Usage: commits_ahead <wt_path>
+commits_ahead() {
+  git -C "$1" rev-list --count refs/remotes/origin/main..HEAD 2>/dev/null
+}
+
 # Phase shown in the `wt status` / `wt watch` worker tables.
 #
 # `ahead` and `dirty` are passed in rather than recomputed: both call sites
 # already derive them for the progress column, and `wt watch` redraws on a
-# timer — a second `git status` per worker per tick is pure waste.
+# timer — a second `git status` per worker per tick is pure waste. `ahead` comes
+# from commits_ahead, i.e. it is measured against origin/main as last fetched,
+# never the operator's local main.
 #
 # Title Case here vs. kebab-case in orchestrator.sh's detect_phase: the two are
 # read by different audiences (a human table vs. the outcome log and stranded
@@ -964,7 +995,7 @@ cmd_status() {
     wt_path=$(get_worktree_path "$w_branch")
     if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
       local ahead=0
-      ahead=$(git -C "$wt_path" rev-list --count main..HEAD 2>/dev/null) || true
+      ahead=$(commits_ahead "$wt_path") || true
       # Empty on failure, and `[ "" -gt 0 ]` is a hard error — same guard as
       # wt_detect_phase applies to its own argument.
       [[ "$ahead" =~ ^[0-9]+$ ]] || ahead=0
@@ -1045,7 +1076,7 @@ cmd_status() {
         if [ "$ahead" -gt 0 ]; then
           echo ""
           echo -e "    ${DIM}Commits (${ahead}):${NC}"
-          git -C "$wt_path" log main..HEAD --oneline 2>/dev/null | head -5 | while IFS= read -r line; do
+          git -C "$wt_path" log refs/remotes/origin/main..HEAD --oneline 2>/dev/null | head -5 | while IFS= read -r line; do
             printf "      ${DIM}%s${NC}\n" "$line"
           done
           if [ "$ahead" -gt 5 ]; then
@@ -1811,7 +1842,7 @@ cmd_watch() {
             local ahead=0 dirty="" wt_path progress phase
             wt_path=$(get_worktree_path "${w_branches[$i]}")
             if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
-              ahead=$(git -C "$wt_path" rev-list --count main..HEAD 2>/dev/null) || true
+              ahead=$(commits_ahead "$wt_path") || true
               [[ "$ahead" =~ ^[0-9]+$ ]] || ahead=0
               [ -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)" ] && dirty="+"
               progress="${ahead} commit(s)${dirty}"

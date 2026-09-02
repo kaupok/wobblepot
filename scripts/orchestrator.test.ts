@@ -844,10 +844,18 @@ describe('orchestrator.sh', () => {
         dirty?: boolean
         pushed?: boolean
         staleRemoteRef?: boolean
+        originAhead?: number
         log?: string[]
       } = {},
     ): Fixture {
-      const { commits = 0, dirty = false, pushed = false, staleRemoteRef = false, log = [] } = opts
+      const {
+        commits = 0,
+        dirty = false,
+        pushed = false,
+        staleRemoteRef = false,
+        originAhead = 0,
+        log = [],
+      } = opts
       const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hon576-phase-'))
       fixtureRoots.push(root)
 
@@ -878,6 +886,28 @@ describe('orchestrator.sh', () => {
         git(repo, 'fetch', '-q', 'origin', `${BRANCH}:refs/remotes/origin/${BRANCH}`)
         git(repo, 'worktree', 'remove', '--force', scratch)
         git(repo, 'branch', '-D', 'previous-run')
+      }
+
+      // Merges the operator has not pulled (HON-601). Every successful run
+      // advances origin/main; nothing in the unattended pipeline advances
+      // refs/heads/main, so the primary checkout's `main` sits at whatever the
+      // operator last pulled — here, the seed.
+      if (originAhead > 0) {
+        git(repo, 'branch', 'origin-ahead', 'main')
+        const scratch = path.join(root, 'origin-ahead-wt')
+        git(repo, 'worktree', 'add', '-q', scratch, 'origin-ahead')
+        for (let n = 1; n <= originAhead; n++) {
+          fs.writeFileSync(path.join(scratch, `upstream-${n}.txt`), `${n}\n`)
+          git(scratch, 'add', `upstream-${n}.txt`)
+          git(scratch, 'commit', '-qm', `another issue's merge ${n}`)
+        }
+        git(scratch, 'push', '-q', 'origin', 'origin-ahead:main')
+        git(repo, 'worktree', 'remove', '--force', scratch)
+        git(repo, 'branch', '-D', 'origin-ahead')
+        // Explicit refspec rather than a bare `git fetch origin main`: the
+        // remote-tracking ref must move and refs/heads/main must not, and that
+        // has to hold whatever a fetch refspec or config would otherwise do.
+        git(repo, 'fetch', '-q', 'origin', 'main:refs/remotes/origin/main')
       }
 
       // Deliberately WITHOUT --no-track — see the describe() comment.
@@ -1045,6 +1075,104 @@ describe('orchestrator.sh', () => {
       expect(wtPhase(f, 0, true)).toBe('Implementing')
     })
 
+    // HON-601: the counterpart defect. HON-576 fixed "has this branch been
+    // pushed"; this is "how many commits has it produced". Both heuristics fed
+    // the same phase column, and both reported a brand-new worktree as further
+    // along than it was — here because the count was taken against the
+    // operator's local `main`, which nothing in the unattended pipeline
+    // advances, while every merge advances origin/main.
+    describe('a local main the operator has not pulled', () => {
+      /** orchestrator.sh's count_commits — the number handle_success gates on. */
+      const countCommits = (f: Fixture) => runHarness('count-commits', f.wt, f.branch).trim()
+
+      /** worktree-claude.sh's commits_ahead — what both display loops feed in. */
+      const commitsAhead = (f: Fixture) => runHarness('wt-commits-ahead', f.wt).trim()
+
+      it('reproduces the lag the fixture exists to model', () => {
+        // Guards the fixture itself: without this, every assertion below would
+        // pass on a fixture where local main and origin/main happen to agree.
+        const f = makeFixture({ originAhead: 2 })
+
+        expect(git(f.wt, 'rev-list', '--count', 'main..HEAD').trim()).toBe('2')
+        expect(git(f.wt, 'rev-list', '--count', 'refs/remotes/origin/main..HEAD').trim()).toBe('0')
+      })
+
+      // The reported regression: `wt watch` showed Reviewing for a worker that
+      // had not run a line of Claude, because two unpulled merges read as two
+      // commits on a clean tree.
+      it('does not make a fresh worktree read as reviewing', () => {
+        const started = makeFixture({ originAhead: 2, log: STARTED })
+        const silent = makeFixture({ originAhead: 2 })
+
+        expect(phase(started)).toBe('planning')
+        expect(phase(silent)).toBe('initializing')
+        expect(wtPhase(started, Number(commitsAhead(started)), false)).toBe('Planning')
+        expect(wtPhase(silent, Number(commitsAhead(silent)), false)).toBe('Initializing')
+      })
+
+      it('reports implementing for a fresh worktree with uncommitted work', () => {
+        const f = makeFixture({ originAhead: 2, dirty: true, log: STARTED })
+
+        expect(phase(f)).toBe('implementing')
+        expect(wtPhase(f, Number(commitsAhead(f)), true)).toBe('Implementing')
+      })
+
+      // The other half: the fix must not over-correct. A worker that really did
+      // commit still has to reach reviewing, and then pr-review once pushed.
+      it('still reports reviewing for a commit that is clean and unpushed', () => {
+        const f = makeFixture({ originAhead: 2, commits: 1, log: STARTED })
+
+        expect(phase(f)).toBe('reviewing')
+        expect(wtPhase(f, Number(commitsAhead(f)), false)).toBe('Reviewing')
+      })
+
+      it('still reports pr-review once that commit is pushed', () => {
+        const f = makeFixture({ originAhead: 2, commits: 1, pushed: true, log: STARTED })
+
+        expect(phase(f)).toBe('pr-review')
+        expect(wtPhase(f, Number(commitsAhead(f)), false)).toBe('PR review')
+      })
+
+      // count_commits is not just a display value: handle_success routes a
+      // 0-commit clean exit to GATED (issue back to Todo, artifacts cleaned)
+      // and anything else to STRANDED (Stranded label, worktree and Neon branch
+      // preserved, a comment about a PR that never existed).
+      it('counts only the worker’s own commits', () => {
+        expect(countCommits(makeFixture({ originAhead: 2 }))).toBe('0')
+        expect(countCommits(makeFixture({ originAhead: 2, commits: 3 }))).toBe('3')
+        expect(commitsAhead(makeFixture({ originAhead: 2 }))).toBe('0')
+        expect(commitsAhead(makeFixture({ originAhead: 2, commits: 3 }))).toBe('3')
+      })
+
+      it('still answers 0 for a worktree that is not there', () => {
+        const f = makeFixture({ originAhead: 2 })
+
+        expect(
+          runHarness('count-commits', path.join(f.repo, 'no-such-worktree'), f.branch).trim(),
+        ).toBe('0')
+      })
+
+      // origin/main is not frozen for the length of a run: a sibling worker's
+      // PR merges and the next `wt auto` fetch moves the ref. The count must
+      // stay equal to this worker's own commits — a base ref that drifts would
+      // just be the same bug with a different clock.
+      it('keeps counting only its own commits when origin/main advances mid-run', () => {
+        const f = makeFixture({ originAhead: 2, commits: 2, log: STARTED })
+        const scratch = path.join(f.repo, '..', 'later-merge-wt')
+        git(f.repo, 'worktree', 'add', '-q', '-b', 'later-merge', scratch, 'origin/main')
+        fs.writeFileSync(path.join(scratch, 'later-merge.txt'), 'later\n')
+        git(scratch, 'add', 'later-merge.txt')
+        git(scratch, 'commit', '-qm', "a sibling worker's merge")
+        git(scratch, 'push', '-q', 'origin', 'later-merge:main')
+        git(f.repo, 'fetch', '-q', 'origin', 'main:refs/remotes/origin/main')
+        git(f.repo, 'worktree', 'remove', '--force', scratch)
+
+        expect(countCommits(f)).toBe('2')
+        expect(commitsAhead(f)).toBe('2')
+        expect(phase(f)).toBe('reviewing')
+      })
+    })
+
     describe('static guards', () => {
       // Every site that answers "has this branch been pushed", per file. Counted
       // rather than merely present: two of the four live inside interactive
@@ -1081,6 +1209,49 @@ describe('orchestrator.sh', () => {
           fs.readFileSync(worktreeClaude, 'utf8').match(/phase=\$\(wt_detect_phase /g) ?? []
 
         expect(calls).toHaveLength(2)
+      })
+
+      // HON-601. Deliberately NOT `grep -c 'main\.\.HEAD' === 0`, which the fix
+      // cannot satisfy: `refs/remotes/origin/main..HEAD` contains that substring.
+      // The negative lookbehind states the real predicate — nothing measures
+      // against LOCAL main — and it stays anchored on `main..HEAD`, so the two
+      // `wt cleanup` helpers (`"main..$branch"`, deliberately left alone because
+      // a human runs them from the primary checkout and they fail safe) are not
+      // swept in.
+      it.each([
+        ['orchestrator.sh', orchestrator],
+        ['worktree-claude.sh', worktreeClaude],
+      ])('%s never measures a worktree against local main', (_n, script) => {
+        const source = fs.readFileSync(script, 'utf8')
+
+        expect(source.match(/(?<!origin\/)main\.\.HEAD/g) ?? []).toHaveLength(0)
+      })
+
+      // Five textually identical inline copies are what let the base ref drift
+      // in the first place, so assert the routing, not just the absence.
+      it('routes every orchestrator.sh count through the one helper', () => {
+        const source = fs.readFileSync(orchestrator, 'utf8')
+
+        for (const fn of ['report_worker_status', 'detect_phase', 'count_commits']) {
+          const body = shellFunctionBody(source, fn)
+          expect(body, `${fn}() should not count commits itself`).not.toContain('rev-list --count')
+          expect(body, `${fn}() should call commits_ahead`).toContain('commits_ahead "')
+        }
+        expect(shellFunctionBody(source, 'commits_ahead')).toContain(
+          'rev-list --count refs/remotes/origin/main..HEAD',
+        )
+      })
+
+      it('routes both worktree-claude.sh display loops through the one helper', () => {
+        // `wt status` and `wt watch` each carried their own copy, and neither
+        // render loop is reachable from a test — counted so reverting one
+        // individually fails here or it fails nowhere.
+        const source = fs.readFileSync(worktreeClaude, 'utf8')
+
+        expect(source.match(/ahead=\$\(commits_ahead "\$wt_path"\)/g) ?? []).toHaveLength(2)
+        expect(shellFunctionBody(source, 'commits_ahead')).toContain(
+          'rev-list --count refs/remotes/origin/main..HEAD',
+        )
       })
 
       it('creates autonomous worktrees with --no-track', () => {
