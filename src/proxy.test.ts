@@ -204,20 +204,27 @@ describe('proxy — protected-route redirect (HON-599)', () => {
     nextMock.redirect = null
   })
 
+  // Returns the proxy's own return value. Asserting on it (rather than only on
+  // `nextMock.redirect`, which the stub sets at *call* time) is what proves the
+  // redirect is actually returned — dropping the `return` in proxy.ts would
+  // otherwise leave every case here green while the page rendered anyway.
   async function run(url: string, cookie?: string) {
     const { proxy } = await import('./proxy')
     const { NextRequest } = await import('next/server')
     const req = new NextRequest(url, cookie ? { headers: [['cookie', cookie]] } : undefined)
-    proxy(req)
+    return proxy(req)
   }
 
   it('redirects an anonymous request to a protected route with a 307', async () => {
-    await run('https://wobblepot.dev/profile')
+    const response = await run('https://wobblepot.dev/profile')
 
+    expect(response).toMatchObject({ status: 307 })
     expect(nextMock.redirect).toEqual({
       status: 307,
       location: 'https://wobblepot.dev/sign-in?returnUrl=%2Fprofile',
     })
+    // The redirect must be an early return — it never reaches the CSP path.
+    expect(nextMock.responseHeaders.get('Content-Security-Policy')).toBeUndefined()
   })
 
   it('preserves the query string in returnUrl', async () => {
@@ -236,6 +243,24 @@ describe('proxy — protected-route redirect (HON-599)', () => {
     )
   })
 
+  // Next appends `_rsc=<hash>` (NEXT_RSC_UNION_QUERY) to every client-side
+  // navigation fetch. `config.matcher` only excludes prefetches, so a soft nav
+  // reaches the proxy carrying it — and it must not survive into the URL the
+  // user lands on after signing in.
+  it('strips Next’s _rsc cache-busting param from returnUrl', async () => {
+    await run('https://wobblepot.dev/recipes?_rsc=1f2a3b')
+
+    expect(nextMock.redirect?.location).toBe('https://wobblepot.dev/sign-in?returnUrl=%2Frecipes')
+  })
+
+  it('keeps real query params when stripping _rsc', async () => {
+    await run('https://wobblepot.dev/invite/abc?x=1&_rsc=1f2a3b')
+
+    expect(nextMock.redirect?.location).toBe(
+      'https://wobblepot.dev/sign-in?returnUrl=%2Finvite%2Fabc%3Fx%3D1',
+    )
+  })
+
   it('redirects every prefix in PROTECTED_PREFIXES when anonymous', async () => {
     const { PROTECTED_PREFIXES } = await import('./proxy')
 
@@ -243,8 +268,9 @@ describe('proxy — protected-route redirect (HON-599)', () => {
       nextMock.redirect = null
       nextMock.responseHeaders.clear()
 
-      await run(`https://wobblepot.dev${prefix}`)
+      const response = await run(`https://wobblepot.dev${prefix}`)
 
+      expect(response, `${prefix} should return the redirect`).toMatchObject({ status: 307 })
       expect(nextMock.redirect, `${prefix} should redirect when anonymous`).not.toBeNull()
       expect(nextMock.redirect!.location).toBe(
         `https://wobblepot.dev/sign-in?returnUrl=${encodeURIComponent(prefix)}`,

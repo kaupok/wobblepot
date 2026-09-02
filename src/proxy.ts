@@ -21,8 +21,15 @@ import { getSessionCookie } from 'better-auth/cookies'
  * - `/`, `/sign-in`, `/sign-up`, `/forgot-password`, `/reset-password`,
  *   `/privacy`, `/terms`, `/status`, `/bot`: public. `/` renders the landing
  *   page for anonymous visitors.
- * - `/meal-plan`, `/household/invites`: legacy paths that already `redirect()`
- *   unconditionally, before any Suspense boundary.
+ * - `/meal-plan`: legacy path that already `redirect()`s unconditionally, before
+ *   any Suspense boundary.
+ *
+ * Note that a path *under* a listed prefix cannot be excluded by this list —
+ * the match is a prefix match. `/household/invites` is the live example: it is
+ * another legacy unconditional redirect, but `/household` below matches it, so
+ * anonymous hits take the 307 and the legacy redirect runs after sign-in. If a
+ * public route ever needs to live under a protected prefix, it needs a real
+ * exclusion check here, not an entry in this comment.
  *
  * There is no `/recipes/[id]/page.tsx` — recipe detail renders client-side
  * inside `/recipes` — so every `/recipes/**` route is gated. If a public recipe
@@ -55,6 +62,26 @@ function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   )
+}
+
+/**
+ * Next's RSC cache-busting query param (`NEXT_RSC_UNION_QUERY`, i.e. `_rsc`,
+ * `app-router-headers.js:111`). `config.matcher` only excludes *prefetches*, so
+ * a soft navigation still reaches the proxy carrying it — and without stripping
+ * it the param survives sign-in into the address bar, `useSearchParams()`, and
+ * every later copy/paste of that URL.
+ */
+const RSC_QUERY_PARAM = '_rsc'
+
+/** `pathname` plus its query string, minus Next's internal params. */
+function buildReturnUrl(pathname: string, search: string): string {
+  if (!search) return pathname
+
+  const params = new URLSearchParams(search)
+  params.delete(RSC_QUERY_PARAM)
+
+  const query = params.toString()
+  return query ? `${pathname}?${query}` : pathname
 }
 
 function generateNonce(): string {
@@ -92,8 +119,12 @@ export function proxy(request: NextRequest) {
   // client-side redirect a page-level `redirect()` produces once a Suspense
   // fallback has already flushed a 200 (HON-599).
   if (isProtectedPath(pathname) && getSessionCookie(request) === null) {
-    const returnUrl = encodeURIComponent(`${pathname}${search}`)
-    return NextResponse.redirect(new URL(`/sign-in?returnUrl=${returnUrl}`, request.url))
+    return NextResponse.redirect(
+      new URL(
+        `/sign-in?returnUrl=${encodeURIComponent(buildReturnUrl(pathname, search))}`,
+        request.url,
+      ),
+    )
   }
 
   const nonce = generateNonce()
