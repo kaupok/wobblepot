@@ -1,9 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Loader2, Sparkles, ArrowLeft } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -11,25 +10,19 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
-import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Body } from '@/components/ui/typography'
-import { AlternativeCard } from './AlternativeCard'
-import { MealCardBase } from './MealCardBase'
-import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
-import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
-import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
+import { AlternativesList } from './meal-selector/AlternativesList'
+import { ImaginePanel } from './meal-selector/ImaginePanel'
+import { useMealAlternatives } from './meal-selector/use-meal-alternatives'
 import { apiFetch } from '@/lib/api'
-import { convertToPrefilledData, type ImaginedMealResponse } from '@/lib/imagine-utils'
 import { track } from '@/lib/analytics'
 import { toast } from 'sonner'
-import type { AlternativeMeal, MealComponent, NutritionData, PantryIngredient } from './types'
-import type { MealType, ProteinType } from '@/generated/prisma/enums'
+import type { PantryIngredient } from './types'
+import type { MealType } from '@/generated/prisma/enums'
 
 interface MealSelectorModalProps {
   open: boolean
@@ -48,47 +41,6 @@ interface MealSelectorModalProps {
   pantryIngredients?: PantryIngredient[]
 }
 
-// Type for the /api/meals response
-interface LibraryMeal {
-  id: string
-  name: string
-  description: string | null
-  timeMinutes: number | null
-  kidFriendly: boolean
-  primaryProteinType: ProteinType
-  suitableFor: MealType[]
-  components: MealComponent[]
-  nutrition: NutritionData
-}
-
-interface MealsSearchResponse {
-  meals: LibraryMeal[]
-  hasMore: boolean
-  total: number
-}
-
-function AlternativeSkeleton() {
-  return (
-    <Card className="flex h-full flex-col">
-      <CardContent className="flex flex-col gap-3 pt-6">
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-5 w-20" />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Skeleton className="h-4 w-28" />
-          <Skeleton className="ml-4 h-3 w-20" />
-          <Skeleton className="ml-4 h-3 w-24" />
-          <Skeleton className="ml-4 h-3 w-16" />
-          <Skeleton className="ml-4 h-3 w-22" />
-        </div>
-        <Skeleton className="mt-auto h-9 w-full" />
-      </CardContent>
-    </Card>
-  )
-}
-
 export function MealSelectorModal({
   open,
   onOpenChange,
@@ -103,7 +55,7 @@ export function MealSelectorModal({
   pantryIngredients,
 }: MealSelectorModalProps) {
   const tSelector = useTranslations('meal-plan.selector')
-  const tImagine = useTranslations('meal-plan.selector.imagine')
+
   // Search state
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -115,71 +67,35 @@ export function MealSelectorModal({
   const [error, setError] = useState<string | null>(null)
   const [selectingId, setSelectingId] = useState<string | null>(null)
 
-  // Pagination state
-  const [searchOffset, setSearchOffset] = useState(0)
-  const [myRecipesOffset, setMyRecipesOffset] = useState(0)
-  const [accumulatedSearch, setAccumulatedSearch] = useState<AlternativeMeal[]>([])
-  const [accumulatedMyRecipes, setAccumulatedMyRecipes] = useState<AlternativeMeal[]>([])
-
-  // Imagine mode state
   const [isImagineMode, setIsImagineMode] = useState(false)
-  const [imaginePrompt, setImaginePrompt] = useState('')
-  const [imaginedMeals, setImaginedMeals] = useState<ImaginedMealResponse[] | null>(null)
-  const [isImagining, setIsImagining] = useState(false)
-  const [imagineError, setImagineError] = useState<string | null>(null)
-  const [reviewMeal, setReviewMeal] = useState<ReviewMealData | null>(null)
-  const [reviewingMealId, setReviewingMealId] = useState<string | null>(null)
-  const abortControllerRef = useRef<AbortController | null>(null)
-
-  const {
-    images: imagineImages,
-    files: imagineImageFiles,
-    handleFileSelect: handleImagineFileSelect,
-    removeImage: removeImagineImage,
-    reset: resetImagineImages,
-  } = useAttachImages({
-    tooManyImages: tImagine('tooManyImages', { max: MAX_ATTACHED_IMAGES }),
-    wrongImageType: tImagine('wrongImageType'),
-    imageTooLarge: tImagine('imageTooLarge'),
-  })
-
-  // Determine display mode
-  const isSearchMode = debouncedSearch.trim().length > 0
-  const isMyRecipesBrowseMode = myRecipesOnly && !isSearchMode
 
   // Debounce search input
   useEffect(() => {
     if (!open) return
-    const id = setTimeout(() => {
-      setDebouncedSearch(searchQuery)
-      setSearchOffset(0)
-      setAccumulatedSearch([])
-    }, 300)
+    const id = setTimeout(() => setDebouncedSearch(searchQuery), 300)
     return () => clearTimeout(id)
   }, [searchQuery, open])
 
-  // Transform API meal to AlternativeMeal format
-  const toAlternativeMeal = useCallback(
-    (meal: LibraryMeal): AlternativeMeal => ({
-      id: meal.id,
-      name: meal.name,
-      description: meal.description,
-      timeMinutes: meal.timeMinutes,
-      kidFriendly: meal.kidFriendly,
-      primaryProteinType: meal.primaryProteinType,
-      suitableFor: meal.suitableFor,
-      reason: '',
-      components: meal.components,
-      nutrition: meal.nutrition,
-    }),
-    [],
-  )
-
-  useEffect(() => {
-    return () => {
-      abortControllerRef.current?.abort()
-    }
-  }, [])
+  const {
+    displayedMeals,
+    isLoading,
+    isFetchingMore,
+    hasMore,
+    loadMore,
+    reset,
+    total,
+    hasLoadedList,
+    isSearchMode,
+    isMyRecipesBrowseMode,
+  } = useMealAlternatives({
+    open,
+    planId,
+    entryId,
+    mealType,
+    mode,
+    search: debouncedSearch,
+    myRecipesOnly,
+  })
 
   // Reset state when modal closes via the Dialog callback
   const handleOpenChange = useCallback(
@@ -190,122 +106,15 @@ export function MealSelectorModal({
         setMyRecipesOnly(false)
         setError(null)
         setSelectingId(null)
-        setSearchOffset(0)
-        setMyRecipesOffset(0)
-        setAccumulatedSearch([])
-        setAccumulatedMyRecipes([])
-        // Reset imagine state
-        abortControllerRef.current?.abort()
         setIsImagineMode(false)
-        setImaginePrompt('')
-        resetImagineImages()
-        setImaginedMeals(null)
-        setIsImagining(false)
-        setImagineError(null)
-        setReviewMeal(null)
-        setReviewingMealId(null)
+        // Pagination lives in the query cache, and this modal never unmounts,
+        // so cached pages would otherwise be replayed on the next open.
+        reset()
       }
       onOpenChange(newOpen)
     },
-    [onOpenChange, resetImagineImages],
+    [onOpenChange, reset],
   )
-
-  function handleMyRecipesToggle(checked: boolean) {
-    setMyRecipesOnly(checked)
-    setMyRecipesOffset(0)
-    setAccumulatedMyRecipes([])
-  }
-
-  // Query 1: AI suggestions (fetched when modal opens)
-  const suggestionsEndpoint =
-    mode === 'swap'
-      ? `/api/meal-plans/${planId}/entries/${entryId}/regenerate`
-      : `/api/meal-plans/${planId}/entries/${entryId}/suggestions`
-
-  const { data: suggestions = [], isLoading: isLoadingSuggestions } = useQuery({
-    queryKey: ['meal-suggestions', planId, entryId, mode],
-    queryFn: async () => {
-      const data = await apiFetch<{
-        alternatives?: AlternativeMeal[]
-        suggestions?: AlternativeMeal[]
-      }>(suggestionsEndpoint, { method: 'POST' })
-      return data.alternatives || data.suggestions || []
-    },
-    enabled: open && !isSearchMode && !isMyRecipesBrowseMode,
-    staleTime: Infinity,
-  })
-
-  // Query 2: Search results
-  const { data: searchData, isLoading: isSearching } = useQuery({
-    queryKey: ['meal-search', debouncedSearch, mealType, myRecipesOnly, searchOffset],
-    queryFn: async () => {
-      const params = new URLSearchParams()
-      params.set('mealType', mealType)
-      params.set('search', debouncedSearch.trim())
-      params.set('limit', '20')
-      params.set('offset', String(searchOffset))
-      if (myRecipesOnly) params.set('source', 'custom')
-      return apiFetch<MealsSearchResponse>(`/api/meals?${params.toString()}`)
-    },
-    enabled: open && isSearchMode,
-  })
-
-  // Accumulate search results for pagination
-
-  useEffect(() => {
-    if (searchData) {
-      const results = searchData.meals.map(toAlternativeMeal)
-      if (searchOffset === 0) {
-        setAccumulatedSearch(results)
-      } else {
-        setAccumulatedSearch((prev) => [...prev, ...results])
-      }
-    }
-  }, [searchData, searchOffset, toAlternativeMeal])
-
-  // Query 3: My recipes browse
-  const { data: myRecipesData, isLoading: isLoadingMyRecipes } = useQuery({
-    queryKey: ['my-recipes', mealType, myRecipesOffset],
-    queryFn: async () => {
-      const params = new URLSearchParams()
-      params.set('mealType', mealType)
-      params.set('source', 'custom')
-      params.set('limit', '20')
-      params.set('offset', String(myRecipesOffset))
-      return apiFetch<MealsSearchResponse>(`/api/meals?${params.toString()}`)
-    },
-    enabled: open && isMyRecipesBrowseMode,
-  })
-
-  // Accumulate my recipes results for pagination
-
-  useEffect(() => {
-    if (myRecipesData) {
-      const results = myRecipesData.meals.map(toAlternativeMeal)
-      if (myRecipesOffset === 0) {
-        setAccumulatedMyRecipes(results)
-      } else {
-        setAccumulatedMyRecipes((prev) => [...prev, ...results])
-      }
-    }
-  }, [myRecipesData, myRecipesOffset, toAlternativeMeal])
-
-  const displayedMeals = isMyRecipesBrowseMode
-    ? accumulatedMyRecipes
-    : isSearchMode
-      ? accumulatedSearch
-      : suggestions
-  const isLoading = isMyRecipesBrowseMode
-    ? isLoadingMyRecipes
-    : isSearchMode
-      ? isSearching
-      : isLoadingSuggestions
-
-  const searchHasMore = searchData?.hasMore ?? false
-  const searchTotal = searchData?.total ?? 0
-  const myRecipesHasMore = myRecipesData?.hasMore ?? false
-  const myRecipesTotal = myRecipesData?.total ?? 0
-  const hasSearched = !!searchData
 
   async function handleSelect(mealId: string) {
     setSelectingId(mealId)
@@ -336,150 +145,7 @@ export function MealSelectorModal({
     }
   }
 
-  function handleLoadMore() {
-    if (isMyRecipesBrowseMode) {
-      setMyRecipesOffset(accumulatedMyRecipes.length)
-    } else {
-      setSearchOffset(accumulatedSearch.length)
-    }
-  }
-
-  // Imagine mode handlers
-  const handleExitImagineMode = useCallback(() => {
-    abortControllerRef.current?.abort()
-    setIsImagineMode(false)
-    setImaginePrompt('')
-    resetImagineImages()
-    setImaginedMeals(null)
-    setIsImagining(false)
-    setImagineError(null)
-    setReviewingMealId(null)
-  }, [resetImagineImages])
-
-  const handleImagineGenerate = async () => {
-    if (!imaginePrompt.trim() && imagineImages.length === 0) {
-      setImagineError(tImagine('promptOrPhotoRequired'))
-      return
-    }
-
-    setImagineError(null)
-    setImaginedMeals(null)
-    setIsImagining(true)
-
-    const controller = new AbortController()
-    abortControllerRef.current = controller
-
-    try {
-      let response: Response
-      if (imagineImages.length > 0) {
-        const formData = new FormData()
-        if (imaginePrompt.trim()) {
-          formData.append('prompt', imaginePrompt.trim())
-        }
-        for (const image of imagineImageFiles) {
-          formData.append('image', image)
-        }
-        response = await fetch('/api/meals/imagine', {
-          method: 'POST',
-          body: formData,
-          signal: controller.signal,
-        })
-      } else {
-        response = await fetch('/api/meals/imagine', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: imaginePrompt.trim() }),
-          signal: controller.signal,
-        })
-      }
-
-      const data = await response.json()
-
-      if (!response.ok || !data.success) {
-        setImagineError(data.error || data.message || tImagine('imagineFailed'))
-        return
-      }
-
-      setImaginedMeals(data.meals)
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') return
-      setImagineError(tImagine('imagineFailed'))
-    } finally {
-      abortControllerRef.current = null
-      setIsImagining(false)
-    }
-  }
-
-  const handleImagineCancel = () => {
-    abortControllerRef.current?.abort()
-    abortControllerRef.current = null
-    setIsImagining(false)
-  }
-
-  const handleSelectImaginedMeal = async (meal: ImaginedMealResponse) => {
-    setReviewingMealId(meal.id)
-
-    let finalMeal = meal
-    try {
-      const reviewPayload = {
-        mealName: meal.name,
-        servings: meal.servings,
-        ingredients: meal.components.map((comp) => ({
-          ingredientId: comp.ingredientId,
-          name: comp.ingredient.name,
-          quantityPerServing: comp.quantityPerServing,
-          unit: comp.ingredient.defaultUnit,
-        })),
-      }
-
-      const response = await fetch('/api/meals/imagine/review', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(reviewPayload),
-        signal: AbortSignal.timeout(15_000),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success && data.ingredients) {
-          const correctionMap = new Map<string, number>(
-            data.ingredients.map((ing: { ingredientId: string; quantityPerServing: number }) => [
-              ing.ingredientId,
-              ing.quantityPerServing,
-            ]),
-          )
-
-          finalMeal = {
-            ...meal,
-            components: meal.components.map((comp) => {
-              const corrected = correctionMap.get(comp.ingredientId)
-              return corrected != null ? { ...comp, quantityPerServing: corrected } : comp
-            }),
-            ingredients: meal.ingredients.map((ing) => {
-              if (ing.type !== 'matched') return ing
-              const corrected = correctionMap.get(ing.ingredient.id)
-              return corrected != null
-                ? { ...ing, convertedQuantity: corrected * meal.servings }
-                : ing
-            }),
-          }
-        }
-      }
-    } catch {
-      // Graceful degradation: proceed with original quantities
-    }
-
-    setReviewingMealId(null)
-    const prefilledData = convertToPrefilledData(finalMeal)
-    setReviewMeal({
-      ...prefilledData,
-      nutrition: finalMeal.nutrition,
-    })
-  }
-
   const handleImaginedMealSaved = async (mealId: string) => {
-    setReviewMeal(null) // Close sheet immediately to prevent duplicate saves
-
     // The meal is already persisted by `ImagineReviewDialog.onSaved` before
     // this handler runs — fire the event independent of the plan-assignment
     // PATCH so a transient PATCH failure doesn't drop the activation signal.
@@ -497,7 +163,7 @@ export function MealSelectorModal({
       onSwapComplete()
       handleOpenChange(false)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : tImagine('assignFailed'))
+      toast.error(err instanceof Error ? err.message : tSelector('imagine.assignFailed'))
     }
   }
 
@@ -509,285 +175,116 @@ export function MealSelectorModal({
         : tSelector('swapDescriptionGeneric')
       : tSelector('addDescription')
 
+  const header = isMyRecipesBrowseMode
+    ? total > 0
+      ? tSelector('myRecipesHeader', { count: total })
+      : tSelector('myRecipesHeaderNoCount')
+    : isSearchMode
+      ? hasLoadedList
+        ? tSelector('searchResults', { count: total })
+        : tSelector('searchResultsNoCount')
+      : tSelector('suggestions')
+
+  // Each mode owns whether an empty list is worth explaining yet — search stays
+  // silent until a response has actually arrived.
+  let emptyState: React.ReactNode = null
+  if (isMyRecipesBrowseMode) {
+    emptyState = (
+      <Body variant="muted" className="text-center">
+        {tSelector.rich('emptyMyRecipes', {
+          link: (chunks) => (
+            <a href="/recipes/import" className="text-primary underline">
+              {chunks}
+            </a>
+          ),
+        })}
+      </Body>
+    )
+  } else if (isSearchMode) {
+    emptyState = hasLoadedList ? (
+      <Body variant="muted" className="text-center">
+        {myRecipesOnly
+          ? tSelector('emptySearchCustom', { query: searchQuery })
+          : tSelector('emptySearch', { query: searchQuery })}
+      </Body>
+    ) : null
+  } else {
+    emptyState = (
+      <Body variant="muted" className="text-center">
+        {tSelector('noSuggestions')}
+      </Body>
+    )
+  }
+
   return (
-    <>
-      <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>{description}</DialogDescription>
-          </DialogHeader>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
 
-          {isImagineMode ? (
-            /* ── Imagine mode ── */
-            <div className="flex flex-col gap-4">
+        {isImagineMode ? (
+          <ImaginePanel
+            onExit={() => setIsImagineMode(false)}
+            onMealSaved={handleImaginedMealSaved}
+          />
+        ) : (
+          <div className="flex flex-col gap-4">
+            {/* Search input with imagine button */}
+            <div className="flex gap-2">
+              <Input
+                type="search"
+                placeholder={tSelector('searchPlaceholder')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="min-w-0 flex-1"
+              />
               <Button
-                variant="ghost"
-                size="sm"
-                className="-ml-2 self-start"
-                onClick={handleExitImagineMode}
+                variant="outline"
+                size="icon"
+                onClick={() => setIsImagineMode(true)}
+                title={tSelector('imagineButton')}
+                className="shrink-0"
               >
-                <ArrowLeft className="mr-1 h-4 w-4" />
-                {tImagine('back')}
+                <Sparkles className="h-4 w-4" />
               </Button>
-
-              <AttachImages
-                images={imagineImages}
-                onSelect={handleImagineFileSelect}
-                onRemove={removeImagineImage}
-                disabled={isImagining}
-                attachLabel={tImagine('attachAria')}
-                removeImageLabel={(filename) => tImagine('removeImageAria', { filename })}
-              >
-                <Textarea
-                  value={imaginePrompt}
-                  onChange={(e) => {
-                    setImaginePrompt(e.target.value)
-                    setImagineError(null)
-                  }}
-                  placeholder={tImagine('promptPlaceholder')}
-                  rows={3}
-                  className="min-w-0 flex-1 resize-none"
-                  disabled={isImagining}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      handleImagineGenerate()
-                    }
-                  }}
-                />
-              </AttachImages>
-
-              {imagineError && (
-                <Body variant="small" className="text-destructive">
-                  {imagineError}
-                </Body>
-              )}
-
-              <div className="flex flex-col gap-2">
-                <Button
-                  onClick={handleImagineGenerate}
-                  disabled={
-                    isImagining ||
-                    reviewingMealId !== null ||
-                    (!imaginePrompt.trim() && imagineImages.length === 0)
-                  }
-                  className="w-full"
-                >
-                  {isImagining ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {tImagine('generating')}
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      {tImagine('generate')}
-                    </>
-                  )}
-                </Button>
-                {isImagining && (
-                  <Button variant="ghost" size="sm" onClick={handleImagineCancel}>
-                    {tImagine('cancel')}
-                  </Button>
-                )}
-              </div>
-
-              {/* Imagined meal results */}
-              {(isImagining || imaginedMeals) && (
-                <div className="grid gap-4 sm:grid-cols-3">
-                  {isImagining
-                    ? Array.from({ length: 3 }).map((_, i) => <AlternativeSkeleton key={i} />)
-                    : imaginedMeals?.map((meal) => (
-                        <Card key={meal.id} className="flex h-full flex-col">
-                          <CardContent className="flex-1 p-4 pb-2">
-                            <MealCardBase meal={meal} nameHeadingLevel="h3" />
-                          </CardContent>
-                          <CardFooter className="p-4 pt-0">
-                            <Button
-                              className="w-full"
-                              onClick={() => handleSelectImaginedMeal(meal)}
-                              disabled={reviewingMealId !== null}
-                            >
-                              {reviewingMealId === meal.id ? (
-                                <>
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  {tImagine('fineTuning')}
-                                </>
-                              ) : (
-                                tImagine('select')
-                              )}
-                            </Button>
-                          </CardFooter>
-                        </Card>
-                      ))}
-                </div>
-              )}
             </div>
-          ) : (
-            /* ── Library mode (default) ── */
-            <div className="flex flex-col gap-4">
-              {/* Search input with imagine button */}
-              <div className="flex gap-2">
-                <Input
-                  type="search"
-                  placeholder={tSelector('searchPlaceholder')}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="min-w-0 flex-1"
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setIsImagineMode(true)}
-                  title={tSelector('imagineButton')}
-                  className="shrink-0"
-                >
-                  <Sparkles className="h-4 w-4" />
-                </Button>
-              </div>
 
-              {/* My recipes filter */}
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="my-recipes-only"
-                  checked={myRecipesOnly}
-                  onCheckedChange={(checked) => handleMyRecipesToggle(checked === true)}
-                />
-                <Label htmlFor="my-recipes-only" className="cursor-pointer text-sm font-normal">
-                  {tSelector('myRecipesOnly')}
-                </Label>
-              </div>
-
-              {/* Section header */}
-              {!isLoading && !error && (
-                <Body variant="small" className="text-muted-foreground">
-                  {isMyRecipesBrowseMode
-                    ? myRecipesTotal > 0
-                      ? tSelector('myRecipesHeader', { count: myRecipesTotal })
-                      : tSelector('myRecipesHeaderNoCount')
-                    : isSearchMode
-                      ? hasSearched
-                        ? tSelector('searchResults', { count: searchTotal })
-                        : tSelector('searchResultsNoCount')
-                      : tSelector('suggestions')}
-                </Body>
-              )}
-
-              {/* Loading state */}
-              {isLoading && (
-                <div className="grid gap-4 md:grid-cols-3">
-                  <AlternativeSkeleton />
-                  <AlternativeSkeleton />
-                  <AlternativeSkeleton />
-                </div>
-              )}
-
-              {/* Error state */}
-              {error && !isLoading && (
-                <Body variant="muted" className="text-center">
-                  {error}
-                </Body>
-              )}
-
-              {/* Results grid */}
-              {!isLoading && !error && displayedMeals.length > 0 && (
-                <div className="flex flex-col gap-4">
-                  <div className="grid gap-4 md:grid-cols-3">
-                    {displayedMeals.map((meal) => (
-                      <AlternativeCard
-                        key={meal.id}
-                        meal={meal}
-                        householdSize={householdSize}
-                        onSelect={handleSelect}
-                        isSelecting={selectingId === meal.id}
-                        pantryIngredients={pantryIngredients}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Load more button */}
-                  {((isSearchMode && searchHasMore) ||
-                    (isMyRecipesBrowseMode && myRecipesHasMore)) && (
-                    <div className="flex justify-center">
-                      <Button
-                        variant="outline"
-                        onClick={handleLoadMore}
-                        disabled={isSearching || isLoadingMyRecipes}
-                      >
-                        {isSearching || isLoadingMyRecipes
-                          ? tSelector('loading')
-                          : isMyRecipesBrowseMode
-                            ? tSelector('loadMore', {
-                                loaded: accumulatedMyRecipes.length,
-                                total: myRecipesTotal,
-                              })
-                            : tSelector('loadMore', {
-                                loaded: accumulatedSearch.length,
-                                total: searchTotal,
-                              })}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Empty state for my recipes browse */}
-              {!isLoading &&
-                !error &&
-                isMyRecipesBrowseMode &&
-                accumulatedMyRecipes.length === 0 && (
-                  <Body variant="muted" className="text-center">
-                    {tSelector.rich('emptyMyRecipes', {
-                      link: (chunks) => (
-                        <a href="/recipes/import" className="text-primary underline">
-                          {chunks}
-                        </a>
-                      ),
-                    })}
-                  </Body>
-                )}
-
-              {/* Empty state for search */}
-              {!isLoading &&
-                !error &&
-                isSearchMode &&
-                !isMyRecipesBrowseMode &&
-                hasSearched &&
-                accumulatedSearch.length === 0 && (
-                  <Body variant="muted" className="text-center">
-                    {myRecipesOnly
-                      ? tSelector('emptySearchCustom', { query: searchQuery })
-                      : tSelector('emptySearch', { query: searchQuery })}
-                  </Body>
-                )}
-
-              {/* Empty state for suggestions */}
-              {!isLoading &&
-                !error &&
-                !isSearchMode &&
-                !isMyRecipesBrowseMode &&
-                suggestions.length === 0 && (
-                  <Body variant="muted" className="text-center">
-                    {tSelector('noSuggestions')}
-                  </Body>
-                )}
+            {/* My recipes filter */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="my-recipes-only"
+                checked={myRecipesOnly}
+                onCheckedChange={(checked) => setMyRecipesOnly(checked === true)}
+              />
+              <Label htmlFor="my-recipes-only" className="cursor-pointer text-sm font-normal">
+                {tSelector('myRecipesOnly')}
+              </Label>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
-      {/* Imagine review dialog - rendered outside main Dialog to avoid z-index issues */}
-      {reviewMeal && (
-        <ImagineReviewDialog
-          open={!!reviewMeal}
-          onOpenChange={(open) => {
-            if (!open) setReviewMeal(null)
-          }}
-          meal={reviewMeal}
-          onSaved={handleImaginedMealSaved}
-        />
-      )}
-    </>
+            <AlternativesList
+              meals={displayedMeals}
+              isLoading={isLoading}
+              error={error}
+              header={header}
+              emptyState={emptyState}
+              householdSize={householdSize}
+              selectingId={selectingId}
+              onSelect={handleSelect}
+              pantryIngredients={pantryIngredients}
+              hasMore={hasMore}
+              isLoadingMore={isFetchingMore}
+              loadingLabel={tSelector('loading')}
+              loadMoreLabel={tSelector('loadMore', {
+                loaded: displayedMeals.length,
+                total,
+              })}
+              onLoadMore={loadMore}
+            />
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }

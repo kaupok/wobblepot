@@ -25,6 +25,9 @@ vi.mock('@/lib/rate-limit', () => ({
 vi.mock('@/lib/ai/generate-plan', () => ({
   generateMealPlan: vi.fn(),
   createEmptyPlan: vi.fn(),
+}))
+
+vi.mock('@/lib/ai/fill-plan', () => ({
   fillEmptySlots: vi.fn(),
 }))
 
@@ -47,7 +50,8 @@ vi.mock('@/lib/ai/usage', async (importOriginal) => {
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { generateMealPlan, createEmptyPlan, fillEmptySlots } from '@/lib/ai/generate-plan'
+import { generateMealPlan, createEmptyPlan } from '@/lib/ai/generate-plan'
+import { fillEmptySlots } from '@/lib/ai/fill-plan'
 import {
   MealPlanValidationError,
   InsufficientCandidatesError,
