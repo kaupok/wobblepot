@@ -62,18 +62,18 @@ Production deployments require manual coordination to ensure database migrations
    - Check for any migration issues
 
 3. **Confirm staging-smoke is green**
-   - The [staging-smoke workflow](https://github.com/kaupok/honkadori/actions/workflows/staging-smoke.yml) runs after each staging deploy
+   - The [staging-smoke workflow](https://github.com/kaupok/wobblepot/actions/workflows/staging-smoke.yml) runs after each staging deploy
    - Do not promote to production until staging-smoke is green on the commit being deployed
 
 4. **Deploy to production** (when ready):
 
    **a. Run database migrations**
-   - Go to: [GitHub Actions](https://github.com/kaupok/honkadori/actions/workflows/deploy-db-migrations-production.yml)
+   - Go to: [GitHub Actions](https://github.com/kaupok/wobblepot/actions/workflows/deploy-db-migrations-production.yml)
    - Click "Run workflow" button
    - Wait for completion and verify success
 
    **b. Deploy code**
-   - Go to: [GitHub Actions](https://github.com/kaupok/honkadori/actions/workflows/deploy-code-production.yml)
+   - Go to: [GitHub Actions](https://github.com/kaupok/wobblepot/actions/workflows/deploy-code-production.yml)
    - Click "Run workflow" button
    - Wait for deployment to complete
    - Check workflow summary for deployment URL

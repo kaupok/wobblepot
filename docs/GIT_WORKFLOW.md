@@ -178,6 +178,17 @@ see [PARALLEL_WORKFLOW.md](PARALLEL_WORKFLOW.md).
    gh pr create ...
    ```
 
+### If Your Clone Still Points at `kaupok/honkadori`
+
+The GitHub repository was renamed from `kaupok/honkadori` to `kaupok/wobblepot` on 2026-09-02 (HON-597), ahead of the repository going public. GitHub redirects the old name, but the redirect is lost if a repository is ever created under the old name, and tooling that reads the remote name gets confused by it. Point every clone and worktree at the new URL:
+
+```bash
+git remote set-url origin git@github.com:kaupok/wobblepot.git
+git remote -v  # Should show kaupok/wobblepot for both fetch and push
+```
+
+New worktrees created with `scripts/worktree-claude.sh` inherit the remote from the main checkout, so only checkouts that predate the rename need this.
+
 ### Pre-Commit Checklist
 
 Before running `git commit`, verify:

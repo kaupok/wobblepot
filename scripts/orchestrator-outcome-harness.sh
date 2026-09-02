@@ -231,7 +231,7 @@ case "$MODE" in
       # distinguishes it from NONE ("asked, and there is no PR").
       [ "$PR_STATE" = "ERROR" ] && return 1
       [ "$PR_STATE" = "NONE" ] && return 0
-      printf '%s\t%s\t%s\n' "$PR_STATE" "650" "https://github.com/kaupok/honkadori/pull/650"
+      printf '%s\t%s\t%s\n' "$PR_STATE" "650" "https://github.com/kaupok/wobblepot/pull/650"
     }
 
     # Surface the comment body record_stranded / gate_no_commit_success posts,
