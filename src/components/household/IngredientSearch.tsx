@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
+import { useIngredientSearch } from '@/hooks/use-ingredient-search'
 import { type IngredientResult } from './meal-form-types'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 
@@ -28,14 +29,18 @@ export function IngredientSearch({
 }: IngredientSearchProps) {
   const t = useTranslations('recipes.form.ingredientSearch')
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<IngredientResult[]>([])
-  const [isSearching, setIsSearching] = useState(false)
-  const [showDropdown, setShowDropdown] = useState(false)
+  // The dropdown opens as soon as results exist; this only tracks whether the
+  // user dismissed it (Escape, click outside, or after picking a result).
+  const [isDropdownDismissed, setIsDropdownDismissed] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const listboxId = useId()
+
+  const { data: searchResults = [], isLoading: isSearching } = useIngredientSearch(searchQuery)
+  const showDropdown = !isDropdownDismissed && searchResults.length > 0
+  // Guard against a result set that shrank under a stale highlight.
+  const activeIndex = highlightedIndex < searchResults.length ? highlightedIndex : -1
 
   const getOptionId = (index: number) => `${listboxId}-option-${index}`
 
@@ -48,7 +53,7 @@ export function IngredientSearch({
         searchInputRef.current &&
         !searchInputRef.current.contains(event.target as Node)
       ) {
-        setShowDropdown(false)
+        setIsDropdownDismissed(true)
       }
     }
 
@@ -56,50 +61,18 @@ export function IngredientSearch({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Search for ingredients
-  useEffect(() => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current)
-    }
-
-    if (!searchQuery.trim()) {
-      setSearchResults([])
-      setShowDropdown(false)
-      return
-    }
-
-    debounceRef.current = setTimeout(async () => {
-      setIsSearching(true)
-      try {
-        const response = await fetch(
-          `/api/ingredients?search=${encodeURIComponent(searchQuery.trim())}`,
-        )
-        if (response.ok) {
-          const data = await response.json()
-          setSearchResults(data.ingredients)
-          setShowDropdown(data.ingredients.length > 0)
-          setHighlightedIndex(-1)
-        }
-      } catch {
-        // Ignore errors
-      } finally {
-        setIsSearching(false)
-      }
-    }, 300)
-
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current)
-      }
-    }
-  }, [searchQuery])
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    setIsDropdownDismissed(false)
+    setHighlightedIndex(-1)
+  }
 
   const handleAdd = useCallback(
     (ingredient: IngredientResult) => {
       onAddIngredient(ingredient)
       setSearchQuery('')
-      setShowDropdown(false)
-      setSearchResults([])
+      setIsDropdownDismissed(true)
+      setHighlightedIndex(-1)
     },
     [onAddIngredient],
   )
@@ -113,14 +86,14 @@ export function IngredientSearch({
       setHighlightedIndex((prev) => Math.max(prev - 1, -1))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      const selectedResult = searchResults[highlightedIndex]
-      if (highlightedIndex >= 0 && selectedResult) {
+      const selectedResult = searchResults[activeIndex]
+      if (activeIndex >= 0 && selectedResult) {
         handleAdd(selectedResult)
       } else if (searchResults.length === 1 && searchResults[0]) {
         handleAdd(searchResults[0])
       }
     } else if (e.key === 'Escape') {
-      setShowDropdown(false)
+      setIsDropdownDismissed(true)
       setHighlightedIndex(-1)
     }
   }
@@ -132,21 +105,17 @@ export function IngredientSearch({
         <Input
           ref={searchInputRef}
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onFocus={() => {
-            if (searchResults.length > 0) {
-              setShowDropdown(true)
-            }
-          }}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          onFocus={() => setIsDropdownDismissed(false)}
           onKeyDown={handleSearchKeyDown}
           placeholder={t('placeholder')}
           className="pr-9 pl-9"
           disabled={disabled}
           role="combobox"
           aria-expanded={showDropdown}
-          aria-controls={showDropdown && searchResults.length > 0 ? listboxId : undefined}
+          aria-controls={showDropdown ? listboxId : undefined}
           aria-activedescendant={
-            showDropdown && highlightedIndex >= 0 ? getOptionId(highlightedIndex) : undefined
+            showDropdown && activeIndex >= 0 ? getOptionId(activeIndex) : undefined
           }
           aria-autocomplete="list"
         />
@@ -155,7 +124,7 @@ export function IngredientSearch({
         )}
       </div>
 
-      {showDropdown && searchResults.length > 0 && (
+      {showDropdown && (
         <div
           ref={dropdownRef}
           id={listboxId}
@@ -170,14 +139,14 @@ export function IngredientSearch({
                 id={getOptionId(index)}
                 type="button"
                 role="option"
-                aria-selected={highlightedIndex === index}
+                aria-selected={activeIndex === index}
                 onClick={() => handleAdd(ingredient)}
                 disabled={disabled || isAdded}
                 className={cn(
                   'flex w-full items-center justify-between px-3 py-2 text-left transition-colors',
                   'hover:bg-muted focus:bg-muted focus:outline-none',
                   index > 0 && 'border-t',
-                  highlightedIndex === index && 'bg-muted',
+                  activeIndex === index && 'bg-muted',
                   isAdded && 'opacity-50',
                 )}
               >

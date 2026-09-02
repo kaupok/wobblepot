@@ -1,8 +1,19 @@
+import type { ReactElement } from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, within, waitFor } from '@testing-library/react'
+import { render as rtlRender, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { createQueryWrapper } from '@/test/query-wrapper'
 import { MealForm, type MealFormData } from './MealForm'
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
+
+/**
+ * The form's ingredient search reads through `useIngredientSearch`, so every
+ * render needs a query client. Shadowing `render` keeps the call sites plain.
+ */
+function render(ui: ReactElement) {
+  const { wrapper } = createQueryWrapper()
+  return rtlRender(ui, { wrapper })
+}
 
 // Mock dependencies
 vi.mock('sonner', () => ({
