@@ -67,16 +67,21 @@ Before merging, ensure all CI checks have passed. CI takes 12–45 min; Bash's 6
 ```bash
 # Run with run_in_background: true — emits one completion notification when the loop exits.
 # Bounded to ci.yml's timeout-minutes (45) plus margin: 100 polls × 30 s = 50 min.
-# Settles only when: at least one check exists and none is pending; the sorted name=bucket
-# list is identical on two consecutive polls (fast Vercel/smoke statuses register before the
-# ci.yml job does); and, for a PR with non-docs files, the ci.yml job "Lint, Type Check & Test"
-# is present. Each Bash call is a fresh shell, so PR_NUMBER is derived here — never reused.
+# Settles only when: at least one non-exempt check exists and none is pending; the sorted
+# name=bucket list is identical on two consecutive polls (fast Vercel/smoke statuses register
+# before the ci.yml job does); and, for a PR with non-docs files, the ci.yml job
+# "Lint, Type Check & Test" is present. Each Bash call is a fresh shell, so PR_NUMBER is
+# derived here — never reused.
 PR_NUMBER=$(gh pr view --json number --jq .number)
 NON_DOCS=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
 PREV=""
 sleep 30  # let GitHub register the workflow run for the pushed commit before the first poll
 for i in $(seq 1 100); do
-  CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket --jq 'sort_by(.name) | .[] | "\(.name)=\(.bucket)"' 2>/dev/null)
+  # A third-party commit status (empty workflow — Vercel) is exempt while pending:
+  # it can stick after the deploy is Ready (HON-600). A fail still blocks: CI runs
+  # no `next build`, so Vercel is the only build gate.
+  CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket,workflow \
+    --jq 'sort_by(.name) | .[] | select(.workflow != "" or .bucket != "pending") | "\(.name)=\(.bucket)"' 2>/dev/null)
   OK=1
   [ -n "$CUR" ] || OK=0                                                              # at least one check exists
   printf '%s\n' "$CUR" | grep -q '=pending$' && OK=0                                 # none pending
@@ -97,12 +102,15 @@ If the background task ends with `CI_TIMEOUT`, report and stop — do not merge.
 - If checks still running: polls every 30 s until no check is `pending` and the list is stable (no Bash timeout involved)
 - Pass/fail is decided by the verification below, not by the loop
 
-When the notification arrives, verify in the foreground. With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so the `bucket` field is the only signal — anything other than `pass`/`skipping` (`fail` or `cancel`: FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure:
+When the notification arrives, verify in the foreground. With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so the `bucket` field is the only signal — anything other than `pass`/`skipping` (`fail` or `cancel`: FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure. The one exemption matches the poll's: a still-`pending` third-party commit status (empty `workflow`) does not block, because it can stick forever after the deploy is Ready:
 
 ```bash
 PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
-gh pr checks "$PR_NUMBER" --json name,bucket,state \
-  --jq '.[] | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
+# A third-party commit status (empty workflow — Vercel) is exempt while pending:
+# it can stick after the deploy is Ready (HON-600). A fail still blocks: CI runs
+# no `next build`, so Vercel is the only build gate.
+gh pr checks "$PR_NUMBER" --json name,bucket,state,workflow \
+  --jq '.[] | select(.workflow != "" or .bucket != "pending") | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
 ```
 
 - No output → all checks passed. Proceed.

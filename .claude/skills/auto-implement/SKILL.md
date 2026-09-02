@@ -771,11 +771,12 @@ Run the block below in the **foreground** with `timeout: 540000`:
 #   CI_WAITING  → NOT terminal — re-issue this exact command (budget: 6 chunks ≈ 48 min,
 #                 which covers ci.yml's timeout-minutes of 45)
 #   CI_TIMEOUT  → terminal — report and stop
-# Settles only when: at least one check exists and none is pending; the sorted name=bucket
-# list is identical on two consecutive polls (fast Vercel/smoke statuses register before the
-# ci.yml job does); and, for a PR with non-docs files, the ci.yml job "Lint, Type Check & Test"
-# is present. Each Bash call is a fresh shell, so PR_NUMBER is re-derived here and the
-# previous poll's result is carried across chunks in a file — never reuse a shell variable.
+# Settles only when: at least one non-exempt check exists and none is pending; the sorted
+# name=bucket list is identical on two consecutive polls (fast Vercel/smoke statuses register
+# before the ci.yml job does); and, for a PR with non-docs files, the ci.yml job
+# "Lint, Type Check & Test" is present. Each Bash call is a fresh shell, so PR_NUMBER is
+# re-derived here and the previous poll's result is carried across chunks in a file — never
+# reuse a shell variable.
 PR_NUMBER=$(gh pr view --json number --jq .number)
 NON_DOCS=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
 PREV_FILE="/tmp/ci-poll-$PR_NUMBER.prev"; CHUNK_FILE="/tmp/ci-poll-$PR_NUMBER.chunks"
@@ -791,7 +792,11 @@ CHUNKS=$(( $(cat "$CHUNK_FILE" 2>/dev/null || echo 0) + 1 )); echo "$CHUNKS" > "
 PREV=$(cat "$PREV_FILE" 2>/dev/null || true)
 [ "$CHUNKS" = 1 ] && sleep 30  # let GitHub register the workflow run for the pushed commit
 for i in $(seq 1 16); do
-  CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket --jq 'sort_by(.name) | .[] | "\(.name)=\(.bucket)"' 2>/dev/null)
+  # A third-party commit status (empty workflow — Vercel) is exempt while pending:
+  # it can stick after the deploy is Ready (HON-600). A fail still blocks: CI runs
+  # no `next build`, so Vercel is the only build gate.
+  CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket,workflow \
+    --jq 'sort_by(.name) | .[] | select(.workflow != "" or .bucket != "pending") | "\(.name)=\(.bucket)"' 2>/dev/null)
   OK=1
   [ -n "$CUR" ] || OK=0                                                              # at least one check exists
   printf '%s\n' "$CUR" | grep -q '=pending$' && OK=0                                 # none pending
@@ -812,12 +817,15 @@ Act on the marker:
 - `CI_TIMEOUT` — terminal: report and stop. Do not merge.
 - `CI_SETTLED` — continue to the verification below.
 
-On `CI_SETTLED`, verify in the same turn. With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so the `bucket` field is the only signal — anything other than `pass`/`skipping` (`fail` or `cancel`: FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure:
+On `CI_SETTLED`, verify in the same turn. With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so the `bucket` field is the only signal — anything other than `pass`/`skipping` (`fail` or `cancel`: FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure. The one exemption matches the poll's: a still-`pending` third-party commit status (empty `workflow`) does not block, because it can stick forever after the deploy is Ready:
 
 ```bash
 PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
-gh pr checks "$PR_NUMBER" --json name,bucket,state \
-  --jq '.[] | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
+# A third-party commit status (empty workflow — Vercel) is exempt while pending:
+# it can stick after the deploy is Ready (HON-600). A fail still blocks: CI runs
+# no `next build`, so Vercel is the only build gate.
+gh pr checks "$PR_NUMBER" --json name,bucket,state,workflow \
+  --jq '.[] | select(.workflow != "" or .bucket != "pending") | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
 ```
 
 - No output → all checks passed. Proceed.
@@ -1038,11 +1046,12 @@ Run the block below in the **foreground** with `timeout: 540000`:
 #   CI_WAITING  → NOT terminal — re-issue this exact command (budget: 6 chunks ≈ 48 min,
 #                 which covers ci.yml's timeout-minutes of 45)
 #   CI_TIMEOUT  → terminal — report and stop
-# Settles only when: at least one check exists and none is pending; the sorted name=bucket
-# list is identical on two consecutive polls (fast Vercel/smoke statuses register before the
-# ci.yml job does); and, for a PR with non-docs files, the ci.yml job "Lint, Type Check & Test"
-# is present. Each Bash call is a fresh shell, so PR_NUMBER is re-derived here and the
-# previous poll's result is carried across chunks in a file — never reuse a shell variable.
+# Settles only when: at least one non-exempt check exists and none is pending; the sorted
+# name=bucket list is identical on two consecutive polls (fast Vercel/smoke statuses register
+# before the ci.yml job does); and, for a PR with non-docs files, the ci.yml job
+# "Lint, Type Check & Test" is present. Each Bash call is a fresh shell, so PR_NUMBER is
+# re-derived here and the previous poll's result is carried across chunks in a file — never
+# reuse a shell variable.
 PR_NUMBER=$(gh pr view --json number --jq .number)
 NON_DOCS=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
 PREV_FILE="/tmp/ci-poll-$PR_NUMBER.prev"; CHUNK_FILE="/tmp/ci-poll-$PR_NUMBER.chunks"
@@ -1058,7 +1067,11 @@ CHUNKS=$(( $(cat "$CHUNK_FILE" 2>/dev/null || echo 0) + 1 )); echo "$CHUNKS" > "
 PREV=$(cat "$PREV_FILE" 2>/dev/null || true)
 [ "$CHUNKS" = 1 ] && sleep 30  # let GitHub register the workflow run for the pushed commit
 for i in $(seq 1 16); do
-  CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket --jq 'sort_by(.name) | .[] | "\(.name)=\(.bucket)"' 2>/dev/null)
+  # A third-party commit status (empty workflow — Vercel) is exempt while pending:
+  # it can stick after the deploy is Ready (HON-600). A fail still blocks: CI runs
+  # no `next build`, so Vercel is the only build gate.
+  CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket,workflow \
+    --jq 'sort_by(.name) | .[] | select(.workflow != "" or .bucket != "pending") | "\(.name)=\(.bucket)"' 2>/dev/null)
   OK=1
   [ -n "$CUR" ] || OK=0                                                              # at least one check exists
   printf '%s\n' "$CUR" | grep -q '=pending$' && OK=0                                 # none pending
@@ -1079,12 +1092,15 @@ Act on the marker:
 - `CI_TIMEOUT` — terminal: report and stop. Do not merge.
 - `CI_SETTLED` — continue to the verification below.
 
-**CRITICAL: On `CI_SETTLED`, verify ALL checks passed — including Vercel deployment.** With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so inspect `bucket`: anything other than `pass`/`skipping` (`fail` or `cancel` — FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure:
+**CRITICAL: On `CI_SETTLED`, verify ALL checks passed — including a Vercel deployment that reported.** With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so inspect `bucket`: anything other than `pass`/`skipping` (`fail` or `cancel` — FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure. The one exemption matches the poll's: a still-`pending` third-party commit status (empty `workflow`) does not block, because it can stick forever after the deploy is Ready:
 
 ```bash
 PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
-gh pr checks "$PR_NUMBER" --json name,bucket,state \
-  --jq '.[] | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
+# A third-party commit status (empty workflow — Vercel) is exempt while pending:
+# it can stick after the deploy is Ready (HON-600). A fail still blocks: CI runs
+# no `next build`, so Vercel is the only build gate.
+gh pr checks "$PR_NUMBER" --json name,bucket,state,workflow \
+  --jq '.[] | select(.workflow != "" or .bucket != "pending") | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
 ```
 
 - No output → all checks passed. Proceed to 7.3.
@@ -1101,7 +1117,7 @@ else
 fi
 ```
 
-**Do NOT merge if any check is in the `fail` or `cancel` bucket, including Vercel deployment checks.** This is a hard gate — no exceptions.
+**Do NOT merge if any check is in the `fail` or `cancel` bucket, including Vercel deployment checks.** This is a hard gate — no exceptions. `ci.yml` runs no `next build`, so a failed Vercel deploy is the only build gate there is; only a *pending* one is exempt.
 
 ### 7.3 Merge the PR
 

@@ -34,7 +34,9 @@
 #   pr-for-branch <gh-json> | ci-state <gh-json>
 #     Exercises the REAL helper against fixture JSON, with `gh` itself stubbed.
 #     These cover the jq expression and the bucket classification — the parsing
-#     the `outcome` mode stubs away.
+#     the `outcome` mode stubs away. A ci-state fixture row carries `workflow`
+#     as well as `bucket`: an empty `workflow` marks a third-party commit status
+#     (Vercel), which pr_ci_state exempts while pending (HON-600).
 #
 #   sanitize <env-fixture-path> <text>            (HON-572, finding 1)
 #     Points REPO_ROOT at the fixture's directory and runs the REAL sanitize_log

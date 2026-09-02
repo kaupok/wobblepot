@@ -991,7 +991,8 @@ pr_for_branch() {
 
 # Summarize a PR's CI as green | pending | failing | unknown. Mirrors the
 # bucket rules /auto-implement Phase 6.1 uses: pass and skipping are fine,
-# pending means still running, anything else (fail/cancel) is failing.
+# pending means still running, anything else (fail/cancel) is failing — with
+# the same pending-only exemption for third-party commit statuses (HON-600).
 pr_ci_state() {
   local pr_number="$1"
   [ -z "$pr_number" ] && echo "unknown" && return
@@ -999,9 +1000,15 @@ pr_ci_state() {
 
   local buckets
   # Same cwd pinning as pr_for_branch — without it gh cannot find the repo.
-  buckets=$( ( cd "$REPO_ROOT" && gh pr checks "$pr_number" --json bucket --jq '.[].bucket' ) 2>/dev/null ) || {
+  # A third-party commit status (empty workflow — Vercel) is exempt while pending:
+  # it can stick after the deploy is Ready (HON-600). A fail still blocks: CI runs
+  # no `next build`, so Vercel is the only build gate.
+  buckets=$( ( cd "$REPO_ROOT" && gh pr checks "$pr_number" --json bucket,workflow \
+    --jq '.[] | select(.workflow != "" or .bucket != "pending") | .bucket' ) 2>/dev/null ) || {
     echo "unknown"; return
   }
+  # Empty after the filter means nothing but a stuck third-party status has
+  # reported — no Actions job has spoken, so CI's state is genuinely unknown.
   [ -z "$buckets" ] && { echo "unknown"; return; }
 
   if printf '%s\n' "$buckets" | grep -qx 'pending'; then
