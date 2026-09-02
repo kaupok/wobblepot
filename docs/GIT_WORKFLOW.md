@@ -187,7 +187,7 @@ git remote set-url origin git@github.com:kaupok/wobblepot.git
 git remote -v  # Should show kaupok/wobblepot for both fetch and push
 ```
 
-New worktrees created with `scripts/worktree-claude.sh` inherit the remote from the main checkout, so only checkouts that predate the rename need this.
+Worktrees share the main checkout's remote configuration, so running this once there covers every worktree, new or existing. Only separate clones need it individually.
 
 ### Pre-Commit Checklist
 
