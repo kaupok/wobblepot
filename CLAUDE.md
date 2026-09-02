@@ -87,7 +87,7 @@ A Next.js 16 project with React 19, using TypeScript, Tailwind CSS, and shadcn/u
 - Client: `@/lib/auth-client` (Client Components)
 - API: `/api/auth/[...all]` (handles all auth endpoints)
 
-**Protected routes:** Check session with `auth.api.getSession({ headers: await headers() })`, redirect if null. See `src/app/profile/page.tsx:8-15`
+**Protected routes:** Check session with `auth.api.getSession({ headers: await headers() })`, redirect if null. See `src/app/profile/page.tsx:8-15`. `src/proxy.ts` additionally performs an _optimistic_ session-cookie redirect (307 → `/sign-in?returnUrl=…`) for the prefixes in `PROTECTED_PREFIXES`, so anonymous requests never stream a 200 + skeleton first — it checks cookie presence only, so the page still owns the real session check. **Add every new protected top-level route to that list**; the deliberate exclusions (`/admin`, `/api`, public routes) are documented in the file.
 
 **Client-side auth:** Use `authClient.signIn.email()` with callbacks. See `src/app/sign-in/SignInForm.tsx:60-78`
 
