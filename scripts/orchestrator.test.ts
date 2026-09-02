@@ -82,8 +82,22 @@ function prForBranch(ghJson: unknown): string {
   return runHarness('pr-for-branch', JSON.stringify(ghJson)).trim()
 }
 
-function ciState(buckets: string[]): string {
-  return runHarness('ci-state', JSON.stringify(buckets.map((bucket) => ({ bucket })))).trim()
+/**
+ * One `gh pr checks` row. A bare bucket string models a GitHub Actions job —
+ * those always carry a non-empty `workflow`. The object form is for a
+ * third-party commit status, which reports `workflow: ""`; that field is what
+ * the HON-600 pending-only exemption keys on, so it has to be in the fixture.
+ */
+type CheckFixture = string | { bucket: string; workflow: string }
+
+/** A commit status posted by a third-party GitHub app, e.g. Vercel's deploy. */
+const commitStatus = (bucket: string) => ({ bucket, workflow: '' })
+
+function ciState(checks: CheckFixture[]): string {
+  const rows = checks.map((check) =>
+    typeof check === 'string' ? { bucket: check, workflow: 'CI' } : check,
+  )
+  return runHarness('ci-state', JSON.stringify(rows)).trim()
 }
 
 describe('orchestrator.sh', () => {
@@ -287,6 +301,33 @@ describe('orchestrator.sh', () => {
 
     it('is unknown when no checks were reported', () => {
       expect(ciState([])).toBe('unknown')
+    })
+
+    // HON-600: Vercel's commit status stuck at "deploying" for 9 h on PR #678
+    // after the deployment was already Ready. Reading that as `pending` made
+    // three finished, green PRs look unfinished. A third-party status (empty
+    // `workflow`) is therefore exempt from the gate while pending — and only
+    // then, because ci.yml runs no `next build`, so a Vercel *failure* is the
+    // one build gate this repo has.
+    it('is green when a stuck third-party status is the only thing pending', () => {
+      expect(ciState(['pass', 'skipping', commitStatus('pending')])).toBe('green')
+    })
+
+    it('is failing when a third-party status reports a failed build', () => {
+      expect(ciState(['pass', commitStatus('fail')])).toBe('failing')
+      expect(ciState(['pass', commitStatus('cancel')])).toBe('failing')
+    })
+
+    it('is pending while an Actions job runs, whatever the third-party status says', () => {
+      expect(ciState(['pass', 'pending', commitStatus('pending')])).toBe('pending')
+      expect(ciState(['pass', 'pending', commitStatus('pass')])).toBe('pending')
+    })
+
+    // Exempting the only row that reported leaves nothing to judge. "unknown"
+    // is the honest answer — no Actions job has spoken yet — and it keeps the
+    // stranded-PR comment from claiming CI is green on no evidence.
+    it('is unknown when only a pending third-party status has reported', () => {
+      expect(ciState([commitStatus('pending')])).toBe('unknown')
     })
   })
 

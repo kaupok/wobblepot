@@ -771,13 +771,21 @@ Run the block below in the **foreground** with `timeout: 540000`:
 #   CI_WAITING  → NOT terminal — re-issue this exact command (budget: 6 chunks ≈ 48 min,
 #                 which covers ci.yml's timeout-minutes of 45)
 #   CI_TIMEOUT  → terminal — report and stop
-# Settles only when: at least one check exists and none is pending; the sorted name=bucket
-# list is identical on two consecutive polls (fast Vercel/smoke statuses register before the
-# ci.yml job does); and, for a PR with non-docs files, the ci.yml job "Lint, Type Check & Test"
-# is present. Each Bash call is a fresh shell, so PR_NUMBER is re-derived here and the
-# previous poll's result is carried across chunks in a file — never reuse a shell variable.
+# Settles only when: at least one non-exempt check exists (a docs-only PR is allowed none)
+# and none is pending; the sorted name=bucket list is identical on two consecutive polls
+# (fast Vercel/smoke statuses register before the ci.yml job does); and, for a PR with
+# non-docs files, the ci.yml job "Lint, Type Check & Test" is present. Each Bash call is a
+# fresh shell, so PR_NUMBER is re-derived here and the previous poll's result is carried
+# across chunks in a file — never reuse a shell variable.
 PR_NUMBER=$(gh pr view --json number --jq .number)
-NON_DOCS=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
+FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path')
+NON_DOCS=$(printf '%s\n' "$FILES" | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
+# ci.yml is paths-ignored for docs, and Preview smoke only fires on a SUCCESSFUL
+# Vercel deploy — so a docs-only PR whose Vercel status is stuck has no other
+# check at all, and exempting that one row leaves the list legitimately empty.
+# Requires a non-empty FILES: a `gh pr view` that failed must never read as
+# "docs-only, nothing to wait for" and settle a code PR on zero checks.
+DOCS_ONLY=false; [ -n "$FILES" ] && [ -z "$NON_DOCS" ] && DOCS_ONLY=true
 PREV_FILE="/tmp/ci-poll-$PR_NUMBER.prev"; CHUNK_FILE="/tmp/ci-poll-$PR_NUMBER.chunks"
 # Reap state left by an abandoned episode (a killed call, a worker timeout).
 # It is keyed only by PR number, so a RETRY worker on the same PR would inherit
@@ -788,12 +796,18 @@ PREV_FILE="/tmp/ci-poll-$PR_NUMBER.prev"; CHUNK_FILE="/tmp/ci-poll-$PR_NUMBER.ch
 # re-issues within seconds, so age separates the two cleanly.
 [ -n "$(find "$CHUNK_FILE" -mmin +10 2>/dev/null)" ] && rm -f "$PREV_FILE" "$CHUNK_FILE"
 CHUNKS=$(( $(cat "$CHUNK_FILE" 2>/dev/null || echo 0) + 1 )); echo "$CHUNKS" > "$CHUNK_FILE"
-PREV=$(cat "$PREV_FILE" 2>/dev/null || true)
+# INIT is a sentinel no check list can equal: without it an empty CUR would match
+# an empty PREV and settle on the very first poll, skipping the stability check.
+PREV=$(cat "$PREV_FILE" 2>/dev/null || echo INIT)
 [ "$CHUNKS" = 1 ] && sleep 30  # let GitHub register the workflow run for the pushed commit
 for i in $(seq 1 16); do
-  CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket --jq 'sort_by(.name) | .[] | "\(.name)=\(.bucket)"' 2>/dev/null)
+  # A third-party commit status (empty workflow — Vercel) is exempt while pending:
+  # it can stick after the deploy is Ready (HON-600). A fail still blocks: CI runs
+  # no `next build`, so Vercel is the only build gate.
+  CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket,workflow \
+    --jq 'sort_by(.name) | .[] | select(.workflow != "" or .bucket != "pending") | "\(.name)=\(.bucket)"' 2>/dev/null)
   OK=1
-  [ -n "$CUR" ] || OK=0                                                              # at least one check exists
+  [ -n "$CUR" ] || [ "$DOCS_ONLY" = true ] || OK=0                                   # at least one check (docs-only may have none)
   printf '%s\n' "$CUR" | grep -q '=pending$' && OK=0                                 # none pending
   [ -z "$NON_DOCS" ] || printf '%s\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0   # ci.yml job registered (code PRs)
   [ "$CUR" = "$PREV" ] || OK=0                                                       # identical to the previous poll
@@ -812,12 +826,15 @@ Act on the marker:
 - `CI_TIMEOUT` — terminal: report and stop. Do not merge.
 - `CI_SETTLED` — continue to the verification below.
 
-On `CI_SETTLED`, verify in the same turn. With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so the `bucket` field is the only signal — anything other than `pass`/`skipping` (`fail` or `cancel`: FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure:
+On `CI_SETTLED`, verify in the same turn. With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so the `bucket` field is the only signal — anything other than `pass`/`skipping` (`fail` or `cancel`: FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure. The one exemption matches the poll's: a still-`pending` third-party commit status (empty `workflow`) does not block, because it can stick forever after the deploy is Ready:
 
 ```bash
 PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
-gh pr checks "$PR_NUMBER" --json name,bucket,state \
-  --jq '.[] | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
+# A third-party commit status (empty workflow — Vercel) is exempt while pending:
+# it can stick after the deploy is Ready (HON-600). A fail still blocks: CI runs
+# no `next build`, so Vercel is the only build gate.
+gh pr checks "$PR_NUMBER" --json name,bucket,state,workflow \
+  --jq '.[] | select(.workflow != "" or .bucket != "pending") | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
 ```
 
 - No output → all checks passed. Proceed.
@@ -1038,13 +1055,21 @@ Run the block below in the **foreground** with `timeout: 540000`:
 #   CI_WAITING  → NOT terminal — re-issue this exact command (budget: 6 chunks ≈ 48 min,
 #                 which covers ci.yml's timeout-minutes of 45)
 #   CI_TIMEOUT  → terminal — report and stop
-# Settles only when: at least one check exists and none is pending; the sorted name=bucket
-# list is identical on two consecutive polls (fast Vercel/smoke statuses register before the
-# ci.yml job does); and, for a PR with non-docs files, the ci.yml job "Lint, Type Check & Test"
-# is present. Each Bash call is a fresh shell, so PR_NUMBER is re-derived here and the
-# previous poll's result is carried across chunks in a file — never reuse a shell variable.
+# Settles only when: at least one non-exempt check exists (a docs-only PR is allowed none)
+# and none is pending; the sorted name=bucket list is identical on two consecutive polls
+# (fast Vercel/smoke statuses register before the ci.yml job does); and, for a PR with
+# non-docs files, the ci.yml job "Lint, Type Check & Test" is present. Each Bash call is a
+# fresh shell, so PR_NUMBER is re-derived here and the previous poll's result is carried
+# across chunks in a file — never reuse a shell variable.
 PR_NUMBER=$(gh pr view --json number --jq .number)
-NON_DOCS=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
+FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path')
+NON_DOCS=$(printf '%s\n' "$FILES" | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
+# ci.yml is paths-ignored for docs, and Preview smoke only fires on a SUCCESSFUL
+# Vercel deploy — so a docs-only PR whose Vercel status is stuck has no other
+# check at all, and exempting that one row leaves the list legitimately empty.
+# Requires a non-empty FILES: a `gh pr view` that failed must never read as
+# "docs-only, nothing to wait for" and settle a code PR on zero checks.
+DOCS_ONLY=false; [ -n "$FILES" ] && [ -z "$NON_DOCS" ] && DOCS_ONLY=true
 PREV_FILE="/tmp/ci-poll-$PR_NUMBER.prev"; CHUNK_FILE="/tmp/ci-poll-$PR_NUMBER.chunks"
 # Reap state left by an abandoned episode (a killed call, a worker timeout).
 # It is keyed only by PR number, so a RETRY worker on the same PR would inherit
@@ -1055,12 +1080,18 @@ PREV_FILE="/tmp/ci-poll-$PR_NUMBER.prev"; CHUNK_FILE="/tmp/ci-poll-$PR_NUMBER.ch
 # re-issues within seconds, so age separates the two cleanly.
 [ -n "$(find "$CHUNK_FILE" -mmin +10 2>/dev/null)" ] && rm -f "$PREV_FILE" "$CHUNK_FILE"
 CHUNKS=$(( $(cat "$CHUNK_FILE" 2>/dev/null || echo 0) + 1 )); echo "$CHUNKS" > "$CHUNK_FILE"
-PREV=$(cat "$PREV_FILE" 2>/dev/null || true)
+# INIT is a sentinel no check list can equal: without it an empty CUR would match
+# an empty PREV and settle on the very first poll, skipping the stability check.
+PREV=$(cat "$PREV_FILE" 2>/dev/null || echo INIT)
 [ "$CHUNKS" = 1 ] && sleep 30  # let GitHub register the workflow run for the pushed commit
 for i in $(seq 1 16); do
-  CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket --jq 'sort_by(.name) | .[] | "\(.name)=\(.bucket)"' 2>/dev/null)
+  # A third-party commit status (empty workflow — Vercel) is exempt while pending:
+  # it can stick after the deploy is Ready (HON-600). A fail still blocks: CI runs
+  # no `next build`, so Vercel is the only build gate.
+  CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket,workflow \
+    --jq 'sort_by(.name) | .[] | select(.workflow != "" or .bucket != "pending") | "\(.name)=\(.bucket)"' 2>/dev/null)
   OK=1
-  [ -n "$CUR" ] || OK=0                                                              # at least one check exists
+  [ -n "$CUR" ] || [ "$DOCS_ONLY" = true ] || OK=0                                   # at least one check (docs-only may have none)
   printf '%s\n' "$CUR" | grep -q '=pending$' && OK=0                                 # none pending
   [ -z "$NON_DOCS" ] || printf '%s\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0   # ci.yml job registered (code PRs)
   [ "$CUR" = "$PREV" ] || OK=0                                                       # identical to the previous poll
@@ -1079,12 +1110,15 @@ Act on the marker:
 - `CI_TIMEOUT` — terminal: report and stop. Do not merge.
 - `CI_SETTLED` — continue to the verification below.
 
-**CRITICAL: On `CI_SETTLED`, verify ALL checks passed — including Vercel deployment.** With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so inspect `bucket`: anything other than `pass`/`skipping` (`fail` or `cancel` — FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure:
+**CRITICAL: On `CI_SETTLED`, verify ALL checks passed — including a Vercel deployment that reported.** With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so inspect `bucket`: anything other than `pass`/`skipping` (`fail` or `cancel` — FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure. The one exemption matches the poll's: a still-`pending` third-party commit status (empty `workflow`) does not block, because it can stick forever after the deploy is Ready:
 
 ```bash
 PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
-gh pr checks "$PR_NUMBER" --json name,bucket,state \
-  --jq '.[] | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
+# A third-party commit status (empty workflow — Vercel) is exempt while pending:
+# it can stick after the deploy is Ready (HON-600). A fail still blocks: CI runs
+# no `next build`, so Vercel is the only build gate.
+gh pr checks "$PR_NUMBER" --json name,bucket,state,workflow \
+  --jq '.[] | select(.workflow != "" or .bucket != "pending") | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
 ```
 
 - No output → all checks passed. Proceed to 7.3.
@@ -1101,7 +1135,9 @@ else
 fi
 ```
 
-**Do NOT merge if any check is in the `fail` or `cancel` bucket, including Vercel deployment checks.** This is a hard gate — no exceptions.
+**Do NOT merge if any check is in the `fail` or `cancel` bucket, including Vercel deployment checks.** This is a hard gate — no exceptions. `ci.yml` runs no `next build`, so a failed Vercel deploy is the only build gate there is; only a *pending* one is exempt.
+
+**Known residual risk of that exemption (accepted in HON-600).** `gh pr checks` carries no signal separating "stuck after Ready" from "still deploying", so a Vercel build that is merely *queued* past the ~13 min `Lint, Type Check & Test` job is dropped along with a stuck one, and the merge lands before it reports. The exemption is still the right trade — Vercel builds here take 38 s–1 min, and the alternative stranded three finished PRs in one night — but the durable fix is HON-584 (required status checks on `main`), which makes GitHub itself refuse the merge. Same caveat applies to the `smoke` label: `preview-smoke.yml` is `on: deployment_status` gated on `state == 'success'`, so its checks never register while Vercel is pending and a labelled PR can merge without them. Requiring them instead would re-strand exactly the PRs this fixes, and `staging-smoke` still runs post-merge.
 
 ### 7.3 Merge the PR
 
