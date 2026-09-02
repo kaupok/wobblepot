@@ -226,19 +226,38 @@ describe('CI-settle gate', () => {
       expect(marker).toBe('CI_WAITING (chunk 1/6)')
     })
 
-    // A docs-only PR never runs ci.yml, so the "Lint, Type Check & Test" rule
-    // is waived — but the Vercel exemption still has to hold, or docs PRs
-    // strand the same way.
-    it('settles a docs-only PR without the ci.yml job', () => {
-      const { marker } = runChunk(
-        [
-          job('Smoke tests on Vercel preview', 'skipping', 'Preview smoke'),
-          commitStatus('pending'),
-        ],
-        'docs/PROJECT_SPEC.md',
-      )
+    // A docs-only PR with a stuck Vercel has NO other row to wait on, and that
+    // is its real check list, not a contrived one: ci.yml is paths-ignored for
+    // `**/*.md` and `docs/**`; Preview smoke is `on: deployment_status` gated
+    // on `state == 'success'`, so it never registers while Vercel is pending;
+    // and Neon cleanup is `on: pull_request [closed]`, so it does not exist on
+    // an open PR. PR #678's stuck-Vercel list had no Preview smoke run at all.
+    //
+    // Exempting the one pending row therefore empties the list, and the "at
+    // least one check exists" rule stranded the PR — the same failure HON-600
+    // exists to fix, one class down.
+    it('settles a docs-only PR whose only check is a stuck Vercel status', () => {
+      const { marker, polls } = runChunk([commitStatus('pending')], 'docs/PROJECT_SPEC.md')
 
       expect(marker).toBe('CI_SETTLED')
+      // Never on the first poll: an empty list has to hold across two polls
+      // like any other, which is what the INIT sentinel on PREV buys.
+      expect(polls).toBe(2)
+    })
+
+    it('settles a docs-only PR on a failed Vercel deploy so the verification can block it', () => {
+      const { marker } = runChunk([commitStatus('fail')], 'docs/PROJECT_SPEC.md')
+
+      expect(marker).toBe('CI_SETTLED')
+    })
+
+    // The docs-only allowance is keyed on a file list that was actually
+    // fetched. An empty one means `gh pr view` failed, and reading that as
+    // "docs-only, nothing to wait for" would settle a code PR on zero checks.
+    it('does not treat an unreadable file list as docs-only', () => {
+      const { marker } = runChunk([commitStatus('pending')], '')
+
+      expect(marker).toBe('CI_WAITING (chunk 1/6)')
     })
   })
 })

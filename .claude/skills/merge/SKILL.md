@@ -67,14 +67,23 @@ Before merging, ensure all CI checks have passed. CI takes 12–45 min; Bash's 6
 ```bash
 # Run with run_in_background: true — emits one completion notification when the loop exits.
 # Bounded to ci.yml's timeout-minutes (45) plus margin: 100 polls × 30 s = 50 min.
-# Settles only when: at least one non-exempt check exists and none is pending; the sorted
-# name=bucket list is identical on two consecutive polls (fast Vercel/smoke statuses register
-# before the ci.yml job does); and, for a PR with non-docs files, the ci.yml job
-# "Lint, Type Check & Test" is present. Each Bash call is a fresh shell, so PR_NUMBER is
-# derived here — never reused.
+# Settles only when: at least one non-exempt check exists (a docs-only PR is allowed none)
+# and none is pending; the sorted name=bucket list is identical on two consecutive polls
+# (fast Vercel/smoke statuses register before the ci.yml job does); and, for a PR with
+# non-docs files, the ci.yml job "Lint, Type Check & Test" is present. Each Bash call is a
+# fresh shell, so PR_NUMBER is derived here — never reused.
 PR_NUMBER=$(gh pr view --json number --jq .number)
-NON_DOCS=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
-PREV=""
+FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path')
+NON_DOCS=$(printf '%s\n' "$FILES" | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
+# ci.yml is paths-ignored for docs, and Preview smoke only fires on a SUCCESSFUL
+# Vercel deploy — so a docs-only PR whose Vercel status is stuck has no other
+# check at all, and exempting that one row leaves the list legitimately empty.
+# Requires a non-empty FILES: a `gh pr view` that failed must never read as
+# "docs-only, nothing to wait for" and settle a code PR on zero checks.
+DOCS_ONLY=false; [ -n "$FILES" ] && [ -z "$NON_DOCS" ] && DOCS_ONLY=true
+# INIT is a sentinel no check list can equal: without it an empty CUR would match
+# an empty PREV and settle on the very first poll, skipping the stability check.
+PREV=INIT
 sleep 30  # let GitHub register the workflow run for the pushed commit before the first poll
 for i in $(seq 1 100); do
   # A third-party commit status (empty workflow — Vercel) is exempt while pending:
@@ -83,7 +92,7 @@ for i in $(seq 1 100); do
   CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket,workflow \
     --jq 'sort_by(.name) | .[] | select(.workflow != "" or .bucket != "pending") | "\(.name)=\(.bucket)"' 2>/dev/null)
   OK=1
-  [ -n "$CUR" ] || OK=0                                                              # at least one check exists
+  [ -n "$CUR" ] || [ "$DOCS_ONLY" = true ] || OK=0                                   # at least one check (docs-only may have none)
   printf '%s\n' "$CUR" | grep -q '=pending$' && OK=0                                 # none pending
   [ -z "$NON_DOCS" ] || printf '%s\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0   # ci.yml job registered (code PRs)
   [ "$CUR" = "$PREV" ] || OK=0                                                       # identical to the previous poll
@@ -115,6 +124,8 @@ gh pr checks "$PR_NUMBER" --json name,bucket,state,workflow \
 
 - No output → all checks passed. Proceed.
 - Any line printed → **On failure:** report which checks failed and stop. Do not proceed to merge.
+
+**Known residual risk of the exemption (accepted in HON-600).** `gh pr checks` carries no signal separating "stuck after Ready" from "still deploying", so a Vercel build merely queued past the ~13 min `Lint, Type Check & Test` job is dropped along with a stuck one. The durable fix is HON-584 (required status checks on `main`). See `/auto-implement` Phase 7.2 for the full note.
 - `no checks reported on the '<branch>' branch` on stderr (exit 1) → acceptable **only** when every changed file is excluded by `ci.yml` `paths-ignore` (`**/*.md`, `docs/**`, `.github/ISSUE_TEMPLATE/**`), i.e. no workflow was ever going to run. Otherwise checks simply have not been reported for a code change — stop. In practice this branch is unreachable here (docs-only PRs still receive Vercel and skipped smoke checks, so `gh pr checks` always reports something); it is kept as a defensive branch — do not rely on it:
 
 ```bash

@@ -993,6 +993,12 @@ pr_for_branch() {
 # bucket rules /auto-implement Phase 6.1 uses: pass and skipping are fine,
 # pending means still running, anything else (fail/cancel) is failing — with
 # the same pending-only exemption for third-party commit statuses (HON-600).
+#
+# Advisory only: the sole caller is the stranded path, which turns `green` into
+# "one `gh pr merge --squash N` from done" for the operator. That reads right
+# for a status stuck after the deploy went Ready — the case that stranded three
+# PRs — and optimistic for one still building, which this data cannot tell
+# apart. Deliberately mirrors the merge gate rather than second-guessing it.
 pr_ci_state() {
   local pr_number="$1"
   [ -z "$pr_number" ] && echo "unknown" && return
