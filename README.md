@@ -4,7 +4,7 @@ AI-powered weekly meal planning for families. Wobblepot builds a household's wee
 
 This is the production codebase, published for transparency and as a working example of an agent-driven engineering process. It is not an open-source project: all rights reserved, and pull requests are not accepted. Reading, learning from, and asking about it are all welcome.
 
-The repository is named after the legal entity behind the product, Honkadori OÜ. The product brand is Wobblepot; "Honkadori" appears only in legal text and internal identifiers.
+The product brand is Wobblepot. Honkadori OÜ is the legal entity behind it, and "Honkadori" appears only in legal text and internal identifiers such as the package name, the Linear workspace, and vendor accounts.
 
 ## What is worth looking at
 
