@@ -450,7 +450,13 @@ EOF
     # Sourced, not executed — see neon-gc-select above for why that is safe.
     # shellcheck source=./worktree-claude.sh
     source "$HARNESS_DIR/worktree-claude.sh"
-    commits_ahead "$A1"
+    # `|| true` mirrors how cmd_status / cmd_watch actually call it, and is what
+    # keeps errexit (deliberately left on, see above) from aborting before
+    # `exit 0` on the empty-output case this mode exists to expose. Without it
+    # the harness dies with git's own 128 and execFileSync throws instead of
+    # returning '', so the guard that turns that empty string into 0 would be
+    # untestable through this mode.
+    commits_ahead "$A1" || true
     exit 0
     ;;
 

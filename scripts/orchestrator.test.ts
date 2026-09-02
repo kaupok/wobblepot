@@ -189,9 +189,10 @@ describe('orchestrator.sh', () => {
     })
 
     it('reports SUCCESS for a merged PR even when the worktree is already gone', () => {
-      // count_commits reads `main..HEAD` in the worktree; once that is removed
-      // it returns 0. Resolving the PR before the 0-commit gate is what keeps
-      // this from being labelled GATED and pushed back to Todo after it shipped.
+      // count_commits reads `refs/remotes/origin/main..HEAD` in the worktree;
+      // once that is removed it returns 0. Resolving the PR before the 0-commit
+      // gate is what keeps this from being labelled GATED and pushed back to
+      // Todo after it shipped.
       const out = classify(0, 'planning', 'MERGED', 'green')
 
       expect(out).toContain('[OUTCOME] HON-999 SUCCESS')
@@ -1145,11 +1146,40 @@ describe('orchestrator.sh', () => {
       })
 
       it('still answers 0 for a worktree that is not there', () => {
+        // A resolved question, not an unanswerable one: the worktree was
+        // cleaned up. handle_success's merged-PR probe runs before the gate.
         const f = makeFixture({ originAhead: 2 })
 
         expect(
           runHarness('count-commits', path.join(f.repo, 'no-such-worktree'), f.branch).trim(),
         ).toBe('0')
+        expect(runHarness('wt-commits-ahead', path.join(f.repo, 'no-such-worktree')).trim()).toBe(
+          '',
+        )
+      })
+
+      // The old base ref, refs/heads/main, is always present in the checkout the
+      // orchestrator runs from, so rev-list could not fail and `|| echo 0` was
+      // dead code. refs/remotes/origin/main can genuinely be absent — and 0 is
+      // the value handle_success gates GATED on, which ends at `git branch -D`
+      // plus the paired Neon branch. "Cannot tell" must not decide that.
+      it('reports a missing base ref as -1, not as 0 commits', () => {
+        const f = makeFixture({ originAhead: 2, commits: 2, log: STARTED })
+        git(f.repo, 'update-ref', '-d', 'refs/remotes/origin/main')
+
+        expect(countCommits(f)).toBe('-1')
+      })
+
+      it('strands rather than gates when the count is unavailable', () => {
+        // -1 keeps every `-eq 0` gate false, so the run keeps its worktree,
+        // branch and Neon branch instead of having them deleted.
+        const out = classify(-1, 'implementing', 'NONE', 'unknown')
+
+        expect(out).toContain('[OUTCOME] HON-999 STRANDED 0s -1-commits')
+        expect(out).not.toContain('GATED')
+        // strand_worker preserves by never calling cleanup_worker_worktree.
+        expect(out).not.toContain('CLEANUP:')
+        expect(out).toContain('Preserved worktree and branch for HON-999')
       })
 
       // origin/main is not frozen for the length of a run: a sibling worker's

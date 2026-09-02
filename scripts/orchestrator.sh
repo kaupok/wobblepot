@@ -978,12 +978,35 @@ commits_ahead() {
   git -C "$1" rev-list --count refs/remotes/origin/main..HEAD 2>/dev/null
 }
 
-# Count commits ahead of origin/main in a worktree, resolved by branch name
+# Count commits ahead of origin/main in a worktree, resolved by branch name.
+#
+# Prints -1 when the base ref is missing, NOT 0. The four display sites can
+# safely round an unanswerable count down to 0, but this one cannot: 0 is the
+# value handle_success gates GATED on, and GATED ends at cleanup_worker_worktree
+# with keep_branch=false — `git branch -D` plus the paired Neon branch, on a
+# branch that may hold real unpushed commits. The old base ref was
+# refs/heads/main, which is always present in the checkout the orchestrator runs
+# from, so this could not arise; refs/remotes/origin/main can genuinely be absent
+# (single-branch clone, a remote not named origin, a hand-pruned ref).
+#
+# -1 keeps every `-eq 0` gate false, so an unanswerable count strands the run
+# with its artifacts intact instead of deleting them, and surfaces as
+# `-1-commits` in the [OUTCOME] line beside the WARN that explains it. Nothing
+# does arithmetic on this value — the gates are `-eq 0` and the rest is display.
+#
+# A missing worktree still answers 0: that is a resolved question (the worktree
+# was cleaned up, e.g. after a merge), not an unanswerable one, and
+# handle_success's merged-PR probe runs before the gate.
 count_commits() {
   local branch="$1"
   local wt_path
   wt_path=$(get_worktree_path "$branch")
   if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
+    if ! git -C "$wt_path" show-ref --verify --quiet refs/remotes/origin/main; then
+      log WARN "refs/remotes/origin/main missing in $wt_path — commit count unavailable for $branch"
+      echo -1
+      return
+    fi
     commits_ahead "$wt_path" || echo 0
   else
     echo 0
