@@ -1,14 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Heading, Body } from '@/components/ui/typography'
 import { Skeleton } from '@/components/ui/skeleton'
+import { apiFetch } from '@/lib/api'
 import { MemberCard } from './MemberCard'
 import { AddMemberDialog } from './AddMemberDialog'
 import { EditMemberPreferencesDialog } from './EditMemberPreferencesDialog'
 import { MemberInviteDialog } from './MemberInviteDialog'
-import type { Member, MemberInvite } from '@/types/member'
+import type { Member } from '@/types/member'
+
+const MEMBERS_QUERY_KEY = ['household-members']
 
 interface MemberListProps {
   isOwner: boolean
@@ -31,41 +35,24 @@ function MemberCardSkeleton() {
 
 export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
   const t = useTranslations('household.members')
-  const [members, setMembers] = useState<Member[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
+  const queryClient = useQueryClient()
   const [editingMember, setEditingMember] = useState<Member | null>(null)
   const [invitingMember, setInvitingMember] = useState<Member | null>(null)
 
-  useEffect(() => {
-    async function fetchMembers() {
-      try {
-        const response = await fetch('/api/households/me/members')
-        if (!response.ok) {
-          throw new Error('fetch-failed')
-        }
-        const data = await response.json()
-        setMembers(data.members)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'fetch-failed')
-      } finally {
-        setIsLoading(false)
-      }
-    }
+  const {
+    data: members = [],
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: MEMBERS_QUERY_KEY,
+    queryFn: () => apiFetch<{ members: Member[] }>('/api/households/me/members'),
+    select: (data) => data.members,
+  })
 
-    fetchMembers()
-  }, [])
-
-  const handleMemberAdded = (newMember: Member) => {
-    setMembers((prev) => [...prev, newMember])
-  }
-
-  const handleMemberSaved = (updatedMember: Member) => {
-    setMembers((prev) => prev.map((m) => (m.id === updatedMember.id ? updatedMember : m)))
-  }
-
-  const handleMemberRemoved = (memberId: string) => {
-    setMembers((prev) => prev.filter((m) => m.id !== memberId))
+  // The add / edit / remove / invite dialogs each own their mutation; the
+  // roster refetches from the server rather than being patched in two places.
+  const refreshMembers = () => {
+    void queryClient.invalidateQueries({ queryKey: MEMBERS_QUERY_KEY })
   }
 
   const canEditMember = (member: Member) => {
@@ -83,10 +70,6 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
     return isOwner && member.userId === null
   }
 
-  const handleInviteCreated = (memberId: string, invite: MemberInvite) => {
-    setMembers((prev) => prev.map((m) => (m.id === memberId ? { ...m, invite } : m)))
-  }
-
   return (
     <>
       <div className="flex flex-col gap-6">
@@ -96,7 +79,7 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
         </div>
 
         <div className="flex flex-col gap-6">
-          {isOwner && <AddMemberDialog onMemberAdded={handleMemberAdded} />}
+          {isOwner && <AddMemberDialog onMemberAdded={refreshMembers} />}
 
           {isLoading ? (
             <div className="flex flex-col gap-3">
@@ -105,7 +88,7 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
             </div>
           ) : error ? (
             <Body variant="small" className="text-destructive">
-              {error}
+              {t('loadFailed')}
             </Body>
           ) : members.length === 0 ? (
             <div className="rounded-lg border border-dashed p-8 text-center">
@@ -121,9 +104,9 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
                   canRemove={canRemoveMember(member)}
                   canInvite={canInviteMember(member)}
                   onEdit={setEditingMember}
-                  onRemove={handleMemberRemoved}
+                  onRemove={refreshMembers}
                   onInvite={setInvitingMember}
-                  onInviteUpdated={handleInviteCreated}
+                  onInviteUpdated={refreshMembers}
                 />
               ))}
             </div>
@@ -141,7 +124,7 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
         member={editingMember}
         open={editingMember !== null}
         onOpenChange={(open) => !open && setEditingMember(null)}
-        onSaved={handleMemberSaved}
+        onSaved={refreshMembers}
         isManualMember={editingMember?.userId === null}
       />
 
@@ -156,7 +139,7 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
             t('fallbackInviteName')
           }
           existingInvite={invitingMember.invite}
-          onInviteCreated={(invite) => handleInviteCreated(invitingMember.id, invite)}
+          onInviteCreated={refreshMembers}
         />
       )}
     </>

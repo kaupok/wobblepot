@@ -7,14 +7,19 @@ import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
+import { createQueryWrapper } from '@/test/query-wrapper'
 import { IngredientRow, type MatchedIngredientData } from './IngredientRow'
 
 function renderInLocale(node: ReactNode, locale: 'en' | 'et') {
   const messages = locale === 'en' ? enMessages : etMessages
+  // Unmatched rows search the ingredient catalog through `useIngredientSearch`.
+  const { wrapper: QueryWrapper } = createQueryWrapper()
   return render(
-    <NextIntlClientProvider locale={locale} messages={messages}>
-      {node}
-    </NextIntlClientProvider>,
+    <QueryWrapper>
+      <NextIntlClientProvider locale={locale} messages={messages}>
+        {node}
+      </NextIntlClientProvider>
+    </QueryWrapper>,
   )
 }
 

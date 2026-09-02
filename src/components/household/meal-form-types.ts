@@ -1,21 +1,14 @@
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
 import type { IngredientRowData } from '@/components/recipes/IngredientRow'
+import type { IngredientResult } from '@/hooks/use-ingredient-search'
 
 export type MealTypeValue = 'breakfast' | 'lunch' | 'dinner'
 
 export const MEAL_TYPE_VALUES: readonly MealTypeValue[] = ['breakfast', 'lunch', 'dinner'] as const
 
-export interface IngredientResult {
-  id: string
-  name: string
-  category: IngredientCategory
-  defaultUnit: Unit
-  gramsPerPiece?: number | null
-  calories?: number
-  protein?: number
-  carbs?: number
-  fat?: number
-}
+// Defined by the search hook that produces it; re-exported here so meal-form
+// callers keep a single import for the form's types.
+export type { IngredientResult }
 
 export interface IngredientAlternative {
   id: string

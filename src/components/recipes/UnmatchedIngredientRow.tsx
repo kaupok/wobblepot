@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
+import { useIngredientSearch } from '@/hooks/use-ingredient-search'
 import type { UnmatchedIngredientData, IngredientResult } from './IngredientRow'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 
@@ -31,13 +32,17 @@ export function UnmatchedIngredientRow({
 }: UnmatchedIngredientRowProps) {
   const t = useTranslations('recipes.ingredientRow')
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<IngredientResult[]>([])
-  const [isSearching, setIsSearching] = useState(false)
-  const [showDropdown, setShowDropdown] = useState(false)
+  // The dropdown opens as soon as results exist; this only tracks whether the
+  // user dismissed it (Escape, click outside, or after picking a match).
+  const [isDropdownDismissed, setIsDropdownDismissed] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  const { data: searchResults = [], isLoading: isSearching } = useIngredientSearch(searchQuery)
+  const showDropdown = !isDropdownDismissed && searchResults.length > 0
+  // Guard against a result set that shrank under a stale highlight.
+  const activeIndex = highlightedIndex < searchResults.length ? highlightedIndex : -1
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -48,7 +53,7 @@ export function UnmatchedIngredientRow({
         searchInputRef.current &&
         !searchInputRef.current.contains(event.target as Node)
       ) {
-        setShowDropdown(false)
+        setIsDropdownDismissed(true)
       }
     }
 
@@ -56,43 +61,11 @@ export function UnmatchedIngredientRow({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Search for ingredients
-  useEffect(() => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current)
-    }
-
-    if (!searchQuery.trim()) {
-      setSearchResults([])
-      setShowDropdown(false)
-      return
-    }
-
-    debounceRef.current = setTimeout(async () => {
-      setIsSearching(true)
-      try {
-        const response = await fetch(
-          `/api/ingredients?search=${encodeURIComponent(searchQuery.trim())}`,
-        )
-        if (response.ok) {
-          const result = await response.json()
-          setSearchResults(result.ingredients)
-          setShowDropdown(result.ingredients.length > 0)
-          setHighlightedIndex(-1)
-        }
-      } catch {
-        // Ignore errors
-      } finally {
-        setIsSearching(false)
-      }
-    }, 300)
-
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current)
-      }
-    }
-  }, [searchQuery])
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    setIsDropdownDismissed(false)
+    setHighlightedIndex(-1)
+  }
 
   const handleSelectIngredient = useCallback(
     (ingredient: IngredientResult) => {
@@ -104,8 +77,8 @@ export function UnmatchedIngredientRow({
       }
 
       setSearchQuery('')
-      setShowDropdown(false)
-      setSearchResults([])
+      setIsDropdownDismissed(true)
+      setHighlightedIndex(-1)
     },
     [onResolve],
   )
@@ -119,14 +92,14 @@ export function UnmatchedIngredientRow({
       setHighlightedIndex((prev) => Math.max(prev - 1, -1))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      const selectedResult = searchResults[highlightedIndex]
-      if (highlightedIndex >= 0 && selectedResult) {
+      const selectedResult = searchResults[activeIndex]
+      if (activeIndex >= 0 && selectedResult) {
         handleSelectIngredient(selectedResult)
       } else if (searchResults.length === 1 && searchResults[0]) {
         handleSelectIngredient(searchResults[0])
       }
     } else if (e.key === 'Escape') {
-      setShowDropdown(false)
+      setIsDropdownDismissed(true)
       setHighlightedIndex(-1)
     }
   }
@@ -167,12 +140,8 @@ export function UnmatchedIngredientRow({
           <Input
             ref={searchInputRef}
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => {
-              if (searchResults.length > 0) {
-                setShowDropdown(true)
-              }
-            }}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            onFocus={() => setIsDropdownDismissed(false)}
             onKeyDown={handleSearchKeyDown}
             placeholder={t('searchPlaceholder')}
             className="pr-9 pl-9"
@@ -183,7 +152,7 @@ export function UnmatchedIngredientRow({
           )}
         </div>
 
-        {showDropdown && searchResults.length > 0 && (
+        {showDropdown && (
           <div
             ref={dropdownRef}
             className="bg-popover absolute top-full z-10 mt-1 w-full rounded-md border shadow-md"
@@ -198,7 +167,7 @@ export function UnmatchedIngredientRow({
                   'flex w-full items-center justify-between px-3 py-2 text-left transition-colors',
                   'hover:bg-muted focus:bg-muted focus:outline-none',
                   index > 0 && 'border-t',
-                  highlightedIndex === index && 'bg-muted',
+                  activeIndex === index && 'bg-muted',
                 )}
               >
                 <div className="flex items-center gap-2">
