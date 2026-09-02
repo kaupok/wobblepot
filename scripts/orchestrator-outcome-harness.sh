@@ -97,6 +97,20 @@
 #     Its two call sites live inside interactive render loops, so this helper is
 #     the only part of them a test can reach.
 #
+#   count-commits <wt_path> <branch>                                (HON-601)
+#     Runs the REAL count_commits with get_worktree_path stubbed to <wt_path> —
+#     the same one-stub pattern as detect-phase. The base ref is what is under
+#     test: a fixture whose local `main` lags origin/main must still report only
+#     the worker's own commits, because this number is what gates GATED vs
+#     STRANDED in handle_success.
+#
+#   wt-commits-ahead <wt_path>                                      (HON-601)
+#     The same number on the display path: sources worktree-claude.sh and prints
+#     the REAL commits_ahead, which `wt status` and `wt watch` both feed to
+#     wt_detect_phase. Sourcing replaces orchestrator.sh's identically-named
+#     helper — deliberate: this mode exists to exercise worktree-claude.sh's
+#     copy, which is duplicated rather than shared.
+#
 #   sync-permissions <main-repo-dir> <worktree-dir>                 (HON-579)
 #     Runs orchestrator.sh's REAL sync_permissions with REPO_ROOT pointed at the
 #     fixture main repo. Used to prove concurrent syncs never corrupt the shared
@@ -417,6 +431,32 @@ EOF
     # shellcheck source=./worktree-claude.sh
     source "$HARNESS_DIR/worktree-claude.sh"
     wt_detect_phase "$A1" "$A2" "$A3" "$A4" "$A5"
+    exit 0
+    ;;
+
+  # ─── commit count base ref (HON-601) ───────────────────────────────────────
+  count-commits)
+    WT_PATH="$A1"; BRANCH="$A2"
+    # The only stub, as in detect-phase: count_commits resolves the worktree
+    # through the real ~/.worktrees layout, and the fixture lives in a temp dir.
+    # A path that does not exist is a real case — count_commits must still
+    # answer 0 rather than fail.
+    get_worktree_path() { echo "$WT_PATH"; }
+    count_commits "$BRANCH"
+    exit 0
+    ;;
+
+  wt-commits-ahead)
+    # Sourced, not executed — see neon-gc-select above for why that is safe.
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    # `|| true` mirrors how cmd_status / cmd_watch actually call it, and is what
+    # keeps errexit (deliberately left on, see above) from aborting before
+    # `exit 0` on the empty-output case this mode exists to expose. Without it
+    # the harness dies with git's own 128 and execFileSync throws instead of
+    # returning '', so the guard that turns that empty string into 0 would be
+    # untestable through this mode.
+    commits_ahead "$A1" || true
     exit 0
     ;;
 

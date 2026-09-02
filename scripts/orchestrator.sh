@@ -743,9 +743,10 @@ report_worker_status() {
     wt_path=$(get_worktree_path "$branch")
 
     if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
-      # Count commits ahead of main
+      # Commits this worker has produced — see commits_ahead for why the base
+      # ref is origin/main and not the operator's local main.
       local ahead=0
-      ahead=$(git -C "$wt_path" rev-list --count main..HEAD 2>/dev/null) || true
+      ahead=$(commits_ahead "$wt_path") || true
       # Empty on failure, and `[ "" -gt 0 ]` is a hard error — see detect_phase.
       [[ "$ahead" =~ ^[0-9]+$ ]] || ahead=0
 
@@ -880,10 +881,10 @@ detect_phase() {
     local wt_path
     wt_path=$(get_worktree_path "$branch")
     if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
-      # Commits ahead of main, computed first because it gates the pushed
-      # check below.
+      # Commits ahead of origin/main, computed first because it gates the
+      # pushed check below. See commits_ahead for the base-ref choice.
       local ahead=0
-      ahead=$(git -C "$wt_path" rev-list --count main..HEAD 2>/dev/null) || true
+      ahead=$(commits_ahead "$wt_path") || true
       # rev-list prints nothing when it fails (a pruned worktree admin dir, say),
       # and `[ "" -gt 0 ]` is a hard error that logs `integer expression
       # expected` and silently evaluates false.
@@ -949,13 +950,64 @@ format_duration() {
   fi
 }
 
-# Count commits ahead of main in a worktree
+# Commits on a worktree's HEAD that are not on origin/main — the ref the
+# worktree was branched from. `wt auto` fetches origin/main immediately before
+# `worktree add ... origin/main`, so this is exactly 0 at creation, and stays
+# equal to the worker's own commits whether origin/main later advances, the
+# worker rebases onto it, or merges it in.
+#
+# NOT the operator's local `main` (HON-601). Nothing in the unattended pipeline
+# advances refs/heads/main — /auto-implement Phase 0.4 is fetch-only in worktree
+# mode — while every merge advances origin/main, so a lagging local main inflated
+# every count by the number of merges the operator had not pulled. That made a
+# fresh worker read as `reviewing` and, worse, pushed 0-commit exits past the
+# GATED gate into strand_worker.
+#
+# Fully qualified refs/remotes/origin/main rather than `origin/main`, matching
+# detect_phase's pushed-check, so a local branch literally named `origin/main`
+# can never shadow it. Worktrees share refs with the primary checkout, so the
+# ref resolves from inside the worktree.
+#
+# Prints the count, or nothing when rev-list fails (a pruned worktree admin dir,
+# a missing ref). There is deliberately NO fallback to local main: it would
+# silently reintroduce the bug on exactly the machines where it matters.
+# Callers guard with `[[ "$ahead" =~ ^[0-9]+$ ]] || ahead=0`.
+#
+# Usage: commits_ahead <wt_path>
+commits_ahead() {
+  git -C "$1" rev-list --count refs/remotes/origin/main..HEAD 2>/dev/null
+}
+
+# Count commits ahead of origin/main in a worktree, resolved by branch name.
+#
+# Prints -1 when the base ref is missing, NOT 0. The four display sites can
+# safely round an unanswerable count down to 0, but this one cannot: 0 is the
+# value handle_success gates GATED on, and GATED ends at cleanup_worker_worktree
+# with keep_branch=false — `git branch -D` plus the paired Neon branch, on a
+# branch that may hold real unpushed commits. The old base ref was
+# refs/heads/main, which is always present in the checkout the orchestrator runs
+# from, so this could not arise; refs/remotes/origin/main can genuinely be absent
+# (single-branch clone, a remote not named origin, a hand-pruned ref).
+#
+# -1 keeps every `-eq 0` gate false, so an unanswerable count strands the run
+# with its artifacts intact instead of deleting them, and surfaces as
+# `-1-commits` in the [OUTCOME] line beside the WARN that explains it. Nothing
+# does arithmetic on this value — the gates are `-eq 0` and the rest is display.
+#
+# A missing worktree still answers 0: that is a resolved question (the worktree
+# was cleaned up, e.g. after a merge), not an unanswerable one, and
+# handle_success's merged-PR probe runs before the gate.
 count_commits() {
   local branch="$1"
   local wt_path
   wt_path=$(get_worktree_path "$branch")
   if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
-    git -C "$wt_path" rev-list --count main..HEAD 2>/dev/null || echo 0
+    if ! git -C "$wt_path" show-ref --verify --quiet refs/remotes/origin/main; then
+      log WARN "refs/remotes/origin/main missing in $wt_path — commit count unavailable for $branch"
+      echo -1
+      return
+    fi
+    commits_ahead "$wt_path" || echo 0
   else
     echo 0
   fi
@@ -1213,9 +1265,10 @@ handle_success() {
   # assigned, which select_next_issue skips forever. Gate it instead: return the
   # issue to Todo, unassigned, so it is pickable again, and emit a distinct
   # GATED outcome operators can grep for. The phase guard matters because a
-  # merged run can also show 0 commits once local main advances past its merge;
-  # that run reached phase "done", so it stays a SUCCESS and Linear automation
-  # moves its issue to Done.
+  # merged run can also show 0 commits once origin/main advances past its merge
+  # — only for a non-squash merge, since squashed commits stay unreachable from
+  # origin/main; that run reached phase "done", so it stays a SUCCESS and Linear
+  # automation moves its issue to Done.
   if [ "${commits:-0}" -eq 0 ] && [ "$phase" != "done" ] && [ "$WORKER_PR_MERGED" = false ]; then
     log WARN "[OUTCOME] $issue_id GATED ${duration_str} 0-commits phase=$phase"
     notify "Honkadori" "$issue_id produced no commits — returned to Todo"

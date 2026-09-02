@@ -224,6 +224,8 @@ Requires `LINEAR_API_KEY` env var (format: `lin_api_...`).
 
 **Live status:** Run `wt status` from any terminal to see orchestrator state, worker phases, elapsed times, and git progress. Use `watch -n 5 wt status` for a live dashboard.
 
+Commit counts and the git-heuristic phases derived from them — in `wt status`, `wt watch`, the `[OUTCOME]` lines and the Linear comments — are measured against `origin/main` as last fetched, which is the ref autonomous worktrees are cut from. Your local `main` never affects them, so you do not need to `git pull` in the primary checkout to keep those honest (HON-601). `wt list` and `wt cleanup` are the exception: they still measure against local `main`, so on a checkout you have not pulled they can report `unpushed commits` for a worktree `wt status` shows as empty.
+
 **macOS notifications:** Desktop notifications fire automatically when a worker succeeds or fails, showing the issue ID, outcome, duration, and phase.
 
 **Structured outcome logging:** Every worker completion logs a parseable `[OUTCOME]` line to `orchestrator.log`:
