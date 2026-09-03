@@ -133,6 +133,53 @@ describe('useCustomShoppingItems', () => {
       expect(toast.error).toHaveBeenCalled()
     })
 
+    it('restores the link when two failing unlinks overlap', async () => {
+      // Reproduces a real double-click: React re-renders between the two, so
+      // the second call snapshots the first one's optimistic `null`.
+      // Both requests are held open so the second one's rollback resolves last —
+      // the order in which it can overwrite the first one's restored link.
+      const release: Array<() => void> = []
+      fetchMock.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            release.push(() => resolve(failure))
+          }),
+      )
+
+      const { result } = renderHook(() =>
+        useCustomShoppingItems([
+          customItem('Kale', { ingredientId: 'ing-kale', ingredientCategory: 'vegetable' }),
+        ]),
+      )
+
+      let firstUnlink: Promise<void> = Promise.resolve()
+      await act(async () => {
+        firstUnlink = result.current.handleCustomUnlink('custom-kale')
+      })
+
+      expect(result.current.customItems[0]?.ingredientId).toBeNull()
+
+      let secondUnlink: Promise<void> = Promise.resolve()
+      await act(async () => {
+        secondUnlink = result.current.handleCustomUnlink('custom-kale')
+      })
+
+      await act(async () => {
+        release[0]!()
+        await firstUnlink
+      })
+
+      await act(async () => {
+        release[1]!()
+        await secondUnlink
+      })
+
+      expect(result.current.customItems[0]).toMatchObject({
+        ingredientId: 'ing-kale',
+        ingredientCategory: 'vegetable',
+      })
+    })
+
     it('keeps a check applied while the failing request was in flight', async () => {
       fetchMock.mockResolvedValueOnce(failure)
       const { result } = renderHook(() =>
@@ -183,8 +230,12 @@ describe('useCustomShoppingItems', () => {
       expect(toast.error).toHaveBeenCalled()
     })
 
-    it('keeps the row gone when the request 404s — it is already deleted', async () => {
-      fetchMock.mockResolvedValueOnce({ ok: false, status: 404, json: async () => ({}) })
+    it('keeps the row gone on a 404 that means the row is already deleted', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ error: 'Item not found' }),
+      })
       const { result } = renderHook(() =>
         useCustomShoppingItems([customItem('Bread'), customItem('Napkins')]),
       )
@@ -195,6 +246,25 @@ describe('useCustomShoppingItems', () => {
 
       expect(result.current.customItems.map((i) => i.name)).toEqual(['Napkins'])
       expect(toast.error).not.toHaveBeenCalled()
+    })
+
+    it('restores the row on a 404 that means the household is missing', async () => {
+      // Same status, opposite meaning: the row is still on the server.
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ error: 'No household found' }),
+      })
+      const { result } = renderHook(() =>
+        useCustomShoppingItems([customItem('Bread'), customItem('Napkins')]),
+      )
+
+      await act(async () => {
+        await result.current.handleCustomDelete('custom-bread')
+      })
+
+      expect(result.current.customItems.map((i) => i.name)).toEqual(['Bread', 'Napkins'])
+      expect(toast.error).toHaveBeenCalled()
     })
 
     it('does not duplicate the row when two failing deletes overlap', async () => {

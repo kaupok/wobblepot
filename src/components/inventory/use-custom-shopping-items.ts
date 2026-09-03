@@ -81,7 +81,11 @@ export function useCustomShoppingItems(initialCustomItems: CustomItemData[]) {
       } catch {
         // Revert only the two fields we edited — the row may have been checked
         // while the request was in flight, and that toggle is not ours to undo.
-        if (previous) {
+        // A snapshot that is already unlinked belongs to a second click that
+        // read the first one's optimistic state; restoring it would overwrite
+        // the real link the first click is about to put back. There was nothing
+        // to unlink in that case either, so skipping is also the honest revert.
+        if (previous?.ingredientId != null) {
           setCustomItems((prev) =>
             prev.map((item) =>
               item.id === id
@@ -113,12 +117,18 @@ export function useCustomShoppingItems(initialCustomItems: CustomItemData[]) {
           method: 'DELETE',
         })
 
-        // A 404 means the row is already gone — an un-debounced double-click's
-        // own first request, or a concurrent delete that succeeded. Rolling the
-        // row back on top of that would resurrect it on screen, so treat the
-        // delete as done. Only a real failure reverts.
-        if (!response.ok && response.status !== 404) {
-          throw new Error(tErrors('removeFailed'))
+        if (!response.ok) {
+          // The route answers 404 for two different things: the row is already
+          // gone ('Item not found' — a delete that won a race, so putting the
+          // row back would resurrect it on screen), or the session has no
+          // household ('No household found'), where the row is still there and
+          // the delete really did fail. Only the first is treated as done.
+          const data = await response.json().catch(() => ({}))
+          const alreadyGone = response.status === 404 && data.error === 'Item not found'
+
+          if (!alreadyGone) {
+            throw new Error(tErrors('removeFailed'))
+          }
         }
       } catch {
         // Put the row back where it was — appending would silently reorder the
