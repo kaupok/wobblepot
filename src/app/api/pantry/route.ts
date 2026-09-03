@@ -97,11 +97,10 @@ export async function GET(request: NextRequest) {
         },
       })
 
-      // Get household size
-      const memberCount = await prisma.householdMember.count({
-        where: { householdId: household.id },
-      })
-      const householdSize = memberCount > 0 ? memberCount : 2
+      // Rides along on the membership query's `_count` (HON-596). The old
+      // `memberCount > 0 ? memberCount : 2` fallback is dropped with it: the
+      // requesting user's own row is in this household, so the count is >= 1.
+      const householdSize = household._count.members
 
       // Aggregate quantities per ingredient, tracking vague status
       for (const entry of planEntries) {

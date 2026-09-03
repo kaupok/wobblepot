@@ -15,7 +15,6 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
-  getHouseholdMemberCount: vi.fn(),
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -54,7 +53,7 @@ vi.mock('@/lib/ai/sampling', () => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
+import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { generateObject } from 'ai'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -63,7 +62,6 @@ import { logAiSample } from '@/lib/ai/sampling'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
-const mockGetMemberCount = vi.mocked(getHouseholdMemberCount)
 const mockEntryFindFirst = vi.mocked(prisma.mealPlanEntry.findFirst)
 const mockEntryUpdate = vi.mocked(prisma.mealPlanEntry.update)
 const mockGenerateObject = vi.mocked(generateObject)
@@ -88,6 +86,9 @@ function buildMembership(locale: string = 'en') {
       timezone: 'Europe/Tallinn',
       locale,
       preferences: null,
+      // The route reads the household size off this `_count` (HON-596) rather
+      // than issuing a second `household_member` count.
+      _count: { members: 4 },
     },
   }
 }
@@ -127,7 +128,6 @@ function callPost(planId = 'plan-1', entryId = 'entry-1') {
 describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetMemberCount.mockResolvedValue(4)
     mockCheckRateLimit.mockResolvedValue({
       allowed: true,
       remaining: 29,

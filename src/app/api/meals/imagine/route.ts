@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
+import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { imagineMeals } from '@/lib/ai/imagine-meal'
 import { matchIngredients } from '@/lib/ai/match-ingredients'
@@ -130,7 +130,7 @@ async function handlePOST(request: Request) {
   }
 
   const preferences = household.preferences
-  const householdSize = await getHouseholdMemberCount(household.id)
+  const householdSize = household._count.members
 
   try {
     // Generate meals with AI

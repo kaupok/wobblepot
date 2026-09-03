@@ -3,13 +3,25 @@ import { prisma } from '@/lib/prisma'
 /**
  * Get household membership for a user.
  * Returns null if user has no household membership.
+ *
+ * The member count rides along on `household._count.members`. Prisma folds a
+ * relation `_count` into this same round-trip, so every caller that needs the
+ * household size gets it without a second `household_member` read. This
+ * replaced the former `getHouseholdMemberCount` helper outright (HON-596).
+ * Every site that needed a household size already held the membership row — the
+ * five that went through the helper plus `GET /api/pantry`, which counted via
+ * `prisma.householdMember.count` directly — so keeping it would have meant
+ * counting the same table twice per request.
  */
 export async function getHouseholdMembership(userId: string) {
   return prisma.householdMember.findFirst({
     where: { userId },
     include: {
       household: {
-        include: { preferences: true },
+        include: {
+          preferences: true,
+          _count: { select: { members: true } },
+        },
       },
     },
   })
@@ -24,16 +36,6 @@ export async function hasHouseholdMembership(userId: string): Promise<boolean> {
     where: { userId },
   })
   return count > 0
-}
-
-/**
- * Get the number of members in a household.
- * Used for scaling meal quantities.
- */
-export async function getHouseholdMemberCount(householdId: string): Promise<number> {
-  return prisma.householdMember.count({
-    where: { householdId },
-  })
 }
 
 /**

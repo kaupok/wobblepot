@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { getSession } from '@/lib/session'
-import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
+import { getHouseholdMembership } from '@/lib/household'
 import { Heading, Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -17,18 +17,25 @@ export default async function ProfilePage() {
     redirect('/sign-in')
   }
 
+  // `getTranslations` is not DB-free: it resolves next-intl's request config,
+  // whose `getLocale()` reads `getCachedMembership()`. The root layout warms
+  // that `cache()` entry, but the page renders concurrently with the layout
+  // rather than after it, so overlap it with the membership read instead of
+  // assuming it is already resolved. Both are awaited before the redirect, so
+  // the auth gate's ordering is unchanged.
+  const [membership, t] = await Promise.all([
+    getHouseholdMembership(session.user.id),
+    getTranslations('profile'),
+  ])
+
   // Redirect users without a household to onboarding
-  const membership = await getHouseholdMembership(session.user.id)
   if (!membership) {
     redirect('/onboarding')
   }
 
-  // Independent of each other — the member count is a DB read, the catalog
-  // lookup is not. The auth gate above stays sequential: it redirects.
-  const [memberCount, t] = await Promise.all([
-    getHouseholdMemberCount(membership.householdId),
-    getTranslations('profile'),
-  ])
+  // Rides along on the membership query's `_count` — `/profile` used to issue a
+  // second `household_member` count for this (HON-596).
+  const memberCount = membership.household._count.members
   const isOwner = membership.role === 'owner'
 
   return (

@@ -43,7 +43,6 @@ import { prisma } from '@/lib/prisma'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
-const mockMemberCount = vi.mocked(prisma.householdMember.count)
 const mockFindMany = vi.mocked(prisma.pantryItem.findMany)
 const mockFindUniquePantry = vi.mocked(prisma.pantryItem.findUnique)
 const mockCreatePantry = vi.mocked(prisma.pantryItem.create)
@@ -56,6 +55,9 @@ const mockHousehold = {
   timezone: 'Europe/Tallinn',
   locale: 'en',
   preferences: null,
+  // The route reads the household size off this `_count` (HON-596) rather than
+  // issuing a second `household_member` count.
+  _count: { members: 2 },
 }
 
 const mockMembership = {
@@ -171,7 +173,6 @@ describe('GET /api/pantry', () => {
       session: { id: 'session-123' },
     } as never)
     mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockMemberCount.mockResolvedValue(2)
 
     const mockItems = [
       {
@@ -270,7 +271,6 @@ describe('GET /api/pantry', () => {
       session: { id: 'session-123' },
     } as never)
     mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockMemberCount.mockResolvedValue(2)
 
     const mockItems = [
       {
@@ -318,7 +318,6 @@ describe('GET /api/pantry', () => {
       session: { id: 'session-123' },
     } as never)
     mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockMemberCount.mockResolvedValue(2)
 
     const mockItems = [
       {
@@ -367,7 +366,6 @@ describe('GET /api/pantry', () => {
       ...mockMembership,
       household: { ...mockHousehold, locale: 'et' },
     } as never)
-    mockMemberCount.mockResolvedValue(2)
 
     const mockItems = [
       {

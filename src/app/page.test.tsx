@@ -28,7 +28,6 @@ vi.mock('@/lib/auth', () => ({
 // Mock the household module
 vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
-  getHouseholdMemberCount: vi.fn(),
 }))
 
 // Mock Next.js headers
@@ -113,7 +112,7 @@ describe('Home page component', () => {
 
   it('renders first-time setup when authenticated with household but no entries', async () => {
     const { auth } = await import('@/lib/auth')
-    const { getHouseholdMembership, getHouseholdMemberCount } = await import('@/lib/household')
+    const { getHouseholdMembership } = await import('@/lib/household')
     const now = new Date()
     vi.mocked(auth.api.getSession).mockResolvedValue({
       session: {
@@ -148,10 +147,10 @@ describe('Home page component', () => {
         timezone: 'Europe/Tallinn',
         createdAt: now,
         preferences: null,
+        // The page reads the household size off this `_count` (HON-596).
+        _count: { members: 2 },
       },
     } as never)
-
-    vi.mocked(getHouseholdMemberCount).mockResolvedValue(2)
 
     // Mock entries response: no entries, no plan
     mockFetch.mockImplementation((url: string) => {
@@ -171,7 +170,7 @@ describe('Home page component', () => {
 
   it('renders timeline view when authenticated with household and entries', async () => {
     const { auth } = await import('@/lib/auth')
-    const { getHouseholdMembership, getHouseholdMemberCount } = await import('@/lib/household')
+    const { getHouseholdMembership } = await import('@/lib/household')
     const now = new Date()
     vi.mocked(auth.api.getSession).mockResolvedValue({
       session: {
@@ -206,10 +205,10 @@ describe('Home page component', () => {
         timezone: 'Europe/Tallinn',
         createdAt: now,
         preferences: null,
+        // The page reads the household size off this `_count` (HON-596).
+        _count: { members: 2 },
       },
     } as never)
-
-    vi.mocked(getHouseholdMemberCount).mockResolvedValue(2)
 
     // Mock entries response: has entries
     mockFetch.mockImplementation((url: string) => {
