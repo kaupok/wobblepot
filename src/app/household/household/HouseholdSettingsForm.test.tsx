@@ -102,18 +102,23 @@ describe('HouseholdSettingsForm', () => {
 
     /**
      * The page supplies the `<h1>` (`src/app/household/page.tsx`), this form's
-     * title is the `<h2>`, and its sections are `<h3>` — an unbroken outline
-     * that axe's heading-order rule checks in Storybook. The `level` assertions
-     * are what catch a `variant="section"` swap that forgets `as`: `section`
-     * defaults to `<h2>`, which would put every section level with the title it
-     * belongs to. See HON-613.
+     * title is the `<h2>`, and its sections are `<h3>`. See HON-613.
+     *
+     * The section level is read off the title's tag rather than restated, so
+     * this asserts the *relationship* rather than two independent constants.
+     * Both directions it guards are invisible to axe's `heading-order`, which
+     * only flags increases greater than one (`currLevel - prevLevel <= 1`):
+     * a `variant="section"` swap that forgets `as` renders the default `<h2>`,
+     * putting sections level with the title, and HON-607 will make the title
+     * an `<h4>`, putting `as="h3"` sections *above* it. Deriving the expected
+     * level means moving the title also moves what the loop demands, instead
+     * of leaving a hardcoded `level: 3` green under an inverted outline.
      */
     it('renders each section one level below the form title', () => {
       renderForm()
 
-      expect(
-        screen.getByRole('heading', { name: 'Household settings', level: 2 }),
-      ).toBeInTheDocument()
+      const title = screen.getByRole('heading', { name: 'Household settings', level: 2 })
+      const titleLevel = Number(title.tagName.slice(1))
 
       for (const name of [
         'Basic information',
@@ -121,7 +126,7 @@ describe('HouseholdSettingsForm', () => {
         'Excluded ingredients',
         'Meal scheduling',
       ]) {
-        expect(screen.getByRole('heading', { name, level: 3 })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name, level: titleLevel + 1 })).toBeInTheDocument()
       }
     })
 
