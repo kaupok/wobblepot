@@ -82,6 +82,7 @@ Production deployments require manual coordination to ensure database migrations
    - Check production site is working
    - Monitor logs for any errors
    - Verify database changes are reflected
+   - [GitHub → Environments → Production](https://github.com/kaupok/wobblepot/deployments/Production) shows the deployed commit with a green check
 
 ### Why This Process?
 
@@ -92,6 +93,30 @@ Production deployments from main are **disabled via Vercel's Ignored Build Step*
 - Production downtime from race conditions
 
 The manual process ensures migrations always complete before code deployment.
+
+**Who writes the Production deployment records.** The deploy workflow itself
+does — not the Vercel GitHub integration. Vercel reports a build cancelled by
+the Ignored Build Step only as a commit status (`Vercel — Canceled by Ignored
+Build Step`) and creates no deployment record, and `vercel deploy --prod` is a
+CLI deploy the integration never reports at all. So do not expect Vercel's
+badges on the Environments → Production page the way you see them on Preview
+and staging. Instead, `deploy-code-production.yml` holds `deployments: write`
+and posts the record itself: `in_progress` before the deploy, then `success`
+(with `environment_url` `https://wobblepot.com`) or `failure` after it. The run
+summary links to the record it wrote.
+
+That makes the workflow the only writer **on the release path** — but not the
+only way production changes. A Vercel-side promote (the rollback below) moves
+production without writing any GitHub record, so the card keeps asserting
+whatever the last workflow run said. Correct the record by hand when you roll
+back that way; the procedure below says how.
+
+The record steps carry no `continue-on-error` on purpose. A run whose **deploy**
+step is green but whose **record** step is red means the release shipped and the
+record did not — the drift is meant to be visible rather than swallowed. Left
+unwritten, that page goes stale silently: between June and September 2026 its
+Active deployment was a failed June build, while production was healthy and many
+releases newer (HON-602).
 
 ### Vercel Configuration
 
@@ -131,7 +156,21 @@ If production deployment fails:
    - Find previous working deployment
    - Click "⋯" menu → "Promote to Production"
 
-2. **Database rollback**: see [RUNBOOKS/database-recovery.md](RUNBOOKS/database-recovery.md) for migration rollback and PITR procedures.
+2. **Correct the GitHub deployment record** — a dashboard promote writes none, so
+   Environments → Production would go on showing the rolled-back commit as green
+   and Active, which is the same lie the June 2026 badge told (HON-602). Mark the
+   bad record inactive, taking `<id>` from the deploy run's summary or from
+   `gh api 'repos/kaupok/wobblepot/deployments?environment=Production&per_page=1'`:
+
+   ```bash
+   gh api "repos/kaupok/wobblepot/deployments/<id>/statuses" -f state=inactive
+   ```
+
+   Then, once `main` carries the fix, re-run **Deploy code [production]** so a
+   fresh accurate record is written. Until one is, the card shows no Active
+   production deployment — honest, and better than a confident wrong answer.
+
+3. **Database rollback**: see [RUNBOOKS/database-recovery.md](RUNBOOKS/database-recovery.md) for migration rollback and PITR procedures.
 
 **Prevention**: Always test thoroughly in staging before production deployment.
 
