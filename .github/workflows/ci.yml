@@ -143,6 +143,21 @@ jobs:
       - name: Run Storybook a11y tests
         run: pnpm test-storybook:ci
 
+      # Static build gate for the GitHub Pages deploy (deploy-storybook.yml).
+      # The a11y run above exercises the stories under Vitest but never runs
+      # `storybook build`, so a broken manager bundle or preview head would
+      # otherwise surface only as a failed deploy on main after merge.
+      # NODE_ENV must be `production` to match deploy-storybook.yml: `vite build`
+      # only defaults it when unset, so the job-level `NODE_ENV: test` would
+      # otherwise flip isProduction, the dev/prod export condition, and the
+      # inlined process.env.NODE_ENV — gating a different artifact than the one
+      # that ships. Scoped to this step: on the job it would make `pnpm install`
+      # skip devDependencies.
+      - name: Build Storybook
+        env:
+          NODE_ENV: production
+        run: pnpm build-storybook
+
       # ==========================================
       # E2E tier 1: Playwright against Docker Postgres sidecar (HON-455)
       # ==========================================

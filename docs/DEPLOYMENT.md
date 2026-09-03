@@ -21,6 +21,7 @@ All changes must pass the following checks in GitHub Actions:
 - `pnpm type-check` - TypeScript type checking
 - `pnpm test` - Unit tests
 - `pnpm test-storybook:ci` - Storybook a11y gate
+- `pnpm build-storybook` - Static Storybook build (gate for the GitHub Pages deploy)
 - `pnpm test:e2e` - Playwright E2E tier 1 (Docker Postgres sidecar)
 
 **Important notes:**
