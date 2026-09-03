@@ -13,10 +13,13 @@
 # This workflow uses Vercel CLI to deploy, bypassing Vercel's Ignored Build Step
 # which blocks automatic git-triggered production deployments.
 #
-# It is also the sole writer of GitHub Production *deployment records* (HON-602).
-# Vercel reports the Ignored-Build-Step cancellation only as a commit status and
-# never reports a CLI deploy at all, so nothing else can keep the Environments →
-# Production card current. See docs/DEPLOYMENT.md → "Why This Process?".
+# It also writes the GitHub Production *deployment records* (HON-602). Vercel
+# reports the Ignored-Build-Step cancellation only as a commit status and never
+# reports a CLI deploy at all, so nothing else keeps the Environments →
+# Production card current. That makes this workflow the only writer on the
+# release path — a Vercel-side rollback promote still moves production without
+# writing a record, and the operator has to correct it by hand. See
+# docs/DEPLOYMENT.md → "Why This Process?" and "Rollback Procedure".
 
 name: Deploy code [production]
 
@@ -76,6 +79,18 @@ jobs:
         # Created here rather than straight after checkout so the `in_progress`
         # window covers the deploy only: if CLI setup fails, no half-finished
         # Production record is left on the Environments card at all.
+        #
+        # `continue-on-error` because a bookkeeping write must never be able to
+        # cancel a release. `Deploy to production` below carries no `if:`, so it
+        # defaults to `if: success()` — without this, a 5xx from the deployments
+        # API would skip the deploy entirely, and by the time this workflow runs
+        # the operator has already applied the production migrations (step 4a of
+        # docs/DEPLOYMENT.md). That would strand production on old code with the
+        # new schema because a *status page* failed to update. The flag sets this
+        # step's `conclusion` to success, so the deploy proceeds, while leaving
+        # its `outcome` as failure — which the final step of the job turns back
+        # into a red run.
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ steps.rev.outputs.sha }}
@@ -123,18 +138,29 @@ jobs:
           echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
 
       - name: 'Record GitHub deployment: success'
-        if: success()
+        # The id guard matters even on the success path: the create step above
+        # is `continue-on-error`, so it can reach here having written nothing,
+        # and posting to `deployments//statuses` would just 404. Note the id is
+        # exported *before* the `in_progress` POST, so a record that exists but
+        # whose opening status failed still gets its final status here.
+        if: success() && steps.gh_deployment.outputs.deployment_id != ''
         # Deliberately no `continue-on-error` here or on the failure step below:
         # a green deploy step beside a red record step is the signal that the
         # release shipped but the record didn't, which is the drift HON-602
         # exists to surface. `environment_url` is the stable production address,
         # not the per-deploy Vercel URL — it becomes the card's "View
-        # deployment" button. `auto_inactive` is passed with `-F`, not `-f`, so
-        # it arrives as a JSON boolean — `-f` sends every value as a string.
-        # It is the API default and, per the REST docs, only inactivates prior
-        # *non-production* deployments, so it does not retire the stale June
-        # 2026 record; that one is simply superseded by being older. It is set
-        # explicitly so the record's shape is stated in one place.
+        # deployment" button.
+        #
+        # `auto_inactive` is passed with `-F`, not `-f`, so it arrives as a JSON
+        # boolean — `-f` sends every value as a string. It is the API default.
+        # Per the REST docs it inactivates prior non-transient,
+        # non-production-flagged deployments sharing this environment name —
+        # which is every `Production` record in this repo, since the
+        # vercel[bot]-written ones all carry `production_environment: false`.
+        # The stale June 2026 record survives that sweep for an unrelated
+        # reason: `inactive` is only applied to records whose state was
+        # `success`, and its only status is `failure`. Set explicitly so the
+        # record's shape is stated in one place.
         env:
           GH_TOKEN: ${{ github.token }}
           DEPLOYMENT_ID: ${{ steps.gh_deployment.outputs.deployment_id }}
@@ -179,6 +205,11 @@ jobs:
             -f log_url="${RUN_URL}" > /dev/null
 
       - name: Output deployment information
+        # `always() && deploy succeeded` rather than the default `if: success()`:
+        # the operator's copy of the commit, deployment URL and record id is
+        # most valuable in exactly the case the default would skip it — the
+        # release shipped but a record step went red.
+        if: always() && steps.deploy.outcome == 'success'
         run: |
           cat >> $GITHUB_STEP_SUMMARY << 'EOF'
           ## ✅ Production Code Deployed
@@ -208,6 +239,17 @@ jobs:
              - Vercel Dashboard → Deployments
              - Find previous working deployment
              - Click "⋯" → Promote to Production
+             - A dashboard promote writes no GitHub deployment record, so the Environments card will keep showing this commit as green and Active. Mark this record inactive (`gh api "repos/${{ github.repository }}/deployments/${{ steps.gh_deployment.outputs.deployment_id }}/statuses" -f state=inactive`) and re-run this workflow once main carries the fix. See docs/DEPLOYMENT.md → "Rollback Procedure".
 
           **✅ Production deployment complete!**
           EOF
+
+      - name: Fail the run if the deployment record step failed
+        # Restores the signal `continue-on-error` above gives up: a green deploy
+        # beside a red run means the release shipped but its bookkeeping did
+        # not. The two status steps redden the run on their own (they carry no
+        # `continue-on-error`); this covers the create step, which does.
+        if: always() && steps.gh_deployment.outcome == 'failure'
+        run: |
+          echo "::error::The 'Create GitHub deployment record' step failed. The release itself is unaffected — a bookkeeping failure is not allowed to cancel the deploy — but Environments → Production may be stale. Check that step's log and the card."
+          exit 1
