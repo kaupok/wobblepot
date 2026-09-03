@@ -131,10 +131,7 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
                   }
                 >
                   <Heart
-                    className={cn(
-                      'h-4 w-4',
-                      meal.isFavorite && 'fill-destructive text-destructive',
-                    )}
+                    className={cn('h-4 w-4', meal.isFavorite && 'text-primary fill-current')}
                   />
                 </Button>
                 <Button variant="ghost" size="sm" asChild aria-label={t('editAria')}>

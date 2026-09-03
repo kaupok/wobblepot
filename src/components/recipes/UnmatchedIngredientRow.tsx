@@ -126,7 +126,7 @@ export function UnmatchedIngredientRow({
           size="sm"
           onClick={onRemove}
           disabled={disabled}
-          className="text-warning hover:bg-warning-muted"
+          className="text-warning hover:text-warning"
         >
           <X className="mr-1 h-4 w-4" />
           {t('drop')}

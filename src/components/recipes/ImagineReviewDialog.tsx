@@ -330,7 +330,7 @@ export function ImagineReviewDialog({
               <CollapsibleTrigger asChild>
                 <button
                   type="button"
-                  className="border-success/30 bg-success-muted hover:bg-success/20 flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left transition-colors"
+                  className="border-success/30 bg-success-muted hover:bg-success-muted/70 flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left transition-colors"
                 >
                   <Check className="text-success h-4 w-4" />
                   {isMatchedOpen ? (
