@@ -17,18 +17,24 @@ export default async function ProfilePage() {
     redirect('/sign-in')
   }
 
+  // `getTranslations` is not DB-free: it resolves next-intl's request config,
+  // whose `getLocale()` reads `getCachedMembership()`. The root layout warms
+  // that `cache()` entry, but the page renders concurrently with the layout
+  // rather than after it, so overlap it with the membership read instead of
+  // assuming it is already resolved. Both are awaited before the redirect, so
+  // the auth gate's ordering is unchanged.
+  const [membership, t] = await Promise.all([
+    getHouseholdMembership(session.user.id),
+    getTranslations('profile'),
+  ])
+
   // Redirect users without a household to onboarding
-  const membership = await getHouseholdMembership(session.user.id)
   if (!membership) {
     redirect('/onboarding')
   }
 
-  // The member count rides along on the membership query's `_count`, so this
-  // page makes a single `household_member` round-trip rather than two serial
-  // ones. `getTranslations` resolves off next-intl's per-request config, which
-  // the root layout has already evaluated — there is no DB read left to
-  // overlap it with (HON-596).
-  const t = await getTranslations('profile')
+  // Rides along on the membership query's `_count` — `/profile` used to issue a
+  // second `household_member` count for this (HON-596).
   const memberCount = membership.household._count.members
   const isOwner = membership.role === 'owner'
 

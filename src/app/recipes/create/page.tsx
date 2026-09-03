@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
+import { getHouseholdMembership } from '@/lib/household'
 import { CreateRecipeClient } from './CreateRecipeClient'
 
 export default async function CreateRecipePage() {
@@ -19,7 +19,7 @@ export default async function CreateRecipePage() {
     redirect('/')
   }
 
-  const memberCount = await getHouseholdMemberCount(membership.household.id)
+  const memberCount = membership.household._count.members
 
   return <CreateRecipeClient defaultServings={memberCount} />
 }

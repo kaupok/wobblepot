@@ -22,7 +22,6 @@ vi.mock('@/lib/session', () => ({
 
 vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
-  getHouseholdMemberCount: vi.fn(),
 }))
 
 vi.mock('next/navigation', () => ({
@@ -107,7 +106,7 @@ describe('ProfilePage', () => {
 
   it('passes the member count from the membership query to the delete dialog', async () => {
     const { getSession } = await import('@/lib/session')
-    const { getHouseholdMembership, getHouseholdMemberCount } = await import('@/lib/household')
+    const { getHouseholdMembership } = await import('@/lib/household')
     vi.mocked(getSession).mockResolvedValue(session as never)
     vi.mocked(getHouseholdMembership).mockResolvedValue(membershipWithMemberCount(4) as never)
 
@@ -120,9 +119,34 @@ describe('ProfilePage', () => {
     expect(dialog).toHaveAttribute('data-user-email', 'test@example.com')
 
     // The whole point of HON-596: the count rides along on the membership
-    // query, so the page must no longer issue a second `household_member` read.
-    expect(getHouseholdMemberCount).not.toHaveBeenCalled()
+    // query, so the page issues exactly one `household_member` read.
     expect(getHouseholdMembership).toHaveBeenCalledTimes(1)
+  })
+
+  it('starts the translations lookup without waiting for the membership query', async () => {
+    const { getSession } = await import('@/lib/session')
+    const { getHouseholdMembership } = await import('@/lib/household')
+    const { getTranslations } = await import('next-intl/server')
+    vi.mocked(getSession).mockResolvedValue(session as never)
+
+    let resolveMembership: (value: unknown) => void = () => {}
+    vi.mocked(getHouseholdMembership).mockReturnValue(
+      new Promise((resolve) => {
+        resolveMembership = resolve
+      }) as never,
+    )
+
+    const pending = ProfilePage()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    // `getTranslations` is not DB-free — next-intl's request config resolves
+    // `getLocale()`, which reads `household_member`. It must not sit behind the
+    // membership query (HON-596 review).
+    expect(getTranslations).toHaveBeenCalledWith('profile')
+
+    resolveMembership(membershipWithMemberCount(3))
+    render(await pending)
+    expect(screen.getByTestId('delete-account-dialog')).toHaveAttribute('data-member-count', '3')
   })
 
   it('marks a non-owner membership as such', async () => {
