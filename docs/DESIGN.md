@@ -14,33 +14,33 @@
 
 Use these. Do not restyle them per feature or invent parallel ones.
 
-| Concern         | Where it lives                                                                     | Notes                                                                                                                                                           |
-| --------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Color tokens    | `src/app/globals.css` (`--background`, `--primary`, `--muted`, `--destructive`, …) | shadcn `new-york`, `neutral` base, oklch, light + dark via `.dark` class                                                                                        |
-| Fonts           | `Geist` (sans), `Geist Mono` (mono), loaded in `src/app/layout.tsx`                | Mono only for code, IDs, and quantities that must align                                                                                                         |
-| Type components | `src/components/ui/typography.tsx` (`Heading`, `Body`, …)                          | Text styling only. Layout goes on a wrapper. See [docs/TYPOGRAPHY.md](TYPOGRAPHY.md)                                                                            |
-| UI primitives   | `src/components/ui/*`                                                              | shadcn; `Button`, `Card`, `Badge`, `Dialog`, `Sheet`, `Select`, `Input`, `Table`, …                                                                             |
-| Icons           | `lucide-react`                                                                     | `size-4` inline in buttons, `h-3 w-3` in meta rows next to caption text                                                                                         |
-| Page shell      | `src/app/layout.tsx`, `header.tsx`, `bottom-tab-bar.tsx`                           | Fixed header, bottom tab bar on mobile, content column capped at 1152px (`HON-376`)                                                                             |
-| Review harness  | Storybook (`pnpm storybook`), mobile viewport by default                           | Every component change ships with a story. Axe runs on every story in CI. **Proposed:** `Scenarios/*` composite stories plus a DOM design-rule helper (HON-610) |
+| Concern         | Where it lives                                                                         | Notes                                                                                                                                                           |
+| --------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Color tokens    | `src/app/globals.css` (`--background`, `--primary`, `--muted`, `--destructive`, …)     | shadcn `new-york`, `neutral` base, oklch, light + dark via `.dark` class                                                                                        |
+| Fonts           | `Geist` (sans), `Geist Mono` (mono), loaded in `src/app/layout.tsx`                    | Mono only for code, IDs, and quantities that must align                                                                                                         |
+| Type components | `src/components/ui/typography.tsx` (`Heading`, `Body`, …)                              | Text styling only. Layout goes on a wrapper. See [docs/TYPOGRAPHY.md](TYPOGRAPHY.md)                                                                            |
+| UI primitives   | `src/components/ui/*`                                                                  | shadcn; `Button`, `Card`, `Badge`, `Dialog`, `Sheet`, `Select`, `Input`, `Table`, …                                                                             |
+| Icons           | `lucide-react`                                                                         | `size-4` inline in buttons, `h-3 w-3` in meta rows next to caption text                                                                                         |
+| Page shell      | `src/app/layout.tsx`, `src/components/header.tsx`, `src/components/bottom-tab-bar.tsx` | Fixed header, bottom tab bar on mobile, content column capped at 1152px (`HON-376`)                                                                             |
+| Review harness  | Storybook (`pnpm storybook`), mobile viewport by default                               | Every component change ships with a story. Axe runs on every story in CI. **Proposed:** `Scenarios/*` composite stories plus a DOM design-rule helper (HON-610) |
 
 ## Type scale
 
 Five levels for authenticated app pages (`HON-381`). Differentiate by color before size.
 
-| Level     | Use for                                        | Component                             | Renders as                      |
-| --------- | ---------------------------------------------- | ------------------------------------- | ------------------------------- |
-| Title     | Page heading: "Shopping list", "My recipes"    | `<Heading variant="h4">`              | `text-xl font-semibold`         |
-| Section   | Day names, form sections ("Ingredients")       | `<Heading variant="section" as="h2">` | `text-base font-semibold`       |
-| Body      | Meal names, ingredients, descriptions, links   | `<Body variant="small">`              | `text-sm font-medium`           |
-| Secondary | Helper text, subtitles, summaries              | `<Body variant="muted">`              | `text-sm text-muted-foreground` |
-| Caption   | Meal-type labels, badges, quantities, day tags | `<Body variant="caption">`            | `text-xs font-medium muted`     |
+| Level     | Use for                                                   | Component                                                                                                  | Renders as                         |
+| --------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Title     | Page heading: "Shopping list", "My recipes"               | `<Heading variant="h4">`                                                                                   | `text-xl font-semibold`            |
+| Section   | Day names, form sections ("Ingredients")                  | `text-base font-semibold` on a heading tag today; `<Heading variant="section" as="h2">` once HON-606 ships | `text-base font-semibold`          |
+| Body      | Single-line items: meal names, ingredient rows, links     | `<Body variant="small">`                                                                                   | `text-sm font-medium leading-none` |
+| Secondary | Helper text, descriptions, summaries; any text that wraps | `<Body variant="muted">`                                                                                   | `text-sm text-muted-foreground`    |
+| Caption   | Meal-type labels, badges, quantities, day tags            | `<Body variant="caption">`                                                                                 | `text-xs font-medium muted`        |
 
 Rules:
 
 - No arbitrary font sizes (`text-[10px]`). If a size is not in the scale, the design is wrong, not the scale.
 - Do not override a `Body` variant's size with `className`. Pick the right variant.
-- `Heading` `h1`, `h2`, `h3` are for the marketing landing page, legal pages, and error pages. Inside the app, page titles are `h4`. Five in-app components still use `h2` (`ShoppingEmptyState`, `MemberList`, `FirstTimeSetup`, `GeneratingOverlay`, `HouseholdSettingsForm`); decided 2026-09-03 to migrate them, not to add an exception.
+- `Heading` `h1`, `h2`, `h3` are for the marketing landing page, legal pages, error pages, and internal pages (`/status`, `/bot`, `/admin`). Inside the household-facing app, page titles are `h4`. Five in-app components still use `h2` (`ShoppingEmptyState`, `MemberList`, `FirstTimeSetup`, `GeneratingOverlay`, `HouseholdSettingsForm`); decided 2026-09-03 to migrate them, not to add an exception.
 - Do not wrap `Heading` in `CardTitle` or `Body` in `CardDescription`. One component per text element.
 - Visual level and HTML tag are separate choices. `variant` sets the size, `as` sets the tag. Pick the tag for document outline (no skipped levels, one `h1` per page) and the variant for the type scale. Decided 2026-09-03; until the `as` prop ships, `Heading` still ties the two together and the Section level is raw `text-base font-semibold`.
 
@@ -59,14 +59,14 @@ Spacing rhythm as used today (Tailwind steps, 4px each):
 - One element owns each gap. Use `gap-*` on a flex or grid parent, not margins on children.
 - Radius: `rounded-md` for controls (buttons, inputs, badges are `rounded-full`), `rounded-lg` for list rows and dialogs, `rounded-xl` for `Card`. Do not mix within one component.
 - Elevation: `shadow-xs` on outline controls, `shadow-sm` on cards, `shadow-lg` only on overlays (dialog, sheet, popover). Nothing else casts a shadow.
-- Interactive list rows and tab items are at least 44px tall on mobile (`min-h-[44px]` today; **Proposed:** a named `min-h-touch` utility, HON-609).
+- Interactive list rows and tab items are at least 44px tall on mobile (today only two shopping rows set `min-h-[44px]`; the tab bar relies on its 64px container and sets no per-item floor. **Proposed:** a named `min-h-touch` utility and a rollout, HON-609).
 
 ## Color
 
 - Design in monochrome first. The neutral palette carries hierarchy through weight, size, and `muted-foreground`, not hue.
 - Color adds meaning, never decoration. Every colored element also carries a non-color cue: an icon, a label, or a text change.
 - The only accent that exists is `primary` (near-black in light, near-white in dark). Do not introduce a brand hue in components ahead of a brand decision.
-- Status colors today are hand-rolled per file (`text-amber-700 dark:text-amber-400`, `bg-green-100 dark:bg-green-900/30`) in 25 files. Decided 2026-09-03: add generic `--success`, `--warning`, `--info` tokens, each with a `-muted` surface variant, to `globals.css`, then migrate every raw pairing (HON-608). Domain names (available, missing, staple) stay in component props, not in token names. Until the tokens land, copy an existing pairing exactly rather than picking a new shade.
+- Status colors today are hand-rolled per file (`text-amber-700 dark:text-amber-400`, `bg-green-100 dark:bg-green-900/30`) in roughly 25 files (the grep in HON-608 is the source of truth). Decided 2026-09-03: add generic `--success`, `--warning`, `--info` tokens, each with a `-muted` surface variant, to `globals.css`, then migrate every raw pairing (HON-608). Domain names (available, missing, staple) stay in component props, not in token names. Until the tokens land, copy an existing pairing exactly rather than picking a new shade.
 - Never write a `dark:` override for a semantic token. Tokens already switch. `dark:` is only for raw palette classes, which are the thing we are removing.
 
 ## Composition rules
@@ -116,12 +116,14 @@ Add one here when a review finds code and rule disagreeing and the fix is not ob
 
 1. The default `Button` is `h-9` (36px), below the 44px touch rule. Options: leave buttons at 36px and scope the rule to list rows and tab items (the wording above does this for now), or make `size="lg"` (40px) the mobile default for primary actions, or raise the default. HON-609 will list every interactive element under 44px at the mobile viewport so this can be decided on evidence.
 
+2. The Body level has no wrapping variant. `Body variant="small"` is `leading-none`, so it is only safe for single-line items; multi-line text currently falls back to `muted`. Options: add a `body` variant (`text-sm leading-normal`) or loosen `small`. Decide when HON-606 touches `typography.tsx`.
+
 ## Pending code changes
 
 Decisions above that the code does not yet reflect. Each has a Linear issue; update this list when one ships.
 
 - HON-606: give `Heading` an `as` prop and a `section` variant; retire the `nameHeadingLevel` workaround (type scale).
 - HON-607: migrate the five in-app `Heading variant="h2"` usages to `h4` (type scale).
-- HON-608: add `success`, `warning`, `info` tokens and migrate the 25 files using raw palette classes (color).
+- HON-608: add `success`, `warning`, `info` tokens and migrate every raw palette class (color).
 - HON-609: name the 44px touch-target height as a utility (spacing).
 - HON-610: add three `Scenarios/*` stories and the `assertDesignRules` DOM helper (review harness).
