@@ -131,6 +131,5 @@ Add one here when a review finds code and rule disagreeing and the fix is not ob
 Decisions above that the code does not yet reflect. Each has a Linear issue; update this list when one ships.
 
 - HON-607: migrate the five in-app `Heading variant="h2"` usages to `h4` (type scale).
-- HON-619: finish the Section sweep — `profile/page.tsx:68/82` are still `h4` sections under an `h4` card title, and `TimelineDayCard.tsx:67` is the one `variant="section"` with no `as` (type scale).
 - HON-612: raise the default control height to 44px on mobile for `Button`, `Input`, and `Select`, using the `touch` token (spacing).
 - HON-610: add three `Scenarios/*` stories and the `assertDesignRules` DOM helper (review harness).

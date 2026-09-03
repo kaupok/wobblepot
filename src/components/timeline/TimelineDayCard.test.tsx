@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { TimelineDayCard } from './TimelineDayCard'
+import { Header } from '@/components/header'
+import enMessages from '../../../messages/en.json'
 import type { TimelineDay } from '@/components/meal-plan/types'
 
 vi.mock('next/navigation', () => ({
@@ -8,6 +10,40 @@ vi.mock('next/navigation', () => ({
     push: vi.fn(),
     refresh: vi.fn(),
   })),
+}))
+
+// The heading-hierarchy test below renders the real `Header`, so this file
+// carries its dependencies too. `next-intl/server` resolves against the real
+// English catalog, matching `header.test.tsx`; the header's three child
+// components are stubbed because none of them renders a heading, and pulling
+// their trees in would only make this file fragile.
+vi.mock('next-intl/server', () => ({
+  getTranslations: vi.fn(async (namespace: string) => {
+    const segments = namespace.split('.')
+    let cursor: unknown = enMessages
+    for (const segment of segments) {
+      cursor = (cursor as Record<string, unknown>)?.[segment]
+    }
+    return (key: string) => (cursor as Record<string, string>)?.[key] ?? key
+  }),
+}))
+
+vi.mock('@/lib/session', () => ({
+  getSession: vi.fn(),
+  getHasHousehold: vi.fn(),
+}))
+
+vi.mock('@/components/header-actions', () => ({
+  HeaderActions: () => <div data-testid="header-actions" />,
+}))
+
+vi.mock('@/components/navigation', () => ({
+  NavigationLeft: () => <nav data-testid="navigation-left" />,
+  NavigationRight: () => <nav data-testid="navigation-right" />,
+}))
+
+vi.mock('@/components/mobile-nav', () => ({
+  MobileNav: () => <div data-testid="mobile-nav" />,
 }))
 
 // Mock MealCard to simplify testing
@@ -46,8 +82,10 @@ describe('TimelineDayCard', () => {
   it('renders day label as a heading', () => {
     render(<TimelineDayCard day={baseDay} {...defaultProps} />)
     // The day name is the Section level of the type scale, and a real heading
-    // so it lands in the document outline (HON-606).
-    expect(screen.getByRole('heading', { level: 2, name: 'Today' })).toBeInTheDocument()
+    // so it lands in the document outline (HON-606). Which level it lands at is
+    // asserted relative to the enclosing title in the hierarchy suite below,
+    // rather than restated here as a second constant (HON-619).
+    expect(screen.getByRole('heading', { name: 'Today' })).toBeInTheDocument()
   })
 
   it('renders empty slots for future days', () => {
@@ -167,5 +205,39 @@ describe('TimelineDayCard', () => {
 
     expect(screen.getByText('Dinner')).toBeInTheDocument()
     expect(screen.getByText('Breakfast')).toBeInTheDocument()
+  })
+})
+
+/**
+ * The day label's enclosing title lives in neither this component nor
+ * `TimelineView`: the timeline route (`/`) renders no page title of its own, so
+ * the only heading above the day labels in document order is the header brand
+ * (`src/components/header.tsx`, `variant="h4"`, no `as`, so `<h4>`). That holds
+ * identically at all three mount points — `TimelineView.tsx:185`,
+ * `TimelineView.tsx:201`, and `TimelinePastSection.tsx:61`, which mount only
+ * under `src/app/page.tsx` — which is why the tag is fixed in the component
+ * instead of being passed per consumer. See HON-619.
+ *
+ * The real `Header` is rendered here because the app shell is the only place
+ * that relationship exists; asserting the level anywhere else would just
+ * restate `h5` as a second constant. What it guards is invisible to axe's
+ * `heading-order`, which only flags increases greater than one: dropping `as`
+ * renders the `section` variant's default `<h2>`, putting the day label *above*
+ * the brand, and axe reads that as a legal decrease.
+ */
+describe('TimelineDayCard - heading hierarchy', () => {
+  it('renders the day label one level below the header brand', async () => {
+    const { getSession } = await import('@/lib/session')
+    vi.mocked(getSession).mockResolvedValue(null)
+
+    render(await Header())
+    render(<TimelineDayCard day={baseDay} {...defaultProps} />)
+
+    const brand = screen.getByRole('heading', { name: 'Wobblepot' })
+    const brandLevel = Number(brand.tagName.slice(1))
+
+    expect(
+      screen.getByRole('heading', { name: 'Today', level: brandLevel + 1 }),
+    ).toBeInTheDocument()
   })
 })

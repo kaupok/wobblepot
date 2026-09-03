@@ -180,6 +180,35 @@ describe('ProfilePage', () => {
     expect(screen.getByText('test@example.com')).toBeInTheDocument()
   })
 
+  /**
+   * The card title sits at the Title level (`variant="h4"`, rendering `<h4>`);
+   * its two sections sit one level below it in both the type scale and the
+   * document outline. See HON-619.
+   *
+   * The section level is read off the title's tag rather than restated, so this
+   * asserts the *relationship* rather than two independent constants — the same
+   * shape as `MealForm.test.tsx` and `HouseholdSettingsForm.test.tsx`,
+   * deliberately, so the three do not diverge. It catches what axe's
+   * `heading-order` cannot: that rule only flags increases greater than one, so
+   * a `variant="section"` swap that forgets `as` (rendering the default `<h2>`,
+   * *above* the title) reads to axe as a legal decrease.
+   */
+  it('renders each section one level below the card title', async () => {
+    const { getSession } = await import('@/lib/session')
+    const { getHouseholdMembership } = await import('@/lib/household')
+    vi.mocked(getSession).mockResolvedValue(session as never)
+    vi.mocked(getHouseholdMembership).mockResolvedValue(membershipWithMemberCount(2) as never)
+
+    render(await ProfilePage())
+
+    const title = screen.getByRole('heading', { name: 'Profile', level: 4 })
+    const titleLevel = Number(title.tagName.slice(1))
+
+    for (const name of ['Your data', 'Danger zone']) {
+      expect(screen.getByRole('heading', { name, level: titleLevel + 1 })).toBeInTheDocument()
+    }
+  })
+
   it('redirects to sign-in when there is no session', async () => {
     const { getSession } = await import('@/lib/session')
     const { getHouseholdMembership } = await import('@/lib/household')
