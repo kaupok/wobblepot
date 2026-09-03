@@ -185,10 +185,13 @@ describe('ProfilePage', () => {
    * its two sections sit one level below it in both the type scale and the
    * document outline. See HON-619.
    *
-   * The section level is read off the title's tag rather than restated, so this
-   * asserts the *relationship* rather than two independent constants — the same
-   * shape as `MealForm.test.tsx` and `HouseholdSettingsForm.test.tsx`,
-   * deliberately, so the three do not diverge. It catches what axe's
+   * The section level is derived from the title's tag rather than restated, so
+   * moving the title moves what the loop demands — the same shape as
+   * `MealForm.test.tsx` and `HouseholdSettingsForm.test.tsx`, deliberately, so
+   * the three do not diverge. The `level: 4` in the title query is the separate
+   * assertion that line 45 stays at the Title level, so changing the title
+   * still fails this test, just at that line rather than in the loop. It
+   * catches what axe's
    * `heading-order` cannot: that rule only flags increases greater than one, so
    * a `variant="section"` swap that forgets `as` (rendering the default `<h2>`,
    * *above* the title) reads to axe as a legal decrease.

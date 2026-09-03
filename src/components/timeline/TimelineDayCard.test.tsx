@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { TimelineDayCard } from './TimelineDayCard'
 import { Header } from '@/components/header'
+import { GeneratingOverlay } from '@/components/meal-plan/GeneratingOverlay'
 import enMessages from '../../../messages/en.json'
 import type { TimelineDay } from '@/components/meal-plan/types'
 
@@ -211,12 +212,20 @@ describe('TimelineDayCard', () => {
 /**
  * The day label's enclosing title lives in neither this component nor
  * `TimelineView`: the timeline route (`/`) renders no page title of its own, so
- * the only heading above the day labels in document order is the header brand
+ * the heading that anchors the day labels is the header brand
  * (`src/components/header.tsx`, `variant="h4"`, no `as`, so `<h4>`). That holds
  * identically at all three mount points — `TimelineView.tsx:185`,
  * `TimelineView.tsx:201`, and `TimelinePastSection.tsx:61`, which mount only
  * under `src/app/page.tsx` — which is why the tag is fixed in the component
  * instead of being passed per consumer. See HON-619.
+ *
+ * The brand is not the only heading that can *precede* a day label, though:
+ * `FillDaysAction` renders `GeneratingOverlay` inline between the planned and
+ * empty day cards while a fill-days generation runs, so that heading is a
+ * sibling of the day labels rather than a title enclosing them. It does not
+ * vary per consumer, so it does not argue for a `dayHeadingTag` prop — but it
+ * does have to stay within one level of the day label, which the second test
+ * below pins (PR #700 review).
  *
  * The real `Header` is rendered here because the app shell is the only place
  * that relationship exists; asserting the level anywhere else would just
@@ -239,5 +248,23 @@ describe('TimelineDayCard - heading hierarchy', () => {
     expect(
       screen.getByRole('heading', { name: 'Today', level: brandLevel + 1 }),
     ).toBeInTheDocument()
+  })
+
+  it('stays within one level of the generating overlay it can render beside', () => {
+    // `FillDaysAction.tsx:103` emits `<GeneratingOverlay />` between the
+    // planned and empty `TimelineDayCard`s, so this is the real document order
+    // for up to the 45s client timeout of every fill-days generation. axe's
+    // `heading-order` is `currLevel - prevLevel <= 1`, so an overlay left at
+    // the `h2` variant's natural tag would read as a two-level skip into the
+    // day label. No story composes the two, so the axe gate cannot see this.
+    render(<GeneratingOverlay />)
+    render(<TimelineDayCard day={baseDay} {...defaultProps} />)
+
+    const overlayLevel = Number(
+      screen.getByRole('heading', { name: 'Generating your meal plan…' }).tagName.slice(1),
+    )
+    const dayLevel = Number(screen.getByRole('heading', { name: 'Today' }).tagName.slice(1))
+
+    expect(dayLevel - overlayLevel).toBeLessThanOrEqual(1)
   })
 })
