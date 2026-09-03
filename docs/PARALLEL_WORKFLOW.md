@@ -220,9 +220,19 @@ wt stop
 
 Requires `LINEAR_API_KEY` env var (format: `lin_api_...`).
 
-**`--max-workers` is bounded by the Neon branch cap, not by local CPU.** Each in-flight issue consumes **two** Neon branches: the worktree's `<prefix>--hon-<N>` (created by `neon_branch_name` in `worktree-claude.sh`) and the Vercel–Neon integration's `preview/<git-branch>`, created when the PR opens and held until it merges. With the three permanent branches (`main`, `staging`, `dev/kaupo`), peak usage is **`2N + 3`**. On Neon's free plan (10 branches) that means N=3 fits at 9 and N=4 does not at 11.
+**`--max-workers` is bounded by the Neon branch cap, not by local CPU.** Each in-flight issue consumes **two** Neon branches: the worktree's `<prefix>--hon-<N>` (created by `neon_branch_name` in `worktree-claude.sh`) and the Vercel–Neon integration's `preview/<git-branch>`, created when the PR opens and held until it merges.
 
-Neither reaper reclaims a `preview/*` branch — `neon_gc_orphans` only emits the tooling's own name shapes, and `neon-cleanup.sh`'s `SAFE_BRANCH_REGEX` excludes `/` — and correctly so, since those branches belong to open PRs. Exceeding the cap makes `wt auto` die during worktree setup with `branches limit exceeded`, which fails the issue back to Backlog with a `Needs attention` label before Claude runs at all (HON-609, 2026-09-03). Raise this only alongside the Neon plan; see HON-616.
+**Stranded runs hold the same two indefinitely.** `record_stranded` frees the worker slot but deliberately preserves the worktree, the git branch and its Neon branch — "nothing else reclaims them", as the Linear comment it posts says — while the unmerged PR keeps its `preview/*` alive. So with S stranded runs and the three permanent branches (`main`, `staging`, `dev/kaupo`), peak usage is:
+
+```
+2N + 2S + 3
+```
+
+On Neon's free plan (10 branches): N=3 fits at 9, N=4 does not at 11. The one spare branch at N=3 is what absorbs a **single** stranded run; a second one hits the cap. Treat a stranded worktree as something to clear (`wt list`, then `wt cleanup <branch>`), not as headroom.
+
+No reaper reclaims either shape on its own. `neon_gc_orphans` skips any branch whose git worktree is still live — which a stranded run's is — and `neon-cleanup.sh`'s sweep requires the Linear issue to be Done or Canceled, while a stranded one sits in In Review. `preview/*` escapes both regardless: `neon_gc_orphan_names` emits only the tooling's own name shapes, and `SAFE_BRANCH_REGEX` excludes `/`. That is correct for a live PR, but it means the budget above is the only thing protecting you.
+
+Exceeding the cap makes `wt auto` die during worktree setup with `branches limit exceeded`, failing the issue back to Backlog with a `Needs attention` label before Claude runs at all (HON-609, 2026-09-03). Raise this only alongside the Neon plan; see HON-616.
 
 ### Monitoring
 
