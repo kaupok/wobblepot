@@ -56,7 +56,16 @@ WORKER_TITLES=()
 
 # ─── Configuration ───────────────────────────────────────────────────────────
 
-MAX_WORKERS="${ORCHESTRATOR_MAX_WORKERS:-5}"
+# Bounded by the Neon branch cap, not by local CPU. Each in-flight issue costs
+# TWO Neon branches: the worktree's `<prefix>--hon-<N>` (neon_branch_name in
+# worktree-claude.sh) and the Vercel-Neon integration's `preview/<git-branch>`,
+# created when the PR opens. Add the three permanent branches (main, staging,
+# dev/kaupo) and peak usage is `2N + 3`. The project is on Neon's free plan, a
+# 10-branch cap, so N=3 fits (9) and N=4 does not (11). Raising this without
+# raising the plan makes `wt auto` die in worktree setup with "branches limit
+# exceeded", which fails the issue back to Backlog + `Needs attention` before
+# Claude ever runs (HON-609, 2026-09-03). See HON-616.
+MAX_WORKERS="${ORCHESTRATOR_MAX_WORKERS:-3}"
 POLL_INTERVAL="${ORCHESTRATOR_POLL_INTERVAL:-60}"
 WORKER_TIMEOUT="${ORCHESTRATOR_WORKER_TIMEOUT:-10800}"  # 3h. HON-583: 1h no longer absorbs the in-turn CI wait
 # Wall-clock bound on the Claude triage call in handle_failure. Without it a
@@ -132,7 +141,7 @@ while [[ $# -gt 0 ]]; do
       echo "Usage: $0 [options]"
       echo ""
       echo "Options:"
-      echo "  --max-workers N      Max concurrent workers (default: 5)"
+      echo "  --max-workers N      Max concurrent workers (default: 3, capped by Neon branches)"
       echo "  --poll-interval N    Seconds between polls (default: 60)"
       echo "  --worker-timeout N   Seconds before killing a worker (default: 10800)"
       echo "  --dry-run            Log actions without executing"

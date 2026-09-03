@@ -212,13 +212,17 @@ wt stop
 
 | Flag                 | Env Var                       | Default | Description                     |
 | -------------------- | ----------------------------- | ------- | ------------------------------- |
-| `--max-workers N`    | `ORCHESTRATOR_MAX_WORKERS`    | 5       | Max concurrent workers          |
+| `--max-workers N`    | `ORCHESTRATOR_MAX_WORKERS`    | 3       | Max concurrent workers          |
 | `--poll-interval N`  | `ORCHESTRATOR_POLL_INTERVAL`  | 60      | Seconds between polls           |
 | `--worker-timeout N` | `ORCHESTRATOR_WORKER_TIMEOUT` | 10800   | Seconds before killing a worker |
 | `--dry-run`          | —                             | false   | Log actions without executing   |
 | `--once`             | —                             | false   | Single poll cycle, then exit    |
 
 Requires `LINEAR_API_KEY` env var (format: `lin_api_...`).
+
+**`--max-workers` is bounded by the Neon branch cap, not by local CPU.** Each in-flight issue consumes **two** Neon branches: the worktree's `<prefix>--hon-<N>` (created by `neon_branch_name` in `worktree-claude.sh`) and the Vercel–Neon integration's `preview/<git-branch>`, created when the PR opens and held until it merges. With the three permanent branches (`main`, `staging`, `dev/kaupo`), peak usage is **`2N + 3`**. On Neon's free plan (10 branches) that means N=3 fits at 9 and N=4 does not at 11.
+
+Neither reaper reclaims a `preview/*` branch — `neon_gc_orphans` only emits the tooling's own name shapes, and `neon-cleanup.sh`'s `SAFE_BRANCH_REGEX` excludes `/` — and correctly so, since those branches belong to open PRs. Exceeding the cap makes `wt auto` die during worktree setup with `branches limit exceeded`, which fails the issue back to Backlog with a `Needs attention` label before Claude runs at all (HON-609, 2026-09-03). Raise this only alongside the Neon plan; see HON-616.
 
 ### Monitoring
 
