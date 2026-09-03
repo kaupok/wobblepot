@@ -8,9 +8,8 @@ import type { CustomItemData } from '@/components/shopping/CustomItemInput'
 /**
  * User-added shopping-list rows, separate from the ones computed from the meal
  * plan. Every mutation updates local state first — a checkbox that lags behind a
- * round trip feels broken. Only the toggle rolls back on failure; unlink, delete
- * and clear-checked currently do not — see the note on `handleCustomUnlink`
- * (HON-598).
+ * round trip feels broken — and rolls that update back when the request fails,
+ * so the list never contradicts its own error toast.
  */
 export function useCustomShoppingItems(initialCustomItems: CustomItemData[]) {
   const tErrors = useTranslations('shopping.errors')
@@ -60,6 +59,8 @@ export function useCustomShoppingItems(initialCustomItems: CustomItemData[]) {
 
   const handleCustomUnlink = useCallback(
     async (id: string) => {
+      const previous = customItems.find((item) => item.id === id)
+
       // Optimistic update
       setCustomItems((prev) =>
         prev.map((item) =>
@@ -78,19 +79,32 @@ export function useCustomShoppingItems(initialCustomItems: CustomItemData[]) {
           throw new Error(tErrors('unlinkFailed'))
         }
       } catch {
-        // NOTE: no rollback — the row stays rendered as unlinked even though the
-        // server still has the link, until the next load. Same for delete and
-        // clear-checked below. Pre-existing behaviour, moved here verbatim from
-        // ShoppingSection; fixing it is HON-598, kept out of this
-        // no-behaviour-change refactor.
+        // Revert only the two fields we edited — the row may have been checked
+        // while the request was in flight, and that toggle is not ours to undo.
+        if (previous) {
+          setCustomItems((prev) =>
+            prev.map((item) =>
+              item.id === id
+                ? {
+                    ...item,
+                    ingredientId: previous.ingredientId,
+                    ingredientCategory: previous.ingredientCategory,
+                  }
+                : item,
+            ),
+          )
+        }
         toast.error(tErrors('unlinkFailed'))
       }
     },
-    [tErrors],
+    [customItems, tErrors],
   )
 
   const handleCustomDelete = useCallback(
     async (id: string) => {
+      const removedIndex = customItems.findIndex((item) => item.id === id)
+      const removed = customItems[removedIndex]
+
       // Optimistic update
       setCustomItems((prev) => prev.filter((item) => item.id !== id))
 
@@ -103,15 +117,28 @@ export function useCustomShoppingItems(initialCustomItems: CustomItemData[]) {
           throw new Error(tErrors('removeFailed'))
         }
       } catch {
+        // Put the row back where it was — appending would silently reorder the
+        // list. `splice` clamps a stale index to the end, and the presence check
+        // keeps an un-debounced double-click from inserting the row twice.
+        if (removed) {
+          setCustomItems((prev) => {
+            if (prev.some((item) => item.id === id)) return prev
+            const next = [...prev]
+            next.splice(removedIndex, 0, removed)
+            return next
+          })
+        }
         toast.error(tErrors('removeFailed'))
       }
     },
-    [tErrors],
+    [customItems, tErrors],
   )
 
   const handleClearChecked = useCallback(async () => {
     const checkedIds = new Set(customItems.filter((i) => i.checked).map((i) => i.id))
     if (checkedIds.size === 0) return
+
+    const previousItems = customItems
 
     // Optimistic update
     setCustomItems((prev) => prev.filter((item) => !item.checked))
@@ -125,6 +152,16 @@ export function useCustomShoppingItems(initialCustomItems: CustomItemData[]) {
         throw new Error(tErrors('clearCheckedFailed'))
       }
     } catch {
+      // Rebuild from the snapshot rather than assigning it: a row edited while
+      // the request was in flight keeps its current version, and a row added in
+      // that window stays at the head where `handleCustomItemAdded` put it.
+      setCustomItems((prev) => {
+        const current = new Map(prev.map((item) => [item.id, item]))
+        const snapshotIds = new Set(previousItems.map((item) => item.id))
+        const added = prev.filter((item) => !snapshotIds.has(item.id))
+        const restored = previousItems.map((item) => current.get(item.id) ?? item)
+        return [...added, ...restored]
+      })
       toast.error(tErrors('clearCheckedFailed'))
     }
   }, [customItems, tErrors])
