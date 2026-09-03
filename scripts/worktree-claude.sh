@@ -1758,7 +1758,7 @@ cmd_watch() {
         orch_pid=$(echo "$status" | jq -r '.pid')
         started_at=$(echo "$status" | jq -r '.started_at')
         last_poll=$(echo "$status" | jq -r '.last_poll')
-        max_workers=$(echo "$status" | jq -r '.max_workers // 5')
+        max_workers=$(echo "$status" | jq -r '.max_workers // 3')
 
         # Orchestrator liveness
         local orch_alive=false

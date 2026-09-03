@@ -56,7 +56,29 @@ WORKER_TITLES=()
 
 # ─── Configuration ───────────────────────────────────────────────────────────
 
-MAX_WORKERS="${ORCHESTRATOR_MAX_WORKERS:-5}"
+# Bounded by the Neon branch cap, not by local CPU. Each in-flight issue costs
+# TWO Neon branches: the worktree's `<prefix>--hon-<N>` (neon_branch_name in
+# worktree-claude.sh) and the Vercel-Neon integration's `preview/<git-branch>`,
+# created when the PR opens and held until it merges.
+#
+# Stranded runs cost the same two, indefinitely. record_stranded frees the
+# worker slot but deliberately preserves the worktree, the git branch and its
+# Neon branch ("nothing else reclaims them" — see its Linear comment below),
+# while the unmerged PR keeps its preview/* alive. Neither reaper collects
+# either: neon_gc_orphans skips a live worktree, and neon-cleanup.sh's sweep
+# needs the issue Done/Canceled while a stranded one sits In Review. Only
+# `wt cleanup <branch>` releases them.
+#
+# So with S stranded runs and the three permanent branches (main, staging,
+# dev/kaupo), peak usage is `2N + 2S + 3`. The project is on Neon's free plan,
+# a 10-branch cap: N=3 fits at 9, but leaves room for only ONE stranded run
+# (11 > 10 — the same wall HON-609 hit). Watch `wt list` for stranded worktrees
+# and clean them up; they are the reason to keep a spare, not headroom to spend.
+#
+# Raising this without raising the plan makes `wt auto` die in worktree setup
+# with "branches limit exceeded", failing the issue back to Backlog +
+# `Needs attention` before Claude ever runs (HON-609, 2026-09-03). See HON-616.
+MAX_WORKERS="${ORCHESTRATOR_MAX_WORKERS:-3}"
 POLL_INTERVAL="${ORCHESTRATOR_POLL_INTERVAL:-60}"
 WORKER_TIMEOUT="${ORCHESTRATOR_WORKER_TIMEOUT:-10800}"  # 3h. HON-583: 1h no longer absorbs the in-turn CI wait
 # Wall-clock bound on the Claude triage call in handle_failure. Without it a
@@ -132,7 +154,7 @@ while [[ $# -gt 0 ]]; do
       echo "Usage: $0 [options]"
       echo ""
       echo "Options:"
-      echo "  --max-workers N      Max concurrent workers (default: 5)"
+      echo "  --max-workers N      Max concurrent workers (default: 3, capped by Neon branches)"
       echo "  --poll-interval N    Seconds between polls (default: 60)"
       echo "  --worker-timeout N   Seconds before killing a worker (default: 10800)"
       echo "  --dry-run            Log actions without executing"
