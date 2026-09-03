@@ -40,12 +40,23 @@ export function GeneratingOverlay() {
         <Loader2 className="text-primary h-12 w-12 animate-spin" />
         <div className="flex flex-col items-center gap-2">
           {/*
-            `as="h4"` moves only the tag, not the size. The overlay renders
-            inline in the timeline — `FillDaysAction` emits it between the
-            planned and empty `TimelineDayCard`s — so its heading has an `h5`
-            day label directly after it. At the variant's natural `<h2>` that
-            reads as a skipped level to axe's `heading-order` (`5 - 2 > 1`).
-            The `h2` variant itself is HON-607's to migrate (HON-619).
+            `as="h4"` moves only the tag, not the size. Two callsites constrain
+            it, and neither is visible from this file:
+
+            - `FillDaysAction.tsx:103` emits the overlay between the planned and
+              empty `TimelineDayCard`s, so an `h5` day label follows it. At the
+              variant's natural `<h2>` that is a skipped level to axe's
+              `heading-order` (`5 - 2 > 1`). Pinned in `TimelineDayCard.test.tsx`.
+            - `FirstTimeSetup.tsx:94` emits it just before that screen's own
+              `<h2>` title. Any tag is a legal decrease there, so axe is blind;
+              what matters is editorial — a transient status message must not
+              outrank the screen it covers. Pinned by the `Generating` story's
+              play function in `FirstTimeSetup.stories.tsx`.
+
+            HON-607 owns the `variant="h2"` on both this heading and
+            `FirstTimeSetup`'s title; once it lands, this `as` is a no-op
+            override rather than a correction. Keep it — it is what records
+            that the tag was chosen, not inherited. (HON-619)
           */}
           <Heading variant="h2" as="h4">
             {t('heading')}
