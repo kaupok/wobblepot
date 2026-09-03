@@ -119,7 +119,10 @@ describe('ProfilePage', () => {
     expect(dialog).toHaveAttribute('data-user-email', 'test@example.com')
 
     // The whole point of HON-596: the count rides along on the membership
-    // query, so the page issues exactly one `household_member` read.
+    // query, so the page resolves it with a single `getHouseholdMembership`
+    // call rather than following up with a separate count. (The request still
+    // touches `household_member` once more via `getCachedMembership`, which
+    // `getTranslations` reaches through `getLocale()` — a different query.)
     expect(getHouseholdMembership).toHaveBeenCalledTimes(1)
   })
 

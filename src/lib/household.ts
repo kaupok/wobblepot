@@ -7,9 +7,11 @@ import { prisma } from '@/lib/prisma'
  * The member count rides along on `household._count.members`. Prisma folds a
  * relation `_count` into this same round-trip, so every caller that needs the
  * household size gets it without a second `household_member` read. This
- * replaced the former `getHouseholdMemberCount` helper outright (HON-596) —
- * all four of its callers already held the membership row, so keeping it would
- * have meant counting the same table twice per request.
+ * replaced the former `getHouseholdMemberCount` helper outright (HON-596).
+ * Every site that needed a household size already held the membership row — the
+ * five that went through the helper plus `GET /api/pantry`, which counted via
+ * `prisma.householdMember.count` directly — so keeping it would have meant
+ * counting the same table twice per request.
  */
 export async function getHouseholdMembership(userId: string) {
   return prisma.householdMember.findFirst({
