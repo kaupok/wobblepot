@@ -169,8 +169,20 @@ export async function signOut(page: Page): Promise<void> {
   // for both the menu trigger and the menuitem here.
   const userMenuTrigger = page.getByRole('button', { name: 'User menu' })
   if (await userMenuTrigger.isVisible()) {
-    await userMenuTrigger.click()
-    await page.getByRole('menuitem', { name: 'Sign out' }).click()
+    // Open-and-click is retried as a unit: a page that autofocuses an input on
+    // hydration steals focus from the just-opened Radix menu, which closes on
+    // focus-outside and detaches the menuitem mid-click ("element was detached
+    // from the DOM"). The forgot-password fixture user has no household by
+    // design (prisma/seed.ts), so it signs out from the onboarding wizard,
+    // whose "Household name" textbox autofocuses — that spec hit this on every
+    // attempt in CI run 33729584094. Reopening on the next pass clears it.
+    await expect(async () => {
+      const signOutItem = page.getByRole('menuitem', { name: 'Sign out' })
+      if (!(await signOutItem.isVisible())) {
+        await userMenuTrigger.click()
+      }
+      await signOutItem.click({ timeout: 5_000 })
+    }).toPass({ timeout: 30_000 })
   } else {
     await page.getByRole('button', { name: 'Sign out' }).click()
   }
