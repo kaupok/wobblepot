@@ -46,8 +46,8 @@ export const SemanticTagOverride: Story = {
       <Heading variant="h2" as="h1">
         h2 size, h1 tag
       </Heading>
-      <Heading variant="section" as="h2">
-        Section size, h2 tag — a timeline day name
+      <Heading variant="h3" as="h2">
+        h3 size, h2 tag
       </Heading>
       <Heading variant="h4" as="h3">
         h4 size, h3 tag — a meal name under a Dialog title

@@ -54,7 +54,10 @@ describe('Typography Components', () => {
     it('does not give the section variant the h2 variant styling', () => {
       render(<Heading variant="section">Section</Heading>)
       const heading = screen.getByRole('heading', { level: 2 })
-      expect(heading).not.toHaveClass('text-3xl', 'border-b')
+      // Asserted separately: `toHaveClass(a, b)` requires *all* listed classes, so the
+      // negated two-argument form only asserts that one of them is missing.
+      expect(heading).not.toHaveClass('text-3xl')
+      expect(heading).not.toHaveClass('border-b')
     })
 
     it('renders the tag given by as, keeping the variant styling', () => {

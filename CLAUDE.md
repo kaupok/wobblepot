@@ -180,7 +180,7 @@ Use **sentence case** for all UI text (buttons, headings, labels, links): "Sign 
 
 ## Typography Components
 
-Variant-based components: `Heading` (h1-h4), `Body` (default/lead/large/small/muted), `Blockquote`, `Ul`/`Ol`/`Li`, `Code`, `Pre`.
+Variant-based components: `Heading` (h1-h4/section, plus an `as` prop that sets the HTML tag independently of the visual level), `Body` (default/lead/large/small/muted), `Blockquote`, `Ul`/`Ol`/`Li`, `Code`, `Pre`.
 
 **Core rule:** Typography components handle text styling only. Apply layout (margins, padding, positioning) via wrapper elements, not directly on the component. Only pass text-styling classes (colors, sizes, weights) to `className`.
 

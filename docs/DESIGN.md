@@ -28,13 +28,13 @@ Use these. Do not restyle them per feature or invent parallel ones.
 
 Five levels for authenticated app pages (`HON-381`). Differentiate by color before size.
 
-| Level     | Use for                                                   | Component                     | Renders as                         |
-| --------- | --------------------------------------------------------- | ----------------------------- | ---------------------------------- |
-| Title     | Page heading: "Shopping list", "My recipes"               | `<Heading variant="h4">`      | `text-xl font-semibold`            |
-| Section   | Day names, form sections ("Ingredients")                  | `<Heading variant="section">` | `text-base font-semibold`          |
-| Body      | Single-line items: meal names, ingredient rows, links     | `<Body variant="small">`      | `text-sm font-medium leading-none` |
-| Secondary | Helper text, descriptions, summaries; any text that wraps | `<Body variant="muted">`      | `text-sm text-muted-foreground`    |
-| Caption   | Meal-type labels, badges, quantities, day tags            | `<Body variant="caption">`    | `text-xs font-medium muted`        |
+| Level     | Use for                                                   | Component                                                                                         | Renders as                         |
+| --------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Title     | Page heading: "Shopping list", "My recipes"               | `<Heading variant="h4">`                                                                          | `text-xl font-semibold`            |
+| Section   | Day names, form sections ("Ingredients")                  | `<Heading variant="section">` (day names only so far — form sections are still `h4`, see HON-613) | `text-base font-semibold`          |
+| Body      | Single-line items: meal names, ingredient rows, links     | `<Body variant="small">`                                                                          | `text-sm font-medium leading-none` |
+| Secondary | Helper text, descriptions, summaries; any text that wraps | `<Body variant="muted">`                                                                          | `text-sm text-muted-foreground`    |
+| Caption   | Meal-type labels, badges, quantities, day tags            | `<Body variant="caption">`                                                                        | `text-xs font-medium muted`        |
 
 Rules:
 
@@ -123,6 +123,7 @@ Add one here when a review finds code and rule disagreeing and the fix is not ob
 Decisions above that the code does not yet reflect. Each has a Linear issue; update this list when one ships.
 
 - HON-607: migrate the five in-app `Heading variant="h2"` usages to `h4` (type scale).
+- HON-613: migrate the seven form-section headings from `Heading variant="h4"` to `variant="section"` — `MealForm.tsx:153` ("Ingredients", the row's own example), `MealFormBasicInfo.tsx:32`, `MealFormDetails.tsx:57`, `HouseholdSettingsForm.tsx:258/318/368/385`. HON-606 shipped the variant and migrated only the day-name callsite (type scale).
 - HON-608: add `success`, `warning`, `info` tokens and migrate every raw palette class (color).
 - HON-609: name the 44px touch-target height as a utility (spacing).
 - HON-610: add three `Scenarios/*` stories and the `assertDesignRules` DOM helper (review harness).
