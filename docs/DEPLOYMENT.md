@@ -26,6 +26,7 @@ All changes must pass the following checks in GitHub Actions:
 **Important notes:**
 
 - Build verification happens through Vercel deployment (not in CI)
+- The static Storybook publishes to GitHub Pages (<https://kaupok.github.io/wobblepot/>) from every `main` push that touches a build input — `.github/workflows/deploy-storybook.yml`. It is a docs surface only and sits outside the production release path below
 - Locally: `pnpm test:e2e` runs against `pnpm dev`; see [`tests/e2e/README.md`](../tests/e2e/README.md) for details
 
 ## E2E testing tiers

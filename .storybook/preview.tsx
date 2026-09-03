@@ -15,7 +15,18 @@ import etMessages from '../messages/et.json'
 const messagesByLocale = { en: enMessages, et: etMessages } as const
 type StorybookLocale = keyof typeof messagesByLocale
 
-initialize({ onUnhandledRequest: 'bypass' })
+initialize({
+  onUnhandledRequest: 'bypass',
+  // WHY: msw defaults to the origin-absolute `/mockServiceWorker.js`. The static
+  // build is served from a sub-path on GitHub Pages (/wobblepot/), where that
+  // URL 404s and every story then fails inside the msw loader — not just the
+  // data-fetching ones. BASE_URL is '/' in `storybook dev` and in the Vitest
+  // browser project (behaviour unchanged there) and './' in `storybook build`,
+  // where it resolves relative to iframe.html. Don't replace it with a bare
+  // './mockServiceWorker.js': the Vitest tester iframe lives under
+  // /__vitest_test__/, so a relative URL 404s and takes the CI a11y gate down.
+  serviceWorker: { url: `${import.meta.env.BASE_URL}mockServiceWorker.js` },
+})
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })

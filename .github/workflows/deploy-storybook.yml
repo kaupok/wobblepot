@@ -1,0 +1,112 @@
+# Storybook → GitHub Pages
+#
+# Publishes the static Storybook build to https://kaupok.github.io/wobblepot/
+# so the public repo has a browsable component catalogue. This is a docs
+# surface, not part of the production release path in docs/DEPLOYMENT.md —
+# nothing here touches Vercel, Neon, or the app.
+#
+# Only `main` publishes: Pages hosts a single site per repo, so a PR build
+# would overwrite the live catalogue. Use "Run workflow" (workflow_dispatch)
+# to republish by hand, e.g. after enabling Pages or a failed run.
+#
+# The build output is already sub-path safe (Storybook's Vite builder emits
+# relative asset URLs). The one thing that isn't is the MSW service worker
+# URL, handled in .storybook/preview.tsx — see the WHY comment there.
+
+name: Deploy Storybook [GitHub Pages]
+
+on:
+  push:
+    branches: [main]
+    # Inputs of `storybook build`. Docs-only or workflow-only pushes skip it.
+    paths:
+      - 'src/**'
+      - '.storybook/**'
+      - 'messages/**'
+      - 'public/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'tsconfig.json'
+      - 'postcss.config.*'
+      - 'next.config.*'
+      - '.github/workflows/deploy-storybook.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One Pages deployment at a time. Don't cancel an in-flight deploy; let the
+# queued run supersede it instead (GitHub's recommended Pages pattern).
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Storybook
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+      # `clientEnv` in src/lib/env.ts is parsed eagerly and throws at module
+      # load when these are missing. header-actions and mobile-nav import
+      # @/lib/auth-client → @/lib/env, and both have stories, so an unset value
+      # would crash those stories in the browser. The name is never rendered in
+      # a story (only in server-side emails), so the literal brand string is
+      # fine here and avoids the repo-level NEXT_PUBLIC_APP_NAME variable.
+      NEXT_PUBLIC_APP_NAME: Wobblepot
+      NEXT_PUBLIC_APP_ENV: ci
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # `postinstall` runs `prisma generate`, which needs no database:
+      # prisma.config.ts reads DATABASE_URL_UNPOOLED through process.env for
+      # exactly this reason.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Fails early with a clear message if Pages is not enabled for the repo
+      # (Settings → Pages → Source: GitHub Actions).
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+
+      # Fetches Geist from fonts.googleapis.com at build time (next/font/google
+      # through vite-plugin-storybook-nextjs, no offline fallback). CI already
+      # does the same fetch for the a11y gate, so a failure here is a network
+      # blip, not a code problem — re-run the workflow.
+      - name: Build Storybook
+        run: pnpm build-storybook
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: storybook-static
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
