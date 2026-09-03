@@ -150,7 +150,9 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
             {/* Ingredients Section */}
             <section className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
-                <Heading variant="h4">{t('ingredientsHeading')}</Heading>
+                <Heading variant="section" as="h5">
+                  {t('ingredientsHeading')}
+                </Heading>
                 {isImportMode && (unresolvedCount > 0 || lowConfidenceCount > 0) && (
                   <div className="flex gap-2">
                     {lowConfidenceCount > 0 && (

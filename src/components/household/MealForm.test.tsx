@@ -538,3 +538,40 @@ describe('MealForm - Duplicate Detection', () => {
     })
   })
 })
+
+/**
+ * The form's title sits at the Title level (`variant="h4"`, rendering `<h4>`);
+ * its sections sit one level below it in both the type scale and the document
+ * outline. See HON-613.
+ *
+ * The section level is read off the title's tag rather than restated, so this
+ * asserts the *relationship* rather than two independent constants — the same
+ * shape as `HouseholdSettingsForm.test.tsx`, deliberately, so the two do not
+ * diverge. It catches what axe's `heading-order` cannot: that rule only flags
+ * increases greater than one, so a `variant="section"` swap that forgets `as`
+ * (rendering the default `<h2>`, *above* the title) reads to axe as a legal
+ * decrease. `MealForm.tsx:106` is the one `variant="h4"` the type scale says
+ * stays put, so the title is not expected to move here — but pinning the
+ * relationship costs nothing and keeps both files honest.
+ */
+describe('MealForm - section heading hierarchy', () => {
+  const mockMeal: MealFormData = {
+    id: '1',
+    name: 'Test Meal',
+    kidFriendly: false,
+    suitableFor: ['dinner' as MealType],
+    servings: 4,
+    components: [],
+  }
+
+  it('renders the form title at h4 and every section one level below it', () => {
+    render(<MealForm meal={mockMeal} onSuccess={vi.fn()} onCancel={vi.fn()} />)
+
+    const title = screen.getByRole('heading', { name: 'Edit meal', level: 4 })
+    const titleLevel = Number(title.tagName.slice(1))
+
+    for (const name of ['Basic information', 'Ingredients', 'Additional details']) {
+      expect(screen.getByRole('heading', { name, level: titleLevel + 1 })).toBeInTheDocument()
+    }
+  })
+})
