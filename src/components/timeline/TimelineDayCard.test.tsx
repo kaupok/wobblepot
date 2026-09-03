@@ -250,21 +250,33 @@ describe('TimelineDayCard - heading hierarchy', () => {
     ).toBeInTheDocument()
   })
 
-  it('stays within one level of the generating overlay it can render beside', () => {
+  it('brackets the generating overlay it can render beside, on both sides', async () => {
     // `FillDaysAction.tsx:103` emits `<GeneratingOverlay />` between the
     // planned and empty `TimelineDayCard`s, so this is the real document order
-    // for up to the 45s client timeout of every fill-days generation. axe's
-    // `heading-order` is `currLevel - prevLevel <= 1`, so an overlay left at
-    // the `h2` variant's natural tag would read as a two-level skip into the
-    // day label. No story composes the two, so the axe gate cannot see this.
+    // for up to the 45s client timeout of every fill-days generation. With no
+    // planned days the heading before the overlay is the brand itself, which is
+    // the tighter of the two cases — hence rendering the header here.
+    //
+    // axe's `heading-order` is `currLevel - prevLevel <= 1` applied to each
+    // adjacent pair, so the overlay has to clear *two* bounds and a test that
+    // checks one of them is not a guard. Too shallow (`h2`) skips into the day
+    // label; too deep (`h6`) skips down from the brand. Together these pin the
+    // overlay to `h4`-`h5`. No story composes the three, so the axe gate cannot
+    // see either side (PR #700 review).
+    const { getSession } = await import('@/lib/session')
+    vi.mocked(getSession).mockResolvedValue(null)
+
+    render(await Header())
     render(<GeneratingOverlay />)
     render(<TimelineDayCard day={baseDay} {...defaultProps} />)
 
-    const overlayLevel = Number(
-      screen.getByRole('heading', { name: 'Generating your meal plan…' }).tagName.slice(1),
-    )
-    const dayLevel = Number(screen.getByRole('heading', { name: 'Today' }).tagName.slice(1))
+    const level = (name: string | RegExp) =>
+      Number(screen.getByRole('heading', { name }).tagName.slice(1))
+    const brandLevel = level('Wobblepot')
+    const overlayLevel = level('Generating your meal plan…')
+    const dayLevel = level('Today')
 
+    expect(overlayLevel - brandLevel).toBeLessThanOrEqual(1)
     expect(dayLevel - overlayLevel).toBeLessThanOrEqual(1)
   })
 })

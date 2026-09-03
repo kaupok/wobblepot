@@ -42,7 +42,11 @@ Rules:
 - Do not override a `Body` variant's size with `className`. Pick the right variant.
 - `Heading` `h1`, `h2`, `h3` are for the marketing landing page, legal pages, error pages, and internal pages (`/status`, `/bot`, `/admin`). Inside the household-facing app, page titles are `h4` — no exceptions for overlays or empty states. Decided 2026-09-03, shipped in HON-607, which migrated the last five in-app `h2` components (`ShoppingEmptyState`, `MemberList`, `FirstTimeSetup`, `GeneratingOverlay`, `HouseholdSettingsForm`). Each kept its `<h2>` tag via `as`, so the size changed and the outline did not — except `GeneratingOverlay`, whose tag HON-619 then moved to `<h4>` because the overlay renders inline beside `h5` day labels and `<h2>` there is a skipped level.
 - Do not wrap `Heading` in `CardTitle` or `Body` in `CardDescription`. One component per text element.
-- Visual level and HTML tag are separate choices. `variant` sets the size, `as` sets the tag. Pick the tag for document outline (no skipped levels, one `h1` per page) and the variant for the type scale. Decided 2026-09-03, shipped in HON-606. Omitting `as` renders the variant's natural tag (`section` → `h2`), so only pass it when the outline needs a different level than the scale.
+- Visual level and HTML tag are separate choices. `variant` sets the size, `as` sets the tag. Pick the tag for document outline (no skipped levels, one `h1` per page) and the variant for the type scale. Decided 2026-09-03, shipped in HON-606. Omitting `as` renders the variant's natural tag, so for `h1`-`h4` only pass it when the outline needs a different level than the scale. `variant="section"` is the standing exception: its natural tag is `<h2>`, which is above almost every title a section sits under, so **every production `section` callsite passes an explicit `as`** — one level below the rendered tag of its enclosing title, read at the callsite rather than assumed. Shipped across HON-606, HON-613 and HON-619; this grep should return only stories, tests and prose:
+
+  ```bash
+  grep -rn 'variant="section"' src --include='*.tsx' | grep -v 'as='
+  ```
 
 ## Spacing, radius, elevation
 

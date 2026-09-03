@@ -52,11 +52,16 @@ export function GeneratingOverlay() {
             - `FirstTimeSetup.tsx:94` emits it just before that screen's own
               `<h2>` title. Any tag is a legal decrease there, so axe is blind;
               what matters is editorial — a transient status message must not
-              outrank the screen it covers. Pinned by the `Generating` story's
-              play function in `FirstTimeSetup.stories.tsx`.
+              outrank the screen it covers. The `Generating` story's play
+              function in `FirstTimeSetup.stories.tsx` pins *that* much, and
+              only that much: it asserts `status >= title`, which `h2` also
+              satisfies.
 
-            Do not "restore" `as="h2"` for symmetry with the other five sites
-            HON-607 migrated. (HON-619)
+            So `TimelineDayCard.test.tsx` is the guard that actually holds this
+            tag — it brackets the overlay from both sides and fails on anything
+            outside `h4`-`h5`. Do not "restore" `as="h2"` for symmetry with the
+            other five sites HON-607 migrated; that test is what will stop you.
+            (HON-619)
           */}
           <Heading variant="h4">{t('heading')}</Heading>
           <Body variant="muted">{displayMessage}</Body>
