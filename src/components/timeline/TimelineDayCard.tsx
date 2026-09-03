@@ -1,7 +1,7 @@
 'use client'
 
 import { MealCard } from '@/components/meal-plan/MealCard'
-import { Body } from '@/components/ui/typography'
+import { Body, Heading } from '@/components/ui/typography'
 import { TimelineEmptySlot } from './TimelineEmptySlot'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { useTranslations } from 'next-intl'
@@ -64,9 +64,9 @@ export function TimelineDayCard({
   return (
     <div className={containerClass}>
       <div className="flex items-baseline gap-2">
-        <span className={`text-base font-semibold ${day.isToday ? 'text-primary' : ''}`}>
+        <Heading variant="section" as="h2" className={day.isToday ? 'text-primary' : undefined}>
           {day.label}
-        </span>
+        </Heading>
       </div>
       {slots.length === 0 ? (
         <span className="text-muted-foreground text-xs">{tDay('noMealsPlanned')}</span>
