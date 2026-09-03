@@ -10,14 +10,17 @@ A Next.js 16 project with React 19, using TypeScript, Tailwind CSS, and shadcn/u
 
 **Product Spec:** The full product spec is in [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md). Read it before starting implementation work.
 
+**Design guide:** [docs/DESIGN.md](docs/DESIGN.md) holds the type scale, tokens, composition rules, and the reject list of generated-design patterns we do not ship. Read it before creating or changing any UI.
+
 ## Documentation Structure
 
-| Document                                         | Contains                                             | When to Read                |
-| ------------------------------------------------ | ---------------------------------------------------- | --------------------------- |
-| **This file**                                    | Coding patterns, universal standards                 | Every session (auto-loaded) |
-| **[docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md)** | Product vision, decisions, phase goals, domain logic | Before implementation work  |
+| Document                                         | Contains                                                          | When to Read                |
+| ------------------------------------------------ | ----------------------------------------------------------------- | --------------------------- |
+| **This file**                                    | Coding patterns, universal standards                              | Every session (auto-loaded) |
+| **[docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md)** | Product vision, decisions, phase goals, domain logic              | Before implementation work  |
+| **[docs/DESIGN.md](docs/DESIGN.md)**             | Visual system: type scale, tokens, composition rules, reject list | Before UI work              |
 
-**Rule:** CLAUDE.md tells you _how_ to code. The project spec tells you _what_ to build and _why_.
+**Rule:** CLAUDE.md tells you _how_ to code. The project spec tells you _what_ to build and _why_. The design guide tells you what it should _look like_.
 
 ## Agent memory
 
@@ -390,20 +393,21 @@ The failure mode this prevents: checking one file, finding nothing, and generali
 
 ## Reference
 
-| Document                                               | Contents                                                 |
-| ------------------------------------------------------ | -------------------------------------------------------- |
-| [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md)           | Product vision, decisions, domain logic                  |
-| [docs/LOCALIZATION.md](docs/LOCALIZATION.md)           | i18n philosophy, three-tier model, AI sample review tool |
-| [docs/TYPOGRAPHY.md](docs/TYPOGRAPHY.md)               | Full typography component guide with examples            |
-| [docs/FEATURE_FLAGS.md](docs/FEATURE_FLAGS.md)         | Feature flag pattern, kill-switches, fail-open semantics |
-| [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)           | Branch workflow, recovery procedures                     |
-| [docs/ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md) | Environment variable setup                               |
-| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)               | Production deployment process                            |
-| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)             | Bundle optimization guide                                |
-| [docs/MCP_SETUP.md](docs/MCP_SETUP.md)                 | MCP server configuration and troubleshooting             |
-| [docs/CHROME_TESTING.md](docs/CHROME_TESTING.md)       | Browser testing with Chrome extension                    |
-| [docs/VOICE_REVIEW.md](docs/VOICE_REVIEW.md)           | Voice review setup and usage                             |
-| [docs/PARALLEL_WORKFLOW.md](docs/PARALLEL_WORKFLOW.md) | Parallel Claude Code with git worktrees                  |
+| Document                                               | Contents                                                         |
+| ------------------------------------------------------ | ---------------------------------------------------------------- |
+| [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md)           | Product vision, decisions, domain logic                          |
+| [docs/LOCALIZATION.md](docs/LOCALIZATION.md)           | i18n philosophy, three-tier model, AI sample review tool         |
+| [docs/DESIGN.md](docs/DESIGN.md)                       | Design guide: type scale, tokens, composition rules, reject list |
+| [docs/TYPOGRAPHY.md](docs/TYPOGRAPHY.md)               | Full typography component guide with examples                    |
+| [docs/FEATURE_FLAGS.md](docs/FEATURE_FLAGS.md)         | Feature flag pattern, kill-switches, fail-open semantics         |
+| [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)           | Branch workflow, recovery procedures                             |
+| [docs/ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md) | Environment variable setup                                       |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)               | Production deployment process                                    |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)             | Bundle optimization guide                                        |
+| [docs/MCP_SETUP.md](docs/MCP_SETUP.md)                 | MCP server configuration and troubleshooting                     |
+| [docs/CHROME_TESTING.md](docs/CHROME_TESTING.md)       | Browser testing with Chrome extension                            |
+| [docs/VOICE_REVIEW.md](docs/VOICE_REVIEW.md)           | Voice review setup and usage                                     |
+| [docs/PARALLEL_WORKFLOW.md](docs/PARALLEL_WORKFLOW.md) | Parallel Claude Code with git worktrees                          |
 
 <!-- BEGIN:nextjs-agent-rules -->
 
