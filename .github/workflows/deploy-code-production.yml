@@ -12,6 +12,11 @@
 #
 # This workflow uses Vercel CLI to deploy, bypassing Vercel's Ignored Build Step
 # which blocks automatic git-triggered production deployments.
+#
+# It is also the sole writer of GitHub Production *deployment records* (HON-602).
+# Vercel reports the Ignored-Build-Step cancellation only as a commit status and
+# never reports a CLI deploy at all, so nothing else can keep the Environments →
+# Production card current. See docs/DEPLOYMENT.md → "Why This Process?".
 
 name: Deploy code [production]
 
@@ -30,11 +35,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    # `deployments: write` is what lets the job write its own Production
+    # deployment record (HON-602). `github.token` carries it — no new secret.
+    permissions:
+      contents: read
+      deployments: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
           ref: main
+
+      - name: Capture deployed commit
+        id: rev
+        # The checkout above pins `ref: main`, so `github.sha` — the sha at
+        # dispatch time — can differ from what actually ships if main moved in
+        # between. The deployment record must name the checked-out commit.
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -53,6 +71,47 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: vercel pull --yes --environment=production --token=$VERCEL_TOKEN
 
+      - name: Create GitHub deployment record
+        id: gh_deployment
+        # Created here rather than straight after checkout so the `in_progress`
+        # window covers the deploy only: if CLI setup fails, no half-finished
+        # Production record is left on the Environments card at all.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.rev.outputs.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          # `required_contexts: []` is mandatory, not tidiness: with the default,
+          # the API refuses to create a deployment while any commit status on the
+          # ref is not `success` — and main always carries Vercel's
+          # cancelled-by-Ignored-Build-Step status.
+          DEPLOYMENT_ID=$(gh api "repos/${GITHUB_REPOSITORY}/deployments" --input - <<PAYLOAD | jq -r '.id // empty'
+          {
+            "ref": "${SHA}",
+            "environment": "Production",
+            "auto_merge": false,
+            "required_contexts": [],
+            "production_environment": true,
+            "transient_environment": false,
+            "description": "Deploy code [production] run ${GITHUB_RUN_ID}"
+          }
+          PAYLOAD
+          )
+
+          if [ -z "${DEPLOYMENT_ID}" ]; then
+            echo "::error::Could not create a GitHub deployment record for ${SHA}"
+            exit 1
+          fi
+
+          echo "deployment_id=${DEPLOYMENT_ID}" >> "$GITHUB_OUTPUT"
+          echo "Created GitHub deployment ${DEPLOYMENT_ID} for ${SHA}"
+
+          gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses" \
+            -f state=in_progress \
+            -f log_url="${RUN_URL}" > /dev/null
+
       - name: Deploy to production
         id: deploy
         env:
@@ -63,6 +122,62 @@ jobs:
           DEPLOYMENT_URL=$(vercel deploy --prod --force --token=$VERCEL_TOKEN)
           echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
 
+      - name: 'Record GitHub deployment: success'
+        if: success()
+        # Deliberately no `continue-on-error` here or on the failure step below:
+        # a green deploy step beside a red record step is the signal that the
+        # release shipped but the record didn't, which is the drift HON-602
+        # exists to surface. `environment_url` is the stable production address,
+        # not the per-deploy Vercel URL — it becomes the card's "View
+        # deployment" button. `auto_inactive` is passed with `-F`, not `-f`, so
+        # it arrives as a JSON boolean — `-f` sends every value as a string.
+        # It is the API default and, per the REST docs, only inactivates prior
+        # *non-production* deployments, so it does not retire the stale June
+        # 2026 record; that one is simply superseded by being older. It is set
+        # explicitly so the record's shape is stated in one place.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOYMENT_ID: ${{ steps.gh_deployment.outputs.deployment_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses" \
+            -f state=success \
+            -f environment_url=https://wobblepot.com \
+            -f log_url="${RUN_URL}" \
+            -F auto_inactive=true > /dev/null
+
+      - name: 'Record GitHub deployment: failure'
+        # Three clauses, each load-bearing:
+        #   `always()`     — not `failure()`, because the job carries
+        #                    `timeout-minutes: 15` and a timed-out run is
+        #                    *cancelled*, not failed. Without it the record
+        #                    would sit at `in_progress` for good, which is the
+        #                    same species of misleading Production badge this
+        #                    change exists to fix.
+        #   `deployment_id != ''`
+        #                  — a failure *before* the record step ran (Node setup,
+        #                    CLI install, `vercel pull`) leaves the id empty and
+        #                    the request URL malformed.
+        #   `deploy.outcome != 'success'`
+        #                  — without it, a deploy that shipped fine but whose
+        #                    success-status POST failed would fall through to
+        #                    here and stamp `failure` on a live release. A red
+        #                    run with no final status is recoverable; a record
+        #                    that contradicts production is not.
+        if: >-
+          always() && steps.gh_deployment.outputs.deployment_id != '' &&
+          steps.deploy.outcome != 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOYMENT_ID: ${{ steps.gh_deployment.outputs.deployment_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses" \
+            -f state=failure \
+            -f log_url="${RUN_URL}" > /dev/null
+
       - name: Output deployment information
         run: |
           cat >> $GITHUB_STEP_SUMMARY << 'EOF'
@@ -70,7 +185,11 @@ jobs:
 
           ### Deployment Information
 
+          **Commit:** `${{ steps.rev.outputs.sha }}`
+
           **Deployment URL:** ${{ steps.deploy.outputs.deployment_url }}
+
+          **GitHub deployment record:** [#${{ steps.gh_deployment.outputs.deployment_id }}](${{ github.server_url }}/${{ github.repository }}/deployments/Production)
 
           ### Next Steps
 
@@ -78,6 +197,7 @@ jobs:
              - Visit the production URL
              - Check that all features are working
              - Monitor logs for any errors
+             - Confirm the Environments → Production card above shows this commit with a green check
 
           2. **Monitor production**:
              - Check error tracking/monitoring tools

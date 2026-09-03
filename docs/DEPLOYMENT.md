@@ -82,6 +82,7 @@ Production deployments require manual coordination to ensure database migrations
    - Check production site is working
    - Monitor logs for any errors
    - Verify database changes are reflected
+   - [GitHub → Environments → Production](https://github.com/kaupok/wobblepot/deployments/Production) shows the deployed commit with a green check
 
 ### Why This Process?
 
@@ -92,6 +93,24 @@ Production deployments from main are **disabled via Vercel's Ignored Build Step*
 - Production downtime from race conditions
 
 The manual process ensures migrations always complete before code deployment.
+
+**Who writes the Production deployment records.** The deploy workflow itself
+does — not the Vercel GitHub integration. Vercel reports a build cancelled by
+the Ignored Build Step only as a commit status (`Vercel — Canceled by Ignored
+Build Step`) and creates no deployment record, and `vercel deploy --prod` is a
+CLI deploy the integration never reports at all. So do not expect Vercel's
+badges on the Environments → Production page the way you see them on Preview
+and staging. Instead, `deploy-code-production.yml` holds `deployments: write`
+and posts the record itself: `in_progress` before the deploy, then `success`
+(with `environment_url` `https://wobblepot.com`) or `failure` after it. The run
+summary links to the record it wrote.
+
+The record steps carry no `continue-on-error` on purpose. A run whose **deploy**
+step is green but whose **record** step is red means the release shipped and the
+record did not — the drift is meant to be visible rather than swallowed. Left
+unwritten, that page goes stale silently: between June and September 2026 its
+Active deployment was a failed June build, while production was healthy and many
+releases newer (HON-602).
 
 ### Vercel Configuration
 
