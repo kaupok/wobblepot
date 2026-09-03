@@ -98,6 +98,7 @@ pnpm db:studio                              # Prisma Studio
 | [docs/LOCALIZATION.md](docs/LOCALIZATION.md)           | Localization philosophy and the three-tier model             |
 | [docs/SECURITY.md](docs/SECURITY.md)                   | Security headers and CSP                                     |
 | [docs/RUNBOOKS/](docs/RUNBOOKS/)                       | Operational runbooks, GDPR procedures                        |
+| [docs/DESIGN.md](docs/DESIGN.md)                       | Design guide: type scale, tokens, composition, reject list   |
 | [docs/TYPOGRAPHY.md](docs/TYPOGRAPHY.md)               | Typography component guide                                   |
 | [docs/PERFORMANCE.md](docs/PERFORMANCE.md)             | Bundle optimization                                          |
 | [docs/MCP_SETUP.md](docs/MCP_SETUP.md)                 | MCP server configuration for the agent                       |
