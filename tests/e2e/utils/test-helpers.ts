@@ -177,12 +177,17 @@ export async function signOut(page: Page): Promise<void> {
     // whose "Household name" textbox autofocuses — that spec hit this on every
     // attempt in CI run 33729584094. Reopening on the next pass clears it.
     await expect(async () => {
+      // A detached click can still have landed: sign-out then navigates and the
+      // trigger never comes back, so an unbounded click here would block until
+      // the 60s test timeout instead of reporting through toPass. Both clicks
+      // are bounded, and an already-signed-out page ends the retry loop.
+      if (await page.getByRole('link', { name: 'Sign in' }).isVisible()) return
       const signOutItem = page.getByRole('menuitem', { name: 'Sign out' })
       if (!(await signOutItem.isVisible())) {
-        await userMenuTrigger.click()
+        await userMenuTrigger.click({ timeout: 5_000 })
       }
       await signOutItem.click({ timeout: 5_000 })
-    }).toPass({ timeout: 30_000 })
+    }).toPass({ timeout: 15_000 })
   } else {
     await page.getByRole('button', { name: 'Sign out' }).click()
   }

@@ -113,7 +113,11 @@ export function useCustomShoppingItems(initialCustomItems: CustomItemData[]) {
           method: 'DELETE',
         })
 
-        if (!response.ok) {
+        // A 404 means the row is already gone — an un-debounced double-click's
+        // own first request, or a concurrent delete that succeeded. Rolling the
+        // row back on top of that would resurrect it on screen, so treat the
+        // delete as done. Only a real failure reverts.
+        if (!response.ok && response.status !== 404) {
           throw new Error(tErrors('removeFailed'))
         }
       } catch {
@@ -152,14 +156,19 @@ export function useCustomShoppingItems(initialCustomItems: CustomItemData[]) {
         throw new Error(tErrors('clearCheckedFailed'))
       }
     } catch {
-      // Rebuild from the snapshot rather than assigning it: a row edited while
-      // the request was in flight keeps its current version, and a row added in
-      // that window stays at the head where `handleCustomItemAdded` put it.
+      // Rebuild from the snapshot rather than assigning it. Only the rows this
+      // request removed come back — `checkedIds` is exactly that set, so a row
+      // dropped by a concurrent delete that succeeded stays gone instead of
+      // being resurrected. A row edited while the request was in flight keeps
+      // its current version, and a row added in that window stays at the head
+      // where `handleCustomItemAdded` put it.
       setCustomItems((prev) => {
         const current = new Map(prev.map((item) => [item.id, item]))
         const snapshotIds = new Set(previousItems.map((item) => item.id))
         const added = prev.filter((item) => !snapshotIds.has(item.id))
-        const restored = previousItems.map((item) => current.get(item.id) ?? item)
+        const restored = previousItems
+          .filter((item) => current.has(item.id) || checkedIds.has(item.id))
+          .map((item) => current.get(item.id) ?? item)
         return [...added, ...restored]
       })
       toast.error(tErrors('clearCheckedFailed'))

@@ -183,6 +183,20 @@ describe('useCustomShoppingItems', () => {
       expect(toast.error).toHaveBeenCalled()
     })
 
+    it('keeps the row gone when the request 404s — it is already deleted', async () => {
+      fetchMock.mockResolvedValueOnce({ ok: false, status: 404, json: async () => ({}) })
+      const { result } = renderHook(() =>
+        useCustomShoppingItems([customItem('Bread'), customItem('Napkins')]),
+      )
+
+      await act(async () => {
+        await result.current.handleCustomDelete('custom-bread')
+      })
+
+      expect(result.current.customItems.map((i) => i.name)).toEqual(['Napkins'])
+      expect(toast.error).not.toHaveBeenCalled()
+    })
+
     it('does not duplicate the row when two failing deletes overlap', async () => {
       fetchMock.mockResolvedValue(failure)
       const { result } = renderHook(() =>
@@ -252,6 +266,25 @@ describe('useCustomShoppingItems', () => {
       })
 
       expect(result.current.customItems.map((i) => i.name)).toEqual(['Eggs', 'Bread', 'Napkins'])
+    })
+
+    it('does not resurrect a row a concurrent delete removed successfully', async () => {
+      // clear-checked fails; the overlapping delete of the unchecked row wins.
+      fetchMock.mockImplementation((url: string) =>
+        Promise.resolve(url.endsWith('/checked') ? failure : ok),
+      )
+      const { result } = renderHook(() =>
+        useCustomShoppingItems([customItem('Bread', { checked: true }), customItem('Napkins')]),
+      )
+
+      await act(async () => {
+        const clear = result.current.handleClearChecked()
+        const remove = result.current.handleCustomDelete('custom-napkins')
+        await Promise.all([clear, remove])
+      })
+
+      // Bread was ours to restore; Napkins is gone from the DB and must stay gone.
+      expect(result.current.customItems.map((i) => i.name)).toEqual(['Bread'])
     })
 
     it('does nothing when nothing is checked', async () => {
