@@ -1,5 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { getRouter } from '@storybook/nextjs-vite/navigation.mock'
+import { expect, userEvent, waitFor, within } from 'storybook/test'
 import { ShoppingEmptyState } from './ShoppingEmptyState'
+
+const WINDOW_STORAGE_KEY = 'shopping-list-window-days'
 
 const meta = {
   title: 'Feature/Shopping/ShoppingEmptyState',
@@ -60,12 +64,16 @@ export const NothingNeeded: Story = {
 
 export const NothingNeededFourteenDays: Story = {
   args: { variant: 'nothing-needed', windowDays: 14 },
-  // The component reconciles `windowDays` against the stored preference on mount and
-  // navigates when they disagree. Seed the preference so this story renders the
-  // 14-day copy instead of immediately pushing back to `?days=7`.
+  // The day count in the body copy comes from the `windowDays` prop, so this
+  // story would render the 14-day text with or without the seed. What the seed
+  // changes is the mount effect: `ShoppingEmptyState` reconciles the stored
+  // preference against the prop and pushes when they disagree. Storybook's
+  // app-router `push` is a spy and cannot navigate, so an unseeded story would
+  // sit in a state the real app never holds — 14-day copy with a pending
+  // redirect to `?days=7`. Seeding makes the story a real reachable state.
   beforeEach: () => {
-    localStorage.setItem('shopping-list-window-days', '14')
-    return () => localStorage.removeItem('shopping-list-window-days')
+    localStorage.setItem(WINDOW_STORAGE_KEY, '14')
+    return () => localStorage.removeItem(WINDOW_STORAGE_KEY)
   },
   parameters: {
     docs: {
@@ -83,9 +91,43 @@ export const ErrorState: Story = {
     docs: {
       description: {
         story:
-          'The shopping-list request failed. Same card shell as the other variants, with a CTA back to the dashboard rather than a retry — reloading the route is the retry.',
+          'The shopping-list request failed. Same card shell as the other variants, with a CTA rather than a retry — reloading the route is the retry. Note the CTA is labelled "Go to dashboard" but its `href` is `/meal-plan`, the same destination as the `no-plan` CTA; the dashboard is `/`. Pre-existing and pinned by `ShoppingEmptyState.test.tsx:70` — tracked in HON-623, not changed here.',
       },
     },
+  },
+}
+
+export const WindowPickerSwitchesWindow: Story = {
+  args: { variant: 'nothing-needed', windowDays: 7 },
+  // The picker writes the stored preference before navigating, so leaving it at
+  // 14 would change what every later story mounts with.
+  beforeEach: () => () => localStorage.removeItem(WINDOW_STORAGE_KEY),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Behavioural contract of the window picker: choosing "14 days" persists the preference under `shopping-list-window-days` and routes to `/shopping?days=14`. The persistence is what makes the choice survive the navigation — the new page reads it back on mount.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const trigger = canvas.getByRole('combobox', { name: /time window/i })
+    await userEvent.click(trigger)
+
+    // Radix portals `SelectContent` outside the canvas.
+    const body = within(document.body)
+    await userEvent.click(await body.findByRole('option', { name: '14 days' }))
+
+    // Radix keeps the listbox mounted through its exit animation and leaves an
+    // `aria-hidden` wrapper in place until it finishes. The a11y gate runs in an
+    // `afterEach`, so returning early makes axe audit a half-closed dropdown.
+    await waitFor(() => {
+      expect(document.querySelectorAll('[role="listbox"]').length).toBe(0)
+    })
+
+    expect(localStorage.getItem(WINDOW_STORAGE_KEY)).toBe('14')
+    expect(getRouter().push).toHaveBeenCalledWith('/shopping?days=14')
   },
 }
 
