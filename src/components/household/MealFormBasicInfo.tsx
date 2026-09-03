@@ -29,7 +29,9 @@ export function MealFormBasicInfo({
 
   return (
     <section className="flex flex-col gap-4">
-      <Heading variant="h4">{t('heading')}</Heading>
+      <Heading variant="section" as="h5">
+        {t('heading')}
+      </Heading>
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="name">{t('nameLabel')}</Label>

@@ -7,17 +7,6 @@ const meta = {
   tags: ['autodocs'],
   parameters: {
     layout: 'fullscreen',
-    a11y: {
-      config: {
-        rules: [
-          // WHY: The form renders h2 → h4 (skipping h3) to match the codebase-wide
-          // Heading variant pattern. In production the parent page supplies the h1,
-          // and every page-level form follows the same h1 → h2 → h4 convention;
-          // changing it here alone would create a cross-codebase inconsistency.
-          { id: 'heading-order', enabled: false },
-        ],
-      },
-    },
     docs: {
       description: {
         component:

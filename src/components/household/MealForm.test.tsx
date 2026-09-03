@@ -538,3 +538,31 @@ describe('MealForm - Duplicate Detection', () => {
     })
   })
 })
+
+/**
+ * The form's title sits at the Title level (`variant="h4"`, rendering `<h4>`);
+ * its sections sit one level below it in both the type scale and the document
+ * outline. The `level` assertions are what catch a `variant="section"` swap that
+ * forgets `as` — `section` defaults to `<h2>`, which would put every section
+ * *above* the title it belongs to. See HON-613.
+ */
+describe('MealForm - section heading hierarchy', () => {
+  const mockMeal: MealFormData = {
+    id: '1',
+    name: 'Test Meal',
+    kidFriendly: false,
+    suitableFor: ['dinner' as MealType],
+    servings: 4,
+    components: [],
+  }
+
+  it('renders the form title at h4 and every section one level below it', () => {
+    render(<MealForm meal={mockMeal} onSuccess={vi.fn()} onCancel={vi.fn()} />)
+
+    expect(screen.getByRole('heading', { name: 'Edit meal', level: 4 })).toBeInTheDocument()
+
+    for (const name of ['Basic information', 'Ingredients', 'Additional details']) {
+      expect(screen.getByRole('heading', { name, level: 5 })).toBeInTheDocument()
+    }
+  })
+})

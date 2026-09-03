@@ -100,6 +100,31 @@ describe('HouseholdSettingsForm', () => {
       expect(screen.getByText('Meal scheduling')).toBeInTheDocument()
     })
 
+    /**
+     * The page supplies the `<h1>` (`src/app/household/page.tsx`), this form's
+     * title is the `<h2>`, and its sections are `<h3>` — an unbroken outline
+     * that axe's heading-order rule checks in Storybook. The `level` assertions
+     * are what catch a `variant="section"` swap that forgets `as`: `section`
+     * defaults to `<h2>`, which would put every section level with the title it
+     * belongs to. See HON-613.
+     */
+    it('renders each section one level below the form title', () => {
+      renderForm()
+
+      expect(
+        screen.getByRole('heading', { name: 'Household settings', level: 2 }),
+      ).toBeInTheDocument()
+
+      for (const name of [
+        'Basic information',
+        'Dietary preferences',
+        'Excluded ingredients',
+        'Meal scheduling',
+      ]) {
+        expect(screen.getByRole('heading', { name, level: 3 })).toBeInTheDocument()
+      }
+    })
+
     it('renders household name input with initial value', () => {
       renderForm()
 

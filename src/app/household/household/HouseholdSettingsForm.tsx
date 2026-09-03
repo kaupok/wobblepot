@@ -255,7 +255,9 @@ export function HouseholdSettingsForm({
         <div className="flex flex-col gap-8">
           {/* Section 1: Basic Info */}
           <section className="flex flex-col gap-4">
-            <Heading variant="h4">{tSettings('basicHeading')}</Heading>
+            <Heading variant="section" as="h3">
+              {tSettings('basicHeading')}
+            </Heading>
             <div className="flex flex-col gap-2">
               <Label htmlFor="name">{tSettings('nameLabel')}</Label>
               <Input
@@ -315,7 +317,9 @@ export function HouseholdSettingsForm({
 
           {/* Section 2: Dietary Preferences */}
           <section className="flex flex-col gap-4">
-            <Heading variant="h4">{tSettings('preferencesHeading')}</Heading>
+            <Heading variant="section" as="h3">
+              {tSettings('preferencesHeading')}
+            </Heading>
             <div className="flex flex-col gap-2">
               <Label>{tSettings('dietaryTypeLabel')}</Label>
               <RadioGroup
@@ -365,7 +369,9 @@ export function HouseholdSettingsForm({
 
           {/* Section 3: Excluded Ingredients */}
           <section className="flex flex-col gap-4">
-            <Heading variant="h4">{tSettings('excludedHeading')}</Heading>
+            <Heading variant="section" as="h3">
+              {tSettings('excludedHeading')}
+            </Heading>
             <div className="flex flex-col gap-2">
               <Label htmlFor="excluded">{tSettings('excludedLabel')}</Label>
               <TagInput
@@ -382,7 +388,9 @@ export function HouseholdSettingsForm({
 
           {/* Section 4: Meal Scheduling */}
           <section className="flex flex-col gap-4">
-            <Heading variant="h4">{tSettings('mealSchedulingHeading')}</Heading>
+            <Heading variant="section" as="h3">
+              {tSettings('mealSchedulingHeading')}
+            </Heading>
             <div className="flex flex-col gap-2">
               <Label>{tSettings('weekdayMealsLabel')}</Label>
               <div className="flex gap-4">
