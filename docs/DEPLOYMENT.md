@@ -167,12 +167,12 @@ If production deployment fails:
    ```
 
    Then, once `main` carries the fix, re-run **Deploy code [production]** so a
-   fresh accurate record is written. Do not stop after the `inactive` — marking
-   the newest record inactive does **not** leave the card blank. Several older
-   `Production` deployments are still `ACTIVE` (two from 2025-10-21, pointing at
-   Vercel URLs that no longer resolve), so the card falls back to one of those
-   and states a 2025 commit is live. Writing a fresh record is the only way to
-   make it correct.
+   fresh accurate record is written. Do not stop after the `inactive` — it is not
+   sufficient on its own. Don't guess at what the page shows in the meantime
+   either: through the June–September 2026 window described above it tracked the
+   _newest_ record, surfacing that `failure` while fourteen older deployments sat
+   `ACTIVE` behind it. Writing a fresh record is the only reliable way to make
+   the page state something true.
 
 3. **Database rollback**: see [RUNBOOKS/database-recovery.md](RUNBOOKS/database-recovery.md) for migration rollback and PITR procedures.
 

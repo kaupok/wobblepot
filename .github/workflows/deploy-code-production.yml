@@ -153,17 +153,20 @@ jobs:
         #
         # `auto_inactive` is passed with `-F`, not `-f`, so it arrives as a JSON
         # boolean — `-f` sends every value as a string. It is also the API
-        # default, and on this repo it is observably a no-op: do not rely on it
-        # to retire anything. The REST docs scope the sweep to prior
-        # "non-transient, non-production environment deployments", and the first
-        # real run of this workflow (run 33725011967, record 6238572417) left
-        # every prior `Production` record exactly as it was — the two 2025-10-21
-        # records are still ACTIVE/SUCCESS and the June 2026 one is still
-        # FAILURE. The deployment created above carries
-        # `production_environment: true`, which appears to exclude it from the
-        # sweep. The card goes green because this record is the newest, not
-        # because older ones were inactivated. Set explicitly so the record's
-        # shape is stated in one place.
+        # default. Do not rely on it to retire anything here: on this repo it is
+        # observably a no-op. The first real run of this workflow (run
+        # 33725011967, record 6238572417) posted `success` with the flag set and
+        # changed no prior record — all 14 pre-existing ACTIVE `Production`
+        # deployments, from 2025-10-20 and 2025-10-21, are still ACTIVE.
+        #
+        # Why the sweep the REST docs describe does not fire is NOT established,
+        # so do not write a mechanism in here without evidence. In particular it
+        # is not simply that this record sets `production_environment: true`:
+        # record 3184652624 (`production_environment: false`) posted `success`
+        # on 2025-10-22 and likewise left the equally non-production, non-
+        # transient 3184292355 ACTIVE. The card goes green because this record
+        # is the newest, not because anything was inactivated. Set explicitly so
+        # the record's shape is stated in one place.
         env:
           GH_TOKEN: ${{ github.token }}
           DEPLOYMENT_ID: ${{ steps.gh_deployment.outputs.deployment_id }}
