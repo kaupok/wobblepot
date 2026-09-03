@@ -16,7 +16,6 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
-  getHouseholdMemberCount: vi.fn(),
 }))
 
 vi.mock('@/lib/rate-limit', () => ({
@@ -50,7 +49,7 @@ vi.mock('@/lib/ai/usage', async (importOriginal) => {
 })
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
+import { getHouseholdMembership } from '@/lib/household'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { imagineMeals } from '@/lib/ai/imagine-meal'
 import { matchIngredients } from '@/lib/ai/match-ingredients'
@@ -59,7 +58,6 @@ import { assertUnderCap } from '@/lib/ai/usage'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
-const mockGetMemberCount = vi.mocked(getHouseholdMemberCount)
 const mockCheckRateLimit = vi.mocked(checkRateLimit)
 const mockImagineMeals = vi.mocked(imagineMeals)
 const mockMatchIngredients = vi.mocked(matchIngredients)
@@ -87,6 +85,9 @@ const mockMembership = {
       excludedIngredients: [],
       restrictions: [],
     },
+    // The route reads the household size off this `_count` (HON-596) rather
+    // than issuing a second `household_member` count.
+    _count: { members: 2 },
   },
 }
 
@@ -176,7 +177,6 @@ describe('POST /api/meals/imagine', () => {
       limit: 50,
       resetAt: new Date('2026-02-01T12:00:00.000Z'),
     })
-    mockGetMemberCount.mockResolvedValue(2)
     mockIngredientFindMany.mockResolvedValue([])
     mockAssertUnderCap.mockResolvedValue(undefined)
   })

@@ -113,17 +113,89 @@ describe('useCustomShoppingItems', () => {
       expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toEqual({ ingredientId: null })
     })
 
-    it('toasts on failure', async () => {
+    it('restores the ingredient link and toasts when the request fails', async () => {
       fetchMock.mockResolvedValueOnce(failure)
       const { result } = renderHook(() =>
-        useCustomShoppingItems([customItem('Kale', { ingredientId: 'ing-kale' })]),
+        useCustomShoppingItems([
+          customItem('Kale', { ingredientId: 'ing-kale', ingredientCategory: 'vegetable' }),
+        ]),
       )
 
       await act(async () => {
         await result.current.handleCustomUnlink('custom-kale')
       })
 
+      // Still linked, so splitCustomItems keeps the row in its CategoryGroup.
+      expect(result.current.customItems[0]).toMatchObject({
+        ingredientId: 'ing-kale',
+        ingredientCategory: 'vegetable',
+      })
       expect(toast.error).toHaveBeenCalled()
+    })
+
+    it('drops a second unlink while the first is in flight, and still restores', async () => {
+      // A real double-click: React re-renders between the two, so without the
+      // pending guard the second call would snapshot the first one's optimistic
+      // `null` and restore that over the real link.
+      const release: Array<() => void> = []
+      fetchMock.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            release.push(() => resolve(failure))
+          }),
+      )
+
+      const { result } = renderHook(() =>
+        useCustomShoppingItems([
+          customItem('Kale', { ingredientId: 'ing-kale', ingredientCategory: 'vegetable' }),
+        ]),
+      )
+
+      let firstUnlink: Promise<void> = Promise.resolve()
+      await act(async () => {
+        firstUnlink = result.current.handleCustomUnlink('custom-kale')
+      })
+
+      expect(result.current.customItems[0]?.ingredientId).toBeNull()
+
+      let secondUnlink: Promise<void> = Promise.resolve()
+      await act(async () => {
+        secondUnlink = result.current.handleCustomUnlink('custom-kale')
+      })
+
+      // The guard dropped it: no second PATCH was ever sent.
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+
+      await act(async () => {
+        release[0]!()
+        await Promise.all([firstUnlink, secondUnlink])
+      })
+
+      expect(result.current.customItems[0]).toMatchObject({
+        ingredientId: 'ing-kale',
+        ingredientCategory: 'vegetable',
+      })
+    })
+
+    it('keeps a check applied while the failing request was in flight', async () => {
+      fetchMock.mockResolvedValueOnce(failure)
+      const { result } = renderHook(() =>
+        useCustomShoppingItems([
+          customItem('Kale', { ingredientId: 'ing-kale', ingredientCategory: 'vegetable' }),
+        ]),
+      )
+
+      await act(async () => {
+        const unlink = result.current.handleCustomUnlink('custom-kale')
+        await result.current.handleCustomToggle('custom-kale', true)
+        await unlink
+      })
+
+      expect(result.current.customItems[0]).toMatchObject({
+        ingredientId: 'ing-kale',
+        ingredientCategory: 'vegetable',
+        checked: true,
+      })
     })
   })
 
@@ -139,6 +211,107 @@ describe('useCustomShoppingItems', () => {
 
       expect(result.current.customItems.map((i) => i.name)).toEqual(['Napkins'])
       expect(fetchMock.mock.calls[0]![1].method).toBe('DELETE')
+    })
+
+    it('restores the removed item at its original index when the request fails', async () => {
+      fetchMock.mockResolvedValueOnce(failure)
+      const { result } = renderHook(() =>
+        useCustomShoppingItems([customItem('Bread'), customItem('Napkins'), customItem('Milk')]),
+      )
+
+      await act(async () => {
+        await result.current.handleCustomDelete('custom-napkins')
+      })
+
+      expect(result.current.customItems.map((i) => i.name)).toEqual(['Bread', 'Napkins', 'Milk'])
+      expect(toast.error).toHaveBeenCalled()
+    })
+
+    it('keeps the row gone on a 404 that means the row is already deleted', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ error: 'Item not found' }),
+      })
+      const { result } = renderHook(() =>
+        useCustomShoppingItems([customItem('Bread'), customItem('Napkins')]),
+      )
+
+      await act(async () => {
+        await result.current.handleCustomDelete('custom-bread')
+      })
+
+      expect(result.current.customItems.map((i) => i.name)).toEqual(['Napkins'])
+      expect(toast.error).not.toHaveBeenCalled()
+    })
+
+    it('restores the row on a 404 that means the household is missing', async () => {
+      // Same status, opposite meaning: the row is still on the server.
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ error: 'No household found' }),
+      })
+      const { result } = renderHook(() =>
+        useCustomShoppingItems([customItem('Bread'), customItem('Napkins')]),
+      )
+
+      await act(async () => {
+        await result.current.handleCustomDelete('custom-bread')
+      })
+
+      expect(result.current.customItems.map((i) => i.name)).toEqual(['Bread', 'Napkins'])
+      expect(toast.error).toHaveBeenCalled()
+    })
+
+    it('does not duplicate the row when two failing deletes overlap', async () => {
+      fetchMock.mockResolvedValue(failure)
+      const { result } = renderHook(() =>
+        useCustomShoppingItems([customItem('Bread'), customItem('Napkins')]),
+      )
+
+      await act(async () => {
+        await Promise.all([
+          result.current.handleCustomDelete('custom-bread'),
+          result.current.handleCustomDelete('custom-bread'),
+        ])
+      })
+
+      expect(result.current.customItems.map((i) => i.name)).toEqual(['Bread', 'Napkins'])
+    })
+
+    it('restores after an item added mid-flight, keeping both positions', async () => {
+      // The captured index is stale once a prepend shifts the list, so the
+      // rollback anchors on the row the deleted one used to follow.
+      let releaseDelete: () => void = () => {}
+      fetchMock.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            releaseDelete = () => resolve(failure)
+          }),
+      )
+      const { result } = renderHook(() =>
+        useCustomShoppingItems([customItem('Bread'), customItem('Napkins'), customItem('Milk')]),
+      )
+
+      let remove: Promise<void> = Promise.resolve()
+      await act(async () => {
+        remove = result.current.handleCustomDelete('custom-napkins')
+      })
+
+      act(() => result.current.handleCustomItemAdded(customItem('Eggs')))
+
+      await act(async () => {
+        releaseDelete()
+        await remove
+      })
+
+      expect(result.current.customItems.map((i) => i.name)).toEqual([
+        'Eggs',
+        'Bread',
+        'Napkins',
+        'Milk',
+      ])
     })
   })
 
@@ -160,6 +333,59 @@ describe('useCustomShoppingItems', () => {
       expect(fetchMock).toHaveBeenCalledWith('/api/shopping-list/custom/checked', {
         method: 'DELETE',
       })
+    })
+
+    it('restores every checked item, in order, when the request fails', async () => {
+      fetchMock.mockResolvedValueOnce(failure)
+      const { result } = renderHook(() =>
+        useCustomShoppingItems([
+          customItem('Bread', { checked: true }),
+          customItem('Napkins'),
+          customItem('Milk', { checked: true }),
+        ]),
+      )
+
+      await act(async () => {
+        await result.current.handleClearChecked()
+      })
+
+      expect(result.current.customItems.map((i) => i.name)).toEqual(['Bread', 'Napkins', 'Milk'])
+      expect(result.current.checkedCustomCount).toBe(2)
+      expect(toast.error).toHaveBeenCalled()
+    })
+
+    it('keeps an item added while the failing request was in flight', async () => {
+      fetchMock.mockResolvedValueOnce(failure)
+      const { result } = renderHook(() =>
+        useCustomShoppingItems([customItem('Bread', { checked: true }), customItem('Napkins')]),
+      )
+
+      await act(async () => {
+        const clear = result.current.handleClearChecked()
+        result.current.handleCustomItemAdded(customItem('Eggs'))
+        await clear
+      })
+
+      expect(result.current.customItems.map((i) => i.name)).toEqual(['Eggs', 'Bread', 'Napkins'])
+    })
+
+    it('does not resurrect a row a concurrent delete removed successfully', async () => {
+      // clear-checked fails; the overlapping delete of the unchecked row wins.
+      fetchMock.mockImplementation((url: string) =>
+        Promise.resolve(url.endsWith('/checked') ? failure : ok),
+      )
+      const { result } = renderHook(() =>
+        useCustomShoppingItems([customItem('Bread', { checked: true }), customItem('Napkins')]),
+      )
+
+      await act(async () => {
+        const clear = result.current.handleClearChecked()
+        const remove = result.current.handleCustomDelete('custom-napkins')
+        await Promise.all([clear, remove])
+      })
+
+      // Bread was ours to restore; Napkins is gone from the DB and must stay gone.
+      expect(result.current.customItems.map((i) => i.name)).toEqual(['Bread'])
     })
 
     it('does nothing when nothing is checked', async () => {

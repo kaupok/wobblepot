@@ -28,13 +28,13 @@ Use these. Do not restyle them per feature or invent parallel ones.
 
 Five levels for authenticated app pages (`HON-381`). Differentiate by color before size.
 
-| Level     | Use for                                                   | Component                                                                                                  | Renders as                         |
-| --------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Title     | Page heading: "Shopping list", "My recipes"               | `<Heading variant="h4">`                                                                                   | `text-xl font-semibold`            |
-| Section   | Day names, form sections ("Ingredients")                  | `text-base font-semibold` on a heading tag today; `<Heading variant="section" as="h2">` once HON-606 ships | `text-base font-semibold`          |
-| Body      | Single-line items: meal names, ingredient rows, links     | `<Body variant="small">`                                                                                   | `text-sm font-medium leading-none` |
-| Secondary | Helper text, descriptions, summaries; any text that wraps | `<Body variant="muted">`                                                                                   | `text-sm text-muted-foreground`    |
-| Caption   | Meal-type labels, badges, quantities, day tags            | `<Body variant="caption">`                                                                                 | `text-xs font-medium muted`        |
+| Level     | Use for                                                   | Component                                                                                         | Renders as                         |
+| --------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Title     | Page heading: "Shopping list", "My recipes"               | `<Heading variant="h4">`                                                                          | `text-xl font-semibold`            |
+| Section   | Day names, form sections ("Ingredients")                  | `<Heading variant="section">` (day names only so far — form sections are still `h4`, see HON-613) | `text-base font-semibold`          |
+| Body      | Single-line items: meal names, ingredient rows, links     | `<Body variant="small">`                                                                          | `text-sm font-medium leading-none` |
+| Secondary | Helper text, descriptions, summaries; any text that wraps | `<Body variant="muted">`                                                                          | `text-sm text-muted-foreground`    |
+| Caption   | Meal-type labels, badges, quantities, day tags            | `<Body variant="caption">`                                                                        | `text-xs font-medium muted`        |
 
 Rules:
 
@@ -42,7 +42,7 @@ Rules:
 - Do not override a `Body` variant's size with `className`. Pick the right variant.
 - `Heading` `h1`, `h2`, `h3` are for the marketing landing page, legal pages, error pages, and internal pages (`/status`, `/bot`, `/admin`). Inside the household-facing app, page titles are `h4`. Five in-app components still use `h2` (`ShoppingEmptyState`, `MemberList`, `FirstTimeSetup`, `GeneratingOverlay`, `HouseholdSettingsForm`); decided 2026-09-03 to migrate them, not to add an exception.
 - Do not wrap `Heading` in `CardTitle` or `Body` in `CardDescription`. One component per text element.
-- Visual level and HTML tag are separate choices. `variant` sets the size, `as` sets the tag. Pick the tag for document outline (no skipped levels, one `h1` per page) and the variant for the type scale. Decided 2026-09-03; until the `as` prop ships, `Heading` still ties the two together and the Section level is raw `text-base font-semibold`.
+- Visual level and HTML tag are separate choices. `variant` sets the size, `as` sets the tag. Pick the tag for document outline (no skipped levels, one `h1` per page) and the variant for the type scale. Decided 2026-09-03, shipped in HON-606. Omitting `as` renders the variant's natural tag (`section` → `h2`), so only pass it when the outline needs a different level than the scale.
 
 ## Spacing, radius, elevation
 
@@ -124,13 +124,13 @@ Add one here when a review finds code and rule disagreeing and the fix is not ob
 
 1. The default `Button` is `h-9` (36px), below the 44px touch rule. Options: leave buttons at 36px and scope the rule to list rows and tab items (the wording above does this for now), or make `size="lg"` (40px) the mobile default for primary actions, or raise the default. HON-609 will list every interactive element under 44px at the mobile viewport so this can be decided on evidence.
 
-2. The Body level has no wrapping variant. `Body variant="small"` is `leading-none`, so it is only safe for single-line items; multi-line text currently falls back to `muted`. Options: add a `body` variant (`text-sm leading-normal`) or loosen `small`. Decide when HON-606 touches `typography.tsx`.
+2. The Body level has no wrapping variant. `Body variant="small"` is `leading-none`, so it is only safe for single-line items; multi-line text currently falls back to `muted`. Options: add a `body` variant (`text-sm leading-normal`) or loosen `small`. Still open — HON-606 shipped `Heading`'s `as` prop without taking a position on this, since it needs a design call rather than a mechanical change.
 
 ## Pending code changes
 
 Decisions above that the code does not yet reflect. Each has a Linear issue; update this list when one ships.
 
-- HON-606: give `Heading` an `as` prop and a `section` variant; retire the `nameHeadingLevel` workaround (type scale).
 - HON-607: migrate the five in-app `Heading variant="h2"` usages to `h4` (type scale).
+- HON-613: migrate the seven form-section headings from `Heading variant="h4"` to `variant="section"` — `MealForm.tsx:153` ("Ingredients", the row's own example), `MealFormBasicInfo.tsx:32`, `MealFormDetails.tsx:57`, `HouseholdSettingsForm.tsx:258/318/368/385`. HON-606 shipped the variant and migrated only the day-name callsite (type scale).
 - HON-609: name the 44px touch-target height as a utility (spacing).
 - HON-610: add three `Scenarios/*` stories and the `assertDesignRules` DOM helper (review harness).

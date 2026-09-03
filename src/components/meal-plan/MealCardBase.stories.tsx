@@ -27,6 +27,19 @@ export const Default: Story = {
   args: { meal: mealFixture },
 }
 
+export const NameAsH3: Story = {
+  name: 'Meal name tag override',
+  args: { meal: mealFixture, nameHeadingTag: 'h3' },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "`nameHeadingTag` moves the meal name in the document outline without changing its size — it stays at the `h4` title level (`text-xl`). Callers inside a Dialog pass `h3` so the tag follows the Dialog title (an `h2`) and axe's heading-order rule stays valid.",
+      },
+    },
+  },
+}
+
 export const WithSourceUrl: Story = {
   args: {
     meal: createMealCardBaseData({

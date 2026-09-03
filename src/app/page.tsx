@@ -7,7 +7,7 @@ import { Heading, Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { getServerBaseURL } from '@/lib/env'
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
+import { getHouseholdMembership } from '@/lib/household'
 import {
   getTodayInTimezone,
   getUrgencyBucket,
@@ -133,29 +133,30 @@ export default async function Home() {
   const baseURL = getServerBaseURL()
   const cookieHeader = requestHeaders.get('cookie') ?? ''
 
-  const [householdSize, entriesResponse, pantryResponse, shoppingResponse, prefsResponse] =
-    await Promise.all([
-      getHouseholdMemberCount(household.id),
-      fetch(
-        `${baseURL}/api/entries?startDate=${toDateString(sevenDaysAgo)}&endDate=${toDateString(fourteenDaysAhead)}`,
-        {
-          headers: { cookie: cookieHeader },
-          cache: 'no-store',
-        },
-      ),
-      fetch(`${baseURL}/api/pantry`, {
+  // Rode along on the membership query's `_count` — no round-trip of its own.
+  const householdSize = household._count.members
+
+  const [entriesResponse, pantryResponse, shoppingResponse, prefsResponse] = await Promise.all([
+    fetch(
+      `${baseURL}/api/entries?startDate=${toDateString(sevenDaysAgo)}&endDate=${toDateString(fourteenDaysAhead)}`,
+      {
         headers: { cookie: cookieHeader },
         cache: 'no-store',
-      }),
-      fetch(`${baseURL}/api/shopping-list?days=7`, {
-        headers: { cookie: cookieHeader },
-        cache: 'no-store',
-      }),
-      fetch(`${baseURL}/api/households/me/preferences`, {
-        headers: { cookie: cookieHeader },
-        cache: 'no-store',
-      }),
-    ])
+      },
+    ),
+    fetch(`${baseURL}/api/pantry`, {
+      headers: { cookie: cookieHeader },
+      cache: 'no-store',
+    }),
+    fetch(`${baseURL}/api/shopping-list?days=7`, {
+      headers: { cookie: cookieHeader },
+      cache: 'no-store',
+    }),
+    fetch(`${baseURL}/api/households/me/preferences`, {
+      headers: { cookie: cookieHeader },
+      cache: 'no-store',
+    }),
+  ])
 
   // Parse entries
   let entries: PlanEntry[] = []

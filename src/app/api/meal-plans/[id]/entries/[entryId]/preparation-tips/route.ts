@@ -3,7 +3,7 @@ import { headers } from 'next/headers'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership, getHouseholdMemberCount } from '@/lib/household'
+import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
 import { TIPS_MODEL } from '@/lib/ai/models'
@@ -126,7 +126,7 @@ async function handlePOST(
       throw error
     }
 
-    const householdSize = await getHouseholdMemberCount(household.id)
+    const householdSize = household._count.members
     const mealName = entry.meal.name
     const timeMinutes = entry.meal.timeMinutes
     const preparationNotes = entry.meal.preparationNotes

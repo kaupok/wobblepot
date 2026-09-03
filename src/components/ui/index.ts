@@ -9,5 +9,6 @@ export {
   Code,
   Pre,
   type HeadingVariant,
+  type HeadingTag,
   type BodyVariant,
 } from './typography'

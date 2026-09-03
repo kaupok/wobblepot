@@ -11,10 +11,44 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 import { prisma } from '@/lib/prisma'
-import { isUserSoleOwnerWithOtherMembers } from './household'
+import { getHouseholdMembership, isUserSoleOwnerWithOtherMembers } from './household'
 
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
 const mockCount = vi.mocked(prisma.householdMember.count)
+
+describe('getHouseholdMembership', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('loads the household preferences and member count in one query', async () => {
+    mockFindFirst.mockResolvedValue(null)
+
+    await getHouseholdMembership('user-123')
+
+    // The `_count` is what lets `/profile` skip a second `household_member`
+    // read (HON-596); Prisma folds it into this same round-trip.
+    expect(mockFindFirst).toHaveBeenCalledTimes(1)
+    expect(mockFindFirst).toHaveBeenCalledWith({
+      where: { userId: 'user-123' },
+      include: {
+        household: {
+          include: {
+            preferences: true,
+            _count: { select: { members: true } },
+          },
+        },
+      },
+    })
+    expect(mockCount).not.toHaveBeenCalled()
+  })
+
+  it('returns null when the user has no membership', async () => {
+    mockFindFirst.mockResolvedValue(null)
+
+    await expect(getHouseholdMembership('user-123')).resolves.toBeNull()
+  })
+})
 
 describe('isUserSoleOwnerWithOtherMembers', () => {
   beforeEach(() => {
