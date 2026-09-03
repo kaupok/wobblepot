@@ -1,0 +1,7 @@
+<!--
+  Favicon for the preview iframe. Storybook's manager ships its own favicon.svg,
+  but iframe.html has none, so browsers request /favicon.ico at the origin root,
+  which 404s on GitHub Pages (the site lives under /wobblepot/). Relative href so
+  it resolves under both `/` (storybook dev) and the Pages sub-path.
+-->
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192x192.png" />

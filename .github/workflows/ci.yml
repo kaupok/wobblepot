@@ -143,6 +143,13 @@ jobs:
       - name: Run Storybook a11y tests
         run: pnpm test-storybook:ci
 
+      # Static build gate for the GitHub Pages deploy (deploy-storybook.yml).
+      # The a11y run above exercises the stories under Vitest but never runs
+      # `storybook build`, so a broken manager bundle or preview head would
+      # otherwise surface only as a failed deploy on main after merge.
+      - name: Build Storybook
+        run: pnpm build-storybook
+
       # ==========================================
       # E2E tier 1: Playwright against Docker Postgres sidecar (HON-455)
       # ==========================================
