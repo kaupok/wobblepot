@@ -94,7 +94,9 @@ export function ShoppingEmptyState({ variant, windowDays = 7 }: ShoppingEmptySta
       {showWindowPicker && (
         <CardHeader>
           <div className="flex items-center justify-between gap-2">
-            <Heading variant="h2">{tShopping('title')}</Heading>
+            <Heading variant="h4" as="h2">
+              {tShopping('title')}
+            </Heading>
             {mounted && (
               <Select value={String(windowDays)} onValueChange={handleWindowChange}>
                 <SelectTrigger size="sm" className="w-[100px]" aria-label={t('ariaTimeWindow')}>
@@ -114,7 +116,9 @@ export function ShoppingEmptyState({ variant, windowDays = 7 }: ShoppingEmptySta
           className={`flex flex-col items-center justify-center gap-4 text-center ${showWindowPicker ? 'py-8' : ''}`}
         >
           <div className="flex flex-col items-center gap-2">
-            <Heading variant="h2">{t(keys.heading)}</Heading>
+            <Heading variant="h4" as="h2">
+              {t(keys.heading)}
+            </Heading>
             <Body variant="muted">{description}</Body>
           </div>
           {keys.cta && keys.href && (

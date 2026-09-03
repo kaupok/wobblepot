@@ -99,7 +99,7 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
               <ChefHat className="text-primary h-8 w-8" />
             </div>
             <div className="flex flex-col gap-2 text-center">
-              <Heading variant="h2">
+              <Heading variant="h4" as="h2">
                 {userName ? tFirst('welcome', { userName }) : tFirst('welcomeNoName')}
               </Heading>
               <Body variant="muted">{tFirst('subhead')}</Body>
