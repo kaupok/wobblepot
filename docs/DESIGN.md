@@ -40,7 +40,7 @@ Rules:
 
 - No arbitrary font sizes (`text-[10px]`). If a size is not in the scale, the design is wrong, not the scale.
 - Do not override a `Body` variant's size with `className`. Pick the right variant.
-- `Heading` `h1`, `h2`, `h3` are for the marketing landing page, legal pages, error pages, and internal pages (`/status`, `/bot`, `/admin`). Inside the household-facing app, page titles are `h4`. Five in-app components still use `h2` (`ShoppingEmptyState`, `MemberList`, `FirstTimeSetup`, `GeneratingOverlay`, `HouseholdSettingsForm`); decided 2026-09-03 to migrate them, not to add an exception.
+- `Heading` `h1`, `h2`, `h3` are for the marketing landing page, legal pages, error pages, and internal pages (`/status`, `/bot`, `/admin`). Inside the household-facing app, page titles are `h4` — no exceptions for overlays or empty states. Decided 2026-09-03, shipped in HON-607, which migrated the last five in-app `h2` components (`ShoppingEmptyState`, `MemberList`, `FirstTimeSetup`, `GeneratingOverlay`, `HouseholdSettingsForm`). Each kept its `<h2>` tag via `as`, so the size changed and the outline did not.
 - Do not wrap `Heading` in `CardTitle` or `Body` in `CardDescription`. One component per text element.
 - Visual level and HTML tag are separate choices. `variant` sets the size, `as` sets the tag. Pick the tag for document outline (no skipped levels, one `h1` per page) and the variant for the type scale. Decided 2026-09-03, shipped in HON-606. Omitting `as` renders the variant's natural tag (`section` → `h2`), so only pass it when the outline needs a different level than the scale.
 
@@ -130,7 +130,6 @@ Add one here when a review finds code and rule disagreeing and the fix is not ob
 
 Decisions above that the code does not yet reflect. Each has a Linear issue; update this list when one ships.
 
-- HON-607: migrate the five in-app `Heading variant="h2"` usages to `h4` (type scale).
 - HON-619: finish the Section sweep — `profile/page.tsx:68/82` are still `h4` sections under an `h4` card title, and `TimelineDayCard.tsx:67` is the one `variant="section"` with no `as` (type scale).
 - HON-612: raise the default control height to 44px on mobile for `Button`, `Input`, and `Select`, using the `touch` token (spacing).
 - HON-610: add three `Scenarios/*` stories and the `assertDesignRules` DOM helper (review harness).

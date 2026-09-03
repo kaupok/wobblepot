@@ -39,7 +39,9 @@ export function GeneratingOverlay() {
       <div className="flex flex-col items-center gap-6 text-center">
         <Loader2 className="text-primary h-12 w-12 animate-spin" />
         <div className="flex flex-col items-center gap-2">
-          <Heading variant="h2">{t('heading')}</Heading>
+          <Heading variant="h4" as="h2">
+            {t('heading')}
+          </Heading>
           <Body variant="muted">{displayMessage}</Body>
         </div>
       </div>
