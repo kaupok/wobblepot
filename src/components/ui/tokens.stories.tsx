@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { AlertTriangle, Check, Info, ThumbsDown } from 'lucide-react'
+import { expect, within } from 'storybook/test'
 import { Body, Heading } from './typography'
 
 /**
@@ -133,6 +134,35 @@ function DestructiveView() {
 }
 
 /**
+ * The `touch` spacing token (`--spacing-touch` in `globals.css`) is the minimum
+ * tap height for interactive list rows and tab items. It is a literal pixel
+ * value, not a rem: the rule is a physical finger-size floor, so it must not
+ * scale with the root font size.
+ *
+ * The play function measures the rendered box rather than asserting on the class
+ * name — a token that silently stopped resolving would still produce the right
+ * class and the wrong height. It reads the value as a number rather than the
+ * `'…px'` string so that the HON-609 acceptance grep for a literal pixel value
+ * under `src/**\/*.tsx` stays a meaningful signal.
+ */
+/** The value of `--spacing-touch`, as the play function expects to measure it. */
+const TOUCH_TARGET_PX = 44
+
+function TouchTargetView() {
+  return (
+    <div className="flex flex-col gap-3">
+      <div data-testid="touch-row" className="min-h-touch flex items-center rounded-lg border px-3">
+        <Body variant="small">min-h-touch — a list row at the touch floor</Body>
+      </div>
+      <div className="flex items-center gap-3">
+        <div data-testid="touch-square" className="size-touch rounded-md border" />
+        <Body variant="muted">size-touch — a square icon target</Body>
+      </div>
+    </div>
+  )
+}
+
+/**
  * Light and dark are separate stories on purpose. The axe gate only measures the
  * theme a story actually renders in, so the dark values would go unchecked if the
  * toolbar were the only way to reach them.
@@ -166,4 +196,29 @@ export const Destructive: Story = {
 export const DestructiveDark: Story = {
   render: () => <DestructiveView />,
   globals: { theme: 'dark' },
+}
+
+export const TouchTarget: Story = {
+  render: () => <TouchTargetView />,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The `touch` spacing token names the minimum tap height for list rows and tab items, so `min-h-touch` / `h-touch` / `size-touch` replace a copied `min-h-[…]` arbitrary value. Shipped in HON-609; `docs/DESIGN.md` → Spacing, radius, elevation carries the rule and the value.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const row = await canvas.findByTestId('touch-row')
+    const square = await canvas.findByTestId('touch-square')
+
+    // Asserted separately from the box: a failure on min-height means the token
+    // stopped resolving, a failure on the box alone means the row's content grew
+    // past the floor. Same number, two different bugs.
+    expect(parseFloat(getComputedStyle(row).minHeight)).toBe(TOUCH_TARGET_PX)
+    expect(row.getBoundingClientRect().height).toBe(TOUCH_TARGET_PX)
+    expect(square.getBoundingClientRect().height).toBe(TOUCH_TARGET_PX)
+    expect(square.getBoundingClientRect().width).toBe(TOUCH_TARGET_PX)
+  },
 }
