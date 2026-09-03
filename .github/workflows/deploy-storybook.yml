@@ -68,7 +68,7 @@ jobs:
       # @/lib/auth-client → @/lib/env, and both have stories, so an unset value
       # would crash those stories in the browser. The name is never rendered in
       # a story (only in server-side emails), so the literal brand string is
-      # fine here and avoids the repo-level NEXT_PUBLIC_APP_NAME variable.
+      # fine here, same as in ci.yml.
       NEXT_PUBLIC_APP_NAME: Wobblepot
       NEXT_PUBLIC_APP_ENV: ci
 

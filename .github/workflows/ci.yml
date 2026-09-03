@@ -54,7 +54,11 @@ jobs:
           --health-retries 10
 
     env:
-      NEXT_PUBLIC_APP_NAME: ${{ vars.NEXT_PUBLIC_APP_NAME }}
+      # Literal brand string, not a secret: only required so `clientEnv`
+      # (src/lib/env.ts) parses. The value is rendered in emails only, which
+      # no CI job sends. Kept out of repo variables so nothing drifts from
+      # the product name.
+      NEXT_PUBLIC_APP_NAME: Wobblepot
       NEXT_PUBLIC_APP_ENV: ci
       NEXT_TELEMETRY_DISABLED: 1
       NODE_ENV: test
