@@ -209,6 +209,76 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
     expect(data.status).toBe('completed')
     expect(data.pantryDeducted).toBe(true)
   })
+
+  it('deducts using the servingOverride sent in the same request, not the stored one', async () => {
+    // Entry is stored at 2 servings; this request persists 4 *and* completes
+    // the entry in one transaction. Deducting off the pre-update snapshot
+    // would take 100 × 2 = 200g and leave the pantry 200g overstated.
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      servingOverride: 2,
+      plan: {
+        household: { members: [{ id: 'member-1' }, { id: 'member-2' }] },
+      },
+      meal: {
+        components: [{ ingredientId: 'ing-1', quantityPerServing: 100 }],
+      },
+    } as never)
+
+    vi.mocked(prisma.pantryItem.findMany).mockResolvedValue([
+      { id: 'pantry-1', ingredientId: 'ing-1', quantity: 1000, isStaple: false },
+    ] as never)
+    vi.mocked(prisma.$transaction).mockResolvedValue(undefined as never)
+
+    const response = await PATCH(
+      createPatchRequest({ status: 'completed', deductPantry: true, servingOverride: 4 }),
+      { params: createParams() },
+    )
+
+    expect(response.status).toBe(200)
+    expect(vi.mocked(prisma.pantryItem.update)).toHaveBeenCalledWith({
+      where: { id: 'pantry-1' },
+      data: { quantity: 600 }, // 1000 - 100 × 4
+    })
+  })
+
+  it('deducts using the household size when a meal swap resets the override', async () => {
+    // A swap sets `servingOverride: null` in the same update, so the stored
+    // override must not survive into the deduction.
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      servingOverride: 6,
+      plan: {
+        household: { members: [{ id: 'member-1' }, { id: 'member-2' }] },
+      },
+      meal: {
+        components: [{ ingredientId: 'ing-1', quantityPerServing: 100 }],
+      },
+    } as never)
+
+    vi.mocked(prisma.meal.findUnique).mockResolvedValue({ id: 'new-meal-456' } as never)
+    vi.mocked(prisma.pantryItem.findMany).mockResolvedValue([
+      { id: 'pantry-1', ingredientId: 'ing-1', quantity: 1000, isStaple: false },
+    ] as never)
+    vi.mocked(prisma.$transaction).mockResolvedValue(undefined as never)
+
+    const response = await PATCH(
+      createPatchRequest({
+        status: 'completed',
+        deductPantry: true,
+        mealId: 'new-meal-456',
+      }),
+      { params: createParams() },
+    )
+
+    expect(response.status).toBe(200)
+    expect(vi.mocked(prisma.pantryItem.update)).toHaveBeenCalledWith({
+      where: { id: 'pantry-1' },
+      data: { quantity: 800 }, // 1000 - 100 × 2 members, not × the reset 6
+    })
+  })
 })
 
 describe('PATCH /api/meal-plans/[id]/entries/[entryId] - rating', () => {

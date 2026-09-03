@@ -229,6 +229,93 @@ describe('GET /api/pantry', () => {
     expect(data.items[0].windowDays).toBe(7)
   })
 
+  it('scales needed quantities by a per-entry servingOverride', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+
+    const mockItems = [
+      {
+        id: 'pantry-1',
+        householdId: 'household-123',
+        ingredientId: 'ing-1',
+        quantity: null,
+        isStaple: false,
+        updatedAt: new Date('2024-01-01'),
+        ingredient: {
+          id: 'ing-1',
+          name: 'Chicken breast',
+          category: 'protein',
+          defaultUnit: 'g',
+          gramsPerPiece: null,
+        },
+      },
+    ]
+    mockFindMany.mockResolvedValue(mockItems as never)
+
+    // Household of 2 cooking a dinner for 6. The shopping list has always
+    // honoured the override; the pantry row used to report 150 × 2 = 300g
+    // beside the shopping row's 900g for the same ingredient (HON-614).
+    mockFindManyEntries.mockResolvedValue([
+      {
+        servingOverride: 6,
+        meal: { components: [{ ingredientId: 'ing-1', quantityPerServing: 150 }] },
+      },
+    ] as never)
+
+    const response = await GET(createMockRequest('http://localhost/api/pantry?days=7'))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.items[0].neededQuantity).toBe(900)
+    expect(data.items[0].neededDisplayQuantity).toBe('900g')
+  })
+
+  it('scales needed quantities by household size when no servingOverride is set', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+
+    const mockItems = [
+      {
+        id: 'pantry-1',
+        householdId: 'household-123',
+        ingredientId: 'ing-1',
+        quantity: null,
+        isStaple: false,
+        updatedAt: new Date('2024-01-01'),
+        ingredient: {
+          id: 'ing-1',
+          name: 'Chicken breast',
+          category: 'protein',
+          defaultUnit: 'g',
+          gramsPerPiece: null,
+        },
+      },
+    ]
+    mockFindMany.mockResolvedValue(mockItems as never)
+
+    // Same fixture, override explicitly null: the household-size path must be
+    // untouched by the override fix — 150 × 2 = 300g.
+    mockFindManyEntries.mockResolvedValue([
+      {
+        servingOverride: null,
+        meal: { components: [{ ingredientId: 'ing-1', quantityPerServing: 150 }] },
+      },
+    ] as never)
+
+    const response = await GET(createMockRequest('http://localhost/api/pantry?days=7'))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.items[0].neededQuantity).toBe(300)
+    expect(data.items[0].neededDisplayQuantity).toBe('300g')
+  })
+
   it('does not include needed quantities when days param is not provided', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John', email: 'john@example.com' },
