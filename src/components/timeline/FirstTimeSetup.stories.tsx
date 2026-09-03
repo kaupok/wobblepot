@@ -40,6 +40,17 @@ export const Generating: Story = {
     const canvas = within(canvasElement)
     await userEvent.click(canvas.getByRole('button', { name: /^generate meal plan$/i }))
     await waitFor(() => expect(canvas.getByRole('button', { name: /generating…/i })).toBeDisabled())
+
+    // This story renders the one pairing that constrains `GeneratingOverlay`'s
+    // tag outside the timeline: the overlay's status heading sits immediately
+    // before this screen's own title. axe cannot judge it — the overlay comes
+    // first, so any tag reads as a legal decrease — but a transient status
+    // message must not outrank the screen it covers. HON-607 migrates both
+    // headings' variants, so pin the relationship rather than either level
+    // (HON-619, PR #700 review).
+    const status = canvas.getByRole('heading', { name: /generating your meal plan/i })
+    const title = canvas.getByRole('heading', { name: /^welcome to wobblepot/i })
+    expect(Number(status.tagName.slice(1))).toBeGreaterThanOrEqual(Number(title.tagName.slice(1)))
   },
 }
 

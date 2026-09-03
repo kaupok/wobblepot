@@ -65,7 +65,9 @@ export default async function ProfilePage() {
             <Separator />
 
             <div className="flex flex-col gap-3">
-              <Heading variant="h4">{t('yourDataHeading')}</Heading>
+              <Heading variant="section" as="h5">
+                {t('yourDataHeading')}
+              </Heading>
               <Body variant="muted">{t('yourDataDescription')}</Body>
               <div>
                 <Button asChild variant="outline">
@@ -79,7 +81,9 @@ export default async function ProfilePage() {
             <Separator />
 
             <div className="flex flex-col gap-3">
-              <Heading variant="h4">{t('dangerHeading')}</Heading>
+              <Heading variant="section" as="h5">
+                {t('dangerHeading')}
+              </Heading>
               <Body variant="muted">{t('dangerDescription')}</Body>
               <div>
                 <DeleteAccountDialog

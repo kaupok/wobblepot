@@ -39,9 +39,31 @@ export function GeneratingOverlay() {
       <div className="flex flex-col items-center gap-6 text-center">
         <Loader2 className="text-primary h-12 w-12 animate-spin" />
         <div className="flex flex-col items-center gap-2">
-          <Heading variant="h4" as="h2">
-            {t('heading')}
-          </Heading>
+          {/*
+            `variant="h4"` is HON-607's, but this is the one site in that sweep
+            that does *not* keep its old `<h2>` tag: the natural `h4` tag is
+            load-bearing here, so there is deliberately no `as`. Two callsites
+            constrain it, and neither is visible from this file:
+
+            - `FillDaysAction.tsx:103` emits the overlay between the planned and
+              empty `TimelineDayCard`s, so an `h5` day label follows it. At
+              `<h2>` that is a skipped level to axe's `heading-order`
+              (`5 - 2 > 1`). Pinned in `TimelineDayCard.test.tsx`.
+            - `FirstTimeSetup.tsx:94` emits it just before that screen's own
+              `<h2>` title. Any tag is a legal decrease there, so axe is blind;
+              what matters is editorial — a transient status message must not
+              outrank the screen it covers. The `Generating` story's play
+              function in `FirstTimeSetup.stories.tsx` pins *that* much, and
+              only that much: it asserts `status >= title`, which `h2` also
+              satisfies.
+
+            So `TimelineDayCard.test.tsx` is the guard that actually holds this
+            tag — it brackets the overlay from both sides and fails on anything
+            outside `h4`-`h5`. Do not "restore" `as="h2"` for symmetry with the
+            other five sites HON-607 migrated; that test is what will stop you.
+            (HON-619)
+          */}
+          <Heading variant="h4">{t('heading')}</Heading>
           <Body variant="muted">{displayMessage}</Body>
         </div>
       </div>
