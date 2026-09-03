@@ -34,7 +34,7 @@ export function ShoppingItem({ item, onToggle, disabled, pending }: ShoppingItem
   return (
     <label
       className={cn(
-        'flex min-h-[44px] cursor-pointer items-center justify-between gap-3 rounded-lg border p-3 transition-colors',
+        'min-h-touch flex cursor-pointer items-center justify-between gap-3 rounded-lg border p-3 transition-colors',
         'hover:bg-muted/50',
         item.purchased && 'bg-muted/30',
         disabled && 'pointer-events-none opacity-50',

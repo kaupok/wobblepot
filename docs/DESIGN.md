@@ -59,7 +59,9 @@ Spacing rhythm as used today (Tailwind steps, 4px each):
 - One element owns each gap. Use `gap-*` on a flex or grid parent, not margins on children.
 - Radius: `rounded-md` for controls (buttons, inputs, badges are `rounded-full`), `rounded-lg` for list rows and dialogs, `rounded-xl` for `Card`. Do not mix within one component.
 - Elevation: `shadow-xs` on outline controls, `shadow-sm` on cards, `shadow-lg` only on overlays (dialog, sheet, popover). Nothing else casts a shadow.
-- Interactive list rows and tab items are at least 44px tall on mobile (today only two shopping rows set `min-h-[44px]`; the tab bar relies on its 64px container and sets no per-item floor. **Proposed:** a named `min-h-touch` utility and a rollout, HON-609).
+- Interactive list rows and tab items are at least 44px tall on mobile. The floor has a name: `--spacing-touch: 44px` in `globals.css`, which yields `min-h-touch`, `h-touch`, and `size-touch`. Use those; never copy `min-h-[44px]` into a new row. `ShoppingItem` and `CustomShoppingItem` set it, and each tab item clears it at 56px off its own padding rather than an explicit floor. Shipped in HON-609. `UI/Tokens` → `TouchTarget` measures the token in a real browser, so CI fails if it stops resolving to 44px.
+- Controls below the floor are a known gap, not an exception. Measured at 390px on 2026-09-03: `Button` is 36px by default (`sm` 32, `lg` 40, `icon` 36, `icon-sm` 32, `icon-lg` 40). Everything smaller is one of two things — a raw `<button>` that never goes through `Button` (`MealCard`'s meal name 15px, `NoteEditor`'s "Add note" 20px, `CustomShoppingItem`'s unlink and delete 22px, `MealRatingInline`'s thumbs and `RatingBadge` 24px), or a `Button` whose `className` overrides the size variant (`MealCard`'s Note / Swap / Clear 20px via `h-5` and "Add meal" 28px via `h-7`, `MealRatingPrompt`'s thumbs 28px via `h-7` and dismiss 24px via `h-6`). Decided 2026-09-03 to raise the control default rather than narrow the rule to list rows; HON-612 does it with the same token. Note for that rollout: changing `Button`'s size variants reaches neither group, which together are most of this list. Full measurements are in the HON-609 PR.
+- `Checkbox` renders at 20px in both shopping rows. In `ShoppingItem` the `<label>` wraps the whole 54px row, so the real target is the row; in `CustomShoppingItem` the label covers only the 28px text block, so the checkbox is closer to a bare 20px target.
 
 ## Color
 
@@ -122,9 +124,7 @@ Agents produce these by default. Recognise them and do not ship them.
 
 Add one here when a review finds code and rule disagreeing and the fix is not obvious.
 
-1. The default `Button` is `h-9` (36px), below the 44px touch rule. Options: leave buttons at 36px and scope the rule to list rows and tab items (the wording above does this for now), or make `size="lg"` (40px) the mobile default for primary actions, or raise the default. HON-609 will list every interactive element under 44px at the mobile viewport so this can be decided on evidence.
-
-2. The Body level has no wrapping variant. `Body variant="small"` is `leading-none`, so it is only safe for single-line items; multi-line text currently falls back to `muted`. Options: add a `body` variant (`text-sm leading-normal`) or loosen `small`. Still open — HON-606 shipped `Heading`'s `as` prop without taking a position on this, since it needs a design call rather than a mechanical change.
+1. The Body level has no wrapping variant. `Body variant="small"` is `leading-none`, so it is only safe for single-line items; multi-line text currently falls back to `muted`. Options: add a `body` variant (`text-sm leading-normal`) or loosen `small`. Still open — HON-606 shipped `Heading`'s `as` prop without taking a position on this, since it needs a design call rather than a mechanical change.
 
 ## Pending code changes
 
@@ -132,5 +132,5 @@ Decisions above that the code does not yet reflect. Each has a Linear issue; upd
 
 - HON-607: migrate the five in-app `Heading variant="h2"` usages to `h4` (type scale).
 - HON-613: migrate the seven form-section headings from `Heading variant="h4"` to `variant="section"` — `MealForm.tsx:153` ("Ingredients", the row's own example), `MealFormBasicInfo.tsx:32`, `MealFormDetails.tsx:57`, `HouseholdSettingsForm.tsx:258/318/368/385`. HON-606 shipped the variant and migrated only the day-name callsite (type scale).
-- HON-609: name the 44px touch-target height as a utility (spacing).
+- HON-612: raise the default control height to 44px on mobile for `Button`, `Input`, and `Select`, using the `touch` token (spacing).
 - HON-610: add three `Scenarios/*` stories and the `assertDesignRules` DOM helper (review harness).
