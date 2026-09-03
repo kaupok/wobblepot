@@ -3,13 +3,22 @@ import { prisma } from '@/lib/prisma'
 /**
  * Get household membership for a user.
  * Returns null if user has no household membership.
+ *
+ * The member count rides along on `household._count.members`. Prisma folds a
+ * relation `_count` into this same round-trip, so callers that need the count
+ * (e.g. `/profile`) get it for free instead of issuing a second
+ * `householdMember.count` query — see `getHouseholdMemberCount` below, which
+ * remains for callers that only need the count and not the membership row.
  */
 export async function getHouseholdMembership(userId: string) {
   return prisma.householdMember.findFirst({
     where: { userId },
     include: {
       household: {
-        include: { preferences: true },
+        include: {
+          preferences: true,
+          _count: { select: { members: true } },
+        },
       },
     },
   })
