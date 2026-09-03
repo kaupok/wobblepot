@@ -241,6 +241,8 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **Commands:** `pnpm storybook` (dev server on port 6006), `pnpm build-storybook` (static build), `pnpm test-storybook` (watch mode), `pnpm test-storybook:ci` (run every story once through `@storybook/addon-vitest` in Chromium — a11y gate + play functions)
 
+**Published build:** <https://kaupok.github.io/wobblepot/>, deployed to GitHub Pages from `main` by `.github/workflows/deploy-storybook.yml`. It is served from a sub-path, so the MSW worker URL in `.storybook/preview.tsx` is built from `import.meta.env.BASE_URL` — keep it that way (see `.storybook/README.md` → "Published build").
+
 **Config:** `.storybook/main.ts` and `.storybook/preview.tsx`. Preview wires up Geist fonts, `globals.css`, `QueryClientProvider`, Next.js app-router mocking (`nextjs.appDirectory: true`), and a light/dark theme toggle via a custom `withTailwindTheme` decorator that toggles the `dark` class on `document.documentElement` so Radix portal content (Dialog, Select, DropdownMenu) inherits the theme.
 
 **CRITICAL: When creating or modifying a component in `/src/components/**`, create or update a colocated `.stories.tsx`file covering all variants and states.** Stories live next to the component (e.g.`Button.tsx`+`button.stories.tsx`). This is part of the definition of done — Storybook is maintained by the agentic workflow so it stays current.

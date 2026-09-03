@@ -189,3 +189,20 @@ export const A11yInteractionPatterns: Story = {
 Modals that use a Radix `<DialogTrigger>` internally (like `AddMemberDialog`)
 can skip the wrapper and click the real trigger directly, but the play-function
 assertions are the same — focus-in, tab-stays-in, escape, await-closed.
+
+## Published build
+
+The static build is public at <https://kaupok.github.io/wobblepot/>. The
+`Deploy Storybook [GitHub Pages]` workflow
+(`.github/workflows/deploy-storybook.yml`) rebuilds it on every push to `main`
+that touches a build input (`src/`, `.storybook/`, `messages/`, `public/`, the
+package manifest). Republish by hand from the Actions tab → "Run workflow" if
+a run fails or Pages was just (re)enabled.
+
+Pages serves the site from a sub-path (`/wobblepot/`), so anything that must
+resolve at runtime has to be base-relative. Storybook's own assets already are;
+the MSW service worker URL is the one we own — `initialize()` in `preview.tsx`
+builds it from `import.meta.env.BASE_URL` so it stays `/mockServiceWorker.js`
+in dev and the Vitest project and becomes `./mockServiceWorker.js` in the
+static build. Keep that when touching the MSW setup, or every story on Pages
+fails in the loader.

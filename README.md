@@ -21,7 +21,7 @@ Nearly every change here was planned, implemented, reviewed, and merged by Claud
 
 ### Quality gates
 
-- **Storybook with an accessibility gate.** Over eighty colocated story files run through axe in CI, and modal stories carry play functions that assert focus trapping, Escape handling, and tab order. See [`.storybook/README.md`](.storybook/README.md).
+- **Storybook with an accessibility gate.** Over eighty colocated story files run through axe in CI, and modal stories carry play functions that assert focus trapping, Escape handling, and tab order. Browse the published build at [kaupok.github.io/wobblepot](https://kaupok.github.io/wobblepot/), rebuilt from `main` whenever a merge touches the stories or their inputs. See [`.storybook/README.md`](.storybook/README.md).
 - **Tests at three levels.** Around two hundred colocated Vitest files, plus Playwright specs in three tiers: the core suite on every push, smoke runs against Vercel preview deployments on labelled PRs, and a staging smoke run that gates promotion to production. See [`tests/e2e/README.md`](tests/e2e/README.md).
 - **Environment drift audit.** A blocking CI step diffs the Vercel environment against the variables the code actually reads, so dead or missing configuration fails the build. See [`scripts/env-audit.ts`](scripts/env-audit.ts).
 - **Pre-commit checks.** Type-check, ESLint, and Prettier run on staged files through Husky and lint-staged.
