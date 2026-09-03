@@ -133,11 +133,10 @@ describe('useCustomShoppingItems', () => {
       expect(toast.error).toHaveBeenCalled()
     })
 
-    it('restores the link when two failing unlinks overlap', async () => {
-      // Reproduces a real double-click: React re-renders between the two, so
-      // the second call snapshots the first one's optimistic `null`.
-      // Both requests are held open so the second one's rollback resolves last —
-      // the order in which it can overwrite the first one's restored link.
+    it('drops a second unlink while the first is in flight, and still restores', async () => {
+      // A real double-click: React re-renders between the two, so without the
+      // pending guard the second call would snapshot the first one's optimistic
+      // `null` and restore that over the real link.
       const release: Array<() => void> = []
       fetchMock.mockImplementation(
         () =>
@@ -164,14 +163,12 @@ describe('useCustomShoppingItems', () => {
         secondUnlink = result.current.handleCustomUnlink('custom-kale')
       })
 
-      await act(async () => {
-        release[0]!()
-        await firstUnlink
-      })
+      // The guard dropped it: no second PATCH was ever sent.
+      expect(fetchMock).toHaveBeenCalledTimes(1)
 
       await act(async () => {
-        release[1]!()
-        await secondUnlink
+        release[0]!()
+        await Promise.all([firstUnlink, secondUnlink])
       })
 
       expect(result.current.customItems[0]).toMatchObject({
@@ -281,6 +278,40 @@ describe('useCustomShoppingItems', () => {
       })
 
       expect(result.current.customItems.map((i) => i.name)).toEqual(['Bread', 'Napkins'])
+    })
+
+    it('restores after an item added mid-flight, keeping both positions', async () => {
+      // The captured index is stale once a prepend shifts the list, so the
+      // rollback anchors on the row the deleted one used to follow.
+      let releaseDelete: () => void = () => {}
+      fetchMock.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            releaseDelete = () => resolve(failure)
+          }),
+      )
+      const { result } = renderHook(() =>
+        useCustomShoppingItems([customItem('Bread'), customItem('Napkins'), customItem('Milk')]),
+      )
+
+      let remove: Promise<void> = Promise.resolve()
+      await act(async () => {
+        remove = result.current.handleCustomDelete('custom-napkins')
+      })
+
+      act(() => result.current.handleCustomItemAdded(customItem('Eggs')))
+
+      await act(async () => {
+        releaseDelete()
+        await remove
+      })
+
+      expect(result.current.customItems.map((i) => i.name)).toEqual([
+        'Eggs',
+        'Bread',
+        'Napkins',
+        'Milk',
+      ])
     })
   })
 

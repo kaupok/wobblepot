@@ -9,7 +9,9 @@ import type { CustomItemData } from '@/components/shopping/CustomItemInput'
  * User-added shopping-list rows, separate from the ones computed from the meal
  * plan. Every mutation updates local state first — a checkbox that lags behind a
  * round trip feels broken — and rolls that update back when the request fails,
- * so the list never contradicts its own error toast.
+ * so the list never contradicts its own error toast. Per-row mutations are
+ * guarded by `pendingCustomIds`, so a second click while one is in flight is
+ * dropped rather than racing the first one's rollback.
  */
 export function useCustomShoppingItems(initialCustomItems: CustomItemData[]) {
   const tErrors = useTranslations('shopping.errors')
@@ -59,6 +61,8 @@ export function useCustomShoppingItems(initialCustomItems: CustomItemData[]) {
 
   const handleCustomUnlink = useCallback(
     async (id: string) => {
+      if (pendingCustomIds.has(id)) return
+
       const previous = customItems.find((item) => item.id === id)
 
       // Optimistic update
@@ -67,6 +71,7 @@ export function useCustomShoppingItems(initialCustomItems: CustomItemData[]) {
           item.id === id ? { ...item, ingredientId: null, ingredientCategory: null } : item,
         ),
       )
+      setPendingCustomIds((prev) => new Set(prev).add(id))
 
       try {
         const response = await fetch(`/api/shopping-list/custom/${id}`, {
@@ -99,18 +104,30 @@ export function useCustomShoppingItems(initialCustomItems: CustomItemData[]) {
           )
         }
         toast.error(tErrors('unlinkFailed'))
+      } finally {
+        setPendingCustomIds((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
       }
     },
-    [customItems, tErrors],
+    [customItems, pendingCustomIds, tErrors],
   )
 
   const handleCustomDelete = useCallback(
     async (id: string) => {
+      if (pendingCustomIds.has(id)) return
+
       const removedIndex = customItems.findIndex((item) => item.id === id)
       const removed = customItems[removedIndex]
+      // Anchor the rollback on the row that preceded it, not on the index: rows
+      // added or removed while the request is in flight shift that index.
+      const precedingId = removedIndex > 0 ? customItems[removedIndex - 1]?.id : undefined
 
       // Optimistic update
       setCustomItems((prev) => prev.filter((item) => item.id !== id))
+      setPendingCustomIds((prev) => new Set(prev).add(id))
 
       try {
         const response = await fetch(`/api/shopping-list/custom/${id}`, {
@@ -132,20 +149,28 @@ export function useCustomShoppingItems(initialCustomItems: CustomItemData[]) {
         }
       } catch {
         // Put the row back where it was — appending would silently reorder the
-        // list. `splice` clamps a stale index to the end, and the presence check
-        // keeps an un-debounced double-click from inserting the row twice.
+        // list. Insert after the row it used to follow; only when that anchor
+        // is gone too does it fall back to the captured index, which `splice`
+        // clamps. The presence check keeps it from being inserted twice.
         if (removed) {
           setCustomItems((prev) => {
             if (prev.some((item) => item.id === id)) return prev
+            const anchor = precedingId ? prev.findIndex((item) => item.id === precedingId) : -1
             const next = [...prev]
-            next.splice(removedIndex, 0, removed)
+            next.splice(anchor >= 0 ? anchor + 1 : removedIndex, 0, removed)
             return next
           })
         }
         toast.error(tErrors('removeFailed'))
+      } finally {
+        setPendingCustomIds((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
       }
     },
-    [customItems, tErrors],
+    [customItems, pendingCustomIds, tErrors],
   )
 
   const handleClearChecked = useCallback(async () => {
