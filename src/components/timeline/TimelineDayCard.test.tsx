@@ -43,9 +43,11 @@ const defaultProps = {
 }
 
 describe('TimelineDayCard', () => {
-  it('renders day label', () => {
+  it('renders day label as a heading', () => {
     render(<TimelineDayCard day={baseDay} {...defaultProps} />)
-    expect(screen.getByText('Today')).toBeInTheDocument()
+    // The day name is the Section level of the type scale, and a real heading
+    // so it lands in the document outline (HON-606).
+    expect(screen.getByRole('heading', { level: 2, name: 'Today' })).toBeInTheDocument()
   })
 
   it('renders empty slots for future days', () => {

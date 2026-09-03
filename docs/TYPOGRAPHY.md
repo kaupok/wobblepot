@@ -4,16 +4,40 @@ Variant-based components for consistent typography. All accept a `className` pro
 
 ## `Heading` Component
 
-Renders semantic heading elements (h1-h4) with consistent styling:
+Renders a heading with consistent styling. `variant` picks the visual level from the type scale:
 
 ```tsx
 <Heading>Default (h1)</Heading>
 <Heading variant="h2">Secondary heading</Heading>
 <Heading variant="h3">Tertiary heading</Heading>
 <Heading variant="h4">Quaternary heading</Heading>
+<Heading variant="section">Section heading — day names, form sections</Heading>
 ```
 
-**Available variants:** `h1` | `h2` | `h3` | `h4`
+**Available variants:** `h1` | `h2` | `h3` | `h4` | `section`
+
+`section` is the Section level of the type scale (`text-base font-semibold`) — day names on the
+timeline, form section labels. See [DESIGN.md](./DESIGN.md) → Type scale for when to reach for it.
+
+### The `as` prop — tag independent of size
+
+The visual level and the HTML tag are separate choices. `variant` sets the size; `as` sets the tag.
+Pick the tag for the document outline (no skipped levels, one `h1` per page) and the variant for the
+type scale:
+
+```tsx
+// Renders <h3> at the h4 title size — a meal name directly under a Dialog title
+// (an <h2>), where jumping straight to <h4> would break axe's heading-order rule.
+<Heading variant="h4" as="h3">
+  {meal.name}
+</Heading>
+```
+
+**Available tags:** `h1` | `h2` | `h3` | `h4` | `h5` | `h6` | `p` | `span` | `div`
+
+Omit `as` and each variant renders its natural tag: `h1`–`h4` render the matching element, and
+`section` renders an `h2`. Only reach for `as` when the surrounding outline needs a different level
+than the type scale calls for.
 
 ## `Body` Component
 

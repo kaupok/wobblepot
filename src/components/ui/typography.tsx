@@ -3,10 +3,13 @@ import { cn } from '@/lib/utils'
 import React from 'react'
 
 // Variant type exports for type reusability
-export type HeadingVariant = 'h1' | 'h2' | 'h3' | 'h4'
+export type HeadingVariant = 'h1' | 'h2' | 'h3' | 'h4' | 'section'
+export type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'span' | 'div'
 export type BodyVariant = 'default' | 'lead' | 'large' | 'small' | 'muted' | 'caption'
 
-// Heading component with variants for h1-h4
+// Heading component. `variant` picks the visual level from the type scale;
+// `as` picks the HTML tag for the document outline. They are independent —
+// see docs/DESIGN.md -> Type scale.
 const headingVariants = cva('scroll-m-20 tracking-tight', {
   variants: {
     variant: {
@@ -14,6 +17,7 @@ const headingVariants = cva('scroll-m-20 tracking-tight', {
       h2: 'text-3xl font-semibold border-b pb-2',
       h3: 'text-2xl font-semibold',
       h4: 'text-xl font-semibold',
+      section: 'text-base font-semibold',
     },
   },
   defaultVariants: {
@@ -22,19 +26,29 @@ const headingVariants = cva('scroll-m-20 tracking-tight', {
 })
 
 interface HeadingProps
-  extends React.HTMLAttributes<HTMLHeadingElement>, VariantProps<typeof headingVariants> {}
+  extends React.HTMLAttributes<HTMLElement>, VariantProps<typeof headingVariants> {
+  /**
+   * HTML tag to render. Defaults to the variant's natural tag, so passing only
+   * `variant` keeps size and outline in step. Override it when the surrounding
+   * outline needs a different level than the type scale calls for — e.g. `h3`
+   * inside a Dialog whose title is already an `h2`.
+   */
+  as?: HeadingTag
+}
 
+/** The tag each variant renders when `as` is not given. */
 const tagMap = {
   h1: 'h1',
   h2: 'h2',
   h3: 'h3',
   h4: 'h4',
-} as const
+  section: 'h2',
+} as const satisfies Record<HeadingVariant, HeadingTag>
 
-export const Heading = React.forwardRef<HTMLHeadingElement, HeadingProps>(
-  ({ className, variant, ...props }, ref) => {
+export const Heading = React.forwardRef<HTMLElement, HeadingProps>(
+  ({ className, variant, as, ...props }, ref) => {
     const effectiveVariant = variant ?? 'h1'
-    const Tag = tagMap[effectiveVariant]
+    const Tag = as ?? tagMap[effectiveVariant]
     return React.createElement(Tag, {
       ref,
       className: cn(headingVariants({ variant: effectiveVariant }), className),

@@ -24,8 +24,47 @@ export const Headings: Story = {
       <Heading variant="h2">Heading level 2</Heading>
       <Heading variant="h3">Heading level 3</Heading>
       <Heading variant="h4">Heading level 4</Heading>
+      <Heading variant="section">Section — day names, form sections</Heading>
     </div>
   ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Each variant rendered at its natural tag. `section` is the Section level of the type scale and defaults to an `h2`.',
+      },
+    },
+  },
+}
+
+export const SemanticTagOverride: Story = {
+  name: 'Tag override (`as`)',
+  render: () => (
+    // Tags ascend h1 -> h2 -> h3 so the story itself models a valid outline;
+    // the sizes deliberately do not follow along.
+    <div className="flex flex-col gap-4">
+      <Heading variant="h2" as="h1">
+        h2 size, h1 tag
+      </Heading>
+      <Heading variant="h3" as="h2">
+        h3 size, h2 tag
+      </Heading>
+      <Heading variant="h4" as="h3">
+        h4 size, h3 tag — a meal name under a Dialog title
+      </Heading>
+      <Heading variant="h4" as="span">
+        h4 size, span — out of the document outline entirely
+      </Heading>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          '`variant` sets the size, `as` sets the tag. Pick the tag for the document outline (no skipped levels) and the variant for the type scale.',
+      },
+    },
+  },
 }
 
 export const BodyVariants: Story = {

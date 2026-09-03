@@ -43,6 +43,55 @@ describe('Typography Components', () => {
       const heading = screen.getByRole('heading', { level: 1 })
       expect(heading).toHaveClass('custom-class')
     })
+
+    it('renders section variant as an h2 by default', () => {
+      render(<Heading variant="section">Section</Heading>)
+      const heading = screen.getByRole('heading', { level: 2 })
+      expect(heading).toHaveTextContent('Section')
+      expect(heading).toHaveClass('text-base', 'font-semibold')
+    })
+
+    it('does not give the section variant the h2 variant styling', () => {
+      render(<Heading variant="section">Section</Heading>)
+      const heading = screen.getByRole('heading', { level: 2 })
+      // Asserted separately: `toHaveClass(a, b)` requires *all* listed classes, so the
+      // negated two-argument form only asserts that one of them is missing.
+      expect(heading).not.toHaveClass('text-3xl')
+      expect(heading).not.toHaveClass('border-b')
+    })
+
+    it('renders the tag given by as, keeping the variant styling', () => {
+      render(
+        <Heading variant="h4" as="h3">
+          Meal name
+        </Heading>,
+      )
+      const heading = screen.getByRole('heading', { level: 3 })
+      expect(heading).toHaveTextContent('Meal name')
+      expect(heading).toHaveClass('text-xl', 'font-semibold')
+    })
+
+    it('lets as override the section default tag', () => {
+      render(
+        <Heading variant="section" as="h3">
+          Day name
+        </Heading>,
+      )
+      expect(screen.getByRole('heading', { level: 3 })).toHaveClass('text-base', 'font-semibold')
+      expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
+    })
+
+    it('renders a non-heading tag when as is not a heading', () => {
+      render(
+        <Heading variant="h4" as="span">
+          Not in the outline
+        </Heading>,
+      )
+      const el = screen.getByText('Not in the outline')
+      expect(el.tagName).toBe('SPAN')
+      expect(el).toHaveClass('text-xl', 'font-semibold')
+      expect(screen.queryByRole('heading')).not.toBeInTheDocument()
+    })
   })
 
   describe('Body', () => {
