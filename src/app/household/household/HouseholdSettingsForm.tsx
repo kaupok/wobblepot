@@ -247,8 +247,10 @@ export function HouseholdSettingsForm({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <Heading variant="h2">{tSettings('heading')}</Heading>
+      <div className="flex flex-col gap-1.5">
+        <Heading variant="h4" as="h2">
+          {tSettings('heading')}
+        </Heading>
         <Body variant="muted">{tSettings('description')}</Body>
       </div>
       <form onSubmit={handleSubmit}>

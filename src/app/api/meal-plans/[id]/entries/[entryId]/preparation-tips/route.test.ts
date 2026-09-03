@@ -421,6 +421,42 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(call.prompt).not.toContain('LOCALE:')
   })
 
+  it('builds the prompt from the entry servingOverride, not the raw member count', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    // Household of 4 cooking this entry for 6. The card, pantry row and
+    // shopping row all scale by 6 (HON-614) — the tips are cached onto the
+    // entry, so the prompt has to agree or it advises on 2/3 of the food.
+    mockEntryFindFirst.mockResolvedValue(sampleEntry({ servingOverride: 6 }) as never)
+    mockGenerateObject.mockResolvedValue({
+      object: { equipment: ['Pan'], steps: ['Step 1'], pitfalls: ['P'] },
+    } as never)
+
+    const response = await callPost()
+
+    expect(response.status).toBe(200)
+    const call = mockGenerateObject.mock.calls[0]?.[0] as { prompt: string }
+    expect(call.prompt).toContain('Servings: 6')
+    expect(call.prompt).toContain('- Chicken breast: 900g')
+    expect(mockLogAiSample.mock.calls[0]![0].input).toMatchObject({ householdSize: 6 })
+  })
+
+  it('falls back to the member count for the prompt when no servingOverride is set', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockEntryFindFirst.mockResolvedValue(sampleEntry({ servingOverride: null }) as never)
+    mockGenerateObject.mockResolvedValue({
+      object: { equipment: ['Pan'], steps: ['Step 1'], pitfalls: ['P'] },
+    } as never)
+
+    const response = await callPost()
+
+    expect(response.status).toBe(200)
+    const call = mockGenerateObject.mock.calls[0]?.[0] as { prompt: string }
+    expect(call.prompt).toContain('Servings: 4')
+    expect(call.prompt).toContain('- Chicken breast: 600g')
+  })
+
   it('logs a preparation-tips-full sample when locale is non-default and meal has no notes', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(buildMembership('et') as never)

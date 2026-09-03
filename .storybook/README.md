@@ -197,7 +197,9 @@ The static build is public at <https://kaupok.github.io/wobblepot/>. The
 (`.github/workflows/deploy-storybook.yml`) rebuilds it on every push to `main`
 that touches a build input (`src/`, `.storybook/`, `messages/`, `public/`, the
 package manifest). Republish by hand from the Actions tab → "Run workflow" if
-a run fails or Pages was just (re)enabled.
+a run fails or Pages was just (re)enabled. CI also runs `pnpm build-storybook`
+on every PR, so a broken static build fails the PR instead of the post-merge
+deploy.
 
 Pages serves the site from a sub-path (`/wobblepot/`), so anything that must
 resolve at runtime has to be base-relative. Storybook's own assets already are;

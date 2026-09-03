@@ -40,27 +40,25 @@ export function GeneratingOverlay() {
         <Loader2 className="text-primary h-12 w-12 animate-spin" />
         <div className="flex flex-col items-center gap-2">
           {/*
-            `as="h4"` moves only the tag, not the size. Two callsites constrain
-            it, and neither is visible from this file:
+            `variant="h4"` is HON-607's, but this is the one site in that sweep
+            that does *not* keep its old `<h2>` tag: the natural `h4` tag is
+            load-bearing here, so there is deliberately no `as`. Two callsites
+            constrain it, and neither is visible from this file:
 
             - `FillDaysAction.tsx:103` emits the overlay between the planned and
-              empty `TimelineDayCard`s, so an `h5` day label follows it. At the
-              variant's natural `<h2>` that is a skipped level to axe's
-              `heading-order` (`5 - 2 > 1`). Pinned in `TimelineDayCard.test.tsx`.
+              empty `TimelineDayCard`s, so an `h5` day label follows it. At
+              `<h2>` that is a skipped level to axe's `heading-order`
+              (`5 - 2 > 1`). Pinned in `TimelineDayCard.test.tsx`.
             - `FirstTimeSetup.tsx:94` emits it just before that screen's own
               `<h2>` title. Any tag is a legal decrease there, so axe is blind;
               what matters is editorial — a transient status message must not
               outrank the screen it covers. Pinned by the `Generating` story's
               play function in `FirstTimeSetup.stories.tsx`.
 
-            HON-607 owns the `variant="h2"` on both this heading and
-            `FirstTimeSetup`'s title; once it lands, this `as` is a no-op
-            override rather than a correction. Keep it — it is what records
-            that the tag was chosen, not inherited. (HON-619)
+            Do not "restore" `as="h2"` for symmetry with the other five sites
+            HON-607 migrated. (HON-619)
           */}
-          <Heading variant="h2" as="h4">
-            {t('heading')}
-          </Heading>
+          <Heading variant="h4">{t('heading')}</Heading>
           <Body variant="muted">{displayMessage}</Body>
         </div>
       </div>

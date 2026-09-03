@@ -24,6 +24,7 @@ import {
 } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
+import { getEffectiveServings } from '@/lib/meal-planning/servings'
 import type { StructuredTips } from '@/components/meal-plan/types'
 
 function getErrorStatusCode(err: unknown): number | undefined {
@@ -126,14 +127,18 @@ async function handlePOST(
       throw error
     }
 
-    const householdSize = household._count.members
+    // Scale by the entry's own serving count, not the raw member count: the
+    // tips are cached onto the entry, so a dinner with `servingOverride: 6` in
+    // a household of 2 would otherwise get timings and pan sizes for a third
+    // of the food the card, pantry and shopping list all agree on (HON-614).
+    const effectiveServings = getEffectiveServings(entry, household._count.members)
     const mealName = entry.meal.name
     const timeMinutes = entry.meal.timeMinutes
     const preparationNotes = entry.meal.preparationNotes
 
     const ingredientsList = entry.meal.components
       .map((comp) => {
-        const quantity = comp.quantityPerServing * householdSize
+        const quantity = comp.quantityPerServing * effectiveServings
         const unit = comp.ingredient.defaultUnit === 'piece' ? 'pcs' : comp.ingredient.defaultUnit
         return `- ${comp.ingredient.name}: ${Math.round(quantity)}${unit}`
       })
@@ -147,7 +152,7 @@ async function handlePOST(
     if (preparationNotes && preparationNotes.trim()) {
       const prompt = buildSupplementaryTipsPrompt({
         mealName,
-        householdSize,
+        householdSize: effectiveServings,
         timeMinutes,
         ingredientsList,
         preparationNotes,
@@ -176,7 +181,7 @@ async function handlePOST(
         locale: household.locale,
         input: {
           mealName,
-          householdSize,
+          householdSize: effectiveServings,
           timeMinutes,
           ingredientsCount: entry.meal.components.length,
           hasUserNotes: true,
@@ -188,7 +193,7 @@ async function handlePOST(
     } else {
       const prompt = buildFullTipsPrompt({
         mealName,
-        householdSize,
+        householdSize: effectiveServings,
         timeMinutes,
         ingredientsList,
         locale: household.locale,
@@ -216,7 +221,7 @@ async function handlePOST(
         locale: household.locale,
         input: {
           mealName,
-          householdSize,
+          householdSize: effectiveServings,
           timeMinutes,
           ingredientsCount: entry.meal.components.length,
           hasUserNotes: false,

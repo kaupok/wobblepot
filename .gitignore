@@ -70,5 +70,8 @@ storybook-static
 # Claude Code agent worktrees (Agent tool isolation: "worktree")
 .claude/worktrees/
 
+# Playwright MCP session artifacts (console logs, page snapshots, screenshots)
+.playwright-mcp/
+
 # Signed vendor agreements with personal signatory details (executed originals live in vendor consoles / PandaDoc)
 /compliance/private/
