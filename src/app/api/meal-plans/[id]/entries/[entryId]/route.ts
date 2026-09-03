@@ -219,7 +219,17 @@ export async function PATCH(
 
     if (shouldDeductPantry) {
       const householdSize = entry.plan.household.members.length
-      const effectiveServings = getEffectiveServings(entry, householdSize)
+      // Scale by what this request persists, not by the row read at the top:
+      // `updateEntrySchema` accepts `servingOverride` alongside
+      // `status: 'completed'` + `deductPantry`, and a meal swap resets the
+      // override to null — either way `entry.servingOverride` is already stale
+      // by the time the transaction below runs.
+      const effectiveServings = getEffectiveServings(
+        'servingOverride' in updateData
+          ? { servingOverride: updateData.servingOverride ?? null }
+          : entry,
+        householdSize,
+      )
       const components = entry.meal!.components
 
       // Fetch pantry items for the household

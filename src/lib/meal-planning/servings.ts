@@ -8,6 +8,8 @@
  * - `src/app/api/pantry/route.ts` (needed quantities)
  * - `src/lib/meal-planning/shopping-list.ts` (both aggregations)
  * - `src/app/api/meal-plans/[id]/entries/[entryId]/route.ts` (pantry deduction)
+ * - `…/entries/[entryId]/preparation-tips/route.ts` (the AI prompt's servings
+ *   and ingredient amounts)
  *
  * It lives here because the pantry route used to omit the override, so the
  * needed quantity and the shopping quantity for the same ingredient in the
