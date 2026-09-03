@@ -105,12 +105,12 @@ export function UnmatchedIngredientRow({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+    <div className="border-warning/30 flex flex-col gap-2 rounded-md border p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <AlertTriangle className="text-warning mt-0.5 h-4 w-4 shrink-0" />
           <div className="flex flex-col gap-0.5">
-            <Body className="text-amber-700 dark:text-amber-400">{data.extractedName}</Body>
+            <Body className="text-warning">{data.extractedName}</Body>
             <Body variant="muted">
               {data.isVague && data.originalPhrase ? (
                 <span className="italic">{data.originalPhrase}</span>
@@ -126,7 +126,7 @@ export function UnmatchedIngredientRow({
           size="sm"
           onClick={onRemove}
           disabled={disabled}
-          className="text-amber-700 hover:bg-amber-100 hover:text-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/50"
+          className="text-warning hover:bg-warning-muted"
         >
           <X className="mr-1 h-4 w-4" />
           {t('drop')}

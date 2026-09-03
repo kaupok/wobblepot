@@ -54,8 +54,8 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center gap-2 py-6 text-center">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-              <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
+            <span className="bg-success-muted flex h-10 w-10 items-center justify-center rounded-full">
+              <Check className="text-success h-5 w-5" />
             </span>
             <Body variant="muted">{tToday('allSet')}</Body>
           </div>
@@ -83,7 +83,7 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>{tToday('shoppingTitle')}</CardTitle>
-          <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+          <span className="text-warning flex items-center gap-1.5">
             <ShoppingCart className="h-4 w-4" />
             <span className="text-sm font-medium">{unpurchasedItems.length}</span>
           </span>
@@ -106,7 +106,7 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
                   <span
                     className={
                       item.urgency === 'today'
-                        ? 'text-xs font-medium text-red-600 dark:text-red-400'
+                        ? 'text-destructive text-xs font-medium'
                         : 'text-muted-foreground text-xs'
                     }
                   >

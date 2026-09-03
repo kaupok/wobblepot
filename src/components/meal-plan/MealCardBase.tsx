@@ -124,10 +124,7 @@ export function MealCardBase({
           return (
             <li
               key={comp.ingredientId}
-              className={cn(
-                isAvailable && 'text-green-700 dark:text-green-400',
-                isMissing && 'text-amber-700 dark:text-amber-400',
-              )}
+              className={cn(isAvailable && 'text-success', isMissing && 'text-warning')}
             >
               {comp.ingredient.name}
             </li>

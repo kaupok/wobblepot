@@ -332,11 +332,11 @@ export function RecipeImportClient() {
               </Body>
             )}
             {warning && (
-              <div className="rounded-md border border-yellow-500/50 bg-yellow-50 p-4 dark:bg-yellow-950/20">
+              <div className="border-warning/30 bg-warning-muted rounded-md border p-4">
                 <div className="flex items-start gap-3">
-                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-600 dark:text-yellow-500" />
+                  <AlertTriangle className="text-warning mt-0.5 h-5 w-5 shrink-0" />
                   <div className="flex flex-col gap-3">
-                    <Body variant="small" className="text-yellow-800 dark:text-yellow-200">
+                    <Body variant="small" className="text-warning">
                       {warning.message}
                     </Body>
                     <div className="flex gap-2">

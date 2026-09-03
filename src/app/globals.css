@@ -25,6 +25,12 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-success-muted: var(--success-muted);
+  --color-warning: var(--warning);
+  --color-warning-muted: var(--warning-muted);
+  --color-info: var(--info);
+  --color-info-muted: var(--info-muted);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -60,6 +66,17 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
+  /* Status tokens. The emphasis value is tuned to clear WCAG AA (4.5:1) as text
+     on its own -muted surface AND on --background; --success/--warning sit a
+     little darker than green-700/amber-700, which measure 4.50 and 4.54 on their
+     -100 surfaces and leave no headroom. Borders use an opacity modifier on the
+     emphasis token (border-success/30), not a token of their own. See UI/Tokens. */
+  --success: oklch(0.5 0.154 150.069);
+  --success-muted: oklch(0.962 0.044 156.743);
+  --warning: oklch(0.53 0.163 48.998);
+  --warning-muted: oklch(0.962 0.059 95.617);
+  --info: oklch(0.488 0.243 264.376);
+  --info-muted: oklch(0.932 0.032 255.585);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -94,6 +111,16 @@
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  /* The -muted surfaces are opaque rather than a -900 at 30%: a translucent
+     surface composites differently over --background than over --card, so its
+     contrast ratio would not be a fixed number. These values match the
+     30%-over-card composite. */
+  --success: oklch(0.792 0.209 151.711);
+  --success-muted: oklch(0.28 0.05 152.5);
+  --warning: oklch(0.828 0.189 84.429);
+  --warning-muted: oklch(0.28 0.05 46);
+  --info: oklch(0.707 0.165 254.624);
+  --info-muted: oklch(0.29 0.06 265);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);

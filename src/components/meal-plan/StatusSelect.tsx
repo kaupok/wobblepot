@@ -20,11 +20,11 @@ const STATUS_CONFIG: Record<MealStatus, { icon: string; className: string }> = {
   },
   completed: {
     icon: '\u2713',
-    className: 'text-green-700 dark:text-green-400',
+    className: 'text-success',
   },
   skipped: {
     icon: '\u23ED\uFE0F',
-    className: 'text-yellow-700 dark:text-yellow-400',
+    className: 'text-warning',
   },
 }
 

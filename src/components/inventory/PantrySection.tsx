@@ -259,8 +259,8 @@ function PantryItemRow({
             className={cn(
               'h-4 w-4',
               item.isStaple
-                ? 'fill-yellow-400 text-yellow-400'
-                : 'text-muted-foreground hover:text-yellow-400',
+                ? 'fill-warning text-warning'
+                : 'text-muted-foreground hover:text-warning',
             )}
           />
         </Button>

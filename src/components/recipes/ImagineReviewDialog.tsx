@@ -289,12 +289,12 @@ export function ImagineReviewDialog({
             <div className="flex flex-col gap-2">
               <div className="flex gap-2">
                 {unresolvedCount > 0 && (
-                  <Badge variant="outline" className="text-amber-700 dark:text-amber-400">
+                  <Badge variant="outline" className="text-warning">
                     {tForm('unmatchedBadge', { count: unresolvedCount })}
                   </Badge>
                 )}
                 {lowConfidenceCount > 0 && (
-                  <Badge variant="outline" className="text-blue-700 dark:text-blue-400">
+                  <Badge variant="outline" className="text-info">
                     {tForm('toVerifyBadge', { count: lowConfidenceCount })}
                   </Badge>
                 )}
@@ -330,9 +330,9 @@ export function ImagineReviewDialog({
               <CollapsibleTrigger asChild>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-md border border-green-200 bg-green-50/50 px-3 py-2 text-left transition-colors hover:bg-green-50 dark:border-green-900 dark:bg-green-950/20 dark:hover:bg-green-950/30"
+                  className="border-success/30 bg-success-muted hover:bg-success/20 flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left transition-colors"
                 >
-                  <Check className="h-4 w-4 text-green-600" />
+                  <Check className="text-success h-4 w-4" />
                   {isMatchedOpen ? (
                     <ChevronDown className="text-muted-foreground h-4 w-4" />
                   ) : (

@@ -43,8 +43,8 @@ export function MealRatingPrompt({ planId, entryId, onRated, onDismiss }: MealRa
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 dark:bg-green-900/20">
-      <Body variant="small" className="text-green-700 dark:text-green-400">
+    <div className="bg-success-muted flex items-center gap-2 rounded-lg px-3 py-2">
+      <Body variant="small" className="text-success">
         {t('prompt')}
       </Body>
       <div className="flex gap-1">
@@ -96,9 +96,7 @@ export function RatingBadge({ rating, onClick }: RatingBadgeProps) {
     <span
       className={cn(
         'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-medium',
-        isUp
-          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-          : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+        isUp ? 'bg-success-muted text-success' : 'bg-destructive/10 text-destructive',
       )}
     >
       {isUp ? <ThumbsUp className="h-3 w-3" /> : <ThumbsDown className="h-3 w-3" />}
@@ -177,7 +175,7 @@ export function MealRatingInline({
         className={cn(
           'inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors',
           rating === 'up'
-            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+            ? 'bg-success-muted text-success'
             : 'text-muted-foreground hover:bg-muted',
         )}
         aria-label={t('thumbsUp')}
@@ -192,7 +190,7 @@ export function MealRatingInline({
         className={cn(
           'inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors',
           rating === 'down'
-            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+            ? 'bg-destructive/10 text-destructive'
             : 'text-muted-foreground hover:bg-muted',
         )}
         aria-label={t('thumbsDown')}

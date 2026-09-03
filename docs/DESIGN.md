@@ -14,15 +14,15 @@
 
 Use these. Do not restyle them per feature or invent parallel ones.
 
-| Concern         | Where it lives                                                                         | Notes                                                                                                                                                           |
-| --------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Color tokens    | `src/app/globals.css` (`--background`, `--primary`, `--muted`, `--destructive`, …)     | shadcn `new-york`, `neutral` base, oklch, light + dark via `.dark` class                                                                                        |
-| Fonts           | `Geist` (sans), `Geist Mono` (mono), loaded in `src/app/layout.tsx`                    | Mono only for code, IDs, and quantities that must align                                                                                                         |
-| Type components | `src/components/ui/typography.tsx` (`Heading`, `Body`, …)                              | Text styling only. Layout goes on a wrapper. See [docs/TYPOGRAPHY.md](TYPOGRAPHY.md)                                                                            |
-| UI primitives   | `src/components/ui/*`                                                                  | shadcn; `Button`, `Card`, `Badge`, `Dialog`, `Sheet`, `Select`, `Input`, `Table`, …                                                                             |
-| Icons           | `lucide-react`                                                                         | `size-4` inline in buttons, `h-3 w-3` in meta rows next to caption text                                                                                         |
-| Page shell      | `src/app/layout.tsx`, `src/components/header.tsx`, `src/components/bottom-tab-bar.tsx` | Fixed header, bottom tab bar on mobile, content column capped at 1152px (`HON-376`)                                                                             |
-| Review harness  | Storybook (`pnpm storybook`), mobile viewport by default                               | Every component change ships with a story. Axe runs on every story in CI. **Proposed:** `Scenarios/*` composite stories plus a DOM design-rule helper (HON-610) |
+| Concern         | Where it lives                                                                                                                          | Notes                                                                                                                                                           |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Color tokens    | `src/app/globals.css` (`--background`, `--primary`, `--muted`, `--destructive`, `--success`, `--warning`, `--info` + `-muted` surfaces) | shadcn `new-york`, `neutral` base, oklch, light + dark via `.dark` class. Status pairings are contrast-checked by the `UI/Tokens` story                         |
+| Fonts           | `Geist` (sans), `Geist Mono` (mono), loaded in `src/app/layout.tsx`                                                                     | Mono only for code, IDs, and quantities that must align                                                                                                         |
+| Type components | `src/components/ui/typography.tsx` (`Heading`, `Body`, …)                                                                               | Text styling only. Layout goes on a wrapper. See [docs/TYPOGRAPHY.md](TYPOGRAPHY.md)                                                                            |
+| UI primitives   | `src/components/ui/*`                                                                                                                   | shadcn; `Button`, `Card`, `Badge`, `Dialog`, `Sheet`, `Select`, `Input`, `Table`, …                                                                             |
+| Icons           | `lucide-react`                                                                                                                          | `size-4` inline in buttons, `h-3 w-3` in meta rows next to caption text                                                                                         |
+| Page shell      | `src/app/layout.tsx`, `src/components/header.tsx`, `src/components/bottom-tab-bar.tsx`                                                  | Fixed header, bottom tab bar on mobile, content column capped at 1152px (`HON-376`)                                                                             |
+| Review harness  | Storybook (`pnpm storybook`), mobile viewport by default                                                                                | Every component change ships with a story. Axe runs on every story in CI. **Proposed:** `Scenarios/*` composite stories plus a DOM design-rule helper (HON-610) |
 
 ## Type scale
 
@@ -66,8 +66,16 @@ Spacing rhythm as used today (Tailwind steps, 4px each):
 - Design in monochrome first. The neutral palette carries hierarchy through weight, size, and `muted-foreground`, not hue.
 - Color adds meaning, never decoration. Every colored element also carries a non-color cue: an icon, a label, or a text change.
 - The only accent that exists is `primary` (near-black in light, near-white in dark). Do not introduce a brand hue in components ahead of a brand decision.
-- Status colors today are hand-rolled per file (`text-amber-700 dark:text-amber-400`, `bg-green-100 dark:bg-green-900/30`) in roughly 25 files (the grep in HON-608 is the source of truth). Decided 2026-09-03: add generic `--success`, `--warning`, `--info` tokens, each with a `-muted` surface variant, to `globals.css`, then migrate every raw pairing (HON-608). Domain names (available, missing, staple) stay in component props, not in token names. Until the tokens land, copy an existing pairing exactly rather than picking a new shade.
-- Never write a `dark:` override for a semantic token. Tokens already switch. `dark:` is only for raw palette classes, which are the thing we are removing.
+- Status has three generic tokens, each with a `-muted` tinted surface: `success`, `warning`, `info`. Use `text-success` for emphasis (text and icons), `bg-success-muted` for the surface, and `border-success/30` for a border — an opacity modifier on the emphasis token, not a token of its own. Red is not one of them: failure stays on `destructive`, so it never reads as one more status.
+- Domain names (available, missing, staple) stay in component props and copy, never in a token name. `AvailabilityIndicator` decides that "available" is success; the token does not know what it means.
+- A `-muted` surface is for short, emphasis-coloured content: pills, badges, icon chips, callouts. It is **not** a panel fill for a block of body copy, because `muted-foreground` is calibrated for the neutral background — it measures 4.60:1 on white, so on any tint it lands at 4.3–4.5:1 and fails AA. A content panel that carries `Body variant="muted"` gets the border and no fill (`border-success/30`); the coloured icon and the coloured name already carry the meaning, and the fill was decoration.
+- Never reach for a raw palette class (`text-amber-700`, `bg-green-100`). Every emphasis-on-muted pairing is measured at ≥5:1 in both themes; a hand-picked shade is unmeasured. `UI/Tokens` in Storybook renders every pairing as real text, so the axe gate re-measures them on each run.
+- Never write a `dark:` override for a semantic token. Tokens already switch. There are no raw palette classes left under `src/**/*.tsx`, so a new `dark:` colour override means you have gone around the tokens — these two greps must both stay empty:
+
+  ```bash
+  grep -rnE "(bg|text|border|fill)-(red|green|blue|amber|orange|yellow)-[0-9]{2,3}" src --include='*.tsx' | grep -v stories
+  grep -rnE "dark:(bg|text|border)-(red|green|blue|amber|orange|yellow)-" src --include='*.tsx'
+  ```
 
 ## Composition rules
 
@@ -124,6 +132,5 @@ Decisions above that the code does not yet reflect. Each has a Linear issue; upd
 
 - HON-606: give `Heading` an `as` prop and a `section` variant; retire the `nameHeadingLevel` workaround (type scale).
 - HON-607: migrate the five in-app `Heading variant="h2"` usages to `h4` (type scale).
-- HON-608: add `success`, `warning`, `info` tokens and migrate every raw palette class (color).
 - HON-609: name the 44px touch-target height as a utility (spacing).
 - HON-610: add three `Scenarios/*` stories and the `assertDesignRules` DOM helper (review harness).

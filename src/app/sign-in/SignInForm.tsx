@@ -95,7 +95,7 @@ export function SignInForm() {
             {successMessage && (
               <Body
                 variant="small"
-                className="text-green-600"
+                className="text-success"
                 role="status"
                 data-testid="form-success"
               >

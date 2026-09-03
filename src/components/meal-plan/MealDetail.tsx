@@ -97,7 +97,7 @@ export function MealDetail({
           </span>
         )}
         {meal.kidFriendly && (
-          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400">
+          <span className="bg-success-muted text-success rounded-full px-2 py-0.5 text-xs">
             {tDetail('kidFriendly')}
           </span>
         )}

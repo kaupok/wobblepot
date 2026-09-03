@@ -156,8 +156,8 @@ export function IngredientRow({
   const isDuplicate = duplicateIndices && duplicateIndices.length > 0
 
   return (
-    <div className="flex items-center gap-3 rounded-md border border-green-200 bg-green-50/50 p-3 dark:border-green-900 dark:bg-green-950/20">
-      <Check className="h-4 w-4 shrink-0 text-green-600" />
+    <div className="border-success/30 flex items-center gap-3 rounded-md border p-3">
+      <Check className="text-success h-4 w-4 shrink-0" />
       <div className="flex-1">
         <Body>{data.ingredient.name}</Body>
         <Body variant="muted">
@@ -171,8 +171,8 @@ export function IngredientRow({
         </Body>
         {isDuplicate && (
           <div className="mt-1 flex items-center gap-1.5">
-            <Info className="h-3 w-3 shrink-0 text-amber-600" />
-            <Body variant="small" className="text-amber-700 dark:text-amber-400">
+            <Info className="text-warning h-3 w-3 shrink-0" />
+            <Body variant="small" className="text-warning">
               {t('duplicateRow', {
                 count: duplicateIndices.length,
                 rows: duplicateIndices.map((i) => i + 1).join(', '),

@@ -78,13 +78,13 @@ export function LowConfidenceIngredientRow({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-900 dark:bg-blue-950/20">
+    <div className="border-info/30 flex flex-col gap-2 rounded-md border p-3">
       <div className="flex items-start gap-3">
-        <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+        <HelpCircle className="text-info mt-0.5 h-4 w-4 shrink-0" />
         <div className="flex flex-1 flex-col gap-2">
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-col gap-0.5">
-              <Body className="text-blue-700 dark:text-blue-400">{data.extractedName}</Body>
+              <Body className="text-info">{data.extractedName}</Body>
               {data.originalText && (
                 <Body variant="muted">{t('originalLabel', { text: data.originalText })}</Body>
               )}
@@ -99,8 +99,8 @@ export function LowConfidenceIngredientRow({
               </Body>
               {isDuplicate && (
                 <div className="mt-1 flex items-center gap-1.5">
-                  <Info className="h-3 w-3 shrink-0 text-amber-600" />
-                  <Body variant="small" className="text-amber-700 dark:text-amber-400">
+                  <Info className="text-warning h-3 w-3 shrink-0" />
+                  <Body variant="small" className="text-warning">
                     {t('duplicateRow', {
                       count: duplicateIndices.length,
                       rows: duplicateIndices.map((i) => i + 1).join(', '),
@@ -135,7 +135,7 @@ export function LowConfidenceIngredientRow({
 
           {/* Disambiguation dropdown */}
           <div className="flex items-center gap-2">
-            <Body variant="small" className="text-blue-700 dark:text-blue-400">
+            <Body variant="small" className="text-info">
               {t('verifyMatch')}
             </Body>
             <Select
