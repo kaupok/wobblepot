@@ -152,15 +152,21 @@ jobs:
         # deployment" button.
         #
         # `auto_inactive` is passed with `-F`, not `-f`, so it arrives as a JSON
-        # boolean — `-f` sends every value as a string. It is the API default.
-        # Per the REST docs it inactivates prior non-transient,
-        # non-production-flagged deployments sharing this environment name —
-        # which is every `Production` record in this repo, since the
-        # vercel[bot]-written ones all carry `production_environment: false`.
-        # The stale June 2026 record survives that sweep for an unrelated
-        # reason: `inactive` is only applied to records whose state was
-        # `success`, and its only status is `failure`. Set explicitly so the
-        # record's shape is stated in one place.
+        # boolean — `-f` sends every value as a string. It is also the API
+        # default. Do not rely on it to retire anything here: on this repo it is
+        # observably a no-op. The first real run of this workflow (run
+        # 33725011967, record 6238572417) posted `success` with the flag set and
+        # changed no prior record — all 14 pre-existing ACTIVE `Production`
+        # deployments, from 2025-10-20 and 2025-10-21, are still ACTIVE.
+        #
+        # Why the sweep the REST docs describe does not fire is NOT established,
+        # so do not write a mechanism in here without evidence. In particular it
+        # is not simply that this record sets `production_environment: true`:
+        # record 3184652624 (`production_environment: false`) posted `success`
+        # on 2025-10-22 and likewise left the equally non-production, non-
+        # transient 3184292355 ACTIVE. The card goes green because this record
+        # is the newest, not because anything was inactivated. Set explicitly so
+        # the record's shape is stated in one place.
         env:
           GH_TOKEN: ${{ github.token }}
           DEPLOYMENT_ID: ${{ steps.gh_deployment.outputs.deployment_id }}
