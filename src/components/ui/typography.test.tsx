@@ -220,11 +220,11 @@ describe('Typography Components', () => {
     it('merges custom className correctly via cn()', () => {
       render(
         <ul>
-          <Li className="font-bold text-red-500">Custom styled item</Li>
+          <Li className="text-destructive font-bold">Custom styled item</Li>
         </ul>,
       )
       const item = screen.getByText('Custom styled item')
-      expect(item).toHaveClass('text-red-500', 'font-bold')
+      expect(item).toHaveClass('text-destructive', 'font-bold')
     })
   })
 
@@ -347,30 +347,30 @@ describe('Typography Components', () => {
     })
 
     it('merges custom className with component classes in Heading', () => {
-      render(<Heading className="custom-margin text-red-500">Custom Heading</Heading>)
+      render(<Heading className="custom-margin text-destructive">Custom Heading</Heading>)
       const heading = screen.getByRole('heading', { level: 1 })
-      expect(heading).toHaveClass('font-extrabold', 'text-red-500', 'custom-margin')
+      expect(heading).toHaveClass('font-extrabold', 'text-destructive', 'custom-margin')
     })
 
     it('merges custom className with component classes in Body', () => {
-      render(<Body className="text-blue-500">Custom Body</Body>)
+      render(<Body className="text-info">Custom Body</Body>)
       const body = screen.getByText('Custom Body')
-      expect(body).toHaveClass('leading-7', 'text-blue-500')
+      expect(body).toHaveClass('leading-7', 'text-info')
     })
   })
 
   describe('Integration and class merging', () => {
     it('allows text styling classes to override defaults in Body', () => {
-      render(<Body className="font-bold text-red-500">Custom styled</Body>)
+      render(<Body className="text-destructive font-bold">Custom styled</Body>)
       const body = screen.getByText('Custom styled')
       // Verify both default and custom classes are present
-      expect(body).toHaveClass('leading-7', 'text-red-500', 'font-bold')
+      expect(body).toHaveClass('leading-7', 'text-destructive', 'font-bold')
     })
 
     it('allows adding text styling classes to Heading', () => {
-      render(<Heading className="text-green-500 underline">Custom styled</Heading>)
+      render(<Heading className="text-success underline">Custom styled</Heading>)
       const heading = screen.getByRole('heading', { level: 1 })
-      expect(heading).toHaveClass('font-extrabold', 'text-green-500', 'underline')
+      expect(heading).toHaveClass('font-extrabold', 'text-success', 'underline')
     })
 
     it('composes Body with inline Code correctly', () => {
@@ -389,18 +389,18 @@ describe('Typography Components', () => {
       render(
         <div>
           <Body variant="small">
-            Small text with <Code className="text-orange-400">code</Code>
+            Small text with <Code className="text-warning">code</Code>
           </Body>
         </div>,
       )
       const code = screen.getByText('code')
-      expect(code).toHaveClass('text-orange-400', 'font-mono')
+      expect(code).toHaveClass('text-warning', 'font-mono')
     })
 
     it('handles multiple text styling classes without conflicts', () => {
-      render(<Body className="font-bold text-amber-600 italic">Multi-styled text</Body>)
+      render(<Body className="text-warning font-bold italic">Multi-styled text</Body>)
       const body = screen.getByText('Multi-styled text')
-      expect(body).toHaveClass('leading-7', 'text-amber-600', 'font-bold', 'italic')
+      expect(body).toHaveClass('leading-7', 'text-warning', 'font-bold', 'italic')
     })
 
     it('Pre component retains text styling classes from custom className', () => {

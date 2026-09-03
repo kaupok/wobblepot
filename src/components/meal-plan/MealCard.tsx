@@ -285,7 +285,7 @@ export function MealCard({
               <AvailabilityIndicator availability={availability} />
             )}
             {hasServingOverride && (
-              <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+              <span className="bg-info-muted text-info rounded-full px-1.5 py-0.5 text-xs font-medium">
                 {tCard('servings', { count: effectiveServings })}
               </span>
             )}

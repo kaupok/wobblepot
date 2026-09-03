@@ -128,20 +128,10 @@ function OverallStatusHeader({
 function OverallStatusIcon({ status, className }: { status: OverallStatus; className?: string }) {
   const base = `h-5 w-5 shrink-0 ${className ?? ''}`
   if (status === 'ok') {
-    return (
-      <CheckCircle2
-        className={`${base} text-green-600 dark:text-green-500`}
-        aria-label="All systems operational"
-      />
-    )
+    return <CheckCircle2 className={`${base} text-success`} aria-label="All systems operational" />
   }
   if (status === 'degraded') {
-    return (
-      <AlertCircle
-        className={`${base} text-amber-600 dark:text-amber-500`}
-        aria-label="Partial outage"
-      />
-    )
+    return <AlertCircle className={`${base} text-warning`} aria-label="Partial outage" />
   }
   return <XCircle className={`${base} text-destructive`} aria-label="Major outage" />
 }
@@ -186,7 +176,7 @@ function StatusIcon({ status, className }: { status: ProbeStatus; className?: st
   if (status === 'ok') {
     return (
       <CheckCircle2
-        className={`h-5 w-5 shrink-0 text-green-600 dark:text-green-500 ${className ?? ''}`}
+        className={`text-success h-5 w-5 shrink-0 ${className ?? ''}`}
         aria-label="Operational"
       />
     )

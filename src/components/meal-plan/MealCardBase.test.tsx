@@ -94,8 +94,8 @@ describe('MealCardBase', () => {
       render(<MealCardBase meal={mockMeal} />)
 
       const salmon = screen.getByText('Salmon')
-      expect(salmon.closest('li')).not.toHaveClass('text-green-700')
-      expect(salmon.closest('li')).not.toHaveClass('text-amber-700')
+      expect(salmon.closest('li')).not.toHaveClass('text-success')
+      expect(salmon.closest('li')).not.toHaveClass('text-warning')
     })
 
     it('renders available ingredients in green', () => {
@@ -107,7 +107,7 @@ describe('MealCardBase', () => {
       render(<MealCardBase meal={mockMeal} pantryIngredients={pantry} />)
 
       const salmon = screen.getByText('Salmon').closest('li')
-      expect(salmon).toHaveClass('text-green-700')
+      expect(salmon).toHaveClass('text-success')
     })
 
     it('renders missing ingredients in amber', () => {
@@ -116,7 +116,7 @@ describe('MealCardBase', () => {
       render(<MealCardBase meal={mockMeal} pantryIngredients={pantry} />)
 
       const avocado = screen.getByText('Avocado').closest('li')
-      expect(avocado).toHaveClass('text-amber-700')
+      expect(avocado).toHaveClass('text-warning')
     })
 
     it('renders staples as available (green)', () => {
@@ -125,7 +125,7 @@ describe('MealCardBase', () => {
       render(<MealCardBase meal={mockMeal} pantryIngredients={pantry} />)
 
       const soy = screen.getByText('Soy sauce').closest('li')
-      expect(soy).toHaveClass('text-green-700')
+      expect(soy).toHaveClass('text-success')
     })
 
     it('colors all ingredients correctly with mixed availability', () => {
@@ -138,10 +138,10 @@ describe('MealCardBase', () => {
 
       render(<MealCardBase meal={mockMeal} pantryIngredients={pantry} />)
 
-      expect(screen.getByText('Salmon').closest('li')).toHaveClass('text-green-700')
-      expect(screen.getByText('Sushi rice').closest('li')).toHaveClass('text-green-700')
-      expect(screen.getByText('Soy sauce').closest('li')).toHaveClass('text-green-700')
-      expect(screen.getByText('Avocado').closest('li')).toHaveClass('text-amber-700')
+      expect(screen.getByText('Salmon').closest('li')).toHaveClass('text-success')
+      expect(screen.getByText('Sushi rice').closest('li')).toHaveClass('text-success')
+      expect(screen.getByText('Soy sauce').closest('li')).toHaveClass('text-success')
+      expect(screen.getByText('Avocado').closest('li')).toHaveClass('text-warning')
     })
   })
 })

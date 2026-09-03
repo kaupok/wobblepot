@@ -65,8 +65,8 @@ export function ComponentList({
               </Body>
               {isDuplicate && (
                 <div className="mt-1 flex items-center gap-1.5">
-                  <Info className="h-3 w-3 shrink-0 text-amber-600" />
-                  <Body variant="small" className="text-amber-700 dark:text-amber-400">
+                  <Info className="text-warning h-3 w-3 shrink-0" />
+                  <Body variant="small" className="text-warning">
                     {t('duplicateRow', {
                       count: otherIndices.length,
                       rows: otherIndices.map((i) => i + 1).join(', '),

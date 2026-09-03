@@ -131,7 +131,7 @@ export function ServingControl({
       className={cn(
         'inline-flex items-center gap-1 rounded px-1 py-0.5 text-sm transition-colors',
         'hover:bg-muted focus:ring-primary focus:ring-1 focus:outline-none',
-        isOverridden && 'font-medium text-blue-600 dark:text-blue-400',
+        isOverridden && 'text-info font-medium',
         !isOverridden && 'text-muted-foreground',
         (disabled || isUpdating) && 'cursor-not-allowed opacity-50',
       )}

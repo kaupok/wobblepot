@@ -50,7 +50,7 @@ export function TimelinePastSection({
         )}
         {isExpanded ? tPast('hide') : tPast('show')}
         {plannedCount > 0 && (
-          <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+          <span className="bg-warning-muted text-warning ml-1.5 rounded-full px-1.5 py-0.5 text-xs font-medium">
             {tPast('catchUp', { count: plannedCount })}
           </span>
         )}
