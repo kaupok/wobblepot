@@ -6,6 +6,7 @@ import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { MealPlanEntryStatus, EntryRating } from '@/generated/prisma/enums'
 import { captureApiError } from '@/lib/errors'
+import { getEffectiveServings } from '@/lib/meal-planning/servings'
 
 const updateEntrySchema = z.object({
   status: z.enum(['planned', 'completed', 'skipped']).optional(),
@@ -218,8 +219,7 @@ export async function PATCH(
 
     if (shouldDeductPantry) {
       const householdSize = entry.plan.household.members.length
-      // Use servingOverride if set, otherwise use household size
-      const effectiveServings = entry.servingOverride ?? householdSize
+      const effectiveServings = getEffectiveServings(entry, householdSize)
       const components = entry.meal!.components
 
       // Fetch pantry items for the household

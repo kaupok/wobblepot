@@ -3,6 +3,7 @@ import { IngredientCategory, Unit } from '@/generated/prisma/enums'
 import { getStartOfTodayInTimezone, toDateString } from './dates'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
+import { getEffectiveServings } from './servings'
 
 /**
  * Category configuration for shopping list grouping.
@@ -203,8 +204,7 @@ export async function computeShoppingList(
     // Skip entries without a meal (e.g., eating_out entries before status change)
     if (!entry.meal) continue
 
-    // Use servingOverride if set, otherwise use household size
-    const effectiveServings = entry.servingOverride ?? householdSize
+    const effectiveServings = getEffectiveServings(entry, householdSize)
 
     for (const component of entry.meal.components) {
       const ingredientId = component.ingredientId
@@ -400,8 +400,7 @@ export async function computeRollingWindowShoppingList(
     // Skip entries without a meal (e.g., eating_out entries before status change)
     if (!entry.meal) continue
 
-    // Use servingOverride if set, otherwise use household size
-    const effectiveServings = entry.servingOverride ?? householdSize
+    const effectiveServings = getEffectiveServings(entry, householdSize)
 
     for (const component of entry.meal.components) {
       const ingredientId = component.ingredientId

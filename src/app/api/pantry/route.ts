@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
+import { getEffectiveServings } from '@/lib/meal-planning/servings'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
 import { formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
 import type { Locale } from '@/lib/i18n/locales'
@@ -81,9 +82,14 @@ export async function GET(request: NextRequest) {
             lt: endDate,
           },
         },
-        include: {
+        // Explicit `select`: the aggregation below reads exactly these fields,
+        // and an `include` would drag every entry scalar (`preparationTips`,
+        // `note`) and every `Meal` scalar (`description`, `preparationNotes`,
+        // `sourceUrl`, …) across the wire for every entry in the window.
+        select: {
+          servingOverride: true,
           meal: {
-            include: {
+            select: {
               components: {
                 select: {
                   ingredientId: true,
@@ -105,8 +111,11 @@ export async function GET(request: NextRequest) {
       // Aggregate quantities per ingredient, tracking vague status
       for (const entry of planEntries) {
         if (!entry.meal) continue
+        // Same rule the shopping list and pantry deduction use, so the two
+        // numbers /shopping renders side by side agree (HON-614).
+        const effectiveServings = getEffectiveServings(entry, householdSize)
         for (const component of entry.meal.components) {
-          const qty = component.quantityPerServing * householdSize
+          const qty = component.quantityPerServing * effectiveServings
           const existing = neededQuantities.get(component.ingredientId)
 
           if (existing) {
