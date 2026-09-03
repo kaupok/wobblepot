@@ -145,7 +145,11 @@ function DestructiveView() {
  * `'…px'` string so that the HON-609 acceptance grep for a literal pixel value
  * under `src/**\/*.tsx` stays a meaningful signal.
  */
-/** The value of `--spacing-touch`, as the play function expects to measure it. */
+/**
+ * The documented floor from `docs/DESIGN.md` → Spacing, radius, elevation. The
+ * play function asserts the token equals this and that the utilities equal the
+ * token, so a change to either side has to be a deliberate change to both.
+ */
 const TOUCH_TARGET_PX = 44
 
 function TouchTargetView() {
@@ -213,12 +217,20 @@ export const TouchTarget: Story = {
     const row = await canvas.findByTestId('touch-row')
     const square = await canvas.findByTestId('touch-square')
 
-    // Asserted separately from the box: a failure on min-height means the token
-    // stopped resolving, a failure on the box alone means the row's content grew
-    // past the floor. Same number, two different bugs.
-    expect(parseFloat(getComputedStyle(row).minHeight)).toBe(TOUCH_TARGET_PX)
-    expect(row.getBoundingClientRect().height).toBe(TOUCH_TARGET_PX)
-    expect(square.getBoundingClientRect().height).toBe(TOUCH_TARGET_PX)
-    expect(square.getBoundingClientRect().width).toBe(TOUCH_TARGET_PX)
+    // `@theme inline` emits the custom property AND inlines its value into the
+    // utilities, so both sides are checked: the token against the documented
+    // floor, then the utilities against the token they were derived from.
+    const token = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue('--spacing-touch'),
+    )
+    expect(token).toBe(TOUCH_TARGET_PX)
+
+    // min-height and the box are separate assertions on purpose: a failure on
+    // min-height means the utility stopped tracking the token, a failure on the
+    // box alone means the row's content grew past the floor.
+    expect(parseFloat(getComputedStyle(row).minHeight)).toBe(token)
+    expect(row.getBoundingClientRect().height).toBe(token)
+    expect(square.getBoundingClientRect().height).toBe(token)
+    expect(square.getBoundingClientRect().width).toBe(token)
   },
 }
