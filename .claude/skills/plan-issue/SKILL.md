@@ -167,23 +167,27 @@ grep -rn '<Skeleton' src --include='*.tsx' \
 grep -rn '\bh-9\b\|\bsize-9\b' src --include='*.tsx' \
   | grep -v -e '\.stories\.' -e '\.test\.' -e 'src/components/ui/button.tsx'
 
-# 3. className overrides on the primitives being changed. The tag is often several
-#    lines above the className, so match a window, not a line. The `className={`
-#    branch catches cn()/lookup-table forms, whose value is not visible here.
+# 3. className overrides on the primitives being changed. SUBSTITUTE THE TAGS for
+#    the primitives you are changing (<Textarea, <Badge, ...). The tag is often
+#    several lines above the className, so match a window, not a line. The
+#    `className={` branch catches cn()/lookup-table forms, whose value is not
+#    visible here.
 grep -rn -A6 '<Button\b\|<Input\b\|<SelectTrigger\b' src --include='*.tsx' \
   | grep -E 'className="[^"]*\b(min-h|h|size)-(5|6|7|8|9|10|11|12|14|touch)\b|className=\{' \
   | grep -v -e '\.stories\.' -e '\.test\.'
 
-# 4. Callsites whose size comes from a variant prop. Run this one when the change
-#    moves the default relative to another size variant — see below.
+# 4. Callsites whose size comes from a variant prop. Same tag substitution as
+#    grep 3, and the size list is whatever variants your primitive exposes. Run
+#    this one when the change moves the default relative to another size.
 grep -rn -A6 '<Button\b\|<Input\b\|<SelectTrigger\b' src --include='*.tsx' \
   | grep -E 'size="(sm|lg|icon|icon-sm|icon-lg)"' \
   | grep -v -e '\.stories\.' -e '\.test\.'
 
 # 5. The primitive's OWN colocated test and stories. Excluded above as callsite
-#    noise, but they assert the exact class strings you are changing.
-grep -rn '\bh-9\b\|\bsize-9\b\|toHaveClass\|toContain' \
-  src/components/ui/button.test.tsx src/components/ui/button.stories.tsx
+#    noise, but they assert the exact class strings you are changing. Swap
+#    `button.*` for your primitive; the glob degrades quietly when a primitive
+#    has no colocated test (input and select have stories only).
+grep -rn 'toHaveClass\|toContain\|\bh-9\b\|\bsize-9\b' src/components/ui --include='button.*'
 ```
 
 Each one is shaped by a way the obvious version misses something, all of it found by replaying against the pre-HON-612 tree and diffing against what PR #704 actually had to change:
@@ -192,7 +196,9 @@ Each one is shaped by a way the obvious version misses something, all of it foun
 - **Grep 2's exclusion must name files, not the directory.** `-e 'src/components/ui/'` drops the sibling primitives that share the old value — pre-HON-612 that is exactly `button.tsx`, `input.tsx`, and `select.tsx`, all on `h-9`. They are the highest-value hits in the scan, not noise: HON-612's commit message is "all three move together because they share the old `h-9`; raising one alone misaligns every form row that puts a button beside a field." Exclude the file you are editing and let the siblings surface.
 - **Grep 3 needs the window, every primitive, and the `cn()` branch.** grep is line-based, so a single-line `<Button[^>]*className=` cannot reach a `className` Prettier wrapped onto a later line — `CreateHouseholdForm.tsx` puts its `className` six lines below the `<Button`. `FillDaysAction.tsx:112` pins its height on a `SelectTrigger`, which a `Button`-only pattern never sees. Together those cost real recall: the single-line `Button`-only form returned 1 of the 3 files needing re-check; the form above returns all 3. The `className={` branch exists because a class assembled at runtime has no literal to match — `StatusSelect.tsx:59` takes its class from a lookup table. Those hits show you the callsite, not the value; open each one.
 - **Grep 4 catches the override that has no `className`.** Run it when the change moves the default relative to another size variant. HON-612 did exactly that — the default went to 44px while `sm` stayed at 32px, widening the gap from 4px to 12px — which silently re-prices every `size="sm"` callsite, and HON-612 had to drop `size="sm"` from `LowConfidenceIngredientRow.tsx:162` so the button would take the new default. No `className`, so grep 3 cannot match it by construction. `size="icon"` is in the list for the opposite reason: those 10 callsites _do_ inherit the new height, so it is their surrounding row that needs the look. It is a separate grep because it is high-volume (~66 lines across 37 files): scan it for callsites whose _reason_ for their size no longer holds, and record only those, not the whole list.
-- **Grep 5 covers the primitive's own tests and stories.** Greps 1–4 exclude `.test.` and `.stories.` to keep callsite noise down, which is right for callsites and wrong for the primitive itself: `button.test.tsx:59` asserts `toHaveClass('h-touch', 'md:h-9', 'px-4', 'py-2')` and a dozen siblings assert the same way. Those are the most certain breakage in the whole scan — a red `pnpm test`, not a subtle visual desync — and the four callsite greps structurally cannot name them. Point grep 5 at the colocated files of whichever primitive you are changing.
+- **Grep 5 covers the primitive's own tests and stories.** Greps 1–4 exclude `.test.` and `.stories.` to keep callsite noise down, which is right for callsites and wrong for the primitive itself: `button.test.tsx:59` asserts `toHaveClass('h-touch', 'md:h-9', 'px-4', 'py-2')` and a dozen siblings assert the same way. Those are the most certain breakage in the whole scan — a red `pnpm test`, not a subtle visual desync — and the four callsite greps structurally cannot name them. Coverage is uneven, which is why grep 5 is a glob rather than a file list: `Button` has both a test and stories, while `Input` and `Select` have stories only, and naming a missing file would error out on two of the three primitives in this very example.
+
+A caution that applies to greps 3 and 4 in particular: their tag list is the HON-612 example, not a fixture. Substitute the primitives you are actually changing. A `Textarea` change left as-is returns 15 `Button`/`Input` lines — a non-empty result that looks like a successful scan while having never touched the primitive, which is the one way to reach the `none` line dishonestly.
 
 Grep 3's size allowlist skips `h-3`/`h-4` icons while keeping genuine small overrides (`MealCard` pins its actions at `h-5`). A few `h-5 w-5` icon lines still come through — expected noise, drop them on sight. Note that `-A` marks context lines `file-123-` and match lines `file:123:`; both are real hits, and the coordinate is the number either way.
 
