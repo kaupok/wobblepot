@@ -110,6 +110,7 @@ This goes in the Summary section of the description (step 6). The goal: a review
 
 - [1-3 bullet points describing the changes]
 - **E2E impact:** [From step 5b — either `E2E specs updated: tests/e2e/foo.spec.ts, tests/e2e/bar.spec.ts` or `No E2E impact`. Omit the line entirely only if the diff is pure-backend with no UI / route / modal surface.]
+- **Coupled callsites:** [If the diff changes a primitive's geometry default, a `@theme` token, or a shared layout wrapper — either `Mirrors updated: src/app/foo/loading.tsx, …` or `none — no callsite hardcodes the changed <property>`. Omit the line entirely if none of those changed. Without it the scan's result lives only in the Linear plan and a GitHub reviewer cannot see that it ran (CLAUDE.md shared-primitive geometry rule).]
 
 ## Test plan
 
