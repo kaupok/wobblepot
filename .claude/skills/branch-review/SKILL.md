@@ -151,7 +151,7 @@ CLAUDE.md is already loaded as project instructions — do not re-read it. Read 
 
   If any spec references removed routes or renamed copy, call it out in **Address Now** — stale specs are cheap to miss locally and land as a CI regression. See HON-518 for the drift-batch incident this rule was introduced to prevent.
 - **Storybook drift**: If the diff touches `src/components/**`, verify the colocated `.stories.tsx` was created/updated for the new variants and states (CLAUDE.md Storybook rule) and that `pnpm test-storybook:ci` passes. A missing or stale story is an **Address Now** item.
-- **Shared-primitive coupling**: If the diff changes a geometry default on a primitive under `src/components/ui/*.tsx`, a `@theme` token, or a shared layout wrapper, run `/plan-issue` step 7b's greps against the **old** literal and verify every **Mirror** moved with it. Route `loading.tsx` skeletons are the usual miss — HON-612 desynced 12 of them and this review step, not planning, is what caught it
+- **Shared-primitive coupling**: If the diff changes a geometry default on a primitive under `src/components/ui/*.tsx`, a `@theme` token, or a shared layout wrapper, run `/plan-issue` step 7b's greps against the **old** literal and verify every **Mirror** moved with it. Route `loading.tsx` skeletons are the usual miss — HON-612 desynced 12 of them and this review step, not planning, is what caught it (CLAUDE.md shared-primitive geometry rule)
 
 ### 9. Triage issues
 
