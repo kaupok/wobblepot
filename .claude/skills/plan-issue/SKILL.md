@@ -146,7 +146,7 @@ Record findings under a new "E2E updates required" section of the plan (step 8).
 
 #### 7b. Shared-primitive coupling
 
-**Why:** Changing a shared primitive's geometry breaks everything that hardcoded a copy of it, and those copies are invisible from the primitive's own file. HON-612 (PR #704) raised `Button` / `Input` / `Select` to 44px on mobile; 12 route-level `loading.tsx` skeletons had been sized to mirror the old 36px controls, so each one silently desynced into a visible layout jump at hydration. The issue's own step list named 9 composites to sweep and none of the skeletons, so review round 2 caught it instead — and an extra review round costs more wall clock than the whole implementation did. The scan below is four greps run from a cold start; they narrow "everything in `src`" to a list short enough to read and bucket by hand.
+**Why:** Changing a shared primitive's geometry breaks everything that hardcoded a copy of it, and those copies are invisible from the primitive's own file. HON-612 (PR #704) raised `Button` / `Input` / `Select` to 44px on mobile; 12 route-level `loading.tsx` skeletons had been sized to mirror the old 36px controls, so each one silently desynced into a visible layout jump at hydration. The issue's own step list named 9 composites to sweep and none of the skeletons, so review round 2 caught it instead — and an extra review round costs more wall clock than the whole implementation did. The scan below is five greps run from a cold start; they narrow "everything in `src`" to a list short enough to read and bucket by hand.
 
 **Run 7b if step 6 surfaced changes to any of:**
 
@@ -154,7 +154,7 @@ Record findings under a new "E2E updates required" section of the plan (step 8).
 - A `@theme` token in `src/app/globals.css` that a primitive consumes
 - A default in a shared layout wrapper (container width, page padding)
 
-**How:** for each changed primitive, take the **old** literal class value it is moving away from — the one callsites would have copied — and find every hardcoded copy. Substitute it for `h-9` / `size-9` below.
+**How:** for each changed primitive, take the **old** literal class value it is moving away from — the one callsites would have copied — and find every hardcoded copy. The greps below are written for a **height/size** change (`h-9` / `size-9` → substitute your own). For a padding or radius change, substitute the property in greps 1–3 as well (`p-`/`px-`, `rounded-`); note that greps 1 and 3 then need their value list widened, and that `rounded-md` doubles as the classification tell below, so the output is far noisier. For a `@theme` token change there is often no single old literal to grep — say that in the plan instead of scanning. **The `none` line is only honest for the property you actually scanned; never write it for a property the greps did not cover.**
 
 ```bash
 # 1. Skeletons that mirror control geometry — matched by shape, not by location.
@@ -167,25 +167,32 @@ grep -rn '<Skeleton' src --include='*.tsx' \
 grep -rn '\bh-9\b\|\bsize-9\b' src --include='*.tsx' \
   | grep -v -e '\.stories\.' -e '\.test\.' -e 'src/components/ui/button.tsx'
 
-# 3. className height overrides on the primitives being changed. The tag is often
-#    several lines above the className, so match a window, not a line.
+# 3. className overrides on the primitives being changed. The tag is often several
+#    lines above the className, so match a window, not a line. The `className={`
+#    branch catches cn()/lookup-table forms, whose value is not visible here.
 grep -rn -A6 '<Button\b\|<Input\b\|<SelectTrigger\b' src --include='*.tsx' \
-  | grep -E 'className="[^"]*\b(min-h|h|size)-(5|6|7|8|9|10|11|12|14|touch)\b' \
+  | grep -E 'className="[^"]*\b(min-h|h|size)-(5|6|7|8|9|10|11|12|14|touch)\b|className=\{' \
   | grep -v -e '\.stories\.' -e '\.test\.'
 
-# 4. Variant-prop overrides. Run this one only when the change alters the gap
-#    between the default and another size — see below.
+# 4. Callsites whose size comes from a variant prop. Run this one when the change
+#    moves the default relative to another size variant — see below.
 grep -rn -A6 '<Button\b\|<Input\b\|<SelectTrigger\b' src --include='*.tsx' \
-  | grep -E 'size="(sm|lg|icon-sm|icon-lg)"' \
+  | grep -E 'size="(sm|lg|icon|icon-sm|icon-lg)"' \
   | grep -v -e '\.stories\.' -e '\.test\.'
+
+# 5. The primitive's OWN colocated test and stories. Excluded above as callsite
+#    noise, but they assert the exact class strings you are changing.
+grep -rn '\bh-9\b\|\bsize-9\b\|toHaveClass\|toContain' \
+  src/components/ui/button.test.tsx src/components/ui/button.stories.tsx
 ```
 
-Each of the four is shaped by a way the obvious version misses something, all of it found by replaying against the pre-HON-612 tree and diffing against what PR #704 actually had to change:
+Each one is shaped by a way the obvious version misses something, all of it found by replaying against the pre-HON-612 tree and diffing against what PR #704 actually had to change:
 
 - **Grep 1 matches shape, not location.** Scoping to `--include='loading.tsx'` looks right — route skeletons are the bulk — but inline skeletons mirror controls too, and HON-612 had to change `recipes/imagine/ImagineClient.tsx:47` (`h-10` → `h-touch md:h-9`) inside a local `SkeletonCard()`. Location-scoping misses it, and so does grep 2, which only knows the old literal `h-9`. `AlternativesList.tsx:28` is the same shape and _is_ found — but only because it happened to use exactly `h-9`. Shape-matching removes that coincidence, at the cost of ~70 lines to bucket instead of 15 filenames.
 - **Grep 2's exclusion must name files, not the directory.** `-e 'src/components/ui/'` drops the sibling primitives that share the old value — pre-HON-612 that is exactly `button.tsx`, `input.tsx`, and `select.tsx`, all on `h-9`. They are the highest-value hits in the scan, not noise: HON-612's commit message is "all three move together because they share the old `h-9`; raising one alone misaligns every form row that puts a button beside a field." Exclude the file you are editing and let the siblings surface.
-- **Grep 3 needs the window and every primitive.** grep is line-based, so a single-line `<Button[^>]*className=` cannot reach a `className` Prettier wrapped onto a later line — `CreateHouseholdForm.tsx` puts its `className` six lines below the `<Button`. And `FillDaysAction.tsx:112` pins its height on a `SelectTrigger`, which a `Button`-only pattern never sees. Together those cost real recall: the single-line `Button`-only form returned 1 of the 3 files needing re-check; the form above returns all 3.
-- **Grep 4 catches the override that has no `className`.** Run it when the change moves the default relative to another size variant. HON-612 did exactly that — the default went to 44px while `sm` stayed at 32px, widening the gap from 4px to 12px — which silently re-prices every `size="sm"` callsite, and HON-612 had to drop `size="sm"` from `LowConfidenceIngredientRow.tsx:162` so the button would take the new default. No `className`, so grep 3 cannot match it by construction. It is a separate grep because it is high-volume (57 lines across 31 files pre-HON-612): scan it for callsites whose _reason_ for being `sm` no longer holds, and record only those, not the whole list.
+- **Grep 3 needs the window, every primitive, and the `cn()` branch.** grep is line-based, so a single-line `<Button[^>]*className=` cannot reach a `className` Prettier wrapped onto a later line — `CreateHouseholdForm.tsx` puts its `className` six lines below the `<Button`. `FillDaysAction.tsx:112` pins its height on a `SelectTrigger`, which a `Button`-only pattern never sees. Together those cost real recall: the single-line `Button`-only form returned 1 of the 3 files needing re-check; the form above returns all 3. The `className={` branch exists because a class assembled at runtime has no literal to match — `StatusSelect.tsx:59` takes its class from a lookup table. Those hits show you the callsite, not the value; open each one.
+- **Grep 4 catches the override that has no `className`.** Run it when the change moves the default relative to another size variant. HON-612 did exactly that — the default went to 44px while `sm` stayed at 32px, widening the gap from 4px to 12px — which silently re-prices every `size="sm"` callsite, and HON-612 had to drop `size="sm"` from `LowConfidenceIngredientRow.tsx:162` so the button would take the new default. No `className`, so grep 3 cannot match it by construction. `size="icon"` is in the list for the opposite reason: those 10 callsites _do_ inherit the new height, so it is their surrounding row that needs the look. It is a separate grep because it is high-volume (~66 lines across 37 files): scan it for callsites whose _reason_ for their size no longer holds, and record only those, not the whole list.
+- **Grep 5 covers the primitive's own tests and stories.** Greps 1–4 exclude `.test.` and `.stories.` to keep callsite noise down, which is right for callsites and wrong for the primitive itself: `button.test.tsx:59` asserts `toHaveClass('h-touch', 'md:h-9', 'px-4', 'py-2')` and a dozen siblings assert the same way. Those are the most certain breakage in the whole scan — a red `pnpm test`, not a subtle visual desync — and the four callsite greps structurally cannot name them. Point grep 5 at the colocated files of whichever primitive you are changing.
 
 Grep 3's size allowlist skips `h-3`/`h-4` icons while keeping genuine small overrides (`MealCard` pins its actions at `h-5`). A few `h-5 w-5` icon lines still come through — expected noise, drop them on sight. Note that `-A` marks context lines `file-123-` and match lines `file:123:`; both are real hits, and the coordinate is the number either way.
 
