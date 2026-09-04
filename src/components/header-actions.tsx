@@ -62,7 +62,7 @@ export function HeaderActions({ session, hasHousehold }: HeaderActionsProps) {
       {session ? (
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-9 w-9">
+            <Button variant="ghost" size="icon">
               <User className="h-5 w-5" />
               <span className="sr-only">{t('userMenu')}</span>
             </Button>

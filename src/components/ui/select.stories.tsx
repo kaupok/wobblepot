@@ -230,3 +230,16 @@ export const AllVariants: Story = {
     </div>
   ),
 }
+
+// The default `SelectTrigger` is 44px at the mobile viewport and 36px here;
+// `SmallSize` stays 32px at both. Same a11y waiver as `AllVariants` — it
+// renders the same disabled trigger.
+export const Desktop: Story = {
+  parameters: {
+    a11y: { config: { rules: [{ id: 'color-contrast', enabled: false }] } },
+  },
+  globals: {
+    viewport: { value: 'desktop', isRotated: false },
+  },
+  render: AllVariants.render,
+}

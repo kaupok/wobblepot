@@ -159,7 +159,7 @@ export function LowConfidenceIngredientRow({
                   ))}
               </SelectContent>
             </Select>
-            <Button type="button" size="sm" onClick={handleConfirmBestMatch} disabled={disabled}>
+            <Button type="button" onClick={handleConfirmBestMatch} disabled={disabled}>
               {t('confirm')}
             </Button>
           </div>

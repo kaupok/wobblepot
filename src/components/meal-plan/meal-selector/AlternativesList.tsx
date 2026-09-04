@@ -25,7 +25,7 @@ export function AlternativeSkeleton() {
           <Skeleton className="ml-4 h-3 w-16" />
           <Skeleton className="ml-4 h-3 w-22" />
         </div>
-        <Skeleton className="mt-auto h-9 w-full" />
+        <Skeleton className="h-touch mt-auto w-full md:h-9" />
       </CardContent>
     </Card>
   )

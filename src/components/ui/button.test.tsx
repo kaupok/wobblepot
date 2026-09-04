@@ -56,7 +56,7 @@ describe('Button component', () => {
     it('applies default size classes', () => {
       render(<Button>Default Size</Button>)
       const button = screen.getByRole('button')
-      expect(button).toHaveClass('h-9', 'px-4', 'py-2')
+      expect(button).toHaveClass('h-touch', 'md:h-9', 'px-4', 'py-2')
     })
 
     it('applies small size classes', () => {
@@ -68,13 +68,13 @@ describe('Button component', () => {
     it('applies large size classes', () => {
       render(<Button size="lg">Large</Button>)
       const button = screen.getByRole('button')
-      expect(button).toHaveClass('h-10')
+      expect(button).toHaveClass('h-12', 'md:h-10')
     })
 
     it('applies icon size classes', () => {
       render(<Button size="icon" aria-label="Icon button" />)
       const button = screen.getByRole('button')
-      expect(button).toHaveClass('size-9')
+      expect(button).toHaveClass('size-touch', 'md:size-9')
     })
 
     it('applies icon-sm size classes', () => {
@@ -86,7 +86,21 @@ describe('Button component', () => {
     it('applies icon-lg size classes', () => {
       render(<Button size="icon-lg" aria-label="Large icon button" />)
       const button = screen.getByRole('button')
-      expect(button).toHaveClass('size-10')
+      expect(button).toHaveClass('size-12', 'md:size-10')
+    })
+
+    // The `sm` sizes are deliberately viewport-independent: they are for
+    // secondary inline actions in card rows, where 44px zones with a 6px gap
+    // would overlap (docs/DESIGN.md → Spacing, radius, elevation). Asserting
+    // the absence of a breakpoint here is what makes that a decision rather
+    // than an omission — the `toHaveClass('h-8')` above would stay green if
+    // someone quietly made `sm` responsive too.
+    it('keeps the sm sizes fixed across viewports', () => {
+      for (const size of ['sm', 'icon-sm'] as const) {
+        const classes = buttonVariants({ size })
+        expect(classes).not.toMatch(/\bmd:/)
+        expect(classes).not.toContain('touch')
+      }
     })
   })
 
@@ -200,7 +214,11 @@ describe('buttonVariants', () => {
 
   it('generates correct classes for custom size', () => {
     const classes = buttonVariants({ size: 'lg' })
-    expect(classes).toContain('h-10')
+    // Both halves, deliberately: `toContain` is a substring match, so a lone
+    // `toContain('h-10')` stays green against `h-12 md:h-10` while silently no
+    // longer covering the mobile height.
+    expect(classes).toContain('h-12')
+    expect(classes).toContain('md:h-10')
   })
 
   it('combines variant and size correctly', () => {

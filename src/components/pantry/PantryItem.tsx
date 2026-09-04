@@ -64,10 +64,9 @@ export function PantryItem({ item, onToggleStaple, onRemove }: PantryItemProps) 
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"
-          size="icon"
+          size="icon-sm"
           onClick={handleToggle}
           disabled={isToggling}
-          className="h-8 w-8"
           aria-label={item.isStaple ? tPantry('ariaUnstaple') : tPantry('ariaToggleStaple')}
         >
           <Star
@@ -83,9 +82,9 @@ export function PantryItem({ item, onToggleStaple, onRemove }: PantryItemProps) 
       </div>
       <Button
         variant="ghost"
-        size="icon"
+        size="icon-sm"
         onClick={() => setShowRemoveDialog(true)}
-        className="text-muted-foreground hover:text-destructive h-8 w-8"
+        className="text-muted-foreground hover:text-destructive"
         aria-label={tPantry('ariaRemove', { name: item.ingredient.name })}
       >
         <Trash2 className="h-4 w-4" />

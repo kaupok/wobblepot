@@ -17,7 +17,7 @@ export default function ImagineRecipeLoading() {
 
           {/* Footer with button */}
           <div className="flex justify-end">
-            <Skeleton className="h-9 w-28 rounded-md" />
+            <Skeleton className="h-touch w-28 rounded-md md:h-9" />
           </div>
         </div>
       </div>

@@ -15,7 +15,7 @@ export default function RecipesLoading() {
           {/* Recipe count and button */}
           <div className="flex items-center justify-between">
             <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-9 w-32 rounded-md" />
+            <Skeleton className="h-touch w-32 rounded-md md:h-9" />
           </div>
 
           {/* Loading area */}

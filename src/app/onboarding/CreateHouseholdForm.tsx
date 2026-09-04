@@ -207,10 +207,9 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
+                  size="icon"
                   onClick={() => handleHouseholdSizeChange(householdSize - 1)}
                   disabled={isLoading || householdSize <= 1}
-                  className="h-9 w-9 p-0"
                   aria-label={t('decreaseAria')}
                 >
                   <Minus className="h-4 w-4" aria-hidden="true" />
@@ -226,10 +225,9 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
+                  size="icon"
                   onClick={() => handleHouseholdSizeChange(householdSize + 1)}
                   disabled={isLoading || householdSize >= 10}
-                  className="h-9 w-9 p-0"
                   aria-label={t('increaseAria')}
                 >
                   <Plus className="h-4 w-4" aria-hidden="true" />
@@ -257,20 +255,18 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
                       <Button
                         type="button"
                         variant={row.portionType === 'adult' ? 'default' : 'outline'}
-                        size="sm"
                         onClick={() => handlePortionTypeChange(index, 'adult')}
                         disabled={isLoading || index === 0}
-                        className="h-9 px-3 text-xs"
+                        className="px-3 text-xs"
                       >
                         {t('adult')}
                       </Button>
                       <Button
                         type="button"
                         variant={row.portionType === 'child' ? 'default' : 'outline'}
-                        size="sm"
                         onClick={() => handlePortionTypeChange(index, 'child')}
                         disabled={isLoading || index === 0}
-                        className="h-9 px-3 text-xs"
+                        className="px-3 text-xs"
                       >
                         {t('child')}
                       </Button>

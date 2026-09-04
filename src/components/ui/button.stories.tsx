@@ -109,3 +109,13 @@ export const AllSizes: Story = {
     </div>
   ),
 }
+
+// Sizes are the only thing that branches at `md:` — every variant renders
+// identically at both viewports. Mobile (the default viewport) is 44/48/32px;
+// this story is the 36/40/32px half of the same grid.
+export const Desktop: Story = {
+  globals: {
+    viewport: { value: 'desktop', isRotated: false },
+  },
+  render: AllSizes.render,
+}
