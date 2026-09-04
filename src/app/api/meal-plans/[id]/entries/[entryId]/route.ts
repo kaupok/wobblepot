@@ -130,6 +130,7 @@ export async function PATCH(
       select: {
         id: true,
         mealId: true,
+        status: true,
         servingOverride: true,
         plan: {
           select: {
@@ -173,17 +174,39 @@ export async function PATCH(
       updateData.status = parsed.data.status as MealPlanEntryStatus
     }
 
+    // Components of the meal this request swaps to, if it swaps at all. The
+    // pantry deduction below has to charge for what gets cooked, and on a swap
+    // that is the incoming meal — not the one `entry` was read with.
+    let swapMealComponents: { ingredientId: string; quantityPerServing: number }[] | undefined
+
     if (parsed.data.mealId) {
-      // Verify meal exists before updating
-      const meal = await prisma.meal.findUnique({
-        where: { id: parsed.data.mealId },
-        select: { id: true },
+      // Verify the meal exists *and* that this household may see it. Without
+      // the visibility filter a caller could attach another household's custom
+      // meal to their entry, which `/api/meal-plans/current` then serialises
+      // back to them in full — and whose components the deduction below would
+      // charge their pantry for. Same rule as `/api/meals/[id]/favorite`.
+      const meal = await prisma.meal.findFirst({
+        where: {
+          id: parsed.data.mealId,
+          deletedAt: null,
+          OR: [{ householdId: null }, { householdId: household.id }],
+        },
+        select: {
+          id: true,
+          components: {
+            select: {
+              ingredientId: true,
+              quantityPerServing: true,
+            },
+          },
+        },
       })
 
       if (!meal) {
         return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
       }
 
+      swapMealComponents = meal.components
       updateData.mealId = parsed.data.mealId
       // Clear cached preparation tips when meal is swapped
       updateData.preparationTips = null
@@ -211,11 +234,22 @@ export async function PATCH(
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
     }
 
-    // Handle pantry deduction when marking as completed
+    // Deduct the components of the meal this request persists. On a swap the
+    // entry ends up pointing at the incoming meal, so charging the household
+    // for `entry.meal` would take ingredients it never cooked and leave the
+    // ones it did cook in the pantry (HON-622).
+    const componentsToDeduct = swapMealComponents ?? entry.meal?.components ?? []
+
+    // Handle pantry deduction when marking as completed. Deduction is not
+    // idempotent, and reverting to `planned` does not restock, so an entry
+    // that is already completed must not be charged a second time — otherwise
+    // completed → planned → completed takes the ingredients twice for one
+    // cooked meal.
     const shouldDeductPantry =
       parsed.data.deductPantry === true &&
       parsed.data.status === 'completed' &&
-      entry.meal?.components.length
+      entry.status !== MealPlanEntryStatus.completed &&
+      componentsToDeduct.length > 0
 
     if (shouldDeductPantry) {
       const householdSize = entry.plan.household.members.length
@@ -230,7 +264,7 @@ export async function PATCH(
           : entry,
         householdSize,
       )
-      const components = entry.meal!.components
+      const components = componentsToDeduct
 
       // Fetch pantry items for the household
       const pantryItems = await prisma.pantryItem.findMany({

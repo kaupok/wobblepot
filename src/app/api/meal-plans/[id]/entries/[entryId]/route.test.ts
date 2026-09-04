@@ -21,7 +21,7 @@ vi.mock('@/lib/prisma', () => ({
       delete: vi.fn(),
     },
     meal: {
-      findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
     pantryItem: {
       findMany: vi.fn(),
@@ -138,7 +138,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
     } as never)
 
     const mockMeal = { id: 'new-meal-456' }
-    vi.mocked(prisma.meal.findUnique).mockResolvedValue(mockMeal as never)
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue(mockMeal as never)
     mockUpdateEntry.mockResolvedValue({
       id: 'entry-123',
       status: 'planned',
@@ -165,7 +165,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
     } as never)
 
     const mockMeal = { id: 'new-meal-456' }
-    vi.mocked(prisma.meal.findUnique).mockResolvedValue(mockMeal as never)
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue(mockMeal as never)
     mockUpdateEntry.mockResolvedValue({
       id: 'entry-123',
       status: 'completed',
@@ -258,7 +258,12 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
       },
     } as never)
 
-    vi.mocked(prisma.meal.findUnique).mockResolvedValue({ id: 'new-meal-456' } as never)
+    // The incoming meal carries the same component, so this test isolates the
+    // serving count — the deduction reads the swap target's components (HON-622).
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({
+      id: 'new-meal-456',
+      components: [{ ingredientId: 'ing-1', quantityPerServing: 100 }],
+    } as never)
     vi.mocked(prisma.pantryItem.findMany).mockResolvedValue([
       { id: 'pantry-1', ingredientId: 'ing-1', quantity: 1000, isStaple: false },
     ] as never)
@@ -278,6 +283,234 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
       where: { id: 'pantry-1' },
       data: { quantity: 800 }, // 1000 - 100 × 2 members, not × the reset 6
     })
+  })
+
+  it('deducts the incoming meal on a swap, not the meal the entry was read with', async () => {
+    // Swap + complete + deduct in one request. The entry still points at the
+    // old meal when it is read, so deducting off that snapshot would charge
+    // the household for beef it never cooked and leave the fish in the pantry.
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'old-meal-123',
+      servingOverride: null,
+      plan: {
+        household: { members: [{ id: 'member-1' }, { id: 'member-2' }] },
+      },
+      meal: {
+        components: [{ ingredientId: 'ing-beef', quantityPerServing: 100 }],
+      },
+    } as never)
+
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({
+      id: 'new-meal-456',
+      components: [{ ingredientId: 'ing-fish', quantityPerServing: 150 }],
+    } as never)
+    vi.mocked(prisma.pantryItem.findMany).mockResolvedValue([
+      { id: 'pantry-fish', ingredientId: 'ing-fish', quantity: 1000, isStaple: false },
+    ] as never)
+    vi.mocked(prisma.$transaction).mockResolvedValue(undefined as never)
+
+    const response = await PATCH(
+      createPatchRequest({
+        status: 'completed',
+        deductPantry: true,
+        mealId: 'new-meal-456',
+      }),
+      { params: createParams() },
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.pantryDeducted).toBe(true)
+    // Only the new meal's ingredient is even looked up in the pantry.
+    expect(vi.mocked(prisma.pantryItem.findMany)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ ingredientId: { in: ['ing-fish'] } }),
+      }),
+    )
+    expect(vi.mocked(prisma.pantryItem.update)).toHaveBeenCalledWith({
+      where: { id: 'pantry-fish' },
+      data: { quantity: 700 }, // 1000 - 150 × 2 members
+    })
+  })
+
+  it('deducts nothing when the swap target has no components', async () => {
+    // The old meal has components and the new one does not: there is nothing
+    // to charge for, so the request falls through to the plain update.
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'old-meal-123',
+      servingOverride: null,
+      plan: {
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: {
+        components: [{ ingredientId: 'ing-beef', quantityPerServing: 100 }],
+      },
+    } as never)
+
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({
+      id: 'new-meal-456',
+      components: [],
+    } as never)
+    mockUpdateEntry.mockResolvedValue({
+      id: 'entry-123',
+      status: 'completed',
+      mealId: 'new-meal-456',
+    } as never)
+
+    const response = await PATCH(
+      createPatchRequest({
+        status: 'completed',
+        deductPantry: true,
+        mealId: 'new-meal-456',
+      }),
+      { params: createParams() },
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.pantryDeducted).toBeUndefined()
+    expect(vi.mocked(prisma.pantryItem.findMany)).not.toHaveBeenCalled()
+    expect(vi.mocked(prisma.pantryItem.update)).not.toHaveBeenCalled()
+    expect(vi.mocked(prisma.pantryItem.deleteMany)).not.toHaveBeenCalled()
+  })
+
+  it('scopes the swap lookup to meals the household may see', async () => {
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'old-meal-123',
+      plan: {
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: { components: [] },
+    } as never)
+
+    // Another household's custom meal: outside the visibility filter, so the
+    // scoped lookup finds nothing.
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue(null as never)
+
+    const response = await PATCH(createPatchRequest({ mealId: 'foreign-meal-999' }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(404)
+    expect(data.error).toBe('Meal not found')
+    expect(vi.mocked(prisma.meal.findFirst)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'foreign-meal-999',
+          deletedAt: null,
+          OR: [{ householdId: null }, { householdId: 'household-123' }],
+        }),
+      }),
+    )
+    expect(mockUpdateEntry).not.toHaveBeenCalled()
+  })
+
+  it('does not deduct a second time for an already completed entry', async () => {
+    // Reverting to `planned` does not restock, so re-completing must not
+    // charge the pantry again for the one meal that was cooked.
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      status: 'completed',
+      servingOverride: null,
+      plan: {
+        household: { members: [{ id: 'member-1' }, { id: 'member-2' }] },
+      },
+      meal: {
+        components: [{ ingredientId: 'ing-1', quantityPerServing: 100 }],
+      },
+    } as never)
+    mockUpdateEntry.mockResolvedValue({
+      id: 'entry-123',
+      status: 'completed',
+      mealId: 'meal-123',
+    } as never)
+
+    const response = await PATCH(createPatchRequest({ status: 'completed', deductPantry: true }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.pantryDeducted).toBeUndefined()
+    expect(vi.mocked(prisma.pantryItem.findMany)).not.toHaveBeenCalled()
+    expect(vi.mocked(prisma.pantryItem.update)).not.toHaveBeenCalled()
+    expect(vi.mocked(prisma.pantryItem.deleteMany)).not.toHaveBeenCalled()
+  })
+
+  it('still deducts when re-completing an entry that was reverted to planned', async () => {
+    // The guard keys on the stored status, not on the request, so an entry
+    // that is back in `planned` is charged normally.
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      status: 'planned',
+      servingOverride: null,
+      plan: {
+        household: { members: [{ id: 'member-1' }, { id: 'member-2' }] },
+      },
+      meal: {
+        components: [{ ingredientId: 'ing-1', quantityPerServing: 100 }],
+      },
+    } as never)
+
+    vi.mocked(prisma.pantryItem.findMany).mockResolvedValue([
+      { id: 'pantry-1', ingredientId: 'ing-1', quantity: 1000, isStaple: false },
+    ] as never)
+    vi.mocked(prisma.$transaction).mockResolvedValue(undefined as never)
+
+    const response = await PATCH(createPatchRequest({ status: 'completed', deductPantry: true }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.pantryDeducted).toBe(true)
+    expect(vi.mocked(prisma.pantryItem.update)).toHaveBeenCalledWith({
+      where: { id: 'pantry-1' },
+      data: { quantity: 800 },
+    })
+  })
+
+  it('leaves the pantry untouched when a swap omits deductPantry', async () => {
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'old-meal-123',
+      servingOverride: null,
+      plan: {
+        household: { members: [{ id: 'member-1' }, { id: 'member-2' }] },
+      },
+      meal: {
+        components: [{ ingredientId: 'ing-beef', quantityPerServing: 100 }],
+      },
+    } as never)
+
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({
+      id: 'new-meal-456',
+      components: [{ ingredientId: 'ing-fish', quantityPerServing: 150 }],
+    } as never)
+    mockUpdateEntry.mockResolvedValue({
+      id: 'entry-123',
+      status: 'completed',
+      mealId: 'new-meal-456',
+    } as never)
+
+    const response = await PATCH(
+      createPatchRequest({ status: 'completed', mealId: 'new-meal-456' }),
+      { params: createParams() },
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.mealId).toBe('new-meal-456')
+    expect(data.pantryDeducted).toBeUndefined()
+    expect(vi.mocked(prisma.pantryItem.findMany)).not.toHaveBeenCalled()
+    expect(vi.mocked(prisma.pantryItem.update)).not.toHaveBeenCalled()
+    expect(vi.mocked(prisma.pantryItem.deleteMany)).not.toHaveBeenCalled()
   })
 })
 
