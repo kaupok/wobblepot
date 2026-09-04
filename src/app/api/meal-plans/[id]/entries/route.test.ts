@@ -28,7 +28,7 @@ vi.mock('@/lib/prisma', () => ({
       create: vi.fn(),
     },
     meal: {
-      findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
   },
 }))
@@ -48,7 +48,7 @@ const mockFindFirstPlan = vi.mocked(prisma.mealPlan.findFirst)
 const mockDeleteManyEntries = vi.mocked(prisma.mealPlanEntry.deleteMany)
 const mockFindFirstEntry = vi.mocked(prisma.mealPlanEntry.findFirst)
 const mockCreateEntry = vi.mocked(prisma.mealPlanEntry.create)
-const mockFindUniqueMeal = vi.mocked(prisma.meal.findUnique)
+const mockFindFirstMeal = vi.mocked(prisma.meal.findFirst)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -259,7 +259,7 @@ describe('POST /api/meal-plans/[id]/entries', () => {
       id: 'plan-123',
     } as never)
     mockFindFirstEntry.mockResolvedValue(null)
-    mockFindUniqueMeal.mockResolvedValue(null)
+    mockFindFirstMeal.mockResolvedValue(null)
 
     const response = await POST(
       createPostRequest({ date: '2099-01-28', mealType: 'dinner', mealId: 'nonexistent' }),
@@ -269,6 +269,17 @@ describe('POST /api/meal-plans/[id]/entries', () => {
 
     expect(response.status).toBe(404)
     expect(data.error).toBe('Meal not found')
+    // The lookup is scoped to system meals and this household's own, so
+    // another household's custom meal cannot be attached at creation time.
+    expect(mockFindFirstMeal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'nonexistent',
+          deletedAt: null,
+          OR: [{ householdId: null }, { householdId: 'household-123' }],
+        }),
+      }),
+    )
   })
 
   it('creates entry and returns formatted response on success', async () => {
@@ -278,7 +289,7 @@ describe('POST /api/meal-plans/[id]/entries', () => {
       id: 'plan-123',
     } as never)
     mockFindFirstEntry.mockResolvedValue(null)
-    mockFindUniqueMeal.mockResolvedValue({ id: 'meal-1' } as never)
+    mockFindFirstMeal.mockResolvedValue({ id: 'meal-1' } as never)
     mockCreateEntry.mockResolvedValue({
       id: 'new-entry',
       date: new Date('2099-01-28T00:00:00.000Z'),

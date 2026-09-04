@@ -148,10 +148,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       )
     }
 
-    // If mealId provided, verify meal exists
+    // If mealId provided, verify the meal exists and this household may see it
+    // — a system meal or one of its own. Without the filter a foreign meal can
+    // be attached at creation time instead of at swap time.
     if (mealId) {
-      const meal = await prisma.meal.findUnique({
-        where: { id: mealId },
+      const meal = await prisma.meal.findFirst({
+        where: {
+          id: mealId,
+          deletedAt: null,
+          OR: [{ householdId: null }, { householdId: household.id }],
+        },
         select: { id: true },
       })
 

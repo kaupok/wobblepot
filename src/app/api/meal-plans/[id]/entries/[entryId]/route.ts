@@ -130,6 +130,7 @@ export async function PATCH(
       select: {
         id: true,
         mealId: true,
+        status: true,
         servingOverride: true,
         plan: {
           select: {
@@ -179,9 +180,17 @@ export async function PATCH(
     let swapMealComponents: { ingredientId: string; quantityPerServing: number }[] | undefined
 
     if (parsed.data.mealId) {
-      // Verify meal exists before updating
-      const meal = await prisma.meal.findUnique({
-        where: { id: parsed.data.mealId },
+      // Verify the meal exists *and* that this household may see it. Without
+      // the visibility filter a caller could attach another household's custom
+      // meal to their entry, which `/api/meal-plans/current` then serialises
+      // back to them in full — and whose components the deduction below would
+      // charge their pantry for. Same rule as `/api/meals/[id]/favorite`.
+      const meal = await prisma.meal.findFirst({
+        where: {
+          id: parsed.data.mealId,
+          deletedAt: null,
+          OR: [{ householdId: null }, { householdId: household.id }],
+        },
         select: {
           id: true,
           components: {
@@ -231,10 +240,15 @@ export async function PATCH(
     // ones it did cook in the pantry (HON-622).
     const componentsToDeduct = swapMealComponents ?? entry.meal?.components ?? []
 
-    // Handle pantry deduction when marking as completed
+    // Handle pantry deduction when marking as completed. Deduction is not
+    // idempotent, and reverting to `planned` does not restock, so an entry
+    // that is already completed must not be charged a second time — otherwise
+    // completed → planned → completed takes the ingredients twice for one
+    // cooked meal.
     const shouldDeductPantry =
       parsed.data.deductPantry === true &&
       parsed.data.status === 'completed' &&
+      entry.status !== MealPlanEntryStatus.completed &&
       componentsToDeduct.length > 0
 
     if (shouldDeductPantry) {
