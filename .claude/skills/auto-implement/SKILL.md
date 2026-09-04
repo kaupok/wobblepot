@@ -441,7 +441,7 @@ Write the plan directly in your response using this structure:
 
 ## Coupled callsites
 
-[From the step 7b scan in 2.6. Group by Mirror / Override / Deliberate with a `file:line` each. Omit entirely if the issue changes no primitive geometry, `@theme` token, or shared layout wrapper.]
+[From the step 7b scan in 2.6. Group by Mirror / Override / Deliberate with a `file:line` and a one-line reason each — the Deliberate bucket is only useful with the reason. If the scan ran and found nothing, write `none — no callsite hardcodes the changed <property>`, naming the property scanned; without that branch a clean scan is indistinguishable from one that never fired. Omit entirely only if the issue changes no primitive geometry, `@theme` token, or shared layout wrapper.]
 
 ## Verification
 
