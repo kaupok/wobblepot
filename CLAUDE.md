@@ -169,6 +169,7 @@ const mutation = useMutation({
 
 - Tailwind CSS for styling; shadcn/ui for reusable components
 - Use `tailwind-merge` for dynamic class merging; avoid inline styles
+- A new `--spacing-*` token in `globals.css` must also be added to `CUSTOM_SPACING_VALUES` in `src/lib/utils.ts` — see `docs/DESIGN.md` → Spacing
 
 ### Components & Hooks
 
