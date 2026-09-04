@@ -143,7 +143,7 @@ export function LowConfidenceIngredientRow({
               onValueChange={handleAlternativeSelect}
               disabled={disabled}
             >
-              <SelectTrigger size="sm" className="w-[200px]" aria-label={t('verifyMatchAria')}>
+              <SelectTrigger className="w-[200px]" aria-label={t('verifyMatchAria')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -159,7 +159,7 @@ export function LowConfidenceIngredientRow({
                   ))}
               </SelectContent>
             </Select>
-            <Button type="button" size="sm" onClick={handleConfirmBestMatch} disabled={disabled}>
+            <Button type="button" onClick={handleConfirmBestMatch} disabled={disabled}>
               {t('confirm')}
             </Button>
           </div>

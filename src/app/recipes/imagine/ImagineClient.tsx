@@ -44,7 +44,7 @@ function SkeletonCard() {
         </div>
       </CardContent>
       <CardFooter className="p-4 pt-0">
-        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-touch w-full md:h-9" />
       </CardFooter>
     </Card>
   )
