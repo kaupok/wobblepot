@@ -1,15 +1,27 @@
 import { clsx, type ClassValue } from 'clsx'
 import { extendTailwindMerge } from 'tailwind-merge'
 
-// `touch` is our own spacing value (`--spacing-touch: 44px` in globals.css,
-// HON-609). tailwind-merge only knows Tailwind's built-in scale, so without
-// this it does not recognise `h-touch` / `size-touch` / `min-h-touch` as
-// members of the height groups and silently keeps both sides of a conflict:
-// `cn('h-8', 'h-touch')` returned "h-8 h-touch" and left the cascade to pick a
-// winner. That matters now that `Button`, `Input`, and `Select` are sized with
-// the token (HON-612) — every callsite that overrides a control's height goes
-// through here.
-const twMerge = extendTailwindMerge({ extend: { theme: { spacing: ['touch'] } } })
+/**
+ * Every custom value in the `--spacing-*` family, as declared in
+ * `src/app/globals.css`. `touch` is ours (`--spacing-touch: 44px`, HON-609).
+ *
+ * tailwind-merge only knows Tailwind's built-in scale, so without registering
+ * these it does not recognise `h-touch` / `size-touch` / `min-h-touch` as
+ * members of the height groups and silently keeps both sides of a conflict:
+ * `cn('h-8', 'h-touch')` returned "h-8 h-touch" and left the cascade to pick a
+ * winner. That matters now that `Button`, `Input`, and `Select` are sized with
+ * the token (HON-612) — every callsite that overrides a control's height goes
+ * through here.
+ *
+ * Must stay in sync with `globals.css`; `utils.test.ts` fails if the two drift.
+ * Colour and radius tokens need no equivalent list — tailwind-merge already
+ * accepts arbitrary names in those groups.
+ */
+export const CUSTOM_SPACING_VALUES = ['touch'] as const
+
+const twMerge = extendTailwindMerge({
+  extend: { theme: { spacing: [...CUSTOM_SPACING_VALUES] } },
+})
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
