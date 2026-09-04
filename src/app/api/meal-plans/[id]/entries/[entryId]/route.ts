@@ -173,17 +173,31 @@ export async function PATCH(
       updateData.status = parsed.data.status as MealPlanEntryStatus
     }
 
+    // Components of the meal this request swaps to, if it swaps at all. The
+    // pantry deduction below has to charge for what gets cooked, and on a swap
+    // that is the incoming meal — not the one `entry` was read with.
+    let swapMealComponents: { ingredientId: string; quantityPerServing: number }[] | undefined
+
     if (parsed.data.mealId) {
       // Verify meal exists before updating
       const meal = await prisma.meal.findUnique({
         where: { id: parsed.data.mealId },
-        select: { id: true },
+        select: {
+          id: true,
+          components: {
+            select: {
+              ingredientId: true,
+              quantityPerServing: true,
+            },
+          },
+        },
       })
 
       if (!meal) {
         return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
       }
 
+      swapMealComponents = meal.components
       updateData.mealId = parsed.data.mealId
       // Clear cached preparation tips when meal is swapped
       updateData.preparationTips = null
@@ -211,11 +225,17 @@ export async function PATCH(
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
     }
 
+    // Deduct the components of the meal this request persists. On a swap the
+    // entry ends up pointing at the incoming meal, so charging the household
+    // for `entry.meal` would take ingredients it never cooked and leave the
+    // ones it did cook in the pantry (HON-622).
+    const componentsToDeduct = swapMealComponents ?? entry.meal?.components ?? []
+
     // Handle pantry deduction when marking as completed
     const shouldDeductPantry =
       parsed.data.deductPantry === true &&
       parsed.data.status === 'completed' &&
-      entry.meal?.components.length
+      componentsToDeduct.length > 0
 
     if (shouldDeductPantry) {
       const householdSize = entry.plan.household.members.length
@@ -230,7 +250,7 @@ export async function PATCH(
           : entry,
         householdSize,
       )
-      const components = entry.meal!.components
+      const components = componentsToDeduct
 
       // Fetch pantry items for the household
       const pantryItems = await prisma.pantryItem.findMany({
