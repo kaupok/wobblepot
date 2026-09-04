@@ -116,13 +116,17 @@ Focus on files directly relevant to the issue (2-5 files max).
 
 **If step 3 flagged any recently-merged sibling issues:** also run `git log --oneline --since="14 days ago" -- <overlapping-paths>` and `git diff origin/main~<N>..origin/main -- <overlapping-paths>` so you actually see what the sibling changed. The file tree alone doesn't tell you which lines are new; without the diff you risk searching for a pattern, not finding it, and duplicating it.
 
-### 7. Scan for E2E impact
+### 7. Scan for downstream impact
+
+Two mechanical scans over the file set from step 6, for the two ways a change breaks code the plan never names: **7a** — specs that assert on a route or copy you are changing; **7b** — callsites that hardcode a copy of a shared primitive's geometry. They are independent: run each one whose trigger list matches, skip the ones that don't, and go to step 8 when both are settled. Both are cheap greps, and both are cheaper here than in review.
+
+#### 7a. E2E impact
 
 **Why:** When a plan touches a route, renames user-visible copy, or restructures a modal/dialog, one or more `tests/e2e/*.spec.ts` files are almost always affected. Historically (see HON-518) these updates lagged the UI change by months and surfaced as an unrecoverable batch when CI came back online. Catching the impact at planning time is the cheapest place to fix it — the plan can list the specs explicitly and the implementation step ships UI + spec updates in one PR.
 
-This step runs **after** codebase exploration (step 6) so the file set is real — not a mental sketch. If step 6 turned up no touched `src/app/**/page.tsx`, navigation callsite, visible-copy string, or modal restructure, skip this step and proceed to step 8.
+This scan runs **after** codebase exploration (step 6) so the file set is real — not a mental sketch. If step 6 turned up no touched `src/app/**/page.tsx`, navigation callsite, visible-copy string, or modal restructure, skip 7a and go to 7b.
 
-**Run this step if step 6 surfaced changes to any of:**
+**Run 7a if step 6 surfaced changes to any of:**
 
 - `src/app/**/page.tsx` (route added, removed, or renamed)
 - A URL path in user-facing navigation (`<Link>` / `router.push` callsites)
@@ -139,6 +143,54 @@ This step runs **after** codebase exploration (step 6) so the file set is real �
 3. For each matching spec, read the relevant assertions and decide whether the plan's change breaks the selector or copy the spec asserts.
 
 Record findings under a new "E2E updates required" section of the plan (step 8). If the scan ran and found no matching specs (e.g. a brand-new route with no existing coverage, or a modal whose assertions live elsewhere), still note "E2E updates required: none — no existing spec asserts on the changed routes/components" so the reviewer sees the scan happened.
+
+#### 7b. Shared-primitive coupling
+
+**Why:** Changing a shared primitive's geometry breaks everything that hardcoded a copy of it, and those copies are invisible from the primitive's own file. HON-612 (PR #704) raised `Button` / `Input` / `Select` to 44px on mobile; 12 route-level `loading.tsx` skeletons had been sized to mirror the old 36px controls, so each one silently desynced into a visible layout jump at hydration. The issue's own step list named 9 composites to sweep and none of the skeletons, so review round 2 caught it instead — and an extra review round costs more wall clock than the whole implementation did. The scan below is three greps and finds them from a cold start without reading any code.
+
+**Run 7b if step 6 surfaced changes to any of:**
+
+- A size, height, padding, or radius default in a CVA variant under `src/components/ui/*.tsx`
+- A `@theme` token in `src/app/globals.css` that a primitive consumes
+- A default in a shared layout wrapper (container width, page padding)
+
+**How:** for each changed primitive, take the **old** literal class value it is moving away from — the one callsites would have copied — and find every hardcoded copy. Substitute it for `h-9` / `size-9` below.
+
+```bash
+# 1. Loading skeletons that mirror control geometry
+grep -rln '<Skeleton' src --include='loading.tsx'
+
+# 2. Every hardcoded copy of the old value, outside the primitive itself
+grep -rn '\bh-9\b\|\bsize-9\b' src --include='*.tsx' \
+  | grep -v -e '\.stories\.' -e '\.test\.' -e 'src/components/ui/'
+
+# 3. className height overrides on the primitives being changed. The tag is often
+#    several lines above the className, so match a window, not a line.
+grep -rn -A6 '<Button\b\|<Input\b\|<SelectTrigger\b' src --include='*.tsx' \
+  | grep -E 'className="[^"]*\b(min-h|h|size)-(5|6|7|8|9|10|11|12|14|touch)\b' \
+  | grep -v -e '\.stories\.' -e '\.test\.'
+```
+
+Two things about grep 3, both learned by replaying it against the pre-HON-612 tree:
+
+- **The window is load-bearing.** grep is line-based, so a single-line `<Button[^>]*className=` cannot reach a `className` that Prettier wrapped onto a later line — which is most of them. `CreateHouseholdForm.tsx` puts its `className` six lines below the `<Button`.
+- **Match every primitive you are changing, not just `Button`.** `FillDaysAction.tsx:112` pins a height on a `SelectTrigger`; a `Button`-only pattern never sees it.
+
+Together those two gaps cost recall: on the pre-HON-612 tree the single-line `Button`-only form returned 1 of the 3 files that needed re-checking; the form above returns all 3.
+
+Grep 3's size allowlist skips `h-3`/`h-4` icons while keeping genuine small overrides (`MealCard` pins its actions at `h-5`). A few `h-5 w-5` icon lines still come through — expected noise, drop them on sight. Note that `-A` marks context lines `file-123-` and match lines `file:123:`; both are real hits, and the coordinate is the number either way.
+
+Classify every surviving hit into one of three buckets, because they need different treatment:
+
+| Bucket                                                          | Treatment                                                                                                                                     |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Mirror** — a skeleton or sibling sized to match the primitive | Must change with the primitive, or it desyncs                                                                                                 |
+| **Override** — a `className` that pins a different height       | Must be re-checked: with a responsive variant the override may now apply on mobile only (see `docs/DESIGN.md` → "Spacing, radius, elevation") |
+| **Deliberate** — a different size chosen on purpose             | Leave it, and say why in the plan so review does not re-raise it                                                                              |
+
+The bucket is not readable off the class name. The same `h-9` in a skeleton can mirror a control (Mirror), a `Heading` line height (`h2` → `text-3xl` → `h-9` — `admin/signup-codes/loading.tsx:3-6` documents exactly this), or a list row; only the first must move with the primitive. The sibling classes are the tell: `rounded-md` is control geometry, `rounded-lg` is a list row, a bare `w-48` is a heading. HON-612 rightly changed 12 of the 15 skeleton files and left three alone on that basis. Read the surrounding markup before assigning a bucket.
+
+Record the result under a new "Coupled callsites" section of the plan (step 8), grouped by bucket, with a `file:line` and a one-line reason each. If the scan ran and found nothing, write `none — no callsite hardcodes the changed geometry` so the reviewer sees the scan happened. Omit the section entirely only when 7b was skipped.
 
 ### 8. Write plan and present to user
 
@@ -180,7 +232,11 @@ Write the plan directly in your response (not to a file). Use this structure:
 
 ## E2E updates required
 
-[From step 7. Either list the affected specs with a one-line reason each, or — if the scan ran and found no matching specs — write `none — no existing spec asserts on the changed routes/components` so the reviewer sees the scan happened. Omit this section entirely only if step 7 was skipped (step 6 surfaced no route / navigation / visible-copy / modal changes).]
+[From step 7a. Either list the affected specs with a one-line reason each, or — if the scan ran and found no matching specs — write `none — no existing spec asserts on the changed routes/components` so the reviewer sees the scan happened. Omit this section entirely only if 7a was skipped (step 6 surfaced no route / navigation / visible-copy / modal changes).]
+
+## Coupled callsites
+
+[From step 7b. Group by Mirror / Override / Deliberate with a `file:line` each and a one-line reason. If the scan ran and found nothing, write `none — no callsite hardcodes the changed geometry`. Omit this section entirely only if 7b was skipped (step 6 surfaced no shared-primitive geometry change).]
 
 ## Storybook stories
 
