@@ -148,8 +148,8 @@ export function AttachImages({
         <Button
           type="button"
           variant="outline"
-          size="icon"
-          className="h-10 w-10 shrink-0 self-end"
+          size="icon-lg"
+          className="shrink-0 self-end"
           disabled={disabled || images.length >= MAX_ATTACHED_IMAGES}
           onClick={() => fileInputRef.current?.click()}
           aria-label={attachLabel}

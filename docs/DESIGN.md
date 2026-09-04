@@ -68,8 +68,9 @@ Spacing rhythm as used today (Tailwind steps, 4px each):
 - One element owns each gap. Use `gap-*` on a flex or grid parent, not margins on children.
 - Radius: `rounded-md` for controls (buttons, inputs, badges are `rounded-full`), `rounded-lg` for list rows and dialogs, `rounded-xl` for `Card`. Do not mix within one component.
 - Elevation: `shadow-xs` on outline controls, `shadow-sm` on cards, `shadow-lg` only on overlays (dialog, sheet, popover). Nothing else casts a shadow.
+- Control height is `touch` (44px) below `md` and 36px from `md`, on `Button`, `Input`, and `Select`. `sm` is for secondary inline actions; a screen's primary action is never `sm`.
 - Interactive list rows and tab items are at least 44px tall on mobile. The floor has a name: `--spacing-touch: 44px` in `globals.css`, which yields `min-h-touch`, `h-touch`, and `size-touch`. Use those; never copy `min-h-[44px]` into a new row. `ShoppingItem` and `CustomShoppingItem` set it, and each tab item clears it at 56px off its own padding rather than an explicit floor. Shipped in HON-609. `UI/Tokens` → `TouchTarget` measures the token in a real browser, so CI fails if it stops resolving to 44px.
-- Controls below the floor are a known gap, not an exception. Measured at 390px on 2026-09-03: `Button` is 36px by default (`sm` 32, `lg` 40, `icon` 36, `icon-sm` 32, `icon-lg` 40). Everything smaller is one of two things — a raw `<button>` that never goes through `Button` (`MealCard`'s meal name 15px, `NoteEditor`'s "Add note" 20px, `CustomShoppingItem`'s unlink and delete 22px, `MealRatingInline`'s thumbs and `RatingBadge` 24px), or a `Button` whose `className` overrides the size variant (`MealCard`'s Note / Swap / Clear 20px via `h-5` and "Add meal" 28px via `h-7`, `MealRatingPrompt`'s thumbs 28px via `h-7` and dismiss 24px via `h-6`). Decided 2026-09-03 to raise the control default rather than narrow the rule to list rows; HON-612 does it with the same token. Note for that rollout: changing `Button`'s size variants reaches neither group, which together are most of this list. Full measurements are in the HON-609 PR.
+- Controls still below the floor are a known gap, not an exception. HON-612 raised the size variants (measured at 390px: `Button` default 44, `lg` 48, `icon` 44, `icon-lg` 48; `sm` 32 and `icon-sm` 32 by design), which by construction reaches only elements that take their height from the variant. Everything still smaller is one of two things — a raw `<button>` that never goes through `Button` (`MealCard`'s meal name 15px, `NoteEditor`'s "Add note" 20px, `CustomShoppingItem`'s unlink and delete 22px, `MealRatingInline`'s thumbs and `RatingBadge` 24px), or a `Button` whose `className` overrides the size variant (`MealCard`'s Note / Swap / Clear 20px via `h-5` and "Add meal" 28px via `h-7`, `MealRatingPrompt`'s thumbs 28px via `h-7` and dismiss 24px via `h-6`). Those two groups are most of this list and are still open. Full measurements are in the HON-609 and HON-612 PRs.
 - `Checkbox` renders at 20px in both shopping rows. In `ShoppingItem` the `<label>` wraps the whole 54px row, so the real target is the row; in `CustomShoppingItem` the label covers only the 28px text block, so the checkbox is closer to a bare 20px target.
 
 ## Color
@@ -126,6 +127,7 @@ Agents produce these by default. Recognise them and do not ship them.
 - An eyebrow label in all caps above every heading
 - Centered hero plus a three-card grid for anything that is not the landing page
 - Three or more buttons of equal weight in one row. One primary, the rest `outline` or `ghost`
+- A screen's primary action rendered at `size="sm"`
 - Playful copy on more than one element per screen
 - A theme or language toggle placed in the header
 
@@ -139,4 +141,4 @@ Add one here when a review finds code and rule disagreeing and the fix is not ob
 
 Decisions above that the code does not yet reflect. Each has a Linear issue; update this list when one ships.
 
-- HON-612: raise the default control height to 44px on mobile for `Button`, `Input`, and `Select`, using the `touch` token (spacing).
+_Empty — HON-610 (#703) and HON-612 shipped the last two._

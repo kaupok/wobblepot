@@ -125,6 +125,28 @@ describe('cn utility function', () => {
       expect(result).toBe('py-2 px-6')
     })
   })
+
+  // `touch` is a project spacing value, not a Tailwind built-in, so
+  // tailwind-merge has to be told about it (see the `extendTailwindMerge` call
+  // in utils.ts). Untold, it treats `h-touch` as an unknown class and keeps
+  // both sides of a height conflict, which silently defeats every callsite
+  // that overrides a control's height.
+  describe('the touch spacing value', () => {
+    it('overrides a numeric height', () => {
+      expect(cn('h-8', 'h-touch')).toBe('h-touch')
+      expect(cn('min-h-9', 'min-h-touch')).toBe('min-h-touch')
+    })
+
+    it('is overridden by a numeric height', () => {
+      expect(cn('h-touch md:h-9', 'h-7')).toBe('md:h-9 h-7')
+      expect(cn('size-touch', 'size-8')).toBe('size-8')
+    })
+
+    it('keeps the mobile and md halves of a responsive pair', () => {
+      expect(cn('h-touch md:h-9')).toBe('h-touch md:h-9')
+      expect(cn('h-touch md:h-9', 'md:h-10')).toBe('h-touch md:h-10')
+    })
+  })
 })
 
 describe('getValidReturnUrl', () => {

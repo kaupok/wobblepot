@@ -18,13 +18,17 @@ const buttonVariants = cva(
         ghost: 'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
         link: 'text-primary underline-offset-4 hover:underline',
       },
+      // Control height is `touch` (44px) below `md` and 36px from `md` up — a
+      // thumb on a phone, a cursor on a dashboard. `sm` stays at 32px: it is
+      // for secondary inline actions in card rows, where 44px zones with a 6px
+      // gap would overlap. See docs/DESIGN.md → Spacing, radius, elevation.
       size: {
-        default: 'h-9 px-4 py-2 has-[>svg]:px-3',
+        default: 'h-touch md:h-9 px-4 py-2 has-[>svg]:px-3',
         sm: 'h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5',
-        lg: 'h-10 rounded-md px-6 has-[>svg]:px-4',
-        icon: 'size-9',
+        lg: 'h-12 md:h-10 rounded-md px-6 has-[>svg]:px-4',
+        icon: 'size-touch md:size-9',
         'icon-sm': 'size-8',
-        'icon-lg': 'size-10',
+        'icon-lg': 'size-12 md:size-10',
       },
     },
     defaultVariants: {

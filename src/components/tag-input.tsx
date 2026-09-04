@@ -71,7 +71,7 @@ const TagInput = forwardRef<TagInputRef, TagInputProps>(function TagInput(
     <div
       data-testid="tag-input-container"
       className={cn(
-        'border-input dark:bg-input/30 flex min-h-9 w-full flex-wrap gap-1.5 rounded-md border bg-transparent px-3 py-1.5 shadow-xs transition-[color,box-shadow]',
+        'border-input dark:bg-input/30 min-h-touch flex w-full flex-wrap gap-1.5 rounded-md border bg-transparent px-3 py-1.5 shadow-xs transition-[color,box-shadow] md:min-h-9',
         'focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]',
         disabled && 'cursor-not-allowed opacity-50',
         className,

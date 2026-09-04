@@ -130,3 +130,16 @@ export const AllVariants: Story = {
     </div>
   ),
 }
+
+// `Input` is `h-touch md:h-9`, so the field is 44px at the default mobile
+// viewport and 36px here. Same a11y waiver as `AllVariants` — it renders the
+// same disabled field.
+export const Desktop: Story = {
+  parameters: {
+    a11y: { config: { rules: [{ id: 'color-contrast', enabled: false }] } },
+  },
+  globals: {
+    viewport: { value: 'desktop', isRotated: false },
+  },
+  render: AllVariants.render,
+}

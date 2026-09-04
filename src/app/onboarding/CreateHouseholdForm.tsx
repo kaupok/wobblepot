@@ -210,7 +210,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
                   size="sm"
                   onClick={() => handleHouseholdSizeChange(householdSize - 1)}
                   disabled={isLoading || householdSize <= 1}
-                  className="h-9 w-9 p-0"
+                  className="size-touch p-0 md:size-9"
                   aria-label={t('decreaseAria')}
                 >
                   <Minus className="h-4 w-4" aria-hidden="true" />
@@ -229,7 +229,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
                   size="sm"
                   onClick={() => handleHouseholdSizeChange(householdSize + 1)}
                   disabled={isLoading || householdSize >= 10}
-                  className="h-9 w-9 p-0"
+                  className="size-touch p-0 md:size-9"
                   aria-label={t('increaseAria')}
                 >
                   <Plus className="h-4 w-4" aria-hidden="true" />
@@ -260,7 +260,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
                         size="sm"
                         onClick={() => handlePortionTypeChange(index, 'adult')}
                         disabled={isLoading || index === 0}
-                        className="h-9 px-3 text-xs"
+                        className="h-touch px-3 text-xs md:h-9"
                       >
                         {t('adult')}
                       </Button>
@@ -270,7 +270,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
                         size="sm"
                         onClick={() => handlePortionTypeChange(index, 'child')}
                         disabled={isLoading || index === 0}
-                        className="h-9 px-3 text-xs"
+                        className="h-touch px-3 text-xs md:h-9"
                       >
                         {t('child')}
                       </Button>

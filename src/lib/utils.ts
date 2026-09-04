@@ -1,5 +1,15 @@
 import { clsx, type ClassValue } from 'clsx'
-import { twMerge } from 'tailwind-merge'
+import { extendTailwindMerge } from 'tailwind-merge'
+
+// `touch` is our own spacing value (`--spacing-touch: 44px` in globals.css,
+// HON-609). tailwind-merge only knows Tailwind's built-in scale, so without
+// this it does not recognise `h-touch` / `size-touch` / `min-h-touch` as
+// members of the height groups and silently keeps both sides of a conflict:
+// `cn('h-8', 'h-touch')` returned "h-8 h-touch" and left the cascade to pick a
+// winner. That matters now that `Button`, `Input`, and `Select` are sized with
+// the token (HON-612) — every callsite that overrides a control's height goes
+// through here.
+const twMerge = extendTailwindMerge({ extend: { theme: { spacing: ['touch'] } } })
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
