@@ -130,9 +130,16 @@ describe('assertDesignRules', () => {
       )
     })
 
+    it('covers `fill-`, which the docs/DESIGN.md grep also lists', async () => {
+      const root = render('<svg class="fill-amber-500"><title>Staple</title></svg>')
+      await expect(assertDesignRules(root, ['no-raw-palette'])).rejects.toThrow(
+        /`fill-amber-500` is a raw palette class/,
+      )
+    })
+
     it('allows semantic tokens', async () => {
       const root = render(
-        '<span class="text-success bg-success-muted border-warning/30">Available</span>',
+        '<span class="text-success bg-success-muted border-warning/30 fill-warning">Available</span>',
       )
       await expect(assertDesignRules(root, ['no-raw-palette'])).resolves.toBeUndefined()
     })

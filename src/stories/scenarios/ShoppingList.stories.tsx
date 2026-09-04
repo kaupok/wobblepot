@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import type { IngredientCategory } from '@/generated/prisma/enums'
 import { useTranslations } from 'next-intl'
-import { fn } from 'storybook/test'
+import { expect, fn, within } from 'storybook/test'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Body, Heading } from '@/components/ui/typography'
 import { CategoryGroup } from '@/components/shopping/CategoryGroup'
@@ -38,8 +39,33 @@ const CATEGORY_GROUPS = [
 const urgencyItems = URGENCY_BUCKETS.flatMap((bucket) => shoppingItemsByUrgency[bucket])
 const categoryItems = CATEGORY_GROUPS.flatMap((group) => group.items)
 
+/**
+ * Both modes render one checkbox per row, so this is what the header count has
+ * to agree with. Asserted in the play functions: a custom item whose category
+ * no computed group covers used to be counted but never rendered.
+ */
+const URGENCY_ROW_COUNT = urgencyItems.length + customShoppingItems.length
+const CATEGORY_ROW_COUNT = categoryItems.length + customShoppingItems.length
+
 /** Custom items with no ingredient behind them — the "Other" group in category mode. */
 const unlinkedCustomItems = customShoppingItems.filter((item) => item.ingredientCategory === null)
+
+/**
+ * Categories reached only by a custom item — the fixture's olive oil is `fat`,
+ * which no computed group covers. `ShoppingSection.tsx:301-316` gives each one
+ * its own `CategoryGroup` with an empty `items` array; without that pass the
+ * item renders nowhere and the header count overstates the list.
+ */
+const customOnlyCategories = [
+  ...new Set(
+    customShoppingItems
+      .map((item) => item.ingredientCategory)
+      .filter(
+        (category): category is IngredientCategory =>
+          category !== null && !CATEGORY_GROUPS.some((group) => group.category === category),
+      ),
+  ),
+]
 
 interface ShoppingListScreenProps {
   /** Which grouping `ShoppingSection` is showing. The two modes are either/or. */
@@ -136,6 +162,20 @@ function ShoppingListScreen({
                   onDeleteCustomItem={onDeleteCustomItem}
                 />
               ))}
+              {customOnlyCategories.map((category) => (
+                <CategoryGroup
+                  key={category}
+                  category={category}
+                  items={[]}
+                  customItems={customShoppingItems.filter(
+                    (item) => item.ingredientCategory === category,
+                  )}
+                  onToggleItem={onToggleItem}
+                  onToggleCustomItem={onToggleCustomItem}
+                  onUnlinkCustomItem={onUnlinkCustomItem}
+                  onDeleteCustomItem={onDeleteCustomItem}
+                />
+              ))}
               {/* Custom items with no ingredient have no category to sit in. */}
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
@@ -205,6 +245,8 @@ export const Populated: Story = {
     },
   },
   play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    expect(canvas.getAllByRole('checkbox')).toHaveLength(URGENCY_ROW_COUNT)
     await assertDesignRules(canvasElement, SCENARIO_RULES)
   },
 }
@@ -216,11 +258,13 @@ export const ByCategory: Story = {
     docs: {
       description: {
         story:
-          'Category grouping — `CategoryGroup` interleaves each category\'s linked `CustomShoppingItem` rows with its computed ones, and the unlinked ones fall through to an "Other" group. Same item count as `Populated`, grouped along the other axis.',
+          'Category grouping — `CategoryGroup` interleaves each category\'s linked `CustomShoppingItem` rows with its computed ones. A custom item in a category no computed item reaches (olive oil, `fat`) gets a group of its own, and the unlinked ones fall through to "Other", so every item the header counts has somewhere to land.',
       },
     },
   },
   play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    expect(canvas.getAllByRole('checkbox')).toHaveLength(CATEGORY_ROW_COUNT)
     await assertDesignRules(canvasElement, SCENARIO_RULES)
   },
 }

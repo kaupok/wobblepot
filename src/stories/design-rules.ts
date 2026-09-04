@@ -43,9 +43,12 @@ const MAX_HEADING_FONT_SIZE_PX = 20
  * Tailwind palette classes that a semantic token already covers. Deliberately
  * matches the full default palette, not just the six colours currently in use:
  * the point is to catch the *next* hand-picked shade, not to re-list today's.
+ * The utility prefixes must stay a superset of the must-stay-empty grep in
+ * `docs/DESIGN.md` → Color, which includes `fill-` — `fill-warning` is live in
+ * `PantryItem` and `PantrySection`, so `fill-amber-500` is a reachable miss.
  */
 const RAW_PALETTE_CLASS =
-  /\b(bg|text|border)-(red|green|blue|amber|orange|yellow|emerald|slate|gray|zinc|neutral|stone|rose|pink|purple|violet|indigo|sky|cyan|teal|lime)-\d{2,3}\b/
+  /\b(bg|text|border|fill)-(red|green|blue|amber|orange|yellow|emerald|slate|gray|zinc|neutral|stone|rose|pink|purple|violet|indigo|sky|cyan|teal|lime)-\d{2,3}\b/
 
 /** First 120 characters of the offending element, whitespace collapsed. */
 function snippet(element: Element): string {
@@ -71,6 +74,9 @@ const CHECKS: Record<DesignRule, (root: HTMLElement) => void> = {
     }
   },
 
+  // Keys on the heading tag, so a `Heading` that renders a non-heading tag
+  // (`as="p" | "span" | "div"`) is invisible to it. No production callsite does
+  // that today; the axe heading-order gate is what makes the tag worth trusting.
   'title-scale': (root) => {
     for (const heading of root.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6')) {
       const fontSize = Number.parseFloat(getComputedStyle(heading).fontSize)

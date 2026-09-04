@@ -38,7 +38,7 @@ export const Open: Story = {
     docs: {
       description: {
         story:
-          'Swap mode with the default suggestions loaded. Makes visible: the actions sitting on the title row rather than a footer strip, the alternative cards grouped inside the dialog without a second card wrapping them, heading order under the dialog title (`h2` title → `h3` meal names), and one primary button per card with the rest at lower weight.',
+          'Swap mode with the default suggestions loaded. Makes visible: the alternative cards grouped inside the dialog without a second card wrapping them, heading order under the dialog title (`h2` title → `h3` meal names), and one primary action per card rather than three buttons of equal weight. It also shows where the code and the guide disagree — `AlternativeCard` puts its Select button in a `CardFooter`, which "Actions sit on the title row" rules out. Surfacing that is the point of a scenario; changing it is not this story\'s call.',
       },
     },
   },
