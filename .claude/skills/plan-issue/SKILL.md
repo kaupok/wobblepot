@@ -182,10 +182,12 @@ grep -rn -A6 '<Button\b\|<Input\b\|<SelectTrigger\b\|buttonVariants(' src --incl
   | grep -v -e '\.stories\.' -e '\.test\.'
 
 # 4. Callsites whose size comes from a variant prop. Same tag substitution as
-#    grep 3, and the size list is whatever variants your primitive exposes. Run
-#    this one when the change moves the default relative to another size.
+#    grep 3, and the size list is whatever variants your primitive exposes. Both
+#    syntaxes are needed: a JSX attribute on a tag, an object key through
+#    buttonVariants(). Run this when the change moves the default relative to
+#    another size.
 grep -rn -A6 '<Button\b\|<Input\b\|<SelectTrigger\b\|buttonVariants(' src --include='*.tsx' \
-  | grep -E 'size="(sm|lg|icon|icon-sm|icon-lg)"' \
+  | grep -E "size=\"(sm|lg|icon|icon-sm|icon-lg)\"|size: '(sm|lg|icon|icon-sm|icon-lg)'" \
   | grep -v -e '\.stories\.' -e '\.test\.'
 
 # 5. The primitive's OWN colocated test and stories, excluded above as callsite
@@ -198,13 +200,16 @@ grep -rn 'toHaveClass\|toContain' src/components/ui --include='button.test.tsx'
 #    override grep 3 found silently keeps both classes. `--spacing-*` is guarded
 #    by a test (HON-626); every other family is not. Read the list, then check
 #    your token's family against it.
-grep -n 'CUSTOM_SPACING_VALUES\|radius\|text-\|shadow\|blur\|container' src/lib/utils.ts
+grep -n 'CUSTOM_SPACING_VALUES\|radius\|text-\|shadow\|blur\|container' src/lib/utils.ts src/lib/utils.test.ts
 
 # 7. docs/DESIGN.md restates this geometry in prose and keeps a hand-written
 #    list of controls under the touch floor — i.e. greps 3 and 4's output,
 #    transcribed. Nothing under src/ scans it, and CLAUDE.md makes it the
 #    authoritative pre-UI read, so a stale line here misleads the next plan.
-grep -n 'h-9\|h-touch\|44px\|rounded-' docs/DESIGN.md
+#    The pattern is deliberately loose (bare px numbers, any h-/size-): that
+#    list writes its measurements as `default 44`, not `44px`, so a tighter
+#    pattern skips the very line this grep exists for.
+grep -nE 'h-[0-9a-z]|size-[0-9a-z]|rounded-|[0-9]+px|\b(2[0-9]|3[0-9]|4[0-9])\b' docs/DESIGN.md
 ```
 
 Each one is shaped by a way the obvious version misses something, all of it found by replaying against the pre-HON-612 tree and diffing against what PR #704 actually had to change:

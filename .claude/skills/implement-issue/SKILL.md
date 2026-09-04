@@ -189,6 +189,8 @@ Starting with step 1...
 
 Then implement following the plan steps (or issue description if `--no-plan`).
 
+**Work the plan's `## Coupled callsites` section too, if it has one.** It is a sibling of `## Implementation Steps`, not a member, so "follow the plan steps" walks straight past it. Every entry bucketed **Mirror** must be edited in this phase — the section exists because `/plan-issue` step 7b found callsites that hardcode a copy of the geometry you are changing, and leaving them for review is the failure that scan was written to prevent.
+
 ### 9. Signal completion
 
 Before signalling completion, confirm the definition of done:
