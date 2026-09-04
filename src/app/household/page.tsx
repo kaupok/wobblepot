@@ -28,10 +28,10 @@ export default async function HouseholdPage() {
   const { household } = membership
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <Heading>{t('pageTitle')}</Heading>
-      </div>
+    <div className="container mx-auto flex flex-col gap-6 px-4 py-8">
+      <Heading variant="h4" as="h1">
+        {t('pageTitle')}
+      </Heading>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         {/* Left column: Household settings */}
