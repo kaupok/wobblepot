@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, it, expect, vi, afterEach } from 'vitest'
@@ -166,39 +166,78 @@ describe('cn utility function', () => {
   // token. This fails the moment the two lists drift, not once something
   // consumes the token (HON-626).
   describe('custom spacing registration', () => {
-    it('registers every --spacing-* token declared in globals.css', () => {
-      // Resolved from this file rather than `process.cwd()`, so the guard does
-      // not depend on where vitest was invoked from. Built with `join` and not
-      // `new URL(…, import.meta.url)`: Vite statically rewrites that form into
-      // an asset URL, which comes back `http://` and blows up `fileURLToPath`.
-      const cssPath = join(dirname(fileURLToPath(import.meta.url)), '../app/globals.css')
+    // Resolved from this file rather than `process.cwd()`, so the guard does
+    // not depend on where vitest was invoked from. Built with `join` and not
+    // `new URL(…, import.meta.url)`: Vite statically rewrites that form into an
+    // asset URL, which comes back `http://` and blows up `fileURLToPath`.
+    const srcDir = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-      const css = readFileSync(cssPath, 'utf8')
-        // Strip block comments so prose mentioning the utilities cannot match.
-        // The regex is anchored on the colon and would not match them anyway;
-        // this is belt-and-braces.
-        .replace(/\/\*[\s\S]*?\*\//g, '')
-
-      // `flatMap` over `?? []` rather than `map` over `m[1]`: under
-      // `noUncheckedIndexedAccess` the capture group types as `string |
-      // undefined` even though a match guarantees it, and dropping the empty
-      // array keeps the set `Set<string>` without a non-null assertion.
-      const declared = new Set(
-        [...css.matchAll(/--spacing-([a-zA-Z0-9-]+)\s*:/g)].flatMap((m) => m[1] ?? []),
+    /**
+     * Every custom `--spacing-*` value declared in an `@theme` block anywhere
+     * under `src/`.
+     *
+     * Globbed rather than pointed at `globals.css`, because a second stylesheet
+     * with its own `@theme` block would otherwise pass unnoticed — and passing
+     * unnoticed is the exact failure mode this guard exists to catch. Scoped to
+     * `@theme` because only those declarations become theme variables and
+     * generate utilities in Tailwind v4; a `--spacing-*` in `:root` generates
+     * nothing, so it can conflict with nothing.
+     */
+    function declaredSpacingValues(): string[] {
+      const cssFiles = readdirSync(srcDir, { recursive: true, encoding: 'utf8' }).filter((file) =>
+        file.endsWith('.css'),
       )
+
+      expect(
+        cssFiles,
+        `No stylesheet found under ${srcDir}, so this guard would pass by reading nothing.`,
+      ).not.toEqual([])
+
+      const declared = new Set<string>()
+
+      for (const file of cssFiles) {
+        const css = readFileSync(join(srcDir, file), 'utf8')
+          // Strip block comments so prose mentioning the utilities cannot
+          // match. The token regex is anchored on the colon and would not match
+          // them anyway; this is belt-and-braces.
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+
+        // Declarations carry no braces, so a non-greedy run to the first `}` is
+        // the whole block.
+        for (const [, block = ''] of css.matchAll(/@theme[^{]*\{([^}]*)\}/g)) {
+          for (const [, token = ''] of block.matchAll(/--spacing-([a-zA-Z0-9-]+)\s*:/g)) {
+            declared.add(token)
+          }
+        }
+      }
+
+      return [...declared]
+    }
+
+    it('registers every --spacing-* token declared in a @theme block', () => {
+      const declared = declaredSpacingValues()
       const registered = new Set<string>(CUSTOM_SPACING_VALUES)
 
-      const missing = [...declared].filter((token) => !registered.has(token))
-      const stale = [...registered].filter((token) => !declared.has(token))
-
+      const missing = declared.filter((token) => !registered.has(token))
       expect(
         missing,
-        `--spacing-${missing.join(', --spacing-')} is declared in globals.css but not in CUSTOM_SPACING_VALUES in src/lib/utils.ts. Until it is registered, tailwind-merge keeps both sides of any conflict on that value (cn('h-8', 'h-${missing[0]}') returns both) and every className override of it silently stops working.`,
+        `--spacing-${missing.join(', --spacing-')} is declared in a @theme block but not in CUSTOM_SPACING_VALUES in src/lib/utils.ts. Until it is registered, tailwind-merge keeps both sides of any conflict on that value (cn('h-8', 'h-${missing[0]}') returns both) and every className override of it silently stops working.`,
       ).toEqual([])
 
+      // Behavioural, not a name comparison. A value registered under the wrong
+      // tailwind-merge theme key — `space`, a `classGroups` entry, a typo —
+      // satisfies the list diff above while still merging as if unregistered,
+      // which is the same silent hole this guard exists to close.
+      const unresolved = declared.filter((token) => cn('h-8', `h-${token}`) !== `h-${token}`)
+      expect(
+        unresolved,
+        `tailwind-merge does not resolve ${unresolved.join(', ')} as a spacing value — cn('h-8', 'h-${unresolved[0]}') kept both classes. Register it in CUSTOM_SPACING_VALUES in src/lib/utils.ts, under extend.theme.spacing.`,
+      ).toEqual([])
+
+      const stale = [...registered].filter((token) => !declared.includes(token))
       expect(
         stale,
-        `CUSTOM_SPACING_VALUES in src/lib/utils.ts lists ${stale.join(', ')}, which is no longer declared in globals.css. Remove it.`,
+        `CUSTOM_SPACING_VALUES in src/lib/utils.ts lists ${stale.join(', ')}, which is no longer declared in any @theme block. Remove it.`,
       ).toEqual([])
     })
   })

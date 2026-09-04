@@ -14,8 +14,13 @@ import { extendTailwindMerge } from 'tailwind-merge'
  * through here.
  *
  * Must stay in sync with `globals.css`; `utils.test.ts` fails if the two drift.
- * Colour and radius tokens need no equivalent list — tailwind-merge already
- * accepts arbitrary names in those groups.
+ *
+ * Colour tokens need no equivalent list — tailwind-merge's `color` scale is
+ * `isAny`, so it accepts arbitrary names. Radius is **not** in that group: its
+ * scale is `isTshirtSize`, so `--radius-sm/md/lg/xl` resolve only because they
+ * happen to be t-shirt names, and a `--radius-card` would reproduce this bug
+ * unguarded. The same holds for `--text-*`, `--shadow-*`, `--blur-*` and
+ * `--container-*`.
  */
 export const CUSTOM_SPACING_VALUES = ['touch'] as const
 
