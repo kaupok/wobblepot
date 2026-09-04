@@ -137,8 +137,17 @@ describe('cn utility function', () => {
       expect(cn('min-h-9', 'min-h-touch')).toBe('min-h-touch')
     })
 
-    it('is overridden by a numeric height', () => {
+    // Only below `md`, and that asymmetry is the point. The responsive half of
+    // the pair carries a different modifier, so it survives the merge, and
+    // Tailwind emits every `md:` utility in one media block after the base
+    // ones at equal specificity — so it wins at >=768px. A callsite `h-7` on a
+    // default Button is 28px on a phone and 36px on a desktop. Callsites that
+    // need one fixed height must pick a variant without a breakpoint
+    // (`sm` / `icon-sm`), not override the height with a className.
+    it('is overridden by a numeric height below md only', () => {
       expect(cn('h-touch md:h-9', 'h-7')).toBe('md:h-9 h-7')
+      expect(cn('min-h-touch md:min-h-9', 'min-h-9')).toBe('md:min-h-9 min-h-9')
+      // No breakpoint on either side, so this one is a complete override.
       expect(cn('size-touch', 'size-8')).toBe('size-8')
     })
 
