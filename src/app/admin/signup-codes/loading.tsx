@@ -21,9 +21,9 @@ export default function AdminSignupCodesLoading() {
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-9 w-full rounded-md" />
+              <Skeleton className="h-touch w-full rounded-md md:h-9" />
             </div>
-            <Skeleton className="h-9 w-32 rounded-md" />
+            <Skeleton className="h-touch w-32 rounded-md md:h-9" />
           </div>
         </div>
 

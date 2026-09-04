@@ -16,7 +16,7 @@ export default function CreateRecipeLoading() {
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Skeleton className="h-4 w-20" />
-              <Skeleton className="h-9 w-full rounded-md" />
+              <Skeleton className="h-touch w-full rounded-md md:h-9" />
             </div>
             <div className="flex flex-col gap-2">
               <Skeleton className="h-4 w-24" />
@@ -26,7 +26,7 @@ export default function CreateRecipeLoading() {
 
           {/* Footer with button */}
           <div className="mt-6 flex justify-end">
-            <Skeleton className="h-9 w-28 rounded-md" />
+            <Skeleton className="h-touch w-28 rounded-md md:h-9" />
           </div>
         </div>
       </div>

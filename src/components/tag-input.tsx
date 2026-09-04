@@ -101,7 +101,11 @@ const TagInput = forwardRef<TagInputRef, TagInputProps>(function TagInput(
         onBlur={handleBlur}
         placeholder={value.length === 0 ? placeholder : ''}
         disabled={disabled}
-        className="placeholder:text-muted-foreground min-w-[120px] flex-1 bg-transparent text-sm outline-none disabled:cursor-not-allowed"
+        // `self-stretch` opts the caret back out of the container's
+        // `items-center`, which the badges need but which would otherwise
+        // shrink this field to its 20px line box and leave 12px of dead
+        // space above and below it inside a 44px control.
+        className="placeholder:text-muted-foreground min-w-[120px] flex-1 self-stretch bg-transparent text-sm outline-none disabled:cursor-not-allowed"
       />
     </div>
   )

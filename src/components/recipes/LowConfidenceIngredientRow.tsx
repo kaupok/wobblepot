@@ -143,7 +143,7 @@ export function LowConfidenceIngredientRow({
               onValueChange={handleAlternativeSelect}
               disabled={disabled}
             >
-              <SelectTrigger className="w-[200px]" aria-label={t('verifyMatchAria')}>
+              <SelectTrigger size="sm" className="w-[200px]" aria-label={t('verifyMatchAria')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
