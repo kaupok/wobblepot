@@ -256,7 +256,7 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **Conventions:**
 
-- Title uses `UI/ComponentName` for primitives, `Feature/ComponentName` for feature components (e.g. `Meal plan/MealCardBase`)
+- Title uses `UI/ComponentName` for primitives, `Feature/ComponentName` for feature components (e.g. `Meal plan/MealCardBase`), and `Scenarios/<Screen>` for the composite whole-screen stories in `src/stories/scenarios/` (e.g. `Scenarios/Shopping list`)
 - Add `tags: ['autodocs']` to auto-generate docs pages
 - Use `satisfies Meta<typeof Component>` for type-safe args
 - Mock data for feature components: inline in the story file — don't reach into fixtures unless already shared
