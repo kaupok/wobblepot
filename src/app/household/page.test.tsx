@@ -39,8 +39,9 @@ vi.mock('next/navigation', () => ({
 }))
 
 // Both children are client components (react-query, form state). Stub them: the
-// page's own contract is the page title, and each child's internal heading
-// relationship is covered by its own test file.
+// page's own contract is the page title. Each child's own title level is
+// asserted in its colocated test — `HouseholdSettingsForm.test.tsx` and
+// `MemberList.test.tsx` both pin it at `level: 2`, one below the h1 here.
 vi.mock('./household/HouseholdSettingsForm', () => ({
   HouseholdSettingsForm: () => <div data-testid="household-settings-form" />,
 }))
@@ -148,7 +149,7 @@ describe('HouseholdPage', () => {
     const { getHouseholdMembership } = await import('@/lib/household')
     vi.mocked(auth.api.getSession).mockResolvedValue(null as never)
 
-    await expect(HouseholdPage()).rejects.toThrow('NEXT_REDIRECT:/sign-in')
+    await expect(HouseholdPage()).rejects.toThrow(/^NEXT_REDIRECT:\/sign-in$/)
     expect(getHouseholdMembership).not.toHaveBeenCalled()
   })
 
@@ -158,6 +159,9 @@ describe('HouseholdPage', () => {
     vi.mocked(auth.api.getSession).mockResolvedValue(session as never)
     vi.mocked(getHouseholdMembership).mockResolvedValue(null)
 
-    await expect(HouseholdPage()).rejects.toThrow('NEXT_REDIRECT:/')
+    // Anchored: `toThrow(string)` is a substring match, and every redirect
+    // target in this page starts with `/`, so the plain-string form would also
+    // pass on `/sign-in` or `/onboarding` (PR #702 review).
+    await expect(HouseholdPage()).rejects.toThrow(/^NEXT_REDIRECT:\/$/)
   })
 })
