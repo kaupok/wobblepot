@@ -524,6 +524,7 @@ For each implementation step in the plan:
 3. Write tests for new functionality (unit tests colocated with source files)
 4. Follow patterns from CLAUDE.md
 5. If `src/components/**` changed → create/update the colocated `.stories.tsx` (CLAUDE.md Storybook rule) and run `pnpm test-storybook:ci`
+6. If the 2.7 plan has a `## Coupled callsites` section, work it like the implementation steps — it is a sibling of `## Implementation Steps`, not a member, so nothing else will pick it up. Every **Mirror** must be edited in this phase; leaving them for the 4.3 review bullet reproduces the find-it-in-review failure this scan exists to prevent
 
 ### 3.3 Batched plans: commit and push per batch
 
