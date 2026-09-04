@@ -112,6 +112,93 @@ handlers — no per-story wiring needed unless you want a specific state.
 - `src/components/meal-plan/PantryDeductionModal.stories.tsx` — confirm / cancel
   footer buttons.
 
+## Scenario stories
+
+Everything under `Scenarios/*` (in `src/stories/scenarios/`) is a **composite**:
+a whole screen, or the meaningful chunk of one, assembled from existing feature
+components. Component-level stories cannot violate "no cards inside cards" or
+"actions sit on the title row" — those rules only become visible once
+components are composed, so this is where `docs/DESIGN.md` gets exercised.
+
+Rules:
+
+- **Fixed props, not live data.** Compose real components with hard-coded props
+  from `src/stories/fixtures.ts`. Add a factory there if a shape is missing;
+  never inline data that duplicates an existing fixture. Stability beats
+  realism — a scenario is a baseline, and later a visual-regression baseline
+  (HON-439).
+- **MSW is the exception, not the pattern.** A component that owns its queries
+  (`MealSelectorModal`) runs on the _default_ handlers from
+  `src/stories/msw-handlers.ts`, which are fixed fixtures already exercised in
+  CI. Do not add per-story handler overrides that introduce loading or error
+  states — those belong in the component's own story file.
+- **Mobile by default.** Scenarios inherit the 390×844 viewport. Add a
+  `Desktop` variant only where the composed layout actually branches at a
+  breakpoint (see "When to add a desktop variant" above).
+- **Every scenario asserts the design rules** from its `play` function, and
+  carries `tags: ['autodocs']`.
+
+### The design-rule helper
+
+`src/stories/design-rules.ts` exports `assertDesignRules(root, rules)` — the
+mechanical half of `docs/DESIGN.md`. It throws on the first violation with the
+rule name, the DESIGN.md section, and the first 120 characters of the offending
+element, so a violation fails `pnpm test-storybook:ci` instead of waiting for a
+reviewer to notice.
+
+| Rule                | Fails when                                                          |
+| ------------------- | ------------------------------------------------------------------- |
+| `no-nested-cards`   | `[data-slot="card"]` has a `[data-slot="card"]` descendant          |
+| `title-scale`       | an `h1`–`h6` computes above 20px (the `Heading variant="h4"` Title) |
+| `no-sticky-content` | anything computes to `position: sticky` or `fixed`                  |
+| `no-raw-palette`    | a `class` attribute carries a raw Tailwind palette class            |
+
+`SCENARIO_RULES` (all four) is exported alongside it — scenarios enable the
+whole set rather than picking rules per story:
+
+```tsx
+import { assertDesignRules, SCENARIO_RULES } from '@/stories/design-rules'
+
+export const Populated: Story = {
+  play: async ({ canvasElement }) => {
+    await assertDesignRules(canvasElement, SCENARIO_RULES)
+  },
+}
+```
+
+The helper checks the **subtree under** the root, never the root itself. That
+is what lets a portal-rendering scenario pass the dialog element instead of
+`canvasElement` — Radix renders dialog content outside the canvas, and
+`DialogContent` is `position: fixed` by design, which is chrome hosting the
+scenario rather than part of it:
+
+```tsx
+play: async () => {
+  const body = within(document.body)
+  const dialog = await body.findByRole('dialog')
+  // Wait for real content — asserting against skeletons passes vacuously.
+  await body.findAllByRole('button', { name: /^select$/i })
+  await assertDesignRules(dialog, SCENARIO_RULES)
+},
+```
+
+Interaction a11y for a modal composed into a scenario stays in that modal's own
+story file (see below); a scenario asserts composition only, so the coverage
+isn't duplicated.
+
+### Adding one
+
+1. Create `src/stories/scenarios/<Screen>.stories.tsx` with
+   `title: 'Scenarios/<Screen>'`.
+2. Compose the real components. If the screen has page chrome (a title card, a
+   meta line), mirror how the real page component builds it — a local render
+   component in the story file is fine, and keeps `satisfies Meta<typeof …>`
+   type-safe.
+3. Wire every callback to `fn()`.
+4. Add the `play` function above.
+5. Run `pnpm test-storybook:ci`. Fix real violations in the component; waive an
+   axe false positive narrowly with a `// WHY:` comment, per CLAUDE.md.
+
 ## Modal a11y play-function conventions
 
 The axe a11y gate catches **static** violations — missing labels, low contrast,
