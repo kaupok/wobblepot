@@ -79,18 +79,51 @@ const mockPantryUpdate = vi.mocked(prisma.pantryItem.update)
 const mockClaimEntry = vi.mocked(prisma.mealPlanEntry.updateMany)
 
 /**
+ * Writes the route issued while the transaction callback was NOT on the stack.
+ * Must stay empty: a pantry write outside the transaction is not rolled back
+ * with the rest of the completion.
+ *
+ * Reset by every `mockDeductionTransaction()` call.
+ */
+let writesOutsideTransaction: string[] = []
+
+/**
  * Run the deduction's interactive transaction against the same `prisma` mock,
  * so `tx.pantryItem.updateMany` and `prisma.pantryItem.updateMany` are one
  * spy and the assertions below can read the calls the route made inside it.
+ *
+ * Sharing the spy is what makes the calls visible, but it also means call
+ * *count* alone cannot tell a write inside the transaction from one outside —
+ * `expect($transaction).toHaveBeenCalledTimes(1)` would pass either way. So
+ * each write records whether the callback was on the stack when it ran, and
+ * `writesOutsideTransaction` carries the ones that escaped.
  *
  * `claimedCount` is what the conditional entry claim reports: 1 when this
  * request won the completion, 0 when a concurrent one got there first.
  */
 const mockDeductionTransaction = (claimedCount = 1) => {
-  mockClaimEntry.mockResolvedValue({ count: claimedCount } as never)
-  vi.mocked(prisma.$transaction).mockImplementation(((
+  writesOutsideTransaction = []
+  let insideTransaction = false
+
+  const record = <T>(op: string, result: T) => {
+    if (!insideTransaction) writesOutsideTransaction.push(op)
+    return Promise.resolve(result)
+  }
+
+  mockClaimEntry.mockImplementation((() => record('claim', { count: claimedCount })) as never)
+  mockPantryUpdateMany.mockImplementation((() => record('decrement', { count: 1 })) as never)
+  mockPantryDeleteMany.mockImplementation((() => record('cleanup', { count: 0 })) as never)
+
+  vi.mocked(prisma.$transaction).mockImplementation((async (
     run: (tx: typeof prisma) => Promise<unknown>,
-  ) => run(prisma)) as never)
+  ) => {
+    insideTransaction = true
+    try {
+      return await run(prisma)
+    } finally {
+      insideTransaction = false
+    }
+  }) as never)
 }
 
 /**
@@ -720,8 +753,11 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction
       'decrement',
       'cleanup',
     ])
-    // All of it inside one transaction — no pantry write escapes it.
+    // All of it inside one transaction. Asserted by membership, not by call
+    // count: `tx` and `prisma` are the same spy here, so a count-based check
+    // passes whether or not a write actually ran inside the callback.
     expect(vi.mocked(prisma.$transaction)).toHaveBeenCalledTimes(1)
+    expect(writesOutsideTransaction).toEqual([])
   })
 })
 
