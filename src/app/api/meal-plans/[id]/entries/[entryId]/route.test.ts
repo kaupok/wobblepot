@@ -645,7 +645,11 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction
     expect(data.pantryDeducted).toBe(false)
     expect(mockPantryUpdateMany).not.toHaveBeenCalled()
     expect(mockPantryDeleteMany).not.toHaveBeenCalled()
-    expect(mockUpdateEntry).toHaveBeenCalledWith({
+    // Written with `updateMany`, not `update`: a zero-row claim also covers a
+    // concurrently deleted entry, and `update` would throw P2025 there and
+    // turn a lost race into a 500.
+    expect(mockUpdateEntry).not.toHaveBeenCalled()
+    expect(mockClaimEntry).toHaveBeenLastCalledWith({
       where: { id: 'entry-123' },
       data: expect.objectContaining({ status: 'completed' }),
     })
@@ -665,6 +669,32 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction
     expect(mockPantryUpdateMany.mock.calls.map(([args]) => args.where?.ingredientId)).toEqual([
       'ing-garlic',
       'ing-onion',
+    ])
+  })
+
+  it('orders the locks by code unit, not by a locale-aware collation', async () => {
+    // The lock order only has to be *identical* in every process — a
+    // locale-aware collation is not. `localeCompare` with no locale argument
+    // resolves the runtime's default, and the defaults disagree: Estonian
+    // sorts `z` between `s` and `t`, so `et` and `en-US` order a base36 cuid
+    // pair like `…z…` / `…t…` differently. Two runtimes disagreeing
+    // reintroduces the deadlock the sort exists to prevent.
+    //
+    // The pair below is chosen so a revert to `localeCompare` fails here even
+    // under a single runtime: by code unit `Z` (90) precedes `a` (97), while
+    // every locale-aware collation compares letters case-insensitively first
+    // and puts `apple` before `Zucchini`.
+    expect('ing-Zucchini'.localeCompare('ing-apple')).toBe(1)
+
+    const response = await completeWithComponents([
+      { ingredientId: 'ing-apple', quantityPerServing: 100 },
+      { ingredientId: 'ing-Zucchini', quantityPerServing: 50 },
+    ])
+
+    expect(response.status).toBe(200)
+    expect(mockPantryUpdateMany.mock.calls.map(([args]) => args.where?.ingredientId)).toEqual([
+      'ing-Zucchini',
+      'ing-apple',
     ])
   })
 

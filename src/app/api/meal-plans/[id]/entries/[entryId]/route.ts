@@ -281,7 +281,13 @@ export async function PATCH(
         // can list them in opposite orders — and two completions locking the
         // same rows in opposite orders deadlock (Postgres 40P01), which the
         // catch below turns into a 500 that rolls the whole completion back.
-        .sort((a, b) => a.ingredientId.localeCompare(b.ingredientId))
+        // Compared by code unit rather than `localeCompare`: the order only
+        // has to be *the same* in every process, and a locale-aware collation
+        // is not (Estonian sorts `z` before `t`, and cuids are base36), so the
+        // default-locale form would reintroduce the deadlock across runtimes.
+        .sort((a, b) =>
+          a.ingredientId < b.ingredientId ? -1 : a.ingredientId > b.ingredientId ? 1 : 0,
+        )
 
       const pantryDeducted = await prisma.$transaction(async (tx) => {
         // Claim the completion, and let the database decide who won. The
@@ -299,10 +305,15 @@ export async function PATCH(
         })
 
         if (claimed.count === 0) {
-          // Lost the race. Persist the rest of the update but charge nothing —
-          // exactly what this request would have done had it arrived after the
-          // winner committed, and read `completed` at the top.
-          await tx.mealPlanEntry.update({ where: { id: entryId }, data: updateData })
+          // No row matched, which means either a concurrent request completed
+          // this entry first or the entry has since been deleted (the DELETE
+          // handler above races this one). Persist the rest of the update but
+          // charge nothing — exactly what this request would have done had it
+          // arrived after the winner committed and read `completed` at the
+          // top. `updateMany` again rather than `update`: on the deleted-entry
+          // branch there is no row to write, and `update` would throw P2025
+          // and turn a lost race into a 500.
+          await tx.mealPlanEntry.updateMany({ where: { id: entryId }, data: updateData })
           return false
         }
 
