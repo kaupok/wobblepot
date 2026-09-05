@@ -770,6 +770,8 @@ Phase 6 is the only loop in this skill: 6.3 reviews, 6.4 triages, 6.5 fixes, 6.6
 
 **ROUND is the number of `<!-- claude-review -->` comments on the PR once 6.3 has posted the current one** — the count 6.3 already fetches to verify the review landed. Deriving it from GitHub rather than from a local counter means it survives process death, context summarization, and a RETRY worker resuming the same PR, and it correctly counts rounds already spent by a manual `/review-pr`.
 
+A counter that can stall is not a cap, so 6.3 requires `ROUND` to be **strictly greater** than the count taken before the run and stops the cycle if it is not. That is what makes each iteration consume budget and the loop provably terminate; the stale-lock path that can otherwise freeze it is described there.
+
 Every round ends in exactly one of these, and only the second one re-enters 6.3:
 
 | Outcome of the round                                                                                | Next                                                              |
@@ -910,6 +912,8 @@ gh pr view --json number,title,headRefName,url
 
 Spawn a fresh Claude Code session to review the PR. **You MUST use the script below — do NOT inline the review prompt or spawn claude directly.** The script handles model selection (the model set by `CLAUDE_REVIEW_MODEL`, default in `scripts/pr-review.sh`), locking, and prompt formatting.
 
+**First record the marker count as `ROUND_BEFORE`**, using the same fetch as the verification below. The cap counts rounds by these markers, so the count has to be shown to *increase* — see the check after the run.
+
 ```bash
 PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
 ./scripts/pr-review.sh ${PR_NUMBER}
@@ -932,6 +936,15 @@ gh api --paginate '/repos/:owner/:repo/issues/{number}/comments?per_page=100' \
 Substitute the literal PR number for `{number}` — `gh api` expands only `{owner}` / `{repo}`.
 
 **That count is `ROUND`.** Note it: 6.4 branches on it for the materiality bar and 6.6 branches on it for the cap. It is the total number of review rounds this PR has had, not just the ones this run performed, which is the quantity the cap is meant to bound.
+
+**`ROUND` must be greater than `ROUND_BEFORE`. If it is not, stop — never loop.** The cap rests entirely on the invariant that each `pr-review.sh` run adds exactly one marker, and that invariant *can* break: when a stale `/tmp/claude-review-${PR_NUMBER}.lock` is present (left by a killed run — see the timeout warning above), the script finds the previous round's marker, prints "Review already posted by another instance" and **exits 0 without reviewing**. The count then never moves, 6.4's "no summary at all" guard cannot fire because the previous round's summary is still on the PR, and 6.6 branch A re-enters 6.3 forever — reinstating the unbounded loop this cap exists to close. Requiring a strict increase is what makes each iteration consume budget, and therefore makes the loop provably terminate.
+
+```
+[auto-implement] ✗ Error: Review round did not post a new review (marker count stayed at ${ROUND_BEFORE}).
+Likely a stale /tmp/claude-review-${PR_NUMBER}.lock from a killed run. Remove it and re-run, or review by hand.
+```
+
+Stop here (do not proceed to 6.4 and do not loop).
 
 If the review was posted (count > 0):
 ```
@@ -1012,6 +1025,8 @@ The reviewer only posts substantive issues (no nitpicks), so triage is simpler:
 
 The bar exists because the reviewer is asked "what is wrong with this?" and never "is this now worse than it was three rounds ago?" — an asymmetry that makes the loop self-sustaining. Each HON-627 finding was individually defensible; together they improved grep recall and destroyed the artifact's usability, which was the entire point of the artifact. A finding that makes a document longer and harder to follow is a finding worth dropping.
 
+**What the bar decides, given the cap.** Round 3 routes to 6.7 either way, so the bar never changes *where* the run goes — it decides *what gets written into the artifact* on the way out. That is the thing HON-627 actually lost: not the routing, but three rounds of accretion appended after the document had stopped improving. Dropping a coverage-only finding here means the human at 6.7 inherits the artifact at its most usable, plus a `not actioned:` note explaining the call, rather than a longer document and no record of why it grew.
+
 Record the call rather than silently skipping it — see 6.5's `not actioned:` convention.
 
 ### 6.5 Address review comments
@@ -1087,7 +1102,9 @@ Print the block below only when Phase 6 actually hands off to Phase 7 — that i
 
 ### 6.7 Review-round cap reached — terminal hand-off
 
-Reached only from 6.6 branch B or C — `ROUND` ≥ 3 with findings still on the table. This is a **terminal state, not an error**: the work is committed, CI is green, and the PR is left open for a human to judge. Getting here in ~25 minutes instead of 2h45m is the entire point — the `Stranded` label and its recovery path already exist and need no change.
+Reached only from 6.6 branch B or C — `ROUND` ≥ 3 with findings still on the table. It is a **designed exit, not a crash**: the work is committed, CI is green, and the PR is left open for a human to judge. Getting here in ~25 minutes instead of 2h45m is the entire point, and the `Stranded` label and its recovery path already exist and need no change.
+
+**It is not free, though, and must not become routine.** `scripts/orchestrator.sh` `strand_worker` treats an unmerged run as a failure to ship: it logs `[OUTCOME] … STRANDED`, calls `note_consecutive_failure` (three in a row trips the circuit breaker at `MAX_CONSECUTIVE_FAILURES=3`), sets `ONCE_EXIT_CODE=1`, and deliberately skips `cleanup_worker_worktree` — so every hand-off leaves a worktree, a local branch and a Neon branch that only `wt cleanup <branch>` reclaims. A cap hand-off should stay the exception it was before (one run in the last 13). If runs start landing here regularly, the answer is to look at why the reviewer keeps finding things, not to raise the cap.
 
 Post a hand-off comment on the PR listing what happened, so the human inherits the decisions rather than re-deriving them:
 
@@ -1108,7 +1125,7 @@ gh api /repos/:owner/:repo/issues/<PR_NUMBER>/comments \
 **Still open:**
 - [any finding that is correctness/safety but was too large to fix in scope, or 'none']
 
-To finish: review the above, then merge, or push a fix and merge. See \`scripts/orchestrator.sh\` (recovery for the \`Stranded\` label) if this run was orchestrated."
+To finish: review the above, then merge, or push a fix and merge. If this run was orchestrated it also carries the \`Stranded\` label and a preserved worktree — release it with \`wt cleanup <branch>\` and clear the label once the PR is settled, or nothing reclaims either."
 ```
 
 Post the same summary as a Linear comment on the issue, then stop:

@@ -257,13 +257,21 @@ sed -i '' "s/__PR_NUMBER__/${PR_NUMBER}/g" "$PROMPT_FILE"
 # finding that would make the artifact worse be dropped instead of posted.
 #
 # `grep -v` exits 1 when nothing matches and this runs under `set -o pipefail`, hence
-# the `|| true` on both assignments. A failed `gh pr view` leaves PR_FILES empty; the
-# non-empty test is what stops that from reading as "docs-only" and softening the
-# review of a code PR.
+# the `|| true` on the assignments. Two ways a fetch could wrongly read as "docs-only"
+# and soften the review of a code PR, both closed here:
+#
+#   1. Empty  — a failed `gh pr view` yields no paths at all. The non-empty test.
+#   2. Truncated — `gh` embeds a fixed `files(first: 100)` in its PR query and never
+#      paginates, so a >100-file PR whose first 100 paths happen to be markdown would
+#      look docs-only. Comparing the paths returned against `changedFiles` (a scalar
+#      total, not subject to the page cap) catches that. A failed count leaves
+#      PR_CHANGED empty, which cannot equal PR_FILE_COUNT — so it fails closed.
 PR_FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' 2>/dev/null || true)
 NON_MD=$(printf '%s\n' "$PR_FILES" | grep -v '\.md$' || true)
+PR_FILE_COUNT=$(printf '%s\n' "$PR_FILES" | grep -c . || true)
+PR_CHANGED=$(gh pr view "$PR_NUMBER" --json changedFiles --jq '.changedFiles' 2>/dev/null || true)
 
-if [ -n "$PR_FILES" ] && [ -z "$NON_MD" ]; then
+if [ -n "$PR_FILES" ] && [ -z "$NON_MD" ] && [ "$PR_FILE_COUNT" = "$PR_CHANGED" ]; then
   echo -e "${GREEN}Documentation-only PR — adding the readability-regression instruction.${NC}"
   cat >> "$PROMPT_FILE" <<'PROSE_PROMPT'
 
@@ -271,9 +279,11 @@ if [ -n "$PR_FILES" ] && [ -z "$NON_MD" ]; then
 
 Every file in this diff is a `*.md` document. These are read and acted on by agents and by people, so length and clarity are part of correctness: a change that improves accuracy while making the document unusable is a net regression.
 
-Before listing any findings, state a one-line verdict:
+So judge readability as well as correctness, and report the judgement as a one-line verdict:
 
 > **Usability:** more usable / about the same / less usable than before this change — [one sentence why]
+
+**Where the verdict goes:** inside the Step 5 summary comment, on the line directly below the `### Claude review` heading and above the 2-3 sentence summary. It does NOT go anywhere else, and it does NOT change the shape of that comment: `<!-- claude-review -->` must still be the very first line of the body, with nothing before it. Automation locates every review by that exact prefix, so a verdict emitted above it makes the whole round invisible and the run stops as if no review had been posted.
 
 Then apply that verdict to your findings:
 
