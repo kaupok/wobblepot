@@ -209,7 +209,14 @@ interface PantryItemRowProps {
   onRemove: (id: string) => Promise<void>
 }
 
-function PantryItemRow({
+/**
+ * The pantry row `/shopping` actually renders. Exported so
+ * `PantryItemRowSkeleton` can be measured against it — the placeholder is a
+ * copy of this box, and a copy nothing points at is how HON-628 happened.
+ * (`components/pantry/PantryItem.tsx` is a near-duplicate with no callsite of
+ * its own; only its `PantryItemData` type is used.)
+ */
+export function PantryItemRow({
   item,
   isNewlyAdded = false,
   onToggleStaple,
