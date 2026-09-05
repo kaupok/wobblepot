@@ -62,6 +62,9 @@
       "alphabetical": "Alphabetical"
     },
     "clearChecked": "Clear checked",
+    "copyList": "Copy list",
+    "copyHeading": "Shopping list · {range}",
+    "copySuccess": "Shopping list copied",
     "otherSection": "📝 Other ({count})",
     "customItemsSection": "📝 Custom items ({count})",
     "customInputPlaceholder": "Add an item…",
@@ -80,7 +83,8 @@
       "updateFailed": "Failed to update item",
       "unlinkFailed": "Failed to unlink item",
       "removeFailed": "Failed to remove item",
-      "clearCheckedFailed": "Failed to clear checked items"
+      "clearCheckedFailed": "Failed to clear checked items",
+      "copyFailed": "Couldn't copy the list"
     },
     "emptyState": {
       "noPlanHeading": "No meal plan yet",

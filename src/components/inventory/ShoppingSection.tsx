@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { Trash2 } from 'lucide-react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { Check, Copy, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import {
@@ -15,13 +15,21 @@ import {
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Heading, Body } from '@/components/ui/typography'
-import { CategoryGroup } from '@/components/shopping/CategoryGroup'
-import { UrgencyGroup } from '@/components/shopping/UrgencyGroup'
+import { CategoryGroup, CATEGORY_EMOJI } from '@/components/shopping/CategoryGroup'
+import { UrgencyGroup, URGENCY_KEYS } from '@/components/shopping/UrgencyGroup'
 import { ShoppingItem, type ShoppingItemData } from '@/components/shopping/ShoppingItem'
 import { CustomItemInput, type CustomItemData } from '@/components/shopping/CustomItemInput'
 import { CustomShoppingItem } from '@/components/shopping/CustomShoppingItem'
 import { ShoppingEmptyState } from './ShoppingEmptyState'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
+import { track } from '@/lib/analytics'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
+import { formatDateRange } from '@/lib/i18n/format-dates'
+import type { Locale } from '@/lib/i18n/locales'
+import {
+  formatShoppingListForClipboard,
+  type ClipboardSection,
+} from '@/lib/shopping/format-clipboard'
 import {
   buildAlphabeticalItems,
   buildUrgencyGroups,
@@ -52,8 +60,8 @@ interface ShoppingSectionProps {
 
 export function ShoppingSection({
   windowDays,
-  startDate: _startDate,
-  endDate: _endDate,
+  startDate,
+  endDate,
   groups,
   initialPurchasedIds,
   initialCustomItems = [],
@@ -62,13 +70,18 @@ export function ShoppingSection({
   externalUnpurchasedIds,
   onExternalUnpurchaseProcessed,
 }: ShoppingSectionProps) {
+  const locale = useLocale() as Locale
   const tShopping = useTranslations('shopping')
   const tErrors = useTranslations('shopping.errors')
   const tSort = useTranslations('shopping.sort')
+  const tCategory = useTranslations('enums.IngredientCategory')
+  const tUrgency = useTranslations('dates.urgency')
   const [purchasedIds, setPurchasedIds] = useState<Set<string>>(initialPurchasedIds)
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
   const [sortMode, setSortMode] = useState<SortMode>('category')
   const [mounted, setMounted] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const {
     customItems,
@@ -87,6 +100,9 @@ export function ShoppingSection({
     setSortMode(getInitialSortMode())
     setMounted(true)
   }, [])
+
+  // Don't leave the "copied" checkmark timer running after unmount.
+  useEffect(() => () => clearTimeout(copiedTimeoutRef.current), [])
 
   // Handle external unpurchase events (e.g., when pantry item is removed)
   useEffect(() => {
@@ -152,6 +168,124 @@ export function ShoppingSection({
 
   const getWindowLabel = () => {
     return windowDays === 14 ? tShopping('windowNext14') : tShopping('windowNext7')
+  }
+
+  /**
+   * Sections for the clipboard export, mirroring the grouping and ordering of
+   * the active sort mode. Purchased/checked items are dropped — the paste is a
+   * to-buy list — so every heading count is derived from the surviving lines
+   * rather than from the on-screen total, which still includes them.
+   */
+  const buildClipboardSections = useCallback((): ClipboardSection[] => {
+    const computedLine = (item: ShoppingItemData) => `${item.name} ${item.displayQuantity}`
+    const customLine = (item: CustomItemData) => item.name
+    const toBuy = (items: ShoppingItemData[]) => items.filter((item) => !item.purchased)
+    const unchecked = (items: CustomItemData[]) => items.filter((item) => !item.checked)
+
+    if (sortMode === 'alphabetical') {
+      return [
+        {
+          heading: null,
+          lines: alphabeticalItems
+            .filter((entry) =>
+              entry.kind === 'computed' ? !entry.item.purchased : !entry.item.checked,
+            )
+            .map((entry) =>
+              entry.kind === 'computed' ? computedLine(entry.item) : customLine(entry.item),
+            ),
+        },
+      ]
+    }
+
+    if (sortMode === 'urgency') {
+      const sections: ClipboardSection[] = urgencyGroups.map((group) => {
+        const lines = toBuy(group.items).map(computedLine)
+        return { heading: `${tUrgency(URGENCY_KEYS[group.bucket])} (${lines.length})`, lines }
+      })
+
+      const customLines = unchecked(customItems).map(customLine)
+      sections.push({
+        heading: tShopping('customItemsSection', { count: customLines.length }),
+        lines: customLines,
+      })
+
+      return sections
+    }
+
+    const categorySection = (
+      category: IngredientCategory,
+      items: ShoppingItemData[],
+      linked: CustomItemData[] | undefined,
+    ): ClipboardSection => {
+      const lines = [...toBuy(items).map(computedLine), ...unchecked(linked ?? []).map(customLine)]
+      return {
+        heading: `${CATEGORY_EMOJI[category]} ${tCategory(category)} (${lines.length})`,
+        lines,
+      }
+    }
+
+    const sections: ClipboardSection[] = enhancedGroups.map((group) =>
+      categorySection(group.category, group.items, linkedCustomByCategory.get(group.category)),
+    )
+
+    // Categories reached only by a custom item get their own group on screen too.
+    for (const [category, items] of linkedCustomByCategory.entries()) {
+      if (enhancedGroups.some((group) => group.category === category)) continue
+      sections.push(categorySection(category as IngredientCategory, [], items))
+    }
+
+    const otherLines = unchecked(unlinkedCustomItems).map(customLine)
+    sections.push({
+      heading: tShopping('otherSection', { count: otherLines.length }),
+      lines: otherLines,
+    })
+
+    return sections
+  }, [
+    alphabeticalItems,
+    customItems,
+    enhancedGroups,
+    linkedCustomByCategory,
+    sortMode,
+    tCategory,
+    tShopping,
+    tUrgency,
+    unlinkedCustomItems,
+    urgencyGroups,
+  ])
+
+  const handleCopy = async () => {
+    // Built synchronously, before any `await`: Safari drops the user-gesture
+    // association if the clipboard write isn't the first thing the handler does.
+    const sections = buildClipboardSections()
+    const itemCount = sections.reduce((sum, section) => sum + section.lines.length, 0)
+    const heading = tShopping('copyHeading', {
+      range: formatDateRange(parseLocalDate(startDate), parseLocalDate(endDate), locale, {
+        withYear: true,
+      }),
+    })
+    const text = formatShoppingListForClipboard(heading, sections)
+
+    if (!text) return
+
+    // `navigator.clipboard` is undefined outside a secure context. Optional
+    // chaining would resolve to `undefined` and fire a success toast on a copy
+    // that never happened, so check explicitly.
+    if (!navigator.clipboard?.writeText) {
+      toast.error(tErrors('copyFailed'))
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      toast.success(tShopping('copySuccess'))
+      void track('shopping:list_copied', { source: 'shopping_list', item_count: itemCount })
+      clearTimeout(copiedTimeoutRef.current)
+      copiedTimeoutRef.current = setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error(tErrors('copyFailed'))
+    }
   }
 
   const handleToggle = async (ingredientId: string, purchased: boolean) => {
@@ -237,6 +371,18 @@ export function ShoppingSection({
   // Check if all items are purchased/checked
   const allPurchased = totalPurchased === totalItems && totalItems > 0 && uncheckedCustomCount === 0
 
+  // The all-done case early-returns below, but "computed items all purchased,
+  // custom items all checked" doesn't — so the copy button needs its own gate.
+  const unpurchasedComputedCount = useMemo(
+    () =>
+      enhancedGroups.reduce(
+        (sum, group) => sum + group.items.filter((item) => !item.purchased).length,
+        0,
+      ),
+    [enhancedGroups],
+  )
+  const hasItemsToCopy = unpurchasedComputedCount + uncheckedCustomCount > 0
+
   if (allPurchased) {
     return <ShoppingEmptyState variant="all-purchased" />
   }
@@ -253,6 +399,21 @@ export function ShoppingSection({
             </Body>
           </div>
           <div className="flex items-center gap-2">
+            {hasItemsToCopy && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCopy}
+                className="text-muted-foreground"
+              >
+                {copied ? (
+                  <Check className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <Copy className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                {tShopping('copyList')}
+              </Button>
+            )}
             {checkedCustomCount > 0 && (
               <Button
                 variant="ghost"
