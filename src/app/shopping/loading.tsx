@@ -1,4 +1,6 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { PantryItemSkeleton } from '@/components/pantry/PantryItemSkeleton'
+import { ShoppingItemSkeleton } from '@/components/shopping/ShoppingItemSkeleton'
 
 export default function ShoppingLoading() {
   return (
@@ -8,10 +10,10 @@ export default function ShoppingLoading() {
         <div className="order-2 md:order-1">
           <Skeleton className="mb-4 h-7 w-24" />
           <div className="flex flex-col gap-3">
-            <Skeleton className="h-12 w-full rounded-lg" />
-            <Skeleton className="h-12 w-full rounded-lg" />
-            <Skeleton className="h-12 w-full rounded-lg" />
-            <Skeleton className="h-12 w-full rounded-lg" />
+            <PantryItemSkeleton />
+            <PantryItemSkeleton />
+            <PantryItemSkeleton />
+            <PantryItemSkeleton />
           </div>
         </div>
 
@@ -19,11 +21,11 @@ export default function ShoppingLoading() {
         <div className="order-1 md:order-2">
           <Skeleton className="mb-4 h-7 w-32" />
           <div className="flex flex-col gap-3">
-            <Skeleton className="h-10 w-full rounded-lg" />
-            <Skeleton className="h-10 w-full rounded-lg" />
-            <Skeleton className="h-10 w-full rounded-lg" />
-            <Skeleton className="h-10 w-full rounded-lg" />
-            <Skeleton className="h-10 w-full rounded-lg" />
+            <ShoppingItemSkeleton />
+            <ShoppingItemSkeleton />
+            <ShoppingItemSkeleton />
+            <ShoppingItemSkeleton />
+            <ShoppingItemSkeleton />
           </div>
         </div>
       </div>
