@@ -74,7 +74,7 @@ export const Default: Story = {
     docs: {
       description: {
         story:
-          'Category mode with a mix of outstanding and purchased items. Custom items linked to an ingredient render inside that ingredient\'s category group; the rest fall into "Other".',
+          'Category mode with a mix of outstanding and purchased items. Custom items linked to an ingredient render inside that ingredient\'s category group; the rest fall into "Other". One fixture item is already checked off, so this is also the crowded-header case — all three controls (`Copy list`, `Clear checked`, the sort select) render at once. None of them can shrink, so at the default 390px viewport the row wraps rather than overflowing the card.',
       },
     },
   },

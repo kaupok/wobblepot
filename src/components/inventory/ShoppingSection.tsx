@@ -398,7 +398,14 @@ export function ShoppingSection({
               {tShopping('purchasedTail', { count: totalPurchased })}
             </Body>
           </div>
-          <div className="flex items-center gap-2">
+          {/*
+            Wraps because every control here is unshrinkable: `Button`'s cva base
+            is `shrink-0 whitespace-nowrap` and the sort `Select` is `w-[150px]`.
+            Copy list + Clear checked + the select is ~364px of min-content in the
+            ~310px the card header has on a 390px viewport, which is the primary
+            form factor for /shopping.
+          */}
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {hasItemsToCopy && (
               <Button
                 variant="ghost"
