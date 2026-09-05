@@ -261,29 +261,35 @@ export function ShoppingSection({
     // Same shape as `handleToggle`'s pending guard.
     if (copyInFlightRef.current) return
 
-    // Built synchronously, before any `await`: Safari drops the user-gesture
-    // association if the clipboard write isn't the first thing the handler does.
-    const sections = buildClipboardSections()
-    const itemCount = sections.reduce((sum, section) => sum + section.lines.length, 0)
-    const heading = tShopping('copyHeading', {
-      range: formatDateRange(parseLocalDate(startDate), parseLocalDate(endDate), locale, {
-        withYear: true,
-      }),
-    })
-    const text = formatShoppingListForClipboard(heading, sections)
-
-    if (!text) return
-
-    // `navigator.clipboard` is undefined outside a secure context. Optional
-    // chaining would resolve to `undefined` and fire a success toast on a copy
-    // that never happened, so check explicitly.
-    if (!navigator.clipboard?.writeText) {
-      toast.error(tErrors('copyFailed'))
-      return
-    }
-
     copyInFlightRef.current = true
     try {
+      // Built synchronously, before any `await`: Safari drops the user-gesture
+      // association if the clipboard write isn't the first thing the handler
+      // does. It sits inside the `try` because `parseLocalDate` throws on a
+      // malformed date and `Intl.formatRange` throws on the resulting invalid
+      // `Date` — and `startDate` / `endDate` arrive unvalidated, since
+      // `src/app/shopping/page.tsx` casts the API response rather than parsing
+      // it. Outside the `try` those throws became an unhandled rejection and a
+      // button that looked dead, with no toast at all.
+      const sections = buildClipboardSections()
+      const itemCount = sections.reduce((sum, section) => sum + section.lines.length, 0)
+      const heading = tShopping('copyHeading', {
+        range: formatDateRange(parseLocalDate(startDate), parseLocalDate(endDate), locale, {
+          withYear: true,
+        }),
+      })
+      const text = formatShoppingListForClipboard(heading, sections)
+
+      if (!text) return
+
+      // `navigator.clipboard` is undefined outside a secure context. Optional
+      // chaining would resolve to `undefined` and fire a success toast on a copy
+      // that never happened, so check explicitly.
+      if (!navigator.clipboard?.writeText) {
+        toast.error(tErrors('copyFailed'))
+        return
+      }
+
       await navigator.clipboard.writeText(text)
       setCopied(true)
       toast.success(tShopping('copySuccess'))

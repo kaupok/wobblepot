@@ -378,6 +378,10 @@ describe('ShoppingSection copy to clipboard', () => {
     renderSection()
 
     const button = screen.getByRole('button', { name: /copy list/i })
+    // Both icons are `aria-hidden` by design, so lucide's own class is the only
+    // signal the swap actually happened.
+    expect(button.querySelector('svg')).toHaveClass('lucide-copy')
+
     await user.click(button)
 
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Shopping list copied'))
@@ -385,9 +389,26 @@ describe('ShoppingSection copy to clipboard', () => {
       source: 'shopping_list',
       item_count: 3,
     })
-    // The label stays constant across the icon swap so the accessible name
-    // doesn't churn; the checkmark itself is aria-hidden.
+    await waitFor(() => expect(button.querySelector('svg')).toHaveClass('lucide-check'))
+    // The label stays constant across that swap, so the accessible name doesn't
+    // churn under a screen reader.
     expect(button).toHaveAccessibleName('Copy list')
+  })
+
+  it('shows an error toast when the window dates are malformed', async () => {
+    const user = userEvent.setup()
+    const writeText = stubClipboard(vi.fn().mockResolvedValue(undefined))
+    // `parseLocalDate` throws on anything that isn't YYYY-MM-DD, and the page
+    // casts the API response rather than parsing it — so the handler has to
+    // catch this rather than leave a dead button and an unhandled rejection.
+    renderSection({ startDate: '' })
+
+    await user.click(screen.getByRole('button', { name: /copy list/i }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Couldn't copy the list"))
+    expect(writeText).not.toHaveBeenCalled()
+    expect(toast.success).not.toHaveBeenCalled()
+    expect(track).not.toHaveBeenCalled()
   })
 
   it('ignores a second click while a copy is still in flight', async () => {
