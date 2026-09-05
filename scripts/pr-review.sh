@@ -247,6 +247,54 @@ PROMPT
 
 # Substitute PR number into the prompt (quoted heredoc prevents expansion)
 sed -i '' "s/__PR_NUMBER__/${PR_NUMBER}/g" "$PROMPT_FILE"
+
+# ─── Prose PRs: ask for a readability verdict ────────────────────────────────
+#
+# On a documentation-only PR the reviewer has no oracle — no failing test, no type
+# error — so "what is wrong with this?" always has another defensible answer, and
+# every answer makes the document longer. HON-627 rode that to 14 review rounds and
+# ended with a document nobody could use. Asking for a usability verdict FIRST lets a
+# finding that would make the artifact worse be dropped instead of posted.
+#
+# `grep -v` exits 1 when nothing matches and this runs under `set -o pipefail`, hence
+# the `|| true` on the assignments. Two ways a fetch could wrongly read as "docs-only"
+# and soften the review of a code PR, both closed here:
+#
+#   1. Empty  — a failed `gh pr view` yields no paths at all. The non-empty test.
+#   2. Truncated — `gh` embeds a fixed `files(first: 100)` in its PR query and never
+#      paginates, so a >100-file PR whose first 100 paths happen to be markdown would
+#      look docs-only. Comparing the paths returned against `changedFiles` (a scalar
+#      total, not subject to the page cap) catches that. A failed count leaves
+#      PR_CHANGED empty, which cannot equal PR_FILE_COUNT — so it fails closed.
+PR_FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' 2>/dev/null || true)
+NON_MD=$(printf '%s\n' "$PR_FILES" | grep -v '\.md$' || true)
+PR_FILE_COUNT=$(printf '%s\n' "$PR_FILES" | grep -c . || true)
+PR_CHANGED=$(gh pr view "$PR_NUMBER" --json changedFiles --jq '.changedFiles' 2>/dev/null || true)
+
+if [ -n "$PR_FILES" ] && [ -z "$NON_MD" ] && [ "$PR_FILE_COUNT" = "$PR_CHANGED" ]; then
+  echo -e "${GREEN}Documentation-only PR — adding the readability-regression instruction.${NC}"
+  cat >> "$PROMPT_FILE" <<'PROSE_PROMPT'
+
+## This PR changes documentation only — judge readability first
+
+Every file in this diff is a `*.md` document. These are read and acted on by agents and by people, so length and clarity are part of correctness: a change that improves accuracy while making the document unusable is a net regression.
+
+So judge readability as well as correctness, and report the judgement as a one-line verdict:
+
+> **Usability:** more usable / about the same / less usable than before this change — [one sentence why]
+
+**Where the verdict goes:** inside the Step 5 summary comment, on the line directly below the `### Claude review` heading and above the 2-3 sentence summary. It does NOT go anywhere else, and it does NOT change the shape of that comment: `<!-- claude-review -->` must still be the very first line of the body, with nothing before it. Automation locates every review by that exact prefix, so a verdict emitted above it makes the whole round invisible and the run stops as if no review had been posted.
+
+Then apply that verdict to your findings:
+
+- **Drop** any finding whose fix would make the document longer or harder to follow without correcting something that is actually wrong. "This does not cover the case where X", "consider also noting Y", and "this could be more precise" are coverage suggestions, not defects.
+- **Keep** genuine defects: a broken reference (a path, line number, step number, or command that does not resolve), a factually wrong statement, an instruction that would cause the wrong action, or an internal contradiction.
+- If the verdict is "less usable", say what to **cut**. That is a more valuable finding than anything you could add.
+
+**A "less usable" verdict is itself a finding, and must be filed as one.** Do NOT write "No issues found" in a summary whose verdict is "less usable" — automation substring-tests for that phrase to decide the review was clean and merges on it, so the regression would be discarded silently, which is the exact outcome this section exists to prevent. When the verdict is "less usable", the "Issues found" list must have at least one entry naming what to cut. "No issues found" is correct only when the verdict is "more usable" or "about the same" and you have no other findings.
+PROSE_PROMPT
+fi
+
 REVIEW_PROMPT=$(cat "$PROMPT_FILE")
 
 # ─── Run the reviewer ─────────────────────────────────────────────────────────
