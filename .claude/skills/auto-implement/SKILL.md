@@ -33,7 +33,7 @@ Both halves of that have already cost a run:
 
 So: never end a turn whose last message describes in-flight work in future tense ("CI is re-running — I'll merge once it settles" is exactly the sentence that stranded #651). The last message of a turn must be a phase marker, an explicit error stop, the **Phase 6.7 review-round-cap hand-off**, or the final completion marker.
 
-That last one is a deliberate terminal state, not a failure. Phase 6 caps the review → fix → re-review loop at **3 rounds**; if the cap is reached with a finding still unresolved, the PR is handed to a human with its findings summarised instead of looping until an external budget kills the worker (HON-630).
+The **6.7 hand-off** is a deliberate terminal state, not a failure. Phase 6 caps the review → fix → re-review loop at **3 rounds**; if the cap is reached with a finding still unresolved, the PR is handed to a human with its findings summarised instead of looping until an external budget kills the worker (HON-630).
 
 **Backgrounding a command is allowed; ending the turn beside it is not.** When a command outruns Bash's 600 s foreground cap, you may start it with `run_in_background: true` — but the same turn must then *wait on it* with foreground wait-chunks until it reaches a terminal marker (the pattern in Phase 3.3, 6.1 and 7.2). A tool call in flight cannot end a turn, and the 600 s cap is per call, not per turn, so chained foreground waits cover an arbitrarily long job. Committing and pushing each batch (Phase 3.3) is still required — it is what makes a process death survivable — but it is not a licence to end the turn early.
 
@@ -768,7 +768,7 @@ Extract PR URL from output.
 
 Phase 6 is the only loop in this skill: 6.3 reviews, 6.4 triages, 6.5 fixes, 6.6 pushes and comes back to 6.3 for the next round. It has to be bounded, because its natural exit — "the reviewer eventually runs out of findings" — only exists when there is an **oracle**: a failing test, a type error, a broken selector. On a prose or heuristic deliverable there is always another defensible finding, so the loop runs until something external kills the worker. HON-627 took **14 rounds over 2h45m** and ended `Stranded` with a green, mergeable PR (#707) that a human had to merge by hand — and its findings, each defensible on its own, grew the artifact until it was no longer usable. For contrast, the 12 PRs before it took 1 round (nine of them), 2 rounds (one), and 3 rounds (two): three rounds covers every PR that has ever converged here.
 
-**ROUND is the number of `<!-- claude-review -->` comments on the PR once 6.3 has posted the current one** — the count 6.3 already fetches to verify the review landed. Deriving it from GitHub rather than from a local counter means it survives process death, context summarization, and a RETRY worker resuming the same PR, and it correctly counts rounds already spent by a manual `/review-pr`.
+**ROUND is the number of `<!-- claude-review -->` comments on the PR once 6.3 has posted the current one** — the count 6.3 already fetches to verify the review landed. Deriving it from GitHub rather than from a local counter means it survives process death and context summarization within a run, and that it counts rounds this run did not perform: a manual `/review-pr`, or an earlier worker on the same branch. (It is not a resume mechanism — Phase 2.1 stops outright on `In Review`, so a PR that is already open never re-enters Phase 6 through a fresh cycle.)
 
 A counter that can stall is not a cap, so 6.3 requires `ROUND` to be **strictly greater** than the count taken before the run and stops the cycle if it is not. That is what makes each iteration consume budget and the loop provably terminate; the stale-lock path that can otherwise freeze it is described there.
 
@@ -917,6 +917,8 @@ Spawn a fresh Claude Code session to review the PR. **You MUST use the script be
 
 **First record the marker count as `ROUND_BEFORE`**, using the same fetch as the verification below. The cap counts rounds by these markers, so the count has to be shown to *increase* — see the check after the run.
 
+**Gate on it before spending a round: if `ROUND_BEFORE` ≥ 3, do not run the reviewer at all.** The cap is on reviews, and a review that has not started yet is the only one that is free to skip. A PR can arrive here already carrying three markers — a manual `/review-pr`, or an earlier worker on the same branch — and invoking the script anyway spends a 4th `claude -p` round before 6.6 can notice, which is exactly the "no 4th round" guarantee the budget section makes. In that case set `ROUND = ROUND_BEFORE`, skip to **6.4** and triage the findings already on the PR under the round-3 materiality bar; 6.6 branch C then routes it.
+
 ```bash
 PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
 ./scripts/pr-review.sh ${PR_NUMBER}
@@ -1051,9 +1053,18 @@ gh api "/repos/:owner/:repo/pulls/<PR_NUMBER>/comments/<COMMENT_ID>/replies" \
   -f body="not actioned: coverage-only, round >= 3 — <one line on what the finding asked for and why it is coverage rather than correctness>"
 ```
 
-For a **summary-only finding** there is no comment to reply to; collect it and list it in the 6.7 hand-off comment instead.
+For a **summary-only finding** there is no comment to reply to, so post the note as an issue-level comment on the PR **here, in 6.5** — do not defer it to 6.7, which runs only when something is left unresolved and therefore never runs on the expected "everything resolved → merge" path:
 
-Keep the `not actioned: coverage-only, round >= 3` prefix literal — it is what makes the decisions greppable across PRs when judging whether the bar is set right.
+```bash
+# Substitute the literal PR number. One comment covers every summary-only drop in this round.
+gh api /repos/:owner/:repo/issues/<PR_NUMBER>/comments \
+  --method POST \
+  -f body="not actioned: coverage-only, round >= 3
+
+- <finding> — <why it is coverage rather than correctness>"
+```
+
+Keep the `not actioned: coverage-only, round >= 3` prefix literal — it is what makes the decisions greppable across PRs when judging whether the bar is set right, and that only works if the note is posted on every path, including the one that merges.
 
 ### 6.6 Commit and push fixes, then decide the round
 
@@ -1093,12 +1104,14 @@ The commit above is conditional on 6.5 having changed something. **The decision 
 
 **B. `ROUND` < 3 and nothing changed** — every finding was deferred as genuinely out of scope. A re-review would return the identical findings against the identical diff, so never loop back to 6.3 here. Proceed to **Phase 7** and merge: the defer was deliberate, and the diff the reviewer saw is the diff being merged.
 
+> **An unresolved correctness or safety finding routes to 6.7 at any round, not just at the cap.** 6.4's "significant work → defer if genuinely out of scope" covers scope, not defects, and the rule must not depend on which round the defect surfaced in: handing one to a human on round 3 while merging the identical one on round 1 would make "defer everything immediately" the cheapest and least supervised way out of Phase 6. Deferring is for work that belongs in another issue. If a correctness or safety finding is real and simply unfixed, go to **6.7** and say so under "Still open".
+
 **C. `ROUND` ≥ 3 — the cap.** Never run a 4th review, whether or not fixes were pushed. The cap bounds *reviews*, not merges, so what happens next depends on whether anything is still unresolved:
 
 - **Every finding resolved** — the material ones fixed and pushed, the coverage-only ones dropped by 6.4's bar with a `not actioned:` note — → **Phase 7, merge.** Round 3's fix ships without a 4th review, which is exactly how the two 3-round PRs in the recent history converged (#704: review `08:03:05Z` → fix `08:10:50Z` → merged `08:20:04Z`; #700: `22:23:34Z` → `22:28:03Z` → `22:37:06Z`). Stranding these would triple the hand-off rate for no gain and walk the orchestrator toward `MAX_CONSECUTIVE_FAILURES`.
 - **A correctness or safety finding is still unresolved** — too large to fix in scope, or it needs a decision this run should not make alone — → **6.7 hand-off.** This is the case the issue means by "listing the unaddressed findings": a human resolves what a 4th round would otherwise have chased.
 
-Print the block below whenever Phase 6 hands off to Phase 7 — branch B, branch C with everything resolved, or the clean-review exit in 6.4. Branch A goes back to 6.3, and branch C with something unresolved goes to 6.7 and prints its own markers:
+Print the block below on branch B, or on branch C with everything resolved. Branch A goes back to 6.3, and branch C with something unresolved goes to 6.7 and prints its own markers. (6.4's clean-review exit skips 6.6 entirely and prints this block itself on its way to Phase 7.)
 
 ```
 [auto-implement] ✓ Reviews addressed (round ${ROUND}/3)
