@@ -10,8 +10,11 @@ import type { CustomItemData } from './CustomItemInput'
 /**
  * Emoji mapping for ingredient categories.
  * These provide visual context in the shopping list.
+ *
+ * Exported so the clipboard export in `ShoppingSection` reuses the same map —
+ * a second copy would drift the first time a category is added.
  */
-const CATEGORY_EMOJI: Record<IngredientCategory, string> = {
+export const CATEGORY_EMOJI: Record<IngredientCategory, string> = {
   protein: '🥩',
   vegetable: '🥬',
   fruit: '🍎',
