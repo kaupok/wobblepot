@@ -82,6 +82,7 @@ export function ShoppingSection({
   const [mounted, setMounted] = useState(false)
   const [copied, setCopied] = useState(false)
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const copyInFlightRef = useRef(false)
 
   const {
     customItems,
@@ -255,6 +256,11 @@ export function ShoppingSection({
   ])
 
   const handleCopy = async () => {
+    // The button stays enabled through the ~2s checkmark, so a double-tap would
+    // otherwise stack two success toasts and double-count `shopping:list_copied`.
+    // Same shape as `handleToggle`'s pending guard.
+    if (copyInFlightRef.current) return
+
     // Built synchronously, before any `await`: Safari drops the user-gesture
     // association if the clipboard write isn't the first thing the handler does.
     const sections = buildClipboardSections()
@@ -276,6 +282,7 @@ export function ShoppingSection({
       return
     }
 
+    copyInFlightRef.current = true
     try {
       await navigator.clipboard.writeText(text)
       setCopied(true)
@@ -285,6 +292,8 @@ export function ShoppingSection({
       copiedTimeoutRef.current = setTimeout(() => setCopied(false), 2000)
     } catch {
       toast.error(tErrors('copyFailed'))
+    } finally {
+      copyInFlightRef.current = false
     }
   }
 
@@ -371,8 +380,10 @@ export function ShoppingSection({
   // Check if all items are purchased/checked
   const allPurchased = totalPurchased === totalItems && totalItems > 0 && uncheckedCustomCount === 0
 
-  // The all-done case early-returns below, but "computed items all purchased,
-  // custom items all checked" doesn't — so the copy button needs its own gate.
+  // `allPurchased` covers every list that has items and has them all accounted
+  // for, so what's left for this gate is the list with no items at all — which
+  // fails `allPurchased`'s `totalItems > 0` guard and renders the card as normal.
+  // Without it the header would offer to copy an empty list.
   const unpurchasedComputedCount = useMemo(
     () =>
       enhancedGroups.reduce(

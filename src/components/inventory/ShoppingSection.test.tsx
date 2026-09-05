@@ -390,6 +390,31 @@ describe('ShoppingSection copy to clipboard', () => {
     expect(button).toHaveAccessibleName('Copy list')
   })
 
+  it('ignores a second click while a copy is still in flight', async () => {
+    const user = userEvent.setup()
+    // Hold the write open so both clicks land inside the same in-flight window.
+    let resolveWrite: () => void = () => {}
+    const writeText = stubClipboard(
+      vi.fn().mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveWrite = resolve
+          }),
+      ),
+    )
+    renderSection()
+
+    const button = screen.getByRole('button', { name: /copy list/i })
+    await user.click(button)
+    await user.click(button)
+
+    expect(writeText).toHaveBeenCalledTimes(1)
+
+    resolveWrite()
+    await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1))
+    expect(track).toHaveBeenCalledTimes(1)
+  })
+
   it('shows an error toast when the clipboard write rejects', async () => {
     const user = userEvent.setup()
     stubClipboard(vi.fn().mockRejectedValue(new Error('denied')))
