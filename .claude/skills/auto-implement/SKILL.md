@@ -31,7 +31,9 @@ Both halves of that have already cost a run:
 - **Uncommitted work is destroyed.** HON-562's first run ended a turn with "E2E is still running — I'll pick up when it lands" and lost a fully green batch (2026-08-30).
 - **A finished PR is stranded.** HON-570 (PR #650) and HON-571 (PR #651) ended their turns beside a Phase 6.1 CI poll. HON-570's worker exited 36 seconds later — before the poll's opening `sleep 30` had even elapsed. Both PRs sat open and unmerged until a human merged them by hand ~45 minutes later (HON-573).
 
-So: never end a turn whose last message describes in-flight work in future tense ("CI is re-running — I'll merge once it settles" is exactly the sentence that stranded #651). The last message of a turn must be a phase marker, an explicit error stop, or the final completion marker.
+So: never end a turn whose last message describes in-flight work in future tense ("CI is re-running — I'll merge once it settles" is exactly the sentence that stranded #651). The last message of a turn must be a phase marker, an explicit error stop, the **Phase 6.7 review-round-cap hand-off**, or the final completion marker.
+
+That last one is a deliberate terminal state, not a failure. Phase 6 caps the review → fix → re-review loop at **3 rounds**; when the cap is reached the PR is handed to a human with its findings summarised, instead of looping until an external budget kills the worker (HON-630).
 
 **Backgrounding a command is allowed; ending the turn beside it is not.** When a command outruns Bash's 600 s foreground cap, you may start it with `run_in_background: true` — but the same turn must then *wait on it* with foreground wait-chunks until it reaches a terminal marker (the pattern in Phase 3.3, 6.1 and 7.2). A tool call in flight cannot end a turn, and the 600 s cap is per call, not per turn, so chained foreground waits cover an arbitrarily long job. Committing and pushing each batch (Phase 3.3) is still required — it is what makes a process death survivable — but it is not a licence to end the turn early.
 
@@ -762,6 +764,23 @@ Extract PR URL from output.
 [auto-implement] Phase 6/7: Addressing reviews
 ```
 
+### Review-round budget — hard cap of 3 rounds
+
+Phase 6 is the only loop in this skill: 6.3 reviews, 6.4 triages, 6.5 fixes, 6.6 pushes and comes back to 6.3 for the next round. It has to be bounded, because its natural exit — "the reviewer eventually runs out of findings" — only exists when there is an **oracle**: a failing test, a type error, a broken selector. On a prose or heuristic deliverable there is always another defensible finding, so the loop runs until something external kills the worker. HON-627 took **14 rounds over 2h45m** and ended `Stranded` with a green, mergeable PR (#707) that a human had to merge by hand — and its findings, each defensible on its own, grew the artifact until it was no longer usable. For contrast, the 12 PRs before it took 1 round (nine of them), 2 rounds (one), and 3 rounds (two): three rounds covers every PR that has ever converged here.
+
+**ROUND is the number of `<!-- claude-review -->` comments on the PR once 6.3 has posted the current one** — the count 6.3 already fetches to verify the review landed. Deriving it from GitHub rather than from a local counter means it survives process death, context summarization, and a RETRY worker resuming the same PR, and it correctly counts rounds already spent by a manual `/review-pr`.
+
+Every round ends in exactly one of these, and only the second one re-enters 6.3:
+
+| Outcome of the round                                                                                | Next                                                              |
+| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Clean review — summary says "No issues found" **and** the anchored inline list is empty              | Phase 7, merge (6.4)                                              |
+| Findings addressed and pushed, `ROUND` < 3                                                          | back to 6.3 for the next round (6.6 branch A)                     |
+| Findings addressed and pushed, `ROUND` ≥ 3                                                          | **6.7 terminal hand-off** — do not merge, do not review again (6.6 branch B) |
+| Nothing changed — every finding deferred as out of scope, or dropped by 6.4's bar                   | never re-review an identical diff: Phase 7 if `ROUND` < 3, else 6.7 (6.6 branch C) |
+
+`./scripts/pr-review.sh` is therefore invoked at most 3 times in Phase 6. No other step in this skill invokes a reviewer, and 6.1's CI-fix loop is separately capped at 2 attempts, so there is no path through Phase 6 that runs a 4th round.
+
 ### 6.1 Wait for CI
 
 CI takes 12–45 min. Bash's 600 s cap is per *call*, not per turn, so wait in **foreground chunks**: each call polls for ~8 min and returns a marker, and you re-issue it until the marker is terminal. Do not background this poll — in the headless spawn the process exits when the turn ends and a backgrounded poll dies with it, which is exactly how PRs #650 and #651 were stranded open (see Execution Model).
@@ -910,9 +929,13 @@ gh api --paginate '/repos/:owner/:repo/issues/{number}/comments?per_page=100' \
   | jq -s 'add | [.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
 ```
 
+Substitute the literal PR number for `{number}` — `gh api` expands only `{owner}` / `{repo}`.
+
+**That count is `ROUND`.** Note it: 6.4 branches on it for the materiality bar and 6.6 branches on it for the cap. It is the total number of review rounds this PR has had, not just the ones this run performed, which is the quantity the cap is meant to bound.
+
 If the review was posted (count > 0):
 ```
-[auto-implement] ✓ Claude review received
+[auto-implement] ✓ Claude review received (round ${ROUND}/3)
 ```
 
 If no review found after script returned (unexpected):
@@ -982,6 +1005,15 @@ The reviewer only posts substantive issues (no nitpicks), so triage is simpler:
   - Moderate fix → address now
   - Significant work → defer if genuinely out of scope
 
+**Materiality bar — applies from ROUND 3 on.** On rounds 1 and 2 every substantive finding is an Address Now item, per the rules above. From round 3 the bar rises, because by then the cheap defects are gone and what is left is usually accretion:
+
+- **Action it** only if it is a **correctness or safety defect** — wrong behaviour, a broken reference (a path, line number, step number, or command that does not resolve), a factual error in the text, a security or data-loss risk.
+- **Do not action it** if the fix only adds coverage, edge cases, hedging, or qualification to something that already works as written. "This grep would also miss X", "this does not cover the case where Y", "consider noting Z" are coverage-only by definition.
+
+The bar exists because the reviewer is asked "what is wrong with this?" and never "is this now worse than it was three rounds ago?" — an asymmetry that makes the loop self-sustaining. Each HON-627 finding was individually defensible; together they improved grep recall and destroyed the artifact's usability, which was the entire point of the artifact. A finding that makes a document longer and harder to follow is a finding worth dropping.
+
+Record the call rather than silently skipping it — see 6.5's `not actioned:` convention.
+
 ### 6.5 Address review comments
 
 For each item in "Address Now":
@@ -990,6 +1022,21 @@ For each item in "Address Now":
 - For a summary-only finding: there are no coordinates, so locate the site yourself from the finding's description before editing
 - Read the file at that location
 - Apply the suggested fix using Edit tool
+
+**The `not actioned:` convention — required for every finding the 6.4 materiality bar drops.** A skipped finding must read as a decision, not an oversight, or the next reviewer (or the human picking up a 6.7 hand-off) re-raises it and the loop restarts by hand.
+
+For a finding that came in as an **inline comment**, reply on that comment so the note sits next to the code it declines to change:
+
+```bash
+# Substitute the literal PR number and the inline comment's `id` from 6.4's fetch.
+gh api "/repos/:owner/:repo/pulls/<PR_NUMBER>/comments/<COMMENT_ID>/replies" \
+  --method POST \
+  -f body="not actioned: coverage-only, round >= 3 — <one line on what the finding asked for and why it is coverage rather than correctness>"
+```
+
+For a **summary-only finding** there is no comment to reply to; collect it and list it in the 6.7 hand-off comment instead.
+
+Keep the `not actioned: coverage-only, round >= 3` prefix literal — it is what makes the decisions greppable across PRs when judging whether the bar is set right.
 
 ### 6.6 Commit and push fixes
 
@@ -1015,11 +1062,70 @@ git push
 
 Wait for CI again — re-run the 6.1 foreground wait-chunk + verification, re-issuing on `CI_WAITING` until a terminal marker. Do not end the turn here.
 
+Then take exactly one of these three branches. `ROUND` is from 6.3; "fixes were pushed" means 6.5 changed something and the commit above exists.
+
+**A. Fixes were pushed and `ROUND` < 3** → go back to **6.3** and run the next review round against the new head.
+
 ```
-[auto-implement] ✓ Reviews addressed
+[auto-implement] ✓ Round ${ROUND}/3 addressed and pushed → re-reviewing
+```
+
+**B. Fixes were pushed and `ROUND` ≥ 3** → the cap is reached. Do **not** run another review and do **not** proceed to Phase 7. Go to **6.7**.
+
+**C. No fixes were made** — every finding was deferred as genuinely out of scope, or dropped by the materiality bar. Nothing changed, so a re-review would return the identical findings against the identical diff; never loop back to 6.3 on this branch, at any round. Instead:
+
+- `ROUND` < 3 → proceed to Phase 7 and merge, as before. The findings were a deliberate defer, and the diff the reviewer approved is the diff being merged.
+- `ROUND` ≥ 3 → go to **6.7**. At the cap, findings left unaddressed are handed to a human rather than merged past.
+
+Print the block below only when Phase 6 actually hands off to Phase 7 — that is branch C under the cap here, or the clean-review exit in 6.4. Branch A goes back to 6.3; branch B and branch C at the cap go to 6.7, and both print their own markers instead:
+
+```
+[auto-implement] ✓ Reviews addressed (round ${ROUND}/3)
 [review-pr:complete]
 [auto-implement] Phase 6/7 complete → Proceeding to Phase 7
 ```
+
+### 6.7 Review-round cap reached — terminal hand-off
+
+Reached only from 6.6 branch B or C — `ROUND` ≥ 3 with findings still on the table. This is a **terminal state, not an error**: the work is committed, CI is green, and the PR is left open for a human to judge. Getting here in ~25 minutes instead of 2h45m is the entire point — the `Stranded` label and its recovery path already exist and need no change.
+
+Post a hand-off comment on the PR listing what happened, so the human inherits the decisions rather than re-deriving them:
+
+```bash
+# Substitute the literal PR number.
+gh api /repos/:owner/:repo/issues/<PR_NUMBER>/comments \
+  --method POST \
+  -f body="## Review-round cap reached (3/3)
+
+\`/auto-implement\` stops looping after 3 review rounds (HON-630). CI is green and the branch is pushed; this PR is ready for a human decision.
+
+**Addressed across rounds 1-3:**
+- [one line per finding that was fixed, with the commit that fixed it]
+
+**Not actioned (materiality bar, round >= 3):**
+- [one line per coverage-only finding, with why — mirrors the \`not actioned:\` replies on the inline comments]
+
+**Still open:**
+- [any finding that is correctness/safety but was too large to fix in scope, or 'none']
+
+To finish: review the above, then merge, or push a fix and merge. See \`scripts/orchestrator.sh\` (recovery for the \`Stranded\` label) if this run was orchestrated."
+```
+
+Post the same summary as a Linear comment on the issue, then stop:
+
+```
+mcp__linear-server__save_comment({ issueId: "HON-XX", body: "[the same hand-off summary]" })
+```
+
+**Do not change the issue's Linear state.** Linear moved it to `In Review` when the PR opened, which is accurate — a PR is open and unmerged — and `strand_worker` deliberately leaves that state alone when a PR exists (`scripts/orchestrator.sh`, the comment above its `restore_todo_if_in_progress` call). The `Stranded` label is what flags the issue for pickup, and the orchestrator adds it on a clean worker exit as well as a timeout, so reaching 6.7 and stopping is enough to get it.
+
+```
+[auto-implement] ⚠ Review-round cap reached (3/3) — handing off
+[auto-implement] PR left open with a hand-off comment; not merged
+[auto-implement] ✗ Autonomous implementation cycle stopped at Phase 6 (review-round cap)
+```
+
+Stop here. Do not proceed to Phase 7. This message ends the turn — it is a terminal marker, so the Execution Model rule against ending a turn on in-flight work is satisfied.
 
 ---
 
@@ -1292,4 +1398,5 @@ To clean up this worktree:
 | 6     | CI fails after fixes (2)        | Stop, show failures    |
 | 6     | Review script failed            | Stop, show error       |
 | 6     | Review parse fails              | Stop, show error       |
+| 6     | Review-round cap reached (3)    | 6.7 hand-off — terminal, not an error: PR left open with a summary comment, not merged |
 | 7     | Merge fails                     | Stop, show error       |

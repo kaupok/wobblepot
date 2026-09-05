@@ -247,6 +247,42 @@ PROMPT
 
 # Substitute PR number into the prompt (quoted heredoc prevents expansion)
 sed -i '' "s/__PR_NUMBER__/${PR_NUMBER}/g" "$PROMPT_FILE"
+
+# ─── Prose PRs: ask for a readability verdict ────────────────────────────────
+#
+# On a documentation-only PR the reviewer has no oracle — no failing test, no type
+# error — so "what is wrong with this?" always has another defensible answer, and
+# every answer makes the document longer. HON-627 rode that to 14 review rounds and
+# ended with a document nobody could use. Asking for a usability verdict FIRST lets a
+# finding that would make the artifact worse be dropped instead of posted.
+#
+# `grep -v` exits 1 when nothing matches and this runs under `set -o pipefail`, hence
+# the `|| true` on both assignments. A failed `gh pr view` leaves PR_FILES empty; the
+# non-empty test is what stops that from reading as "docs-only" and softening the
+# review of a code PR.
+PR_FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' 2>/dev/null || true)
+NON_MD=$(printf '%s\n' "$PR_FILES" | grep -v '\.md$' || true)
+
+if [ -n "$PR_FILES" ] && [ -z "$NON_MD" ]; then
+  echo -e "${GREEN}Documentation-only PR — adding the readability-regression instruction.${NC}"
+  cat >> "$PROMPT_FILE" <<'PROSE_PROMPT'
+
+## This PR changes documentation only — judge readability first
+
+Every file in this diff is a `*.md` document. These are read and acted on by agents and by people, so length and clarity are part of correctness: a change that improves accuracy while making the document unusable is a net regression.
+
+Before listing any findings, state a one-line verdict:
+
+> **Usability:** more usable / about the same / less usable than before this change — [one sentence why]
+
+Then apply that verdict to your findings:
+
+- **Drop** any finding whose fix would make the document longer or harder to follow without correcting something that is actually wrong. "This does not cover the case where X", "consider also noting Y", and "this could be more precise" are coverage suggestions, not defects.
+- **Keep** genuine defects: a broken reference (a path, line number, step number, or command that does not resolve), a factually wrong statement, an instruction that would cause the wrong action, or an internal contradiction.
+- If the verdict is "less usable", say what to **cut**. That is a more valuable finding than anything you could add.
+PROSE_PROMPT
+fi
+
 REVIEW_PROMPT=$(cat "$PROMPT_FILE")
 
 # ─── Run the reviewer ─────────────────────────────────────────────────────────
