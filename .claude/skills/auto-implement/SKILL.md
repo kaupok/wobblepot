@@ -33,7 +33,7 @@ Both halves of that have already cost a run:
 
 So: never end a turn whose last message describes in-flight work in future tense ("CI is re-running — I'll merge once it settles" is exactly the sentence that stranded #651). The last message of a turn must be a phase marker, an explicit error stop, the **Phase 6.7 review-round-cap hand-off**, or the final completion marker.
 
-That last one is a deliberate terminal state, not a failure. Phase 6 caps the review → fix → re-review loop at **3 rounds**; when the cap is reached the PR is handed to a human with its findings summarised, instead of looping until an external budget kills the worker (HON-630).
+That last one is a deliberate terminal state, not a failure. Phase 6 caps the review → fix → re-review loop at **3 rounds**; if the cap is reached with a finding still unresolved, the PR is handed to a human with its findings summarised instead of looping until an external budget kills the worker (HON-630).
 
 **Backgrounding a command is allowed; ending the turn beside it is not.** When a command outruns Bash's 600 s foreground cap, you may start it with `run_in_background: true` — but the same turn must then *wait on it* with foreground wait-chunks until it reaches a terminal marker (the pattern in Phase 3.3, 6.1 and 7.2). A tool call in flight cannot end a turn, and the 600 s cap is per call, not per turn, so chained foreground waits cover an arbitrarily long job. Committing and pushing each batch (Phase 3.3) is still required — it is what makes a process death survivable — but it is not a licence to end the turn early.
 
@@ -772,16 +772,19 @@ Phase 6 is the only loop in this skill: 6.3 reviews, 6.4 triages, 6.5 fixes, 6.6
 
 A counter that can stall is not a cap, so 6.3 requires `ROUND` to be **strictly greater** than the count taken before the run and stops the cycle if it is not. That is what makes each iteration consume budget and the loop provably terminate; the stale-lock path that can otherwise freeze it is described there.
 
+**The cap bounds reviews, not merges.** Round 3's findings can still be fixed and shipped — what the cap forbids is asking for a *fourth opinion* on the result. That distinction is load-bearing: the two 3-round PRs in the recent history (#704, #700) each merged by fixing round 3's findings and merging without re-reviewing, so a cap that also blocked the merge would strand runs that converged perfectly well.
+
 Every round ends in exactly one of these, and only the second one re-enters 6.3:
 
-| Outcome of the round                                                                                | Next                                                              |
-| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Clean review — summary says "No issues found" **and** the anchored inline list is empty              | Phase 7, merge (6.4)                                              |
-| Findings addressed and pushed, `ROUND` < 3                                                          | back to 6.3 for the next round (6.6 branch A)                     |
-| Findings addressed and pushed, `ROUND` ≥ 3                                                          | **6.7 terminal hand-off** — do not merge, do not review again (6.6 branch B) |
-| Nothing changed — every finding deferred as out of scope, or dropped by 6.4's bar                   | never re-review an identical diff: Phase 7 if `ROUND` < 3, else 6.7 (6.6 branch C) |
+| Outcome of the round                                                                   | Next                                                                    |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Clean review — summary says "No issues found" **and** the anchored inline list is empty | Phase 7, merge (6.4)                                                    |
+| `ROUND` < 3, findings addressed and pushed                                             | back to 6.3 for the next round (6.6 branch A)                           |
+| `ROUND` < 3, nothing changed — every finding deliberately deferred                     | never re-review an identical diff → Phase 7, merge (6.6 branch B)       |
+| `ROUND` ≥ 3, everything resolved (fixed, or dropped by 6.4's bar with a note)           | Phase 7, merge — no 4th review (6.6 branch C)                           |
+| `ROUND` ≥ 3, a correctness/safety finding still unresolved                             | **6.7 terminal hand-off** — PR left open for a human (6.6 branch C)     |
 
-`./scripts/pr-review.sh` is therefore invoked at most 3 times in Phase 6. No other step in this skill invokes a reviewer, and 6.1's CI-fix loop is separately capped at 2 attempts, so there is no path through Phase 6 that runs a 4th round.
+`./scripts/pr-review.sh` is therefore invoked at most 3 times in Phase 6. No other step in this skill invokes a reviewer, 6.3 stops the cycle unless the marker count strictly increases, and 6.1's CI-fix loop is separately capped at 2 attempts — so there is no path through Phase 6 that runs a 4th round.
 
 ### 6.1 Wait for CI
 
@@ -946,14 +949,13 @@ Likely a stale /tmp/claude-review-${PR_NUMBER}.lock from a killed run. Remove it
 
 Stop here (do not proceed to 6.4 and do not loop).
 
-If the review was posted (count > 0):
+**Strict increase is the whole test — `ROUND > ROUND_BEFORE`, not `ROUND > 0`.** A count-based check passes on the stale-lock path (`ROUND_BEFORE` = 2, `ROUND` = 2: no new review, but the count is still non-zero), which is precisely the case that must stop. There is one decision here, and it is the comparison:
+
+- `ROUND > ROUND_BEFORE` → a new review landed. Continue to 6.4.
+- `ROUND == ROUND_BEFORE` → no new review, at any count including 0. Stop with the error above. Never "proceed anyway": with a previous round's summary still on the PR, 6.4 would read stale findings as current and 6.6 would loop on them.
+
 ```
 [auto-implement] ✓ Claude review received (round ${ROUND}/3)
-```
-
-If no review found after script returned (unexpected):
-```
-[auto-implement] ⚠ Review script returned but no review comment found. Proceeding anyway.
 ```
 
 If the review script fails (non-zero exit):
@@ -1009,7 +1011,7 @@ This is also why the fetch cannot be written as `--paginate --jq '… | last'`: 
 The reviewer only posts substantive issues (no nitpicks), so triage is simpler:
 
 - **If the fetch returns no summary at all** → the review did not complete. Do not read this as clean; stop and report, matching 6.3's warning. An absent summary and a clean summary are not the same thing.
-- If the latest summary contains "No issues found" **and** the anchored inline list is empty → clean review, skip to Phase 7
+- If the latest summary contains "No issues found" **and** the anchored inline list is empty → clean review, skip to Phase 7. One exception: on a documentation-only PR the summary also carries a `**Usability:**` verdict, and a **"less usable"** verdict is a finding no matter what the rest of the summary says. Treat it as an Address Now item — cut what the verdict names — rather than a clean review. `scripts/pr-review.sh` tells the reviewer not to pair the two, but the merge decision is made here, so do not depend on that.
 - Every anchored inline review comment → **Address Now** (they are all substantive by design)
 - **Always read the latest summary body for findings too**, not only when the inline list is empty. `scripts/pr-review.sh` puts out-of-diff findings and anything past its 5-comment inline cap in the summary alone, so summary-only findings routinely arrive *alongside* inline ones. They are Address Now items as well.
 - Never merge on an empty inline list alone.
@@ -1025,7 +1027,7 @@ The reviewer only posts substantive issues (no nitpicks), so triage is simpler:
 
 The bar exists because the reviewer is asked "what is wrong with this?" and never "is this now worse than it was three rounds ago?" — an asymmetry that makes the loop self-sustaining. Each HON-627 finding was individually defensible; together they improved grep recall and destroyed the artifact's usability, which was the entire point of the artifact. A finding that makes a document longer and harder to follow is a finding worth dropping.
 
-**What the bar decides, given the cap.** Round 3 routes to 6.7 either way, so the bar never changes *where* the run goes — it decides *what gets written into the artifact* on the way out. That is the thing HON-627 actually lost: not the routing, but three rounds of accretion appended after the document had stopped improving. Dropping a coverage-only finding here means the human at 6.7 inherits the artifact at its most usable, plus a `not actioned:` note explaining the call, rather than a longer document and no record of why it grew.
+**What the bar decides, given the cap.** Two things. It decides *what gets written into the artifact* on the way out — the thing HON-627 actually lost was not the routing but three rounds of accretion appended after the document had stopped improving. And because 6.6 branch C sends a round-3 PR to 6.7 only when something is left **unresolved**, it also decides whether the run merges or hands off: a coverage-only finding dropped here with a `not actioned:` note is resolved, so the PR merges. Chasing it instead would leave the artifact longer and, if it could not be settled, strand the run for a human to close by hand.
 
 Record the call rather than silently skipping it — see 6.5's `not actioned:` convention.
 
@@ -1053,9 +1055,11 @@ For a **summary-only finding** there is no comment to reply to; collect it and l
 
 Keep the `not actioned: coverage-only, round >= 3` prefix literal — it is what makes the decisions greppable across PRs when judging whether the bar is set right.
 
-### 6.6 Commit and push fixes
+### 6.6 Commit and push fixes, then decide the round
 
-If fixes were made:
+**Always enter 6.6, even when 6.5 changed nothing.** Only the commit-and-push half below is conditional; the round decision after it is what routes every path out of Phase 6, so skipping the step on "no fixes were made" skips the merge-vs-hand-off decision with it.
+
+#### Commit and push — only if fixes were made
 
 ```bash
 git status --porcelain
@@ -1075,24 +1079,26 @@ EOF
 git push
 ```
 
-Wait for CI again — re-run the 6.1 foreground wait-chunk + verification, re-issuing on `CI_WAITING` until a terminal marker. Do not end the turn here.
+Wait for CI again — re-run the 6.1 foreground wait-chunk + verification, re-issuing on `CI_WAITING` until a terminal marker. Do not end the turn here. (Nothing pushed means no new head, so CI has already settled — skip straight to the decision.)
 
-Then take exactly one of these three branches. `ROUND` is from 6.3; "fixes were pushed" means 6.5 changed something and the commit above exists.
+#### Then decide the round — this part always runs
 
-**A. Fixes were pushed and `ROUND` < 3** → go back to **6.3** and run the next review round against the new head.
+The commit above is conditional on 6.5 having changed something. **The decision below is not**: run it on every pass through 6.6, including one where nothing was committed. `ROUND` is from 6.3; "fixes were pushed" means the commit above exists.
+
+**A. `ROUND` < 3 and fixes were pushed** → go back to **6.3** and run the next review round against the new head.
 
 ```
 [auto-implement] ✓ Round ${ROUND}/3 addressed and pushed → re-reviewing
 ```
 
-**B. Fixes were pushed and `ROUND` ≥ 3** → the cap is reached. Do **not** run another review and do **not** proceed to Phase 7. Go to **6.7**.
+**B. `ROUND` < 3 and nothing changed** — every finding was deferred as genuinely out of scope. A re-review would return the identical findings against the identical diff, so never loop back to 6.3 here. Proceed to **Phase 7** and merge: the defer was deliberate, and the diff the reviewer saw is the diff being merged.
 
-**C. No fixes were made** — every finding was deferred as genuinely out of scope, or dropped by the materiality bar. Nothing changed, so a re-review would return the identical findings against the identical diff; never loop back to 6.3 on this branch, at any round. Instead:
+**C. `ROUND` ≥ 3 — the cap.** Never run a 4th review, whether or not fixes were pushed. The cap bounds *reviews*, not merges, so what happens next depends on whether anything is still unresolved:
 
-- `ROUND` < 3 → proceed to Phase 7 and merge, as before. The findings were a deliberate defer, and the diff the reviewer approved is the diff being merged.
-- `ROUND` ≥ 3 → go to **6.7**. At the cap, findings left unaddressed are handed to a human rather than merged past.
+- **Every finding resolved** — the material ones fixed and pushed, the coverage-only ones dropped by 6.4's bar with a `not actioned:` note — → **Phase 7, merge.** Round 3's fix ships without a 4th review, which is exactly how the two 3-round PRs in the recent history converged (#704: review `08:03:05Z` → fix `08:10:50Z` → merged `08:20:04Z`; #700: `22:23:34Z` → `22:28:03Z` → `22:37:06Z`). Stranding these would triple the hand-off rate for no gain and walk the orchestrator toward `MAX_CONSECUTIVE_FAILURES`.
+- **A correctness or safety finding is still unresolved** — too large to fix in scope, or it needs a decision this run should not make alone — → **6.7 hand-off.** This is the case the issue means by "listing the unaddressed findings": a human resolves what a 4th round would otherwise have chased.
 
-Print the block below only when Phase 6 actually hands off to Phase 7 — that is branch C under the cap here, or the clean-review exit in 6.4. Branch A goes back to 6.3; branch B and branch C at the cap go to 6.7, and both print their own markers instead:
+Print the block below whenever Phase 6 hands off to Phase 7 — branch B, branch C with everything resolved, or the clean-review exit in 6.4. Branch A goes back to 6.3, and branch C with something unresolved goes to 6.7 and prints its own markers:
 
 ```
 [auto-implement] ✓ Reviews addressed (round ${ROUND}/3)
@@ -1102,9 +1108,9 @@ Print the block below only when Phase 6 actually hands off to Phase 7 — that i
 
 ### 6.7 Review-round cap reached — terminal hand-off
 
-Reached only from 6.6 branch B or C — `ROUND` ≥ 3 with findings still on the table. It is a **designed exit, not a crash**: the work is committed, CI is green, and the PR is left open for a human to judge. Getting here in ~25 minutes instead of 2h45m is the entire point, and the `Stranded` label and its recovery path already exist and need no change.
+Reached only from 6.6 branch C, and only when a **correctness or safety finding is still unresolved** at the cap. It is a **designed exit, not a crash**: the work is committed, CI is green, and the PR is left open for a human to judge. Getting here in ~25 minutes instead of 2h45m is the entire point, and the `Stranded` label and its recovery path already exist and need no change.
 
-**It is not free, though, and must not become routine.** `scripts/orchestrator.sh` `strand_worker` treats an unmerged run as a failure to ship: it logs `[OUTCOME] … STRANDED`, calls `note_consecutive_failure` (three in a row trips the circuit breaker at `MAX_CONSECUTIVE_FAILURES=3`), sets `ONCE_EXIT_CODE=1`, and deliberately skips `cleanup_worker_worktree` — so every hand-off leaves a worktree, a local branch and a Neon branch that only `wt cleanup <branch>` reclaims. A cap hand-off should stay the exception it was before (one run in the last 13). If runs start landing here regularly, the answer is to look at why the reviewer keeps finding things, not to raise the cap.
+**It is not free, though, and must stay rare.** `scripts/orchestrator.sh` `strand_worker` treats an unmerged run as a failure to ship: it logs `[OUTCOME] … STRANDED`, calls `note_consecutive_failure` (three in a row trips the circuit breaker at `MAX_CONSECUTIVE_FAILURES=3`), sets `ONCE_EXIT_CODE=1`, and deliberately skips `cleanup_worker_worktree` — so every hand-off leaves a worktree, a local branch and a Neon branch that only `wt cleanup <branch>` reclaims. That cost is why 6.6 branch C merges when round 3's findings were all resolved: of the last 13 PRs, only HON-627 would reach 6.7, and the two that used three rounds shipped without a human. If runs start landing here regularly, the answer is to look at why the reviewer keeps finding unresolvable things, not to raise the cap.
 
 Post a hand-off comment on the PR listing what happened, so the human inherits the decisions rather than re-deriving them:
 

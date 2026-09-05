@@ -290,6 +290,8 @@ Then apply that verdict to your findings:
 - **Drop** any finding whose fix would make the document longer or harder to follow without correcting something that is actually wrong. "This does not cover the case where X", "consider also noting Y", and "this could be more precise" are coverage suggestions, not defects.
 - **Keep** genuine defects: a broken reference (a path, line number, step number, or command that does not resolve), a factually wrong statement, an instruction that would cause the wrong action, or an internal contradiction.
 - If the verdict is "less usable", say what to **cut**. That is a more valuable finding than anything you could add.
+
+**A "less usable" verdict is itself a finding, and must be filed as one.** Do NOT write "No issues found" in a summary whose verdict is "less usable" — automation substring-tests for that phrase to decide the review was clean and merges on it, so the regression would be discarded silently, which is the exact outcome this section exists to prevent. When the verdict is "less usable", the "Issues found" list must have at least one entry naming what to cut. "No issues found" is correct only when the verdict is "more usable" or "about the same" and you have no other findings.
 PROSE_PROMPT
 fi
 
