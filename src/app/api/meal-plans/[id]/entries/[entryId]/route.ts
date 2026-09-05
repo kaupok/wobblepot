@@ -271,18 +271,41 @@ export async function PATCH(
       // same starting quantity and the second write overwrote the first
       // (1000g, −300g and −200g, left the pantry at 800g instead of 500g).
       // `decrement` makes the two compose (HON-625).
-      const deductions = componentsToDeduct.map((component) => ({
-        ingredientId: component.ingredientId,
-        amount: component.quantityPerServing * effectiveServings,
-      }))
+      const deductions = componentsToDeduct
+        .map((component) => ({
+          ingredientId: component.ingredientId,
+          amount: component.quantityPerServing * effectiveServings,
+        }))
+        // Take the pantry row locks in a deterministic order. `meal.components`
+        // is selected without an `orderBy`, so two meals sharing ingredients
+        // can list them in opposite orders — and two completions locking the
+        // same rows in opposite orders deadlock (Postgres 40P01), which the
+        // catch below turns into a 500 that rolls the whole completion back.
+        .sort((a, b) => a.ingredientId.localeCompare(b.ingredientId))
 
-      // Execute all operations in a transaction
-      await prisma.$transaction([
-        // Update the entry status
-        prisma.mealPlanEntry.update({
-          where: { id: entryId },
+      const pantryDeducted = await prisma.$transaction(async (tx) => {
+        // Claim the completion, and let the database decide who won. The
+        // `status` this guards on was read at the top of the handler, outside
+        // any transaction, so `shouldDeductPantry` alone cannot keep two
+        // concurrent completions of the *same* entry (a double submit, two
+        // tabs, a client retry) from both passing it and both deducting —
+        // charging the pantry twice for one cooked meal. Re-testing it here as
+        // a conditional write makes it a no-op for the loser: it takes the
+        // entry's row lock, so the second transaction only proceeds once the
+        // first has committed `completed`.
+        const claimed = await tx.mealPlanEntry.updateMany({
+          where: { id: entryId, status: { not: MealPlanEntryStatus.completed } },
           data: updateData,
-        }),
+        })
+
+        if (claimed.count === 0) {
+          // Lost the race. Persist the rest of the update but charge nothing —
+          // exactly what this request would have done had it arrived after the
+          // winner committed, and read `completed` at the top.
+          await tx.mealPlanEntry.update({ where: { id: entryId }, data: updateData })
+          return false
+        }
+
         // Deduct each ingredient. `householdId` + `ingredientId` is unique, so
         // this matches at most one row; `updateMany` (rather than `update`) is
         // what makes an ingredient the household has no pantry row for a
@@ -290,8 +313,8 @@ export async function PATCH(
         // null quantity means "some, amount unknown" — there is nothing to
         // subtract from, so both are filtered out here and the null rows are
         // picked up by the cleanup below.
-        ...deductions.map(({ ingredientId, amount }) =>
-          prisma.pantryItem.updateMany({
+        for (const { ingredientId, amount } of deductions) {
+          await tx.pantryItem.updateMany({
             where: {
               householdId: household.id,
               ingredientId,
@@ -299,30 +322,33 @@ export async function PATCH(
               quantity: { not: null },
             },
             data: { quantity: { decrement: amount } },
-          }),
-        ),
+          })
+        }
+
         // Clear out what the deduction emptied. This runs last on purpose: it
         // is evaluated against the post-decrement quantity, which is the only
         // way to judge depletion without the application-side read above. A
         // row the deduction overshot is briefly negative, but never outside
         // this transaction. Unquantified rows (`quantity: null`) are consumed
         // in full by cooking with them, so they go too.
-        prisma.pantryItem.deleteMany({
+        await tx.pantryItem.deleteMany({
           where: {
             householdId: household.id,
             ingredientId: { in: deductions.map((d) => d.ingredientId) },
             isStaple: false,
             OR: [{ quantity: null }, { quantity: { lte: 0 } }],
           },
-        }),
-      ])
+        })
+
+        return true
+      })
 
       return NextResponse.json({
         id: entryId,
         status: updateData.status,
         mealId: updateData.mealId ?? entry.mealId,
         rating: updateData.rating,
-        pantryDeducted: true,
+        pantryDeducted,
       })
     }
 

@@ -18,6 +18,7 @@ vi.mock('@/lib/prisma', () => ({
     mealPlanEntry: {
       findFirst: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       delete: vi.fn(),
     },
     meal: {
@@ -75,6 +76,22 @@ const createParams = () => Promise.resolve({ id: 'plan-123', entryId: 'entry-123
 const mockPantryUpdateMany = vi.mocked(prisma.pantryItem.updateMany)
 const mockPantryDeleteMany = vi.mocked(prisma.pantryItem.deleteMany)
 const mockPantryUpdate = vi.mocked(prisma.pantryItem.update)
+const mockClaimEntry = vi.mocked(prisma.mealPlanEntry.updateMany)
+
+/**
+ * Run the deduction's interactive transaction against the same `prisma` mock,
+ * so `tx.pantryItem.updateMany` and `prisma.pantryItem.updateMany` are one
+ * spy and the assertions below can read the calls the route made inside it.
+ *
+ * `claimedCount` is what the conditional entry claim reports: 1 when this
+ * request won the completion, 0 when a concurrent one got there first.
+ */
+const mockDeductionTransaction = (claimedCount = 1) => {
+  mockClaimEntry.mockResolvedValue({ count: claimedCount } as never)
+  vi.mocked(prisma.$transaction).mockImplementation(((
+    run: (tx: typeof prisma) => Promise<unknown>,
+  ) => run(prisma)) as never)
+}
 
 /**
  * The decrement `updateMany` the route issues for one ingredient.
@@ -217,7 +234,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
       },
     } as never)
 
-    vi.mocked(prisma.$transaction).mockResolvedValue(undefined as never)
+    mockDeductionTransaction()
 
     const response = await PATCH(createPatchRequest({ status: 'completed', deductPantry: true }), {
       params: createParams(),
@@ -245,7 +262,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
       },
     } as never)
 
-    vi.mocked(prisma.$transaction).mockResolvedValue(undefined as never)
+    mockDeductionTransaction()
 
     const response = await PATCH(
       createPatchRequest({ status: 'completed', deductPantry: true, servingOverride: 4 }),
@@ -277,7 +294,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
       id: 'new-meal-456',
       components: [{ ingredientId: 'ing-1', quantityPerServing: 100 }],
     } as never)
-    vi.mocked(prisma.$transaction).mockResolvedValue(undefined as never)
+    mockDeductionTransaction()
 
     const response = await PATCH(
       createPatchRequest({
@@ -313,7 +330,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
       id: 'new-meal-456',
       components: [{ ingredientId: 'ing-fish', quantityPerServing: 150 }],
     } as never)
-    vi.mocked(prisma.$transaction).mockResolvedValue(undefined as never)
+    mockDeductionTransaction()
 
     const response = await PATCH(
       createPatchRequest({
@@ -459,7 +476,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
       },
     } as never)
 
-    vi.mocked(prisma.$transaction).mockResolvedValue(undefined as never)
+    mockDeductionTransaction()
 
     const response = await PATCH(createPatchRequest({ status: 'completed', deductPantry: true }), {
       params: createParams(),
@@ -518,7 +535,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction
     vi.clearAllMocks()
     mockGetSession.mockResolvedValue(mockSession)
     mockGetMembership.mockResolvedValue(mockMembership)
-    vi.mocked(prisma.$transaction).mockResolvedValue(undefined as never)
+    mockDeductionTransaction()
   })
 
   const completeWithComponents = (
@@ -596,11 +613,65 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction
     })
   })
 
+  it('claims the completion with a conditional write before deducting', async () => {
+    // `shouldDeductPantry` tests a `status` read outside any transaction, so
+    // on its own it cannot stop two concurrent completions of the same entry
+    // (double submit, two tabs, a client retry) from both deducting. The
+    // conditional claim is what makes the loser a no-op.
+    const response = await completeWithComponents([
+      { ingredientId: 'ing-1', quantityPerServing: 100 },
+    ])
+
+    expect(response.status).toBe(200)
+    expect(mockClaimEntry).toHaveBeenCalledWith({
+      where: { id: 'entry-123', status: { not: 'completed' } },
+      data: expect.objectContaining({ status: 'completed' }),
+    })
+  })
+
+  it('charges nothing when a concurrent request already claimed the completion', async () => {
+    // The claim matched no row, so another transaction committed `completed`
+    // first and has already charged the pantry. This request still persists
+    // its update — the same outcome as arriving after the winner committed
+    // and reading `completed` at the top of the handler.
+    mockDeductionTransaction(0)
+
+    const response = await completeWithComponents([
+      { ingredientId: 'ing-1', quantityPerServing: 100 },
+    ])
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.pantryDeducted).toBe(false)
+    expect(mockPantryUpdateMany).not.toHaveBeenCalled()
+    expect(mockPantryDeleteMany).not.toHaveBeenCalled()
+    expect(mockUpdateEntry).toHaveBeenCalledWith({
+      where: { id: 'entry-123' },
+      data: expect.objectContaining({ status: 'completed' }),
+    })
+  })
+
+  it('locks pantry rows in a deterministic order across meals', async () => {
+    // `meal.components` has no `orderBy`, so two meals sharing ingredients can
+    // list them in opposite orders. Two completions taking the same rows in
+    // opposite orders deadlock (Postgres 40P01), which surfaces as a 500 and
+    // rolls the completion back — so the route sorts before locking.
+    const response = await completeWithComponents([
+      { ingredientId: 'ing-onion', quantityPerServing: 100 },
+      { ingredientId: 'ing-garlic', quantityPerServing: 50 },
+    ])
+
+    expect(response.status).toBe(200)
+    expect(mockPantryUpdateMany.mock.calls.map(([args]) => args.where?.ingredientId)).toEqual([
+      'ing-garlic',
+      'ing-onion',
+    ])
+  })
+
   it('runs the depletion cleanup after every decrement, inside one transaction', async () => {
-    // `prisma.$transaction([...])` executes its array in order, and the array
-    // is built in call order — so a cleanup that ran before the decrements
-    // would judge depletion against the pre-deduction quantity and leave
-    // emptied rows in the pantry.
+    // The transaction body awaits in sequence, so a cleanup that ran before
+    // the decrements would judge depletion against the pre-deduction quantity
+    // and leave emptied rows in the pantry.
     const response = await completeWithComponents([
       { ingredientId: 'ing-1', quantityPerServing: 100 },
       { ingredientId: 'ing-2', quantityPerServing: 50 },
@@ -608,15 +679,19 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction
 
     expect(response.status).toBe(200)
     const pantryOps = [
+      ...mockClaimEntry.mock.invocationCallOrder.map((order) => ({ order, op: 'claim' })),
       ...mockPantryUpdateMany.mock.invocationCallOrder.map((order) => ({ order, op: 'decrement' })),
       ...mockPantryDeleteMany.mock.invocationCallOrder.map((order) => ({ order, op: 'cleanup' })),
     ].sort((a, b) => a.order - b.order)
 
-    expect(pantryOps.map((entry) => entry.op)).toEqual(['decrement', 'decrement', 'cleanup'])
-    // Entry update + one decrement per ingredient + the single cleanup, all
-    // handed to one transaction — no pantry write escapes it.
+    expect(pantryOps.map((entry) => entry.op)).toEqual([
+      'claim',
+      'decrement',
+      'decrement',
+      'cleanup',
+    ])
+    // All of it inside one transaction — no pantry write escapes it.
     expect(vi.mocked(prisma.$transaction)).toHaveBeenCalledTimes(1)
-    expect(vi.mocked(prisma.$transaction).mock.lastCall?.[0]).toHaveLength(4)
   })
 })
 
