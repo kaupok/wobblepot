@@ -105,6 +105,8 @@ export type EventPayload = {
   'recipe:imported': { source: Source }
   'pantry:item_added': { source: Source }
   'shopping:item_purchased': { source: Source }
+  /** `item_count` is the number of lines written to the clipboard — a count, never item names. */
+  'shopping:list_copied': { source: Source; item_count: number }
 }
 
 export type EventName = keyof EventPayload

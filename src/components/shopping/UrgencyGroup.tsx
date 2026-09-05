@@ -5,7 +5,11 @@ import type { UrgencyBucket } from '@/lib/meal-planning/dates'
 import { Body } from '@/components/ui/typography'
 import { ShoppingItem, type ShoppingItemData } from './ShoppingItem'
 
-const URGENCY_KEYS: Record<UrgencyBucket, 'today' | 'tomorrow' | 'thisWeek' | 'later'> = {
+/**
+ * Bucket → `dates.urgency` key. Exported so the clipboard export in
+ * `ShoppingSection` reuses it rather than re-declaring the mapping.
+ */
+export const URGENCY_KEYS: Record<UrgencyBucket, 'today' | 'tomorrow' | 'thisWeek' | 'later'> = {
   today: 'today',
   tomorrow: 'tomorrow',
   'this-week': 'thisWeek',

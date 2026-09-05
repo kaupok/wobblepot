@@ -62,6 +62,9 @@
       "alphabetical": "Tähestiku järgi"
     },
     "clearChecked": "Kustuta märgitud",
+    "copyList": "Kopeeri nimekiri",
+    "copyHeading": "Poenimekiri · {range}",
+    "copySuccess": "Poenimekiri kopeeritud",
     "otherSection": "📝 Muu ({count})",
     "customItemsSection": "📝 Lisatud tooted ({count})",
     "customInputPlaceholder": "Lisa toode…",
@@ -80,7 +83,8 @@
       "updateFailed": "Toote uuendamine ebaõnnestus",
       "unlinkFailed": "Ühenduse eemaldamine ebaõnnestus",
       "removeFailed": "Toote eemaldamine ebaõnnestus",
-      "clearCheckedFailed": "Märgitud toodete kustutamine ebaõnnestus"
+      "clearCheckedFailed": "Märgitud toodete kustutamine ebaõnnestus",
+      "copyFailed": "Nimekirja kopeerimine ebaõnnestus"
     },
     "emptyState": {
       "noPlanHeading": "Söögiplaani veel pole",
