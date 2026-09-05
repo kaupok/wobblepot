@@ -189,12 +189,15 @@ Starting with step 1...
 
 Then implement following the plan steps (or issue description if `--no-plan`).
 
+**Work the plan's `## Coupled callsites` section too, if it has one.** It is a sibling of `## Implementation Steps`, not a member, so "follow the plan steps" walks straight past it. Every entry bucketed **Mirror** must be edited in this phase — the section exists because `/plan-issue` step 7b found callsites that hardcode a copy of the geometry you are changing, and leaving them for review is the failure that scan was written to prevent.
+
 ### 9. Signal completion
 
 Before signalling completion, confirm the definition of done:
 
 - **E2E drift**: if you touched `src/app/**/page.tsx`, a route URL, navigation/CTA copy, or a modal/dialog, grep `tests/e2e/` via the spec `// ROUTES: … · COMPONENTS: …` headers (`grep -l "ROUTES.*<route>\|COMPONENTS.*<Component>" tests/e2e/*.spec.ts`; for copy renames also `grep -rn "<exact old copy>" tests/e2e/`) and update affected specs (CLAUDE.md E2E rule)
 - **Storybook**: if you touched `src/components/**`, create/update the colocated `.stories.tsx` and run `pnpm test-storybook:ci` (CLAUDE.md Storybook rule)
+- **Coupled callsites**: if you changed a geometry default on a primitive under `src/components/ui/*.tsx`, a `@theme` token, or a shared layout wrapper, every **Mirror** is edited — from the plan's `## Coupled callsites` section if it has one, otherwise by running `/plan-issue` step 7b's greps now. Keyed off the diff, not the plan, so it still fires under `--no-plan` and on plans written before that section existed (CLAUDE.md shared-primitive geometry rule)
 - `pnpm lint && pnpm type-check && pnpm test` pass
 
 After implementing all steps, output the completion marker exactly as shown:

@@ -397,6 +397,8 @@ Using Read, Grep, and Glob tools:
 
 Focus on files directly relevant to the issue (2-5 files max).
 
+**If the issue changes a shared primitive's geometry** (a size/height/padding/radius default under `src/components/ui/*.tsx`, a `@theme` token, or a shared layout wrapper default): run the coupling scan from `/plan-issue` step 7b — this skill inlines its own planning phase, so 7b does not otherwise fire here — and record the result as a `## Coupled callsites` section in the 2.7 plan, grouped Mirror / Override / Deliberate. Write an explicit `none — no callsite hardcodes the changed <property>` if it found nothing.
+
 **If Phase 2.3 flagged any recently-merged sibling issues:** also run `git log --oneline --since="14 days ago" -- <overlapping-paths>` and `git diff origin/main~<N>..origin/main -- <overlapping-paths>` to see what the sibling actually changed. The Explore agent sees only static file content; it can't know which lines are new. Reading the diff prevents the "I searched and it didn't exist" → "it existed and I duplicated it" failure mode.
 
 ### 2.7 Write plan
@@ -436,6 +438,10 @@ Write the plan directly in your response using this structure:
 ## Tests
 
 - `src/path/to/file.test.ts` - [What to test]
+
+## Coupled callsites
+
+[From the step 7b scan in 2.6. Group by Mirror / Override / Deliberate with a `file:line` and a one-line reason each — the Deliberate bucket is only useful with the reason. If the scan ran and found nothing, write `none — no callsite hardcodes the changed <property>`, naming the property scanned; without that branch a clean scan is indistinguishable from one that never fired. Omit entirely only if the issue changes no primitive geometry, `@theme` token, or shared layout wrapper.]
 
 ## Verification
 
@@ -518,6 +524,7 @@ For each implementation step in the plan:
 3. Write tests for new functionality (unit tests colocated with source files)
 4. Follow patterns from CLAUDE.md
 5. If `src/components/**` changed → create/update the colocated `.stories.tsx` (CLAUDE.md Storybook rule) and run `pnpm test-storybook:ci`
+6. If the 2.7 plan has a `## Coupled callsites` section, work it like the implementation steps — it is a sibling of `## Implementation Steps`, not a member, so nothing else will pick it up. Every **Mirror** must be edited in this phase; leaving them for the 4.3 review bullet reproduces the find-it-in-review failure this scan exists to prevent
 
 ### 3.3 Batched plans: commit and push per batch
 
@@ -602,6 +609,7 @@ CLAUDE.md is already loaded as project instructions — do not re-read it. Read 
 - **Performance**: N+1 queries, unnecessary re-renders, large bundle imports
 - **E2E drift**: If the diff includes `src/app/**/page.tsx`, a route URL, a modal/dialog component, or changes user-visible copy in a heading/button/link, grep `tests/e2e/` for stale references via the spec `// ROUTES: … · COMPONENTS: …` headers (`grep -l "ROUTES.*<route>\|COMPONENTS.*<OldName>" tests/e2e/*.spec.ts`; for copy renames also `grep -rn "<exact old copy>" tests/e2e/`) and update affected specs (CLAUDE.md E2E rule)
 - **Storybook**: If the diff touches `src/components/**`, the colocated `.stories.tsx` was created/updated for the new variants and states and `pnpm test-storybook:ci` passes (CLAUDE.md Storybook rule)
+- **Shared-primitive coupling**: If the diff changes a geometry default on a primitive under `src/components/ui/*.tsx`, a `@theme` token, or a shared layout wrapper, run `/plan-issue` step 7b's greps against the **old** literal and confirm every Mirror moved with it. Skeletons are the usual miss — HON-612 desynced 12 route `loading.tsx` files this way and review, not planning, caught it (CLAUDE.md shared-primitive geometry rule)
 
 ### 4.4 Triage issues
 

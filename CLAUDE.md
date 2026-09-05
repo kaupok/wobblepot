@@ -236,6 +236,12 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **CRITICAL: When modifying `src/app/**/page.tsx`, changing a route's URL, renaming a navigation/CTA copy string, or restructuring a modal/dialog, grep `tests/e2e`for references and update the affected specs in the same PR.** The tier 1 E2E check catches drift on`main`, but specs that reference removed routes or renamed copy are cheap to miss locally and expensive to fix in batch (see HON-518). Use the per-spec `// ROUTES: … · COMPONENTS: …` header comments to scope the grep. This is part of the definition of done — the same loud-rule treatment as colocated Storybook stories.
 
+## Shared-primitive geometry
+
+**CRITICAL: When changing a size, height, padding, or radius default on a primitive under `src/components/ui/*.tsx`, a `@theme` token in `globals.css`, or a shared layout wrapper, find the callsites that hardcode a copy of the old value before you change it.** Skeletons, sibling primitives sharing the old value, and `className` overrides all keep their own copy, and none of them is visible from the primitive's own file.
+
+`/plan-issue` step 7b has the greps and the Mirror / Override / Deliberate classification; run them against the **old** literal. This is part of the definition of done — the same loud-rule treatment as colocated Storybook stories and E2E specs. HON-612 raised the control height to 44px and desynced 12 route `loading.tsx` skeletons that PR review, not planning, had to catch.
+
 ## Storybook
 
 **Storybook 10** with `@storybook/nextjs-vite` for component development and review in isolation.
