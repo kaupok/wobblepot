@@ -7,13 +7,14 @@ import { Skeleton } from '@/components/ui/skeleton'
  * border, same `p-3`, same content lines — and mirrors the variant this route
  * actually serves: the one carrying the "needed in window" caption, at 70px.
  *
- * That variant is not the exception here. `src/app/shopping/page.tsx` always
- * fetches `/api/pantry?days=7|14`, so the caption branch is live on every load;
- * it fires for any pantry ingredient a planned meal needs, and the query sorts
- * `isStaple desc`, so the rows these four skeletons stand in for are the
- * staples — the ingredients a week of meals is most likely to reuse. A row
- * whose ingredient the plan does not need renders 12px shorter; the story pins
- * that delta rather than leaving it to prose.
+ * Which variant to mirror is a bet, not a fact. `src/app/shopping/page.tsx`
+ * always fetches `/api/pantry?days=7|14`, but the caption is per row: it needs
+ * a `planned` entry in the window whose meal uses that ingredient. The bet is
+ * on the state this screen is normally reached in — a planned week — where the
+ * query's `isStaple desc` ordering puts the ingredients a week of meals reuses
+ * under exactly these four skeletons. With no plan in the window no row gets a
+ * caption and all four are 12px too tall, which is the cost of the bet. The
+ * story pins that 12px rather than leaving it to prose.
  *
  * Colocated with `PantrySection.tsx` because that is where the row it copies
  * lives — `components/pantry/PantryItem.tsx` looks like the counterpart but has
@@ -24,7 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton'
  */
 export function PantryItemRowSkeleton() {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+    <div className="flex items-center justify-between rounded-lg border p-3">
       <div className="flex items-center gap-3">
         {/* Staple star toggle — `Button size="icon-sm"`, so `size-8`. */}
         <Skeleton aria-hidden className="size-8 shrink-0 rounded-md" />
