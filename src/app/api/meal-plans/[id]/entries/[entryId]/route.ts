@@ -264,46 +264,17 @@ export async function PATCH(
           : entry,
         householdSize,
       )
-      const components = componentsToDeduct
-
-      // Fetch pantry items for the household
-      const pantryItems = await prisma.pantryItem.findMany({
-        where: {
-          householdId: household.id,
-          ingredientId: { in: components.map((c) => c.ingredientId) },
-        },
-      })
-
-      const pantryMap = new Map(pantryItems.map((item) => [item.ingredientId, item]))
-
-      // Prepare deduction operations
-      const itemsToDelete: string[] = []
-      const itemsToUpdate: { id: string; newQuantity: number }[] = []
-
-      for (const component of components) {
-        const pantryItem = pantryMap.get(component.ingredientId)
-
-        // Skip if not in pantry or is a staple
-        if (!pantryItem || pantryItem.isStaple) continue
-
-        const deductionAmount = component.quantityPerServing * effectiveServings
-
-        // If quantity is null, remove from pantry (treat as fully consumed)
-        if (pantryItem.quantity === null) {
-          itemsToDelete.push(pantryItem.id)
-          continue
-        }
-
-        const newQuantity = pantryItem.quantity - deductionAmount
-
-        if (newQuantity <= 0) {
-          // Remove item if depleted
-          itemsToDelete.push(pantryItem.id)
-        } else {
-          // Update with new quantity
-          itemsToUpdate.push({ id: pantryItem.id, newQuantity })
-        }
-      }
+      // How much of each ingredient this meal consumes. The database applies
+      // these as relative decrements — nothing here reads a pantry quantity,
+      // because reading one is what used to lose deductions: two entries
+      // sharing an ingredient and completed at the same moment both read the
+      // same starting quantity and the second write overwrote the first
+      // (1000g, −300g and −200g, left the pantry at 800g instead of 500g).
+      // `decrement` makes the two compose (HON-625).
+      const deductions = componentsToDeduct.map((component) => ({
+        ingredientId: component.ingredientId,
+        amount: component.quantityPerServing * effectiveServings,
+      }))
 
       // Execute all operations in a transaction
       await prisma.$transaction([
@@ -312,21 +283,38 @@ export async function PATCH(
           where: { id: entryId },
           data: updateData,
         }),
-        // Delete depleted items
-        ...(itemsToDelete.length > 0
-          ? [
-              prisma.pantryItem.deleteMany({
-                where: { id: { in: itemsToDelete } },
-              }),
-            ]
-          : []),
-        // Update quantities
-        ...itemsToUpdate.map((item) =>
-          prisma.pantryItem.update({
-            where: { id: item.id },
-            data: { quantity: item.newQuantity },
+        // Deduct each ingredient. `householdId` + `ingredientId` is unique, so
+        // this matches at most one row; `updateMany` (rather than `update`) is
+        // what makes an ingredient the household has no pantry row for a
+        // no-op instead of a throw. Staples are exempt from deduction, and a
+        // null quantity means "some, amount unknown" — there is nothing to
+        // subtract from, so both are filtered out here and the null rows are
+        // picked up by the cleanup below.
+        ...deductions.map(({ ingredientId, amount }) =>
+          prisma.pantryItem.updateMany({
+            where: {
+              householdId: household.id,
+              ingredientId,
+              isStaple: false,
+              quantity: { not: null },
+            },
+            data: { quantity: { decrement: amount } },
           }),
         ),
+        // Clear out what the deduction emptied. This runs last on purpose: it
+        // is evaluated against the post-decrement quantity, which is the only
+        // way to judge depletion without the application-side read above. A
+        // row the deduction overshot is briefly negative, but never outside
+        // this transaction. Unquantified rows (`quantity: null`) are consumed
+        // in full by cooking with them, so they go too.
+        prisma.pantryItem.deleteMany({
+          where: {
+            householdId: household.id,
+            ingredientId: { in: deductions.map((d) => d.ingredientId) },
+            isStaple: false,
+            OR: [{ quantity: null }, { quantity: { lte: 0 } }],
+          },
+        }),
       ])
 
       return NextResponse.json({

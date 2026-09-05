@@ -24,9 +24,9 @@ vi.mock('@/lib/prisma', () => ({
       findFirst: vi.fn(),
     },
     pantryItem: {
-      findMany: vi.fn(),
       deleteMany: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     $transaction: vi.fn(),
   },
@@ -71,6 +71,29 @@ const createDeleteRequest = () =>
   })
 
 const createParams = () => Promise.resolve({ id: 'plan-123', entryId: 'entry-123' })
+
+const mockPantryUpdateMany = vi.mocked(prisma.pantryItem.updateMany)
+const mockPantryDeleteMany = vi.mocked(prisma.pantryItem.deleteMany)
+const mockPantryUpdate = vi.mocked(prisma.pantryItem.update)
+
+/**
+ * The decrement `updateMany` the route issues for one ingredient.
+ *
+ * Every deduction goes through this shape, so the assertions below only ever
+ * have to name the ingredient and the amount. The `isStaple` / `quantity`
+ * filters are part of the shape on purpose: they are what replaced the
+ * application-side `if (pantryItem.isStaple) continue` and null check, so a
+ * regression that drops them has to fail a test.
+ */
+const decrementOf = (ingredientId: string, amount: number) => ({
+  where: {
+    householdId: 'household-123',
+    ingredientId,
+    isStaple: false,
+    quantity: { not: null },
+  },
+  data: { quantity: { decrement: amount } },
+})
 
 describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
   beforeEach(() => {
@@ -194,10 +217,6 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
       },
     } as never)
 
-    vi.mocked(prisma.pantryItem.findMany).mockResolvedValue([
-      { id: 'pantry-1', ingredientId: 'ing-1', quantity: 500, isStaple: false },
-    ] as never)
-
     vi.mocked(prisma.$transaction).mockResolvedValue(undefined as never)
 
     const response = await PATCH(createPatchRequest({ status: 'completed', deductPantry: true }), {
@@ -226,9 +245,6 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
       },
     } as never)
 
-    vi.mocked(prisma.pantryItem.findMany).mockResolvedValue([
-      { id: 'pantry-1', ingredientId: 'ing-1', quantity: 1000, isStaple: false },
-    ] as never)
     vi.mocked(prisma.$transaction).mockResolvedValue(undefined as never)
 
     const response = await PATCH(
@@ -237,10 +253,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(vi.mocked(prisma.pantryItem.update)).toHaveBeenCalledWith({
-      where: { id: 'pantry-1' },
-      data: { quantity: 600 }, // 1000 - 100 × 4
-    })
+    expect(mockPantryUpdateMany).toHaveBeenCalledWith(decrementOf('ing-1', 400)) // 100 × 4
   })
 
   it('deducts using the household size when a meal swap resets the override', async () => {
@@ -264,9 +277,6 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
       id: 'new-meal-456',
       components: [{ ingredientId: 'ing-1', quantityPerServing: 100 }],
     } as never)
-    vi.mocked(prisma.pantryItem.findMany).mockResolvedValue([
-      { id: 'pantry-1', ingredientId: 'ing-1', quantity: 1000, isStaple: false },
-    ] as never)
     vi.mocked(prisma.$transaction).mockResolvedValue(undefined as never)
 
     const response = await PATCH(
@@ -279,10 +289,8 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(vi.mocked(prisma.pantryItem.update)).toHaveBeenCalledWith({
-      where: { id: 'pantry-1' },
-      data: { quantity: 800 }, // 1000 - 100 × 2 members, not × the reset 6
-    })
+    // 100 × 2 members, not × the reset 6
+    expect(mockPantryUpdateMany).toHaveBeenCalledWith(decrementOf('ing-1', 200))
   })
 
   it('deducts the incoming meal on a swap, not the meal the entry was read with', async () => {
@@ -305,9 +313,6 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
       id: 'new-meal-456',
       components: [{ ingredientId: 'ing-fish', quantityPerServing: 150 }],
     } as never)
-    vi.mocked(prisma.pantryItem.findMany).mockResolvedValue([
-      { id: 'pantry-fish', ingredientId: 'ing-fish', quantity: 1000, isStaple: false },
-    ] as never)
     vi.mocked(prisma.$transaction).mockResolvedValue(undefined as never)
 
     const response = await PATCH(
@@ -322,16 +327,14 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
 
     expect(response.status).toBe(200)
     expect(data.pantryDeducted).toBe(true)
-    // Only the new meal's ingredient is even looked up in the pantry.
-    expect(vi.mocked(prisma.pantryItem.findMany)).toHaveBeenCalledWith(
+    // Only the new meal's ingredient is touched at all — 150 × 2 members.
+    expect(mockPantryUpdateMany).toHaveBeenCalledTimes(1)
+    expect(mockPantryUpdateMany).toHaveBeenCalledWith(decrementOf('ing-fish', 300))
+    expect(mockPantryDeleteMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ ingredientId: { in: ['ing-fish'] } }),
       }),
     )
-    expect(vi.mocked(prisma.pantryItem.update)).toHaveBeenCalledWith({
-      where: { id: 'pantry-fish' },
-      data: { quantity: 700 }, // 1000 - 150 × 2 members
-    })
   })
 
   it('deducts nothing when the swap target has no components', async () => {
@@ -371,9 +374,8 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
 
     expect(response.status).toBe(200)
     expect(data.pantryDeducted).toBeUndefined()
-    expect(vi.mocked(prisma.pantryItem.findMany)).not.toHaveBeenCalled()
-    expect(vi.mocked(prisma.pantryItem.update)).not.toHaveBeenCalled()
-    expect(vi.mocked(prisma.pantryItem.deleteMany)).not.toHaveBeenCalled()
+    expect(mockPantryUpdateMany).not.toHaveBeenCalled()
+    expect(mockPantryDeleteMany).not.toHaveBeenCalled()
   })
 
   it('scopes the swap lookup to meals the household may see', async () => {
@@ -437,9 +439,8 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
 
     expect(response.status).toBe(200)
     expect(data.pantryDeducted).toBeUndefined()
-    expect(vi.mocked(prisma.pantryItem.findMany)).not.toHaveBeenCalled()
-    expect(vi.mocked(prisma.pantryItem.update)).not.toHaveBeenCalled()
-    expect(vi.mocked(prisma.pantryItem.deleteMany)).not.toHaveBeenCalled()
+    expect(mockPantryUpdateMany).not.toHaveBeenCalled()
+    expect(mockPantryDeleteMany).not.toHaveBeenCalled()
   })
 
   it('still deducts when re-completing an entry that was reverted to planned', async () => {
@@ -458,9 +459,6 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
       },
     } as never)
 
-    vi.mocked(prisma.pantryItem.findMany).mockResolvedValue([
-      { id: 'pantry-1', ingredientId: 'ing-1', quantity: 1000, isStaple: false },
-    ] as never)
     vi.mocked(prisma.$transaction).mockResolvedValue(undefined as never)
 
     const response = await PATCH(createPatchRequest({ status: 'completed', deductPantry: true }), {
@@ -470,10 +468,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
 
     expect(response.status).toBe(200)
     expect(data.pantryDeducted).toBe(true)
-    expect(vi.mocked(prisma.pantryItem.update)).toHaveBeenCalledWith({
-      where: { id: 'pantry-1' },
-      data: { quantity: 800 },
-    })
+    expect(mockPantryUpdateMany).toHaveBeenCalledWith(decrementOf('ing-1', 200))
   })
 
   it('leaves the pantry untouched when a swap omits deductPantry', async () => {
@@ -508,9 +503,120 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
     expect(response.status).toBe(200)
     expect(data.mealId).toBe('new-meal-456')
     expect(data.pantryDeducted).toBeUndefined()
-    expect(vi.mocked(prisma.pantryItem.findMany)).not.toHaveBeenCalled()
-    expect(vi.mocked(prisma.pantryItem.update)).not.toHaveBeenCalled()
-    expect(vi.mocked(prisma.pantryItem.deleteMany)).not.toHaveBeenCalled()
+    expect(mockPantryUpdateMany).not.toHaveBeenCalled()
+    expect(mockPantryDeleteMany).not.toHaveBeenCalled()
+  })
+})
+
+describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction', () => {
+  // The route used to read each pantry row, subtract in JS, and write the
+  // resulting absolute quantity. Two entries sharing an ingredient and
+  // completed at the same moment both read the same starting quantity, so the
+  // second write silently discarded the first deduction (HON-625). These tests
+  // pin the shape that closes it: the database does the arithmetic.
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetSession.mockResolvedValue(mockSession)
+    mockGetMembership.mockResolvedValue(mockMembership)
+    vi.mocked(prisma.$transaction).mockResolvedValue(undefined as never)
+  })
+
+  const completeWithComponents = (
+    components: { ingredientId: string; quantityPerServing: number }[],
+    members = [{ id: 'member-1' }, { id: 'member-2' }],
+  ) => {
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      status: 'planned',
+      servingOverride: null,
+      plan: { household: { members } },
+      meal: { components },
+    } as never)
+
+    return PATCH(createPatchRequest({ status: 'completed', deductPantry: true }), {
+      params: createParams(),
+    })
+  }
+
+  it('never writes an application-computed absolute quantity', async () => {
+    // The acceptance criterion for the race: with 1000g in the pantry, two
+    // concurrent completions taking 300g and 200g must land at 500g. Nothing
+    // asserted here reads 1000 — that is the point. Because the write is
+    // relative, the two decrements compose in the database instead of one
+    // overwriting the other with a stale 700 or 800.
+    const response = await completeWithComponents([
+      { ingredientId: 'ing-1', quantityPerServing: 150 },
+    ])
+
+    expect(response.status).toBe(200)
+    // No absolute-quantity write survives anywhere: not through the per-row
+    // `update` the old code used, and not smuggled into `updateMany.data`.
+    expect(mockPantryUpdate).not.toHaveBeenCalled()
+    for (const [args] of mockPantryUpdateMany.mock.calls) {
+      expect(args.data.quantity).toEqual({ decrement: expect.any(Number) })
+    }
+    expect(mockPantryUpdateMany).toHaveBeenCalledWith(decrementOf('ing-1', 300))
+  })
+
+  it('scopes each decrement to a non-staple, quantified row of this household', async () => {
+    // Staples are exempt from deduction and a null quantity means "some,
+    // amount unknown" — there is nothing to subtract from. Both used to be
+    // application-side branches over the pantry read; they are now `where`
+    // filters, which is what let the read go away.
+    const response = await completeWithComponents([
+      { ingredientId: 'ing-1', quantityPerServing: 100 },
+      { ingredientId: 'ing-2', quantityPerServing: 50 },
+    ])
+
+    expect(response.status).toBe(200)
+    expect(mockPantryUpdateMany).toHaveBeenCalledTimes(2)
+    expect(mockPantryUpdateMany).toHaveBeenCalledWith(decrementOf('ing-1', 200))
+    expect(mockPantryUpdateMany).toHaveBeenCalledWith(decrementOf('ing-2', 100))
+  })
+
+  it('deletes rows the deduction depleted, and unquantified rows, in one cleanup', async () => {
+    // Depletion is judged against the post-decrement value, so an overshoot
+    // can never be left behind at a negative quantity. `quantity: null` rows
+    // are skipped by the decrement above and swept up here instead.
+    const response = await completeWithComponents([
+      { ingredientId: 'ing-1', quantityPerServing: 100 },
+      { ingredientId: 'ing-2', quantityPerServing: 50 },
+    ])
+
+    expect(response.status).toBe(200)
+    expect(mockPantryDeleteMany).toHaveBeenCalledTimes(1)
+    expect(mockPantryDeleteMany).toHaveBeenCalledWith({
+      where: {
+        householdId: 'household-123',
+        ingredientId: { in: ['ing-1', 'ing-2'] },
+        isStaple: false,
+        OR: [{ quantity: null }, { quantity: { lte: 0 } }],
+      },
+    })
+  })
+
+  it('runs the depletion cleanup after every decrement, inside one transaction', async () => {
+    // `prisma.$transaction([...])` executes its array in order, and the array
+    // is built in call order — so a cleanup that ran before the decrements
+    // would judge depletion against the pre-deduction quantity and leave
+    // emptied rows in the pantry.
+    const response = await completeWithComponents([
+      { ingredientId: 'ing-1', quantityPerServing: 100 },
+      { ingredientId: 'ing-2', quantityPerServing: 50 },
+    ])
+
+    expect(response.status).toBe(200)
+    const pantryOps = [
+      ...mockPantryUpdateMany.mock.invocationCallOrder.map((order) => ({ order, op: 'decrement' })),
+      ...mockPantryDeleteMany.mock.invocationCallOrder.map((order) => ({ order, op: 'cleanup' })),
+    ].sort((a, b) => a.order - b.order)
+
+    expect(pantryOps.map((entry) => entry.op)).toEqual(['decrement', 'decrement', 'cleanup'])
+    // Entry update + one decrement per ingredient + the single cleanup, all
+    // handed to one transaction — no pantry write escapes it.
+    expect(vi.mocked(prisma.$transaction)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(prisma.$transaction).mock.lastCall?.[0]).toHaveLength(4)
   })
 })
 
