@@ -238,7 +238,7 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 ## Shared-primitive geometry
 
-**CRITICAL: When changing a size, height, padding, or radius default on a primitive under `src/components/ui/*.tsx`, a `@theme` token in `globals.css`, or a shared layout wrapper, find the callsites that hardcode a copy of the old value before you change it.** Skeletons, sibling controls, `className` and `size=` overrides, the primitive's own test and stories, the tailwind-merge registration in `src/lib/utils.ts`, and the prose in `docs/DESIGN.md` all keep their own copy, and none of them is visible from the primitive's file.
+**CRITICAL: When changing a size, height, padding, or radius default on a primitive under `src/components/ui/*.tsx`, a `@theme` token in `globals.css`, or a shared layout wrapper, find the callsites that hardcode a copy of the old value before you change it.** Skeletons, sibling primitives sharing the old value, and `className` overrides all keep their own copy, and none of them is visible from the primitive's own file.
 
 `/plan-issue` step 7b has the greps and the Mirror / Override / Deliberate classification; run them against the **old** literal. This is part of the definition of done — the same loud-rule treatment as colocated Storybook stories and E2E specs. HON-612 raised the control height to 44px and desynced 12 route `loading.tsx` skeletons that PR review, not planning, had to catch.
 
