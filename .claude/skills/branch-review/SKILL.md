@@ -215,7 +215,7 @@ Files: `file1.ts`, `file2.ts`, ...
 
 #### Defer
 1. [Issue description] - [Why it's out of scope]
-   → **Create issue:** [Proposed Linear issue title]
+   → **Create issue:** [AUTO DRAFT] [Proposed Linear issue title]
 2. ...
 (If empty: "None")
 
@@ -250,6 +250,12 @@ Files: `file1.ts`, `file2.ts`, ...
 [If any items were deferred, list proposed Linear issues here:]
 - [ ] [Issue title] - [Brief description]
 ```
+
+### Deferred issue titles
+
+Prefix every proposed title with `[AUTO DRAFT]`, matching `/auto-implement` 6.8, so an issue that originated in a review pass is traceable and filterable however it reaches Linear. The prefix keeps the issue out of unattended selection until a human clears it via `/refine-backlog --auto-drafts`.
+
+This skill proposes only — it never files the issues itself. The caller creates the ones they want.
 
 ## Completion
 
