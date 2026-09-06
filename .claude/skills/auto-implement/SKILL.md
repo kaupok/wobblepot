@@ -627,9 +627,16 @@ Categories:
 - **Defer**: Only for significant out-of-scope work
 - **Skip**: Disagree or not actionable
 
-**Append every Defer item to `/tmp/auto-implement-deferrals-HON-XX.md` as you triage it**, one `##`-headed block each, carrying enough detail for 6.8 to file it without this conversation: the finding, the file and line, and why it was out of scope. 6.8 reads that file.
+**Truncate `/tmp/auto-implement-deferrals-HON-XX.md`, then append every Defer item to it as you triage.** Truncate first, unconditionally — `scripts/orchestrator.sh` retries a failed worker once on the same issue, `/tmp` outlives the worktree teardown, and 2.1 passes that retry through, so an append-only file doubles every block on the second attempt and spends the 3-issue cap on copies that 6.8's Linear duplicate check cannot catch (they are not filed yet).
 
-Phase 5, the 6.1 CI wait, and up to three review rounds sit between here and 6.8. This document already refuses to trust in-context state across that span — `ROUND` is derived from GitHub markers rather than a local counter precisely because that survives process death and context summarization within a run — and a Defer list held only in the conversation is exactly the local counter that argument rejects. 6.4's findings are re-fetchable from the PR; 4.4's are not.
+```bash
+DEFERRALS=/tmp/auto-implement-deferrals-HON-XX.md
+: > "$DEFERRALS"   # truncate once, here, at the start of triage
+```
+
+Write one `##`-headed block per item, carrying enough for 6.8 to file it without this conversation: the finding, the file and line, and why it was out of scope.
+
+This file is the **single sink for every deferral in the run** — 6.4 appends to it each round as well. Phase 5, the 6.1 CI wait, and up to three review rounds sit between here and 6.8, and this document already refuses to trust in-context state across that span: `ROUND` comes from GitHub markers rather than a local counter precisely because that survives process death and context summarization within a run.
 
 ### 4.5 Fix loop
 
@@ -1037,6 +1044,8 @@ The bar exists because the reviewer is asked "what is wrong with this?" and neve
 
 Record the call rather than silently skipping it — see 6.5's `not actioned:` convention.
 
+**Append every Defer item to `/tmp/auto-implement-deferrals-HON-XX.md`** — the same file 4.4 truncated and started — in the same `##`-headed block format, as you triage each round. Do not plan to re-read them from the PR at 6.8: the summary fetch above ends in `| last` by design, so a summary-only deferral from round 1 or 2 is unreadable once round 3 has posted, and `scripts/pr-review.sh` puts out-of-diff findings and anything past its 5-comment inline cap in the summary alone. Appending each round is what makes those survive to 6.8.
+
 ### 6.5 Address review comments
 
 For each item in "Address Now":
@@ -1152,6 +1161,7 @@ gh api /repos/:owner/:repo/issues/<PR_NUMBER>/comments \
 
 **Deferred to follow-up issues (6.8):**
 - [one line per \`[AUTO DRAFT]\` issue filed, with its HON-ID, or 'none']
+- [any deferral 6.8 did not file, with why: over the 3-issue cap, skipped as a duplicate of an existing HON-ID, or a filing failure — 7.6 never runs on this path, so if it is not written here it is written nowhere]
 
 To finish: review the above, then merge, or push a fix and merge. If this run was orchestrated it also carries the \`Stranded\` label and a preserved worktree — release it with \`wt cleanup <branch>\` and clear the label once the PR is settled, or nothing reclaims either."
 ```
@@ -1178,16 +1188,13 @@ Runs on every exit from Phase 6, with no exception: 6.4's clean-review exit (whi
 
 When 6.8 is reached via 6.6, that step has already printed `[review-pr:complete]` and "Proceeding to Phase 7". Those are progress signals for `detect_phase` in `scripts/orchestrator.sh`, not a gate — they do not license skipping 6.8. Do not print them again here.
 
-Anything still in the **Defer** bucket once the fix loop has settled gets filed as a Linear issue before the merge. Two sources, read both:
+Everything deferred during the run gets filed as a Linear issue before the merge. One sink, written by 4.4 and by every 6.4 round:
 
 ```bash
-cat /tmp/auto-implement-deferrals-HON-XX.md 2>/dev/null || echo "(no Phase 4 deferrals)"
+cat /tmp/auto-implement-deferrals-HON-XX.md 2>/dev/null || echo "(no deferrals)"
 ```
 
-- **Phase 4** — the file above, written by 4.4 as it triaged. Do not rely on the conversation for these; Phase 5 and up to three CI waits sit in between.
-- **Phase 6** — 6.4's Defer bucket, re-fetchable from the PR's inline comments and `<!-- claude-review -->` summary.
-
-File once, here, covering both; do not file from Phase 4, or the same finding lands twice. Delete the file once the issues are filed, so a resumed run cannot double-file them.
+Read it rather than the conversation, and rather than the PR: Phase 5 and up to three CI waits sit between 4.4 and here, and 6.4's summary fetch keeps only the newest round, so an earlier round's summary-only deferral is no longer on any readable surface. File once, here; do not file from Phase 4 or 6.4, or the same finding lands twice. Delete the file once the issues are filed, so a resumed run cannot double-file them.
 
 A deferral that exists only in a PR comment is gone the moment the PR merges. The bucket exists precisely for findings that are real but out of scope, and a real finding with no ticket is one nobody will see again.
 
@@ -1248,13 +1255,18 @@ When neither 4.4 nor 6.4 deferred anything, this step is a no-op — a clean PR 
 [auto-implement] No deferred findings to file
 ```
 
-**A filing failure never blocks the merge.** The PR is green and reviewed by this point; holding it back because Linear returned an error trades a shipped fix for a bookkeeping entry. If `save_issue` fails, retry once, and if it fails again print the full issue body you were trying to file so the operator can paste it in, then continue to Phase 7:
+**A filing failure never blocks the merge.** The PR is green and reviewed by this point; holding it back because Linear returned an error trades a shipped fix for a bookkeeping entry. If `save_issue` fails, retry once, and if it fails again print the full issue body you were trying to file so the operator can paste it in, then continue — on the failure path as on the success path, by the exit rule below:
 
 ```
 [auto-implement] ⚠ Could not file deferred finding(s) — Linear error: <message>
 [auto-implement] Unfiled body follows, copy into Linear manually:
 <the full title + description>
 ```
+
+**Then leave by the door you came in.** 6.8 has two exits, and taking the wrong one is how a hand-off turns into an unwanted merge:
+
+- **Entered from 6.7** — go **back to 6.7**: post the hand-off comment with the filed IDs, print 6.7's markers, and stop. **Do not continue to Phase 7.** That path is holding the PR open because a correctness or safety finding is unresolved; merging it here would also skip `strand_worker`'s label and worktree preservation.
+- **Entered from any other path** (6.4 clean-review, 6.6 branch B, 6.6 branch C resolved) — continue to Phase 7 and merge.
 
 ---
 
