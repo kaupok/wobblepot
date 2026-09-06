@@ -1,7 +1,7 @@
 ---
 name: refine-backlog
 description: Refine draft or labeled issues into actionable backlog items with proper relationships
-argument-hint: '[--tech | --label <name> | --issue HON-XX]'
+argument-hint: '[--auto-drafts | --tech | --label <name> | --issue HON-XX]'
 context: inherit
 ---
 
@@ -16,6 +16,7 @@ You are assisting CPO+CTO in fleshing out draft ideas, features, and issues into
 Determine the refinement scope:
 
 - **No arguments**: Find `[DRAFT]` issues (default behavior)
+- **`--auto-drafts`**: Find `[AUTO DRAFT]` issues — review findings filed by `/auto-implement` 6.8. These are already written to the "Writing for Agents" bar, so refinement is usually a judgment pass rather than a rewrite: confirm the finding is real and still current, adjust priority, then clear the prefix. Clearing `[AUTO DRAFT]` is what readmits the issue to unattended selection (`/auto-implement` 1.5, `/next-issue` step 5), so do not clear it on an issue you would not want an agent to pick up on its own.
 - **`--tech`**: Shortcut for `--label Tech` — find issues with the "Tech" label (typically created by `/tech-audit`)
 - **`--label <name>`**: Find issues with the specified label
 - **`--issue HON-XX`**: Refine a single specific issue
@@ -43,6 +44,20 @@ mcp__linear-server__list_issues({
   limit: 50,
 })
 ```
+
+**Then drop every result whose title starts with `[AUTO DRAFT]`.** Linear's search is full-text, so `query: '[DRAFT]'` matches `[AUTO DRAFT]` titles as well — verified against the live workspace, not assumed. Without this filter the default no-argument run sweeps up agent-filed review findings and strips their prefix, silently readmitting them to unattended selection (`/auto-implement` 1.5, `/next-issue` step 5). That gate is the whole reason the prefix exists. Auto-drafts are reachable only through `--auto-drafts`, which is a deliberate choice by the operator.
+
+**Auto-draft mode (`--auto-drafts`):**
+
+```typescript
+mcp__linear-server__list_issues({
+  query: '[AUTO DRAFT]',
+  includeArchived: false,
+  limit: 50,
+})
+```
+
+Keep only results whose title actually starts with `[AUTO DRAFT]`. Full-text search matches on terms rather than the literal bracketed string, so do not assume this query returns auto-drafts alone — the filter is cheap and does not depend on knowing the exact matching rule.
 
 **Label mode (`--tech` or `--label <name>`):**
 
@@ -132,7 +147,7 @@ When writing descriptions, reference other issues as plain text (`HON-NNN`), nev
 ```typescript
 mcp__linear-server__save_issue({
   id: 'HON-XX',
-  title: 'Refined title without [DRAFT]', // Remove [DRAFT] if present; keep as-is for labeled issues
+  title: 'Refined title without the prefix', // Strip a leading [DRAFT] or [AUTO DRAFT]; keep as-is for labeled issues
   description: 'Full description with acceptance criteria',
   // Add relationships as needed:
   // blockedBy: ['HON-XX'],

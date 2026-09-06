@@ -251,6 +251,10 @@ Files: `file1.ts`, `file2.ts`, ...
 - [ ] [Issue title] - [Brief description]
 ```
 
+### Deferred issue titles
+
+Do **not** prefix these with `[AUTO DRAFT]`. That prefix means an agent filed the issue unattended (`/auto-implement` 6.8), and it gates the issue out of `/auto-implement` 1.5 and `/next-issue --auto` until a human clears it. This skill files nothing — it proposes, and a human reads each proposal and decides whether to create it. Such an issue is human-filed at birth, so gating it would only force a second skill run to strip a marker nobody asked for.
+
 ## Completion
 
 After outputting the review, add the completion marker:

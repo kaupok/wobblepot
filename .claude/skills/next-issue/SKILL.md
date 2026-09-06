@@ -92,7 +92,7 @@ Find the next unblocked issue and return a concise implementation summary.
 
    Skim for red-flag phrases: "add env var", "add secret", "configure DNS", "sign up", "provision", "API key", "`support@`", "legal entity", "OÜ", "Resend", "Upstash", "PostHog", "Sentry", "Anthropic console", "Vercel dashboard", "manual spot-check", "reads natural", "feels native", "idiomatic Estonian", "voice reference", "tone of voice", "native speaker", "copy review", and any AC that references a specific human by name as the reviewer.
 
-   Reject `[DRAFT]` titles outright in no-human-input mode — a draft spec is not ready for unattended implementation, and `/auto-implement` rejects the same. Keeping these symmetric is non-negotiable: the `wt auto [branchName]` chain passes the issue ID through to `/auto-implement` as an explicit arg, which skips the filter, so a DRAFT surfaced here would still trigger unattended work.
+   Reject `[DRAFT]` and `[AUTO DRAFT]` titles outright in no-human-input mode — a draft spec is not ready for unattended implementation, and an `[AUTO DRAFT]` is a review finding an agent filed for itself (`/auto-implement` 6.8), which no unattended cycle should pick up unreviewed. `/auto-implement` 1.5 rejects both. Keeping these symmetric is non-negotiable: the `wt auto [branchName]` chain passes the issue ID through to `/auto-implement` as an explicit arg, which skips the filter, so either prefix surfaced here would still trigger unattended work.
 
 6. **Prioritize surviving candidates**
    - Todo before Backlog
