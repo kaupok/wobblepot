@@ -1,10 +1,10 @@
-// ROUTES: /, /shopping · COMPONENTS: FirstTimeSetup, TimelineView, MealCard, PantrySection
+// ROUTES: /, /shopping · COMPONENTS: FirstTimeSetup, TimelineView, MealCard, PantrySection, InlineAddItem
 import { test, expect } from '@playwright/test'
 import { signUpWithHousehold } from './utils/test-helpers'
 
 // WHY: Large enough that `quantityPerServing × householdSize` can never deplete
-// it to 0, so the deduction stays on the "update quantity" branch and the
-// assertion is a simple subtraction.
+// it to 0, so the row survives the post-decrement `deleteMany` cleanup the
+// deduction runs (HON-625) and the assertion is a simple subtraction.
 const STARTING_QUANTITY = 10000
 
 interface EntryComponent {
@@ -113,7 +113,10 @@ test.describe('Pantry deduction on meal completion', { tag: '@ai' }, () => {
 
     // Add the ingredient to the pantry via the UI on /shopping.
     await page.goto('/shopping')
-    const addInput = page.getByPlaceholder('Add ingredient to pantry...')
+    // Regex, not an exact string: `pantry.addPlaceholder` ends in a U+2026
+    // ellipsis, and an exact match broke silently when the i18n migration
+    // normalised the ASCII `...` (HON-634). The words are the contract.
+    const addInput = page.getByPlaceholder(/Add ingredient to pantry/)
     await addInput.fill(ingredientName)
 
     // Wait for the ingredient button in the dropdown, then click it and
