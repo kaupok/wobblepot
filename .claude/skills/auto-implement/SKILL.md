@@ -778,10 +778,10 @@ Every round ends in exactly one of these, and only the second one re-enters 6.3:
 
 | Outcome of the round                                                                   | Next                                                                    |
 | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Clean review — summary says "No issues found" **and** the anchored inline list is empty | Phase 7, merge (6.4)                                                    |
+| Clean review — summary says "No issues found" **and** the anchored inline list is empty | 6.8 → Phase 7, merge (6.4)                                              |
 | `ROUND` < 3, findings addressed and pushed                                             | back to 6.3 for the next round (6.6 branch A)                           |
-| `ROUND` < 3, nothing changed — every finding deliberately deferred                     | never re-review an identical diff → Phase 7, merge (6.6 branch B)       |
-| `ROUND` ≥ 3, everything resolved (fixed, or dropped by 6.4's bar with a note)           | Phase 7, merge — no 4th review (6.6 branch C)                           |
+| `ROUND` < 3, nothing changed — every finding deliberately deferred                     | never re-review an identical diff → 6.8 → Phase 7, merge (6.6 branch B) |
+| `ROUND` ≥ 3, everything resolved (fixed, or dropped by 6.4's bar with a note)           | 6.8 → Phase 7, merge — no 4th review (6.6 branch C)                     |
 | `ROUND` ≥ 3, a correctness/safety finding still unresolved                             | **6.7 terminal hand-off** — PR left open for a human (6.6 branch C)     |
 
 `./scripts/pr-review.sh` is therefore invoked at most 3 times in Phase 6. No other step in this skill invokes a reviewer, 6.3 stops the cycle unless the marker count strictly increases, and 6.1's CI-fix loop is separately capped at 2 attempts — so there is no path through Phase 6 that runs a 4th round.
@@ -1013,7 +1013,7 @@ This is also why the fetch cannot be written as `--paginate --jq '… | last'`: 
 The reviewer only posts substantive issues (no nitpicks), so triage is simpler:
 
 - **If the fetch returns no summary at all** → the review did not complete. Do not read this as clean; stop and report, matching 6.3's warning. An absent summary and a clean summary are not the same thing.
-- If the latest summary contains "No issues found" **and** the anchored inline list is empty → clean review, skip to Phase 7. One exception: on a documentation-only PR the summary also carries a `**Usability:**` verdict, and a **"less usable"** verdict is a finding no matter what the rest of the summary says. Treat it as an Address Now item — cut what the verdict names — rather than a clean review. `scripts/pr-review.sh` tells the reviewer not to pair the two, but the merge decision is made here, so do not depend on that.
+- If the latest summary contains "No issues found" **and** the anchored inline list is empty → clean review, skip to 6.8 (Phase 4 may still have left deferrals to file), then Phase 7. One exception: on a documentation-only PR the summary also carries a `**Usability:**` verdict, and a **"less usable"** verdict is a finding no matter what the rest of the summary says. Treat it as an Address Now item — cut what the verdict names — rather than a clean review. `scripts/pr-review.sh` tells the reviewer not to pair the two, but the merge decision is made here, so do not depend on that.
 - Every anchored inline review comment → **Address Now** (they are all substantive by design)
 - **Always read the latest summary body for findings too**, not only when the inline list is empty. `scripts/pr-review.sh` puts out-of-diff findings and anything past its 5-comment inline cap in the summary alone, so summary-only findings routinely arrive *alongside* inline ones. They are Address Now items as well.
 - Never merge on an empty inline list alone.
@@ -1102,13 +1102,13 @@ The commit above is conditional on 6.5 having changed something. **The decision 
 [auto-implement] ✓ Round ${ROUND}/3 addressed and pushed → re-reviewing
 ```
 
-**B. `ROUND` < 3 and nothing changed** — every finding was deferred as genuinely out of scope. A re-review would return the identical findings against the identical diff, so never loop back to 6.3 here. Proceed to **Phase 7** and merge: the defer was deliberate, and the diff the reviewer saw is the diff being merged.
+**B. `ROUND` < 3 and nothing changed** — every finding was deferred as genuinely out of scope. A re-review would return the identical findings against the identical diff, so never loop back to 6.3 here. Proceed to **6.8** — this is the branch with the most to file, since it fires precisely when every finding was deferred — and then to Phase 7 and merge: the defer was deliberate, and the diff the reviewer saw is the diff being merged.
 
 > **An unresolved correctness or safety finding routes to 6.7 at any round, not just at the cap.** 6.4's "significant work → defer if genuinely out of scope" covers scope, not defects, and the rule must not depend on which round the defect surfaced in: handing one to a human on round 3 while merging the identical one on round 1 would make "defer everything immediately" the cheapest and least supervised way out of Phase 6. Deferring is for work that belongs in another issue. If a correctness or safety finding is real and simply unfixed, go to **6.7** and say so under "Still open".
 
 **C. `ROUND` ≥ 3 — the cap.** Never run a 4th review, whether or not fixes were pushed. The cap bounds *reviews*, not merges, so what happens next depends on whether anything is still unresolved:
 
-- **Every finding resolved** — the material ones fixed and pushed, the coverage-only ones dropped by 6.4's bar with a `not actioned:` note — → **Phase 7, merge.** Round 3's fix ships without a 4th review, which is exactly how the two 3-round PRs in the recent history converged (#704: review `08:03:05Z` → fix `08:10:50Z` → merged `08:20:04Z`; #700: `22:23:34Z` → `22:28:03Z` → `22:37:06Z`). Stranding these would triple the hand-off rate for no gain and walk the orchestrator toward `MAX_CONSECUTIVE_FAILURES`.
+- **Every finding resolved** — the material ones fixed and pushed, the coverage-only ones dropped by 6.4's bar with a `not actioned:` note — → **6.8, then Phase 7, merge.** Round 3's fix ships without a 4th review, which is exactly how the two 3-round PRs in the recent history converged (#704: review `08:03:05Z` → fix `08:10:50Z` → merged `08:20:04Z`; #700: `22:23:34Z` → `22:28:03Z` → `22:37:06Z`). Stranding these would triple the hand-off rate for no gain and walk the orchestrator toward `MAX_CONSECUTIVE_FAILURES`.
 - **A correctness or safety finding is still unresolved** — too large to fix in scope, or it needs a decision this run should not make alone — → **6.7 hand-off.** This is the case the issue means by "listing the unaddressed findings": a human resolves what a 4th round would otherwise have chased.
 
 Print the block below on branch B, or on branch C with everything resolved. Branch A goes back to 6.3, and branch C with something unresolved goes to 6.7 and prints its own markers. (6.4's clean-review exit skips 6.6 entirely and prints this block itself on its way to Phase 7.)
@@ -1175,7 +1175,7 @@ A deferral that exists only in a PR comment is gone the moment the PR merges. Th
 
 **Filing is not cheaper than fixing.** The effort-first rules in 4.4 and 6.4 still decide the bucket, and this step does not soften them. An `[AUTO DRAFT]` issue for something that was a five-minute fix is a defect in the cycle, not an output.
 
-**Cap: 3 issues per cycle.** A cycle that files six tickets per PR grows the backlog faster than the cycle drains it. If more than three survive, rank by the priority you would assign each one (2 before 3 before 4), break ties by putting correctness and data-loss findings ahead of everything else, and file the top three. List the remainder in the 7.6 report as unfiled, one line each — they are not lost, they are handed to the operator.
+**Cap: 3 issues per cycle.** A cycle that files six tickets per PR grows the backlog faster than the cycle drains it. Run the duplicate check below across every deferral **first** — a duplicate adds nothing to the backlog, so it must not consume a slot — then, if more than three still survive, rank by the priority you would assign each one (2 before 3 before 4), break ties by putting correctness and data-loss findings ahead of everything else, and file the top three. List the remainder in the 7.6 report as unfiled, one line each — they are not lost, they are handed to the operator.
 
 **Check each one isn't already filed.** A deferred finding often names a pre-existing condition, and the review pass has no memory of the backlog:
 
@@ -1468,7 +1468,7 @@ Cannot fetch into main (already checked out in parent worktree). Skip local clea
 
 ### 7.6 Report completion
 
-If 6.8 filed anything, skipped a duplicate, or hit the 3-issue cap, say so before the mode-specific block — this is the only place the operator sees it without opening Linear:
+If 6.8 filed anything, skipped a duplicate, hit the 3-issue cap, or failed to file, say so before the mode-specific block — this is the only place the operator sees it without opening Linear:
 
 ```
 Deferred findings:

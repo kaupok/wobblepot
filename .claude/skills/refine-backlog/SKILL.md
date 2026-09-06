@@ -1,7 +1,7 @@
 ---
 name: refine-backlog
 description: Refine draft or labeled issues into actionable backlog items with proper relationships
-argument-hint: '[--tech | --label <name> | --issue HON-XX]'
+argument-hint: '[--auto-drafts | --tech | --label <name> | --issue HON-XX]'
 context: inherit
 ---
 
@@ -57,7 +57,7 @@ mcp__linear-server__list_issues({
 })
 ```
 
-Keep only results whose title actually starts with `[AUTO DRAFT]` — the same full-text behaviour means this query also returns plain `[DRAFT]` issues.
+Keep only results whose title actually starts with `[AUTO DRAFT]`. Full-text search matches on terms rather than the literal bracketed string, so do not assume this query returns auto-drafts alone — the filter is cheap and does not depend on knowing the exact matching rule.
 
 **Label mode (`--tech` or `--label <name>`):**
 
