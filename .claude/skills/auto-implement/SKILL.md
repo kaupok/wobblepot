@@ -627,6 +627,10 @@ Categories:
 - **Defer**: Only for significant out-of-scope work
 - **Skip**: Disagree or not actionable
 
+**Append every Defer item to `/tmp/auto-implement-deferrals-HON-XX.md` as you triage it**, one `##`-headed block each, carrying enough detail for 6.8 to file it without this conversation: the finding, the file and line, and why it was out of scope. 6.8 reads that file.
+
+Phase 5, the 6.1 CI wait, and up to three review rounds sit between here and 6.8. This document already refuses to trust in-context state across that span — `ROUND` is derived from GitHub markers rather than a local counter precisely because that survives process death and context summarization within a run — and a Defer list held only in the conversation is exactly the local counter that argument rejects. 6.4's findings are re-fetchable from the PR; 4.4's are not.
+
 ### 4.5 Fix loop
 
 If there are issues to address:
@@ -782,7 +786,7 @@ Every round ends in exactly one of these, and only the second one re-enters 6.3:
 | `ROUND` < 3, findings addressed and pushed                                             | back to 6.3 for the next round (6.6 branch A)                           |
 | `ROUND` < 3, nothing changed — every finding deliberately deferred                     | never re-review an identical diff → 6.8 → Phase 7, merge (6.6 branch B) |
 | `ROUND` ≥ 3, everything resolved (fixed, or dropped by 6.4's bar with a note)           | 6.8 → Phase 7, merge — no 4th review (6.6 branch C)                     |
-| `ROUND` ≥ 3, a correctness/safety finding still unresolved                             | **6.7 terminal hand-off** — PR left open for a human (6.6 branch C)     |
+| `ROUND` ≥ 3, a correctness/safety finding still unresolved                             | 6.8 → **6.7 terminal hand-off** — PR left open for a human (6.6 branch C) |
 
 `./scripts/pr-review.sh` is therefore invoked at most 3 times in Phase 6. No other step in this skill invokes a reviewer, 6.3 stops the cycle unless the marker count strictly increases, and 6.1's CI-fix loop is separately capped at 2 attempts — so there is no path through Phase 6 that runs a 4th round.
 
@@ -1125,6 +1129,8 @@ Reached only from 6.6 branch C, and only when a **correctness or safety finding 
 
 **It is not free, though, and must stay rare.** `scripts/orchestrator.sh` `strand_worker` treats an unmerged run as a failure to ship: it logs `[OUTCOME] … STRANDED`, calls `note_consecutive_failure` (three in a row trips the circuit breaker at `MAX_CONSECUTIVE_FAILURES=3`), sets `ONCE_EXIT_CODE=1`, and deliberately skips `cleanup_worker_worktree` — so every hand-off leaves a worktree, a local branch and a Neon branch that only `wt cleanup <branch>` reclaims. That cost is why 6.6 branch C merges when round 3's findings were all resolved: of the last 13 PRs, only HON-627 would reach 6.7, and the two that used three rounds shipped without a human. If runs start landing here regularly, the answer is to look at why the reviewer keeps finding unresolvable things, not to raise the cap.
 
+**First run 6.8** and file any deferrals, so the IDs can go in the comment below. 7.6 is never reached on this path, so this comment is the only place the human learns the run created follow-up issues.
+
 Post a hand-off comment on the PR listing what happened, so the human inherits the decisions rather than re-deriving them:
 
 ```bash
@@ -1143,6 +1149,9 @@ gh api /repos/:owner/:repo/issues/<PR_NUMBER>/comments \
 
 **Still open:**
 - [any finding that is correctness/safety but was too large to fix in scope, or 'none']
+
+**Deferred to follow-up issues (6.8):**
+- [one line per \`[AUTO DRAFT]\` issue filed, with its HON-ID, or 'none']
 
 To finish: review the above, then merge, or push a fix and merge. If this run was orchestrated it also carries the \`Stranded\` label and a preserved worktree — release it with \`wt cleanup <branch>\` and clear the label once the PR is settled, or nothing reclaims either."
 ```
@@ -1165,11 +1174,20 @@ Stop here. Do not proceed to Phase 7. This message ends the turn — it is a ter
 
 ### 6.8 File deferred findings as `[AUTO DRAFT]` issues
 
-Runs on every path bound for Phase 7 — 6.6 branch B, 6.6 branch C with everything resolved, and 6.4's clean-review exit (which skips 6.6 but can still be carrying deferrals from 4.4). It does **not** run after a 6.7 hand-off: that path leaves the PR open with a comment that already puts every open item in front of a human, and a filed ticket would duplicate it.
+Runs on every exit from Phase 6, with no exception: 6.4's clean-review exit (which skips 6.6 but can still be carrying deferrals from 4.4), 6.6 branch B, 6.6 branch C with everything resolved, and the 6.7 hand-off, which routes here before posting its comment. That last one matters most: the hand-off template covers only PR-review findings (addressed, not actioned, still-open correctness/safety), so a Phase 4 deferral — or an ordinary perf or refactor deferral from Phase 6 — fits none of its headings and would otherwise be filed nowhere, reported nowhere (7.6 is never reached on that path), and mentioned in no comment.
 
-6.6 has already printed `[review-pr:complete]` and "Proceeding to Phase 7" by the time this step runs. That block is a progress signal for `detect_phase` in `scripts/orchestrator.sh`, not a gate — it does not license skipping 6.8. Do not print it again here.
+When 6.8 is reached via 6.6, that step has already printed `[review-pr:complete]` and "Proceeding to Phase 7". Those are progress signals for `detect_phase` in `scripts/orchestrator.sh`, not a gate — they do not license skipping 6.8. Do not print them again here.
 
-Anything still in the **Defer** bucket once the fix loop has settled — from 4.4's branch review as well as 6.4's PR review — gets filed as a Linear issue before the merge. File once, here, covering both phases; do not file from Phase 4, or the same finding lands twice.
+Anything still in the **Defer** bucket once the fix loop has settled gets filed as a Linear issue before the merge. Two sources, read both:
+
+```bash
+cat /tmp/auto-implement-deferrals-HON-XX.md 2>/dev/null || echo "(no Phase 4 deferrals)"
+```
+
+- **Phase 4** — the file above, written by 4.4 as it triaged. Do not rely on the conversation for these; Phase 5 and up to three CI waits sit in between.
+- **Phase 6** — 6.4's Defer bucket, re-fetchable from the PR's inline comments and `<!-- claude-review -->` summary.
+
+File once, here, covering both; do not file from Phase 4, or the same finding lands twice. Delete the file once the issues are filed, so a resumed run cannot double-file them.
 
 A deferral that exists only in a PR comment is gone the moment the PR merges. The bucket exists precisely for findings that are real but out of scope, and a real finding with no ticket is one nobody will see again.
 
@@ -1224,7 +1242,7 @@ Report what was filed:
 [auto-implement] Filed N deferred finding(s): HON-AA, HON-BB
 ```
 
-On a clean review this step is a no-op:
+When neither 4.4 nor 6.4 deferred anything, this step is a no-op — a clean PR review alone does not mean that, since 4.4's deferrals arrive here too:
 
 ```
 [auto-implement] No deferred findings to file
@@ -1477,7 +1495,7 @@ Deferred findings:
 - Not filed (over cap): [one line per remaining finding]
 ```
 
-Omit the block entirely when the review was clean.
+Omit the block entirely only when 6.8 had nothing to file — a clean PR review is not sufficient, since 4.4's deferrals reach 6.8 on that path too.
 
 **Regular repo mode:**
 
