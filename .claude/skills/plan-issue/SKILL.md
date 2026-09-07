@@ -283,9 +283,7 @@ mcp__linear-server__save_comment({
 })
 ```
 
-**Never nest a markdown table inside a list item.** Linear's description parser silently strips the list item's content indent — 3 characters under `1. `, 2 under `- ` — off the front of every table _body_ cell. The header and delimiter rows survive, so the table still looks right while `` `MealForm.tsx:153` `` has become `` alForm.tsx:153` ``: data loss, not a rendering glitch, and nothing reports it. Put the table at top level before or after the list, or use a nested bullet list instead. Top-level tables and tables inside a blockquote are safe. See CLAUDE.md → Writing for Agents.
-
-Comment bodies survive this today, so the plan posted here is not itself at risk — write it as if it were anyway, because plan content gets copied by hand into issue descriptions, where it is stripped. Keep every table in the plan at top level, as the step 8 template does.
+Comment bodies are not affected — the plan posted here is not itself at risk. Keep every table in the plan at top level anyway, as the step 8 template does: plan content gets copied by hand into issue descriptions, where Linear silently strips the enclosing list item's content indent off every table body cell (CLAUDE.md → Writing for Agents).
 
 ### 11. Move issue to In Progress and claim it
 
