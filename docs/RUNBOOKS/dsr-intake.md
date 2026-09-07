@@ -19,11 +19,16 @@ This is not a customer-service playbook for general feature questions; it is the
   - `src/app/error.tsx` — route-level error boundary (i18n)
   - `src/app/global-error.tsx` — root error boundary (hardcoded English; renders outside the i18n provider)
   - `src/app/status/page.tsx` — public `/status`
-  - The privacy policy (HON-457) cites it as the GDPR DSR contact
+  - `src/app/(legal)/terms/page.tsx` — the Terms contact
   - `LICENSE` (HON-604) — the licensing-questions line in the root notice
-  - `README.md` — the Security section, for vulnerability reports (`privacy@wobblepot.com` sits beside it and rotates with it)
-  - `docs/RUNBOOKS/status-page.md` — the canonical incident-banner copy, which is pasted verbatim into a user-facing banner
-- **One source of truth:** `src/lib/support.ts` exports `SUPPORT_EMAIL` and `SUPPORT_EMAIL_HREF`. Do not hardcode the address elsewhere — import from there so a future address change is one edit. `LICENSE`, `README.md`, and `docs/RUNBOOKS/status-page.md` are the exceptions: static files and runbook copy with no import mechanism, so an address change has to touch those three by hand. This list is the complete checklist for that change — add to it whenever a new surface starts publishing the address.
+  - `README.md` — the Security section, for vulnerability reports
+  - `docs/RUNBOOKS/status-page.md` — canonical incident-banner copy, pasted verbatim into a user-facing banner
+  - `docs/RUNBOOKS/breach-notification.md` — the `supportUrl` value for the Art. 34 affected-user email
+  - `docs/EMAIL_SETUP.md` — outbound-sender notes
+  - This runbook — the **Address** line above
+  - _Not_ the privacy policy: `src/app/(legal)/privacy/page.tsx` imports `PRIVACY_EMAIL` and publishes `privacy@wobblepot.com` in all four of its contact spots. It rotates with that constant, not this one.
+- **Regenerate this list; do not trust it.** It has been wrong twice. The authoritative pair is `git grep -n 'support@wobblepot.com' -- ':!pnpm-lock.yaml'` and `git grep -ln SUPPORT_EMAIL -- 'src/**'`; run both before a rotation and reconcile against the entries above.
+- **One source of truth:** `src/lib/support.ts` exports `SUPPORT_EMAIL` and `SUPPORT_EMAIL_HREF`. Every `.tsx` entry above imports them, so app code is one edit. The `LICENSE`, `README.md`, and `docs/**` entries hardcode the literal and need hand edits — static files and runbook copy have no import mechanism. `src/lib/resend.ts` names the constant in a comment only. Five tests and stories assert the literal (`src/app/error.test.tsx`, `src/app/global-error.test.tsx`, `src/app/status/page.test.tsx`, `src/components/footer.test.tsx`, `src/components/footer.stories.tsx`) — they fail loudly on a rotation, which is the backstop for anything this list still misses.
 
 ## SLAs
 
