@@ -103,7 +103,7 @@
     "eslint-plugin-testing-library": "7.16.2",
     "husky": "9.1.7",
     "jsdom": "30.0.1",
-    "lint-staged": "16.2.7",
+    "lint-staged": "17.5.0",
     "msw": "2.15.0",
     "msw-storybook-addon": "2.0.7",
     "playwright": "1.62.1",
