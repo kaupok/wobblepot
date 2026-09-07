@@ -67,7 +67,9 @@
 #     `log-flavour` picks the worker log the run is given (HON-616):
 #     `plain` (default, the secret-carrying log above), `cap` (a worktree-setup
 #     death at the Neon branch cap, with no Claude session at all),
-#     `cap-gc-only` (the non-terminal "running orphan GC" line only) and
+#     `cap-gc-only` (the non-terminal "running orphan GC" line only),
+#     `cap-large` (a real cap death followed by ~7 MB of output, which is what
+#     makes a `sed | grep -q` pipeline return 141 under pipefail) and
 #     `cap-after-claude` (the terminal sentence QUOTED inside a Claude session,
 #     which is what a worker editing these scripts writes). The last two must
 #     NOT classify as CAP. requeue_to_todo runs for real on that path, so its
@@ -86,6 +88,17 @@
 #     once at retried=0 and again at retried=1, so a breaker that resets on any
 #     handle_failure branch oscillates instead of tripping. `repeat` cannot
 #     express that — it only replays one identical call.
+#
+#   neon-branch-count <branches-list-json>                          (HON-616)
+#     Runs the REAL neon_branch_count with `pnpm` shadowed, so the shape
+#     tolerance and the `?` fallbacks are under test without neonctl. An empty
+#     fixture models a zero-exit call with empty stdout.
+#
+#   select-next <issues-json> [cap-requeued] [gated]                (HON-616)
+#     Runs the REAL select_next_issue over a fetch_todo_issues-shaped fixture,
+#     with no stubs — it takes the response as an argument. Prints the PICK line
+#     and the [SKIP] lines, so the jq skip chain and the in-memory suppression
+#     lists (CAP_REQUEUED_ISSUES, GATED_ISSUES) are under test.
 #
 #   log-once                                       (HON-572, finding 3)
 #     Calls the REAL log() once with MAIN_LOG on a temp file, then reports what
@@ -261,6 +274,10 @@ case "$MODE" in
     detect_phase() { echo "$PHASE"; }
     pr_ci_state() { echo "$CI_STATE"; }
 
+    # Seeded from the environment so record_success's clear of the cap
+    # suppression list is observable on a shipping run (HON-616).
+    CAP_REQUEUED_ISSUES="${HARNESS_CAP_REQUEUED:-}"
+
     pr_for_branch() {
       # ERROR models a gh that could not answer at all — missing,
       # unauthenticated, offline, or rate limited. The real helper reports that
@@ -396,6 +413,19 @@ EOF
           echo "something else went wrong later"
         } > "$WORKER_LOG"
         ;;
+      cap-large)
+        # The SIGPIPE regression: `grep -q` exits on the match, so with more
+        # than a pipe buffer of output after the marker a `sed … | grep -q …`
+        # pipeline returns 141 under `set -o pipefail` DESPITE matching. 200k
+        # lines is ~7 MB, comfortably past the 64 KB buffer. The tail models
+        # `$create_out` — `pnpm dlx … 2>&1`, whose cold-store progress output
+        # is unbounded.
+        {
+          echo "Setting up worktree for HON-991..."
+          echo "Error: Neon branch cap still exceeded after orphan GC."
+          awk 'BEGIN { for (i = 0; i < 200000; i++) print "pnpm dlx progress padding padding" }'
+        } > "$WORKER_LOG"
+        ;;
       cap-after-claude)
         # The false positive this exists to prevent: a worker whose Claude
         # session QUOTES the terminal sentence — editing these very scripts, or
@@ -444,6 +474,11 @@ EOF
     # round trip. requeue_to_todo itself is NOT stubbed — its comment body and
     # its choice of this call over move_to_backlog are the things under test.
     restore_todo_if_in_progress() { echo "RESTORE_TODO:$2" >> "$MAIN_LOG"; }
+    # requeue_to_todo reads the state itself before commenting, so the stub has
+    # to answer. HARNESS_ISSUE_STATE (from the environment) drives the branch
+    # where a human moved the issue on while the worker was dying; the default
+    # is the orchestrator's own claim, which is the normal case.
+    issue_state_id() { echo "${HARNESS_ISSUE_STATE:-$STATE_IN_PROGRESS}"; }
 
     STEP=0
     IFS=',' read -ra STEPS <<< "$SEQUENCE"
@@ -461,6 +496,9 @@ EOF
     # Flatten to one line: what the triage CLI actually received across all steps.
     echo "TRIAGE_INPUT:$(tr '\n' ' ' < "$TRIAGE_INPUT_FILE")" >> "$MAIN_LOG"
     echo "CONSECUTIVE_FAILURES:$CONSECUTIVE_FAILURES" >> "$MAIN_LOG"
+    # The suppression list requeue_to_todo wrote, so the bound on the cap
+    # requeue loop is asserted as state rather than as source text (HON-616).
+    echo "CAP_REQUEUED:$CAP_REQUEUED_ISSUES" >> "$MAIN_LOG"
     if [ "$PAUSED_UNTIL" -gt "$(date +%s)" ]; then
       echo "PAUSED:true" >> "$MAIN_LOG"
     else
@@ -733,6 +771,42 @@ EOF
     printf '%s\n' "$out"
     cat "$CALLS_FILE"
     echo "EXIT:$status"
+    exit 0
+    ;;
+
+  # ─── Neon branch count (HON-616) ───────────────────────────────────────────
+  #   neon-branch-count <branches-list-json>
+  # Runs the REAL neon_branch_count with `pnpm` shadowed so `branches list`
+  # returns the fixture verbatim. The fixture is what neonctl printed, so an
+  # empty string models a zero-exit call with empty stdout — the case where jq
+  # prints nothing and the message would read "cap hit at  branches".
+  neon-branch-count)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    NEON_PROJECT_ID="harness-not-a-project"
+    LIST_FIXTURE="$A1"
+    pnpm() {
+      [ "$3" = "branches" ] && [ "${4:-}" = "list" ] || return 1
+      printf '%s' "$LIST_FIXTURE"
+      return 0
+    }
+    neon_branch_count
+    exit 0
+    ;;
+
+  # ─── Candidate selection (HON-616) ─────────────────────────────────────────
+  #   select-next <issues-json> [cap-requeued] [gated]
+  # Runs the REAL select_next_issue over a fetch_todo_issues-shaped fixture. No
+  # stub is needed at all — the function takes the response as its argument — so
+  # the jq skip chain and the in-memory suppression lists are the things under
+  # test. Prints the PICK line, then the [SKIP] lines log() wrote.
+  select-next)
+    CAP_REQUEUED_ISSUES="$A2"
+    GATED_ISSUES="$A3"
+    WORKER_ISSUES=()
+    trap 'rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE"' EXIT
+    echo "PICK:$(select_next_issue "$A1" | head -1)"
+    cat "$MAIN_LOG"
     exit 0
     ;;
 

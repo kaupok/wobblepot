@@ -253,13 +253,18 @@ neon_gc_orphans() {
 # no number, and this is only ever called on a path that is already failing.
 # Shape-tolerant in the same two wire formats neon_gc_orphan_names accepts.
 neon_branch_count() {
-  local out
+  local out count
   out=$(pnpm dlx "neonctl@$NEONCTL_VERSION" branches list \
     --project-id "$NEON_PROJECT_ID" --output json 2>/dev/null) || { echo "?"; return 0; }
-  printf '%s' "$out" | jq -r '
+  # A zero exit with empty stdout is a real neonctl outcome (a killed child, a
+  # truncated pipe), and `jq` on empty input prints nothing at all — which would
+  # render as "cap hit at  branches". Guard on the value, not just the statuses.
+  [ -n "$out" ] || { echo "?"; return 0; }
+  count=$(printf '%s' "$out" | jq -r '
     if type == "array" then length
     elif .branches then (.branches | length)
-    else "?" end' 2>/dev/null || echo "?"
+    else "?" end' 2>/dev/null) || count=""
+  printf '%s\n' "${count:-?}"
 }
 
 # One line explaining WHY the cap was hit, for the two messages below. The

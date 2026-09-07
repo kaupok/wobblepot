@@ -149,6 +149,21 @@ trap 'rm -f "$SEEN_SKIPS_FILE"' EXIT
 # entry is dropped as soon as selection sees the issue without its Gated
 # label (operator removed it — the retry signal); a restart also clears it.
 GATED_ISSUES=""
+# Comma-separated identifiers requeued to Todo at the Neon branch cap this run.
+# Unlike the gated path there is no durable label to lean on — deliberately, the
+# whole point is that nothing about the issue is wrong — so this list is the only
+# thing bounding the retry. Without it requeue_to_todo is non-terminating: the
+# issue returns to Todo unassigned and unlabelled, which makes it immediately
+# re-selectable, and the circuit breaker only rate-limits (it resets itself
+# unconditionally once the pause expires). A genuinely full Neon project would
+# then collect an identical "Returned to Todo" comment and a full worktree build
+# per breaker window, all night.
+#
+# Cleared by record_success: a run that shipped is proof branches are available
+# again, which is the only signal the orchestrator has for "the cap has freed"
+# and is exactly when these issues should become pickable. A restart clears it
+# too, same contract as GATED_ISSUES.
+CAP_REQUEUED_ISSUES=""
 
 # ─── Colors ──────────────────────────────────────────────────────────────────
 
@@ -485,6 +500,7 @@ select_next_issue() {
   # then at most one "PICK<TAB>uuid<TAB>identifier<TAB>branchName<TAB>title".
   local line kind level id reason skip_key
   local gated="$GATED_ISSUES"
+  local cap_requeued="$CAP_REQUEUED_ISSUES"
   while IFS= read -r line; do
     kind="${line%%$'\t'*}"
     case "$kind" in
@@ -517,6 +533,7 @@ select_next_issue() {
   done < <(echo "$response" | jq -r \
     --arg running "$running" \
     --arg gated "$gated" \
+    --arg cap_requeued "$cap_requeued" \
     --arg done "$STATE_DONE" \
     --arg canceled "$STATE_CANCELED" \
     --arg duplicate "$STATE_DUPLICATE" '
@@ -526,6 +543,7 @@ select_next_issue() {
     [$done, $canceled] as $terminal |
     (if $running == "" then [] else ($running | split(",")) end) as $running_list |
     (if $gated == "" then [] else ($gated | split(",")) end) as $gated_list |
+    (if $cap_requeued == "" then [] else ($cap_requeued | split(",")) end) as $cap_list |
 
     .data.issues.nodes
     | map(. + {
@@ -538,6 +556,10 @@ select_next_issue() {
         # handled in the bash loop). Without this, a running orchestrator
         # ignores label removal until restart (HON-562, 2026-08-30).
         _gated: (.identifier as $id | ($gated_list | index($id)) != null),
+        # Requeued at the Neon branch cap this run. In-memory only — see
+        # CAP_REQUEUED_ISSUES for why there is deliberately no label, and why
+        # this list is what keeps the requeue from looping.
+        _cap_requeued: (.identifier as $id | ($cap_list | index($id)) != null),
         # Durable form of the gate: the label survives restarts, so a
         # deterministic 0-commit issue is not re-picked every run. `Stranded`
         # gates for a different reason but needs the same treatment: that path
@@ -583,6 +605,10 @@ select_next_issue() {
           # cleaned up via the UNGATE line and the candidate stays eligible.
           elif ._gate_label == "Gated" then ["INFO", "gated (a worker exited with 0 commits) — fix the cause, then remove the Gated label or re-triage to retry"]
           elif ._gate_label == "Stranded" then ["INFO", "stranded (a worker left an unmerged PR; its worktree is preserved) — finish or close the PR, release with `wt cleanup <branch>`, then remove the Stranded label"]
+          # Retrying inside the same run would hit the same full project and
+          # post the same comment again. Eligible again as soon as any worker
+          # ships (record_success clears the list) or on restart.
+          elif ._cap_requeued then ["INFO", "requeued at the Neon branch cap this run — eligible again once a worker ships, or on restart; free branches with `wt cleanup <branch>`"]
           elif ._assigned then ["INFO", "assigned"]
           elif (._open_blockers | length) > 0 then
             ["INFO",
@@ -1207,6 +1233,13 @@ record_success() {
   # nothing".
   CONSECUTIVE_FAILURES=0
   PAUSED_UNTIL=0
+  # A run that shipped proves the Neon project has branches again, which is the
+  # only signal there is for "the cap has freed". Anything requeued at the cap
+  # becomes pickable on the next poll (HON-616).
+  if [ -n "$CAP_REQUEUED_ISSUES" ]; then
+    log INFO "[UNCAP] $CAP_REQUEUED_ISSUES — a worker shipped, so the Neon branch cap has room again"
+    CAP_REQUEUED_ISSUES=""
+  fi
 
   log INFO "[OUTCOME] $issue_id SUCCESS ${duration_str} ${commits}-commits phase=$phase"
   notify "Honkadori" "$issue_id completed ($commits commits, $duration_str)"
@@ -1631,8 +1664,18 @@ worker_hit_neon_cap() {
   # requeue it forever. `sed /…/q` stops at the marker, or reads the whole file
   # when it never appears — which is exactly the shape a real cap failure has,
   # since the worker died before Claude started.
-  sed "/Starting autonomous Claude Code/q" "$log_file" 2>/dev/null \
-    | grep -qF "$NEON_CAP_MARKER"
+  #
+  # Process substitution rather than `sed … | grep -qF …`: the script runs under
+  # `set -o pipefail`, and `grep -q` exits the instant it matches. With more than
+  # a pipe buffer of output after the marker, `sed` is then killed by SIGPIPE and
+  # the PIPELINE's status becomes 141 even though grep matched — so a real cap
+  # failure would report false and fall through to the Claude triage, i.e. back
+  # to Backlog + `Needs attention`, the exact HON-609 outcome this function
+  # exists to prevent. Keeping sed out of the checked pipeline makes grep's own
+  # status the answer. (`$create_out` on that path is `pnpm dlx … 2>&1`, whose
+  # cold-store progress output is unbounded, so the tail is not reliably small.)
+  grep -qF "$NEON_CAP_MARKER" \
+    <(sed "/Starting autonomous Claude Code/q" "$log_file" 2>/dev/null)
 }
 
 # ─── Handle failure ─────────────────────────────────────────────────────────
@@ -1829,6 +1872,21 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)"
 requeue_to_todo() {
   local issue_uuid="$1" issue_id="$2" log_file="${3:-}"
 
+  # Check the state BEFORE commenting, not after. restore_todo_if_in_progress
+  # below is deliberately a no-op when the issue is no longer In Progress — a
+  # human re-triaged it, or Linear's PR automation advanced it — and a comment
+  # posted first would then be asserting "back in Todo, unassigned and
+  # unlabelled" about an issue that is wherever the human put it and still
+  # assigned, which select_next_issue skips forever. That comment is the only
+  # artifact an operator sees. move_to_backlog has the same ordering and is safe
+  # with it only because its own move is unconditional.
+  local state_id
+  state_id=$(issue_state_id "$issue_uuid") || true
+  if [ "$state_id" != "$STATE_IN_PROGRESS" ]; then
+    log WARN "$issue_id is no longer In Progress — leaving it untouched after the Neon branch cap"
+    return 0
+  fi
+
   local log_path_note=""
   if [ -n "$log_file" ]; then
     log_path_note=$(printf '\n\n**Worker log:** `%s`' "$log_file")
@@ -1851,6 +1909,12 @@ requeue_to_todo() {
   # Only undoes this orchestrator's own In Progress claim, and clears the
   # assignee with it — select_next_issue skips any assigned issue forever.
   restore_todo_if_in_progress "$issue_uuid" "$issue_id"
+
+  # Suppress re-selection for the rest of this run. The issue is back in Todo,
+  # unassigned and unlabelled, so nothing else would stop the very next poll
+  # picking it, failing it at the same still-full cap, and posting this same
+  # comment again. See CAP_REQUEUED_ISSUES.
+  CAP_REQUEUED_ISSUES="${CAP_REQUEUED_ISSUES:+$CAP_REQUEUED_ISSUES,}$issue_id"
 
   log INFO "Returned $issue_id to Todo (unassigned) — Neon branch cap, not a failure of the issue"
 }
@@ -2202,10 +2266,11 @@ validate_state_ids() {
 #
 # Enforce the ceiling the Configuration block documents, at startup, instead of
 # discovering it an hour later on whichever issue happens to be Nth in the queue.
-# That is the HON-609 failure: five workers were configured, the Neon plan funds
-# three, and the fifth `wt auto` died during worktree setup with "branches limit
-# exceeded" — before Claude ran — so a perfectly good issue was triaged into
-# Backlog with a `Needs attention` label for a capacity problem it had no part in.
+# That is the HON-609 failure: the ceiling was 5 and the Neon plan funds 3, so
+# with four workers live the fifth `wt auto` died during worktree setup with
+# "branches limit exceeded" — before Claude ran — and a perfectly good issue was
+# triaged into Backlog with a `Needs attention` label for a capacity problem it
+# had no part in.
 #
 # Peak usage is `2N + P`: each in-flight issue holds its worktree's Neon branch
 # AND the Vercel-Neon integration's `preview/<git-branch>`, plus the P permanent
@@ -2250,9 +2315,23 @@ check_branch_budget() {
 
   if [ "$peak" -eq "$NEON_BRANCH_CAP" ]; then
     log WARN "Neon branch budget: $peak of $NEON_BRANCH_CAP used at peak — no spare branch left"
-    log WARN "  A stranded run holds its two branches until 'wt cleanup <branch>', so the next one will hit the cap. Consider --max-workers $(( MAX_WORKERS - 1 ))."
+    if [ "$MAX_WORKERS" -gt 1 ]; then
+      log WARN "  A stranded run holds its two branches until 'wt cleanup <branch>', so the next one will hit the cap. Consider --max-workers $(( MAX_WORKERS - 1 ))."
+    else
+      # One worker is the floor, so the only move left is the plan. Never
+      # suggest --max-workers 0: the validation above refuses it, and advice
+      # this same function rejects is worse than no advice. The ERROR branch
+      # was guarded against exactly this; this branch was not.
+      log WARN "  A stranded run holds its two branches until 'wt cleanup <branch>', so the next one will hit the cap. Raise NEON_BRANCH_CAP to $(( peak + 2 )) (after raising the Neon plan)."
+    fi
   else
-    log INFO "Neon branch budget: $peak of $NEON_BRANCH_CAP at peak (2 x $MAX_WORKERS + $NEON_PERMANENT_BRANCHES), $(( NEON_BRANCH_CAP - peak )) spare"
+    # "spare" is reported with the size of the thing it has to hold, because
+    # slack is only usable in pairs: the budget is `2N + 2S + 3`, so a single
+    # spare branch cannot absorb a stranded run (at the shipped default,
+    # 2*3 + 2*1 + 3 = 11 > 10). Keeping that case silent is deliberate — it is
+    # the configuration everyone runs — but the number must not read as
+    # headroom it is not.
+    log INFO "Neon branch budget: $peak of $NEON_BRANCH_CAP at peak (2 x $MAX_WORKERS + $NEON_PERMANENT_BRANCHES), $(( NEON_BRANCH_CAP - peak )) spare (a stranded run needs 2)"
   fi
   return 0
 }
@@ -2331,18 +2410,30 @@ main() {
 
   log INFO "═══ Orchestrator starting ═══"
 
+  log INFO "Config: max_workers=$MAX_WORKERS poll=${POLL_INTERVAL}s timeout=${WORKER_TIMEOUT}s neon_branch_cap=$NEON_BRANCH_CAP dry_run=$DRY_RUN once=$RUN_ONCE"
+
+  # Directly beneath the Config line, so the refusal sits under the numbers it
+  # is refusing — and BEFORE validate_environment / fetch_team_uuid, which cost
+  # three sequential Linear round trips (`{ viewer }`, `{ workflowStates }`,
+  # `{ teams }`), each a fresh curl with its own TLS handshake. `cmd_start`
+  # declares success after `sleep 1` and only tails the logs when the process is
+  # already dead at that mark, so a refusal landing after the round trips is
+  # reported to the operator as a green "Orchestrator started (PID …)" for a run
+  # that then exits. Being a race, that would refuse loudly on a slow-API day
+  # and silently on a fast one. The check needs nothing from Linear.
+  #
+  # It also has to precede write_status_file below, which would otherwise run
+  # `jq --argjson max_workers "abc"` on the invalid-ceiling path.
+  #
+  # Fatal by design: a ceiling the Neon plan cannot fund does not fail here, it
+  # fails on an arbitrary issue an hour later (HON-616).
+  check_branch_budget || exit 1
+
   validate_environment
   fetch_team_uuid
 
   ORCHESTRATOR_START_TIME=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
   write_status_file
-
-  log INFO "Config: max_workers=$MAX_WORKERS poll=${POLL_INTERVAL}s timeout=${WORKER_TIMEOUT}s neon_branch_cap=$NEON_BRANCH_CAP dry_run=$DRY_RUN once=$RUN_ONCE"
-
-  # After the Config line, so the refusal message sits directly beneath the
-  # numbers it is refusing. Fatal by design: a ceiling the Neon plan cannot fund
-  # does not fail here, it fails on an arbitrary issue later (HON-616).
-  check_branch_budget || exit 1
 
   while true; do
     [ "$SHUTTING_DOWN" = true ] && break
