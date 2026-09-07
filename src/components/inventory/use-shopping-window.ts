@@ -8,18 +8,35 @@ export const WINDOW_STORAGE_KEY = 'shopping-list-window-days'
 
 export type WindowDays = 7 | 14
 
-/** Anything that isn't an explicit 14 is the 7-day default. */
+/**
+ * Coerce a picker value to a window. The `Select` can only emit `'7'` or
+ * `'14'`, so anything else is a bug upstream and lands on the default rather
+ * than routing to a window the API would reject with a 400
+ * (`src/app/api/shopping-list/route.ts:46`).
+ *
+ * Deliberately *not* used to read storage — see `getStoredWindowDays`.
+ */
 export function parseWindowDays(value: string | number | null | undefined): WindowDays {
   return String(value) === '14' ? 14 : 7
 }
 
 /**
- * Read the persisted window. Returns 7 on the server so SSR and the first
- * client render agree; the real value is reconciled after mount.
+ * The persisted preference, or `null` when there isn't one.
+ *
+ * The null case is load-bearing: "no preference" is not the same as "chose 7".
+ * Collapsing them makes the reconcile below override an explicit `?days=14`
+ * for every user who has never touched the picker — a bookmark or a shared
+ * link would bounce straight back to the 7-day window. An unrecognised value
+ * is treated the same way; it is not a choice the user made either.
+ *
+ * Returns `null` on the server so SSR and the first client render agree; the
+ * real value is reconciled after mount.
  */
-export function getStoredWindowDays(): WindowDays {
-  if (typeof window === 'undefined') return 7
-  return parseWindowDays(localStorage.getItem(WINDOW_STORAGE_KEY))
+export function getStoredWindowDays(): WindowDays | null {
+  if (typeof window === 'undefined') return null
+  const stored = localStorage.getItem(WINDOW_STORAGE_KEY)
+  if (stored !== '7' && stored !== '14') return null
+  return stored === '14' ? 14 : 7
 }
 
 /**
@@ -42,9 +59,17 @@ export function useShoppingWindow(windowDays: number) {
 
   useEffect(() => {
     const stored = getStoredWindowDays()
-    if (stored !== windowDays) {
-      router.push(`/shopping?days=${stored}`)
-    }
+    if (stored === null || stored === windowDays) return
+
+    // `replace`, not `push`. Every in-app entry to the list is a bare
+    // `/shopping` (`bottom-tab-bar.tsx`, `navigation.tsx`, `UrgentShopping.tsx`,
+    // and `/pantry`'s redirect), so a 14-day user is reconciled on every visit.
+    // With `push` the pre-reconcile URL stays in history, and going Back to it
+    // changes `windowDays` — which re-runs this effect and pushes forward
+    // again. Back would never get past `/shopping`, and each attempt would add
+    // another entry. `setWindowDays` keeps `push`: that one is a navigation the
+    // user asked for and belongs in history.
+    router.replace(`/shopping?days=${stored}`)
   }, [windowDays, router])
 
   const setWindowDays = useCallback(

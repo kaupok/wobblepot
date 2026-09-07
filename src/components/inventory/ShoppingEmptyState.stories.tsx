@@ -67,12 +67,11 @@ export const NothingNeeded: Story = {
 export const NothingNeededFourteenDays: Story = {
   args: { variant: 'nothing-needed', windowDays: 14 },
   // The day count in the body copy comes from the `windowDays` prop, so this
-  // story would render the 14-day text with or without the seed. What the seed
-  // changes is the mount effect: `useShoppingWindow` reconciles the stored
-  // preference against the prop and pushes when they disagree. Storybook's
-  // app-router `push` is a spy and cannot navigate, so an unseeded story would
-  // sit in a state the real app never holds — 14-day copy with a pending
-  // redirect to `?days=7`. Seeding makes the story a real reachable state.
+  // story renders the 14-day text with or without the seed. The seed states
+  // which reachable state is being documented: a user who chose 14 days, rather
+  // than one who arrived on an explicit `?days=14` with no preference stored.
+  // `useShoppingWindow` leaves both alone — it reconciles only when a stored
+  // preference actually disagrees with the prop.
   beforeEach: () => {
     localStorage.setItem(WINDOW_STORAGE_KEY, '14')
     return () => localStorage.removeItem(WINDOW_STORAGE_KEY)

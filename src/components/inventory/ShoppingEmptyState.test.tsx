@@ -4,16 +4,18 @@ import { ShoppingEmptyState } from './ShoppingEmptyState'
 import { WINDOW_STORAGE_KEY } from './use-shopping-window'
 
 const push = vi.fn()
+const replace = vi.fn()
 
 // A stable router object, not a fresh one per call: `useShoppingWindow` keys its
 // reconcile effect on the router identity, so a new object each render would
 // re-run the effect on every render.
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push }),
+  useRouter: () => ({ push, replace }),
 }))
 
 beforeEach(() => {
   push.mockClear()
+  replace.mockClear()
   localStorage.clear()
 })
 
@@ -53,7 +55,7 @@ describe('ShoppingEmptyState', () => {
 
       render(<ShoppingEmptyState variant="no-plan" windowDays={7} />)
 
-      expect(push).not.toHaveBeenCalled()
+      expect(replace).not.toHaveBeenCalled()
     })
   })
 
@@ -85,7 +87,9 @@ describe('ShoppingEmptyState', () => {
 
       render(<ShoppingEmptyState variant="nothing-needed" windowDays={7} />)
 
-      expect(push).toHaveBeenCalledWith('/shopping?days=14')
+      // `replace`, so Back is not trapped bouncing between the two windows.
+      expect(replace).toHaveBeenCalledWith('/shopping?days=14')
+      expect(push).not.toHaveBeenCalled()
     })
   })
 

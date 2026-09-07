@@ -130,10 +130,10 @@ export const PopulatedFourteenDays: Story = {
     summary: <Summary windowDays={14} total={19} purchased={3} />,
     children: <ListControls />,
   },
-  // `useShoppingWindow` reconciles the stored preference against the prop on
-  // mount and pushes when they disagree. Storybook's app-router `push` is a spy
-  // and cannot navigate, so an unseeded story would sit in a state the real app
-  // never holds: a 14-day header with a pending redirect to `?days=7`.
+  // Seeded so the story models a real user state — someone who chose 14 days —
+  // rather than a bookmark opened by a user with no preference. Both are valid
+  // now that the reconcile leaves an explicit `?days=` alone when the key is
+  // absent; the seed picks the one this story is documenting.
   beforeEach: () => {
     localStorage.setItem(WINDOW_STORAGE_KEY, '14')
     return () => localStorage.removeItem(WINDOW_STORAGE_KEY)
@@ -183,8 +183,9 @@ export const WindowPickerNarrowsWithItemsOnScreen: Story = {
     summary: <Summary windowDays={14} total={19} purchased={3} />,
     children: <ListControls />,
   },
-  // Seeded to 14 so the mount reconcile agrees with the prop and the only
-  // `push` the assertion can see is the one the picker fires.
+  // Seeded to 14 so the mount reconcile agrees with the prop. It would stay
+  // quiet unseeded too (an absent key is "no preference"), but seeding states
+  // the precondition the assertion below depends on rather than relying on it.
   beforeEach: () => {
     localStorage.setItem(WINDOW_STORAGE_KEY, '14')
     return () => localStorage.removeItem(WINDOW_STORAGE_KEY)

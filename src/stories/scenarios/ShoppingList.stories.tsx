@@ -224,9 +224,9 @@ const meta = {
     },
   },
   // `ShoppingListHeader` reconciles the stored window against its prop on mount
-  // and pushes when they disagree. Every scenario renders the 7-day window, so
-  // clearing the key keeps them independent of whatever a ShoppingListHeader or
-  // ShoppingEmptyState story left behind.
+  // and replaces the URL when they disagree. Every scenario renders the 7-day
+  // window, so clearing the key keeps them independent of whatever a
+  // ShoppingListHeader or ShoppingEmptyState story left behind.
   beforeEach: () => {
     localStorage.removeItem(WINDOW_STORAGE_KEY)
     return () => localStorage.removeItem(WINDOW_STORAGE_KEY)
