@@ -186,6 +186,12 @@ export async function PATCH(
     // `status` and `deductPantry` cannot rescue the swap, because neither one
     // makes the deduction run. Reverting to `planned` first and swapping then
     // is still allowed, and still does not restock.
+    //
+    // This is the cheap answer for an entry that is *already* completed, not
+    // the whole rule: `entry.status` was read outside any transaction, so a
+    // swap that races a concurrent completion still passes here. Each of the
+    // two writes below re-tests the status as part of the write itself, which
+    // is what actually closes it.
     if (parsed.data.mealId && entry.status === MealPlanEntryStatus.completed) {
       return NextResponse.json({ error: 'Cannot swap a completed meal' }, { status: 409 })
     }
@@ -409,7 +415,41 @@ export async function PATCH(
       })
     }
 
-    // Standard update without pantry deduction
+    // A swap that does not deduct — `{ mealId }` on its own, which is exactly
+    // what `MealSelectorModal` sends and therefore the shape almost every real
+    // swap takes. It never enters the transaction above (`shouldDeductPantry`
+    // needs `status: 'completed'` *and* `deductPantry`), so the conditional
+    // claim there does not cover it, and the guard at the top of the handler
+    // tested a `status` read from before the meal lookup. Between that read
+    // and this write a concurrent request can commit `completed` and charge
+    // the pantry for the meal the entry named then — and this write would
+    // repoint the entry at a different one (HON-633).
+    //
+    // So re-test the status as part of the write, the same trick the deduction
+    // claim uses: `updateManyAndReturn` matches nothing if the entry reached
+    // `completed` (or was deleted) in the meantime, and still returns the row
+    // so the response stays row-derived rather than reconstructed.
+    if (updateData.mealId) {
+      const [swapped] = await prisma.mealPlanEntry.updateManyAndReturn({
+        where: { id: entryId, status: { not: MealPlanEntryStatus.completed } },
+        data: updateData,
+      })
+
+      if (!swapped) {
+        return NextResponse.json({ error: 'Cannot swap a completed meal' }, { status: 409 })
+      }
+
+      return NextResponse.json({
+        id: swapped.id,
+        status: swapped.status,
+        mealId: swapped.mealId,
+        rating: swapped.rating,
+      })
+    }
+
+    // Standard update without pantry deduction. No `mealId`, so there is no
+    // entry-versus-pantry disagreement to guard against: status, note, rating
+    // and serving changes are all safe on a completed entry.
     const updatedEntry = await prisma.mealPlanEntry.update({
       where: { id: entryId },
       data: updateData,

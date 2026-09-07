@@ -19,6 +19,7 @@ vi.mock('@/lib/prisma', () => ({
       findFirst: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
+      updateManyAndReturn: vi.fn(),
       delete: vi.fn(),
     },
     meal: {
@@ -83,6 +84,20 @@ const mockPantryUpdateMany = vi.mocked(prisma.pantryItem.updateMany)
 const mockPantryDeleteMany = vi.mocked(prisma.pantryItem.deleteMany)
 const mockPantryUpdate = vi.mocked(prisma.pantryItem.update)
 const mockClaimEntry = vi.mocked(prisma.mealPlanEntry.updateMany)
+
+/**
+ * The conditional write a non-deducting swap goes through.
+ *
+ * `updateManyAndReturn` rather than `update`, because the swap has to re-test
+ * the entry's status as part of the write: the `status` the handler read at
+ * the top is from before the meal lookup, so a concurrent completion can land
+ * in between (HON-633). It returns an array — empty when nothing matched.
+ */
+const mockSwapEntry = vi.mocked(prisma.mealPlanEntry.updateManyAndReturn)
+
+/** The row a matched swap write returns, wrapped as `updateManyAndReturn` does. */
+const swapReturns = (row: Record<string, unknown>) =>
+  mockSwapEntry.mockResolvedValue([row] as never)
 
 /**
  * Writes the route issued while the transaction callback was NOT on the stack.
@@ -218,11 +233,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
 
     const mockMeal = { id: 'new-meal-456' }
     vi.mocked(prisma.meal.findFirst).mockResolvedValue(mockMeal as never)
-    mockUpdateEntry.mockResolvedValue({
-      id: 'entry-123',
-      status: 'planned',
-      mealId: 'new-meal-456',
-    } as never)
+    swapReturns({ id: 'entry-123', status: 'planned', mealId: 'new-meal-456' })
 
     const response = await PATCH(createPatchRequest({ mealId: 'new-meal-456' }), {
       params: createParams(),
@@ -231,6 +242,12 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
 
     expect(response.status).toBe(200)
     expect(data.mealId).toBe('new-meal-456')
+    // The write carries the status condition, so a completion that commits
+    // between the read and this write matches nothing (HON-633).
+    expect(mockSwapEntry).toHaveBeenCalledWith({
+      where: { id: 'entry-123', status: { not: 'completed' } },
+      data: expect.objectContaining({ mealId: 'new-meal-456' }),
+    })
   })
 
   it('allows meal swap combined with status change', async () => {
@@ -245,11 +262,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
 
     const mockMeal = { id: 'new-meal-456' }
     vi.mocked(prisma.meal.findFirst).mockResolvedValue(mockMeal as never)
-    mockUpdateEntry.mockResolvedValue({
-      id: 'entry-123',
-      status: 'completed',
-      mealId: 'new-meal-456',
-    } as never)
+    swapReturns({ id: 'entry-123', status: 'completed', mealId: 'new-meal-456' })
 
     const response = await PATCH(
       createPatchRequest({ status: 'completed', mealId: 'new-meal-456' }),
@@ -320,6 +333,41 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
     expect(mockPantryDeleteMany).not.toHaveBeenCalled()
   })
 
+  it('rejects a swap that raced a concurrent completion', async () => {
+    // The shape `MealSelectorModal` actually sends: `{ mealId }` alone, which
+    // never enters the deduction transaction, so the conditional claim there
+    // does not cover it. The entry read `planned`, so the guard at the top of
+    // the handler passed — and a concurrent request committed `completed` (and
+    // charged the pantry for the meal the entry named then) before this write
+    // landed. The condition on the write itself is what catches it (HON-633).
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      status: 'planned',
+      servingOverride: null,
+      plan: {
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: { components: [] },
+    } as never)
+
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({
+      id: 'new-meal-456',
+      components: [],
+    } as never)
+    // No row matched the `status: { not: 'completed' }` condition.
+    mockSwapEntry.mockResolvedValue([] as never)
+
+    const response = await PATCH(createPatchRequest({ mealId: 'new-meal-456' }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(data.error).toBe('Cannot swap a completed meal')
+    expect(mockUpdateEntry).not.toHaveBeenCalled()
+  })
+
   it('still swaps a skipped entry', async () => {
     // Nothing was deducted for a skipped meal, so there is no pantry charge to
     // disagree with — swapping one is a legitimate "actually, let's cook
@@ -339,11 +387,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
       id: 'new-meal-456',
       components: [],
     } as never)
-    mockUpdateEntry.mockResolvedValue({
-      id: 'entry-123',
-      status: 'skipped',
-      mealId: 'new-meal-456',
-    } as never)
+    swapReturns({ id: 'entry-123', status: 'skipped', mealId: 'new-meal-456' })
 
     const response = await PATCH(createPatchRequest({ mealId: 'new-meal-456' }), {
       params: createParams(),
@@ -530,11 +574,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
       id: 'new-meal-456',
       components: [],
     } as never)
-    mockUpdateEntry.mockResolvedValue({
-      id: 'entry-123',
-      status: 'completed',
-      mealId: 'new-meal-456',
-    } as never)
+    swapReturns({ id: 'entry-123', status: 'completed', mealId: 'new-meal-456' })
 
     const response = await PATCH(
       createPatchRequest({
@@ -583,6 +623,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
       }),
     )
     expect(mockUpdateEntry).not.toHaveBeenCalled()
+    expect(mockSwapEntry).not.toHaveBeenCalled()
   })
 
   it('does not deduct a second time for an already completed entry', async () => {
@@ -662,11 +703,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
       id: 'new-meal-456',
       components: [{ ingredientId: 'ing-fish', quantityPerServing: 150 }],
     } as never)
-    mockUpdateEntry.mockResolvedValue({
-      id: 'entry-123',
-      status: 'completed',
-      mealId: 'new-meal-456',
-    } as never)
+    swapReturns({ id: 'entry-123', status: 'completed', mealId: 'new-meal-456' })
 
     const response = await PATCH(
       createPatchRequest({ status: 'completed', mealId: 'new-meal-456' }),
