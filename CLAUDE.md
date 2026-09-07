@@ -252,7 +252,7 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **Commands:** `pnpm storybook` (dev server on port 6006), `pnpm build-storybook` (static build), `pnpm test-storybook` (watch mode), `pnpm test-storybook:ci` (run every story once through `@storybook/addon-vitest` in Chromium — a11y gate + play functions)
 
-**Published build:** <https://kaupok.github.io/wobblepot/>, deployed to GitHub Pages from `main` by `.github/workflows/deploy-storybook.yml`. It is served from a sub-path, so the MSW worker URL in `.storybook/preview.tsx` is built from `import.meta.env.BASE_URL` — keep it that way (see `.storybook/README.md` → "Published build").
+**Published build:** <https://kaupok.github.io/wobblepot/>, deployed to GitHub Pages from `main` by `.github/workflows/deploy-storybook.yml`. It is served from a sub-path, so the MSW worker URL in `.storybook/preview.tsx` is built from `import.meta.env.BASE_URL` — keep it that way (see `.storybook/README.md` → "Published build"). Since `msw-storybook-addon` 3 that URL lives in the `setupMswWorker` setup function passed to `mswLoader()`, not in an `initialize()` call; dropping the setup function silently reverts the worker to an origin-absolute URL.
 
 **Config:** `.storybook/main.ts` and `.storybook/preview.tsx`. Preview wires up Geist fonts, `globals.css`, `QueryClientProvider`, Next.js app-router mocking (`nextjs.appDirectory: true`), and a light/dark theme toggle via a custom `withTailwindTheme` decorator that toggles the `dark` class on `document.documentElement` so Radix portal content (Dialog, Select, DropdownMenu) inherits the theme.
 

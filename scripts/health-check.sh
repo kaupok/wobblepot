@@ -46,8 +46,31 @@ echo ""
 if command -v node &> /dev/null; then
   NODE_VERSION=$(node --version)
   success "Node.js installed: $NODE_VERSION"
-  if [[ ! "$NODE_VERSION" =~ ^v22\. ]]; then
-    warning "Expected Node.js v22.x, got $NODE_VERSION"
+  # Read the floor out of `engines.node` rather than restating it. `.npmrc` sets
+  # engine-strict=true, so a Node below that floor doesn't warn — `pnpm install`
+  # dies with ERR_PNPM_UNSUPPORTED_ENGINE, which is what this check exists to
+  # pre-empt. HON-639 raised the floor to 22.22.2 for jsdom 30 (^22.22.2) and
+  # lint-staged 17 (>=22.22.1), which made a plain `^v22.` match too loose:
+  # 22.13 through 22.22.1 satisfy it and then fail to install. A hand-copied
+  # constant here would just reintroduce that gap at the next bump, silently —
+  # which is why the major is derived from the floor too, rather than matched
+  # against a literal `^v22.`. A hardcoded major ahead of the floor comparison
+  # would short-circuit it: at the next major bump it would warn "expected v22.x"
+  # against a correct Node and skip the floor diagnosis entirely.
+  # Resolved from this script's own location so it doesn't depend on the cwd.
+  REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  NODE_FLOOR=$(node -p \
+    "require('$REPO_ROOT/package.json').engines.node.match(/[0-9]+\.[0-9]+\.[0-9]+/)[0]" 2>/dev/null || true)
+  NODE_MAJOR_FLOOR=${NODE_FLOOR%%.*}
+  # The empty-floor guard must stay first: with NODE_MAJOR_FLOOR empty the regex
+  # below collapses to `^v\.`, which matches nothing and would warn against a
+  # perfectly good Node.
+  if [ -z "$NODE_FLOOR" ]; then
+    warning "Could not read engines.node from package.json — Node floor not verified"
+  elif [[ ! "$NODE_VERSION" =~ ^v${NODE_MAJOR_FLOOR}\. ]]; then
+    warning "Expected Node.js v${NODE_MAJOR_FLOOR}.x, got $NODE_VERSION"
+  elif [ "$(printf '%s\n%s\n' "$NODE_FLOOR" "${NODE_VERSION#v}" | sort -V | head -1)" != "$NODE_FLOOR" ]; then
+    warning "Node.js $NODE_VERSION is below the v$NODE_FLOOR floor in package.json engines — pnpm install will fail under engine-strict"
   fi
 else
   error "Node.js not installed"

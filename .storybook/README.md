@@ -290,8 +290,21 @@ deploy.
 
 Pages serves the site from a sub-path (`/wobblepot/`), so anything that must
 resolve at runtime has to be base-relative. Storybook's own assets already are;
-the MSW service worker URL is the one we own — `initialize()` in `preview.tsx`
-builds it from `import.meta.env.BASE_URL` so it stays `/mockServiceWorker.js`
-in dev and the Vitest project and becomes `./mockServiceWorker.js` in the
-static build. Keep that when touching the MSW setup, or every story on Pages
-fails in the loader.
+the MSW service worker URL is the one we own — the `setupMswWorker` setup
+function in `preview.tsx` passes it to `worker.start()`, built from
+`import.meta.env.BASE_URL` so it stays `/mockServiceWorker.js` in dev and the
+Vitest project and becomes `./mockServiceWorker.js` in the static build. Keep
+that when touching the MSW setup, or every story on Pages fails in the loader.
+
+That setup function is also why `mswLoader` is called with an argument.
+`msw-storybook-addon` 3 removed the `initialize()` entry point that used to
+hold these options; with no setup function the addon starts a worker on its own
+defaults and the sub-path URL is silently lost.
+
+`mswLoader(setupMswWorker)` in `preview.tsx` is the load-bearing line, and the
+one to keep. The `addons: ['msw-storybook-addon']` entry in `main.ts` is there
+because the upstream v3 docs prescribe it, but on the CSF 3.0 path it wires
+nothing up on its own — `msw-storybook-addon/preview` exports only the
+`createPreviewAnnotations` factory, which Storybook composes nothing from. The
+loader is what sets `context.msw`, resets handlers between stories, and applies
+`parameters.msw`. Don't read the `main.ts` entry as covering for the loader.
