@@ -5,18 +5,22 @@
  *
  * Every other test in `src/lib/ai/` either mocks `generateObject` without a
  * `usage` field or calls `recordAiUsage` with hand-written numbers, so nothing
- * catches an SDK-side rename of `inputTokens` / `outputTokens` — the failure
- * would be silent, because each call site reads them as `?? 0` and would keep
- * recording zeroed rows and zero-cost `$ai_generation` events indefinitely.
+ * asserts that the counts actually arrive — each call site reads them as
+ * `?? 0`, and a broken mapping keeps recording zeroed rows and zero-cost
+ * `$ai_generation` events rather than throwing.
  *
- * Two independent guards, which is why the fixture is typed rather than inline:
+ * A *renamed* SDK field is not what this test is for: `tsc` already rejects
+ * `result.usage?.inputTokens` at the call site the moment the field stops
+ * existing (which is why the mutation check on this file needs a cast to
+ * compile at all). What is unguarded is everything type-checking cannot see —
+ * a call site that quietly stops reading `usage`, wires up the wrong field, or
+ * drops the `onAiUsage` call, all of which keep compiling and bill $0.
  *
- * 1. Compile time — `USAGE_FIXTURE` is annotated `LanguageModelUsage`, the type
- *    the `ai` package actually exports. If a future major renames or drops a
- *    field, `pnpm type-check` fails here instead of the app silently billing 0.
- * 2. Run time — the assertions below require the recorded counts to be the
- *    non-zero fixture values, so a call site that stops reading `usage` at all
- *    (or reads the wrong field and falls through to `?? 0`) fails too.
+ * The `LanguageModelUsage` annotation on the fixture serves that goal rather
+ * than duplicating the compile-time check: it stops this file from asserting
+ * against a hand-invented shape. Without it the fixture could drift from what
+ * the SDK really returns and the assertions below would keep passing while
+ * proving nothing about production.
  *
  * `reviewMealQuantities` stands in for all seven `generateObject` call sites:
  * they share one extraction expression, and it is the only one with no Prisma
@@ -145,8 +149,9 @@ describe('AI SDK usage → recordAiUsage mapping', () => {
   it('does not silently zero the counts when the SDK returns usage', async () => {
     const stats = await captureUsageStats()
 
-    // The `?? 0` fallback at every call site makes a field rename look like a
-    // free, successful call rather than an error — assert against it directly.
+    // The `?? 0` fallback at every call site makes a broken mapping look like
+    // a free, successful call rather than an error — assert against it
+    // directly, since no type or thrown error will.
     expect(stats.inputTokens).toBeGreaterThan(0)
     expect(stats.outputTokens).toBeGreaterThan(0)
   })
