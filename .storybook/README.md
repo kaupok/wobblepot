@@ -290,8 +290,15 @@ deploy.
 
 Pages serves the site from a sub-path (`/wobblepot/`), so anything that must
 resolve at runtime has to be base-relative. Storybook's own assets already are;
-the MSW service worker URL is the one we own — `initialize()` in `preview.tsx`
-builds it from `import.meta.env.BASE_URL` so it stays `/mockServiceWorker.js`
-in dev and the Vitest project and becomes `./mockServiceWorker.js` in the
-static build. Keep that when touching the MSW setup, or every story on Pages
-fails in the loader.
+the MSW service worker URL is the one we own — the `setupMswWorker` setup
+function in `preview.tsx` passes it to `worker.start()`, built from
+`import.meta.env.BASE_URL` so it stays `/mockServiceWorker.js` in dev and the
+Vitest project and becomes `./mockServiceWorker.js` in the static build. Keep
+that when touching the MSW setup, or every story on Pages fails in the loader.
+
+That setup function is also why `mswLoader` is called with an argument.
+`msw-storybook-addon` 3 removed the `initialize()` entry point that used to
+hold these options; with no setup function the addon starts a worker on its own
+defaults and the sub-path URL is silently lost. Registration in `main.ts`
+(`addons: ['msw-storybook-addon']`) is a v3 requirement too — v2 needed only the
+`preview.tsx` call.

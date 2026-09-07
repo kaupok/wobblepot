@@ -3,7 +3,8 @@ import type { Decorator, Preview } from '@storybook/nextjs-vite'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NextIntlClientProvider } from 'next-intl'
 import { Geist, Geist_Mono } from 'next/font/google'
-import { initialize, mswLoader } from 'msw-storybook-addon'
+import { setupWorker } from 'msw/browser'
+import { mswLoader } from 'msw-storybook-addon/csf3'
 import { MINIMAL_VIEWPORTS } from 'storybook/viewport'
 import '../src/app/globals.css'
 // MSW handlers for data-fetching stories live in src/stories/msw-handlers.ts.
@@ -15,18 +16,28 @@ import etMessages from '../messages/et.json'
 const messagesByLocale = { en: enMessages, et: etMessages } as const
 type StorybookLocale = keyof typeof messagesByLocale
 
-initialize({
-  onUnhandledRequest: 'bypass',
-  // WHY: msw defaults to the origin-absolute `/mockServiceWorker.js`. The static
-  // build is served from a sub-path on GitHub Pages (/wobblepot/), where that
-  // URL 404s and every story then fails inside the msw loader — not just the
-  // data-fetching ones. BASE_URL is '/' in `storybook dev` and in the Vitest
-  // browser project (behaviour unchanged there) and './' in `storybook build`,
-  // where it resolves relative to iframe.html. Don't replace it with a bare
-  // './mockServiceWorker.js': the Vitest tester iframe lives under
-  // /__vitest_test__/, so a relative URL 404s and takes the CI a11y gate down.
-  serviceWorker: { url: `${import.meta.env.BASE_URL}mockServiceWorker.js` },
-})
+// msw-storybook-addon 3 removed `initialize()`; the worker is now created and
+// started by a setup function handed to `mswLoader`. Everything that used to be
+// an `initialize()` option is a `worker.start()` option here — same values, same
+// meaning, just relocated (see MIGRATION.md, "initialize is removed in favor of
+// a custom setup function"). Without a setup function the addon starts a worker
+// with its own defaults and the sub-path URL below would be lost.
+const setupMswWorker = async () => {
+  const worker = setupWorker()
+  await worker.start({
+    onUnhandledRequest: 'bypass',
+    // WHY: msw defaults to the origin-absolute `/mockServiceWorker.js`. The static
+    // build is served from a sub-path on GitHub Pages (/wobblepot/), where that
+    // URL 404s and every story then fails inside the msw loader — not just the
+    // data-fetching ones. BASE_URL is '/' in `storybook dev` and in the Vitest
+    // browser project (behaviour unchanged there) and './' in `storybook build`,
+    // where it resolves relative to iframe.html. Don't replace it with a bare
+    // './mockServiceWorker.js': the Vitest tester iframe lives under
+    // /__vitest_test__/, so a relative URL 404s and takes the CI a11y gate down.
+    serviceWorker: { url: `${import.meta.env.BASE_URL}mockServiceWorker.js` },
+  })
+  return worker
+}
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
@@ -161,7 +172,7 @@ const preview: Preview = {
   initialGlobals: {
     viewport: { value: 'mobileIphone', isRotated: false },
   },
-  loaders: [mswLoader],
+  loaders: [mswLoader(setupMswWorker)],
   globalTypes: {
     theme: {
       name: 'Theme',

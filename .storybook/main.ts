@@ -10,6 +10,11 @@ const config: StorybookConfig = {
     // eslint-disable-next-line storybook/no-uninstalled-addons
     'storybook/viewport',
     '@storybook/addon-vitest',
+    // msw-storybook-addon 3 is a real Storybook addon and has to be registered
+    // here; v2 needed only the `initialize()` call in preview.tsx. Registration
+    // is what extends the story context with `msw`, which the loader in
+    // preview.tsx then drives from `parameters.msw`.
+    'msw-storybook-addon',
   ],
   framework: {
     name: '@storybook/nextjs-vite',
