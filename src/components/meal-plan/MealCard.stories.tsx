@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { expect, within } from 'storybook/test'
 import { MealType } from '@/generated/prisma/enums'
 import {
   createMeal,
@@ -39,6 +40,12 @@ export const Planned: Story = {
     meal: mealFixture,
     status: 'planned',
   },
+  play: async ({ canvasElement }) => {
+    // The counterpart to `CompletedThumbsUp` below: Swap is offered here, so
+    // its absence there cannot pass on a card that failed to render at all.
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('button', { name: /^swap$/i })).toBeInTheDocument()
+  },
 }
 
 export const PlannedWithNote: Story = {
@@ -78,6 +85,22 @@ export const CompletedThumbsUp: Story = {
     status: 'completed',
     rating: 'up',
   },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'No Swap control: a completed entry records what was cooked and what the pantry was charged for, and the API refuses to repoint it (409, HON-633). Note and Clear stay available.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.queryByRole('button', { name: /^swap$/i })).not.toBeInTheDocument()
+    // The other two header controls are unaffected — this hides Swap, not the
+    // whole control row.
+    await expect(canvas.getByRole('button', { name: /^note$/i })).toBeInTheDocument()
+    await expect(canvas.getByRole('button', { name: /^clear$/i })).toBeInTheDocument()
+  },
 }
 
 export const CompletedThumbsDown: Story = {
@@ -100,6 +123,18 @@ export const Skipped: Story = {
   args: {
     meal: mealFixture,
     status: 'skipped',
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Swap is still offered: nothing was deducted for a skipped meal, so “actually, let’s cook something” stays a legitimate path (HON-633).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('button', { name: /^swap$/i })).toBeInTheDocument()
   },
 }
 

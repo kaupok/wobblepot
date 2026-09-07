@@ -8,6 +8,39 @@ import { MealPlanEntryStatus, EntryRating } from '@/generated/prisma/enums'
 import { captureApiError } from '@/lib/errors'
 import { getEffectiveServings } from '@/lib/meal-planning/servings'
 
+/**
+ * A meal swap that arrived too late: the entry is already `completed` (or has
+ * been deleted) by the time the deduction transaction claims it, so the swap
+ * must not be persisted (HON-633).
+ *
+ * Thrown rather than returned because the check that raises it runs inside an
+ * interactive transaction, where throwing is the only way to roll the whole
+ * thing back. The outer `catch` turns it into the same 409 the serial path
+ * returns directly.
+ */
+class CompletedSwapError extends Error {
+  constructor() {
+    super('Cannot swap a completed meal')
+    this.name = 'CompletedSwapError'
+  }
+}
+
+/**
+ * A completion whose meal moved underneath it: the components were read at the
+ * top of the handler, and a swap committed before the deduction transaction
+ * claimed the entry, so the price no longer matches the meal (HON-633).
+ *
+ * Thrown to roll the claim back, for the same reason as
+ * {@link CompletedSwapError}. The caller gets a 409 and can retry, which
+ * re-reads the entry and prices the meal that is actually there.
+ */
+class StaleMealError extends Error {
+  constructor() {
+    super('The meal changed while completing')
+    this.name = 'StaleMealError'
+  }
+}
+
 const updateEntrySchema = z.object({
   status: z.enum(['planned', 'completed', 'skipped']).optional(),
   mealId: z.string().optional(),
@@ -160,6 +193,25 @@ export async function PATCH(
       return NextResponse.json({ error: 'Entry not found or access denied' }, { status: 404 })
     }
 
+    // A completed entry records what was cooked and what the pantry was
+    // charged for, so it cannot be repointed at a different meal afterwards.
+    // The deduction guard below refuses to charge an already-completed entry a
+    // second time, so writing `mealId` anyway would leave the entry naming one
+    // meal while the pantry paid for another — HON-622's invariant reached
+    // from the other side (HON-633). Refused whatever else the body carries:
+    // `status` and `deductPantry` cannot rescue the swap, because neither one
+    // makes the deduction run. Reverting to `planned` first and swapping then
+    // is still allowed, and still does not restock.
+    //
+    // This is the cheap answer for an entry that is *already* completed, not
+    // the whole rule: `entry.status` was read outside any transaction, so a
+    // swap that races a concurrent completion still passes here. Each of the
+    // two writes below re-tests the status as part of the write itself, which
+    // is what actually closes it.
+    if (parsed.data.mealId && entry.status === MealPlanEntryStatus.completed) {
+      return NextResponse.json({ error: 'Cannot swap a completed meal' }, { status: 409 })
+    }
+
     // Build update data
     const updateData: {
       status?: MealPlanEntryStatus
@@ -241,10 +293,17 @@ export async function PATCH(
     const componentsToDeduct = swapMealComponents ?? entry.meal?.components ?? []
 
     // Handle pantry deduction when marking as completed. Deduction is not
-    // idempotent, and reverting to `planned` does not restock, so an entry
-    // that is already completed must not be charged a second time — otherwise
-    // completed → planned → completed takes the ingredients twice for one
-    // cooked meal.
+    // idempotent, so an entry that is already completed must not be charged a
+    // second time: without this guard a repeated `completed` — a double
+    // submit, a client retry — would take the ingredients twice for one cooked
+    // meal.
+    //
+    // It keys on the *stored* status, so it does not cover
+    // completed → planned → completed: reverting does not restock, and the
+    // re-completion charges again. That is a real double-charge and is
+    // deliberately out of scope here (it is a question about what reverting
+    // should mean, not about swaps); the tests below pin the current
+    // behaviour.
     const shouldDeductPantry =
       parsed.data.deductPantry === true &&
       parsed.data.status === 'completed' &&
@@ -299,22 +358,60 @@ export async function PATCH(
         // a conditional write makes it a no-op for the loser: it takes the
         // entry's row lock, so the second transaction only proceeds once the
         // first has committed `completed`.
-        const claimed = await tx.mealPlanEntry.updateMany({
+        //
+        // `updateManyAndReturn` rather than `updateMany`: the row it hands
+        // back is what the mealId check below reads. Claiming on `status`
+        // alone and inspecting afterwards keeps `claimed === undefined`
+        // meaning exactly one thing — nobody to claim from — so the branch
+        // under it stays the lost-completion branch it was written as.
+        const [claimed] = await tx.mealPlanEntry.updateManyAndReturn({
           where: { id: entryId, status: { not: MealPlanEntryStatus.completed } },
           data: updateData,
         })
 
-        if (claimed.count === 0) {
+        if (!claimed) {
           // No row matched, which means either a concurrent request completed
           // this entry first or the entry has since been deleted (the DELETE
-          // handler above races this one). Persist the rest of the update but
-          // charge nothing — exactly what this request would have done had it
-          // arrived after the winner committed and read `completed` at the
-          // top. `updateMany` again rather than `update`: on the deleted-entry
-          // branch there is no row to write, and `update` would throw P2025
-          // and turn a lost race into a 500.
+          // handler above races this one).
+          //
+          // A swap cannot be persisted from here. This request charges
+          // nothing, so writing `mealId` would leave the entry naming a meal
+          // the pantry was never charged for — the same hole the serial guard
+          // at the top of the handler closes, reached by losing the race
+          // instead of by reading `completed` (HON-633). Throwing rolls the
+          // transaction back, so nothing at all is written.
+          //
+          // The deleted-entry sub-case answers 409 too, not 404: this branch
+          // cannot tell the two apart without another read, and "the entry is
+          // no longer in a state that accepts this swap" is true of both.
+          if (updateData.mealId) {
+            throw new CompletedSwapError()
+          }
+
+          // Without a swap, persist the rest of the update but charge nothing
+          // — exactly what this request would have done had it arrived after
+          // the winner committed and read `completed` at the top. `updateMany`
+          // again rather than `update`: on the deleted-entry branch there is
+          // no row to write, and `update` would throw P2025 and turn a lost
+          // race into a 500.
           await tx.mealPlanEntry.updateMany({ where: { id: entryId }, data: updateData })
           return false
+        }
+
+        // The claim won — but check what it won on. `deductions` was computed
+        // from the components read at the top of the handler, so a swap that
+        // committed in between leaves this transaction holding a row that
+        // names a different meal from the one it priced. Charging anyway takes
+        // food that was never cooked; completing without charging silently
+        // under-charges a meal the user did cook. Neither is acceptable, so
+        // roll the completion back and let the caller retry against the meal
+        // that is actually there (HON-633).
+        //
+        // Nothing has been deducted at this point, so the throw undoes only
+        // the claim itself. A swap-and-complete is exempt: it prices the
+        // incoming meal, which does not depend on what the entry pointed at.
+        if (!updateData.mealId && claimed.mealId !== entry.mealId) {
+          throw new StaleMealError()
         }
 
         // Deduct each ingredient. `householdId` + `ingredientId` is unique, so
@@ -363,7 +460,44 @@ export async function PATCH(
       })
     }
 
-    // Standard update without pantry deduction
+    // A swap that does not deduct — `{ mealId }` on its own, which is exactly
+    // what `MealSelectorModal` sends and therefore the shape almost every real
+    // swap takes. It never enters the transaction above (`shouldDeductPantry`
+    // needs `status: 'completed'` *and* `deductPantry`), so the conditional
+    // claim there does not cover it, and the guard at the top of the handler
+    // tested a `status` read from before the meal lookup. Between that read
+    // and this write a concurrent request can commit `completed` and charge
+    // the pantry for the meal the entry named then — and this write would
+    // repoint the entry at a different one (HON-633).
+    //
+    // So re-test the status as part of the write, the same trick the deduction
+    // claim uses: `updateManyAndReturn` matches nothing if the entry reached
+    // `completed` (or was deleted) in the meantime, and still returns the row
+    // so the response stays row-derived rather than reconstructed.
+    if (updateData.mealId) {
+      const [swapped] = await prisma.mealPlanEntry.updateManyAndReturn({
+        where: { id: entryId, status: { not: MealPlanEntryStatus.completed } },
+        data: updateData,
+      })
+
+      if (!swapped) {
+        return NextResponse.json({ error: 'Cannot swap a completed meal' }, { status: 409 })
+      }
+
+      return NextResponse.json({
+        id: swapped.id,
+        status: swapped.status,
+        mealId: swapped.mealId,
+        rating: swapped.rating,
+      })
+    }
+
+    // Standard update without pantry deduction. No `mealId`, so the swap rule
+    // does not apply. Note, rating and status edits are safe on a completed
+    // entry; `servingOverride` is not quite — it scales the deduction, so
+    // changing it after the fact leaves the recorded servings disagreeing with
+    // what the pantry was charged. That is the same invariant from a third
+    // side, out of scope here and tracked separately.
     const updatedEntry = await prisma.mealPlanEntry.update({
       where: { id: entryId },
       data: updateData,
@@ -376,6 +510,22 @@ export async function PATCH(
       rating: updatedEntry.rating,
     })
   } catch (error) {
+    // A lost race carrying a swap, refused inside the transaction. It is a
+    // deliberate answer rather than a route failure, so it takes the same 409
+    // as the serial guard and is not reported as an error (HON-633).
+    if (error instanceof CompletedSwapError) {
+      return NextResponse.json({ error: 'Cannot swap a completed meal' }, { status: 409 })
+    }
+
+    // Likewise for a completion whose meal was swapped underneath it: the
+    // claim has been rolled back, so retrying is safe and is the fix.
+    if (error instanceof StaleMealError) {
+      return NextResponse.json(
+        { error: 'The meal changed while completing. Try again.' },
+        { status: 409 },
+      )
+    }
+
     captureApiError(error, {
       route: '/api/meal-plans/[id]/entries/[entryId]',
       userId: session.user.id,
