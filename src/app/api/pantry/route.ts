@@ -14,7 +14,12 @@ import { captureApiError } from '@/lib/errors'
 // `quantity` floors at 0: `0` is a valid tracked state ("none left, still
 // tracked"), `null` means "have some, amount unknown" (the deduction path
 // treats it as fully consumed), and a negative would render on /shopping as a
-// real on-hand amount and skew the needed-quantity aggregation in GET above.
+// real on-hand amount and inflate the shopping quantity: `computeShoppingList`
+// (src/lib/meal-planning/shopping-list.ts:279) and
+// `computeRollingWindowShoppingList` (:475) both net via
+// `Math.max(0, neededQty - pantry.quantity)`, which turns "500 needed, -500 on
+// hand" into 1000 to buy. The needed-quantity aggregation in this file's GET is
+// meal-plan-only and never reads `quantity`, so it is not the consumer at risk.
 const createPantryItemSchema = z.object({
   ingredientId: z.string().min(1),
   quantity: z.number().min(0).nullable().optional(),
