@@ -82,6 +82,36 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          # Full history so `git merge-base` resolves for the immutability
+          # guard below — at 9 MiB / ~720 commits that costs a couple of
+          # seconds. Reverting to the depth-1 default does not merely degrade
+          # the guard, it disables it: the base sha is never fetched, so the
+          # script exits 2 on an unresolvable ref. Fetching the base back at
+          # `--depth=1` is worse still — it resolves the ref but re-shallows
+          # the repository, and the guard then falls back to a two-tree diff
+          # that blames the branch for every migration the base gained since
+          # the fork point. If this has to change, fetch without `--depth`.
+          fetch-depth: 0
+
+      # Guardrail (HON-641): a migration that is already on `main` has been
+      # applied somewhere durable — deploy-db-migrations-staging.yml runs
+      # `prisma migrate deploy` on every merge, and production applies the same
+      # files. Editing one afterwards can only break the checksum Prisma
+      # recorded at apply time, which is what made `migrate dev` unusable in
+      # HON-558. Needs nothing but git, so it runs before the install and fails
+      # in seconds.
+      #
+      # Pull requests only. `github.event.before` would give a `push` a base to
+      # diff against, but by then the migration is on `main` and this same push
+      # has already triggered deploy-db-migrations-staging.yml — a red check
+      # could report the drift, not prevent it. Blocking at PR time is the
+      # whole point; post-merge alerting is tracked separately.
+      - name: Check migrations are immutable
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: bash scripts/check-migrations-immutable.sh "$BASE_SHA"
 
       - name: Enable Corepack
         run: corepack enable

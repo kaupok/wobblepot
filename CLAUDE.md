@@ -220,6 +220,8 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **Migration SQL:** Always use actual PostgreSQL table names (from `@@map`) in migration SQL, NOT Prisma model names. Example: `"household_preferences"` not `"HouseholdPreferences"`.
 
+**Migration immutability: a migration file is frozen once it is on `main`.** By then it has been applied somewhere durable — `deploy-db-migrations-staging.yml` runs `prisma migrate deploy` on every merge, and production applies the same files — and Prisma stores a checksum of each `migration.sql` at apply time, so editing one only guarantees that `prisma migrate dev` will demand a full database reset (HON-558). Never edit, delete, or renumber an applied migration; add a new one that fixes forward. CI enforces this on every PR; run it locally with `git fetch origin main && bash scripts/check-migrations-immutable.sh origin/main` — fetch first, because a stale `origin/main` omits migrations that landed since, and editing one of those then reads as an addition and passes.
+
 **CRITICAL: Never run destructive database commands (`migrate reset`, `db push --force-reset`, `DROP`, etc.) on staging or production.** These destroy real data. Always ask the user before taking any destructive action on shared environments — even to fix migration issues. Prefer `migrate resolve` or manual SQL fixes instead.
 
 ## Testing
