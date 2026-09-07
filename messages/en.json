@@ -95,11 +95,8 @@
       "noPlanCta": "Generate plan",
       "allDoneHeading": "All done!",
       "allDoneBody": "Your pantry is stocked for the week.",
-      "allDoneCta": "View pantry",
       "nothingHeading": "Nothing to buy",
       "nothingBody": "Your pantry has everything you need for the next {days} days.",
-      "nothingBodyShort": "Your pantry has everything you need for this week.",
-      "nothingCta": "View pantry",
       "errorHeading": "Something went wrong",
       "errorBody": "We couldn't load your shopping list. Please try again.",
       "errorCta": "Go to dashboard"

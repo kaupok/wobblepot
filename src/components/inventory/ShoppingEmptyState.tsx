@@ -22,7 +22,7 @@ const VARIANT_KEYS: Record<
     heading: 'noPlanHeading',
     body: 'noPlanBody',
     cta: 'noPlanCta',
-    href: '/meal-plan',
+    href: '/',
   },
   'all-purchased': {
     heading: 'allDoneHeading',
@@ -37,7 +37,7 @@ const VARIANT_KEYS: Record<
     heading: 'errorHeading',
     body: 'errorBody',
     cta: 'errorCta',
-    href: '/meal-plan',
+    href: '/',
   },
 }
 
