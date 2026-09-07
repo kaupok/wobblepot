@@ -14,6 +14,19 @@ Owner: [`.github/workflows/neon-cleanup.yml`](../../.github/workflows/neon-clean
 | `schedule: "17 3 * * 1"` (Monday 03:17 UTC) | `sweep`    | Lists all `<prefix>--hon-<N>[-slug]` Neon branches. For each, queries Linear for the linked issue's state. Deletes if state is `Done` / `Canceled`, the branch is > 24h old, and the branch is not `primary` / `protected` / on the hardcoded allowlist. Any Linear API failure → skip (fail-safe). |
 | `workflow_dispatch`                         | `sweep`    | Same as the scheduled sweep. Accepts a `dry_run` input (default `true`).                                                                                                                                                                                                                            |
 
+## `preview/*` is not ours — and is deliberately outside both reapers
+
+Every branch above is one the tooling created. `preview/<git-branch>` is not: the **Vercel–Neon integration** creates it when a PR opens, and holds it for the life of that PR. Nothing in this repo creates, renames or deletes it — `grep -rn "preview/" scripts/ .github/` finds nothing.
+
+Neither reaper can reach it, and both are right not to:
+
+- `neon_gc_orphan_names` (in `scripts/worktree-claude.sh`) emits only the tooling's own name shapes — `auto-`, `<prefix>--hon-<N>[-slug]`, and `${NEON_USER_PREFIX}-`. `preview/…` matches none of them.
+- `scripts/neon-cleanup.sh` gates every delete on `SAFE_BRANCH_REGEX` (`^[A-Za-z0-9._-]+--hon-([0-9]+)(-[A-Za-z0-9._-]+)?$`), whose character class excludes `/`. A `preview/` name cannot match it at any length.
+
+**This is not a leak.** The integration reaps its own branch once the PR closes, and observed turnaround is minutes. But it does mean **each in-flight issue costs two branches, not one** — its worktree branch and its preview branch — which is the arithmetic behind the `2N + 2S + 3` budget in [`docs/PARALLEL_WORKFLOW.md`](../PARALLEL_WORKFLOW.md) → Configuration and the startup check in `scripts/orchestrator.sh` (`check_branch_budget`). HON-609 hit the cap this way with nothing stale to collect: four live workers, four preview branches, and an orphan GC that correctly found nothing to reclaim.
+
+So when the cap is hit, do **not** widen either reaper to cover `preview/*`. Deleting a live PR's preview branch pins its Vercel env vars to an endpoint that no longer exists, which resurfaces as `P1001: Can't reach database server` in preview builds — the HON-492 failure, reintroduced. Lower the worker ceiling, clear stranded worktrees (`wt list`, then `wt cleanup <branch>` — a stranded run holds both of its branches until you do), or raise the Neon plan and `NEON_BRANCH_CAP` with it.
+
 ## Safety invariants
 
 All must hold for deletion (enforced in `is_safe_to_delete` in the script):
@@ -100,5 +113,7 @@ If a live branch was deleted by mistake (for example, if the regex or allowlist 
 - `scripts/neon-cleanup.sh` — all logic, including safety invariants
 - `scripts/maybe-migrate.sh` — pre-flight endpoint check (HON-492)
 - `.claude/skills/auto-implement/SKILL.md` — origin of `*--hon-*` branches
+- `docs/PARALLEL_WORKFLOW.md` → Configuration — the `2N + 2S + 3` branch budget and the `--max-workers` ceiling it bounds
 - HON-473 — database recovery runbook (PITR procedures)
 - HON-492 — incident + design that produced this runbook
+- HON-609 / HON-616 — the cap hit with nothing stale to collect; `preview/*` accounting and the startup budget check

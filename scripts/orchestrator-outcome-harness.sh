@@ -31,6 +31,13 @@
 #     both the default and the ORCHESTRATOR_WORKER_TIMEOUT override are under
 #     test as values rather than as source text.
 #
+#   branch-budget [max_workers] [cap]                               (HON-616)
+#     Runs the REAL check_branch_budget — the startup gate that refuses a worker
+#     ceiling the Neon plan cannot fund. Either argument may be empty to keep the
+#     value orchestrator.sh resolved at source time, so the shipped defaults and
+#     the NEON_BRANCH_CAP override are both reachable. Prints the ERROR/WARN/INFO
+#     lines, then EXIT:<status>.
+#
 #   pr-for-branch <gh-json> | ci-state <gh-json>
 #     Exercises the REAL helper against fixture JSON, with `gh` itself stubbed.
 #     These cover the jq expression and the bucket classification — the parsing
@@ -43,10 +50,12 @@
 #     over <text>, so the .env-value redaction pass is under test with real
 #     secret shapes (regex metacharacters, substrings, sub-8-char values).
 #
-#   failure <triage> <retried> <shutting_down> [repeat]   (HON-572, finding 2)
+#   failure <triage> <retried> <shutting_down> [repeat] [log-flavour]
+#                                                        (HON-572, finding 2)
 #     Drives the REAL handle_failure with spawn_worker / move_to_backlog /
-#     cleanup_worker_worktree / linear_api / try_add_label / notify stubbed,
-#     emitting one synthetic line per side effect. Triage is forced by putting a
+#     cleanup_worker_worktree / restore_todo_if_in_progress / try_add_label /
+#     notify stubbed and linear_api recording comment bodies, emitting one
+#     synthetic line per side effect. Triage is forced by putting a
 #     `claude` stub first on PATH — the production call goes through
 #     `env -u ANTHROPIC_API_KEY claude`, so a shell function would be bypassed,
 #     and routing through PATH keeps the real verdict parsing under test.
@@ -55,6 +64,14 @@
 #     records everything it receives (stdin + prompt args); the run emits a
 #     TRIAGE_INPUT line so a test can assert the triage input is redacted by the
 #     sanitize-at-capture pass (HON-577).
+#     `log-flavour` picks the worker log the run is given (HON-616):
+#     `plain` (default, the secret-carrying log above), `cap` (a worktree-setup
+#     death at the Neon branch cap, with no Claude session at all),
+#     `cap-gc-only` (the non-terminal "running orphan GC" line only) and
+#     `cap-after-claude` (the terminal sentence QUOTED inside a Claude session,
+#     which is what a worker editing these scripts writes). The last two must
+#     NOT classify as CAP. requeue_to_todo runs for real on that path, so its
+#     comment lands as a COMMENT line.
 #     Ends with CONSECUTIVE_FAILURES / PAUSED / the write_status_file JSON.
 #
 #   bash-timeout <bound-secs> <command-sleep-secs>                  (HON-578)
@@ -185,6 +202,26 @@ case "$MODE" in
   # ─── Resolved worker timeout (HON-583) ─────────────────────────────────────
   worker-timeout)
     echo "$WORKER_TIMEOUT"
+    exit 0
+    ;;
+
+  # ─── Neon branch budget enforcement (HON-616) ──────────────────────────────
+  #   branch-budget [max_workers] [cap]
+  # Runs the REAL check_branch_budget. Both arguments are optional: an empty one
+  # leaves the value orchestrator.sh resolved at source time in place, so the
+  # SHIPPED defaults and the env overrides are both reachable — the same
+  # value-not-source-text approach as worker-timeout above. Prints $MAIN_LOG
+  # (where the ERROR/WARN/INFO lines land) then EXIT:<status>.
+  branch-budget)
+    [ -n "$A1" ] && MAX_WORKERS="$A1"
+    [ -n "$A2" ] && NEON_BRANCH_CAP="$A2"
+    trap 'rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE"' EXIT
+    # `|| status=$?` rather than `set +e`: errexit is dynamic, and clearing it
+    # would change the code under test.
+    status=0
+    check_branch_budget || status=$?
+    cat "$MAIN_LOG"
+    echo "EXIT:$status"
     exit 0
     ;;
 
@@ -332,13 +369,53 @@ EOF
     # A worker log carrying real secret shapes, so the sanitize-at-capture pass
     # in handle_failure is under test end to end: these must be redacted before
     # the log tail reaches the triage CLI.
+    #
+    # A5 selects the flavour (HON-616). The default is the secret-carrying log
+    # above; the `cap-*` ones drive worker_hit_neon_cap, whose whole job is to
+    # tell a real branch-cap death apart from a log that merely mentions one.
     WORKER_LOG=$(mktemp "${TMPDIR:-/tmp}/orchestrator-harness-worklog.XXXXXXXX")
-    {
-      echo "Starting autonomous Claude Code"
-      echo "----"
-      echo "DATABASE_URL=postgresql://user:supersecretpw@db.example/app"
-      echo "LINEAR_API_KEY=lin_api_SECRET1234567890abcdef"
-    } > "$WORKER_LOG"
+    case "${A5:-plain}" in
+      cap)
+        # A genuine cap failure: `wt auto` dies in worktree setup, so the log
+        # ends before "Starting autonomous Claude Code" is ever printed.
+        {
+          echo "Setting up worktree for HON-991..."
+          echo "Neon branch cap hit at 10 branches — running orphan GC..."
+          echo "Error: Neon branch cap still exceeded after orphan GC."
+          echo "ERROR: branches limit exceeded"
+        } > "$WORKER_LOG"
+        ;;
+      cap-gc-only)
+        # The first cap message WITHOUT the terminal one — the shape a worker
+        # prints when the GC frees a branch and the retry succeeds. Only the
+        # terminal sentence may classify.
+        {
+          echo "Neon branch cap hit at 10 branches — running orphan GC..."
+          echo "Starting autonomous Claude Code"
+          echo "----"
+          echo "something else went wrong later"
+        } > "$WORKER_LOG"
+        ;;
+      cap-after-claude)
+        # The false positive this exists to prevent: a worker whose Claude
+        # session QUOTES the terminal sentence — editing these very scripts, or
+        # reading HON-616 — and then fails for an unrelated reason.
+        {
+          echo "Starting autonomous Claude Code"
+          echo "----"
+          echo 'Editing scripts/worktree-claude.sh: "Neon branch cap still exceeded after orphan GC."'
+          echo "TypeError: cannot read property of undefined"
+        } > "$WORKER_LOG"
+        ;;
+      *)
+        {
+          echo "Starting autonomous Claude Code"
+          echo "----"
+          echo "DATABASE_URL=postgresql://user:supersecretpw@db.example/app"
+          echo "LINEAR_API_KEY=lin_api_SECRET1234567890abcdef"
+        } > "$WORKER_LOG"
+        ;;
+    esac
 
     # Keep write_status_file off the real ~/.worktrees status file.
     STATUS_FILE=$(mktemp "${TMPDIR:-/tmp}/orchestrator-harness-status.XXXXXXXX")
@@ -350,11 +427,23 @@ EOF
     count_commits() { echo 0; }
     detect_phase() { echo "implementing"; }
     notify() { :; }
-    linear_api() { echo '{"data":{}}'; }
+    # Records any comment body, as the `outcome` mode does: requeue_to_todo runs
+    # for real on the cap path, and the text it posts is operator-facing.
+    # Newlines are flattened so the log stays one line per side effect.
+    linear_api() {
+      local body=""
+      body=$(printf '%s' "${2:-}" | jq -r '.body // empty' 2>/dev/null | tr '\n' ' ') || body=""
+      [ -n "$body" ] && echo "COMMENT:$body" >> "$MAIN_LOG"
+      echo '{"data":{}}'
+    }
     try_add_label() { echo "LABEL:$2" >> "$MAIN_LOG"; }
     cleanup_worker_worktree() { echo "CLEANUP:${1}:${2:-false}" >> "$MAIN_LOG"; }
     move_to_backlog() { echo "MOVE_TO_BACKLOG:${2}:${4}" >> "$MAIN_LOG"; }
     spawn_worker() { echo "SPAWN_WORKER:${2}:retry=${5:-0}" >> "$MAIN_LOG"; }
+    # Stubbed for the same reason the `outcome` mode stubs it: it is a Linear
+    # round trip. requeue_to_todo itself is NOT stubbed — its comment body and
+    # its choice of this call over move_to_backlog are the things under test.
+    restore_todo_if_in_progress() { echo "RESTORE_TODO:$2" >> "$MAIN_LOG"; }
 
     STEP=0
     IFS=',' read -ra STEPS <<< "$SEQUENCE"

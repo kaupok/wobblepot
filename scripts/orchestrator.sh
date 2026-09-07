@@ -20,6 +20,9 @@
 # Required:
 #   LINEAR_API_KEY env var (format: lin_api_...)
 #
+# Refuses to start when the worker ceiling cannot fit the Neon branch cap —
+# see NEON_BRANCH_CAP and check_branch_budget below (HON-616).
+#
 # See docs/PARALLEL_WORKFLOW.md for full documentation.
 
 set -euo pipefail
@@ -79,6 +82,21 @@ WORKER_TITLES=()
 # with "branches limit exceeded", failing the issue back to Backlog +
 # `Needs attention` before Claude ever runs (HON-609, 2026-09-03). See HON-616.
 MAX_WORKERS="${ORCHESTRATOR_MAX_WORKERS:-3}"
+# The budget above, as something the script can check rather than only document.
+# check_branch_budget refuses to start when `2N + P` exceeds the cap, so a
+# ceiling the plan cannot fund is rejected here instead of failing an arbitrary
+# issue an hour later (HON-616).
+#
+# NEON_* rather than ORCHESTRATOR_*: the cap is a property of the Neon plan, not
+# of this script, it lives in the same .env namespace as NEON_API_KEY /
+# NEON_PROJECT_ID, and worktree-claude.sh reads the same variable for its cap
+# error message. Raise it only after actually raising the plan — the value is
+# not enforced against Neon, it is what this script believes it has to spend.
+NEON_BRANCH_CAP="${NEON_BRANCH_CAP:-10}"
+# main, staging, dev/kaupo. Not the `vercel-dev` name in neon-cleanup.sh's
+# defensive allowlist: no such branch exists in the project (checked against the
+# Neon API during #695's review), so counting it would understate the ceiling.
+NEON_PERMANENT_BRANCHES=3
 POLL_INTERVAL="${ORCHESTRATOR_POLL_INTERVAL:-60}"
 WORKER_TIMEOUT="${ORCHESTRATOR_WORKER_TIMEOUT:-10800}"  # 3h. HON-583: 1h no longer absorbs the in-turn CI wait
 # Wall-clock bound on the Claude triage call in handle_failure. Without it a
@@ -165,6 +183,11 @@ while [[ $# -gt 0 ]]; do
       echo "  ORCHESTRATOR_MAX_WORKERS    Override --max-workers default"
       echo "  ORCHESTRATOR_POLL_INTERVAL  Override --poll-interval default"
       echo "  ORCHESTRATOR_WORKER_TIMEOUT Override --worker-timeout default"
+      echo "  NEON_BRANCH_CAP             Neon branches the plan allows (default: 10)"
+      echo ""
+      echo "Startup refuses to run when 2 x max-workers + 3 exceeds NEON_BRANCH_CAP:"
+      echo "each in-flight issue holds a worktree Neon branch AND the Vercel-Neon"
+      echo "integration's preview/* branch, plus main, staging and dev/kaupo."
       exit 0 ;;
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
@@ -645,7 +668,13 @@ spawn_worker() {
   log INFO "Spawning worker for $issue_id: $title"
   log INFO "  Branch: $actual_branch | Log: $log_file"
 
-  "$SCRIPT_DIR/worktree-claude.sh" auto "$wt_arg" > "$log_file" 2>&1 &
+  # Export the RESOLVED ceiling. worktree-claude.sh is a separate process and
+  # cannot see a --max-workers flag, so without this its cap error message can
+  # only name a default that may not be in force (HON-616). NEON_BRANCH_CAP is
+  # passed for the same reason; both are read straight from .env there when the
+  # worker is started by hand rather than by this loop.
+  ORCHESTRATOR_MAX_WORKERS="$MAX_WORKERS" NEON_BRANCH_CAP="$NEON_BRANCH_CAP" \
+    "$SCRIPT_DIR/worktree-claude.sh" auto "$wt_arg" > "$log_file" 2>&1 &
   local pid=$!
 
   WORKER_PIDS+=("$pid")
@@ -1578,6 +1607,34 @@ extract_claude_output() {
   fi
 }
 
+# ─── Neon branch-cap failures ───────────────────────────────────────────────
+#
+# A worker that dies because the Neon plan is out of branches has told us
+# nothing about the issue it was given: `wt auto` fails in worktree setup,
+# before Claude runs at all. Left to the LLM triage that reads like a broken
+# issue, and HON-609 was duly moved to Backlog with a `Needs attention` label
+# for a capacity problem it had no part in. Detect it deterministically instead.
+#
+# Only the SECOND of worktree-claude.sh's two cap messages is terminal. The
+# first ("cap hit — running orphan GC") is also printed on the run that then
+# succeeds, so matching it would classify healthy workers as cap failures.
+NEON_CAP_MARKER='cap still exceeded after orphan GC'
+
+worker_hit_neon_cap() {
+  local log_file="$1"
+  [ -n "$log_file" ] && [ -f "$log_file" ] || return 1
+  # Scoped to the setup portion — everything up to the marker extract_claude_output
+  # splits on. This is load-bearing, not tidiness: the sentence above is quoted in
+  # this repo's own scripts, docs and Linear issues, so a worker doing ordinary
+  # work on the orchestrator prints it into its log constantly. An unscoped grep
+  # would read any genuine failure of such a run as a branch-cap failure and
+  # requeue it forever. `sed /…/q` stops at the marker, or reads the whole file
+  # when it never appears — which is exactly the shape a real cap failure has,
+  # since the worker died before Claude started.
+  sed "/Starting autonomous Claude Code/q" "$log_file" 2>/dev/null \
+    | grep -qF "$NEON_CAP_MARKER"
+}
+
 # ─── Handle failure ─────────────────────────────────────────────────────────
 
 handle_failure() {
@@ -1626,7 +1683,14 @@ handle_failure() {
 
   # Claude-powered triage (default to BACKLOG if Claude unavailable, NEEDS_HUMAN if Claude errors)
   local triage="BACKLOG"
-  if command -v claude &> /dev/null && [ "$DRY_RUN" = false ]; then
+  if worker_hit_neon_cap "$log_file"; then
+    # Deterministic, and deliberately ahead of the Claude call: the log says in
+    # plain text why the worker died, there is nothing to infer, and the verdict
+    # must hold when Claude is unavailable or DRY_RUN is set — the two cases
+    # where the fallback is BACKLOG, i.e. the wrong answer for this failure.
+    triage="CAP"
+    log WARN "$issue_id failed on the Neon branch cap during worktree setup — capacity, not the issue"
+  elif command -v claude &> /dev/null && [ "$DRY_RUN" = false ]; then
     # Build triage prompt with timeout context if available
     local triage_extra=""
     if [ -n "$timeout_context" ]; then
@@ -1734,7 +1798,61 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)"
       move_to_backlog "$issue_uuid" "$issue_id" "$log_claude_output" "Needs attention" \
         "Auto-implementation needs human attention ($failure_type)" "$log_file"
       cleanup_worker_worktree "$branch" ;;
+    CAP)
+      # Same one-retry shape as RETRY — the branches may have freed in the
+      # meantime — but it never ends in Backlog. The issue was never examined,
+      # so `Failed` / `Needs attention` would both be false, and either label
+      # needs a human to clear before the issue is pickable again. Todo,
+      # unassigned, no label: the orchestrator picks it up itself once there is
+      # room. The loop that implies is bounded by the circuit breaker, which
+      # note_consecutive_failure above still feeds on both of these paths —
+      # three cap failures in a row pause spawning for 10 minutes rather than
+      # walking the whole queue into a requeue.
+      if [ "$retried" = "0" ] && [ "$SHUTTING_DOWN" = false ]; then
+        log INFO "Retrying $issue_id once — the Neon branch cap may have freed: $title"
+        cleanup_worker_worktree "$branch" true
+        spawn_worker "$issue_uuid" "$issue_id" "$branch" "$original_title" "1"
+      else
+        requeue_to_todo "$issue_uuid" "$issue_id" "$log_file"
+        cleanup_worker_worktree "$branch"
+      fi ;;
   esac
+}
+
+# ─── Requeue to Todo (no label, no blame) ───────────────────────────────────
+# For failures that say nothing about the issue itself — today, only the Neon
+# branch cap. move_to_backlog is the wrong tool: Backlog plus a red label reads
+# as "this issue is broken", and both are sticky, so a human has to clear them
+# before the orchestrator will look at it again. Here the issue is fine and the
+# only thing that has to change is the branch count, so leave it queued.
+
+requeue_to_todo() {
+  local issue_uuid="$1" issue_id="$2" log_file="${3:-}"
+
+  local log_path_note=""
+  if [ -n "$log_file" ]; then
+    log_path_note=$(printf '\n\n**Worker log:** `%s`' "$log_file")
+  fi
+
+  # No log tail: the worker died in worktree setup before Claude ran, so there
+  # is no Claude output to quote, and the setup log is the one part of a worker
+  # log that sanitize_log exists for. A one-line explanation is the whole story.
+  local body
+  body=$(printf '## Returned to Todo — Neon branch cap\n\nThe worker could not be given a database branch: the Neon project was at its branch cap, and the orphan GC had nothing to reclaim. This says nothing about the issue, so it is back in Todo, unassigned and unlabelled, and will be picked up again once branches free up.\n\nIf this repeats, check `wt list` for stranded worktrees (`wt cleanup <branch>` releases both of their branches) and the `2N + 2S + 3` budget in docs/PARALLEL_WORKFLOW.md.%s' \
+    "$log_path_note")
+
+  local vars
+  vars=$(jq -n --arg id "$issue_uuid" --arg body "$body" '{issueId: $id, body: $body}')
+  linear_api \
+    'mutation($issueId: String!, $body: String!) {
+      commentCreate(input: { issueId: $issueId, body: $body }) { success }
+    }' "$vars" > /dev/null 2>&1 || log WARN "Failed to comment on $issue_id"
+
+  # Only undoes this orchestrator's own In Progress claim, and clears the
+  # assignee with it — select_next_issue skips any assigned issue forever.
+  restore_todo_if_in_progress "$issue_uuid" "$issue_id"
+
+  log INFO "Returned $issue_id to Todo (unassigned) — Neon branch cap, not a failure of the issue"
 }
 
 # ─── Move issue to Backlog with comment + label ─────────────────────────────
@@ -2080,6 +2198,65 @@ validate_state_ids() {
   echo "$stale"
 }
 
+# ─── Neon branch budget ─────────────────────────────────────────────────────
+#
+# Enforce the ceiling the Configuration block documents, at startup, instead of
+# discovering it an hour later on whichever issue happens to be Nth in the queue.
+# That is the HON-609 failure: five workers were configured, the Neon plan funds
+# three, and the fifth `wt auto` died during worktree setup with "branches limit
+# exceeded" — before Claude ran — so a perfectly good issue was triaged into
+# Backlog with a `Needs attention` label for a capacity problem it had no part in.
+#
+# Peak usage is `2N + P`: each in-flight issue holds its worktree's Neon branch
+# AND the Vercel-Neon integration's `preview/<git-branch>`, plus the P permanent
+# branches. Stranded runs add `2S` on top (see the Configuration block), which is
+# what the spare branch at the shipped default is for — hence the WARN when the
+# ceiling fits with nothing left over.
+#
+# Returns non-zero when the run must not start. Everything is printed through
+# log(), so the refusal is in orchestrator.log rather than only on a terminal
+# nobody was watching.
+check_branch_budget() {
+  # Validate before any arithmetic. Bash evaluates a non-numeric operand as a
+  # variable name and quietly yields 0, so `--max-workers abc` would compute a
+  # peak of 3, pass the budget check, and then make `[ "$active" -lt "$MAX_WORKERS" ]`
+  # fail on every poll — an orchestrator that starts, logs healthily and never
+  # spawns anything. A ceiling of 0 is the same silent no-op by a shorter route.
+  if ! [[ "$MAX_WORKERS" =~ ^[0-9]+$ ]] || [ "$MAX_WORKERS" -lt 1 ]; then
+    log ERROR "max_workers must be a positive integer, got '$MAX_WORKERS'"
+    return 1
+  fi
+  if ! [[ "$NEON_BRANCH_CAP" =~ ^[0-9]+$ ]] || [ "$NEON_BRANCH_CAP" -lt 1 ]; then
+    log ERROR "NEON_BRANCH_CAP must be a positive integer, got '$NEON_BRANCH_CAP'"
+    return 1
+  fi
+
+  local peak fits
+  peak=$(( 2 * MAX_WORKERS + NEON_PERMANENT_BRANCHES ))
+  # Largest ceiling the cap can fund. Integer division floors, which is the
+  # direction that keeps the suggestion inside the budget.
+  fits=$(( (NEON_BRANCH_CAP - NEON_PERMANENT_BRANCHES) / 2 ))
+
+  if [ "$peak" -gt "$NEON_BRANCH_CAP" ]; then
+    log ERROR "max_workers=$MAX_WORKERS needs $peak Neon branches (2N + $NEON_PERMANENT_BRANCHES), but NEON_BRANCH_CAP is $NEON_BRANCH_CAP"
+    log ERROR "  Each in-flight issue holds TWO branches: the worktree's own, and the Vercel-Neon integration's preview/<git-branch> while its PR is open."
+    if [ "$fits" -lt 1 ]; then
+      log ERROR "  No worker fits this cap. Raise NEON_BRANCH_CAP to at least $(( 2 + NEON_PERMANENT_BRANCHES )) (after raising the Neon plan)."
+    else
+      log ERROR "  Run with --max-workers $fits, or raise the Neon plan and set NEON_BRANCH_CAP to $peak or more."
+    fi
+    return 1
+  fi
+
+  if [ "$peak" -eq "$NEON_BRANCH_CAP" ]; then
+    log WARN "Neon branch budget: $peak of $NEON_BRANCH_CAP used at peak — no spare branch left"
+    log WARN "  A stranded run holds its two branches until 'wt cleanup <branch>', so the next one will hit the cap. Consider --max-workers $(( MAX_WORKERS - 1 ))."
+  else
+    log INFO "Neon branch budget: $peak of $NEON_BRANCH_CAP at peak (2 x $MAX_WORKERS + $NEON_PERMANENT_BRANCHES), $(( NEON_BRANCH_CAP - peak )) spare"
+  fi
+  return 0
+}
+
 # ─── Validate environment ───────────────────────────────────────────────────
 
 validate_environment() {
@@ -2160,7 +2337,12 @@ main() {
   ORCHESTRATOR_START_TIME=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
   write_status_file
 
-  log INFO "Config: max_workers=$MAX_WORKERS poll=${POLL_INTERVAL}s timeout=${WORKER_TIMEOUT}s dry_run=$DRY_RUN once=$RUN_ONCE"
+  log INFO "Config: max_workers=$MAX_WORKERS poll=${POLL_INTERVAL}s timeout=${WORKER_TIMEOUT}s neon_branch_cap=$NEON_BRANCH_CAP dry_run=$DRY_RUN once=$RUN_ONCE"
+
+  # After the Config line, so the refusal message sits directly beneath the
+  # numbers it is refusing. Fatal by design: a ceiling the Neon plan cannot fund
+  # does not fail here, it fails on an arbitrary issue later (HON-616).
+  check_branch_budget || exit 1
 
   while true; do
     [ "$SHUTTING_DOWN" = true ] && break

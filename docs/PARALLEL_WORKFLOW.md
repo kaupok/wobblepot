@@ -217,6 +217,7 @@ wt stop
 | `--worker-timeout N` | `ORCHESTRATOR_WORKER_TIMEOUT` | 10800   | Seconds before killing a worker |
 | `--dry-run`          | —                             | false   | Log actions without executing   |
 | `--once`             | —                             | false   | Single poll cycle, then exit    |
+| —                    | `NEON_BRANCH_CAP`             | 10      | Neon branches the plan allows   |
 
 Requires `LINEAR_API_KEY` env var (format: `lin_api_...`).
 
@@ -232,7 +233,11 @@ On Neon's free plan (10 branches): N=3 fits at 9, N=4 does not at 11. The one sp
 
 No reaper reclaims either shape on its own. `neon_gc_orphans` skips any branch whose git worktree is still live — which a stranded run's is — and `neon-cleanup.sh`'s sweep requires the Linear issue to be Done or Canceled, while a stranded one sits in In Review. `preview/*` escapes both regardless: `neon_gc_orphan_names` emits only the tooling's own name shapes, and `SAFE_BRANCH_REGEX` excludes `/`. That is correct for a live PR, but it means the budget above is the only thing protecting you.
 
-Exceeding the cap makes `wt auto` die during worktree setup with `branches limit exceeded`, failing the issue back to Backlog with a `Needs attention` label before Claude runs at all (HON-609, 2026-09-03). Raise this only alongside the Neon plan; see HON-616.
+**The ceiling is enforced at startup, not merely defaulted.** `check_branch_budget` computes `2N + 3` against `NEON_BRANCH_CAP` before the poll loop begins and **refuses to start** when it does not fit, naming the largest `--max-workers` that does. It warns — and still starts — when the budget fits with no spare branch left, since the spare is what absorbs a stranded run. `NEON_BRANCH_CAP` defaults to 10, the Free-tier limit; raise it only after actually raising the Neon plan, because nothing validates it against Neon. A non-numeric or zero `--max-workers` is refused here too: bash reads it as `0`, which used to produce an orchestrator that started, logged healthily and never spawned anything.
+
+Exceeding the cap anyway — a hand-run `wt new`, or stranded runs holding branches — makes `wt auto` die during worktree setup with `branches limit exceeded`, before Claude runs at all (HON-609, 2026-09-03). That failure is now **triaged deterministically as capacity rather than as a bad issue** (HON-616): the orchestrator matches the terminal cap message in the worker log ahead of the Claude triage call, retries once in case branches freed, and then returns the issue to **Todo, unassigned and unlabelled**, with a comment explaining the cap — instead of Backlog with `Needs attention`, which is both false and sticky. The issue is pickable again the moment there is room; three cap failures in a row trip the circuit breaker rather than sweeping the queue. The `[OUTCOME]` line reads `triage=CAP`.
+
+The cap message itself names the budget, the ceiling in force and the branch count before and after the orphan GC, so the next reader can tell a misconfigured ceiling from a project full of branches nothing owns.
 
 ### Monitoring
 
@@ -250,9 +255,10 @@ Commit counts and the git-heuristic phases derived from them — in `wt status`,
 [OUTCOME] HON-55 GATED 8m0s 0-commits phase=planning
 [OUTCOME] HON-570 STRANDED 12m3s 3-commits phase=pr-review pr=#650 ci=green exit=clean
 [OUTCOME] HON-580 STRANDED 1h0m 4-commits phase=pr-review pr=#667 ci=green exit=timeout
+[OUTCOME] HON-609 FAILED 0m8s 0-commits phase=planning triage=CAP
 ```
 
-`SUCCESS` is logged only for a run that reached `phase=done` — i.e. actually merged, or confirmed merged against its PR. Every other exit that shipped something is `STRANDED`; one that shipped nothing is `GATED` (clean exit) or `TIMEOUT` / `FAILED` (killed or crashed with no PR).
+`SUCCESS` is logged only for a run that reached `phase=done` — i.e. actually merged, or confirmed merged against its PR. Every other exit that shipped something is `STRANDED`; one that shipped nothing is `GATED` (clean exit) or `TIMEOUT` / `FAILED` (killed or crashed with no PR). A `FAILED` line carrying `triage=CAP` is the one shape that is not the issue's fault — the Neon branch cap was hit during worktree setup, so the issue went back to Todo rather than Backlog (see the Configuration section above).
 
 **Stranded runs.** A worker can end with commits and an open, unmerged PR. That is an incomplete cycle, not a success: the merge never happened and the issue parks in In Review. `exit=` says which signal ended it — `clean` for an exit-0 worker, `timeout` for one killed at `WORKER_TIMEOUT`. The orchestrator logs `STRANDED` with the PR number and its CI state (`green` / `pending` / `failing` / `unknown`), comments on the Linear issue with the PR URL and worker log path, adds the `Stranded` label — and **skips cleanup entirely**, so the worktree, local git branch and paired Neon branch all survive. Those artifacts are what finishing the run by hand requires:
 
