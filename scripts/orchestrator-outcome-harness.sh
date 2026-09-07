@@ -31,6 +31,15 @@
 #     both the default and the ORCHESTRATOR_WORKER_TIMEOUT override are under
 #     test as values rather than as source text.
 #
+#   branch-budget [max_workers] [cap]                               (HON-616)
+#     Runs the REAL check_branch_budget — the startup gate that refuses a worker
+#     ceiling the Neon plan cannot fund. Either argument may be empty to keep the
+#     value orchestrator.sh resolved at source time, so the shipped defaults and
+#     the NEON_BRANCH_CAP override are both reachable. Prints the ERROR/WARN/INFO
+#     lines, then EXIT:<status>. Neon is configured with placeholder credentials
+#     so the budget is actually enforced; HARNESS_NEON_DISABLED=1 (env) unsets
+#     them to exercise the Neon-less checkout, where there is no budget to spend.
+#
 #   pr-for-branch <gh-json> | ci-state <gh-json>
 #     Exercises the REAL helper against fixture JSON, with `gh` itself stubbed.
 #     These cover the jq expression and the bucket classification — the parsing
@@ -43,10 +52,12 @@
 #     over <text>, so the .env-value redaction pass is under test with real
 #     secret shapes (regex metacharacters, substrings, sub-8-char values).
 #
-#   failure <triage> <retried> <shutting_down> [repeat]   (HON-572, finding 2)
+#   failure <triage> <retried> <shutting_down> [repeat] [log-flavour]
+#                                                        (HON-572, finding 2)
 #     Drives the REAL handle_failure with spawn_worker / move_to_backlog /
-#     cleanup_worker_worktree / linear_api / try_add_label / notify stubbed,
-#     emitting one synthetic line per side effect. Triage is forced by putting a
+#     cleanup_worker_worktree / restore_todo_if_in_progress / try_add_label /
+#     notify stubbed and linear_api recording comment bodies, emitting one
+#     synthetic line per side effect. Triage is forced by putting a
 #     `claude` stub first on PATH — the production call goes through
 #     `env -u ANTHROPIC_API_KEY claude`, so a shell function would be bypassed,
 #     and routing through PATH keeps the real verdict parsing under test.
@@ -55,6 +66,16 @@
 #     records everything it receives (stdin + prompt args); the run emits a
 #     TRIAGE_INPUT line so a test can assert the triage input is redacted by the
 #     sanitize-at-capture pass (HON-577).
+#     `log-flavour` picks the worker log the run is given (HON-616):
+#     `plain` (default, the secret-carrying log above), `cap` (a worktree-setup
+#     death at the Neon branch cap, with no Claude session at all),
+#     `cap-gc-only` (the non-terminal "running orphan GC" line only),
+#     `cap-large` (a real cap death followed by ~7 MB of output, which is what
+#     makes a `sed | grep -q` pipeline return 141 under pipefail) and
+#     `cap-after-claude` (the terminal sentence QUOTED inside a Claude session,
+#     which is what a worker editing these scripts writes). The last two must
+#     NOT classify as CAP. requeue_to_todo runs for real on that path, so its
+#     comment lands as a COMMENT line.
 #     Ends with CONSECUTIVE_FAILURES / PAUSED / the write_status_file JSON.
 #
 #   bash-timeout <bound-secs> <command-sleep-secs>                  (HON-578)
@@ -69,6 +90,17 @@
 #     once at retried=0 and again at retried=1, so a breaker that resets on any
 #     handle_failure branch oscillates instead of tripping. `repeat` cannot
 #     express that — it only replays one identical call.
+#
+#   neon-branch-count <branches-list-json>                          (HON-616)
+#     Runs the REAL neon_branch_count with `pnpm` shadowed, so the shape
+#     tolerance and the `?` fallbacks are under test without neonctl. An empty
+#     fixture models a zero-exit call with empty stdout.
+#
+#   select-next <issues-json> [cap-requeued] [gated]                (HON-616)
+#     Runs the REAL select_next_issue over a fetch_todo_issues-shaped fixture,
+#     with no stubs — it takes the response as an argument. Prints the PICK line
+#     and the [SKIP] lines, so the jq skip chain and the in-memory suppression
+#     lists (CAP_REQUEUED_ISSUES, GATED_ISSUES) are under test.
 #
 #   log-once                                       (HON-572, finding 3)
 #     Calls the REAL log() once with MAIN_LOG on a temp file, then reports what
@@ -145,6 +177,9 @@
 #
 #   neon-create <create-output> <git-branch> <reuse> [retry-ok|retry-fail]
 #               [fresh-db]                                          (HON-581)
+#     HARNESS_ENV_FILE_CAP (env) overwrites NEON_BRANCH_CAP after sourcing, the
+#     way load_env_file does at the real entry point, so the cap the cap message
+#     quotes can be asserted against a .env value that disagrees (HON-616).
 #     Drives the REAL neon_create_branch_for_worktree with `pnpm` shadowed by a
 #     shell function, so every neonctl invocation is fixture-driven and the Neon
 #     API is never reached. neon_gc_orphans is stubbed to a marker (its own
@@ -160,6 +195,14 @@ HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # read as orchestrator flags.
 MODE="${1:-}"; A1="${2:-}"; A2="${3:-}"; A3="${4:-}"; A4="${5:-}"; A5="${6:-}"
 set --
+
+# The NEON_BRANCH_CAP this process actually inherited, captured before
+# orchestrator.sh's own `${NEON_BRANCH_CAP:-10}` fills it in. worktree-claude.sh
+# derives NEON_BRANCH_CAP_INHERITED at source time and would otherwise read
+# orchestrator.sh's default as "inherited from an orchestrator" — which no real
+# worker ever does, since the two are separate processes in production. Restored
+# in the neon-create mode below (HON-616).
+HARNESS_INHERITED_NEON_CAP="${NEON_BRANCH_CAP:-}"
 
 # shellcheck source=./orchestrator.sh
 source "$HARNESS_DIR/orchestrator.sh"
@@ -185,6 +228,37 @@ case "$MODE" in
   # ─── Resolved worker timeout (HON-583) ─────────────────────────────────────
   worker-timeout)
     echo "$WORKER_TIMEOUT"
+    exit 0
+    ;;
+
+  # ─── Neon branch budget enforcement (HON-616) ──────────────────────────────
+  #   branch-budget [max_workers] [cap]
+  # Runs the REAL check_branch_budget. Both arguments are optional: an empty one
+  # leaves the value orchestrator.sh resolved at source time in place, so the
+  # SHIPPED defaults and the env overrides are both reachable — the same
+  # value-not-source-text approach as worker-timeout above. Prints $MAIN_LOG
+  # (where the ERROR/WARN/INFO lines land) then EXIT:<status>.
+  branch-budget)
+    [ -n "$A1" ] && MAX_WORKERS="$A1"
+    [ -n "$A2" ] && NEON_BRANCH_CAP="$A2"
+    # The budget only applies when Neon branching is configured, so the gate
+    # short-circuits without these. Nonsense values on purpose: nothing in this
+    # mode touches the network, and if a code path ever escaped it would fail
+    # auth rather than reach the real project. HARNESS_NEON_DISABLED=1 clears
+    # them, which is the Neon-less checkout the short-circuit exists for.
+    if [ "${HARNESS_NEON_DISABLED:-0}" = 1 ]; then
+      unset NEON_API_KEY NEON_PROJECT_ID
+    else
+      NEON_API_KEY="harness-not-a-key"
+      NEON_PROJECT_ID="harness-not-a-project"
+    fi
+    trap 'rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE"' EXIT
+    # `|| status=$?` rather than `set +e`: errexit is dynamic, and clearing it
+    # would change the code under test.
+    status=0
+    check_branch_budget || status=$?
+    cat "$MAIN_LOG"
+    echo "EXIT:$status"
     exit 0
     ;;
 
@@ -223,6 +297,10 @@ case "$MODE" in
     count_commits() { echo "$COMMITS"; }
     detect_phase() { echo "$PHASE"; }
     pr_ci_state() { echo "$CI_STATE"; }
+
+    # Seeded from the environment so record_success's clear of the cap
+    # suppression list is observable on a shipping run (HON-616).
+    CAP_REQUEUED_ISSUES="${HARNESS_CAP_REQUEUED:-}"
 
     pr_for_branch() {
       # ERROR models a gh that could not answer at all — missing,
@@ -332,13 +410,66 @@ EOF
     # A worker log carrying real secret shapes, so the sanitize-at-capture pass
     # in handle_failure is under test end to end: these must be redacted before
     # the log tail reaches the triage CLI.
+    #
+    # A5 selects the flavour (HON-616). The default is the secret-carrying log
+    # above; the `cap-*` ones drive worker_hit_neon_cap, whose whole job is to
+    # tell a real branch-cap death apart from a log that merely mentions one.
     WORKER_LOG=$(mktemp "${TMPDIR:-/tmp}/orchestrator-harness-worklog.XXXXXXXX")
-    {
-      echo "Starting autonomous Claude Code"
-      echo "----"
-      echo "DATABASE_URL=postgresql://user:supersecretpw@db.example/app"
-      echo "LINEAR_API_KEY=lin_api_SECRET1234567890abcdef"
-    } > "$WORKER_LOG"
+    case "${A5:-plain}" in
+      cap)
+        # A genuine cap failure: `wt auto` dies in worktree setup, so the log
+        # ends before "Starting autonomous Claude Code" is ever printed.
+        {
+          echo "Setting up worktree for HON-991..."
+          echo "Neon branch cap hit at 10 branches — running orphan GC..."
+          echo "Error: Neon branch cap still exceeded after orphan GC."
+          echo "ERROR: branches limit exceeded"
+        } > "$WORKER_LOG"
+        ;;
+      cap-gc-only)
+        # The first cap message WITHOUT the terminal one — the shape a worker
+        # prints when the GC frees a branch and the retry succeeds. Only the
+        # terminal sentence may classify.
+        {
+          echo "Neon branch cap hit at 10 branches — running orphan GC..."
+          echo "Starting autonomous Claude Code"
+          echo "----"
+          echo "something else went wrong later"
+        } > "$WORKER_LOG"
+        ;;
+      cap-large)
+        # The SIGPIPE regression: `grep -q` exits on the match, so with more
+        # than a pipe buffer of output after the marker a `sed … | grep -q …`
+        # pipeline returns 141 under `set -o pipefail` DESPITE matching. 200k
+        # lines is ~7 MB, comfortably past the 64 KB buffer. The tail models
+        # `$create_out` — `pnpm dlx … 2>&1`, whose cold-store progress output
+        # is unbounded.
+        {
+          echo "Setting up worktree for HON-991..."
+          echo "Error: Neon branch cap still exceeded after orphan GC."
+          awk 'BEGIN { for (i = 0; i < 200000; i++) print "pnpm dlx progress padding padding" }'
+        } > "$WORKER_LOG"
+        ;;
+      cap-after-claude)
+        # The false positive this exists to prevent: a worker whose Claude
+        # session QUOTES the terminal sentence — editing these very scripts, or
+        # reading HON-616 — and then fails for an unrelated reason.
+        {
+          echo "Starting autonomous Claude Code"
+          echo "----"
+          echo 'Editing scripts/worktree-claude.sh: "Neon branch cap still exceeded after orphan GC."'
+          echo "TypeError: cannot read property of undefined"
+        } > "$WORKER_LOG"
+        ;;
+      *)
+        {
+          echo "Starting autonomous Claude Code"
+          echo "----"
+          echo "DATABASE_URL=postgresql://user:supersecretpw@db.example/app"
+          echo "LINEAR_API_KEY=lin_api_SECRET1234567890abcdef"
+        } > "$WORKER_LOG"
+        ;;
+    esac
 
     # Keep write_status_file off the real ~/.worktrees status file.
     STATUS_FILE=$(mktemp "${TMPDIR:-/tmp}/orchestrator-harness-status.XXXXXXXX")
@@ -350,11 +481,30 @@ EOF
     count_commits() { echo 0; }
     detect_phase() { echo "implementing"; }
     notify() { :; }
-    linear_api() { echo '{"data":{}}'; }
+    # Records any comment body, as the `outcome` mode does: requeue_to_todo runs
+    # for real on the cap path, and the text it posts is operator-facing.
+    # Newlines are flattened so the log stays one line per side effect.
+    linear_api() {
+      local body=""
+      body=$(printf '%s' "${2:-}" | jq -r '.body // empty' 2>/dev/null | tr '\n' ' ') || body=""
+      [ -n "$body" ] && echo "COMMENT:$body" >> "$MAIN_LOG"
+      echo '{"data":{}}'
+    }
     try_add_label() { echo "LABEL:$2" >> "$MAIN_LOG"; }
     cleanup_worker_worktree() { echo "CLEANUP:${1}:${2:-false}" >> "$MAIN_LOG"; }
     move_to_backlog() { echo "MOVE_TO_BACKLOG:${2}:${4}" >> "$MAIN_LOG"; }
     spawn_worker() { echo "SPAWN_WORKER:${2}:retry=${5:-0}" >> "$MAIN_LOG"; }
+    # Stubbed for the same reason the `outcome` mode stubs it: it is a Linear
+    # round trip. requeue_to_todo itself is NOT stubbed — its comment body and
+    # its choice of this call over move_to_backlog are the things under test.
+    restore_todo_if_in_progress() { echo "RESTORE_TODO:$2" >> "$MAIN_LOG"; }
+    # requeue_to_todo reads the state itself before commenting, so the stub has
+    # to answer. HARNESS_ISSUE_STATE (from the environment) drives the branch
+    # where a human moved the issue on while the worker was dying; the default
+    # is the orchestrator's own claim, which is the normal case.
+    # `${VAR-default}`, NOT `${VAR:-default}`: an explicitly EMPTY value is the
+    # unreadable-state case under test, and the colon form would swallow it.
+    issue_state_id() { echo "${HARNESS_ISSUE_STATE-$STATE_IN_PROGRESS}"; }
 
     STEP=0
     IFS=',' read -ra STEPS <<< "$SEQUENCE"
@@ -372,6 +522,9 @@ EOF
     # Flatten to one line: what the triage CLI actually received across all steps.
     echo "TRIAGE_INPUT:$(tr '\n' ' ' < "$TRIAGE_INPUT_FILE")" >> "$MAIN_LOG"
     echo "CONSECUTIVE_FAILURES:$CONSECUTIVE_FAILURES" >> "$MAIN_LOG"
+    # The suppression list requeue_to_todo wrote, so the bound on the cap
+    # requeue loop is asserted as state rather than as source text (HON-616).
+    echo "CAP_REQUEUED:$CAP_REQUEUED_ISSUES" >> "$MAIN_LOG"
     if [ "$PAUSED_UNTIL" -gt "$(date +%s)" ]; then
       echo "PAUSED:true" >> "$MAIN_LOG"
     else
@@ -592,6 +745,14 @@ EOF
     NEON_API_KEY="harness-not-a-key"
     NEON_PROJECT_ID="harness-not-a-project"
 
+    # Model load_env_file's unconditional re-export, which the real entry point
+    # runs AFTER the assignments at the top of worktree-claude.sh and which
+    # sourcing here skips. Setting this is what a `NEON_BRANCH_CAP=` line in
+    # .env does to a worker the orchestrator started with a different cap
+    # (HON-616): the messages must still quote the value the gate enforced.
+    NEON_BRANCH_CAP_INHERITED="$HARNESS_INHERITED_NEON_CAP"
+    [ -n "${HARNESS_ENV_FILE_CAP:-}" ] && NEON_BRANCH_CAP="$HARNESS_ENV_FILE_CAP"
+
     # `create_out=$(pnpm …)` runs the stub in a SUBSHELL, so a shell-variable
     # counter would reset between the first attempt and the post-GC retry. The
     # call log is a file for that reason, and it doubles as the ordering record:
@@ -644,6 +805,42 @@ EOF
     printf '%s\n' "$out"
     cat "$CALLS_FILE"
     echo "EXIT:$status"
+    exit 0
+    ;;
+
+  # ─── Neon branch count (HON-616) ───────────────────────────────────────────
+  #   neon-branch-count <branches-list-json>
+  # Runs the REAL neon_branch_count with `pnpm` shadowed so `branches list`
+  # returns the fixture verbatim. The fixture is what neonctl printed, so an
+  # empty string models a zero-exit call with empty stdout — the case where jq
+  # prints nothing and the message would read "cap hit at  branches".
+  neon-branch-count)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    NEON_PROJECT_ID="harness-not-a-project"
+    LIST_FIXTURE="$A1"
+    pnpm() {
+      [ "$3" = "branches" ] && [ "${4:-}" = "list" ] || return 1
+      printf '%s' "$LIST_FIXTURE"
+      return 0
+    }
+    neon_branch_count
+    exit 0
+    ;;
+
+  # ─── Candidate selection (HON-616) ─────────────────────────────────────────
+  #   select-next <issues-json> [cap-requeued] [gated]
+  # Runs the REAL select_next_issue over a fetch_todo_issues-shaped fixture. No
+  # stub is needed at all — the function takes the response as its argument — so
+  # the jq skip chain and the in-memory suppression lists are the things under
+  # test. Prints the PICK line, then the [SKIP] lines log() wrote.
+  select-next)
+    CAP_REQUEUED_ISSUES="$A2"
+    GATED_ISSUES="$A3"
+    WORKER_ISSUES=()
+    trap 'rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE"' EXIT
+    echo "PICK:$(select_next_issue "$A1" | head -1)"
+    cat "$MAIN_LOG"
     exit 0
     ;;
 

@@ -112,6 +112,39 @@ sync_permissions() {
 # global install, reproducible behavior. Bump NEONCTL_VERSION deliberately.
 NEONCTL_VERSION="2.22.0"
 
+# The worker ceiling actually in force, exported by orchestrator.sh's
+# spawn_worker so a cap failure can name it (HON-616). Captured HERE, at the top
+# of the file, because the entry point below calls load_env_file, which exports
+# unconditionally — a stale ORCHESTRATOR_MAX_WORKERS in .env would otherwise
+# shadow the `--max-workers` value the running orchestrator resolved. Empty when
+# `wt auto` / `wt new` was run by hand, which the cap message says rather than
+# guessing a number.
+ORCHESTRATOR_WORKER_CEILING="${ORCHESTRATOR_MAX_WORKERS:-}"
+
+# Neon branches the plan allows. Same variable and default as orchestrator.sh's
+# startup check, so the number in a cap failure is the number that check enforced.
+#
+# Captured before load_env_file for the same reason as the ceiling above, and it
+# is the same bug if it is not: .env now ships a NEON_BRANCH_CAP line, and the
+# unconditional re-export would shadow the value the running orchestrator
+# actually gated on. With `NEON_BRANCH_CAP=25` in the environment and `10` in
+# .env, the message would read "19 of 10 branches at peak … currently 10" for a
+# run the gate cleared at 25. Empty when `wt auto` was run by hand, in which
+# case .env (or the default) IS the value in force — hence the fallback below
+# rather than a bare capture.
+NEON_BRANCH_CAP_INHERITED="${NEON_BRANCH_CAP:-}"
+NEON_BRANCH_CAP="${NEON_BRANCH_CAP:-10}"
+
+# The cap this worker should quote: the orchestrator's if it passed one down,
+# otherwise whatever .env or the default resolved to after load_env_file.
+neon_cap_in_force() {
+  printf '%s' "${NEON_BRANCH_CAP_INHERITED:-$NEON_BRANCH_CAP}"
+}
+
+# main, staging, dev/kaupo — the branches no run owns. Mirrors
+# NEON_PERMANENT_BRANCHES in orchestrator.sh; both feed the same `2N + P` budget.
+NEON_PERMANENT_BRANCHES=3
+
 # Map a git branch name to a Neon branch name (deterministic, reversible).
 # `/` becomes `--` rather than `-` so git branches `feat/foo-bar` and
 # `feat-foo/bar` don't collide on the same Neon branch name.
@@ -231,6 +264,43 @@ neon_gc_orphans() {
   done <<< "$(neon_gc_orphan_names "$list_out" "$live_worktrees")"
 }
 
+# How many Neon branches the project currently holds. Prints `?` when the API
+# cannot be reached — a cap message with an honest `?` is still worth more than
+# no number, and this is only ever called on a path that is already failing.
+# Shape-tolerant in the same two wire formats neon_gc_orphan_names accepts.
+neon_branch_count() {
+  local out count
+  out=$(pnpm dlx "neonctl@$NEONCTL_VERSION" branches list \
+    --project-id "$NEON_PROJECT_ID" --output json 2>/dev/null) || { echo "?"; return 0; }
+  # A zero exit with empty stdout is a real neonctl outcome (a killed child, a
+  # truncated pipe), and `jq` on empty input prints nothing at all — which would
+  # render as "cap hit at  branches". Guard on the value, not just the statuses.
+  [ -n "$out" ] || { echo "?"; return 0; }
+  count=$(printf '%s' "$out" | jq -r '
+    if type == "array" then length
+    elif .branches then (.branches | length)
+    else "?" end' 2>/dev/null) || count=""
+  printf '%s\n' "${count:-?}"
+}
+
+# One line explaining WHY the cap was hit, for the two messages below. The
+# branch count alone reads as an arbitrary limit; the budget is what tells the
+# reader whether the ceiling is misconfigured or the project is simply full of
+# stranded runs (HON-616).
+neon_cap_budget_note() {
+  # Numeric, not merely non-empty: this branch does arithmetic, and bash reads a
+  # non-numeric operand as a variable name yielding 0 — printing a confident
+  # "N=abc = 3 of 10" from a typo the orchestrator's own check would have refused.
+  if [[ "$ORCHESTRATOR_WORKER_CEILING" =~ ^[0-9]+$ ]]; then
+    printf 'Budget: 2N + %s with N=%s workers = %s of %s branches at peak.' \
+      "$NEON_PERMANENT_BRANCHES" "$ORCHESTRATOR_WORKER_CEILING" \
+      "$(( 2 * ORCHESTRATOR_WORKER_CEILING + NEON_PERMANENT_BRANCHES ))" "$(neon_cap_in_force)"
+  else
+    printf 'Budget: 2N + %s branches for N concurrent workers, cap %s.' \
+      "$NEON_PERMANENT_BRANCHES" "$(neon_cap_in_force)"
+  fi
+}
+
 # Classify a failed `neonctl branches create` from its error text alone.
 # Prints exactly one of: exists | cap | unknown.
 #
@@ -339,12 +409,28 @@ neon_create_branch_for_worktree() {
         fi
         ;;
       cap)
-        echo -e "${YELLOW}Neon branch cap hit — running orphan GC...${NC}"
+        # Count before the GC, so the two numbers below bracket what it freed.
+        local before_count
+        before_count=$(neon_branch_count)
+        echo -e "${YELLOW}Neon branch cap hit at $before_count branches — running orphan GC...${NC}"
+        echo -e "${YELLOW}$(neon_cap_budget_note)${NC}"
         neon_gc_orphans
         create_out=$(pnpm dlx "neonctl@$NEONCTL_VERSION" branches create \
           --project-id "$NEON_PROJECT_ID" --name "$neon_branch" --parent "$parent" \
           --output json 2>&1) || {
+          # Everything a reader needs to tell a misconfigured ceiling from a
+          # project full of branches nothing owns any more (HON-616). Without
+          # it this was a bare "limit exceeded" and the next person had to
+          # rediscover the preview/* branch to understand why (HON-609).
+          local after_count
+          after_count=$(neon_branch_count)
           echo -e "${RED}Error: Neon branch cap still exceeded after orphan GC.${NC}" >&2
+          echo "$(neon_cap_budget_note) Branches: $before_count before GC, $after_count after." >&2
+          echo "Each in-flight issue holds TWO: its worktree branch, and the Vercel-Neon" >&2
+          echo "integration's preview/<git-branch> for as long as its PR is open. Neither" >&2
+          echo "reaper touches preview/*, and a stranded run holds both of its own until" >&2
+          echo "'wt cleanup <branch>' — check 'wt list' first, then lower --max-workers or" >&2
+          echo "raise the Neon plan (and NEON_BRANCH_CAP, currently $(neon_cap_in_force))." >&2
           echo "$create_out" >&2
           return 1
         }

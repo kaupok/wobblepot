@@ -16,9 +16,22 @@ const harness = path.join(scriptsDir, 'orchestrator-outcome-harness.sh')
  * The harness inherits the developer's shell, and a machine that has sourced
  * `.env` exports NEON_USER_PREFIX — which would silently widen the Neon GC
  * selection under test. Pin it per call instead.
+ *
+ * NEON_BRANCH_CAP and ORCHESTRATOR_MAX_WORKERS are pinned for the same reason:
+ * both are read from the environment at source time, so an operator who has
+ * tuned either one in their shell would otherwise see the branch-budget
+ * defaults under test resolve to their values (HON-616). Empty, not deleted —
+ * `${VAR:-default}` treats the two alike, and an override below still wins.
  */
 function harnessEnv(overrides: Record<string, string> = {}): NodeJS.ProcessEnv {
-  return { ...process.env, NEON_USER_PREFIX: '', ...overrides }
+  return {
+    ...process.env,
+    NEON_USER_PREFIX: '',
+    NEON_BRANCH_CAP: '',
+    ORCHESTRATOR_MAX_WORKERS: '',
+    ORCHESTRATOR_CAP_REQUEUE_COOLDOWN: '',
+    ...overrides,
+  }
 }
 
 const stripTimestamps = (out: string) => out.replace(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} /gm, '')
@@ -1960,7 +1973,9 @@ describe('orchestrator.sh', () => {
     it('still runs orphan GC and retries once for a genuine cap error', () => {
       const result = create(CAP_ERROR, 'kaupo/hon-581-neutral-slug', 0, 'retry-ok')
 
-      expect(result.text).toContain('Neon branch cap hit — running orphan GC...')
+      // The observed count is part of the message now (HON-616); the stubbed
+      // `branches list` returns an empty array, hence 0.
+      expect(result.text).toContain('Neon branch cap hit at 0 branches — running orphan GC...')
       expect(result.calls).toEqual(['CREATE', 'GC_RAN', 'CREATE'])
       expect(result.exit).toBe(0)
     })
@@ -2419,7 +2434,663 @@ describe('orchestrator.sh', () => {
       )
       expect(
         fs.readFileSync(path.join(scriptsDir, '..', 'docs', 'PARALLEL_WORKFLOW.md'), 'utf8'),
-      ).toContain('`ORCHESTRATOR_WORKER_TIMEOUT` | 10800')
+      ).toMatch(/`ORCHESTRATOR_WORKER_TIMEOUT` +\| +10800 /)
+    })
+  })
+
+  describe('HON-616 Neon branch budget enforcement', () => {
+    type Budget = { out: string; exit: number }
+
+    /**
+     * Drive the REAL `check_branch_budget`. An empty argument leaves the value
+     * orchestrator.sh resolved at source time, so the shipped defaults are
+     * reachable as values rather than as source text.
+     */
+    function budget(maxWorkers = '', cap = ''): Budget {
+      const out = stripTimestamps(runHarness('branch-budget', maxWorkers, cap))
+      return { out, exit: Number(out.match(/^EXIT:(\d+)$/m)?.[1]) }
+    }
+
+    it('is silent about problems at the shipped default', () => {
+      // N=3 on the Free tier's 10: 9 at peak, one spare. A gate that warns at
+      // the configuration everyone runs is a gate everyone learns to ignore.
+      const r = budget()
+
+      expect(r.exit).toBe(0)
+      expect(r.out).not.toContain('WARN')
+      expect(r.out).not.toContain('ERROR')
+      // "spare" is reported with the size of the thing it has to hold: slack is
+      // only usable in pairs, so one spare branch cannot absorb a stranded run
+      // (2*3 + 2*1 + 3 = 11 > 10). Silent, but not misleading.
+      expect(r.out).toContain(
+        'Neon branch budget: 9 of 10 at peak (2 x 3 + 3), 1 spare (a stranded run needs 2)',
+      )
+    })
+
+    it('defaults NEON_BRANCH_CAP to the Free tier limit of 10', () => {
+      // Read off the refusal, so the constant is under test as the value the
+      // check actually enforces.
+      expect(budget('4').out).toContain('NEON_BRANCH_CAP is 10')
+    })
+
+    it.each([
+      ['4', 11],
+      ['5', 13],
+      ['8', 19],
+    ])('refuses --max-workers %s, which needs %i branches', (workers, peak) => {
+      const r = budget(workers)
+
+      expect(r.exit).toBe(1)
+      expect(r.out).toContain(`max_workers=${workers} needs ${peak} Neon branches (2N + 3)`)
+      // The preview branch is the hidden second consumer, and the whole reason
+      // the ceiling is half what an operator would guess from the cap alone.
+      expect(r.out).toContain('preview/<git-branch>')
+      // A refusal that does not say what to run instead just moves the guessing.
+      expect(r.out).toContain('Run with --max-workers 3')
+      // `peak + 2`, not `peak`: raising the plan to exactly `peak` lands on the
+      // zero-spare WARN, which tells the operator to drop back to the ceiling
+      // they just paid to escape. Asserted by starting at the recommended value.
+      expect(r.out).toContain(`set NEON_BRANCH_CAP to ${peak + 2} or more`)
+      expect(budget(workers, String(peak + 2)).out).not.toContain('WARN')
+    })
+
+    it('names a raised cap rather than a workaround when no worker fits', () => {
+      // `(cap - 3) / 2` floors to 0 here, so "run with --max-workers 0" would be
+      // the arithmetically correct and operationally useless answer.
+      const r = budget('1', '4')
+
+      expect(r.exit).toBe(1)
+      expect(r.out).toContain('No worker fits this cap')
+      expect(r.out).toContain('Raise NEON_BRANCH_CAP to at least 5')
+      expect(r.out).not.toContain('--max-workers 0')
+    })
+
+    it('warns but still starts when the ceiling fits with no spare', () => {
+      // The spare branch is what absorbs a stranded run, which holds both of its
+      // branches until `wt cleanup`. Fitting exactly is workable, not broken —
+      // so this warns rather than refusing.
+      const r = budget('3', '9')
+
+      expect(r.exit).toBe(0)
+      expect(r.out).toContain('9 of 9 used at peak — no spare branch left')
+      expect(r.out).toContain('Consider --max-workers 2')
+    })
+
+    it('admits a higher ceiling once the cap is raised', () => {
+      // The one knob that changes if the Neon plan is ever raised.
+      const r = budget('6', '16')
+
+      expect(r.exit).toBe(0)
+      expect(r.out).toContain('15 of 16 at peak')
+    })
+
+    it('reads the cap from the environment', () => {
+      const out = stripTimestamps(
+        runHarnessEnv({ NEON_BRANCH_CAP: '25' }, 'branch-budget', '8', ''),
+      )
+
+      expect(out).toContain('19 of 25 at peak')
+      expect(out).toContain('EXIT:0')
+    })
+
+    it.each(['abc', '0', '-1', '3.5', ''])(
+      'refuses the non-count ceiling %j instead of computing with it',
+      (value) => {
+        // Bash evaluates a non-numeric operand as a variable name yielding 0, so
+        // an unvalidated `--max-workers abc` computes a peak of 3, passes this
+        // check, and then makes `[ "$active" -lt "$MAX_WORKERS" ]` fail on every
+        // poll — an orchestrator that starts, logs healthily and spawns nothing.
+        // '' reaches the check as the flag's own empty argument, not as "unset":
+        // the harness only skips the assignment when the value is empty, so this
+        // row is really the shipped default and must PASS. Kept in the same table
+        // to make that asymmetry explicit rather than a gap.
+        const r = budget(value)
+
+        if (value === '') {
+          expect(r.exit).toBe(0)
+        } else {
+          expect(r.exit).toBe(1)
+          expect(r.out).toContain(`max_workers must be a positive integer, got '${value}'`)
+        }
+      },
+    )
+
+    it.each(['abc', '0', '-1'])('refuses the non-count cap %j', (value) => {
+      const r = budget('3', value)
+
+      expect(r.exit).toBe(1)
+      expect(r.out).toContain(`NEON_BRANCH_CAP must be a positive integer, got '${value}'`)
+    })
+
+    it('never recommends a ceiling it would itself refuse', () => {
+      // At MAX_WORKERS=1 the "consider one fewer" advice is `--max-workers 0`,
+      // which the validation 25 lines above rejects outright. The ERROR branch
+      // was guarded against exactly this; the WARN branch was not.
+      const r = budget('1', '5')
+
+      expect(r.exit).toBe(0)
+      expect(r.out).toContain('no spare branch left')
+      expect(r.out).not.toContain('--max-workers 0')
+      expect(r.out).toContain('Raise NEON_BRANCH_CAP to 7')
+    })
+
+    it('does not enforce a branch budget on a checkout with no Neon', () => {
+      // Neon branching is opt-in: with NEON_API_KEY / NEON_PROJECT_ID unset,
+      // neon_create_branch_for_worktree returns 0 with "using shared DB" and no
+      // branch is ever created. Refusing `--max-workers 6` there would block a
+      // working configuration over a resource it does not consume.
+      const out = stripTimestamps(
+        runHarnessEnv({ HARNESS_NEON_DISABLED: '1' }, 'branch-budget', '6', ''),
+      )
+
+      expect(out).toContain('Neon branching disabled')
+      expect(out).toContain('branch budget not enforced')
+      expect(out).toContain('EXIT:0')
+    })
+
+    it('still refuses a nonsense ceiling with Neon disabled', () => {
+      // The ceiling validation is not about Neon — a non-numeric MAX_WORKERS
+      // breaks the poll loop's own comparison either way, so the short-circuit
+      // must sit after it.
+      const out = stripTimestamps(
+        runHarnessEnv({ HARNESS_NEON_DISABLED: '1' }, 'branch-budget', 'abc', ''),
+      )
+
+      expect(out).toContain("max_workers must be a positive integer, got 'abc'")
+      expect(out).toContain('EXIT:1')
+    })
+
+    it.each(['30m', 'abc', '-1', '1.5'])('refuses the cooldown %j at startup', (value) => {
+      // Its use site is the middle of requeue_to_todo: `$(( now + COOLDOWN ))`
+      // on "30m" is a fatal arithmetic error under `set -euo pipefail`, and it
+      // unwinds main() AFTER the Linear comment has been posted and the issue
+      // moved to Todo — leaving a stale status file and no log() trace of why.
+      const out = stripTimestamps(
+        runHarnessEnv({ ORCHESTRATOR_CAP_REQUEUE_COOLDOWN: value }, 'branch-budget', '', ''),
+      )
+
+      expect(out).toContain(
+        `ORCHESTRATOR_CAP_REQUEUE_COOLDOWN must be a whole number of seconds, got '${value}'`,
+      )
+      expect(out).toContain('EXIT:1')
+    })
+
+    it('accepts the default cooldown and a numeric override', () => {
+      expect(budget().exit).toBe(0)
+      expect(
+        stripTimestamps(
+          runHarnessEnv({ ORCHESTRATOR_CAP_REQUEUE_COOLDOWN: '60' }, 'branch-budget', '', ''),
+        ),
+      ).toContain('EXIT:0')
+    })
+
+    it('runs before the Linear round trips, not after them', () => {
+      // `cmd_start` declares success after `sleep 1` and only tails the logs
+      // when the process is already dead at that mark. validate_environment and
+      // fetch_team_uuid make three sequential Linear calls, each a fresh curl
+      // with its own TLS handshake — so a refusal placed after them commonly
+      // lands past the 1 s window and is reported to the operator as a green
+      // "Orchestrator started". Being a race, it would refuse loudly on a slow
+      // API day and silently on a fast one.
+      const body = shellFunctionBody(fs.readFileSync(orchestrator, 'utf8'), 'main')
+      const gate = body.indexOf('check_branch_budget || exit 1')
+      const validate = body.indexOf('\n  validate_environment')
+      const fetchTeam = body.indexOf('\n  fetch_team_uuid')
+      // write_status_file would otherwise run `jq --argjson max_workers "abc"`
+      // on the invalid-ceiling path.
+      const status = body.indexOf('\n  write_status_file')
+
+      expect(gate).toBeGreaterThan(-1)
+      expect(validate).toBeGreaterThan(gate)
+      expect(fetchTeam).toBeGreaterThan(gate)
+      expect(status).toBeGreaterThan(gate)
+    })
+
+    it('is wired into main() as a fatal check', () => {
+      // The function is only worth anything if startup actually stops on it.
+      // Asserted against the source because main()'s poll loop is not something
+      // the harness can drive.
+      const source = fs.readFileSync(orchestrator, 'utf8')
+
+      expect(shellFunctionBody(source, 'main')).toContain('check_branch_budget || exit 1')
+      expect(shellFunctionBody(source, 'main')).toContain('neon_branch_cap=$NEON_BRANCH_CAP')
+    })
+
+    it('is documented where an operator reads the knobs', () => {
+      expect(fs.readFileSync(orchestrator, 'utf8')).toContain(
+        'NEON_BRANCH_CAP             Neon branches the plan allows (default: 10)',
+      )
+      // Regex, not toContain: Prettier pads the table columns to align them, so
+      // the literal separator is a run of spaces whose width depends on the
+      // widest row and would change under an unrelated edit.
+      expect(
+        fs.readFileSync(path.join(scriptsDir, '..', 'docs', 'PARALLEL_WORKFLOW.md'), 'utf8'),
+      ).toMatch(/`NEON_BRANCH_CAP` +\| +10 /)
+      // The comment justifying the NEON_* naming says it "lives in the same
+      // .env namespace" as NEON_API_KEY and friends — so it has to be there.
+      expect(fs.readFileSync(path.join(scriptsDir, '..', '.env.example'), 'utf8')).toContain(
+        'NEON_BRANCH_CAP=10',
+      )
+      expect(
+        fs.readFileSync(path.join(scriptsDir, '..', 'docs', 'PARALLEL_WORKFLOW.md'), 'utf8'),
+      ).toMatch(/`ORCHESTRATOR_CAP_REQUEUE_COOLDOWN` +\| +1800 /)
+    })
+  })
+
+  describe('HON-616 a Neon branch-cap failure is capacity, not a bad issue', () => {
+    type CapRun = {
+      out: string
+      triageInput: string
+      consecutiveFailures: number
+      capRequeued: string
+    }
+
+    /**
+     * `handle_failure` on a worker log of the given flavour. The forced verdict
+     * is always BACKLOG — the wrong answer for a cap failure, and the one the
+     * pre-triage check has to reach before Claude is ever consulted.
+     */
+    function drive(
+      flavour: string,
+      retried = '0',
+      shuttingDown = 'false',
+      env: Record<string, string> = {},
+    ): CapRun {
+      const out = stripTimestamps(
+        runHarnessEnv(env, 'failure', 'BACKLOG', retried, shuttingDown, '1', flavour),
+      )
+      const read = (key: string) => out.match(new RegExp(`^${key}:(.*)$`, 'm'))?.[1] ?? ''
+      return {
+        out,
+        triageInput: read('TRIAGE_INPUT'),
+        consecutiveFailures: Number(read('CONSECUTIVE_FAILURES')),
+        capRequeued: read('CAP_REQUEUED'),
+      }
+    }
+
+    it('classifies a worktree-setup cap death without asking Claude', () => {
+      const r = drive('cap')
+
+      expect(r.out).toContain('Triage for HON-991: CAP')
+      // The log says in plain text why the worker died. Spending a `claude -p`
+      // round trip on it is not just wasteful — the verdict has to hold when
+      // Claude is unavailable or DRY_RUN is set, where the fallback is BACKLOG.
+      expect(r.triageInput).toBe('')
+    })
+
+    it('retries once, keeping the branch, before giving up', () => {
+      const r = drive('cap', '0')
+
+      expect(r.out).toContain('SPAWN_WORKER:HON-991:retry=1')
+      expect(r.out).toContain('CLEANUP:test-branch-1:true')
+      expect(r.out).not.toContain('MOVE_TO_BACKLOG')
+    })
+
+    it('returns the issue to Todo, unlabelled, when the retry also hits the cap', () => {
+      const r = drive('cap', '1')
+
+      expect(r.out).toContain('RESTORE_TODO:HON-991')
+      // Backlog plus a red label reads as "this issue is broken" and both are
+      // sticky — a human has to clear them before the orchestrator will look at
+      // it again. The issue was never examined; only the branch count was wrong.
+      expect(r.out).not.toContain('MOVE_TO_BACKLOG')
+      expect(r.out).not.toContain('LABEL:')
+      expect(r.out).toContain('COMMENT:## Returned to Todo — Neon branch cap')
+      // Full cleanup on the terminal path: nothing was committed, and releasing
+      // the worktree is what lets the orphan GC reclaim anything it left behind.
+      expect(r.out).toContain('CLEANUP:test-branch-1:false')
+    })
+
+    it('requeues rather than respawning during shutdown', () => {
+      const r = drive('cap', '0', 'true')
+
+      expect(r.out).toContain('RESTORE_TODO:HON-991')
+      expect(r.out).not.toContain('SPAWN_WORKER')
+    })
+
+    it('points the reader at the stranded worktrees that cause a repeat', () => {
+      // The comment is the only thing an operator sees on the issue, and a
+      // second stranded run is the likeliest reason the cap is full at all.
+      const r = drive('cap', '1')
+
+      expect(r.out).toContain('wt list')
+      expect(r.out).toContain('wt cleanup <branch>')
+    })
+
+    it.each(['0', '1'])('still counts toward the circuit breaker at retried=%s', (retried) => {
+      // A cap failure ships nothing, so it feeds the breaker like every other
+      // handle_failure path. That is what bounds the requeue loop: the issue
+      // goes back to Todo and is immediately pickable, so three cap failures in
+      // a row must pause spawning rather than walk the queue.
+      expect(drive('cap', retried).consecutiveFailures).toBe(1)
+    })
+
+    it('ignores the non-terminal "running orphan GC" line on its own', () => {
+      // That message is printed on the run where GC frees a branch and the
+      // retry succeeds. Only the sentence after a FAILED retry is terminal.
+      const r = drive('cap-gc-only')
+
+      expect(r.out).toContain('Triage for HON-991: BACKLOG')
+      // The verdict, not the bare substring: the run also prints a
+      // CAP_REQUEUED: line, which is empty here and is not a classification.
+      expect(r.out).not.toContain('triage=CAP')
+      expect(r.out).toContain('MOVE_TO_BACKLOG:HON-991:Failed')
+    })
+
+    it('does not read a Claude session quoting the marker as a cap failure', () => {
+      // The self-reference guard, and the reason the grep is scoped to the log
+      // before "Starting autonomous Claude Code": this repo's own scripts, docs
+      // and Linear issues carry that sentence verbatim, so a worker doing
+      // ordinary work on the orchestrator prints it constantly. Unscoped, any
+      // genuine failure of such a run would be requeued forever as "capacity".
+      const r = drive('cap-after-claude')
+
+      expect(r.out).toContain('Triage for HON-991: BACKLOG')
+      expect(r.out).toContain('MOVE_TO_BACKLOG:HON-991:Failed')
+      expect(r.out).not.toContain('RESTORE_TODO')
+    })
+
+    it('survives a log with megabytes of output after the marker', () => {
+      // `grep -q` exits the instant it matches, so under `set -o pipefail` a
+      // `sed … | grep -qF …` pipeline returns 141 — "no match" — once the tail
+      // exceeds a 64 KB pipe buffer, because sed dies on SIGPIPE. That failure
+      // is silent and lands on the worst branch: the run falls through to the
+      // Claude triage and a cap death becomes Backlog + `Needs attention`,
+      // i.e. HON-609 all over again. The tail here models `$create_out`, which
+      // is `pnpm dlx … 2>&1` and therefore unbounded.
+      const r = drive('cap-large')
+
+      expect(r.out).toContain('Triage for HON-991: CAP')
+      expect(r.out).not.toContain('MOVE_TO_BACKLOG')
+    })
+
+    it('bounds the requeue by suppressing re-selection for the run', () => {
+      // Todo + unassigned + unlabelled is immediately re-selectable, and the
+      // circuit breaker only rate-limits — it resets itself once the pause
+      // expires. Without this list a genuinely full Neon project collects an
+      // identical comment and a full worktree build per breaker window, all
+      // night.
+      // "HON-991:<expiry-epoch>" — the entry expires rather than lasting the
+      // run, see the cooldown tests below.
+      expect(drive('cap', '1').capRequeued).toMatch(/^HON-991:\d{10,}$/)
+    })
+
+    it('does not suppress an issue it merely retried', () => {
+      // The retry keeps the same worker going; suppression is only for the
+      // terminal requeue, or the respawn would be skipped by the next poll.
+      expect(drive('cap', '0').capRequeued).toBe('')
+    })
+
+    it('says nothing and moves nothing when the issue was already moved on', () => {
+      // restore_todo_if_in_progress is deliberately a no-op when a human (or
+      // Linear's PR automation) advanced the issue while the worker was dying.
+      // Commenting first would leave "back in Todo, unassigned and unlabelled"
+      // on an issue that is assigned and elsewhere — false on the one artifact
+      // an operator reads, and select_next_issue skips assigned issues forever.
+      const r = drive('cap', '1', 'false', {
+        HARNESS_ISSUE_STATE: '8e510dfa-7667-425f-abf2-c9202c4aee5b', // In Review
+      })
+
+      expect(r.out).toContain('HON-991 is no longer In Progress')
+      expect(r.out).not.toContain('COMMENT:## Returned to Todo')
+      expect(r.out).not.toContain('RESTORE_TODO')
+      // Nothing was requeued, so nothing may be suppressed either.
+      expect(r.capRequeued).toBe('')
+    })
+
+    it('requeues anyway when the issue state cannot be read', () => {
+      // issue_state_id returns empty on ANY failed read. Treating that as "a
+      // human moved it" would skip the comment, the Todo restore and the
+      // cooldown entry over a transient API error — leaving the issue In
+      // Progress and assigned, which fetch_todo_issues (Todo only) can never
+      // surface again, under a WARN asserting the opposite.
+      const r = drive('cap', '1', 'false', { HARNESS_ISSUE_STATE: '' })
+
+      expect(r.out).toContain('Could not read the state of HON-991 — requeueing anyway')
+      expect(r.out).toContain('COMMENT:## Returned to Todo — Neon branch cap')
+      expect(r.out).toContain('RESTORE_TODO:HON-991')
+      expect(r.capRequeued).toMatch(/^HON-991:\d{10,}$/)
+      // Specifically NOT the "a human moved it" branch.
+      expect(r.out).not.toContain('is no longer In Progress')
+    })
+
+    it('matches the marker worktree-claude.sh actually prints', () => {
+      // Two files, one string, no shared constant — so the only thing keeping
+      // the detector honest is this assertion. Reword the message in
+      // worktree-claude.sh without this and the cap simply stops being detected:
+      // every cap failure silently goes back to being triaged as a bad issue,
+      // with nothing failing to say so.
+      const orchestratorSource = fs.readFileSync(orchestrator, 'utf8')
+      const marker = orchestratorSource.match(/^NEON_CAP_MARKER='(.+)'$/m)?.[1]
+
+      expect(marker).toBeTruthy()
+      expect(fs.readFileSync(worktreeClaude, 'utf8')).toContain(marker!)
+    })
+
+    it('agrees with worktree-claude.sh on the permanent-branch count', () => {
+      // The same duplication, for the other half of the budget. The two scripts
+      // share no library — worktree-claude.sh already keeps its own copies of
+      // count_commits and detect_phase — so a divergence here would have the
+      // startup gate enforcing one budget while the cap message explains
+      // another, and only one of them could be right.
+      const read = (file: string) =>
+        fs.readFileSync(file, 'utf8').match(/^NEON_PERMANENT_BRANCHES=(\d+)$/m)?.[1]
+
+      expect(read(orchestrator)).toBe('3')
+      expect(read(worktreeClaude)).toBe(read(orchestrator))
+    })
+  })
+
+  describe('HON-616 cap suppression is released, not permanent', () => {
+    const ISSUES = JSON.stringify({
+      data: {
+        issues: {
+          nodes: [991, 992].map((n) => ({
+            id: `u${n}`,
+            identifier: `HON-${n}`,
+            title: `Fixture ${n}`,
+            branchName: `kaupo/hon-${n}-fixture`,
+            priority: 3,
+            assignee: null,
+            labels: { nodes: [] },
+            relations: { nodes: [] },
+            inverseRelations: { nodes: [] },
+          })),
+        },
+      },
+    })
+
+    /** The REAL select_next_issue over a fixture — no stubs, it takes the response. */
+    function select(capRequeued = '', gated = '') {
+      return stripTimestamps(runHarness('select-next', ISSUES, capRequeued, gated))
+    }
+
+    it('skips an issue whose cap cooldown is still live', () => {
+      const out = select('HON-991:9999999999')
+
+      expect(out).toContain('PICK:u992\tHON-992')
+      expect(out).toContain('[SKIP] HON-991 requeued at the Neon branch cap')
+    })
+
+    it('keeps suppressing an entry whose expiry is malformed', () => {
+      // `[ 123 -ge HON-991 ]` is a shell error, and the picker must not fall
+      // over — or fall open — on one. Failing safe costs a cooldown window.
+      const out = select('HON-991')
+
+      expect(out).toContain('PICK:u992\tHON-992')
+      expect(out).toContain('[SKIP] HON-991 requeued at the Neon branch cap')
+    })
+
+    it('picks it when nothing was requeued', () => {
+      // The control: without the suppression the same fixture yields HON-991,
+      // so the test above is measuring the list and not the sort order.
+      const out = select()
+
+      expect(out).toContain('PICK:u991\tHON-991')
+      expect(out).not.toContain('[SKIP] HON-991')
+    })
+
+    it('tells the operator how to release it', () => {
+      // The skip line is the only place this state is visible — there is no
+      // label to see in Linear, deliberately, since nothing is wrong with the
+      // issue.
+      expect(select('HON-991:9999999999')).toContain('wt cleanup <branch>')
+    })
+
+    it('releases the suppression once the cooldown lapses', () => {
+      // The wedge this replaced: a run-scoped list can only be released by a
+      // success, which needs a spawn, which needs a candidate the list has just
+      // suppressed. Once the Todo page was walked the orchestrator idled until
+      // restarted, and `wt cleanup` recovered nothing.
+      const out = select('HON-991:1') // epoch 1 — January 1970
+
+      expect(out).toContain('PICK:u991\tHON-991')
+      expect(out).not.toContain('[SKIP] HON-991')
+    })
+
+    it('reads each entry independently', () => {
+      // One expired, one live — a shared cooldown would release or hold both.
+      const out = select('HON-991:1,HON-992:9999999999')
+
+      expect(out).toContain('PICK:u991\tHON-991')
+      expect(out).toContain('[SKIP] HON-992 requeued at the Neon branch cap')
+    })
+
+    it('is cleared by a run that ships', () => {
+      // A merged run is proof the project has branches again, and the only
+      // signal the orchestrator has for "the cap has freed". Without this the
+      // suppression would last until restart, and an operator who frees
+      // branches by hand would see the issue stay unpicked.
+      const out = stripTimestamps(
+        runHarnessEnv(
+          { HARNESS_CAP_REQUEUED: 'HON-991:9999999999,HON-992:9999999999' },
+          'outcome',
+          '4',
+          'done',
+          'MERGED',
+          'green',
+        ),
+      )
+
+      // Issue ids, not the raw "id:epoch" entries — the epochs are bookkeeping.
+      expect(out).toContain('[UNCAP] HON-991,HON-992')
+      expect(out).toContain('SUCCESS')
+    })
+
+    it('says nothing about the cap on a success that had none to clear', () => {
+      expect(stripTimestamps(runHarness('outcome', '4', 'done', 'MERGED', 'green'))).not.toContain(
+        '[UNCAP]',
+      )
+    })
+  })
+
+  describe('HON-616 the cap error explains itself', () => {
+    const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g')
+    const CAP_ERROR = 'ERROR: branch limit exceeded for project'
+
+    /** The real cap path, with every neonctl call fixture-driven. */
+    function capMessage(env: Record<string, string> = {}): string {
+      return execFileSync(
+        'bash',
+        [harness, 'neon-create', CAP_ERROR, 'kaupo/hon-616-neutral-slug', '0', 'retry-fail', '0'],
+        { encoding: 'utf8', timeout: 30_000, env: harnessEnv(env) },
+      ).replace(ANSI, '')
+    }
+
+    it('names the budget, the ceiling in force and the observed branch count', () => {
+      // "branches limit exceeded" alone sent the next reader off to rediscover
+      // the preview/* branch from scratch (HON-609). The stubbed `branches list`
+      // returns an empty array, hence a count of 0.
+      const out = capMessage({ ORCHESTRATOR_MAX_WORKERS: '4' })
+
+      expect(out).toContain('Budget: 2N + 3 with N=4 workers = 11 of 10 branches at peak.')
+      expect(out).toContain('Branches: 0 before GC, 0 after.')
+      expect(out).toContain('NEON_BRANCH_CAP, currently 10')
+    })
+
+    it('names preview/* and the stranded-run hold as the things to look at', () => {
+      const out = capMessage()
+
+      expect(out).toContain('preview/<git-branch>')
+      expect(out).toContain('wt cleanup <branch>')
+    })
+
+    it('quotes the cap the orchestrator gated on, not the one .env shadows it with', () => {
+      // load_env_file re-exports unconditionally at the real entry point, so a
+      // NEON_BRANCH_CAP line in .env would otherwise shadow the value in force.
+      // Unfixed this printed "19 of 10 branches at peak … currently 10" for a
+      // run the startup gate cleared at 25.
+      const out = capMessage({
+        ORCHESTRATOR_MAX_WORKERS: '8',
+        NEON_BRANCH_CAP: '25',
+        HARNESS_ENV_FILE_CAP: '10',
+      })
+
+      expect(out).toContain('Budget: 2N + 3 with N=8 workers = 19 of 25 branches at peak.')
+      expect(out).toContain('NEON_BRANCH_CAP, currently 25')
+      expect(out).not.toContain('19 of 10')
+    })
+
+    it('falls back to .env when no orchestrator passed a cap down', () => {
+      // A hand-run `wt auto` has nothing inherited, so .env IS the value in
+      // force — the fallback must not report the built-in default instead.
+      const out = capMessage({ HARNESS_ENV_FILE_CAP: '17' })
+
+      expect(out).toContain('cap 17.')
+      expect(out).toContain('NEON_BRANCH_CAP, currently 17')
+    })
+
+    it('does not invent a worker count when wt auto was run by hand', () => {
+      // No orchestrator, no ceiling to report. A default printed as fact here
+      // would be a plausible wrong number in the one message meant to explain.
+      const out = capMessage()
+
+      expect(out).toContain('Budget: 2N + 3 branches for N concurrent workers, cap 10.')
+      expect(out).not.toMatch(/with N=\d+ workers/)
+    })
+
+    it.each([
+      ['[{"name":"a"},{"name":"b"}]', '2'],
+      ['{"branches":[{"name":"a"}]}', '1'],
+      ['[]', '0'],
+      // A zero exit with empty stdout is a real neonctl outcome, and jq on
+      // empty input prints nothing — which renders as "cap hit at  branches".
+      ['', '?'],
+      ['not json', '?'],
+    ])('counts %j as %s', (fixture, expected) => {
+      expect(runHarness('neon-branch-count', fixture).trim()).toBe(expected)
+    })
+
+    it('reports the branch count before and after the GC as separate numbers', () => {
+      // Which of the two moved is what says whether the GC had anything to
+      // reclaim — i.e. whether this is a stale-branch problem or a real ceiling
+      // problem. One number cannot express that.
+      expect(capMessage()).toMatch(/Branches: \S+ before GC, \S+ after\./)
+    })
+  })
+
+  describe('HON-616 preview/* is documented as out of scope for both reapers', () => {
+    const runbook = () =>
+      fs.readFileSync(path.join(scriptsDir, '..', 'docs', 'RUNBOOKS', 'neon-branch-gc.md'), 'utf8')
+
+    it('names the Vercel-Neon integration as the owner', () => {
+      const text = runbook()
+
+      expect(text).toContain('preview/')
+      expect(text).toMatch(/Vercel[–-]Neon integration/)
+    })
+
+    it('says why neither reaper can touch it', () => {
+      const text = runbook()
+
+      // Both exclusions, by the name of the thing that enforces them — so a
+      // future widening of either has an obvious place to be reflected.
+      expect(text).toContain('neon_gc_orphan_names')
+      expect(text).toContain('SAFE_BRANCH_REGEX')
+    })
+
+    it('states that it is held for the life of the PR rather than leaked', () => {
+      expect(runbook()).toMatch(/not a leak|held for the life of the PR/i)
     })
   })
 })
