@@ -20,7 +20,8 @@ This is not a customer-service playbook for general feature questions; it is the
   - `src/app/global-error.tsx` — root error boundary (hardcoded English; renders outside the i18n provider)
   - `src/app/status/page.tsx` — public `/status`
   - The privacy policy (HON-457) cites it as the GDPR DSR contact
-- **One source of truth:** `src/lib/support.ts` exports `SUPPORT_EMAIL` and `SUPPORT_EMAIL_HREF`. Do not hardcode the address elsewhere — import from there so a future address change is one edit.
+  - `LICENSE` (HON-604) — the licensing-questions line in the root notice
+- **One source of truth:** `src/lib/support.ts` exports `SUPPORT_EMAIL` and `SUPPORT_EMAIL_HREF`. Do not hardcode the address elsewhere — import from there so a future address change is one edit. `LICENSE` and `README.md` are the exceptions: static files with no import mechanism, so an address change has to touch them by hand.
 
 ## SLAs
 
