@@ -1282,6 +1282,8 @@ mcp__linear-server__save_issue({
 
 Reference other issues as plain text (`HON-NNN`), never as hand-copied `<issue id="…">` tags — Linear auto-resolves plain text on save, and a copied UUID controls where the link points, so a reference can look right in review and click through to the wrong issue (CLAUDE.md, Git & Workflow Essentials).
 
+**Never nest a markdown table inside a list item.** Linear's description parser silently strips the list item's content indent — 3 characters under `1. `, 2 under `- ` — off the front of every table _body_ cell. The header and delimiter rows survive, so the table still looks right while `` `MealForm.tsx:153` `` has become `` alForm.tsx:153` ``: data loss, not a rendering glitch, and nothing reports it. That lands hardest here — 6.8 files unattended, and the `## Problem` section above is specified as file paths and line numbers, which is exactly the payload that gets eaten. Keep the section tables above at top level, as they already are, and put any table you add at top level or use a nested bullet list. See CLAUDE.md → Writing for Agents.
+
 Report what was filed:
 
 ```
