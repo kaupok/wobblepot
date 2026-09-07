@@ -107,6 +107,14 @@ and posts the record itself: `in_progress` before the deploy, then `success`
 (with `environment_url` `https://wobblepot.com`) or `failure` after it. The run
 summary links to the record it wrote.
 
+After the `success` status, the same run **retires the previous release's
+record** — it marks every other `ACTIVE` Production deployment `inactive`, so
+the page lists exactly one active release at a time (HON-611). That sweep is
+explicit because the `auto_inactive` flag on the status is observably a no-op
+here; without it, 14 records claiming to be active had piled up by
+September 2026. `FAILURE` records are left alone — they are honest history of
+a failed deploy, not stale actives.
+
 That makes the workflow the only writer **on the release path** — but not the
 only way production changes. A Vercel-side promote (the rollback below) moves
 production without writing any GitHub record, so the card keeps asserting
@@ -175,6 +183,12 @@ If production deployment fails:
    _newest_ record, surfacing that `failure` while fourteen older deployments sat
    `ACTIVE` behind it. Writing a fresh record is the only reliable way to make
    the page state something true.
+
+   The re-run also retires whatever is still `ACTIVE`, including the bad record
+   (HON-611), so there is nothing older to chase afterwards. Still post the
+   `inactive` above straight away: it is what stops the page asserting the
+   rolled-back commit is live during the window between the promote and the
+   re-run.
 
 3. **Database rollback**: see [RUNBOOKS/database-recovery.md](RUNBOOKS/database-recovery.md) for migration rollback and PITR procedures.
 
