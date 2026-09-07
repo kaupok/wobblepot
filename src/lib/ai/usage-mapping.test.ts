@@ -22,13 +22,20 @@
  * the SDK really returns and the assertions below would keep passing while
  * proving nothing about production.
  *
- * `reviewMealQuantities` stands in for all seven `generateObject` call sites:
+ * `reviewMealQuantities` stands in for the seven call sites that record usage:
  * they share one extraction expression, and it is the only one with no Prisma
- * dependencies of its own.
+ * dependencies of its own. (There are eight `generateObject` calls in all —
+ * `probes.ts:171` is the one that records nothing.)
  *
- * Added for the ai@6 → ai@7 upgrade (HON-637). v7 keeps `inputTokens` /
- * `outputTokens` and adds the `inputTokenDetails` / `outputTokenDetails`
- * sub-objects, which the fixture carries but no call site reads.
+ * Added for the ai@6 → ai@7 upgrade (HON-637). `inputTokens` / `outputTokens`
+ * are unchanged, and the `inputTokenDetails` / `outputTokenDetails` sub-objects
+ * the fixture carries already existed in ai@6.0.116 — v7 added neither. What v7
+ * removed is the deprecated top-level `usage.cachedInputTokens` /
+ * `usage.reasoningTokens`. No call site read either, but the distinction is
+ * worth recording here: cache-aware cost attribution is the obvious next change
+ * to `estimateCostUsd`, and `cachedInputTokens` is exactly the field someone
+ * would reach for. It is gone — the equivalent is
+ * `usage.inputTokenDetails.cacheReadTokens`.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -83,13 +90,26 @@ const mockGetRequestId = vi.mocked(getRequestId)
 let mockCapture: ReturnType<typeof vi.fn>
 
 /**
- * A full ai@7 `usage` object. Annotated with the SDK's own exported type so
- * this fixture cannot drift from the shape the SDK really returns — that
- * annotation is the compile-time half of this file's guard.
+ * A full ai@7 `usage` object, annotated with the SDK's own exported type so the
+ * fixture's keys cannot drift from what the SDK really returns.
  *
- * The token counts are deliberately distinct and non-round: an assertion that
- * passes with them swapped, doubled, or defaulted to 0 would not prove the
- * mapping.
+ * The annotation constrains keys and types, not values, so the values are
+ * matched to what `convertAnthropicUsage`
+ * (`@ai-sdk/anthropic@4.0.49/dist/index.js:2017`) actually emits for the calls
+ * this app makes — otherwise the fixture would be shape-valid but describe a
+ * response Anthropic never sends:
+ *
+ * - `inputTokens` is the *total*: `noCache + cacheRead + cacheWrite`. Kept
+ *   internally consistent below (1031 + 500 + 0 = 1531). Note that
+ *   `estimateCostUsd` bills that whole total at the full input rate, which is
+ *   correct only while nothing enables prompt caching.
+ * - `outputTokenDetails` is left `undefined`: the provider derives both fields
+ *   from `output_tokens_details.thinking_tokens`, so without extended thinking
+ *   `text` and `reasoning` are `undefined` rather than a number.
+ *
+ * The two counts that *are* asserted on are deliberately distinct and
+ * non-round: an assertion that passes with them swapped, doubled, or defaulted
+ * to 0 would not prove the mapping.
  */
 const USAGE_FIXTURE: LanguageModelUsage = {
   inputTokens: 1531,
@@ -100,8 +120,8 @@ const USAGE_FIXTURE: LanguageModelUsage = {
   },
   outputTokens: 787,
   outputTokenDetails: {
-    textTokens: 787,
-    reasoningTokens: 0,
+    textTokens: undefined,
+    reasoningTokens: undefined,
   },
   totalTokens: 2318,
 }
