@@ -48,8 +48,8 @@ A DSR is any user-initiated request to exercise rights under GDPR. The inbox acc
 
 | Type                  | Right (GDPR Art.)                       | What we do                                                                                                                                                   |
 | --------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Export / portability  | Art. 15 (access), Art. 20 (portability) | Direct user to `/api/auth/user/export` once HON-458 ships. Until then, fulfil manually from the database                                                     |
-| Deletion / erasure    | Art. 17                                 | Initiate the 30-day grace-window deletion (HON-481, when it lands). Until then, hard-delete via Prisma Studio with confirmation                              |
+| Export / portability  | Art. 15 (access), Art. 20 (portability) | Direct user to `/api/auth/user/export`, linked from the profile page (shipped, HON-458)                                                                      |
+| Deletion / erasure    | Art. 17                                 | Initiate the 30-day grace-window deletion from the profile page (shipped, HON-481)                                                                           |
 | Rectification         | Art. 16                                 | Edit in-app where possible; manual update otherwise. Document in the audit trail                                                                             |
 | Complaint / objection | Art. 21, recital 141                    | Acknowledge; remind the user they may complain to their local supervisory authority (AKI for Estonia). Do not treat as adversarial — investigate and respond |
 

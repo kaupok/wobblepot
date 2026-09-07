@@ -296,7 +296,7 @@ Key steps:
 
 **Decision:** No in-app parental-consent capture — no under-16 flag, no consent timestamp, no acknowledgment checkbox. Art. 8 is not an open launch gate.
 
-**Why:** Art. 8 governs a child's _own_ consent to an information society service offered directly to them. Wobblepot has no child accounts: a household member profile is created and managed by the account-holding parent or guardian, who is the one consenting. A checkbox shown to that same parent adds evidentiary ceremony, not a missing legal basis. The substantive control is the Art. 9 health-data position on allergen and dietary data, which applies to every member — adults included — and is handled by the privacy policy's AI-processing disclosure rather than by an under-16 toggle.
+**Why:** Art. 8 governs a child's _own_ consent to an information society service offered directly to them. Wobblepot has no child accounts: a household member profile is created and managed by the account-holding parent or guardian, who is the one consenting. A checkbox shown to that same parent adds evidentiary ceremony, not a missing legal basis. The substantive control is the Art. 9 health-data position on allergen and dietary data, which applies to every member — adults included — and rests on the privacy policy's AI-processing disclosure rather than on an under-16 toggle. That position is not fully settled: [`compliance/dpia.md`](../compliance/dpia.md) rates "Art. 9 basis challenged" as its only Medium residual risk, and calls the missing allergen-entry affirmation "the honest gap" whose residual risk is accepted at beta scale — see **Already open** below.
 
 **Where this is recorded:**
 
@@ -306,7 +306,7 @@ Key steps:
 
 **Revisit if:** standalone child accounts ever ship — Art. 8 then applies for real — or AKI/EDPB guidance moves on children's data.
 
-**Already open (Art. 9, not Art. 8):** [`compliance/dpia.md`](../compliance/dpia.md) → Risk area 2 recommends a one-line affirmation in the member form where allergens are entered, for all members rather than only under-16s, and its Conclusion carries this as the one open recommendation. It is due **pre-public-launch** — a later gate than the invite-only sign-ups this spec's launch-readiness checklist covers — and it does not reopen the Art. 8 decision above.
+**Already open (Art. 9, not Art. 8):** [`compliance/dpia.md`](../compliance/dpia.md) → Risk area 2 recommends a one-line affirmation in the member form where allergens are entered, for all members rather than only under-16s, and its Conclusion carries this as the one open recommendation, due **pre-public-launch**. That is a live launch-readiness item, not a later gate: Current Status sets the bar at public EU beta rather than "soft launch to friends", and flipping `invite_code_required` opens public sign-up without a deploy. It is tracked on the **Legal** line of the launch-readiness checklist, and it does not reopen the Art. 8 decision above.
 
 ### Error Handling
 
@@ -498,7 +498,7 @@ Key enums: `DietaryType`, `MealType`, `MealPlanEntryStatus`, `Unit`, `Ingredient
 
 ### Launch readiness (gates on "can we take EU sign-ups")
 
-- [ ] Legal: Privacy Policy + Terms published; consent captured at sign-up; DPAs signed with Anthropic, Resend, Vercel, Neon
+- [ ] Legal: Privacy Policy + Terms published; consent captured at sign-up; DPAs signed with Anthropic, Resend, Vercel, Neon; DPIA's open allergen-entry affirmation ([Risk area 2](../compliance/dpia.md))
 - [x] GDPR user rights: data export (Art. 20) and 30-day grace-window deletion (Art. 17) shipped; children's data needs no separate Art. 8 consent capture — see [Key Decisions → Children's Data](#childrens-data-art-8)
 - [ ] Observability: PostHog installed behind cookie consent; errors, web vitals, and core funnels captured
 - [ ] Abuse protection: durable rate limits (Upstash Redis) on auth + generation; AI per-household cost cap
