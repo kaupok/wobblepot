@@ -40,7 +40,7 @@
     "node": ">=22.13.0 <23"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "3.0.58",
+    "@ai-sdk/anthropic": "4.0.49",
     "@better-auth/prisma-adapter": "1.7.2",
     "@posthog/react": "1.10.5",
     "@prisma/adapter-pg": "7.10.0",
@@ -60,7 +60,7 @@
     "@upstash/ratelimit": "2.0.8",
     "@upstash/redis": "1.38.3",
     "@vercel/functions": "3.9.5",
-    "ai": "6.0.116",
+    "ai": "7.0.93",
     "better-auth": "1.7.2",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
