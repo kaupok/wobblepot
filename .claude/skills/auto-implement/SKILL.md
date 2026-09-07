@@ -816,8 +816,11 @@ Run the block below in the **foreground** with `timeout: 540000`:
 #   CI_TIMEOUT  → terminal — report and stop
 # Settles only when: at least one non-exempt check exists (a docs-only PR is allowed none)
 # and none is pending; the sorted name=bucket list is identical on two consecutive polls
-# (fast Vercel/smoke statuses register before the ci.yml job does); and, for a PR with
-# non-docs files, the ci.yml job "Lint, Type Check & Test" is present. Each Bash call is a
+# (fast Vercel/smoke statuses register before the ci.yml job does); and, unless the PR
+# is affirmatively classified docs-only, the ci.yml job "Lint, Type Check & Test" is
+# present. Affirmatively: a file list that could not be read is not a docs-only PR, so
+# it still requires the job (HON-587) — do not weaken this back to "has non-docs files",
+# which is also true of an unreadable list and waives the only build gate there is. Each Bash call is a
 # fresh shell, so PR_NUMBER is re-derived here and the previous poll's result is carried
 # across chunks in a file — never reuse a shell variable.
 PR_NUMBER=$(gh pr view --json number --jq .number)
@@ -918,7 +921,12 @@ NON_DOCS=$(printf '%s\n' "$FILES" | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPL
 # An unreadable file list is not evidence of a docs-only PR. Without the -z test a
 # failed fetch leaves NON_DOCS empty and prints DOCS_ONLY — "treat as passed" — for
 # a PR that nothing has checked. Same guard the poll above puts on DOCS_ONLY.
-if [ -z "$FILES" ] || [ -n "$NON_DOCS" ]; then
+if [ -z "$FILES" ]; then
+  # Not the same diagnosis: nothing has established a code change here, the file
+  # list simply could not be read. Saying otherwise points the CI-fix loop below
+  # at healthy CI, where it can spend both attempts pushing commits at nothing.
+  echo "Could not read the PR file list — cannot classify, treat as unverified"  # STOP
+elif [ -n "$NON_DOCS" ]; then
   echo "CI did not report checks for a code change"  # STOP — do not proceed
 else
   echo "DOCS_ONLY"  # no CI workflow runs for these paths — treat as passed
@@ -1343,8 +1351,11 @@ Run the block below in the **foreground** with `timeout: 540000`:
 #   CI_TIMEOUT  → terminal — report and stop
 # Settles only when: at least one non-exempt check exists (a docs-only PR is allowed none)
 # and none is pending; the sorted name=bucket list is identical on two consecutive polls
-# (fast Vercel/smoke statuses register before the ci.yml job does); and, for a PR with
-# non-docs files, the ci.yml job "Lint, Type Check & Test" is present. Each Bash call is a
+# (fast Vercel/smoke statuses register before the ci.yml job does); and, unless the PR
+# is affirmatively classified docs-only, the ci.yml job "Lint, Type Check & Test" is
+# present. Affirmatively: a file list that could not be read is not a docs-only PR, so
+# it still requires the job (HON-587) — do not weaken this back to "has non-docs files",
+# which is also true of an unreadable list and waives the only build gate there is. Each Bash call is a
 # fresh shell, so PR_NUMBER is re-derived here and the previous poll's result is carried
 # across chunks in a file — never reuse a shell variable.
 PR_NUMBER=$(gh pr view --json number --jq .number)
@@ -1445,7 +1456,12 @@ NON_DOCS=$(printf '%s\n' "$FILES" | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPL
 # An unreadable file list is not evidence of a docs-only PR. Without the -z test a
 # failed fetch leaves NON_DOCS empty and prints DOCS_ONLY — "treat as passed" — for
 # a PR that nothing has checked. Same guard the poll above puts on DOCS_ONLY.
-if [ -z "$FILES" ] || [ -n "$NON_DOCS" ]; then
+if [ -z "$FILES" ]; then
+  # Not the same diagnosis: nothing has established a code change here, the file
+  # list simply could not be read. Saying otherwise points the CI-fix loop below
+  # at healthy CI, where it can spend both attempts pushing commits at nothing.
+  echo "Could not read the PR file list — cannot classify, treat as unverified"  # STOP
+elif [ -n "$NON_DOCS" ]; then
   echo "CI did not report checks for a code change"  # STOP — do not proceed
 else
   echo "DOCS_ONLY"  # no CI workflow runs for these paths — treat as passed

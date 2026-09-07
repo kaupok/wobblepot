@@ -138,7 +138,14 @@ describe('CI-settle gate', () => {
         const source = read(file)
         // The poll's guard, and the verification's.
         expect(countOccurrences(source, 'DOCS_ONLY=false; [ -n "$FILES" ]')).toBe(expected)
-        expect(countOccurrences(source, 'if [ -z "$FILES" ] || [ -n "$NON_DOCS" ]; then')).toBe(
+        // Three-way, not two: an unreadable list and a code change are different
+        // diagnoses, and the CI-fix loop below the verification acts on which one
+        // it is told. Both still stop; only the message differs. Asserted on the
+        // messages rather than on `if [ -z "$FILES" ]`, which /merge now also uses
+        // for the poll's re-derive guard.
+        expect(countOccurrences(source, 'elif [ -n "$NON_DOCS" ]; then')).toBe(expected)
+        expect(countOccurrences(source, 'Could not read the PR file list')).toBe(expected)
+        expect(countOccurrences(source, 'CI did not report checks for a code change')).toBe(
           expected,
         )
         // And the poll's ci.yml-job rule, which consumes the same variable: it
