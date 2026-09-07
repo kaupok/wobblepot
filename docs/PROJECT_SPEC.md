@@ -296,7 +296,7 @@ Key steps:
 
 **Decision:** No in-app parental-consent capture — no under-16 flag, no consent timestamp, no acknowledgment checkbox. Art. 8 is not an open launch gate.
 
-**Why:** Art. 8 governs a child's _own_ consent to an information society service offered directly to them. Wobblepot has no child accounts: a household member profile is created and managed by the account-holding parent or guardian, who is the one consenting. A checkbox shown to that same parent adds evidentiary ceremony, not a missing legal basis. The substantive control is the Art. 9 health-data position on allergen and dietary data, which applies to every member — adults included — and rests on the privacy policy's AI-processing disclosure rather than on an under-16 toggle. That position is not fully settled: [`compliance/dpia.md`](../compliance/dpia.md) rates "Art. 9 basis challenged" as its only Medium residual risk, and calls the missing allergen-entry affirmation "the honest gap" whose residual risk is accepted at beta scale — see **Already open** below.
+**Why:** Art. 8 governs a child's _own_ consent to an information society service offered directly to them. Wobblepot has no child accounts: a household member profile is created and managed by the account-holding parent or guardian, who is the one consenting. A checkbox shown to that same parent adds evidentiary ceremony, not a missing legal basis. The substantive control is the Art. 9 health-data position on allergen and dietary data, which applies to every member — adults included — and rests on the privacy policy's AI-processing disclosure rather than on an under-16 toggle. That position is not fully settled: [`compliance/dpia.md`](../compliance/dpia.md) rates "Art. 9 basis challenged" as its only Medium residual risk and recommends a one-line allergen-entry affirmation — for all members, not only under-16s — before public launch. That is a live launch-readiness item rather than a later gate, because our bar is public EU beta and `invite_code_required` opens sign-up without a deploy; it is tracked on the **Legal** line of the checklist and does not reopen the Art. 8 decision here.
 
 **Where this is recorded:**
 
@@ -305,8 +305,6 @@ Key steps:
 - HON-467 (Canceled 2026-06-06) carries the original decision on its comment thread.
 
 **Revisit if:** standalone child accounts ever ship — Art. 8 then applies for real — or AKI/EDPB guidance moves on children's data.
-
-**Already open (Art. 9, not Art. 8):** [`compliance/dpia.md`](../compliance/dpia.md) → Risk area 2 recommends a one-line affirmation in the member form where allergens are entered, for all members rather than only under-16s, and its Conclusion carries this as the one open recommendation, due **pre-public-launch**. That is a live launch-readiness item, not a later gate: Current Status sets the bar at public EU beta rather than "soft launch to friends", and flipping `invite_code_required` opens public sign-up without a deploy. It is tracked on the **Legal** line of the launch-readiness checklist, and it does not reopen the Art. 8 decision above.
 
 ### Error Handling
 

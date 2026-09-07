@@ -46,12 +46,12 @@ The 24-hour and 3-working-day commitments are softer than the GDPR clock and app
 
 A DSR is any user-initiated request to exercise rights under GDPR. The inbox accepts all four; the user does not need to know which type to file under.
 
-| Type                  | Right (GDPR Art.)                       | What we do                                                                                                                                                   |
-| --------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Export / portability  | Art. 15 (access), Art. 20 (portability) | Direct user to `/api/auth/user/export`, linked from the profile page (shipped, HON-458)                                                                      |
-| Deletion / erasure    | Art. 17                                 | Initiate the 30-day grace-window deletion from the profile page (shipped, HON-481)                                                                           |
-| Rectification         | Art. 16                                 | Edit in-app where possible; manual update otherwise. Document in the audit trail                                                                             |
-| Complaint / objection | Art. 21, recital 141                    | Acknowledge; remind the user they may complain to their local supervisory authority (AKI for Estonia). Do not treat as adversarial — investigate and respond |
+| Type                  | Right (GDPR Art.)                       | What we do                                                                                                                                                      |
+| --------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Export / portability  | Art. 15 (access), Art. 20 (portability) | Direct user to `/api/auth/user/export`, linked from the profile page (shipped, HON-458)                                                                         |
+| Deletion / erasure    | Art. 17                                 | Direct user to Profile → "Delete account" to start the 30-day grace window (shipped, HON-481). Recovery and purge steps: [`gdpr-deletion.md`](gdpr-deletion.md) |
+| Rectification         | Art. 16                                 | Edit in-app where possible; manual update otherwise. Document in the audit trail                                                                                |
+| Complaint / objection | Art. 21, recital 141                    | Acknowledge; remind the user they may complain to their local supervisory authority (AKI for Estonia). Do not treat as adversarial — investigate and respond    |
 
 If a request is ambiguous ("delete my data"), default to the strictest interpretation (full erasure) and confirm with the user before acting irreversibly.
 
@@ -119,6 +119,6 @@ If the mail provider changes (e.g. moving from a forwarder to a hosted mailbox):
 - [`docs/RUNBOOKS/breach-notification.md`](breach-notification.md) (HON-482) — escalate breach-related mail there; severity classification and the 72-hour AKI clock live in that runbook
 - `docs/RUNBOOKS/status-page.md` — same support address; tone of incident-banner copy should match this runbook
 - HON-457 — privacy policy that cites this email as the DSR contact
-- HON-458 — GDPR data-export endpoint; cite when fulfilling export requests once it ships
-- HON-481 — 30-day grace-window deletion; cite when fulfilling erasure requests once it ships
+- HON-458 — GDPR data-export endpoint (shipped); cite `/api/auth/user/export` when fulfilling export requests
+- HON-481 — 30-day grace-window deletion (shipped); see [`gdpr-deletion.md`](gdpr-deletion.md) when fulfilling erasure requests
 - AKI (Estonian DPA) — `https://www.aki.ee` is the user-facing entry point for complaints (verify URL when citing it)
