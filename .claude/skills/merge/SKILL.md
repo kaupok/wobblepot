@@ -101,7 +101,7 @@ for i in $(seq 1 100); do
   OK=1
   [ -n "$CUR" ] || [ "$DOCS_ONLY" = true ] || OK=0                                   # at least one check (docs-only may have none)
   printf '%s\n' "$CUR" | grep -q '=pending$' && OK=0                                 # none pending
-  [ -z "$NON_DOCS" ] || printf '%s\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0   # ci.yml job registered (code PRs)
+  [ "$DOCS_ONLY" = true ] || printf '%s\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0   # ci.yml job registered (code PRs)
   [ "$CUR" = "$PREV" ] || OK=0                                                       # identical to the previous poll
   if [ "$OK" = 1 ]; then echo CI_SETTLED; exit 0; fi
   PREV=$CUR

@@ -859,7 +859,7 @@ for i in $(seq 1 16); do
   OK=1
   [ -n "$CUR" ] || [ "$DOCS_ONLY" = true ] || OK=0                                   # at least one check (docs-only may have none)
   printf '%s\n' "$CUR" | grep -q '=pending$' && OK=0                                 # none pending
-  [ -z "$NON_DOCS" ] || printf '%s\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0   # ci.yml job registered (code PRs)
+  [ "$DOCS_ONLY" = true ] || printf '%s\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0   # ci.yml job registered (code PRs)
   [ "$CUR" = "$PREV" ] || OK=0                                                       # identical to the previous poll
   PREV=$CUR; printf '%s' "$CUR" > "$PREV_FILE"
   if [ "$OK" = 1 ]; then rm -f "$PREV_FILE" "$CHUNK_FILE"; echo CI_SETTLED; exit 0; fi
@@ -1368,7 +1368,7 @@ for i in $(seq 1 16); do
   OK=1
   [ -n "$CUR" ] || [ "$DOCS_ONLY" = true ] || OK=0                                   # at least one check (docs-only may have none)
   printf '%s\n' "$CUR" | grep -q '=pending$' && OK=0                                 # none pending
-  [ -z "$NON_DOCS" ] || printf '%s\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0   # ci.yml job registered (code PRs)
+  [ "$DOCS_ONLY" = true ] || printf '%s\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0   # ci.yml job registered (code PRs)
   [ "$CUR" = "$PREV" ] || OK=0                                                       # identical to the previous poll
   PREV=$CUR; printf '%s' "$CUR" > "$PREV_FILE"
   if [ "$OK" = 1 ]; then rm -f "$PREV_FILE" "$CHUNK_FILE"; echo CI_SETTLED; exit 0; fi

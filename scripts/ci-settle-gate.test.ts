@@ -131,6 +131,10 @@ describe('CI-settle gate', () => {
         expect(countOccurrences(source, 'if [ -z "$FILES" ] || [ -n "$NON_DOCS" ]; then')).toBe(
           expected,
         )
+        // And the poll's ci.yml-job rule, which consumes the same variable: it
+        // must read DOCS_ONLY, never a bare NON_DOCS that a failed fetch empties.
+        expect(countOccurrences(source, '[ "$DOCS_ONLY" = true ] || printf')).toBe(expected)
+        expect(countOccurrences(source, '[ -z "$NON_DOCS" ] || printf')).toBe(0)
       }
     })
 
@@ -323,6 +327,18 @@ describe('CI-settle gate', () => {
     // "docs-only, nothing to wait for" would settle a code PR on zero checks.
     it('does not treat an unreadable file list as docs-only', () => {
       const { marker } = runChunk([commitStatus('pending')], '')
+
+      expect(marker).toBe('CI_WAITING (chunk 1/6)')
+    })
+
+    // The same unreadable file list, at the rule the `pending` fixture above
+    // cannot reach. A *passing* third-party status is not exempted away, so CUR
+    // is non-empty and the decision falls through to the ci.yml-job rule. That
+    // rule used to read NON_DOCS directly, where an empty value from a failed
+    // fetch means "no ci.yml job required" — the same inference DOCS_ONLY is
+    // guarded against four lines above. Keying it on DOCS_ONLY shares the guard.
+    it('does not settle a code PR without the ci.yml job when the file list is unreadable', () => {
+      const { marker } = runChunk([commitStatus('pass')], '')
 
       expect(marker).toBe('CI_WAITING (chunk 1/6)')
     })
