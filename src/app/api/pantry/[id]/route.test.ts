@@ -122,6 +122,60 @@ describe('PATCH /api/pantry/[id]', () => {
     expect(data.error).toBe('Validation failed')
   })
 
+  it('returns 400 for a negative quantity and writes nothing', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    const request = new Request('http://localhost/api/pantry/pantry-123', {
+      method: 'PATCH',
+      body: JSON.stringify({ quantity: -1 }),
+    })
+
+    const response = await PATCH(request, { params: Promise.resolve({ id: 'pantry-123' }) })
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Validation failed')
+    expect(data.details.quantity).toBeDefined()
+    // The "and no row is written" half of the guard: validation runs before the
+    // household lookup, so a rejected body must never reach Prisma.
+    expect(mockUpdatePantry).not.toHaveBeenCalled()
+  })
+
+  it('accepts a quantity of 0 — "none left, still tracked"', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirstMember.mockResolvedValue(mockMembership as never)
+    mockFindFirstPantry.mockResolvedValue(mockPantryItem as never)
+
+    const updatedItem = {
+      ...mockPantryItem,
+      quantity: 0,
+      ingredient: mockIngredient,
+    }
+    mockUpdatePantry.mockResolvedValue(updatedItem as never)
+
+    const request = new Request('http://localhost/api/pantry/pantry-123', {
+      method: 'PATCH',
+      body: JSON.stringify({ quantity: 0 }),
+    })
+
+    const response = await PATCH(request, { params: Promise.resolve({ id: 'pantry-123' }) })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.quantity).toBe(0)
+    // Pins the `!== undefined` guard in the route: a truthiness check there would
+    // silently drop the 0 and leave the old quantity in place.
+    expect(mockUpdatePantry).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { quantity: 0 } }),
+    )
+  })
+
   it('returns 404 when user has no household', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John', email: 'john@example.com' },

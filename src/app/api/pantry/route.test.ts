@@ -549,6 +549,28 @@ describe('POST /api/pantry', () => {
     expect(data.details.ingredientId).toBeDefined()
   })
 
+  it('returns 400 for a negative quantity and creates nothing', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    const request = new Request('http://localhost/api/pantry', {
+      method: 'POST',
+      body: JSON.stringify({ ingredientId: 'ing-456', quantity: -1 }),
+    })
+
+    const response = await POST(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Validation failed')
+    expect(data.details.quantity).toBeDefined()
+    // The "and writes nothing" half of the guard: validation runs before the
+    // household lookup, so a rejected body must never reach Prisma.
+    expect(mockCreatePantry).not.toHaveBeenCalled()
+  })
+
   it('returns 404 when user has no household', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John', email: 'john@example.com' },
