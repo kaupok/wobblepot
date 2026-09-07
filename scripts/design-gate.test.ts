@@ -138,6 +138,14 @@ describe('design-guide gate', () => {
       expect(classify(ui)).toEqual(ui)
     })
 
+    // src/app/globals.css holds the @theme token block, and half the reject list is
+    // about tokens. A token-only PR changes no .tsx, so a .tsx-only pattern would
+    // hand the affirmative "no UI files" claim to the diff shape the guide has most
+    // to say about.
+    it('selects the token stylesheet, which no .tsx-only pattern would catch', () => {
+      expect(classify(['src/app/globals.css'])).toEqual(['src/app/globals.css'])
+    })
+
     // The two directories are the whole gate, so the fixture has to contain a .tsx
     // outside them: without one, widening the regex to `^src/.*\.tsx$` passes every
     // assertion here while making each non-UI PR read a document it cannot violate.
@@ -155,11 +163,10 @@ describe('design-guide gate', () => {
     // Everything else the design guide cannot speak to. The route handler is the
     // near miss: it lives under a gated directory but renders no UI, so the .tsx
     // extension — not the directory alone — is what has to decide.
-    it('selects no non-tsx file, including under a gated directory', () => {
+    it('selects no unrelated file, including under a gated directory', () => {
       expect(
         classify([
           'src/app/api/meals/route.ts',
-          'src/app/globals.css',
           'src/components/meal-plan/use-meal-swap.ts',
           'src/stories/design-rules.ts',
           'docs/DESIGN.md',
@@ -305,6 +312,25 @@ describe('design-guide gate', () => {
     it('both skills route an unnamed repeated pattern back into the reject list', () => {
       expect(read(branchReviewSkill)).toMatch(/proposing it as a new reject-list entry/)
       expect(read(chromeReviewSkill)).toMatch(/a one-line addition to the \*\*Reject list\*\*/)
+    })
+  })
+
+  // DESIGN_PROMPT quotes four reject-list items as examples of what a named finding
+  // looks like. A review running the no-UI branch is forbidden from opening the guide,
+  // so it cannot check them — an example that has gone stale would teach the reviewer
+  // to cite an item the document no longer contains.
+  describe('the prompt examples resolve to real named items', () => {
+    it.each([
+      ['a Card nested inside a Card', /Cards nested inside cards/],
+      ['a sticky action bar inside content', /sticky or floating action bar inside page content/],
+      ['a page title above `text-xl`', /Page titles above `text-xl`/],
+      [
+        'a raw palette class where a token exists',
+        /A raw palette class .* where an existing pairing or token exists/,
+      ],
+    ])('%s', (example, named) => {
+      expect(heredoc('DESIGN_PROMPT')).toContain(example)
+      expect(read(designGuide)).toMatch(named)
     })
   })
 

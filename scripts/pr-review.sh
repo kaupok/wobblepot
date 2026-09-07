@@ -322,7 +322,13 @@ if [ -n "$PR_FILES" ] && [ "$PR_FILE_COUNT" = "$PR_CHANGED" ]; then
 else
   PR_FILES_COMPLETE=false
 fi
-UI_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^src/(components|app)/.*\.tsx$' || true)
+# .css is in the pattern as well as .tsx: src/app/globals.css holds the @theme token
+# block, and half the reject list is about tokens — a raw palette class where a token
+# exists, a `dark:` override on a semantic token, arbitrary font sizes. A token-only
+# PR changes no .tsx at all, so a .tsx-only pattern would hand the affirmative "no UI
+# files" claim to the one diff shape the guide has most to say about (CLAUDE.md routes
+# `@theme` and `--spacing-*` changes through docs/DESIGN.md for the same reason).
+UI_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^src/(components|app)/.*\.(tsx|css)$' || true)
 
 if [ -n "$UI_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
   if [ -n "$UI_FILES" ]; then
@@ -334,7 +340,9 @@ if [ -n "$UI_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
 
 ## Also check the changed UI against the design guide
 
-Read `docs/DESIGN.md` before step 4 and check the changed UI against its **Reject list** and **Composition rules** sections only. The rest of that document is guidance for building, not a review checklist — do not review against it. If this diff turns out to change no UI at all, say so in the summary line below instead of inventing findings.
+Read `docs/DESIGN.md` before step 4 and check the changed UI against its **Reject list** and **Composition rules** sections only. The rest of that document is guidance for building, not a review checklist — do not review against it.
+
+You may reach this instruction on a diff that turns out to change no UI: the file list backing the gate can come back unreadable or truncated, in which case the check runs rather than claim it does not apply. That outcome is `— 0 findings` on the summary line below. There is no third verdict — do not invent findings to fill it, and do not write your own wording for it.
 
 A design finding qualifies only when it matches a **named** item in one of those two sections: a Card nested inside a Card, a sticky action bar inside content, a page title above `text-xl`, a raw palette class where a token exists, and so on. **Name the item you matched**, so the finding can be checked against the document. Anything the document does not name is taste, and the substantive-only bar above still applies to it: do not post it.
 
