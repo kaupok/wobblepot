@@ -322,13 +322,19 @@ if [ -n "$PR_FILES" ] && [ "$PR_FILE_COUNT" = "$PR_CHANGED" ]; then
 else
   PR_FILES_COMPLETE=false
 fi
-# .css is in the pattern as well as .tsx: src/app/globals.css holds the @theme token
-# block, and half the reject list is about tokens — a raw palette class where a token
-# exists, a `dark:` override on a semantic token, arbitrary font sizes. A token-only
-# PR changes no .tsx at all, so a .tsx-only pattern would hand the affirmative "no UI
-# files" claim to the one diff shape the guide has most to say about (CLAUDE.md routes
-# `@theme` and `--spacing-*` changes through docs/DESIGN.md for the same reason).
-UI_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^src/(components|app)/.*\.(tsx|css)$' || true)
+# The pattern is "anything that renders UI", not "component files":
+#   - .css as well as .tsx, because src/app/globals.css holds the @theme token block
+#     and half the reject list is about tokens — a raw palette class where a token
+#     exists, a `dark:` override on a semantic token, arbitrary font sizes. A
+#     token-only PR changes no .tsx at all (CLAUDE.md routes `@theme` and
+#     `--spacing-*` changes through docs/DESIGN.md for the same reason).
+#   - src/stories as well, because src/stories/scenarios/* composes whole screens and
+#     is where the composition rules become visible at all (HON-610). A .ts there is
+#     deliberately excluded: design-rules.ts implements the mechanical checks, it does
+#     not render anything a reject-list item could apply to.
+# Each omission would have handed the affirmative "no UI files" claim to a diff the
+# guide speaks directly to — the same false negative the guard above prevents.
+UI_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^src/(components|app|stories)/.*\.(tsx|css)$' || true)
 
 if [ -n "$UI_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
   if [ -n "$UI_FILES" ]; then
@@ -362,7 +368,9 @@ else
 
 ## This PR touches no UI files — the design guide does not apply
 
-No file in this diff is a `.tsx` under `src/components/` or `src/app/`, so nothing here can violate the design guide. **Do not read `docs/DESIGN.md`** and do not raise design findings.
+Nothing in this diff renders UI, so nothing here can violate the design guide. **Do not open `docs/DESIGN.md` to check other files against it**, and do not raise design findings.
+
+That is a rule about reviewing *against* the guide, not about the file. If `docs/DESIGN.md` is itself in the diff — which is what the feedback half of this loop produces, a PR that adds a Reject list entry — step 2 still applies in full: read it as a changed file and review the change on its own terms.
 
 Record that in the Step 5 summary comment, on its own line directly above the `**Issues found:**` list, exactly:
 

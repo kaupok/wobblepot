@@ -146,6 +146,20 @@ describe('design-guide gate', () => {
       expect(classify(['src/app/globals.css'])).toEqual(['src/app/globals.css'])
     })
 
+    // src/stories/scenarios/* composes whole screens and is the only place the
+    // composition rules become visible (HON-610), so a scenario-only PR must not
+    // get the affirmative no-UI claim. design-rules.ts is deliberately out: it
+    // implements the mechanical checks, it renders nothing a rule could apply to.
+    it('selects scenario stories but not the rule helper beside them', () => {
+      expect(
+        classify([
+          'src/stories/scenarios/ShoppingList.stories.tsx',
+          'src/stories/design-rules.ts',
+          'src/stories/fixtures.ts',
+        ]),
+      ).toEqual(['src/stories/scenarios/ShoppingList.stories.tsx'])
+    })
+
     // The two directories are the whole gate, so the fixture has to contain a .tsx
     // outside them: without one, widening the regex to `^src/.*\.tsx$` passes every
     // assertion here while making each non-UI PR read a document it cannot violate.
@@ -260,8 +274,20 @@ describe('design-guide gate', () => {
 
     // The no-UI branch is what the AC verifies in-PR: the run log must show the
     // guide was never opened, which only holds if the prompt says so outright.
-    it('tells the reviewer not to read the guide on the no-UI branch', () => {
-      expect(heredoc('NO_DESIGN_PROMPT')).toContain('Do not read `docs/DESIGN.md`')
+    it('tells the reviewer not to check other files against the guide', () => {
+      expect(heredoc('NO_DESIGN_PROMPT')).toContain(
+        'Do not open `docs/DESIGN.md` to check other files against it',
+      )
+    })
+
+    // The feedback half of this loop produces docs-only PRs that edit the Reject
+    // list, which take this branch. A blanket "do not read it" contradicts step 2
+    // ("read the changed files IN FULL") and left the guide's own change unreviewed
+    // for three rounds on the PR that introduced it.
+    it('still requires the guide to be read when the diff changes it', () => {
+      const noUiBranch = heredoc('NO_DESIGN_PROMPT')
+      expect(noUiBranch).toMatch(/If `docs\/DESIGN\.md` is itself in the diff/)
+      expect(noUiBranch).toContain('step 2 still applies in full')
     })
 
     // Both appended blocks instruct a line in the summary comment, and the marker
@@ -287,9 +313,20 @@ describe('design-guide gate', () => {
   })
 
   describe('the skill surfaces carry the gate and the named-item rule', () => {
-    it('/branch-review gates on UI files and requires a named item', () => {
+    // The three directories, not a glob spelling: /branch-review's gate has to keep
+    // covering what the script's UI_FILES regex covers, however either is worded.
+    it('/branch-review gates on the same directories as the script', () => {
+      const bullet = read(branchReviewSkill)
+        .split('\n')
+        .find((l) => l.startsWith('- **Design guide**: If the diff'))
+      expect(bullet, 'the step 8 design-guide bullet').toBeDefined()
+      for (const dir of ['src/components/', 'src/app/', 'src/stories/']) {
+        expect(bullet, dir).toContain(dir)
+      }
+    })
+
+    it('/branch-review requires a named item', () => {
       const source = read(branchReviewSkill)
-      expect(source).toContain('src/components/**/*.tsx')
       expect(source).toContain('Reject list')
       expect(source).toContain('Composition rules')
       expect(source).toMatch(/Anything the document does not name is taste/)
