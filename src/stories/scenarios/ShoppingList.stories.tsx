@@ -2,12 +2,14 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { useTranslations } from 'next-intl'
 import { expect, fn, within } from 'storybook/test'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Body, Heading } from '@/components/ui/typography'
+import { Card, CardContent } from '@/components/ui/card'
+import { Body } from '@/components/ui/typography'
 import { CategoryGroup } from '@/components/shopping/CategoryGroup'
 import { CustomShoppingItem } from '@/components/shopping/CustomShoppingItem'
 import { UrgencyGroup } from '@/components/shopping/UrgencyGroup'
 import { ShoppingEmptyState } from '@/components/inventory/ShoppingEmptyState'
+import { ShoppingListHeader } from '@/components/inventory/ShoppingListHeader'
+import { WINDOW_STORAGE_KEY } from '@/components/inventory/use-shopping-window'
 import {
   customShoppingItems,
   dairyShoppingItems,
@@ -24,9 +26,6 @@ import { assertDesignRules, SCENARIO_RULES } from '@/stories/design-rules'
 const inactiveStateA11y = {
   config: { rules: [{ id: 'color-contrast', enabled: false }] },
 }
-
-/** `ShoppingEmptyState` reads this on mount; see the `Empty` story's cleanup. */
-const WINDOW_STORAGE_KEY = 'shopping-list-window-days'
 
 const URGENCY_BUCKETS = ['today', 'tomorrow', 'this-week', 'later'] as const
 
@@ -78,9 +77,12 @@ interface ShoppingListScreenProps {
 
 /**
  * The `/shopping` list with items on it, composed the way
- * `src/components/inventory/ShoppingSection.tsx` composes it: one page-title
- * card, then grouped rows. Data is fixed, so the only thing that moves between
- * runs is the layout under review.
+ * `src/components/inventory/ShoppingSection.tsx` composes it: the shared
+ * `ShoppingListHeader` — page title, summary line, window picker — then grouped
+ * rows. Data is fixed, so the only thing that moves between runs is the layout
+ * under review. The section's own copy/clear/sort controls are left out: they
+ * belong to `ShoppingSection`'s state, and `Feature/Inventory/ShoppingListHeader`
+ * already shows the header at its most crowded.
  */
 function ShoppingListScreen({
   sort,
@@ -101,15 +103,15 @@ function ShoppingListScreen({
 
   return (
     <Card className="w-full">
-      <CardHeader>
-        <div className="flex flex-col gap-1">
-          <Heading variant="h4">{tShopping('title')}</Heading>
-          <Body variant="muted">
+      <ShoppingListHeader
+        windowDays={7}
+        summary={
+          <>
             {tShopping('windowNext7')} · {tShopping('itemCount', { count: totalItems })} ·{' '}
             {tShopping('purchasedTail', { count: totalPurchased })}
-          </Body>
-        </div>
-      </CardHeader>
+          </>
+        }
+      />
       <CardContent>
         <div className="flex flex-col gap-6">
           {sort === 'urgency' ? (
@@ -221,6 +223,14 @@ const meta = {
       },
     },
   },
+  // `ShoppingListHeader` reconciles the stored window against its prop on mount
+  // and pushes when they disagree. Every scenario renders the 7-day window, so
+  // clearing the key keeps them independent of whatever a ShoppingListHeader or
+  // ShoppingEmptyState story left behind.
+  beforeEach: () => {
+    localStorage.removeItem(WINDOW_STORAGE_KEY)
+    return () => localStorage.removeItem(WINDOW_STORAGE_KEY)
+  },
   args: {
     sort: 'urgency',
     onToggleItem: fn(),
@@ -270,18 +280,11 @@ export const ByCategory: Story = {
 }
 
 export const Empty: Story = {
-  // `nothing-needed` reconciles the stored window preference against its prop
-  // on mount and pushes when they disagree. Clearing the key keeps this story
-  // independent of whatever the ShoppingEmptyState stories left behind.
-  beforeEach: () => {
-    localStorage.removeItem(WINDOW_STORAGE_KEY)
-    return () => localStorage.removeItem(WINDOW_STORAGE_KEY)
-  },
   parameters: {
     docs: {
       description: {
         story:
-          'Both empty states the screen can land on, stacked for comparison: `no-plan` (nothing to derive a list from, so one primary CTA) and `nothing-needed` (a plan exists but the pantry covers it, so the window picker sits on the title row instead). Each follows the empty-state copy formula — one `Body variant="muted"` line, at most one primary button, no illustration.',
+          'Both empty states the screen can land on, stacked for comparison: `no-plan` (nothing to derive a list from, so one primary CTA, and no header — a wider window cannot conjure a plan) and `nothing-needed` (a plan exists but the pantry covers it, so it gets the shared header and the window picker sits on the title row instead). Each follows the empty-state copy formula — one `Body variant="muted"` line, at most one primary button, no illustration.',
       },
     },
   },

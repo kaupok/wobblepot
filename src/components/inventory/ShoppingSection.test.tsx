@@ -15,6 +15,14 @@ vi.stubGlobal('fetch', vi.fn())
 // Mock sonner toast
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
+// `ShoppingListHeader` navigates on a window change and on the mount reconcile.
+// A stable router object, not a fresh one per call: `useShoppingWindow` keys its
+// reconcile effect on the router identity.
+const routerPush = vi.fn()
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: routerPush }),
+}))
+
 // Mock date utility used in urgency mode. `parseLocalDate` is kept real — the
 // clipboard header formats the window's date range through it.
 vi.mock('@/lib/meal-planning/dates', async () => {

@@ -56,6 +56,9 @@
     "summary": "{itemCount} • {purchasedCount} ostetud",
     "purchasedTail": "{count} ostetud",
     "ariaSort": "Sorteeri tooteid",
+    "ariaTimeWindow": "Ajavahemik",
+    "windowOption7": "7 päeva",
+    "windowOption14": "14 päeva",
     "sort": {
       "category": "Kategooria järgi",
       "urgency": "Kiireloomulisuse järgi",
@@ -99,10 +102,7 @@
       "nothingCta": "Vaata sahvrit",
       "errorHeading": "Midagi läks valesti",
       "errorBody": "Poenimekirja ei õnnestunud laadida. Palun proovi uuesti.",
-      "errorCta": "Mine avalehele",
-      "ariaTimeWindow": "Ajavahemik",
-      "windowOption7": "7 päeva",
-      "windowOption14": "14 päeva"
+      "errorCta": "Mine avalehele"
     }
   },
   "pantry": {

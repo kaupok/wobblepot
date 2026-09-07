@@ -1,4 +1,4 @@
-// ROUTES: /shopping, /sign-in · COMPONENTS: InventoryPage, ShoppingSection, ShoppingItem, PantrySection, PantryItem
+// ROUTES: /shopping, /sign-in · COMPONENTS: InventoryPage, ShoppingSection, ShoppingListHeader, ShoppingItem, PantrySection, PantryItem
 import { test, expect, type APIRequestContext } from '@playwright/test'
 import { signIn } from './utils/test-helpers'
 import { e2eBaseURL } from './utils/db-helpers'
@@ -211,6 +211,35 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
       }
       expect(itemsAfter.some((i) => i.ingredient.id === purchasedIngredientId)).toBe(false)
       purchasedIngredientId = null
+
+      // HON-624: the 7/14-day window round-trips from the populated list.
+      // Before the picker moved into the shared `ShoppingListHeader` it existed
+      // only on the `nothing-needed` empty state, so widening to 14 days
+      // surfaced items, swapped in `ShoppingSection`, and removed the only
+      // control that could narrow it back — the user's escape was editing the
+      // URL. Asserted here rather than in its own spec because it needs a
+      // non-empty list, which this test's fixture entry already provides;
+      // `fullyParallel` would otherwise race a second test on the shared
+      // household. Non-destructive: only `?days=` and a `localStorage` key move.
+      await expect(page.getByText('Next 7 days')).toBeVisible()
+
+      const windowPicker = page.getByRole('combobox', { name: 'Time window' })
+      await expect(windowPicker).toBeVisible()
+
+      await windowPicker.click()
+      await page.getByRole('option', { name: '14 days' }).click()
+      await expect(page).toHaveURL(/[?&]days=14\b/)
+      await expect(page.getByText('Next 14 days')).toBeVisible()
+      // Still the populated list, not an empty state: widening can only add.
+      await expect(
+        page.getByRole('checkbox', { name: `Mark ${itemName} as purchased` }),
+      ).toBeVisible()
+
+      // Back again — the half that had no control at all before HON-624.
+      await page.getByRole('combobox', { name: 'Time window' }).click()
+      await page.getByRole('option', { name: '7 days' }).click()
+      await expect(page).toHaveURL(/[?&]days=7\b/)
+      await expect(page.getByText('Next 7 days')).toBeVisible()
     } finally {
       // Leave the shared household exactly as found, whatever failed above.
       if (purchasedIngredientId) {

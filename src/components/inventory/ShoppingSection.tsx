@@ -5,7 +5,7 @@ import { Check, Copy, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLocale, useTranslations } from 'next-intl'
 import type { IngredientCategory } from '@/generated/prisma/enums'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   Select,
   SelectContent,
@@ -14,13 +14,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { Heading, Body } from '@/components/ui/typography'
+import { Body } from '@/components/ui/typography'
 import { CategoryGroup, CATEGORY_EMOJI } from '@/components/shopping/CategoryGroup'
 import { UrgencyGroup, URGENCY_KEYS } from '@/components/shopping/UrgencyGroup'
 import { ShoppingItem, type ShoppingItemData } from '@/components/shopping/ShoppingItem'
 import { CustomItemInput, type CustomItemData } from '@/components/shopping/CustomItemInput'
 import { CustomShoppingItem } from '@/components/shopping/CustomShoppingItem'
 import { ShoppingEmptyState } from './ShoppingEmptyState'
+import { ShoppingListHeader } from './ShoppingListHeader'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { track } from '@/lib/analytics'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
@@ -401,69 +402,56 @@ export function ShoppingSection({
   const hasItemsToCopy = unpurchasedComputedCount + uncheckedCustomCount > 0
 
   if (allPurchased) {
-    return <ShoppingEmptyState variant="all-purchased" />
+    // Carries the window through so the empty state's picker opens on the
+    // window the user is actually looking at, not the 7-day default.
+    return <ShoppingEmptyState variant="all-purchased" windowDays={windowDays} />
   }
 
   return (
     <Card className="w-full">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex flex-col gap-1">
-            <Heading variant="h4">{tShopping('title')}</Heading>
-            <Body variant="muted">
-              {getWindowLabel()} · {tShopping('itemCount', { count: totalItems })} ·{' '}
-              {tShopping('purchasedTail', { count: totalPurchased })}
-            </Body>
-          </div>
-          {/*
-            Wraps because every control here is unshrinkable: `Button`'s cva base
-            is `shrink-0 whitespace-nowrap` and the sort `Select` is `w-[150px]`.
-            Copy list + Clear checked + the select is ~364px of min-content in the
-            ~310px the card header has on a 390px viewport, which is the primary
-            form factor for /shopping.
-          */}
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {hasItemsToCopy && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleCopy}
-                className="text-muted-foreground"
-              >
-                {copied ? (
-                  <Check className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-                ) : (
-                  <Copy className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-                )}
-                {tShopping('copyList')}
-              </Button>
+      <ShoppingListHeader
+        windowDays={windowDays}
+        summary={
+          <>
+            {getWindowLabel()} · {tShopping('itemCount', { count: totalItems })} ·{' '}
+            {tShopping('purchasedTail', { count: totalPurchased })}
+          </>
+        }
+      >
+        {hasItemsToCopy && (
+          <Button variant="ghost" size="sm" onClick={handleCopy} className="text-muted-foreground">
+            {copied ? (
+              <Check className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+            ) : (
+              <Copy className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
             )}
-            {checkedCustomCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleClearChecked}
-                className="text-muted-foreground"
-              >
-                <Trash2 className="mr-1 h-3.5 w-3.5" />
-                {tShopping('clearChecked')}
-              </Button>
-            )}
-            {mounted && (
-              <Select value={sortMode} onValueChange={handleSortModeChange}>
-                <SelectTrigger size="sm" className="w-[150px]" aria-label={tShopping('ariaSort')}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="category">{tSort('category')}</SelectItem>
-                  <SelectItem value="urgency">{tSort('urgency')}</SelectItem>
-                  <SelectItem value="alphabetical">{tSort('alphabetical')}</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-        </div>
-      </CardHeader>
+            {tShopping('copyList')}
+          </Button>
+        )}
+        {checkedCustomCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClearChecked}
+            className="text-muted-foreground"
+          >
+            <Trash2 className="mr-1 h-3.5 w-3.5" />
+            {tShopping('clearChecked')}
+          </Button>
+        )}
+        {mounted && (
+          <Select value={sortMode} onValueChange={handleSortModeChange}>
+            <SelectTrigger size="sm" className="w-[150px]" aria-label={tShopping('ariaSort')}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="category">{tSort('category')}</SelectItem>
+              <SelectItem value="urgency">{tSort('urgency')}</SelectItem>
+              <SelectItem value="alphabetical">{tSort('alphabetical')}</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+      </ShoppingListHeader>
       <CardContent>
         <div className="flex flex-col gap-6">
           <CustomItemInput onItemAdded={handleCustomItemAdded} disabled={isPending} />
