@@ -32,12 +32,12 @@ describe('ShoppingEmptyState', () => {
       ).toBeInTheDocument()
     })
 
-    it('renders generate plan button linking to /meal-plan', () => {
+    it('renders generate plan button linking to the dashboard', () => {
       render(<ShoppingEmptyState variant="no-plan" />)
 
       const link = screen.getByRole('link', { name: 'Generate plan' })
       expect(link).toBeInTheDocument()
-      expect(link).toHaveAttribute('href', '/meal-plan')
+      expect(link).toHaveAttribute('href', '/')
     })
 
     it('does not show the header or the window picker', () => {
@@ -109,7 +109,7 @@ describe('ShoppingEmptyState', () => {
 
       expect(screen.getByRole('heading', { name: 'Something went wrong' })).toBeInTheDocument()
       const link = screen.getByRole('link', { name: 'Go to dashboard' })
-      expect(link).toHaveAttribute('href', '/meal-plan')
+      expect(link).toHaveAttribute('href', '/')
     })
 
     it('does not show the header or the window picker', () => {

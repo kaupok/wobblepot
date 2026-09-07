@@ -95,11 +95,8 @@
       "noPlanCta": "Loo plaan",
       "allDoneHeading": "Kõik tehtud!",
       "allDoneBody": "Sahver on nädalaks varustatud.",
-      "allDoneCta": "Vaata sahvrit",
       "nothingHeading": "Pole midagi osta",
       "nothingBody": "Sul on järgmiseks {days} päevaks sahvris kõik vajalik olemas.",
-      "nothingBodyShort": "Sul on selleks nädalaks sahvris kõik vajalik olemas.",
-      "nothingCta": "Vaata sahvrit",
       "errorHeading": "Midagi läks valesti",
       "errorBody": "Poenimekirja ei õnnestunud laadida. Palun proovi uuesti.",
       "errorCta": "Mine avalehele"

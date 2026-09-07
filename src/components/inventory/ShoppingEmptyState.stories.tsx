@@ -35,7 +35,7 @@ export const NoPlan: Story = {
     docs: {
       description: {
         story:
-          'No meal plan exists yet, so there is nothing to derive a list from. Primary CTA sends the user to `/meal-plan` to generate one. No header: a wider window cannot conjure a plan.',
+          'No meal plan exists yet, so there is nothing to derive a list from. Primary CTA sends the user to the dashboard (`/`), where the rolling timeline generates one. No header: a wider window cannot conjure a plan.',
       },
     },
   },
@@ -95,7 +95,7 @@ export const ErrorState: Story = {
     docs: {
       description: {
         story:
-          'The shopping-list request failed. Same card shell as the other variants, with a CTA rather than a retry — reloading the route is the retry, and no header, since the window is not what failed. Note the CTA is labelled "Go to dashboard" but its `href` is `/meal-plan`, the same destination as the `no-plan` CTA; the dashboard is `/`. Pre-existing and pinned by `ShoppingEmptyState.test.tsx` — tracked in HON-623, not changed here.',
+          'The shopping-list request failed. Same card shell as the other variants, with a CTA rather than a retry — reloading the route is the retry, and no header, since the window is not what failed. The CTA is labelled "Go to dashboard" and its `href` is `/`, which is the dashboard (HON-623; it used to point at `/meal-plan`, a legacy redirect to the same place).',
       },
     },
   },
