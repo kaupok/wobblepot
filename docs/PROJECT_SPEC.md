@@ -300,11 +300,13 @@ Key steps:
 
 **Where this is recorded:**
 
-- Privacy policy, "Children's data" section — accounts are for people aged 16 or over across all EU/UK jurisdictions, and "By adding a member under 16, you confirm that you are their parent or legal guardian and consent on their behalf to this data being used for meal planning." (`src/app/(legal)/privacy/page.tsx`, pinned by `page.test.tsx`)
+- Privacy policy → "Children's data" (`src/app/(legal)/privacy/page.tsx`) — accounts are for people aged 16 or over across all EU/UK jurisdictions, and adding a member under 16 is the parent or guardian confirming they consent on the child's behalf. Read the live wording there rather than a copy here; `page.test.tsx` pins only the "aged 16 or over" and "parent or legal guardian" substrings, not the whole sentence.
 - [`compliance/dpia.md`](../compliance/dpia.md) → Risk area 1 — reviewed this position and concurs. Also records the data-minimisation posture: no DOB, no photos, not even an under-16 flag is stored.
 - HON-467 (Canceled 2026-06-06) carries the original decision on its comment thread.
 
-**Revisit if:** standalone child accounts ever ship (Art. 8 then applies for real), or a DPIA or regulator guidance pushes toward explicit per-member health-data consent — in which case solve it for all members, not only under-16s. The DPIA's recommended pre-public-launch hardening is a one-line affirmation in the member form where allergens are entered.
+**Revisit if:** standalone child accounts ever ship — Art. 8 then applies for real — or AKI/EDPB guidance moves on children's data.
+
+**Already open (Art. 9, not Art. 8):** [`compliance/dpia.md`](../compliance/dpia.md) → Risk area 2 recommends a one-line affirmation in the member form where allergens are entered, for all members rather than only under-16s, and its Conclusion carries this as the one open recommendation. It is due **pre-public-launch** — a later gate than the invite-only sign-ups this spec's launch-readiness checklist covers — and it does not reopen the Art. 8 decision above.
 
 ### Error Handling
 
