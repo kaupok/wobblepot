@@ -437,14 +437,28 @@ export async function PATCH(
         // row the deduction overshot is briefly negative, but never outside
         // this transaction. Unquantified rows (`quantity: null`) are consumed
         // in full by cooking with them, so they go too.
-        await tx.pantryItem.deleteMany({
-          where: {
-            householdId: household.id,
-            ingredientId: { in: deductions.map((d) => d.ingredientId) },
-            isStaple: false,
-            OR: [{ quantity: null }, { quantity: { lte: 0 } }],
-          },
-        })
+        //
+        // One statement per row rather than a single `deleteMany` over an `IN`
+        // list, and in the same sorted order as the decrements above. A
+        // multi-row DELETE lets Postgres pick its own scan order, which is
+        // exactly the ordering the sort on `deductions` exists to remove — and
+        // it matters most here, because the decrement loop filters
+        // `quantity: { not: null }`, so a `quantity: null` row takes no lock
+        // there and is locked for the first time right here. `quantity: null`
+        // is the state both purchase routes create rows in, so those are
+        // precisely the rows a concurrent bulk purchase is also locking
+        // (HON-632). A `Set` iterates in insertion order, so the sort is
+        // preserved while a meal listing one ingredient twice is swept once.
+        for (const ingredientId of new Set(deductions.map((d) => d.ingredientId))) {
+          await tx.pantryItem.deleteMany({
+            where: {
+              householdId: household.id,
+              ingredientId,
+              isStaple: false,
+              OR: [{ quantity: null }, { quantity: { lte: 0 } }],
+            },
+          })
+        }
 
         return true
       })
