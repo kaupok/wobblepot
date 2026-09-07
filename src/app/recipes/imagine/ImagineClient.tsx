@@ -18,6 +18,12 @@ import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
 import { convertToPrefilledData, type ImaginedMealResponse } from '@/lib/imagine-utils'
 import { track } from '@/lib/analytics'
+import {
+  IMAGINE_ROUTE,
+  clearImagineSession,
+  loadImagineSession,
+  saveImagineSession,
+} from './imagine-session'
 
 function SkeletonCard() {
   return (
@@ -76,6 +82,17 @@ export function ImagineClient() {
     return () => {
       abortControllerRef.current?.abort()
     }
+  }, [])
+
+  // Restore the suggestions the user left behind when they went to the create
+  // form (Cancel or browser back both land here on a fresh mount). Runs in an
+  // effect rather than a lazy `useState` initialiser so the server-rendered
+  // empty state and the first client render still agree.
+  useEffect(() => {
+    const stored = loadImagineSession()
+    if (!stored) return
+    setPrompt(stored.prompt)
+    setMeals(stored.meals)
   }, [])
 
   const navigateToCreate = async (meal: ImaginedMealResponse) => {
@@ -141,6 +158,11 @@ export function ImagineClient() {
 
   const handleReviewSaved = (mealId: string) => {
     void track('meal:imagined', { meal_id: mealId, source: 'imagine_page' })
+    // Deliberately does NOT clear the stash. Saving closes the dialog without
+    // navigating, so the other two suggestions are still on screen and still
+    // selectable — dropping the stash here would leave it out of sync with
+    // `meals` and blank the page on the next mount. The stash mirrors what is
+    // rendered; only a new generation (or the tab closing) supersedes it.
     setReviewMeal(null)
     toast.success(t('savedToast'))
   }
@@ -150,7 +172,11 @@ export function ImagineClient() {
     const { nutrition: _, ...prefilledData } = reviewMeal
     sessionStorage.setItem(
       'prefilled-meal',
-      JSON.stringify({ ...prefilledData, prefilledIngredients: currentIngredients }),
+      JSON.stringify({
+        ...prefilledData,
+        prefilledIngredients: currentIngredients,
+        returnTo: IMAGINE_ROUTE,
+      }),
     )
     router.push('/recipes/create?prefilled=true')
   }
@@ -169,6 +195,9 @@ export function ImagineClient() {
 
     setError('')
     setMeals(null)
+    // A new generation supersedes the stashed one; drop it now so an aborted or
+    // failed run cannot restore stale suggestions on the next mount.
+    clearImagineSession()
     setIsGenerating(true)
 
     const controller = new AbortController()
@@ -206,6 +235,7 @@ export function ImagineClient() {
       }
 
       setMeals(data.meals)
+      saveImagineSession({ prompt, meals: data.meals })
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         return
@@ -224,7 +254,7 @@ export function ImagineClient() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" asChild className="-ml-2">
-                <Link href="/recipes">
+                <Link href="/recipes" aria-label={t('backAria')}>
                   <ArrowLeft className="h-4 w-4" />
                 </Link>
               </Button>

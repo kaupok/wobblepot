@@ -345,6 +345,7 @@
     "imagine": {
       "title": "Mõtle välja toit",
       "description": "Kirjelda, mida sooviksid süüa, või tee foto, ja pakume välja 3 toiduideed.",
+      "backAria": "Tagasi retseptide juurde",
       "promptPlaceholder": "Midagi tervislikku kanaga ja värske salatiga…",
       "attachAria": "Lisa fotosid",
       "removeImageAria": "Eemalda „{filename}\"",
@@ -366,6 +367,7 @@
     "import": {
       "title": "Impordi retsept",
       "description": "Kleebi retsept või URL ja eraldame koostisosad sinu eest. Märgi ka portsjonite arv, muidu eeldame 4.",
+      "backAria": "Tagasi retseptide juurde",
       "placeholder": "Kleebi retsept või URL siia…\n\nNäited:\nhttps://example.com/kanapraad\n\nVõi kleebi retsepti tekst otse:\nKanapraad (4 portsjonit)\n- 500g kanafilee\n- 2 sl sojakastet\n- 1 punane paprika",
       "submit": "Impordi retsept",
       "submitting": "Impordin retsepti…",

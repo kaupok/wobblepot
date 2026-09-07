@@ -9,6 +9,7 @@ import {
 } from '@/components/household/MealForm'
 import type { MealType } from '@/generated/prisma/enums'
 import { track } from '@/lib/analytics'
+import { getValidReturnUrl } from '@/lib/utils'
 
 interface EnhancedPrefilledData {
   name: string
@@ -21,6 +22,24 @@ interface EnhancedPrefilledData {
   kidFriendly: boolean
   prefilledIngredients: PrefilledIngredient[]
   originalRecipeText?: string
+  /**
+   * Where Cancel should return to. Set by the imagine flow's "Edit details"
+   * (`ImagineClient.handleEditDetails`); the import flow omits it and keeps the
+   * `/recipes` fallback.
+   */
+  returnTo?: string | null
+}
+
+/**
+ * `returnTo` round-trips through `sessionStorage`, so treat it as untrusted.
+ * Delegates to the vetted `getValidReturnUrl` rather than re-deriving the rule:
+ * it also rejects backslashes and percent-encoded bypasses (`/\evil.example`
+ * resolves to `https://evil.example/`). It returns `'/'` for anything it
+ * rejects, so an unchanged value is the pass signal.
+ */
+function safeInternalPath(value: string | null | undefined): string | null {
+  if (typeof value !== 'string' || value === '') return null
+  return getValidReturnUrl(value) === value ? value : null
 }
 
 // undefined = not loaded yet, null = loaded (no prefill), object = loaded with prefill
@@ -65,11 +84,15 @@ export function CreateRecipeClient({ defaultServings }: CreateRecipeClientProps)
     if (prefilledData?.originalRecipeText) {
       void track('recipe:imported', { source: 'import_page' })
     }
+    // The imagine stash is deliberately left alone: saving one of the three
+    // suggestions does not invalidate the other two, and the stash has to keep
+    // mirroring what `/recipes/imagine` renders (see `handleReviewSaved`
+    // there). A new generation, or the tab closing, is what supersedes it.
     router.push('/recipes')
   }
 
   const handleCancel = () => {
-    router.push('/recipes')
+    router.push(safeInternalPath(prefilledData?.returnTo) ?? '/recipes')
   }
 
   const getPrefilledMeal = (): MealFormData | undefined => {
