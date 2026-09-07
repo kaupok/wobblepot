@@ -412,44 +412,63 @@ export async function PATCH(
           throw new StaleMealError()
         }
 
-        // Deduct each ingredient. `householdId` + `ingredientId` is unique, so
-        // this matches at most one row; `updateMany` (rather than `update`) is
-        // what makes an ingredient the household has no pantry row for a
-        // no-op instead of a throw. Staples are exempt from deduction, and a
-        // null quantity means "some, amount unknown" — there is nothing to
-        // subtract from, so both are filtered out here and the null rows are
-        // picked up by the cleanup below.
+        // Charge the pantry one row at a time, in the sorted order above, and
+        // finish with a row before moving to the next.
+        //
+        // The one-pass shape is what makes the sort worth anything. Splitting
+        // the work into "every decrement, then every sweep" sorts each pass
+        // but not their concatenation: the decrement filters
+        // `quantity: { not: null }`, so a `quantity: null` row matches nothing
+        // and takes no lock in the first pass — it is locked in the second,
+        // after every quantified row is already held. With `ing-apple` at
+        // `quantity: null` and `ing-beef` at 500, that completion locks beef
+        // then apple, while a concurrent bulk purchase over the same two locks
+        // apple then beef, and the two deadlock (Postgres 40P01) — the failure
+        // HON-632 exists to remove, on exactly the rows the purchase routes
+        // create (`quantity: null` is the state they insert).
+        //
+        // Grouping by ingredient also sweeps once for a meal that lists the
+        // same ingredient in two components, and a `Map` iterates in insertion
+        // order, so building it from the sorted `deductions` keeps the order.
+        const deductionsByIngredientId = new Map<string, number[]>()
         for (const { ingredientId, amount } of deductions) {
-          await tx.pantryItem.updateMany({
-            where: {
-              householdId: household.id,
-              ingredientId,
-              isStaple: false,
-              quantity: { not: null },
-            },
-            data: { quantity: { decrement: amount } },
-          })
+          const amounts = deductionsByIngredientId.get(ingredientId)
+          if (amounts) amounts.push(amount)
+          else deductionsByIngredientId.set(ingredientId, [amount])
         }
 
-        // Clear out what the deduction emptied. This runs last on purpose: it
-        // is evaluated against the post-decrement quantity, which is the only
-        // way to judge depletion without the application-side read above. A
-        // row the deduction overshot is briefly negative, but never outside
-        // this transaction. Unquantified rows (`quantity: null`) are consumed
-        // in full by cooking with them, so they go too.
-        //
-        // One statement per row rather than a single `deleteMany` over an `IN`
-        // list, and in the same sorted order as the decrements above. A
-        // multi-row DELETE lets Postgres pick its own scan order, which is
-        // exactly the ordering the sort on `deductions` exists to remove — and
-        // it matters most here, because the decrement loop filters
-        // `quantity: { not: null }`, so a `quantity: null` row takes no lock
-        // there and is locked for the first time right here. `quantity: null`
-        // is the state both purchase routes create rows in, so those are
-        // precisely the rows a concurrent bulk purchase is also locking
-        // (HON-632). A `Set` iterates in insertion order, so the sort is
-        // preserved while a meal listing one ingredient twice is swept once.
-        for (const ingredientId of new Set(deductions.map((d) => d.ingredientId))) {
+        for (const [ingredientId, amounts] of deductionsByIngredientId) {
+          // `householdId` + `ingredientId` is unique, so this matches at most
+          // one row; `updateMany` (rather than `update`) is what makes an
+          // ingredient the household has no pantry row for a no-op instead of
+          // a throw. Staples are exempt from deduction, and a null quantity
+          // means "some, amount unknown" — there is nothing to subtract from,
+          // so both are filtered out here and the null rows are handled by the
+          // sweep below.
+          for (const amount of amounts) {
+            await tx.pantryItem.updateMany({
+              where: {
+                householdId: household.id,
+                ingredientId,
+                isStaple: false,
+                quantity: { not: null },
+              },
+              data: { quantity: { decrement: amount } },
+            })
+          }
+
+          // Clear the row out if the deduction emptied it. This still runs
+          // after the decrements it is judging — just this row's, which are
+          // the only writes that can change it — so depletion is evaluated
+          // against the post-decrement quantity without the application-side
+          // read that used to lose deductions. A row the deduction overshot is
+          // briefly negative, but never outside this transaction. Unquantified
+          // rows (`quantity: null`) are consumed in full by cooking with them,
+          // so they go too.
+          //
+          // One statement per row, never a `deleteMany` over an `IN` list: a
+          // multi-row DELETE lets Postgres pick its own scan order, which is
+          // the ordering the sort exists to remove.
           await tx.pantryItem.deleteMany({
             where: {
               householdId: household.id,
