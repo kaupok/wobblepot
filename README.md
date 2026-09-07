@@ -30,7 +30,7 @@ Nearly every change here was planned, implemented, reviewed, and merged by Claud
 
 Built to run in the EU under GDPR from the first user, with the paperwork in the repository rather than in a drawer.
 
-- [`docs/RUNBOOKS/`](docs/RUNBOOKS/): breach notification, data subject request intake, account deletion, database recovery, Neon branch cleanup, and the public status page.
+- [`docs/RUNBOOKS/`](docs/RUNBOOKS/): breach notification, data subject request intake, account deletion, database recovery, Neon branch cleanup, post-launch translation maintenance, and the public status page.
 - Grace-window account deletion with a scheduled purge, and a data-export endpoint for portability.
 - [`compliance/`](compliance/): the subprocessor register and vendor data-processing agreements. Executed contracts that carry signatory details stay out of the tree.
 - Cookie consent that gates analytics, and a public subprocessor page inside the app.
