@@ -167,7 +167,11 @@ Example of a BAD comment (do NOT post comments like this):
 Run these commands:
 \`\`\`bash
 gh pr diff __PR_NUMBER__
-gh pr view __PR_NUMBER__ --json title,body,files --jq '{title: .title, body: .body, files: [.files[].path]}'
+gh pr view __PR_NUMBER__ --json title,body --jq '{title: .title, body: .body}'
+# The file list comes from the paginated REST endpoint, NOT `--json files`: that
+# caps at 100 and cannot paginate (HON-587), so on a large PR you would silently
+# review the first 100 paths and report "no issues found" on the rest unseen.
+gh api --paginate "/repos/:owner/:repo/pulls/__PR_NUMBER__/files?per_page=100" | jq -rs 'add | .[].filename'
 \`\`\`
 
 ### Step 2: Read changed files in full
