@@ -818,9 +818,59 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction
 
     expect(response.status).toBe(200)
     expect(mockClaimEntry).toHaveBeenCalledWith({
-      where: { id: 'entry-123', status: { not: 'completed' } },
+      // `mealId` is pinned too: `deductions` was computed from the components
+      // read at the top of the handler, so a swap that commits in between must
+      // not leave this completion charging for the meal the entry named then.
+      where: { id: 'entry-123', status: { not: 'completed' }, mealId: 'meal-123' },
       data: expect.objectContaining({ status: 'completed' }),
     })
+  })
+
+  it('does not pin the meal when the request is itself a swap', async () => {
+    // A swap-and-complete charges for the *incoming* meal, which does not
+    // depend on what the entry currently points at — so pinning would make an
+    // unrelated concurrent swap fail this one for no reason (HON-633).
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'old-meal-123',
+      status: 'planned',
+      servingOverride: null,
+      plan: { household: { members: [{ id: 'member-1' }] } },
+      meal: { components: [{ ingredientId: 'ing-beef', quantityPerServing: 100 }] },
+    } as never)
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({
+      id: 'new-meal-456',
+      components: [{ ingredientId: 'ing-fish', quantityPerServing: 150 }],
+    } as never)
+
+    const response = await PATCH(
+      createPatchRequest({ mealId: 'new-meal-456', status: 'completed', deductPantry: true }),
+      { params: createParams() },
+    )
+
+    expect(response.status).toBe(200)
+    expect(mockClaimEntry).toHaveBeenCalledWith({
+      where: { id: 'entry-123', status: { not: 'completed' } },
+      data: expect.objectContaining({ mealId: 'new-meal-456' }),
+    })
+  })
+
+  it('charges nothing when a concurrent swap moved the meal out from under the deduction', async () => {
+    // The mirror of the lost completion: this request read meal A's
+    // components, a swap committed meal B, and the pinned claim therefore
+    // matches nothing. Completing without charging is the conservative half —
+    // charging A would take food that was never cooked (HON-633).
+    mockDeductionTransaction(0)
+
+    const response = await completeWithComponents([
+      { ingredientId: 'ing-beef', quantityPerServing: 100 },
+    ])
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.pantryDeducted).toBe(false)
+    expect(mockPantryUpdateMany).not.toHaveBeenCalled()
+    expect(mockPantryDeleteMany).not.toHaveBeenCalled()
   })
 
   it('charges nothing when a concurrent request already claimed the completion', async () => {

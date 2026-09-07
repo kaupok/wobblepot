@@ -335,15 +335,29 @@ export async function PATCH(
         // a conditional write makes it a no-op for the loser: it takes the
         // entry's row lock, so the second transaction only proceeds once the
         // first has committed `completed`.
+        //
+        // The claim also pins the meal the deduction was computed from, when
+        // this request is not itself a swap. `deductions` comes from the
+        // components read at the top of the handler, so a swap that commits
+        // between that read and this claim would leave the completion charging
+        // for the meal the entry named *then* while the entry now names
+        // another — the same disagreement from the other direction (HON-633).
+        // A swap-and-complete needs no pin: it charges for the incoming meal,
+        // which does not depend on what the entry pointed at.
         const claimed = await tx.mealPlanEntry.updateMany({
-          where: { id: entryId, status: { not: MealPlanEntryStatus.completed } },
+          where: {
+            id: entryId,
+            status: { not: MealPlanEntryStatus.completed },
+            ...(updateData.mealId ? {} : { mealId: entry.mealId }),
+          },
           data: updateData,
         })
 
         if (claimed.count === 0) {
-          // No row matched, which means either a concurrent request completed
-          // this entry first or the entry has since been deleted (the DELETE
-          // handler above races this one).
+          // No row matched: a concurrent request completed this entry first, a
+          // concurrent swap moved the meal out from under the deduction, or
+          // the entry has since been deleted (the DELETE handler above races
+          // this one).
           //
           // A swap cannot be persisted from here. This request charges
           // nothing, so writing `mealId` would leave the entry naming a meal
@@ -361,10 +375,14 @@ export async function PATCH(
 
           // Without a swap, persist the rest of the update but charge nothing
           // — exactly what this request would have done had it arrived after
-          // the winner committed and read `completed` at the top. `updateMany`
-          // again rather than `update`: on the deleted-entry branch there is
-          // no row to write, and `update` would throw P2025 and turn a lost
-          // race into a 500.
+          // the winner committed and read `completed` at the top. On the
+          // concurrent-swap sub-case that leaves the entry completed and
+          // undeducted, which is the conservative half of the trade: charging
+          // the meal this request read would charge for food that was never
+          // cooked, and `pantryDeducted: false` tells the client nothing was
+          // taken. `updateMany` again rather than `update`: on the
+          // deleted-entry branch there is no row to write, and `update` would
+          // throw P2025 and turn a lost race into a 500.
           await tx.mealPlanEntry.updateMany({ where: { id: entryId }, data: updateData })
           return false
         }
