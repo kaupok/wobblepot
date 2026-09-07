@@ -21,7 +21,9 @@ This is not a customer-service playbook for general feature questions; it is the
   - `src/app/status/page.tsx` — public `/status`
   - The privacy policy (HON-457) cites it as the GDPR DSR contact
   - `LICENSE` (HON-604) — the licensing-questions line in the root notice
-- **One source of truth:** `src/lib/support.ts` exports `SUPPORT_EMAIL` and `SUPPORT_EMAIL_HREF`. Do not hardcode the address elsewhere — import from there so a future address change is one edit. `LICENSE` and `README.md` are the exceptions: static files with no import mechanism, so an address change has to touch them by hand.
+  - `README.md` — the Security section, for vulnerability reports (`privacy@wobblepot.com` sits beside it and rotates with it)
+  - `docs/RUNBOOKS/status-page.md` — the canonical incident-banner copy, which is pasted verbatim into a user-facing banner
+- **One source of truth:** `src/lib/support.ts` exports `SUPPORT_EMAIL` and `SUPPORT_EMAIL_HREF`. Do not hardcode the address elsewhere — import from there so a future address change is one edit. `LICENSE`, `README.md`, and `docs/RUNBOOKS/status-page.md` are the exceptions: static files and runbook copy with no import mechanism, so an address change has to touch those three by hand. This list is the complete checklist for that change — add to it whenever a new surface starts publishing the address.
 
 ## SLAs
 
@@ -108,7 +110,7 @@ If the mail provider changes (e.g. moving from a forwarder to a hosted mailbox):
 ## Cross-references
 
 - `src/lib/support.ts` — shared `SUPPORT_EMAIL` constant
-- `src/app/error.tsx`, `src/app/global-error.tsx`, `src/components/footer.tsx`, `src/app/status/page.tsx` — surfaces that publish the address
+- "Surfaces that publish this address" above — the single canonical list of every place the address appears. Deliberately not re-enumerated here: two copies drift, and the one an operator misses is the one that keeps pointing at a dead address.
 - [`docs/RUNBOOKS/breach-notification.md`](breach-notification.md) (HON-482) — escalate breach-related mail there; severity classification and the 72-hour AKI clock live in that runbook
 - `docs/RUNBOOKS/status-page.md` — same support address; tone of incident-banner copy should match this runbook
 - HON-457 — privacy policy that cites this email as the DSR contact
