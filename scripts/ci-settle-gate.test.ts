@@ -81,6 +81,59 @@ describe('CI-settle gate', () => {
       }
     })
 
+    // HON-587: `gh pr view --json files` hardcodes `files(first: 100)` and has no
+    // --paginate, so a >100-file PR whose first 100 paths are docs reads as
+    // DOCS_ONLY — "treat as passed" — for a PR that does contain code. Every site
+    // that decides a merge must read the paginated REST endpoint instead.
+    //
+    // Prose and shell comments are excluded: only a runnable line can merge a PR,
+    // and the replacement sites carry `gh pr view --json files` in a `# NOT …`
+    // comment explaining why they no longer call it.
+    it('reads no file list from the 100-capped `gh pr view --json files`', () => {
+      for (const file of [autoImplementSkill, mergeSkill]) {
+        const lines = bashBlocks(read(file))
+          .flatMap((block) => block.split('\n'))
+          .filter((line) => !line.trimStart().startsWith('#'))
+          .filter((line) => line.includes('--json files'))
+
+        expect(lines, `${path.basename(path.dirname(file))}: ${lines.join(' / ')}`).toEqual([])
+      }
+    })
+
+    // The paginated replacement, at every site that computes it. `--jq` runs per
+    // page and would emit one result per page (HON-586), so the slurp has to be
+    // the system jq — and the REST payload keys the path `filename`, where a
+    // copied-over `.path` would yield one null per file and match no docs pattern.
+    it('slurps the paginated REST file list with the system jq', () => {
+      for (const [file, expected] of [
+        [autoImplementSkill, 4],
+        [mergeSkill, 2],
+      ] as const) {
+        const source = read(file)
+        expect(countOccurrences(source, "jq -rs 'add | .[].filename'")).toBe(expected)
+        expect(countOccurrences(source, 'files?per_page=100')).toBe(expected)
+      }
+    })
+
+    // Both DOCS_ONLY classifiers — the poll's and the post-settle verification's —
+    // have to agree that an unreadable file list is not a docs-only PR. Without the
+    // -z test the verification prints DOCS_ONLY ("treat as passed") on a failed
+    // fetch, for a PR that nothing has checked, while the poll three lines up
+    // refuses to. Two implementations of one rule, so assert on both.
+    it('refuses to call an unreadable file list docs-only at either classifier', () => {
+      for (const [file, expected] of [
+        [autoImplementSkill, 2],
+        [mergeSkill, 1],
+      ] as const) {
+        const source = read(file)
+        // The poll's guard, and the verification's.
+        expect(countOccurrences(source, 'DOCS_ONLY=false; [ -n "$FILES" ]')).toBe(expected)
+        expect(countOccurrences(source, 'if [ -z "$FILES" ] || [ -n "$NON_DOCS" ]; then')).toBe(
+          expected,
+        )
+      }
+    })
+
     it('keeps the two /auto-implement poll loops byte-identical', () => {
       const loops = bashBlocks(read(autoImplementSkill)).filter((b) => b.includes('CI_SETTLED'))
 
@@ -111,11 +164,25 @@ describe('CI-settle gate', () => {
         path.join(stubBin, 'gh'),
         [
           '#!/bin/sh',
+          // `gh api --paginate .../files` — how the loop reads the file list since
+          // HON-587. Emits the REST payload shape (objects keyed `filename`, not
+          // GraphQL's `path`) so the caller's own jq is what is under test. An empty
+          // STUB_FILES prints nothing at all, standing in for a failed fetch.
+          'if [ "$1" = "api" ]; then',
+          '  [ -n "$STUB_FILES" ] &&',
+          "    printf '%s\\n' \"$STUB_FILES\" | jq -R . | jq -s '[.[] | {filename: .}]'",
+          '  exit 0',
+          'fi',
           'case "$2" in',
           '  view)',
           '    case "$*" in',
           '      *"--json number"*) printf \'%s\\n\' "$STUB_PR_NUMBER" ;;',
-          '      *"--json files"*)  printf \'%s\\n\' "$STUB_FILES" ;;',
+          // Modelled, not served: real `gh` embeds `files(first: 100)` in its PR
+          // query and offers no --paginate, so it truncates here. Keeping the cap
+          // in the stub is what makes the >100-file test below fail if a site ever
+          // reverts to this call — without it the stub would hand back all 101
+          // paths and the revert would look correct.
+          '      *"--json files"*)  printf \'%s\\n\' "$STUB_FILES" | head -100 ;;',
           '    esac',
           '    ;;',
           '  checks)',
@@ -252,12 +319,41 @@ describe('CI-settle gate', () => {
     })
 
     // The docs-only allowance is keyed on a file list that was actually
-    // fetched. An empty one means `gh pr view` failed, and reading that as
+    // fetched. An empty one means the fetch failed, and reading that as
     // "docs-only, nothing to wait for" would settle a code PR on zero checks.
     it('does not treat an unreadable file list as docs-only', () => {
       const { marker } = runChunk([commitStatus('pending')], '')
 
       expect(marker).toBe('CI_WAITING (chunk 1/6)')
+    })
+
+    // HON-587, the scenario the pagination fix exists for: 101 changed files
+    // whose first 100 are markdown. `gh pr view --json files` returns only that
+    // first page, so NON_DOCS came back empty and the loop settled a PR that
+    // does contain code on a stuck-Vercel-only check list — no ci.yml job, no
+    // build gate, straight to the merge. Read paginated, the code file is
+    // visible and the loop holds out for `Lint, Type Check & Test`.
+    it('does not treat a >100-file PR whose first 100 files are docs as docs-only', () => {
+      const files = [
+        ...Array.from({ length: 100 }, (_, i) => `docs/RUNBOOKS/generated-${i}.md`),
+        'src/app/page.tsx',
+      ].join('\n')
+
+      const { marker } = runChunk([commitStatus('pending')], files)
+
+      expect(marker).toBe('CI_WAITING (chunk 1/6)')
+    })
+
+    // The same list one file shorter and genuinely docs-only still settles, so
+    // the assertion above is pinned to the code file rather than to size.
+    it('still settles a genuinely docs-only PR of the same size', () => {
+      const files = Array.from({ length: 101 }, (_, i) => `docs/RUNBOOKS/generated-${i}.md`).join(
+        '\n',
+      )
+
+      const { marker } = runChunk([commitStatus('pending')], files)
+
+      expect(marker).toBe('CI_SETTLED')
     })
   })
 })

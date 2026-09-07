@@ -73,13 +73,20 @@ Before merging, ensure all CI checks have passed. CI takes 12–45 min; Bash's 6
 # non-docs files, the ci.yml job "Lint, Type Check & Test" is present. Each Bash call is a
 # fresh shell, so PR_NUMBER is derived here — never reused.
 PR_NUMBER=$(gh pr view --json number --jq .number)
-FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path')
+# NOT `gh pr view --json files`: it hardcodes `files(first: 100)` and has no
+# --paginate, so a >100-file PR whose first 100 paths are docs would read as
+# DOCS_ONLY and settle a code PR on no CI at all (HON-587). The REST endpoint
+# paginates; `--jq` runs per page, so the slurp uses the system jq (HON-586).
+# The field is `filename` here — GraphQL's `path` does not exist on this payload
+# and would yield one `null` per file, matching no docs pattern.
+FILES=$(gh api --paginate "/repos/:owner/:repo/pulls/$PR_NUMBER/files?per_page=100" | jq -rs 'add | .[].filename')
 NON_DOCS=$(printf '%s\n' "$FILES" | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
 # ci.yml is paths-ignored for docs, and Preview smoke only fires on a SUCCESSFUL
 # Vercel deploy — so a docs-only PR whose Vercel status is stuck has no other
 # check at all, and exempting that one row leaves the list legitimately empty.
-# Requires a non-empty FILES: a `gh pr view` that failed must never read as
-# "docs-only, nothing to wait for" and settle a code PR on zero checks.
+# Requires a non-empty FILES: a fetch that failed must never read as "docs-only,
+# nothing to wait for" and settle a code PR on zero checks. An empty fetch makes
+# `jq -s 'add'` yield null and `.[]` error out, so FILES lands empty either way.
 DOCS_ONLY=false; [ -n "$FILES" ] && [ -z "$NON_DOCS" ] && DOCS_ONLY=true
 # INIT is a sentinel no check list can equal: without it an empty CUR would match
 # an empty PREV and settle on the very first poll, skipping the stability check.
@@ -130,8 +137,14 @@ gh pr checks "$PR_NUMBER" --json name,bucket,state,workflow \
 
 ```bash
 PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
-NON_DOCS=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
-if [ -n "$NON_DOCS" ]; then
+# Paginated, not `gh pr view --json files` — that caps at 100 files (HON-587).
+# System jq, because `--jq` runs per page (HON-586). REST calls the field `filename`.
+FILES=$(gh api --paginate "/repos/:owner/:repo/pulls/$PR_NUMBER/files?per_page=100" | jq -rs 'add | .[].filename')
+NON_DOCS=$(printf '%s\n' "$FILES" | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
+# An unreadable file list is not evidence of a docs-only PR. Without the -z test a
+# failed fetch leaves NON_DOCS empty and prints DOCS_ONLY — "treat as passed" — for
+# a PR that nothing has checked. Same guard the poll above puts on DOCS_ONLY.
+if [ -z "$FILES" ] || [ -n "$NON_DOCS" ]; then
   echo "CI did not report checks for a code change"  # STOP — do not proceed
 else
   echo "DOCS_ONLY"  # no CI workflow runs for these paths — treat as passed
@@ -230,6 +243,9 @@ After merging but before local cleanup, post a work summary to the linked Linear
 # Bash calls don't share variables — substitute the literal PR number captured in
 # Step 1 for <PR_NUMBER>. After the squash merge (with --delete-branch) HEAD is `main`,
 # so a bare `gh pr view` no longer resolves this PR.
+# `files` is capped at 100 here and left that way on purpose (HON-587): this list is
+# cosmetic, and truncating a changelog is not a merge gate. The docs-only decision
+# in Step 2 reads the paginated REST endpoint instead.
 gh pr view <PR_NUMBER> --json number,title,url,commits,files
 
 # Review comments: inline comments + review-level summaries
