@@ -6,24 +6,12 @@ import { getServerBaseURL } from '@/lib/env'
 import { InventoryPage } from '@/components/inventory/InventoryPage'
 import type { ShoppingEmptyStateVariant } from '@/components/inventory/ShoppingEmptyState'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
-import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
-
-interface ShoppingListItem {
-  ingredientId: string
-  name: string
-  quantity: number
-  unit: Unit
-  displayQuantity: string
-  mealCount: number
-  purchased: boolean
-  neededByDate: string
-  neededByRelative: string
-  neededByAbsolute: string
-}
+import type { IngredientCategory } from '@/generated/prisma/enums'
+import { toShoppingItemData, type ShoppingListApiItem } from './shopping-item-transform'
 
 interface ShoppingListGroup {
   category: IngredientCategory
-  items: ShoppingListItem[]
+  items: ShoppingListApiItem[]
 }
 
 interface CustomShoppingItemResponse {
@@ -153,15 +141,7 @@ export default async function ShoppingPage({ searchParams }: ShoppingPageProps) 
   // Transform data for shopping section
   const groups = shoppingList.groups.map((group) => ({
     category: group.category,
-    items: group.items.map((item) => ({
-      ingredientId: item.ingredientId,
-      name: item.name,
-      displayQuantity: item.displayQuantity,
-      purchased: item.purchased,
-      neededByDate: item.neededByDate,
-      neededByRelative: item.neededByRelative,
-      neededByAbsolute: item.neededByAbsolute,
-    })),
+    items: group.items.map(toShoppingItemData),
   }))
 
   const shoppingData = {
