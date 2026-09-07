@@ -10,10 +10,13 @@ const config: StorybookConfig = {
     // eslint-disable-next-line storybook/no-uninstalled-addons
     'storybook/viewport',
     '@storybook/addon-vitest',
-    // msw-storybook-addon 3 is a real Storybook addon and has to be registered
-    // here; v2 needed only the `initialize()` call in preview.tsx. Registration
-    // is what extends the story context with `msw`, which the loader in
-    // preview.tsx then drives from `parameters.msw`.
+    // Registered per the upstream v3 docs for the CSF 3.0 integration; v2 needed
+    // only the `initialize()` call in preview.tsx. Registration on its own wires
+    // nothing up, though — `msw-storybook-addon/preview` exports only the
+    // `createPreviewAnnotations` factory, so Storybook composes no annotations
+    // from it. The load-bearing piece is `mswLoader(setupMswWorker)` in
+    // preview.tsx: the loader is what sets `context.msw`, resets handlers, and
+    // applies `parameters.msw` (see build/csf3.mjs).
     'msw-storybook-addon',
   ],
   framework: {

@@ -46,8 +46,16 @@ echo ""
 if command -v node &> /dev/null; then
   NODE_VERSION=$(node --version)
   success "Node.js installed: $NODE_VERSION"
+  # Keep the floor in step with `engines.node` in package.json. `.npmrc` sets
+  # engine-strict=true, so a Node below it doesn't warn — `pnpm install` dies
+  # with ERR_PNPM_UNSUPPORTED_ENGINE. HON-639 raised it to 22.22.2 for jsdom 30
+  # (^22.22.2) and lint-staged 17 (>=22.22.1), which made a plain `^v22.` match
+  # too loose: 22.13 through 22.22.1 pass it and then fail to install.
+  NODE_FLOOR=22.22.2
   if [[ ! "$NODE_VERSION" =~ ^v22\. ]]; then
     warning "Expected Node.js v22.x, got $NODE_VERSION"
+  elif [ "$(printf '%s\n%s\n' "$NODE_FLOOR" "${NODE_VERSION#v}" | sort -V | head -1)" != "$NODE_FLOOR" ]; then
+    warning "Node.js $NODE_VERSION is below the v$NODE_FLOOR floor in package.json engines — pnpm install will fail under engine-strict"
   fi
 else
   error "Node.js not installed"
