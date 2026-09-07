@@ -9,6 +9,9 @@ import {
 } from '@/components/household/MealForm'
 import type { MealType } from '@/generated/prisma/enums'
 import { track } from '@/lib/analytics'
+// Colocated with the flow that owns it — the imagine page writes the stash and
+// this page is the one place that can tell when it should be dropped.
+import { IMAGINE_ROUTE, clearImagineSession } from '@/app/recipes/imagine/imagine-session'
 
 interface EnhancedPrefilledData {
   name: string
@@ -21,6 +24,23 @@ interface EnhancedPrefilledData {
   kidFriendly: boolean
   prefilledIngredients: PrefilledIngredient[]
   originalRecipeText?: string
+  /**
+   * Where Cancel should return to. Set by the imagine flow's "Edit details"
+   * (`ImagineClient.handleEditDetails`); the import flow omits it and keeps the
+   * `/recipes` fallback.
+   */
+  returnTo?: string | null
+}
+
+/**
+ * `returnTo` round-trips through `sessionStorage`, so treat it as untrusted:
+ * only same-origin absolute paths are pushed. `//host` is a protocol-relative
+ * URL, not a path.
+ */
+function safeInternalPath(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null
+  if (!value.startsWith('/') || value.startsWith('//')) return null
+  return value
 }
 
 // undefined = not loaded yet, null = loaded (no prefill), object = loaded with prefill
@@ -65,11 +85,17 @@ export function CreateRecipeClient({ defaultServings }: CreateRecipeClientProps)
     if (prefilledData?.originalRecipeText) {
       void track('recipe:imported', { source: 'import_page' })
     }
+    // The imagined suggestion is now a saved meal, so there is nothing to go
+    // back to. Gated on `returnTo` so the import flow never clears a stash that
+    // belongs to an imagine session the user is still in the middle of.
+    if (prefilledData?.returnTo === IMAGINE_ROUTE) {
+      clearImagineSession()
+    }
     router.push('/recipes')
   }
 
   const handleCancel = () => {
-    router.push('/recipes')
+    router.push(safeInternalPath(prefilledData?.returnTo) ?? '/recipes')
   }
 
   const getPrefilledMeal = (): MealFormData | undefined => {

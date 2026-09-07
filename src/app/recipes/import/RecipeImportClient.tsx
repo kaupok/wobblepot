@@ -304,7 +304,7 @@ export function RecipeImportClient() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" asChild className="-ml-2">
-              <Link href="/recipes">
+              <Link href="/recipes" aria-label={t('backAria')}>
                 <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
