@@ -123,7 +123,23 @@ ORCHESTRATOR_WORKER_CEILING="${ORCHESTRATOR_MAX_WORKERS:-}"
 
 # Neon branches the plan allows. Same variable and default as orchestrator.sh's
 # startup check, so the number in a cap failure is the number that check enforced.
+#
+# Captured before load_env_file for the same reason as the ceiling above, and it
+# is the same bug if it is not: .env now ships a NEON_BRANCH_CAP line, and the
+# unconditional re-export would shadow the value the running orchestrator
+# actually gated on. With `NEON_BRANCH_CAP=25` in the environment and `10` in
+# .env, the message would read "19 of 10 branches at peak … currently 10" for a
+# run the gate cleared at 25. Empty when `wt auto` was run by hand, in which
+# case .env (or the default) IS the value in force — hence the fallback below
+# rather than a bare capture.
+NEON_BRANCH_CAP_INHERITED="${NEON_BRANCH_CAP:-}"
 NEON_BRANCH_CAP="${NEON_BRANCH_CAP:-10}"
+
+# The cap this worker should quote: the orchestrator's if it passed one down,
+# otherwise whatever .env or the default resolved to after load_env_file.
+neon_cap_in_force() {
+  printf '%s' "${NEON_BRANCH_CAP_INHERITED:-$NEON_BRANCH_CAP}"
+}
 
 # main, staging, dev/kaupo — the branches no run owns. Mirrors
 # NEON_PERMANENT_BRANCHES in orchestrator.sh; both feed the same `2N + P` budget.
@@ -278,10 +294,10 @@ neon_cap_budget_note() {
   if [[ "$ORCHESTRATOR_WORKER_CEILING" =~ ^[0-9]+$ ]]; then
     printf 'Budget: 2N + %s with N=%s workers = %s of %s branches at peak.' \
       "$NEON_PERMANENT_BRANCHES" "$ORCHESTRATOR_WORKER_CEILING" \
-      "$(( 2 * ORCHESTRATOR_WORKER_CEILING + NEON_PERMANENT_BRANCHES ))" "$NEON_BRANCH_CAP"
+      "$(( 2 * ORCHESTRATOR_WORKER_CEILING + NEON_PERMANENT_BRANCHES ))" "$(neon_cap_in_force)"
   else
     printf 'Budget: 2N + %s branches for N concurrent workers, cap %s.' \
-      "$NEON_PERMANENT_BRANCHES" "$NEON_BRANCH_CAP"
+      "$NEON_PERMANENT_BRANCHES" "$(neon_cap_in_force)"
   fi
 }
 
@@ -414,7 +430,7 @@ neon_create_branch_for_worktree() {
           echo "integration's preview/<git-branch> for as long as its PR is open. Neither" >&2
           echo "reaper touches preview/*, and a stranded run holds both of its own until" >&2
           echo "'wt cleanup <branch>' — check 'wt list' first, then lower --max-workers or" >&2
-          echo "raise the Neon plan (and NEON_BRANCH_CAP, currently $NEON_BRANCH_CAP)." >&2
+          echo "raise the Neon plan (and NEON_BRANCH_CAP, currently $(neon_cap_in_force))." >&2
           echo "$create_out" >&2
           return 1
         }

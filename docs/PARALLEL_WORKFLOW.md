@@ -210,14 +210,15 @@ wt stop
 
 ### Configuration
 
-| Flag                 | Env Var                       | Default | Description                     |
-| -------------------- | ----------------------------- | ------- | ------------------------------- |
-| `--max-workers N`    | `ORCHESTRATOR_MAX_WORKERS`    | 3       | Max concurrent workers          |
-| `--poll-interval N`  | `ORCHESTRATOR_POLL_INTERVAL`  | 60      | Seconds between polls           |
-| `--worker-timeout N` | `ORCHESTRATOR_WORKER_TIMEOUT` | 10800   | Seconds before killing a worker |
-| `--dry-run`          | —                             | false   | Log actions without executing   |
-| `--once`             | —                             | false   | Single poll cycle, then exit    |
-| —                    | `NEON_BRANCH_CAP`             | 10      | Neon branches the plan allows   |
+| Flag                 | Env Var                             | Default | Description                                           |
+| -------------------- | ----------------------------------- | ------- | ----------------------------------------------------- |
+| `--max-workers N`    | `ORCHESTRATOR_MAX_WORKERS`          | 3       | Max concurrent workers                                |
+| `--poll-interval N`  | `ORCHESTRATOR_POLL_INTERVAL`        | 60      | Seconds between polls                                 |
+| `--worker-timeout N` | `ORCHESTRATOR_WORKER_TIMEOUT`       | 10800   | Seconds before killing a worker                       |
+| `--dry-run`          | —                                   | false   | Log actions without executing                         |
+| `--once`             | —                                   | false   | Single poll cycle, then exit                          |
+| —                    | `NEON_BRANCH_CAP`                   | 10      | Neon branches the plan allows                         |
+| —                    | `ORCHESTRATOR_CAP_REQUEUE_COOLDOWN` | 1800    | Seconds before a cap-requeued issue is pickable again |
 
 Requires `LINEAR_API_KEY` env var (format: `lin_api_...`).
 
@@ -235,7 +236,9 @@ No reaper reclaims either shape on its own. `neon_gc_orphans` skips any branch w
 
 **The ceiling is enforced at startup, not merely defaulted.** `check_branch_budget` computes `2N + 3` against `NEON_BRANCH_CAP` before the poll loop begins and **refuses to start** when it does not fit, naming the largest `--max-workers` that does. It warns — and still starts — when the budget fits with no spare branch left, since the spare is what absorbs a stranded run. `NEON_BRANCH_CAP` defaults to 10, the Free-tier limit; raise it only after actually raising the Neon plan, because nothing validates it against Neon. A non-numeric or zero `--max-workers` is refused here too: bash reads it as `0`, which used to produce an orchestrator that started, logged healthily and never spawned anything.
 
-Exceeding the cap anyway — a hand-run `wt new`, or stranded runs holding branches — makes `wt auto` die during worktree setup with `branches limit exceeded`, before Claude runs at all (HON-609, 2026-09-03). That failure is now **triaged deterministically as capacity rather than as a bad issue** (HON-616): the orchestrator matches the terminal cap message in the worker log ahead of the Claude triage call, retries once in case branches freed, and then returns the issue to **Todo, unassigned and unlabelled**, with a comment explaining the cap — instead of Backlog with `Needs attention`, which is both false and sticky. The issue is pickable again the moment there is room; three cap failures in a row trip the circuit breaker rather than sweeping the queue. The `[OUTCOME]` line reads `triage=CAP`.
+Exceeding the cap anyway — a hand-run `wt new`, or stranded runs holding branches — makes `wt auto` die during worktree setup with `branches limit exceeded`, before Claude runs at all (HON-609, 2026-09-03). That failure is now **triaged deterministically as capacity rather than as a bad issue** (HON-616): the orchestrator matches the terminal cap message in the worker log ahead of the Claude triage call, retries once in case branches freed, and then returns the issue to **Todo, unassigned and unlabelled**, with a comment explaining the cap — instead of Backlog with `Needs attention`, which is both false and sticky. A requeued issue then cools down for `ORCHESTRATOR_CAP_REQUEUE_COOLDOWN` seconds (default 1800) before it can be picked again, so a still-full project is retried roughly twice an hour per issue rather than every poll — and the moment any worker ships, which is positive proof the project has branches, every cooldown is released at once. Three cap failures in a row still trip the circuit breaker. The `[OUTCOME]` line reads `triage=CAP`, and a cooling-down issue logs `[SKIP] HON-XX requeued at the Neon branch cap`.
+
+The cooldown expires rather than lasting the run on purpose. A run-scoped suppression wedges: its only other release is a successful run, which needs a worker, which needs a candidate the suppression has just hidden — so once the Todo page had been walked the orchestrator would idle until restarted, and freeing branches with `wt cleanup` would recover nothing.
 
 The cap message itself names the budget, the ceiling in force and the branch count before and after the orphan GC, so the next reader can tell a misconfigured ceiling from a project full of branches nothing owns.
 

@@ -2433,7 +2433,7 @@ describe('orchestrator.sh', () => {
       )
       expect(
         fs.readFileSync(path.join(scriptsDir, '..', 'docs', 'PARALLEL_WORKFLOW.md'), 'utf8'),
-      ).toContain('`ORCHESTRATOR_WORKER_TIMEOUT` | 10800')
+      ).toMatch(/`ORCHESTRATOR_WORKER_TIMEOUT` +\| +10800 /)
     })
   })
 
@@ -2752,7 +2752,9 @@ describe('orchestrator.sh', () => {
       // expires. Without this list a genuinely full Neon project collects an
       // identical comment and a full worktree build per breaker window, all
       // night.
-      expect(drive('cap', '1').capRequeued).toBe('HON-991')
+      // "HON-991:<expiry-epoch>" — the entry expires rather than lasting the
+      // run, see the cooldown tests below.
+      expect(drive('cap', '1').capRequeued).toMatch(/^HON-991:\d{10,}$/)
     })
 
     it('does not suppress an issue it merely retried', () => {
@@ -2776,6 +2778,22 @@ describe('orchestrator.sh', () => {
       expect(r.out).not.toContain('RESTORE_TODO')
       // Nothing was requeued, so nothing may be suppressed either.
       expect(r.capRequeued).toBe('')
+    })
+
+    it('requeues anyway when the issue state cannot be read', () => {
+      // issue_state_id returns empty on ANY failed read. Treating that as "a
+      // human moved it" would skip the comment, the Todo restore and the
+      // cooldown entry over a transient API error — leaving the issue In
+      // Progress and assigned, which fetch_todo_issues (Todo only) can never
+      // surface again, under a WARN asserting the opposite.
+      const r = drive('cap', '1', 'false', { HARNESS_ISSUE_STATE: '' })
+
+      expect(r.out).toContain('Could not read the state of HON-991 — requeueing anyway')
+      expect(r.out).toContain('COMMENT:## Returned to Todo — Neon branch cap')
+      expect(r.out).toContain('RESTORE_TODO:HON-991')
+      expect(r.capRequeued).toMatch(/^HON-991:\d{10,}$/)
+      // Specifically NOT the "a human moved it" branch.
+      expect(r.out).not.toContain('is no longer In Progress')
     })
 
     it('matches the marker worktree-claude.sh actually prints', () => {
@@ -2829,11 +2847,20 @@ describe('orchestrator.sh', () => {
       return stripTimestamps(runHarness('select-next', ISSUES, capRequeued, gated))
     }
 
-    it('skips an issue requeued at the cap this run', () => {
+    it('skips an issue whose cap cooldown is still live', () => {
+      const out = select('HON-991:9999999999')
+
+      expect(out).toContain('PICK:u992\tHON-992')
+      expect(out).toContain('[SKIP] HON-991 requeued at the Neon branch cap')
+    })
+
+    it('keeps suppressing an entry whose expiry is malformed', () => {
+      // `[ 123 -ge HON-991 ]` is a shell error, and the picker must not fall
+      // over — or fall open — on one. Failing safe costs a cooldown window.
       const out = select('HON-991')
 
       expect(out).toContain('PICK:u992\tHON-992')
-      expect(out).toContain('[SKIP] HON-991 requeued at the Neon branch cap this run')
+      expect(out).toContain('[SKIP] HON-991 requeued at the Neon branch cap')
     })
 
     it('picks it when nothing was requeued', () => {
@@ -2849,7 +2876,26 @@ describe('orchestrator.sh', () => {
       // The skip line is the only place this state is visible — there is no
       // label to see in Linear, deliberately, since nothing is wrong with the
       // issue.
-      expect(select('HON-991')).toContain('wt cleanup <branch>')
+      expect(select('HON-991:9999999999')).toContain('wt cleanup <branch>')
+    })
+
+    it('releases the suppression once the cooldown lapses', () => {
+      // The wedge this replaced: a run-scoped list can only be released by a
+      // success, which needs a spawn, which needs a candidate the list has just
+      // suppressed. Once the Todo page was walked the orchestrator idled until
+      // restarted, and `wt cleanup` recovered nothing.
+      const out = select('HON-991:1') // epoch 1 — January 1970
+
+      expect(out).toContain('PICK:u991\tHON-991')
+      expect(out).not.toContain('[SKIP] HON-991')
+    })
+
+    it('reads each entry independently', () => {
+      // One expired, one live — a shared cooldown would release or hold both.
+      const out = select('HON-991:1,HON-992:9999999999')
+
+      expect(out).toContain('PICK:u991\tHON-991')
+      expect(out).toContain('[SKIP] HON-992 requeued at the Neon branch cap')
     })
 
     it('is cleared by a run that ships', () => {
@@ -2859,7 +2905,7 @@ describe('orchestrator.sh', () => {
       // branches by hand would see the issue stay unpicked.
       const out = stripTimestamps(
         runHarnessEnv(
-          { HARNESS_CAP_REQUEUED: 'HON-991,HON-992' },
+          { HARNESS_CAP_REQUEUED: 'HON-991:9999999999,HON-992:9999999999' },
           'outcome',
           '4',
           'done',
@@ -2868,6 +2914,7 @@ describe('orchestrator.sh', () => {
         ),
       )
 
+      // Issue ids, not the raw "id:epoch" entries — the epochs are bookkeeping.
       expect(out).toContain('[UNCAP] HON-991,HON-992')
       expect(out).toContain('SUCCESS')
     })
@@ -2908,6 +2955,31 @@ describe('orchestrator.sh', () => {
 
       expect(out).toContain('preview/<git-branch>')
       expect(out).toContain('wt cleanup <branch>')
+    })
+
+    it('quotes the cap the orchestrator gated on, not the one .env shadows it with', () => {
+      // load_env_file re-exports unconditionally at the real entry point, so a
+      // NEON_BRANCH_CAP line in .env would otherwise shadow the value in force.
+      // Unfixed this printed "19 of 10 branches at peak … currently 10" for a
+      // run the startup gate cleared at 25.
+      const out = capMessage({
+        ORCHESTRATOR_MAX_WORKERS: '8',
+        NEON_BRANCH_CAP: '25',
+        HARNESS_ENV_FILE_CAP: '10',
+      })
+
+      expect(out).toContain('Budget: 2N + 3 with N=8 workers = 19 of 25 branches at peak.')
+      expect(out).toContain('NEON_BRANCH_CAP, currently 25')
+      expect(out).not.toContain('19 of 10')
+    })
+
+    it('falls back to .env when no orchestrator passed a cap down', () => {
+      // A hand-run `wt auto` has nothing inherited, so .env IS the value in
+      // force — the fallback must not report the built-in default instead.
+      const out = capMessage({ HARNESS_ENV_FILE_CAP: '17' })
+
+      expect(out).toContain('cap 17.')
+      expect(out).toContain('NEON_BRANCH_CAP, currently 17')
     })
 
     it('does not invent a worker count when wt auto was run by hand', () => {

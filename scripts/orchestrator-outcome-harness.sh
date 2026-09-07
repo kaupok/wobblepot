@@ -175,6 +175,9 @@
 #
 #   neon-create <create-output> <git-branch> <reuse> [retry-ok|retry-fail]
 #               [fresh-db]                                          (HON-581)
+#     HARNESS_ENV_FILE_CAP (env) overwrites NEON_BRANCH_CAP after sourcing, the
+#     way load_env_file does at the real entry point, so the cap the cap message
+#     quotes can be asserted against a .env value that disagrees (HON-616).
 #     Drives the REAL neon_create_branch_for_worktree with `pnpm` shadowed by a
 #     shell function, so every neonctl invocation is fixture-driven and the Neon
 #     API is never reached. neon_gc_orphans is stubbed to a marker (its own
@@ -190,6 +193,14 @@ HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # read as orchestrator flags.
 MODE="${1:-}"; A1="${2:-}"; A2="${3:-}"; A3="${4:-}"; A4="${5:-}"; A5="${6:-}"
 set --
+
+# The NEON_BRANCH_CAP this process actually inherited, captured before
+# orchestrator.sh's own `${NEON_BRANCH_CAP:-10}` fills it in. worktree-claude.sh
+# derives NEON_BRANCH_CAP_INHERITED at source time and would otherwise read
+# orchestrator.sh's default as "inherited from an orchestrator" — which no real
+# worker ever does, since the two are separate processes in production. Restored
+# in the neon-create mode below (HON-616).
+HARNESS_INHERITED_NEON_CAP="${NEON_BRANCH_CAP:-}"
 
 # shellcheck source=./orchestrator.sh
 source "$HARNESS_DIR/orchestrator.sh"
@@ -478,7 +489,9 @@ EOF
     # to answer. HARNESS_ISSUE_STATE (from the environment) drives the branch
     # where a human moved the issue on while the worker was dying; the default
     # is the orchestrator's own claim, which is the normal case.
-    issue_state_id() { echo "${HARNESS_ISSUE_STATE:-$STATE_IN_PROGRESS}"; }
+    # `${VAR-default}`, NOT `${VAR:-default}`: an explicitly EMPTY value is the
+    # unreadable-state case under test, and the colon form would swallow it.
+    issue_state_id() { echo "${HARNESS_ISSUE_STATE-$STATE_IN_PROGRESS}"; }
 
     STEP=0
     IFS=',' read -ra STEPS <<< "$SEQUENCE"
@@ -718,6 +731,14 @@ EOF
     # project.
     NEON_API_KEY="harness-not-a-key"
     NEON_PROJECT_ID="harness-not-a-project"
+
+    # Model load_env_file's unconditional re-export, which the real entry point
+    # runs AFTER the assignments at the top of worktree-claude.sh and which
+    # sourcing here skips. Setting this is what a `NEON_BRANCH_CAP=` line in
+    # .env does to a worker the orchestrator started with a different cap
+    # (HON-616): the messages must still quote the value the gate enforced.
+    NEON_BRANCH_CAP_INHERITED="$HARNESS_INHERITED_NEON_CAP"
+    [ -n "${HARNESS_ENV_FILE_CAP:-}" ] && NEON_BRANCH_CAP="$HARNESS_ENV_FILE_CAP"
 
     # `create_out=$(pnpm …)` runs the stub in a SUBSHELL, so a shell-variable
     # counter would reset between the first attempt and the post-GC retry. The

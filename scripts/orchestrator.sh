@@ -149,21 +149,32 @@ trap 'rm -f "$SEEN_SKIPS_FILE"' EXIT
 # entry is dropped as soon as selection sees the issue without its Gated
 # label (operator removed it — the retry signal); a restart also clears it.
 GATED_ISSUES=""
-# Comma-separated identifiers requeued to Todo at the Neon branch cap this run.
-# Unlike the gated path there is no durable label to lean on — deliberately, the
-# whole point is that nothing about the issue is wrong — so this list is the only
-# thing bounding the retry. Without it requeue_to_todo is non-terminating: the
-# issue returns to Todo unassigned and unlabelled, which makes it immediately
-# re-selectable, and the circuit breaker only rate-limits (it resets itself
-# unconditionally once the pause expires). A genuinely full Neon project would
-# then collect an identical "Returned to Todo" comment and a full worktree build
-# per breaker window, all night.
+# Comma-separated "identifier:expiry-epoch" entries for issues requeued to Todo
+# at the Neon branch cap. Unlike the gated path there is no durable label to
+# lean on — deliberately, the whole point is that nothing about the issue is
+# wrong — so this list is the only thing bounding the retry. Without it
+# requeue_to_todo is non-terminating: the issue returns to Todo unassigned and
+# unlabelled, which makes it immediately re-selectable, and the circuit breaker
+# only rate-limits (it resets itself unconditionally once the pause expires). A
+# genuinely full Neon project would collect an identical "Returned to Todo"
+# comment and a full worktree build per breaker window, all night.
 #
-# Cleared by record_success: a run that shipped is proof branches are available
-# again, which is the only signal the orchestrator has for "the cap has freed"
-# and is exactly when these issues should become pickable. A restart clears it
-# too, same contract as GATED_ISSUES.
+# The entries EXPIRE rather than lasting the run. A run-scoped list wedges: the
+# only other release is record_success, which needs a spawn, which needs a
+# candidate this list has just suppressed — so once the Todo page has been
+# walked the orchestrator idles until someone restarts it, and freeing branches
+# with `wt cleanup` recovers nothing. A cooldown keeps the bound (at most one
+# attempt per issue per window) while still making "pickable again once branches
+# free up" true, which is what the docs promise.
+#
+# record_success additionally clears the whole list early: a run that shipped is
+# positive proof the project has branches again, so there is no reason to wait
+# out the cooldown. A restart clears it too, same contract as GATED_ISSUES.
 CAP_REQUEUED_ISSUES=""
+# Long enough that a still-full project is not retried every poll, short enough
+# that a hand-freed branch is picked up without an operator wondering why
+# nothing happens. Well clear of the 600s circuit-breaker pause.
+CAP_REQUEUE_COOLDOWN="${ORCHESTRATOR_CAP_REQUEUE_COOLDOWN:-1800}"
 
 # ─── Colors ──────────────────────────────────────────────────────────────────
 
@@ -500,7 +511,29 @@ select_next_issue() {
   # then at most one "PICK<TAB>uuid<TAB>identifier<TAB>branchName<TAB>title".
   local line kind level id reason skip_key
   local gated="$GATED_ISSUES"
-  local cap_requeued="$CAP_REQUEUED_ISSUES"
+  # Live entries only, and READ-ONLY: main() calls this function as
+  # `candidate=$(select_next_issue "$response")`, so anything written to a shell
+  # variable here dies with the command-substitution subshell — the same trap
+  # SEEN_SKIPS_FILE exists to dodge. Expiry is therefore recomputed from the
+  # unpruned list on every call rather than pruned in place, which costs a few
+  # string comparisons and cannot silently lose the suppression.
+  local cap_requeued="" _cap_entry _cap_id _cap_expiry _cap_now
+  _cap_now=$(date +%s)
+  if [ -n "$CAP_REQUEUED_ISSUES" ]; then
+    IFS=',' read -ra _cap_arr <<< "$CAP_REQUEUED_ISSUES"
+    for _cap_entry in ${_cap_arr[@]+"${_cap_arr[@]}"}; do
+      _cap_id="${_cap_entry%%:*}"
+      _cap_expiry="${_cap_entry##*:}"
+      # A malformed entry keeps suppressing rather than erroring out of the
+      # picker: `[ 123 -ge HON-991 ]` is a shell error, and failing safe here
+      # costs one cooldown window while failing open costs the whole bound.
+      case "$_cap_expiry" in
+        ''|*[!0-9]*) : ;;
+        *) [ "$_cap_now" -ge "$_cap_expiry" ] && continue ;;
+      esac
+      cap_requeued="${cap_requeued:+$cap_requeued,}$_cap_id"
+    done
+  fi
   while IFS= read -r line; do
     kind="${line%%$'\t'*}"
     case "$kind" in
@@ -608,7 +641,7 @@ select_next_issue() {
           # Retrying inside the same run would hit the same full project and
           # post the same comment again. Eligible again as soon as any worker
           # ships (record_success clears the list) or on restart.
-          elif ._cap_requeued then ["INFO", "requeued at the Neon branch cap this run — eligible again once a worker ships, or on restart; free branches with `wt cleanup <branch>`"]
+          elif ._cap_requeued then ["INFO", "requeued at the Neon branch cap — cooling down; eligible again when the cooldown lapses, as soon as any worker ships, or on restart. Free branches with `wt cleanup <branch>`"]
           elif ._assigned then ["INFO", "assigned"]
           elif (._open_blockers | length) > 0 then
             ["INFO",
@@ -1237,7 +1270,8 @@ record_success() {
   # only signal there is for "the cap has freed". Anything requeued at the cap
   # becomes pickable on the next poll (HON-616).
   if [ -n "$CAP_REQUEUED_ISSUES" ]; then
-    log INFO "[UNCAP] $CAP_REQUEUED_ISSUES — a worker shipped, so the Neon branch cap has room again"
+    # Names the issues, not the raw entries — the expiry epochs are bookkeeping.
+    log INFO "[UNCAP] $(printf '%s' "$CAP_REQUEUED_ISSUES" | tr ',' '\n' | cut -d: -f1 | paste -sd, -) — a worker shipped, so the Neon branch cap has room again"
     CAP_REQUEUED_ISSUES=""
   fi
 
@@ -1880,12 +1914,24 @@ requeue_to_todo() {
   # assigned, which select_next_issue skips forever. That comment is the only
   # artifact an operator sees. move_to_backlog has the same ordering and is safe
   # with it only because its own move is unconditional.
+  #
+  # Only a state that was READ and is not In Progress declines the requeue.
+  # issue_state_id returns empty on any failed read, and treating that as "a
+  # human moved it" would skip the comment, the Todo restore and the cooldown
+  # entry over a transient API error — leaving the issue In Progress AND
+  # assigned, which fetch_todo_issues (Todo only) can never surface again, under
+  # a WARN asserting the opposite. On an unreadable state, fall through and let
+  # restore_todo_if_in_progress below make the call; it handles the empty case
+  # explicitly and leaves the state alone, and the comment is then the operator's
+  # only trace of what happened.
   local state_id
   state_id=$(issue_state_id "$issue_uuid") || true
-  if [ "$state_id" != "$STATE_IN_PROGRESS" ]; then
+  if [ -n "$state_id" ] && [ "$state_id" != "$STATE_IN_PROGRESS" ]; then
     log WARN "$issue_id is no longer In Progress — leaving it untouched after the Neon branch cap"
     return 0
   fi
+  [ -z "$state_id" ] && \
+    log WARN "Could not read the state of $issue_id — requeueing anyway; the Neon branch cap is not its fault"
 
   local log_path_note=""
   if [ -n "$log_file" ]; then
@@ -1910,11 +1956,12 @@ requeue_to_todo() {
   # assignee with it — select_next_issue skips any assigned issue forever.
   restore_todo_if_in_progress "$issue_uuid" "$issue_id"
 
-  # Suppress re-selection for the rest of this run. The issue is back in Todo,
+  # Suppress re-selection until the cooldown lapses. The issue is back in Todo,
   # unassigned and unlabelled, so nothing else would stop the very next poll
   # picking it, failing it at the same still-full cap, and posting this same
-  # comment again. See CAP_REQUEUED_ISSUES.
-  CAP_REQUEUED_ISSUES="${CAP_REQUEUED_ISSUES:+$CAP_REQUEUED_ISSUES,}$issue_id"
+  # comment again. Expiring rather than run-scoped so a project that frees
+  # branches recovers on its own. See CAP_REQUEUED_ISSUES.
+  CAP_REQUEUED_ISSUES="${CAP_REQUEUED_ISSUES:+$CAP_REQUEUED_ISSUES,}$issue_id:$(( $(date +%s) + CAP_REQUEUE_COOLDOWN ))"
 
   log INFO "Returned $issue_id to Todo (unassigned) — Neon branch cap, not a failure of the issue"
 }
