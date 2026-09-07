@@ -74,6 +74,12 @@ export default async function ShoppingPage({ searchParams }: ShoppingPageProps) 
   // Default to 7 days if not specified or invalid
   const daysParam = params.days
   const days = daysParam === '14' ? 14 : 7
+  // Whether the URL actually named a window, as opposed to falling through to
+  // the default. `days` alone cannot say — `/shopping`, `?days=7` and
+  // `?days=garbage` all produce 7 — and the client-side reconcile needs the
+  // difference: it applies the saved preference only when the URL expressed
+  // none, so an explicit link or a Back press is not overridden.
+  const daysFromUrl = daysParam === '7' || daysParam === '14'
 
   const baseURL = getServerBaseURL()
   const cookieHeader = requestHeaders.get('cookie') ?? ''
@@ -114,6 +120,7 @@ export default async function ShoppingPage({ searchParams }: ShoppingPageProps) 
         shoppingData={null}
         emptyStateVariant="error"
         windowDays={days}
+        windowDaysFromUrl={daysFromUrl}
       />
     )
   }
@@ -171,6 +178,7 @@ export default async function ShoppingPage({ searchParams }: ShoppingPageProps) 
       shoppingData={emptyStateVariant ? null : shoppingData}
       emptyStateVariant={emptyStateVariant}
       windowDays={days}
+      windowDaysFromUrl={daysFromUrl}
     />
   )
 }

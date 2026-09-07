@@ -52,9 +52,9 @@ const meta = {
     },
   },
   // Every story mounts in category mode at the 7-day window regardless of what a
-  // previously-played story persisted — both are read from `localStorage` on
-  // mount, and a stored 14 would make the header replace the URL with
-  // `/shopping?days=14`.
+  // previously-played story persisted. The sort mode is read from `localStorage`
+  // on mount; the window key is cleared so the picker starts where the story
+  // says it does.
   beforeEach: () => {
     localStorage.setItem(SORT_STORAGE_KEY, 'category')
     localStorage.removeItem(WINDOW_STORAGE_KEY)

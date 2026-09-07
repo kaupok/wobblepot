@@ -3,7 +3,6 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
 import { ShoppingSection } from './ShoppingSection'
-import { WINDOW_STORAGE_KEY } from './use-shopping-window'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { track } from '@/lib/analytics'
 import { formatDateRange } from '@/lib/i18n/format-dates'
@@ -16,9 +15,8 @@ vi.stubGlobal('fetch', vi.fn())
 // Mock sonner toast
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
-// `ShoppingListHeader` navigates on a window change and on the mount reconcile.
-// A stable router object, not a fresh one per call: `useShoppingWindow` keys its
-// reconcile effect on the router identity.
+// `ShoppingListHeader`'s picker navigates on a window change. The reconcile
+// itself lives in `InventoryPage` — see `InventoryPage.test.tsx`.
 const routerPush = vi.fn()
 const routerReplace = vi.fn()
 vi.mock('next/navigation', () => ({
@@ -473,37 +471,5 @@ describe('ShoppingSection copy to clipboard', () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Couldn't copy the list"))
     expect(toast.success).not.toHaveBeenCalled()
     expect(track).not.toHaveBeenCalled()
-  })
-})
-
-// The regression HON-624 exists to close. Before the shared header,
-// `ShoppingSection` never read `shopping-list-window-days` at all, so a saved
-// 14-day preference was dropped on every visit that arrived without `?days=`.
-// The hook's own test proves the hook; this proves `ShoppingSection` is wired
-// to it, which nothing else does — the E2E round-trips the *picker*, and the
-// picker writes `localStorage` itself before navigating, so it would still pass
-// if `ShoppingListHeader` stopped calling `useShoppingWindow` entirely.
-describe('ShoppingSection window reconcile', () => {
-  it('applies a stored 14-day preference over a 7-day render', () => {
-    localStorage.setItem(WINDOW_STORAGE_KEY, '14')
-
-    renderSection({ windowDays: 7 })
-
-    expect(routerReplace).toHaveBeenCalledWith('/shopping?days=14')
-  })
-
-  it('leaves the URL alone when the stored window already matches', () => {
-    localStorage.setItem(WINDOW_STORAGE_KEY, '7')
-
-    renderSection({ windowDays: 7 })
-
-    expect(routerReplace).not.toHaveBeenCalled()
-    expect(routerPush).not.toHaveBeenCalled()
-  })
-
-  it('leaves an explicit 14-day URL alone for a user with no stored preference', () => {
-    renderSection({ windowDays: 14 })
-
-    expect(routerReplace).not.toHaveBeenCalled()
   })
 })

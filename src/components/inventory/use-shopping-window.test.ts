@@ -4,7 +4,8 @@ import {
   WINDOW_STORAGE_KEY,
   getStoredWindowDays,
   parseWindowDays,
-  useShoppingWindow,
+  useSetWindowDays,
+  useWindowReconcile,
 } from './use-shopping-window'
 
 const push = vi.fn()
@@ -57,12 +58,12 @@ describe('getStoredWindowDays', () => {
   })
 })
 
-describe('useShoppingWindow', () => {
-  describe('mount reconcile', () => {
+describe('useWindowReconcile', () => {
+  describe('when the URL expressed no window', () => {
     it('navigates to the stored window when the rendered window disagrees', () => {
       localStorage.setItem(WINDOW_STORAGE_KEY, '14')
 
-      renderHook(() => useShoppingWindow(7))
+      renderHook(() => useWindowReconcile(7, false))
 
       expect(replace).toHaveBeenCalledWith('/shopping?days=14')
     })
@@ -74,7 +75,7 @@ describe('useShoppingWindow', () => {
     it('replaces rather than pushes, so Back is not trapped', () => {
       localStorage.setItem(WINDOW_STORAGE_KEY, '14')
 
-      renderHook(() => useShoppingWindow(7))
+      renderHook(() => useWindowReconcile(7, false))
 
       expect(push).not.toHaveBeenCalled()
     })
@@ -82,31 +83,21 @@ describe('useShoppingWindow', () => {
     it('stays put when the rendered window already matches', () => {
       localStorage.setItem(WINDOW_STORAGE_KEY, '14')
 
-      renderHook(() => useShoppingWindow(14))
+      renderHook(() => useWindowReconcile(14, false))
 
       expect(replace).not.toHaveBeenCalled()
     })
 
-    // A bookmark or a shared `/shopping?days=14` must survive for a user who
-    // has never touched the picker. Before this guard the absent key read as an
-    // explicit 7 and bounced them to the narrow window.
-    it('leaves an explicit window alone when there is no stored preference', () => {
-      renderHook(() => useShoppingWindow(14))
+    it('stays put when there is no stored preference', () => {
+      renderHook(() => useWindowReconcile(7, false))
 
       expect(replace).not.toHaveBeenCalled()
-      expect(push).not.toHaveBeenCalled()
     })
 
-    it('leaves an explicit window alone when the stored value is unrecognised', () => {
+    it('stays put when the stored value is unrecognised', () => {
       localStorage.setItem(WINDOW_STORAGE_KEY, 'banana')
 
-      renderHook(() => useShoppingWindow(14))
-
-      expect(replace).not.toHaveBeenCalled()
-    })
-
-    it('stays put on the default window with no stored preference', () => {
-      renderHook(() => useShoppingWindow(7))
+      renderHook(() => useWindowReconcile(14, false))
 
       expect(replace).not.toHaveBeenCalled()
     })
@@ -117,7 +108,7 @@ describe('useShoppingWindow', () => {
     it('reconciles a stored 14 back over an unparameterised visit', () => {
       localStorage.setItem(WINDOW_STORAGE_KEY, '14')
 
-      const { rerender } = renderHook(({ days }) => useShoppingWindow(days), {
+      const { rerender } = renderHook(({ days }) => useWindowReconcile(days, false), {
         initialProps: { days: 7 },
       })
       expect(replace).toHaveBeenCalledWith('/shopping?days=14')
@@ -130,34 +121,57 @@ describe('useShoppingWindow', () => {
     })
   })
 
-  describe('setWindowDays', () => {
-    it('persists the choice and pushes it, so Back undoes it', () => {
-      const { result } = renderHook(() => useShoppingWindow(7))
+  // `page.tsx` collapses `/shopping`, `?days=7` and `?days=garbage` into the
+  // same `7`, so the number alone cannot say whether the user asked for the
+  // window. Without this bit the reconcile overrides an explicit URL: Back
+  // right after using the picker is a no-op, and a shared `?days=14` link is
+  // unopenable for anyone who has ever chosen 7 days.
+  describe('when the URL named the window explicitly', () => {
+    it('leaves an explicit 14-day URL alone despite a stored 7', () => {
+      localStorage.setItem(WINDOW_STORAGE_KEY, '7')
 
-      act(() => result.current.setWindowDays('14'))
+      renderHook(() => useWindowReconcile(14, true))
 
-      expect(localStorage.getItem(WINDOW_STORAGE_KEY)).toBe('14')
-      expect(push).toHaveBeenCalledWith('/shopping?days=14')
       expect(replace).not.toHaveBeenCalled()
     })
 
-    it('narrows back to 7 — the round trip the picker exists for', () => {
+    it('leaves an explicit 7-day URL alone despite a stored 14 — the Back case', () => {
       localStorage.setItem(WINDOW_STORAGE_KEY, '14')
-      const { result } = renderHook(() => useShoppingWindow(14))
 
-      act(() => result.current.setWindowDays('7'))
+      renderHook(() => useWindowReconcile(7, true))
 
-      expect(localStorage.getItem(WINDOW_STORAGE_KEY)).toBe('7')
-      expect(push).toHaveBeenCalledWith('/shopping?days=7')
+      expect(replace).not.toHaveBeenCalled()
     })
+  })
+})
 
-    it('coerces an unexpected value to the default rather than routing to it', () => {
-      const { result } = renderHook(() => useShoppingWindow(7))
+describe('useSetWindowDays', () => {
+  it('persists the choice and pushes it, so Back undoes it', () => {
+    const { result } = renderHook(() => useSetWindowDays())
 
-      act(() => result.current.setWindowDays('30'))
+    act(() => result.current('14'))
 
-      expect(localStorage.getItem(WINDOW_STORAGE_KEY)).toBe('7')
-      expect(push).toHaveBeenCalledWith('/shopping?days=7')
-    })
+    expect(localStorage.getItem(WINDOW_STORAGE_KEY)).toBe('14')
+    expect(push).toHaveBeenCalledWith('/shopping?days=14')
+    expect(replace).not.toHaveBeenCalled()
+  })
+
+  it('narrows back to 7 — the round trip the picker exists for', () => {
+    localStorage.setItem(WINDOW_STORAGE_KEY, '14')
+    const { result } = renderHook(() => useSetWindowDays())
+
+    act(() => result.current('7'))
+
+    expect(localStorage.getItem(WINDOW_STORAGE_KEY)).toBe('7')
+    expect(push).toHaveBeenCalledWith('/shopping?days=7')
+  })
+
+  it('coerces an unexpected value to the default rather than routing to it', () => {
+    const { result } = renderHook(() => useSetWindowDays())
+
+    act(() => result.current('30'))
+
+    expect(localStorage.getItem(WINDOW_STORAGE_KEY)).toBe('7')
+    expect(push).toHaveBeenCalledWith('/shopping?days=7')
   })
 })

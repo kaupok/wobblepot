@@ -240,6 +240,21 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
       await page.getByRole('option', { name: '7 days' }).click()
       await expect(page).toHaveURL(/[?&]days=7\b/)
       await expect(page.getByText('Next 7 days')).toBeVisible()
+
+      // An explicit `?days=` outranks the saved preference, so the Back button
+      // works across the picker's own navigations. The stored window is now
+      // '7'; going back lands on `?days=14`, and the mount reconcile has to
+      // leave it alone. It did not before: the reconcile compared the stored
+      // window against the rendered one with no way to tell an explicit URL
+      // from a defaulted one, so it replaced its way straight back to 7 and
+      // Back was a no-op. `?days=` presence is what `page.tsx` now threads
+      // through as `windowDaysFromUrl`.
+      await page.goBack()
+      await expect(page).toHaveURL(/[?&]days=14\b/)
+      await expect(page.getByText('Next 14 days')).toBeVisible()
+      // Re-assert the URL after the effect has had a render to fire in: a
+      // reconcile would have replaced it back to `?days=7` by now.
+      await expect(page).toHaveURL(/[?&]days=14\b/)
     } finally {
       // Leave the shared household exactly as found, whatever failed above.
       if (purchasedIngredientId) {

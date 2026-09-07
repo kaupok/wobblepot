@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useShoppingWindow } from './use-shopping-window'
+import { useSetWindowDays } from './use-shopping-window'
 
 interface ShoppingListHeaderProps {
   /** The window the server rendered with, from `?days=`. */
@@ -30,12 +30,14 @@ interface ShoppingListHeaderProps {
  * HON-624 the picker lived only in the `nothing-needed` empty state, so
  * widening to 14 days removed the control that could narrow it back.
  *
- * Exactly one of these renders per page, which is what lets it own the mount
- * reconcile in `useShoppingWindow` (see that hook's note).
+ * It owns the picker but not the mount reconcile: that lives in `InventoryPage`,
+ * which renders on every `/shopping` visit rather than only the ones that have
+ * a header, so a saved window is honoured on `no-plan` and `error` too. See
+ * `useWindowReconcile`.
  */
 export function ShoppingListHeader({ windowDays, summary, children }: ShoppingListHeaderProps) {
   const tShopping = useTranslations('shopping')
-  const { setWindowDays } = useShoppingWindow(windowDays)
+  const setWindowDays = useSetWindowDays()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {

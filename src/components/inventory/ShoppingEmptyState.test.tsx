@@ -6,9 +6,8 @@ import { WINDOW_STORAGE_KEY } from './use-shopping-window'
 const push = vi.fn()
 const replace = vi.fn()
 
-// A stable router object, not a fresh one per call: `useShoppingWindow` keys its
-// reconcile effect on the router identity, so a new object each render would
-// re-run the effect on every render.
+// The picker navigates; the mount reconcile lives in `InventoryPage`, so
+// nothing here should call either verb on its own.
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, replace }),
 }))
@@ -47,16 +46,6 @@ describe('ShoppingEmptyState', () => {
       expect(screen.queryByRole('heading', { name: 'Shopping list' })).not.toBeInTheDocument()
       expect(windowPicker()).not.toBeInTheDocument()
     })
-
-    // A wider window cannot conjure a meal plan, so this variant deliberately
-    // stays out of the reconcile — the same as before HON-624.
-    it('does not reconcile the stored window', () => {
-      localStorage.setItem(WINDOW_STORAGE_KEY, '14')
-
-      render(<ShoppingEmptyState variant="no-plan" windowDays={7} />)
-
-      expect(replace).not.toHaveBeenCalled()
-    })
   })
 
   describe('nothing-needed variant', () => {
@@ -82,13 +71,15 @@ describe('ShoppingEmptyState', () => {
       expect(windowPicker()).toBeInTheDocument()
     })
 
-    it('reconciles a stored window that disagrees with the rendered one', () => {
+    // The reconcile is not this component's job — it lives in `InventoryPage`,
+    // so it also reaches the header-less `no-plan` and `error` states. Rendering
+    // the empty state on its own must not navigate.
+    it('does not navigate on its own', () => {
       localStorage.setItem(WINDOW_STORAGE_KEY, '14')
 
       render(<ShoppingEmptyState variant="nothing-needed" windowDays={7} />)
 
-      // `replace`, so Back is not trapped bouncing between the two windows.
-      expect(replace).toHaveBeenCalledWith('/shopping?days=14')
+      expect(replace).not.toHaveBeenCalled()
       expect(push).not.toHaveBeenCalled()
     })
   })

@@ -130,10 +130,9 @@ export const PopulatedFourteenDays: Story = {
     summary: <Summary windowDays={14} total={19} purchased={3} />,
     children: <ListControls />,
   },
-  // Seeded so the story models a real user state — someone who chose 14 days —
-  // rather than a bookmark opened by a user with no preference. Both are valid
-  // now that the reconcile leaves an explicit `?days=` alone when the key is
-  // absent; the seed picks the one this story is documenting.
+  // Seeded so the story models a real user state — someone who chose 14 days.
+  // The header itself does not reconcile (that is `InventoryPage`'s job), so
+  // this only documents which state is on screen; it changes no behaviour here.
   beforeEach: () => {
     localStorage.setItem(WINDOW_STORAGE_KEY, '14')
     return () => localStorage.removeItem(WINDOW_STORAGE_KEY)
@@ -183,9 +182,8 @@ export const WindowPickerNarrowsWithItemsOnScreen: Story = {
     summary: <Summary windowDays={14} total={19} purchased={3} />,
     children: <ListControls />,
   },
-  // Seeded to 14 so the mount reconcile agrees with the prop. It would stay
-  // quiet unseeded too (an absent key is "no preference"), but seeding states
-  // the precondition the assertion below depends on rather than relying on it.
+  // Seeded to 14 so the story starts from the state it claims to: a user whose
+  // saved window is the wide one, narrowing it back.
   beforeEach: () => {
     localStorage.setItem(WINDOW_STORAGE_KEY, '14')
     return () => localStorage.removeItem(WINDOW_STORAGE_KEY)

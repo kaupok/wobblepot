@@ -40,24 +40,41 @@ export function getStoredWindowDays(): WindowDays | null {
 }
 
 /**
- * Owns the 7/14-day shopping window: the stored preference, the mount-time
- * reconcile against the `?days=` param the server rendered with, and the
- * setter behind the picker.
+ * Applies the stored 7/14-day preference to the URL after mount.
  *
  * `/shopping` derives its window from `?days=` (`src/app/shopping/page.tsx`),
- * so a stored preference only takes effect by navigating to the URL that
- * encodes it — which is what the reconcile does when a visit arrives without
- * the param, or with one that disagrees.
+ * which the server can read and `localStorage` is not. A stored preference
+ * therefore only takes effect by navigating to the URL that encodes it, which
+ * is what this does when a visit arrives without the param.
  *
- * Called by `ShoppingListHeader` rather than by the two branch components, so
- * it runs exactly once per page: `ShoppingSection` returns `ShoppingEmptyState`
- * before rendering its own header, and calling the hook in both would fire the
- * reconcile twice on that path.
+ * **Call it from `InventoryPage` and nowhere else.** That is the one component
+ * that renders on every `/shopping` visit and renders exactly once, so the
+ * reconcile fires once per page and reaches every state — including `no-plan`
+ * and `error`, which render no header and so no picker. `no-plan` in
+ * particular is a state the *narrow* window can itself cause: `generatedAt` is
+ * folded over plan entries already filtered to the window
+ * (`src/lib/meal-planning/shopping-list.ts`), so a household whose entries fall
+ * on days 8-14 is told "No meal plan yet" at `days=7`. Reading the saved `'14'`
+ * is what gets them out of it, and it needs no header to do so.
+ *
+ * @param windowDays      the window the server rendered with
+ * @param windowDaysFromUrl whether `?days=` said so explicitly, as opposed to
+ *   being absent or unparseable. `page.tsx` collapses `/shopping`,
+ *   `?days=7` and `?days=garbage` into the same `7`, so without this bit the
+ *   effect cannot tell "the URL expressed no preference" from "the user is
+ *   asking for this window" — and re-applies storage over both. That makes
+ *   Back a no-op immediately after using the picker (the pushed entry is
+ *   reconciled straight back in) and an explicit `?days=14` link unopenable
+ *   for anyone who has ever chosen 7 days.
  */
-export function useShoppingWindow(windowDays: number) {
+export function useWindowReconcile(windowDays: number, windowDaysFromUrl: boolean) {
   const router = useRouter()
 
   useEffect(() => {
+    // An explicit `?days=` is the user's immediate intent and outranks a
+    // preference they set at some point in the past.
+    if (windowDaysFromUrl) return
+
     const stored = getStoredWindowDays()
     if (stored === null || stored === windowDays) return
 
@@ -67,12 +84,22 @@ export function useShoppingWindow(windowDays: number) {
     // With `push` the pre-reconcile URL stays in history, and going Back to it
     // changes `windowDays` — which re-runs this effect and pushes forward
     // again. Back would never get past `/shopping`, and each attempt would add
-    // another entry. `setWindowDays` keeps `push`: that one is a navigation the
-    // user asked for and belongs in history.
+    // another entry.
     router.replace(`/shopping?days=${stored}`)
-  }, [windowDays, router])
+  }, [windowDays, windowDaysFromUrl, router])
+}
 
-  const setWindowDays = useCallback(
+/**
+ * The setter behind the window picker, for `ShoppingListHeader`.
+ *
+ * Uses `push` where the reconcile uses `replace`: this one is a navigation the
+ * user asked for, so Back should undo it — and it can, because the URL it
+ * produces is explicit and `useWindowReconcile` leaves explicit URLs alone.
+ */
+export function useSetWindowDays() {
+  const router = useRouter()
+
+  return useCallback(
     (value: string | number) => {
       const days = parseWindowDays(value)
       // Written before navigating: the next render reads it back on mount, and
@@ -82,6 +109,4 @@ export function useShoppingWindow(windowDays: number) {
     },
     [router],
   )
-
-  return { setWindowDays }
 }

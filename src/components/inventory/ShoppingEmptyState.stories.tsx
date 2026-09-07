@@ -16,6 +16,11 @@ const meta = {
       },
     },
   },
+  // Every story starts from a known window preference regardless of what a
+  // previously-played story persisted. Nothing here reads the key today — the
+  // reconcile lives in `InventoryPage` — but the picker writes it, so leaving
+  // it set would leak into `AllVariants` and the scenario stories.
+  beforeEach: () => () => localStorage.removeItem(WINDOW_STORAGE_KEY),
   args: {
     variant: 'no-plan',
   },
@@ -66,12 +71,10 @@ export const NothingNeeded: Story = {
 
 export const NothingNeededFourteenDays: Story = {
   args: { variant: 'nothing-needed', windowDays: 14 },
-  // The day count in the body copy comes from the `windowDays` prop, so this
-  // story renders the 14-day text with or without the seed. The seed states
-  // which reachable state is being documented: a user who chose 14 days, rather
-  // than one who arrived on an explicit `?days=14` with no preference stored.
-  // `useShoppingWindow` leaves both alone — it reconciles only when a stored
-  // preference actually disagrees with the prop.
+  // The day count in the body copy comes from the `windowDays` prop, so the
+  // seed changes nothing on screen — it states which user this is: one who
+  // chose 14 days. The reconcile that reads the key lives in `InventoryPage`,
+  // above this component, so no story here navigates.
   beforeEach: () => {
     localStorage.setItem(WINDOW_STORAGE_KEY, '14')
     return () => localStorage.removeItem(WINDOW_STORAGE_KEY)
