@@ -283,6 +283,8 @@ mcp__linear-server__save_comment({
 })
 ```
 
+Comment bodies are not affected — the plan posted here is not itself at risk. Keep every table in the plan at top level anyway, as the step 8 template does: plan content gets copied by hand into issue descriptions, where Linear silently strips the enclosing list item's content indent off every table body cell (CLAUDE.md → Writing for Agents).
+
 ### 11. Move issue to In Progress and claim it
 
 Update the issue status so other auto-implement sessions won't pick it up. A claimed issue must always have an assignee (matches `/auto-implement` step 2.2 — 2.1 is the pre-claim gate), but never take an issue away from a teammate.

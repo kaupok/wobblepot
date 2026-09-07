@@ -382,6 +382,10 @@ Specs, plans, and issues are consumed by agents — coding agents (`/auto-implem
 
 This applies to `/ideate`, `/refine-backlog`, `/plan-issue`, and any content that feeds into the agentic workflow.
 
+**Never nest a markdown table inside a list item when writing a Linear issue description.** Linear's description parser strips the list item's content indent — 3 characters for `1. `, 2 for `- ` — off the front of every table _body_ cell, silently and with no error. The header and delimiter rows survive untouched, so the table still looks right at a glance while `` `MealForm.tsx:153` `` has become `` alForm.tsx:153` ``. That is data loss, not a rendering glitch: the value an agent was told to use is simply gone. A table only nests if it is indented **at or past** the item's content indent; once it does, the strip width is that content indent no matter how far you actually indented — 4 spaces under `1.` still loses exactly 3. Put the table at top level before or after the list, or use a nested bullet list instead.
+
+Verified by round-trip on 2026-09-07, through both the MCP `save_issue` tool and the raw GraphQL API, so this is Linear's API rather than the MCP layer. Top-level tables and tables inside a blockquote survive; a table indented 2 spaces under `1. ` is silently lifted out of the list but keeps its cells. Comment bodies (`save_comment`, so `/plan-issue` plan comments) are not affected today — hold the same discipline there anyway, because plan content gets lifted into descriptions and the failure warns you about nothing. Shape-by-shape results are on HON-617.
+
 ## Working style
 
 **Verify from code + Linear before asking the user or asserting non-existence.** Before claiming "X doesn't exist" or asking the user about project setup (env, deploy, infra, existing features):

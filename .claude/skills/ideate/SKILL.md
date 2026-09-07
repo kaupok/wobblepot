@@ -147,6 +147,8 @@ mcp__linear-server__save_issue({
 
 Reference other issues in descriptions as plain text (`HON-NNN`), never hand-copied `<issue id="…">` tags — Linear auto-resolves plain text on save, and a copied UUID controls where the link goes, so it can silently point at the wrong issue.
 
+**Never nest a markdown table inside a list item.** Linear's description parser silently strips the list item's content indent — 3 characters under `1. `, 2 under `- ` — off the front of every table _body_ cell. The header and delimiter rows survive, so the table still looks right while `` `MealForm.tsx:153` `` has become `` alForm.tsx:153` ``: data loss, not a rendering glitch, and nothing reports it. Put the table at top level before or after the list, or use a nested bullet list instead. Top-level tables and tables inside a blockquote are safe. See CLAUDE.md → Writing for Agents.
+
 ### Step 10: Summary
 
 After creating all issues, summarize:
