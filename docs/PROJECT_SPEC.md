@@ -292,6 +292,20 @@ Key steps:
 
 **Known limitation:** Race condition on concurrent invite use. Acceptable for MVP given low traffic.
 
+### Children's Data (Art. 8)
+
+**Decision:** No in-app parental-consent capture — no under-16 flag, no consent timestamp, no acknowledgment checkbox. Art. 8 is not an open launch gate.
+
+**Why:** Art. 8 governs a child's _own_ consent to an information society service offered directly to them. Wobblepot has no child accounts: a household member profile is created and managed by the account-holding parent or guardian, who is the one consenting. A checkbox shown to that same parent adds evidentiary ceremony, not a missing legal basis. The substantive control is the Art. 9 health-data position on allergen and dietary data, which applies to every member — adults included — and is handled by the privacy policy's AI-processing disclosure rather than by an under-16 toggle.
+
+**Where this is recorded:**
+
+- Privacy policy, "Children's data" section — accounts are for people aged 16 or over across all EU/UK jurisdictions, and "By adding a member under 16, you confirm that you are their parent or legal guardian and consent on their behalf to this data being used for meal planning." (`src/app/(legal)/privacy/page.tsx`, pinned by `page.test.tsx`)
+- [`compliance/dpia.md`](../compliance/dpia.md) → Risk area 1 — reviewed this position and concurs. Also records the data-minimisation posture: no DOB, no photos, not even an under-16 flag is stored.
+- HON-467 (Canceled 2026-06-06) carries the original decision on its comment thread.
+
+**Revisit if:** standalone child accounts ever ship (Art. 8 then applies for real), or a DPIA or regulator guidance pushes toward explicit per-member health-data consent — in which case solve it for all members, not only under-16s. The DPIA's recommended pre-public-launch hardening is a one-line affirmation in the member form where allergens are entered.
+
 ### Error Handling
 
 **AI Failures:**
@@ -483,7 +497,7 @@ Key enums: `DietaryType`, `MealType`, `MealPlanEntryStatus`, `Unit`, `Ingredient
 ### Launch readiness (gates on "can we take EU sign-ups")
 
 - [ ] Legal: Privacy Policy + Terms published; consent captured at sign-up; DPAs signed with Anthropic, Resend, Vercel, Neon
-- [ ] GDPR user rights: data export (Art. 20), grace-window deletion (Art. 17), parental consent for under-16 (Art. 8)
+- [x] GDPR user rights: data export (Art. 20) and 30-day grace-window deletion (Art. 17) shipped; children's data needs no separate Art. 8 consent capture — see [Key Decisions → Children's Data](#childrens-data-art-8)
 - [ ] Observability: PostHog installed behind cookie consent; errors, web vitals, and core funnels captured
 - [ ] Abuse protection: durable rate limits (Upstash Redis) on auth + generation; AI per-household cost cap
 - [ ] Email: SPF/DKIM/DMARC aligned; password-reset reliably lands in inbox
