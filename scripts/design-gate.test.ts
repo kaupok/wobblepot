@@ -43,11 +43,71 @@ const NOT_APPLICABLE_LINE = '**Design guide:** not applicable (no UI files)'
  * a copy would keep passing after the real one was edited.
  */
 function uiFilesAssignment(): string {
+  return lineStartingWith('UI_FILES=', 'assigns UI_FILES')
+}
+
+/**
+ * Which prompt branch the gate takes, given a file list and the `changedFiles` total
+ * `gh` reported for the PR. Every line of the decision is lifted from the script, so
+ * the branch this returns is the branch the reviewer actually gets.
+ */
+function branchFor(files: string[], changedFiles: string): 'design' | 'no-design' {
+  const condition = lineStartingWith('if [ -n "$UI_FILES" ]', 'branches on UI_FILES')
+    .replace(/^if\s+/, '')
+    .replace(/;\s*then\s*$/, '')
+
+  const script = [
+    'set -euo pipefail',
+    'PR_FILES=$(cat)',
+    lineStartingWith('PR_FILE_COUNT=', 'counts the returned paths'),
+    `PR_CHANGED=${JSON.stringify(changedFiles)}`,
+    completenessBlock(),
+    uiFilesAssignment(),
+    `if ${condition}; then echo design; else echo no-design; fi`,
+  ].join('\n')
+
+  const branch = execFileSync('bash', ['-c', script], {
+    input: files.join('\n'),
+    encoding: 'utf8',
+  }).trim()
+  if (branch !== 'design' && branch !== 'no-design') throw new Error(`unexpected branch: ${branch}`)
+  return branch
+}
+
+/**
+ * The body of one appended heredoc, bounded at its terminator.
+ *
+ * Bounding matters: an unbounded `split()` runs to EOF, so an assertion aimed at the
+ * DESIGN_PROMPT block is satisfied by NO_DESIGN_PROMPT further down and stops biting
+ * on the branch it names. `<<'DESIGN_PROMPT'` cannot match `<<'NO_DESIGN_PROMPT'`,
+ * and neither can the `\nDESIGN_PROMPT\n` terminator, so the two stay distinct.
+ */
+function heredoc(name: string): string {
+  const source = read(prReview)
+  const start = source.indexOf(`<<'${name}'`)
+  if (start === -1) throw new Error(`scripts/pr-review.sh no longer appends ${name}`)
+  const end = source.indexOf(`\n${name}\n`, start + 1)
+  if (end === -1) throw new Error(`${name} heredoc is unterminated`)
+  return source.slice(start, end)
+}
+
+/** One shell line lifted from the script, matched by how it starts. */
+function lineStartingWith(prefix: string, what: string): string {
   const line = read(prReview)
     .split('\n')
-    .find((l) => l.startsWith('UI_FILES='))
-  if (!line) throw new Error('scripts/pr-review.sh no longer assigns UI_FILES')
+    .find((l) => l.startsWith(prefix))
+  if (!line) throw new Error(`scripts/pr-review.sh no longer ${what}`)
   return line
+}
+
+/** The `PR_FILES_COMPLETE` if/else, lifted verbatim. */
+function completenessBlock(): string {
+  const lines = read(prReview).split('\n')
+  const start = lines.findIndex((l) => l.startsWith('if [ -n "$PR_FILES" ] && [ "$PR_FILE_COUNT"'))
+  if (start === -1) throw new Error('scripts/pr-review.sh no longer derives PR_FILES_COMPLETE')
+  const end = lines.indexOf('fi', start)
+  if (end === -1) throw new Error('the PR_FILES_COMPLETE block is unterminated')
+  return lines.slice(start, end + 1).join('\n')
 }
 
 /** Run the extracted gate over a file list and return the paths it classified as UI. */
@@ -142,6 +202,41 @@ describe('design-guide gate', () => {
     })
   })
 
+  // The `else` branch does not skip the check, it asserts `not applicable (no UI
+  // files)` into the summary comment. That claim rests entirely on PR_FILES, which
+  // is empty on any `gh pr view` failure and capped at 100 paths (HON-587) — so the
+  // gate has to establish the list was readable and complete before making it.
+  describe('branch selection fails closed on an untrustworthy file list', () => {
+    const docsOnly = ['docs/DESIGN.md', 'scripts/pr-review.sh']
+
+    it('claims not-applicable only from a complete list with no UI files', () => {
+      expect(branchFor(docsOnly, String(docsOnly.length))).toBe('no-design')
+    })
+
+    it('checks the guide when the file list came back empty', () => {
+      // `gh pr view` failed: PR_FILES is empty, so UI_FILES is empty too, and the
+      // pre-fix gate would have posted "not applicable" for a PR it never read.
+      expect(branchFor([], '30')).toBe('design')
+    })
+
+    it('checks the guide when the file list was truncated', () => {
+      // The HON-587 shape: 100 paths returned, 150 changed, and the UI files are in
+      // the 50 that never arrived.
+      expect(branchFor(docsOnly, '150')).toBe('design')
+    })
+
+    it('checks the guide when changedFiles could not be read', () => {
+      // `PR_CHANGED` is empty, which cannot equal any count — the same fail-closed
+      // move the prose gate above already makes.
+      expect(branchFor(docsOnly, '')).toBe('design')
+    })
+
+    it('checks the guide whenever UI files are present', () => {
+      const ui = ['src/components/ui/button.tsx', 'docs/DESIGN.md']
+      expect(branchFor(ui, String(ui.length))).toBe('design')
+    })
+  })
+
   describe('both prompt branches are present and observable', () => {
     it('appends the design instruction only when UI_FILES is non-empty', () => {
       const source = read(prReview)
@@ -159,17 +254,28 @@ describe('design-guide gate', () => {
     // The no-UI branch is what the AC verifies in-PR: the run log must show the
     // guide was never opened, which only holds if the prompt says so outright.
     it('tells the reviewer not to read the guide on the no-UI branch', () => {
-      const noUiBranch = read(prReview).split("<<'NO_DESIGN_PROMPT'")[1] ?? ''
-      expect(noUiBranch).toContain('Do not read `docs/DESIGN.md`')
+      expect(heredoc('NO_DESIGN_PROMPT')).toContain('Do not read `docs/DESIGN.md`')
     })
 
     // Both appended blocks instruct a line in the summary comment, and the marker
     // has to survive both. A block that pushed content above it would make the
     // whole round invisible to the automation that locates reviews by that prefix.
-    it('reasserts that the claude-review marker stays the first line', () => {
-      const appended = read(prReview).split("<<'DESIGN_PROMPT'")[1] ?? ''
-      expect(appended).toContain('<!-- claude-review -->')
-      expect(appended).toContain('very first line')
+    it('reasserts on each branch that the claude-review marker stays the first line', () => {
+      for (const name of ['DESIGN_PROMPT', 'NO_DESIGN_PROMPT']) {
+        expect(heredoc(name), name).toContain('<!-- claude-review -->')
+        expect(heredoc(name), name).toContain('very first line')
+      }
+    })
+
+    // The twice-seen-pattern exception is summary-only and explicitly not inline,
+    // which is the exact shape /auto-implement 6.6 reads as a clean review and
+    // merges on. PROSE_PROMPT carries the same guard for its own summary-only
+    // verdict; without it the feedback half of the loop is dropped on every
+    // auto-merged UI PR.
+    it('forbids "No issues found" alongside a proposed reject-list entry', () => {
+      const designBranch = heredoc('DESIGN_PROMPT')
+      expect(designBranch).toContain('**Issues found:**')
+      expect(designBranch).toMatch(/do NOT write "No issues found"/i)
     })
   })
 

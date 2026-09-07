@@ -26,6 +26,7 @@ MODEL="${CLAUDE_REVIEW_MODEL:-claude-opus-5}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
 NC='\033[0m'
 
 # ─── Argument validation ─────────────────────────────────────────────────────
@@ -307,23 +308,39 @@ fi
 #
 # The gate is computed here rather than asked of the model, so the doc is read only
 # when the diff can actually violate it, and a no-UI PR cannot spend a turn deciding.
-# PR_FILES above is capped at 100 paths by `gh pr view --json files` (HON-587). That
-# is acceptable here and only here: a truncated read can under-report UI files, so
-# the failure direction is "not applicable" — a check skipped, never a merge gate
-# waived. Do not copy this reasoning to a site that gates a merge.
+#
+# It fails CLOSED, because the two branches are not "check" and "skip": the else
+# branch instructs `not applicable (no UI files)`, an affirmative claim written into
+# the record the line exists to be. PR_FILES is empty whenever `gh pr view` fails and
+# is capped at 100 paths (HON-587), so a PR that is entirely UI can arrive here with
+# an empty UI_FILES. Make the claim only when the list backing it was readable and
+# complete — the two conditions the prose gate above already evaluates — and check
+# the guide otherwise. Reading it needlessly costs one file read; a false "not
+# applicable" costs the audit trail.
+if [ -n "$PR_FILES" ] && [ "$PR_FILE_COUNT" = "$PR_CHANGED" ]; then
+  PR_FILES_COMPLETE=true
+else
+  PR_FILES_COMPLETE=false
+fi
 UI_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^src/(components|app)/.*\.tsx$' || true)
 
-if [ -n "$UI_FILES" ]; then
-  echo -e "${GREEN}UI files changed — adding the design-guide instruction.${NC}"
+if [ -n "$UI_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
+  if [ -n "$UI_FILES" ]; then
+    echo -e "${GREEN}UI files changed — adding the design-guide instruction.${NC}"
+  else
+    echo -e "${YELLOW}File list unreadable or truncated — checking the design guide rather than claiming it does not apply.${NC}"
+  fi
   cat >> "$PROMPT_FILE" <<'DESIGN_PROMPT'
 
-## This PR touches UI files — also check it against the design guide
+## Also check the changed UI against the design guide
 
-This diff changes files under `src/components/` or `src/app/`, so read `docs/DESIGN.md` before step 4 and check the changed UI against its **Reject list** and **Composition rules** sections only. The rest of that document is guidance for building, not a review checklist — do not review against it.
+Read `docs/DESIGN.md` before step 4 and check the changed UI against its **Reject list** and **Composition rules** sections only. The rest of that document is guidance for building, not a review checklist — do not review against it. If this diff turns out to change no UI at all, say so in the summary line below instead of inventing findings.
 
 A design finding qualifies only when it matches a **named** item in one of those two sections: a Card nested inside a Card, a sticky action bar inside content, a page title above `text-xl`, a raw palette class where a token exists, and so on. **Name the item you matched**, so the finding can be checked against the document. Anything the document does not name is taste, and the substantive-only bar above still applies to it: do not post it.
 
 One exception to "named items only": if the same unnamed pattern appears **twice** in this diff, that repetition is itself worth reporting — put it in the summary comment as a proposed new **Reject list** entry, citing both sightings. Do not post it as an inline finding.
+
+**A proposed reject-list entry is a finding, and must be filed as one.** List it in the summary comment's `**Issues found:**` list, not only in the prose around it, and do NOT write "No issues found" in a summary that proposes one — automation substring-tests for that phrase to decide the review was clean and merges on it, so the proposal would be discarded silently. Naming the pattern is the only way the guide grows a rule for it, which is the whole reason this exception exists.
 
 **Report the check in the summary comment.** In the Step 5 body, on its own line directly above the `**Issues found:**` list, emit exactly:
 
