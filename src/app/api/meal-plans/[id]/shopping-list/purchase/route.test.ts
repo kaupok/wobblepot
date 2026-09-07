@@ -373,4 +373,109 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
     expect(data.error).toBe('Invalid ingredient IDs')
     expect(data.invalidIds).toEqual(['nonexistent-1', 'nonexistent-2'])
   })
+
+  it('locks pantry rows in sorted order but returns results in the caller order', async () => {
+    // Two transactions that lock the same pantry rows in opposite orders
+    // deadlock (Postgres 40P01), so the loop inside the transaction sorts. The
+    // response stays positional, because a client zips `results` against the
+    // ids it sent (HON-632).
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
+    mockFindManyIngredient.mockResolvedValue([
+      { id: 'ing-a' },
+      { id: 'ing-b' },
+      { id: 'ing-c' },
+    ] as never)
+    mockFindManyPantry.mockResolvedValue([])
+
+    const mockUpsert = vi.fn().mockImplementation(({ where }) => {
+      const { ingredientId } = where.householdId_ingredientId
+      return Promise.resolve({
+        id: `pantry-${ingredientId}`,
+        quantity: null,
+        isStaple: false,
+        updatedAt: new Date('2024-01-15T10:00:00Z'),
+        ingredient: {
+          id: ingredientId,
+          name: ingredientId,
+          category: 'PRODUCE',
+          defaultUnit: 'g',
+        },
+      })
+    })
+
+    mockTransaction.mockImplementation(async (callback) =>
+      callback({ pantryItem: { upsert: mockUpsert } } as never),
+    )
+
+    // Deliberately reverse-sorted.
+    const response = await POST(createRequest({ ingredientIds: ['ing-c', 'ing-b', 'ing-a'] }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+
+    const lockOrder = mockUpsert.mock.calls.map(
+      ([args]) => args.where.householdId_ingredientId.ingredientId,
+    )
+    expect(lockOrder).toEqual(['ing-a', 'ing-b', 'ing-c'])
+
+    expect(data.results.map((r: { ingredientId: string }) => r.ingredientId)).toEqual([
+      'ing-c',
+      'ing-b',
+      'ing-a',
+    ])
+    // The rows really are paired with the ids, not just ordered like them.
+    expect(data.results[0].pantryItem.id).toBe('pantry-ing-c')
+    expect(data.results[2].pantryItem.id).toBe('pantry-ing-a')
+  })
+
+  it('upserts a repeated ingredientId once but keeps both of its result positions', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
+    mockFindManyIngredient.mockResolvedValue([{ id: 'ing-1' }, { id: 'ing-2' }] as never)
+    mockFindManyPantry.mockResolvedValue([])
+
+    const mockUpsert = vi.fn().mockImplementation(({ where }) => {
+      const { ingredientId } = where.householdId_ingredientId
+      return Promise.resolve({
+        id: `pantry-${ingredientId}`,
+        quantity: null,
+        isStaple: false,
+        updatedAt: new Date('2024-01-15T10:00:00Z'),
+        ingredient: {
+          id: ingredientId,
+          name: ingredientId,
+          category: 'PRODUCE',
+          defaultUnit: 'g',
+        },
+      })
+    })
+
+    mockTransaction.mockImplementation(async (callback) =>
+      callback({ pantryItem: { upsert: mockUpsert } } as never),
+    )
+
+    const response = await POST(createRequest({ ingredientIds: ['ing-2', 'ing-1', 'ing-2'] }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(mockUpsert).toHaveBeenCalledTimes(2)
+    expect(data.results.map((r: { ingredientId: string }) => r.ingredientId)).toEqual([
+      'ing-2',
+      'ing-1',
+      'ing-2',
+    ])
+  })
 })

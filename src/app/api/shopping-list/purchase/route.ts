@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { compareIngredientIds } from '@/lib/meal-planning/pantry'
 
 const purchaseSchema = z
   .object({
@@ -102,11 +103,28 @@ export async function POST(request: Request) {
 
     const existingMap = new Map(existingItems.map((item) => [item.ingredientId, item.id]))
 
-    // Upsert all items in a transaction
-    const results: PurchaseResult[] = await prisma.$transaction(async (tx) => {
-      const upsertResults: PurchaseResult[] = []
+    // Take the pantry row locks in a deterministic order. Every transaction
+    // that locks more than one pantry row has to lock them in the same order:
+    // two that lock the same rows in opposite orders end up each holding the
+    // row the other needs next and deadlock (Postgres 40P01), and the catch
+    // below turns the aborted one into a 500 that rolls the whole purchase
+    // back. The realistic pair is this route and the meal-completion deduction
+    // in PATCH /api/meal-plans/[id]/entries/[entryId] — one member at the shop
+    // marking items purchased while another marks a meal cooked — so both sort
+    // with the same comparator (HON-625, HON-632).
+    //
+    // Deduped as well as sorted: `purchaseSchema` accepts a repeated
+    // `ingredientId`, and upserting one row twice in a single transaction is
+    // pure waste. The response is unaffected, because it is rebuilt below over
+    // the caller's array — a repeated id still appears at both of its
+    // positions.
+    const lockOrderedIngredientIds = [...new Set(ingredientIds)].sort(compareIngredientIds)
 
-      for (const ingredientId of ingredientIds) {
+    // Upsert all items in a transaction
+    const upsertedByIngredientId = await prisma.$transaction(async (tx) => {
+      const upserted = new Map<string, PurchaseResult>()
+
+      for (const ingredientId of lockOrderedIngredientIds) {
         const existingId = existingMap.get(ingredientId)
         const action = existingId ? 'updated' : 'created'
 
@@ -142,7 +160,7 @@ export async function POST(request: Request) {
           },
         })
 
-        upsertResults.push({
+        upserted.set(ingredientId, {
           ingredientId,
           action,
           pantryItem: {
@@ -155,8 +173,19 @@ export async function POST(request: Request) {
         })
       }
 
-      return upsertResults
+      return upserted
     })
+
+    // Response order is the caller's, deliberately not the lock order above.
+    // `results` is positional — a client that sent N ids reads them back at the
+    // positions it sent them — whereas the sort exists only to decide which
+    // row this transaction locks first, which is nothing the caller can see.
+    // The non-null assertion holds because `lockOrderedIngredientIds` is a
+    // permutation of the distinct values of `ingredientIds`, so every id here
+    // was upserted above.
+    const results: PurchaseResult[] = ingredientIds.map((ingredientId) =>
+      upsertedByIngredientId.get(ingredientId)!,
+    )
 
     return NextResponse.json({ success: true, results }, { status: 200 })
   } catch (error) {

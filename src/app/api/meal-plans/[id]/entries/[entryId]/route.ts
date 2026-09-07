@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma'
 import { MealPlanEntryStatus, EntryRating } from '@/generated/prisma/enums'
 import { captureApiError } from '@/lib/errors'
 import { getEffectiveServings } from '@/lib/meal-planning/servings'
+import { compareIngredientIds } from '@/lib/meal-planning/pantry'
 
 /**
  * A meal swap that arrived too late: the entry is already `completed` (or has
@@ -340,13 +341,10 @@ export async function PATCH(
         // can list them in opposite orders — and two completions locking the
         // same rows in opposite orders deadlock (Postgres 40P01), which the
         // catch below turns into a 500 that rolls the whole completion back.
-        // Compared by code unit rather than `localeCompare`: the order only
-        // has to be *the same* in every process, and a locale-aware collation
-        // is not (Estonian sorts `z` before `t`, and cuids are base36), so the
-        // default-locale form would reintroduce the deadlock across runtimes.
-        .sort((a, b) =>
-          a.ingredientId < b.ingredientId ? -1 : a.ingredientId > b.ingredientId ? 1 : 0,
-        )
+        // The comparator is shared with the two purchase routes, which take
+        // the same locks from the other side; see its doc comment for why the
+        // comparison is by code unit and not `localeCompare` (HON-632).
+        .sort((a, b) => compareIngredientIds(a.ingredientId, b.ingredientId))
 
       const pantryDeducted = await prisma.$transaction(async (tx) => {
         // Claim the completion, and let the database decide who won. The

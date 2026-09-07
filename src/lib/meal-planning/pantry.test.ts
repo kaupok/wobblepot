@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getPantryIngredientNames } from './pantry'
+import { getPantryIngredientNames, compareIngredientIds } from './pantry'
 
 // Mock Prisma
 vi.mock('@/lib/prisma', () => ({
@@ -58,5 +58,36 @@ describe('getPantryIngredientNames', () => {
         ingredient: { name: 'asc' },
       },
     })
+  })
+})
+
+describe('compareIngredientIds', () => {
+  it('orders by code unit, not by locale', () => {
+    // The whole point of the comparator: `Z` is code unit 90 and `a` is 97, so
+    // code-unit order puts `ing-Zucchini` first. Every locale-aware collation
+    // does the opposite, which is why `localeCompare` must never be swapped in
+    // here — it resolves the runtime's default locale, so two processes would
+    // take the pantry row locks in different orders and deadlock.
+    expect(compareIngredientIds('ing-Zucchini', 'ing-apple')).toBeLessThan(0)
+    expect('ing-Zucchini'.localeCompare('ing-apple')).toBeGreaterThan(0)
+  })
+
+  it('returns 0 for equal ids', () => {
+    expect(compareIngredientIds('ing-1', 'ing-1')).toBe(0)
+  })
+
+  it('is antisymmetric', () => {
+    expect(compareIngredientIds('ing-a', 'ing-b')).toBeLessThan(0)
+    expect(compareIngredientIds('ing-b', 'ing-a')).toBeGreaterThan(0)
+  })
+
+  it('sorts an array into a deterministic order regardless of input order', () => {
+    const ids = ['ing-c', 'ing-A', 'ing-b', 'ing-10', 'ing-2']
+    const sorted = [...ids].sort(compareIngredientIds)
+
+    expect(sorted).toEqual(['ing-10', 'ing-2', 'ing-A', 'ing-b', 'ing-c'])
+    // Any starting order lands on the same result — that is the invariant the
+    // lock ordering depends on.
+    expect([...ids].reverse().sort(compareIngredientIds)).toEqual(sorted)
   })
 })
