@@ -29,6 +29,7 @@ function harnessEnv(overrides: Record<string, string> = {}): NodeJS.ProcessEnv {
     NEON_USER_PREFIX: '',
     NEON_BRANCH_CAP: '',
     ORCHESTRATOR_MAX_WORKERS: '',
+    ORCHESTRATOR_CAP_REQUEUE_COOLDOWN: '',
     ...overrides,
   }
 }
@@ -2486,7 +2487,11 @@ describe('orchestrator.sh', () => {
       expect(r.out).toContain('preview/<git-branch>')
       // A refusal that does not say what to run instead just moves the guessing.
       expect(r.out).toContain('Run with --max-workers 3')
-      expect(r.out).toContain(`set NEON_BRANCH_CAP to ${peak} or more`)
+      // `peak + 2`, not `peak`: raising the plan to exactly `peak` lands on the
+      // zero-spare WARN, which tells the operator to drop back to the ceiling
+      // they just paid to escape. Asserted by starting at the recommended value.
+      expect(r.out).toContain(`set NEON_BRANCH_CAP to ${peak + 2} or more`)
+      expect(budget(workers, String(peak + 2)).out).not.toContain('WARN')
     })
 
     it('names a raised cap rather than a workaround when no worker fits', () => {
@@ -2569,6 +2574,56 @@ describe('orchestrator.sh', () => {
       expect(r.out).toContain('Raise NEON_BRANCH_CAP to 7')
     })
 
+    it('does not enforce a branch budget on a checkout with no Neon', () => {
+      // Neon branching is opt-in: with NEON_API_KEY / NEON_PROJECT_ID unset,
+      // neon_create_branch_for_worktree returns 0 with "using shared DB" and no
+      // branch is ever created. Refusing `--max-workers 6` there would block a
+      // working configuration over a resource it does not consume.
+      const out = stripTimestamps(
+        runHarnessEnv({ HARNESS_NEON_DISABLED: '1' }, 'branch-budget', '6', ''),
+      )
+
+      expect(out).toContain('Neon branching disabled')
+      expect(out).toContain('branch budget not enforced')
+      expect(out).toContain('EXIT:0')
+    })
+
+    it('still refuses a nonsense ceiling with Neon disabled', () => {
+      // The ceiling validation is not about Neon — a non-numeric MAX_WORKERS
+      // breaks the poll loop's own comparison either way, so the short-circuit
+      // must sit after it.
+      const out = stripTimestamps(
+        runHarnessEnv({ HARNESS_NEON_DISABLED: '1' }, 'branch-budget', 'abc', ''),
+      )
+
+      expect(out).toContain("max_workers must be a positive integer, got 'abc'")
+      expect(out).toContain('EXIT:1')
+    })
+
+    it.each(['30m', 'abc', '-1', '1.5'])('refuses the cooldown %j at startup', (value) => {
+      // Its use site is the middle of requeue_to_todo: `$(( now + COOLDOWN ))`
+      // on "30m" is a fatal arithmetic error under `set -euo pipefail`, and it
+      // unwinds main() AFTER the Linear comment has been posted and the issue
+      // moved to Todo — leaving a stale status file and no log() trace of why.
+      const out = stripTimestamps(
+        runHarnessEnv({ ORCHESTRATOR_CAP_REQUEUE_COOLDOWN: value }, 'branch-budget', '', ''),
+      )
+
+      expect(out).toContain(
+        `ORCHESTRATOR_CAP_REQUEUE_COOLDOWN must be a whole number of seconds, got '${value}'`,
+      )
+      expect(out).toContain('EXIT:1')
+    })
+
+    it('accepts the default cooldown and a numeric override', () => {
+      expect(budget().exit).toBe(0)
+      expect(
+        stripTimestamps(
+          runHarnessEnv({ ORCHESTRATOR_CAP_REQUEUE_COOLDOWN: '60' }, 'branch-budget', '', ''),
+        ),
+      ).toContain('EXIT:0')
+    })
+
     it('runs before the Linear round trips, not after them', () => {
       // `cmd_start` declares success after `sleep 1` and only tails the logs
       // when the process is already dead at that mark. validate_environment and
@@ -2616,6 +2671,9 @@ describe('orchestrator.sh', () => {
       expect(fs.readFileSync(path.join(scriptsDir, '..', '.env.example'), 'utf8')).toContain(
         'NEON_BRANCH_CAP=10',
       )
+      expect(
+        fs.readFileSync(path.join(scriptsDir, '..', 'docs', 'PARALLEL_WORKFLOW.md'), 'utf8'),
+      ).toMatch(/`ORCHESTRATOR_CAP_REQUEUE_COOLDOWN` +\| +1800 /)
     })
   })
 

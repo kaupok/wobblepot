@@ -36,7 +36,9 @@
 #     ceiling the Neon plan cannot fund. Either argument may be empty to keep the
 #     value orchestrator.sh resolved at source time, so the shipped defaults and
 #     the NEON_BRANCH_CAP override are both reachable. Prints the ERROR/WARN/INFO
-#     lines, then EXIT:<status>.
+#     lines, then EXIT:<status>. Neon is configured with placeholder credentials
+#     so the budget is actually enforced; HARNESS_NEON_DISABLED=1 (env) unsets
+#     them to exercise the Neon-less checkout, where there is no budget to spend.
 #
 #   pr-for-branch <gh-json> | ci-state <gh-json>
 #     Exercises the REAL helper against fixture JSON, with `gh` itself stubbed.
@@ -239,6 +241,17 @@ case "$MODE" in
   branch-budget)
     [ -n "$A1" ] && MAX_WORKERS="$A1"
     [ -n "$A2" ] && NEON_BRANCH_CAP="$A2"
+    # The budget only applies when Neon branching is configured, so the gate
+    # short-circuits without these. Nonsense values on purpose: nothing in this
+    # mode touches the network, and if a code path ever escaped it would fail
+    # auth rather than reach the real project. HARNESS_NEON_DISABLED=1 clears
+    # them, which is the Neon-less checkout the short-circuit exists for.
+    if [ "${HARNESS_NEON_DISABLED:-0}" = 1 ]; then
+      unset NEON_API_KEY NEON_PROJECT_ID
+    else
+      NEON_API_KEY="harness-not-a-key"
+      NEON_PROJECT_ID="harness-not-a-project"
+    fi
     trap 'rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE"' EXIT
     # `|| status=$?` rather than `set +e`: errexit is dynamic, and clearing it
     # would change the code under test.

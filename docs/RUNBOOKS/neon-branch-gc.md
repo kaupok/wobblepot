@@ -16,7 +16,7 @@ Owner: [`.github/workflows/neon-cleanup.yml`](../../.github/workflows/neon-clean
 
 ## `preview/*` is not ours — and is deliberately outside both reapers
 
-Every branch above is one the tooling created. `preview/<git-branch>` is not: the **Vercel–Neon integration** creates it when a PR opens, and holds it for the life of that PR. Nothing in this repo creates, renames or deletes it. The name appears in exactly one branch-name _decision_ — `is_protected_neon_branch`'s hard-refuse list in `scripts/worktree-claude.sh`, which exists to stop the tooling touching it — and everywhere else only in diagnostics and comments explaining that it is not ours.
+Every branch above is one the tooling created. `preview/<git-branch>` is not: the **Vercel–Neon integration** creates it when a PR opens, and holds it for the life of that PR. Nothing in this repo creates, renames or deletes it; every other mention of the name is a diagnostic or a comment explaining that it is not ours. (`is_protected_neon_branch` in `scripts/worktree-claude.sh` refuses the bare name `preview`, not the `preview/<git-branch>` shape — it is a backstop against provisioning over a reserved name, and is not what keeps the reapers off these branches. The two filters below are.)
 
 Neither reaper can reach it, and both are right not to:
 

@@ -2338,6 +2338,29 @@ check_branch_budget() {
     log ERROR "max_workers must be a positive integer, got '$MAX_WORKERS'"
     return 1
   fi
+
+  # Validated HERE and not at its use site, because its use site is the middle
+  # of requeue_to_todo: `$(( now + CAP_REQUEUE_COOLDOWN ))` on a value like
+  # "30m" is a fatal arithmetic error under `set -euo pipefail`, and it would
+  # unwind main() AFTER the Linear comment had been posted and the issue moved
+  # to Todo — leaving a stale status file and no log() trace of why. Startup is
+  # the only place that can refuse it before it costs anything.
+  if ! [[ "$CAP_REQUEUE_COOLDOWN" =~ ^[0-9]+$ ]]; then
+    log ERROR "ORCHESTRATOR_CAP_REQUEUE_COOLDOWN must be a whole number of seconds, got '$CAP_REQUEUE_COOLDOWN'"
+    return 1
+  fi
+
+  # Everything below is about Neon branches, and Neon branching is OPTIONAL:
+  # with NEON_API_KEY / NEON_PROJECT_ID unset, neon_create_branch_for_worktree
+  # returns 0 with "using shared DB" and no branch is ever created. Enforcing a
+  # branch budget on a checkout that consumes no branches would refuse a
+  # perfectly good `--max-workers 6` over a resource that does not exist. Same
+  # condition as neon_enabled in worktree-claude.sh — keep the two in step.
+  if [ -z "${NEON_API_KEY:-}" ] || [ -z "${NEON_PROJECT_ID:-}" ]; then
+    log INFO "Neon branching disabled (NEON_API_KEY/NEON_PROJECT_ID unset) — branch budget not enforced"
+    return 0
+  fi
+
   if ! [[ "$NEON_BRANCH_CAP" =~ ^[0-9]+$ ]] || [ "$NEON_BRANCH_CAP" -lt 1 ]; then
     log ERROR "NEON_BRANCH_CAP must be a positive integer, got '$NEON_BRANCH_CAP'"
     return 1
@@ -2355,7 +2378,11 @@ check_branch_budget() {
     if [ "$fits" -lt 1 ]; then
       log ERROR "  No worker fits this cap. Raise NEON_BRANCH_CAP to at least $(( 2 + NEON_PERMANENT_BRANCHES )) (after raising the Neon plan)."
     else
-      log ERROR "  Run with --max-workers $fits, or raise the Neon plan and set NEON_BRANCH_CAP to $peak or more."
+      # `peak + 2`, not `peak`: at exactly `peak` the very next startup takes the
+      # zero-spare WARN branch below and tells the operator to drop back to the
+      # ceiling they just raised their plan to escape. The +2 is the same
+      # stranded-run allowance that branch already names.
+      log ERROR "  Run with --max-workers $fits, or raise the Neon plan and set NEON_BRANCH_CAP to $(( peak + 2 )) or more."
     fi
     return 1
   fi
