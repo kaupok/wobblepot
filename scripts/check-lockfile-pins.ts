@@ -45,13 +45,32 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
  * cleared it — an assertion nobody can explain is an assertion nobody can
  * safely update.
  *
- * `package` accepts a `@scope/*` glob. `version` ending in `.` matches a whole
- * release line by prefix (`4.0.` covers 4.0.0 through 4.0.18).
+ * **Prefer `minimum`.** Advisories publish a *range* and a patched floor, so a
+ * pin that names one point on that range leaves its neighbours green: banning
+ * `uuid@10.0.0` alone does nothing about `uuid@9.0.1` or `uuid@11.0.0`, which
+ * carry the identical advisory. `minimum` states the published floor instead,
+ * so it covers the whole range and does not go stale when a patch ships.
+ * `banned` is for a range that really is a single version (GHSA-w5hq's
+ * `>= 12.0.0, < 12.0.1`) or for a whole release line via the `4.0.` prefix
+ * form.
+ *
+ * `package` accepts a `@scope/*` glob. A `banned` `version` ending in `.`
+ * matches a whole release line by prefix (`4.0.` covers 4.0.0 through 4.0.18).
+ *
+ * Ranges below are from `gh api '/advisories?ecosystem=npm&affects=<pkg>'`,
+ * checked 2026-09-07 — not from memory. Re-check them when editing an entry.
  */
 export type Pin =
   | {
-      /** Fail if this exact version (or version line) resolves at all. */
+      /** Fail if this exact version (or release line) resolves at all. */
       kind: 'banned'
+      package: string
+      version: string
+      why: string
+    }
+  | {
+      /** Fail if any resolved version sorts below this patched floor. */
+      kind: 'minimum'
       package: string
       version: string
       why: string
@@ -65,27 +84,51 @@ export type Pin =
 
 export const PINS: Pin[] = [
   {
-    kind: 'single',
+    kind: 'minimum',
     package: 'defu',
-    why: 'HON-588 cleared defu@6.1.4 (high — prototype pollution via __proto__, on the better-auth > defu production auth path) by deduping onto 6.1.7. better-auth@1.7.2 still declares "defu: ^6.1.4", so a second resolved version means the dedupe came undone. Fix: pnpm update defu.',
+    version: '6.1.5',
+    why: 'GHSA-737v-mqg7-c878 (high — prototype pollution via __proto__), affected <= 6.1.4, patched 6.1.5. Reached on the better-auth > defu production auth path. HON-588 cleared it by deduping onto 6.1.7, and better-auth@1.7.2 still declares "defu: ^6.1.4", so 6.1.4 stays a legal resolution. The floor, not the single banned version, is what covers the whole affected range.',
   },
   {
-    kind: 'banned',
+    kind: 'single',
     package: 'defu',
-    version: '6.1.4',
-    why: 'High — prototype pollution via __proto__ on the better-auth > defu production auth path, cleared in HON-588. Banned outright, not just as a duplicate, so it cannot come back as the sole resolution.',
+    why: 'HON-588 fixed defu by lockfile dedupe, so a second resolved version means the dedupe came undone even when both versions are patched — the condition that let the advisory in once. Fix: pnpm update defu. This is a hygiene assertion, not an advisory one; the floor above is what covers the advisory.',
+  },
+  {
+    kind: 'minimum',
+    package: 'uuid',
+    version: '11.1.1',
+    why: "GHSA-w5hq-g745-h8pq (moderate — missing buffer bounds check in v3/v5/v6 when `buf` is provided), affected < 11.1.1, patched 11.1.1. Reached via resend > svix > uuid; HON-588 cleared uuid@10.0.0 by bumping resend to 6.25.0, which pulls a newer svix. svix's uuid range is not ours to control, so the floor covers 9.x and 11.0.x too — no uuid entry resolves at all today.",
   },
   {
     kind: 'banned',
     package: 'uuid',
-    version: '10.0.0',
-    why: 'Moderate — missing buffer bounds check, reached via resend > svix > uuid. Cleared in HON-588 by bumping resend to 6.25.0, which pulls a newer svix. No uuid entry is in the lockfile at all today.',
+    version: '12.0.0',
+    why: 'GHSA-w5hq-g745-h8pq again, affected >= 12.0.0 < 12.0.1, patched 12.0.1. That range is the single version 12.0.0, which sorts above the 11.1.1 floor above and so needs its own entry.',
+  },
+  {
+    kind: 'banned',
+    package: 'uuid',
+    version: '13.0.0',
+    why: 'GHSA-w5hq-g745-h8pq again, affected >= 13.0.0 < 13.0.1, patched 13.0.1. Same shape as the 12.0.0 entry — a one-version range above the floor.',
+  },
+  {
+    kind: 'minimum',
+    package: 'vitest',
+    version: '4.1.0',
+    why: "GHSA-5xrq-8626-4rwp (critical — Vitest UI server allows arbitrary file read and execute), affected >= 4.0.0 < 4.1.0, patched 4.1.0. Filed against the `vitest` package itself, which the @vitest/* glob below does NOT match, so this entry is what actually asserts HON-588's 4.0.18 -> 4.1.11 move. The floor also catches a downgrade to the affected 3.x and earlier lines.",
+  },
+  {
+    kind: 'minimum',
+    package: '@vitest/browser',
+    version: '4.1.10',
+    why: 'The highest patched floor of the three Browser Mode criticals: GHSA-2h32-95rg-cppp (otelCarrier query param served as inline script, < 4.1.6), GHSA-g8mr-85jm-7xhm (exposed Browser Mode API can proxy CDP and overwrite files, <= 4.1.7) and GHSA-p63j-vcc4-9vmv (provider commands bypass file-access restrictions, < 4.1.10). Named explicitly rather than via the @vitest/* glob, because a glob floor would fire on @vitest/expect@3.2.4, which legitimately resolves from a separate transitive line. @vitest/browser is transitive (via @vitest/browser-playwright), so nothing in package.json pins it.',
   },
   {
     kind: 'banned',
     package: '@vitest/*',
     version: '4.0.',
-    why: 'The vitest 4.0.x line carried four criticals (UI server arbitrary file read/execute; Browser Mode otelCarrier inline script; Browser Mode API CDP proxy / file overwrite; provider commands bypass file-access restrictions), cleared in HON-588 by pinning the toolchain to 4.1.11. Only the 4.0.x line is banned: @vitest/expect@3.2.4 and friends legitimately resolve from a separate transitive line. HON-640 raises this floor when vitest 5 lands — update the entry, do not delete it.',
+    why: 'Backstop for the rest of the scoped toolchain: HON-588 moved the whole vitest 4.0.x line to 4.1.11, so any scoped @vitest package back on 4.0.x means the toolchain was downgraded even where no advisory names that package. Only the 4.0.x line is banned — @vitest/expect@3.2.4 and friends legitimately resolve from a separate transitive line. HON-640 raises the vitest and @vitest/browser floors above when vitest 5 lands; update those entries, do not delete them.',
   },
 ]
 
@@ -101,8 +144,8 @@ export const PINS: Pin[] = [
  * A resolution can also appear only inside a peer suffix — e.g.
  * `better-auth@1.7.2(...)(vitest@4.1.11)` — and a guard that can be evaded by
  * where the string happens to land is not a guard. Over-matching is harmless
- * here: the pin list is an explicit allow-nothing list of four packages, so a
- * token that is not one of them is never consulted.
+ * here: the pin list names a handful of packages explicitly, so a token that is
+ * not one of them is never consulted.
  *
  * `specifier: ^6.1.4` lines carry no `name@version` token and are ignored for
  * free — the version must be preceded by `@` and a package name.
@@ -165,6 +208,30 @@ export function matchesVersion(pattern: string, version: string): boolean {
   return pattern.endsWith('.') ? version.startsWith(pattern) : version === pattern
 }
 
+/**
+ * Numeric compare on the major.minor.patch core, so a `minimum` pin can state
+ * the floor an advisory actually publishes rather than one point on its range.
+ *
+ * String comparison is not an option here: `'4.1.9' > '4.1.10'` lexically,
+ * which is exactly the boundary the @vitest/browser floor sits on. Build
+ * metadata is ignored and a prerelease sorts below its release, per semver.
+ */
+export function compareVersions(a: string, b: string): number {
+  const core = (v: string): number[] =>
+    (v.split('-')[0] ?? '').split('.').map((n) => Number.parseInt(n, 10) || 0)
+
+  const left = core(a)
+  const right = core(b)
+  for (let i = 0; i < 3; i++) {
+    const delta = (left[i] ?? 0) - (right[i] ?? 0)
+    if (delta !== 0) return delta
+  }
+
+  // 4.1.10-beta.1 < 4.1.10 — a prerelease of the floor is still below it.
+  const isRelease = (v: string) => (v.includes('-') ? 0 : 1)
+  return isRelease(a) - isRelease(b)
+}
+
 export interface Violation {
   pin: Pin
   /** Human-readable statement of what was found, without the `why`. */
@@ -188,6 +255,18 @@ export function findViolations(
             pin,
             detail: `${name} resolves to ${resolved.size} versions: ${listed}`,
           })
+        }
+        continue
+      }
+
+      if (pin.kind === 'minimum') {
+        for (const [version, line] of resolved) {
+          if (compareVersions(version, pin.version) < 0) {
+            violations.push({
+              pin,
+              detail: `${name}@${version} (line ${line}) is below the patched floor ${pin.version}`,
+            })
+          }
         }
         continue
       }
@@ -259,11 +338,13 @@ function main(): void {
     console.error('')
   }
   console.error(
-    'These are advisories that were cleared by hand and have regressed. Fix by\n' +
-      're-deduping the offending package (`pnpm update <package>`) or by upgrading\n' +
-      'the dependency that pulls it. Do NOT add a `pnpm.overrides` entry — HON-588\n' +
-      'rejected that deliberately: in-range resolution succeeds, and an override\n' +
-      'hides the underlying spec instead of detecting drift.\n' +
+    'Each line above states what resolved and why that resolution is pinned — read\n' +
+      'the reason before deciding what to do, since not every pin is an advisory\n' +
+      '(the defu single-version rule is a dedupe-hygiene check). Fix by re-deduping\n' +
+      'the offending package (`pnpm update <package>`) or by upgrading the dependency\n' +
+      'that pulls it. Do NOT add a `pnpm.overrides` entry — HON-588 rejected that\n' +
+      'deliberately: in-range resolution succeeds, and an override hides the\n' +
+      'underlying spec instead of detecting drift.\n' +
       'See scripts/check-lockfile-pins.ts for the pin list and its rationale.\n',
   )
   process.exitCode = 1

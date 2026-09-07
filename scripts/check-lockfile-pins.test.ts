@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
   checkLockfile,
+  compareVersions,
   findViolations,
   matchesPackage,
   matchesVersion,
@@ -132,9 +133,35 @@ describe('matchesPackage / matchesVersion', () => {
   })
 })
 
+describe('compareVersions', () => {
+  it('orders numerically, not lexically', () => {
+    // The boundary the @vitest/browser floor sits on: '4.1.9' > '4.1.10' as
+    // strings, which would make the floor pass exactly the version it exists
+    // to reject.
+    expect(compareVersions('4.1.9', '4.1.10')).toBeLessThan(0)
+    expect(compareVersions('4.1.11', '4.1.10')).toBeGreaterThan(0)
+    expect(compareVersions('4.1.10', '4.1.10')).toBe(0)
+  })
+
+  it('orders across majors and minors', () => {
+    expect(compareVersions('3.2.4', '4.1.0')).toBeLessThan(0)
+    expect(compareVersions('5.0.0', '4.1.10')).toBeGreaterThan(0)
+    expect(compareVersions('6.1.4', '6.1.5')).toBeLessThan(0)
+  })
+
+  it('sorts a prerelease below its release', () => {
+    expect(compareVersions('4.1.10-beta.1', '4.1.10')).toBeLessThan(0)
+    expect(compareVersions('5.0.0-beta.3', '4.1.10')).toBeGreaterThan(0)
+  })
+})
+
 describe('findViolations', () => {
   const violate = (lockfile: string, pins?: Pin[]) =>
     findViolations(parseLockfileVersions(lockfile), pins)
+  const details = (lockfile: string) =>
+    violate(lockfile)
+      .map((v) => v.detail)
+      .join('\n')
 
   it('fires when defu resolves to more than one version', () => {
     const found = violate(REGRESSED_DEFU_SNIPPET)
@@ -143,28 +170,53 @@ describe('findViolations', () => {
 
   it('fires on defu@6.1.4 even when it is the only resolution', () => {
     const found = violate('  defu@6.1.4:\n')
+    // The floor, not the duplicate rule — a sole bad version must still be caught.
     expect(found).toHaveLength(1)
+    expect(found[0]?.pin.kind).toBe('minimum')
     expect(found[0]?.detail).toContain('defu@6.1.4')
-    // Not the duplicate rule — a sole bad version must still be caught.
-    expect(found[0]?.pin.kind).toBe('banned')
   })
 
-  it('fires on uuid@10.0.0', () => {
-    const found = violate('  uuid@10.0.0:\n')
-    expect(found.map((v) => v.detail).join()).toContain('uuid@10.0.0')
+  // The advisory ranges below are from
+  // `gh api '/advisories?ecosystem=npm&affects=<pkg>'`, checked 2026-09-07.
+  // Each of these passed the point-version pins this file originally shipped.
+  it('fires across the whole advisory range, not just the version we happened to clear', () => {
+    // GHSA-737v-mqg7-c878 affects defu <= 6.1.4, so 6.1.3 carries it too.
+    expect(details('  defu@6.1.3:\n')).toContain('defu@6.1.3')
+    // GHSA-w5hq-g745-h8pq affects uuid < 11.1.1 — 9.0.1 and 11.0.0, not only 10.0.0.
+    expect(details('  uuid@10.0.0:\n')).toContain('uuid@10.0.0')
+    expect(details('  uuid@9.0.1:\n')).toContain('uuid@9.0.1')
+    expect(details('  uuid@11.0.0:\n')).toContain('uuid@11.0.0')
+    // ...and its two one-version ranges above that floor.
+    expect(details('  uuid@12.0.0:\n')).toContain('uuid@12.0.0')
+    expect(details('  uuid@13.0.0:\n')).toContain('uuid@13.0.0')
+  })
+
+  it('fires on vitest itself, which the @vitest/* glob cannot match', () => {
+    // GHSA-5xrq-8626-4rwp (critical, vitest >= 4.0.0 < 4.1.0) is filed against
+    // the bare `vitest` package — the exact resolution HON-588 moved off.
+    expect(details('  vitest@4.0.18:\n')).toContain('vitest@4.0.18')
+  })
+
+  it('fires on a @vitest/browser inside 4.1.x but below the patched floor', () => {
+    // GHSA-p63j-vcc4-9vmv is patched at 4.1.10, so 4.1.5 is affected despite
+    // not being on the 4.0.x line the release-line ban covers.
+    expect(details("  '@vitest/browser@4.1.5':\n")).toContain('@vitest/browser@4.1.5')
+    expect(details("  '@vitest/browser@4.1.9':\n")).toContain('@vitest/browser@4.1.9')
   })
 
   it('fires on any @vitest package still on the 4.0.x line', () => {
-    const found = violate("  '@vitest/runner@4.0.18':\n  '@vitest/browser@4.0.18':\n")
-    expect(found).toHaveLength(2)
-    expect(found.map((v) => v.detail).join()).toContain('@vitest/runner@4.0.18')
+    const found = violate("  '@vitest/runner@4.0.18':\n")
+    expect(found).toHaveLength(1)
+    expect(found[0]?.detail).toContain('@vitest/runner@4.0.18')
   })
 
   it('stays silent on the versions that are actually on main today', () => {
     // @vitest/expect@3.2.4 resolves from a separate transitive line and is
-    // present on main — a "must be 4.1.x" rule would turn the branch red.
+    // present on main — a glob floor would turn the branch red.
     expect(
-      violate("  defu@6.1.7:\n  '@vitest/expect@3.2.4':\n  '@vitest/browser@4.1.11':\n"),
+      violate(
+        "  defu@6.1.7:\n  vitest@4.1.11:\n  '@vitest/expect@3.2.4':\n  '@vitest/browser@4.1.11':\n",
+      ),
     ).toEqual([])
   })
 

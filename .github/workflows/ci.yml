@@ -134,37 +134,20 @@ jobs:
       - name: Run type check
         run: pnpm type-check
 
-      # ==========================================
-      # Dependency advisory gate (HON-595)
-      # ==========================================
-      # Threshold: critical only. This is a deliberate, settled choice — do not
-      # re-litigate it in review without new numbers.
+      # Dependency advisory gate, half 1 of 2 (HON-595).
       #
-      # `pnpm audit` bare reports 33 high / 21 moderate / 4 low on main
-      # (2026-09-07). Every one of those is transitive and dev/build-time, with
-      # no fix available short of a dependency major, so gating on `high` would
-      # turn every PR red on day one and the gate would be disabled within a
-      # week. `critical` has 0 advisories today, so this step starts green and
-      # stays honest: a new critical is a real, actionable regression.
-      #
-      # The option not taken is a full `pnpm audit` plus an allowlist file. That
-      # is the right end state, but an allowlist with 33 entries on day one is a
-      # rubber stamp, so it is deferred until the transitive high count is low
-      # enough to review entry by entry.
-      #
-      # This step alone does NOT catch the advisories HON-588 cleared by hand —
-      # `defu` is a high, not a critical. `pnpm lockfile:check` below is the
-      # half that covers those.
-      - name: Audit dependencies (critical)
-        run: pnpm audit --audit-level critical
-
       # HON-588 cleared defu@6.1.4 (high — prototype pollution on the
       # better-auth > defu production auth path) purely by lockfile dedupe onto
       # 6.1.7. No spec changed: better-auth@1.7.2 still declares `^6.1.4`, so a
-      # lockfile regeneration can silently put the advisory back and the audit
-      # step above would not notice at any threshold we can afford to gate on.
-      # This asserts those specific resolutions directly. The pin list, with a
-      # reason per entry, lives in scripts/check-lockfile-pins.ts.
+      # lockfile regeneration can silently put the advisory back, and `pnpm
+      # audit` would not notice at any threshold we can afford to gate on (see
+      # the second half at the end of this job). This asserts those specific
+      # resolutions directly. The pin list, with an advisory range and a reason
+      # per entry, lives in scripts/check-lockfile-pins.ts.
+      #
+      # Runs here, in the cheap static block, because it is a local text scan of
+      # pnpm-lock.yaml — no network, no DB, no browser, so it cannot flake and
+      # costs ~2s.
       - name: Check lockfile pins
         run: pnpm lockfile:check
 
@@ -257,6 +240,40 @@ jobs:
             test-results/
           retention-days: 7
           if-no-files-found: ignore
+
+      # ==========================================
+      # Dependency advisory gate, half 2 of 2 (HON-595)
+      # ==========================================
+      # Threshold: critical only. This is a deliberate, settled choice — do not
+      # re-litigate it in review without new numbers.
+      #
+      # `pnpm audit` bare reports 33 high / 21 moderate / 4 low on main
+      # (2026-09-07). Every one of those is transitive and dev/build-time, with
+      # no fix available short of a dependency major, so gating on `high` would
+      # turn every PR red on day one and the gate would be disabled within a
+      # week. `critical` has 0 advisories today, so this step starts green and
+      # stays honest: a new critical is a real, actionable regression.
+      #
+      # The option not taken is a full `pnpm audit` plus an allowlist file. That
+      # is the right end state, but an allowlist with 33 entries on day one is a
+      # rubber stamp, so it is deferred until the transitive high count is low
+      # enough to review entry by entry.
+      #
+      # Placed last, and deliberately NOT next to `Check lockfile pins` above:
+      # this is the only step in the job that talks to the npm registry, and
+      # `pnpm audit` exits 1 on a transport failure exactly as it does on a
+      # finding (~70s of retries first). Earlier in the job a registry blip
+      # would red the run before the unit tests, the seed validation, the
+      # Storybook a11y gate and the 35-minute E2E tier ever reported, costing
+      # the PR every other signal for a reason unrelated to its diff. Here it
+      # can only ever be the last thing to fail.
+      #
+      # `!cancelled()` rather than the default: an earlier failing step should
+      # not hide a newly published critical, and a manual job cancel should not
+      # spend 70s on retries.
+      - name: Audit dependencies (critical)
+        if: ${{ !cancelled() }}
+        run: pnpm audit --audit-level critical
 
   # ==========================================
   # Vercel env-var drift audit (HON-550)
