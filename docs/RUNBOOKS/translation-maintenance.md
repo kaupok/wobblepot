@@ -109,15 +109,20 @@ WHERE i.name ILIKE '%chickpea%'
 ```
 
 ```sql
--- Meal: same shape.
-SELECT t.id, t."mealId", t.locale, t.name AS et_name, m.name AS en_name
+-- Meal: same shape. Select all three editable columns, not just the one you
+-- came to fix — see the note below.
+SELECT t.id, t."mealId", t.locale,
+       t.name, t.description, t."preparationNotes",
+       m.name AS en_name
 FROM meal_translation t
 JOIN meal m ON m.id = t."mealId"
 WHERE m.name ILIKE '%shakshuka%'
   AND t.locale = 'et';
 ```
 
-Copy the returned `ingredientId` / `mealId` and the **current** `name` into a scratch note now. The current value is your rollback; there is no other copy of it once the `UPDATE` runs.
+Copy the returned `ingredientId` / `mealId` and **every column you are about to write** into a scratch note now. Those values are your rollback; there is no other copy of them once the `UPDATE` runs.
+
+> **Record every column you intend to `SET`, not just the obvious one.** A single `UPDATE` on `meal_translation` may touch `name`, `description`, and `preparationNotes` together (step 2 does exactly that). A before-value you did not select is a column you cannot roll back — the query above returns all three for that reason.
 
 If the query returns no rows, there is no translation to fix — the surface is falling back to English because the overlay was never seeded. That is a seeding gap, not a maintenance edit.
 
@@ -148,7 +153,7 @@ Both halves of the `WHERE` are load-bearing. `"ingredientId"` alone would rewrit
 
 - `UPDATE 1` — done.
 - `UPDATE 0` — the `WHERE` matched nothing. Wrong id, or wrong locale. Go back to step 1; do not loosen the `WHERE` to make it match.
-- `UPDATE 2` or more — **stop.** With the unique on `("ingredientId", locale)` this should be unreachable; if you see it, your `WHERE` lost a clause. [Roll back](#one-row) using the value from step 1 and re-read the statement before trying again.
+- `UPDATE 2` or more — **stop, and do not "fix it" with another `UPDATE`.** The unique on `("ingredientId", locale)` makes this unreachable with both keys present, so seeing it means your `WHERE` lost the `locale` clause and you have just overwritten every locale's overlay for that row. Step 1 recorded one before-value; the others are gone. The [one-row rollback](#one-row) repairs the row you were looking at and silently leaves the rest wrong — which is worse than the original typo, because nothing now points at the damage. Treat it as an incident: go to [`database-recovery.md`](database-recovery.md) for PITR **immediately**, inside the 24-hour window, and log what happened in the [change log](#change-log) either way.
 
 Inside an explicit transaction, `BEGIN; … ; ROLLBACK;` lets you see the count before committing. Worth it on production.
 
@@ -196,12 +201,14 @@ Add a second change-log line for the revert. Do not edit or delete the original 
 
 If Estonian itself has to come off — a systemic quality problem, not a typo — there is **no runtime flag**. [HON-549](https://linear.app/honkadori/issue/HON-549) retired `FEATURE_PUBLIC_LOCALES_FULL`, so pulling a locale is a code change plus a deploy. Two levers, different blast radii:
 
-**Hide it from the selector** (`src/lib/i18n/locales.ts:23`). New households can no longer choose Estonian, and it is no longer auto-resolved from `Accept-Language` during onboarding. Households already set to `et` keep rendering Estonian — `KNOWN_LOCALES` still accepts it:
+**Hide it from the selector** (`src/lib/i18n/locales.ts:23`). Households already set to `et` keep rendering Estonian — `KNOWN_LOCALES` still accepts it:
 
 ```diff
 -export const PUBLIC_LOCALES = ['en', 'et'] as const
 +export const PUBLIC_LOCALES = ['en'] as const
 ```
+
+**This lever is weaker than it looks — it is not sufficient on its own.** It removes the locale from the settings selector, and nothing else. Onboarding still auto-resolves Estonian from `Accept-Language` and persists it: `resolveLocale` gates on `isKnownLocale`, and `POST /api/households` writes the result without clamping it to `PUBLIC_LOCALES` (`src/app/api/households/route.ts:50`, whose comment says a clamp is unneeded _because_ the two sets are equal today — which is exactly the assumption this edit breaks). `isPublicLocale` has no non-test callers. So an Estonian-preferring browser still lands in Estonian after this change. If the goal is "no new households get Estonian", you need `KNOWN_LOCALES` below, or a clamp added to that route first.
 
 **Revert every household to English chrome** (`src/lib/i18n/locales.ts:15`) — the rollback lever named in HON-499's principles:
 
