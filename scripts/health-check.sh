@@ -46,14 +46,21 @@ echo ""
 if command -v node &> /dev/null; then
   NODE_VERSION=$(node --version)
   success "Node.js installed: $NODE_VERSION"
-  # Keep the floor in step with `engines.node` in package.json. `.npmrc` sets
-  # engine-strict=true, so a Node below it doesn't warn — `pnpm install` dies
-  # with ERR_PNPM_UNSUPPORTED_ENGINE. HON-639 raised it to 22.22.2 for jsdom 30
-  # (^22.22.2) and lint-staged 17 (>=22.22.1), which made a plain `^v22.` match
-  # too loose: 22.13 through 22.22.1 pass it and then fail to install.
-  NODE_FLOOR=22.22.2
+  # Read the floor out of `engines.node` rather than restating it. `.npmrc` sets
+  # engine-strict=true, so a Node below that floor doesn't warn — `pnpm install`
+  # dies with ERR_PNPM_UNSUPPORTED_ENGINE, which is what this check exists to
+  # pre-empt. HON-639 raised the floor to 22.22.2 for jsdom 30 (^22.22.2) and
+  # lint-staged 17 (>=22.22.1), which made a plain `^v22.` match too loose:
+  # 22.13 through 22.22.1 satisfy it and then fail to install. A hand-copied
+  # constant here would just reintroduce that gap at the next bump, silently.
+  # Resolved from this script's own location so it doesn't depend on the cwd.
+  REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  NODE_FLOOR=$(node -p \
+    "require('$REPO_ROOT/package.json').engines.node.match(/[0-9]+\.[0-9]+\.[0-9]+/)[0]" 2>/dev/null || true)
   if [[ ! "$NODE_VERSION" =~ ^v22\. ]]; then
     warning "Expected Node.js v22.x, got $NODE_VERSION"
+  elif [ -z "$NODE_FLOOR" ]; then
+    warning "Could not read engines.node from package.json — Node floor not verified"
   elif [ "$(printf '%s\n%s\n' "$NODE_FLOOR" "${NODE_VERSION#v}" | sort -V | head -1)" != "$NODE_FLOOR" ]; then
     warning "Node.js $NODE_VERSION is below the v$NODE_FLOOR floor in package.json engines — pnpm install will fail under engine-strict"
   fi

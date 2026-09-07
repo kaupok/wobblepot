@@ -299,6 +299,12 @@ that when touching the MSW setup, or every story on Pages fails in the loader.
 That setup function is also why `mswLoader` is called with an argument.
 `msw-storybook-addon` 3 removed the `initialize()` entry point that used to
 hold these options; with no setup function the addon starts a worker on its own
-defaults and the sub-path URL is silently lost. Registration in `main.ts`
-(`addons: ['msw-storybook-addon']`) is a v3 requirement too — v2 needed only the
-`preview.tsx` call.
+defaults and the sub-path URL is silently lost.
+
+`mswLoader(setupMswWorker)` in `preview.tsx` is the load-bearing line, and the
+one to keep. The `addons: ['msw-storybook-addon']` entry in `main.ts` is there
+because the upstream v3 docs prescribe it, but on the CSF 3.0 path it wires
+nothing up on its own — `msw-storybook-addon/preview` exports only the
+`createPreviewAnnotations` factory, which Storybook composes nothing from. The
+loader is what sets `context.msw`, resets handlers between stories, and applies
+`parameters.msw`. Don't read the `main.ts` entry as covering for the loader.
