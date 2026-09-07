@@ -83,6 +83,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
+      # Guardrail (HON-641): a migration that is already on `main` has been
+      # applied somewhere durable — deploy-db-migrations-staging.yml runs
+      # `prisma migrate deploy` on every merge, and production applies the same
+      # files. Editing one afterwards can only break the checksum Prisma
+      # recorded at apply time, which is what made `migrate dev` unusable in
+      # HON-558. Needs nothing but git, so it runs before the install and fails
+      # in seconds.
+      #
+      # Pull requests only: a `push` to main has no base to diff against, and
+      # `main` is what the check protects. actions/checkout is shallow, so the
+      # base commit has to be fetched before the script can name it.
+      - name: Check migrations are immutable
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          bash scripts/check-migrations-immutable.sh "$BASE_SHA"
+
       - name: Enable Corepack
         run: corepack enable
 

@@ -80,6 +80,7 @@ see [PARALLEL_WORKFLOW.md](PARALLEL_WORKFLOW.md).
    - Fix any failures before proceeding
    - If tests fail, fix the issues and re-stage changes
    - **Note:** These same checks run in CI when you create a PR. Running them locally first helps you catch issues early and speeds up the review process.
+   - **Migrations are immutable once they are on `main`.** CI fails any PR that edits, deletes, or renames a `prisma/migrations/**/migration.sql` that already exists on `main` — fix forward with a new migration instead. Run the same check locally with `bash scripts/check-migrations-immutable.sh origin/main` (see CLAUDE.md → Database Patterns).
 
 6. **Verify branch AGAIN before committing:**
 
