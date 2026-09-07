@@ -43,7 +43,7 @@ These are settled. Don't re-open without cause.
 - `IngredientTranslation(ingredientId, locale, name)` — overlays for global ingredients.
 - `MealTranslation(mealId, locale, name, description, ...)` — overlays for seeded meals.
 - AI- and user-created `Ingredient` rows carry `householdId`; global rows have `householdId IS NULL`. The matcher (`fuzzySearchIngredient` in `src/lib/ai/fuzzy-ingredient-match.ts`) prioritises global > household > translation, so a translation-based match still resolves to the canonical English `ingredient.name`.
-- **Fixing a translation after launch** — a wrong Estonian ingredient or meal name is a scoped SQL `UPDATE` against the overlay row, not a deploy. The procedure, the safety rules, and the audit log live in [`RUNBOOKS/translation-maintenance.md`](RUNBOOKS/translation-maintenance.md). That runbook also documents the whole-locale rollback lever.
+- **Fixing a translation after launch** — a wrong Estonian ingredient or meal name is a scoped SQL `UPDATE` against the overlay row, which makes the fix visible without a deploy. It must then be mirrored into `prisma/seed-{ingredient,meal}-translations-et.ts`, because `pnpm db:seed` runs on every production migration deploy and re-asserts the checked-in data over the database. The procedure, the safety rules, and the audit log live in [`RUNBOOKS/translation-maintenance.md`](RUNBOOKS/translation-maintenance.md). That runbook also documents the whole-locale rollback lever.
 
 ### Locale resolution
 

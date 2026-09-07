@@ -12,7 +12,9 @@ Estonian shipped machine-quality by design. Awkward phrasings and outright typos
 
 ### Decision (locked 2026-09-07): documented SQL
 
-Direct, scoped `UPDATE` statements against staging and then production, logged in this file. Zero new product surface, and it honours the principle. Two alternatives were considered and rejected: an in-product `/admin/translations` page (real cost — route, auth gate, CRUD plumbing — for a volume we do not yet have) and a seed-script PR workflow (violates the principle outright).
+Direct, scoped `UPDATE` statements against staging and then production, logged in this file. Zero new product surface. Two alternatives were considered: an in-product `/admin/translations` page (rejected — real cost in route, auth gate, and CRUD plumbing for a volume we do not yet have) and a seed-script PR workflow (rejected as the _primary_ path, because a one-word typo should not wait on CI and a deploy to stop being visible).
+
+**The seed edit is not optional, though — it is the second half of the fix.** Implementing this runbook surfaced something the decision was made without: `pnpm db:seed` runs unconditionally on every production migration deploy and re-asserts the checked-in translation data over whatever is in the database. A SQL edit alone is reverted at the next release. So the honest shape of this workflow is **SQL first, seed data after**: the `UPDATE` makes the fix visible to users immediately, without a deploy, which is what the principle is actually protecting; the follow-up PR is what makes it survive. See [The seed re-asserts translations](#the-seed-re-asserts-translations) — that section is the most important one in this runbook, and skipping it is how a fix quietly un-fixes itself.
 
 **Re-evaluate when fix volume outgrows it.** The escalation is the admin page, sharing its authoring surface with the ingredient-promotion flow in [HON-514](https://linear.app/honkadori/issue/HON-514) if that lands first. The signal to watch: if the change log below starts collecting more than a handful of entries a month, or if a session routinely edits ten-plus rows at a time, the discipline this runbook depends on is being asked for more than it can give.
 
@@ -45,16 +47,18 @@ Unique on `("ingredientId", locale)`: one translation per ingredient per locale.
 
 ### `meal_translation` (`prisma/schema.prisma:384`)
 
-| Column             | Type   | Edit?                                       |
-| ------------------ | ------ | ------------------------------------------- |
-| `id`               | `text` | **No** — cuid primary key.                  |
-| `mealId`           | `text` | **No** — FK to `meal.id`.                   |
-| `locale`           | `text` | **No** — see the warning below.             |
-| `name`             | `text` | **Yes** — translated meal name.             |
-| `description`      | `text` | **Yes**, nullable — translated description. |
-| `preparationNotes` | `text` | **Yes**, nullable — translated prep notes.  |
+| Column             | Type   | Edit?                                             |
+| ------------------ | ------ | ------------------------------------------------- |
+| `id`               | `text` | **No** — cuid primary key.                        |
+| `mealId`           | `text` | **No** — FK to `meal.id`.                         |
+| `locale`           | `text` | **No** — see the warning below.                   |
+| `name`             | `text` | **Yes** — translated meal name.                   |
+| `description`      | `text` | **Yes**, nullable — translated description.       |
+| `preparationNotes` | `text` | **No** — always `null` on seeded rows; see below. |
 
 Unique on `("mealId", locale)`.
+
+`preparationNotes` looks editable and is not. The seed writes `null` into it in **both** the `create` and `update` branches (`prisma/seed.ts:3889`, `:3894`), so anything you put there is erased on the next production seed run — see [The seed re-asserts translations](#the-seed-re-asserts-translations). That is deliberate: seeded meals carry no English prep notes either, the meal-detail prep section is driven by the AI preparation-tips feature, and the column is reserved for user-authored notes, which keep their creator-time locale per HON-499's content principle. There is nothing to translate here.
 
 > **Never `UPDATE` the `locale` column.** It is half of the unique key, so changing it does not "move" a translation — it re-keys the row. The locale you left loses its overlay (that ingredient silently falls back to English for every household on it), and the locale you moved into either gains a duplicate-key error or, worse, succeeds and shadows a translation that was already correct. To add a translation for a new locale, `INSERT` a new row; to remove one, that is a seed-data change.
 
@@ -92,7 +96,7 @@ rm -f .env.staging .env.production
 
 ## Procedure
 
-Five steps. Run all five against staging, confirm the app renders what you expect, then run all five against production.
+Six steps. Run steps 1-4 against staging first, confirm the app renders what you expect, then run steps 1-5 against production. Step 6 is a follow-up PR and is what makes the fix permanent — [do not skip it](#the-seed-re-asserts-translations).
 
 ### 1. Find the row and record the current value
 
@@ -109,20 +113,21 @@ WHERE i.name ILIKE '%chickpea%'
 ```
 
 ```sql
--- Meal: same shape. Select all three editable columns, not just the one you
--- came to fix — see the note below.
+-- Meal: same shape. Select both editable columns, not just the one you came
+-- to fix — see the note below.
 SELECT t.id, t."mealId", t.locale,
-       t.name, t.description, t."preparationNotes",
+       t.name, t.description,
        m.name AS en_name
 FROM meal_translation t
 JOIN meal m ON m.id = t."mealId"
 WHERE m.name ILIKE '%shakshuka%'
+  AND m."householdId" IS NULL   -- seeded meals only; household meals are not ours to edit
   AND t.locale = 'et';
 ```
 
 Copy the returned `ingredientId` / `mealId` and **every column you are about to write** into a scratch note now. Those values are your rollback; there is no other copy of them once the `UPDATE` runs.
 
-> **Record every column you intend to `SET`, not just the obvious one.** A single `UPDATE` on `meal_translation` may touch `name`, `description`, and `preparationNotes` together (step 2 does exactly that). A before-value you did not select is a column you cannot roll back — the query above returns all three for that reason.
+> **Record every column you intend to `SET`, not just the obvious one.** A single `UPDATE` on `meal_translation` may touch `name` and `description` together (step 2 does exactly that). A before-value you did not select is a column you cannot roll back — the query above returns both for that reason.
 
 If the query returns no rows, there is no translation to fix — the surface is falling back to English because the overlay was never seeded. That is a seeding gap, not a maintenance edit.
 
@@ -137,7 +142,7 @@ WHERE "ingredientId" = 'cme4x2p9k0001abcd1234wxyz'
 ```
 
 ```sql
--- meal_translation: any subset of the three text columns in one statement.
+-- meal_translation: both editable columns in one statement.
 UPDATE meal_translation
 SET name = 'Šakšuka',
     description = 'Munad vürtsikas tomatikastmes.'
@@ -153,7 +158,7 @@ Both halves of the `WHERE` are load-bearing. `"ingredientId"` alone would rewrit
 
 - `UPDATE 1` — done.
 - `UPDATE 0` — the `WHERE` matched nothing. Wrong id, or wrong locale. Go back to step 1; do not loosen the `WHERE` to make it match.
-- `UPDATE 2` or more — **stop, and do not "fix it" with another `UPDATE`.** The unique on `("ingredientId", locale)` makes this unreachable with both keys present, so seeing it means your `WHERE` lost the `locale` clause and you have just overwritten every locale's overlay for that row. Step 1 recorded one before-value; the others are gone. The [one-row rollback](#one-row) repairs the row you were looking at and silently leaves the rest wrong — which is worse than the original typo, because nothing now points at the damage. Treat it as an incident: go to [`database-recovery.md`](database-recovery.md) for PITR **immediately**, inside the 24-hour window, and log what happened in the [change log](#change-log) either way.
+- `UPDATE 2` or more — **stop, and do not "fix it" with another `UPDATE`.** Read this count as catalogue-wide damage, not an off-by-one. Estonian is the only seeded locale and there is one row per entity, so dropping `AND locale = 'et'` would still have matched a single row. A count above 1 therefore means the **foreign key** clause was lost — the [unscoped `UPDATE`](#never-run-an-unscoped-update) below, which rewrites every Estonian name in the catalogue to the same string. Step 1 recorded one before-value; the other several hundred are gone. The [one-row rollback](#one-row) repairs the row you were looking at and leaves the rest wrong, which is worse than the original typo because nothing now points at the damage. Treat it as an incident: go to [`database-recovery.md`](database-recovery.md) for PITR **immediately**, inside the 24-hour window, and log what happened in the [change log](#change-log) either way.
 
 Inside an explicit transaction, `BEGIN; … ; ROLLBACK;` lets you see the count before committing. Worth it on production.
 
@@ -168,6 +173,39 @@ Look at the actual surface — the shopping list for an ingredient name, the mea
 ### 5. Log it
 
 Every **production** edit gets a line in the [change log](#change-log) below, committed as a normal docs PR. Staging-only edits do not need an entry; they are rehearsal.
+
+### 6. Mirror the edit into the seed data
+
+**Not optional, and not deferrable indefinitely.** The next production deploy runs `pnpm db:seed`, which rewrites the row from the checked-in data file and reverts what you just did. Edit the matching entry in `prisma/seed-ingredient-translations-et.ts` or `prisma/seed-meal-translations-et.ts` and open a PR — steps 5 and 6 travel together in one PR comfortably. Full explanation in [The seed re-asserts translations](#the-seed-re-asserts-translations).
+
+## The seed re-asserts translations
+
+**A SQL edit alone does not survive the next production deploy.** This is the single most important constraint in this runbook.
+
+`prisma/seed.ts` upserts every seeded translation from checked-in data files, and both upserts carry a live `update` branch — not `create`-only:
+
+- `prisma/seed.ts:3945` — `ingredientTranslation.upsert(... update: { name: et })`
+- `prisma/seed.ts:3876` — `mealTranslation.upsert(... update: { name, description, preparationNotes: null })`
+
+`.github/workflows/deploy-db-migrations-production.yml:71` runs `pnpm db:seed` against production with no `if:` gate, and [`../DEPLOYMENT.md`](../DEPLOYMENT.md) § Production Deployment Process makes that workflow **step 4a of every production release**. So the sequence is:
+
+1. You fix `kikerhernes` → `kikerherned` with a scoped `UPDATE`. Users see the correct word immediately.
+2. Someone ships an unrelated feature three weeks later.
+3. Step 4a runs `pnpm db:seed`, the upsert's `update` branch rewrites the row from `prisma/seed-ingredient-translations-et.ts`, and the typo is back.
+4. The change log still says it was fixed. Nothing reports the regression.
+
+### So: mirror every production edit into the seed data
+
+The data files are the durable source of truth:
+
+| Table                    | Seed data file                              |
+| ------------------------ | ------------------------------------------- |
+| `ingredient_translation` | `prisma/seed-ingredient-translations-et.ts` |
+| `meal_translation`       | `prisma/seed-meal-translations-et.ts`       |
+
+Edit the matching entry to the value you just wrote in SQL, and ship it as a normal docs-sized PR. It needs no coordination with the SQL edit and no deploy of its own — it just has to land **before** the next production seed run, and the seed is idempotent, so the two agreeing is a no-op.
+
+Until that PR merges, the fix is live but provisional. That is the trade this workflow makes deliberately: the user stops seeing the typo today, and the durability lands on the normal review cadence instead of blocking on it.
 
 ## Never run an unscoped UPDATE
 
@@ -255,6 +293,8 @@ Neither is a reason to avoid the edit. It is a reason to prefer the word a user 
 
 One line per **production** translation edit. Append at the bottom, newest last. Include the entity's English name alongside its id — the id alone is unreadable a month later.
 
-| Date         | Table                      | Entity (English)                          | Locale | Before → after                  | Why                                                                                         |
-| ------------ | -------------------------- | ----------------------------------------- | ------ | ------------------------------- | ------------------------------------------------------------------------------------------- |
-| _2026-01-01_ | _`ingredient_translation`_ | _Chickpeas (`cme4x2p9k0001abcd1234wxyz`)_ | _`et`_ | _`kikerhernes` → `kikerherned`_ | _Example row — format reference, not a real edit. Delete once this table has real entries._ |
+The **Seed PR** column is the audit for [step 6](#6-mirror-the-edit-into-the-seed-data). Write `pending` when you log the SQL edit, and fill in the PR number when the mirror lands. A row still reading `pending` is a fix that the next production deploy will silently revert — that column is the only place anyone would notice.
+
+| Date         | Table                      | Entity (English)                          | Locale | Before → after                  | Seed PR | Why                                                                                         |
+| ------------ | -------------------------- | ----------------------------------------- | ------ | ------------------------------- | ------- | ------------------------------------------------------------------------------------------- |
+| _2026-01-01_ | _`ingredient_translation`_ | _Chickpeas (`cme4x2p9k0001abcd1234wxyz`)_ | _`et`_ | _`kikerhernes` → `kikerherned`_ | _#000_  | _Example row — format reference, not a real edit. Delete once this table has real entries._ |
