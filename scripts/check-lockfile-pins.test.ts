@@ -8,6 +8,7 @@ import {
   checkLockfile,
   compareVersions,
   findViolations,
+  floorFor,
   matchesPackage,
   matchesVersion,
   parseLockfileVersions,
@@ -153,6 +154,43 @@ describe('compareVersions', () => {
     expect(compareVersions('4.1.10-beta.1', '4.1.10')).toBeLessThan(0)
     expect(compareVersions('5.0.0-beta.3', '4.1.10')).toBeGreaterThan(0)
   })
+
+  it('orders prereleases by identifier, not just by being one', () => {
+    // Comparing only *whether* a version is a prerelease makes every
+    // prerelease of a core equal, which silently disables a prerelease floor.
+    // GHSA-p63j-vcc4-9vmv patches @vitest/browser 5.x at 5.0.0-beta.6.
+    expect(compareVersions('5.0.0-beta.1', '5.0.0-beta.6')).toBeLessThan(0)
+    expect(compareVersions('5.0.0-beta.6', '5.0.0-beta.1')).toBeGreaterThan(0)
+    expect(compareVersions('5.0.0-beta.6', '5.0.0-beta.6')).toBe(0)
+    // Numeric identifiers sort numerically, not lexically.
+    expect(compareVersions('5.0.0-beta.9', '5.0.0-beta.10')).toBeLessThan(0)
+    // A shorter identifier list sorts lower, and numeric below alphanumeric.
+    expect(compareVersions('5.0.0-beta', '5.0.0-beta.1')).toBeLessThan(0)
+    expect(compareVersions('5.0.0-1', '5.0.0-alpha')).toBeLessThan(0)
+  })
+
+  it('ignores build metadata', () => {
+    expect(compareVersions('4.1.10+build.7', '4.1.10')).toBe(0)
+  })
+})
+
+describe('floorFor', () => {
+  it('judges a version against the floor for its own major', () => {
+    // GHSA-5xrq-8626-4rwp patches vitest 3.x at 3.2.6 and 4.x at 4.1.0.
+    expect(floorFor(['3.2.6', '4.1.0'], '3.2.6')).toBe('3.2.6')
+    expect(floorFor(['3.2.6', '4.1.0'], '4.0.18')).toBe('4.1.0')
+    expect(floorFor(['3.2.6', '4.1.0'], '4.1.11')).toBe('4.1.0')
+  })
+
+  it('uses the highest applicable floor for a major above every branch', () => {
+    expect(floorFor(['11.1.1', '12.0.1', '13.0.1'], '14.0.0')).toBe('13.0.1')
+  })
+
+  it('returns null below every branch, which the caller treats as affected', () => {
+    // Older than anything the advisory lists a fix for — "affected" is the
+    // safe reading, not "unknown".
+    expect(floorFor(['11.1.1', '12.0.1', '13.0.1'], '9.0.1')).toBeNull()
+  })
 })
 
 describe('findViolations', () => {
@@ -202,6 +240,23 @@ describe('findViolations', () => {
     // not being on the 4.0.x line the release-line ban covers.
     expect(details("  '@vitest/browser@4.1.5':\n")).toContain('@vitest/browser@4.1.5')
     expect(details("  '@vitest/browser@4.1.9':\n")).toContain('@vitest/browser@4.1.9')
+  })
+
+  it('stays silent on a version an advisory patched on an older branch', () => {
+    // GHSA-5xrq-8626-4rwp patches vitest 3.x at 3.2.6, so vitest@3.2.6 is
+    // fixed. Judging it against the 4.x floor would red the build over a
+    // version the advisory calls patched — in a transitive dependency that
+    // neither the package.json pin nor `pnpm update` can move.
+    expect(details('  vitest@3.2.6:\n')).toBe('')
+    expect(details("  '@vitest/browser@3.2.7':\n")).toBe('')
+    // ...but the versions below those branch floors still fire.
+    expect(details('  vitest@3.2.5:\n')).toContain('vitest@3.2.5')
+    expect(details("  '@vitest/browser@3.2.4':\n")).toContain('@vitest/browser@3.2.4')
+  })
+
+  it('fires on a version older than every patched branch', () => {
+    // No floor applies, so the safe reading is "affected", not "unknown".
+    expect(details('  uuid@8.3.2:\n')).toContain('predates every patched branch')
   })
 
   it('fires on any @vitest package still on the 4.0.x line', () => {

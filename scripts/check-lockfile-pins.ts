@@ -45,14 +45,14 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
  * cleared it — an assertion nobody can explain is an assertion nobody can
  * safely update.
  *
- * **Prefer `minimum`.** Advisories publish a *range* and a patched floor, so a
- * pin that names one point on that range leaves its neighbours green: banning
- * `uuid@10.0.0` alone does nothing about `uuid@9.0.1` or `uuid@11.0.0`, which
- * carry the identical advisory. `minimum` states the published floor instead,
- * so it covers the whole range and does not go stale when a patch ships.
- * `banned` is for a range that really is a single version (GHSA-w5hq's
- * `>= 12.0.0, < 12.0.1`) or for a whole release line via the `4.0.` prefix
- * form.
+ * **Prefer `minimum`.** Advisories publish a *range* per affected branch and a
+ * patched floor for each, so a pin that names one point on a range leaves its
+ * neighbours green: banning `uuid@10.0.0` alone does nothing about `uuid@9.0.1`
+ * or `uuid@11.0.0`, which carry the identical advisory. `minimum` states the
+ * published floors instead, so it covers the whole range, judges each release
+ * branch against its own fix, and does not go stale when a patch ships.
+ * `banned` is left for a whole release line via the `4.0.` prefix form, where
+ * the point is "this line was superseded" rather than a published floor.
  *
  * `package` accepts a `@scope/*` glob. A `banned` `version` ending in `.`
  * matches a whole release line by prefix (`4.0.` covers 4.0.0 through 4.0.18).
@@ -69,10 +69,14 @@ export type Pin =
       why: string
     }
   | {
-      /** Fail if any resolved version sorts below this patched floor. */
+      /**
+       * Fail if a resolved version sorts below the patched floor for its major.
+       * One floor per affected release branch the advisory publishes, since
+       * advisories patch each branch separately — see `floorFor`.
+       */
       kind: 'minimum'
       package: string
-      version: string
+      floors: string[]
       why: string
     }
   | {
@@ -86,43 +90,31 @@ export const PINS: Pin[] = [
   {
     kind: 'minimum',
     package: 'defu',
-    version: '6.1.5',
-    why: 'GHSA-737v-mqg7-c878 (high — prototype pollution via __proto__), affected <= 6.1.4, patched 6.1.5. Reached on the better-auth > defu production auth path. HON-588 cleared it by deduping onto 6.1.7, and better-auth@1.7.2 still declares "defu: ^6.1.4", so 6.1.4 stays a legal resolution. The floor, not the single banned version, is what covers the whole affected range.',
+    floors: ['6.1.5'],
+    why: 'GHSA-737v-mqg7-c878 (high — prototype pollution via __proto__), affected <= 6.1.4, patched 6.1.5 — one affected branch, so one floor. Reached on the better-auth > defu production auth path. HON-588 cleared it by deduping onto 6.1.7, and better-auth@1.7.2 still declares "defu: ^6.1.4", so 6.1.4 stays a legal resolution. The floor, not a single banned version, is what covers the whole affected range.',
   },
   {
     kind: 'single',
     package: 'defu',
-    why: 'HON-588 fixed defu by lockfile dedupe, so a second resolved version means the dedupe came undone even when both versions are patched — the condition that let the advisory in once. Fix: pnpm update defu. This is a hygiene assertion, not an advisory one; the floor above is what covers the advisory.',
+    why: 'HON-588 fixed defu by lockfile dedupe, so a second resolved version means the dedupe came undone even when both versions are patched — the condition that let the advisory in once. Three dependents pull it today (better-auth, c12, rc9), all on 6.1.7. This is a hygiene assertion, not an advisory one; the floor above covers the advisory. If two dependents ever land on disjoint majors, no dedupe exists — relax or retire this entry rather than reaching for an override.',
   },
   {
     kind: 'minimum',
     package: 'uuid',
-    version: '11.1.1',
-    why: "GHSA-w5hq-g745-h8pq (moderate — missing buffer bounds check in v3/v5/v6 when `buf` is provided), affected < 11.1.1, patched 11.1.1. Reached via resend > svix > uuid; HON-588 cleared uuid@10.0.0 by bumping resend to 6.25.0, which pulls a newer svix. svix's uuid range is not ours to control, so the floor covers 9.x and 11.0.x too — no uuid entry resolves at all today.",
-  },
-  {
-    kind: 'banned',
-    package: 'uuid',
-    version: '12.0.0',
-    why: 'GHSA-w5hq-g745-h8pq again, affected >= 12.0.0 < 12.0.1, patched 12.0.1. That range is the single version 12.0.0, which sorts above the 11.1.1 floor above and so needs its own entry.',
-  },
-  {
-    kind: 'banned',
-    package: 'uuid',
-    version: '13.0.0',
-    why: 'GHSA-w5hq-g745-h8pq again, affected >= 13.0.0 < 13.0.1, patched 13.0.1. Same shape as the 12.0.0 entry — a one-version range above the floor.',
+    floors: ['11.1.1', '12.0.1', '13.0.1'],
+    why: "GHSA-w5hq-g745-h8pq (moderate — missing buffer bounds check in v3/v5/v6 when `buf` is provided). Three affected branches, three floors: < 11.1.1, >= 12.0.0 < 12.0.1, and >= 13.0.0 < 13.0.1. Reached via resend > svix > uuid; HON-588 cleared uuid@10.0.0 by bumping resend to 6.25.0, which pulls a newer svix. svix's uuid range is not ours to control, so the floors cover 9.x and 11.0.x as well — no uuid entry resolves at all today.",
   },
   {
     kind: 'minimum',
     package: 'vitest',
-    version: '4.1.0',
-    why: "GHSA-5xrq-8626-4rwp (critical — Vitest UI server allows arbitrary file read and execute), affected >= 4.0.0 < 4.1.0, patched 4.1.0. Filed against the `vitest` package itself, which the @vitest/* glob below does NOT match, so this entry is what actually asserts HON-588's 4.0.18 -> 4.1.11 move. The floor also catches a downgrade to the affected 3.x and earlier lines.",
+    floors: ['3.2.6', '4.1.0'],
+    why: "GHSA-5xrq-8626-4rwp (critical — Vitest UI server allows arbitrary file read and execute). Filed against the `vitest` package itself, which the @vitest/* glob below does NOT match, so this entry is what actually asserts HON-588's 4.0.18 -> 4.1.11 move. Two affected branches, two floors: < 3.2.6 and >= 4.0.0 < 4.1.0. The 3.x floor matters because a patched vitest@3.2.6 could arrive transitively (storybook already bundles @vitest/expect@3.2.4), and judging it against the 4.x floor would red the build over a version the advisory calls fixed.",
   },
   {
     kind: 'minimum',
     package: '@vitest/browser',
-    version: '4.1.10',
-    why: 'The highest patched floor of the three Browser Mode criticals: GHSA-2h32-95rg-cppp (otelCarrier query param served as inline script, < 4.1.6), GHSA-g8mr-85jm-7xhm (exposed Browser Mode API can proxy CDP and overwrite files, <= 4.1.7) and GHSA-p63j-vcc4-9vmv (provider commands bypass file-access restrictions, < 4.1.10). Named explicitly rather than via the @vitest/* glob, because a glob floor would fire on @vitest/expect@3.2.4, which legitimately resolves from a separate transitive line. @vitest/browser is transitive (via @vitest/browser-playwright), so nothing in package.json pins it.',
+    floors: ['3.2.7', '4.1.10'],
+    why: 'The highest patched floor per branch across the three Browser Mode criticals: GHSA-2h32-95rg-cppp (otelCarrier query param served as inline script, < 4.1.6), GHSA-g8mr-85jm-7xhm (exposed Browser Mode API can proxy CDP and overwrite files, <= 4.1.7 and <= 3.2.4) and GHSA-p63j-vcc4-9vmv (provider commands bypass file-access restrictions, < 4.1.10 and < 3.2.7). Named explicitly rather than via the @vitest/* glob, because a glob floor would fire on @vitest/expect@3.2.4, which legitimately resolves from a separate transitive line. @vitest/browser is transitive (via @vitest/browser-playwright), so nothing in package.json pins it. GHSA-p63j also patches the 5.x betas at 5.0.0-beta.6 — add that floor with HON-640 if a beta is ever resolved.',
   },
   {
     kind: 'banned',
@@ -209,16 +201,17 @@ export function matchesVersion(pattern: string, version: string): boolean {
 }
 
 /**
- * Numeric compare on the major.minor.patch core, so a `minimum` pin can state
- * the floor an advisory actually publishes rather than one point on its range.
+ * Semver ordering, so a `minimum` pin can state the floor an advisory actually
+ * publishes rather than one point on its range.
  *
  * String comparison is not an option here: `'4.1.9' > '4.1.10'` lexically,
  * which is exactly the boundary the @vitest/browser floor sits on. Build
- * metadata is ignored and a prerelease sorts below its release, per semver.
+ * metadata is ignored, per semver §10.
  */
 export function compareVersions(a: string, b: string): number {
+  const withoutBuild = (v: string) => v.split('+')[0] ?? ''
   const core = (v: string): number[] =>
-    (v.split('-')[0] ?? '').split('.').map((n) => Number.parseInt(n, 10) || 0)
+    (withoutBuild(v).split('-')[0] ?? '').split('.').map((n) => Number.parseInt(n, 10) || 0)
 
   const left = core(a)
   const right = core(b)
@@ -227,9 +220,60 @@ export function compareVersions(a: string, b: string): number {
     if (delta !== 0) return delta
   }
 
-  // 4.1.10-beta.1 < 4.1.10 — a prerelease of the floor is still below it.
-  const isRelease = (v: string) => (v.includes('-') ? 0 : 1)
-  return isRelease(a) - isRelease(b)
+  // Semver §11, both halves. Asking only *whether* a version is a prerelease
+  // makes every prerelease of a core compare equal, which would silently
+  // disable any prerelease floor — and GHSA-p63j-vcc4-9vmv patches
+  // @vitest/browser's 5.x branch at 5.0.0-beta.6, exactly the floor HON-640
+  // is expected to adopt.
+  const pre = (v: string): string[] =>
+    withoutBuild(v).split('-').slice(1).join('-').split('.').filter(Boolean)
+
+  const leftPre = pre(a)
+  const rightPre = pre(b)
+  // A release outranks any prerelease of the same core: 4.1.10-beta.1 < 4.1.10.
+  if (leftPre.length === 0 || rightPre.length === 0) return rightPre.length - leftPre.length
+
+  for (let i = 0; i < Math.max(leftPre.length, rightPre.length); i++) {
+    const l = leftPre[i]
+    const r = rightPre[i]
+    // A shorter identifier list sorts lower: 4.1.10-beta < 4.1.10-beta.1.
+    if (l === undefined) return -1
+    if (r === undefined) return 1
+    if (l === r) continue
+
+    const lNumeric = /^\d+$/.test(l)
+    const rNumeric = /^\d+$/.test(r)
+    if (lNumeric && rNumeric) return Number(l) - Number(r)
+    // Numeric identifiers always sort below alphanumeric ones.
+    if (lNumeric !== rNumeric) return lNumeric ? -1 : 1
+    return l < r ? -1 : 1
+  }
+
+  return 0
+}
+
+/**
+ * The patched floor that applies to `version`: the highest one whose major is
+ * at or below the resolved major.
+ *
+ * Advisories publish a floor *per affected release branch*, not one number —
+ * GHSA-5xrq-8626-4rwp patches vitest's 3.x line at 3.2.6 and its 4.x line at
+ * 4.1.0. Judging a 3.x resolution against the 4.x floor reports the patched
+ * `vitest@3.2.6` as vulnerable, and a gate that reds a PR over a patched
+ * version in a transitive dependency nobody can move is a gate that gets
+ * switched off.
+ *
+ * `null` means the version predates every branch the advisory lists a fix for.
+ * That is a violation, not a pass: it is older than anything we have a floor
+ * for, so the safe reading is "affected", not "unknown".
+ */
+export function floorFor(floors: string[], version: string): string | null {
+  const major = (v: string) => Number.parseInt(v.split('.')[0] ?? '', 10) || 0
+  const applicable = floors.filter((floor) => major(floor) <= major(version))
+  if (applicable.length === 0) return null
+  return applicable.reduce((highest, floor) =>
+    compareVersions(highest, floor) >= 0 ? highest : floor,
+  )
 }
 
 export interface Violation {
@@ -261,10 +305,16 @@ export function findViolations(
 
       if (pin.kind === 'minimum') {
         for (const [version, line] of resolved) {
-          if (compareVersions(version, pin.version) < 0) {
+          const floor = floorFor(pin.floors, version)
+          if (floor === null) {
             violations.push({
               pin,
-              detail: `${name}@${version} (line ${line}) is below the patched floor ${pin.version}`,
+              detail: `${name}@${version} (line ${line}) predates every patched branch (${pin.floors.join(', ')})`,
+            })
+          } else if (compareVersions(version, floor) < 0) {
+            violations.push({
+              pin,
+              detail: `${name}@${version} (line ${line}) is below the patched floor ${floor}`,
             })
           }
         }
@@ -345,6 +395,10 @@ function main(): void {
       'that pulls it. Do NOT add a `pnpm.overrides` entry — HON-588 rejected that\n' +
       'deliberately: in-range resolution succeeds, and an override hides the\n' +
       'underlying spec instead of detecting drift.\n' +
+      'If no dedupe or upgrade can resolve it — two dependents on disjoint majors,\n' +
+      'or a version an advisory has since marked patched — relax or retire the pin\n' +
+      'in scripts/check-lockfile-pins.ts and record why in its `why`. That is the\n' +
+      'escape hatch; an override is not.\n' +
       'See scripts/check-lockfile-pins.ts for the pin list and its rationale.\n',
   )
   process.exitCode = 1
