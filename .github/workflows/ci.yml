@@ -82,6 +82,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          # Full history so `git merge-base` resolves for the immutability
+          # guard below — at 9 MiB / ~720 commits that costs a couple of
+          # seconds. The default depth-1 checkout leaves HEAD and the base as
+          # grafted shallow roots with no common ancestry, which forces the
+          # guard down its two-tree fallback: sound only because
+          # `refs/pull/N/merge` already contains the base, so the guard's one
+          # real code path in CI would rest on an unasserted checkout default.
+          # Do NOT pair this with a `git fetch --depth=<n>` — that re-shallows
+          # the repository and puts the fallback right back.
+          fetch-depth: 0
 
       # Guardrail (HON-641): a migration that is already on `main` has been
       # applied somewhere durable — deploy-db-migrations-staging.yml runs
@@ -91,16 +102,16 @@ jobs:
       # HON-558. Needs nothing but git, so it runs before the install and fails
       # in seconds.
       #
-      # Pull requests only: a `push` to main has no base to diff against, and
-      # `main` is what the check protects. actions/checkout is shallow, so the
-      # base commit has to be fetched before the script can name it.
+      # Pull requests only. `github.event.before` would give a `push` a base to
+      # diff against, but by then the migration is on `main` and this same push
+      # has already triggered deploy-db-migrations-staging.yml — a red check
+      # could report the drift, not prevent it. Blocking at PR time is the
+      # whole point; post-merge alerting is tracked separately.
       - name: Check migrations are immutable
         if: github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          bash scripts/check-migrations-immutable.sh "$BASE_SHA"
+        run: bash scripts/check-migrations-immutable.sh "$BASE_SHA"
 
       - name: Enable Corepack
         run: corepack enable

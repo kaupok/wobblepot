@@ -40,15 +40,20 @@ fi
 
 # The range we want is `BASE...HEAD` — everything this branch added on top of
 # the fork point, ignoring what landed on the base since. Three-dot needs a
-# merge base, and CI checks out shallow (actions/checkout defaults to depth 1),
-# where the histories are grafted and `git diff A...B` can die with "no merge
-# base". Resolve it explicitly instead: use the merge base when git can find
-# one, otherwise diff the two trees directly. On a pull_request the shallow
-# checkout is GitHub's merge ref, which already contains the base — so its tree
-# differs from the base's by exactly the PR's own changes, which is what the
-# three-dot form would have produced anyway.
-if ! DIFF_BASE=$(git merge-base "$BASE_REF" HEAD 2>/dev/null); then
+# merge base, so resolve it explicitly rather than relying on the `A...B` form,
+# which dies outright when there is none.
+#
+# CI takes the first branch: ci.yml checks out with `fetch-depth: 0` precisely
+# so this resolves. The fallback is for shallow or grafted history, where the
+# two trees are compared directly. That is a weaker guarantee — anything the
+# base has and the checkout lacks reads as `D`, so a branch merely behind the
+# base can be blamed for a migration it never touched — which is why taking it
+# says so on stderr instead of passing silently.
+if DIFF_BASE=$(git merge-base "$BASE_REF" HEAD 2>/dev/null); then
+  :
+else
   DIFF_BASE=$BASE_REF
+  echo "note: no merge base with '$BASE_REF' (shallow history?) — comparing trees directly." >&2
 fi
 
 # `core.quotePath=false` keeps non-ASCII paths unescaped so they print (and

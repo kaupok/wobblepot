@@ -309,6 +309,22 @@ describe('check-migrations-immutable.sh', () => {
 
       expect(result.status).toBe(1)
       expect(result.stderr).toContain(INIT_MIGRATION)
+      expect(result.stderr).toContain('no merge base')
+    })
+
+    // The fallback is the weaker comparison — a branch merely behind the base
+    // can be blamed for a migration it never touched — so which branch ran has
+    // to be visible in the CI log rather than inferred. ci.yml checks out with
+    // `fetch-depth: 0` so that CI never takes it.
+    it('says nothing about a fallback when a merge base exists', () => {
+      const { dir, base } = repoWithAppliedMigration()
+      write(dir, INIT_MIGRATION, 'DROP TABLE "ingredient";\n')
+      commitAll(dir, 'fix(db): Edit an applied migration')
+
+      const result = runCheck(dir, base)
+
+      expect(result.status).toBe(1)
+      expect(result.stderr).not.toContain('no merge base')
     })
   })
 })
