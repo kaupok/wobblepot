@@ -83,21 +83,23 @@ const createParams = () => Promise.resolve({ id: 'plan-123', entryId: 'entry-123
 const mockPantryUpdateMany = vi.mocked(prisma.pantryItem.updateMany)
 const mockPantryDeleteMany = vi.mocked(prisma.pantryItem.deleteMany)
 const mockPantryUpdate = vi.mocked(prisma.pantryItem.update)
-const mockClaimEntry = vi.mocked(prisma.mealPlanEntry.updateMany)
-
 /**
- * The conditional write a non-deducting swap goes through.
- *
- * `updateManyAndReturn` rather than `update`, because the swap has to re-test
- * the entry's status as part of the write: the `status` the handler read at
- * the top is from before the meal lookup, so a concurrent completion can land
- * in between (HON-633). It returns an array — empty when nothing matched.
+ * Both conditional writes the route makes go through `updateManyAndReturn`,
+ * and never in the same request: the deduction transaction's completion claim,
+ * and the non-deducting swap. Each re-tests the entry's status as part of the
+ * write, because the `status` the handler read at the top is from before the
+ * meal lookup and a concurrent request can land in between (HON-633). Both
+ * return an array — empty when nothing matched.
  */
-const mockSwapEntry = vi.mocked(prisma.mealPlanEntry.updateManyAndReturn)
+const mockClaimEntry = vi.mocked(prisma.mealPlanEntry.updateManyAndReturn)
+const mockSwapEntry = mockClaimEntry
 
-/** The row a matched swap write returns, wrapped as `updateManyAndReturn` does. */
+/** The row a matched conditional write returns, as `updateManyAndReturn` does. */
 const swapReturns = (row: Record<string, unknown>) =>
   mockSwapEntry.mockResolvedValue([row] as never)
+
+/** The unconditional `updateMany` the lost-race branch falls back to. */
+const mockFallbackWrite = vi.mocked(prisma.mealPlanEntry.updateMany)
 
 /**
  * Writes the route issued while the transaction callback was NOT on the stack.
@@ -121,8 +123,13 @@ let writesOutsideTransaction: string[] = []
  *
  * `claimedCount` is what the conditional entry claim reports: 1 when this
  * request won the completion, 0 when a concurrent one got there first.
+ *
+ * `claimedMealId` is the `mealId` on the row the claim hands back. It defaults
+ * to the one the fixtures below read the entry with, so the route's staleness
+ * check passes; a test that wants to model a swap committing mid-flight passes
+ * a different one.
  */
-const mockDeductionTransaction = (claimedCount = 1) => {
+const mockDeductionTransaction = (claimedCount = 1, claimedMealId = 'meal-123') => {
   writesOutsideTransaction = []
   let insideTransaction = false
 
@@ -131,7 +138,11 @@ const mockDeductionTransaction = (claimedCount = 1) => {
     return Promise.resolve(result)
   }
 
-  mockClaimEntry.mockImplementation((() => record('claim', { count: claimedCount })) as never)
+  const claimedRows =
+    claimedCount === 0 ? [] : [{ id: 'entry-123', status: 'completed', mealId: claimedMealId }]
+
+  mockClaimEntry.mockImplementation((() => record('claim', claimedRows)) as never)
+  mockFallbackWrite.mockImplementation((() => record('fallback', { count: claimedCount })) as never)
   mockPantryUpdateMany.mockImplementation((() => record('decrement', { count: 1 })) as never)
   mockPantryDeleteMany.mockImplementation((() => record('cleanup', { count: 0 })) as never)
 
@@ -818,18 +829,53 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction
 
     expect(response.status).toBe(200)
     expect(mockClaimEntry).toHaveBeenCalledWith({
-      // `mealId` is pinned too: `deductions` was computed from the components
-      // read at the top of the handler, so a swap that commits in between must
-      // not leave this completion charging for the meal the entry named then.
-      where: { id: 'entry-123', status: { not: 'completed' }, mealId: 'meal-123' },
+      where: { id: 'entry-123', status: { not: 'completed' } },
       data: expect.objectContaining({ status: 'completed' }),
     })
   })
 
-  it('does not pin the meal when the request is itself a swap', async () => {
-    // A swap-and-complete charges for the *incoming* meal, which does not
-    // depend on what the entry currently points at — so pinning would make an
-    // unrelated concurrent swap fail this one for no reason (HON-633).
+  it('rolls the completion back when a concurrent swap moved the meal', async () => {
+    // The mirror of the lost completion, and the reason the claim returns its
+    // row: this request priced meal-123's components, a swap committed
+    // meal-999 before the claim, and the row that comes back names the meal
+    // that is actually there. Charging meal-123 would take food that was never
+    // cooked; completing without charging would silently under-charge a meal
+    // that was. So neither happens — the claim is rolled back and the caller
+    // retries (HON-633).
+    mockDeductionTransaction(1, 'meal-999')
+
+    const response = await completeWithComponents([
+      { ingredientId: 'ing-beef', quantityPerServing: 100 },
+    ])
+    const data = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(data.error).toBe('The meal changed while completing. Try again.')
+    expect(mockPantryUpdateMany).not.toHaveBeenCalled()
+    expect(mockPantryDeleteMany).not.toHaveBeenCalled()
+    // The completion is undone by the rollback, not by a compensating write.
+    expect(mockFallbackWrite).not.toHaveBeenCalled()
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
+  })
+
+  it('completes normally when the claimed row still names the meal that was priced', async () => {
+    // The counterpart: without it, the test above would pass just as well on a
+    // route that 409s every completion.
+    const response = await completeWithComponents([
+      { ingredientId: 'ing-beef', quantityPerServing: 100 },
+    ])
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.pantryDeducted).toBe(true)
+    expect(mockPantryUpdateMany).toHaveBeenCalledWith(decrementOf('ing-beef', 200))
+  })
+
+  it('exempts a swap-and-complete from the staleness check', async () => {
+    // A swap prices the *incoming* meal, which does not depend on what the
+    // entry pointed at — so a claimed row naming something else is not stale,
+    // it is just the swap this request is performing (HON-633).
+    mockDeductionTransaction(1, 'new-meal-456')
     mockFindFirstEntry.mockResolvedValue({
       id: 'entry-123',
       mealId: 'old-meal-123',
@@ -847,30 +893,11 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction
       createPatchRequest({ mealId: 'new-meal-456', status: 'completed', deductPantry: true }),
       { params: createParams() },
     )
-
-    expect(response.status).toBe(200)
-    expect(mockClaimEntry).toHaveBeenCalledWith({
-      where: { id: 'entry-123', status: { not: 'completed' } },
-      data: expect.objectContaining({ mealId: 'new-meal-456' }),
-    })
-  })
-
-  it('charges nothing when a concurrent swap moved the meal out from under the deduction', async () => {
-    // The mirror of the lost completion: this request read meal A's
-    // components, a swap committed meal B, and the pinned claim therefore
-    // matches nothing. Completing without charging is the conservative half —
-    // charging A would take food that was never cooked (HON-633).
-    mockDeductionTransaction(0)
-
-    const response = await completeWithComponents([
-      { ingredientId: 'ing-beef', quantityPerServing: 100 },
-    ])
     const data = await response.json()
 
     expect(response.status).toBe(200)
-    expect(data.pantryDeducted).toBe(false)
-    expect(mockPantryUpdateMany).not.toHaveBeenCalled()
-    expect(mockPantryDeleteMany).not.toHaveBeenCalled()
+    expect(data.pantryDeducted).toBe(true)
+    expect(mockPantryUpdateMany).toHaveBeenCalledWith(decrementOf('ing-fish', 150))
   })
 
   it('charges nothing when a concurrent request already claimed the completion', async () => {
@@ -893,7 +920,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction
     // concurrently deleted entry, and `update` would throw P2025 there and
     // turn a lost race into a 500.
     expect(mockUpdateEntry).not.toHaveBeenCalled()
-    expect(mockClaimEntry).toHaveBeenLastCalledWith({
+    expect(mockFallbackWrite).toHaveBeenCalledWith({
       where: { id: 'entry-123' },
       data: expect.objectContaining({ status: 'completed' }),
     })
