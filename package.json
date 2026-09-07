@@ -31,6 +31,7 @@
     "db:validate": "npx tsx prisma/seed-validator.ts",
     "test:ai-selection": "npx tsx scripts/test-ai-selection.ts",
     "env:audit": "npx tsx scripts/env-audit.ts",
+    "lockfile:check": "npx tsx scripts/check-lockfile-pins.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "test-storybook": "vitest --project=storybook",
