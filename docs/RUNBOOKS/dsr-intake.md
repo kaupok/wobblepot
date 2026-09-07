@@ -19,8 +19,16 @@ This is not a customer-service playbook for general feature questions; it is the
   - `src/app/error.tsx` — route-level error boundary (i18n)
   - `src/app/global-error.tsx` — root error boundary (hardcoded English; renders outside the i18n provider)
   - `src/app/status/page.tsx` — public `/status`
-  - The privacy policy (HON-457) cites it as the GDPR DSR contact
-- **One source of truth:** `src/lib/support.ts` exports `SUPPORT_EMAIL` and `SUPPORT_EMAIL_HREF`. Do not hardcode the address elsewhere — import from there so a future address change is one edit.
+  - `src/app/(legal)/terms/page.tsx` — the Terms contact
+  - `LICENSE` (HON-604) — the licensing-questions line in the root notice
+  - `README.md` — the Security section, for vulnerability reports
+  - `docs/RUNBOOKS/status-page.md` — canonical incident-banner copy, pasted verbatim into a user-facing banner
+  - `docs/RUNBOOKS/breach-notification.md` — the `supportUrl` value for the Art. 34 affected-user email
+  - `docs/EMAIL_SETUP.md` — outbound-sender notes
+  - This runbook — the **Address** line above
+  - _Not_ the privacy policy: `src/app/(legal)/privacy/page.tsx` imports `PRIVACY_EMAIL` and publishes `privacy@wobblepot.com` in all four of its contact spots. It rotates with that constant, not this one.
+- **Regenerate this list; do not trust it.** It has been wrong twice. The authoritative pair is `git grep -n 'support@wobblepot.com' -- ':!pnpm-lock.yaml'` and `git grep -ln SUPPORT_EMAIL -- 'src/**'`; run both before a rotation and reconcile against the entries above.
+- **One source of truth:** `src/lib/support.ts` exports `SUPPORT_EMAIL` and `SUPPORT_EMAIL_HREF`. Every `.tsx` entry above imports them, so app code is one edit. The `LICENSE`, `README.md`, and `docs/**` entries hardcode the literal and need hand edits — static files and runbook copy have no import mechanism. `src/lib/resend.ts` names the constant in a comment only. Five tests and stories assert the literal (`src/app/error.test.tsx`, `src/app/global-error.test.tsx`, `src/app/status/page.test.tsx`, `src/components/footer.test.tsx`, `src/components/footer.stories.tsx`) — they fail loudly on a rotation, which is the backstop for anything this list still misses.
 
 ## SLAs
 
@@ -107,7 +115,7 @@ If the mail provider changes (e.g. moving from a forwarder to a hosted mailbox):
 ## Cross-references
 
 - `src/lib/support.ts` — shared `SUPPORT_EMAIL` constant
-- `src/app/error.tsx`, `src/app/global-error.tsx`, `src/components/footer.tsx`, `src/app/status/page.tsx` — surfaces that publish the address
+- "Surfaces that publish this address" above — the single canonical list of every place the address appears. Deliberately not re-enumerated here: two copies drift, and the one an operator misses is the one that keeps pointing at a dead address.
 - [`docs/RUNBOOKS/breach-notification.md`](breach-notification.md) (HON-482) — escalate breach-related mail there; severity classification and the 72-hour AKI clock live in that runbook
 - `docs/RUNBOOKS/status-page.md` — same support address; tone of incident-banner copy should match this runbook
 - HON-457 — privacy policy that cites this email as the DSR contact

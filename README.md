@@ -111,4 +111,4 @@ If you find a vulnerability, email [support@wobblepot.com](mailto:support@wobble
 
 ## License
 
-All rights reserved. The source is published so the product and the process behind it can be inspected, not so it can be reused.
+All rights reserved. The source is published so the product and the process behind it can be inspected, not so it can be reused. See [LICENSE](LICENSE).
