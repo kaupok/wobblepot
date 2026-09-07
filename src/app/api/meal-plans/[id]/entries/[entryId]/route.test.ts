@@ -561,7 +561,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
     expect(mockPantryUpdateMany).toHaveBeenCalledWith(decrementOf('ing-fish', 300))
     expect(mockPantryDeleteMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ ingredientId: { in: ['ing-fish'] } }),
+        where: expect.objectContaining({ ingredientId: 'ing-fish' }),
       }),
     )
   })
@@ -797,25 +797,32 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction
     expect(mockPantryUpdateMany).toHaveBeenCalledWith(decrementOf('ing-2', 100))
   })
 
-  it('deletes rows the deduction depleted, and unquantified rows, in one cleanup', async () => {
+  it('deletes rows the deduction depleted, and unquantified rows, one row per statement', async () => {
     // Depletion is judged against the post-decrement value, so an overshoot
     // can never be left behind at a negative quantity. `quantity: null` rows
     // are skipped by the decrement above and swept up here instead.
+    //
+    // One statement per row, not one `deleteMany` over an `IN` list: a
+    // multi-row DELETE lets Postgres choose the lock order, and a
+    // `quantity: null` row takes no lock in the decrement loop, so this is
+    // where it is locked for the first time (HON-632).
     const response = await completeWithComponents([
       { ingredientId: 'ing-1', quantityPerServing: 100 },
       { ingredientId: 'ing-2', quantityPerServing: 50 },
     ])
 
     expect(response.status).toBe(200)
-    expect(mockPantryDeleteMany).toHaveBeenCalledTimes(1)
-    expect(mockPantryDeleteMany).toHaveBeenCalledWith({
-      where: {
-        householdId: 'household-123',
-        ingredientId: { in: ['ing-1', 'ing-2'] },
-        isStaple: false,
-        OR: [{ quantity: null }, { quantity: { lte: 0 } }],
-      },
-    })
+    expect(mockPantryDeleteMany).toHaveBeenCalledTimes(2)
+    for (const ingredientId of ['ing-1', 'ing-2']) {
+      expect(mockPantryDeleteMany).toHaveBeenCalledWith({
+        where: {
+          householdId: 'household-123',
+          ingredientId,
+          isStaple: false,
+          OR: [{ quantity: null }, { quantity: { lte: 0 } }],
+        },
+      })
+    }
   })
 
   it('claims the completion with a conditional write before deducting', async () => {
@@ -1013,10 +1020,88 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction
     ])
   })
 
-  it('runs the depletion cleanup after every decrement, inside one transaction', async () => {
-    // The transaction body awaits in sequence, so a cleanup that ran before
-    // the decrements would judge depletion against the pre-deduction quantity
+  it('takes the cleanup locks in the same sorted order as the decrements', async () => {
+    // The decrement loop filters `quantity: { not: null }`, so a row at
+    // `quantity: null` matches nothing there and takes no lock — the cleanup
+    // is where it is locked for the first time. `quantity: null` is exactly
+    // the state both purchase routes create rows in, so a bulk "mark
+    // purchased" sorting its own locks is racing *these* statements. A single
+    // `deleteMany` over an `IN` list would hand the order to Postgres and
+    // reopen the deadlock (HON-632).
+    const response = await completeWithComponents([
+      { ingredientId: 'ing-apple', quantityPerServing: 100 },
+      { ingredientId: 'ing-Zucchini', quantityPerServing: 50 },
+    ])
+
+    expect(response.status).toBe(200)
+    expect(mockPantryDeleteMany.mock.calls.map(([args]) => args?.where?.ingredientId)).toEqual([
+      'ing-Zucchini',
+      'ing-apple',
+    ])
+  })
+
+  it('takes every pantry row lock in one sorted pass, whichever statement takes it', async () => {
+    // The invariant is about the order locks are *acquired* in, so it has to
+    // hold across both statement kinds together. Sorting the decrements and
+    // sorting the sweeps is not enough: the decrement filters
+    // `quantity: { not: null }`, so a `quantity: null` row takes no lock there
+    // and would be locked only in a later sweep pass — after every quantified
+    // row is held, which inverts the order against a concurrent bulk purchase
+    // walking the same rows in one sorted pass and deadlocks (HON-632).
+    //
+    // Interleaved per row, the combined sequence stays sorted. Two passes
+    // would read `Zucchini, apple, Zucchini, apple` here instead.
+    const response = await completeWithComponents([
+      { ingredientId: 'ing-apple', quantityPerServing: 100 },
+      { ingredientId: 'ing-Zucchini', quantityPerServing: 50 },
+    ])
+
+    expect(response.status).toBe(200)
+
+    const lockOrder = [
+      ...mockPantryUpdateMany.mock.calls.map(([args], index) => ({
+        order: mockPantryUpdateMany.mock.invocationCallOrder[index] ?? 0,
+        ingredientId: args.where?.ingredientId,
+      })),
+      ...mockPantryDeleteMany.mock.calls.map(([args], index) => ({
+        order: mockPantryDeleteMany.mock.invocationCallOrder[index] ?? 0,
+        ingredientId: args?.where?.ingredientId,
+      })),
+    ]
+      .sort((a, b) => a.order - b.order)
+      .map((entry) => entry.ingredientId)
+
+    expect(lockOrder).toEqual(['ing-Zucchini', 'ing-Zucchini', 'ing-apple', 'ing-apple'])
+  })
+
+  it('sweeps an ingredient a meal lists twice with a single cleanup statement', async () => {
+    // Two components of the same ingredient are two decrements — each
+    // component consumes its own amount — but the row only needs deleting
+    // once, and re-issuing the statement would be pure waste.
+    const response = await completeWithComponents([
+      { ingredientId: 'ing-1', quantityPerServing: 100 },
+      { ingredientId: 'ing-1', quantityPerServing: 50 },
+    ])
+
+    expect(response.status).toBe(200)
+    expect(mockPantryUpdateMany).toHaveBeenCalledTimes(2)
+    expect(mockPantryDeleteMany).toHaveBeenCalledTimes(1)
+    expect(mockPantryDeleteMany.mock.calls.map(([args]) => args?.where?.ingredientId)).toEqual([
+      'ing-1',
+    ])
+  })
+
+  it('sweeps each row right after its own decrement, inside one transaction', async () => {
+    // The transaction body awaits in sequence, so a sweep that ran before its
+    // row's decrement would judge depletion against the pre-deduction quantity
     // and leave emptied rows in the pantry.
+    //
+    // It is each row's *own* decrement that has to come first, not every
+    // decrement in the transaction. Draining the decrements first and only
+    // then sweeping would sort each pass but not their concatenation: a
+    // `quantity: null` row takes no lock in the decrement pass, so it would be
+    // locked after every quantified row, inverting the order against a
+    // concurrent purchase walking the same rows in one sorted pass (HON-632).
     const response = await completeWithComponents([
       { ingredientId: 'ing-1', quantityPerServing: 100 },
       { ingredientId: 'ing-2', quantityPerServing: 50 },
@@ -1032,6 +1117,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction
     expect(pantryOps.map((entry) => entry.op)).toEqual([
       'claim',
       'decrement',
+      'cleanup',
       'decrement',
       'cleanup',
     ])
