@@ -13,8 +13,12 @@
  * This file is therefore the only oracle: it extracts the step's `run:` script
  * out of the YAML and runs it for real against a stubbed `gh`, the same harness
  * shape `ci-settle-gate.test.ts` uses on the skill snippets, and for the same
- * reason. Running it also discharges "the YAML still parses" and "`bash -n`
- * passes on the step script" on every CI run rather than once by hand.
+ * reason. Executing the script also discharges "`bash -n` passes on the step
+ * script" on every CI run rather than once by hand — bash parses it to run it.
+ * It does not discharge "the workflow YAML still parses": the extraction below
+ * is deliberately textual, so a mis-indented key inside the step keeps every
+ * test here green. `pnpm format:check` is what gates that — prettier parses
+ * YAML, and `.prettierignore` does not exclude `.github/`.
  *
  * The failure it exists to catch first: the snippet as drafted in the issue
  * excluded the current record with `grep -v "^${DEPLOYMENT_ID}$"`, and under
@@ -124,6 +128,12 @@ describe('Retire superseded Production deployment records', () => {
       const block = stepBlock(read(), STEP)
 
       expect(block).toContain('GH_TOKEN: ${{ github.token }}')
+      // The executed harness injects its own DEPLOYMENT_ID, so nothing else
+      // here observes the YAML wiring. Drop this key and the step is still
+      // entered — its `if:` reads the step output directly, not the env var —
+      // and then `set -u` aborts on the first loop iteration with `unbound
+      // variable`, on a real release.
+      expect(block).toContain('DEPLOYMENT_ID: ${{ steps.gh_deployment.outputs.deployment_id }}')
       expect(block).not.toContain('secrets.')
     })
 
@@ -139,6 +149,20 @@ describe('Retire superseded Production deployment records', () => {
 
       expect(block).toContain('-f state=inactive')
       expect(block).toContain('environments: ["Production"]')
+    })
+
+    // The window, which the stub below models no more than it models `first:`.
+    // Both are silent reverts of this whole change: `first: 1` returns only the
+    // newest record — after the success POST that is this run's own, which the
+    // loop excludes — so the sweep retires nothing, and ASC points the window at
+    // the oldest 100, the exact drift `orderBy` was added to prevent. Pinned
+    // with a trailing newline because the step's comment repeats `first: 100`
+    // in prose, where a bare substring match would find it.
+    it('queries the newest 100 records', () => {
+      const block = stepBlock(read(), STEP)
+
+      expect(block).toContain('orderBy: { field: CREATED_AT, direction: DESC }')
+      expect(block).toContain('first: 100\n')
     })
   })
 
