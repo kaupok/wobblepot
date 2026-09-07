@@ -268,12 +268,31 @@ export function compareVersions(a: string, b: string): number {
  * for, so the safe reading is "affected", not "unknown".
  */
 export function floorFor(floors: string[], version: string): string | null {
-  const major = (v: string) => Number.parseInt(v.split('.')[0] ?? '', 10) || 0
-  const applicable = floors.filter((floor) => major(floor) <= major(version))
-  if (applicable.length === 0) return null
-  return applicable.reduce((highest, floor) =>
-    compareVersions(highest, floor) >= 0 ? highest : floor,
-  )
+  if (floors.length === 0) return null
+
+  // The branch key is the major — except under 1.0.0, where semver treats every
+  // 0.x minor as its own breaking line and advisories patch those separately.
+  // Bucketing 0.5.x with 0.6.x would make a 0.6 floor judge the advisory's own
+  // published 0.5 patch as vulnerable. Not academic here: esbuild resolves to
+  // 0.27.2 / 0.27.7 / 0.28.2 and @better-auth/utils to 0.4.2 / 0.5.0, so the
+  // first 0.x entry added to PINS would hit it.
+  const branch = (v: string): string => {
+    const [rawMajor = '', rawMinor = ''] = v.split('.')
+    const major = Number.parseInt(rawMajor, 10) || 0
+    return major === 0 ? `0.${Number.parseInt(rawMinor, 10) || 0}` : String(major)
+  }
+
+  const highest = (list: string[]): string =>
+    list.reduce((best, floor) => (compareVersions(best, floor) >= 0 ? best : floor))
+
+  const sameBranch = floors.filter((floor) => branch(floor) === branch(version))
+  if (sameBranch.length > 0) return highest(sameBranch)
+
+  // A branch the advisory does not list at all, above everything it patched —
+  // judge it against the newest known floor rather than waving it through.
+  if (floors.every((floor) => compareVersions(version, floor) > 0)) return highest(floors)
+
+  return null
 }
 
 export interface Violation {
@@ -344,10 +363,20 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 
 /**
  * Smallest number of distinct packages a real lockfile for this repo can hold.
- * It currently resolves ~1200, so this is a truncation tripwire, not a floor
- * anyone has to maintain.
+ *
+ * This must stay within the same order of magnitude as the real count (1062 on
+ * 2026-09-07), not merely above zero. At 50 — 4.7% — a lockfile cut to 10% of
+ * its length still cleared the guard while `defu`, `vitest` and every
+ * `@vitest/*` entry had vanished, and the scan reported all pins holding over
+ * a file containing none of them. A merge conflict resolved by truncating the
+ * `snapshots:` tail lands squarely in that band.
+ *
+ * If a legitimate dependency removal ever trips this, raise the constant in
+ * the same commit — the check names the count it saw, so the fix is obvious.
+ * That is the right failure direction for a guard whose job is to refuse to
+ * report a green it cannot substantiate.
  */
-const MIN_PLAUSIBLE_PACKAGES = 50
+const MIN_PLAUSIBLE_PACKAGES = 800
 
 export function checkLockfile(lockfilePath: string): Violation[] {
   const text = readFileSync(lockfilePath, 'utf8')

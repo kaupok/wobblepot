@@ -191,6 +191,30 @@ describe('floorFor', () => {
     // safe reading, not "unknown".
     expect(floorFor(['11.1.1', '12.0.1', '13.0.1'], '9.0.1')).toBeNull()
   })
+
+  it('treats each 0.x minor as its own branch, per semver', () => {
+    // Bucketing by major alone puts 0.5.x and 0.6.x together, so the 0.6 floor
+    // judges the advisory's own published 0.5 patch as vulnerable. esbuild
+    // (0.27.2 / 0.27.7 / 0.28.2) and @better-auth/utils (0.4.2 / 0.5.0) already
+    // resolve this way here, so the first 0.x pin added would hit it.
+    expect(floorFor(['0.5.3', '0.6.2'], '0.5.3')).toBe('0.5.3')
+    expect(floorFor(['0.5.3', '0.6.2'], '0.5.2')).toBe('0.5.3')
+    expect(floorFor(['0.5.3', '0.6.2'], '0.6.1')).toBe('0.6.2')
+    // A 1.x release is a branch neither floor covers, and above both.
+    expect(floorFor(['0.5.3', '0.6.2'], '1.0.0')).toBe('0.6.2')
+  })
+
+  it('picks the highest floor when one branch lists several', () => {
+    // Above 1.0.0 a minor is not its own breaking line, so both floors belong
+    // to branch 2 and the newer one wins. Documented rather than special-cased:
+    // an advisory that maintains two minor branches inside one major would need
+    // its own entries. None of the pins in PINS is shaped that way.
+    expect(floorFor(['2.1.9', '2.2.3'], '2.1.9')).toBe('2.2.3')
+  })
+
+  it('returns null with no floors at all', () => {
+    expect(floorFor([], '1.0.0')).toBeNull()
+  })
 })
 
 describe('findViolations', () => {
@@ -301,14 +325,22 @@ describe('checkLockfile', () => {
 describe('CLI exit codes', () => {
   it('exits non-zero and names the offending entry on a regressed lockfile', () => {
     // The real lockfile with the HON-588 dedupe undone: better-auth's `^6.1.4`
-    // spec resolved back to the advisory version, alongside the 6.1.7 that
-    // Prisma's c12 still pulls. Built from the real file rather than a bare
-    // snippet so it also clears the truncation guard in checkLockfile.
+    // spec resolved back to the advisory version, alongside whatever patched
+    // defu the tree currently pulls. Built from the real file rather than a
+    // bare snippet so it also clears the truncation guard in checkLockfile.
     const realLockfile = fs.readFileSync(path.join(repoRoot, 'pnpm-lock.yaml'), 'utf8')
-    const bad = fixture(
-      'regressed-defu.yaml',
-      realLockfile.replace('  defu@6.1.7:', `${REGRESSED_DEFU}  defu@6.1.7:`),
+    // Anchor on whatever defu resolves to rather than a literal 6.1.7: the pin
+    // is a 6.1.5 floor, so 6.1.8 is a legal bump, and a hardcoded anchor would
+    // silently no-op — leaving the fixture identical to the real lockfile and
+    // failing this test on the bump instead of on a regression.
+    const anchor = /^ {2}defu@\d+\.\d+\.\d+:$/m.exec(realLockfile)?.[0]
+    expect(anchor, 'no defu packages entry found in pnpm-lock.yaml').toBeDefined()
+    const regressed = realLockfile.replace(anchor ?? '', `${REGRESSED_DEFU}${anchor}`)
+    expect(regressed, 'injection was a no-op — fixture equals the real lockfile').not.toBe(
+      realLockfile,
     )
+
+    const bad = fixture('regressed-defu.yaml', regressed)
     const { status, output } = run(bad)
 
     expect(status).not.toBe(0)
