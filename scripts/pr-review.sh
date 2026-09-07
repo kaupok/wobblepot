@@ -26,6 +26,7 @@ MODEL="${CLAUDE_REVIEW_MODEL:-claude-opus-5}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
 NC='\033[0m'
 
 # ─── Argument validation ─────────────────────────────────────────────────────
@@ -297,6 +298,86 @@ Then apply that verdict to your findings:
 
 **A "less usable" verdict is itself a finding, and must be filed as one.** Do NOT write "No issues found" in a summary whose verdict is "less usable" — automation substring-tests for that phrase to decide the review was clean and merges on it, so the regression would be discarded silently, which is the exact outcome this section exists to prevent. When the verdict is "less usable", the "Issues found" list must have at least one entry naming what to cut. "No issues found" is correct only when the verdict is "more usable" or "about the same" and you have no other findings.
 PROSE_PROMPT
+fi
+
+# ─── UI PRs: check the changed UI against docs/DESIGN.md ─────────────────────
+#
+# docs/DESIGN.md is the guidance half of the loop — read before UI is built. This
+# is the other half: the review that checks the result against it, and that feeds
+# the next rule back into the doc (HON-615).
+#
+# The gate is computed here rather than asked of the model, so the doc is read only
+# when the diff can actually violate it, and a no-UI PR cannot spend a turn deciding.
+#
+# It fails CLOSED, because the two branches are not "check" and "skip": the else
+# branch instructs `not applicable (no UI files)`, an affirmative claim written into
+# the record the line exists to be. PR_FILES is empty whenever `gh pr view` fails and
+# is capped at 100 paths (HON-587), so a PR that is entirely UI can arrive here with
+# an empty UI_FILES. Make the claim only when the list backing it was readable and
+# complete — the two conditions the prose gate above already evaluates — and check
+# the guide otherwise. Reading it needlessly costs one file read; a false "not
+# applicable" costs the audit trail.
+if [ -n "$PR_FILES" ] && [ "$PR_FILE_COUNT" = "$PR_CHANGED" ]; then
+  PR_FILES_COMPLETE=true
+else
+  PR_FILES_COMPLETE=false
+fi
+# The pattern is "anything that renders UI", not "component files":
+#   - .css as well as .tsx, because src/app/globals.css holds the @theme token block
+#     and half the reject list is about tokens — a raw palette class where a token
+#     exists, a `dark:` override on a semantic token, arbitrary font sizes. A
+#     token-only PR changes no .tsx at all (CLAUDE.md routes `@theme` and
+#     `--spacing-*` changes through docs/DESIGN.md for the same reason).
+#   - src/stories as well, because src/stories/scenarios/* composes whole screens and
+#     is where the composition rules become visible at all (HON-610). A .ts there is
+#     deliberately excluded: design-rules.ts implements the mechanical checks, it does
+#     not render anything a reject-list item could apply to.
+# Each omission would have handed the affirmative "no UI files" claim to a diff the
+# guide speaks directly to — the same false negative the guard above prevents.
+UI_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^src/(components|app|stories)/.*\.(tsx|css)$' || true)
+
+if [ -n "$UI_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
+  if [ -n "$UI_FILES" ]; then
+    echo -e "${GREEN}UI files changed — adding the design-guide instruction.${NC}"
+  else
+    echo -e "${YELLOW}File list unreadable or truncated — checking the design guide rather than claiming it does not apply.${NC}"
+  fi
+  cat >> "$PROMPT_FILE" <<'DESIGN_PROMPT'
+
+## Also check the changed UI against the design guide
+
+Read `docs/DESIGN.md` before step 4 and check the changed UI against its **Reject list** and **Composition rules** sections only. The rest of that document is guidance for building, not a review checklist — do not review against it.
+
+You may reach this instruction on a diff that turns out to change no UI: the file list backing the gate can come back unreadable or truncated, in which case the check runs rather than claim it does not apply. That outcome is `— 0 findings` on the summary line below. There is no third verdict — do not invent findings to fill it, and do not write your own wording for it.
+
+A design finding qualifies only when it matches a **named** item in one of those two sections: a Card nested inside a Card, a sticky action bar inside content, a page title above `text-xl`, a raw palette class where a token exists, and so on. **Name the item you matched**, so the finding can be checked against the document. Anything the document does not name is taste, and the substantive-only bar above still applies to it: do not post it.
+
+One exception to "named items only": if the same unnamed pattern appears **twice** in this diff, that repetition is itself worth reporting — put it in the summary comment as a proposed new **Reject list** entry, citing both sightings. Do not post it as an inline finding.
+
+**A proposed reject-list entry is a finding, and must be filed as one.** List it in the summary comment's `**Issues found:**` list, not only in the prose around it, and do NOT write "No issues found" in a summary that proposes one — automation substring-tests for that phrase to decide the review was clean and merges on it, so the proposal would be discarded silently. Naming the pattern is the only way the guide grows a rule for it, which is the whole reason this exception exists.
+
+**Report the check in the summary comment.** In the Step 5 body, on its own line directly above the `**Issues found:**` list, emit exactly:
+
+**Design guide:** checked against docs/DESIGN.md — N findings
+
+where N is how many design-guide findings you are reporting; `0` is a valid and common answer. Emit the line even when N is 0 — it is what makes the check observable from the PR page and what a later audit greps for. It does not change the shape of the comment: `<!-- claude-review -->` must still be the very first line of the body, with nothing before it.
+DESIGN_PROMPT
+else
+  echo -e "${GREEN}No UI files changed — the design guide does not apply.${NC}"
+  cat >> "$PROMPT_FILE" <<'NO_DESIGN_PROMPT'
+
+## This PR touches no UI files — the design guide does not apply
+
+Nothing in this diff renders UI, so nothing here can violate the design guide. **Do not open `docs/DESIGN.md` to check other files against it**, and do not raise design findings.
+
+That is a rule about reviewing *against* the guide, not about the file. If `docs/DESIGN.md` is itself in the diff — which is what the feedback half of this loop produces, a PR that adds a Reject list entry — step 2 still applies in full: read it as a changed file and review the change on its own terms.
+
+Record that in the Step 5 summary comment, on its own line directly above the `**Issues found:**` list, exactly:
+
+**Design guide:** not applicable (no UI files)
+
+`<!-- claude-review -->` must still be the very first line of the body, with nothing before it.
+NO_DESIGN_PROMPT
 fi
 
 REVIEW_PROMPT=$(cat "$PROMPT_FILE")
