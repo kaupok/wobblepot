@@ -24,7 +24,10 @@ Read project context and existing backlog in parallel:
 
 ```
 Read docs/PROJECT_SPEC.md
+Read docs/DESIGN.md
 ```
+
+The design guide is what makes a visual observation reportable: its **Reject list** and **Composition rules** are the named items a finding cites (HON-615).
 
 Fetch open and recently completed issues in parallel (split by state to avoid payload limits):
 
@@ -88,6 +91,7 @@ For each area the user wants to review:
 - **Feature opportunities**: Missing functionality, workflow friction, enhancement ideas
 - **Performance**: Slow loads, unnecessary re-renders, large payloads
 - **Content/polish**: Typos, inconsistent casing, missing empty states, rough edges
+- **Design guide**: Anything on the `docs/DESIGN.md` **Reject list**, or a **Composition rule** not followed. Name the item when you present it, so the user can check it against the document
 
 #### How to present findings
 
@@ -107,6 +111,8 @@ When the user agrees a finding is worth tracking:
    - Why it matters (for UX/feature items)
    - Acceptance criteria (what does "done" look like?)
 4. **Consider relationships** — does this relate to, block, or duplicate existing issues?
+
+**Design findings.** When the finding matches a named item in `docs/DESIGN.md`, cite the item under **Why** — that is what separates a design finding from a taste preference. When it is a recurring pattern the document does not name, offer the user two things rather than one: the fix issue, and a one-line addition to the **Reject list** (a small docs PR, or a note appended to the fix issue's acceptance criteria). Naming it is how the guide stops being a static document (HON-615).
 
 ### Step 7: Create in Linear
 

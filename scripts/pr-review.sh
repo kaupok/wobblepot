@@ -299,6 +299,54 @@ Then apply that verdict to your findings:
 PROSE_PROMPT
 fi
 
+# ─── UI PRs: check the changed UI against docs/DESIGN.md ─────────────────────
+#
+# docs/DESIGN.md is the guidance half of the loop — read before UI is built. This
+# is the other half: the review that checks the result against it, and that feeds
+# the next rule back into the doc (HON-615).
+#
+# The gate is computed here rather than asked of the model, so the doc is read only
+# when the diff can actually violate it, and a no-UI PR cannot spend a turn deciding.
+# PR_FILES above is capped at 100 paths by `gh pr view --json files` (HON-587). That
+# is acceptable here and only here: a truncated read can under-report UI files, so
+# the failure direction is "not applicable" — a check skipped, never a merge gate
+# waived. Do not copy this reasoning to a site that gates a merge.
+UI_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^src/(components|app)/.*\.tsx$' || true)
+
+if [ -n "$UI_FILES" ]; then
+  echo -e "${GREEN}UI files changed — adding the design-guide instruction.${NC}"
+  cat >> "$PROMPT_FILE" <<'DESIGN_PROMPT'
+
+## This PR touches UI files — also check it against the design guide
+
+This diff changes files under `src/components/` or `src/app/`, so read `docs/DESIGN.md` before step 4 and check the changed UI against its **Reject list** and **Composition rules** sections only. The rest of that document is guidance for building, not a review checklist — do not review against it.
+
+A design finding qualifies only when it matches a **named** item in one of those two sections: a Card nested inside a Card, a sticky action bar inside content, a page title above `text-xl`, a raw palette class where a token exists, and so on. **Name the item you matched**, so the finding can be checked against the document. Anything the document does not name is taste, and the substantive-only bar above still applies to it: do not post it.
+
+One exception to "named items only": if the same unnamed pattern appears **twice** in this diff, that repetition is itself worth reporting — put it in the summary comment as a proposed new **Reject list** entry, citing both sightings. Do not post it as an inline finding.
+
+**Report the check in the summary comment.** In the Step 5 body, on its own line directly above the `**Issues found:**` list, emit exactly:
+
+**Design guide:** checked against docs/DESIGN.md — N findings
+
+where N is how many design-guide findings you are reporting; `0` is a valid and common answer. Emit the line even when N is 0 — it is what makes the check observable from the PR page and what a later audit greps for. It does not change the shape of the comment: `<!-- claude-review -->` must still be the very first line of the body, with nothing before it.
+DESIGN_PROMPT
+else
+  echo -e "${GREEN}No UI files changed — the design guide does not apply.${NC}"
+  cat >> "$PROMPT_FILE" <<'NO_DESIGN_PROMPT'
+
+## This PR touches no UI files — the design guide does not apply
+
+No file in this diff is a `.tsx` under `src/components/` or `src/app/`, so nothing here can violate the design guide. **Do not read `docs/DESIGN.md`** and do not raise design findings.
+
+Record that in the Step 5 summary comment, on its own line directly above the `**Issues found:**` list, exactly:
+
+**Design guide:** not applicable (no UI files)
+
+`<!-- claude-review -->` must still be the very first line of the body, with nothing before it.
+NO_DESIGN_PROMPT
+fi
+
 REVIEW_PROMPT=$(cat "$PROMPT_FILE")
 
 # ─── Run the reviewer ─────────────────────────────────────────────────────────

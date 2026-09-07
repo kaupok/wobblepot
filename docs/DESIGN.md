@@ -2,7 +2,7 @@
 
 > **Status: draft.** Core rules only. Read this before building or changing any UI. Rules cite the decision that produced them (`HON-NNN`) so the reasoning can be traced. Items marked **Proposed** describe where we want to be, not where the code is today.
 
-**How to use this file:** judgment lives here in prose. Anything that can be checked mechanically (a token, a class, a component) lives in code, and this file points at it. When a review finds the same visual problem twice, name it in [Reject list](#reject-list) so agents recognise it instead of re-inferring it.
+**How to use this file:** judgment lives here in prose. Anything that can be checked mechanically (a token, a class, a component) lives in code, and this file points at it. When a review finds the same visual problem twice, name it in [Reject list](#reject-list) so agents recognise it instead of re-inferring it. Reviews check against the [Reject list](#reject-list) and [Composition rules](#composition-rules) only; a finding must name the item it matches, and anything this file does not name is taste rather than a finding (`HON-615`).
 
 ## Who we design for
 

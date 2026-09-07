@@ -151,6 +151,7 @@ CLAUDE.md is already loaded as project instructions — do not re-read it. Read 
 
   If any spec references removed routes or renamed copy, call it out in **Address Now** — stale specs are cheap to miss locally and land as a CI regression. See HON-518 for the drift-batch incident this rule was introduced to prevent.
 - **Storybook drift**: If the diff touches `src/components/**`, verify the colocated `.stories.tsx` was created/updated for the new variants and states (CLAUDE.md Storybook rule) and that `pnpm test-storybook:ci` passes. A missing or stale story is an **Address Now** item.
+- **Design guide**: If the diff touches `src/components/**/*.tsx` or `src/app/**/*.tsx`, read `docs/DESIGN.md` (skip it entirely otherwise) and check the changed UI against the **Reject list** and **Composition rules** sections only — the rest of that document is guidance for building, not a review checklist. A match against a **named** item is an **Address Now** finding; cite the item by name so the finding can be checked against the document. Anything the document does not name is taste, not a finding. If the same unnamed pattern appears twice — twice in this diff, or once here and once in a recent PR — add a line under **Deferred Issues to Create** proposing it as a new reject-list entry, with both sightings (HON-615).
 - **Shared-primitive coupling**: If the diff changes a geometry default on a primitive under `src/components/ui/*.tsx`, a `@theme` token, or a shared layout wrapper, run `/plan-issue` step 7b's greps against the **old** literal and verify every **Mirror** moved with it. Route `loading.tsx` skeletons are the usual miss — HON-612 desynced 12 of them and this review step, not planning, is what caught it (CLAUDE.md shared-primitive geometry rule)
 
 ### 9. Triage issues
@@ -188,6 +189,7 @@ Return a structured review with triage (under 1000 words):
 - **PR**: [title](url) or "No PR created"
 - **Issue**: [HON-XX: title] or "No linked issue"
 - **Plan**: Found in Linear comments / Not found
+- **Design guide**: checked against `docs/DESIGN.md` / not applicable (no UI files)
 
 ### Changes Summary
 - **Committed** (vs main): X files
