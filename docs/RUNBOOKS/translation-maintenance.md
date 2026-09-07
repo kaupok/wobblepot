@@ -14,7 +14,7 @@ Estonian shipped machine-quality by design. Awkward phrasings and outright typos
 
 Direct, scoped `UPDATE` statements against staging and then production, logged in this file. Zero new product surface. Two alternatives were considered: an in-product `/admin/translations` page (rejected — real cost in route, auth gate, and CRUD plumbing for a volume we do not yet have) and a seed-script PR workflow (rejected as the _primary_ path, because a one-word typo should not wait on CI and a deploy to stop being visible).
 
-**The seed edit is not optional, though — it is the second half of the fix.** Implementing this runbook surfaced something the decision was made without: `pnpm db:seed` runs unconditionally on every production migration deploy and re-asserts the checked-in translation data over whatever is in the database. A SQL edit alone is reverted at the next release. So the honest shape of this workflow is **SQL first, seed data after**: the `UPDATE` makes the fix visible to users immediately, without a deploy, which is what the principle is actually protecting; the follow-up PR is what makes it survive. See [The seed re-asserts translations](#the-seed-re-asserts-translations) — that section is the most important one in this runbook, and skipping it is how a fix quietly un-fixes itself.
+**SQL first, seed data after.** Implementing this runbook surfaced a constraint the decision was made without: the production deploy re-seeds, so a SQL edit alone is reverted at the next release. The `UPDATE` is what makes the fix visible today without a deploy; a follow-up PR is what makes it survive. [The seed re-asserts translations](#the-seed-re-asserts-translations) is the section to read before using this runbook.
 
 **Re-evaluate when fix volume outgrows it.** The escalation is the admin page, sharing its authoring surface with the ingredient-promotion flow in [HON-514](https://linear.app/honkadori/issue/HON-514) if that lands first. The signal to watch: if the change log below starts collecting more than a handful of entries a month, or if a session routinely edits ten-plus rows at a time, the discipline this runbook depends on is being asked for more than it can give.
 
@@ -43,7 +43,7 @@ Two tables, both pure overlays on a canonical English base row. `prisma/schema.p
 | `locale`       | `text` | **No** — see the warning below.                                           |
 | `name`         | `text` | **Yes** — the translated ingredient name. This is the whole editable set. |
 
-Unique on `("ingredientId", locale)`: one translation per ingredient per locale. Also indexed on `(locale, name)`, which the fuzzy ingredient matcher reads — see [Matching side effects](#matching-side-effects).
+Unique on `("ingredientId", locale)`: one translation per ingredient per locale. There is also a plain btree on `(locale, name)` (`ingredient_translation_locale_name_idx`), which serves the `locale` equality filter only — the fuzzy matcher's `similarity()` predicate cannot use it, and no trigram index exists on this table. See [Matching side effects](#matching-side-effects).
 
 ### `meal_translation` (`prisma/schema.prisma:384`)
 
@@ -58,9 +58,9 @@ Unique on `("ingredientId", locale)`: one translation per ingredient per locale.
 
 Unique on `("mealId", locale)`.
 
-`preparationNotes` looks editable and is not. The seed writes `null` into it in **both** the `create` and `update` branches (`prisma/seed.ts:3889`, `:3894`), so anything you put there is erased on the next production seed run — see [The seed re-asserts translations](#the-seed-re-asserts-translations). That is deliberate: seeded meals carry no English prep notes either, the meal-detail prep section is driven by the AI preparation-tips feature, and the column is reserved for user-authored notes, which keep their creator-time locale per HON-499's content principle. There is nothing to translate here.
+`preparationNotes` looks editable and is not. The seed writes `null` into it in **both** the `create` and `update` branches (`prisma/seed.ts:3889`, `:3894`), so anything you put there is erased on the next production seed run. That is deliberate: seeded meals carry no English prep notes either, the meal-detail prep section is driven by the AI preparation-tips feature, and the column is reserved for user-authored notes, which keep their creator-time locale per HON-499's content principle. There is nothing to translate here.
 
-> **Never `UPDATE` the `locale` column.** It is half of the unique key, so changing it does not "move" a translation — it re-keys the row. The locale you left loses its overlay (that ingredient silently falls back to English for every household on it), and the locale you moved into either gains a duplicate-key error or, worse, succeeds and shadows a translation that was already correct. To add a translation for a new locale, `INSERT` a new row; to remove one, that is a seed-data change.
+> **Never `UPDATE` the `locale` column.** It is half of the unique key, so changing it does not "move" a translation — it re-keys the row. The locale you left loses its overlay — that ingredient silently falls back to English for every household on it — and the destination either already has a translation, so the write is rejected on the unique key, or does not, so you have moved Estonian text under another language's label. To add a translation for a new locale, `INSERT` a new row; to remove one, that is a seed-data change.
 
 ### English is not in these tables
 
@@ -70,7 +70,7 @@ The same boundary applies to household-scoped rows. AI- and user-created ingredi
 
 ## Getting a SQL prompt
 
-Read [`database-recovery.md`](database-recovery.md) § Prerequisites first if you are unsure how to reach a database safely — it owns connection and recovery mechanics, and this runbook does not repeat them. The environments and the promotion path are in [`../DEPLOYMENT.md`](../DEPLOYMENT.md).
+[`database-recovery.md`](database-recovery.md) owns recovery mechanics and is where you go if an edit goes wrong; its § "Neon branching recovery workflow" carries the worked `psql` invocations. This runbook does not repeat them. The environments and the promotion path are in [`../DEPLOYMENT.md`](../DEPLOYMENT.md).
 
 You want `DATABASE_URL_UNPOOLED` — the direct connection, not the pooled one ([`../ENVIRONMENT_SETUP.md`](../ENVIRONMENT_SETUP.md) § Variable reference). Pull it from Vercel rather than copying it out of a dashboard:
 
@@ -176,7 +176,7 @@ Every **production** edit gets a line in the [change log](#change-log) below, co
 
 ### 6. Mirror the edit into the seed data
 
-**Not optional, and not deferrable indefinitely.** The next production deploy runs `pnpm db:seed`, which rewrites the row from the checked-in data file and reverts what you just did. Edit the matching entry in `prisma/seed-ingredient-translations-et.ts` or `prisma/seed-meal-translations-et.ts` and open a PR — steps 5 and 6 travel together in one PR comfortably. Full explanation in [The seed re-asserts translations](#the-seed-re-asserts-translations).
+Edit the matching entry in `prisma/seed-ingredient-translations-et.ts` or `prisma/seed-meal-translations-et.ts` to the value you just wrote, and open a PR — steps 5 and 6 travel together in one PR comfortably. Without it the next production deploy reverts your edit; [the section below](#the-seed-re-asserts-translations) explains why.
 
 ## The seed re-asserts translations
 
@@ -246,7 +246,7 @@ If Estonian itself has to come off — a systemic quality problem, not a typo �
 +export const PUBLIC_LOCALES = ['en'] as const
 ```
 
-**This lever is weaker than it looks — it is not sufficient on its own.** It removes the locale from the settings selector, and nothing else. Onboarding still auto-resolves Estonian from `Accept-Language` and persists it: `resolveLocale` gates on `isKnownLocale`, and `POST /api/households` writes the result without clamping it to `PUBLIC_LOCALES` (`src/app/api/households/route.ts:50`, whose comment says a clamp is unneeded _because_ the two sets are equal today — which is exactly the assumption this edit breaks). `isPublicLocale` has no non-test callers. So an Estonian-preferring browser still lands in Estonian after this change. If the goal is "no new households get Estonian", you need `KNOWN_LOCALES` below, or a clamp added to that route first.
+**This lever is weaker than it looks — it is not sufficient on its own, and it is not inert either.** It removes the locale from the settings selector; households already on `et` then render a **blank** locale control, because `HouseholdSettingsForm.tsx:300` binds `value={locale}` against items built from `PUBLIC_LOCALES` (`:308`) behind a bare `<SelectValue />` with no placeholder. Meanwhile onboarding still auto-resolves Estonian from `Accept-Language` and persists it: `resolveLocale` gates on `isKnownLocale`, and `POST /api/households` writes the result without clamping it to `PUBLIC_LOCALES` (`src/app/api/households/route.ts:50`, whose comment says a clamp is unneeded _because_ the two sets are equal today — which is exactly the assumption this edit breaks). `isPublicLocale` has no non-test callers. So an Estonian-preferring browser still lands in Estonian after this change. If the goal is "no new households get Estonian", you need `KNOWN_LOCALES` below, or a clamp added to that route first.
 
 **Revert every household to English chrome** (`src/lib/i18n/locales.ts:15`) — the rollback lever named in HON-499's principles:
 
@@ -276,7 +276,7 @@ Neither is a reason to avoid the edit. It is a reason to prefer the word a user 
 
 ## Adjacent work
 
-[HON-514](https://linear.app/honkadori/issue/HON-514) — promoting household-scoped ingredients into the curated global pool. That flow includes backfilling `ingredient_translation` rows for newly promoted ingredients, and it is **the same person's job**: whoever curates the global pool also fixes its translations. Expect these two to converge — if HON-514 ships an admin surface, translation editing likely moves there and this runbook becomes the fallback rather than the primary path (see the escalation note in [Why this exists](#why-this-exists)).
+[HON-514](https://linear.app/honkadori/issue/HON-514) — promoting household-scoped ingredients into the global pool — backfills `ingredient_translation` rows for the ingredients it promotes, and it is **the same person's job**: whoever curates the pool also fixes its translations.
 
 ## Reference
 
