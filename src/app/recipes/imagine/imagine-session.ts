@@ -12,14 +12,20 @@ export const IMAGINE_ROUTE = '/recipes/imagine'
 export interface ImagineSession {
   prompt: string
   meals: ImaginedMealResponse[]
+  /**
+   * Diagnostic only — nothing reads it to expire the stash. The tab's lifetime
+   * is the intended TTL, which `sessionStorage` already enforces for us.
+   */
   createdAt: number
 }
 
 /**
- * Shallow validation only. We are the sole writer of this key, so the point is
- * to survive a hand-edited or truncated value rather than to re-verify the
- * whole `ImaginedMealResponse` tree — `id` and `name` are what the results grid
- * keys and renders on.
+ * Validation is shallow but covers every field the restore path dereferences:
+ * a restored meal goes straight into `<MealCardBase>`, which reads `nutrition`
+ * (`NutritionSummary` → `nutrition.calories`), maps over `components`, and
+ * translates `primaryProteinType`. Checking only `id`/`name` would let a
+ * hand-edited value through to the error boundary — the exact failure this
+ * guard exists to turn into a clean "no stash".
  */
 function isImagineSession(value: unknown): value is ImagineSession {
   if (typeof value !== 'object' || value === null) return false
@@ -30,7 +36,14 @@ function isImagineSession(value: unknown): value is ImagineSession {
   return candidate.meals.every((meal) => {
     if (typeof meal !== 'object' || meal === null) return false
     const entry = meal as Record<string, unknown>
-    return typeof entry.id === 'string' && typeof entry.name === 'string'
+    return (
+      typeof entry.id === 'string' &&
+      typeof entry.name === 'string' &&
+      typeof entry.primaryProteinType === 'string' &&
+      Array.isArray(entry.components) &&
+      typeof entry.nutrition === 'object' &&
+      entry.nutrition !== null
+    )
   })
 }
 

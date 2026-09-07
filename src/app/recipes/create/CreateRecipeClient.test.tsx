@@ -78,31 +78,33 @@ describe('CreateRecipeClient routing', () => {
     expect(push).toHaveBeenCalledWith('/recipes')
   })
 
-  it.each(['https://evil.example/steal', '//evil.example/steal', 'recipes/imagine'])(
-    'ignores a tampered returnTo (%s) and cancels to the library',
-    async (returnTo) => {
-      seedPrefilled({ returnTo })
-      const cancel = await renderLoaded()
+  // `/\\evil.example` and the percent-encoded variants resolve off-origin once
+  // the URL parser normalises them — `getValidReturnUrl` is what rejects them.
+  it.each([
+    'https://evil.example/steal',
+    '//evil.example/steal',
+    'recipes/imagine',
+    '/\\evil.example',
+    '/%2F/evil.example',
+    '/%5Cevil.example',
+    '',
+  ])('ignores a tampered returnTo (%s) and cancels to the library', async (returnTo) => {
+    seedPrefilled({ returnTo })
+    const cancel = await renderLoaded()
 
-      await userEvent.click(cancel)
+    await userEvent.click(cancel)
 
-      expect(push).toHaveBeenCalledWith('/recipes')
-    },
-  )
-
-  it('clears the imagine stash when a meal from the imagine flow is saved', async () => {
-    seedPrefilled({ returnTo: '/recipes/imagine' })
-    seedImagineSession()
-    await renderLoaded()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-
-    await waitFor(() => expect(sessionStorage.getItem('imagined-meals')).toBeNull())
     expect(push).toHaveBeenCalledWith('/recipes')
   })
 
-  it('leaves the imagine stash alone when an imported recipe is saved', async () => {
-    seedPrefilled({ originalRecipeText: 'Lentil stew\n- 200g lentils' })
+  // Saving one of three suggestions does not invalidate the other two, and the
+  // stash has to keep mirroring what `/recipes/imagine` renders — clearing it
+  // here would blank that page on the next mount.
+  it.each([
+    ['from the imagine flow', { returnTo: '/recipes/imagine' }],
+    ['from the import flow', { originalRecipeText: 'Lentil stew\n- 200g lentils' }],
+  ])('leaves the imagine stash alone when a meal %s is saved', async (_label, extra) => {
+    seedPrefilled(extra)
     seedImagineSession()
     await renderLoaded()
 

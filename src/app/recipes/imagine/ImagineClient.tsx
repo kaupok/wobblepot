@@ -158,8 +158,11 @@ export function ImagineClient() {
 
   const handleReviewSaved = (mealId: string) => {
     void track('meal:imagined', { meal_id: mealId, source: 'imagine_page' })
-    // The suggestion became a real meal — nothing left to come back to.
-    clearImagineSession()
+    // Deliberately does NOT clear the stash. Saving closes the dialog without
+    // navigating, so the other two suggestions are still on screen and still
+    // selectable — dropping the stash here would leave it out of sync with
+    // `meals` and blank the page on the next mount. The stash mirrors what is
+    // rendered; only a new generation (or the tab closing) supersedes it.
     setReviewMeal(null)
     toast.success(t('savedToast'))
   }

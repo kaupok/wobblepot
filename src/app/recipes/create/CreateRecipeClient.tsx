@@ -9,9 +9,7 @@ import {
 } from '@/components/household/MealForm'
 import type { MealType } from '@/generated/prisma/enums'
 import { track } from '@/lib/analytics'
-// Colocated with the flow that owns it — the imagine page writes the stash and
-// this page is the one place that can tell when it should be dropped.
-import { IMAGINE_ROUTE, clearImagineSession } from '@/app/recipes/imagine/imagine-session'
+import { getValidReturnUrl } from '@/lib/utils'
 
 interface EnhancedPrefilledData {
   name: string
@@ -33,14 +31,15 @@ interface EnhancedPrefilledData {
 }
 
 /**
- * `returnTo` round-trips through `sessionStorage`, so treat it as untrusted:
- * only same-origin absolute paths are pushed. `//host` is a protocol-relative
- * URL, not a path.
+ * `returnTo` round-trips through `sessionStorage`, so treat it as untrusted.
+ * Delegates to the vetted `getValidReturnUrl` rather than re-deriving the rule:
+ * it also rejects backslashes and percent-encoded bypasses (`/\evil.example`
+ * resolves to `https://evil.example/`). It returns `'/'` for anything it
+ * rejects, so an unchanged value is the pass signal.
  */
 function safeInternalPath(value: string | null | undefined): string | null {
-  if (typeof value !== 'string') return null
-  if (!value.startsWith('/') || value.startsWith('//')) return null
-  return value
+  if (typeof value !== 'string' || value === '') return null
+  return getValidReturnUrl(value) === value ? value : null
 }
 
 // undefined = not loaded yet, null = loaded (no prefill), object = loaded with prefill
@@ -85,12 +84,10 @@ export function CreateRecipeClient({ defaultServings }: CreateRecipeClientProps)
     if (prefilledData?.originalRecipeText) {
       void track('recipe:imported', { source: 'import_page' })
     }
-    // The imagined suggestion is now a saved meal, so there is nothing to go
-    // back to. Gated on `returnTo` so the import flow never clears a stash that
-    // belongs to an imagine session the user is still in the middle of.
-    if (prefilledData?.returnTo === IMAGINE_ROUTE) {
-      clearImagineSession()
-    }
+    // The imagine stash is deliberately left alone: saving one of the three
+    // suggestions does not invalidate the other two, and the stash has to keep
+    // mirroring what `/recipes/imagine` renders (see `handleReviewSaved`
+    // there). A new generation, or the tab closing, is what supersedes it.
     router.push('/recipes')
   }
 

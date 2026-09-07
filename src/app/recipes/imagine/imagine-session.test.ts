@@ -88,6 +88,55 @@ describe('imagine-session', () => {
       'a meal missing its name',
       JSON.stringify({ prompt: 'x', meals: [{ id: 'im-1' }], createdAt: 1 }),
     ],
+    // The next four are the fields `MealCardBase` dereferences on restore. An
+    // `{ id, name }`-only meal used to pass here and then take the page to the
+    // error boundary instead of degrading to an empty prompt.
+    [
+      'a meal with only id and name',
+      JSON.stringify({ prompt: 'x', meals: [{ id: 'im-1', name: 'Stew' }], createdAt: 1 }),
+    ],
+    [
+      'a meal missing nutrition',
+      JSON.stringify({
+        prompt: 'x',
+        meals: [{ id: 'im-1', name: 'Stew', primaryProteinType: 'legume', components: [] }],
+        createdAt: 1,
+      }),
+    ],
+    [
+      'a meal whose nutrition is null',
+      JSON.stringify({
+        prompt: 'x',
+        meals: [
+          {
+            id: 'im-1',
+            name: 'Stew',
+            primaryProteinType: 'legume',
+            components: [],
+            nutrition: null,
+          },
+        ],
+        createdAt: 1,
+      }),
+    ],
+    [
+      'a meal missing components',
+      JSON.stringify({
+        prompt: 'x',
+        meals: [
+          { id: 'im-1', name: 'Stew', primaryProteinType: 'legume', nutrition: { calories: 1 } },
+        ],
+        createdAt: 1,
+      }),
+    ],
+    [
+      'a meal missing primaryProteinType',
+      JSON.stringify({
+        prompt: 'x',
+        meals: [{ id: 'im-1', name: 'Stew', components: [], nutrition: { calories: 1 } }],
+        createdAt: 1,
+      }),
+    ],
   ])('returns null (and does not throw) for %s', (_label, stored) => {
     sessionStorage.setItem(STORAGE_KEY, stored)
     expect(() => loadImagineSession()).not.toThrow()

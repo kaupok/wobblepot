@@ -28,7 +28,26 @@ const imaginedMeal = (id: string, name: string): ImaginedMealResponse => ({
     },
   ],
   nutrition: { calories: 480, protein: 24, carbs: 62, fat: 12 },
-  ingredients: [],
+  // A resolved ingredient, so the review dialog's Save is reachable — it
+  // refuses to save a meal with no components.
+  ingredients: [
+    {
+      type: 'matched',
+      extractedName: 'red lentils',
+      extractedQuantity: 360,
+      extractedUnit: 'g',
+      originalText: '360 g red lentils',
+      ingredient: {
+        id: 'ing-lentil',
+        name: 'Red lentils',
+        category: 'protein',
+        defaultUnit: 'g',
+        gramsPerPiece: null,
+      },
+      convertedQuantity: 360,
+      isVague: false,
+    },
+  ],
   allMatched: true,
 })
 
@@ -56,6 +75,18 @@ const imaginePending = [
     await delay('infinite')
     return HttpResponse.json({ success: true, meals: [] })
   }),
+]
+
+/**
+ * The review round-trip: "Select" fine-tunes quantities, then the dialog's
+ * "Save meal" posts the meal. Both are stubbed so `SavingOneKeepsTheStash` can
+ * drive the flow end to end.
+ */
+const reviewAndSaveHandlers = [
+  http.post('/api/meals/imagine/review', () =>
+    HttpResponse.json({ success: true, ingredients: [] }),
+  ),
+  http.post('/api/households/me/meals', () => HttpResponse.json({ id: 'meal-saved' })),
 ]
 
 /**
@@ -174,6 +205,48 @@ export const RestoredFromSession: Story = {
     await canvas.findByText('Lentil ragù with orzo')
 
     await expect(imagineSpy).not.toHaveBeenCalled()
+  },
+}
+
+export const SavingOneKeepsTheStash: Story = {
+  parameters: {
+    msw: { handlers: reviewAndSaveHandlers },
+    docs: {
+      description: {
+        story:
+          'Saving a suggestion from the review dialog closes the dialog without navigating, so the other two stay on screen and selectable. The stash therefore has to survive the save — clearing it here would blank the page on the next mount, reopening the regression HON-362 closes.',
+      },
+    },
+  },
+  beforeEach: () => {
+    sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        prompt: 'something with lentils',
+        meals: suggestions,
+        createdAt: Date.now(),
+      }),
+    )
+    return () => sessionStorage.removeItem(STORAGE_KEY)
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const body = within(document.body)
+
+    await canvas.findByText('Smoky red lentil stew')
+    const [firstSelect] = canvas.getAllByRole('button', { name: /^select$/i })
+    await userEvent.click(firstSelect!)
+
+    // The dialog is portalled, so it lives outside `canvasElement`.
+    const save = await body.findByRole('button', { name: /save meal/i })
+    await userEvent.click(save)
+
+    await waitFor(() => expect(body.queryByRole('dialog')).not.toBeInTheDocument())
+
+    // All three cards are still rendered — and so is the stash behind them.
+    await canvas.findByText('Charred pepper and lentil bowl')
+    await canvas.findByText('Lentil ragù with orzo')
+    expect(sessionStorage.getItem(STORAGE_KEY)).not.toBeNull()
   },
 }
 
