@@ -34,7 +34,10 @@ fi
 
 if ! git rev-parse --verify --quiet "$BASE_REF^{commit}" >/dev/null; then
   echo "ERROR: '$BASE_REF' does not resolve to a commit." >&2
-  echo "In CI, fetch it first: git fetch --no-tags --depth=1 origin <base sha>" >&2
+  echo "Fetch it first: git fetch --no-tags origin <ref>" >&2
+  echo "Do not add --depth — a shallow fetch resolves the ref but destroys the" >&2
+  echo "merge base, and every migration the base gained since the fork point" >&2
+  echo "then reads as a deletion by this branch." >&2
   exit 2
 fi
 
@@ -49,10 +52,12 @@ fi
 # base has and the checkout lacks reads as `D`, so a branch merely behind the
 # base can be blamed for a migration it never touched — which is why taking it
 # says so on stderr instead of passing silently.
+FALLBACK=false
 if DIFF_BASE=$(git merge-base "$BASE_REF" HEAD 2>/dev/null); then
   :
 else
   DIFF_BASE=$BASE_REF
+  FALLBACK=true
   echo "note: no merge base with '$BASE_REF' (shallow history?) — comparing trees directly." >&2
 fi
 
@@ -97,7 +102,14 @@ $DIFF
 EOF
 
 if [ -n "$violations" ]; then
-  echo "ERROR: this branch changes migrations that already exist on $BASE_REF:" >&2
+  if [ "$FALLBACK" = true ]; then
+    # Without a merge base there is no way to tell "this branch changed it"
+    # from "the base has it and this tree does not", so the header must not
+    # claim authorship it cannot establish.
+    echo "ERROR: this tree differs from $BASE_REF on migrations it already has:" >&2
+  else
+    echo "ERROR: this branch changes migrations that already exist on $BASE_REF:" >&2
+  fi
   printf '%s' "$violations" >&2
   echo "Migrations already on main are immutable — fix forward with a new migration." >&2
   echo "Editing an applied migration.sql breaks its recorded checksum and makes" >&2

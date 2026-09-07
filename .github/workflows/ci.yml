@@ -85,13 +85,13 @@ jobs:
         with:
           # Full history so `git merge-base` resolves for the immutability
           # guard below — at 9 MiB / ~720 commits that costs a couple of
-          # seconds. The default depth-1 checkout leaves HEAD and the base as
-          # grafted shallow roots with no common ancestry, which forces the
-          # guard down its two-tree fallback: sound only because
-          # `refs/pull/N/merge` already contains the base, so the guard's one
-          # real code path in CI would rest on an unasserted checkout default.
-          # Do NOT pair this with a `git fetch --depth=<n>` — that re-shallows
-          # the repository and puts the fallback right back.
+          # seconds. Reverting to the depth-1 default does not merely degrade
+          # the guard, it disables it: the base sha is never fetched, so the
+          # script exits 2 on an unresolvable ref. Fetching the base back at
+          # `--depth=1` is worse still — it resolves the ref but re-shallows
+          # the repository, and the guard then falls back to a two-tree diff
+          # that blames the branch for every migration the base gained since
+          # the fork point. If this has to change, fetch without `--depth`.
           fetch-depth: 0
 
       # Guardrail (HON-641): a migration that is already on `main` has been

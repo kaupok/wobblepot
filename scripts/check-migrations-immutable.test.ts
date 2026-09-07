@@ -175,7 +175,7 @@ describe('check-migrations-immutable.sh', () => {
     })
 
     it('fails when several migrations are touched, listing each', () => {
-      const { dir, base } = repoWithAppliedMigration()
+      const { dir } = repoWithAppliedMigration()
       write(
         dir,
         'prisma/migrations/20251201000000_earlier/migration.sql',
@@ -310,6 +310,11 @@ describe('check-migrations-immutable.sh', () => {
       expect(result.status).toBe(1)
       expect(result.stderr).toContain(INIT_MIGRATION)
       expect(result.stderr).toContain('no merge base')
+      // Without a merge base the script cannot tell "this branch changed it"
+      // from "the base has it and this tree does not", so it must not claim
+      // authorship in the header.
+      expect(result.stderr).toContain('this tree differs from')
+      expect(result.stderr).not.toContain('this branch changes')
     })
 
     // The fallback is the weaker comparison — a branch merely behind the base
@@ -325,6 +330,8 @@ describe('check-migrations-immutable.sh', () => {
 
       expect(result.status).toBe(1)
       expect(result.stderr).not.toContain('no merge base')
+      // With a merge base, authorship *is* established — say so.
+      expect(result.stderr).toContain('this branch changes')
     })
   })
 })
