@@ -8,6 +8,23 @@ import { MealPlanEntryStatus, EntryRating } from '@/generated/prisma/enums'
 import { captureApiError } from '@/lib/errors'
 import { getEffectiveServings } from '@/lib/meal-planning/servings'
 
+/**
+ * A meal swap that arrived too late: the entry is already `completed` (or has
+ * been deleted) by the time the deduction transaction claims it, so the swap
+ * must not be persisted (HON-633).
+ *
+ * Thrown rather than returned because the check that raises it runs inside an
+ * interactive transaction, where throwing is the only way to roll the whole
+ * thing back. The outer `catch` turns it into the same 409 the serial path
+ * returns directly.
+ */
+class CompletedSwapError extends Error {
+  constructor() {
+    super('Cannot swap a completed meal')
+    this.name = 'CompletedSwapError'
+  }
+}
+
 const updateEntrySchema = z.object({
   status: z.enum(['planned', 'completed', 'skipped']).optional(),
   mealId: z.string().optional(),
@@ -160,6 +177,19 @@ export async function PATCH(
       return NextResponse.json({ error: 'Entry not found or access denied' }, { status: 404 })
     }
 
+    // A completed entry records what was cooked and what the pantry was
+    // charged for, so it cannot be repointed at a different meal afterwards.
+    // The deduction guard below refuses to charge an already-completed entry a
+    // second time, so writing `mealId` anyway would leave the entry naming one
+    // meal while the pantry paid for another — HON-622's invariant reached
+    // from the other side (HON-633). Refused whatever else the body carries:
+    // `status` and `deductPantry` cannot rescue the swap, because neither one
+    // makes the deduction run. Reverting to `planned` first and swapping then
+    // is still allowed, and still does not restock.
+    if (parsed.data.mealId && entry.status === MealPlanEntryStatus.completed) {
+      return NextResponse.json({ error: 'Cannot swap a completed meal' }, { status: 409 })
+    }
+
     // Build update data
     const updateData: {
       status?: MealPlanEntryStatus
@@ -307,12 +337,28 @@ export async function PATCH(
         if (claimed.count === 0) {
           // No row matched, which means either a concurrent request completed
           // this entry first or the entry has since been deleted (the DELETE
-          // handler above races this one). Persist the rest of the update but
-          // charge nothing — exactly what this request would have done had it
-          // arrived after the winner committed and read `completed` at the
-          // top. `updateMany` again rather than `update`: on the deleted-entry
-          // branch there is no row to write, and `update` would throw P2025
-          // and turn a lost race into a 500.
+          // handler above races this one).
+          //
+          // A swap cannot be persisted from here. This request charges
+          // nothing, so writing `mealId` would leave the entry naming a meal
+          // the pantry was never charged for — the same hole the serial guard
+          // at the top of the handler closes, reached by losing the race
+          // instead of by reading `completed` (HON-633). Throwing rolls the
+          // transaction back, so nothing at all is written.
+          //
+          // The deleted-entry sub-case answers 409 too, not 404: this branch
+          // cannot tell the two apart without another read, and "the entry is
+          // no longer in a state that accepts this swap" is true of both.
+          if (updateData.mealId) {
+            throw new CompletedSwapError()
+          }
+
+          // Without a swap, persist the rest of the update but charge nothing
+          // — exactly what this request would have done had it arrived after
+          // the winner committed and read `completed` at the top. `updateMany`
+          // again rather than `update`: on the deleted-entry branch there is
+          // no row to write, and `update` would throw P2025 and turn a lost
+          // race into a 500.
           await tx.mealPlanEntry.updateMany({ where: { id: entryId }, data: updateData })
           return false
         }
@@ -376,6 +422,13 @@ export async function PATCH(
       rating: updatedEntry.rating,
     })
   } catch (error) {
+    // A lost race carrying a swap, refused inside the transaction. It is a
+    // deliberate answer rather than a route failure, so it takes the same 409
+    // as the serial guard and is not reported as an error (HON-633).
+    if (error instanceof CompletedSwapError) {
+      return NextResponse.json({ error: 'Cannot swap a completed meal' }, { status: 409 })
+    }
+
     captureApiError(error, {
       route: '/api/meal-plans/[id]/entries/[entryId]',
       userId: session.user.id,

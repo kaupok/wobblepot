@@ -75,6 +75,12 @@ export function MealCard({
   // Hide availability badge for completed/skipped meals (ingredient status no longer relevant)
   const shouldShowAvailability = status !== 'completed' && status !== 'skipped'
 
+  // A completed entry records what was cooked and what the pantry was charged
+  // for, so the API refuses to repoint it (409, HON-633) — offering Swap here
+  // would only produce an error. Skipped entries stay swappable: nothing was
+  // charged for them, and "actually, let's cook something" is a real path.
+  const canSwapMeal = status !== 'completed'
+
   const statusMutation = useMutation({
     mutationFn: async ({
       newStatus,
@@ -260,14 +266,16 @@ export function MealCard({
                 >
                   {tCard('note')}
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-5 px-1.5 text-xs"
-                  onClick={() => setIsRegenerateModalOpen(true)}
-                >
-                  {tCard('swap')}
-                </Button>
+                {canSwapMeal && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 px-1.5 text-xs"
+                    onClick={() => setIsRegenerateModalOpen(true)}
+                  >
+                    {tCard('swap')}
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"

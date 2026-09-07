@@ -37,12 +37,18 @@ vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
 }))
 
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
+import { captureApiError } from '@/lib/errors'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
+const mockCaptureApiError = vi.mocked(captureApiError)
 const mockFindFirstEntry = vi.mocked(prisma.mealPlanEntry.findFirst)
 const mockUpdateEntry = vi.mocked(prisma.mealPlanEntry.update)
 const mockDeleteEntry = vi.mocked(prisma.mealPlanEntry.delete)
@@ -253,6 +259,124 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
 
     expect(response.status).toBe(200)
     expect(data.mealId).toBe('new-meal-456')
+  })
+
+  it('rejects a meal swap on an already-completed entry', async () => {
+    // A completed entry records what was cooked and what the pantry was
+    // charged for. Repointing it would leave the entry naming one meal while
+    // the pantry paid for another — HON-622's invariant, reached from the
+    // other side (HON-633).
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      status: 'completed',
+      servingOverride: null,
+      plan: {
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: { components: [] },
+    } as never)
+
+    const response = await PATCH(createPatchRequest({ mealId: 'new-meal-456' }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(data.error).toBe('Cannot swap a completed meal')
+    // Nothing written, and the guard short-circuits before the meal lookup.
+    expect(mockUpdateEntry).not.toHaveBeenCalled()
+    expect(vi.mocked(prisma.meal.findFirst)).not.toHaveBeenCalled()
+  })
+
+  it('rejects a swap-and-complete on an already-completed entry', async () => {
+    // `status` + `deductPantry` cannot rescue the swap: the deduction guard
+    // refuses to charge an already-completed entry a second time, so this
+    // body would persist a meal it never paid for (HON-633).
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      status: 'completed',
+      servingOverride: null,
+      plan: {
+        household: { members: [{ id: 'member-1' }, { id: 'member-2' }] },
+      },
+      meal: {
+        components: [{ ingredientId: 'ing-1', quantityPerServing: 100 }],
+      },
+    } as never)
+
+    const response = await PATCH(
+      createPatchRequest({ mealId: 'new-meal-456', status: 'completed', deductPantry: true }),
+      { params: createParams() },
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(data.error).toBe('Cannot swap a completed meal')
+    expect(mockUpdateEntry).not.toHaveBeenCalled()
+    expect(mockClaimEntry).not.toHaveBeenCalled()
+    expect(mockPantryUpdateMany).not.toHaveBeenCalled()
+    expect(mockPantryDeleteMany).not.toHaveBeenCalled()
+  })
+
+  it('still swaps a skipped entry', async () => {
+    // Nothing was deducted for a skipped meal, so there is no pantry charge to
+    // disagree with — swapping one is a legitimate "actually, let's cook
+    // something" path and stays allowed (HON-633).
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      status: 'skipped',
+      servingOverride: null,
+      plan: {
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: { components: [] },
+    } as never)
+
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({
+      id: 'new-meal-456',
+      components: [],
+    } as never)
+    mockUpdateEntry.mockResolvedValue({
+      id: 'entry-123',
+      status: 'skipped',
+      mealId: 'new-meal-456',
+    } as never)
+
+    const response = await PATCH(createPatchRequest({ mealId: 'new-meal-456' }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.mealId).toBe('new-meal-456')
+  })
+
+  it('still reports an unexpected failure as a 500', async () => {
+    // The swap refusal is signalled by throwing, so the outer `catch` now
+    // branches on the error type. Everything that is not that sentinel must
+    // still be captured and answered with a 500 — the branch must not widen
+    // into "any throw means 409" (HON-633).
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      status: 'planned',
+      servingOverride: null,
+      plan: {
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: { components: [] },
+    } as never)
+    mockUpdateEntry.mockRejectedValue(new Error('connection lost') as never)
+
+    const response = await PATCH(createPatchRequest({ status: 'skipped' }), {
+      params: createParams(),
+    })
+
+    expect(response.status).toBe(500)
+    expect(mockCaptureApiError).toHaveBeenCalledTimes(1)
   })
 
   it('allows pantry deduction when completing entries', async () => {
@@ -686,6 +810,50 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction
       where: { id: 'entry-123' },
       data: expect.objectContaining({ status: 'completed' }),
     })
+  })
+
+  it('refuses the swap and persists nothing when the completion was already claimed', async () => {
+    // Same rule as the serial guard, reached by losing the race instead of by
+    // reading `completed` at the top: this request charges nothing, so it must
+    // not repoint the entry at a meal the pantry never paid for (HON-633).
+    // Throwing rolls the transaction back, so not even the non-`mealId` fields
+    // survive.
+    //
+    // The deleted-entry sub-case of `claimed.count === 0` answers 409 here
+    // too, not 404 — the branch cannot tell the two apart without another
+    // read, and the swap is refused either way.
+    mockDeductionTransaction(0)
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'old-meal-123',
+      status: 'planned',
+      servingOverride: null,
+      plan: { household: { members: [{ id: 'member-1' }, { id: 'member-2' }] } },
+      meal: { components: [{ ingredientId: 'ing-beef', quantityPerServing: 100 }] },
+    } as never)
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({
+      id: 'new-meal-456',
+      components: [{ ingredientId: 'ing-fish', quantityPerServing: 150 }],
+    } as never)
+
+    const response = await PATCH(
+      createPatchRequest({ mealId: 'new-meal-456', status: 'completed', deductPantry: true }),
+      { params: createParams() },
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(data.error).toBe('Cannot swap a completed meal')
+    // Only the conditional claim ran — the lost-race fallback `updateMany`
+    // that persists the rest of the update never fired.
+    expect(mockClaimEntry).toHaveBeenCalledTimes(1)
+    expect(mockUpdateEntry).not.toHaveBeenCalled()
+    expect(mockPantryUpdateMany).not.toHaveBeenCalled()
+    expect(mockPantryDeleteMany).not.toHaveBeenCalled()
+    // The refusal travels as a thrown sentinel through the handler's outer
+    // `catch`, so it has to be recognised there rather than reported as a
+    // route failure and answered with a 500.
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
   })
 
   it('locks pantry rows in a deterministic order across meals', async () => {
