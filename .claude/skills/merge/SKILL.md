@@ -80,6 +80,15 @@ PR_NUMBER=$(gh pr view --json number --jq .number)
 # The field is `filename` here — GraphQL's `path` does not exist on this payload
 # and would yield one `null` per file, matching no docs pattern.
 FILES=$(gh api --paginate "/repos/:owner/:repo/pulls/$PR_NUMBER/files?per_page=100" | jq -rs 'add | .[].filename')
+# A partial walk fails open exactly like the 100-cap did: gh streams each page as it
+# arrives and the pipeline reports jq's status, not gh's, so a 502 on page 2 of a
+# 150-file code PR leaves 100 docs paths that read as DOCS_ONLY. Only a >100-file PR
+# paginates at all, so the exposure is precisely the population this fetch exists for.
+# changedFiles is a scalar total and is not paginated; a mismatch — or a failed count,
+# which can equal nothing — empties FILES into the guard below, the same closing move
+# scripts/pr-review.sh:272 already makes.
+CHANGED=$(gh pr view "$PR_NUMBER" --json changedFiles --jq '.changedFiles' 2>/dev/null)
+[ "$(printf '%s\n' "$FILES" | grep -c .)" = "$CHANGED" ] || FILES=""
 NON_DOCS=$(printf '%s\n' "$FILES" | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
 # ci.yml is paths-ignored for docs, and Preview smoke only fires on a SUCCESSFUL
 # Vercel deploy — so a docs-only PR whose Vercel status is stuck has no other
@@ -140,6 +149,15 @@ PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive,
 # Paginated, not `gh pr view --json files` — that caps at 100 files (HON-587).
 # System jq, because `--jq` runs per page (HON-586). REST calls the field `filename`.
 FILES=$(gh api --paginate "/repos/:owner/:repo/pulls/$PR_NUMBER/files?per_page=100" | jq -rs 'add | .[].filename')
+# A partial walk fails open exactly like the 100-cap did: gh streams each page as it
+# arrives and the pipeline reports jq's status, not gh's, so a 502 on page 2 of a
+# 150-file code PR leaves 100 docs paths that read as DOCS_ONLY. Only a >100-file PR
+# paginates at all, so the exposure is precisely the population this fetch exists for.
+# changedFiles is a scalar total and is not paginated; a mismatch — or a failed count,
+# which can equal nothing — empties FILES into the guard below, the same closing move
+# scripts/pr-review.sh:272 already makes.
+CHANGED=$(gh pr view "$PR_NUMBER" --json changedFiles --jq '.changedFiles' 2>/dev/null)
+[ "$(printf '%s\n' "$FILES" | grep -c .)" = "$CHANGED" ] || FILES=""
 NON_DOCS=$(printf '%s\n' "$FILES" | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
 # An unreadable file list is not evidence of a docs-only PR. Without the -z test a
 # failed fetch leaves NON_DOCS empty and prints DOCS_ONLY — "treat as passed" — for

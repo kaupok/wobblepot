@@ -112,6 +112,16 @@ describe('CI-settle gate', () => {
         const source = read(file)
         expect(countOccurrences(source, "jq -rs 'add | .[].filename'")).toBe(expected)
         expect(countOccurrences(source, 'files?per_page=100')).toBe(expected)
+        // The token the whole fix turns on: without --paginate `gh api` returns
+        // page one only and HON-587 is back. The stub models this too, so the
+        // executed tests below catch it as well — but pin the string, because a
+        // reader diffing these files should see it named.
+        expect(
+          countOccurrences(source, 'gh api --paginate "/repos/:owner/:repo/pulls/$PR_NUMBER/files'),
+        ).toBe(expected)
+        // The partial-walk guard, which is what makes a truncated page-2 failure
+        // fail closed rather than reading as docs-only.
+        expect(countOccurrences(source, '|| FILES=""')).toBe(expected)
       }
     })
 
@@ -170,11 +180,23 @@ describe('CI-settle gate', () => {
           '#!/bin/sh',
           // `gh api --paginate .../files` — how the loop reads the file list since
           // HON-587. Emits the REST payload shape (objects keyed `filename`, not
-          // GraphQL's `path`) so the caller's own jq is what is under test. An empty
-          // STUB_FILES prints nothing at all, standing in for a failed fetch.
+          // GraphQL's `path`) so the caller's own jq is what is under test.
+          //
+          // Pagination is modelled, not faked: pages are emitted as separate JSON
+          // documents of 100, which is what `gh api --paginate` actually writes and
+          // what forces the `jq -s 'add'` slurp to do real work. Without --paginate
+          // only page one comes back — the same 100-file truncation this PR removes,
+          // so dropping the flag fails a test instead of passing silently.
+          //
+          // STUB_FETCHED caps how much is emitted while `--json changedFiles` still
+          // reports the true total, standing in for a walk that died mid-pagination.
+          // An empty STUB_FILES prints nothing, standing in for a failed fetch.
           'if [ "$1" = "api" ]; then',
+          '  case "$*" in *--paginate*) pages=99 ;; *) pages=1 ;; esac',
+          '  [ -n "$STUB_FETCHED" ] && pages=$((STUB_FETCHED / 100))',
           '  [ -n "$STUB_FILES" ] &&',
-          "    printf '%s\\n' \"$STUB_FILES\" | jq -R . | jq -s '[.[] | {filename: .}]'",
+          '    printf \'%s\\n\' "$STUB_FILES" | head -$((pages * 100)) |',
+          "      jq -R . | jq -c -s '. as $a | range(0; length; 100) | $a[.:.+100] | [.[] | {filename: .}]'",
           '  exit 0',
           'fi',
           'case "$2" in',
@@ -187,6 +209,9 @@ describe('CI-settle gate', () => {
           // reverts to this call — without it the stub would hand back all 101
           // paths and the revert would look correct.
           '      *"--json files"*)  printf \'%s\\n\' "$STUB_FILES" | head -100 ;;',
+          // The scalar total, deliberately NOT subject to any cap or to
+          // STUB_FETCHED — that asymmetry is the whole signal the guard reads.
+          '      *"--json changedFiles"*) printf \'%s\\n\' "$STUB_FILES" | grep -c . ;;',
           '    esac',
           '    ;;',
           '  checks)',
@@ -215,8 +240,13 @@ describe('CI-settle gate', () => {
       fs.rmSync(`/tmp/ci-poll-${prNumber}.chunks`, { force: true })
     })
 
-    /** Run one chunk of the loop. Returns its marker and the poll count. */
-    function runChunk(checks: Check[], files = 'src/app/page.tsx') {
+    /**
+     * Run one chunk of the loop. Returns its marker and the poll count.
+     *
+     * `fetched` truncates what the paginated fetch returns while leaving the
+     * `changedFiles` total intact — a walk that died partway, not a short PR.
+     */
+    function runChunk(checks: Check[], files = 'src/app/page.tsx', fetched?: number) {
       prNumber += 1
       fs.rmSync(callLog, { force: true })
       fs.rmSync(`/tmp/ci-poll-${prNumber}.prev`, { force: true })
@@ -232,6 +262,7 @@ describe('CI-settle gate', () => {
             PATH: `${stubBin}:${process.env.PATH}`,
             STUB_PR_NUMBER: String(prNumber),
             STUB_FILES: files,
+            STUB_FETCHED: fetched === undefined ? '' : String(fetched),
             STUB_CHECKS: JSON.stringify(checks),
           },
         })
@@ -356,6 +387,26 @@ describe('CI-settle gate', () => {
       ].join('\n')
 
       const { marker } = runChunk([commitStatus('pending')], files)
+
+      expect(marker).toBe('CI_WAITING (chunk 1/6)')
+    })
+
+    // A walk that died on page 2. `gh api --paginate` writes each page as it
+    // arrives and the pipeline reports jq's exit status, not gh's, so a 502
+    // partway through leaves a truncated but NON-empty list — which sails past
+    // the emptiness guard and reads as docs-only if the first page happens to be
+    // markdown. That is HON-587's outcome reached through the replacement fetch,
+    // and only a >100-file PR paginates at all, so it lands on exactly the
+    // population this fix targets. changedFiles is the unpaginated scalar that
+    // makes the truncation visible.
+    it('does not treat a partially-fetched file list as docs-only', () => {
+      const files = [
+        ...Array.from({ length: 100 }, (_, i) => `docs/RUNBOOKS/generated-${i}.md`),
+        ...Array.from({ length: 50 }, (_, i) => `src/generated-${i}.ts`),
+      ].join('\n')
+
+      // Page 1 arrived, page 2 never did: 100 markdown paths of a 150-file code PR.
+      const { marker } = runChunk([commitStatus('pass')], files, 100)
 
       expect(marker).toBe('CI_WAITING (chunk 1/6)')
     })
