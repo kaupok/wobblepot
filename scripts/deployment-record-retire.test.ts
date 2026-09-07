@@ -72,7 +72,13 @@ function runScript(source: string, marker: string): string {
   return (end === -1 ? body : body.slice(0, end)).map((line) => line.slice(indent)).join('\n')
 }
 
-type Deployment = { databaseId: number; state: string }
+/**
+ * A node as the GraphQL query returns it, plus the `environment` the stub
+ * filters on. The real query never selects `environment` — GitHub applies
+ * `environments: ["Production"]` server-side — so it is fixture-only, and the
+ * step's own jq ignores it.
+ */
+type Deployment = { databaseId: number; state: string; environment?: string }
 
 const CURRENT = 6238572417
 
@@ -120,11 +126,27 @@ describe('Retire superseded Production deployment records', () => {
       expect(block).toContain('GH_TOKEN: ${{ github.token }}')
       expect(block).not.toContain('secrets.')
     })
+
+    // The two literals the whole step turns on, pinned by name as
+    // ci-settle-gate.test.ts pins its own. The executed harness below covers
+    // both as behaviour — the stub records the request it was sent and models
+    // the environment filter — but a reader diffing this file should see them
+    // named: `state=failure` here would stamp the previous release as a failed
+    // deploy, which is the lying Production badge HON-602 removed, and a query
+    // without the filter would sweep Vercel's `Preview` records instead.
+    it('posts inactive, and only over the Production environment', () => {
+      const block = stepBlock(read(), STEP)
+
+      expect(block).toContain('-f state=inactive')
+      expect(block).toContain('environments: ["Production"]')
+    })
   })
 
   // The script itself, executed. `gh` is stubbed on PATH: the graphql call
   // replays a fixture through the caller's own `--jq`, so the filter under test
-  // is the real one, and each status POST is appended to a log.
+  // is the real one, and each status POST is appended to a log with its full
+  // argument list — the request body is as much a part of the contract as the
+  // endpoint, and logging the URL alone leaves `state=inactive` unchecked.
   describe('the script, executed', () => {
     let stubBin: string
     let script: string
@@ -140,13 +162,31 @@ describe('Retire superseded Production deployment records', () => {
           '#!/bin/sh',
           'if [ "$1" = "api" ] && [ "$2" = "graphql" ]; then',
           '  [ -n "$STUB_GRAPHQL_FAILS" ] && { echo "gh: HTTP 502" >&2; exit 1; }',
-          '  jq_expr=""',
-          '  while [ $# -gt 0 ]; do [ "$1" = "--jq" ] && jq_expr="$2"; shift; done',
-          '  printf \'%s\' "$STUB_DEPLOYMENTS" | jq -r "$jq_expr"',
+          '  jq_expr=""; query=""',
+          '  while [ $# -gt 0 ]; do',
+          '    [ "$1" = "--jq" ] && jq_expr="$2"',
+          '    [ "$1" = "-f" ] && case "$2" in query=*) query=${2#query=} ;; esac',
+          '    shift',
+          '  done',
+          // The environment filter is modelled, not faked: GitHub applies it
+          // server-side, so a query that omits it must come back carrying every
+          // environment's records. Without this the fixture would be replayed
+          // whatever was asked for, and deleting the filter — which would post
+          // `inactive` on Vercel's Preview records — would keep the suite green.
+          "  filter='.'",
+          '  case "$query" in',
+          '    *\'environments: ["Production"]\'*)',
+          "      filter='.data.repository.deployments.nodes |=",
+          '        map(select(.environment == "Production"))\' ;;',
+          '  esac',
+          '  printf \'%s\' "$STUB_DEPLOYMENTS" | jq "$filter" | jq -r "$jq_expr"',
           '  exit 0',
           'fi',
           'if [ "$1" = "api" ]; then',
-          `  echo "$2" >> ${JSON.stringify(callLog)}`,
+          // The whole argument list, not just the endpoint: `-f state=inactive`
+          // is the half of this request that decides whether the previous
+          // release is retired or is stamped as a failed deploy.
+          `  echo "$*" >> ${JSON.stringify(callLog)}`,
           // Everything after `deployments/` up to `/statuses` — the id being retired.
           "  id=$(printf '%s' \"$2\" | sed -e 's#.*/deployments/##' -e 's#/statuses##')",
           '  if [ "$id" = "$STUB_FAIL_ID" ]; then echo "gh: HTTP 500" >&2; exit 1; fi',
@@ -182,7 +222,13 @@ describe('Retire superseded Production deployment records', () => {
             GITHUB_REPOSITORY: 'kaupok/wobblepot',
             DEPLOYMENT_ID: String(CURRENT),
             STUB_DEPLOYMENTS: JSON.stringify({
-              data: { repository: { deployments: { nodes } } },
+              data: {
+                repository: {
+                  deployments: {
+                    nodes: nodes.map((node) => ({ environment: 'Production', ...node })),
+                  },
+                },
+              },
             }),
             STUB_FAIL_ID: failOn === undefined ? '' : String(failOn),
             STUB_GRAPHQL_FAILS: graphqlFails ? '1' : '',
@@ -201,9 +247,10 @@ describe('Retire superseded Production deployment records', () => {
       return {
         status,
         stdout,
-        endpoints: calls,
+        requests: calls,
+        endpoints: calls.map((call) => call.split(' ')[1] ?? ''),
         retired: calls.map((call) =>
-          Number(call.replace(/.*\/deployments\/(\d+)\/statuses/, '$1')),
+          Number(call.replace(/.*\/deployments\/(\d+)\/statuses.*/, '$1')),
         ),
       }
     }
@@ -217,6 +264,38 @@ describe('Retire superseded Production deployment records', () => {
       expect(status).toBe(0)
       expect(retired).toEqual([6238000000])
       expect(endpoints[0]).toBe('repos/kaupok/wobblepot/deployments/6238000000/statuses')
+    })
+
+    // `state` is the half of the request the endpoint does not carry. `failure`
+    // would stamp the previous release as a failed deploy — the lying badge
+    // HON-602 removed — and `success` would re-activate every record the sweep
+    // touches while the step logs that it retired them.
+    it('posts state=inactive on every record it touches', () => {
+      const { requests } = run([
+        { databaseId: CURRENT, state: 'ACTIVE' },
+        { databaseId: 111, state: 'ACTIVE' },
+        { databaseId: 222, state: 'ACTIVE' },
+      ])
+
+      expect(requests).toHaveLength(2)
+      for (const request of requests) {
+        expect(request).toContain('-f state=inactive')
+      }
+    })
+
+    // Vercel writes `Preview` records for every open PR and `preview-smoke.yml`
+    // depends on them. Without the `environments: ["Production"]` filter this
+    // sweep would retire those too — and, since the window is the newest 100,
+    // preview deploys would crowd out the one Production record it exists for.
+    it('never touches a record from another environment', () => {
+      const { status, retired } = run([
+        { databaseId: CURRENT, state: 'ACTIVE' },
+        { databaseId: 777, state: 'ACTIVE', environment: 'Preview' },
+        { databaseId: 888, state: 'ACTIVE', environment: 'staging' },
+      ])
+
+      expect(status).toBe(0)
+      expect(retired).toEqual([])
     })
 
     // The regression this file exists for: the issue's `grep -v` form exits 1
