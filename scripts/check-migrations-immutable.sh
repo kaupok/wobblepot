@@ -13,7 +13,11 @@
 # edit — fix forward with a new migration instead.
 #
 # Usage: bash scripts/check-migrations-immutable.sh <BASE_REF>
-#   e.g. bash scripts/check-migrations-immutable.sh origin/main
+#   e.g. git fetch origin main && bash scripts/check-migrations-immutable.sh origin/main
+#
+# Fetch first when BASE_REF is a remote-tracking ref: `origin/main` only moves
+# on `git fetch`, and a stale one omits migrations that landed on main since —
+# editing one of those then reads as `A`, the allowed status, and passes.
 #
 # Run in CI on every pull request (see .github/workflows/ci.yml). Skipped on
 # push to `main`: there is no base to diff against, and `main` is what the
@@ -55,7 +59,15 @@ fi
 # `prisma/migrations/` would be resolved relative to the caller's directory, so
 # running this from anywhere but the repo root would match nothing and report a
 # confident pass — the one outcome a guard must never produce by accident.
-DIFF=$(git -c core.quotePath=false diff --name-status "$DIFF_BASE" HEAD -- ':/prisma/migrations/')
+#
+# No second revision, so the comparison runs against the **working tree**
+# rather than HEAD. In CI that is the same thing (the checkout is clean), but
+# locally docs/GIT_WORKFLOW.md puts this run at step 5 — after `git add -A` and
+# before `git commit` — where a staged edit is not in HEAD yet and naming HEAD
+# would report a confident pass on exactly the change CI is about to reject.
+# An untracked new migration then goes unlisted, which costs nothing: `A` is
+# the allowed status anyway.
+DIFF=$(git -c core.quotePath=false diff --name-status "$DIFF_BASE" -- ':/prisma/migrations/')
 
 # Only `A` (a brand-new migration) is legitimate. Everything else on a
 # `migration.sql` — M, D, R*, and the rarer C*/T — changes or removes SQL that

@@ -232,6 +232,45 @@ describe('check-migrations-immutable.sh', () => {
       expect(result.status).toBe(1)
       expect(result.stderr).toContain(INIT_MIGRATION)
     })
+
+    // docs/GIT_WORKFLOW.md puts the local run at step 5 — after `git add -A`
+    // and before `git commit` — so a guard that compares two commits is blind
+    // at exactly the moment a developer is told to run it.
+    it('fails on a staged but uncommitted edit', () => {
+      const { dir, base } = repoWithAppliedMigration()
+      write(dir, INIT_MIGRATION, `${INIT_SQL}ALTER TABLE "ingredient" ADD COLUMN "note" TEXT;\n`)
+      git(dir, 'add', '-A')
+
+      const result = runCheck(dir, base)
+
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain(INIT_MIGRATION)
+    })
+
+    it('fails on an unstaged edit', () => {
+      const { dir, base } = repoWithAppliedMigration()
+      write(dir, INIT_MIGRATION, 'DROP TABLE "ingredient";\n')
+
+      const result = runCheck(dir, base)
+
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain(INIT_MIGRATION)
+    })
+
+    // The flip side of reading the working tree: a clean checkout must still
+    // pass, or every CI run on a legitimate branch goes red.
+    it('passes on a clean tree that only added a migration', () => {
+      const { dir, base } = repoWithAppliedMigration()
+      write(
+        dir,
+        'prisma/migrations/20260505000000_add_notes/migration.sql',
+        'CREATE TABLE "note" ("id" TEXT NOT NULL);\n',
+      )
+      commitAll(dir, 'feat(db): Add notes')
+
+      expect(git(dir, 'status', '--porcelain')).toBe('')
+      expect(runCheck(dir, base).status).toBe(0)
+    })
   })
 
   describe('fails loudly rather than passing when it cannot compute', () => {
