@@ -1,5 +1,4 @@
 import 'server-only'
-import { after } from 'next/server'
 import { getPosthogServer } from '@/lib/posthog-server'
 import { getRequestId } from '@/lib/request-id'
 import { errorTypeOf, fingerprintFor } from '@/lib/errors-shared'
@@ -37,6 +36,13 @@ export interface ApiErrorContext {
  *   `onRequestError`, so their errors never reach the shared project.
  * - Silently no-ops when PostHog is not configured (local dev with no key).
  * - Never throws — a PostHog failure must not propagate up the route handler.
+ *
+ * Per-request flush is the SDK's job (`flushAt: 1` + `waitUntil` in
+ * `posthog-server.ts`), matching `captureExternalApiTimeout` below and the
+ * `$ai_generation` mirror in `ai/usage.ts`. This used to wrap an explicit
+ * `after(() => client.flush())` from `next/server`; the SDK-level `waitUntil`
+ * landed later and schedules the same cycle on every capture, so the wrapper
+ * was redundant (HON-534). Don't re-add it.
  */
 export function captureApiError(error: unknown, context: ApiErrorContext): void {
   try {
@@ -58,13 +64,6 @@ export function captureApiError(error: unknown, context: ApiErrorContext): void 
     }
 
     client.captureException(error, context.userId, properties)
-    try {
-      // Vercel isolates terminate on response — extend lifetime so the async flush completes.
-      after(() => client.flush())
-    } catch {
-      // Outside a request scope (e.g. background script) — capture is queued; long-lived
-      // processes flush on posthog-node's interval, serverless ones drop and that's fine.
-    }
   } catch {
     // Swallow — capture failures must never propagate.
   }

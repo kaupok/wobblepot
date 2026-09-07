@@ -8,10 +8,14 @@ const captureMock = vi.fn()
 const flushMock = vi.fn()
 const getRequestIdMock = vi.fn()
 const getPosthogServerMock = vi.fn()
+const afterMock = vi.fn()
 
 vi.mock('next/server', () => ({
-  // Invoke the callback synchronously so tests can observe its effects.
-  after: (fn: () => void) => fn(),
+  // Kept as a spy, not a caller: `captureApiError` no longer schedules a flush
+  // through `after` (HON-534 — the SDK's own `waitUntil` owns that now), and the
+  // spy is what proves it. Deleting the mock would only prove the import is
+  // gone, which type-check already covers.
+  after: (fn: () => void) => afterMock(fn),
 }))
 
 vi.mock('@/lib/posthog-server', () => ({
@@ -38,6 +42,7 @@ describe('captureApiError', () => {
   beforeEach(() => {
     captureExceptionMock.mockReset()
     flushMock.mockReset()
+    afterMock.mockReset()
     getRequestIdMock.mockReset()
     getPosthogServerMock.mockReset()
     // Default to a deployed release so capture-path tests exercise capture.
@@ -170,14 +175,17 @@ describe('captureApiError', () => {
     expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({ errorType: 'string' })
   })
 
-  it('schedules a flush via next/after to keep serverless isolates alive', () => {
+  it('leaves the per-request flush to the SDK (no next/after wrapping)', () => {
     getPosthogServerMock.mockReturnValue({
       captureException: captureExceptionMock,
       flush: flushMock,
     })
     captureApiError(new Error('boom'), { route: '/api/x' })
     expect(captureExceptionMock).toHaveBeenCalledOnce()
-    expect(flushMock).toHaveBeenCalledOnce()
+    // `flushAt: 1` + the constructor `waitUntil` in `posthog-server.ts` keep the
+    // isolate alive now, so the callsite must not schedule a second flush.
+    expect(afterMock).not.toHaveBeenCalled()
+    expect(flushMock).not.toHaveBeenCalled()
   })
 })
 
