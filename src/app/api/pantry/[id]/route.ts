@@ -6,8 +6,12 @@ import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
 
+// `quantity` floors at 0: `0` is a valid tracked state ("none left, still
+// tracked"), `null` means "have some, amount unknown" (the deduction path
+// treats it as fully consumed), and a negative would render on /shopping as a
+// real on-hand amount and skew the needed-quantity aggregation in GET /api/pantry.
 const updatePantryItemSchema = z.object({
-  quantity: z.number().nullable().optional(),
+  quantity: z.number().min(0).nullable().optional(),
   isStaple: z.boolean().optional(),
 })
 

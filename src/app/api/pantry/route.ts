@@ -11,9 +11,13 @@ import { formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
 import type { Locale } from '@/lib/i18n/locales'
 import { captureApiError } from '@/lib/errors'
 
+// `quantity` floors at 0: `0` is a valid tracked state ("none left, still
+// tracked"), `null` means "have some, amount unknown" (the deduction path
+// treats it as fully consumed), and a negative would render on /shopping as a
+// real on-hand amount and skew the needed-quantity aggregation in GET above.
 const createPantryItemSchema = z.object({
   ingredientId: z.string().min(1),
-  quantity: z.number().nullable().optional(),
+  quantity: z.number().min(0).nullable().optional(),
   isStaple: z.boolean().optional().default(false),
 })
 
