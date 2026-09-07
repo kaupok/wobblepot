@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { ShoppingSection } from './ShoppingSection'
+import { WINDOW_STORAGE_KEY } from './use-shopping-window'
 import { formatDateRange } from '@/lib/i18n/format-dates'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import {
@@ -46,15 +47,21 @@ const meta = {
     docs: {
       description: {
         component:
-          'The shopping-list card on `/shopping`. Groups the computed list by category, urgency, or A–Z (persisted in `localStorage`), interleaves user-added custom items, and exports the still-to-buy items to the clipboard as plain text.',
+          "The shopping-list card on `/shopping`. Groups the computed list by category, urgency, or A–Z (persisted in `localStorage`), interleaves user-added custom items, and exports the still-to-buy items to the clipboard as plain text. Its header is the shared `ShoppingListHeader`, so the 7/14-day window picker is reachable with items on screen — see `Feature/Inventory/ShoppingListHeader` for the picker's own behavioural stories.",
       },
     },
   },
-  // Every story mounts in category mode regardless of what a previously-played
-  // story persisted — the sort mode is read from `localStorage` on mount.
+  // Every story mounts in category mode at the 7-day window regardless of what a
+  // previously-played story persisted. The sort mode is read from `localStorage`
+  // on mount; the window key is cleared so the picker starts where the story
+  // says it does.
   beforeEach: () => {
     localStorage.setItem(SORT_STORAGE_KEY, 'category')
-    return () => localStorage.removeItem(SORT_STORAGE_KEY)
+    localStorage.removeItem(WINDOW_STORAGE_KEY)
+    return () => {
+      localStorage.removeItem(SORT_STORAGE_KEY)
+      localStorage.removeItem(WINDOW_STORAGE_KEY)
+    }
   },
   args: {
     windowDays: 7,
@@ -74,7 +81,7 @@ export const Default: Story = {
     docs: {
       description: {
         story:
-          'Category mode with a mix of outstanding and purchased items. Custom items linked to an ingredient render inside that ingredient\'s category group; the rest fall into "Other". One fixture item is already checked off, so this is also the crowded-header case — all three controls (`Copy list`, `Clear checked`, the sort select) render at once. None of them can shrink, so at the default 390px viewport the row wraps rather than overflowing the card.',
+          'Category mode with a mix of outstanding and purchased items. Custom items linked to an ingredient render inside that ingredient\'s category group; the rest fall into "Other". One fixture item is already checked off, so this is also the crowded-header case — all four controls (`Copy list`, `Clear checked`, the sort select, the window picker) render at once. None of them can shrink, so at the default 390px viewport the row wraps rather than overflowing the card.',
       },
     },
   },

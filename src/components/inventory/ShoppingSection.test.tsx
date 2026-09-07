@@ -15,6 +15,14 @@ vi.stubGlobal('fetch', vi.fn())
 // Mock sonner toast
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
+// `ShoppingListHeader`'s picker navigates on a window change. The reconcile
+// itself lives in `InventoryPage` — see `InventoryPage.test.tsx`.
+const routerPush = vi.fn()
+const routerReplace = vi.fn()
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: routerPush, replace: routerReplace }),
+}))
+
 // Mock date utility used in urgency mode. `parseLocalDate` is kept real — the
 // clipboard header formats the window's date range through it.
 vi.mock('@/lib/meal-planning/dates', async () => {
@@ -84,6 +92,8 @@ function renderSection(overrides: Partial<Parameters<typeof ShoppingSection>[0]>
 
 beforeEach(() => {
   localStorage.clear()
+  routerPush.mockClear()
+  routerReplace.mockClear()
 })
 
 describe('ShoppingSection alphabetical sort', () => {

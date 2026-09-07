@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { PantrySection } from './PantrySection'
 import { ShoppingSection } from './ShoppingSection'
 import { ShoppingEmptyState, type ShoppingEmptyStateVariant } from './ShoppingEmptyState'
+import { useWindowReconcile } from './use-shopping-window'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
 import type { CustomItemData } from '@/components/shopping/CustomItemInput'
@@ -33,6 +34,12 @@ interface InventoryPageProps {
   shoppingData: ShoppingData | null
   emptyStateVariant?: ShoppingEmptyStateVariant
   windowDays?: number
+  /**
+   * Whether `?days=` named the window explicitly. `page.tsx` collapses an
+   * absent and an unparseable param into the same default, so the reconcile
+   * needs this bit to tell an expressed intent from a fallback.
+   */
+  windowDaysFromUrl?: boolean
 }
 
 export function InventoryPage({
@@ -40,8 +47,15 @@ export function InventoryPage({
   shoppingData,
   emptyStateVariant,
   windowDays,
+  windowDaysFromUrl = false,
 }: InventoryPageProps) {
   const router = useRouter()
+
+  // Applies a saved 7/14-day preference to the URL. Here rather than in
+  // `ShoppingListHeader` because this component renders on every `/shopping`
+  // visit and exactly once, so the reconcile reaches the header-less states
+  // (`no-plan`, `error`) and can never fire twice.
+  useWindowReconcile(windowDays ?? 7, windowDaysFromUrl)
   const tToday = useTranslations('today')
   const [isMobile, setIsMobile] = useState(false)
   const [pantryItems, setPantryItems] = useState<PantryItemData[]>(initialPantryItems)

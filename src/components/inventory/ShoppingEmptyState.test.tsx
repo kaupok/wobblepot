@@ -1,13 +1,25 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ShoppingEmptyState } from './ShoppingEmptyState'
+import { WINDOW_STORAGE_KEY } from './use-shopping-window'
 
-// Mock next/navigation
+const push = vi.fn()
+const replace = vi.fn()
+
+// The picker navigates; the mount reconcile lives in `InventoryPage`, so
+// nothing here should call either verb on its own.
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: vi.fn(),
-  }),
+  useRouter: () => ({ push, replace }),
 }))
+
+beforeEach(() => {
+  push.mockClear()
+  replace.mockClear()
+  localStorage.clear()
+})
+
+/** The picker's accessible name (`shopping.ariaTimeWindow`). */
+const windowPicker = () => screen.queryByRole('combobox', { name: 'Time window' })
 
 describe('ShoppingEmptyState', () => {
   describe('no-plan variant', () => {
@@ -28,10 +40,11 @@ describe('ShoppingEmptyState', () => {
       expect(link).toHaveAttribute('href', '/meal-plan')
     })
 
-    it('does not show window picker', () => {
+    it('does not show the header or the window picker', () => {
       render(<ShoppingEmptyState variant="no-plan" />)
 
-      expect(screen.queryByLabelText('Time window')).not.toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Shopping list' })).not.toBeInTheDocument()
+      expect(windowPicker()).not.toBeInTheDocument()
     })
   })
 
@@ -50,6 +63,25 @@ describe('ShoppingEmptyState', () => {
 
       expect(screen.queryByRole('link')).not.toBeInTheDocument()
     })
+
+    it('renders the header with the window picker', () => {
+      render(<ShoppingEmptyState variant="nothing-needed" windowDays={7} />)
+
+      expect(screen.getByRole('heading', { name: 'Shopping list' })).toBeInTheDocument()
+      expect(windowPicker()).toBeInTheDocument()
+    })
+
+    // The reconcile is not this component's job — it lives in `InventoryPage`,
+    // so it also reaches the header-less `no-plan` and `error` states. Rendering
+    // the empty state on its own must not navigate.
+    it('does not navigate on its own', () => {
+      localStorage.setItem(WINDOW_STORAGE_KEY, '14')
+
+      render(<ShoppingEmptyState variant="nothing-needed" windowDays={7} />)
+
+      expect(replace).not.toHaveBeenCalled()
+      expect(push).not.toHaveBeenCalled()
+    })
   })
 
   describe('all-purchased variant', () => {
@@ -58,6 +90,16 @@ describe('ShoppingEmptyState', () => {
 
       expect(screen.getByRole('heading', { name: 'All done!' })).toBeInTheDocument()
       expect(screen.getByText('Your pantry is stocked for the week.')).toBeInTheDocument()
+    })
+
+    // The state `ShoppingSection` hands off to once the last item is checked
+    // off. Before HON-624 it had no picker either, so a 14-day list that was
+    // fully purchased was another dead end.
+    it('renders the header with the window picker', () => {
+      render(<ShoppingEmptyState variant="all-purchased" windowDays={14} />)
+
+      expect(screen.getByRole('heading', { name: 'Shopping list' })).toBeInTheDocument()
+      expect(windowPicker()).toBeInTheDocument()
     })
   })
 
@@ -68,6 +110,13 @@ describe('ShoppingEmptyState', () => {
       expect(screen.getByRole('heading', { name: 'Something went wrong' })).toBeInTheDocument()
       const link = screen.getByRole('link', { name: 'Go to dashboard' })
       expect(link).toHaveAttribute('href', '/meal-plan')
+    })
+
+    it('does not show the header or the window picker', () => {
+      render(<ShoppingEmptyState variant="error" />)
+
+      expect(screen.queryByRole('heading', { name: 'Shopping list' })).not.toBeInTheDocument()
+      expect(windowPicker()).not.toBeInTheDocument()
     })
   })
 })

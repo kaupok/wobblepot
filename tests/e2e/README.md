@@ -109,7 +109,7 @@ The current `@smoke` set is:
 - `tests/e2e/smoke.spec.ts` → `home renders with heading`
 - `tests/e2e/smoke.spec.ts` → `seeded smoke user signs in and views profile`
 - `tests/e2e/security-headers.spec.ts` → `home response carries a nonce-based CSP` (HON-561; no sign-in, no seed — asserts the proxy (`src/proxy.ts`) ran on a real response)
-- `tests/e2e/shopping-to-pantry.spec.ts` → `marking an item purchased moves it to the pantry, un-purchasing returns it` (HON-479; pattern (a), self-cleaning)
+- `tests/e2e/shopping-to-pantry.spec.ts` → `marking an item purchased moves it to the pantry, un-purchasing returns it` (HON-479; pattern (a), self-cleaning. Also round-trips the 7/14-day window picker on the populated list — HON-624 — reusing the same fixture entry rather than adding a second test, because `fullyParallel` would race two tests on the shared smoke household)
 - `tests/e2e/forgot-password.spec.ts` → `request reset → set a new password → sign in with it` (HON-479; **skips unless a reset link is readable** — see "Reading email in specs")
 
 (The original HON-455 locked set listed meal-plan and invite specs deleted
