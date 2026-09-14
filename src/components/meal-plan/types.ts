@@ -52,6 +52,12 @@ export interface PlanEntry {
   preparationTips: StructuredTips | null
   note: string | null
   servingOverride: number | null
+  /**
+   * Whether completing this entry has already charged the pantry. The server
+   * charges an entry at most once, even across a revert (HON-651), so the UI
+   * must not preview a second deduction. Sent by `/api/entries` only.
+   */
+  pantryDeducted?: boolean
 }
 
 export interface MealPlan {

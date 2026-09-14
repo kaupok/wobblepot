@@ -33,6 +33,8 @@ interface MealCardProps {
   pantryItems?: PantryItemFull[]
   note?: string | null
   servingOverride?: number | null
+  /** The pantry was already charged for this entry — see `PlanEntry.pantryDeducted`. */
+  pantryDeducted?: boolean
 }
 
 export function MealCard({
@@ -49,6 +51,7 @@ export function MealCard({
   pantryItems = [],
   note: initialNote,
   servingOverride: initialServingOverride,
+  pantryDeducted = false,
 }: MealCardProps) {
   const router = useRouter()
   const tCard = useTranslations('meal-plan.card')
@@ -63,6 +66,10 @@ export function MealCard({
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
   const [isDeductionModalOpen, setIsDeductionModalOpen] = useState(false)
   const [isNoteEditing, setIsNoteEditing] = useState(false)
+  // Set when a deduction confirmed on this card went through, so a revert and
+  // re-complete before `router.refresh()` lands does not preview it again.
+  const [chargedHere, setChargedHere] = useState(false)
+  const isPantryCharged = pantryDeducted || chargedHere
 
   const effectiveServings = servingOverride ?? householdSize
   const hasServingOverride = servingOverride !== null && servingOverride !== householdSize
@@ -99,7 +106,8 @@ export function MealCard({
         throw new Error(tCard('statusUpdateFailed'))
       }
 
-      return { newStatus, deductPantry }
+      const data: { pantryDeducted?: boolean } = await response.json()
+      return { newStatus, deductPantry, pantryDeducted: data.pantryDeducted === true }
     },
     onMutate: async ({ newStatus }) => {
       const previousStatus = status
@@ -155,8 +163,24 @@ export function MealCard({
   })
 
   function handleStatusChange(newStatus: MealStatus) {
-    // Intercept "completed" status to show deduction modal
     if (newStatus === 'completed' && meal) {
+      // The server charges an entry at most once — reverting does not restock,
+      // and nothing clears the marker (HON-651). Previewing a deduction here
+      // would ask the user to confirm a change that never happens, so an
+      // already-charged entry completes directly.
+      if (isPantryCharged) {
+        statusMutation.mutate(
+          { newStatus },
+          {
+            onSuccess: () => {
+              setShowRatingPrompt(true)
+            },
+          },
+        )
+        return
+      }
+
+      // Intercept "completed" status to show deduction modal
       setIsDeductionModalOpen(true)
       return
     }
@@ -169,7 +193,8 @@ export function MealCard({
     statusMutation.mutate(
       { newStatus: 'completed', deductPantry: true },
       {
-        onSuccess: () => {
+        onSuccess: ({ pantryDeducted: charged }) => {
+          if (charged) setChargedHere(true)
           setIsDeductionModalOpen(false)
           setShowRatingPrompt(true)
           // Refresh to update pantry data
