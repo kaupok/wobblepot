@@ -61,10 +61,8 @@ describe('InventoryPage window reconcile', () => {
   })
 
   // `no-plan` renders no header and so no picker, which the AC requires. It
-  // still has to honour the saved window: the narrow window is itself one of
-  // the reasons this state appears, since `generatedAt` is folded over plan
-  // entries already filtered to the window. Without the reconcile the user is
-  // told "No meal plan yet" about a plan they have, with no control to fix it.
+  // still has to honour the saved window, so the next page the user reaches
+  // after generating a plan opens at the window they chose.
   it('applies it on `no-plan`, which has no picker to recover with', () => {
     localStorage.setItem(WINDOW_STORAGE_KEY, '14')
 

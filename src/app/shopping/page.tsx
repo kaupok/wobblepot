@@ -4,10 +4,10 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { getServerBaseURL } from '@/lib/env'
 import { InventoryPage } from '@/components/inventory/InventoryPage'
-import type { ShoppingEmptyStateVariant } from '@/components/inventory/ShoppingEmptyState'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { toShoppingItemData, type ShoppingListApiItem } from './shopping-item-transform'
+import { getShoppingEmptyStateVariant } from './shopping-empty-state-variant'
 
 interface ShoppingListGroup {
   category: IngredientCategory
@@ -28,6 +28,7 @@ interface ShoppingListResponse {
   startDate: string
   endDate: string
   generatedAt: string | null
+  hasAnyPlan: boolean
   groups: ShoppingListGroup[]
   customItems: CustomShoppingItemResponse[]
   summary: {
@@ -116,17 +117,12 @@ export default async function ShoppingPage({ searchParams }: ShoppingPageProps) 
 
   const shoppingList: ShoppingListResponse = await shoppingResponse.json()
 
-  // Check for empty states (custom items prevent "nothing needed" empty state)
-  const hasCustomItems = shoppingList.customItems.length > 0
-  let emptyStateVariant: ShoppingEmptyStateVariant | undefined
-  if (shoppingList.generatedAt === null && !hasCustomItems) {
-    emptyStateVariant = 'no-plan'
-  } else if (
-    (shoppingList.groups.length === 0 || shoppingList.summary.totalItems === 0) &&
-    !hasCustomItems
-  ) {
-    emptyStateVariant = 'nothing-needed'
-  }
+  const emptyStateVariant = getShoppingEmptyStateVariant({
+    hasAnyPlan: shoppingList.hasAnyPlan,
+    groupCount: shoppingList.groups.length,
+    totalItems: shoppingList.summary.totalItems,
+    customItemCount: shoppingList.customItems.length,
+  })
 
   // Extract initially purchased IDs
   const initialPurchasedIds = new Set<string>()

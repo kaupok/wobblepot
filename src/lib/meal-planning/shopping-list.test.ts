@@ -13,6 +13,7 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     mealPlanEntry: {
       findMany: vi.fn(),
+      count: vi.fn(),
     },
     householdMember: {
       count: vi.fn(),
@@ -37,6 +38,7 @@ import { prisma } from '@/lib/prisma'
 import { getStartOfTodayInTimezone } from './dates'
 
 const mockFindManyEntries = vi.mocked(prisma.mealPlanEntry.findMany)
+const mockCountEntries = vi.mocked(prisma.mealPlanEntry.count)
 const mockCountMembers = vi.mocked(prisma.householdMember.count)
 const mockFindManyPantry = vi.mocked(prisma.pantryItem.findMany)
 const mockGetStartOfToday = vi.mocked(getStartOfTodayInTimezone)
@@ -919,10 +921,12 @@ describe('computeRollingWindowShoppingList', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetStartOfToday.mockReturnValue(new Date('2026-01-20T00:00:00Z'))
+    mockCountEntries.mockResolvedValue(1)
   })
 
   it('returns empty groups and correct metadata when no entries exist', async () => {
     mockFindManyEntries.mockResolvedValue([])
+    mockCountEntries.mockResolvedValue(0)
     mockCountMembers.mockResolvedValue(2)
     mockFindManyPantry.mockResolvedValue([])
 
@@ -934,6 +938,35 @@ describe('computeRollingWindowShoppingList', () => {
     // displayEndDate = startOfToday + days - 1 = 2026-01-26
     expect(result.endDate).toBe('2026-01-26')
     expect(result.earliestPlanCreatedAt).toBeNull()
+    expect(result.hasAnyPlan).toBe(false)
+  })
+
+  // HON-653: a household whose entries all fall past the window (or are no
+  // longer `planned`) still has a plan. The window query returns nothing, so
+  // `earliestPlanCreatedAt` stays null — `hasAnyPlan` must not follow it.
+  it('reports hasAnyPlan when every entry falls outside the window', async () => {
+    mockFindManyEntries.mockResolvedValue([])
+    mockCountEntries.mockResolvedValue(5)
+    mockCountMembers.mockResolvedValue(2)
+    mockFindManyPantry.mockResolvedValue([])
+
+    const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
+
+    expect(result.groups).toEqual([])
+    expect(result.earliestPlanCreatedAt).toBeNull()
+    expect(result.hasAnyPlan).toBe(true)
+  })
+
+  it('counts entries for hasAnyPlan with no status or date filter', async () => {
+    mockFindManyEntries.mockResolvedValue([])
+    mockCountMembers.mockResolvedValue(2)
+    mockFindManyPantry.mockResolvedValue([])
+
+    await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
+
+    expect(mockCountEntries).toHaveBeenCalledWith({
+      where: { plan: { householdId: 'household-1' } },
+    })
   })
 
   it('queries entries scoped to the household and date window', async () => {
