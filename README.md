@@ -65,6 +65,8 @@ Estonian is the first non-English locale. [`docs/LOCALIZATION.md`](docs/LOCALIZA
 
 You can, but this is a production application with real vendor dependencies rather than a demo. A full local run needs a PostgreSQL database, an Anthropic API key, and, for the features that use them, Resend and Upstash accounts. [`src/lib/env.ts`](src/lib/env.ts) is the authoritative list of every variable and which ones are optional; [`docs/ENVIRONMENT_SETUP.md`](docs/ENVIRONMENT_SETUP.md) covers the vendor setup behind them.
 
+These instructions are provided for transparency and evaluation of the published source; running the software is not licensed beyond what [LICENSE](LICENSE) states.
+
 ```bash
 pnpm install
 cp .env.example .env    # at minimum: DATABASE_URL, DATABASE_URL_UNPOOLED, BETTER_AUTH_SECRET, ANTHROPIC_API_KEY
@@ -111,4 +113,4 @@ If you find a vulnerability, email [support@wobblepot.com](mailto:support@wobble
 
 ## License
 
-All rights reserved. The source is published so the product and the process behind it can be inspected, not so it can be reused. See [LICENSE](LICENSE).
+All rights reserved. The source is published so the product and the process behind it can be inspected, not so it can be reused. See [LICENSE](LICENSE). Third-party components committed to this repository keep their own licences, listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
