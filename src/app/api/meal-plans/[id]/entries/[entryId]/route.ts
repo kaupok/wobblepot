@@ -166,6 +166,7 @@ export async function PATCH(
         mealId: true,
         status: true,
         servingOverride: true,
+        pantryDeductedAt: true,
         plan: {
           select: {
             household: {
@@ -293,22 +294,30 @@ export async function PATCH(
     // ones it did cook in the pantry (HON-622).
     const componentsToDeduct = swapMealComponents ?? entry.meal?.components ?? []
 
-    // Handle pantry deduction when marking as completed. Deduction is not
-    // idempotent, so an entry that is already completed must not be charged a
-    // second time: without this guard a repeated `completed` — a double
-    // submit, a client retry — would take the ingredients twice for one cooked
-    // meal.
+    // Handle pantry deduction when marking as completed. Deduction is a
+    // relative decrement and is not idempotent, so an entry is charged at most
+    // once in its life, and `pantryDeductedAt` is the stored fact that says it
+    // was. The completion transaction below sets it in the same statement that
+    // claims the entry, and **nothing clears it**:
     //
-    // It keys on the *stored* status, so it does not cover
-    // completed → planned → completed: reverting does not restock, and the
-    // re-completion charges again. That is a real double-charge and is
-    // deliberately out of scope here (it is a question about what reverting
-    // should mean, not about swaps); the tests below pin the current
-    // behaviour.
+    // - Not a revert. Reverting to `planned` does not restock — the food was
+    //   cooked — so complete → planned → complete must not charge the pantry
+    //   a second time (HON-651). The stored status alone cannot see that round
+    //   trip; the marker can.
+    // - Not a swap after a revert. The original meal's ingredients were
+    //   consumed, so charging the incoming meal on re-completion would be the
+    //   same double-charge from another door.
+    //
+    // The status check stays alongside it. A repeated `completed` — a double
+    // submit, a client retry — on an entry that was completed without
+    // deducting has no marker, and must still not start charging a completed
+    // entry: HON-633's rule that a completed entry is never repointed relies
+    // on the claim refusing completed rows.
     const shouldDeductPantry =
       parsed.data.deductPantry === true &&
       parsed.data.status === 'completed' &&
       entry.status !== MealPlanEntryStatus.completed &&
+      entry.pantryDeductedAt === null &&
       componentsToDeduct.length > 0
 
     if (shouldDeductPantry) {
@@ -348,29 +357,39 @@ export async function PATCH(
 
       const pantryDeducted = await prisma.$transaction(async (tx) => {
         // Claim the completion, and let the database decide who won. The
-        // `status` this guards on was read at the top of the handler, outside
-        // any transaction, so `shouldDeductPantry` alone cannot keep two
-        // concurrent completions of the *same* entry (a double submit, two
-        // tabs, a client retry) from both passing it and both deducting —
-        // charging the pantry twice for one cooked meal. Re-testing it here as
-        // a conditional write makes it a no-op for the loser: it takes the
-        // entry's row lock, so the second transaction only proceeds once the
-        // first has committed `completed`.
+        // `status` and `pantryDeductedAt` this guards on were read at the top
+        // of the handler, outside any transaction, so `shouldDeductPantry`
+        // alone cannot keep two concurrent completions of the *same* entry (a
+        // double submit, two tabs, a client retry) from both passing it and
+        // both deducting — charging the pantry twice for one cooked meal.
+        // Re-testing both here as a conditional write makes it a no-op for the
+        // loser: it takes the entry's row lock, so the second transaction only
+        // proceeds once the first has committed `completed` and the marker.
+        //
+        // The marker is written by this same statement, so it commits exactly
+        // when the decrements below do — every throw after it rolls both back
+        // together (HON-651).
         //
         // `updateManyAndReturn` rather than `updateMany`: the row it hands
-        // back is what the mealId check below reads. Claiming on `status`
-        // alone and inspecting afterwards keeps `claimed === undefined`
-        // meaning exactly one thing — nobody to claim from — so the branch
-        // under it stays the lost-completion branch it was written as.
+        // back is what the mealId check below reads. Claiming on the guard's
+        // conditions alone and inspecting afterwards keeps
+        // `claimed === undefined` meaning exactly one thing — nobody to claim
+        // from — so the branch under it stays the lost-completion branch it was
+        // written as.
         const [claimed] = await tx.mealPlanEntry.updateManyAndReturn({
-          where: { id: entryId, status: { not: MealPlanEntryStatus.completed } },
-          data: updateData,
+          where: {
+            id: entryId,
+            status: { not: MealPlanEntryStatus.completed },
+            pantryDeductedAt: null,
+          },
+          data: { ...updateData, pantryDeductedAt: new Date() },
         })
 
         if (!claimed) {
-          // No row matched, which means either a concurrent request completed
-          // this entry first or the entry has since been deleted (the DELETE
-          // handler above races this one).
+          // No row matched, which means a concurrent request charged this
+          // entry first — by completing it, or by a complete-then-revert that
+          // committed in between — or the entry has since been deleted (the
+          // DELETE handler above races this one).
           //
           // A swap cannot be persisted from here. This request charges
           // nothing, so writing `mealId` would leave the entry naming a meal
@@ -381,7 +400,11 @@ export async function PATCH(
           //
           // The deleted-entry sub-case answers 409 too, not 404: this branch
           // cannot tell the two apart without another read, and "the entry is
-          // no longer in a state that accepts this swap" is true of both.
+          // no longer in a state that accepts this swap" is true of both. So
+          // does the round-trip sub-case, where the entry is back in `planned`
+          // with the marker set and a swap would in fact be allowed: refusing
+          // writes nothing, and a retry reads the marker at the top and takes
+          // the non-deducting swap path.
           if (updateData.mealId) {
             throw new CompletedSwapError()
           }

@@ -208,6 +208,7 @@ describe('GET /api/entries', () => {
         preparationTips: null,
         note: null,
         servingOverride: null,
+        pantryDeductedAt: null,
         meal: {
           id: 'meal-1',
           name: 'Spaghetti Bolognese',
@@ -248,11 +249,42 @@ describe('GET /api/entries', () => {
     expect(entry.id).toBe('entry-1')
     expect(entry.mealType).toBe('dinner')
     expect(entry.status).toBe('planned')
+    expect(entry.pantryDeducted).toBe(false)
     expect(entry.meal).not.toBeNull()
     expect(entry.meal.name).toBe('Spaghetti Bolognese')
     expect(entry.meal.components).toHaveLength(1)
     expect(entry.meal.components[0].ingredient.name).toBe('Ground beef')
     expect(entry.meal.nutrition).toBeDefined()
+  })
+
+  it('reports pantryDeducted for an entry that was charged, even after a revert', async () => {
+    // The card uses this to skip the deduction preview: the server will not
+    // charge the entry again, so a preview would promise a change that never
+    // happens (HON-651). The raw timestamp stays server-side.
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockPlanFindUnique.mockResolvedValue({ id: 'plan-1', householdId: 'household-123' } as never)
+    mockEntriesFindMany.mockResolvedValue([
+      {
+        id: 'entry-1',
+        date: new Date('2026-02-03T00:00:00'),
+        mealType: 'dinner',
+        status: 'planned',
+        rating: null,
+        preparationTips: null,
+        note: null,
+        servingOverride: null,
+        pantryDeductedAt: new Date('2026-02-03T19:00:00Z'),
+        meal: null,
+      },
+    ] as never)
+
+    const response = await GET(createRequest())
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.entries[0].pantryDeducted).toBe(true)
+    expect(data.entries[0]).not.toHaveProperty('pantryDeductedAt')
   })
 
   it('returns description (null) for en households without re-translating', async () => {

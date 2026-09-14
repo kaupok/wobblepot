@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, within } from 'storybook/test'
+import { expect, userEvent, waitFor, within } from 'storybook/test'
 import { MealType } from '@/generated/prisma/enums'
 import {
   createMeal,
@@ -45,6 +45,40 @@ export const Planned: Story = {
     // its absence there cannot pass on a card that failed to render at all.
     const canvas = within(canvasElement)
     await expect(canvas.getByRole('button', { name: /^swap$/i })).toBeInTheDocument()
+  },
+}
+
+export const PlannedAlreadyCharged: Story = {
+  args: {
+    meal: mealFixture,
+    status: 'planned',
+    pantryDeducted: true,
+    // The status control only renders on past days.
+    isPast: true,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Completed once, then reverted to planned. The pantry was already charged and the server never charges an entry twice (HON-651), so completing again skips the deduction preview.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const body = within(document.body)
+
+    await userEvent.click(canvas.getByRole('combobox', { name: /meal status/i }))
+    await userEvent.click(await body.findByRole('option', { name: /completed/i }))
+
+    // The status did change — so the missing dialog below is not a click that
+    // never landed.
+    await waitFor(() =>
+      expect(canvas.getByRole('combobox', { name: /meal status/i })).toHaveTextContent(
+        /completed/i,
+      ),
+    )
+    await expect(body.queryByRole('dialog')).not.toBeInTheDocument()
   },
 }
 

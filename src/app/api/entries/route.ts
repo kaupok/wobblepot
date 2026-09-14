@@ -122,6 +122,7 @@ export async function GET(request: NextRequest) {
         preparationTips: entry.preparationTips ? parseStoredTips(entry.preparationTips) : null,
         note: entry.note,
         servingOverride: entry.servingOverride,
+        pantryDeducted: entry.pantryDeductedAt !== null,
         meal:
           entry.meal && translatedMeal
             ? {

@@ -96,6 +96,7 @@ export function TimelineDayCard({
                     pantryItems={pantryItems}
                     note={slot.entry.note}
                     servingOverride={slot.entry.servingOverride}
+                    pantryDeducted={slot.entry.pantryDeducted}
                   />
                 ) : (
                   <TimelineEmptySlot

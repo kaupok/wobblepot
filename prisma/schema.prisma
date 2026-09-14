@@ -445,16 +445,19 @@ model MealPlan {
 }
 
 model MealPlanEntry {
-  id              String              @id @default(cuid())
-  planId          String
-  mealId          String?
-  date            DateTime
-  mealType        MealType
-  status          MealPlanEntryStatus @default(planned)
-  rating          EntryRating?
-  preparationTips String?
-  note            String?
-  servingOverride Int?
+  id               String              @id @default(cuid())
+  planId           String
+  mealId           String?
+  date             DateTime
+  mealType         MealType
+  status           MealPlanEntryStatus @default(planned)
+  rating           EntryRating?
+  preparationTips  String?
+  note             String?
+  servingOverride  Int?
+  /// Set when completing this entry charged the pantry. Never cleared — not by
+  /// a revert, not by a swap after one — so the entry is charged at most once.
+  pantryDeductedAt DateTime?
 
   plan MealPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
   meal Meal?    @relation(fields: [mealId], references: [id])
