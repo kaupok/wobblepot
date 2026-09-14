@@ -151,13 +151,15 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     return createEmptyPlan({ householdId, startDate, endDate })
   }
 
-  // Compute required protein slots based on dietary type (dinner only)
+  // Compute required protein slots over the replaceable dinner dates only, as fill-plan does.
+  // Placing them over every date and filtering afterwards would drop, not move, a requirement
+  // that landed on a kept day.
   const requiredSlots = computeRequiredSlots({
     dietaryType,
-    dates,
+    dates: allSlots.filter((s) => s.mealType === 'dinner').map((s) => s.date),
     weekdayMealTypes,
     weekendMealTypes,
-  }).filter(isReplaceable)
+  })
 
   // Get recent meal IDs to exclude, favorite meal IDs for prioritization, and pantry ingredients
   const [recentMealIds, favoriteMealIds, pantryIngredients] = await Promise.all([

@@ -992,6 +992,12 @@ describe('generateMealPlan', () => {
 
     it('asks the generator only for the slots that are not completed', async () => {
       mockCompletedSlots([KEPT_DINNER])
+      // Requirements are placed over the open dinner dates, so the fish day moves off the kept one
+      const movedRequirements = [
+        { date: date('2026-01-15'), mealType: 'dinner' as const, proteinType: 'fish' as const },
+        { date: date('2026-01-17'), mealType: 'dinner' as const, proteinType: 'legume' as const },
+      ]
+      mockComputeRequiredSlots.mockReturnValue(movedRequirements)
 
       const aiEntries = ['12', '13', '15', '16', '17', '18'].map((d, i) => ({
         date: `2026-01-${d}`,
@@ -1017,10 +1023,14 @@ describe('generateMealPlan', () => {
         (mockLogAiSample.mock.calls[0]![0].input as { totalEntries: number }).totalEntries,
       ).toBe(6)
 
-      // The fish requirement sat on the kept day, so only the legume requirement remains
-      expect(mockValidatePlan).toHaveBeenCalledWith(expect.anything(), [
-        { date: date('2026-01-17'), mealType: 'dinner', proteinType: 'legume' },
-      ])
+      // Required protein slots are computed over the open dinner dates, not filtered afterwards,
+      // so a requirement that would have landed on the kept day is moved rather than dropped
+      expect(mockComputeRequiredSlots).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dates: ['12', '13', '15', '16', '17', '18'].map((d) => date(`2026-01-${d}`)),
+        }),
+      )
+      expect(mockValidatePlan).toHaveBeenCalledWith(expect.anything(), movedRequirements)
 
       const created = mockMealPlanEntryCreateMany.mock.calls[0]?.[0] as {
         data: Array<{ date: Date; mealType: string }>
