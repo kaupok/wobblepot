@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -36,6 +36,10 @@ beforeEach(() => {
   mockCapture = vi.fn()
   mockGetPosthogServer.mockReturnValue({ capture: mockCapture } as never)
   mockGetRequestId.mockReturnValue(undefined)
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
 })
 
 describe('getMonthBoundaries', () => {
@@ -349,5 +353,71 @@ describe('recordAiUsage › requestId resolution', () => {
         properties: expect.objectContaining({ $ai_trace_id: undefined }),
       }),
     )
+  })
+})
+
+describe('recordAiUsage › missing usage counts', () => {
+  it('writes the row, flags $ai_usage_missing on PostHog, and warns once naming feature and model', async () => {
+    mockCreate.mockResolvedValue({} as never)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await recordAiUsage({
+      householdId: 'h1',
+      feature: 'plan_generate',
+      model: 'claude-sonnet-4-6',
+      inputTokens: 0,
+      outputTokens: 0,
+      usageMissing: true,
+    })
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ inputTokens: 0, outputTokens: 0, estimatedCostUsd: 0 }),
+    })
+    expect(mockCapture).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: expect.objectContaining({
+          $ai_usage_missing: true,
+          $ai_total_cost_usd: 0,
+        }),
+      }),
+    )
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0]![0]).toContain('plan_generate')
+    expect(warn.mock.calls[0]![0]).toContain('claude-sonnet-4-6')
+  })
+
+  it('omits $ai_usage_missing and does not warn when usage is present', async () => {
+    mockCreate.mockResolvedValue({} as never)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await recordAiUsage({
+      householdId: 'h1',
+      feature: 'plan_generate',
+      model: 'claude-sonnet-4-6',
+      inputTokens: 1_000,
+      outputTokens: 500,
+      usageMissing: false,
+    })
+
+    const { properties } = mockCapture.mock.calls[0]![0] as { properties: Record<string, unknown> }
+    expect(properties).not.toHaveProperty('$ai_usage_missing')
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('still flags missing usage when PostHog is not configured', async () => {
+    mockCreate.mockResolvedValue({} as never)
+    mockGetPosthogServer.mockReturnValue(null)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await recordAiUsage({
+      householdId: 'h1',
+      feature: 'meal_imagine',
+      model: 'claude-sonnet-4-6',
+      inputTokens: 0,
+      outputTokens: 0,
+      usageMissing: true,
+    })
+
+    expect(warn).toHaveBeenCalledTimes(1)
   })
 })

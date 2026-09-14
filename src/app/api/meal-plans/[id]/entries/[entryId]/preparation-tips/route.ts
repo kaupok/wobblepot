@@ -21,6 +21,7 @@ import {
   assertUnderCap,
   recordAiUsage,
   respondCapExceeded,
+  toAiUsageStats,
 } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
@@ -171,9 +172,7 @@ async function handlePOST(
       await recordAiUsage({
         householdId: household.id,
         feature: 'entry_preparation_tips',
-        model: TIPS_MODEL,
-        inputTokens: result.usage?.inputTokens ?? 0,
-        outputTokens: result.usage?.outputTokens ?? 0,
+        ...toAiUsageStats(TIPS_MODEL, result.usage),
       })
 
       await logAiSample({
@@ -211,9 +210,7 @@ async function handlePOST(
       await recordAiUsage({
         householdId: household.id,
         feature: 'entry_preparation_tips',
-        model: TIPS_MODEL,
-        inputTokens: result.usage?.inputTokens ?? 0,
-        outputTokens: result.usage?.outputTokens ?? 0,
+        ...toAiUsageStats(TIPS_MODEL, result.usage),
       })
 
       await logAiSample({

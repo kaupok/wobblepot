@@ -27,6 +27,8 @@ import { generateObject } from 'ai'
 import { parseRecipeText, parseAndMatchRecipe } from './parse-recipe'
 import type { RecipeExtraction } from './recipe-schema'
 import { RecipeParseError } from './recipe-errors'
+import { RECIPE_MODEL } from './models'
+import { USAGE_FIXTURE, expectedUsageStats } from './usage-fixture'
 
 const mockQueryRaw = vi.mocked(prisma.$queryRaw)
 const mockGenerateObject = vi.mocked(generateObject)
@@ -84,6 +86,43 @@ describe('parseRecipeText', () => {
     expect(result.extraction.ingredients).toHaveLength(1)
     expect(result.extraction.servings).toBe(4)
     expect(result.confidence.tier).toBe('high')
+  })
+
+  it('reports the SDK usage to onAiUsage via toAiUsageStats', async () => {
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        name: 'Chicken Stir Fry',
+        description: null,
+        preparationNotes: null,
+        timeMinutes: 30,
+        servings: 4,
+        mealTypes: ['dinner'],
+        kidFriendly: true,
+        recipeConfidence: 90,
+        ingredients: [
+          {
+            name: 'chicken breast',
+            quantity: 500,
+            unit: 'g',
+            originalText: '500g chicken breast',
+            isVague: false,
+            vaguePhrase: null,
+            isDried: null,
+          },
+        ],
+      },
+      usage: USAGE_FIXTURE,
+    } as never)
+    const onAiUsage = vi.fn()
+
+    await parseRecipeText(
+      'A full recipe with chicken breast and vegetables for dinner',
+      'en',
+      onAiUsage,
+    )
+
+    expect(onAiUsage).toHaveBeenCalledTimes(1)
+    expect(onAiUsage).toHaveBeenCalledWith(expectedUsageStats(RECIPE_MODEL))
   })
 
   it('throws RecipeParseError when name is empty', async () => {

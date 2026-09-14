@@ -19,6 +19,7 @@ vi.mock('./sampling', () => ({
 import { generateObject } from 'ai'
 import { reviewMealQuantities, type ReviewIngredient } from './review-quantities'
 import { REVIEW_MODEL } from './models'
+import { USAGE_FIXTURE, expectedUsageStats } from './usage-fixture'
 import { logAiSample } from './sampling'
 
 const mockGenerateObject = vi.mocked(generateObject)
@@ -56,6 +57,19 @@ describe('reviewMealQuantities', () => {
     const result = await reviewMealQuantities('Chicken stir fry', 4, sampleIngredients, 'en')
 
     expect(result).toEqual(aiResponse)
+  })
+
+  it('reports the SDK usage to onAiUsage via toAiUsageStats', async () => {
+    mockGenerateObject.mockResolvedValue({
+      object: { ingredients: [] },
+      usage: USAGE_FIXTURE,
+    } as never)
+    const onAiUsage = vi.fn()
+
+    await reviewMealQuantities('Chicken stir fry', 4, sampleIngredients, 'en', onAiUsage)
+
+    expect(onAiUsage).toHaveBeenCalledTimes(1)
+    expect(onAiUsage).toHaveBeenCalledWith(expectedUsageStats(REVIEW_MODEL))
   })
 
   it('calls generateObject with the REVIEW_MODEL and a schema', async () => {

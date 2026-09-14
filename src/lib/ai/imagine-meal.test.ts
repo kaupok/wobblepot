@@ -20,6 +20,8 @@ import { generateObject } from 'ai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { imagineMeals, ImaginedMealsSchema, type ImaginedMeal } from './imagine-meal'
 import { logAiSample } from './sampling'
+import { IMAGINE_MODEL } from './models'
+import { USAGE_FIXTURE, expectedUsageStats } from './usage-fixture'
 
 const mockGenerateObject = vi.mocked(generateObject)
 const mockCreateAnthropic = vi.mocked(createAnthropic)
@@ -81,6 +83,16 @@ describe('imagineMeals', () => {
     const result = await imagineMeals('something with chicken', emptyHousehold, 'en')
 
     expect(result).toEqual(meals)
+  })
+
+  it('reports the SDK usage to onAiUsage via toAiUsageStats', async () => {
+    mockGenerateObject.mockResolvedValue({ object: { meals: [] }, usage: USAGE_FIXTURE } as never)
+    const onAiUsage = vi.fn()
+
+    await imagineMeals('something with chicken', emptyHousehold, 'en', undefined, onAiUsage)
+
+    expect(onAiUsage).toHaveBeenCalledTimes(1)
+    expect(onAiUsage).toHaveBeenCalledWith(expectedUsageStats(IMAGINE_MODEL))
   })
 
   it('initializes Anthropic with the server API key', async () => {

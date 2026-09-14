@@ -9,6 +9,7 @@ import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
 import { PLANNING_MODEL } from './models'
 import { buildMealPlanPrompt } from './prompts'
 import { logAiSample } from './sampling'
+import { toAiUsageStats } from './usage'
 import { getFavoriteMealIds, getRecentMealIds, loadCandidatePools } from './plan-candidates'
 import {
   hydratePlan,
@@ -181,11 +182,7 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     prompt,
   })
 
-  onAiUsage?.({
-    model: PLANNING_MODEL,
-    inputTokens: result.usage?.inputTokens ?? 0,
-    outputTokens: result.usage?.outputTokens ?? 0,
-  })
+  onAiUsage?.(toAiUsageStats(PLANNING_MODEL, result.usage))
 
   const { object } = result
 
