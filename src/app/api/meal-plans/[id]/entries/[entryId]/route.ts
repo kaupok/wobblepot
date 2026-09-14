@@ -27,9 +27,10 @@ class CompletedSwapError extends Error {
 }
 
 /**
- * A completion whose meal moved underneath it: the components were read at the
- * top of the handler, and a swap committed before the deduction transaction
- * claimed the entry, so the price no longer matches the meal (HON-633).
+ * A completion whose meal moved underneath it: the components and serving
+ * count were read at the top of the handler, and a swap (HON-633) or a
+ * servings change (HON-652) committed before the deduction transaction claimed
+ * the entry, so the price no longer matches the meal.
  *
  * Thrown to roll the claim back, for the same reason as
  * {@link CompletedSwapError}. The caller gets a 409 and can retry, which
@@ -504,6 +505,20 @@ export async function PATCH(
         // the claim itself. A swap-and-complete is exempt: it prices the
         // incoming meal, which does not depend on what the entry pointed at.
         if (!updateData.mealId && claimed.mealId !== entry.mealId) {
+          throw new StaleMealError()
+        }
+
+        // Same check for the count. Without `servingOverride` in this request
+        // the deduction was priced at the count read at the top of the handler,
+        // so a servings change that committed in between would complete the
+        // entry at one count while the pantry is charged for another — and a
+        // completed entry's count is frozen, so nothing could reconcile them
+        // afterwards (HON-652). A request that sends the count (a swap resets
+        // it to null) prices what it persists and is exempt.
+        if (
+          !('servingOverride' in updateData) &&
+          claimed.servingOverride !== entry.servingOverride
+        ) {
           throw new StaleMealError()
         }
 

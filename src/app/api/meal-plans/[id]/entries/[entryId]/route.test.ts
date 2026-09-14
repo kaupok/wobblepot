@@ -130,7 +130,11 @@ let writesOutsideTransaction: string[] = []
  * check passes; a test that wants to model a swap committing mid-flight passes
  * a different one.
  */
-const mockDeductionTransaction = (claimedCount = 1, claimedMealId = 'meal-123') => {
+const mockDeductionTransaction = (
+  claimedCount = 1,
+  claimedMealId = 'meal-123',
+  claimedServingOverride: number | null = null,
+) => {
   writesOutsideTransaction = []
   let insideTransaction = false
 
@@ -140,7 +144,16 @@ const mockDeductionTransaction = (claimedCount = 1, claimedMealId = 'meal-123') 
   }
 
   const claimedRows =
-    claimedCount === 0 ? [] : [{ id: 'entry-123', status: 'completed', mealId: claimedMealId }]
+    claimedCount === 0
+      ? []
+      : [
+          {
+            id: 'entry-123',
+            status: 'completed',
+            mealId: claimedMealId,
+            servingOverride: claimedServingOverride,
+          },
+        ]
 
   mockClaimEntry.mockImplementation((() => record('claim', claimedRows)) as never)
   mockFallbackWrite.mockImplementation((() => record('fallback', { count: claimedCount })) as never)
@@ -439,6 +452,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
     mockFindFirstEntry.mockResolvedValue({
       id: 'entry-123',
       mealId: 'meal-123',
+      servingOverride: null,
       pantryDeductedAt: null,
       plan: {
         household: { members: [{ id: 'member-1' }] },
@@ -1463,6 +1477,40 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - servings on a completed
     expect(response.status).toBe(200)
     expect(data.pantryDeducted).toBe(true)
     expect(mockPantryUpdateMany).toHaveBeenCalledWith(decrementOf('ing-1', 600))
+  })
+
+  it('rolls a completion back when a servings change committed before the claim', async () => {
+    // The opposite order: `{ servingOverride: 6 }` commits between this
+    // request's read (null → household of 2) and its claim. Charging the
+    // 200g priced at the stale count would complete the entry at 6 while the
+    // pantry paid for 2, with the count frozen from then on.
+    entryWith('planned', null)
+    mockDeductionTransaction(1, 'meal-123', 6)
+
+    const response = await PATCH(createPatchRequest({ status: 'completed', deductPantry: true }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(data.error).toBe('The meal changed while completing. Try again.')
+    expect(mockPantryUpdateMany).not.toHaveBeenCalled()
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
+  })
+
+  it('exempts a completion that sends its own count from the servings staleness check', async () => {
+    // The request prices what it persists, so the stored count it overwrites
+    // does not matter.
+    entryWith('planned', null)
+    mockDeductionTransaction(1, 'meal-123', 6)
+
+    const response = await PATCH(
+      createPatchRequest({ status: 'completed', deductPantry: true, servingOverride: 3 }),
+      { params: createParams() },
+    )
+
+    expect(response.status).toBe(200)
+    expect(mockPantryUpdateMany).toHaveBeenCalledWith(decrementOf('ing-1', 300))
   })
 
   it('refuses a servings change that lost the completion race, and charges nothing', async () => {
