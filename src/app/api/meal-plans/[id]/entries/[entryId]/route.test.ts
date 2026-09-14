@@ -1313,6 +1313,185 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction
   })
 })
 
+describe('PATCH /api/meal-plans/[id]/entries/[entryId] - servings on a completed entry', () => {
+  // `servingOverride` is how many servings the pantry was charged at, so a
+  // completed entry's count is frozen the same way its `mealId` is (HON-633):
+  // changing it afterwards leaves the entry and the pantry disagreeing, and
+  // nothing re-charges a completed entry (HON-652).
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetSession.mockResolvedValue(mockSession)
+    mockGetMembership.mockResolvedValue(mockMembership)
+  })
+
+  const entryWith = (status: string, servingOverride: number | null) =>
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      status,
+      servingOverride,
+      pantryDeductedAt: status === 'completed' ? new Date('2026-09-01') : null,
+      plan: { household: { members: [{ id: 'member-1' }, { id: 'member-2' }] } },
+      meal: { components: [{ ingredientId: 'ing-1', quantityPerServing: 100 }] },
+    } as never)
+
+  it('rejects a servingOverride change on a completed entry and writes nothing', async () => {
+    entryWith('completed', 4)
+
+    const response = await PATCH(createPatchRequest({ servingOverride: 6 }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(data.error).toBe('Cannot change servings on a completed meal')
+    expect(mockUpdateEntry).not.toHaveBeenCalled()
+    expect(mockClaimEntry).not.toHaveBeenCalled()
+    expect(mockFallbackWrite).not.toHaveBeenCalled()
+  })
+
+  it('rejects resetting a completed entry to the household default', async () => {
+    // `null` is a change too: it reprices the meal at the household size.
+    entryWith('completed', 4)
+
+    const response = await PATCH(createPatchRequest({ servingOverride: null }), {
+      params: createParams(),
+    })
+
+    expect(response.status).toBe(409)
+    expect(mockClaimEntry).not.toHaveBeenCalled()
+  })
+
+  it('rejects re-completing an already-completed entry with a different count', async () => {
+    // Not the "complete for N servings" path: the entry is already completed,
+    // so the deduction guard charges nothing and the new count would stand
+    // alone.
+    entryWith('completed', 4)
+
+    const response = await PATCH(
+      createPatchRequest({ status: 'completed', deductPantry: true, servingOverride: 6 }),
+      { params: createParams() },
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(data.error).toBe('Cannot change servings on a completed meal')
+    expect(mockClaimEntry).not.toHaveBeenCalled()
+    expect(mockPantryUpdateMany).not.toHaveBeenCalled()
+  })
+
+  it('lets a completed entry resend its stored count', async () => {
+    // A no-op write — a retry or a double submit — disagrees with nothing.
+    entryWith('completed', 4)
+    mockClaimEntry.mockResolvedValue([
+      { id: 'entry-123', status: 'completed', mealId: 'meal-123', rating: null },
+    ] as never)
+
+    const response = await PATCH(createPatchRequest({ servingOverride: 4 }), {
+      params: createParams(),
+    })
+
+    expect(response.status).toBe(200)
+  })
+
+  it('still lets a completed entry change its note and rating', async () => {
+    entryWith('completed', 4)
+    mockUpdateEntry.mockResolvedValue({
+      id: 'entry-123',
+      status: 'completed',
+      mealId: 'meal-123',
+      rating: 'up',
+    } as never)
+
+    const response = await PATCH(createPatchRequest({ note: 'Great', rating: 'up' }), {
+      params: createParams(),
+    })
+
+    expect(response.status).toBe(200)
+    expect(mockUpdateEntry).toHaveBeenCalled()
+  })
+
+  it.each(['planned', 'skipped'])('changes servingOverride on a %s entry', async (status) => {
+    entryWith(status, null)
+    mockClaimEntry.mockResolvedValue([
+      { id: 'entry-123', status, mealId: 'meal-123', rating: null },
+    ] as never)
+
+    const response = await PATCH(createPatchRequest({ servingOverride: 6 }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.status).toBe(status)
+    expect(mockClaimEntry).toHaveBeenCalledWith({
+      where: {
+        id: 'entry-123',
+        OR: [{ status: { not: 'completed' } }, { servingOverride: 6 }],
+      },
+      data: { servingOverride: 6 },
+    })
+  })
+
+  it('rejects a servings change that raced a concurrent completion', async () => {
+    // Read as `planned`, so the serial guard passes — but a completion
+    // committed before the write, charging the pantry at the old count. The
+    // conditional write matches nothing, and that is the 409.
+    entryWith('planned', null)
+    mockClaimEntry.mockResolvedValue([] as never)
+
+    const response = await PATCH(createPatchRequest({ servingOverride: 6 }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(data.error).toBe('Cannot change servings on a completed meal')
+    expect(mockUpdateEntry).not.toHaveBeenCalled()
+  })
+
+  it('still completes for N servings in one request, pricing the deduction at N', async () => {
+    entryWith('planned', 2)
+    mockDeductionTransaction()
+
+    const response = await PATCH(
+      createPatchRequest({ status: 'completed', deductPantry: true, servingOverride: 6 }),
+      { params: createParams() },
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.pantryDeducted).toBe(true)
+    expect(mockPantryUpdateMany).toHaveBeenCalledWith(decrementOf('ing-1', 600))
+  })
+
+  it('refuses a servings change that lost the completion race, and charges nothing', async () => {
+    // Two "complete for N" requests at once: the winner charged the pantry at
+    // its count, so the loser must not overwrite the count with its own.
+    // Throwing rolls the transaction back and answers 409 rather than 500.
+    entryWith('planned', null)
+    mockDeductionTransaction(0)
+
+    const response = await PATCH(
+      createPatchRequest({ status: 'completed', deductPantry: true, servingOverride: 6 }),
+      { params: createParams() },
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(data.error).toBe('Cannot change servings on a completed meal')
+    expect(mockFallbackWrite).toHaveBeenCalledWith({
+      where: {
+        id: 'entry-123',
+        OR: [{ status: { not: 'completed' } }, { servingOverride: 6 }],
+      },
+      data: expect.objectContaining({ servingOverride: 6 }),
+    })
+    expect(mockPantryUpdateMany).not.toHaveBeenCalled()
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
+  })
+})
+
 describe('PATCH /api/meal-plans/[id]/entries/[entryId] - rating', () => {
   beforeEach(() => {
     vi.clearAllMocks()

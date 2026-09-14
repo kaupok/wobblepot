@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { fn } from 'storybook/test'
+import { expect, fn, within } from 'storybook/test'
 import {
   createMeal,
   lemonGarlicChickenComponentsFull,
@@ -87,6 +87,32 @@ export const WithServingControl: Story = {
     pantryIngredients: lemonGarlicChickenPantryWithOil,
     servings: 4,
     onServingsChange: fn(async () => true),
+  },
+}
+
+export const Completed: Story = {
+  args: {
+    status: 'completed',
+    pantryIngredients: lemonGarlicChickenPantryWithOil,
+    servings: 6,
+    onServingsChange: fn(async () => true),
+    hideAvailability: true,
+    hideAvailabilityBadge: true,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A completed entry’s servings are what the pantry was charged for, so the API refuses to change them (HON-652). The count renders as static header text instead of the serving control.',
+      },
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Ingredients (serves 6)')).toBeInTheDocument()
+    await expect(canvas.queryByRole('button', { name: /serves 6/i })).toBeNull()
+    await expect(canvas.queryByLabelText('Number of servings')).toBeNull()
+    await expect(args.onServingsChange).not.toHaveBeenCalled()
   },
 }
 

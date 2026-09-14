@@ -42,6 +42,31 @@ class StaleMealError extends Error {
   }
 }
 
+/**
+ * A serving-count change that arrived too late: a concurrent completion
+ * claimed the entry — and charged the pantry at its own count — before this
+ * request's write landed (HON-652).
+ *
+ * Thrown to roll the deduction transaction back, for the same reason as
+ * {@link CompletedSwapError}.
+ */
+class CompletedServingsError extends Error {
+  constructor() {
+    super('Cannot change servings on a completed meal')
+    this.name = 'CompletedServingsError'
+  }
+}
+
+/**
+ * The write-time form of the rule that a completed entry's servings are
+ * frozen: the row matches while it is not `completed`, or while its stored
+ * override already equals the one being written. Re-tested inside the write
+ * because the `status` read at the top of the handler can be stale by then.
+ */
+const servingsWritableWhere = (servingOverride: number | null) => ({
+  OR: [{ status: { not: MealPlanEntryStatus.completed } }, { servingOverride }],
+})
+
 const updateEntrySchema = z.object({
   status: z.enum(['planned', 'completed', 'skipped']).optional(),
   mealId: z.string().optional(),
@@ -212,6 +237,31 @@ export async function PATCH(
     // is what actually closes it.
     if (parsed.data.mealId && entry.status === MealPlanEntryStatus.completed) {
       return NextResponse.json({ error: 'Cannot swap a completed meal' }, { status: 409 })
+    }
+
+    // Same record, the other dimension: `mealId` is which components the
+    // pantry was charged for, `servingOverride` is how many servings it was
+    // charged at. Changing the count afterwards leaves the entry recording 6
+    // while the pantry paid for 4, and nothing reconciles them (HON-652).
+    //
+    // Refused whatever `status` the body carries. `status: 'completed'` on a
+    // non-completed entry is the "complete for N servings" path and never
+    // reaches this branch; on an entry that is *already* completed it is a
+    // re-complete with a new count, which charges nothing either. Resending
+    // the stored value is a no-op and passes. Reverting to `planned` first
+    // unlocks the count.
+    //
+    // As with the swap guard, the status here was read outside any
+    // transaction; the writes below re-test it via `servingsWritableWhere`.
+    if (
+      'servingOverride' in parsed.data &&
+      entry.status === MealPlanEntryStatus.completed &&
+      (parsed.data.servingOverride ?? null) !== entry.servingOverride
+    ) {
+      return NextResponse.json(
+        { error: 'Cannot change servings on a completed meal' },
+        { status: 409 },
+      )
     }
 
     // Build update data
@@ -415,6 +465,28 @@ export async function PATCH(
           // again rather than `update`: on the deleted-entry branch there is
           // no row to write, and `update` would throw P2025 and turn a lost
           // race into a 500.
+          //
+          // A serving count is the exception, for the swap's reason: the
+          // winner charged the pantry at *its* count, so persisting a
+          // different one here would leave the two disagreeing (HON-652). The
+          // conditional write matches nothing in exactly that case, and
+          // throwing rolls back everything else this request carries. A
+          // deleted entry also matches nothing and answers 409 as well, the
+          // same trade the swap branch above makes.
+          if ('servingOverride' in updateData) {
+            const { count } = await tx.mealPlanEntry.updateMany({
+              where: {
+                id: entryId,
+                ...servingsWritableWhere(updateData.servingOverride ?? null),
+              },
+              data: updateData,
+            })
+            if (count === 0) {
+              throw new CompletedServingsError()
+            }
+            return false
+          }
+
           await tx.mealPlanEntry.updateMany({ where: { id: entryId }, data: updateData })
           return false
         }
@@ -546,12 +618,36 @@ export async function PATCH(
       })
     }
 
-    // Standard update without pantry deduction. No `mealId`, so the swap rule
-    // does not apply. Note, rating and status edits are safe on a completed
-    // entry; `servingOverride` is not quite — it scales the deduction, so
-    // changing it after the fact leaves the recorded servings disagreeing with
-    // what the pantry was charged. That is the same invariant from a third
-    // side, out of scope here and tracked separately.
+    // A serving-count change that does not deduct. The guard at the top
+    // refused it on an entry read as `completed`, but that read is from before
+    // this write: a concurrent completion can commit in between and charge the
+    // pantry at the old count. Re-test as part of the write, as the swap above
+    // does — the row matches only while it is not `completed`, or while its
+    // stored count already equals this one (HON-652).
+    if ('servingOverride' in updateData) {
+      const [updated] = await prisma.mealPlanEntry.updateManyAndReturn({
+        where: { id: entryId, ...servingsWritableWhere(updateData.servingOverride ?? null) },
+        data: updateData,
+      })
+
+      if (!updated) {
+        return NextResponse.json(
+          { error: 'Cannot change servings on a completed meal' },
+          { status: 409 },
+        )
+      }
+
+      return NextResponse.json({
+        id: updated.id,
+        status: updated.status,
+        mealId: updated.mealId,
+        rating: updated.rating,
+      })
+    }
+
+    // Standard update without pantry deduction. No `mealId` and no
+    // `servingOverride`, so neither of the rules above applies: note, rating
+    // and status edits are safe on a completed entry.
     const updatedEntry = await prisma.mealPlanEntry.update({
       where: { id: entryId },
       data: updateData,
@@ -569,6 +665,14 @@ export async function PATCH(
     // as the serial guard and is not reported as an error (HON-633).
     if (error instanceof CompletedSwapError) {
       return NextResponse.json({ error: 'Cannot swap a completed meal' }, { status: 409 })
+    }
+
+    // The serving-count twin of the above (HON-652).
+    if (error instanceof CompletedServingsError) {
+      return NextResponse.json(
+        { error: 'Cannot change servings on a completed meal' },
+        { status: 409 },
+      )
     }
 
     // Likewise for a completion whose meal was swapped underneath it: the
