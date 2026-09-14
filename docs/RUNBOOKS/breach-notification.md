@@ -61,9 +61,9 @@ When a breach is suspected, this is where the evidence lives. Check the ones rel
 | **Resend dashboard**  | Spikes in send rate, unexpected recipients, delivery-failure bursts (a sign of a list dump). | Resend dashboard → Logs                                                                 |
 | **Anthropic console** | API usage anomalies, unexpected key usage, spend spikes.                                     | Anthropic console → Honkadori OÜ org (org ID in the Anthropic console) → Usage          |
 | **GitHub audit log**  | Secret exposure in commits, unexpected org/member changes, force-pushes.                     | GitHub → org settings → Audit log; plus secret-scanning alerts                          |
-| **PostHog**[^posthog] | Event-traffic anomalies, unusual geography, session-replay of suspicious flows.              | PostHog Cloud EU (Frankfurt) → Activity / Web analytics                                 |
+| **PostHog**[^posthog] | Event-traffic anomalies, unusual geography, error spikes. Session replay is off.             | PostHog Cloud EU (Frankfurt) → Activity / Web analytics                                 |
 
-[^posthog]: PostHog is live (HON-474). Web-analytics + Core Web Vitals event coverage broadens once [HON-460](https://linear.app/honkadori/issue/HON-460) lands; until then PostHog detection is limited to the events already instrumented.
+[^posthog]: PostHog is live (HON-474), with web analytics and Core Web Vitals capture enabled (HON-460). Detection covers pageviews, web vitals, captured errors and the product events in `src/lib/analytics.ts` — nothing beyond what is instrumented.
 
 ## Internal checklist
 
