@@ -874,7 +874,13 @@ describe('generateMealPlan', () => {
       // Verify find-or-create plan was called
       expect(mockMealPlanFindUnique).toHaveBeenCalled()
       // Verify entries were deleted and created
-      expect(mockMealPlanEntryDeleteMany).toHaveBeenCalled()
+      expect(mockMealPlanEntryDeleteMany).toHaveBeenCalledWith({
+        where: {
+          planId: 'plan-1',
+          date: { gte: date('2026-01-12'), lt: date('2026-01-19') },
+          status: { not: 'completed' },
+        },
+      })
       expect(mockMealPlanEntryCreateMany).toHaveBeenCalled()
     })
 
@@ -928,6 +934,140 @@ describe('generateMealPlan', () => {
       expect(args.output).toEqual({ entries: aiEntries })
     })
   })
+
+  describe('completed entries in the range (HON-650)', () => {
+    const KEPT_DINNER = { date: date('2026-01-14'), mealType: 'dinner' as const }
+
+    function mockCompletedSlots(slots: Array<{ date: Date; mealType: 'dinner' }>) {
+      mockMealPlanEntryFindMany.mockImplementation((async (args: {
+        where?: { status?: string }
+      }) => (args?.where?.status === 'completed' ? slots : [])) as never)
+    }
+
+    function keptEntry(slot: { date: Date; mealType: 'dinner' }, i: number) {
+      return {
+        id: `kept-${i}`,
+        date: slot.date,
+        mealType: slot.mealType,
+        status: 'completed',
+        meal: {
+          id: `cooked-${i}`,
+          name: `Cooked ${i}`,
+          kidFriendly: true,
+          primaryProteinType: ProteinType.fish,
+          components: [],
+        },
+      }
+    }
+
+    beforeEach(() => {
+      mockGetCandidates.mockResolvedValue(createMockMeals(10))
+      mockValidatePlan.mockReturnValue({ valid: true, errors: [] })
+      mockTransaction.mockImplementation(async (fn) => fn(mockPrisma as never) as never)
+      mockMealPlanFindUnique.mockResolvedValue({
+        id: 'plan-1',
+        householdId: 'household-1',
+      } as never)
+      mockMealPlanEntryDeleteMany.mockResolvedValue({ count: 0 } as never)
+      mockMealPlanEntryCreateMany.mockResolvedValue({ count: 6 } as never)
+      mockMealPlanFindUniqueOrThrow.mockResolvedValue({ id: 'plan-1', entries: [] } as never)
+    })
+
+    it('loads completed entries for the household and range', async () => {
+      mockCompletedSlots([KEPT_DINNER])
+      mockGenerateObject.mockResolvedValue({ object: { entries: [] } } as never)
+      mockMealFindMany.mockResolvedValue([])
+
+      await generateMealPlan(defaultOptions).catch(() => {})
+
+      expect(mockMealPlanEntryFindMany).toHaveBeenCalledWith({
+        where: {
+          plan: { householdId: 'household-1' },
+          status: 'completed',
+          date: { gte: date('2026-01-12'), lt: date('2026-01-19') },
+        },
+        select: { date: true, mealType: true },
+      })
+    })
+
+    it('asks the generator only for the slots that are not completed', async () => {
+      mockCompletedSlots([KEPT_DINNER])
+
+      const aiEntries = ['12', '13', '15', '16', '17', '18'].map((d, i) => ({
+        date: `2026-01-${d}`,
+        mealType: 'dinner',
+        mealId: `meal-${i + 1}`,
+      }))
+      mockGenerateObject.mockResolvedValue({ object: { entries: aiEntries } } as never)
+      mockMealFindMany.mockResolvedValue(
+        aiEntries.map((e) => ({
+          id: e.mealId,
+          name: e.mealId,
+          primaryProteinType: ProteinType.poultry,
+          kidFriendly: true,
+        })) as never,
+      )
+
+      await generateMealPlan(defaultOptions)
+
+      const call = mockGenerateObject.mock.calls[0]?.[0] as { prompt: string } | undefined
+      expect(call?.prompt).toContain('Return exactly 6 entries')
+      expect(call?.prompt).not.toContain('2026-01-14')
+      expect(
+        (mockLogAiSample.mock.calls[0]![0].input as { totalEntries: number }).totalEntries,
+      ).toBe(6)
+
+      // The fish requirement sat on the kept day, so only the legume requirement remains
+      expect(mockValidatePlan).toHaveBeenCalledWith(expect.anything(), [
+        { date: date('2026-01-17'), mealType: 'dinner', proteinType: 'legume' },
+      ])
+
+      const created = mockMealPlanEntryCreateMany.mock.calls[0]?.[0] as {
+        data: Array<{ date: Date; mealType: string }>
+      }
+      expect(created.data).toHaveLength(6)
+      expect(created.data.map((e) => e.date.getTime())).not.toContain(KEPT_DINNER.date.getTime())
+    })
+
+    it('rejects an AI response that also fills the completed slot', async () => {
+      mockCompletedSlots([KEPT_DINNER])
+
+      const aiEntries = createDefaultMealSlots().map((s, i) => ({
+        date: `2026-01-${12 + i}`,
+        mealType: s.mealType,
+        mealId: `meal-${i + 1}`,
+      }))
+      mockGenerateObject.mockResolvedValue({ object: { entries: aiEntries } } as never)
+      mockMealFindMany.mockResolvedValue([])
+
+      await expect(generateMealPlan(defaultOptions)).rejects.toThrow('Expected 6 entries, got 7')
+      expect(mockMealPlanEntryCreateMany).not.toHaveBeenCalled()
+    })
+
+    it('skips the AI call when every slot in the range is completed', async () => {
+      const allKept = createDefaultMealSlots()
+      mockCompletedSlots(allKept)
+      mockMealPlanFindUniqueOrThrow.mockResolvedValue({
+        id: 'plan-1',
+        entries: allKept.map(keptEntry),
+      } as never)
+
+      const result = await generateMealPlan(defaultOptions)
+
+      expect(mockGenerateObject).not.toHaveBeenCalled()
+      expect(mockMealPlanEntryCreateMany).not.toHaveBeenCalled()
+      expect(mockMealPlanEntryDeleteMany).toHaveBeenCalledWith({
+        where: {
+          planId: 'plan-1',
+          date: { gte: date('2026-01-12'), lt: date('2026-01-19') },
+          status: { not: 'completed' },
+        },
+      })
+      expect(result.id).toBe('plan-1')
+      expect(result.entries).toHaveLength(7)
+      expect(result.entries.every((e) => e.status === 'completed')).toBe(true)
+    })
+  })
 })
 
 describe('createEmptyPlan', () => {
@@ -935,6 +1075,10 @@ describe('createEmptyPlan', () => {
     vi.clearAllMocks()
     mockTransaction.mockImplementation(async (fn) => fn(mockPrisma as never) as never)
     mockMealPlanEntryDeleteMany.mockResolvedValue({ count: 0 } as never)
+    mockMealPlanFindUniqueOrThrow.mockImplementation((async (args: { where: { id: string } }) => ({
+      id: args.where.id,
+      entries: [],
+    })) as never)
   })
 
   it('creates a plan when none exists and returns empty entries', async () => {
@@ -956,7 +1100,7 @@ describe('createEmptyPlan', () => {
     expect(mockMealPlanCreate).toHaveBeenCalledWith({ data: { householdId: 'household-1' } })
   })
 
-  it('reuses an existing household plan and clears the date range', async () => {
+  it('reuses an existing household plan and clears the date range except completed entries', async () => {
     mockMealPlanFindUnique.mockResolvedValue({ id: 'plan-1', householdId: 'household-1' } as never)
 
     const result = await createEmptyPlan({
@@ -971,7 +1115,40 @@ describe('createEmptyPlan', () => {
       where: {
         planId: 'plan-1',
         date: { gte: date('2026-01-12'), lt: date('2026-01-19') },
+        status: { not: 'completed' },
       },
     })
+  })
+
+  it('returns the completed entries it kept', async () => {
+    mockMealPlanFindUnique.mockResolvedValue({ id: 'plan-1', householdId: 'household-1' } as never)
+    mockMealPlanFindUniqueOrThrow.mockResolvedValue({
+      id: 'plan-1',
+      entries: [
+        {
+          id: 'kept-1',
+          date: date('2026-01-14'),
+          mealType: 'dinner',
+          status: 'completed',
+          meal: {
+            id: 'meal-1',
+            name: 'Cooked',
+            kidFriendly: true,
+            primaryProteinType: ProteinType.fish,
+            components: [],
+          },
+        },
+      ],
+    } as never)
+
+    const result = await createEmptyPlan({
+      householdId: 'household-1',
+      startDate: date('2026-01-12'),
+      endDate: date('2026-01-19'),
+    })
+
+    expect(result.entries).toEqual([
+      expect.objectContaining({ id: 'kept-1', date: '2026-01-14', status: 'completed' }),
+    ])
   })
 })
