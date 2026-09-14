@@ -1,6 +1,12 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
+import {
+  assertFocusInDialog,
+  awaitDialogClosed,
+  openViaTrigger,
+  pressEscape,
+} from '@/stories/a11y-helpers'
 import { Button } from './button'
 import {
   Dialog,
@@ -78,6 +84,58 @@ export const WithoutCloseButton: Story = {
     </Dialog>
   ),
 }
+
+// Asserts the house easing curve and the 200ms dialog duration (docs/DESIGN.md
+// → Motion) reach the dialog and its overlay:
+// `globals.css` overrides Tailwind's `--ease-out`, `DialogContent` carries the
+// `ease-out` utility, and tw-animate-css reads it through `--tw-ease`, so both
+// the transition and the enter keyframe run on the same curve.
+export const HouseEasing: Story = {
+  args: { open: false },
+  render: (args) => {
+    const [open, setOpen] = useState(args.open ?? false)
+    return (
+      <div>
+        <button type="button" onClick={() => setOpen(true)}>
+          Open dialog
+        </button>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>House easing</DialogTitle>
+              <DialogDescription>This dialog enters on the house curve.</DialogDescription>
+            </DialogHeader>
+          </DialogContent>
+        </Dialog>
+      </div>
+    )
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await openViaTrigger(canvas.getByRole('button', { name: 'Open dialog' }))
+
+    const dialog = await within(document.body).findByRole('dialog')
+    await assertFocusInDialog()
+
+    const style = window.getComputedStyle(dialog)
+    expect(style.transitionTimingFunction).toBe(HOUSE_CURVE)
+    expect(style.animationTimingFunction).toBe(HOUSE_CURVE)
+    expect(style.animationDuration).toBe('0.2s')
+
+    // The backdrop runs on the same 200ms curve, so it never outlasts or
+    // undercuts the content it frames.
+    const overlay = document.querySelector('[data-slot="dialog-overlay"]')
+    expect(overlay).not.toBeNull()
+    const overlayStyle = window.getComputedStyle(overlay as Element)
+    expect(overlayStyle.animationTimingFunction).toBe(HOUSE_CURVE)
+    expect(overlayStyle.animationDuration).toBe('0.2s')
+
+    await pressEscape()
+    await awaitDialogClosed()
+  },
+}
+
+const HOUSE_CURVE = 'cubic-bezier(0.23, 1, 0.32, 1)'
 
 // Asserts the prefers-reduced-motion override zeros the dialog's open
 // animation (HON-470). Forces the Storybook reduced-motion toolbar on via

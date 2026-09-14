@@ -250,7 +250,7 @@ export function PantryItemRow({
     <div
       className={cn(
         'flex items-center justify-between rounded-lg border p-3',
-        isNewlyAdded && 'animate-in fade-in slide-in-from-top-2 duration-300',
+        isNewlyAdded && 'animate-in fade-in slide-in-from-top-2 duration-200 ease-out',
       )}
     >
       <div className="flex items-center gap-3">

@@ -52,6 +52,39 @@ describe('Button component', () => {
     })
   })
 
+  // docs/DESIGN.md → Motion. The computed 0.97 scale is asserted in the
+  // `PressScale` story, which runs in a real browser; this covers the class
+  // contract, including that tailwind-merge drops the base scale for `link`.
+  describe('motion', () => {
+    it('names its transition properties instead of transition-all', () => {
+      render(<Button>Save</Button>)
+      const button = screen.getByRole('button')
+      expect(button).toHaveClass(
+        'transition-[color,background-color,border-color,box-shadow,scale]',
+        'duration-150',
+        'ease-out',
+      )
+      expect(button).not.toHaveClass('transition-all')
+    })
+
+    it.each(['default', 'destructive', 'outline', 'secondary', 'ghost'] as const)(
+      'scales to 0.97 on press for the %s variant',
+      (variant) => {
+        render(<Button variant={variant}>Press</Button>)
+        const button = screen.getByRole('button')
+        expect(button).toHaveClass('active:scale-[0.97]')
+        expect(button).not.toHaveClass('active:scale-100')
+      },
+    )
+
+    it('does not scale on press for the link variant', () => {
+      render(<Button variant="link">Link</Button>)
+      const button = screen.getByRole('button')
+      expect(button).toHaveClass('active:scale-100')
+      expect(button).not.toHaveClass('active:scale-[0.97]')
+    })
+  })
+
   describe('sizes', () => {
     it('applies default size classes', () => {
       render(<Button>Default Size</Button>)

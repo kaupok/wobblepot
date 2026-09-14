@@ -76,6 +76,25 @@ describe('ThemeToggle', () => {
     expect(button).toBeInTheDocument()
   })
 
+  // Theme switches snap (docs/DESIGN.md → Motion): exactly one icon renders,
+  // with no transition or scale/rotate swap to animate between two.
+  it.each([
+    ['light', 'lucide-sun', 'lucide-moon'],
+    ['dark', 'lucide-moon', 'lucide-sun'],
+  ])('renders only the icon for the %s theme, unanimated', (theme, shown, hidden) => {
+    mockUseTheme.mockReturnValue(createMockTheme(theme))
+
+    render(<ThemeToggle />, { wrapper: makeWrapper('en') })
+    const button = screen.getByRole('button', { name: 'Toggle theme' })
+    const icons = button.querySelectorAll('svg')
+    expect(icons).toHaveLength(1)
+
+    const icon = icons[0] as SVGElement
+    expect(icon).toHaveClass(shown)
+    expect(icon).not.toHaveClass(hidden)
+    expect(icon.getAttribute('class')).not.toMatch(/transition|scale-|rotate-/)
+  })
+
   it('toggles from light to dark', () => {
     const mockSetTheme = vi.fn()
     mockUseTheme.mockReturnValue(createMockTheme('light', mockSetTheme))

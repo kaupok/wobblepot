@@ -3,6 +3,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* House easing curve (docs/DESIGN.md → Motion). Overrides Tailwind's stock
+   --ease-out so the `ease-out` utility is the curve, and tw-animate-css picks
+   it up through --tw-ease. Not a new token name, so tailwind-merge needs no
+   registration. */
+@theme {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -154,7 +162,11 @@
 
   /* WHY: Inside @layer base so these rules beat Tailwind utilities without
      per-class !important; the wildcard + !important is the only way to override
-     tw-animate-css keyframe utilities on every Radix-backed primitive at once. */
+     tw-animate-css keyframe utilities on every Radix-backed primitive at once.
+     `animate-spin` is the one exemption: collapsed to one 0.01ms turn, a spinner
+     freezes and stops saying "loading" — several have no text beside them. It
+     is a looping indicator, not motion from an interaction. The class selector
+     outranks `*`, so its !important wins. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -164,10 +176,17 @@
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+
+    .animate-spin {
+      animation-duration: 1s !important;
+      animation-iteration-count: infinite !important;
+    }
   }
 
   /* Mirrors the @media block for Storybook's reduced-motion toolbar toggle,
-     which sets data-reduced-motion on <html> without changing the OS preference. */
+     which sets data-reduced-motion on <html> without changing the OS preference.
+     The spinner exemption needs its own attribute-prefixed selector here:
+     `html[data-reduced-motion='true'] *` outranks a bare `.animate-spin`. */
   html[data-reduced-motion='true'] *,
   html[data-reduced-motion='true'] *::before,
   html[data-reduced-motion='true'] *::after {
@@ -175,6 +194,11 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  html[data-reduced-motion='true'] .animate-spin {
+    animation-duration: 1s !important;
+    animation-iteration-count: infinite !important;
   }
 }
 
