@@ -15,11 +15,14 @@ import { useIngredientAvailability } from '@/hooks/use-ingredient-availability'
 import { useMealTips } from '@/hooks/use-meal-tips'
 import { MealDetail } from './MealDetail'
 import { NoteEditor } from './NoteEditor'
+import type { MealStatus } from './StatusSelect'
 import type { MealData, PantryIngredient } from './types'
 
 interface MealDetailModalProps {
   meal: MealData
   householdSize: number
+  /** Status of the plan entry; a completed entry shows its servings read-only */
+  status?: MealStatus
   open: boolean
   onOpenChange: (open: boolean) => void
   pantryIngredients?: PantryIngredient[]
@@ -34,6 +37,7 @@ interface MealDetailModalProps {
 export function MealDetailModal({
   meal,
   householdSize,
+  status,
   open,
   onOpenChange,
   pantryIngredients = [],
@@ -122,6 +126,7 @@ export function MealDetailModal({
         <MealDetail
           meal={meal}
           householdSize={householdSize}
+          status={status}
           servings={localServings}
           onServingsChange={handleServingsChange}
           pantryIngredients={pantryIngredients}

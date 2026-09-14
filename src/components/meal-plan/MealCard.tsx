@@ -378,6 +378,7 @@ export function MealCard({
       <MealDetailModal
         meal={meal}
         householdSize={householdSize}
+        status={status}
         open={isDetailModalOpen}
         onOpenChange={setIsDetailModalOpen}
         pantryIngredients={pantryIngredients}

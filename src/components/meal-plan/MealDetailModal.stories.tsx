@@ -103,6 +103,28 @@ export const ChangeServingInvokesCallback: Story = {
   },
 }
 
+export const CompletedServingsReadOnly: Story = {
+  args: {
+    status: 'completed',
+    servingOverride: 6,
+    onServingOverrideChange: fn(),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A completed entry’s servings are what the pantry was charged for, so the API refuses to change them (HON-652). The count renders as static header text, with no edit control.',
+      },
+    },
+  },
+  play: async () => {
+    const body = within(document.body)
+    const dialog = await body.findByRole('dialog')
+    await expect(within(dialog).getByText('Ingredients (serves 6)')).toBeInTheDocument()
+    await expect(within(dialog).queryByRole('button', { name: /serves 6/i })).toBeNull()
+  },
+}
+
 export const EditNoteInvokesCallback: Story = {
   args: {
     note: 'Kids loved this — double the garlic next time.',

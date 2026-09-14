@@ -10,14 +10,17 @@ import { IngredientList } from './IngredientList'
 import { computeMealAvailability } from './AvailabilityIndicator'
 import { PreparationTips } from './PreparationTips'
 import { ServingControl } from './ServingControl'
+import type { MealStatus } from './StatusSelect'
 import type { MealData, PantryIngredient, StructuredTips } from './types'
 
 interface MealDetailProps {
   meal: MealData
   householdSize: number
+  /** Status of the plan entry this meal belongs to */
+  status?: MealStatus
   /** Current effective servings (servingOverride or householdSize) */
   servings?: number
-  /** Handler for serving count changes */
+  /** Handler for serving count changes. Ignored for a completed entry. */
   onServingsChange?: (servings: number | null) => Promise<boolean>
   pantryIngredients?: PantryIngredient[]
   /** If provided, renders checkboxes to toggle ingredient availability */
@@ -49,6 +52,7 @@ interface MealDetailProps {
 export function MealDetail({
   meal,
   householdSize,
+  status,
   servings,
   onServingsChange,
   pantryIngredients = [],
@@ -74,7 +78,10 @@ export function MealDetail({
   }, [meal, pantryIngredients])
 
   const showPreparationSection = !!onHowToPrepare
-  const showServingControl = !!onServingsChange
+  // A completed entry's servings are what the pantry was charged for, and the
+  // API refuses to change them (409, HON-652) — so show the count as the
+  // static header instead of offering an edit that can only fail.
+  const showServingControl = !!onServingsChange && status !== 'completed'
 
   return (
     <div className="flex flex-col gap-4">
