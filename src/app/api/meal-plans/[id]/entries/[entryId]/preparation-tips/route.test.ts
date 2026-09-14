@@ -57,8 +57,10 @@ import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { generateObject } from 'ai'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { assertUnderCap } from '@/lib/ai/usage'
+import { assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
 import { logAiSample } from '@/lib/ai/sampling'
+import { TIPS_MODEL } from '@/lib/ai/models'
+import { USAGE_FIXTURE, expectedUsageStats } from '@/lib/ai/usage-fixture'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -67,6 +69,7 @@ const mockEntryUpdate = vi.mocked(prisma.mealPlanEntry.update)
 const mockGenerateObject = vi.mocked(generateObject)
 const mockCheckRateLimit = vi.mocked(checkRateLimit)
 const mockAssertUnderCap = vi.mocked(assertUnderCap)
+const mockRecordAiUsage = vi.mocked(recordAiUsage)
 const mockLogAiSample = vi.mocked(logAiSample)
 
 const mockSession = {
@@ -318,6 +321,48 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(data.tips).toEqual(supplementary)
     const call = mockGenerateObject.mock.calls[0]?.[0] as { prompt: string }
     expect(call.prompt).toContain("User's preparation notes")
+  })
+
+  it('records the SDK usage via toAiUsageStats for full tips', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockGenerateObject.mockResolvedValue({
+      object: { equipment: [], steps: ['Step 1'], pitfalls: [], tip: 'Tip' },
+      usage: USAGE_FIXTURE,
+    } as never)
+
+    await callPost()
+
+    expect(mockRecordAiUsage).toHaveBeenCalledTimes(1)
+    expect(mockRecordAiUsage).toHaveBeenCalledWith({
+      householdId: mockMembership.household.id,
+      feature: 'entry_preparation_tips',
+      ...expectedUsageStats(TIPS_MODEL),
+    })
+  })
+
+  it('records the SDK usage via toAiUsageStats for supplementary tips', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockEntryFindFirst.mockResolvedValue(
+      sampleEntry({
+        meal: { ...sampleEntry().meal, preparationNotes: 'Sear first then simmer' },
+      }) as never,
+    )
+    mockGenerateObject.mockResolvedValue({
+      object: { pitfalls: [], tip: 'Rest the meat' },
+      usage: USAGE_FIXTURE,
+    } as never)
+
+    await callPost()
+
+    expect(mockRecordAiUsage).toHaveBeenCalledTimes(1)
+    expect(mockRecordAiUsage).toHaveBeenCalledWith({
+      householdId: mockMembership.household.id,
+      feature: 'entry_preparation_tips',
+      ...expectedUsageStats(TIPS_MODEL),
+    })
   })
 
   it('returns 429 when AI throws rate-limit error', async () => {

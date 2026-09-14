@@ -2,7 +2,7 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
 import { serverEnv } from '@/lib/env'
 import { RECIPE_MODEL } from './models'
-import type { AiUsageStats } from './usage'
+import { toAiUsageStats, type AiUsageStats } from './usage'
 import type { MealType } from '@/generated/prisma/enums'
 import { logAiSample } from './sampling'
 import { RecipeParseError } from './recipe-errors'
@@ -54,11 +54,7 @@ export async function parseRecipeText(
 
     const { object } = result
 
-    onAiUsage?.({
-      model: RECIPE_MODEL,
-      inputTokens: result.usage?.inputTokens ?? 0,
-      outputTokens: result.usage?.outputTokens ?? 0,
-    })
+    onAiUsage?.(toAiUsageStats(RECIPE_MODEL, result.usage))
 
     await logAiSample({
       callSite: 'parse-recipe',

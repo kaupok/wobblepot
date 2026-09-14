@@ -5,7 +5,7 @@ import { serverEnv } from '@/lib/env'
 import { REVIEW_MODEL } from './models'
 import { localeInstruction } from './prompts'
 import { logAiSample } from './sampling'
-import type { AiUsageStats } from './usage'
+import { toAiUsageStats, type AiUsageStats } from './usage'
 
 export interface ReviewIngredient {
   ingredientId: string
@@ -93,11 +93,7 @@ Return all ingredients with corrected quantities per serving. Keep reasonable qu
     system: systemPrompt,
   })
 
-  onAiUsage?.({
-    model: REVIEW_MODEL,
-    inputTokens: result.usage?.inputTokens ?? 0,
-    outputTokens: result.usage?.outputTokens ?? 0,
-  })
+  onAiUsage?.(toAiUsageStats(REVIEW_MODEL, result.usage))
 
   await logAiSample({
     callSite: 'review-quantities',

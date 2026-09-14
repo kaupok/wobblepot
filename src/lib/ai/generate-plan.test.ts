@@ -75,6 +75,8 @@ import { validatePlan } from './validate-plan'
 import { repairPlan } from './repair-plan'
 import { generateMealPlan, createEmptyPlan } from './generate-plan'
 import { logAiSample } from './sampling'
+import { PLANNING_MODEL } from './models'
+import { USAGE_FIXTURE, expectedUsageStats } from './usage-fixture'
 
 // Type assertions for mocks
 const mockGetCandidates = vi.mocked(getCandidates)
@@ -386,6 +388,23 @@ describe('generateMealPlan', () => {
 
       await expect(generateMealPlan(defaultOptions)).rejects.toThrow(MealPlanValidationError)
       await expect(generateMealPlan(defaultOptions)).rejects.toThrow('Expected 7 entries, got 2')
+    })
+
+    it('reports the SDK usage to onAiUsage even when the response then fails validation', async () => {
+      // The call is billed the moment the model responds, so usage must be
+      // recorded before structure validation can throw.
+      mockGenerateObject.mockResolvedValue({
+        object: { entries: [{ date: '2026-01-12', mealType: 'dinner', mealId: 'meal-1' }] },
+        usage: USAGE_FIXTURE,
+      } as never)
+      const onAiUsage = vi.fn()
+
+      await expect(generateMealPlan({ ...defaultOptions, onAiUsage })).rejects.toThrow(
+        MealPlanValidationError,
+      )
+
+      expect(onAiUsage).toHaveBeenCalledTimes(1)
+      expect(onAiUsage).toHaveBeenCalledWith(expectedUsageStats(PLANNING_MODEL))
     })
 
     it('throws when AI returns more than 7 entries', async () => {

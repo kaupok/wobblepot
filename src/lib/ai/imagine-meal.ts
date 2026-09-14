@@ -5,7 +5,7 @@ import { serverEnv } from '@/lib/env'
 import { IMAGINE_MODEL } from './models'
 import { localeInstruction } from './prompts'
 import { logAiSample } from './sampling'
-import type { AiUsageStats } from './usage'
+import { toAiUsageStats, type AiUsageStats } from './usage'
 
 /**
  * Schema for a single ingredient in an imagined meal.
@@ -168,11 +168,7 @@ The user may attach photos for context — these could show ingredients they hav
     system: systemPrompt,
   })
 
-  onAiUsage?.({
-    model: IMAGINE_MODEL,
-    inputTokens: result.usage?.inputTokens ?? 0,
-    outputTokens: result.usage?.outputTokens ?? 0,
-  })
+  onAiUsage?.(toAiUsageStats(IMAGINE_MODEL, result.usage))
 
   await logAiSample({
     callSite: 'imagine-meal',

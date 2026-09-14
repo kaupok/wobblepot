@@ -14,6 +14,7 @@
  */
 
 import { NextResponse } from 'next/server'
+import type { LanguageModelUsage } from 'ai'
 import type { AiFeature } from '@/generated/prisma/enums'
 import { getPosthogServer } from '@/lib/posthog-server'
 import { prisma } from '@/lib/prisma'
@@ -24,14 +25,46 @@ export interface AiUsageStats {
   model: string
   inputTokens: number
   outputTokens: number
+  /**
+   * `true` when the SDK response carried no usable input or output count.
+   * The counts above are then `0` placeholders, not a free call.
+   */
+  usageMissing: boolean
 }
 
-export interface RecordAiUsageInput extends AiUsageStats {
+export interface RecordAiUsageInput extends Omit<AiUsageStats, 'usageMissing'> {
   householdId: string
   feature: AiFeature
+  usageMissing?: boolean
   success?: boolean
   retryCount?: number
   requestId?: string | null
+}
+
+/**
+ * Map the AI SDK's `result.usage` to the stats every AI surface bills against.
+ * This is the only place the SDK's token counts are read.
+ *
+ * In ai@7 both counts are `number | undefined`. A missing (or non-finite) count
+ * still records as `0` so the row is written, but sets `usageMissing` so
+ * `recordAiUsage` can flag it — a silent `0` is indistinguishable from a free
+ * call and never trips the cost cap. No fallback estimate: a wrong number in
+ * the cap is worse than a visible zero.
+ */
+export function toAiUsageStats(model: string, usage: LanguageModelUsage | undefined): AiUsageStats {
+  const inputTokens = finiteOrNull(usage?.inputTokens)
+  const outputTokens = finiteOrNull(usage?.outputTokens)
+
+  return {
+    model,
+    inputTokens: inputTokens ?? 0,
+    outputTokens: outputTokens ?? 0,
+    usageMissing: inputTokens === null || outputTokens === null,
+  }
+}
+
+function finiteOrNull(value: number | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
 /**
@@ -152,13 +185,24 @@ export async function assertUnderCap(householdId: string, now: Date = new Date()
  *
  * Compute `estimatedCostUsd` from the model's price table. Unknown models
  * record `$0` (still useful for visibility into how often that model is used).
+ *
+ * When `usageMissing` is set the row is still written (0 tokens, `$0`), but the
+ * PostHog event carries `$ai_usage_missing: true` and a warning is logged, so
+ * an unbilled call is visible instead of passing as a free one.
  */
 export async function recordAiUsage(input: RecordAiUsageInput): Promise<void> {
+  const usageMissing = input.usageMissing ?? false
   const cost = estimateCostUsd({
     model: input.model,
     inputTokens: input.inputTokens,
     outputTokens: input.outputTokens,
   })
+
+  if (usageMissing) {
+    console.warn(
+      `AI usage counts missing from SDK response (feature: ${input.feature}, model: ${input.model}); recording 0 tokens`,
+    )
+  }
 
   // Resolve once and reuse so the DB row and PostHog event always see the
   // same id. Explicit input wins (tests, future workers); the AsyncLocalStorage
@@ -204,6 +248,7 @@ export async function recordAiUsage(input: RecordAiUsageInput): Promise<void> {
         feature: input.feature,
         household_id: input.householdId,
         retry_count: input.retryCount ?? 0,
+        ...(usageMissing && { $ai_usage_missing: true }),
       },
     })
   } catch (error) {

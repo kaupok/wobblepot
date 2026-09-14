@@ -74,6 +74,8 @@ import { validatePlan } from './validate-plan'
 import { fillEmptySlots } from './fill-plan'
 import { InsufficientCandidatesError, NoEmptySlotsError } from './types'
 import { logAiSample } from './sampling'
+import { PLANNING_MODEL } from './models'
+import { USAGE_FIXTURE, expectedUsageStats } from './usage-fixture'
 
 // Type assertions for mocks
 const mockGetCandidates = vi.mocked(getCandidates)
@@ -250,6 +252,35 @@ describe('fillEmptySlots', () => {
     mockGetCandidates.mockResolvedValue([])
 
     await expect(fillEmptySlots(fillOptions)).rejects.toBeInstanceOf(NoEmptySlotsError)
+  })
+
+  it('reports the SDK usage to onAiUsage even when the response then fails validation', async () => {
+    // Six filled dinners, one empty slot; the AI returns nothing for it, so
+    // structure validation throws — after the billed call has been recorded.
+    mockMealPlanFindUnique.mockResolvedValueOnce({
+      id: 'plan-1',
+      householdId: 'household-1',
+      entries: [
+        entry('2026-01-12', 'dinner', 'meal-1'),
+        entry('2026-01-13', 'dinner', 'meal-2'),
+        entry('2026-01-14', 'dinner', 'meal-3'),
+        entry('2026-01-15', 'dinner', 'meal-4'),
+        entry('2026-01-16', 'dinner', 'meal-5'),
+        entry('2026-01-17', 'dinner', 'meal-6'),
+      ],
+    } as never)
+    mockGetCandidates.mockResolvedValue([createCandidate({ id: 'meal-new' })])
+    mockGenerateObject.mockResolvedValue({
+      object: { entries: [] },
+      usage: USAGE_FIXTURE,
+    } as never)
+    mockMealFindMany.mockResolvedValue([] as never)
+    const onAiUsage = vi.fn()
+
+    await expect(fillEmptySlots({ ...fillOptions, onAiUsage })).rejects.toThrow()
+
+    expect(onAiUsage).toHaveBeenCalledTimes(1)
+    expect(onAiUsage).toHaveBeenCalledWith(expectedUsageStats(PLANNING_MODEL))
   })
 
   it('fills only the empty slot and leaves filled entries untouched', async () => {
