@@ -88,7 +88,8 @@ const mockPantryUpdate = vi.mocked(prisma.pantryItem.update)
  * and never in the same request: the deduction transaction's completion claim,
  * and the non-deducting swap. Each re-tests the entry's status as part of the
  * write, because the `status` the handler read at the top is from before the
- * meal lookup and a concurrent request can land in between (HON-633). Both
+ * meal lookup and a concurrent request can land in between (HON-633). The
+ * claim also re-tests `pantryDeductedAt`, which it sets (HON-651). Both
  * return an array — empty when nothing matched.
  */
 const mockClaimEntry = vi.mocked(prisma.mealPlanEntry.updateManyAndReturn)
@@ -438,6 +439,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
     mockFindFirstEntry.mockResolvedValue({
       id: 'entry-123',
       mealId: 'meal-123',
+      pantryDeductedAt: null,
       plan: {
         household: { members: [{ id: 'member-1' }] },
       },
@@ -466,6 +468,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
       id: 'entry-123',
       mealId: 'meal-123',
       servingOverride: 2,
+      pantryDeductedAt: null,
       plan: {
         household: { members: [{ id: 'member-1' }, { id: 'member-2' }] },
       },
@@ -492,6 +495,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
       id: 'entry-123',
       mealId: 'meal-123',
       servingOverride: 6,
+      pantryDeductedAt: null,
       plan: {
         household: { members: [{ id: 'member-1' }, { id: 'member-2' }] },
       },
@@ -530,6 +534,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
       id: 'entry-123',
       mealId: 'old-meal-123',
       servingOverride: null,
+      pantryDeductedAt: null,
       plan: {
         household: { members: [{ id: 'member-1' }, { id: 'member-2' }] },
       },
@@ -638,13 +643,16 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
   })
 
   it('does not deduct a second time for an already completed entry', async () => {
-    // Reverting to `planned` does not restock, so re-completing must not
-    // charge the pantry again for the one meal that was cooked.
+    // A repeated `completed` — a double submit, a client retry. The marker is
+    // null on purpose: an entry completed without deducting, or a row the
+    // migration's backfill could not reach, must still be refused by the
+    // status check alone (HON-651).
     mockFindFirstEntry.mockResolvedValue({
       id: 'entry-123',
       mealId: 'meal-123',
       status: 'completed',
       servingOverride: null,
+      pantryDeductedAt: null,
       plan: {
         household: { members: [{ id: 'member-1' }, { id: 'member-2' }] },
       },
@@ -669,14 +677,17 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
     expect(mockPantryDeleteMany).not.toHaveBeenCalled()
   })
 
-  it('still deducts when re-completing an entry that was reverted to planned', async () => {
-    // The guard keys on the stored status, not on the request, so an entry
-    // that is back in `planned` is charged normally.
+  it('does not deduct again when re-completing an entry that was reverted to planned', async () => {
+    // Reverting to `planned` does not restock — the food was cooked — so the
+    // marker the first completion set is what keeps the re-completion from
+    // charging the pantry a second time. The stored status alone reads
+    // `planned` here and cannot tell (HON-651).
     mockFindFirstEntry.mockResolvedValue({
       id: 'entry-123',
       mealId: 'meal-123',
       status: 'planned',
       servingOverride: null,
+      pantryDeductedAt: new Date('2026-09-01T18:00:00Z'),
       plan: {
         household: { members: [{ id: 'member-1' }, { id: 'member-2' }] },
       },
@@ -684,8 +695,11 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
         components: [{ ingredientId: 'ing-1', quantityPerServing: 100 }],
       },
     } as never)
-
-    mockDeductionTransaction()
+    mockUpdateEntry.mockResolvedValue({
+      id: 'entry-123',
+      status: 'completed',
+      mealId: 'meal-123',
+    } as never)
 
     const response = await PATCH(createPatchRequest({ status: 'completed', deductPantry: true }), {
       params: createParams(),
@@ -693,8 +707,157 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
     const data = await response.json()
 
     expect(response.status).toBe(200)
-    expect(data.pantryDeducted).toBe(true)
+    expect(data.status).toBe('completed')
+    expect(data.pantryDeducted).toBeUndefined()
+    expect(mockClaimEntry).not.toHaveBeenCalled()
+    expect(mockPantryUpdateMany).not.toHaveBeenCalled()
+    expect(mockPantryDeleteMany).not.toHaveBeenCalled()
+    // The completion itself is still persisted, and the marker is left alone.
+    expect(mockUpdateEntry).toHaveBeenCalledWith({
+      where: { id: 'entry-123' },
+      data: { status: 'completed' },
+    })
+  })
+
+  it('charges the pantry once across complete → revert → complete', async () => {
+    // The whole round trip against one stateful row, so the marker the first
+    // request writes is the one the third request reads. The fake claim honours
+    // the `where` the route actually sends, so a regression that stops
+    // claiming on the marker (or stops setting it) deducts twice here.
+    const row: Record<string, unknown> = {
+      id: 'entry-123',
+      mealId: 'meal-123',
+      status: 'planned',
+      servingOverride: null,
+      pantryDeductedAt: null,
+    }
+    mockDeductionTransaction()
+    mockFindFirstEntry.mockImplementation((async () => ({
+      ...row,
+      plan: { household: { members: [{ id: 'member-1' }, { id: 'member-2' }] } },
+      meal: { components: [{ ingredientId: 'ing-1', quantityPerServing: 100 }] },
+    })) as never)
+    mockClaimEntry.mockImplementation((async ({
+      where,
+      data,
+    }: {
+      where: { status?: { not: string }; pantryDeductedAt?: null }
+      data: Record<string, unknown>
+    }) => {
+      const statusMatches = !where.status || row.status !== where.status.not
+      const markerMatches = !('pantryDeductedAt' in where) || row.pantryDeductedAt === null
+      if (!statusMatches || !markerMatches) return []
+      Object.assign(row, data)
+      return [{ ...row }]
+    }) as never)
+    mockUpdateEntry.mockImplementation((async ({ data }: { data: Record<string, unknown> }) => {
+      Object.assign(row, data)
+      return { ...row }
+    }) as never)
+
+    const complete = () =>
+      PATCH(createPatchRequest({ status: 'completed', deductPantry: true }), {
+        params: createParams(),
+      })
+
+    const first = await complete()
+    expect((await first.json()).pantryDeducted).toBe(true)
+    expect(row.pantryDeductedAt).toBeInstanceOf(Date)
+
+    const revert = await PATCH(createPatchRequest({ status: 'planned' }), {
+      params: createParams(),
+    })
+    expect(revert.status).toBe(200)
+    expect(row.status).toBe('planned')
+    // Nothing clears the marker — not a revert.
+    expect(row.pantryDeductedAt).toBeInstanceOf(Date)
+
+    const second = await complete()
+    expect(second.status).toBe(200)
+    expect((await second.json()).pantryDeducted).toBeUndefined()
+    expect(row.status).toBe('completed')
+
+    expect(mockPantryUpdateMany).toHaveBeenCalledTimes(1)
     expect(mockPantryUpdateMany).toHaveBeenCalledWith(decrementOf('ing-1', 200))
+  })
+
+  it('neither deducts nor sets pantryDeductedAt when deductPantry is false', async () => {
+    // Completing without deducting charges nothing, so it must not record a
+    // charge either — otherwise a later revert and deducting completion would
+    // be refused for a pantry that was never touched.
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      status: 'planned',
+      servingOverride: null,
+      pantryDeductedAt: null,
+      plan: {
+        household: { members: [{ id: 'member-1' }, { id: 'member-2' }] },
+      },
+      meal: {
+        components: [{ ingredientId: 'ing-1', quantityPerServing: 100 }],
+      },
+    } as never)
+    mockUpdateEntry.mockResolvedValue({
+      id: 'entry-123',
+      status: 'completed',
+      mealId: 'meal-123',
+    } as never)
+
+    const response = await PATCH(createPatchRequest({ status: 'completed', deductPantry: false }), {
+      params: createParams(),
+    })
+
+    expect(response.status).toBe(200)
+    expect(mockClaimEntry).not.toHaveBeenCalled()
+    expect(mockPantryUpdateMany).not.toHaveBeenCalled()
+    expect(mockPantryDeleteMany).not.toHaveBeenCalled()
+    const [[{ data }]] = mockUpdateEntry.mock.calls as unknown as [[{ data: object }]]
+    expect(data).not.toHaveProperty('pantryDeductedAt')
+  })
+
+  it('leaves pantryDeductedAt in place on a swap after a revert, and charges neither meal', async () => {
+    // Swapping is allowed again once the entry is back in `planned`, but the
+    // original meal's ingredients were consumed. Charging the incoming meal on
+    // re-completion would be the same double-charge from another door, so the
+    // swap neither clears the marker nor deducts — even with `deductPantry`.
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'old-meal-123',
+      status: 'planned',
+      servingOverride: null,
+      pantryDeductedAt: new Date('2026-09-01T18:00:00Z'),
+      plan: {
+        household: { members: [{ id: 'member-1' }, { id: 'member-2' }] },
+      },
+      meal: {
+        components: [{ ingredientId: 'ing-beef', quantityPerServing: 100 }],
+      },
+    } as never)
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({
+      id: 'new-meal-456',
+      components: [{ ingredientId: 'ing-fish', quantityPerServing: 150 }],
+    } as never)
+    swapReturns({ id: 'entry-123', status: 'completed', mealId: 'new-meal-456' })
+
+    const response = await PATCH(
+      createPatchRequest({ mealId: 'new-meal-456', status: 'completed', deductPantry: true }),
+      { params: createParams() },
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.mealId).toBe('new-meal-456')
+    expect(data.pantryDeducted).toBeUndefined()
+    expect(vi.mocked(prisma.$transaction)).not.toHaveBeenCalled()
+    expect(mockPantryUpdateMany).not.toHaveBeenCalled()
+    expect(mockPantryDeleteMany).not.toHaveBeenCalled()
+    // Taken through the non-deducting swap write, whose data never names the
+    // marker — so the stored value survives.
+    expect(mockSwapEntry).toHaveBeenCalledTimes(1)
+    const [[{ data: written }]] = mockSwapEntry.mock.calls as unknown as [[{ data: object }]]
+    expect(written).toEqual(expect.objectContaining({ mealId: 'new-meal-456' }))
+    expect(written).not.toHaveProperty('pantryDeductedAt')
   })
 
   it('leaves the pantry untouched when a swap omits deductPantry', async () => {
@@ -752,6 +915,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction
       mealId: 'meal-123',
       status: 'planned',
       servingOverride: null,
+      pantryDeductedAt: null,
       plan: { household: { members } },
       meal: { components },
     } as never)
@@ -836,9 +1000,27 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction
 
     expect(response.status).toBe(200)
     expect(mockClaimEntry).toHaveBeenCalledWith({
-      where: { id: 'entry-123', status: { not: 'completed' } },
+      where: { id: 'entry-123', status: { not: 'completed' }, pantryDeductedAt: null },
       data: expect.objectContaining({ status: 'completed' }),
     })
+  })
+
+  it('sets pantryDeductedAt in the same statement that claims the completion', async () => {
+    // The marker is the stored fact that the entry was charged, so it has to
+    // commit exactly when the decrements do. Writing it with the claim puts it
+    // inside the transaction, where every rollback path takes it back out
+    // together with the charge (HON-651).
+    const response = await completeWithComponents([
+      { ingredientId: 'ing-1', quantityPerServing: 100 },
+    ])
+
+    expect(response.status).toBe(200)
+    expect(mockClaimEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'completed', pantryDeductedAt: expect.any(Date) }),
+      }),
+    )
+    expect(writesOutsideTransaction).toEqual([])
   })
 
   it('rolls the completion back when a concurrent swap moved the meal', async () => {
@@ -888,6 +1070,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction
       mealId: 'old-meal-123',
       status: 'planned',
       servingOverride: null,
+      pantryDeductedAt: null,
       plan: { household: { members: [{ id: 'member-1' }] } },
       meal: { components: [{ ingredientId: 'ing-beef', quantityPerServing: 100 }] },
     } as never)
@@ -949,6 +1132,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - atomic pantry deduction
       mealId: 'old-meal-123',
       status: 'planned',
       servingOverride: null,
+      pantryDeductedAt: null,
       plan: { household: { members: [{ id: 'member-1' }, { id: 'member-2' }] } },
       meal: { components: [{ ingredientId: 'ing-beef', quantityPerServing: 100 }] },
     } as never)
