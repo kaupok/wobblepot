@@ -941,8 +941,8 @@ describe('computeRollingWindowShoppingList', () => {
     expect(result.hasAnyPlan).toBe(false)
   })
 
-  // HON-653: a household whose entries all fall past the window (or are no
-  // longer `planned`) still has a plan. The window query returns nothing, so
+  // HON-653: a household whose upcoming entries all fall past the window (or are
+  // no longer `planned`) still has a plan. The window query returns nothing, so
   // `earliestPlanCreatedAt` stays null — `hasAnyPlan` must not follow it.
   it('reports hasAnyPlan when every entry falls outside the window', async () => {
     mockFindManyEntries.mockResolvedValue([])
@@ -957,7 +957,9 @@ describe('computeRollingWindowShoppingList', () => {
     expect(result.hasAnyPlan).toBe(true)
   })
 
-  it('counts entries for hasAnyPlan with no status or date filter', async () => {
+  // Any status, no upper bound — but past entries are never deleted, so without
+  // the lower bound a household whose plan lapsed would never see `no-plan` again.
+  it('counts entries for hasAnyPlan from today on, with no status or window bound', async () => {
     mockFindManyEntries.mockResolvedValue([])
     mockCountMembers.mockResolvedValue(2)
     mockFindManyPantry.mockResolvedValue([])
@@ -965,8 +967,23 @@ describe('computeRollingWindowShoppingList', () => {
     await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
 
     expect(mockCountEntries).toHaveBeenCalledWith({
-      where: { plan: { householdId: 'household-1' } },
+      where: {
+        plan: { householdId: 'household-1' },
+        date: { gte: new Date('2026-01-20T00:00:00Z') },
+      },
     })
+  })
+
+  it('reports no plan when every entry is in the past', async () => {
+    mockFindManyEntries.mockResolvedValue([])
+    // The date-bounded count finds nothing: the household's entries all predate today
+    mockCountEntries.mockResolvedValue(0)
+    mockCountMembers.mockResolvedValue(2)
+    mockFindManyPantry.mockResolvedValue([])
+
+    const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
+
+    expect(result.hasAnyPlan).toBe(false)
   })
 
   it('queries entries scoped to the household and date window', async () => {

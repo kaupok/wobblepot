@@ -309,10 +309,12 @@ export interface RollingWindowResult {
   windowDays: number
   earliestPlanCreatedAt: Date | null // For purchase tracking
   /**
-   * Whether the household has any meal plan entry at all, in any status and on
-   * any date. Unlike `earliestPlanCreatedAt`, which is null whenever the window
+   * Whether the household has any meal plan entry dated today or later, in any
+   * status. Unlike `earliestPlanCreatedAt`, which is null whenever the window
    * holds no planned entries, this answers "does this household have a plan?"
    * — so a household whose entries fall past the window is not told it has none.
+   * Past entries are excluded: they are never deleted, so counting them would
+   * keep a lapsed household away from "Generate plan" for good.
    */
   hasAnyPlan: boolean
 }
@@ -345,7 +347,7 @@ export async function computeRollingWindowShoppingList(
 
   // 1. Get all entries across any plans for this household within the window
   // Only PLANNED status, today through endDate (exclusive). Alongside it, count
-  // every entry with neither filter, for `hasAnyPlan`.
+  // every entry from today on, in any status and past the window, for `hasAnyPlan`.
   const [planEntries, totalEntryCount] = await Promise.all([
     prisma.mealPlanEntry.findMany({
       where: {
@@ -391,7 +393,7 @@ export async function computeRollingWindowShoppingList(
       },
     }),
     prisma.mealPlanEntry.count({
-      where: { plan: { householdId } },
+      where: { plan: { householdId }, date: { gte: startOfToday } },
     }),
   ])
 
