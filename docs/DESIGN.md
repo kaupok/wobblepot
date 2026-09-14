@@ -91,6 +91,31 @@ Spacing rhythm as used today (Tailwind steps, 4px each):
   grep -rnE "dark:(bg|text|border)-(red|green|blue|amber|orange|yellow)-" src --include='*.tsx'
   ```
 
+## Motion
+
+How often someone sees a motion decides whether it gets one. Our user repeats the same few actions every week on a phone, so the app should feel instant; motion is only for changes a person would otherwise miss. Decided 2026-09-14, adapted from the public `better-ui` and `emil-design-eng` skills, taking one value where they disagree and dropping what conflicts with this guide. Items marked **Proposed** land in HON-665.
+
+| How often             | Examples                                                                 | Motion                                              |
+| --------------------- | ------------------------------------------------------------------------ | --------------------------------------------------- |
+| Many times a session  | Ticking a shopping item, toggling a pantry staple, hover, switching tabs | None, or a colour or opacity change of 150ms        |
+| A few times a session | Dialog, sheet, dropdown, select, toast, a newly added row                | The standard enter and exit below                   |
+| Rarely                | A generated week appearing                                               | Same as above. No staggers or reveals for AI output |
+
+- **Durations are a set, not a range:** 150ms for control feedback (press, hover, colour), 200ms for menus, dialogs, and every exit, 300ms for a sheet opening. No transition or one-shot animation inside the app runs longer; looping indicators (`animate-spin`, `Skeleton`'s `animate-pulse`) are not state changes and keep their own cycle. An exit is never slower than its enter. If a motion needs another value, the motion is wrong, not the set.
+- **Easing:** `ease-out` for anything that enters, exits, or answers a press. **Proposed:** `globals.css` overrides Tailwind's `--ease-out` to `cubic-bezier(0.23, 1, 0.32, 1)`, so the stock utility is the house curve and no one hand-writes a `cubic-bezier`. Never `ease-in`: it starts slow at the moment the user is watching. `linear` only for constant motion such as a spinner.
+- **Name what transitions.** `transition-colors`, `transition-opacity`, or `transition-[…]` listing the properties. Never `transition-all`: it animates changes nobody meant to animate and hides which ones matter.
+- **Transitions for state, keyframes for mount and unmount.** A state change on an element that stays mounted (toggle, press, hover, expand) uses a CSS transition, which retargets when reversed midway; keyframes restart from zero. Radix overlays are the exception and stay on `animate-in` / `animate-out`: Radix's `Presence` waits for a keyframe animation to end before unmounting, so a transition-only Dialog or Sheet would vanish on close without animating.
+- **Nothing grows from nothing.** Overlays enter from `zoom-in-95` plus `fade-in-0`, never `scale-0`. Anchored overlays (dropdown, select, tooltip) scale from their trigger through Radix's `origin-(--radix-*-transform-origin)`; dialogs stay centred.
+- **Press feedback. Proposed:** `Button` scales to `0.97` on `:active`, except the `link` variant. It is the only press animation in the app, and it exists because a phone has no hover, so a tap is otherwise silent until the result arrives.
+- **Theme switches snap. Proposed:** `next-themes` runs with `disableTransitionOnChange`, and `ThemeToggle` swaps its icon without animating.
+- **Motion is never the only signal.** Every animated change also changes a colour, an icon, or a label. Reduced motion (`globals.css`, HON-470) collapses every animation and transition to 0.01ms. **Proposed:** `animate-spin` is the one exemption and keeps spinning, because a frozen spinner no longer says "loading".
+
+The mechanical part is a grep. It should return nothing once HON-665 ships:
+
+```bash
+grep -rnE "transition-all|ease-in([\"' ]|$)|duration-([4-9][0-9]{2}|[0-9]{4,})" src --include='*.tsx' | grep -v '\.stories\.\|\.test\.'
+```
+
 ## Composition rules
 
 Each of these came from a review that found the opposite in production.
@@ -132,6 +157,9 @@ Agents produce these by default. Recognise them and do not ship them.
 - A screen's primary action rendered at `size="sm"`
 - Playful copy on more than one element per screen
 - A theme or language toggle placed in the header
+- `transition-all`, `ease-in`, or a transition or one-shot animation longer than 300ms inside the app (looping spinners and skeletons excepted)
+- An entrance, bounce, or stagger on something done many times a session (ticking an item, toggling a staple), or a staged reveal of AI output
+- Motion as the only sign that something changed: a state that is visible only while its animation runs
 
 ## Open questions for review
 
@@ -143,4 +171,4 @@ Add one here when a review finds code and rule disagreeing and the fix is not ob
 
 Decisions above that the code does not yet reflect. Each has a Linear issue; update this list when one ships.
 
-_Empty — HON-610 (#703) and HON-612 shipped the last two._
+- HON-665 — [Motion](#motion): house easing curve, overlay durations, `Button` press scale, snapping theme switch, spinners exempt from reduced motion.
