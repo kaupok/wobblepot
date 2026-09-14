@@ -104,7 +104,7 @@ Example `$GITHUB_STEP_SUMMARY` output:
 If a live branch was deleted by mistake (for example, if the regex or allowlist is ever loosened):
 
 1. Stop the bleeding — set `NEON_CLEANUP_DRY_RUN=1` immediately so subsequent sweeps log only.
-2. Restore within the Neon PITR window. Neon Free retains PITR for 24h; Pro extends this. See HON-473's database recovery runbook (once merged) for the step-by-step restore. In short: Neon console → Project → Branches → Create branch → choose "At a point in time" → pick a timestamp before the deletion → restore.
+2. Restore within the Neon PITR window. Neon Free retains PITR for 24h; Pro extends this. See the [database recovery runbook](./database-recovery.md) (HON-473) for the step-by-step restore. In short: Neon console → Project → Branches → Create branch → choose "At a point in time" → pick a timestamp before the deletion → restore.
 3. If the data is gone (> 24h old on Free), rebuild from the latest staging branch + `pnpm db:seed`.
 4. Post-mortem: figure out which invariant failed, tighten the regex/allowlist in `scripts/neon-cleanup.sh`, land the fix, then flip `NEON_CLEANUP_DRY_RUN=0` once confident.
 
