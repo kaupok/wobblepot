@@ -85,7 +85,8 @@ export const WithoutCloseButton: Story = {
   ),
 }
 
-// Asserts the house easing curve (docs/DESIGN.md → Motion) reaches the dialog:
+// Asserts the house easing curve and the 200ms dialog duration (docs/DESIGN.md
+// → Motion) reach the dialog and its overlay:
 // `globals.css` overrides Tailwind's `--ease-out`, `DialogContent` carries the
 // `ease-out` utility, and tw-animate-css reads it through `--tw-ease`, so both
 // the transition and the enter keyframe run on the same curve.
@@ -119,6 +120,15 @@ export const HouseEasing: Story = {
     const style = window.getComputedStyle(dialog)
     expect(style.transitionTimingFunction).toBe(HOUSE_CURVE)
     expect(style.animationTimingFunction).toBe(HOUSE_CURVE)
+    expect(style.animationDuration).toBe('0.2s')
+
+    // The backdrop runs on the same 200ms curve, so it never outlasts or
+    // undercuts the content it frames.
+    const overlay = document.querySelector('[data-slot="dialog-overlay"]')
+    expect(overlay).not.toBeNull()
+    const overlayStyle = window.getComputedStyle(overlay as Element)
+    expect(overlayStyle.animationTimingFunction).toBe(HOUSE_CURVE)
+    expect(overlayStyle.animationDuration).toBe('0.2s')
 
     await pressEscape()
     await awaitDialogClosed()

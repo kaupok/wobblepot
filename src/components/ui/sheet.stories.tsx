@@ -123,6 +123,9 @@ export const Motion: Story = {
     const opening = window.getComputedStyle(sheet)
     expect(opening.animationDuration).toBe('0.3s')
     expect(opening.animationTimingFunction).toBe('cubic-bezier(0.23, 1, 0.32, 1)')
+    const overlay = document.querySelector('[data-slot="sheet-overlay"]')
+    expect(overlay).not.toBeNull()
+    expect(window.getComputedStyle(overlay as Element).animationDuration).toBe('0.2s')
 
     await pressEscape()
     await waitFor(() => expect(sheet).toHaveAttribute('data-state', 'closed'))
