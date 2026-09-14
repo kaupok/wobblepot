@@ -1,4 +1,13 @@
+import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { expect, waitFor, within } from 'storybook/test'
+import {
+  assertFocusInDialog,
+  assertTabStaysInDialog,
+  awaitDialogClosed,
+  openViaTrigger,
+  pressEscape,
+} from '@/stories/a11y-helpers'
 import { Button } from './button'
 import {
   Sheet,
@@ -81,4 +90,44 @@ export const Bottom: Story = {
       <SheetContent side="bottom">{body}</SheetContent>
     </Sheet>
   ),
+}
+
+// Asserts the Sheet's durations and easing (docs/DESIGN.md → Motion): 300ms to
+// open, 200ms to close — an exit is never slower than its enter — both on the
+// house curve. The content element stays mounted with `data-state="closed"`
+// while Radix's Presence waits for the exit keyframe, which is the window the
+// closing duration is read in.
+export const Motion: Story = {
+  args: { open: false },
+  render: (args) => {
+    const [open, setOpen] = useState(args.open ?? false)
+    return (
+      <div className="p-6">
+        <Button variant="outline" onClick={() => setOpen(true)}>
+          Open sheet
+        </Button>
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetContent side="right">{body}</SheetContent>
+        </Sheet>
+      </div>
+    )
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await openViaTrigger(canvas.getByRole('button', { name: 'Open sheet' }))
+
+    const sheet = await within(document.body).findByRole('dialog')
+    await assertFocusInDialog()
+    await assertTabStaysInDialog()
+
+    const opening = window.getComputedStyle(sheet)
+    expect(opening.animationDuration).toBe('0.3s')
+    expect(opening.animationTimingFunction).toBe('cubic-bezier(0.23, 1, 0.32, 1)')
+
+    await pressEscape()
+    await waitFor(() => expect(sheet).toHaveAttribute('data-state', 'closed'))
+    expect(window.getComputedStyle(sheet).animationDuration).toBe('0.2s')
+
+    await awaitDialogClosed()
+  },
 }
