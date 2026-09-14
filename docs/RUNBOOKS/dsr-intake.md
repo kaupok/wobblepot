@@ -12,7 +12,7 @@ This is not a customer-service playbook for general feature questions; it is the
 
 ## DSR inbox
 
-- **Address:** `privacy@wobblepot.com` — the sole DSR intake. It is the address the privacy policy gives data subjects, and the statutory clock runs from receipt here.
+- **Address:** `privacy@wobblepot.com` — the sole DSR intake. It is the address the privacy policy gives data subjects.
 - **Routing:** mail is delivered to the data-controller's monitored mailbox. Configuration lives outside the repository (DNS / mail provider). **A DSR that lands at `support@` instead** is forwarded to `privacy@` by the operator, and every DSR deadline below is counted from the original receipt at `support@`, not from the forward.
 - **Operator follow-up (not verifiable from the repo):** confirm at the mail provider that `privacy@wobblepot.com` delivers to a monitored mailbox and that the auto-reply below is attached to it. Redo this check after any provider change.
 - **Surfaces that publish this address:**
