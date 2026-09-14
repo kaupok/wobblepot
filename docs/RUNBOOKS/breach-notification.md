@@ -182,7 +182,7 @@ Once a quarter, the operator runs a hypothetical incident end-to-end through thi
 
 - `src/lib/emails/breach-notification.ts` — the Art. 34 affected-user email template.
 - [`compliance/README.md`](../../compliance/README.md) + `compliance/dpas/` — subprocessor DPAs that define subprocessor-breach obligations (HON-459).
-- [`dsr-intake.md`](dsr-intake.md) — breach-related mail escalates here; shares the support contact and the "data controller" authority.
+- [`dsr-intake.md`](dsr-intake.md) — breach-related mail from either inbox escalates here; shares the `privacy@` (DSR intake) and `support@` contacts and the "data controller" authority.
 - [`database-recovery.md`](database-recovery.md) — if a recovery incident corrupts or exposes personal data, escalate to this runbook in parallel (the 72h clock runs independently).
 - [`status-page.md`](status-page.md) — incident-banner copy and the breach email should share tone and the same support contact.
 - [`CLAUDE.md`](../../CLAUDE.md) — destructive-command rule; containment never means destroying evidence on shared environments.
