@@ -156,6 +156,7 @@ export async function GET(request: NextRequest) {
       startDate: result.startDate,
       endDate: result.endDate,
       generatedAt: result.earliestPlanCreatedAt?.toISOString() ?? null,
+      hasAnyPlan: result.hasAnyPlan,
       groups,
       customItems: formattedCustomItems,
       summary: {

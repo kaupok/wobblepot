@@ -308,6 +308,15 @@ export interface RollingWindowResult {
   endDate: string // YYYY-MM-DD
   windowDays: number
   earliestPlanCreatedAt: Date | null // For purchase tracking
+  /**
+   * Whether the household has any meal plan entry dated today or later, in any
+   * status. Unlike `earliestPlanCreatedAt`, which is null whenever the window
+   * holds no planned entries, this answers "does this household have a plan?"
+   * — so a household whose entries fall past the window is not told it has none.
+   * Past entries are excluded: they are never deleted, so counting them would
+   * keep a lapsed household away from "Generate plan" for good.
+   */
+  hasAnyPlan: boolean
 }
 
 /**
@@ -337,50 +346,56 @@ export async function computeRollingWindowShoppingList(
   endDate.setDate(endDate.getDate() + days)
 
   // 1. Get all entries across any plans for this household within the window
-  // Only PLANNED status, today through endDate (exclusive)
-  const planEntries = await prisma.mealPlanEntry.findMany({
-    where: {
-      plan: {
-        householdId,
-      },
-      status: 'planned',
-      date: {
-        gte: startOfToday,
-        lt: endDate,
-      },
-    },
-    select: {
-      date: true,
-      servingOverride: true,
-      plan: {
-        select: {
-          createdAt: true,
+  // Only PLANNED status, today through endDate (exclusive). Alongside it, count
+  // every entry from today on, in any status and past the window, for `hasAnyPlan`.
+  const [planEntries, totalEntryCount] = await Promise.all([
+    prisma.mealPlanEntry.findMany({
+      where: {
+        plan: {
+          householdId,
+        },
+        status: 'planned',
+        date: {
+          gte: startOfToday,
+          lt: endDate,
         },
       },
-      meal: {
-        include: {
-          components: {
-            select: {
-              ingredientId: true,
-              quantityPerServing: true,
-              isVague: true,
-              originalPhrase: true,
-              ingredient: {
-                select: {
-                  id: true,
-                  name: true,
-                  category: true,
-                  defaultUnit: true,
-                  gramsPerPiece: true,
-                  ...ingredientTranslationsInclude(locale),
+      select: {
+        date: true,
+        servingOverride: true,
+        plan: {
+          select: {
+            createdAt: true,
+          },
+        },
+        meal: {
+          include: {
+            components: {
+              select: {
+                ingredientId: true,
+                quantityPerServing: true,
+                isVague: true,
+                originalPhrase: true,
+                ingredient: {
+                  select: {
+                    id: true,
+                    name: true,
+                    category: true,
+                    defaultUnit: true,
+                    gramsPerPiece: true,
+                    ...ingredientTranslationsInclude(locale),
+                  },
                 },
               },
             },
           },
         },
       },
-    },
-  })
+    }),
+    prisma.mealPlanEntry.count({
+      where: { plan: { householdId }, date: { gte: startOfToday } },
+    }),
+  ])
 
   // Track earliest plan creation date for purchase tracking
   let earliestPlanCreatedAt: Date | null = null
@@ -502,5 +517,6 @@ export async function computeRollingWindowShoppingList(
     endDate: toDateString(displayEndDate),
     windowDays: days,
     earliestPlanCreatedAt,
+    hasAnyPlan: totalEntryCount > 0,
   }
 }

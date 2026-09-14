@@ -128,6 +128,7 @@ describe('GET /api/shopping-list', () => {
       endDate: '2026-02-06',
       windowDays: 7,
       earliestPlanCreatedAt: null,
+      hasAnyPlan: false,
     })
     mockPantryFindMany.mockResolvedValue([])
 
@@ -140,6 +141,31 @@ describe('GET /api/shopping-list', () => {
     expect(data.summary.totalItems).toBe(0)
     expect(data.summary.purchasedItems).toBe(0)
     expect(data.summary.remainingItems).toBe(0)
+    expect(data.generatedAt).toBeNull()
+    expect(data.hasAnyPlan).toBe(false)
+  })
+
+  // HON-653: entries only past the window leave `generatedAt` null, which must
+  // not read as "no plan" — `hasAnyPlan` carries that answer separately.
+  it('reports hasAnyPlan independently of generatedAt when the window is empty', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockComputeShoppingList.mockResolvedValue({
+      groups: [],
+      startDate: '2026-01-31',
+      endDate: '2026-02-06',
+      windowDays: 7,
+      earliestPlanCreatedAt: null,
+      hasAnyPlan: true,
+    })
+    mockPantryFindMany.mockResolvedValue([])
+
+    const response = await GET(createMockRequest())
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.generatedAt).toBeNull()
+    expect(data.hasAnyPlan).toBe(true)
   })
 
   it('returns formatted shopping list with purchase status', async () => {
@@ -176,6 +202,7 @@ describe('GET /api/shopping-list', () => {
       endDate: '2026-02-06',
       windowDays: 7,
       earliestPlanCreatedAt: new Date('2026-01-30'),
+      hasAnyPlan: true,
     })
     // No pantry items — item should not be purchased
     mockPantryFindMany.mockResolvedValue([])
@@ -237,6 +264,7 @@ describe('GET /api/shopping-list', () => {
       endDate: '2026-02-06',
       windowDays: 7,
       earliestPlanCreatedAt: planCreatedAt,
+      hasAnyPlan: true,
     })
     // Pantry item updated after plan creation → purchased
     mockPantryFindMany.mockResolvedValue([
@@ -264,6 +292,7 @@ describe('GET /api/shopping-list', () => {
       endDate: '2026-02-13',
       windowDays: 14,
       earliestPlanCreatedAt: null,
+      hasAnyPlan: false,
     })
     mockPantryFindMany.mockResolvedValue([])
 
@@ -314,6 +343,7 @@ describe('GET /api/shopping-list', () => {
       endDate: '2026-02-06',
       windowDays: 7,
       earliestPlanCreatedAt: null,
+      hasAnyPlan: false,
     })
     mockPantryFindMany.mockResolvedValue([])
 
@@ -356,6 +386,7 @@ describe('GET /api/shopping-list', () => {
       endDate: '2026-02-06',
       windowDays: 7 as const,
       earliestPlanCreatedAt: null,
+      hasAnyPlan: false,
     })
 
     mockGetSession.mockResolvedValue(mockSession as never)

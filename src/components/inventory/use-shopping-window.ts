@@ -50,12 +50,7 @@ export function getStoredWindowDays(): WindowDays | null {
  * **Call it from `InventoryPage` and nowhere else.** That is the one component
  * that renders on every `/shopping` visit and renders exactly once, so the
  * reconcile fires once per page and reaches every state — including `no-plan`
- * and `error`, which render no header and so no picker. `no-plan` in
- * particular is a state the *narrow* window can itself cause: `generatedAt` is
- * folded over plan entries already filtered to the window
- * (`src/lib/meal-planning/shopping-list.ts`), so a household whose entries fall
- * on days 8-14 is told "No meal plan yet" at `days=7`. Reading the saved `'14'`
- * is what gets them out of it, and it needs no header to do so.
+ * and `error`, which render no header and so no picker.
  *
  * @param windowDays      the window the server rendered with
  * @param windowDaysFromUrl whether `?days=` said so explicitly, as opposed to
