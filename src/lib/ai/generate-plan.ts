@@ -23,7 +23,93 @@ import {
   type GeneratePlanResult,
   type CreateEmptyPlanOptions,
 } from './types'
+import type { Prisma } from '@/generated/prisma/client'
 import type { MealType } from '@/generated/prisma/enums'
+
+const ENTRY_INCLUDE = {
+  meal: { include: { components: { include: { ingredient: true } } } },
+} satisfies Prisma.MealPlanEntryInclude
+
+type EntryWithMeal = Prisma.MealPlanEntryGetPayload<{ include: typeof ENTRY_INCLUDE }>
+
+/** `MealPlan` include that loads the entries in [startDate, endDate) with their meals. */
+function entriesInRange(startDate: Date, endDate: Date) {
+  return {
+    entries: {
+      where: { date: { gte: startDate, lt: endDate } },
+      include: ENTRY_INCLUDE,
+      orderBy: [{ date: 'asc' }, { mealType: 'asc' }],
+    },
+  } satisfies Prisma.MealPlanInclude
+}
+
+function formatPlanResult(
+  plan: { id: string; entries: EntryWithMeal[] },
+  startDate: Date,
+  endDate: Date,
+): GeneratePlanResult {
+  return {
+    id: plan.id,
+    startDate: toDateString(startDate),
+    endDate: toDateString(endDate),
+    entries: plan.entries.map((entry) => ({
+      id: entry.id,
+      date: toDateString(entry.date),
+      mealType: entry.mealType,
+      status: entry.status,
+      meal: entry.meal
+        ? {
+            id: entry.meal.id,
+            name: entry.meal.name,
+            kidFriendly: entry.meal.kidFriendly,
+            primaryProteinType: entry.meal.primaryProteinType,
+            nutrition: computeMealNutrition(entry.meal.components),
+          }
+        : null,
+    })),
+  }
+}
+
+/**
+ * Slot keys of the `completed` entries in [startDate, endDate). Regeneration keeps these
+ * entries, so their slots must not be offered to the generator (HON-650).
+ */
+async function getKeptSlotKeys(
+  householdId: string,
+  startDate: Date,
+  endDate: Date,
+): Promise<Set<string>> {
+  const kept = await prisma.mealPlanEntry.findMany({
+    where: {
+      plan: { householdId },
+      status: 'completed',
+      date: { gte: startDate, lt: endDate },
+    },
+    select: { date: true, mealType: true },
+  })
+  return new Set(kept.map((e) => slotKey(e.date, e.mealType)))
+}
+
+/**
+ * Clear a date range before regenerating it. `completed` entries are kept: each one is the
+ * record of a meal the pantry was already charged for, and reverting a completion does not
+ * restock, so deleting it would leave a deduction nothing explains (HON-650). `planned` and
+ * `skipped` entries were never charged and are replaced.
+ */
+async function deleteReplaceableEntries(
+  tx: Prisma.TransactionClient,
+  planId: string,
+  startDate: Date,
+  endDate: Date,
+) {
+  await tx.mealPlanEntry.deleteMany({
+    where: {
+      planId,
+      date: { gte: startDate, lt: endDate },
+      status: { not: 'completed' },
+    },
+  })
+}
 
 /**
  * Generate a meal plan using AI.
@@ -49,13 +135,28 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
   // Get dates for entries from the flexible date range (endDate is exclusive)
   const dates = getDatesBetween(startDate, endDate)
 
-  // Expand dates into meal slots based on meal type preferences
-  const allSlots = computeMealSlots(dates, weekdayMealTypes, weekendMealTypes)
+  // Completed entries survive regeneration, so their slots are not asked for. Leaving one in
+  // would also make createMany collide with the kept row on @@unique([planId, date, mealType]).
+  const keptSlotKeys = await getKeptSlotKeys(householdId, startDate, endDate)
+  const isReplaceable = (s: { date: Date; mealType: MealType }) =>
+    !keptSlotKeys.has(slotKey(s.date, s.mealType))
 
-  // Compute required protein slots based on dietary type (dinner only)
+  // Expand dates into meal slots based on meal type preferences
+  const configuredSlots = computeMealSlots(dates, weekdayMealTypes, weekendMealTypes)
+  const allSlots = configuredSlots.filter(isReplaceable)
+
+  // Every slot in the range was already cooked: nothing to generate, so skip the AI call.
+  // Clearing the range still applies, which is exactly what createEmptyPlan does.
+  if (configuredSlots.length > 0 && allSlots.length === 0) {
+    return createEmptyPlan({ householdId, startDate, endDate })
+  }
+
+  // Compute required protein slots over the replaceable dinner dates only, as fill-plan does.
+  // Placing them over every date and filtering afterwards would drop, not move, a requirement
+  // that landed on a kept day.
   const requiredSlots = computeRequiredSlots({
     dietaryType,
-    dates,
+    dates: allSlots.filter((s) => s.mealType === 'dinner').map((s) => s.date),
     weekdayMealTypes,
     weekendMealTypes,
   })
@@ -159,15 +260,10 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
       })
     }
 
-    // Delete existing entries for this date range
-    await tx.mealPlanEntry.deleteMany({
-      where: {
-        planId: plan.id,
-        date: { gte: startDate, lt: endDate },
-      },
-    })
+    await deleteReplaceableEntries(tx, plan.id, startDate, endDate)
 
-    // Create new entries
+    // Create new entries. A slot completed after getKeptSlotKeys ran would collide here and
+    // roll the transaction back — a failed regeneration, not a lost completion.
     await tx.mealPlanEntry.createMany({
       data: validatedPlan.map((entry) => ({
         planId: plan.id,
@@ -178,57 +274,20 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
       })),
     })
 
-    // Return plan with entries
+    // Return plan with entries (new ones plus any kept completed entries)
     return tx.mealPlan.findUniqueOrThrow({
       where: { id: plan.id },
-      include: {
-        entries: {
-          where: {
-            date: { gte: startDate, lt: endDate },
-          },
-          include: {
-            meal: {
-              include: {
-                components: {
-                  include: {
-                    ingredient: true,
-                  },
-                },
-              },
-            },
-          },
-          orderBy: [{ date: 'asc' }, { mealType: 'asc' }],
-        },
-      },
+      include: entriesInRange(startDate, endDate),
     })
   })
 
   // Format response — compute startDate/endDate from the generation range
-  return {
-    id: mealPlan.id,
-    startDate: toDateString(startDate),
-    endDate: toDateString(endDate),
-    entries: mealPlan.entries.map((entry) => ({
-      id: entry.id,
-      date: toDateString(entry.date),
-      mealType: entry.mealType,
-      status: entry.status,
-      meal: entry.meal
-        ? {
-            id: entry.meal.id,
-            name: entry.meal.name,
-            kidFriendly: entry.meal.kidFriendly,
-            primaryProteinType: entry.meal.primaryProteinType,
-            nutrition: computeMealNutrition(entry.meal.components),
-          }
-        : null,
-    })),
-  }
+  return formatPlanResult(mealPlan, startDate, endDate)
 }
 
 /**
- * Create an empty meal plan (no entries for the given week).
- * Deletes any existing entries for the same date range.
+ * Clear a date range of its plannable entries.
+ * Completed entries in the range are kept and returned; everything else is deleted.
  */
 export async function createEmptyPlan(
   options: CreateEmptyPlanOptions,
@@ -247,21 +306,13 @@ export async function createEmptyPlan(
       })
     }
 
-    // Delete existing entries for this date range
-    await tx.mealPlanEntry.deleteMany({
-      where: {
-        planId: plan.id,
-        date: { gte: startDate, lt: endDate },
-      },
-    })
+    await deleteReplaceableEntries(tx, plan.id, startDate, endDate)
 
-    return plan
+    return tx.mealPlan.findUniqueOrThrow({
+      where: { id: plan.id },
+      include: entriesInRange(startDate, endDate),
+    })
   })
 
-  return {
-    id: mealPlan.id,
-    startDate: toDateString(startDate),
-    endDate: toDateString(endDate),
-    entries: [],
-  }
+  return formatPlanResult(mealPlan, startDate, endDate)
 }
