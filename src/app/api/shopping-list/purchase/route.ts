@@ -18,7 +18,6 @@ const purchaseSchema = z
 
 type PurchaseResult = {
   ingredientId: string
-  action: 'created' | 'updated'
   pantryItem: {
     id: string
     ingredient: {
@@ -92,17 +91,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // Get existing pantry items to determine action type
-    const existingItems = await prisma.pantryItem.findMany({
-      where: {
-        householdId: household.id,
-        ingredientId: { in: ingredientIds },
-      },
-      select: { id: true, ingredientId: true },
-    })
-
-    const existingMap = new Map(existingItems.map((item) => [item.ingredientId, item.id]))
-
     // Take the pantry row locks in a deterministic order. Every transaction
     // that locks more than one pantry row has to lock them in the same order:
     // two that lock the same rows in opposite orders end up each holding the
@@ -125,9 +113,6 @@ export async function POST(request: Request) {
       const upserted = new Map<string, PurchaseResult>()
 
       for (const ingredientId of lockOrderedIngredientIds) {
-        const existingId = existingMap.get(ingredientId)
-        const action = existingId ? 'updated' : 'created'
-
         const pantryItem = await tx.pantryItem.upsert({
           where: {
             householdId_ingredientId: {
@@ -162,7 +147,6 @@ export async function POST(request: Request) {
 
         upserted.set(ingredientId, {
           ingredientId,
-          action,
           pantryItem: {
             id: pantryItem.id,
             ingredient: pantryItem.ingredient,

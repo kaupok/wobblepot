@@ -202,7 +202,6 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
     mockFindFirst.mockResolvedValue(mockMembership as never)
     mockFindUniquePlan.mockResolvedValue(mockPlan as never)
     mockFindManyIngredient.mockResolvedValue([{ id: 'ing-1' }] as never)
-    mockFindManyPantry.mockResolvedValue([])
     const mockDate = new Date('2024-01-15T10:00:00Z')
     mockTransaction.mockImplementation(async (callback) => {
       const mockTx = {
@@ -232,9 +231,12 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
     expect(response.status).toBe(200)
     expect(data.success).toBe(true)
     expect(data.results).toHaveLength(1)
+    // Exact shape: the created/updated `action` label was read from the pantry
+    // before the transaction and could go stale; nothing consumed it, so both
+    // the field and the read are gone (HON-660).
+    expect(mockFindManyPantry).not.toHaveBeenCalled()
     expect(data.results[0]).toEqual({
       ingredientId: 'ing-1',
-      action: 'created',
       pantryItem: {
         id: 'pantry-new',
         quantity: null,
@@ -258,9 +260,6 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
     mockFindFirst.mockResolvedValue(mockMembership as never)
     mockFindUniquePlan.mockResolvedValue(mockPlan as never)
     mockFindManyIngredient.mockResolvedValue([{ id: 'ing-1' }] as never)
-    mockFindManyPantry.mockResolvedValue([
-      { id: 'existing-pantry', ingredientId: 'ing-1' },
-    ] as never)
     const mockDate = new Date('2024-01-15T10:00:00Z')
     mockTransaction.mockImplementation(async (callback) => {
       const mockTx = {
@@ -289,8 +288,9 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
 
     expect(response.status).toBe(200)
     expect(data.success).toBe(true)
-    expect(data.results[0].action).toBe('updated')
     expect(data.results[0].pantryItem.id).toBe('existing-pantry')
+    expect(data.results[0]).not.toHaveProperty('action')
+    expect(mockFindManyPantry).not.toHaveBeenCalled()
   })
 
   it('processes batch ingredientIds in transaction', async () => {
@@ -305,7 +305,6 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
       { id: 'ing-2' },
       { id: 'ing-3' },
     ] as never)
-    mockFindManyPantry.mockResolvedValue([{ id: 'existing-1', ingredientId: 'ing-2' }] as never)
 
     const mockDate = new Date('2024-01-15T10:00:00Z')
     let upsertCallCount = 0
@@ -342,13 +341,10 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
     expect(data.success).toBe(true)
     expect(data.results).toHaveLength(3)
     expect(data.results[0].ingredientId).toBe('ing-1')
-    expect(data.results[0].action).toBe('created')
     expect(data.results[0].pantryItem.id).toBe('pantry-1')
     expect(data.results[1].ingredientId).toBe('ing-2')
-    expect(data.results[1].action).toBe('updated')
     expect(data.results[1].pantryItem.id).toBe('pantry-2')
     expect(data.results[2].ingredientId).toBe('ing-3')
-    expect(data.results[2].action).toBe('created')
     expect(data.results[2].pantryItem.id).toBe('pantry-3')
   })
 
