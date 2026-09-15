@@ -7,7 +7,12 @@ import { InventoryPage } from '@/components/inventory/InventoryPage'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { toShoppingItemData, type ShoppingListApiItem } from './shopping-item-transform'
+import { toPantryItemData, type PantryApiItem } from './pantry-item-transform'
 import { getShoppingEmptyStateVariant } from './shopping-empty-state-variant'
+
+interface PantryResponse {
+  items: PantryApiItem[]
+}
 
 interface ShoppingListGroup {
   category: IngredientCategory
@@ -87,19 +92,8 @@ export default async function ShoppingPage({ searchParams }: ShoppingPageProps) 
 
   let formattedPantryItems: PantryItemData[] = []
   if (pantryResponse.ok) {
-    const pantryData = await pantryResponse.json()
-    formattedPantryItems = pantryData.items.map(
-      (item: PantryItemData & { updatedAt: string | Date }) => ({
-        id: item.id,
-        ingredient: item.ingredient,
-        quantity: item.quantity,
-        isStaple: item.isStaple,
-        updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt : item.updatedAt,
-        neededQuantity: item.neededQuantity,
-        neededDisplayQuantity: item.neededDisplayQuantity,
-        windowDays: item.windowDays,
-      }),
-    )
+    const pantryData: PantryResponse = await pantryResponse.json()
+    formattedPantryItems = pantryData.items.map(toPantryItemData)
   }
 
   if (!shoppingResponse.ok) {
