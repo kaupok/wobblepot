@@ -10,7 +10,11 @@ import { compareIngredientIds } from '@/lib/meal-planning/pantry'
 const purchaseSchema = z
   .object({
     ingredientId: z.string().min(1).optional(),
-    ingredientIds: z.array(z.string().min(1)).optional(),
+    // `.min(1)` because the refine below tests truthiness and `[]` is truthy:
+    // without it `{ ingredientIds: [] }` purchases nothing with a 200, and
+    // `{ ingredientId, ingredientIds: [] }` silently drops the `ingredientId`
+    // (HON-659).
+    ingredientIds: z.array(z.string().min(1)).min(1).optional(),
   })
   .refine((data) => data.ingredientId || data.ingredientIds, {
     message: 'Either ingredientId or ingredientIds must be provided',
