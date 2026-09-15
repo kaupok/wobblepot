@@ -23,7 +23,15 @@ import { estimateCostUsd } from './pricing'
 
 export interface AiUsageStats {
   model: string
+  /**
+   * Uncached input tokens — the count billed at the base input rate. Not the
+   * SDK's `usage.inputTokens`, which is the total including cache tiers.
+   */
   inputTokens: number
+  /** Input tokens served from the prompt cache. */
+  cacheReadTokens: number
+  /** Input tokens written to the prompt cache. */
+  cacheWriteTokens: number
   outputTokens: number
   /**
    * `true` when the SDK response carried no usable input or output count.
@@ -32,9 +40,14 @@ export interface AiUsageStats {
   usageMissing: boolean
 }
 
-export interface RecordAiUsageInput extends Omit<AiUsageStats, 'usageMissing'> {
+export interface RecordAiUsageInput extends Omit<
+  AiUsageStats,
+  'usageMissing' | 'cacheReadTokens' | 'cacheWriteTokens'
+> {
   householdId: string
   feature: AiFeature
+  cacheReadTokens?: number
+  cacheWriteTokens?: number
   usageMissing?: boolean
   success?: boolean
   retryCount?: number
@@ -49,17 +62,41 @@ export interface RecordAiUsageInput extends Omit<AiUsageStats, 'usageMissing'> {
  * still records as `0` so the row is written, but sets `usageMissing` so
  * `recordAiUsage` can flag it — a silent `0` is indistinguishable from a free
  * call and never trips the cost cap. No fallback estimate: a wrong number in
- * the cap is worse than a visible zero.
+ * the cap is worse than a visible zero, so a missing input total zeroes every
+ * input tier rather than billing whatever breakdown happens to be present.
+ *
+ * `usage.inputTokens` is the *total* (`noCache + cacheRead + cacheWrite`), and
+ * the tiers are priced differently (HON-648), so the input is split using
+ * `usage.inputTokenDetails`. When a provider omits `noCacheTokens`, it is
+ * derived from the total minus the cache tiers.
  */
 export function toAiUsageStats(model: string, usage: LanguageModelUsage | undefined): AiUsageStats {
-  const inputTokens = finiteOrNull(usage?.inputTokens)
+  const totalInputTokens = finiteOrNull(usage?.inputTokens)
   const outputTokens = finiteOrNull(usage?.outputTokens)
+  const usageMissing = totalInputTokens === null || outputTokens === null
+
+  let inputTokens = 0
+  let cacheReadTokens = 0
+  let cacheWriteTokens = 0
+
+  if (totalInputTokens !== null) {
+    // `inputTokenDetails` is typed as always present, but stay defensive: a
+    // provider (or a hand-built usage object) may leave it out entirely.
+    const details = usage?.inputTokenDetails as LanguageModelUsage['inputTokenDetails'] | undefined
+    cacheReadTokens = finiteOrNull(details?.cacheReadTokens) ?? 0
+    cacheWriteTokens = finiteOrNull(details?.cacheWriteTokens) ?? 0
+    inputTokens =
+      finiteOrNull(details?.noCacheTokens) ??
+      Math.max(0, totalInputTokens - cacheReadTokens - cacheWriteTokens)
+  }
 
   return {
     model,
-    inputTokens: inputTokens ?? 0,
+    inputTokens,
+    cacheReadTokens,
+    cacheWriteTokens,
     outputTokens: outputTokens ?? 0,
-    usageMissing: inputTokens === null || outputTokens === null,
+    usageMissing,
   }
 }
 
@@ -186,15 +223,24 @@ export async function assertUnderCap(householdId: string, now: Date = new Date()
  * Compute `estimatedCostUsd` from the model's price table. Unknown models
  * record `$0` (still useful for visibility into how often that model is used).
  *
+ * Cache-read and cache-write tokens are priced into `estimatedCostUsd` and
+ * mirrored to PostHog, but the `ai_usage` row has no column for them yet: its
+ * `input_tokens` is the uncached count only. Nothing enables prompt caching
+ * today; add the columns in the change that does.
+ *
  * When `usageMissing` is set the row is still written (0 tokens, `$0`), but the
  * PostHog event carries `$ai_usage_missing: true` and a warning is logged, so
  * an unbilled call is visible instead of passing as a free one.
  */
 export async function recordAiUsage(input: RecordAiUsageInput): Promise<void> {
   const usageMissing = input.usageMissing ?? false
+  const cacheReadTokens = input.cacheReadTokens ?? 0
+  const cacheWriteTokens = input.cacheWriteTokens ?? 0
   const cost = estimateCostUsd({
     model: input.model,
     inputTokens: input.inputTokens,
+    cacheReadTokens,
+    cacheWriteTokens,
     outputTokens: input.outputTokens,
   })
 
@@ -239,6 +285,8 @@ export async function recordAiUsage(input: RecordAiUsageInput): Promise<void> {
       event: '$ai_generation',
       properties: {
         $ai_input_tokens: input.inputTokens,
+        $ai_cache_read_input_tokens: cacheReadTokens,
+        $ai_cache_creation_input_tokens: cacheWriteTokens,
         $ai_output_tokens: input.outputTokens,
         $ai_model: input.model,
         $ai_total_cost_usd: cost,
