@@ -9,30 +9,64 @@
  */
 
 export interface ModelPrice {
-  /** USD per 1M input (prompt) tokens. */
+  /** USD per 1M uncached input (prompt) tokens. */
   inputPerMTok: number
+  /** USD per 1M input tokens served from the prompt cache (0.1× base input). */
+  cacheReadPerMTok: number
+  /**
+   * USD per 1M input tokens written to the prompt cache, at the 5-minute TTL
+   * rate (1.25× base input). The SDK reports one `cacheWriteTokens` count with
+   * no TTL split, so 1-hour writes (2× base input) would be under-estimated —
+   * revisit if a call site ever opts into `ttl: '1h'`.
+   */
+  cacheWritePerMTok: number
   /** USD per 1M output (completion) tokens. */
   outputPerMTok: number
 }
 
 export const MODEL_PRICES: Record<string, ModelPrice> = {
-  'claude-sonnet-4-6': { inputPerMTok: 3, outputPerMTok: 15 },
+  'claude-sonnet-4-6': {
+    inputPerMTok: 3,
+    cacheReadPerMTok: 0.3,
+    cacheWritePerMTok: 3.75,
+    outputPerMTok: 15,
+  },
 }
 
 export interface EstimateCostInput {
   model: string
+  /** Uncached input tokens, billed at the base input rate. */
   inputTokens: number
+  /** Input tokens read from the prompt cache. Defaults to 0. */
+  cacheReadTokens?: number
+  /** Input tokens written to the prompt cache. Defaults to 0. */
+  cacheWriteTokens?: number
   outputTokens: number
 }
 
 /**
  * Estimate the USD cost of an AI call from token counts.
  *
+ * Each input tier is priced at its own rate: `inputTokens` must be the
+ * uncached count, not the SDK's total, or cached tokens are billed twice.
+ *
  * Returns 0 for unknown models — caller decides whether to record a usage row
  * with $0 (still useful for visibility) or to skip recording entirely.
  */
-export function estimateCostUsd({ model, inputTokens, outputTokens }: EstimateCostInput): number {
+export function estimateCostUsd({
+  model,
+  inputTokens,
+  cacheReadTokens = 0,
+  cacheWriteTokens = 0,
+  outputTokens,
+}: EstimateCostInput): number {
   const price = MODEL_PRICES[model]
   if (!price) return 0
-  return (inputTokens * price.inputPerMTok + outputTokens * price.outputPerMTok) / 1_000_000
+  return (
+    (inputTokens * price.inputPerMTok +
+      cacheReadTokens * price.cacheReadPerMTok +
+      cacheWriteTokens * price.cacheWritePerMTok +
+      outputTokens * price.outputPerMTok) /
+    1_000_000
+  )
 }

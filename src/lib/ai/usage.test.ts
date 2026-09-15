@@ -152,6 +152,39 @@ describe('recordAiUsage', () => {
     })
   })
 
+  it('prices cache-read and cache-write tokens at their own rates in the row and the PostHog event', async () => {
+    mockCreate.mockResolvedValue({} as never)
+
+    await recordAiUsage({
+      householdId: 'h1',
+      feature: 'plan_generate',
+      model: 'claude-sonnet-4-6',
+      inputTokens: 1_000_000,
+      cacheReadTokens: 2_000_000,
+      cacheWriteTokens: 1_000_000,
+      outputTokens: 0,
+    })
+
+    // 1M × $3 + 2M × $0.30 + 1M × $3.75 = $7.35 — not the $12 an
+    // all-at-base-rate estimate of the 4M input total would give.
+    const { estimatedCostUsd } = mockCreate.mock.calls[0]![0].data as { estimatedCostUsd: number }
+    expect(estimatedCostUsd).toBeCloseTo(7.35, 9)
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ inputTokens: 1_000_000 }),
+    })
+    expect(mockCapture).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: expect.objectContaining({
+          $ai_input_tokens: 1_000_000,
+          $ai_cache_read_input_tokens: 2_000_000,
+          $ai_cache_creation_input_tokens: 1_000_000,
+          $ai_total_cost_usd: estimatedCostUsd,
+        }),
+      }),
+    )
+  })
+
   it('does not throw when prisma.aiUsage.create rejects', async () => {
     mockCreate.mockRejectedValue(new Error('DB hiccup'))
 
@@ -187,6 +220,8 @@ describe('recordAiUsage › PostHog streaming', () => {
       event: '$ai_generation',
       properties: {
         $ai_input_tokens: 1_000_000,
+        $ai_cache_read_input_tokens: 0,
+        $ai_cache_creation_input_tokens: 0,
         $ai_output_tokens: 0,
         $ai_model: 'claude-sonnet-4-6',
         $ai_total_cost_usd: 3,

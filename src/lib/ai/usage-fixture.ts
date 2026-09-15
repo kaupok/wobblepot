@@ -22,16 +22,16 @@ import type { LanguageModelUsage } from 'ai'
  * response Anthropic never sends:
  *
  * - `inputTokens` is the *total*: `noCache + cacheRead + cacheWrite`. Kept
- *   internally consistent below (1031 + 500 + 0 = 1531). Note that
- *   `estimateCostUsd` bills that whole total at the full input rate, which is
- *   correct only while nothing enables prompt caching.
+ *   internally consistent below (1031 + 500 + 0 = 1531). `toAiUsageStats`
+ *   bills the tiers separately (HON-648), so the stats carry the uncached
+ *   1031 as `inputTokens`, not the total.
  * - `outputTokenDetails` is left `undefined`: the provider derives both fields
  *   from `output_tokens_details.thinking_tokens`, so without extended thinking
  *   `text` and `reasoning` are `undefined` rather than a number.
  *
- * The two counts that *are* asserted on are deliberately distinct and
- * non-round: an assertion that passes with them swapped, doubled, or defaulted
- * to 0 would not prove the mapping.
+ * The counts that *are* asserted on are deliberately distinct and non-round:
+ * an assertion that passes with them swapped, doubled, or defaulted to 0 would
+ * not prove the mapping.
  */
 export const USAGE_FIXTURE: LanguageModelUsage = {
   inputTokens: 1531,
@@ -50,5 +50,12 @@ export const USAGE_FIXTURE: LanguageModelUsage = {
 
 /** The stats `toAiUsageStats(model, USAGE_FIXTURE)` must produce. */
 export function expectedUsageStats(model: string) {
-  return { model, inputTokens: 1531, outputTokens: 787, usageMissing: false }
+  return {
+    model,
+    inputTokens: 1031,
+    cacheReadTokens: 500,
+    cacheWriteTokens: 0,
+    outputTokens: 787,
+    usageMissing: false,
+  }
 }

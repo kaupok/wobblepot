@@ -52,3 +52,99 @@ describe('estimateCostUsd', () => {
     expect(estimateCostUsd({ model: 'claude-sonnet-4-6', inputTokens: 0, outputTokens: 0 })).toBe(0)
   })
 })
+
+describe('estimateCostUsd › prompt-cache tiers', () => {
+  const price = MODEL_PRICES['claude-sonnet-4-6']!
+
+  it('carries both cache rates for every model in the table', () => {
+    for (const [model, entry] of Object.entries(MODEL_PRICES)) {
+      expect(entry.cacheReadPerMTok, model).toBeGreaterThan(0)
+      expect(entry.cacheWritePerMTok, model).toBeGreaterThan(0)
+      // Anthropic prices cache reads below, and cache writes above, base input.
+      expect(entry.cacheReadPerMTok, model).toBeLessThan(entry.inputPerMTok)
+      expect(entry.cacheWritePerMTok, model).toBeGreaterThan(entry.inputPerMTok)
+    }
+  })
+
+  it('bills cache-read tokens below the all-at-base-rate figure by the rate difference', () => {
+    const inputTokens = 1031
+    const cacheReadTokens = 500
+    const outputTokens = 787
+
+    const tiered = estimateCostUsd({
+      model: 'claude-sonnet-4-6',
+      inputTokens,
+      cacheReadTokens,
+      outputTokens,
+    })
+    const allAtBaseRate = estimateCostUsd({
+      model: 'claude-sonnet-4-6',
+      inputTokens: inputTokens + cacheReadTokens,
+      outputTokens,
+    })
+
+    // 500 × ($3.00 − $0.30) / 1M = $0.00135 cheaper.
+    expect(allAtBaseRate - tiered).toBeCloseTo(
+      (cacheReadTokens * (price.inputPerMTok - price.cacheReadPerMTok)) / 1_000_000,
+      12,
+    )
+    expect(allAtBaseRate - tiered).toBeCloseTo(0.00135, 12)
+  })
+
+  it('charges 1M cache-read tokens at the cache-read rate', () => {
+    const cost = estimateCostUsd({
+      model: 'claude-sonnet-4-6',
+      inputTokens: 0,
+      cacheReadTokens: 1_000_000,
+      outputTokens: 0,
+    })
+    expect(cost).toBeCloseTo(price.cacheReadPerMTok, 12)
+  })
+
+  it('charges 1M cache-write tokens at the cache-write rate', () => {
+    const cost = estimateCostUsd({
+      model: 'claude-sonnet-4-6',
+      inputTokens: 0,
+      cacheWriteTokens: 1_000_000,
+      outputTokens: 0,
+    })
+    expect(cost).toBe(price.cacheWritePerMTok)
+  })
+
+  it('sums every tier for a mixed call', () => {
+    const cost = estimateCostUsd({
+      model: 'claude-sonnet-4-6',
+      inputTokens: 1_000_000,
+      cacheReadTokens: 1_000_000,
+      cacheWriteTokens: 1_000_000,
+      outputTokens: 1_000_000,
+    })
+    // $3 + $0.30 + $3.75 + $15
+    expect(cost).toBeCloseTo(22.05, 9)
+  })
+
+  it('matches the uncached figure when cache counts are explicitly 0', () => {
+    const withZeros = estimateCostUsd({
+      model: 'claude-sonnet-4-6',
+      inputTokens: 1000,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      outputTokens: 200,
+    })
+    expect(withZeros).toBe(
+      estimateCostUsd({ model: 'claude-sonnet-4-6', inputTokens: 1000, outputTokens: 200 }),
+    )
+  })
+
+  it('returns 0 for an unknown model even with cache tokens', () => {
+    expect(
+      estimateCostUsd({
+        model: 'made-up-model',
+        inputTokens: 1000,
+        cacheReadTokens: 1000,
+        cacheWriteTokens: 1000,
+        outputTokens: 1000,
+      }),
+    ).toBe(0)
+  })
+})
