@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
 import { Body, Code, Heading, Li, Ul } from '@/components/ui/typography'
+import { WOBBLEPOT_BOT_TOKEN, WOBBLEPOT_BOT_USER_AGENT } from '@/lib/bot-identity'
 import { PRIVACY_EMAIL, PRIVACY_EMAIL_HREF } from '@/lib/support'
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -26,10 +27,10 @@ export default function BotPage() {
         <Heading variant="h2">User-agent</Heading>
         <Body>The bot identifies itself with the following User-Agent string:</Body>
         <Body>
-          <Code>Wobblepot-Bot/1.0 (+https://wobblepot.com/bot)</Code>
+          <Code>{WOBBLEPOT_BOT_USER_AGENT}</Code>
         </Body>
         <Body variant="muted">
-          For <Code>robots.txt</Code> matching, the token is <Code>Wobblepot-Bot/1.0</Code>.
+          For <Code>robots.txt</Code> matching, the token is <Code>{WOBBLEPOT_BOT_TOKEN}</Code>.
         </Body>
       </div>
 
@@ -73,7 +74,8 @@ export default function BotPage() {
           <Li>
             <Body>
               Wobblepot-Bot honours <Code>robots.txt</Code>. If your rules disallow{' '}
-              <Code>Wobblepot-Bot/1.0</Code> (or <Code>*</Code>) for a URL, we will not fetch it.
+              <Code>{WOBBLEPOT_BOT_TOKEN}</Code> (or <Code>*</Code>) for a URL, we will not fetch
+              it.
             </Body>
           </Li>
           <Li>
@@ -100,7 +102,7 @@ export default function BotPage() {
             {PRIVACY_EMAIL}
           </a>
           . The quickest way to deny us is to add a <Code>Disallow</Code> rule for{' '}
-          <Code>Wobblepot-Bot/1.0</Code> in your <Code>robots.txt</Code>.
+          <Code>{WOBBLEPOT_BOT_TOKEN}</Code> in your <Code>robots.txt</Code>.
         </Body>
       </div>
     </div>

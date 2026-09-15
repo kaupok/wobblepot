@@ -1,14 +1,8 @@
 import robotsParser from 'robots-parser'
+import { WOBBLEPOT_BOT_TOKEN, WOBBLEPOT_BOT_USER_AGENT } from '@/lib/bot-identity'
 import { getRedis } from '@/lib/upstash'
 
-export const WOBBLEPOT_BOT_USER_AGENT = 'Wobblepot-Bot/1.0 (+https://wobblepot.com/bot)'
-
-/**
- * The token portion of the UA, used for robots.txt matching.
- * robots.txt rules match against the token (before the space and paren comment),
- * not the full parenthesised UA string.
- */
-export const WOBBLEPOT_BOT_TOKEN = 'Wobblepot-Bot/1.0'
+export { WOBBLEPOT_BOT_TOKEN, WOBBLEPOT_BOT_USER_AGENT }
 
 const ROBOTS_FETCH_TIMEOUT_MS = 5_000
 const ROBOTS_CACHE_TTL_SECONDS = 60 * 60 * 24
