@@ -679,10 +679,6 @@
         "title": "Oops! Something went wrong",
         "body": "We encountered an error while loading this page."
       },
-      "mealPlan": {
-        "title": "Couldn't load your meal plan",
-        "body": "We had trouble loading your meal plan. Please try again."
-      },
       "shopping": {
         "title": "Couldn't load your shopping list",
         "body": "We had trouble loading your shopping list. Please try again."

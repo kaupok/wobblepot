@@ -679,10 +679,6 @@
         "title": "Oih! Midagi läks valesti",
         "body": "Lehe laadimisel tekkis viga."
       },
-      "mealPlan": {
-        "title": "Söögiplaani ei õnnestunud laadida",
-        "body": "Söögiplaani laadimisel tekkis viga. Palun proovi uuesti."
-      },
       "shopping": {
         "title": "Poenimekirja ei õnnestunud laadida",
         "body": "Poenimekirja laadimisel tekkis viga. Palun proovi uuesti."
