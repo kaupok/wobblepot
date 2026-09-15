@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
 import { Body, Code, Heading, Li, Ul } from '@/components/ui/typography'
+import { PRIVACY_EMAIL, PRIVACY_EMAIL_HREF } from '@/lib/support'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('meta.bot')
@@ -95,8 +96,8 @@ export default function BotPage() {
         <Body>
           If you want us to stop (or start) fetching your site, or you have questions about how
           Wobblepot handles content, email{' '}
-          <a className="underline" href="mailto:privacy@wobblepot.com">
-            privacy@wobblepot.com
+          <a className="underline" href={PRIVACY_EMAIL_HREF}>
+            {PRIVACY_EMAIL}
           </a>
           . The quickest way to deny us is to add a <Code>Disallow</Code> rule for{' '}
           <Code>Wobblepot-Bot/1.0</Code> in your <Code>robots.txt</Code>.
