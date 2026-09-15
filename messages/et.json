@@ -94,7 +94,7 @@
       "noPlanBody": "Loo söögiplaan, et näha poenimekirja.",
       "noPlanCta": "Loo plaan",
       "allDoneHeading": "Kõik tehtud!",
-      "allDoneBody": "Sahver on nädalaks varustatud.",
+      "allDoneBody": "Kõik nimekirjas olev on ostetud.",
       "nothingHeading": "Pole midagi osta",
       "nothingBody": "Sul on järgmiseks {days} päevaks sahvris kõik vajalik olemas.",
       "errorHeading": "Midagi läks valesti",

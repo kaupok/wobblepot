@@ -94,7 +94,7 @@
       "noPlanBody": "Generate a meal plan to see your shopping list.",
       "noPlanCta": "Generate plan",
       "allDoneHeading": "All done!",
-      "allDoneBody": "Your pantry is stocked for the week.",
+      "allDoneBody": "You've bought everything on your list.",
       "nothingHeading": "Nothing to buy",
       "nothingBody": "Your pantry has everything you need for the next {days} days.",
       "errorHeading": "Something went wrong",
