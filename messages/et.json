@@ -821,6 +821,7 @@
       "preferencesHeading": "Toidueelistused",
       "dietaryTypeLabel": "Toitumisviis",
       "allergensLabel": "Vältida tuleb allergeene",
+      "allergensAiNotice": "Siin märgitud allergeenid saadetakse meie tehisintellekti pakkujale, et toidukavad neid väldiksid. Täpsemalt <privacy>privaatsuspoliitikas</privacy>.",
       "restrictionsLabel": "Toitumispiirangud",
       "restrictionsPlaceholder": "nt madal sool, halal",
       "restrictionsHelper": "Sisesta piirang ja vajuta Enter või kliki kõrvale, et lisada",

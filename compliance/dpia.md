@@ -4,7 +4,7 @@
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Controller**            | Honkadori OÜ (registry code 14197288, Peetri 11, 10415 Tallinn, Estonia), operating as **Wobblepot**                                                             |
 | **Date**                  | 2026-06-06                                                                                                                                                       |
-| **Status**                | Approved 2026-06-06 (founder sign-off, HON-543)                                                                                                                  |
+| **Status**                | Approved 2026-06-06 (founder sign-off, HON-543) · Updated 2026-09-15: allergen-entry affirmation implemented, Art. 9 residual lowered (HON-666)                  |
 | **Scale at assessment**   | Pre-launch / invite-only EU beta; no production user data yet                                                                                                    |
 | **Supervisory authority** | Andmekaitse Inspektsioon (AKI), Estonia                                                                                                                          |
 | **Review triggers**       | Public (non-invite) launch · first enterprise customer · any new processor handling member dietary data · standalone child accounts · relevant AKI/EDPB guidance |
@@ -35,16 +35,16 @@ Wobblepot plans family meals. The account-holding adult creates **household memb
 
 - Providing allergen data is **optional and user-initiated**, for the single, clearly stated purpose of meal planning; we treat that affirmative act, against the policy's explicit AI-processing disclosure, as Art. 9(2)(a) explicit consent.
 - Necessity/proportionality: allergen-aware planning is the core safety feature of the product — the data cannot be omitted from prompts without defeating the user's purpose.
-- The honest gap: a dedicated affirmative notice at the point of entering allergen data would make the explicit-consent claim more robust. At beta scale we accept the residual risk; **recommended hardening** (pre-public-launch): a one-line affirmation in the member form where allergens are entered — for all members, not only under-16s, answering the revisit-question left by HON-467's cancellation.
+- Point-of-entry affirmation — **implemented (HON-666)**. The gap this assessment originally named was that the explicit-consent claim rested on the privacy policy alone. Allergens are entered once per household, for all members (adults and under-16s alike), in the household settings form; directly under that checkbox group a notice states that ticked allergens are sent to our AI provider so meal plans avoid them, and links to the privacy policy. It is a passive notice rather than a checkbox: the affirmative act is ticking an allergen, and HON-467's cancellation reasoning (a consent checkbox is evidentiary ceremony) still holds.
 
 **Risks & mitigations**
 
-| Risk                                           | Mitigation                                                                                                                   | Residual                     |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| Health-adjacent data in a US processor's hands | DPA + no-training clause + SCCs M2 + UK Addendum + DPF; prompts carry no direct identifiers (no email/full account identity) | Low–medium                   |
-| Art. 9 basis challenged                        | Optional provision + explicit policy disclosure; hardening recommended above; revisit on guidance                            | Medium → low after hardening |
-| AI output leaking another household's data     | Stateless inference per request; no cross-household context is ever included in prompts                                      | Low                          |
+| Risk                                           | Mitigation                                                                                                                   | Residual   |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| Health-adjacent data in a US processor's hands | DPA + no-training clause + SCCs M2 + UK Addendum + DPF; prompts carry no direct identifiers (no email/full account identity) | Low–medium |
+| Art. 9 basis challenged                        | Optional provision + explicit policy disclosure + point-of-entry notice (HON-666); revisit on guidance                       | Low        |
+| AI output leaking another household's data     | Stateless inference per request; no cross-household context is ever included in prompts                                      | Low        |
 
 ## Conclusion
 
-Processing may proceed. Both risk areas are adequately mitigated at current scale; one recommendation is open (allergen-entry affirmation, pre-public-launch). Re-run this assessment on any review trigger above.
+Processing may proceed. Both risk areas are adequately mitigated at current scale; the one recommendation (allergen-entry affirmation, pre-public-launch) is implemented (HON-666), so no recommendation is open. Re-run this assessment on any review trigger above.
