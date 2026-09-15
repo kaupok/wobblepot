@@ -84,14 +84,18 @@ jobs:
         uses: actions/checkout@v7
         with:
           # Full history so `git merge-base` resolves for the immutability
-          # guard below — at 9 MiB / ~720 commits that costs a couple of
-          # seconds. Reverting to the depth-1 default does not merely degrade
-          # the guard, it disables it: the base sha is never fetched, so the
-          # script exits 2 on an unresolvable ref. Fetching the base back at
-          # `--depth=1` is worse still — it resolves the ref but re-shallows
-          # the repository, and the guard then falls back to a two-tree diff
-          # that blames the branch for every migration the base gained since
-          # the fork point. If this has to change, fetch without `--depth`.
+          # guards below — both the PR base sha and, on push, the previous
+          # `main` tip in `github.event.before` are ancestors that only a full
+          # clone is guaranteed to contain. At 9 MiB / ~720 commits that costs
+          # a couple of seconds. Reverting to the depth-1 default does not
+          # merely degrade the guards, it disables them: the base sha is never
+          # fetched, so the script exits 2 on an unresolvable ref — on push that
+          # reddens every `main` run, since a depth-1 clone holds no parent of
+          # HEAD. Fetching the base back at `--depth=1` is worse still — it
+          # resolves the ref but re-shallows the repository, and the guard then
+          # falls back to a two-tree diff that blames the branch for every
+          # migration the base gained since the fork point. If this has to
+          # change, fetch without `--depth`.
           fetch-depth: 0
 
       # Guardrail (HON-641): a migration that is already on `main` has been
@@ -102,16 +106,73 @@ jobs:
       # HON-558. Needs nothing but git, so it runs before the install and fails
       # in seconds.
       #
-      # Pull requests only. `github.event.before` would give a `push` a base to
-      # diff against, but by then the migration is on `main` and this same push
-      # has already triggered deploy-db-migrations-staging.yml — a red check
-      # could report the drift, not prevent it. Blocking at PR time is the
-      # whole point; post-merge alerting is tracked separately.
+      # Two steps, one per event. This one is prevention: it runs on the PR,
+      # before the migration reaches `main`. The next is detection for the
+      # edits that get past it anyway.
       - name: Check migrations are immutable
         if: github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: bash scripts/check-migrations-immutable.sh "$BASE_SHA"
+
+      # Detection, not prevention (HON-649). `main` has no required status
+      # checks (HON-584), so an edited migration can still land: a PR merged
+      # red, a PR run cancelled by `cancel-in-progress`, or a merge through the
+      # GitHub UI. By the time this runs, deploy-db-migrations-staging.yml has
+      # been triggered by the same push, so the best available outcome is a
+      # loud signal — and the decision is to fail this `ci` job on `main`, the
+      # loudest signal the repo has, rather than add a notification path.
+      #
+      # A red `ci` on `main` blocks nothing downstream (verified against the
+      # triggers): deploy-storybook.yml runs on its own `push` paths filter,
+      # deploy-code-production.yml and deploy-db-migrations-production.yml are
+      # `workflow_dispatch` only, and staging-smoke.yml follows the staging
+      # migrations workflow — none uses `workflow_run` or `needs` on this one.
+      #
+      # `github.event.before` is the previous `main` tip, and the checkout above
+      # is `fetch-depth: 0`, so it resolves and is its own merge base with HEAD:
+      # the diff covers exactly the commits this push added, however many. The
+      # all-zero sha means there is no previous tip (a new branch, should the
+      # `push` trigger ever widen) and would exit 2, so it is skipped.
+      #
+      # Known gap: the workflow-level `cancel-in-progress` also applies to
+      # `main`. A second push that lands in the ~30s before this step runs
+      # cancels the first run, and the second run's `before` is the first
+      # push's tip — so the first push is never compared. Setting
+      # `cancel-in-progress: false` would not close it, because a concurrency
+      # group still replaces a run that is pending; closing it means taking
+      # `main` pushes out of the group, so every merge runs its own full job.
+      #
+      # Known gap: the red is transient. Only the run for the offending push
+      # fails — the next unrelated merge diffs `before..HEAD` with no migration
+      # in it and goes green while the drift stays — and because this step runs
+      # first, that one red run also skips lint, tests and E2E for its push.
+      # Act on the failure when it fires; the badge will not keep it for you.
+      # A durable tree-state check (each migration at HEAD against the blob it
+      # was first added with) was not taken here: `main` already carries two
+      # legitimate edits to migrations that had failed to apply (#181, #356),
+      # so it needs a pinned allowlist — tracked as a follow-up to HON-649.
+      #
+      # Recovery is a revert, not a fix-forward. `migrate deploy` never
+      # re-applies a migration it has recorded, so staging and production still
+      # hold the checksum of the ORIGINAL SQL; only restoring those bytes clears
+      # the drift, and a new migration would leave it in place for good. The
+      # script's own "fix forward" advice is right at PR time, before anything
+      # landed, so the override is printed here instead. The revert is itself
+      # an `M` against its base: its PR check fails, and the `main` run of this
+      # step for the revert push fails once more. Both are expected — merge it
+      # deliberately; the push after it compares against the restored tip.
+      - name: Check migrations are immutable (post-merge detection)
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          status=0
+          bash scripts/check-migrations-immutable.sh "$BEFORE_SHA" || status=$?
+          if [ "$status" = 1 ]; then
+            echo "::error title=Applied migration edited on main::Ignore \"fix forward\" above: this edit has already landed. Revert the commit that made it (git revert) so the file matches the checksum staging/production recorded. The revert fails this check once more; merge it deliberately. See CLAUDE.md → Database Patterns."
+          fi
+          exit "$status"
 
       - name: Enable Corepack
         run: corepack enable

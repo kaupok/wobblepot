@@ -273,6 +273,43 @@ describe('check-migrations-immutable.sh', () => {
     })
   })
 
+  // ci.yml runs the script on push to `main` with `github.event.before` — the
+  // previous tip, an ancestor of HEAD — as the base (HON-649). A push can carry
+  // several commits, so the verdict must be about the whole range, not HEAD's
+  // last commit.
+  describe('on push, against the previous main tip', () => {
+    it('fails when an earlier commit in the push edited an applied migration', () => {
+      const { dir, base: before } = repoWithAppliedMigration()
+      write(dir, INIT_MIGRATION, `${INIT_SQL}ALTER TABLE "ingredient" ADD COLUMN "note" TEXT;\n`)
+      commitAll(dir, 'fix(db): Edit an applied migration')
+      write(
+        dir,
+        'prisma/migrations/20260606000000_add_tags/migration.sql',
+        'CREATE TABLE "tag" ("id" TEXT NOT NULL);\n',
+      )
+      commitAll(dir, 'feat(db): Add tags')
+
+      const result = runCheck(dir, before)
+
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain(INIT_MIGRATION)
+      expect(result.stderr).not.toContain('20260606000000_add_tags')
+    })
+
+    // A migration that first appears inside the push was never on `main`, so
+    // it has not been applied anywhere durable yet and is still free to change.
+    it('passes when a migration is added and then edited within the same push', () => {
+      const { dir, base: before } = repoWithAppliedMigration()
+      const added = 'prisma/migrations/20260606000000_add_tags/migration.sql'
+      write(dir, added, 'CREATE TABLE "tag" ("id" TEXT NOT NULL);\n')
+      commitAll(dir, 'feat(db): Add tags')
+      write(dir, added, 'CREATE TABLE "tag" ("id" TEXT NOT NULL, "name" TEXT);\n')
+      commitAll(dir, 'fix(db): Add the tag name')
+
+      expect(runCheck(dir, before).status).toBe(0)
+    })
+  })
+
   describe('fails loudly rather than passing when it cannot compute', () => {
     it('exits 2 with usage when BASE_REF is missing', () => {
       const { dir } = repoWithAppliedMigration()
