@@ -142,11 +142,27 @@ jobs:
       # `cancel-in-progress: false` would not close it, because a concurrency
       # group still replaces a run that is pending; closing it means taking
       # `main` pushes out of the group, so every merge runs its own full job.
+      #
+      # Recovery is a revert, not a fix-forward. `migrate deploy` never
+      # re-applies a migration it has recorded, so staging and production still
+      # hold the checksum of the ORIGINAL SQL; only restoring those bytes clears
+      # the drift, and a new migration would leave it in place for good. The
+      # script's own "fix forward" advice is right at PR time, before anything
+      # landed, so the override is printed here instead. The revert is itself
+      # an `M` against its base: its PR check fails, and the `main` run of this
+      # step for the revert push fails once more. Both are expected — merge it
+      # deliberately; the push after it compares against the restored tip.
       - name: Check migrations are immutable (post-merge detection)
         if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
         env:
           BEFORE_SHA: ${{ github.event.before }}
-        run: bash scripts/check-migrations-immutable.sh "$BEFORE_SHA"
+        run: |
+          status=0
+          bash scripts/check-migrations-immutable.sh "$BEFORE_SHA" || status=$?
+          if [ "$status" = 1 ]; then
+            echo "::error title=Applied migration edited on main::Ignore \"fix forward\" above: this edit has already landed. Revert the commit that made it (git revert) so the file matches the checksum staging/production recorded. The revert fails this check once more; merge it deliberately. See CLAUDE.md → Database Patterns."
+          fi
+          exit "$status"
 
       - name: Enable Corepack
         run: corepack enable
