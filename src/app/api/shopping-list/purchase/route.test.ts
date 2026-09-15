@@ -136,12 +136,10 @@ describe('POST /api/shopping-list/purchase', () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockFindFirst.mockResolvedValue(mockMembership as never)
     mockIngredientFindMany.mockResolvedValue([{ id: 'ing-1' }] as never)
-    mockPantryFindMany.mockResolvedValue([])
 
     const mockResult = [
       {
         ingredientId: 'ing-1',
-        action: 'created',
         pantryItem: {
           id: 'pantry-new',
           ingredient: { id: 'ing-1', name: 'Chicken', category: 'protein', defaultUnit: 'g' },
@@ -176,16 +174,17 @@ describe('POST /api/shopping-list/purchase', () => {
     expect(data.success).toBe(true)
     expect(data.results).toHaveLength(1)
     expect(data.results[0].ingredientId).toBe('ing-1')
-    expect(data.results[0].action).toBe('created')
+    // The created/updated label was read from the pantry before the
+    // transaction and could go stale; nothing consumed it, so both the field
+    // and the read are gone (HON-660).
+    expect(data.results[0]).not.toHaveProperty('action')
+    expect(mockPantryFindMany).not.toHaveBeenCalled()
   })
 
   it('updates existing pantry items', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockFindFirst.mockResolvedValue(mockMembership as never)
     mockIngredientFindMany.mockResolvedValue([{ id: 'ing-1' }] as never)
-    mockPantryFindMany.mockResolvedValue([
-      { id: 'pantry-existing', ingredientId: 'ing-1' },
-    ] as never)
 
     mockTransaction.mockImplementation(async (fn) => {
       if (typeof fn === 'function') {
@@ -210,14 +209,15 @@ describe('POST /api/shopping-list/purchase', () => {
     expect(response.status).toBe(200)
     expect(data.success).toBe(true)
     expect(data.results).toHaveLength(1)
-    expect(data.results[0].action).toBe('updated')
+    expect(data.results[0].pantryItem.id).toBe('pantry-existing')
+    expect(data.results[0]).not.toHaveProperty('action')
+    expect(mockPantryFindMany).not.toHaveBeenCalled()
   })
 
   it('supports batch purchase with ingredientIds array', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockFindFirst.mockResolvedValue(mockMembership as never)
     mockIngredientFindMany.mockResolvedValue([{ id: 'ing-1' }, { id: 'ing-2' }] as never)
-    mockPantryFindMany.mockResolvedValue([])
 
     const mockUpsert = vi
       .fn()
