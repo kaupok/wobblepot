@@ -19,9 +19,9 @@
 # on `git fetch`, and a stale one omits migrations that landed on main since —
 # editing one of those then reads as `A`, the allowed status, and passes.
 #
-# Run in CI on every pull request (see .github/workflows/ci.yml). Skipped on
-# push to `main`: there is no base to diff against, and `main` is what the
-# check protects.
+# Run in CI on every pull request against the PR base sha (prevention), and on
+# every push to `main` against `github.event.before`, the previous tip
+# (detection — HON-649). See .github/workflows/ci.yml.
 set -eu
 
 BASE_REF=${1-}
