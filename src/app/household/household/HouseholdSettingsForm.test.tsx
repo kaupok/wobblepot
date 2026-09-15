@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { toast } from 'sonner'
@@ -7,6 +7,10 @@ import { NextIntlClientProvider } from 'next-intl'
 import enMessages from '../../../../messages/en.json'
 import { HouseholdSettingsForm } from './HouseholdSettingsForm'
 import { createQueryWrapper } from '@/test/query-wrapper'
+
+// The global next-intl mock has no `t.rich`, which the allergen notice needs.
+// This file already wraps in a real provider with the English catalogue.
+vi.unmock('next-intl')
 
 vi.mock('sonner', () => ({
   toast: {
@@ -158,6 +162,28 @@ describe('HouseholdSettingsForm', () => {
       expect(screen.getByLabelText('Fish')).toBeInTheDocument()
       expect(screen.getByLabelText('Shellfish')).toBeInTheDocument()
       expect(screen.getByLabelText('Sesame')).toBeInTheDocument()
+    })
+
+    it('describes the allergen group with the AI-processing notice and a privacy link', () => {
+      renderForm()
+
+      const group = screen.getByRole('group', { name: 'Allergens to avoid' })
+      expect(group).toHaveAccessibleDescription(
+        'Allergens you tick here are sent to our AI provider so meal plans avoid them. See the privacy policy for details.',
+      )
+      expect(within(group).getByLabelText('Gluten')).toBeInTheDocument()
+
+      const link = screen.getByRole('link', { name: 'privacy policy' })
+      expect(link).toHaveAttribute('href', '/privacy')
+      expect(link).toHaveAttribute('target', '_blank')
+    })
+
+    it('shows the allergen notice for non-owners too', () => {
+      renderForm({ isOwner: false })
+
+      expect(screen.getByRole('group', { name: 'Allergens to avoid' })).toHaveAccessibleDescription(
+        /sent to our AI provider/,
+      )
     })
 
     it('renders meal type checkboxes for weekday and weekend', () => {

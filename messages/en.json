@@ -821,6 +821,7 @@
       "preferencesHeading": "Dietary preferences",
       "dietaryTypeLabel": "Dietary type",
       "allergensLabel": "Allergens to avoid",
+      "allergensAiNotice": "Allergens you tick here are sent to our AI provider so meal plans avoid them. See the <privacy>privacy policy</privacy> for details.",
       "restrictionsLabel": "Dietary restrictions",
       "restrictionsPlaceholder": "e.g., low sodium, halal",
       "restrictionsHelper": "Type a restriction and press Enter or click away to add",

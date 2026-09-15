@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -342,8 +343,13 @@ export function HouseholdSettingsForm({
               </RadioGroup>
             </div>
             <div className="flex flex-col gap-2">
-              <Label>{tSettings('allergensLabel')}</Label>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <Label id="allergens-label">{tSettings('allergensLabel')}</Label>
+              <div
+                role="group"
+                aria-labelledby="allergens-label"
+                aria-describedby="allergens-ai-notice"
+                className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+              >
                 {ALLERGEN_VALUES.map((allergen) => (
                   <AllergenCheckbox
                     key={allergen}
@@ -354,6 +360,22 @@ export function HouseholdSettingsForm({
                   />
                 ))}
               </div>
+              {/* The DPIA's point-of-entry affirmation for Art. 9 allergen data
+                  (compliance/dpia.md → Risk area 2, HON-666). */}
+              <Body id="allergens-ai-notice" variant="muted">
+                {tSettings.rich('allergensAiNotice', {
+                  privacy: (chunks) => (
+                    <Link
+                      href="/privacy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
+                      {chunks}
+                    </Link>
+                  ),
+                })}
+              </Body>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="restrictions">{tSettings('restrictionsLabel')}</Label>
