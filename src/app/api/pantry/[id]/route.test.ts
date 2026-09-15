@@ -382,7 +382,12 @@ describe('PATCH /api/pantry/[id]', () => {
     })
   })
 
-  it('handles empty body gracefully (no updates)', async () => {
+  // An empty update still bumps `@updatedAt`, which the shopping-list routes read
+  // as "purchased" — so a body with nothing to write must 400 before Prisma.
+  it.each([
+    ['an empty body', {}],
+    ['a body with only an unknown key (stripped to {})', { quantitiy: 5 }],
+  ])('returns 400 for %s and writes nothing', async (_label, body) => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John', email: 'john@example.com' },
       session: { id: 'session-123' },
@@ -390,30 +395,17 @@ describe('PATCH /api/pantry/[id]', () => {
     mockFindFirstMember.mockResolvedValue(mockMembership as never)
     mockFindFirstPantry.mockResolvedValue(mockPantryItem as never)
 
-    const updatedItem = {
-      ...mockPantryItem,
-      ingredient: mockIngredient,
-    }
-    mockUpdatePantry.mockResolvedValue(updatedItem as never)
-
     const request = new Request('http://localhost/api/pantry/pantry-123', {
       method: 'PATCH',
-      body: JSON.stringify({}),
+      body: JSON.stringify(body),
     })
 
     const response = await PATCH(request, { params: Promise.resolve({ id: 'pantry-123' }) })
-    await response.json()
+    const data = await response.json()
 
-    expect(response.status).toBe(200)
-    expect(mockUpdatePantry).toHaveBeenCalledWith({
-      where: { id: 'pantry-123' },
-      data: {},
-      include: {
-        ingredient: {
-          select: { id: true, name: true, category: true, defaultUnit: true },
-        },
-      },
-    })
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Validation failed')
+    expect(mockUpdatePantry).not.toHaveBeenCalled()
   })
 
   it('returns 500 with the { error } JSON shape when the update throws', async () => {

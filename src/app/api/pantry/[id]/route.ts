@@ -15,10 +15,21 @@ import { captureApiError } from '@/lib/errors'
 // `Math.max(0, neededQty - pantry.quantity)`, which turns "500 needed, -500 on
 // hand" into 1000 to buy. The needed-quantity aggregation in `GET /api/pantry`
 // is meal-plan-only and never reads `quantity`, so it is not the one at risk.
-const updatePantryItemSchema = z.object({
-  quantity: z.number().min(0).nullable().optional(),
-  isStaple: z.boolean().optional(),
-})
+//
+// The refine rejects a body with no updatable field — `{}`, or one carrying only
+// unknown keys, which Zod strips to `{}`. Prisma would still issue that UPDATE
+// and bump `@updatedAt`, and both shopping-list routes read
+// `updatedAt >= plan createdAt` as "purchased" (HON-642). Presence is
+// `!== undefined`, not truthiness: `quantity: null`, `0` and `isStaple: false`
+// are all real updates.
+const updatePantryItemSchema = z
+  .object({
+    quantity: z.number().min(0).nullable().optional(),
+    isStaple: z.boolean().optional(),
+  })
+  .refine((data) => data.quantity !== undefined || data.isStaple !== undefined, {
+    message: 'At least one of quantity or isStaple must be provided',
+  })
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({
