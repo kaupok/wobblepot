@@ -83,9 +83,26 @@ export const NothingNeededFourteenDays: Story = {
     docs: {
       description: {
         story:
-          'The same variant at the wider window — the body copy interpolates the day count, so this is the only story that exercises `windowDays`.',
+          'The same variant at the wider window — the body copy interpolates the day count, so this is the story where `windowDays` changes the body text.',
       },
     },
+  },
+}
+
+export const AllPurchasedFourteenDays: Story = {
+  args: { variant: 'all-purchased', windowDays: 14 },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Everything bought at the wider window. Unlike `nothing-needed`, the body copy does not interpolate the day count — it is window-agnostic, so it never contradicts the picker beside it (HON-661: it used to say "stocked for the week" under a 14-day picker).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('heading', { name: 'All done!' })).toBeInTheDocument()
+    await expect(canvasElement).not.toHaveTextContent(/week/i)
   },
 }
 

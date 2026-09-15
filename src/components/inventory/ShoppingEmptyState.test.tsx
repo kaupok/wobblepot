@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ShoppingEmptyState } from './ShoppingEmptyState'
 import { WINDOW_STORAGE_KEY } from './use-shopping-window'
+import enMessages from '../../../messages/en.json'
 
 const push = vi.fn()
 const replace = vi.fn()
@@ -89,7 +90,16 @@ describe('ShoppingEmptyState', () => {
       render(<ShoppingEmptyState variant="all-purchased" />)
 
       expect(screen.getByRole('heading', { name: 'All done!' })).toBeInTheDocument()
-      expect(screen.getByText('Your pantry is stocked for the week.')).toBeInTheDocument()
+    })
+
+    // `ShoppingSection` hands this variant a live `windowDays`, so the body
+    // must not name a scope the picker beside it may contradict (HON-661).
+    it.each([7, 14])('renders window-agnostic body copy at %i days', (windowDays) => {
+      render(<ShoppingEmptyState variant="all-purchased" windowDays={windowDays} />)
+
+      const body = screen.getByText(enMessages.shopping.emptyState.allDoneBody)
+      expect(body).toBeInTheDocument()
+      expect(body.textContent).not.toMatch(/week/i)
     })
 
     // The state `ShoppingSection` hands off to once the last item is checked
