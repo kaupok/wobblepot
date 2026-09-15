@@ -143,6 +143,16 @@ jobs:
       # group still replaces a run that is pending; closing it means taking
       # `main` pushes out of the group, so every merge runs its own full job.
       #
+      # Known gap: the red is transient. Only the run for the offending push
+      # fails — the next unrelated merge diffs `before..HEAD` with no migration
+      # in it and goes green while the drift stays — and because this step runs
+      # first, that one red run also skips lint, tests and E2E for its push.
+      # Act on the failure when it fires; the badge will not keep it for you.
+      # A durable tree-state check (each migration at HEAD against the blob it
+      # was first added with) was not taken here: `main` already carries two
+      # legitimate edits to migrations that had failed to apply (#181, #356),
+      # so it needs a pinned allowlist — tracked as a follow-up to HON-649.
+      #
       # Recovery is a revert, not a fix-forward. `migrate deploy` never
       # re-applies a migration it has recorded, so staging and production still
       # hold the checksum of the ORIGINAL SQL; only restoring those bytes clears
