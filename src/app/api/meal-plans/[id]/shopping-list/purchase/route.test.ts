@@ -175,6 +175,46 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
     expect(data.error).toBe('Validation failed')
   })
 
+  it('returns 400 naming ingredientIds for an empty ingredientIds array', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
+
+    const response = await POST(createRequest({ ingredientIds: [] }), { params: createParams() })
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Validation failed')
+    expect(data.details.ingredientIds).toBeDefined()
+    expect(mockFindManyIngredient).not.toHaveBeenCalled()
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 rather than dropping ingredientId when ingredientIds is empty', async () => {
+    // `ingredientIds ?? [ingredientId]` would pick the empty array and purchase
+    // nothing, so the contradictory request is rejected instead (HON-659).
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
+
+    const response = await POST(createRequest({ ingredientId: 'ing-1', ingredientIds: [] }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Validation failed')
+    expect(data.details.ingredientIds).toBeDefined()
+    expect(mockFindManyIngredient).not.toHaveBeenCalled()
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
   it('returns 400 when ingredient does not exist', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John', email: 'john@example.com' },

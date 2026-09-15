@@ -118,6 +118,36 @@ describe('POST /api/shopping-list/purchase', () => {
     expect(data.error).toBe('Validation failed')
   })
 
+  it('returns 400 naming ingredientIds for an empty ingredientIds array', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+
+    const response = await POST(createRequest({ ingredientIds: [] }))
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Validation failed')
+    expect(data.details.ingredientIds).toBeDefined()
+    expect(mockIngredientFindMany).not.toHaveBeenCalled()
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 rather than dropping ingredientId when ingredientIds is empty', async () => {
+    // `ingredientIds ?? [ingredientId]` would pick the empty array and purchase
+    // nothing, so the contradictory request is rejected instead (HON-659).
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+
+    const response = await POST(createRequest({ ingredientId: 'ing-1', ingredientIds: [] }))
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Validation failed')
+    expect(data.details.ingredientIds).toBeDefined()
+    expect(mockIngredientFindMany).not.toHaveBeenCalled()
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
   it('returns 400 for invalid ingredient IDs', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockFindFirst.mockResolvedValue(mockMembership as never)
