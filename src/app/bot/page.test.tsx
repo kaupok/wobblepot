@@ -11,4 +11,11 @@ describe('BotPage', () => {
       'mailto:privacy@wobblepot.com',
     )
   })
+
+  it('shows the bot user-agent and robots token (HON-670)', () => {
+    render(<BotPage />)
+    // Literals on purpose: asserting against the bot-identity constants would pass whatever they became.
+    expect(screen.getByText('Wobblepot-Bot/1.0 (+https://wobblepot.com/bot)')).toBeInTheDocument()
+    expect(screen.getAllByText('Wobblepot-Bot/1.0', { selector: 'code' })).toHaveLength(3)
+  })
 })
