@@ -287,8 +287,27 @@ describe('cn utility function', () => {
         `@utility ${missing.join(', ')} is declared in globals.css but not in CUSTOM_UTILITY_CLASS_GROUPS in src/lib/utils.ts. Until it is, tailwind-merge does not know which group it belongs to and keeps both sides of any conflict on it, so every className override of it silently stops working.`,
       ).toEqual([])
 
-      // Behavioural, not a name comparison: a utility filed under the wrong
-      // class group satisfies the diff above while still merging as unregistered.
+      // Structural, and it has to come before the behavioural check below, which
+      // builds its probe class out of the group key. On its own that probe is
+      // circular: file `max-h-dialog` under `max-w` and it is probed with
+      // `max-w-0`, which it now genuinely conflicts with, so the check passes
+      // while `cn('max-h-dialog', 'max-h-96')` still keeps both classes. Pinning
+      // the group key to the class name's own prefix is what closes that loop —
+      // tailwind-merge groups by prefix, so a `max-h-*` class belongs to `max-h`
+      // and nowhere else.
+      const misfiled = Object.entries(CUSTOM_UTILITY_CLASS_GROUPS).flatMap(([group, names]) =>
+        (names as readonly string[])
+          .filter((name) => !name.startsWith(`${group}-`))
+          .map((name) => `${name} (filed under ${group})`),
+      )
+      expect(
+        misfiled,
+        `${misfiled.join(', ')} in CUSTOM_UTILITY_CLASS_GROUPS in src/lib/utils.ts does not start with its own group key, so tailwind-merge will resolve it against the wrong family of classes and leave its real conflicts unresolved.`,
+      ).toEqual([])
+
+      // Behavioural, not a name comparison: a utility that reaches
+      // `extend.classGroups` under a key tailwind-merge does not recognise
+      // satisfies both diffs above while still merging as if unregistered.
       const unresolved = Object.entries(CUSTOM_UTILITY_CLASS_GROUPS).flatMap(([group, names]) =>
         (names as readonly string[]).filter((name) => {
           const other = `${group}-0`

@@ -332,17 +332,22 @@ fi
 #     is where the composition rules become visible at all (HON-610). A .ts there is
 #     deliberately excluded: design-rules.ts implements the mechanical checks, it does
 #     not render anything a reject-list item could apply to.
-# The mechanical rules are not the reviewer's job either way. design-rules.ts asserts
-# four of them against the scenario DOM in `pnpm test-storybook:ci`, and five
-# @shadcn/lint rules cover the static half in `pnpm lint` — raw and undeclared colours,
-# arbitrary values, unknown classes, inline styles, and dynamic classNames on a
-# design-system component's callsite (a template literal on a plain <div> is still
-# nobody's job, so it is fair game for a finding) (HON-673). Both
-# are already red on the PR before the reviewer runs, so a finding that merely repeats
-# one costs a review round and tells nobody anything. Ask for judgment instead: the
-# Reject list and Composition rules items below are the ones no checker can see.
 # Each omission would have handed the affirmative "no UI files" claim to a diff the
 # guide speaks directly to — the same false negative the guard above prevents.
+#
+# Note for whoever edits DESIGN_PROMPT below, not an instruction the reviewer sees:
+# the mechanical half of the reject list is already checked twice before a review
+# runs. design-rules.ts asserts four rules against the scenario DOM in
+# `pnpm test-storybook:ci`, and five @shadcn/lint rules run in `pnpm lint` — raw and
+# undeclared colours, arbitrary values, unknown classes, inline styles, and dynamic
+# classNames on a design-system component's callsite (HON-673). Both are red on the
+# PR before the reviewer starts, so those findings arrive by a cheaper route. That is
+# an argument for keeping the prompt below pointed at the Reject list and Composition
+# rules — judgment no checker can make — and not for adding mechanical checks to it.
+# It is deliberately NOT in the prompt: telling the reviewer a class of finding is
+# "covered" invites it to skip a real one, and `no-raw-colors` and
+# `require-static-classes` both have real gaps (a `dark:` override on a semantic
+# token; a template literal on a plain <div>).
 UI_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^src/(components|app|stories)/.*\.(tsx|css)$' || true)
 
 if [ -n "$UI_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
