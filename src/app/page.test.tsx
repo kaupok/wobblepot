@@ -367,6 +367,9 @@ describe('Home page component', () => {
     })
   })
 
+  // Pins the route contract rather than page logic: `if (prefsResponse.ok)`
+  // already short-circuits every non-ok response. The null-body sibling above is
+  // the one that covers the crash.
   it('renders timeline view with default meal types when preferences returns 404', async () => {
     const { TimelineView } = await import('@/components/timeline')
     await mockAuthedHouseholdSession()

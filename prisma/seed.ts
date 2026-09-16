@@ -4034,11 +4034,11 @@ async function upsertCredentialUser(spec: TestUserSpec) {
  * user's household membership (household name has no unique constraint),
  * so re-running the seed is a no-op.
  *
- * The `household_preferences` row is part of that guarantee. Both real creation
- * paths — `createHouseholdForUser` and `POST /api/households` — write it in the
- * same transaction; this seed used to be the only creator that skipped it, which
- * crashed the dashboard render for the smoke household (HON-672). It is written
- * on the early-return path too, so an existing household without one is
+ * The `household_preferences` row is part of that guarantee. The only live
+ * creation path — `POST /api/households`, which onboarding calls — writes it in
+ * the same transaction. This seed was the other creator and it skipped the row,
+ * which crashed the dashboard render for the smoke household (HON-672). It is
+ * written on the early-return path too, so an existing household without one is
  * backfilled by the next seed run rather than needing manual SQL.
  */
 async function ensureSmokeHousehold(userId: string): Promise<string> {
