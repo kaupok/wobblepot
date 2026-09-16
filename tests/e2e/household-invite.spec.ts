@@ -1,4 +1,4 @@
-// ROUTES: /household, /invite/[code] · COMPONENTS: AddMemberDialog, MemberInviteDialog, JoinHouseholdCard
+// ROUTES: /household, /invite/[code], / · COMPONENTS: AddMemberDialog, MemberInviteDialog, MemberCard, MemberList, JoinHouseholdCard
 import { test, expect, type Page } from '@playwright/test'
 import { generateUniqueEmail, signUp, signUpWithHousehold } from './utils/test-helpers'
 

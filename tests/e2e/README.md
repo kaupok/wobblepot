@@ -24,6 +24,12 @@ bill. They are also excluded from tiers 2 and 3 (HON-560): every current
 where the rate-limit bypass is active (CI/test/dev) — preview and staging
 404 it by design. `@ai` specs run via `pnpm test:e2e:local --ai`.
 
+Out of CI does not mean unrun: that command is a **manual step on the
+production-promotion checklist** ([`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md)
+§ Production Deployment Process, step 3), because these specs are meal-plan
+generation's only coverage. HON-667 settled that shape — no Anthropic mock in
+E2E, no scheduled `@ai` run.
+
 ### Running preview-smoke on a PR
 
 Preview-smoke is **label-gated**: add the `smoke` label to the PR and
@@ -208,7 +214,7 @@ Every `tests/e2e/*.spec.ts` file carries a single-line header comment as its fir
 
 Format:
 
-- `ROUTES:` — comma-separated list of URL pathnames the spec visits (including `/` for home). Parameterised routes use `:param` placeholders (e.g. `/meal-plans/:id`).
+- `ROUTES:` — comma-separated list of URL pathnames the spec visits (including `/` for home). Parameterised routes use the App Router's own `[param]` segment name, so a header pathname is greppable against the route directory it maps to: `/invite/[code]`, not `/invite/:code`. (The rule read `:param` until HON-667; no spec ever followed it — `auth-redirect.spec.ts` and `household-invite.spec.ts`, the only two specs visiting a dynamic route, both write `[code]`.)
 - `COMPONENTS:` — comma-separated list of React component names the spec exercises. Prefer the component's filename export (e.g. `SignUpForm`, not "the sign-up form"). Parenthetical qualifiers (e.g. `Header (User menu)`) are allowed when a single component hosts the assertion target.
 - Separator: `·` (U+00B7 middle dot) between ROUTES and COMPONENTS.
 - Keep it on one line so it stays grep-friendly — `grep -l 'ROUTES.*/profile' tests/e2e/` should cheaply return every spec that touches `/profile`.
