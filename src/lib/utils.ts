@@ -24,8 +24,40 @@ import { extendTailwindMerge } from 'tailwind-merge'
  */
 export const CUSTOM_SPACING_VALUES = ['touch'] as const
 
+/**
+ * Every custom `@utility` declared in `src/app/globals.css`, mapped to the
+ * tailwind-merge class group it belongs to (HON-673).
+ *
+ * `CUSTOM_SPACING_VALUES` is the wrong list for these: it feeds
+ * `extend.theme.spacing`, which makes a *value* (`touch`) a member of every
+ * spacing-shaped group at once. An `@utility` is a whole class name, not a
+ * value, and `grid-cols-timeline` is not a spacing group at all — so they are
+ * registered as `classGroups` members instead.
+ *
+ * Without this, tailwind-merge treats the name as unknown and keeps both sides
+ * of a conflict: `cn('max-h-dialog', 'max-h-96')` returned both classes, where
+ * the `max-h-[85vh]` it replaced correctly lost to the later one. Three modals
+ * pass `max-h-dialog` through `DialogContent`'s `cn(base, className)`, so this
+ * is the same silent hole `h-touch` had before HON-626 — see the note above.
+ *
+ * Must stay in sync with `globals.css`; `utils.test.ts` fails if the two drift.
+ */
+export const CUSTOM_UTILITY_CLASS_GROUPS = {
+  'max-h': ['max-h-dialog'],
+  'max-w': ['max-w-page'],
+  'min-h': ['min-h-screen-below-header', 'min-h-screen-below-header-gutters'],
+  'grid-cols': ['grid-cols-timeline'],
+} as const
+
 const twMerge = extendTailwindMerge({
-  extend: { theme: { spacing: [...CUSTOM_SPACING_VALUES] } },
+  extend: {
+    theme: { spacing: [...CUSTOM_SPACING_VALUES] },
+    // Spread rather than re-listed, so the const above is the only place a
+    // utility is named. `readonly` has to be widened for tailwind-merge's type.
+    classGroups: Object.fromEntries(
+      Object.entries(CUSTOM_UTILITY_CLASS_GROUPS).map(([group, names]) => [group, [...names]]),
+    ),
+  },
 })
 
 export function cn(...inputs: ClassValue[]) {

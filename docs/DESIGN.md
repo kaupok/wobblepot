@@ -86,7 +86,7 @@ Spacing rhythm as used today (Tailwind steps, 4px each):
 - Never reach for a raw palette class (`text-amber-700`, `bg-green-100`). Every emphasis-on-muted pairing is measured at ≥5:1 in both themes; a hand-picked shade is unmeasured. `UI/Tokens` in Storybook renders every pairing as real text, so the axe gate re-measures them on each run.
 - Never write a `dark:` override for a semantic token. Tokens already switch. There are no raw palette classes left under `src/**/*.tsx`, so a new `dark:` colour override means you have gone around the tokens.
 
-  `shadcn/no-raw-colors` now owns this rule: it runs on every `pnpm lint`, covers the whole palette rather than the six hues below, and also catches a colour class naming a token that `globals.css` never declared — which is how `text-destructive-foreground` sat on two destructive dialog actions generating no CSS at all until HON-673 found it. The two greps stay as a manual cross-check, because the lint rule does not read classes assembled at runtime and skips tests and stories:
+  `shadcn/no-raw-colors` now owns this rule: it runs on every `pnpm lint`, covers the whole palette rather than the six hues below, and also catches a colour class naming a token that `globals.css` never declared — which is how `text-destructive-foreground` sat on two destructive dialog actions generating no CSS at all until HON-673 found it. The two greps stay as a manual cross-check — **both must return empty** — because the lint rule does not read classes assembled at runtime and skips tests and stories:
 
   ```bash
   grep -rnE "(bg|text|border|fill)-(red|green|blue|amber|orange|yellow)-[0-9]{2,3}" src --include='*.tsx' | grep -v stories

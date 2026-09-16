@@ -67,9 +67,12 @@
    `shadcn/no-arbitrary-values` reports the copies). Each one is a shared layout
    constant: change it here and every callsite moves with it.
 
-   These are `@utility`, not `--spacing-*` tokens, so they need no entry in
-   CUSTOM_SPACING_VALUES (src/lib/utils.ts) — tailwind-merge only groups the
-   spacing scale, and none of them is ever merged against a competing class. */
+   These are `@utility`, not `--spacing-*` tokens, so CUSTOM_SPACING_VALUES
+   (src/lib/utils.ts) is the wrong list for them — it feeds extend.theme.spacing,
+   which registers a *value*, not a whole class name. They go in
+   CUSTOM_UTILITY_CLASS_GROUPS instead, so tailwind-merge resolves
+   cn('max-h-dialog', 'max-h-96') the way it resolved cn('max-h-[85vh]', …).
+   Adding one here without adding it there fails utils.test.ts. */
 
 /* Fills the viewport below the fixed header. The 4rem is the header's own
    h-16 row (src/components/header.tsx); its safe-area top padding sits outside
@@ -99,7 +102,7 @@
 /* The one page width (docs/DESIGN.md → Composition rules → "One page width",
    HON-376), shared by the main column, the header row and the footer row.
    Literal px on purpose: 1152px is an absolute cap, so it must not scale with
-   the root font size the way the scale value `max-w-page` (= 72rem) would. */
+   the root font size the way the scale value `max-w-288` (= 72rem) would. */
 @utility max-w-page {
   max-width: 1152px;
 }

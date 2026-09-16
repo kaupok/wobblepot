@@ -335,7 +335,9 @@ fi
 # The mechanical rules are not the reviewer's job either way. design-rules.ts asserts
 # four of them against the scenario DOM in `pnpm test-storybook:ci`, and five
 # @shadcn/lint rules cover the static half in `pnpm lint` — raw and undeclared colours,
-# arbitrary values, unknown classes, inline styles, dynamic classNames (HON-673). Both
+# arbitrary values, unknown classes, inline styles, and dynamic classNames on a
+# design-system component's callsite (a template literal on a plain <div> is still
+# nobody's job, so it is fair game for a finding) (HON-673). Both
 # are already red on the PR before the reviewer runs, so a finding that merely repeats
 # one costs a review round and tells nobody anything. Ask for judgment instead: the
 # Reject list and Composition rules items below are the ones no checker can see.

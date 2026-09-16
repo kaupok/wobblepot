@@ -2,7 +2,13 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { CUSTOM_SPACING_VALUES, cn, getValidReturnUrl, prefersReducedMotion } from './utils'
+import {
+  CUSTOM_SPACING_VALUES,
+  CUSTOM_UTILITY_CLASS_GROUPS,
+  cn,
+  getValidReturnUrl,
+  prefersReducedMotion,
+} from './utils'
 
 describe('cn utility function', () => {
   it('merges multiple class names', () => {
@@ -238,6 +244,66 @@ describe('cn utility function', () => {
       expect(
         stale,
         `CUSTOM_SPACING_VALUES in src/lib/utils.ts lists ${stale.join(', ')}, which is no longer declared in any @theme block. Remove it.`,
+      ).toEqual([])
+    })
+
+    // The same guard, one level up: an `@utility` is a whole class name rather
+    // than a spacing value, so it needs `extend.classGroups`, not
+    // `extend.theme.spacing` (HON-673). Unregistered, tailwind-merge keeps both
+    // sides of a conflict — `max-h-dialog` reaches three modals through
+    // `DialogContent`'s `cn(base, className)`, where the `max-h-[85vh]` it
+    // replaced used to lose to a later `max-h-*` correctly.
+    const declaredUtilities = (): string[] => {
+      const cssFiles = readdirSync(srcDir, { recursive: true, encoding: 'utf8' }).filter((file) =>
+        file.endsWith('.css'),
+      )
+
+      expect(
+        cssFiles,
+        `No stylesheet found under ${srcDir}, so this guard would pass by reading nothing.`,
+      ).not.toEqual([])
+
+      const declared = new Set<string>()
+
+      for (const file of cssFiles) {
+        // Strip block comments, so the prose above the declarations — which
+        // names three of the utilities — cannot register them for free.
+        const css = readFileSync(join(srcDir, file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+        for (const [, name = ''] of css.matchAll(/@utility\s+([a-zA-Z0-9-]+)/g)) {
+          declared.add(name)
+        }
+      }
+
+      return [...declared]
+    }
+
+    it('registers every @utility with tailwind-merge', () => {
+      const declared = declaredUtilities()
+      const registered = new Set<string>(Object.values(CUSTOM_UTILITY_CLASS_GROUPS).flat())
+
+      const missing = declared.filter((name) => !registered.has(name))
+      expect(
+        missing,
+        `@utility ${missing.join(', ')} is declared in globals.css but not in CUSTOM_UTILITY_CLASS_GROUPS in src/lib/utils.ts. Until it is, tailwind-merge does not know which group it belongs to and keeps both sides of any conflict on it, so every className override of it silently stops working.`,
+      ).toEqual([])
+
+      // Behavioural, not a name comparison: a utility filed under the wrong
+      // class group satisfies the diff above while still merging as unregistered.
+      const unresolved = Object.entries(CUSTOM_UTILITY_CLASS_GROUPS).flatMap(([group, names]) =>
+        (names as readonly string[]).filter((name) => {
+          const other = `${group}-0`
+          return cn(name, other) !== other
+        }),
+      )
+      expect(
+        unresolved,
+        `tailwind-merge does not resolve ${unresolved.join(', ')} against its own class group — a later conflicting class did not win. Check the group key in CUSTOM_UTILITY_CLASS_GROUPS in src/lib/utils.ts.`,
+      ).toEqual([])
+
+      const stale = [...registered].filter((name) => !declared.includes(name))
+      expect(
+        stale,
+        `CUSTOM_UTILITY_CLASS_GROUPS in src/lib/utils.ts lists ${stale.join(', ')}, which is no longer declared with @utility in globals.css. Remove it.`,
       ).toEqual([])
     })
   })

@@ -113,22 +113,24 @@ const config = defineConfig([
     },
   },
 
-  // shadcn/ui primitives are generated from the registry and re-pulled verbatim,
-  // so their arbitrary values (`top-[50%]`, `translate-x-[-50%]`, `ring-[3px]`,
-  // `min-w-[8rem]`, `h-[var(--radix-select-trigger-height)]` …) are upstream's,
-  // not ours — rewriting them would be undone by the next `shadcn add`. The
-  // other four rules still apply here.
+  // Arbitrary values inside the shadcn/ui primitives we pull from the registry
+  // (`top-[50%]`, `translate-x-[-50%]`, `ring-[3px]`, `min-w-[8rem]`,
+  // `h-[var(--radix-select-trigger-height)]` …) are upstream's, not ours —
+  // rewriting them would be undone by the next `shadcn add`. The other four
+  // rules still apply to these files.
   //
-  // That rationale is provenance, not location, so the three files under this
-  // directory that we wrote ourselves are excluded from the exemption: `shadcn
-  // add` will never overwrite them, and an arbitrary value there is ours to fix.
-  // Keep this list in step with what is actually pulled from the registry.
+  // The exemption is an explicit list rather than `src/components/ui/**`,
+  // because the rationale is provenance, not location: `confirm-dialog.tsx`,
+  // `number-input.tsx` and `typography.tsx` live here but are ours, and a
+  // directory glob would exempt them — and every future hand-written primitive —
+  // silently. Listed this way a new file is covered by the rule by default, and
+  // a genuinely new registry component announces itself as a red build with an
+  // obvious fix. Regenerate the list from what `shadcn add` actually installed.
   {
-    files: ['src/components/ui/**/*.{ts,tsx}'],
-    ignores: [
-      'src/components/ui/confirm-dialog.tsx',
-      'src/components/ui/number-input.tsx',
-      'src/components/ui/typography.tsx',
+    files: [
+      'src/components/ui/{alert-dialog,badge,button,card,checkbox,collapsible}.tsx',
+      'src/components/ui/{dialog,dropdown-menu,input,label,radio-group,select}.tsx',
+      'src/components/ui/{separator,sheet,skeleton,table,textarea,tooltip}.tsx',
     ],
     rules: { 'shadcn/no-arbitrary-values': 'off' },
   },
