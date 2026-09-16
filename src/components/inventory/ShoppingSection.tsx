@@ -441,7 +441,7 @@ export function ShoppingSection({
         )}
         {mounted && (
           <Select value={sortMode} onValueChange={handleSortModeChange}>
-            <SelectTrigger size="sm" className="w-[150px]" aria-label={tShopping('ariaSort')}>
+            <SelectTrigger size="sm" className="w-37.5" aria-label={tShopping('ariaSort')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

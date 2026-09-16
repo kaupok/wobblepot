@@ -3,7 +3,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 export default function HomeLoading() {
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="lg:grid-cols-timeline grid gap-6">
         {/* Left column: meals */}
         <div className="flex flex-col gap-6">
           {/* Today's meals heading */}

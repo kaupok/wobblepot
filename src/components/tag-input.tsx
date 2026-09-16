@@ -72,7 +72,7 @@ const TagInput = forwardRef<TagInputRef, TagInputProps>(function TagInput(
       data-testid="tag-input-container"
       className={cn(
         'border-input dark:bg-input/30 min-h-touch flex w-full flex-wrap items-center gap-1.5 rounded-md border bg-transparent px-3 py-1.5 shadow-xs transition-[color,box-shadow] md:min-h-9',
-        'focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]',
+        'focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-3',
         disabled && 'cursor-not-allowed opacity-50',
         className,
       )}
@@ -105,7 +105,7 @@ const TagInput = forwardRef<TagInputRef, TagInputProps>(function TagInput(
         // `items-center`, which the badges need but which would otherwise
         // shrink this field to its 20px line box and leave 12px of dead
         // space above and below it inside a 44px control.
-        className="placeholder:text-muted-foreground min-w-[120px] flex-1 self-stretch bg-transparent text-sm outline-none disabled:cursor-not-allowed"
+        className="placeholder:text-muted-foreground min-w-30 flex-1 self-stretch bg-transparent text-sm outline-none disabled:cursor-not-allowed"
       />
     </div>
   )

@@ -62,6 +62,51 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* Values that no Tailwind token or scale value can express, declared once here
+   instead of being copied as an arbitrary value at every callsite (HON-673 —
+   `shadcn/no-arbitrary-values` reports the copies). Each one is a shared layout
+   constant: change it here and every callsite moves with it.
+
+   These are `@utility`, not `--spacing-*` tokens, so CUSTOM_SPACING_VALUES
+   (src/lib/utils.ts) is the wrong list for them — it feeds extend.theme.spacing,
+   which registers a *value*, not a whole class name. They go in
+   CUSTOM_UTILITY_CLASS_GROUPS instead, so tailwind-merge resolves
+   cn('max-h-dialog', 'max-h-96') the way it resolved cn('max-h-[85vh]', …).
+   Adding one here without adding it there fails utils.test.ts. */
+
+/* Fills the viewport below the fixed header. The 4rem is the header's own
+   h-16 row (src/components/header.tsx); its safe-area top padding sits outside
+   this, exactly as the 25 hand-written copies had it. */
+@utility min-h-screen-below-header {
+  min-height: calc(100vh - 4rem);
+}
+
+/* As above, but also minus the `py-8` gutters of the `container` it sits in
+   (2rem top + 2rem bottom), so a centred card fills the page without scrolling. */
+@utility min-h-screen-below-header-gutters {
+  min-height: calc(100vh - 8rem);
+}
+
+/* Tallest a dialog body may grow before it scrolls internally. Shared by every
+   modal so they all stop at the same place. */
+@utility max-h-dialog {
+  max-height: 85vh;
+}
+
+/* The timeline's two-column desktop layout: content plus a fixed 320px sidebar.
+   Used by both the page and its loading skeleton, which must not drift apart. */
+@utility grid-cols-timeline {
+  grid-template-columns: 1fr 320px;
+}
+
+/* The one page width (docs/DESIGN.md → Composition rules → "One page width",
+   HON-376), shared by the main column, the header row and the footer row.
+   Literal px on purpose: 1152px is an absolute cap, so it must not scale with
+   the root font size the way the scale value `max-w-288` (= 72rem) would. */
+@utility max-w-page {
+  max-width: 1152px;
+}
+
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);

@@ -3,6 +3,7 @@ import nextVitals from 'eslint-config-next/core-web-vitals'
 import nextTs from 'eslint-config-next/typescript'
 import testingLibrary from 'eslint-plugin-testing-library'
 import storybook from 'eslint-plugin-storybook'
+import { plugin as shadcn } from '@shadcn/lint'
 
 const config = defineConfig([
   // Next.js + TypeScript base rules (native flat config)
@@ -53,6 +54,85 @@ const config = defineConfig([
         },
       ],
     },
+  },
+
+  // @shadcn/lint (HON-673). The five rules whose findings need no per-component
+  // judgment, as CI errors. The sixth — `no-restyle`, the one the plugin exists
+  // for — is registered `off` at the bottom of this block; HON-674 (layout,
+  // shape, spacing) and HON-675 (typography, colour) turn it on and reuse this
+  // block and the `src/components/ui/**` override below.
+  //
+  // Tests and stories are excluded wholesale, through `ignores` rather than
+  // per-line disables: test fixtures use fake class names on purpose (`class-1`,
+  // `custom-class`) and stories size their canvas with arbitrary values. Neither
+  // ships. The plugin reads `components.json` and `src/app/globals.css` itself,
+  // so it already knows our primitives, theme tokens, and `@utility` names.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['**/*.{test,spec}.{ts,tsx}', '**/*.stories.tsx'],
+    plugins: { shadcn },
+    settings: {
+      shadcn: {
+        note: 'See docs/DESIGN.md.',
+        // `buttonVariants` is our own cva factory (src/components/ui/button.tsx),
+        // so a className built from it is the design system speaking, not a
+        // string the callsite assembled. Without this, `require-static-classes`
+        // reports every `buttonVariants({ variant: 'destructive' })` — pushing
+        // callsites back to hand-copying the variant's classes, which is the
+        // drift the rule exists to prevent. `cva` and `tv` are built in; this
+        // adds the one factory we export.
+        variantFunctions: ['buttonVariants'],
+      },
+    },
+    rules: {
+      'shadcn/no-raw-colors': 'error',
+      'shadcn/no-inline-styles': 'error',
+      'shadcn/no-arbitrary-values': [
+        'error',
+        {
+          allow: [
+            // Device safe-area insets. No theme token or scale value can express
+            // `env()`, and the calc() composition differs at each of the four
+            // callsites, so the class is the clearest place for it to live.
+            '*env(safe-area-inset-*',
+            // shadcn's own colour+shadow transition idiom. `src/components/ui/**`
+            // is exempt below, but `tag-input.tsx` mirrors `input.tsx` and must
+            // not drift from it. There is no non-arbitrary spelling that means
+            // the same thing: `transition-colors` drops box-shadow and
+            // `transition-shadow` drops colour — they replace, not compose.
+            'transition-[color,box-shadow]',
+          ],
+        },
+      ],
+      'shadcn/no-unknown-classes': 'error',
+      'shadcn/require-static-classes': 'error',
+      // Off on purpose. It needs per-component contracts, and the ~134 findings
+      // on the type primitives need a design decision first (DESIGN.md → Open
+      // questions). See HON-674 and HON-675.
+      'shadcn/no-restyle': 'off',
+    },
+  },
+
+  // Arbitrary values inside the shadcn/ui primitives we pull from the registry
+  // (`top-[50%]`, `translate-x-[-50%]`, `ring-[3px]`, `min-w-[8rem]`,
+  // `h-[var(--radix-select-trigger-height)]` …) are upstream's, not ours —
+  // rewriting them would be undone by the next `shadcn add`. The other four
+  // rules still apply to these files.
+  //
+  // The exemption is an explicit list rather than `src/components/ui/**`,
+  // because the rationale is provenance, not location: `confirm-dialog.tsx`,
+  // `number-input.tsx` and `typography.tsx` live here but are ours, and a
+  // directory glob would exempt them — and every future hand-written primitive —
+  // silently. Listed this way a new file is covered by the rule by default, and
+  // a genuinely new registry component announces itself as a red build with an
+  // obvious fix. Regenerate the list from what `shadcn add` actually installed.
+  {
+    files: [
+      'src/components/ui/{alert-dialog,badge,button,card,checkbox,collapsible}.tsx',
+      'src/components/ui/{dialog,dropdown-menu,input,label,radio-group,select}.tsx',
+      'src/components/ui/{separator,sheet,skeleton,table,textarea,tooltip}.tsx',
+    ],
+    rules: { 'shadcn/no-arbitrary-values': 'off' },
   },
 
   // Testing Library rules (only for test files)

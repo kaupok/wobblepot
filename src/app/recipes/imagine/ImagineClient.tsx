@@ -248,7 +248,7 @@ export function ImagineClient() {
   }
 
   return (
-    <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
+    <div className="min-h-screen-below-header grid place-items-center p-4">
       <div className="w-full max-w-4xl">
         <Card>
           <CardHeader>

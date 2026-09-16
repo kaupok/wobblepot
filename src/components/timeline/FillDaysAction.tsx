@@ -109,7 +109,7 @@ export function FillDaysAction({ planId, firstEmptyDate }: FillDaysActionProps) 
               {tFill('label', { dateRange: dateRangeLabel })}
             </Body>
             <Select value={days} onValueChange={setDays}>
-              <SelectTrigger className="w-[100px]" aria-label={tFill('ariaDays')}>
+              <SelectTrigger className="w-25" aria-label={tFill('ariaDays')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

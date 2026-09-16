@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { Input } from '@/components/ui/input'
@@ -340,7 +340,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
             <AlertDialogCancel>{t('discardDialog.keepEditing')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDiscard}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className={buttonVariants({ variant: 'destructive' })}
             >
               {t('discardDialog.discard')}
             </AlertDialogAction>

@@ -140,7 +140,7 @@ export default async function RootLayout({
                 <Header />
                 <main
                   id="main-content"
-                  className="mx-auto min-h-screen max-w-[1152px] pt-[calc(4rem+env(safe-area-inset-top,0px))] pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0"
+                  className="max-w-page mx-auto min-h-screen pt-[calc(4rem+env(safe-area-inset-top,0px))] pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0"
                 >
                   {children}
                 </main>

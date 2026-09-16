@@ -49,7 +49,7 @@ function ListControls() {
         {tShopping('clearChecked')}
       </Button>
       <Select defaultValue="category">
-        <SelectTrigger size="sm" className="w-[150px]" aria-label={tShopping('ariaSort')}>
+        <SelectTrigger size="sm" className="w-37.5" aria-label={tShopping('ariaSort')}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -118,7 +118,7 @@ export const Populated: Story = {
     docs: {
       description: {
         story:
-          "`ShoppingSection`'s header at its busiest — all three list controls plus the window picker. None of them can shrink (`Button`'s cva base is `shrink-0 whitespace-nowrap`, the sort select is `w-[150px]`, this one `w-[100px]`), so at the default 390px viewport the row wraps rather than overflowing the card. This is the case the wrap exists for.",
+          "`ShoppingSection`'s header at its busiest — all three list controls plus the window picker. None of them can shrink (`Button`'s cva base is `shrink-0 whitespace-nowrap`, the sort select is `w-37.5` and this one `w-25` (150px and 100px at the default root font size)), so at the default 390px viewport the row wraps rather than overflowing the card. This is the case the wrap exists for.",
       },
     },
   },

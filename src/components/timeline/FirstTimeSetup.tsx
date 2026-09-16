@@ -92,7 +92,7 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
   return (
     <>
       {isGenerating && <GeneratingOverlay />}
-      <div className="container mx-auto flex min-h-[calc(100vh-8rem)] items-center justify-center px-4 py-8">
+      <div className="min-h-screen-below-header-gutters container mx-auto flex items-center justify-center px-4 py-8">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center gap-6 pt-8 pb-8">
             <div className="bg-primary/10 flex h-16 w-16 items-center justify-center rounded-full">

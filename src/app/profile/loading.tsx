@@ -2,7 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 export default function ProfileLoading() {
   return (
-    <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
+    <div className="min-h-screen-below-header grid place-items-center p-4">
       <div className="w-full max-w-md rounded-lg border p-6">
         {/* Card header */}
         <div className="mb-6 flex flex-col gap-2">

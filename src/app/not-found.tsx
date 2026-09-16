@@ -12,7 +12,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function NotFound() {
   const t = await getTranslations('errors.notFound')
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center gap-4 p-8">
+    <div className="min-h-screen-below-header flex flex-col items-center justify-center gap-4 p-8">
       <div className="max-w-md text-center">
         <div className="flex flex-col gap-3">
           <Heading variant="h2">{t('title')}</Heading>

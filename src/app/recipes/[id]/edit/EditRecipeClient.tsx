@@ -65,7 +65,7 @@ export function EditRecipeClient({ mealId }: EditRecipeClientProps) {
   // error branch below.
   if (isPending) {
     return (
-      <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
+      <div className="min-h-screen-below-header grid place-items-center p-4">
         <Loader2 className="h-6 w-6 animate-spin" />
       </div>
     )
@@ -74,7 +74,7 @@ export function EditRecipeClient({ mealId }: EditRecipeClientProps) {
   if (error || !meal) {
     const isNotFound = error instanceof ApiError && error.status === 404
     return (
-      <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
+      <div className="min-h-screen-below-header grid place-items-center p-4">
         <div className="flex flex-col items-center gap-4 text-center">
           <Body variant="muted">{isNotFound ? t('mealNotFound') : t('loadFailed')}</Body>
           <Button asChild variant="outline">
@@ -86,7 +86,7 @@ export function EditRecipeClient({ mealId }: EditRecipeClientProps) {
   }
 
   return (
-    <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
+    <div className="min-h-screen-below-header grid place-items-center p-4">
       <MealForm meal={meal} onSuccess={handleSuccess} onCancel={handleCancel} />
     </div>
   )

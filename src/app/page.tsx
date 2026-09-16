@@ -72,7 +72,7 @@ export default async function Home() {
   if (!session) {
     const t = await getTranslations('landing')
     return (
-      <div className="grid min-h-[calc(100vh-4rem)] place-items-center px-4">
+      <div className="min-h-screen-below-header grid place-items-center px-4">
         <main className="flex max-w-2xl flex-col items-center gap-8 text-center">
           <div className="flex flex-col gap-4">
             <Heading>{t('headline')}</Heading>

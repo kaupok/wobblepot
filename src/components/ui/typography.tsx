@@ -133,6 +133,13 @@ export const Code = React.forwardRef<HTMLElement, React.HTMLAttributes<HTMLEleme
     <code
       ref={ref}
       className={cn(
+        // WHY: 0.3rem/0.2rem are off the spacing scale and have no on-scale
+        // equivalent — Tailwind's multiplier takes .25/.5/.75 steps only, so
+        // `px-1.2`/`py-0.8` generate no CSS at all (`no-unknown-classes` catches
+        // that). Snapping to `px-1.5 py-0.5` would move an inline code chip by
+        // 1.2px in each axis, which is a design change this PR is not the place
+        // to make. Kept as shadcn's typography docs wrote it.
+        // eslint-disable-next-line shadcn/no-arbitrary-values
         'bg-muted text-foreground relative rounded px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold',
         className,
       )}

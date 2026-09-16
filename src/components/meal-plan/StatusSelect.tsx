@@ -13,19 +13,10 @@ import { cn } from '@/lib/utils'
 
 export type MealStatus = 'planned' | 'completed' | 'skipped'
 
-const STATUS_CONFIG: Record<MealStatus, { icon: string; className: string }> = {
-  planned: {
-    icon: '\u{1F4CB}',
-    className: 'text-muted-foreground',
-  },
-  completed: {
-    icon: '\u2713',
-    className: 'text-success',
-  },
-  skipped: {
-    icon: '\u23ED\uFE0F',
-    className: 'text-warning',
-  },
+const STATUS_ICON: Record<MealStatus, string> = {
+  planned: '\u{1F4CB}',
+  completed: '\u2713',
+  skipped: '\u23ED\uFE0F',
 }
 
 const STATUS_VALUES: MealStatus[] = ['planned', 'completed', 'skipped']
@@ -37,11 +28,10 @@ interface StatusSelectProps {
 }
 
 function StatusOption({ status }: { status: MealStatus }) {
-  const cfg = STATUS_CONFIG[status]
   const label = useEnumLabel('MealPlanEntryStatus', status)
   return (
     <span className="flex items-center gap-2">
-      <span>{cfg.icon}</span>
+      <span>{STATUS_ICON[status]}</span>
       <span>{label}</span>
     </span>
   )
@@ -49,14 +39,18 @@ function StatusOption({ status }: { status: MealStatus }) {
 
 export function StatusSelect({ value, onChange, disabled }: StatusSelectProps) {
   const tStatus = useTranslations('meal-plan.status')
-  const config = STATUS_CONFIG[value]
 
   return (
     <Select value={value} onValueChange={onChange} disabled={disabled}>
       <SelectTrigger
         size="sm"
         aria-label={tStatus('ariaLabel')}
-        className={cn('w-[140px]', config.className)}
+        className={cn(
+          'w-35',
+          value === 'planned' && 'text-muted-foreground',
+          value === 'completed' && 'text-success',
+          value === 'skipped' && 'text-warning',
+        )}
       >
         <SelectValue>
           <StatusOption status={value} />
@@ -64,7 +58,15 @@ export function StatusSelect({ value, onChange, disabled }: StatusSelectProps) {
       </SelectTrigger>
       <SelectContent>
         {STATUS_VALUES.map((status) => (
-          <SelectItem key={status} value={status} className={STATUS_CONFIG[status].className}>
+          <SelectItem
+            key={status}
+            value={status}
+            className={cn(
+              status === 'planned' && 'text-muted-foreground',
+              status === 'completed' && 'text-success',
+              status === 'skipped' && 'text-warning',
+            )}
+          >
             <StatusOption status={status} />
           </SelectItem>
         ))}

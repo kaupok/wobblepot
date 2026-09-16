@@ -334,6 +334,20 @@ fi
 #     not render anything a reject-list item could apply to.
 # Each omission would have handed the affirmative "no UI files" claim to a diff the
 # guide speaks directly to — the same false negative the guard above prevents.
+#
+# Note for whoever edits DESIGN_PROMPT below, not an instruction the reviewer sees:
+# the mechanical half of the reject list is already checked twice before a review
+# runs. design-rules.ts asserts four rules against the scenario DOM in
+# `pnpm test-storybook:ci`, and five @shadcn/lint rules run in `pnpm lint` — raw and
+# undeclared colours, arbitrary values, unknown classes, inline styles, and dynamic
+# classNames on a design-system component's callsite (HON-673). Both are red on the
+# PR before the reviewer starts, so those findings arrive by a cheaper route. That is
+# an argument for keeping the prompt below pointed at the Reject list and Composition
+# rules — judgment no checker can make — and not for adding mechanical checks to it.
+# It is deliberately NOT in the prompt: telling the reviewer a class of finding is
+# "covered" invites it to skip a real one, and `no-raw-colors` and
+# `require-static-classes` both have real gaps (a `dark:` override on a semantic
+# token; a template literal on a plain <div>).
 UI_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^src/(components|app|stories)/.*\.(tsx|css)$' || true)
 
 if [ -n "$UI_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
