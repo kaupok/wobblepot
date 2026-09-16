@@ -119,12 +119,18 @@ test.describe('Household member invite', () => {
       // `member.name`, so the invitee's account name appearing here IS the
       // assertion that the row was claimed rather than duplicated.
       await expect(page.getByText(INVITEE_NAME)).toBeVisible()
+      // Keep this assertion after the one above: the roster is a client-side
+      // useQuery, so both badge counts are also 0 while the skeleton is on
+      // screen. Waiting for the claimed card first is what gives the count-0
+      // assertions something to be true *about*.
       await expect(badge(page, 'Manual')).toHaveCount(0)
       await expect(badge(page, 'Invite pending')).toHaveCount(0)
 
       // --- 5. Invitee's view: same household, both members -----------------
       await inviteePage.goto('/household')
-      await expect(inviteePage.locator('input#name')).toHaveValue(householdName)
+      // Read-only for a non-owner, but populated — the value is the assertion
+      // that this is the owner's household, not a second one.
+      await expect(inviteePage.getByLabel('Household name')).toHaveValue(householdName)
       await expect(inviteePage.getByText(OWNER_NAME)).toBeVisible()
       await expect(inviteePage.getByText(INVITEE_NAME)).toBeVisible()
     } finally {
