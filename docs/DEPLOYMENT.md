@@ -35,8 +35,8 @@ All changes must pass the following checks in GitHub Actions:
 See [`tests/e2e/README.md`](../tests/e2e/README.md) for the authoritative tier
 definitions. Summary for deployment decisions:
 
-1. **CI E2E** — runs on every push/PR against a Docker Postgres sidecar. Full
-   suite. Blocks merge.
+1. **CI E2E** — runs on every push/PR against a Docker Postgres sidecar. Every
+   spec **except `@ai`** (`ci.yml` runs `--grep-invert=@ai`). Blocks merge.
 2. **Preview-smoke** (`.github/workflows/preview-smoke.yml`) — runs on Vercel
    preview `deployment_status: success` against the real preview URL +
    per-PR Neon branch. Executes `@smoke`-tagged specs. Status check appears
