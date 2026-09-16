@@ -42,6 +42,10 @@ export async function GET() {
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
+    if (!membership.household.preferences) {
+      return NextResponse.json({ error: 'No household preferences found' }, { status: 404 })
+    }
+
     return NextResponse.json(membership.household.preferences)
   } catch (error) {
     captureApiError(error, { route: '/api/households/me/preferences', userId: session.user.id })
@@ -101,12 +105,17 @@ export async function PATCH(request: Request) {
       excludedIngredientIds = ingredients.map((i) => i.id)
     }
 
-    const preferences = await prisma.householdPreferences.update({
+    const preferencesData = {
+      ...parsed.data,
+      ...(excludedIngredientIds !== undefined && { excludedIngredientIds }),
+    }
+
+    // Upsert, not update: a household whose preferences row is missing self-heals
+    // on first save instead of returning 500 on Prisma's P2025 (HON-672).
+    const preferences = await prisma.householdPreferences.upsert({
       where: { householdId: membership.household.id },
-      data: {
-        ...parsed.data,
-        ...(excludedIngredientIds !== undefined && { excludedIngredientIds }),
-      },
+      update: preferencesData,
+      create: { householdId: membership.household.id, ...preferencesData },
     })
 
     return NextResponse.json(preferences)

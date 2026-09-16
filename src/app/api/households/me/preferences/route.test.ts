@@ -20,7 +20,7 @@ vi.mock('@/lib/prisma', () => ({
       findFirst: vi.fn(),
     },
     householdPreferences: {
-      update: vi.fn(),
+      upsert: vi.fn(),
     },
   },
 }))
@@ -30,7 +30,7 @@ import { prisma } from '@/lib/prisma'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
-const mockUpdate = vi.mocked(prisma.householdPreferences.update)
+const mockUpsert = vi.mocked(prisma.householdPreferences.upsert)
 
 const mockPreferences = {
   id: 'prefs-123',
@@ -55,6 +55,16 @@ const mockMembership = {
     timezone: 'Europe/Tallinn',
     createdAt: new Date('2024-01-01'),
     preferences: mockPreferences,
+  },
+}
+
+// A household whose `household_preferences` row was never created — the state
+// the seeded smoke household was in (HON-672).
+const mockMembershipWithoutPreferences = {
+  ...mockMembership,
+  household: {
+    ...mockMembership.household,
+    preferences: null,
   },
 }
 
@@ -110,6 +120,21 @@ describe('GET /api/households/me/preferences', () => {
     expect(data.id).toBe('prefs-123')
     expect(data.dietaryType).toBeNull()
     expect(data.weekdayMealTypes).toEqual(['dinner'])
+  })
+
+  it('returns 404 when the household has no preferences row', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    mockFindFirst.mockResolvedValue(mockMembershipWithoutPreferences as never)
+
+    const response = await GET()
+    const data = await response.json()
+
+    expect(response.status).toBe(404)
+    expect(data.error).toBe('No household preferences found')
   })
 })
 
@@ -222,7 +247,7 @@ describe('PATCH /api/households/me/preferences', () => {
 
     expect(response.status).toBe(403)
     expect(data.error).toBe('Only household owners can update preferences')
-    expect(mockUpdate).not.toHaveBeenCalled()
+    expect(mockUpsert).not.toHaveBeenCalled()
   })
 
   it('updates single field successfully', async () => {
@@ -234,16 +259,17 @@ describe('PATCH /api/households/me/preferences', () => {
     mockFindFirst.mockResolvedValue(mockMembership as never)
 
     const updatedPreferences = { ...mockPreferences, dietaryType: 'vegetarian' }
-    mockUpdate.mockResolvedValue(updatedPreferences as never)
+    mockUpsert.mockResolvedValue(updatedPreferences as never)
 
     const response = await PATCH(createRequest({ dietaryType: 'vegetarian' }))
     const data = await response.json()
 
     expect(response.status).toBe(200)
     expect(data.dietaryType).toBe('vegetarian')
-    expect(mockUpdate).toHaveBeenCalledWith({
+    expect(mockUpsert).toHaveBeenCalledWith({
       where: { householdId: 'household-123' },
-      data: { dietaryType: 'vegetarian' },
+      update: { dietaryType: 'vegetarian' },
+      create: { householdId: 'household-123', dietaryType: 'vegetarian' },
     })
   })
 
@@ -261,7 +287,7 @@ describe('PATCH /api/households/me/preferences', () => {
       allergensToAvoid: ['gluten', 'dairy'],
       weekdayMealTypes: ['lunch', 'dinner'],
     }
-    mockUpdate.mockResolvedValue(updatedPreferences as never)
+    mockUpsert.mockResolvedValue(updatedPreferences as never)
 
     const response = await PATCH(
       createRequest({
@@ -287,16 +313,17 @@ describe('PATCH /api/households/me/preferences', () => {
     mockFindFirst.mockResolvedValue(mockMembership as never)
 
     const updatedPreferences = { ...mockPreferences, dietaryType: null }
-    mockUpdate.mockResolvedValue(updatedPreferences as never)
+    mockUpsert.mockResolvedValue(updatedPreferences as never)
 
     const response = await PATCH(createRequest({ dietaryType: null }))
     const data = await response.json()
 
     expect(response.status).toBe(200)
     expect(data.dietaryType).toBeNull()
-    expect(mockUpdate).toHaveBeenCalledWith({
+    expect(mockUpsert).toHaveBeenCalledWith({
       where: { householdId: 'household-123' },
-      data: { dietaryType: null },
+      update: { dietaryType: null },
+      create: { householdId: 'household-123', dietaryType: null },
     })
   })
 
@@ -312,7 +339,7 @@ describe('PATCH /api/households/me/preferences', () => {
       ...mockPreferences,
       restrictions: ['low sodium', 'Mediterranean-style'],
     }
-    mockUpdate.mockResolvedValue(updatedPreferences as never)
+    mockUpsert.mockResolvedValue(updatedPreferences as never)
 
     const response = await PATCH(
       createRequest({ restrictions: ['low sodium', 'Mediterranean-style'] }),
@@ -349,5 +376,28 @@ describe('PATCH /api/households/me/preferences', () => {
     expect(response.status).toBe(400)
     expect(data.error).toBe('Validation failed')
     expect(data.details.weekendMealTypes).toContain('At least one weekend meal type required')
+  })
+
+  it('creates the preferences row when the household has none', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    mockFindFirst.mockResolvedValue(mockMembershipWithoutPreferences as never)
+
+    const createdPreferences = { ...mockPreferences, weekdayMealTypes: ['lunch', 'dinner'] }
+    mockUpsert.mockResolvedValue(createdPreferences as never)
+
+    const response = await PATCH(createRequest({ weekdayMealTypes: ['lunch', 'dinner'] }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.weekdayMealTypes).toEqual(['lunch', 'dinner'])
+    expect(mockUpsert).toHaveBeenCalledWith({
+      where: { householdId: 'household-123' },
+      update: { weekdayMealTypes: ['lunch', 'dinner'] },
+      create: { householdId: 'household-123', weekdayMealTypes: ['lunch', 'dinner'] },
+    })
   })
 })
