@@ -172,6 +172,7 @@ const mutation = useMutation({
 - Tailwind CSS for styling; shadcn/ui for reusable components
 - Use `tailwind-merge` for dynamic class merging; avoid inline styles
 - A new `--spacing-*` token in `globals.css` must also be added to `CUSTOM_SPACING_VALUES` in `src/lib/utils.ts` — see `docs/DESIGN.md` → Spacing
+- **`pnpm lint` enforces five `@shadcn/lint` rules as errors on `src/**/*.{ts,tsx}` (HON-673):** `no-raw-colors`, `no-inline-styles`, `no-arbitrary-values`, `no-unknown-classes`, `require-static-classes`. Their messages name the offending class and the theme token, scale value, or variant to use instead, so read the error before reaching for an escape hatch. Tests and `.stories.tsx` are excluded through `ignores`, and `src/components/ui/**` is exempt from `no-arbitrary-values` alone (registry-generated code we re-pull verbatim). Every `allow` entry in `eslint.config.mjs` and every `eslint-disable` for a `shadcn/*` rule carries a one-line reason — add one if you add either. A value that genuinely has no token, and that more than one callsite needs, goes in `globals.css` as an `@utility` rather than an `allow`. `no-restyle` — the sixth rule, which catches `className` overrides on a primitive — is registered `off` pending HON-674 and HON-675.
 
 ### Components & Hooks
 

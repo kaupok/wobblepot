@@ -3,6 +3,7 @@ import nextVitals from 'eslint-config-next/core-web-vitals'
 import nextTs from 'eslint-config-next/typescript'
 import testingLibrary from 'eslint-plugin-testing-library'
 import storybook from 'eslint-plugin-storybook'
+import { plugin as shadcn } from '@shadcn/lint'
 
 const config = defineConfig([
   // Next.js + TypeScript base rules (native flat config)
@@ -53,6 +54,61 @@ const config = defineConfig([
         },
       ],
     },
+  },
+
+  // @shadcn/lint (HON-673). The five rules whose findings need no per-component
+  // judgment, as CI errors. The sixth — `no-restyle`, the one the plugin exists
+  // for — is registered `off` at the bottom of this block; HON-674 (layout,
+  // shape, spacing) and HON-675 (typography, colour) turn it on and reuse this
+  // block and the `src/components/ui/**` override below.
+  //
+  // Tests and stories are excluded wholesale, through `ignores` rather than
+  // per-line disables: test fixtures use fake class names on purpose (`class-1`,
+  // `custom-class`) and stories size their canvas with arbitrary values. Neither
+  // ships. The plugin reads `components.json` and `src/app/globals.css` itself,
+  // so it already knows our primitives, theme tokens, and `@utility` names.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['**/*.{test,spec}.{ts,tsx}', '**/*.stories.tsx'],
+    plugins: { shadcn },
+    settings: { shadcn: { note: 'See docs/DESIGN.md.' } },
+    rules: {
+      'shadcn/no-raw-colors': 'error',
+      'shadcn/no-inline-styles': 'error',
+      'shadcn/no-arbitrary-values': [
+        'error',
+        {
+          allow: [
+            // Device safe-area insets. No theme token or scale value can express
+            // `env()`, and the calc() composition differs at each of the four
+            // callsites, so the class is the clearest place for it to live.
+            '*env(safe-area-inset-*',
+            // shadcn's own colour+shadow transition idiom. `src/components/ui/**`
+            // is exempt below, but `tag-input.tsx` mirrors `input.tsx` and must
+            // not drift from it. There is no non-arbitrary spelling that means
+            // the same thing: `transition-colors` drops box-shadow and
+            // `transition-shadow` drops colour — they replace, not compose.
+            'transition-[color,box-shadow]',
+          ],
+        },
+      ],
+      'shadcn/no-unknown-classes': 'error',
+      'shadcn/require-static-classes': 'error',
+      // Off on purpose. It needs per-component contracts, and the ~134 findings
+      // on the type primitives need a design decision first (DESIGN.md → Open
+      // questions). See HON-674 and HON-675.
+      'shadcn/no-restyle': 'off',
+    },
+  },
+
+  // shadcn/ui primitives are generated from the registry and re-pulled verbatim,
+  // so their arbitrary values (`top-[50%]`, `translate-x-[-50%]`, `ring-[3px]`,
+  // `min-w-[8rem]`, `h-[var(--radix-select-trigger-height)]` …) are upstream's,
+  // not ours — rewriting them would be undone by the next `shadcn add`. The
+  // other four rules still apply here.
+  {
+    files: ['src/components/ui/**/*.{ts,tsx}'],
+    rules: { 'shadcn/no-arbitrary-values': 'off' },
   },
 
   // Testing Library rules (only for test files)

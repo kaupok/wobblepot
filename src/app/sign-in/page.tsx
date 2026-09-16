@@ -27,7 +27,7 @@ export default async function SignInPage() {
   const t = await getTranslations('common')
 
   return (
-    <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
+    <div className="min-h-screen-below-header grid place-items-center p-4">
       <Suspense fallback={<LoadingFallback message={t('loading')} />}>
         <SignInForm />
       </Suspense>

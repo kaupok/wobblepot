@@ -61,8 +61,8 @@ export function ShoppingListHeader({ windowDays, summary, children }: ShoppingLi
         </div>
         {/*
           Wraps because every control here is unshrinkable: `Button`'s cva base
-          is `shrink-0 whitespace-nowrap`, the sort `Select` is `w-[150px]` and
-          this one is `w-[100px]`. Copy list + Clear checked + the two selects
+          is `shrink-0 whitespace-nowrap`, the sort `Select` is `w-37.5` and
+          this one is `w-25`. Copy list + Clear checked + the two selects
           is well past the ~310px the card header has on a 390px viewport,
           which is the primary form factor for /shopping.
         */}
@@ -70,11 +70,7 @@ export function ShoppingListHeader({ windowDays, summary, children }: ShoppingLi
           {children}
           {mounted && (
             <Select value={String(windowDays)} onValueChange={setWindowDays}>
-              <SelectTrigger
-                size="sm"
-                className="w-[100px]"
-                aria-label={tShopping('ariaTimeWindow')}
-              >
+              <SelectTrigger size="sm" className="w-25" aria-label={tShopping('ariaTimeWindow')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

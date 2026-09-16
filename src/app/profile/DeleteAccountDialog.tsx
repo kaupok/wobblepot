@@ -135,7 +135,7 @@ export function DeleteAccountDialog({
           <AlertDialogAction
             onClick={handleDelete}
             disabled={isDeleting || hasOtherMembers}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className="bg-destructive hover:bg-destructive/90 text-white"
           >
             {isDeleting ? t('deleting') : t('confirm')}
           </AlertDialogAction>

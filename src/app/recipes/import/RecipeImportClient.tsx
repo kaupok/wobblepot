@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Heading, Body } from '@/components/ui/typography'
+import { cn } from '@/lib/utils'
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
 import type { PrefilledIngredient } from '@/components/household/MealForm'
 
@@ -299,7 +300,7 @@ export function RecipeImportClient() {
   }
 
   return (
-    <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
+    <div className="min-h-screen-below-header grid place-items-center p-4">
       <Card className="w-full max-w-2xl">
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -374,8 +375,10 @@ export function RecipeImportClient() {
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 <span
-                  className="transition-opacity duration-150"
-                  style={{ opacity: stepVisible ? 1 : 0 }}
+                  className={cn(
+                    'transition-opacity duration-150',
+                    stepVisible ? 'opacity-100' : 'opacity-0',
+                  )}
                 >
                   {progressStep || t('submitting')}
                 </span>

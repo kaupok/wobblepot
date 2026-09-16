@@ -85,7 +85,7 @@ export function RecipesPageClient() {
   const isSearchEmpty = debouncedSearch !== '' && !isLoading && !error && meals.length === 0
 
   return (
-    <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-4">
+    <div className="min-h-screen-below-header grid place-items-center p-4">
       <Card className="w-full max-w-2xl">
         <CardHeader>
           <Heading variant="h4">{tLibrary('title')}</Heading>

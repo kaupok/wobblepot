@@ -107,7 +107,7 @@ export function MealDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md md:max-w-2xl">
+      <DialogContent className="max-h-dialog overflow-y-auto sm:max-w-md md:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{meal.name}</DialogTitle>
           <DialogDescription className="sr-only">

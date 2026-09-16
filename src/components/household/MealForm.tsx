@@ -340,7 +340,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
             <AlertDialogCancel>{t('discardDialog.keepEditing')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDiscard}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive hover:bg-destructive/90 text-white"
             >
               {t('discardDialog.discard')}
             </AlertDialogAction>

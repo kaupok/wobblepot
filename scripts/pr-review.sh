@@ -332,6 +332,13 @@ fi
 #     is where the composition rules become visible at all (HON-610). A .ts there is
 #     deliberately excluded: design-rules.ts implements the mechanical checks, it does
 #     not render anything a reject-list item could apply to.
+# The mechanical rules are not the reviewer's job either way. design-rules.ts asserts
+# four of them against the scenario DOM in `pnpm test-storybook:ci`, and five
+# @shadcn/lint rules cover the static half in `pnpm lint` — raw and undeclared colours,
+# arbitrary values, unknown classes, inline styles, dynamic classNames (HON-673). Both
+# are already red on the PR before the reviewer runs, so a finding that merely repeats
+# one costs a review round and tells nobody anything. Ask for judgment instead: the
+# Reject list and Composition rules items below are the ones no checker can see.
 # Each omission would have handed the affirmative "no UI files" claim to a diff the
 # guide speaks directly to — the same false negative the guard above prevents.
 UI_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^src/(components|app|stories)/.*\.(tsx|css)$' || true)
