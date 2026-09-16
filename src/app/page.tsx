@@ -211,11 +211,23 @@ export default async function Home() {
     weekendMealTypes: ['dinner'],
   }
   if (prefsResponse.ok) {
+    // The body is checked for null, not just for the field: a household with no
+    // `household_preferences` row used to serve `200` with a JSON body of `null`,
+    // and `prefsData.weekdayMealTypes?.` threw on it (HON-672). The route now
+    // 404s in that case, but the defaults must survive a body of any shape.
     const prefsData = await prefsResponse.json()
-    if (prefsData.weekdayMealTypes?.length > 0) {
+    if (
+      prefsData &&
+      Array.isArray(prefsData.weekdayMealTypes) &&
+      prefsData.weekdayMealTypes.length > 0
+    ) {
       expectedMealTypes.weekdayMealTypes = prefsData.weekdayMealTypes
     }
-    if (prefsData.weekendMealTypes?.length > 0) {
+    if (
+      prefsData &&
+      Array.isArray(prefsData.weekendMealTypes) &&
+      prefsData.weekendMealTypes.length > 0
+    ) {
       expectedMealTypes.weekendMealTypes = prefsData.weekendMealTypes
     }
   }

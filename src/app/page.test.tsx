@@ -56,6 +56,97 @@ vi.mock('@/components/timeline', () => ({
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
+/**
+ * Signs in a user who owns a household with a meal plan, so the page falls
+ * through to the preferences parse instead of returning <FirstTimeSetup />.
+ */
+async function mockAuthedHouseholdSession() {
+  const { auth } = await import('@/lib/auth')
+  const { getHouseholdMembership } = await import('@/lib/household')
+  const now = new Date()
+
+  vi.mocked(auth.api.getSession).mockResolvedValue({
+    session: {
+      id: 'session-123',
+      userId: '123',
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+      token: 'test-token',
+      ipAddress: '127.0.0.1',
+      userAgent: 'test',
+      createdAt: now,
+      updatedAt: now,
+    },
+    user: {
+      id: '123',
+      email: 'test@example.com',
+      name: 'Test User',
+      emailVerified: false,
+      image: null,
+      createdAt: now,
+      updatedAt: now,
+    },
+  })
+
+  vi.mocked(getHouseholdMembership).mockResolvedValue({
+    id: 'member-123',
+    householdId: 'household-123',
+    userId: '123',
+    role: 'owner',
+    household: {
+      id: 'household-123',
+      name: 'Test Household',
+      timezone: 'Europe/Tallinn',
+      createdAt: now,
+      preferences: null,
+      _count: { members: 2 },
+    },
+  } as never)
+}
+
+/**
+ * Serves one entry and a plan id on /api/entries, empty pantry and shopping
+ * list, and whatever the caller wants on the preferences endpoint.
+ */
+function mockFetchWithPreferencesResponse(preferencesResponse: {
+  ok: boolean
+  status?: number
+  json: () => Promise<unknown>
+}) {
+  mockFetch.mockImplementation((url: string) => {
+    if (url.includes('/api/entries')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          entries: [
+            {
+              id: 'entry-1',
+              date: '2026-03-29',
+              mealType: 'dinner',
+              status: 'planned',
+              rating: null,
+              meal: { id: 'meal-1', name: 'Chicken Rice', components: [], nutrition: {} },
+              preparationTips: null,
+              note: null,
+              servingOverride: null,
+            },
+          ],
+          planId: 'plan-1',
+        }),
+      })
+    }
+    if (url.includes('/api/pantry')) {
+      return Promise.resolve({ ok: true, json: async () => ({ items: [] }) })
+    }
+    if (url.includes('/api/shopping-list')) {
+      return Promise.resolve({ ok: true, json: async () => ({ groups: [], summary: {} }) })
+    }
+    if (url.includes('/api/households/me/preferences')) {
+      return Promise.resolve(preferencesResponse)
+    }
+    return Promise.resolve({ ok: false, json: async () => ({}) })
+  })
+}
+
 describe('Home page component', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -257,6 +348,45 @@ describe('Home page component', () => {
     const component = await Home()
     render(component)
     expect(screen.getByTestId('timeline-view')).toBeInTheDocument()
+  })
+
+  // A household with no `household_preferences` row used to serve 200 with a
+  // JSON body of `null`, which crashed the dashboard render (HON-672).
+  it('renders timeline view with default meal types when preferences body is null', async () => {
+    const { TimelineView } = await import('@/components/timeline')
+    await mockAuthedHouseholdSession()
+    mockFetchWithPreferencesResponse({ ok: true, json: async () => null })
+
+    const component = await Home()
+    render(component)
+
+    expect(screen.getByTestId('timeline-view')).toBeInTheDocument()
+    expect(vi.mocked(TimelineView).mock.calls[0]?.[0].expectedMealTypes).toEqual({
+      weekdayMealTypes: ['dinner'],
+      weekendMealTypes: ['dinner'],
+    })
+  })
+
+  // Pins the route contract rather than page logic: `if (prefsResponse.ok)`
+  // already short-circuits every non-ok response. The null-body sibling above is
+  // the one that covers the crash.
+  it('renders timeline view with default meal types when preferences returns 404', async () => {
+    const { TimelineView } = await import('@/components/timeline')
+    await mockAuthedHouseholdSession()
+    mockFetchWithPreferencesResponse({
+      ok: false,
+      status: 404,
+      json: async () => ({ error: 'No household preferences found' }),
+    })
+
+    const component = await Home()
+    render(component)
+
+    expect(screen.getByTestId('timeline-view')).toBeInTheDocument()
+    expect(vi.mocked(TimelineView).mock.calls[0]?.[0].expectedMealTypes).toEqual({
+      weekdayMealTypes: ['dinner'],
+      weekendMealTypes: ['dinner'],
+    })
   })
 
   it('redirects to onboarding when authenticated without household', async () => {
