@@ -114,11 +114,19 @@ The current `@smoke` set is:
 
 (The original HON-455 locked set listed meal-plan and invite specs deleted
 in the HON-518 drift audit; `pantry-deduction.spec.ts` lost `@smoke` in
-HON-560 — it is `@ai` and seed-dependent.)
+HON-560 — it is `@ai` and seed-dependent. The invite flow is covered again
+by `household-invite.spec.ts` (HON-667), but in tier 1 only — see below.)
 
 Do **not** add `@smoke` to destructive specs. `tests/e2e/account-deletion.spec.ts`
 (HON-479) is the standing example: it signs up a throwaway account, hard-deletes
 rows, and needs the back-channel, so it runs in tier 1 CI and locally only.
+
+`tests/e2e/household-invite.spec.ts` (HON-667) is tier-1-only for the
+account-creation reason rather than the destructive one: the owner and the
+invitee must be two different accounts in two browser contexts, and neither can
+be a seeded fixture — the invitee has to start with **no** household so the
+join claims the manual member row. It is not `@ai` (no Claude call), so tier 1
+CI runs it on every push.
 
 ## Test-only routes
 
