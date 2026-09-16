@@ -71,7 +71,19 @@ const config = defineConfig([
     files: ['src/**/*.{ts,tsx}'],
     ignores: ['**/*.{test,spec}.{ts,tsx}', '**/*.stories.tsx'],
     plugins: { shadcn },
-    settings: { shadcn: { note: 'See docs/DESIGN.md.' } },
+    settings: {
+      shadcn: {
+        note: 'See docs/DESIGN.md.',
+        // `buttonVariants` is our own cva factory (src/components/ui/button.tsx),
+        // so a className built from it is the design system speaking, not a
+        // string the callsite assembled. Without this, `require-static-classes`
+        // reports every `buttonVariants({ variant: 'destructive' })` — pushing
+        // callsites back to hand-copying the variant's classes, which is the
+        // drift the rule exists to prevent. `cva` and `tv` are built in; this
+        // adds the one factory we export.
+        variantFunctions: ['buttonVariants'],
+      },
+    },
     rules: {
       'shadcn/no-raw-colors': 'error',
       'shadcn/no-inline-styles': 'error',
@@ -106,8 +118,18 @@ const config = defineConfig([
   // `min-w-[8rem]`, `h-[var(--radix-select-trigger-height)]` …) are upstream's,
   // not ours — rewriting them would be undone by the next `shadcn add`. The
   // other four rules still apply here.
+  //
+  // That rationale is provenance, not location, so the three files under this
+  // directory that we wrote ourselves are excluded from the exemption: `shadcn
+  // add` will never overwrite them, and an arbitrary value there is ours to fix.
+  // Keep this list in step with what is actually pulled from the registry.
   {
     files: ['src/components/ui/**/*.{ts,tsx}'],
+    ignores: [
+      'src/components/ui/confirm-dialog.tsx',
+      'src/components/ui/number-input.tsx',
+      'src/components/ui/typography.tsx',
+    ],
     rules: { 'shadcn/no-arbitrary-values': 'off' },
   },
 

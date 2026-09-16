@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { authClient } from '@/lib/auth-client'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -135,7 +135,7 @@ export function DeleteAccountDialog({
           <AlertDialogAction
             onClick={handleDelete}
             disabled={isDeleting || hasOtherMembers}
-            className="bg-destructive hover:bg-destructive/90 text-white"
+            className={buttonVariants({ variant: 'destructive' })}
           >
             {isDeleting ? t('deleting') : t('confirm')}
           </AlertDialogAction>

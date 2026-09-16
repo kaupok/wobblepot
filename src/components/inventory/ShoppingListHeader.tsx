@@ -62,9 +62,11 @@ export function ShoppingListHeader({ windowDays, summary, children }: ShoppingLi
         {/*
           Wraps because every control here is unshrinkable: `Button`'s cva base
           is `shrink-0 whitespace-nowrap`, the sort `Select` is `w-37.5` and
-          this one is `w-25`. Copy list + Clear checked + the two selects
-          is well past the ~310px the card header has on a 390px viewport,
-          which is the primary form factor for /shopping.
+          this one is `w-25` (150px and 100px at the default root font size —
+          both are rem-based, so they grow with scaled browser text). Copy list
+          + Clear checked + the two selects is well past the ~310px the card
+          header has on a 390px viewport, which is the primary form factor for
+          /shopping.
         */}
         <div className="flex flex-wrap items-center justify-end gap-2">
           {children}

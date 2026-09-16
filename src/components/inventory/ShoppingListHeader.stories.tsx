@@ -118,7 +118,7 @@ export const Populated: Story = {
     docs: {
       description: {
         story:
-          "`ShoppingSection`'s header at its busiest — all three list controls plus the window picker. None of them can shrink (`Button`'s cva base is `shrink-0 whitespace-nowrap`, the sort select is `w-37.5`, this one `w-25`), so at the default 390px viewport the row wraps rather than overflowing the card. This is the case the wrap exists for.",
+          "`ShoppingSection`'s header at its busiest — all three list controls plus the window picker. None of them can shrink (`Button`'s cva base is `shrink-0 whitespace-nowrap`, the sort select is `w-37.5` and this one `w-25` (150px and 100px at the default root font size)), so at the default 390px viewport the row wraps rather than overflowing the card. This is the case the wrap exists for.",
       },
     },
   },

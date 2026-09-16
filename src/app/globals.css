@@ -96,6 +96,14 @@
   grid-template-columns: 1fr 320px;
 }
 
+/* The one page width (docs/DESIGN.md → Composition rules → "One page width",
+   HON-376), shared by the main column, the header row and the footer row.
+   Literal px on purpose: 1152px is an absolute cap, so it must not scale with
+   the root font size the way the scale value `max-w-page` (= 72rem) would. */
+@utility max-w-page {
+  max-width: 1152px;
+}
+
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);

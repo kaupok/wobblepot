@@ -53,11 +53,6 @@ export function ConfirmDialog({
               onConfirm()
             }}
             disabled={isLoading}
-            // WHY: the class comes from `buttonVariants`, the design system's own
-            // source of truth, not from a string this file assembles — but the
-            // rule cannot follow a variant factory through a conditional. Keeping
-            // the rule on everywhere else is worth this one disable.
-            // eslint-disable-next-line shadcn/require-static-classes
             className={cn(variant === 'destructive' && buttonVariants({ variant: 'destructive' }))}
           >
             {isLoading ? loadingLabel : confirmLabel}
