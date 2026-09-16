@@ -24,6 +24,12 @@ bill. They are also excluded from tiers 2 and 3 (HON-560): every current
 where the rate-limit bypass is active (CI/test/dev) — preview and staging
 404 it by design. `@ai` specs run via `pnpm test:e2e:local --ai`.
 
+Out of CI does not mean unrun: that command is a **manual step on the
+production-promotion checklist** ([`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md)
+§ Production Deployment Process, step 3), because these specs are meal-plan
+generation's only coverage. HON-667 settled that shape — no Anthropic mock in
+E2E, no scheduled `@ai` run.
+
 ### Running preview-smoke on a PR
 
 Preview-smoke is **label-gated**: add the `smoke` label to the PR and
@@ -114,11 +120,19 @@ The current `@smoke` set is:
 
 (The original HON-455 locked set listed meal-plan and invite specs deleted
 in the HON-518 drift audit; `pantry-deduction.spec.ts` lost `@smoke` in
-HON-560 — it is `@ai` and seed-dependent.)
+HON-560 — it is `@ai` and seed-dependent. The invite flow is covered again
+by `household-invite.spec.ts` (HON-667), but in tier 1 only — see below.)
 
 Do **not** add `@smoke` to destructive specs. `tests/e2e/account-deletion.spec.ts`
 (HON-479) is the standing example: it signs up a throwaway account, hard-deletes
 rows, and needs the back-channel, so it runs in tier 1 CI and locally only.
+
+`tests/e2e/household-invite.spec.ts` (HON-667) is tier-1-only for the
+account-creation reason rather than the destructive one: the owner and the
+invitee must be two different accounts in two browser contexts, and neither can
+be a seeded fixture — the invitee has to start with **no** household so the
+join claims the manual member row. It is not `@ai` (no Claude call), so tier 1
+CI runs it on every push.
 
 ## Test-only routes
 
@@ -200,7 +214,7 @@ Every `tests/e2e/*.spec.ts` file carries a single-line header comment as its fir
 
 Format:
 
-- `ROUTES:` — comma-separated list of URL pathnames the spec visits (including `/` for home). Parameterised routes use `:param` placeholders (e.g. `/meal-plans/:id`).
+- `ROUTES:` — comma-separated list of URL pathnames the spec visits (including `/` for home). Parameterised routes use the App Router's own `[param]` segment name, so a header pathname is greppable against the route directory it maps to: `/invite/[code]`, not `/invite/:code`. (The rule read `:param` until HON-667; no spec ever followed it — `auth-redirect.spec.ts` and `household-invite.spec.ts`, the only two specs visiting a dynamic route, both write `[code]`.)
 - `COMPONENTS:` — comma-separated list of React component names the spec exercises. Prefer the component's filename export (e.g. `SignUpForm`, not "the sign-up form"). Parenthetical qualifiers (e.g. `Header (User menu)`) are allowed when a single component hosts the assertion target.
 - Separator: `·` (U+00B7 middle dot) between ROUTES and COMPONENTS.
 - Keep it on one line so it stays grep-friendly — `grep -l 'ROUTES.*/profile' tests/e2e/` should cheaply return every spec that touches `/profile`.

@@ -35,8 +35,8 @@ All changes must pass the following checks in GitHub Actions:
 See [`tests/e2e/README.md`](../tests/e2e/README.md) for the authoritative tier
 definitions. Summary for deployment decisions:
 
-1. **CI E2E** — runs on every push/PR against a Docker Postgres sidecar. Full
-   suite. Blocks merge.
+1. **CI E2E** — runs on every push/PR against a Docker Postgres sidecar. Every
+   spec **except `@ai`** (`ci.yml` runs `--grep-invert=@ai`). Blocks merge.
 2. **Preview-smoke** (`.github/workflows/preview-smoke.yml`) — runs on Vercel
    preview `deployment_status: success` against the real preview URL +
    per-PR Neon branch. Executes `@smoke`-tagged specs. Status check appears
@@ -46,6 +46,11 @@ definitions. Summary for deployment decisions:
    specs against `https://wobblepot.dev`. **Failure blocks production
    promotion** — do not run the production deploy workflows below until
    staging-smoke is green on the same commit.
+
+The `@ai` specs are in no tier: they call Claude for real, so they run as a
+**manual pre-promotion step** (`pnpm test:e2e:local --ai`, step 3 below), not
+on a schedule and not against a mock. That step is meal-plan generation's only
+coverage.
 
 ## Production Deployment Process
 
@@ -63,9 +68,10 @@ Production deployments require manual coordination to ensure database migrations
    - Test all affected functionality
    - Check for any migration issues
 
-3. **Confirm staging-smoke is green**
+3. **Confirm the pre-promotion test gates**
    - The [staging-smoke workflow](https://github.com/kaupok/wobblepot/actions/workflows/staging-smoke.yml) runs after each staging deploy
    - Do not promote to production until staging-smoke is green on the commit being deployed
+   - **Run the `@ai` specs by hand on the commit being promoted:** `pnpm test:e2e:local --ai`. No CI tier runs them — they call Claude for real, and per-push runs would cost four to five figures a year (see [`tests/e2e/README.md`](../tests/e2e/README.md) → "Why the `@ai` split"). They are meal-plan generation's **only** coverage, so skipping this step promotes the core AI flow untested (HON-667)
 
 4. **Deploy to production** (when ready):
 
