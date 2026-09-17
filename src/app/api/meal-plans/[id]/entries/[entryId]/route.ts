@@ -327,6 +327,20 @@ export async function PATCH(
     // Handle servingOverride updates (including explicit null to reset to household default)
     if ('servingOverride' in parsed.data) {
       updateData.servingOverride = parsed.data.servingOverride ?? null
+
+      // The effective serving count is an input to the cached prep tips —
+      // HON-614 made the prompt scale by it precisely because the tips are
+      // cached per entry — so a dinner re-planned from 6 servings to 2 would
+      // otherwise keep pan sizes and timings for 6. Invalidate here for the
+      // same reason `PATCH /api/households/me` invalidates on a locale change
+      // (HON-681, and the AI-cache rule in `docs/LOCALIZATION.md`).
+      //
+      // Only on a real change: resending the stored count is a no-op write and
+      // must not throw away tips. `null` counts as a change when an override
+      // was stored — the meal reverts to the household's own size.
+      if (updateData.servingOverride !== entry.servingOverride) {
+        updateData.preparationTips = null
+      }
     }
 
     // Handle rating updates (including explicit null to clear)
