@@ -97,6 +97,7 @@ The `name` field on every AI-returned ingredient is a matcher key: it is looked 
 
 - **The everyday shop word, not the botanical or official term.** `brokkoli`, not `spargelkapsas`; `kanakoib`, not `kana reieliha`; `kanafilee`, not `kana rinnafilee`. The seeded translations are calibrated to the shop word (HON-536 reviews the ~1,100 AI-seeded names against this same rule), so the official term silently misses the match.
 - **Nothing but the word.** No parentheticals, no qualifiers, no preparation words: `kanakoib`, not `kana reieliha (kondita)`; `sibul`, not `sibul, hakitud`. Those belong in `originalText` or the step.
+- **`vaguePhrase` stays English.** It is not prose either: `getPhraseGroup` in `src/lib/vague-quantities.ts` compares it by exact equality against the English `VAGUE_PHRASES` list to pick the per-category default quantity. `soola maitse järgi` is `name: "sool", vaguePhrase: "to taste", originalText: "soola maitse järgi"`. An Estonian `vaguePhrase` (or `null`) matches no group and falls through to a flat 10 g per serving, so a four-serving recipe gets 40 g of salt instead of 4 g, silently, because the guardrail only runs on non-vague rows.
 - **Latin letters only.** Estonian diacritics (`õ ä ö ü š ž`) are Latin. The model has slipped a Cyrillic `п` or `р` into words like `karripulber` on two of six sampled runs; the character looks identical and breaks the match. The prompt says so explicitly; if it keeps happening, the fix is a normalisation step in the matcher, not more prompt text.
 
 ## Case inflection and compound strings

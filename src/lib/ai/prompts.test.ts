@@ -511,6 +511,15 @@ describe('Estonian voice helpers', () => {
     expect(estonianVoiceForRecipeParse('et')).toContain('"500 g kanafileed" → name "kanafilee"')
   })
 
+  it('keeps vaguePhrase as the English matcher key in the imagine and parse blocks', () => {
+    // getPhraseGroup() matches VAGUE_PHRASES by exact English equality; an Estonian
+    // phrase falls through to the flat 10 g/serving default (PR #761 review).
+    for (const block of [estonianVoiceForImagineMeal('et'), estonianVoiceForRecipeParse('et')]) {
+      expect(block).toContain('vaguePhrase "to taste"')
+      expect(block).not.toContain('vaguePhrase "maitse järgi"')
+    }
+  })
+
   it('forbids teie-form and tuleb-constructions in the step-producing blocks', () => {
     expect(estonianVoiceForRecipeParse('et')).toContain('Never teie-form')
     expect(estonianVoiceForPrepTips('et')).toContain('Never teie-form')

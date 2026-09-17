@@ -43,7 +43,7 @@ const ESTONIAN_VOICE_RULES = `ESTONIAN VOICE:
 - No marketing filler (tervislik, tasakaalustatud, maitsev, ideaalne, suurepärane) and no padding (palun, nüüd on aeg, ärge unustage).
 - Ingredient "name" fields are Estonian too, every one of them, including oils, spices, and seasonings (olive oil → oliiviõli, black pepper → must pipar, salt → sool). Never leave an ingredient name in English. Form: lowercase nominative singular, the everyday shop word rather than the botanical or official term (brokkoli not spargelkapsas, kanakoib not kana reieliha, kanafilee not kana rinnafilee), with no parentheticals or qualifiers in the name itself. Prose after a quantity inflects to the partitive (500 g kanafileed, 2 sibulat, 1 tl soola, soola maitse järgi).
 - Latin letters only, with Estonian diacritics (õ ä ö ü š ž). Never a Cyrillic or other look-alike character inside a word.
-- Metric with a space before the unit (200 °C, 500 g, 2 dl), en dash in ranges (5–6 minutit), decimal comma (1,5 kg). Estonian abbreviations in prose: spl (tbsp), tl (tsp), tk (piece).`
+- Metric with a space before the unit (200 °C, 500 g, 2 dl), en dash in ranges (5–6 minutit), decimal comma (1,5 kg). These formats take precedence over any unit examples earlier in this prompt. Estonian abbreviations in prose: spl (tbsp), tl (tsp), tk (piece).`
 
 /**
  * Estonian voice block for imagine-meal: meal names, descriptions, and the
@@ -69,7 +69,7 @@ ESTONIAN EXAMPLES (English-shaped draft → what to output):
 - ingredient: name "sibul", originalText "2 sibulat"
 - ingredient: name "hapukoor", originalText "2 spl hapukoort"
 - ingredient: name "oliiviõli", originalText "1 spl oliiviõli" (not name "olive oil")
-- ingredient: name "sool", originalText "soola maitse järgi", isVague true`
+- ingredient: name "sool", originalText "soola maitse järgi", isVague true, vaguePhrase "to taste" (vaguePhrase is a matcher key and stays English: "to taste", "a pinch", "for garnish", "optional"; only originalText is Estonian prose)`
 }
 
 /**
@@ -85,7 +85,8 @@ ${ESTONIAN_VOICE_RULES}
 - name: an idiomatic Estonian dish name, not a calque of the source title. Sentence case, 2–4 words. Keep international names as-is (Ratatouille, Pad Thai, Bolognese).
 - description: one or two sentences, present tense, no instructions.
 - preparationNotes: numbered steps, each starting with an imperative sina-form verb (Kuumuta, Haki, Prae, Lisa, Sega, Küpseta, Serveeri). Never teie-form ("Kuumutage"), never "tuleb" / "tuleks" / "peaks". Convert Fahrenheit, cups, and ounces to metric.
-- Ingredient name: the nominative singular everyday word even when the source text inflects it ("2 sibulat, hakitud" → name "sibul"; "500 g kanafileed" → name "kanafilee"; "soola maitse järgi" → name "sool", isVague true, vaguePhrase "maitse järgi").
+- Ingredient name: the nominative singular everyday word even when the source text inflects it ("2 sibulat, hakitud" → name "sibul"; "500 g kanafileed" → name "kanafilee"; "soola maitse järgi" → name "sool", isVague true, vaguePhrase "to taste").
+- vaguePhrase is a matcher key, not prose: always the English phrase from the VAGUE QUANTITY DETECTION list above ("to taste", "a pinch", "for garnish", "optional"), never its Estonian equivalent. Only originalText carries the Estonian wording.
 
 ESTONIAN EXAMPLES (source text → what to output):
 - title "Shepherd's Pie" → name "Karjusepirukas"
