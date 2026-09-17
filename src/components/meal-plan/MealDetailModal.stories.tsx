@@ -104,6 +104,10 @@ export const ChangeServingInvokesCallback: Story = {
   },
 }
 
+// Counts the tips POSTs the story's msw handler serves, so the second click
+// can be proven to be a real re-fetch rather than a replay of cached state.
+let tipsRequests = 0
+
 // The serving count is an input to the cached preparation tips, so the PATCH
 // nulls them server-side (HON-681). This component is rendered unconditionally
 // by `MealCard`, so it never unmounts — without dropping the hook's `tips` on
@@ -124,19 +128,27 @@ export const ChangeServingDropsCachedTips: Story = {
         http.patch('/api/meal-plans/:planId/entries/:entryId', () =>
           HttpResponse.json({ ok: true }),
         ),
-        http.post('/api/meal-plans/:planId/entries/:entryId/preparation-tips', () =>
-          HttpResponse.json({
+        // Varies per call, so the second click can be told apart from a replay
+        // of the first one's object.
+        http.post('/api/meal-plans/:planId/entries/:entryId/preparation-tips', () => {
+          tipsRequests += 1
+          return HttpResponse.json({
             tips: {
-              equipment: ['A 28cm skillet for six portions'],
+              equipment: [
+                tipsRequests === 1
+                  ? 'A 28cm skillet for six portions'
+                  : 'A 20cm skillet for three portions',
+              ],
               steps: ['Sear the chicken in two batches'],
               pitfalls: ['Crowding the pan steams the skin'],
             },
-          }),
-        ),
+          })
+        }),
       ],
     },
   },
   play: async () => {
+    tipsRequests = 0
     const body = within(document.body)
 
     // Generate tips for the stored count of 6.
@@ -150,10 +162,17 @@ export const ChangeServingDropsCachedTips: Story = {
     await userEvent.type(input, '3')
     await userEvent.keyboard('{Enter}')
 
-    // The six-portion tips are gone and the panel is back to its prompt, so
-    // the next "How to prepare" re-POSTs instead of replaying the old object.
+    // The six-portion tips are off screen and the prompt is back.
     await waitFor(() => expect(body.queryByText(/28cm skillet/i)).not.toBeInTheDocument())
-    await body.findByRole('button', { name: /how to prepare/i })
+
+    // The assertion that pins `setTips(null)`: ask again. Collapsing the panel
+    // alone would satisfy everything above — `MealDetail` renders the prompt
+    // off `isTipsExpanded` and never looks at `tips` — but with the stale
+    // object still in the hook, `handleHowToPrepare` just re-expands it and
+    // never re-POSTs. A second request, and three-portion copy, is the proof.
+    await userEvent.click(await body.findByRole('button', { name: /how to prepare/i }))
+    await body.findByText(/20cm skillet/i)
+    await expect(tipsRequests).toBe(2)
   },
 }
 
