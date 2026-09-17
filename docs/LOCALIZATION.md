@@ -67,6 +67,7 @@ These are settled. Don't re-open without cause.
 ### AI surfaces (Tier 1)
 
 - Every call site in `src/lib/ai/*.ts` accepts a `locale` parameter. The shared `localeInstruction(locale)` in `src/lib/ai/prompts.ts` returns an empty string for the default locale (so English flows are byte-identical to pre-i18n) and an explicit `LOCALE: Produce all user-visible output in <Language>` block otherwise.
+- The three surfaces that emit user-visible free text (imagine-meal, recipe parsing, preparation tips) append an Estonian voice block after that: `estonianVoiceForImagineMeal`, `estonianVoiceForRecipeParse`, and `estonianVoiceForPrepTips`, also in `prompts.ts`. Each carries register rules plus few-shot pairs and returns an empty string for every locale but `et`. The rules and pairs are distilled from [`AI_VOICE_ET.md`](./AI_VOICE_ET.md), the canonical voice reference; change the doc first, then the helper. Plan generation and quantity review produce no free text and carry only `localeInstruction`.
 - AI-created ingredients are stored with `householdId = <current household>` in the creator's locale. No "English canonical" enforcement on AI creations — the global-pool rule is preserved because household-scoped rows don't pollute global.
 - AI response caches must include `locale` in the key to avoid cross-locale contamination.
 - After every successful `generateObject` call, `logAiSample` (see [Reviewing AI output quality](#reviewing-ai-output-quality)) emits a structured JSON line if the locale is non-default.
@@ -158,13 +159,14 @@ Architectural decisions that the platform supports but we deliberately don't shi
 ### Code
 
 - `src/lib/i18n/` — locale resolution, framework wiring, formatters, parsers.
-- `src/lib/ai/prompts.ts` — `localeInstruction` shared across AI call sites.
+- `src/lib/ai/prompts.ts` — `localeInstruction` shared across AI call sites, plus the three `estonianVoiceFor*` helpers.
 - `src/lib/ai/sampling.ts` — `logAiSample` and the call-site union.
 - `prisma/schema.prisma` — `Household.locale`, `IngredientTranslation`, `MealTranslation`.
 - `messages/{en,et}.json` — chrome catalogs.
 
 ### Docs
 
+- [`AI_VOICE_ET.md`](./AI_VOICE_ET.md) — Estonian AI voice reference: register, naming, description and prep-note voice with good/bad pairs, and the rework-vs-parameterize rule for inflected templates.
 - [`RUNBOOKS/translation-maintenance.md`](RUNBOOKS/translation-maintenance.md) — post-launch translation fixes: scoped SQL, rollback, audit log.
 
 ### Linear

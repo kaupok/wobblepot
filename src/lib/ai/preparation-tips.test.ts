@@ -65,6 +65,15 @@ describe('buildFullTipsPrompt', () => {
     expect(result).toContain('LOCALE:')
     expect(result).toContain('Estonian')
   })
+
+  it('appends the Estonian voice block after the locale instruction for "et" only', () => {
+    const et = buildFullTipsPrompt(fullInput({ locale: 'et' }))
+    expect(et).toContain('ESTONIAN VOICE')
+    expect(et).toContain('Kuumuta ahi')
+    expect(et.indexOf('LOCALE:')).toBeLessThan(et.indexOf('ESTONIAN VOICE'))
+
+    expect(buildFullTipsPrompt(fullInput({ locale: 'en' }))).not.toContain('ESTONIAN VOICE')
+  })
 })
 
 describe('buildSupplementaryTipsPrompt', () => {
@@ -89,5 +98,16 @@ describe('buildSupplementaryTipsPrompt', () => {
 
     expect(result).toContain('LOCALE:')
     expect(result).toContain('Estonian')
+  })
+
+  it('appends the Estonian voice block after the locale instruction for "et" only', () => {
+    const et = buildSupplementaryTipsPrompt(supplementaryInput({ locale: 'et' }))
+    expect(et).toContain('ESTONIAN VOICE')
+    expect(et).toContain('Kuumuta ahi')
+    expect(et.indexOf('LOCALE:')).toBeLessThan(et.indexOf('ESTONIAN VOICE'))
+
+    expect(buildSupplementaryTipsPrompt(supplementaryInput({ locale: 'en' }))).not.toContain(
+      'ESTONIAN VOICE',
+    )
   })
 })

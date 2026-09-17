@@ -241,6 +241,21 @@ describe('imagineMeals', () => {
     expect(call.system).toContain('Estonian')
   })
 
+  it('appends the Estonian voice block after the locale instruction for "et" only', async () => {
+    mockGenerateObject.mockResolvedValue({ object: { meals: [] } } as never)
+
+    await imagineMeals('test', emptyHousehold, 'et')
+    const et = (mockGenerateObject.mock.calls[0]![0]! as { system: string }).system
+    expect(et).toContain('ESTONIAN VOICE')
+    expect(et).toContain('Kanariis')
+    expect(et.indexOf('LOCALE:')).toBeLessThan(et.indexOf('ESTONIAN VOICE'))
+
+    mockGenerateObject.mockClear()
+    await imagineMeals('test', emptyHousehold, 'en')
+    const en = (mockGenerateObject.mock.calls[0]![0]! as { system: string }).system
+    expect(en).not.toContain('ESTONIAN VOICE')
+  })
+
   it('logs an imagine-meal AI sample with the right shape when locale is non-default', async () => {
     const meals: ImaginedMeal[] = [sampleMeal()]
     mockGenerateObject.mockResolvedValue({ object: { meals } } as never)

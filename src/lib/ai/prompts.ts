@@ -23,13 +23,102 @@ function formatDateForPrompt(date: Date): string {
 /**
  * Minimal localized-output instruction block appended to AI prompts. Returns
  * an empty string for the default locale so English flows are byte-identical
- * to pre-i18n behaviour. Voice-level tuning lands in HON-503 — this is
- * plumbing only.
+ * to pre-i18n behaviour. This is the locale-generic plumbing; the
+ * Estonian-specific voice lives in the `estonianVoiceFor*` helpers below.
  */
 export function localeInstruction(locale: string | null | undefined): string {
   if (!locale || locale === DEFAULT_LOCALE) return ''
   const label = LOCALE_LABELS[locale] ?? locale
   return `\n\nLOCALE: Produce all user-visible output (names, descriptions, free-text fields) in ${label}. Ingredient names stay lowercase singular base form.`
+}
+
+const ESTONIAN = 'et'
+
+/**
+ * Register and formatting rules shared by every Estonian voice block. Distilled
+ * from docs/AI_VOICE_ET.md — change the doc first, then mirror it here.
+ */
+const ESTONIAN_VOICE_RULES = `ESTONIAN VOICE:
+- Casual, warm, sina-form. Present tense, active voice. Plain kitchen words (prae, keeda, hauta, sega, haki, küpseta).
+- No marketing filler (tervislik, tasakaalustatud, maitsev, ideaalne, suurepärane) and no padding (palun, nüüd on aeg, ärge unustage).
+- Ingredient "name" fields are Estonian too, every one of them, including oils, spices, and seasonings (olive oil → oliiviõli, black pepper → must pipar, salt → sool). Never leave an ingredient name in English. Form: lowercase nominative singular, the everyday shop word rather than the botanical or official term (brokkoli not spargelkapsas, kanakoib not kana reieliha, kanafilee not kana rinnafilee), with no parentheticals or qualifiers in the name itself. Prose after a quantity inflects to the partitive (500 g kanafileed, 2 sibulat, 1 tl soola, soola maitse järgi).
+- Latin letters only, with Estonian diacritics (õ ä ö ü š ž). Never a Cyrillic or other look-alike character inside a word.
+- Metric with a space before the unit (200 °C, 500 g, 2 dl), en dash in ranges (5–6 minutit), decimal comma (1,5 kg). Estonian abbreviations in prose: spl (tbsp), tl (tsp), tk (piece).`
+
+/**
+ * Estonian voice block for imagine-meal: meal names, descriptions, and the
+ * ingredient name / originalText split. Empty for every other locale so the
+ * English prompt stays byte-identical.
+ */
+export function estonianVoiceForImagineMeal(locale: string | null | undefined): string {
+  if (locale !== ESTONIAN) return ''
+  return `
+
+${ESTONIAN_VOICE_RULES}
+- Meal names: idiomatic Estonian, 2–4 words, sentence case (capitalise only the first word and proper nouns). Prefer compound nouns (Kanakarri, Kõrvitsasupp, Kodujuustukauss), "with" as the -ga ending (Ahjulõhe sparglitega), and ahju- for baked/roasted/sheet-pan. Never a word-for-word calque of an English name; drop appliance words (slow cooker, one-pot, skillet). Keep international dish names (Ratatouille, Pad Thai, Bolognese, teriyaki, wok).
+- Descriptions: one or two sentences, present tense, what is on the plate and one thing about how it got there (mahlane, krõbe, kreemjas, kuldne, röstitud). No instructions, temperatures, or nutrition words.
+
+ESTONIAN EXAMPLES (English-shaped draft → what to output):
+- name: "Creamy Garlic Chicken Pasta" → "Kanapasta küüslaugukastmes"
+- name: "Sheet Pan Chicken and Veggies" → "Ahjukana köögiviljadega"
+- name: "Slow Cooker Beef Stew" → "Veiselihahautis"
+- name: "Chicken Rice Bowl" → "Kanariis"
+- description: "This dish contains chicken, rice and vegetables and is high in protein." → "Mahlane kanafilee aurutatud riisi ja krõmpsuvate köögiviljadega."
+- description: "A healthy and balanced meal for the whole family." → "Kiire argipäeva õhtusöök, mis meeldib ka lastele."
+- ingredient: name "kanafilee", originalText "500 g kanafileed"
+- ingredient: name "sibul", originalText "2 sibulat"
+- ingredient: name "hapukoor", originalText "2 spl hapukoort"
+- ingredient: name "oliiviõli", originalText "1 spl oliiviõli" (not name "olive oil")
+- ingredient: name "sool", originalText "soola maitse järgi", isVague true`
+}
+
+/**
+ * Estonian voice block for recipe parsing: dish name, description, numbered
+ * preparation notes, and nominative ingredient keys even when the source text
+ * inflects them. Empty for every other locale.
+ */
+export function estonianVoiceForRecipeParse(locale: string | null | undefined): string {
+  if (locale !== ESTONIAN) return ''
+  return `
+
+${ESTONIAN_VOICE_RULES}
+- name: an idiomatic Estonian dish name, not a calque of the source title. Sentence case, 2–4 words. Keep international names as-is (Ratatouille, Pad Thai, Bolognese).
+- description: one or two sentences, present tense, no instructions.
+- preparationNotes: numbered steps, each starting with an imperative sina-form verb (Kuumuta, Haki, Prae, Lisa, Sega, Küpseta, Serveeri). Never teie-form ("Kuumutage"), never "tuleb" / "tuleks" / "peaks". Convert Fahrenheit, cups, and ounces to metric.
+- Ingredient name: the nominative singular everyday word even when the source text inflects it ("2 sibulat, hakitud" → name "sibul"; "500 g kanafileed" → name "kanafilee"; "soola maitse järgi" → name "sool", isVague true, vaguePhrase "maitse järgi").
+
+ESTONIAN EXAMPLES (source text → what to output):
+- title "Shepherd's Pie" → name "Karjusepirukas"
+- title "Baked Salmon with Asparagus" → name "Ahjulõhe sparglitega"
+- title "Grilled Cheese Sandwich" → name "Kuum juustuvõileib"
+- "Preheat the oven to 400°F and bake for 25 minutes." → "1. Kuumuta ahi 200 °C-ni.\n2. Küpseta 25 minutit."
+- "Kõigepealt tuleks sibul peeneks hakkida ja pannil klaasjaks praadida." → "1. Haki sibul peeneks.\n2. Prae sibul pannil klaasjaks."
+- "Fry the chicken until golden, about 5-6 minutes per side." → "Prae kana kuldpruuniks, 5–6 minutit kummaltki poolt."
+- ingredient "2 sibulat, hakitud" → name "sibul", quantity 2, unit "piece", originalText "2 sibulat, hakitud"
+- ingredient "500 g kanafileed" → name "kanafilee", quantity 500, unit "g", originalText "500 g kanafileed"`
+}
+
+/**
+ * Estonian voice block for preparation tips (full and supplementary):
+ * equipment, steps, pitfalls, tip — all in sina-form imperative. Empty for
+ * every other locale.
+ */
+export function estonianVoiceForPrepTips(locale: string | null | undefined): string {
+  if (locale !== ESTONIAN) return ''
+  return `
+
+${ESTONIAN_VOICE_RULES}
+- equipment: specific noun phrases (Suur ahjukindel pann, Kaanega pott, Terav nuga ja lõikelaud), not bare "Pann".
+- steps: start with the verb, one action per step, sina-form imperative. Never teie-form ("Kuumutage"), never "tuleb" / "tuleks" / "peaks", never "nüüd on aeg".
+- pitfalls: name the mistake and its consequence in one sentence.
+- tip: one practical sentence.
+
+ESTONIAN EXAMPLES (draft → what to output):
+- step: "Kuumutage ahi 200 kraadini." → "Kuumuta ahi 200 °C-ni."
+- step: "Kana tuleb pannil kuldpruuniks praadida, umbes 5–6 minutit mõlemalt poolt." → "Prae kana pannil kuldpruuniks, 5–6 minutit kummaltki poolt."
+- step: "Nüüd on aeg lisada riis ja segada see hoolikalt teiste koostisosadega läbi." → "Lisa riis ja sega läbi."
+- pitfall: "Don't overcrowd the pan." → "Ära pane liiga palju kana korraga pannile: liha hakkab hauduma, mitte pruunistuma."
+- tip: "Let the meat rest before slicing." → "Lase lihal enne lõikamist 5 minutit puhata, siis jääb see mahlasem."`
 }
 
 /**
