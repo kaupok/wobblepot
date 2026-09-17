@@ -44,4 +44,14 @@ describe('buildRecipeExtractionPrompt', () => {
     expect(prompt).toContain('LOCALE:')
     expect(prompt).toContain('Estonian')
   })
+
+  it('appends the Estonian voice block after the locale instruction for "et" only', () => {
+    const et = buildRecipeExtractionPrompt('test', 'et')
+    expect(et).toContain('ESTONIAN VOICE')
+    expect(et).toContain('Karjusepirukas')
+    expect(et.indexOf('LOCALE:')).toBeLessThan(et.indexOf('ESTONIAN VOICE'))
+
+    expect(buildRecipeExtractionPrompt('test')).not.toContain('ESTONIAN VOICE')
+    expect(buildRecipeExtractionPrompt('test', 'en')).not.toContain('ESTONIAN VOICE')
+  })
 })

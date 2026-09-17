@@ -1,5 +1,5 @@
 import { VAGUE_PHRASES } from '@/lib/vague-quantities'
-import { localeInstruction } from './prompts'
+import { localeInstruction, estonianVoiceForRecipeParse } from './prompts'
 
 /**
  * Build the prompt for recipe extraction.
@@ -117,5 +117,5 @@ Rate your confidence (0-100) that this text contains a real recipe:
 - 0-19: Definitely not a recipe (random text, code, news, lorem ipsum)
 Be honest — if the text is not a recipe, give a low score even if you can extract something.
 
-Extract the structured recipe data.${localeInstruction(locale)}`
+Extract the structured recipe data.${localeInstruction(locale)}${estonianVoiceForRecipeParse(locale)}`
 }

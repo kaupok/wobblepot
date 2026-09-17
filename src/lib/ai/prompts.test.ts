@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { buildMealPlanPrompt, localeInstruction } from './prompts'
+import {
+  buildMealPlanPrompt,
+  localeInstruction,
+  estonianVoiceForImagineMeal,
+  estonianVoiceForRecipeParse,
+  estonianVoiceForPrepTips,
+} from './prompts'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import type { PromptInput } from './types'
 import type { MealSlot, SlotRequirement } from '@/lib/meal-planning/slots'
@@ -460,5 +466,62 @@ describe('localeInstruction', () => {
   it('falls back to the raw locale tag for unknown locales', () => {
     expect(localeInstruction('fi')).toContain('fi')
     expect(localeInstruction('fi')).toContain('LOCALE:')
+  })
+})
+
+describe('Estonian voice helpers', () => {
+  const helpers = [
+    { name: 'estonianVoiceForImagineMeal', fn: estonianVoiceForImagineMeal, anchor: 'Kanariis' },
+    {
+      name: 'estonianVoiceForRecipeParse',
+      fn: estonianVoiceForRecipeParse,
+      anchor: 'Karjusepirukas',
+    },
+    { name: 'estonianVoiceForPrepTips', fn: estonianVoiceForPrepTips, anchor: 'Kuumuta ahi' },
+  ] as const
+
+  describe.each(helpers)('$name', ({ fn, anchor }) => {
+    it('returns empty for the default locale, null, undefined, and unknown locales', () => {
+      expect(fn('en')).toBe('')
+      expect(fn(null)).toBe('')
+      expect(fn(undefined)).toBe('')
+      expect(fn('fi')).toBe('')
+    })
+
+    it('returns the voice rules and few-shot pairs for "et"', () => {
+      const block = fn('et')
+      expect(block).toContain('ESTONIAN VOICE')
+      expect(block).toContain('ESTONIAN EXAMPLES')
+      expect(block).toContain(anchor)
+      // Shared register rules are present in every block.
+      expect(block).toContain('sina-form')
+      expect(block).toContain('nominative singular')
+    })
+
+    it('starts with a blank line so it appends cleanly after localeInstruction', () => {
+      expect(fn('et').startsWith('\n\n')).toBe(true)
+    })
+  })
+
+  it('keeps the matcher-key vs. prose split explicit in the imagine and parse blocks', () => {
+    // name stays nominative, originalText inflects — the rule the matcher depends on.
+    expect(estonianVoiceForImagineMeal('et')).toContain(
+      'name "kanafilee", originalText "500 g kanafileed"',
+    )
+    expect(estonianVoiceForRecipeParse('et')).toContain('"500 g kanafileed" → name "kanafilee"')
+  })
+
+  it('keeps vaguePhrase as the English matcher key in the imagine and parse blocks', () => {
+    // getPhraseGroup() matches VAGUE_PHRASES by exact English equality; an Estonian
+    // phrase falls through to the flat 10 g/serving default (PR #761 review).
+    for (const block of [estonianVoiceForImagineMeal('et'), estonianVoiceForRecipeParse('et')]) {
+      expect(block).toContain('vaguePhrase "to taste"')
+      expect(block).not.toContain('vaguePhrase "maitse järgi"')
+    }
+  })
+
+  it('forbids teie-form and tuleb-constructions in the step-producing blocks', () => {
+    expect(estonianVoiceForRecipeParse('et')).toContain('Never teie-form')
+    expect(estonianVoiceForPrepTips('et')).toContain('Never teie-form')
   })
 })

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { localeInstruction } from './prompts'
+import { localeInstruction, estonianVoiceForPrepTips } from './prompts'
 
 export const fullTipsSchema = z.object({
   equipment: z
@@ -61,7 +61,7 @@ Provide:
 
 ${metricReminder}
 
-Keep it brief and practical. Not a full recipe — just order of operations and key tips. Do not repeat ingredient quantities.${localeInstruction(locale)}`
+Keep it brief and practical. Not a full recipe — just order of operations and key tips. Do not repeat ingredient quantities.${localeInstruction(locale)}${estonianVoiceForPrepTips(locale)}`
 }
 
 export function buildSupplementaryTipsPrompt(input: SupplementaryPrepTipsPromptInput): string {
@@ -87,5 +87,5 @@ Do NOT repeat or rephrase what the user already wrote. Only add new information.
 
 ${metricReminder}
 
-Keep it brief and practical.${localeInstruction(locale)}`
+Keep it brief and practical.${localeInstruction(locale)}${estonianVoiceForPrepTips(locale)}`
 }
