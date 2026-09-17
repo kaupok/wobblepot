@@ -22,6 +22,7 @@ vi.mock('@/lib/prisma', () => ({
     mealPlanEntry: {
       findFirst: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
   },
 }))
@@ -66,6 +67,14 @@ const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockEntryFindFirst = vi.mocked(prisma.mealPlanEntry.findFirst)
 const mockEntryUpdate = vi.mocked(prisma.mealPlanEntry.update)
+/**
+ * The cache write. Conditional (`updateMany`, not `update`) so that a
+ * `servingOverride` or locale PATCH committing during the 30s generation wins:
+ * that PATCH nulled the cache because the prompt's inputs moved, and writing
+ * anyway would put the stale tips straight back, where every later read is a
+ * cache hit (HON-681).
+ */
+const mockEntryCacheWrite = vi.mocked(prisma.mealPlanEntry.updateMany)
 const mockGenerateObject = vi.mocked(generateObject)
 const mockCheckRateLimit = vi.mocked(checkRateLimit)
 const mockAssertUnderCap = vi.mocked(assertUnderCap)
@@ -102,7 +111,12 @@ function sampleEntry(overrides: Record<string, unknown> = {}) {
   return {
     id: 'entry-1',
     planId: 'plan-1',
+    mealId: 'meal-1',
     preparationTips: null,
+    // A real row always carries the column, and the cache write filters on it
+    // (HON-681) — leaving it off would make that filter `undefined`, which
+    // Prisma reads as "no filter at all".
+    servingOverride: null,
     meal: {
       id: 'meal-1',
       name: 'Chicken stir fry',
@@ -247,7 +261,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(response.status).toBe(200)
     expect(data.tips).toEqual(cached)
     expect(mockGenerateObject).not.toHaveBeenCalled()
-    expect(mockEntryUpdate).not.toHaveBeenCalled()
+    expect(mockEntryCacheWrite).not.toHaveBeenCalled()
   })
 
   it('regenerates when cached tips are in legacy format and persists new cache', async () => {
@@ -269,10 +283,59 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(response.status).toBe(200)
     expect(data.tips).toEqual(fresh)
     expect(mockGenerateObject).toHaveBeenCalledTimes(1)
-    expect(mockEntryUpdate).toHaveBeenCalledWith({
-      where: { id: 'entry-1' },
+    expect(mockEntryCacheWrite).toHaveBeenCalledWith({
+      where: {
+        id: 'entry-1',
+        mealId: 'meal-1',
+        servingOverride: null,
+        plan: { household: { locale: 'en' } },
+      },
       data: { preparationTips: JSON.stringify(fresh) },
     })
+  })
+
+  it('scopes the cache write to the meal, servings and locale the prompt was priced from', async () => {
+    // Generation takes up to 30s. A `servingOverride` or locale PATCH that
+    // commits in the meantime nulls this cache precisely because those inputs
+    // moved, so the write has to lose that race rather than re-cache tips for
+    // a count nobody is cooking — which no later read would ever regenerate,
+    // because a cache hit short-circuits above (HON-681).
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(buildMembership('et') as never)
+    mockEntryFindFirst.mockResolvedValue(sampleEntry({ servingOverride: 6 }) as never)
+    const fresh = { equipment: ['Wok'], steps: ['Sear'], pitfalls: ['Crowding'] }
+    mockGenerateObject.mockResolvedValue({ object: fresh } as never)
+
+    const response = await callPost()
+
+    expect(response.status).toBe(200)
+    expect(mockEntryUpdate).not.toHaveBeenCalled()
+    expect(mockEntryCacheWrite).toHaveBeenCalledWith({
+      where: {
+        id: 'entry-1',
+        mealId: 'meal-1',
+        servingOverride: 6,
+        plan: { household: { locale: 'et' } },
+      },
+      data: { preparationTips: JSON.stringify(fresh) },
+    })
+  })
+
+  it('still returns the generated tips when the cache write matches nothing', async () => {
+    // The caller asked for tips and the generation succeeded; only the cache is
+    // guarded, so a lost race costs a regeneration next time, not an error.
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockEntryFindFirst.mockResolvedValue(sampleEntry({ servingOverride: 6 }) as never)
+    const fresh = { equipment: ['Wok'], steps: ['Sear'], pitfalls: ['Crowding'] }
+    mockGenerateObject.mockResolvedValue({ object: fresh } as never)
+    mockEntryCacheWrite.mockResolvedValue({ count: 0 } as never)
+
+    const response = await callPost()
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.tips).toEqual(fresh)
   })
 
   it('generates full tips when meal has no preparationNotes', async () => {

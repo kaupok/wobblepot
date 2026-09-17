@@ -1443,7 +1443,82 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - servings on a completed
         id: 'entry-123',
         OR: [{ status: { not: 'completed' } }, { servingOverride: 6 }],
       },
-      data: { servingOverride: 6 },
+      // Tips are cached per entry and priced at the old count, so the change
+      // drops them too (HON-681).
+      data: { servingOverride: 6, preparationTips: null },
+    })
+  })
+
+  // The prep-tips prompt scales by the entry's effective servings (HON-614),
+  // and the result is cached on the entry — so a count that moves afterwards
+  // leaves pan sizes and timings for a meal nobody is cooking (HON-681).
+  it('clears cached preparation tips when the serving count changes', async () => {
+    entryWith('planned', 2)
+    swapReturns({ id: 'entry-123', status: 'planned', mealId: 'meal-123', rating: null })
+
+    const response = await PATCH(createPatchRequest({ servingOverride: 4 }), {
+      params: createParams(),
+    })
+
+    expect(response.status).toBe(200)
+    expect(mockClaimEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { servingOverride: 4, preparationTips: null },
+      }),
+    )
+  })
+
+  it('clears cached preparation tips when the override resets to the household default', async () => {
+    // `null` reprices the meal at the household size, so tips generated for an
+    // override of 6 are as wrong as any other stale count.
+    entryWith('planned', 6)
+    swapReturns({ id: 'entry-123', status: 'planned', mealId: 'meal-123', rating: null })
+
+    const response = await PATCH(createPatchRequest({ servingOverride: null }), {
+      params: createParams(),
+    })
+
+    expect(response.status).toBe(200)
+    expect(mockClaimEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { servingOverride: null, preparationTips: null },
+      }),
+    )
+  })
+
+  it('keeps cached preparation tips when the PATCH resends the stored count', async () => {
+    // A no-op write — a retry or a double submit — changes no input to the
+    // tips, so throwing them away would cost a regeneration for nothing.
+    entryWith('planned', 4)
+    swapReturns({ id: 'entry-123', status: 'planned', mealId: 'meal-123', rating: null })
+
+    const response = await PATCH(createPatchRequest({ servingOverride: 4 }), {
+      params: createParams(),
+    })
+
+    expect(response.status).toBe(200)
+    expect(mockClaimEntry).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { servingOverride: 4 } }),
+    )
+  })
+
+  it('keeps cached preparation tips on a note-only PATCH', async () => {
+    entryWith('planned', 4)
+    mockUpdateEntry.mockResolvedValue({
+      id: 'entry-123',
+      status: 'planned',
+      mealId: 'meal-123',
+      rating: null,
+    } as never)
+
+    const response = await PATCH(createPatchRequest({ note: 'Double the garlic' }), {
+      params: createParams(),
+    })
+
+    expect(response.status).toBe(200)
+    expect(mockUpdateEntry).toHaveBeenCalledWith({
+      where: { id: 'entry-123' },
+      data: { note: 'Double the garlic' },
     })
   })
 

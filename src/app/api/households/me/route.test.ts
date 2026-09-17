@@ -22,6 +22,10 @@ vi.mock('@/lib/prisma', () => ({
     household: {
       update: vi.fn(),
     },
+    mealPlanEntry: {
+      updateMany: vi.fn(),
+    },
+    $transaction: vi.fn(),
   },
 }))
 
@@ -31,6 +35,22 @@ import { prisma } from '@/lib/prisma'
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
 const mockHouseholdUpdate = vi.mocked(prisma.household.update)
+const mockTransaction = vi.mocked(prisma.$transaction)
+const mockEntryUpdateMany = vi.mocked(prisma.mealPlanEntry.updateMany)
+
+/**
+ * Run the locale-change transaction against the same `prisma` mock, so
+ * `tx.household.update` and `tx.mealPlanEntry.updateMany` are the same spies
+ * the assertions below read. A locale-changing PATCH takes this path; every
+ * other PATCH calls `prisma.household.update` directly and never enters it.
+ */
+const mockLocaleTransaction = () =>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the callback's `tx` is Prisma's full client type; the route touches two models of it
+  mockTransaction.mockImplementation((async (fn: any) =>
+    fn({
+      household: { update: mockHouseholdUpdate },
+      mealPlanEntry: { updateMany: mockEntryUpdateMany },
+    })) as never)
 
 describe('GET /api/households/me', () => {
   beforeEach(() => {
@@ -110,6 +130,7 @@ describe('PATCH /api/households/me', () => {
     id: 'household-123',
     name: "John Doe's Household",
     timezone: 'Europe/Tallinn',
+    locale: 'en',
     createdAt: new Date('2024-01-01'),
     preferences: {
       id: 'prefs-123',
@@ -385,6 +406,7 @@ describe('PATCH /api/households/me', () => {
       session: { id: 'session-123' },
     } as never)
     mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockLocaleTransaction()
 
     const updatedHousehold = { ...mockHousehold, locale: 'et' }
     mockHouseholdUpdate.mockResolvedValue(updatedHousehold as never)
@@ -404,6 +426,85 @@ describe('PATCH /api/households/me', () => {
       data: { locale: 'et' },
       include: { preferences: true },
     })
+  })
+
+  // Cached prep tips are generated in the household's locale, and nothing else
+  // clears them — so a household that switches en → et would keep showing
+  // English tips forever (HON-681).
+  it('clears cached preparation tips for the household when the locale changes', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockLocaleTransaction()
+    mockHouseholdUpdate.mockResolvedValue({ ...mockHousehold, locale: 'et' } as never)
+
+    const request = new Request('http://localhost/api/households/me', {
+      method: 'PATCH',
+      body: JSON.stringify({ locale: 'et' }),
+    })
+
+    const response = await PATCH(request)
+
+    expect(response.status).toBe(200)
+    // Inside the same transaction as the household update, so a failed write
+    // leaves neither the new locale nor the emptied cache behind.
+    expect(mockTransaction).toHaveBeenCalledTimes(1)
+    expect(mockEntryUpdateMany).toHaveBeenCalledTimes(1)
+    expect(mockEntryUpdateMany).toHaveBeenCalledWith({
+      where: {
+        plan: { householdId: 'household-123' },
+        preparationTips: { not: null },
+      },
+      data: { preparationTips: null },
+    })
+  })
+
+  it('leaves preparation tips alone when the PATCH resends the stored locale', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockLocaleTransaction()
+    mockHouseholdUpdate.mockResolvedValue(mockHousehold as never)
+
+    const request = new Request('http://localhost/api/households/me', {
+      method: 'PATCH',
+      body: JSON.stringify({ locale: 'en' }),
+    })
+
+    const response = await PATCH(request)
+
+    expect(response.status).toBe(200)
+    expect(mockHouseholdUpdate).toHaveBeenCalledTimes(1)
+    expect(mockTransaction).not.toHaveBeenCalled()
+    expect(mockEntryUpdateMany).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['name', { name: 'New Name' }],
+    ['timezone', { timezone: 'Europe/Helsinki' }],
+  ])('leaves preparation tips alone on a %s-only PATCH', async (_field, body) => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockLocaleTransaction()
+    mockHouseholdUpdate.mockResolvedValue({ ...mockHousehold, ...body } as never)
+
+    const request = new Request('http://localhost/api/households/me', {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })
+
+    const response = await PATCH(request)
+
+    expect(response.status).toBe(200)
+    expect(mockTransaction).not.toHaveBeenCalled()
+    expect(mockEntryUpdateMany).not.toHaveBeenCalled()
   })
 
   it('rejects an unknown locale', async () => {
