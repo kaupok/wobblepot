@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { http, HttpResponse } from 'msw'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import {
   assertFocusInDialog,
@@ -100,6 +101,59 @@ export const ChangeServingInvokesCallback: Story = {
 
     // handleServingsChange awaits the PATCH before firing onServingOverrideChange
     await waitFor(() => expect(args.onServingOverrideChange).toHaveBeenCalledWith(5))
+  },
+}
+
+// The serving count is an input to the cached preparation tips, so the PATCH
+// nulls them server-side (HON-681). This component is rendered unconditionally
+// by `MealCard`, so it never unmounts — without dropping the hook's `tips` on
+// the same success branch, the panel keeps rendering the old count's pan sizes
+// through a close and reopen, and `handleHowToPrepare` short-circuits on the
+// stale object rather than re-fetching.
+export const ChangeServingDropsCachedTips: Story = {
+  args: {
+    servingOverride: 6,
+    onServingOverrideChange: fn(),
+  },
+  parameters: {
+    // An array here replaces `defaultHandlers` wholesale, so the servings PATCH
+    // has to be re-declared alongside the tips endpoint — without it the fetch
+    // fails, the component rolls the count back, and nothing is asserted.
+    msw: {
+      handlers: [
+        http.patch('/api/meal-plans/:planId/entries/:entryId', () =>
+          HttpResponse.json({ ok: true }),
+        ),
+        http.post('/api/meal-plans/:planId/entries/:entryId/preparation-tips', () =>
+          HttpResponse.json({
+            tips: {
+              equipment: ['A 28cm skillet for six portions'],
+              steps: ['Sear the chicken in two batches'],
+              pitfalls: ['Crowding the pan steams the skin'],
+            },
+          }),
+        ),
+      ],
+    },
+  },
+  play: async () => {
+    const body = within(document.body)
+
+    // Generate tips for the stored count of 6.
+    await userEvent.click(await body.findByRole('button', { name: /how to prepare/i }))
+    await body.findByText(/28cm skillet/i)
+
+    // Re-plan the same entry at 3 servings.
+    await userEvent.click(await body.findByRole('button', { name: /serves 6/i }))
+    const input = await body.findByLabelText('Number of servings')
+    await userEvent.clear(input)
+    await userEvent.type(input, '3')
+    await userEvent.keyboard('{Enter}')
+
+    // The six-portion tips are gone and the panel is back to its prompt, so
+    // the next "How to prepare" re-POSTs instead of replaying the old object.
+    await waitFor(() => expect(body.queryByText(/28cm skillet/i)).not.toBeInTheDocument())
+    await body.findByRole('button', { name: /how to prepare/i })
   },
 }
 

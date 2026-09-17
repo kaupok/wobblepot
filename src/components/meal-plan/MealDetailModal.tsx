@@ -64,6 +64,8 @@ export function MealDetailModal({
     fetchTips,
     handleHowToPrepare,
     hideTips,
+    setTips,
+    setIsTipsExpanded,
   } = useMealTips({ planId, entryId })
 
   // Sync local state when prop changes
@@ -95,6 +97,15 @@ export function MealDetailModal({
 
         // Notify parent of change
         onServingOverrideChange?.(newServings)
+
+        // The PATCH just nulled this entry's cached `preparationTips`, because
+        // the prompt scales by the serving count (HON-681). This component is
+        // rendered unconditionally by `MealCard`, so it never unmounts and the
+        // hook's `tips` survives a close and reopen — and `handleHowToPrepare`
+        // short-circuits on a non-null `tips`, so without dropping it here the
+        // panel keeps showing pan sizes for the old count and never re-POSTs.
+        setTips(null)
+        setIsTipsExpanded(false)
         return true
       } catch {
         setLocalServings(previousServings)
@@ -102,7 +113,16 @@ export function MealDetailModal({
         return false
       }
     },
-    [planId, entryId, householdSize, localServings, onServingOverrideChange, tServing],
+    [
+      planId,
+      entryId,
+      householdSize,
+      localServings,
+      onServingOverrideChange,
+      tServing,
+      setTips,
+      setIsTipsExpanded,
+    ],
   )
 
   return (
