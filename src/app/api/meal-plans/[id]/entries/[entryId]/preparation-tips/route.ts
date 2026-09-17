@@ -230,10 +230,11 @@ async function handlePOST(
     }
 
     // Cache tips as JSON in the database — but only while the inputs they were
-    // priced from still hold. This prompt was built from `entry.servingOverride`
-    // and `household.locale` as read at the top of the handler, and generation
-    // takes up to 30s; a `servingOverride` or locale PATCH that commits in the
-    // meantime nulls this cache precisely because those inputs moved (HON-681).
+    // priced from still hold. This prompt was built from `entry.meal`,
+    // `entry.servingOverride` and `household.locale` as read at the top of the
+    // handler, and generation takes up to 30s; a swap, a `servingOverride` or a
+    // locale PATCH that commits in the meantime nulls this cache precisely
+    // because one of those inputs moved (HON-681).
     // An unconditional write would put the stale tips straight back, and every
     // later read is a cache hit (above) — so the entry would keep pan sizes for
     // a count nobody is cooking, permanently rather than for one request.
@@ -245,6 +246,11 @@ async function handlePOST(
     await prisma.mealPlanEntry.updateMany({
       where: {
         id: entryId,
+        // A swap is the third writer that nulls this cache, and it resets
+        // `servingOverride` to null — which is what the common entry already
+        // stores, so the count alone would still match and the old meal's tips
+        // would land on the new one.
+        mealId: entry.mealId,
         servingOverride: entry.servingOverride,
         plan: { household: { locale: household.locale } },
       },

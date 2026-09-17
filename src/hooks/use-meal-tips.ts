@@ -69,6 +69,26 @@ export function useMealTips({ planId, entryId, initialTips = null }: UseMealTips
     setIsTipsExpanded(false)
   }, [])
 
+  /**
+   * Drop the tips and stop any generation still running for them. For callers
+   * that have just changed one of the inputs the tips were generated from — the
+   * entry's serving count, say — which the server answers by nulling the cached
+   * copy (HON-681).
+   *
+   * Clearing the state alone is not enough: a generation takes up to 30s, and
+   * the request in flight would resolve afterwards and `setTips` the stale
+   * object right back — after which `handleHowToPrepare` short-circuits on it
+   * and never re-fetches, while the stored row is correctly null. Aborting
+   * first makes `fetchTips` return on its `AbortError` branch instead.
+   */
+  const cancelTips = useCallback(() => {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setTips(null)
+    setTipsError(null)
+    setIsTipsExpanded(false)
+  }, [])
+
   return {
     tips,
     isLoadingTips,
@@ -77,6 +97,7 @@ export function useMealTips({ planId, entryId, initialTips = null }: UseMealTips
     fetchTips,
     handleHowToPrepare,
     hideTips,
+    cancelTips,
     setTips,
     setIsTipsExpanded,
     setTipsError,

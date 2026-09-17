@@ -327,4 +327,69 @@ describe('useMealTips', () => {
       expect(result.current.isTipsExpanded).toBe(false)
     })
   })
+
+  // For a caller that has just changed one of the inputs the tips were built
+  // from — the entry's serving count — which the server answers by nulling the
+  // cached copy (HON-681). Clearing the state is only half of it.
+  describe('cancelTips', () => {
+    it('clears tips, error and expansion', () => {
+      const { result } = renderHook(() => useMealTips({ ...defaultOptions, initialTips: mockTips }))
+
+      act(() => {
+        result.current.handleHowToPrepare()
+      })
+      expect(result.current.isTipsExpanded).toBe(true)
+
+      act(() => {
+        result.current.cancelTips()
+      })
+
+      expect(result.current.tips).toBeNull()
+      expect(result.current.tipsError).toBeNull()
+      expect(result.current.isTipsExpanded).toBe(false)
+    })
+
+    it('aborts a generation in flight so it cannot repopulate the tips', async () => {
+      // Generation takes up to 30s, and the serving control stays enabled
+      // throughout. Without the abort the original request resolves after the
+      // cancel and writes the stale tips back — after which handleHowToPrepare
+      // short-circuits on them forever, while the stored row is null.
+      let resolvePromise: (value: Response) => void
+      mockFetch.mockImplementation(
+        (_url: string, init?: RequestInit) =>
+          new Promise<Response>((resolve, reject) => {
+            resolvePromise = resolve
+            init?.signal?.addEventListener('abort', () =>
+              reject(new DOMException('Aborted', 'AbortError')),
+            )
+          }),
+      )
+
+      const { result } = renderHook(() => useMealTips(defaultOptions))
+
+      let fetchPromise: Promise<void>
+      act(() => {
+        fetchPromise = result.current.fetchTips()
+      })
+      expect(result.current.isLoadingTips).toBe(true)
+
+      act(() => {
+        result.current.cancelTips()
+      })
+
+      await act(async () => {
+        // The in-flight request answers after the cancel, as it would in the
+        // browser — the abort is what keeps its payload out of the state.
+        resolvePromise!({
+          ok: true,
+          json: () => Promise.resolve({ tips: mockTips }),
+        } as Response)
+        await fetchPromise
+      })
+
+      expect(result.current.tips).toBeNull()
+      expect(result.current.tipsError).toBeNull()
+      expect(result.current.isTipsExpanded).toBe(false)
+    })
+  })
 })

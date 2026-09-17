@@ -111,6 +111,7 @@ function sampleEntry(overrides: Record<string, unknown> = {}) {
   return {
     id: 'entry-1',
     planId: 'plan-1',
+    mealId: 'meal-1',
     preparationTips: null,
     // A real row always carries the column, and the cache write filters on it
     // (HON-681) — leaving it off would make that filter `undefined`, which
@@ -285,6 +286,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(mockEntryCacheWrite).toHaveBeenCalledWith({
       where: {
         id: 'entry-1',
+        mealId: 'meal-1',
         servingOverride: null,
         plan: { household: { locale: 'en' } },
       },
@@ -292,7 +294,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     })
   })
 
-  it('scopes the cache write to the servings and locale the prompt was priced from', async () => {
+  it('scopes the cache write to the meal, servings and locale the prompt was priced from', async () => {
     // Generation takes up to 30s. A `servingOverride` or locale PATCH that
     // commits in the meantime nulls this cache precisely because those inputs
     // moved, so the write has to lose that race rather than re-cache tips for
@@ -311,6 +313,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(mockEntryCacheWrite).toHaveBeenCalledWith({
       where: {
         id: 'entry-1',
+        mealId: 'meal-1',
         servingOverride: 6,
         plan: { household: { locale: 'et' } },
       },

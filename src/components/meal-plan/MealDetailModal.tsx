@@ -64,8 +64,7 @@ export function MealDetailModal({
     fetchTips,
     handleHowToPrepare,
     hideTips,
-    setTips,
-    setIsTipsExpanded,
+    cancelTips,
   } = useMealTips({ planId, entryId })
 
   // Sync local state when prop changes
@@ -104,8 +103,11 @@ export function MealDetailModal({
         // hook's `tips` survives a close and reopen — and `handleHowToPrepare`
         // short-circuits on a non-null `tips`, so without dropping it here the
         // panel keeps showing pan sizes for the old count and never re-POSTs.
-        setTips(null)
-        setIsTipsExpanded(false)
+        //
+        // `cancelTips` rather than clearing the state, because a generation
+        // started before this change is still running and would otherwise
+        // resolve into the state we just emptied.
+        cancelTips()
         return true
       } catch {
         setLocalServings(previousServings)
@@ -113,16 +115,7 @@ export function MealDetailModal({
         return false
       }
     },
-    [
-      planId,
-      entryId,
-      householdSize,
-      localServings,
-      onServingOverrideChange,
-      tServing,
-      setTips,
-      setIsTipsExpanded,
-    ],
+    [planId, entryId, householdSize, localServings, onServingOverrideChange, tServing, cancelTips],
   )
 
   return (
