@@ -808,7 +808,7 @@
       "saving": "Saving…",
       "savedToast": "Settings saved",
       "saveFailed": "Failed to save settings",
-      "ownerOnlyNotice": "Only the household owner can edit name, timezone, and language.",
+      "ownerOnlyNotice": "Only the household owner can change these settings. You can see them here.",
       "errorGeneric": "An error occurred",
       "basicHeading": "Basic information",
       "nameLabel": "Household name",

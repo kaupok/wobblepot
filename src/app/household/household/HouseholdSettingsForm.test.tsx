@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { toast } from 'sonner'
@@ -35,6 +35,9 @@ type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian'
 type Allergen =
   'gluten' | 'dairy' | 'eggs' | 'nuts' | 'peanuts' | 'soy' | 'fish' | 'shellfish' | 'sesame'
 type MealType = 'breakfast' | 'lunch' | 'dinner'
+
+const OWNER_ONLY_NOTICE =
+  'Only the household owner can change these settings. You can see them here.'
 
 const defaultHousehold = {
   id: 'household-1',
@@ -218,24 +221,54 @@ describe('HouseholdSettingsForm', () => {
     it('shows owner-only message for non-owners', () => {
       renderForm({ isOwner: false })
 
-      expect(
-        screen.getByText('Only the household owner can edit name, timezone, and language.'),
-      ).toBeInTheDocument()
+      expect(screen.getByText(OWNER_ONLY_NOTICE)).toBeInTheDocument()
     })
 
     it('does not show owner-only message for owners', () => {
       renderForm({ isOwner: true })
 
-      expect(
-        screen.queryByText('Only the household owner can edit name, timezone, and language.'),
-      ).not.toBeInTheDocument()
+      expect(screen.queryByText(OWNER_ONLY_NOTICE)).not.toBeInTheDocument()
     })
 
-    it('allows non-owners to edit preferences', () => {
+    it('shows the owner-only message once, above the first section', () => {
       renderForm({ isOwner: false })
 
+      // getByText throws on more than one match, so this also asserts "once".
+      const notice = screen.getByText(OWNER_ONLY_NOTICE)
+      const firstSection = screen.getByRole('heading', { name: 'Basic information' })
+      expect(
+        notice.compareDocumentPosition(firstSection) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+    })
+
+    // The preferences PATCH is owner-only and 403s a member (HON-677).
+    it('disables preferences for non-owners', () => {
+      renderForm({ isOwner: false })
+
+      expect(screen.getByLabelText('Gluten')).toBeDisabled()
+      expect(screen.getByLabelText('Dairy')).toBeDisabled()
+      for (const name of ['No preference', 'Vegetarian', 'Vegan', 'Pescatarian']) {
+        expect(screen.getByLabelText(name)).toBeDisabled()
+      }
+      for (const checkbox of screen.getAllByLabelText('Dinner')) {
+        expect(checkbox).toBeDisabled()
+      }
+      expect(screen.getByLabelText('Dietary restrictions')).toBeDisabled()
+      expect(screen.getByLabelText('Ingredients to exclude')).toBeDisabled()
+    })
+
+    it('enables preferences for owners', () => {
+      renderForm({ isOwner: true })
+
       expect(screen.getByLabelText('Gluten')).not.toBeDisabled()
-      expect(screen.getByLabelText('Dairy')).not.toBeDisabled()
+      expect(screen.getByLabelText('Vegan')).not.toBeDisabled()
+      expect(screen.getAllByLabelText('Dinner')[0]).not.toBeDisabled()
+    })
+
+    it('hides the save button for non-owners', () => {
+      renderForm({ isOwner: false })
+
+      expect(screen.queryByRole('button', { name: 'Save settings' })).not.toBeInTheDocument()
     })
   })
 
@@ -354,19 +387,21 @@ describe('HouseholdSettingsForm', () => {
       )
     })
 
-    it('only submits preferences for non-owner', async () => {
+    // No button to press, so submit the form element directly: the mutation
+    // itself must refuse, not just the missing button (HON-677).
+    it('does not send any request when a non-owner submits', async () => {
       mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
 
-      renderForm({ isOwner: false })
+      const { container } = renderForm({ isOwner: false })
 
-      await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+      fireEvent.submit(container.querySelector('form')!)
+      await new Promise((resolve) => setTimeout(resolve, 0))
 
-      await waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledTimes(1)
-      })
-
-      expect(mockFetch).toHaveBeenCalledWith('/api/households/me/preferences', expect.anything())
-      expect(mockFetch).not.toHaveBeenCalledWith('/api/households/me', expect.anything())
+      expect(mockFetch).not.toHaveBeenCalled()
+      expect(toast.success).not.toHaveBeenCalled()
+      expect(toast.error).not.toHaveBeenCalled()
+      expect(mockRouterRefresh).not.toHaveBeenCalled()
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     })
 
     it('shows success toast on successful save', async () => {
