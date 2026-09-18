@@ -256,6 +256,19 @@ describe('Typography Components', () => {
       const pre = screen.getByText('code block')
       expect(pre).toHaveClass('rounded-lg', 'border', 'bg-muted')
     })
+
+    it('is keyboard-focusable so an overflowing block can be scrolled', () => {
+      // A `Pre` scrolls horizontally when a line is wider than its container;
+      // axe's scrollable-region-focusable rule requires the region to be
+      // reachable by keyboard. The HON-686 type scale made this bite in CI.
+      render(<Pre>code block</Pre>)
+      expect(screen.getByText('code block')).toHaveAttribute('tabindex', '0')
+    })
+
+    it('lets a caller override tabIndex', () => {
+      render(<Pre tabIndex={-1}>code block</Pre>)
+      expect(screen.getByText('code block')).toHaveAttribute('tabindex', '-1')
+    })
   })
 
   describe('Ref forwarding', () => {
