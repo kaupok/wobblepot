@@ -11,7 +11,6 @@ vi.mock('@/lib/auth', () => ({
       getSession: vi.fn(),
     },
   },
-  createHouseholdForUser: vi.fn(),
 }))
 
 vi.mock('@/lib/prisma', () => ({
