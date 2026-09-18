@@ -9,7 +9,7 @@ import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
 import { PLANNING_MODEL } from './models'
 import { buildMealPlanPrompt } from './prompts'
 import { logAiSample } from './sampling'
-import { toAiUsageStats } from './usage'
+import { toAiUsageStats, withUsageOnFailure } from './usage'
 import { getFavoriteMealIds, getRecentMealIds, loadCandidatePools } from './plan-candidates'
 import {
   hydratePlan,
@@ -176,11 +176,13 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
 
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
 
-  const result = await generateObject({
-    model: anthropic(PLANNING_MODEL),
-    schema: MealPlanResponseSchema,
-    prompt,
-  })
+  const result = await withUsageOnFailure(PLANNING_MODEL, onAiUsage, () =>
+    generateObject({
+      model: anthropic(PLANNING_MODEL),
+      schema: MealPlanResponseSchema,
+      prompt,
+    }),
+  )
 
   onAiUsage?.(toAiUsageStats(PLANNING_MODEL, result.usage))
 

@@ -22,6 +22,7 @@ import {
   recordAiUsage,
   respondCapExceeded,
   toAiUsageStats,
+  withUsageOnFailure,
 } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
@@ -160,14 +161,24 @@ async function handlePOST(
         locale: household.locale,
       })
 
-      const result = await generateObject({
-        model: anthropic(TIPS_MODEL),
-        schema: supplementaryTipsSchema,
-        prompt,
-        maxOutputTokens: 400,
-        maxRetries: 3,
-        abortSignal: timeout,
-      })
+      const result = await withUsageOnFailure(
+        TIPS_MODEL,
+        (stats) =>
+          recordAiUsage({
+            householdId: household.id,
+            feature: 'entry_preparation_tips',
+            ...stats,
+          }),
+        () =>
+          generateObject({
+            model: anthropic(TIPS_MODEL),
+            schema: supplementaryTipsSchema,
+            prompt,
+            maxOutputTokens: 400,
+            maxRetries: 3,
+            abortSignal: timeout,
+          }),
+      )
 
       await recordAiUsage({
         householdId: household.id,
@@ -198,14 +209,24 @@ async function handlePOST(
         locale: household.locale,
       })
 
-      const result = await generateObject({
-        model: anthropic(TIPS_MODEL),
-        schema: fullTipsSchema,
-        prompt,
-        maxOutputTokens: 1000,
-        maxRetries: 3,
-        abortSignal: timeout,
-      })
+      const result = await withUsageOnFailure(
+        TIPS_MODEL,
+        (stats) =>
+          recordAiUsage({
+            householdId: household.id,
+            feature: 'entry_preparation_tips',
+            ...stats,
+          }),
+        () =>
+          generateObject({
+            model: anthropic(TIPS_MODEL),
+            schema: fullTipsSchema,
+            prompt,
+            maxOutputTokens: 1000,
+            maxRetries: 3,
+            abortSignal: timeout,
+          }),
+      )
 
       await recordAiUsage({
         householdId: household.id,

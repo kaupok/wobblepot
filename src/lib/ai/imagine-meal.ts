@@ -5,7 +5,7 @@ import { serverEnv } from '@/lib/env'
 import { IMAGINE_MODEL } from './models'
 import { localeInstruction, estonianVoiceForImagineMeal } from './prompts'
 import { logAiSample } from './sampling'
-import { toAiUsageStats, type AiUsageStats } from './usage'
+import { toAiUsageStats, withUsageOnFailure, type AiUsageStats } from './usage'
 
 /**
  * Schema for a single ingredient in an imagined meal.
@@ -161,12 +161,14 @@ The user may attach photos for context — these could show ingredients they hav
 
   content.push({ type: 'text', text: textPrompt })
 
-  const result = await generateObject({
-    model: anthropic(IMAGINE_MODEL),
-    schema: ImaginedMealsSchema,
-    messages: [{ role: 'user' as const, content }],
-    system: systemPrompt,
-  })
+  const result = await withUsageOnFailure(IMAGINE_MODEL, onAiUsage, () =>
+    generateObject({
+      model: anthropic(IMAGINE_MODEL),
+      schema: ImaginedMealsSchema,
+      messages: [{ role: 'user' as const, content }],
+      system: systemPrompt,
+    }),
+  )
 
   onAiUsage?.(toAiUsageStats(IMAGINE_MODEL, result.usage))
 

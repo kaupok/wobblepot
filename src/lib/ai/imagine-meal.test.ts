@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('ai', () => ({
+// Keep the real exports: `withUsageOnFailure` needs the real
+// `NoObjectGeneratedError.isInstance` on every rejected call.
+vi.mock('ai', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('ai')>()),
   generateObject: vi.fn(),
 }))
 
@@ -21,7 +24,7 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { imagineMeals, ImaginedMealsSchema, type ImaginedMeal } from './imagine-meal'
 import { logAiSample } from './sampling'
 import { IMAGINE_MODEL } from './models'
-import { USAGE_FIXTURE, expectedUsageStats } from './usage-fixture'
+import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from './usage-fixture'
 
 const mockGenerateObject = vi.mocked(generateObject)
 const mockCreateAnthropic = vi.mocked(createAnthropic)
@@ -93,6 +96,19 @@ describe('imagineMeals', () => {
 
     expect(onAiUsage).toHaveBeenCalledTimes(1)
     expect(onAiUsage).toHaveBeenCalledWith(expectedUsageStats(IMAGINE_MODEL))
+  })
+
+  it('reports the billed usage with success: false when generateObject throws NoObjectGeneratedError', async () => {
+    const error = noObjectGeneratedError()
+    mockGenerateObject.mockRejectedValue(error)
+    const onAiUsage = vi.fn()
+
+    await expect(
+      imagineMeals('something with chicken', emptyHousehold, 'en', undefined, onAiUsage),
+    ).rejects.toBe(error)
+
+    expect(onAiUsage).toHaveBeenCalledTimes(1)
+    expect(onAiUsage).toHaveBeenCalledWith({ ...expectedUsageStats(IMAGINE_MODEL), success: false })
   })
 
   it('initializes Anthropic with the server API key', async () => {
