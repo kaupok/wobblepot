@@ -14,21 +14,167 @@
 #
 # Usage: bash scripts/check-migrations-immutable.sh <BASE_REF>
 #   e.g. git fetch origin main && bash scripts/check-migrations-immutable.sh origin/main
+#        bash scripts/check-migrations-immutable.sh --tree
 #
 # Fetch first when BASE_REF is a remote-tracking ref: `origin/main` only moves
 # on `git fetch`, and a stale one omits migrations that landed on main since —
 # editing one of those then reads as `A`, the allowed status, and passes.
 #
-# Run in CI on every pull request against the PR base sha (prevention), and on
-# every push to `main` against `github.event.before`, the previous tip
-# (detection — HON-649). See .github/workflows/ci.yml.
+# Two modes, one per CI event (see .github/workflows/ci.yml):
+#
+#   <BASE_REF>  Prevention, on every pull request against the PR base sha:
+#               fails if this branch changes a migration the base already has.
+#   --tree      Detection, on every push to `main` (HON-649, HON-671): fails if
+#               any migration.sql at HEAD differs from the blob it was first
+#               added with on `main`'s first-parent history, or if one was
+#               deleted. Unlike a `before..HEAD` range, this stays red on every
+#               later push until the edit is reverted, so an unrelated merge
+#               cannot turn `main` green over the drift.
+#
+# `--tree` assumes each first-parent commit on `main` is one merge unit — a
+# squash (what `/merge` does) or a merge commit, whose first-parent diff covers
+# the whole PR. A rebase merge, or a direct push of several commits, lands a
+# PR's intermediate commits too: a new migration added in one and fixed up in
+# the next then reads as edited, although only the final bytes were ever on a
+# pushed `main` tip and applied. Reverting there would CREATE drift — pin the
+# final blob in the allowlist instead (the repo still allows rebase merges).
+#
+# `--tree` accepts a post-add edit only when scripts/migration-immutability-
+# allowlist.txt pins that path to HEAD's exact blob (or to `deleted`), with a
+# reason — see the header of that file. It costs one `git log` over full
+# history per migration (~30 today, well under a second each); revisit with a
+# single-pass walk once there are a few hundred.
 set -eu
+
+# --tree ---------------------------------------------------------------------
+tree_mode() {
+  # Pathspecs and the allowlist path are repo-relative, so anchor to the top
+  # of the working tree — run from a subdirectory, they would match nothing
+  # and report a confident pass.
+  cd "$(git rev-parse --show-toplevel)"
+
+  # A shallow clone's boundary commit diffs against the empty tree, so every
+  # migration reads as added there, with whatever bytes it holds by then —
+  # the check would compare edited files against themselves and pass.
+  if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
+    echo "ERROR: --tree needs full history, and this clone is shallow." >&2
+    echo "Check out with \`fetch-depth: 0\` (or run \`git fetch --unshallow\`)." >&2
+    exit 2
+  fi
+
+  local allowlist=scripts/migration-immutability-allowlist.txt
+  # Read from HEAD, the tree being checked, rather than the working tree —
+  # the pin and the file it pins must come from the same commit. A missing
+  # file is an empty allowlist: the strictest reading, never a looser one.
+  local pins="" content="" lineno=0 line path blob why
+  if git cat-file -e "HEAD:$allowlist" 2>/dev/null; then
+    content=$(git show "HEAD:$allowlist")
+  fi
+  while IFS= read -r line || [ -n "$line" ]; do
+    lineno=$((lineno + 1))
+    case "$line" in \#*) continue ;; esac
+    path="" blob="" why=""
+    read -r path blob why <<<"$line" || true
+    [ -n "$path" ] || continue
+    # A line that does not parse is an error, not a skip: a silently dropped
+    # pin turns into a red `main` with no hint why, and a pin that parsed
+    # wrong could accept content nobody reviewed.
+    if [ -z "$why" ] ||
+      ! [[ "$blob" =~ ^([0-9a-f]{40}|[0-9a-f]{64}|deleted)$ ]] ||
+      ! [[ "$path" =~ ^prisma/migrations/[^/]+/migration\.sql$ ]]; then
+      echo "ERROR: $allowlist:$lineno is malformed:" >&2
+      echo "  $line" >&2
+      echo "Expected: <prisma/migrations/<dir>/migration.sql> <blob-sha|deleted> <why>" >&2
+      exit 2
+    fi
+    if printf '%s\n' "$pins" | awk -v p="$path" '$1 == p { found = 1 } END { exit !found }'; then
+      echo "ERROR: $allowlist:$lineno pins $path a second time — keep one entry per path." >&2
+      exit 2
+    fi
+    pins="${pins}${path} ${blob}"$'\n'
+  done <<EOF
+$content
+EOF
+
+  local failures="" checked=0 allowed=0 f added head_blob added_blob
+  local files
+  files=$(git -c core.quotePath=false ls-tree -r --name-only HEAD -- prisma/migrations |
+    grep '/migration\.sql$' || true)
+
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    checked=$((checked + 1))
+    # The OLDEST add, not the newest: a migration deleted and later restored
+    # must still match what the database recorded the first time. With the
+    # newest add it would be compared against its own re-add and always pass.
+    # `--no-renames` so a moved file reads as D + A rather than R.
+    added=$(git log --first-parent --no-renames --diff-filter=A --format=%H HEAD -- ":(literal)$f" | tail -n 1)
+    if [ -z "$added" ]; then
+      echo "ERROR: no first-parent commit adds $f — cannot establish its applied content." >&2
+      exit 2
+    fi
+    head_blob=$(git rev-parse "HEAD:$f")
+    added_blob=$(git rev-parse "$added:$f")
+    [ "$head_blob" = "$added_blob" ] && continue
+    if printf '%s\n' "$pins" | grep -Fxq "$f $head_blob"; then
+      allowed=$((allowed + 1))
+      continue
+    fi
+    failures="${failures}  edited   $f (added in ${added:0:12}, now blob $head_blob)"$'\n'
+  done <<EOF
+$files
+EOF
+
+  local deleted
+  deleted=$(git -c core.quotePath=false log --first-parent --no-renames --diff-filter=D \
+    --name-only --format= HEAD -- 'prisma/migrations/*/migration.sql' | sort -u)
+
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    # Present at HEAD again means it was restored — the loop above has already
+    # compared it against its original bytes.
+    git cat-file -e "HEAD:$f" 2>/dev/null && continue
+    if printf '%s\n' "$pins" | grep -Fxq "$f deleted"; then
+      allowed=$((allowed + 1))
+      continue
+    fi
+    added=$(git log --first-parent --no-renames --diff-filter=A --format=%H HEAD -- ":(literal)$f" | tail -n 1)
+    failures="${failures}  deleted  $f (added in ${added:0:12})"$'\n'
+  done <<EOF
+$deleted
+EOF
+
+  if [ -n "$failures" ]; then
+    echo "ERROR: HEAD holds applied migrations that no longer match what was first merged:" >&2
+    printf '%s' "$failures" >&2
+    echo "These edits have already landed, so do NOT fix forward: staging and production" >&2
+    echo "still hold the checksum of the original SQL, and only restoring those bytes" >&2
+    echo "clears the drift. Revert the commit that made each change (git revert) — this" >&2
+    echo "check goes green on the revert's own push. Keeping an edit is only sanctioned" >&2
+    echo "through a reviewed entry in $allowlist, with a reason." >&2
+    echo "Exception: if the add and the edit arrived in the SAME push (a rebase merge or" >&2
+    echo "a multi-commit push), only the final bytes were ever applied — do not revert;" >&2
+    echo "pin HEAD's blob in the allowlist instead." >&2
+    echo "See CLAUDE.md → Database Patterns." >&2
+    if [ "${GITHUB_ACTIONS-}" = true ]; then
+      echo "::error title=Applied migration edited on main::A migration.sql at HEAD differs from the bytes it was merged with. Revert the commit that changed it; see the step log and CLAUDE.md → Database Patterns."
+    fi
+    exit 1
+  fi
+
+  echo "check-migrations-immutable: OK — $checked migrations at HEAD checked; each matches the bytes it was merged with or an allowlist pin ($allowed allowlisted)"
+}
+
+if [ "${1-}" = "--tree" ]; then
+  tree_mode
+  exit 0
+fi
 
 BASE_REF=${1-}
 
 if [ -z "$BASE_REF" ]; then
   echo "ERROR: missing BASE_REF." >&2
-  echo "Usage: bash scripts/check-migrations-immutable.sh <BASE_REF>" >&2
+  echo "Usage: bash scripts/check-migrations-immutable.sh <BASE_REF> | --tree" >&2
   exit 2
 fi
 

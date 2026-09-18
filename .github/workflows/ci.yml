@@ -84,14 +84,14 @@ jobs:
         uses: actions/checkout@v7
         with:
           # Full history so `git merge-base` resolves for the immutability
-          # guards below — both the PR base sha and, on push, the previous
-          # `main` tip in `github.event.before` are ancestors that only a full
-          # clone is guaranteed to contain. At 9 MiB / ~720 commits that costs
-          # a couple of seconds. Reverting to the depth-1 default does not
-          # merely degrade the guards, it disables them: the base sha is never
-          # fetched, so the script exits 2 on an unresolvable ref — on push that
-          # reddens every `main` run, since a depth-1 clone holds no parent of
-          # HEAD. Fetching the base back at `--depth=1` is worse still — it
+          # guards below — the PR base sha is an ancestor that only a full
+          # clone is guaranteed to contain, and the push-side `--tree` check
+          # walks all of `main`'s first-parent history. At 9 MiB / ~720 commits
+          # that costs a couple of seconds. Reverting to the depth-1 default
+          # does not merely degrade the guards, it disables them: the base sha
+          # is never fetched, so the PR check exits 2 on an unresolvable ref,
+          # and `--tree` exits 2 on the shallow clone — reddening every `main`
+          # run. Fetching the base back at `--depth=1` is worse still — it
           # resolves the ref but re-shallows the repository, and the guard then
           # falls back to a two-tree diff that blames the branch for every
           # migration the base gained since the fork point. If this has to
@@ -115,13 +115,14 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: bash scripts/check-migrations-immutable.sh "$BASE_SHA"
 
-      # Detection, not prevention (HON-649). `main` has no required status
-      # checks (HON-584), so an edited migration can still land: a PR merged
-      # red, a PR run cancelled by `cancel-in-progress`, or a merge through the
-      # GitHub UI. By the time this runs, deploy-db-migrations-staging.yml has
-      # been triggered by the same push, so the best available outcome is a
-      # loud signal — and the decision is to fail this `ci` job on `main`, the
-      # loudest signal the repo has, rather than add a notification path.
+      # Detection, not prevention (HON-649, HON-671). `main` has no required
+      # status checks (HON-584), so an edited migration can still land: a PR
+      # merged red, a PR run cancelled by `cancel-in-progress`, or a merge
+      # through the GitHub UI. By the time this runs, deploy-db-migrations-
+      # staging.yml has been triggered by the same push, so the best available
+      # outcome is a loud signal — and the decision is to fail this `ci` job on
+      # `main`, the loudest signal the repo has, rather than add a notification
+      # path.
       #
       # A red `ci` on `main` blocks nothing downstream (verified against the
       # triggers): deploy-storybook.yml runs on its own `push` paths filter,
@@ -129,50 +130,36 @@ jobs:
       # `workflow_dispatch` only, and staging-smoke.yml follows the staging
       # migrations workflow — none uses `workflow_run` or `needs` on this one.
       #
-      # `github.event.before` is the previous `main` tip, and the checkout above
-      # is `fetch-depth: 0`, so it resolves and is its own merge base with HEAD:
-      # the diff covers exactly the commits this push added, however many. The
-      # all-zero sha means there is no previous tip (a new branch, should the
-      # `push` trigger ever widen) and would exit 2, so it is skipped.
+      # `--tree` checks HEAD's state, not this push's range: every migration.sql
+      # must match the blob it was first added with on `main`'s first-parent
+      # history, and none may be deleted. So the red is durable — every later
+      # push stays red until the edit is reverted, and an unrelated merge can
+      # no longer turn `main` green over the drift. It needs the full history
+      # the checkout above provides, and exits 2 on a shallow clone rather than
+      # passing. The two historical edits to migrations that had failed to apply
+      # (#181, #356) are pinned in scripts/migration-immutability-allowlist.txt;
+      # a pin accepts one exact blob, with a reason, and is the only sanctioned
+      # way to keep a post-add edit. It assumes each first-parent commit is one
+      # merge unit (squash or merge commit); a rebase merge that adds a
+      # migration and fixes it up in a later commit reads as an edit, and the
+      # remedy there is a pin, not a revert — see the script header.
       #
-      # Known gap: the workflow-level `cancel-in-progress` also applies to
-      # `main`. A second push that lands in the ~30s before this step runs
-      # cancels the first run, and the second run's `before` is the first
-      # push's tip — so the first push is never compared. Setting
-      # `cancel-in-progress: false` would not close it, because a concurrency
-      # group still replaces a run that is pending; closing it means taking
-      # `main` pushes out of the group, so every merge runs its own full job.
-      #
-      # Known gap: the red is transient. Only the run for the offending push
-      # fails — the next unrelated merge diffs `before..HEAD` with no migration
-      # in it and goes green while the drift stays — and because this step runs
-      # first, that one red run also skips lint, tests and E2E for its push.
-      # Act on the failure when it fires; the badge will not keep it for you.
-      # A durable tree-state check (each migration at HEAD against the blob it
-      # was first added with) was not taken here: `main` already carries two
-      # legitimate edits to migrations that had failed to apply (#181, #356),
-      # so it needs a pinned allowlist — tracked as a follow-up to HON-649.
+      # Because it checks the tree, the workflow-level `cancel-in-progress` no
+      # longer hides an edit: a push whose run is cancelled by the next push is
+      # still in the next run's HEAD. The cost of this step running first is
+      # unchanged — while it is red, each `main` run also skips lint, tests and
+      # E2E — which is one more reason to revert promptly.
       #
       # Recovery is a revert, not a fix-forward. `migrate deploy` never
       # re-applies a migration it has recorded, so staging and production still
       # hold the checksum of the ORIGINAL SQL; only restoring those bytes clears
       # the drift, and a new migration would leave it in place for good. The
-      # script's own "fix forward" advice is right at PR time, before anything
-      # landed, so the override is printed here instead. The revert is itself
-      # an `M` against its base: its PR check fails, and the `main` run of this
-      # step for the revert push fails once more. Both are expected — merge it
-      # deliberately; the push after it compares against the restored tip.
+      # script prints that instruction itself in this mode. The revert PR's own
+      # range check still fails (a revert is an `M` against its base) — merge
+      # it deliberately; its `main` push then goes green here.
       - name: Check migrations are immutable (post-merge detection)
-        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
-        env:
-          BEFORE_SHA: ${{ github.event.before }}
-        run: |
-          status=0
-          bash scripts/check-migrations-immutable.sh "$BEFORE_SHA" || status=$?
-          if [ "$status" = 1 ]; then
-            echo "::error title=Applied migration edited on main::Ignore \"fix forward\" above: this edit has already landed. Revert the commit that made it (git revert) so the file matches the checksum staging/production recorded. The revert fails this check once more; merge it deliberately. See CLAUDE.md → Database Patterns."
-          fi
-          exit "$status"
+        if: github.event_name == 'push'
+        run: bash scripts/check-migrations-immutable.sh --tree
 
       - name: Enable Corepack
         run: corepack enable
