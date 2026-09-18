@@ -168,7 +168,8 @@ export function HouseholdSettingsForm({
       // Both endpoints are owner-only (they 403 a member), so a non-owner has
       // nothing to save. handleSubmit and the hidden save button stop them
       // first; this keeps the mutation from relying on either (HON-677).
-      if (!isOwner) return
+      // Throw rather than return, so it can never read as a successful save.
+      if (!isOwner) throw new Error(tSettings('ownerOnlyNotice'))
 
       const preferencesPayload = {
         dietaryType: dietaryType === 'none' ? null : dietaryType,
