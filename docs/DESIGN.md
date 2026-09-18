@@ -26,15 +26,17 @@ Use these. Do not restyle them per feature or invent parallel ones.
 
 ## Type scale
 
-Five levels for authenticated app pages (`HON-381`). Differentiate by color before size.
+Five levels for authenticated app pages (`HON-381`, raised one step in `HON-686`). Differentiate by color before size.
 
-| Level     | Use for                                                   | Component                     | Renders as                         |
-| --------- | --------------------------------------------------------- | ----------------------------- | ---------------------------------- |
-| Title     | Page heading: "Shopping list", "My recipes"               | `<Heading variant="h4">`      | `text-xl font-semibold`            |
-| Section   | Day names, form sections ("Ingredients")                  | `<Heading variant="section">` | `text-base font-semibold`          |
-| Body      | Single-line items: meal names, ingredient rows, links     | `<Body variant="small">`      | `text-sm font-medium leading-none` |
-| Secondary | Helper text, descriptions, summaries; any text that wraps | `<Body variant="muted">`      | `text-sm text-muted-foreground`    |
-| Caption   | Meal-type labels, badges, quantities, day tags            | `<Body variant="caption">`    | `text-xs font-medium muted`        |
+| Level     | Use for                                                   | Component                     | Renders as                         | Size / line |
+| --------- | --------------------------------------------------------- | ----------------------------- | ---------------------------------- | ----------- |
+| Title     | Page heading: "Shopping list", "My recipes"               | `<Heading variant="h4">`      | `text-xl font-semibold`            | 22px / 30px |
+| Section   | Day names, form sections ("Ingredients")                  | `<Heading variant="section">` | `text-base font-semibold`          | 18px / 28px |
+| Body      | Single-line items: meal names, ingredient rows, links     | `<Body variant="small">`      | `text-sm font-medium leading-none` | 16px / 16px |
+| Secondary | Helper text, descriptions, summaries; any text that wraps | `<Body variant="muted">`      | `text-sm text-muted-foreground`    | 16px / 24px |
+| Caption   | Meal-type labels, badges, quantities, day tags            | `<Body variant="caption">`    | `text-xs font-medium muted`        | 14px / 20px |
+
+**`text-xs` … `text-xl` are not stock Tailwind values.** They are re-based one step up in the top-level `@theme` block of `src/app/globals.css` (HON-686): `text-xs` 14/20, `text-sm` 16/24, `text-base` 18/28, `text-lg` 20/28, `text-xl` 22/30. The stock values (14px body, 12px captions) are a dashboard scale, and our reader holds a phone at arm's length. The names were kept so every primitive, variant and raw `text-sm` moves together, and so the next `text-xs` an agent writes lands at 14px rather than 12px. `text-2xl` and up are stock — only marketing, legal and error pages use them. Inputs keep `text-base md:text-sm`, now 18px on phones and 16px from `md`, so both halves stay at or above the 16px iOS no-zoom floor. `UI/Tokens` → `TypeScale` measures every value in Chromium, and the `title-scale` design rule reads its limit from a `text-xl` probe, so neither needs editing when a value moves — this table and the story's `TYPE_SCALE` do.
 
 Rules:
 
@@ -173,4 +175,5 @@ Add one here when a review finds code and rule disagreeing and the fix is not ob
 
 Decisions above that the code does not yet reflect. Each has a Linear issue; update this list when one ships.
 
-None right now.
+- **HON-687** — follow the HON-686 type scale through the geometry: icon sizes (the `Icons` row above still quotes the pre-HON-686 sizes), checkbox, tab bar, control heights, and the skeleton mirrors of text line heights.
+- **HON-688** — lift the density outliers that pin themselves below the type scale: `MealCard`, `NoteEditor`, `IngredientList` compact, rating and shopping micro-buttons.

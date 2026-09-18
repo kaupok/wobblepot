@@ -146,12 +146,12 @@ rule name, the DESIGN.md section, and the first 120 characters of the offending
 element, so a violation fails `pnpm test-storybook:ci` instead of waiting for a
 reviewer to notice.
 
-| Rule                | Fails when                                                          |
-| ------------------- | ------------------------------------------------------------------- |
-| `no-nested-cards`   | `[data-slot="card"]` has a `[data-slot="card"]` descendant          |
-| `title-scale`       | an `h1`–`h6` computes above 20px (the `Heading variant="h4"` Title) |
-| `no-sticky-content` | anything computes to `position: sticky` or `fixed`                  |
-| `no-raw-palette`    | a `class` attribute carries a raw Tailwind palette class            |
+| Rule                | Fails when                                                                             |
+| ------------------- | -------------------------------------------------------------------------------------- |
+| `no-nested-cards`   | `[data-slot="card"]` has a `[data-slot="card"]` descendant                             |
+| `title-scale`       | an `h1`–`h6` computes above a `text-xl` probe (the `Heading variant="h4"` Title, 22px) |
+| `no-sticky-content` | anything computes to `position: sticky` or `fixed`                                     |
+| `no-raw-palette`    | a `class` attribute carries a raw Tailwind palette class                               |
 
 `SCENARIO_RULES` (all four) is exported alongside it — scenarios enable the
 whole set rather than picking rules per story:

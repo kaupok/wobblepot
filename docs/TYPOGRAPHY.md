@@ -16,7 +16,8 @@ Renders a heading with consistent styling. `variant` picks the visual level from
 
 **Available variants:** `h1` | `h2` | `h3` | `h4` | `section`
 
-`section` is the Section level of the type scale (`text-base font-semibold`) — day names on the
+`section` is the Section level of the type scale (`text-base font-semibold`, 18px — `text-base`
+is re-based above stock Tailwind, see [DESIGN.md](./DESIGN.md) → Type scale) — day names on the
 timeline, form section labels. See [DESIGN.md](./DESIGN.md) → Type scale for when to reach for it.
 
 ### The `as` prop — tag independent of size
