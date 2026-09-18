@@ -81,6 +81,8 @@ export async function POST(request: Request) {
         },
       })
 
+      // This route is the only household creator, so it must stay the one that
+      // writes the preferences row (the seed's smoke household is the exception; HON-672).
       await tx.householdPreferences.create({
         data: {
           householdId: newHousehold.id,

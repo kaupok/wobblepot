@@ -2,7 +2,7 @@ import { betterAuth } from 'better-auth'
 import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { hashPassword } from 'better-auth/crypto'
 import { prismaAdapter } from '@better-auth/prisma-adapter'
-import { prisma, type PrismaClientType } from '@/lib/prisma'
+import { prisma } from '@/lib/prisma'
 import { serverEnv, getServerBaseURL } from '@/lib/env'
 import { resend, isEmailConfigured, EMAIL_SENDERS, envSubject } from '@/lib/resend'
 import { generateResetPasswordEmail } from '@/lib/emails/reset-password'
@@ -75,39 +75,6 @@ export async function hashPasswordWithBreachCheck(password: string): Promise<str
     })
   }
   return timeSignupStep('scrypt', () => hashPassword(password))
-}
-
-/**
- * Creates a household for a new user with default preferences
- * Called after user signup to set up their initial household
- */
-export async function createHouseholdForUser(
-  userId: string,
-  userName: string,
-  db: PrismaClientType = prisma,
-) {
-  await db.$transaction(async (tx) => {
-    const household = await tx.household.create({
-      data: {
-        name: `${userName}'s Household`,
-      },
-    })
-
-    await tx.householdMember.create({
-      data: {
-        householdId: household.id,
-        userId: userId,
-        role: 'owner',
-      },
-    })
-
-    await tx.householdPreferences.create({
-      data: {
-        householdId: household.id,
-        // Uses schema defaults: weekdayMealTypes: [dinner], weekendMealTypes: [dinner]
-      },
-    })
-  })
 }
 
 /**
