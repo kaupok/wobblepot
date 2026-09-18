@@ -14,7 +14,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import type { LanguageModelUsage } from 'ai'
+import { NoObjectGeneratedError, type LanguageModelUsage } from 'ai'
 import type { AiFeature } from '@/generated/prisma/enums'
 import { getPosthogServer } from '@/lib/posthog-server'
 import { prisma } from '@/lib/prisma'
@@ -38,6 +38,11 @@ export interface AiUsageStats {
    * The counts above are then `0` placeholders, not a free call.
    */
   usageMissing: boolean
+  /**
+   * `false` when the call was billed but produced no usable object (see
+   * `withUsageOnFailure`). Absent means `true`.
+   */
+  success?: boolean
 }
 
 export interface RecordAiUsageInput extends Omit<
@@ -97,6 +102,42 @@ export function toAiUsageStats(model: string, usage: LanguageModelUsage | undefi
     cacheWriteTokens,
     outputTokens: outputTokens ?? 0,
     usageMissing,
+  }
+}
+
+/**
+ * Run a `generateObject` call and still report its usage when it throws
+ * `NoObjectGeneratedError`.
+ *
+ * In ai@7 a response that fails schema validation or cannot be parsed throws
+ * instead of returning, but Anthropic has already billed the tokens — and the
+ * error carries them. Without this, the `onAiUsage` line after the call never
+ * runs, no `ai_usage` row is written, and a household whose responses keep
+ * failing validation spends past its cap unchecked (HON-668).
+ *
+ * On `NoObjectGeneratedError` the usage is reported with `success: false`
+ * (still counted toward the cap) and the original error is rethrown, so each
+ * caller's error mapping is unchanged. Any other error propagates untouched
+ * with nothing recorded. The success path is the caller's: it keeps its own
+ * `onAiUsage?.(toAiUsageStats(...))` after the call.
+ */
+export async function withUsageOnFailure<T>(
+  model: string,
+  onUsage: ((stats: AiUsageStats) => void | Promise<void>) | undefined,
+  run: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await run()
+  } catch (error) {
+    if (NoObjectGeneratedError.isInstance(error)) {
+      // A failing callback must not replace the error the caller maps.
+      try {
+        await onUsage?.({ ...toAiUsageStats(model, error.usage), success: false })
+      } catch (usageError) {
+        console.error('Failed to report AI usage for a failed generation:', usageError)
+      }
+    }
+    throw error
   }
 }
 

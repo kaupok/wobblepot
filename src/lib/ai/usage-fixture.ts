@@ -9,7 +9,7 @@
  * Test-only: imported by `*.test.ts` files, never by application code.
  */
 
-import type { LanguageModelUsage } from 'ai'
+import { NoObjectGeneratedError, type LanguageModelUsage } from 'ai'
 
 /**
  * A full ai@7 `usage` object, annotated with the SDK's own exported type so the
@@ -58,4 +58,25 @@ export function expectedUsageStats(model: string) {
     outputTokens: 787,
     usageMissing: false,
   }
+}
+
+/**
+ * The error ai@7's `generateObject` throws when the model's response fails
+ * schema validation: the tokens were billed, and the error carries them
+ * (HON-668). Built with the SDK's real constructor so `isInstance` is exercised
+ * against the real marker symbol — which is also why the call-site tests mock
+ * `ai` with `importOriginal` rather than replacing the whole module.
+ */
+export function noObjectGeneratedError(
+  { usage }: { usage: LanguageModelUsage | undefined } = { usage: USAGE_FIXTURE },
+): NoObjectGeneratedError {
+  return new NoObjectGeneratedError({
+    message: 'No object generated: response did not match schema.',
+    text: '{"not":"the schema"}',
+    response: { id: 'resp-1', timestamp: new Date(0), modelId: 'mock-model' },
+    // The constructor types `usage` as required, but the field it populates is
+    // `LanguageModelUsage | undefined` — the SDK does throw without one.
+    usage: usage as LanguageModelUsage,
+    finishReason: 'stop',
+  })
 }

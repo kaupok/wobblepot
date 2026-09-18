@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('ai', () => ({
+// Keep the real exports: `withUsageOnFailure` needs the real
+// `NoObjectGeneratedError.isInstance` on every rejected call.
+vi.mock('ai', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('ai')>()),
   generateObject: vi.fn(),
 }))
 
@@ -19,7 +22,7 @@ vi.mock('./sampling', () => ({
 import { generateObject } from 'ai'
 import { reviewMealQuantities, type ReviewIngredient } from './review-quantities'
 import { REVIEW_MODEL } from './models'
-import { USAGE_FIXTURE, expectedUsageStats } from './usage-fixture'
+import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from './usage-fixture'
 import { logAiSample } from './sampling'
 
 const mockGenerateObject = vi.mocked(generateObject)
@@ -70,6 +73,19 @@ describe('reviewMealQuantities', () => {
 
     expect(onAiUsage).toHaveBeenCalledTimes(1)
     expect(onAiUsage).toHaveBeenCalledWith(expectedUsageStats(REVIEW_MODEL))
+  })
+
+  it('reports the billed usage with success: false when generateObject throws NoObjectGeneratedError', async () => {
+    const error = noObjectGeneratedError()
+    mockGenerateObject.mockRejectedValue(error)
+    const onAiUsage = vi.fn()
+
+    await expect(
+      reviewMealQuantities('Chicken stir fry', 4, sampleIngredients, 'en', onAiUsage),
+    ).rejects.toBe(error)
+
+    expect(onAiUsage).toHaveBeenCalledTimes(1)
+    expect(onAiUsage).toHaveBeenCalledWith({ ...expectedUsageStats(REVIEW_MODEL), success: false })
   })
 
   it('calls generateObject with the REVIEW_MODEL and a schema', async () => {

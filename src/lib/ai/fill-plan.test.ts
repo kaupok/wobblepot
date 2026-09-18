@@ -35,7 +35,10 @@ vi.mock('@/lib/env', () => ({
   },
 }))
 
-vi.mock('ai', () => ({
+// Keep the real exports: `withUsageOnFailure` needs the real
+// `NoObjectGeneratedError.isInstance` on every rejected call.
+vi.mock('ai', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('ai')>()),
   generateObject: vi.fn(),
 }))
 
@@ -75,7 +78,7 @@ import { fillEmptySlots } from './fill-plan'
 import { InsufficientCandidatesError, NoEmptySlotsError } from './types'
 import { logAiSample } from './sampling'
 import { PLANNING_MODEL } from './models'
-import { USAGE_FIXTURE, expectedUsageStats } from './usage-fixture'
+import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from './usage-fixture'
 
 // Type assertions for mocks
 const mockGetCandidates = vi.mocked(getCandidates)
@@ -281,6 +284,33 @@ describe('fillEmptySlots', () => {
 
     expect(onAiUsage).toHaveBeenCalledTimes(1)
     expect(onAiUsage).toHaveBeenCalledWith(expectedUsageStats(PLANNING_MODEL))
+  })
+
+  it('reports the billed usage with success: false when generateObject throws NoObjectGeneratedError', async () => {
+    mockMealPlanFindUnique.mockResolvedValueOnce({
+      id: 'plan-1',
+      householdId: 'household-1',
+      entries: [
+        entry('2026-01-12', 'dinner', 'meal-1'),
+        entry('2026-01-13', 'dinner', 'meal-2'),
+        entry('2026-01-14', 'dinner', 'meal-3'),
+        entry('2026-01-15', 'dinner', 'meal-4'),
+        entry('2026-01-16', 'dinner', 'meal-5'),
+        entry('2026-01-17', 'dinner', 'meal-6'),
+      ],
+    } as never)
+    mockGetCandidates.mockResolvedValue([createCandidate({ id: 'meal-new' })])
+    const error = noObjectGeneratedError()
+    mockGenerateObject.mockRejectedValue(error)
+    const onAiUsage = vi.fn()
+
+    await expect(fillEmptySlots({ ...fillOptions, onAiUsage })).rejects.toBe(error)
+
+    expect(onAiUsage).toHaveBeenCalledTimes(1)
+    expect(onAiUsage).toHaveBeenCalledWith({
+      ...expectedUsageStats(PLANNING_MODEL),
+      success: false,
+    })
   })
 
   it('fills only the empty slot and leaves filled entries untouched', async () => {

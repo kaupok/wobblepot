@@ -31,7 +31,10 @@ vi.mock('@ai-sdk/anthropic', () => ({
   createAnthropic: vi.fn(() => (modelName: string) => ({ modelId: modelName })),
 }))
 
-vi.mock('ai', () => ({
+// Keep the real exports: `withUsageOnFailure` needs the real
+// `NoObjectGeneratedError.isInstance` on every rejected call.
+vi.mock('ai', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('ai')>()),
   generateObject: vi.fn(),
 }))
 
@@ -61,7 +64,7 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
 import { logAiSample } from '@/lib/ai/sampling'
 import { TIPS_MODEL } from '@/lib/ai/models'
-import { USAGE_FIXTURE, expectedUsageStats } from '@/lib/ai/usage-fixture'
+import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from '@/lib/ai/usage-fixture'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -428,6 +431,47 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     })
   })
 
+  it('records the billed usage with success: false when full tips throw NoObjectGeneratedError', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockGenerateObject.mockRejectedValue(noObjectGeneratedError())
+
+    const response = await callPost()
+
+    // The error is rethrown as-is, so the route's generic mapping is unchanged.
+    expect(response.status).toBe(500)
+    expect(mockRecordAiUsage).toHaveBeenCalledTimes(1)
+    expect(mockRecordAiUsage).toHaveBeenCalledWith({
+      householdId: mockMembership.household.id,
+      feature: 'entry_preparation_tips',
+      ...expectedUsageStats(TIPS_MODEL),
+      success: false,
+    })
+  })
+
+  it('records the billed usage with success: false when supplementary tips throw NoObjectGeneratedError', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockEntryFindFirst.mockResolvedValue(
+      sampleEntry({
+        meal: { ...sampleEntry().meal, preparationNotes: 'Sear first then simmer' },
+      }) as never,
+    )
+    mockGenerateObject.mockRejectedValue(noObjectGeneratedError())
+
+    const response = await callPost()
+
+    expect(response.status).toBe(500)
+    expect(mockRecordAiUsage).toHaveBeenCalledTimes(1)
+    expect(mockRecordAiUsage).toHaveBeenCalledWith({
+      householdId: mockMembership.household.id,
+      feature: 'entry_preparation_tips',
+      ...expectedUsageStats(TIPS_MODEL),
+      success: false,
+    })
+  })
+
   it('returns 429 when AI throws rate-limit error', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
@@ -496,6 +540,8 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
 
     expect(response.status).toBe(500)
     expect(data.error).toContain("Couldn't generate tips")
+    // Only NoObjectGeneratedError is billed-but-failed; other errors record nothing.
+    expect(mockRecordAiUsage).not.toHaveBeenCalled()
   })
 
   it('threads household.locale into the AI prompt for non-English households', async () => {

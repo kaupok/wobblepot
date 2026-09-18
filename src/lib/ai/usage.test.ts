@@ -21,7 +21,14 @@ vi.mock('@/lib/request-id', () => ({
 import { prisma } from '@/lib/prisma'
 import { getPosthogServer } from '@/lib/posthog-server'
 import { getRequestId } from '@/lib/request-id'
-import { AiCostCapExceededError, assertUnderCap, getMonthBoundaries, recordAiUsage } from './usage'
+import {
+  AiCostCapExceededError,
+  assertUnderCap,
+  getMonthBoundaries,
+  recordAiUsage,
+  withUsageOnFailure,
+} from './usage'
+import { expectedUsageStats, noObjectGeneratedError } from './usage-fixture'
 
 const mockHouseholdFindUnique = vi.mocked(prisma.household.findUnique)
 const mockAggregate = vi.mocked(prisma.aiUsage.aggregate)
@@ -454,5 +461,127 @@ describe('recordAiUsage › missing usage counts', () => {
     })
 
     expect(warn).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('withUsageOnFailure', () => {
+  const MODEL = 'claude-sonnet-4-6'
+
+  it('returns the result and reports nothing when the call succeeds', async () => {
+    const onUsage = vi.fn()
+
+    await expect(withUsageOnFailure(MODEL, onUsage, async () => 'ok')).resolves.toBe('ok')
+
+    expect(onUsage).not.toHaveBeenCalled()
+  })
+
+  it('reports the error usage with success: false and rethrows the original NoObjectGeneratedError', async () => {
+    const error = noObjectGeneratedError()
+    const onUsage = vi.fn()
+
+    await expect(withUsageOnFailure(MODEL, onUsage, () => Promise.reject(error))).rejects.toBe(
+      error,
+    )
+
+    expect(onUsage).toHaveBeenCalledTimes(1)
+    expect(onUsage).toHaveBeenCalledWith({ ...expectedUsageStats(MODEL), success: false })
+  })
+
+  it('reports usageMissing when the error carries no usage', async () => {
+    const error = noObjectGeneratedError({ usage: undefined })
+    const onUsage = vi.fn()
+
+    await expect(withUsageOnFailure(MODEL, onUsage, () => Promise.reject(error))).rejects.toBe(
+      error,
+    )
+
+    expect(onUsage).toHaveBeenCalledWith({
+      model: MODEL,
+      inputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      outputTokens: 0,
+      usageMissing: true,
+      success: false,
+    })
+  })
+
+  it.each([
+    ['a network error', new Error('fetch failed')],
+    ['a rate-limit error', Object.assign(new Error('rate limited'), { statusCode: 429 })],
+    ['a timeout', Object.assign(new Error('timed out'), { name: 'TimeoutError' })],
+    // Carries a `usage`, but is not a NoObjectGeneratedError — duck typing must not match.
+    ['a look-alike error with usage', Object.assign(new Error('nope'), { usage: {} })],
+  ])('reports nothing and rethrows unchanged on %s', async (_label, error) => {
+    const onUsage = vi.fn()
+
+    await expect(withUsageOnFailure(MODEL, onUsage, () => Promise.reject(error))).rejects.toBe(
+      error,
+    )
+
+    expect(onUsage).not.toHaveBeenCalled()
+  })
+
+  it('rethrows without a callback', async () => {
+    const error = noObjectGeneratedError()
+
+    await expect(withUsageOnFailure(MODEL, undefined, () => Promise.reject(error))).rejects.toBe(
+      error,
+    )
+  })
+
+  it('still rethrows the original error when the callback throws', async () => {
+    const error = noObjectGeneratedError()
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(
+      withUsageOnFailure(
+        MODEL,
+        () => {
+          throw new Error('callback broke')
+        },
+        () => Promise.reject(error),
+      ),
+    ).rejects.toBe(error)
+    expect(consoleError).toHaveBeenCalledTimes(1)
+  })
+
+  it('awaits an async callback before rethrowing', async () => {
+    const error = noObjectGeneratedError()
+    const order: string[] = []
+    const onUsage = vi.fn(async () => {
+      await Promise.resolve()
+      order.push('recorded')
+    })
+
+    await withUsageOnFailure(MODEL, onUsage, () => Promise.reject(error)).catch(() =>
+      order.push('rethrown'),
+    )
+
+    expect(order).toEqual(['recorded', 'rethrown'])
+  })
+
+  it('writes a success: false row that still carries the billed cost, and flags $ai_is_error', async () => {
+    mockCreate.mockResolvedValue({} as never)
+    const error = noObjectGeneratedError()
+
+    await withUsageOnFailure(
+      MODEL,
+      (stats) => recordAiUsage({ householdId: 'h1', feature: 'plan_generate', ...stats }),
+      () => Promise.reject(error),
+    ).catch(() => {})
+
+    const { data } = mockCreate.mock.calls[0]![0] as {
+      data: { success: boolean; inputTokens: number; estimatedCostUsd: number }
+    }
+    expect(data.success).toBe(false)
+    expect(data.inputTokens).toBe(expectedUsageStats(MODEL).inputTokens)
+    // Counts toward the cap: a failed-validation call is not free.
+    expect(data.estimatedCostUsd).toBeGreaterThan(0)
+    expect(mockCapture).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: expect.objectContaining({ $ai_is_error: true }),
+      }),
+    )
   })
 })

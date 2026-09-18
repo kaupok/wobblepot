@@ -36,7 +36,10 @@ vi.mock('@/lib/env', () => ({
   },
 }))
 
-vi.mock('ai', () => ({
+// Keep the real exports: `withUsageOnFailure` needs the real
+// `NoObjectGeneratedError.isInstance` on every rejected call.
+vi.mock('ai', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('ai')>()),
   generateObject: vi.fn(),
 }))
 
@@ -76,7 +79,7 @@ import { repairPlan } from './repair-plan'
 import { generateMealPlan, createEmptyPlan } from './generate-plan'
 import { logAiSample } from './sampling'
 import { PLANNING_MODEL } from './models'
-import { USAGE_FIXTURE, expectedUsageStats } from './usage-fixture'
+import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from './usage-fixture'
 
 // Type assertions for mocks
 const mockGetCandidates = vi.mocked(getCandidates)
@@ -405,6 +408,20 @@ describe('generateMealPlan', () => {
 
       expect(onAiUsage).toHaveBeenCalledTimes(1)
       expect(onAiUsage).toHaveBeenCalledWith(expectedUsageStats(PLANNING_MODEL))
+    })
+
+    it('reports the billed usage with success: false when generateObject throws NoObjectGeneratedError', async () => {
+      const error = noObjectGeneratedError()
+      mockGenerateObject.mockRejectedValue(error)
+      const onAiUsage = vi.fn()
+
+      await expect(generateMealPlan({ ...defaultOptions, onAiUsage })).rejects.toBe(error)
+
+      expect(onAiUsage).toHaveBeenCalledTimes(1)
+      expect(onAiUsage).toHaveBeenCalledWith({
+        ...expectedUsageStats(PLANNING_MODEL),
+        success: false,
+      })
     })
 
     it('throws when AI returns more than 7 entries', async () => {

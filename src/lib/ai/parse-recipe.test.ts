@@ -6,7 +6,10 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
-vi.mock('ai', () => ({
+// Keep the real exports: `withUsageOnFailure` needs the real
+// `NoObjectGeneratedError.isInstance` on every rejected call.
+vi.mock('ai', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('ai')>()),
   generateObject: vi.fn(),
 }))
 
@@ -28,7 +31,7 @@ import { parseRecipeText, parseAndMatchRecipe } from './parse-recipe'
 import type { RecipeExtraction } from './recipe-schema'
 import { RecipeParseError } from './recipe-errors'
 import { RECIPE_MODEL } from './models'
-import { USAGE_FIXTURE, expectedUsageStats } from './usage-fixture'
+import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from './usage-fixture'
 
 const mockQueryRaw = vi.mocked(prisma.$queryRaw)
 const mockGenerateObject = vi.mocked(generateObject)
@@ -123,6 +126,38 @@ describe('parseRecipeText', () => {
 
     expect(onAiUsage).toHaveBeenCalledTimes(1)
     expect(onAiUsage).toHaveBeenCalledWith(expectedUsageStats(RECIPE_MODEL))
+  })
+
+  it('reports the billed usage with success: false when generateObject throws NoObjectGeneratedError', async () => {
+    mockGenerateObject.mockRejectedValue(noObjectGeneratedError())
+    const onAiUsage = vi.fn()
+
+    // The existing catch still maps the AI error to its generic RecipeParseError.
+    await expect(
+      parseRecipeText(
+        'A full recipe with chicken breast and vegetables for dinner',
+        'en',
+        onAiUsage,
+      ),
+    ).rejects.toThrow('Failed to parse the recipe')
+
+    expect(onAiUsage).toHaveBeenCalledTimes(1)
+    expect(onAiUsage).toHaveBeenCalledWith({ ...expectedUsageStats(RECIPE_MODEL), success: false })
+  })
+
+  it('records nothing when generateObject throws any other error', async () => {
+    mockGenerateObject.mockRejectedValue(new Error('network down'))
+    const onAiUsage = vi.fn()
+
+    await expect(
+      parseRecipeText(
+        'A full recipe with chicken breast and vegetables for dinner',
+        'en',
+        onAiUsage,
+      ),
+    ).rejects.toThrow(RecipeParseError)
+
+    expect(onAiUsage).not.toHaveBeenCalled()
   })
 
   it('throws RecipeParseError when name is empty', async () => {

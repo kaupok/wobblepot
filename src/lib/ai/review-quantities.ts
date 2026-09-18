@@ -5,7 +5,7 @@ import { serverEnv } from '@/lib/env'
 import { REVIEW_MODEL } from './models'
 import { localeInstruction } from './prompts'
 import { logAiSample } from './sampling'
-import { toAiUsageStats, type AiUsageStats } from './usage'
+import { toAiUsageStats, withUsageOnFailure, type AiUsageStats } from './usage'
 
 export interface ReviewIngredient {
   ingredientId: string
@@ -79,10 +79,11 @@ Rules:
 - Quantities must be > 0
 - Use realistic home cooking amounts, not restaurant portions${localeInstruction(locale)}`
 
-  const result = await generateObject({
-    model: anthropic(REVIEW_MODEL),
-    schema: ReviewedIngredientsSchema,
-    prompt: `Review and correct the quantities for this meal:
+  const result = await withUsageOnFailure(REVIEW_MODEL, onAiUsage, () =>
+    generateObject({
+      model: anthropic(REVIEW_MODEL),
+      schema: ReviewedIngredientsSchema,
+      prompt: `Review and correct the quantities for this meal:
 
 Meal: "${mealName}" (${servings} servings)
 
@@ -90,8 +91,9 @@ Ingredients:
 ${ingredientList}
 
 Return all ingredients with corrected quantities per serving. Keep reasonable quantities unchanged.`,
-    system: systemPrompt,
-  })
+      system: systemPrompt,
+    }),
+  )
 
   onAiUsage?.(toAiUsageStats(REVIEW_MODEL, result.usage))
 
