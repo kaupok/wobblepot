@@ -273,10 +273,11 @@ describe('check-migrations-immutable.sh', () => {
     })
   })
 
-  // ci.yml runs the script on push to `main` with `github.event.before` — the
-  // previous tip, an ancestor of HEAD — as the base (HON-649). A push can carry
-  // several commits, so the verdict must be about the whole range, not HEAD's
-  // last commit.
+  // The range mode against an ancestor of HEAD, as ci.yml ran it on push to
+  // `main` with `github.event.before` (HON-649) before `--tree` replaced that
+  // step (HON-671). Still the contract for any ancestor base: a range can
+  // carry several commits, so the verdict must be about all of them, not
+  // HEAD's last commit.
   describe('on push, against the previous main tip', () => {
     it('fails when an earlier commit in the push edited an applied migration', () => {
       const { dir, base: before } = repoWithAppliedMigration()
@@ -307,6 +308,171 @@ describe('check-migrations-immutable.sh', () => {
       commitAll(dir, 'fix(db): Add the tag name')
 
       expect(runCheck(dir, before).status).toBe(0)
+    })
+  })
+
+  // `--tree` replaces the `before..HEAD` range on push to `main` (HON-671): it
+  // compares every migration at HEAD with the blob it was first added with, so
+  // the red survives later unrelated pushes until the edit is reverted.
+  describe('--tree, on push to main', () => {
+    const ALLOWLIST = 'scripts/migration-immutability-allowlist.txt'
+    const EDITED_SQL = `${INIT_SQL}ALTER TABLE "ingredient" ADD COLUMN "note" TEXT;\n`
+
+    function blobAt(dir: string, file: string): string {
+      return git(dir, 'rev-parse', `HEAD:${file}`)
+    }
+
+    it('passes on a history that only ever added migrations', () => {
+      const { dir } = repoWithAppliedMigration()
+      write(
+        dir,
+        'prisma/migrations/20260202000000_add_pantry/migration.sql',
+        'CREATE TABLE "pantry_item" ("id" TEXT NOT NULL);\n',
+      )
+      commitAll(dir, 'feat(db): Add pantry')
+
+      const result = runCheck(dir, '--tree')
+
+      expect(result.status).toBe(0)
+      expect(result.stdout).toContain('OK')
+    })
+
+    it('stays red on a later unrelated commit after an applied migration was edited', () => {
+      const { dir } = repoWithAppliedMigration()
+      write(dir, INIT_MIGRATION, EDITED_SQL)
+      commitAll(dir, 'fix(db): Edit an applied migration')
+      write(dir, 'src/app/page.tsx', 'export default function Page() {\n  return <div />\n}\n')
+      commitAll(dir, 'feat: Unrelated merge')
+
+      const result = runCheck(dir, '--tree')
+
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain(INIT_MIGRATION)
+      expect(result.stderr).toContain('git revert')
+    })
+
+    it('goes green once the edit is reverted to the original bytes', () => {
+      const { dir } = repoWithAppliedMigration()
+      write(dir, INIT_MIGRATION, EDITED_SQL)
+      commitAll(dir, 'fix(db): Edit an applied migration')
+      git(dir, 'revert', '--no-edit', 'HEAD')
+
+      expect(runCheck(dir, '--tree').status).toBe(0)
+    })
+
+    it('passes an edited migration allowlisted at its current blob', () => {
+      const { dir } = repoWithAppliedMigration()
+      write(dir, INIT_MIGRATION, EDITED_SQL)
+      commitAll(dir, 'fix(db): Repair a migration that failed to apply')
+      write(dir, ALLOWLIST, `${INIT_MIGRATION} ${blobAt(dir, INIT_MIGRATION)} failed to apply\n`)
+      commitAll(dir, 'chore(db): Allowlist the repair')
+
+      const result = runCheck(dir, '--tree')
+
+      expect(result.status).toBe(0)
+      expect(result.stdout).toContain('1 allowlisted')
+    })
+
+    it('fails an allowlisted path whose blob no longer matches the pin', () => {
+      const { dir } = repoWithAppliedMigration()
+      write(dir, INIT_MIGRATION, EDITED_SQL)
+      commitAll(dir, 'fix(db): Repair a migration that failed to apply')
+      write(dir, ALLOWLIST, `${INIT_MIGRATION} ${blobAt(dir, INIT_MIGRATION)} failed to apply\n`)
+      commitAll(dir, 'chore(db): Allowlist the repair')
+      write(dir, INIT_MIGRATION, 'DROP TABLE "ingredient";\n')
+      commitAll(dir, 'fix(db): Edit it again')
+
+      const result = runCheck(dir, '--tree')
+
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain(INIT_MIGRATION)
+    })
+
+    it('fails on a deleted migration', () => {
+      const { dir } = repoWithAppliedMigration()
+      fs.rmSync(path.join(dir, 'prisma/migrations/20260101000000_init'), { recursive: true })
+      commitAll(dir, 'chore(db): Drop an applied migration')
+      write(dir, 'src/app/page.tsx', 'export default function Page() {\n  return <div />\n}\n')
+      commitAll(dir, 'feat: Unrelated merge')
+
+      const result = runCheck(dir, '--tree')
+
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain('deleted')
+      expect(result.stderr).toContain(INIT_MIGRATION)
+    })
+
+    it('passes a deleted migration allowlisted as `deleted`', () => {
+      const { dir } = repoWithAppliedMigration()
+      fs.rmSync(path.join(dir, 'prisma/migrations/20260101000000_init'), { recursive: true })
+      write(dir, ALLOWLIST, `# pins\n\n${INIT_MIGRATION} deleted never applied anywhere\n`)
+      commitAll(dir, 'chore(db): Drop an unapplied migration, deliberately')
+
+      expect(runCheck(dir, '--tree').status).toBe(0)
+    })
+
+    // A restored migration is compared against its FIRST add — with the newest
+    // add it would be compared against itself and any content change would pass.
+    it('checks a deleted-then-restored migration against its original bytes', () => {
+      const { dir } = repoWithAppliedMigration()
+      fs.rmSync(path.join(dir, 'prisma/migrations/20260101000000_init'), { recursive: true })
+      commitAll(dir, 'chore(db): Drop an applied migration')
+      write(dir, INIT_MIGRATION, EDITED_SQL)
+      commitAll(dir, 'chore(db): Restore it, changed')
+
+      expect(runCheck(dir, '--tree').status).toBe(1)
+
+      write(dir, INIT_MIGRATION, INIT_SQL)
+      commitAll(dir, 'chore(db): Restore the original bytes')
+
+      expect(runCheck(dir, '--tree').status).toBe(0)
+    })
+
+    it.each([
+      ['a missing why', `${INIT_MIGRATION} deleted`],
+      ['a blob that is not a sha', `${INIT_MIGRATION} abc123 short sha`],
+      ['a path outside prisma/migrations', 'src/app/page.tsx deleted not a migration'],
+    ])('exits 2 on an allowlist line with %s rather than skipping it', (_label, line) => {
+      const { dir } = repoWithAppliedMigration()
+      write(dir, ALLOWLIST, `${line}\n`)
+      commitAll(dir, 'chore(db): Malformed allowlist')
+
+      const result = runCheck(dir, '--tree')
+
+      expect(result.status).toBe(2)
+      expect(result.stderr).toContain('malformed')
+    })
+
+    it('exits 2 on a path pinned twice', () => {
+      const { dir } = repoWithAppliedMigration()
+      write(dir, ALLOWLIST, `${INIT_MIGRATION} deleted one\n${INIT_MIGRATION} deleted two\n`)
+      commitAll(dir, 'chore(db): Duplicate pin')
+
+      expect(runCheck(dir, '--tree').status).toBe(2)
+    })
+
+    it('detects the edit when run from a subdirectory', () => {
+      const { dir } = repoWithAppliedMigration()
+      write(dir, INIT_MIGRATION, EDITED_SQL)
+      commitAll(dir, 'fix(db): Edit an applied migration')
+
+      expect(runCheck(path.join(dir, 'prisma'), '--tree').status).toBe(1)
+    })
+
+    // A shallow clone's boundary commit reads every file as added with its
+    // current bytes, so the check would compare edits against themselves.
+    it('exits 2 on a shallow clone rather than passing', () => {
+      const { dir } = repoWithAppliedMigration()
+      write(dir, INIT_MIGRATION, EDITED_SQL)
+      commitAll(dir, 'fix(db): Edit an applied migration')
+      const clone = fs.mkdtempSync(path.join(os.tmpdir(), 'hon671-shallow-'))
+      tempDirs.push(clone)
+      git(clone, 'clone', '-q', '--depth=1', `file://${dir}`, '.')
+
+      const result = runCheck(clone, '--tree')
+
+      expect(result.status).toBe(2)
+      expect(result.stderr).toContain('shallow')
     })
   })
 

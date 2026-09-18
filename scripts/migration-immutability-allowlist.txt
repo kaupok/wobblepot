@@ -1,0 +1,16 @@
+# Applied migrations whose bytes on `main` legitimately differ from the commit
+# that first added them (HON-671). Read by
+# `bash scripts/check-migrations-immutable.sh --tree`, which runs on every push
+# to `main` and fails on any other post-add edit or deletion.
+#
+# Format — one entry per line, `#` comments and blank lines ignored:
+#
+#   <path> <blob-sha|deleted> <why>
+#
+# The pin is the exact blob at HEAD (`git rev-parse HEAD:<path>`), so the entry
+# accepts one specific content, not the path: a further edit fails again. Use
+# the literal `deleted` for a migration removed on purpose. The `why` is
+# required. An entry here is the only sanctioned way to keep a post-add edit —
+# the default recovery is a revert (CLAUDE.md → Database Patterns).
+prisma/migrations/20260116200000_simplify_meal_statuses/migration.sql d61457109149c850f1a61f2a1c7b01b6f3340a2e #181 fixed the enum-default cast after the #180 migration failed to apply; nothing had recorded the original checksum.
+prisma/migrations/20260215121900_remove_omnivore_dietary_type/migration.sql 524c80894b30e03c5e80630c591b31a6a95f1405 #356 switched Prisma model names to the real table names after the #346 migration failed to apply; nothing had recorded the original checksum.
