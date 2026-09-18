@@ -20,20 +20,33 @@ export default function AuthForm() {
     setError('')
     setIsLoading(true)
 
-    await authClient.signIn.email(
-      { email, password },
-      {
-        onSuccess: () => {
-          router.push('/profile')
-          router.refresh()
-        },
-        onError: (ctx) => {
-          setError(ctx.error.message)
-        },
-      },
-    )
+    // The auth promise resolves as soon as the server answers, but the
+    // router.push in onSuccess still has to fetch and render the new route.
+    // Keep the form disabled once navigation has started and let the unmount
+    // clear it; otherwise the button flickers back to enabled for a beat.
+    let isNavigating = false
 
-    setIsLoading(false)
+    try {
+      await authClient.signIn.email(
+        { email, password },
+        {
+          onSuccess: () => {
+            router.push('/profile')
+            router.refresh()
+            isNavigating = true
+          },
+          onError: (ctx) => {
+            setError(ctx.error.message)
+          },
+        },
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      if (!isNavigating) {
+        setIsLoading(false)
+      }
+    }
   }
 
   return (

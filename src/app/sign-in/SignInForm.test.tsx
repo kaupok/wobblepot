@@ -215,14 +215,37 @@ describe('SignInForm', () => {
       })
     })
 
+    // Better Auth resolves the request promise as soon as the server answers,
+    // after firing exactly one of onSuccess / onError. The mock below mirrors
+    // that: it holds the promise open, then settles it through onError so the
+    // tests exercise the real re-enable path.
+    function mockDeferredSignIn() {
+      let settle!: () => void
+      const settled = new Promise<void>((resolve) => {
+        settle = resolve
+      })
+      let callbacks: any
+      const signInPromise = settled.then(() => {
+        callbacks?.onError?.({
+          error: { message: 'Invalid credentials', status: 401 },
+        })
+      })
+      return {
+        mock: vi.fn((creds: unknown, options: unknown) => {
+          callbacks = options
+          return signInPromise
+        }),
+        settle: async () => {
+          settle()
+          await signInPromise
+        },
+      }
+    }
+
     it('disables button and shows loading text during submission', async () => {
       const { authClient } = await import('@/lib/auth-client')
-
-      let resolveSignIn: () => void
-      const signInPromise = new Promise<void>((resolve) => {
-        resolveSignIn = resolve
-      })
-      vi.mocked(authClient.signIn.email).mockReturnValue(signInPromise)
+      const deferred = mockDeferredSignIn()
+      vi.mocked(authClient.signIn.email).mockImplementation(deferred.mock as any)
 
       const user = userEvent.setup({ delay: null })
       render(<SignInForm />)
@@ -236,8 +259,7 @@ describe('SignInForm', () => {
         expect(button).toBeDisabled()
       })
 
-      resolveSignIn!()
-      await signInPromise
+      await deferred.settle()
 
       await vi.waitFor(() => {
         expect(screen.getByRole('button', { name: /^sign in$/i })).not.toBeDisabled()
@@ -246,12 +268,8 @@ describe('SignInForm', () => {
 
     it('disables inputs during submission', async () => {
       const { authClient } = await import('@/lib/auth-client')
-
-      let resolveSignIn: () => void
-      const signInPromise = new Promise<void>((resolve) => {
-        resolveSignIn = resolve
-      })
-      vi.mocked(authClient.signIn.email).mockReturnValue(signInPromise)
+      const deferred = mockDeferredSignIn()
+      vi.mocked(authClient.signIn.email).mockImplementation(deferred.mock as any)
 
       const user = userEvent.setup({ delay: null })
       render(<SignInForm />)
@@ -265,13 +283,61 @@ describe('SignInForm', () => {
         expect(screen.getByLabelText(/^password$/i)).toBeDisabled()
       })
 
-      resolveSignIn!()
-      await signInPromise
+      await deferred.settle()
 
       await vi.waitFor(() => {
         expect(screen.getByLabelText(/email/i)).not.toBeDisabled()
         expect(screen.getByLabelText(/^password$/i)).not.toBeDisabled()
       })
+    })
+
+    // The request promise resolves before router.push has fetched and rendered
+    // the new route, so re-enabling here made the button flicker back to
+    // "Sign in" for about a second before the page changed. Once navigation
+    // has started the form must stay disabled until it unmounts.
+    it('keeps the form disabled after a successful sign in while navigating', async () => {
+      const { authClient } = await import('@/lib/auth-client')
+      // Fire onSuccess inside the async implementation rather than through the
+      // deferred helper: user.click then flushes the whole handler, including
+      // the finally block, before the assertions below run. With the deferred
+      // mock the assertions raced the re-render and passed without the fix.
+      vi.mocked(authClient.signIn.email).mockImplementation((async (
+        _creds: unknown,
+        options: any,
+      ) => {
+        options?.onSuccess?.({})
+      }) as any)
+
+      const user = userEvent.setup({ delay: null })
+      render(<SignInForm />)
+
+      await user.type(screen.getByLabelText(/email/i), 'test@example.com')
+      await user.type(screen.getByLabelText(/^password$/i), 'password123')
+      await user.click(screen.getByRole('button', { name: /sign in/i }))
+
+      await vi.waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith('/')
+      })
+      expect(screen.getByRole('button', { name: /signing in/i })).toBeDisabled()
+      expect(screen.getByLabelText(/email/i)).toBeDisabled()
+      expect(screen.getByLabelText(/^password$/i)).toBeDisabled()
+    })
+
+    it('re-enables the form when the request throws', async () => {
+      const { authClient } = await import('@/lib/auth-client')
+      vi.mocked(authClient.signIn.email).mockRejectedValue(new Error('Connection failed'))
+
+      const user = userEvent.setup({ delay: null })
+      render(<SignInForm />)
+
+      await user.type(screen.getByLabelText(/email/i), 'test@example.com')
+      await user.type(screen.getByLabelText(/^password$/i), 'password123')
+      await user.click(screen.getByRole('button', { name: /sign in/i }))
+
+      await vi.waitFor(() => {
+        expect(screen.getByRole('alert')).toBeInTheDocument()
+      })
+      expect(screen.getByRole('button', { name: /^sign in$/i })).not.toBeDisabled()
     })
   })
 
@@ -340,6 +406,8 @@ describe('SignInForm', () => {
           /authentication successful, but navigation failed/i,
         )
       })
+      // Navigation never started, so the user must be able to retry.
+      expect(screen.getByRole('button', { name: /^sign in$/i })).not.toBeDisabled()
     })
   })
 
