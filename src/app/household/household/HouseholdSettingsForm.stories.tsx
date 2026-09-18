@@ -133,8 +133,21 @@ export const NonOwner: Story = {
     docs: {
       description: {
         story:
-          'Non-owner viewer: name, timezone, and locale controls are disabled; preference controls remain editable.',
+          'Non-owner viewer: every control is disabled, one owner-only notice sits under the form description, and there is no save button. Both settings endpoints are owner-only (HON-677).',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(
+      canvas.getByText(
+        'Only the household owner can change these settings. You can see them here.',
+      ),
+    ).toBeInTheDocument()
+    await expect(canvas.getByLabelText('Household name')).toBeDisabled()
+    await expect(canvas.getByLabelText('Gluten')).toBeDisabled()
+    await expect(canvas.getByLabelText('Vegan')).toBeDisabled()
+    await expect(canvas.getByLabelText('Dietary restrictions')).toBeDisabled()
+    await expect(canvas.queryByRole('button', { name: 'Save settings' })).not.toBeInTheDocument()
   },
 }

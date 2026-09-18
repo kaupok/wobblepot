@@ -165,6 +165,12 @@ export function HouseholdSettingsForm({
 
   const saveSettings = useMutation({
     mutationFn: async () => {
+      // Both endpoints are owner-only (they 403 a member), so a non-owner has
+      // nothing to save. handleSubmit and the hidden save button stop them
+      // first; this keeps the mutation from relying on either (HON-677).
+      // Throw rather than return, so it can never read as a successful save.
+      if (!isOwner) throw new Error(tSettings('ownerOnlyNotice'))
+
       const preferencesPayload = {
         dietaryType: dietaryType === 'none' ? null : dietaryType,
         allergensToAvoid,
@@ -174,25 +180,18 @@ export function HouseholdSettingsForm({
         weekendMealTypes,
       }
 
-      const requests: Promise<Response>[] = [
+      const responses = await Promise.all([
+        fetch('/api/households/me', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, timezone, locale }),
+        }),
         fetch('/api/households/me/preferences', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(preferencesPayload),
         }),
-      ]
-
-      if (isOwner) {
-        requests.unshift(
-          fetch('/api/households/me', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, timezone, locale }),
-          }),
-        )
-      }
-
-      const responses = await Promise.all(requests)
+      ])
 
       for (const response of responses) {
         if (!response.ok) {
@@ -215,6 +214,7 @@ export function HouseholdSettingsForm({
   })
 
   const isLoading = saveSettings.isPending
+  const controlsDisabled = isLoading || !isOwner
 
   const handleAllergenToggle = (allergen: Allergen, checked: boolean) => {
     if (checked) {
@@ -237,6 +237,7 @@ export function HouseholdSettingsForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!isOwner) return
 
     // Commit any pending tag input values before submitting
     restrictionsRef.current?.commitPendingValue()
@@ -253,6 +254,7 @@ export function HouseholdSettingsForm({
           {tSettings('heading')}
         </Heading>
         <Body variant="muted">{tSettings('description')}</Body>
+        {!isOwner && <Body variant="muted">{tSettings('ownerOnlyNotice')}</Body>}
       </div>
       <form onSubmit={handleSubmit}>
         <div className="flex flex-col gap-8">
@@ -270,14 +272,14 @@ export function HouseholdSettingsForm({
                 onChange={(e) => setName(e.target.value)}
                 maxLength={100}
                 required
-                disabled={isLoading || !isOwner}
+                disabled={controlsDisabled}
                 aria-invalid={!!error}
                 aria-describedby={error ? 'form-error' : undefined}
               />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="timezone">{tSettings('timezoneLabel')}</Label>
-              <Select value={timezone} onValueChange={setTimezone} disabled={isLoading || !isOwner}>
+              <Select value={timezone} onValueChange={setTimezone} disabled={controlsDisabled}>
                 <SelectTrigger
                   id="timezone"
                   className="w-full"
@@ -300,7 +302,7 @@ export function HouseholdSettingsForm({
               <Select
                 value={locale}
                 onValueChange={(value) => setLocale(value as Locale)}
-                disabled={isLoading || !isOwner}
+                disabled={controlsDisabled}
               >
                 <SelectTrigger id="locale" className="w-full">
                   <SelectValue />
@@ -315,7 +317,6 @@ export function HouseholdSettingsForm({
               </Select>
               <Body variant="muted">{t('localeHelperText')}</Body>
             </div>
-            {!isOwner && <Body variant="muted">{tSettings('ownerOnlyNotice')}</Body>}
           </section>
 
           {/* Section 2: Dietary Preferences */}
@@ -328,7 +329,7 @@ export function HouseholdSettingsForm({
               <RadioGroup
                 value={dietaryType}
                 onValueChange={(value) => setDietaryType(value as DietaryType | 'none')}
-                disabled={isLoading}
+                disabled={controlsDisabled}
                 className="flex flex-wrap gap-4"
               >
                 <div className="flex items-center gap-2">
@@ -355,7 +356,7 @@ export function HouseholdSettingsForm({
                     key={allergen}
                     value={allergen}
                     checked={allergensToAvoid.includes(allergen)}
-                    disabled={isLoading}
+                    disabled={controlsDisabled}
                     onCheckedChange={(checked) => handleAllergenToggle(allergen, checked)}
                   />
                 ))}
@@ -385,7 +386,7 @@ export function HouseholdSettingsForm({
                 value={restrictions}
                 onChange={setRestrictions}
                 placeholder={tSettings('restrictionsPlaceholder')}
-                disabled={isLoading}
+                disabled={controlsDisabled}
               />
               <Body variant="muted">{tSettings('restrictionsHelper')}</Body>
             </div>
@@ -404,7 +405,7 @@ export function HouseholdSettingsForm({
                 value={excludedIngredients}
                 onChange={setExcludedIngredients}
                 placeholder={tSettings('excludedPlaceholder')}
-                disabled={isLoading}
+                disabled={controlsDisabled}
               />
               <Body variant="muted">{tSettings('excludedHelper')}</Body>
             </div>
@@ -424,7 +425,7 @@ export function HouseholdSettingsForm({
                     mealType={mealType}
                     idPrefix="weekday"
                     checked={weekdayMealTypes.includes(mealType)}
-                    disabled={isLoading}
+                    disabled={controlsDisabled}
                     onCheckedChange={(checked) => handleMealTypeToggle(mealType, checked, false)}
                   />
                 ))}
@@ -439,7 +440,7 @@ export function HouseholdSettingsForm({
                     mealType={mealType}
                     idPrefix="weekend"
                     checked={weekendMealTypes.includes(mealType)}
-                    disabled={isLoading}
+                    disabled={controlsDisabled}
                     onCheckedChange={(checked) => handleMealTypeToggle(mealType, checked, true)}
                   />
                 ))}
@@ -454,9 +455,11 @@ export function HouseholdSettingsForm({
                 {error}
               </Body>
             )}
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? tSettings('saving') : tSettings('saveButton')}
-            </Button>
+            {isOwner && (
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? tSettings('saving') : tSettings('saveButton')}
+              </Button>
+            )}
           </div>
         </div>
       </form>

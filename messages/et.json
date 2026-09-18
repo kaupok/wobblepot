@@ -808,7 +808,7 @@
       "saving": "Salvestan…",
       "savedToast": "Sätted salvestatud",
       "saveFailed": "Sätete salvestamine ebaõnnestus",
-      "ownerOnlyNotice": "Ainult leibkonna omanik saab muuta nime, ajavööndit ja keelt.",
+      "ownerOnlyNotice": "Neid sätteid saab muuta ainult leibkonna omanik. Siin saad neid vaadata.",
       "errorGeneric": "Tekkis viga",
       "basicHeading": "Põhiandmed",
       "nameLabel": "Leibkonna nimi",
