@@ -36,8 +36,38 @@ const RULE_SOURCE: Record<DesignRule, string> = {
   'no-raw-palette': 'docs/DESIGN.md → Color → "Never reach for a raw palette class"',
 }
 
-/** The Title level (`text-xl`) is the largest heading the in-app type scale allows. */
-const MAX_HEADING_FONT_SIZE_PX = 20
+/**
+ * The Title level (`text-xl`) is the largest heading the in-app type scale
+ * allows. Measured from a probe element at check time rather than hard-coded,
+ * so the limit follows the `--text-xl` value in `globals.css` (re-based in
+ * HON-686) instead of keeping a second copy of it here.
+ *
+ * A `text-xs` probe is measured beside it because an unstyled span does not
+ * read as `NaN` — it inherits the surrounding size. If the two come out equal,
+ * the scale is not loaded, and the rule throws rather than enforcing whatever
+ * size the probe happened to inherit.
+ */
+function titleLevelPx(root: HTMLElement): number {
+  const measure = (className: string) => {
+    const probe = document.createElement('span')
+    probe.className = className
+    probe.setAttribute('aria-hidden', 'true')
+    root.append(probe)
+    try {
+      return Number.parseFloat(getComputedStyle(probe).fontSize)
+    } finally {
+      probe.remove()
+    }
+  }
+  const title = measure('text-xl')
+  const caption = measure('text-xs')
+  if (!Number.isFinite(title) || !(title > caption)) {
+    throw new Error(
+      'Design rule "title-scale" could not measure the Title level: `text-xl` and `text-xs` probes compute the same font-size. Is `globals.css` loaded?',
+    )
+  }
+  return title
+}
 
 /**
  * Tailwind palette classes that a semantic token already covers. Deliberately
@@ -78,12 +108,13 @@ const CHECKS: Record<DesignRule, (root: HTMLElement) => void> = {
   // (`as="p" | "span" | "div"`) is invisible to it. No production callsite does
   // that today; the axe heading-order gate is what makes the tag worth trusting.
   'title-scale': (root) => {
+    const maxPx = titleLevelPx(root)
     for (const heading of root.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6')) {
       const fontSize = Number.parseFloat(getComputedStyle(heading).fontSize)
-      if (Number.isFinite(fontSize) && fontSize > MAX_HEADING_FONT_SIZE_PX) {
+      if (Number.isFinite(fontSize) && fontSize > maxPx) {
         throw violation(
           'title-scale',
-          `<${heading.tagName.toLowerCase()}> renders at ${fontSize}px, above the ${MAX_HEADING_FONT_SIZE_PX}px Title level`,
+          `<${heading.tagName.toLowerCase()}> renders at ${fontSize}px, above the ${maxPx}px Title level (\`text-xl\`)`,
           heading,
         )
       }

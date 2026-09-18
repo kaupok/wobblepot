@@ -234,3 +234,54 @@ export const TouchTarget: Story = {
     expect(square.getBoundingClientRect().width).toBe(token)
   },
 }
+
+/**
+ * The in-app type scale, re-based in `globals.css` (HON-686). The class names
+ * are Tailwind's but the values are Wobblepot's — each level sits one stock
+ * step higher — so this story is what notices if the override stops applying
+ * (a Tailwind upgrade renaming the variables, or the block moving into
+ * `@theme inline`). Values mirror `docs/DESIGN.md` → Type scale.
+ */
+const TYPE_SCALE = [
+  { className: 'text-xs', level: 'Caption', fontSizePx: 14, lineHeightPx: 20 },
+  { className: 'text-sm', level: 'Body, Secondary', fontSizePx: 16, lineHeightPx: 24 },
+  { className: 'text-base', level: 'Section', fontSizePx: 18, lineHeightPx: 28 },
+  { className: 'text-lg', level: '—', fontSizePx: 20, lineHeightPx: 28 },
+  { className: 'text-xl', level: 'Title', fontSizePx: 22, lineHeightPx: 30 },
+] as const
+
+function TypeScaleView() {
+  return (
+    <div className="flex flex-col gap-3">
+      {TYPE_SCALE.map(({ className, level, fontSizePx, lineHeightPx }) => (
+        <p key={className} data-testid={className} className={className}>
+          {className} · {level} · {fontSizePx}/{lineHeightPx}
+        </p>
+      ))}
+    </div>
+  )
+}
+
+export const TypeScale: Story = {
+  render: () => <TypeScaleView />,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The five text tokens the app uses, re-based one step above stock Tailwind in `globals.css` (HON-686): Caption 14, Body and Secondary 16, Section 18, Title 22. `text-2xl` and up are stock. The play function measures the computed size and line height of each, so a silently dropped override fails here rather than shrinking the whole app.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    for (const { className, fontSizePx, lineHeightPx } of TYPE_SCALE) {
+      const element = await canvas.findByTestId(className)
+      const { fontSize, lineHeight } = getComputedStyle(element)
+      expect({
+        className,
+        fontSize: parseFloat(fontSize),
+        lineHeight: parseFloat(lineHeight),
+      }).toEqual({ className, fontSize: fontSizePx, lineHeight: lineHeightPx })
+    }
+  },
+}

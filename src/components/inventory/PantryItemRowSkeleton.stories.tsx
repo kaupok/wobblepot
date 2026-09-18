@@ -64,7 +64,7 @@ export const AgainstLiveRow: Story = {
     docs: {
       description: {
         story:
-          'The skeleton above both variants of the row it replaces, stacked at the `gap-2` the real list uses. The middle row is the one whose ingredient the plan needs — the variant this route serves, and the one the skeleton is held equal to. The bottom row is the same component without the caption, 12px shorter; that delta is asserted too, so the choice of which variant to mirror stays a decision rather than a stale comment.',
+          'The skeleton above both variants of the row it replaces, stacked at the `gap-2` the real list uses. The middle row is the one whose ingredient the plan needs — the variant this route serves, and the one the skeleton is held equal to. The bottom row is the same component without the caption, 16px shorter; that delta is asserted too, so the choice of which variant to mirror stays a decision rather than a stale comment.',
       },
     },
   },
@@ -75,6 +75,6 @@ export const AgainstLiveRow: Story = {
     expect(skeleton).toBe(rowHeight(canvas.getByTestId('pantry-row-needed')))
     // Pins the variant the skeleton knowingly does not mirror. If the caption
     // stopped being optional — or grew a `gap-*` — this is what fails.
-    expect(rowHeight(canvas.getByTestId('pantry-row'))).toBe(skeleton - 12)
+    expect(rowHeight(canvas.getByTestId('pantry-row'))).toBe(skeleton - 16)
   },
 }

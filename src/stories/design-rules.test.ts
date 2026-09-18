@@ -9,27 +9,38 @@ const ALL_RULES: DesignRule[] = [
 ]
 
 /**
+ * Stands in for `globals.css`: `title-scale` measures a `text-xl` probe to find
+ * the Title level (against a `text-xs` probe, to tell a loaded scale from an
+ * inherited size), and jsdom resolves stylesheet rules through
+ * `getComputedStyle` but has no Tailwind. 22px is the re-based `--text-xl`
+ * (HON-686); `UI/Tokens` → `TypeScale` checks the real value in Chromium.
+ */
+const TITLE_LEVEL_STYLE = '<style>.text-xl { font-size: 22px } .text-xs { font-size: 14px }</style>'
+
+/**
  * Renders `html` into a detached-but-attached root. Styles come from inline
  * `style` attributes because jsdom resolves those through `getComputedStyle`
  * but does not resolve Tailwind classes — the real Tailwind values are covered
  * by the `Scenarios/*` stories running in Chromium.
  */
-function render(html: string): HTMLElement {
+function render(html: string, { titleLevel = true } = {}): HTMLElement {
   const root = document.createElement('div')
   root.innerHTML = html
   document.body.append(root)
+  if (titleLevel) document.head.insertAdjacentHTML('beforeend', TITLE_LEVEL_STYLE)
   return root
 }
 
 afterEach(() => {
   document.body.innerHTML = ''
+  document.head.innerHTML = ''
 })
 
 describe('assertDesignRules', () => {
   it('passes a clean tree with every rule enabled', async () => {
     const root = render(`
       <div data-slot="card">
-        <h4 style="font-size: 20px">Shopping list</h4>
+        <h4 style="font-size: 22px">Shopping list</h4>
         <p class="text-muted-foreground">3 items</p>
         <span class="text-success">Available</span>
       </div>
@@ -80,21 +91,50 @@ describe('assertDesignRules', () => {
   })
 
   describe('title-scale', () => {
-    it('fails a heading above the 20px Title level', async () => {
+    it('fails a heading above the Title level', async () => {
       const root = render('<h2 style="font-size: 30px">Page title</h2>')
       await expect(assertDesignRules(root, ['title-scale'])).rejects.toThrow(
-        /Design rule "title-scale" violated: <h2> renders at 30px/,
+        /Design rule "title-scale" violated: <h2> renders at 30px, above the 22px Title level/,
       )
     })
 
-    it('allows a heading at exactly 20px', async () => {
-      const root = render('<h2 style="font-size: 20px">Page title</h2>')
+    it('fails a `text-2xl` heading, one step above the Title level', async () => {
+      const root = render('<h2 style="font-size: 24px">Page title</h2>')
+      await expect(assertDesignRules(root, ['title-scale'])).rejects.toThrow(/<h2> renders at 24px/)
+    })
+
+    it('allows a heading at exactly the Title level', async () => {
+      const root = render('<h2 style="font-size: 22px">Page title</h2>')
       await expect(assertDesignRules(root, ['title-scale'])).resolves.toBeUndefined()
+    })
+
+    it('reads the limit from the `text-xl` probe rather than a constant', async () => {
+      const root = render('<h2 style="font-size: 22px">Page title</h2>', { titleLevel: false })
+      document.head.insertAdjacentHTML(
+        'beforeend',
+        '<style>.text-xl { font-size: 20px } .text-xs { font-size: 14px }</style>',
+      )
+      await expect(assertDesignRules(root, ['title-scale'])).rejects.toThrow(
+        /renders at 22px, above the 20px Title level/,
+      )
+    })
+
+    it('throws rather than passing when the Title level cannot be measured', async () => {
+      const root = render('<h2 style="font-size: 30px">Page title</h2>', { titleLevel: false })
+      await expect(assertDesignRules(root, ['title-scale'])).rejects.toThrow(
+        /could not measure the Title level/,
+      )
+    })
+
+    it('removes the probe after measuring', async () => {
+      const root = render('<h4 style="font-size: 22px">Fine</h4>')
+      await assertDesignRules(root, ['title-scale'])
+      expect(root.querySelector('.text-xl, .text-xs')).toBeNull()
     })
 
     it('checks every heading level, not just the first', async () => {
       const root = render(
-        '<h4 style="font-size: 20px">Fine</h4><h5 style="font-size: 24px">Too big</h5>',
+        '<h4 style="font-size: 22px">Fine</h4><h5 style="font-size: 24px">Too big</h5>',
       )
       await expect(assertDesignRules(root, ['title-scale'])).rejects.toThrow(/<h5> renders at 24px/)
     })

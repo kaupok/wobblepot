@@ -103,8 +103,8 @@ const TagInput = forwardRef<TagInputRef, TagInputProps>(function TagInput(
         disabled={disabled}
         // `self-stretch` opts the caret back out of the container's
         // `items-center`, which the badges need but which would otherwise
-        // shrink this field to its 20px line box and leave 12px of dead
-        // space above and below it inside a 44px control.
+        // shrink this field to its 24px `text-sm` line box and leave 10px of
+        // dead space above and below it inside a 44px control.
         className="placeholder:text-muted-foreground min-w-30 flex-1 self-stretch bg-transparent text-sm outline-none disabled:cursor-not-allowed"
       />
     </div>
