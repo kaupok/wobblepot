@@ -139,7 +139,10 @@ jobs:
       # passing. The two historical edits to migrations that had failed to apply
       # (#181, #356) are pinned in scripts/migration-immutability-allowlist.txt;
       # a pin accepts one exact blob, with a reason, and is the only sanctioned
-      # way to keep a post-add edit.
+      # way to keep a post-add edit. It assumes each first-parent commit is one
+      # merge unit (squash or merge commit); a rebase merge that adds a
+      # migration and fixes it up in a later commit reads as an edit, and the
+      # remedy there is a pin, not a revert — see the script header.
       #
       # Because it checks the tree, the workflow-level `cancel-in-progress` no
       # longer hides an edit: a push whose run is cancelled by the next push is

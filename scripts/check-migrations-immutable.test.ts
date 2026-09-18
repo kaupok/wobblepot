@@ -428,6 +428,24 @@ describe('check-migrations-immutable.sh', () => {
       expect(runCheck(dir, '--tree').status).toBe(0)
     })
 
+    // A rebase merge lands a PR's intermediate commits on first-parent history,
+    // so an add-then-fix within one push reads as an edit. Only the final bytes
+    // were ever applied, so the printed remedy must name the pin, not only a
+    // revert that would create the drift it is meant to clear.
+    it('names the pin as the remedy for an add-then-fix within one push', () => {
+      const { dir } = repoWithAppliedMigration()
+      const added = 'prisma/migrations/20260606000000_add_tags/migration.sql'
+      write(dir, added, 'CREATE TABLE "tag" ("id" TEXT NOT NULL);\n')
+      commitAll(dir, 'feat(db): Add tags')
+      write(dir, added, 'CREATE TABLE "tag" ("id" TEXT NOT NULL, "name" TEXT);\n')
+      commitAll(dir, 'fix(db): Add the tag name')
+
+      const result = runCheck(dir, '--tree')
+
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain('SAME push')
+    })
+
     it.each([
       ['a missing why', `${INIT_MIGRATION} deleted`],
       ['a blob that is not a sha', `${INIT_MIGRATION} abc123 short sha`],
