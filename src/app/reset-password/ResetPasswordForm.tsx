@@ -57,6 +57,12 @@ export function ResetPasswordForm() {
 
     setIsLoading(true)
 
+    // The auth promise resolves as soon as the server answers, but the
+    // router.push in onSuccess still has to fetch and render the new route.
+    // Keep the form disabled once navigation has started and let the unmount
+    // clear it; otherwise the button flickers back to enabled for a beat.
+    let isNavigating = false
+
     try {
       await authClient.resetPassword(
         {
@@ -67,6 +73,7 @@ export function ResetPasswordForm() {
           onSuccess: () => {
             // Redirect to sign-in page with success message
             router.push('/sign-in?reset=success')
+            isNavigating = true
           },
           onError: (ctx) => {
             const errorMessage = ctx.error?.message || ''
@@ -79,7 +86,9 @@ export function ResetPasswordForm() {
       const errorMessage = err instanceof Error ? err.message : 'network'
       setError(friendlyError(errorMessage))
     } finally {
-      setIsLoading(false)
+      if (!isNavigating) {
+        setIsLoading(false)
+      }
     }
   }
 

@@ -53,6 +53,12 @@ export function SignUpForm({
       setIsSlowRequest(true)
     }, 10000)
 
+    // The auth promise resolves as soon as the server answers, but the
+    // router.push in onSuccess still has to fetch and render the new route.
+    // Keep the form disabled once navigation has started and let the unmount
+    // clear it; otherwise the button flickers back to enabled for a beat.
+    let isNavigating = false
+
     try {
       // Better Auth's email signup endpoint forwards unknown body fields to
       // the request-level `hooks.before` middleware (see src/lib/auth.ts).
@@ -73,6 +79,7 @@ export function SignUpForm({
           try {
             router.push(returnUrl)
             router.refresh()
+            isNavigating = true
           } catch {
             setError(t('navigationFailed'))
           }
@@ -89,8 +96,10 @@ export function SignUpForm({
       setError(friendlyError(errorMessage))
     } finally {
       clearTimeout(timeoutId)
-      setIsLoading(false)
-      setIsSlowRequest(false)
+      if (!isNavigating) {
+        setIsLoading(false)
+        setIsSlowRequest(false)
+      }
     }
   }
 

@@ -208,11 +208,24 @@ describe('ResetPasswordForm', () => {
     it('disables button and shows loading text during submission', async () => {
       const { authClient } = await import('@/lib/auth-client')
 
-      let resolveReset: () => void
-      const resetPromise = new Promise<void>((resolve) => {
-        resolveReset = resolve
+      // Better Auth fires exactly one of onSuccess / onError before the
+      // request promise resolves; settle through onError so the re-enable
+      // path under test is the real one.
+      let settle!: () => void
+      const settled = new Promise<void>((resolve) => {
+        settle = resolve
       })
-      vi.mocked(authClient.resetPassword).mockReturnValue(resetPromise)
+      let callbacks: any
+      const resetPromise = settled.then(() => {
+        callbacks?.onError?.({ error: { message: 'Token expired', status: 400 } })
+      })
+      vi.mocked(authClient.resetPassword).mockImplementation(((
+        _payload: unknown,
+        options: unknown,
+      ) => {
+        callbacks = options
+        return resetPromise
+      }) as any)
 
       const user = userEvent.setup()
       render(<ResetPasswordForm />)
@@ -226,12 +239,37 @@ describe('ResetPasswordForm', () => {
         expect(button).toBeDisabled()
       })
 
-      resolveReset!()
+      settle()
       await resetPromise
 
       await vi.waitFor(() => {
         expect(screen.getByRole('button', { name: /reset password/i })).not.toBeDisabled()
       })
+    })
+
+    // The request promise resolves before router.push has rendered the sign-in
+    // page, so re-enabling here flickered the button back to "Reset password".
+    // Once navigation has started the form stays disabled until it unmounts.
+    it('keeps the form disabled after a successful reset while navigating', async () => {
+      const { authClient } = await import('@/lib/auth-client')
+      vi.mocked(authClient.resetPassword).mockImplementation(async (payload, options) => {
+        if (options?.onSuccess) {
+          options.onSuccess({} as any)
+        }
+      })
+
+      const user = userEvent.setup()
+      render(<ResetPasswordForm />)
+
+      await user.type(screen.getByLabelText(/new password/i), 'newpass123456')
+      await user.type(screen.getByLabelText(/confirm password/i), 'newpass123456')
+      await user.click(screen.getByRole('button', { name: /reset password/i }))
+
+      await vi.waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith('/sign-in?reset=success')
+      })
+      expect(screen.getByRole('button', { name: /resetting password/i })).toBeDisabled()
+      expect(screen.getByLabelText(/new password/i)).toBeDisabled()
     })
   })
 
