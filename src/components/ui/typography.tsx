@@ -152,8 +152,14 @@ Code.displayName = 'Code'
 // Pre - Code block
 export const Pre = React.forwardRef<HTMLPreElement, React.HTMLAttributes<HTMLPreElement>>(
   ({ className, ...props }, ref) => (
+    // WHY: `overflow-x-auto` makes a long line scrollable, and a scrollable
+    // region a keyboard user cannot focus is unreachable — axe reports it as
+    // `scrollable-region-focusable`. The wider HON-686 type scale tipped the
+    // typography story's sample over that edge in CI. `tabIndex={0}` is the
+    // fix axe prescribes; callers can still override it through `props`.
     <pre
       ref={ref}
+      tabIndex={0}
       className={cn('bg-muted overflow-x-auto rounded-lg border p-4 font-mono text-sm', className)}
       {...props}
     />
