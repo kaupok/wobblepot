@@ -136,7 +136,7 @@ export default async function Home() {
   // Rode along on the membership query's `_count` — no round-trip of its own.
   const householdSize = household._count.members
 
-  const [entriesResponse, pantryResponse, shoppingResponse, prefsResponse] = await Promise.all([
+  const [entriesResponse, pantryResponse, shoppingResponse] = await Promise.all([
     fetch(
       `${baseURL}/api/entries?startDate=${toDateString(sevenDaysAgo)}&endDate=${toDateString(fourteenDaysAhead)}`,
       {
@@ -149,10 +149,6 @@ export default async function Home() {
       cache: 'no-store',
     }),
     fetch(`${baseURL}/api/shopping-list?days=7`, {
-      headers: { cookie: cookieHeader },
-      cache: 'no-store',
-    }),
-    fetch(`${baseURL}/api/households/me/preferences`, {
       headers: { cookie: cookieHeader },
       cache: 'no-store',
     }),
@@ -205,31 +201,19 @@ export default async function Home() {
     }
   }
 
-  // Parse household preferences for expected meal types
+  // Expected meal types come off the membership row, which already eager-loads
+  // `preferences` — no request to /api/households/me/preferences (HON-676).
+  // A household with no `household_preferences` row has `preferences: null`
+  // and keeps the dinner-only defaults (HON-672).
   const expectedMealTypes: ExpectedMealTypes = {
     weekdayMealTypes: ['dinner'],
     weekendMealTypes: ['dinner'],
   }
-  if (prefsResponse.ok) {
-    // The body is checked for null, not just for the field: a household with no
-    // `household_preferences` row used to serve `200` with a JSON body of `null`,
-    // and `prefsData.weekdayMealTypes?.` threw on it (HON-672). The route now
-    // 404s in that case, but the defaults must survive a body of any shape.
-    const prefsData = await prefsResponse.json()
-    if (
-      prefsData &&
-      Array.isArray(prefsData.weekdayMealTypes) &&
-      prefsData.weekdayMealTypes.length > 0
-    ) {
-      expectedMealTypes.weekdayMealTypes = prefsData.weekdayMealTypes
-    }
-    if (
-      prefsData &&
-      Array.isArray(prefsData.weekendMealTypes) &&
-      prefsData.weekendMealTypes.length > 0
-    ) {
-      expectedMealTypes.weekendMealTypes = prefsData.weekendMealTypes
-    }
+  if (household.preferences?.weekdayMealTypes.length) {
+    expectedMealTypes.weekdayMealTypes = household.preferences.weekdayMealTypes
+  }
+  if (household.preferences?.weekendMealTypes.length) {
+    expectedMealTypes.weekendMealTypes = household.preferences.weekendMealTypes
   }
 
   return (
