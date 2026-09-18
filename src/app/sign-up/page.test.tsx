@@ -241,6 +241,11 @@ describe('SignUpForm', () => {
       await vi.waitFor(() => {
         expect(mockPush).toHaveBeenCalledWith('/')
       })
+      // The request promise resolves before router.push has rendered the new
+      // route, so the form must stay disabled until it unmounts rather than
+      // flicker back to "Sign up" for a beat.
+      expect(screen.getByRole('button', { name: /creating account/i })).toBeDisabled()
+      expect(screen.getByLabelText(/email/i)).toBeDisabled()
     })
 
     it('navigates to returnUrl on successful sign up when provided', async () => {
