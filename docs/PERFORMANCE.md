@@ -78,7 +78,7 @@ import debounce from 'lodash/debounce'
 ### 3. Replace Large Dependencies
 
 - `moment` → `date-fns` or native `Intl.DateTimeFormat`
-- Use npm Package Search MCP to find lightweight alternatives
+- Use `npm search` / `npm view` to find lightweight alternatives
 
 ### 4. Check for Duplicates
 
