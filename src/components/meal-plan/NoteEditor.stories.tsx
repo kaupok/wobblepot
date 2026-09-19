@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { fn } from 'storybook/test'
+import { expect, fn, within } from 'storybook/test'
 import { NoteEditor } from './NoteEditor'
 
 const meta = {
@@ -24,6 +24,15 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
+/** Every button in the story clears the 32px `sm` / `icon-sm` floor (HON-688). */
+async function expectButtonsAtFloor(canvasElement: HTMLElement) {
+  const buttons = within(canvasElement).getAllByRole('button')
+  await expect(buttons.length).toBeGreaterThan(0)
+  for (const button of buttons) {
+    await expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(32)
+  }
+}
+
 export const Empty: Story = {
   args: { note: null },
 }
@@ -43,6 +52,9 @@ export const Compact: Story = {
     note: 'Kid-approved.',
     compact: true,
   },
+  // The note is a wrapping text button, so its floor comes from `min-h-8`
+  // rather than a `Button` size — a one-line note is where that shows.
+  play: async ({ canvasElement }) => expectButtonsAtFloor(canvasElement),
 }
 
 export const CompactEmpty: Story = {
@@ -50,6 +62,7 @@ export const CompactEmpty: Story = {
     note: null,
     compact: true,
   },
+  play: async ({ canvasElement }) => expectButtonsAtFloor(canvasElement),
 }
 
 export const Editing: Story = {
@@ -58,4 +71,5 @@ export const Editing: Story = {
     isEditing: true,
     onEditingChange: fn(),
   },
+  play: async ({ canvasElement }) => expectButtonsAtFloor(canvasElement),
 }

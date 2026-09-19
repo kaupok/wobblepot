@@ -35,16 +35,32 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
+/** Swap and Clear live behind the card's "More actions" menu (HON-688). */
+async function openMoreActions(canvasElement: HTMLElement) {
+  await userEvent.click(within(canvasElement).getByRole('button', { name: /more actions/i }))
+}
+
 export const Planned: Story = {
   args: {
     meal: mealFixture,
     status: 'planned',
   },
   play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    // Every control on the card clears the 32px `sm` floor (HON-688) — the
+    // meal name included, which is a wrapping text button rather than a
+    // `Button` and so takes its height from `min-h-8`, not a size variant.
+    for (const button of canvas.getAllByRole('button')) {
+      await expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(32)
+    }
+
     // The counterpart to `CompletedThumbsUp` below: Swap is offered here, so
     // its absence there cannot pass on a card that failed to render at all.
-    const canvas = within(canvasElement)
-    await expect(canvas.getByRole('button', { name: /^swap$/i })).toBeInTheDocument()
+    await openMoreActions(canvasElement)
+    await expect(
+      await within(document.body).findByRole('menuitem', { name: /^swap$/i }),
+    ).toBeInTheDocument()
   },
 }
 
@@ -129,11 +145,13 @@ export const CompletedThumbsUp: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.queryByRole('button', { name: /^swap$/i })).not.toBeInTheDocument()
-    // The other two header controls are unaffected — this hides Swap, not the
-    // whole control row.
+    const body = within(document.body)
+    await openMoreActions(canvasElement)
+    // Clear is in the same menu, so the missing Swap is not a menu that never
+    // opened. Note sits outside it and is unaffected.
+    await expect(await body.findByRole('menuitem', { name: /^clear$/i })).toBeInTheDocument()
+    await expect(body.queryByRole('menuitem', { name: /^swap$/i })).not.toBeInTheDocument()
     await expect(canvas.getByRole('button', { name: /^note$/i })).toBeInTheDocument()
-    await expect(canvas.getByRole('button', { name: /^clear$/i })).toBeInTheDocument()
   },
 }
 
@@ -167,8 +185,10 @@ export const Skipped: Story = {
     },
   },
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    await expect(canvas.getByRole('button', { name: /^swap$/i })).toBeInTheDocument()
+    await openMoreActions(canvasElement)
+    await expect(
+      await within(document.body).findByRole('menuitem', { name: /^swap$/i }),
+    ).toBeInTheDocument()
   },
 }
 

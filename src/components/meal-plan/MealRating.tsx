@@ -50,34 +50,32 @@ export function MealRatingPrompt({ planId, entryId, onRated, onDismiss }: MealRa
       <div className="flex gap-1">
         <Button
           variant="ghost"
-          size="sm"
-          className="h-7 w-7 p-0"
+          size="icon-sm"
           onClick={() => handleRate('up')}
           disabled={isSubmitting}
           aria-label={t('thumbsUp')}
         >
-          <ThumbsUp className="h-4 w-4" />
+          <ThumbsUp className="size-4" />
         </Button>
         <Button
           variant="ghost"
-          size="sm"
-          className="h-7 w-7 p-0"
+          size="icon-sm"
           onClick={() => handleRate('down')}
           disabled={isSubmitting}
           aria-label={t('thumbsDown')}
         >
-          <ThumbsDown className="h-4 w-4" />
+          <ThumbsDown className="size-4" />
         </Button>
       </div>
       <Button
         variant="ghost"
-        size="sm"
-        className="text-muted-foreground ml-auto h-6 w-6 p-0"
+        size="icon-sm"
+        className="text-muted-foreground ml-auto"
         onClick={onDismiss}
         disabled={isSubmitting}
         aria-label={t('dismiss')}
       >
-        <X className="h-3.5 w-3.5" />
+        <X className="size-4" />
       </Button>
     </div>
   )
@@ -105,16 +103,16 @@ export function RatingBadge({ rating, onClick }: RatingBadgeProps) {
 
   if (onClick) {
     return (
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon-sm"
         onClick={onClick}
-        className="cursor-pointer"
         aria-label={t('ariaCurrent', {
           direction: isUp ? t('directionUp') : t('directionDown'),
         })}
       >
         {badge}
-      </button>
+      </Button>
     )
   }
 
@@ -168,36 +166,34 @@ export function MealRatingInline({
 
   return (
     <div className="flex items-center gap-1">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon-sm"
         onClick={() => handleRate('up')}
         disabled={isSubmitting}
         className={cn(
-          'inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors',
-          rating === 'up'
-            ? 'bg-success-muted text-success'
-            : 'text-muted-foreground hover:bg-muted',
+          'rounded-full',
+          rating === 'up' ? 'bg-success-muted text-success' : 'text-muted-foreground',
         )}
         aria-label={t('thumbsUp')}
         aria-pressed={rating === 'up'}
       >
-        <ThumbsUp className="h-3.5 w-3.5" />
-      </button>
-      <button
-        type="button"
+        <ThumbsUp className="size-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon-sm"
         onClick={() => handleRate('down')}
         disabled={isSubmitting}
         className={cn(
-          'inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors',
-          rating === 'down'
-            ? 'bg-destructive/10 text-destructive'
-            : 'text-muted-foreground hover:bg-muted',
+          'rounded-full',
+          rating === 'down' ? 'bg-destructive/10 text-destructive' : 'text-muted-foreground',
         )}
         aria-label={t('thumbsDown')}
         aria-pressed={rating === 'down'}
       >
-        <ThumbsDown className="h-3.5 w-3.5" />
-      </button>
+        <ThumbsDown className="size-4" />
+      </Button>
     </div>
   )
 }
