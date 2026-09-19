@@ -1,7 +1,7 @@
 /**
  * Design-rule DOM assertions for `Scenarios/*` stories.
  *
- * `docs/DESIGN.md` is prose because most of it is judgment. These four rules
+ * `docs/DESIGN.md` is prose because most of it is judgment. These five rules
  * are the part a machine can settle, so it should: an agent that nests a Card
  * inside a Card gets a failing `pnpm test-storybook:ci` run naming the rule
  * instead of a reminder it has to remember to read.
@@ -13,19 +13,22 @@
  * part of the scenario. For an in-canvas scenario, pass `canvasElement`.
  */
 
-export type DesignRule = 'no-nested-cards' | 'title-scale' | 'no-sticky-content' | 'no-raw-palette'
+export type DesignRule =
+  'no-nested-cards' | 'title-scale' | 'no-sticky-content' | 'no-raw-palette' | 'no-content-shadow'
 
 /**
  * The rule set every `Scenarios/*` story enforces. `no-raw-palette` is in it
  * because HON-608 shipped the semantic status tokens and migrated the last
  * raw palette class out of `src/**` — its acceptance criteria asked for this
- * to be switched on once scenarios existed.
+ * to be switched on once scenarios existed. `no-content-shadow` is in it
+ * because HON-689 removed the last shadow from controls and cards.
  */
 export const SCENARIO_RULES: DesignRule[] = [
   'no-nested-cards',
   'title-scale',
   'no-sticky-content',
   'no-raw-palette',
+  'no-content-shadow',
 ]
 
 /** Where in `docs/DESIGN.md` each rule is written down, for the failure message. */
@@ -34,6 +37,8 @@ const RULE_SOURCE: Record<DesignRule, string> = {
   'title-scale': 'docs/DESIGN.md → Type scale → in-app titles are `Heading variant="h4"`',
   'no-sticky-content': 'docs/DESIGN.md → Composition rules → "Content is not sticky"',
   'no-raw-palette': 'docs/DESIGN.md → Color → "Never reach for a raw palette class"',
+  'no-content-shadow':
+    'docs/DESIGN.md → Spacing, radius, elevation → Elevation: "Only overlays cast a shadow"',
 }
 
 /**
@@ -79,6 +84,96 @@ function titleLevelPx(root: HTMLElement): number {
  */
 const RAW_PALETTE_CLASS =
   /\b(bg|text|border|fill)-(red|green|blue|amber|orange|yellow|emerald|slate|gray|zinc|neutral|stone|rose|pink|purple|violet|indigo|sky|cyan|teal|lime)-\d{2,3}\b/
+
+/**
+ * What counts as an overlay for `no-content-shadow`: defined by role and slot,
+ * never by class, so a new overlay qualifies by being accessible rather than
+ * by copying a shadow. The slots are listed one by one rather than matched as
+ * `[data-slot$="-content"]`, because `card-content` and `collapsible-content`
+ * end the same way and sit in the page — a suffix match would exempt every
+ * control inside a `CardContent`. A new overlay primitive adds its slot here;
+ * a hand-rolled popover carries `autocomplete-content`.
+ */
+const OVERLAY_SLOTS = [
+  'dialog-content',
+  'alert-dialog-content',
+  'sheet-content',
+  'select-content',
+  'dropdown-menu-content',
+  'dropdown-menu-sub-content',
+  'tooltip-content',
+  'autocomplete-content',
+]
+const OVERLAY_SELECTOR = [
+  '[role="dialog"]',
+  '[role="alertdialog"]',
+  '[role="menu"]',
+  '[role="listbox"]',
+  ...OVERLAY_SLOTS.map((slot) => `[data-slot="${slot}"]`),
+].join(', ')
+
+/**
+ * The overlay `element` sits in, if it is one or is inside one **below** `root`.
+ * Bounded by `root` for the same reason every check skips the root itself: a
+ * portal scenario passes its dialog as the root, and an unbounded `closest()`
+ * would find that dialog and exempt the entire scenario.
+ */
+function isInOverlay(element: Element, root: HTMLElement): boolean {
+  const overlay = element.closest(OVERLAY_SELECTOR)
+  return overlay !== null && overlay !== root && root.contains(overlay)
+}
+
+/** Splits a computed `box-shadow` into layers, ignoring commas inside `rgb(…)`. */
+function shadowLayers(boxShadow: string): string[] {
+  const layers: string[] = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < boxShadow.length; i++) {
+    const char = boxShadow[i]
+    if (char === '(') depth++
+    else if (char === ')') depth--
+    else if (char === ',' && depth === 0) {
+      layers.push(boxShadow.slice(start, i))
+      start = i + 1
+    }
+  }
+  layers.push(boxShadow.slice(start))
+  return layers.map((layer) => layer.trim()).filter(Boolean)
+}
+
+const COLOR = /[a-z-]+\([^)]*\)|#[\da-f]{3,8}\b|\btransparent\b/i
+
+/**
+ * Whether a computed colour has zero alpha. Reads the alpha channel by
+ * position — after `/`, or the fourth comma-separated argument — because a
+ * trailing `, 0)` alone is also how an opaque `rgb(255, 0, 0)` ends.
+ */
+function isTransparent(color: string): boolean {
+  if (/^transparent$/i.test(color)) return true
+  if (/^#([\da-f]{3}0|[\da-f]{6}00)$/i.test(color)) return true
+  const args = /\(([^)]*)\)/.exec(color)?.[1]
+  if (!args) return false
+  const alpha = args.includes('/') ? args.split('/')[1] : args.split(',')[3]
+  return alpha !== undefined && Number.parseFloat(alpha) === 0
+}
+
+/**
+ * Whether a computed `box-shadow` draws a visible shadow. Two kinds of layer
+ * are not elevation and are skipped: fully transparent ones, which Tailwind v4
+ * composes into every element's `box-shadow` as `0 0 #0000` placeholders, and
+ * spread-only ones (`0 0 0 3px`), which is how `ring-*` draws a focus ring.
+ */
+function castsShadow(boxShadow: string): boolean {
+  if (!boxShadow || boxShadow === 'none') return false
+  return shadowLayers(boxShadow).some((layer) => {
+    const color = COLOR.exec(layer)?.[0] ?? ''
+    if (isTransparent(color)) return false
+    const [x = 0, y = 0, blur = 0] = (layer.replace(color, '').match(/-?\d*\.?\d+/g) ?? []).map(
+      Number,
+    )
+    return x !== 0 || y !== 0 || blur !== 0
+  })
+}
 
 /** First 120 characters of the offending element, whitespace collapsed. */
 function snippet(element: Element): string {
@@ -149,6 +244,20 @@ const CHECKS: Record<DesignRule, (root: HTMLElement) => void> = {
       }
     }
   },
+
+  'no-content-shadow': (root) => {
+    for (const element of root.querySelectorAll('*')) {
+      if (isInOverlay(element, root)) continue
+      const { boxShadow } = getComputedStyle(element)
+      if (castsShadow(boxShadow)) {
+        throw violation(
+          'no-content-shadow',
+          `element casts a shadow (\`${boxShadow}\`) outside an overlay — the border is the edge of a control or card`,
+          element,
+        )
+      }
+    }
+  },
 }
 
 /**
@@ -160,7 +269,7 @@ const CHECKS: Record<DesignRule, (root: HTMLElement) => void> = {
  *   itself — pass `canvasElement` for an in-canvas scenario, or the portal
  *   root (e.g. the `[role="dialog"]` element) for one that renders through a
  *   Radix portal.
- * @param rules Which rules to enforce. Scenario stories enable all four.
+ * @param rules Which rules to enforce. Scenario stories enable all five.
  */
 export async function assertDesignRules(
   canvasElement: HTMLElement,

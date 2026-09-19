@@ -30,7 +30,8 @@ describe('Button component', () => {
     it('applies outline variant classes', () => {
       render(<Button variant="outline">Outline</Button>)
       const button = screen.getByRole('button')
-      expect(button).toHaveClass('border', 'bg-background', 'shadow-xs')
+      expect(button).toHaveClass('border', 'bg-background')
+      expect(button.className).not.toMatch(/(^|\s)shadow-/)
     })
 
     it('applies secondary variant classes', () => {

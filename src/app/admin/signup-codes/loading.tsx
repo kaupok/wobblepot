@@ -1,7 +1,7 @@
 import { Skeleton } from '@/components/ui/skeleton'
 
 // Card blocks mirror the `Card` primitive's geometry (`gap-6 rounded-xl border
-// p-6 shadow-sm`) and the text skeletons mirror the line heights they stand in
+// p-6`) and the text skeletons mirror the line heights they stand in
 // for (`h2` → text-3xl → h-9, `h4` → text-xl → h-7.5, `Body variant="muted"` →
 // text-sm → h-6, all at the HON-686 scale), so the swap to the real page shifts
 // as little as possible.
@@ -17,7 +17,7 @@ export default function AdminSignupCodesLoading() {
 
       <div className="flex flex-col gap-6">
         {/* "Mint a new code" card */}
-        <div className="flex flex-col gap-6 rounded-xl border p-6 shadow-sm">
+        <div className="flex flex-col gap-6 rounded-xl border p-6">
           <Skeleton className="h-7.5 w-44" />
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
@@ -29,7 +29,7 @@ export default function AdminSignupCodesLoading() {
         </div>
 
         {/* "Existing codes" card */}
-        <div className="flex flex-col gap-6 rounded-xl border p-6 shadow-sm">
+        <div className="flex flex-col gap-6 rounded-xl border p-6">
           <div className="flex flex-col gap-2">
             <Skeleton className="h-7.5 w-36" />
             <Skeleton className="h-6 w-72" />

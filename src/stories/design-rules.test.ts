@@ -6,6 +6,7 @@ const ALL_RULES: DesignRule[] = [
   'title-scale',
   'no-sticky-content',
   'no-raw-palette',
+  'no-content-shadow',
 ]
 
 /**
@@ -193,6 +194,85 @@ describe('assertDesignRules', () => {
       const root = render('<svg class="text-green-600"><title>Check</title></svg>')
       await expect(assertDesignRules(root, ['no-raw-palette'])).rejects.toThrow(
         /`text-green-600` is a raw palette class/,
+      )
+    })
+  })
+  describe('no-content-shadow', () => {
+    /** Tailwind's `shadow-sm`, as jsdom has no Tailwind to resolve the class. */
+    const SHADOW_SM = '<style>.shadow-sm { box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1) }</style>'
+
+    it('fails a `shadow-sm` element inside a scenario', async () => {
+      const root = render(`${SHADOW_SM}<div class="shadow-sm" id="card">Card</div>`)
+      await expect(assertDesignRules(root, ['no-content-shadow'])).rejects.toThrow(
+        /Design rule "no-content-shadow" violated[\s\S]*Only overlays cast a shadow[\s\S]*id="card"/,
+      )
+    })
+
+    it.each([
+      ['role="dialog"'],
+      ['role="alertdialog"'],
+      ['role="menu"'],
+      ['role="listbox"'],
+      ['data-slot="select-content"'],
+      ['data-slot="autocomplete-content"'],
+    ])('allows a shadow on and inside an overlay marked %s', async (marker) => {
+      const root = render(
+        `${SHADOW_SM}<div ${marker} class="shadow-sm"><span class="shadow-sm">Option</span></div>`,
+      )
+      await expect(assertDesignRules(root, ['no-content-shadow'])).resolves.toBeUndefined()
+    })
+
+    it.each(['card-content', 'collapsible-content'])(
+      'checks controls inside an in-page `%s` slot',
+      async (slot) => {
+        const root = render(
+          `${SHADOW_SM}<div data-slot="${slot}"><input class="shadow-sm" id="field"></div>`,
+        )
+        await expect(assertDesignRules(root, ['no-content-shadow'])).rejects.toThrow(/id="field"/)
+      },
+    )
+
+    it.each(['rgb(0, 0, 0)', 'rgb(255, 0, 0)', 'rgb(0 0 0)'])(
+      'fails an opaque shadow in %s, whose last channel is 0',
+      async (color) => {
+        const root = render(`<div style="box-shadow: ${color} 0px 1px 3px 0px">Card</div>`)
+        await expect(assertDesignRules(root, ['no-content-shadow'])).rejects.toThrow(
+          /no-content-shadow/,
+        )
+      },
+    )
+
+    it('allows a shadow whose alpha is 0 in slash syntax', async () => {
+      const root = render('<div style="box-shadow: rgb(0 0 0 / 0) 0px 1px 3px 0px">Card</div>')
+      await expect(assertDesignRules(root, ['no-content-shadow'])).resolves.toBeUndefined()
+    })
+
+    it('does not exempt the scenario root, so a dialog scenario is still checked', async () => {
+      const root = render(`${SHADOW_SM}<div class="shadow-sm">Card in a dialog</div>`)
+      root.setAttribute('role', 'dialog')
+      await expect(assertDesignRules(root, ['no-content-shadow'])).rejects.toThrow(
+        /no-content-shadow/,
+      )
+    })
+
+    it('allows a spread-only focus ring', async () => {
+      const root = render('<input style="box-shadow: 0 0 0 3px rgb(0 0 0 / 0.5)">')
+      await expect(assertDesignRules(root, ['no-content-shadow'])).resolves.toBeUndefined()
+    })
+
+    it('allows the transparent layers Tailwind composes into every box-shadow', async () => {
+      const root = render(
+        '<div style="box-shadow: rgba(0, 0, 0, 0) 0px 1px 2px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px">Row</div>',
+      )
+      await expect(assertDesignRules(root, ['no-content-shadow'])).resolves.toBeUndefined()
+    })
+
+    it('fails when only one of several layers is visible', async () => {
+      const root = render(
+        '<div style="box-shadow: rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px">Input</div>',
+      )
+      await expect(assertDesignRules(root, ['no-content-shadow'])).rejects.toThrow(
+        /no-content-shadow/,
       )
     })
   })

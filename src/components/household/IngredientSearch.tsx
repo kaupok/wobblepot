@@ -168,7 +168,10 @@ export function IngredientSearch({
       )}
 
       {searchQuery.trim() && !isSearching && searchResults.length === 0 && (
-        <div className="bg-popover absolute top-full z-10 mt-1 w-full rounded-md border p-3 shadow-md">
+        <div
+          data-slot="autocomplete-content"
+          className="bg-popover absolute top-full z-10 mt-1 w-full rounded-md border p-3 shadow-md"
+        >
           <Body variant="muted" className="text-center">
             {t('noResults')}
           </Body>
