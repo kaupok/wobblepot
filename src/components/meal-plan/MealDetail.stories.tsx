@@ -266,3 +266,28 @@ export const NarrowColumnCompleted: Story = {
     expectWithinHorizontally(header, ingredientsColumn(header))
   },
 }
+
+export const NarrowColumnCustomServingsEstonian: Story = {
+  name: 'Narrow ingredients column (Estonian, custom servings)',
+  globals: { locale: 'et' },
+  args: { ...narrowColumnArgs, servings: 4, householdSize: 3 },
+  decorators: narrowColumnDecorator,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The longest header: an overridden count adds the "(kohandatud)" suffix. When it cannot fit, the header breaks only at the space after "Koostisosad" — the serving control stays whole with its parentheses attached — and nothing overflows the column.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const button = canvas.getByRole('button', { name: /4 portsjonit/ })
+    const header = button.parentElement!
+    const column = ingredientsColumn(header)
+    await expect(header).toHaveTextContent(/^Koostisosad \(4 portsjonit\s*\(kohandatud\)\)$/)
+    expectSingleLine(button)
+    expectWithinHorizontally(header, column)
+    expectWithinHorizontally(button, column)
+  },
+}

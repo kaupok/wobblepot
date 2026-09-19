@@ -125,7 +125,7 @@ export function MealDetail({
           hideAvailability={hideAvailability}
           headerElement={
             showServingControl ? (
-              <span className="text-sm font-semibold whitespace-nowrap">
+              <span className="text-sm font-semibold">
                 {tDetail.rich('ingredientsHeaderInline', {
                   servings: (_chunks) => (
                     <ServingControl
