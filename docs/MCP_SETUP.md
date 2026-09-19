@@ -32,10 +32,10 @@ Our project uses the following MCP servers:
 **Configuration locations:**
 
 - **Stdio servers** (in `.mcp.json`): playwright, next-devtools
-- **HTTP servers** (in `.mcp.json`): context7, linear-server, posthog
+- **HTTP servers** (in `.mcp.json`): context7, linear-server, posthog, figma
 - **HTTP servers** (configured globally): better-auth
 
-> **Note**: The `better-auth` server is configured globally via Claude Code and does not appear in the project's `.mcp.json` file. The `context7`, `linear-server`, and `posthog` HTTP servers are in `.mcp.json`. HTTP servers connect to remote endpoints and authenticate with an API key or OAuth.
+> **Note**: The `better-auth` server is configured globally via Claude Code and does not appear in the project's `.mcp.json` file. The `context7`, `linear-server`, `posthog`, and `figma` HTTP servers are in `.mcp.json`. HTTP servers connect to remote endpoints and authenticate with an API key or OAuth.
 
 ### 1. Playwright Server (Microsoft)
 
@@ -105,7 +105,15 @@ Our project uses the following MCP servers:
 - **When to use**: Investigating product data, managing flags, checking rollout health
 - **Note**: Defined in `.mcp.json` at `https://mcp.posthog.com/mcp`
 
-### 6. Better Auth MCP (HTTP server)
+### 6. Figma MCP (HTTP server)
+
+- **Purpose**: Read Figma designs as context for implementing UI
+- **Capabilities**: Pull design context (layout, styles, variables, components) and screenshots for a frame or layer from its Figma link
+- **Authentication**: OAuth. Claude Code prompts for sign-in on first use (run `/mcp` → `figma` → Authenticate).
+- **When to use**: Building or changing UI from a Figma design — paste the frame's link into the prompt. Map what it returns onto our tokens and primitives per `docs/DESIGN.md`; don't copy its raw values.
+- **Note**: Defined in `.mcp.json` at `https://mcp.figma.com/mcp` (Figma's remote server; no Figma desktop app needed)
+
+### 7. Better Auth MCP (HTTP server)
 
 - **Purpose**: Better Auth documentation search and AI chat
 - **Capabilities**: Search Better Auth docs, get implementation examples
@@ -160,7 +168,7 @@ claude mcp add --transport stdio your-server -- npx -y @modelcontextprotocol/ser
 
 ## Environment Variables
 
-Only `CONTEXT7_API_KEY` is interpolated by `.mcp.json` (through the `${CONTEXT7_API_KEY}` header on the `context7` server). Set it in `.claude/settings.local.json`. `linear-server` and `posthog` authenticate through OAuth and need no key.
+Only `CONTEXT7_API_KEY` is interpolated by `.mcp.json` (through the `${CONTEXT7_API_KEY}` header on the `context7` server). Set it in `.claude/settings.local.json`. `linear-server`, `posthog`, and `figma` authenticate through OAuth and need no key.
 
 **Checking for drift:** `grep -o '\${[A-Z0-9_]*}' .mcp.json` lists every variable `.mcp.json` interpolates. This section should document exactly that set — if the two disagree, this doc is stale.
 
