@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { expect, userEvent, waitFor, within } from 'storybook/test'
 import { Label } from './label'
 import {
   Select,
@@ -242,4 +243,59 @@ export const Desktop: Story = {
     viewport: { value: 'desktop', isRotated: false },
   },
   render: AllVariants.render,
+}
+
+// Guards HON-690: opening a Select locks page scroll (react-remove-scroll-bar),
+// which on classic-scrollbar systems used to drop the scrollbar and widen the
+// viewport, sliding the fixed header and tab bar sideways. The page is taller
+// than the viewport so the document scrolls; a fixed full-width bar stands in
+// for the header. The play function asserts that neither the fixed bar's
+// centred content nor the in-flow trigger moves under the lock, and that the
+// library's compensating body margin is zeroed. Removing either rule in
+// globals.css fails it. (`documentElement.clientWidth` is not asserted:
+// Chromium stops subtracting the reserved gutter from it once overflow is
+// hidden, although layout keeps the gutter.)
+export const ScrollLockKeepsLayout: Story = {
+  // A fixed bar and a 200vh page would sit on top of the autodocs page.
+  tags: ['!autodocs'],
+  parameters: { layout: 'padded' },
+  render: () => (
+    <div className="flex h-[200vh] flex-col pt-16">
+      <div className="bg-background fixed inset-x-0 top-0 border-b py-2">
+        <p data-testid="fixed-chrome" className="mx-auto w-48 text-center">
+          Fixed header
+        </p>
+      </div>
+      <Select defaultValue="Monday">
+        <SelectTrigger aria-label="Day of week" className="mx-auto w-48">
+          <SelectValue placeholder="Pick a day" />
+        </SelectTrigger>
+        <SelectContent>
+          {days.map((day) => (
+            <SelectItem key={day} value={day}>
+              {day}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const trigger = canvas.getByRole('combobox', { name: 'Day of week' })
+    const chrome = canvas.getByTestId('fixed-chrome')
+    const triggerLeft = trigger.getBoundingClientRect().left
+    const chromeLeft = chrome.getBoundingClientRect().left
+
+    await userEvent.click(trigger)
+    await within(document.body).findByRole('listbox')
+    await waitFor(() => expect(document.body).toHaveAttribute('data-scroll-locked'))
+
+    expect(chrome.getBoundingClientRect().left).toBe(chromeLeft)
+    expect(trigger.getBoundingClientRect().left).toBe(triggerLeft)
+    expect(window.getComputedStyle(document.body).marginRight).toBe('0px')
+
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(document.body).not.toHaveAttribute('data-scroll-locked'))
+  },
 }

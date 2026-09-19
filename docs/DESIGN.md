@@ -133,7 +133,7 @@ Each of these came from a review that found the opposite in production.
 - **No cards inside cards.** If a `Card` needs internal grouping, use spacing and a section heading (`HON-386`).
 - **Actions sit on the title row.** A card's actions align right on the same line as its name, in one row, never as a footer strip or stacked buttons (`HON-378`, `HON-383`).
 - **Labels sit outside the card.** Context labels like the meal type ("Dinner") go above the card as a caption, not inside it (`HON-379`).
-- **Content is not sticky.** Action bars live inline at the end of the content they act on. The only fixed chrome is the header and the mobile tab bar (`HON-380`).
+- **Content is not sticky.** Action bars live inline at the end of the content they act on. The only fixed chrome is the header and the mobile tab bar (`HON-380`). They stay put when a Radix overlay locks page scroll only because `globals.css` sets `scrollbar-gutter: stable` on `html` and zeroes the lock's body margin — keep both (`HON-690`).
 - **One page width.** Content is centered and capped at 1152px. Tables and lists may fill it; prose stays narrower (`HON-376`).
 - **Controls belong in menus, not headers.** Preference toggles (theme, language) live in the user menu, not in the header bar (`HON-382`).
 - **Mobile first, then widen.** Build the 390px layout, then add `md:` and `lg:` variants. Never the reverse (`HON-395`).

@@ -226,6 +226,29 @@
     @apply bg-background text-foreground;
   }
 
+  /* WHY: Keeps the viewport width constant while a Radix overlay locks scroll
+     (HON-690). Select, Dialog, AlertDialog, Sheet and modal DropdownMenu mount
+     react-remove-scroll-bar, which sets `overflow: hidden` on body. On
+     classic-scrollbar systems that removes the scrollbar, so the initial
+     containing block widens by its width and the fixed header and tab bar
+     (`right-0 left-0`) re-centre and jump sideways. A `stable` gutter survives
+     `overflow: hidden` (css-overflow-3), so nothing reflows. Overlay-scrollbar
+     systems reserve no gutter and are unaffected. See docs/DESIGN.md →
+     "Content is not sticky" before removing it. */
+  html {
+    scrollbar-gutter: stable;
+  }
+
+  /* WHY: react-remove-scroll-bar still measures a gap (clientWidth excludes the
+     reserved gutter) and adds it to body as `margin-right: <gap>px !important`,
+     which would now shift content left instead of holding it. Its rule is an
+     unlayered `body[data-scroll-locked]` singleton injected at runtime; an
+     `!important` declaration in a cascade layer beats an unlayered one, and the
+     extra `html` keeps it ahead on specificity too. */
+  html body[data-scroll-locked] {
+    margin-right: 0 !important;
+  }
+
   /* WHY: Inside @layer base so these rules beat Tailwind utilities without
      per-class !important; the wildcard + !important is the only way to override
      tw-animate-css keyframe utilities on every Radix-backed primitive at once.
