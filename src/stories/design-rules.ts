@@ -88,12 +88,29 @@ const RAW_PALETTE_CLASS =
 /**
  * What counts as an overlay for `no-content-shadow`: defined by role and slot,
  * never by class, so a new overlay qualifies by being accessible rather than
- * by copying a shadow. `data-slot$="-content"` covers the Radix contents
- * (`dialog-content`, `select-content`, `dropdown-menu-sub-content`, …) and the
- * hand-rolled autocomplete popovers, which carry `autocomplete-content`.
+ * by copying a shadow. The slots are listed one by one rather than matched as
+ * `[data-slot$="-content"]`, because `card-content` and `collapsible-content`
+ * end the same way and sit in the page — a suffix match would exempt every
+ * control inside a `CardContent`. A new overlay primitive adds its slot here;
+ * a hand-rolled popover carries `autocomplete-content`.
  */
-const OVERLAY_SELECTOR =
-  '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-slot$="-content"]'
+const OVERLAY_SLOTS = [
+  'dialog-content',
+  'alert-dialog-content',
+  'sheet-content',
+  'select-content',
+  'dropdown-menu-content',
+  'dropdown-menu-sub-content',
+  'tooltip-content',
+  'autocomplete-content',
+]
+const OVERLAY_SELECTOR = [
+  '[role="dialog"]',
+  '[role="alertdialog"]',
+  '[role="menu"]',
+  '[role="listbox"]',
+  ...OVERLAY_SLOTS.map((slot) => `[data-slot="${slot}"]`),
+].join(', ')
 
 /**
  * The overlay `element` sits in, if it is one or is inside one **below** `root`.
@@ -125,7 +142,20 @@ function shadowLayers(boxShadow: string): string[] {
 }
 
 const COLOR = /[a-z-]+\([^)]*\)|#[\da-f]{3,8}\b|\btransparent\b/i
-const TRANSPARENT_COLOR = /^transparent$|[,/]\s*0(\.0+)?%?\s*\)$|^#([\da-f]{3}0|[\da-f]{6}00)$/i
+
+/**
+ * Whether a computed colour has zero alpha. Reads the alpha channel by
+ * position — after `/`, or the fourth comma-separated argument — because a
+ * trailing `, 0)` alone is also how an opaque `rgb(255, 0, 0)` ends.
+ */
+function isTransparent(color: string): boolean {
+  if (/^transparent$/i.test(color)) return true
+  if (/^#([\da-f]{3}0|[\da-f]{6}00)$/i.test(color)) return true
+  const args = /\(([^)]*)\)/.exec(color)?.[1]
+  if (!args) return false
+  const alpha = args.includes('/') ? args.split('/')[1] : args.split(',')[3]
+  return alpha !== undefined && Number.parseFloat(alpha) === 0
+}
 
 /**
  * Whether a computed `box-shadow` draws a visible shadow. Two kinds of layer
@@ -137,7 +167,7 @@ function castsShadow(boxShadow: string): boolean {
   if (!boxShadow || boxShadow === 'none') return false
   return shadowLayers(boxShadow).some((layer) => {
     const color = COLOR.exec(layer)?.[0] ?? ''
-    if (TRANSPARENT_COLOR.test(color)) return false
+    if (isTransparent(color)) return false
     const [x = 0, y = 0, blur = 0] = (layer.replace(color, '').match(/-?\d*\.?\d+/g) ?? []).map(
       Number,
     )

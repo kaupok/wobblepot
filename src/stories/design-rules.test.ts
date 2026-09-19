@@ -222,6 +222,31 @@ describe('assertDesignRules', () => {
       await expect(assertDesignRules(root, ['no-content-shadow'])).resolves.toBeUndefined()
     })
 
+    it.each(['card-content', 'collapsible-content'])(
+      'checks controls inside an in-page `%s` slot',
+      async (slot) => {
+        const root = render(
+          `${SHADOW_SM}<div data-slot="${slot}"><input class="shadow-sm" id="field"></div>`,
+        )
+        await expect(assertDesignRules(root, ['no-content-shadow'])).rejects.toThrow(/id="field"/)
+      },
+    )
+
+    it.each(['rgb(0, 0, 0)', 'rgb(255, 0, 0)', 'rgb(0 0 0)'])(
+      'fails an opaque shadow in %s, whose last channel is 0',
+      async (color) => {
+        const root = render(`<div style="box-shadow: ${color} 0px 1px 3px 0px">Card</div>`)
+        await expect(assertDesignRules(root, ['no-content-shadow'])).rejects.toThrow(
+          /no-content-shadow/,
+        )
+      },
+    )
+
+    it('allows a shadow whose alpha is 0 in slash syntax', async () => {
+      const root = render('<div style="box-shadow: rgb(0 0 0 / 0) 0px 1px 3px 0px">Card</div>')
+      await expect(assertDesignRules(root, ['no-content-shadow'])).resolves.toBeUndefined()
+    })
+
     it('does not exempt the scenario root, so a dialog scenario is still checked', async () => {
       const root = render(`${SHADOW_SM}<div class="shadow-sm">Card in a dialog</div>`)
       root.setAttribute('role', 'dialog')
