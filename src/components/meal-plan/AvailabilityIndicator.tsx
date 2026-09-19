@@ -55,14 +55,14 @@ export function AvailabilityIndicator({ availability }: AvailabilityIndicatorPro
 
   if (availability.isReady) {
     return (
-      <span className="bg-success-muted text-success inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-medium">
+      <span className="bg-success-muted text-success inline-flex shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-medium whitespace-nowrap">
         {t('haveAll')}
       </span>
     )
   }
 
   return (
-    <span className="bg-warning-muted text-warning inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-medium">
+    <span className="bg-warning-muted text-warning inline-flex shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-medium whitespace-nowrap">
       {t('missing', { count: availability.missingCount })}
     </span>
   )

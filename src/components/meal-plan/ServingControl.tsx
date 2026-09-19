@@ -101,7 +101,7 @@ export function ServingControl({
 
   if (isEditing) {
     return (
-      <span className="inline-flex items-center gap-1">
+      <span className="inline-flex items-center gap-1 whitespace-nowrap">
         <span className="text-muted-foreground">{t('label')}</span>
         <input
           ref={inputRef}
@@ -129,7 +129,7 @@ export function ServingControl({
       onClick={handleClick}
       disabled={disabled || isUpdating}
       className={cn(
-        'inline-flex items-center gap-1 rounded px-1 py-0.5 text-sm transition-colors',
+        'inline-flex items-center gap-1 rounded px-1 py-0.5 text-sm whitespace-nowrap transition-colors',
         'hover:bg-muted focus:ring-primary focus:ring-1 focus:outline-none',
         isOverridden && 'text-info font-medium',
         !isOverridden && 'text-muted-foreground',

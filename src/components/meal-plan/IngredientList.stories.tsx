@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { fn } from 'storybook/test'
+import { fn, within } from 'storybook/test'
 import { createMealComponent, lemonGarlicChickenComponentsFull } from '@/stories/fixtures'
+import { expectSingleLine, expectWithinHorizontally } from '@/stories/layout-helpers'
 import { IngredientList } from './IngredientList'
 import type { PantryIngredient } from './types'
 
@@ -128,4 +129,69 @@ export const EstonianLocale: Story = {
   name: 'Estonian (comma decimals)',
   globals: { locale: 'et' },
   args: { servings: 3, householdSize: 3 },
+}
+
+const narrowArgs = {
+  servings: 4,
+  householdSize: 4,
+  availability: { isReady: false, missingCount: 2, missingIngredients: ['Potato', 'Lemon'] },
+} satisfies Partial<Story['args']>
+
+// ~300px is the ingredients column in the desktop meal detail modal, where the
+// header used to fragment and squeeze the badge (HON-692).
+const narrowDecorator: NonNullable<Story['decorators']> = [
+  (Story) => (
+    <div data-testid="narrow-column" className="w-75">
+      <Story />
+    </div>
+  ),
+]
+
+async function assertHeaderUnbroken(
+  canvasElement: HTMLElement,
+  header: string,
+  badge: string,
+): Promise<void> {
+  const canvas = within(canvasElement)
+  const column = canvas.getByTestId('narrow-column')
+  const headerEl = canvas.getByText(header)
+  const badgeEl = canvas.getByText(badge)
+  expectSingleLine(headerEl)
+  expectSingleLine(badgeEl)
+  expectWithinHorizontally(headerEl, column)
+  expectWithinHorizontally(badgeEl, column)
+}
+
+export const NarrowWithBadge: Story = {
+  name: 'Narrow column with badge',
+  args: narrowArgs,
+  decorators: narrowDecorator,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A ~300px column, the width of the ingredients column in the desktop meal detail modal. The header stays on one line and the badge never wraps inside itself: when the row runs out of room the badge moves to its own line (HON-692).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await assertHeaderUnbroken(canvasElement, 'Ingredients (serves 4)', '2 ingredients missing')
+  },
+}
+
+export const NarrowWithBadgeEstonian: Story = {
+  name: 'Narrow column with badge (Estonian)',
+  globals: { locale: 'et' },
+  args: narrowArgs,
+  decorators: narrowDecorator,
+  parameters: {
+    docs: {
+      description: {
+        story: 'The narrow column in Estonian, whose header and badge strings run longer.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await assertHeaderUnbroken(canvasElement, 'Koostisosad (4 portsjonit)', '2 koostisosa puudu')
+  },
 }
