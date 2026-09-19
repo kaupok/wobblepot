@@ -320,7 +320,9 @@
     "past": {
       "show": "Show past meals",
       "hide": "Hide past meals",
-      "catchUp": "{count, plural, one {# to catch up} other {# to catch up}}"
+      "catchUp": "{count, plural, one {# to catch up} other {# to catch up}}",
+      "menuLabel": "Timeline options",
+      "menuLabelWithCatchUp": "Timeline options, {count, plural, one {# past meal} other {# past meals}} to catch up"
     },
     "day": {
       "noMealsPlanned": "No meals planned"

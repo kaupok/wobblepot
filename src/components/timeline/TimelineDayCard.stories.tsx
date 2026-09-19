@@ -9,6 +9,7 @@ import {
 } from '@/stories/fixtures'
 import { slowCreateEntryHandlers } from '@/stories/msw-handlers'
 import { TimelineDayCard } from './TimelineDayCard'
+import { TimelinePastMenu } from './TimelinePastMenu'
 
 const meta = {
   title: 'Feature/Timeline/TimelineDayCard',
@@ -37,6 +38,21 @@ type Story = StoryObj<typeof meta>
 export const TodayWithDinner: Story = {
   args: {
     day: createTimelineDay(),
+  },
+}
+
+export const TodayWithHeaderAction: Story = {
+  args: {
+    day: createTimelineDay(),
+    headerAction: <TimelinePastMenu expanded={false} catchUpCount={2} onToggle={fn()} />,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The optional `headerAction` slot sits at the end of the heading row. `TimelineView` uses it for the past-meals ⋯ menu on Today only.',
+      },
+    },
   },
 }
 

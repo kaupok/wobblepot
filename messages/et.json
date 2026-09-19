@@ -320,7 +320,9 @@
     "past": {
       "show": "Näita möödunud toite",
       "hide": "Peida möödunud toidud",
-      "catchUp": "{count, plural, one {# järgi teha} other {# järgi teha}}"
+      "catchUp": "{count, plural, one {# järgi teha} other {# järgi teha}}",
+      "menuLabel": "Ajajoone valikud",
+      "menuLabelWithCatchUp": "Ajajoone valikud, {count, plural, one {# möödunud toit} other {# möödunud toitu}} järgi teha"
     },
     "day": {
       "noMealsPlanned": "Toite pole planeeritud"

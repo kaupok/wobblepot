@@ -214,8 +214,8 @@ describe('TimelineDayCard', () => {
  * `TimelineView`: the timeline route (`/`) renders no page title of its own, so
  * the heading that anchors the day labels is the header brand
  * (`src/components/header.tsx`, `variant="h4"`, no `as`, so `<h4>`). That holds
- * identically at all three mount points — `TimelineView.tsx:185`,
- * `TimelineView.tsx:201`, and `TimelinePastSection.tsx:61`, which mount only
+ * identically at both mount points — `TimelineView.tsx:197` (`renderDay`, for
+ * planned and empty days) and `TimelinePastSection.tsx:42`, which mount only
  * under `src/app/page.tsx` — which is why the tag is fixed in the component
  * instead of being passed per consumer. See HON-619.
  *

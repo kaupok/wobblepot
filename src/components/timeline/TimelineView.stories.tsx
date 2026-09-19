@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { expect, userEvent, waitFor, within } from 'storybook/test'
 import { MealType } from '@/generated/prisma/enums'
 import {
   createExpectedMealTypes,
@@ -8,6 +9,7 @@ import {
   timelineTodayDate,
   urgentShoppingItems,
 } from '@/stories/fixtures'
+import { pressEscape } from '@/stories/a11y-helpers'
 import { TimelineView } from './TimelineView'
 
 const baseEntries = [
@@ -74,6 +76,56 @@ export const PlannedThenEmpty: Story = {
   },
 }
 
+// Past day cards include meal-card action buttons, so inactive-state contrast
+// is waived for the stories that expand them.
+const inactiveStateA11y = {
+  config: { rules: [{ id: 'color-contrast', enabled: false }] },
+}
+
+export const ShowPastMeals: Story = {
+  args: {
+    entries: baseEntries,
+  },
+  parameters: {
+    a11y: inactiveStateA11y,
+    docs: {
+      description: {
+        story:
+          'The ⋯ menu on the Today heading reveals past days above Today and scrolls the first one into view. One past dinner is still planned, so the trigger carries a warning dot and the count.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const body = within(document.body)
+    const trigger = canvas.getByRole('button', {
+      name: 'Timeline options, 1 past meal to catch up',
+    })
+
+    // Collapsed: no past day is on the page.
+    await expect(canvas.queryByText(/tuesday.*14/i)).not.toBeInTheDocument()
+
+    // Escape closes the menu without revealing anything.
+    await userEvent.click(trigger)
+    await expect(await body.findByRole('menu')).toBeInTheDocument()
+    await pressEscape()
+    await waitFor(() => expect(body.queryByRole('menu')).not.toBeInTheDocument())
+    await expect(canvas.queryByText(/tuesday.*14/i)).not.toBeInTheDocument()
+
+    await userEvent.click(trigger)
+    await userEvent.click(
+      await body.findByRole('menuitem', { name: 'Show past meals · 1 to catch up' }),
+    )
+    await expect(await canvas.findByText(/tuesday.*14/i)).toBeInTheDocument()
+    await expect(canvas.getByText(/monday.*13/i)).toBeInTheDocument()
+
+    // The item now reads "Hide", and hiding removes the past days again.
+    await userEvent.click(trigger)
+    await userEvent.click(await body.findByRole('menuitem', { name: /hide past meals/i }))
+    await waitFor(() => expect(canvas.queryByText(/tuesday.*14/i)).not.toBeInTheDocument())
+  },
+}
+
 export const AllEmpty: Story = {
   args: {
     entries: [],
@@ -82,9 +134,14 @@ export const AllEmpty: Story = {
     docs: {
       description: {
         story:
-          'No entries at all — the fill-days action shows up immediately, followed by the full 14-day empty window.',
+          'No entries at all — the fill-days action shows up immediately, followed by the full 14-day empty window. With no past days there is no ⋯ menu on Today.',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).queryByRole('button', { name: /timeline options/i }),
+    ).not.toBeInTheDocument()
   },
 }
 
