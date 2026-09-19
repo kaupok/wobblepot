@@ -171,7 +171,7 @@ export function AttachImages({
                 type="button"
                 onClick={() => onRemove(index)}
                 disabled={disabled}
-                className="bg-background/80 absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full border shadow-sm"
+                className="bg-background/80 absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full border"
                 aria-label={removeImageLabel(file.name)}
               >
                 <X className="size-3.5" />
