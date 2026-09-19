@@ -147,7 +147,22 @@ async function handlePOST(
       .join('\n')
 
     const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
-    const timeout = AbortSignal.timeout(30_000)
+    // One wall-clock budget for all AI time in this request, shared by the
+    // initial attempt and every `maxRetries` retry below — not a per-attempt
+    // timeout. It is the real bound on retries: `maxRetries: 3` permits four
+    // attempts, but how many actually fit depends on how each one fails. A
+    // fast failure (429, 5xx) costs well under a second, so those still retry
+    // freely; a slow generation does not.
+    //
+    // Sonnet 5's adaptive thinking made a single hard-meal generation take up
+    // to 21s (measured, HON-693), so at the old 30s a slow first attempt left
+    // no room for even one retry — the call aborted and the user got a 504
+    // instead of the tips the larger token ceilings were meant to buy. 45s
+    // covers two worst-case attempts plus ai@7's ~2s backoff (~45s), and
+    // leaves 15s under the 60s `maxDuration` for the DB reads before this
+    // point and the writes after it, so the 504 branch below stays reachable
+    // rather than the platform killing the function first.
+    const timeout = AbortSignal.timeout(45_000)
 
     let tips: StructuredTips
 
@@ -174,7 +189,15 @@ async function handlePOST(
             model: anthropic(TIPS_MODEL),
             schema: supplementaryTipsSchema,
             prompt,
-            maxOutputTokens: 400,
+            // Sized for Sonnet 5's adaptive thinking (HON-693): reasoning
+            // tokens are billed as output and count against this cap, so the
+            // old 400 was not a tips-sized budget any more. Measured against
+            // a deliberately hard meal, this call reached 593 output tokens
+            // (335 of them reasoning) and truncated outright at 400 —
+            // `finish: 'length'`, then NoObjectGeneratedError and no tips for
+            // the user. This is a ceiling, not a target: a typical call still
+            // returns in ~195 tokens.
+            maxOutputTokens: 1200,
             maxRetries: 3,
             abortSignal: timeout,
           }),
@@ -222,7 +245,11 @@ async function handlePOST(
             model: anthropic(TIPS_MODEL),
             schema: fullTipsSchema,
             prompt,
-            maxOutputTokens: 1000,
+            // Same adaptive-thinking headroom as the supplementary call above
+            // (HON-693). The full schema is larger, and on the same hard meal
+            // this reached 892 output tokens (330 reasoning) — 89% of the old
+            // 1000, close enough to truncation to move.
+            maxOutputTokens: 2000,
             maxRetries: 3,
             abortSignal: timeout,
           }),
@@ -253,7 +280,7 @@ async function handlePOST(
     // Cache tips as JSON in the database — but only while the inputs they were
     // priced from still hold. This prompt was built from `entry.meal`,
     // `entry.servingOverride` and `household.locale` as read at the top of the
-    // handler, and generation takes up to 30s; a swap, a `servingOverride` or a
+    // handler, and generation takes up to 45s; a swap, a `servingOverride` or a
     // locale PATCH that commits in the meantime nulls this cache precisely
     // because one of those inputs moved (HON-681).
     // An unconditional write would put the stale tips straight back, and every
@@ -310,5 +337,15 @@ async function handlePOST(
     return NextResponse.json({ error: "Couldn't generate tips. Try again." }, { status: 500 })
   }
 }
+
+/**
+ * Platform execution ceiling for this route, in seconds.
+ *
+ * Stated explicitly because the AbortSignal budget inside `handlePOST` is only
+ * meaningful if the platform lets the function run that long — otherwise the
+ * request is killed first and the friendly 504 above never runs. 60 is the
+ * value every Vercel plan allows, so this cannot fail to deploy (HON-693).
+ */
+export const maxDuration = 60
 
 export const POST = withRequestId(handlePOST)

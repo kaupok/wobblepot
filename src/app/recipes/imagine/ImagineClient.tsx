@@ -115,7 +115,13 @@ export function ImagineClient() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(reviewPayload),
-        signal: AbortSignal.timeout(15_000),
+        // Sonnet 5 reasons before answering, and this call scales with the
+        // ingredient count: a 24-ingredient meal measured 25-32s, where 4.6
+        // fit inside 15s (HON-693). The catch below degrades silently, so an
+        // abort here does not surface an error — it just drops the quantity
+        // corrections this call exists to make, after the server has already
+        // billed the household for them.
+        signal: AbortSignal.timeout(45_000),
       })
 
       if (response.ok) {
