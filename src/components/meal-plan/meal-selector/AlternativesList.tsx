@@ -15,15 +15,15 @@ export function AlternativeSkeleton() {
       <CardContent className="flex flex-col gap-3 pt-6">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-5 w-24" />
           <Skeleton className="h-5 w-20" />
         </div>
         <div className="flex flex-col gap-1">
-          <Skeleton className="h-4 w-28" />
-          <Skeleton className="ml-4 h-3 w-20" />
-          <Skeleton className="ml-4 h-3 w-24" />
-          <Skeleton className="ml-4 h-3 w-16" />
-          <Skeleton className="ml-4 h-3 w-22" />
+          <Skeleton className="h-5 w-28" />
+          <Skeleton className="ml-4 h-4 w-20" />
+          <Skeleton className="ml-4 h-4 w-24" />
+          <Skeleton className="ml-4 h-4 w-16" />
+          <Skeleton className="ml-4 h-4 w-22" />
         </div>
         <Skeleton className="h-touch mt-auto w-full md:h-10" />
       </CardContent>

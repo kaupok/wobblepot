@@ -48,9 +48,9 @@ export function PreparationTips({
               {hasNotes ? t('additionalTips') : t('equipment')}
             </Body>
             <div className="flex flex-col gap-1.5">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-4 w-2/3" />
-              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-5 w-3/4" />
+              <Skeleton className="h-5 w-2/3" />
+              <Skeleton className="h-5 w-1/2" />
             </div>
           </div>
           {!hasNotes && (
@@ -59,10 +59,10 @@ export function PreparationTips({
                 {t('steps')}
               </Body>
               <div className="flex flex-col gap-1.5">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-11/12" />
-                <Skeleton className="h-4 w-10/12" />
-                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-5 w-full" />
+                <Skeleton className="h-5 w-11/12" />
+                <Skeleton className="h-5 w-10/12" />
+                <Skeleton className="h-5 w-full" />
               </div>
             </div>
           )}
@@ -71,8 +71,8 @@ export function PreparationTips({
               {t('pitfalls')}
             </Body>
             <div className="flex flex-col gap-1.5">
-              <Skeleton className="h-4 w-11/12" />
-              <Skeleton className="h-4 w-10/12" />
+              <Skeleton className="h-5 w-11/12" />
+              <Skeleton className="h-5 w-10/12" />
             </div>
           </div>
         </div>
