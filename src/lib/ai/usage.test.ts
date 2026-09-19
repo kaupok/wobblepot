@@ -139,7 +139,7 @@ describe('recordAiUsage', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'plan_generate',
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       inputTokens: 1_000_000,
       outputTokens: 0,
     })
@@ -148,10 +148,10 @@ describe('recordAiUsage', () => {
       data: expect.objectContaining({
         householdId: 'h1',
         feature: 'plan_generate',
-        model: 'claude-sonnet-4-6',
+        model: 'claude-sonnet-5',
         inputTokens: 1_000_000,
         outputTokens: 0,
-        estimatedCostUsd: 3,
+        estimatedCostUsd: 2,
         success: true,
         retryCount: 0,
         requestId: null,
@@ -165,17 +165,17 @@ describe('recordAiUsage', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'plan_generate',
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       inputTokens: 1_000_000,
       cacheReadTokens: 2_000_000,
       cacheWriteTokens: 1_000_000,
       outputTokens: 0,
     })
 
-    // 1M × $3 + 2M × $0.30 + 1M × $3.75 = $7.35 — not the $12 an
+    // 1M × $2 + 2M × $0.20 + 1M × $2.50 = $4.90 — not the $8 an
     // all-at-base-rate estimate of the 4M input total would give.
     const { estimatedCostUsd } = mockCreate.mock.calls[0]![0].data as { estimatedCostUsd: number }
-    expect(estimatedCostUsd).toBeCloseTo(7.35, 9)
+    expect(estimatedCostUsd).toBeCloseTo(4.9, 9)
 
     expect(mockCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({ inputTokens: 1_000_000 }),
@@ -199,7 +199,7 @@ describe('recordAiUsage', () => {
       recordAiUsage({
         householdId: 'h1',
         feature: 'recipe_parse',
-        model: 'claude-sonnet-4-6',
+        model: 'claude-sonnet-5',
         inputTokens: 100,
         outputTokens: 50,
       }),
@@ -214,7 +214,7 @@ describe('recordAiUsage › PostHog streaming', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'plan_generate',
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       inputTokens: 1_000_000,
       outputTokens: 0,
       retryCount: 0,
@@ -230,8 +230,8 @@ describe('recordAiUsage › PostHog streaming', () => {
         $ai_cache_read_input_tokens: 0,
         $ai_cache_creation_input_tokens: 0,
         $ai_output_tokens: 0,
-        $ai_model: 'claude-sonnet-4-6',
-        $ai_total_cost_usd: 3,
+        $ai_model: 'claude-sonnet-5',
+        $ai_total_cost_usd: 2,
         $ai_provider: 'anthropic',
         $ai_trace_id: 'req-abc',
         $ai_is_error: false,
@@ -248,7 +248,7 @@ describe('recordAiUsage › PostHog streaming', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'recipe_parse',
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       inputTokens: 100,
       outputTokens: 50,
     })
@@ -266,7 +266,7 @@ describe('recordAiUsage › PostHog streaming', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'meal_imagine',
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       inputTokens: 100,
       outputTokens: 0,
       success: false,
@@ -289,7 +289,7 @@ describe('recordAiUsage › PostHog streaming', () => {
       recordAiUsage({
         householdId: 'h1',
         feature: 'recipe_parse',
-        model: 'claude-sonnet-4-6',
+        model: 'claude-sonnet-5',
         inputTokens: 100,
         outputTokens: 50,
       }),
@@ -305,7 +305,7 @@ describe('recordAiUsage › PostHog streaming', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'recipe_parse',
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       inputTokens: 100,
       outputTokens: 50,
     })
@@ -320,7 +320,7 @@ describe('recordAiUsage › PostHog streaming', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'recipe_parse',
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       inputTokens: 100,
       outputTokens: 50,
     })
@@ -337,7 +337,7 @@ describe('recordAiUsage › requestId resolution', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'recipe_parse',
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       inputTokens: 100,
       outputTokens: 50,
       requestId: 'explicit-id',
@@ -360,7 +360,7 @@ describe('recordAiUsage › requestId resolution', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'recipe_parse',
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       inputTokens: 100,
       outputTokens: 50,
     })
@@ -382,7 +382,7 @@ describe('recordAiUsage › requestId resolution', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'recipe_parse',
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       inputTokens: 100,
       outputTokens: 50,
     })
@@ -406,7 +406,7 @@ describe('recordAiUsage › missing usage counts', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'plan_generate',
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       inputTokens: 0,
       outputTokens: 0,
       usageMissing: true,
@@ -425,7 +425,7 @@ describe('recordAiUsage › missing usage counts', () => {
     )
     expect(warn).toHaveBeenCalledTimes(1)
     expect(warn.mock.calls[0]![0]).toContain('plan_generate')
-    expect(warn.mock.calls[0]![0]).toContain('claude-sonnet-4-6')
+    expect(warn.mock.calls[0]![0]).toContain('claude-sonnet-5')
   })
 
   it('omits $ai_usage_missing and does not warn when usage is present', async () => {
@@ -435,7 +435,7 @@ describe('recordAiUsage › missing usage counts', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'plan_generate',
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       inputTokens: 1_000,
       outputTokens: 500,
       usageMissing: false,
@@ -454,7 +454,7 @@ describe('recordAiUsage › missing usage counts', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'meal_imagine',
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       inputTokens: 0,
       outputTokens: 0,
       usageMissing: true,
@@ -465,7 +465,7 @@ describe('recordAiUsage › missing usage counts', () => {
 })
 
 describe('withUsageOnFailure', () => {
-  const MODEL = 'claude-sonnet-4-6'
+  const MODEL = 'claude-sonnet-5'
 
   it('returns the result and reports nothing when the call succeeds', async () => {
     const onUsage = vi.fn()

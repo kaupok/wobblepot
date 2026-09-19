@@ -25,6 +25,15 @@ export interface ModelPrice {
 }
 
 export const MODEL_PRICES: Record<string, ModelPrice> = {
+  'claude-sonnet-5': {
+    inputPerMTok: 2,
+    cacheReadPerMTok: 0.2,
+    cacheWritePerMTok: 2.5,
+    outputPerMTok: 10,
+  },
+  // Retained after the Sonnet 5 upgrade (HON-693): historical `AiUsage` rows
+  // and any in-flight request still carry this model, and an entry missing
+  // from the table prices at $0 rather than failing loudly.
   'claude-sonnet-4-6': {
     inputPerMTok: 3,
     cacheReadPerMTok: 0.3,

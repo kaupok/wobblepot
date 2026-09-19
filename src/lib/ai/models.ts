@@ -6,16 +6,16 @@
  */
 
 /** Model for meal plan generation and filling empty slots. */
-export const PLANNING_MODEL = 'claude-sonnet-4-6'
+export const PLANNING_MODEL = 'claude-sonnet-5'
 
 /** Model for recipe text extraction and parsing. */
-export const RECIPE_MODEL = 'claude-sonnet-4-6'
+export const RECIPE_MODEL = 'claude-sonnet-5'
 
 /** Model for preparation tips generation (fast/cheap). */
-export const TIPS_MODEL = 'claude-sonnet-4-6'
+export const TIPS_MODEL = 'claude-sonnet-5'
 
 /** Model for "Imagine a meal" freeform meal generation. */
-export const IMAGINE_MODEL = 'claude-sonnet-4-6'
+export const IMAGINE_MODEL = 'claude-sonnet-5'
 
 /** Model for reviewing and correcting imagined meal quantities. */
-export const REVIEW_MODEL = 'claude-sonnet-4-6'
+export const REVIEW_MODEL = 'claude-sonnet-5'
