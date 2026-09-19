@@ -21,7 +21,7 @@ MCP (Model Context Protocol) is an open protocol that standardizes how AI assist
 **Key benefits:**
 
 - **Context-aware assistance**: Servers provide domain-specific knowledge (Better Auth docs, library documentation)
-- **Enhanced capabilities**: Browser automation, package search, Next.js analysis, product analytics
+- **Enhanced capabilities**: Browser automation, Next.js analysis, product analytics
 - **Reduced friction**: Pre-configured servers eliminate repetitive setup and explanation
 - **Team consistency**: Shared `.mcp.json` ensures everyone has the same tools
 
@@ -31,7 +31,7 @@ Our project uses the following MCP servers:
 
 **Configuration locations:**
 
-- **Stdio servers** (in `.mcp.json`): playwright, npm-package-search, next-devtools
+- **Stdio servers** (in `.mcp.json`): playwright, next-devtools
 - **HTTP servers** (in `.mcp.json`): context7, linear-server, posthog
 - **HTTP servers** (configured globally): better-auth
 
@@ -48,18 +48,7 @@ Our project uses the following MCP servers:
 - **When to use**: Writing new E2E tests, debugging test failures, automating browser tasks
 - **Note**: Works with your existing Playwright setup
 
-### 2. npm Package Search Server
-
-- **Purpose**: npm registry search and package metadata
-- **Capabilities**:
-  - Search npm packages by keyword
-  - Get package metadata, versions, dependencies
-  - Compare package alternatives
-  - Check download statistics
-- **When to use**: Evaluating new dependencies, checking package versions, finding alternatives
-- **Note**: Helps make informed dependency decisions
-
-### 3. Next.js DevTools Server (Vercel)
+### 2. Next.js DevTools Server (Vercel)
 
 - **Purpose**: Next.js-specific development assistance
 - **Capabilities**:
@@ -70,7 +59,7 @@ Our project uses the following MCP servers:
 - **When to use**: Working on Next.js-specific features, planning upgrades, optimizing performance
 - **Note**: Particularly useful for major Next.js version upgrades
 
-### 4. Context7 (HTTP server)
+### 3. Context7 (HTTP server)
 
 - **Purpose**: General library documentation retrieval
 - **Capabilities**: Up-to-date docs for any npm package or library
@@ -91,7 +80,7 @@ Our project uses the following MCP servers:
    ```
 3. Restart Claude Code
 
-### 5. Linear MCP (HTTP server)
+### 4. Linear MCP (HTTP server)
 
 - **Purpose**: Linear issue and project management integration
 - **Capabilities**:
@@ -108,7 +97,7 @@ Our project uses the following MCP servers:
 
 **Permission presets:** All Linear MCP tools (`mcp__linear-server__*`) are pre-approved in `.claude/settings.local.json`
 
-### 6. PostHog MCP (HTTP server)
+### 5. PostHog MCP (HTTP server)
 
 - **Purpose**: Product analytics, feature flags, error tracking, and session replay access
 - **Capabilities**: Query events and insights, manage feature flags and experiments, inspect errors and logs
@@ -116,7 +105,7 @@ Our project uses the following MCP servers:
 - **When to use**: Investigating product data, managing flags, checking rollout health
 - **Note**: Defined in `.mcp.json` at `https://mcp.posthog.com/mcp`
 
-### 7. Better Auth MCP (HTTP server)
+### 6. Better Auth MCP (HTTP server)
 
 - **Purpose**: Better Auth documentation search and AI chat
 - **Capabilities**: Search Better Auth docs, get implementation examples
@@ -175,7 +164,7 @@ Only `CONTEXT7_API_KEY` is interpolated by `.mcp.json` (through the `${CONTEXT7_
 
 **Checking for drift:** `grep -o '\${[A-Z0-9_]*}' .mcp.json` lists every variable `.mcp.json` interpolates. This section should document exactly that set — if the two disagree, this doc is stale.
 
-`LINEAR_API_KEY` is also listed here, but the Linear MCP server does not use it — it is for the automation scripts (see the note under [Linear MCP](#5-linear-mcp-http-server)). Put it in `.env` as well, which is where `scripts/worktree-claude.sh` reads it.
+`LINEAR_API_KEY` is also listed here, but the Linear MCP server does not use it — it is for the automation scripts (see the note under [Linear MCP](#4-linear-mcp-http-server)). Put it in `.env` as well, which is where `scripts/worktree-claude.sh` reads it.
 
 ```json
 {
@@ -200,7 +189,7 @@ Only `CONTEXT7_API_KEY` is interpolated by `.mcp.json` (through the `${CONTEXT7_
 
 1. Copy the example file: `cp .claude/settings.local.json.example .claude/settings.local.json`
 2. Edit `.claude/settings.local.json` and replace placeholder values:
-   - `CONTEXT7_API_KEY`: Context7 API key (see [Context7 setup](#4-context7-http-server))
+   - `CONTEXT7_API_KEY`: Context7 API key (see [Context7 setup](#3-context7-http-server))
    - `LINEAR_API_KEY`: Linear API key for the automation scripts (also add it to `.env`)
 3. Restart Claude Code
 

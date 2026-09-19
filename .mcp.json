@@ -5,11 +5,6 @@
       "command": "npx",
       "args": ["-y", "@playwright/mcp"]
     },
-    "npm-package-search": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@pinkpixel-dev/npm-helper-mcp"]
-    },
     "next-devtools": {
       "type": "stdio",
       "command": "npx",
