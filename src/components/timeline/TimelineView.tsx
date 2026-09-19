@@ -9,6 +9,7 @@ import { TimelinePastMenu } from './TimelinePastMenu'
 import { FillDaysAction } from './FillDaysAction'
 import { UrgentShopping } from './UrgentShopping'
 import { parseLocalDate, toDateString, isWeekday } from '@/lib/meal-planning/dates'
+import { prefersReducedMotion } from '@/lib/utils'
 import { formatAbsoluteDate, formatDayLong } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
 import type {
@@ -86,10 +87,9 @@ export function TimelineView({
   // them down the page. Bring the first past day into view instead.
   useEffect(() => {
     if (!isPastExpanded) return
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     pastSectionRef.current?.scrollIntoView({
       block: 'start',
-      behavior: reduceMotion ? 'auto' : 'smooth',
+      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
     })
   }, [isPastExpanded])
 

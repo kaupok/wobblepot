@@ -61,7 +61,11 @@ export function TimelinePastMenu({ expanded, catchUpCount, onToggle }: TimelineP
         }}
         onCloseAutoFocus={(event) => {
           event.preventDefault()
-          if (!interactedOutsideRef.current) triggerRef.current?.focus({ preventScroll: true })
+          // `preventScroll` only while expanding: that is when the trigger's
+          // own scroll-into-view would cancel the scroll to the first past
+          // day. On collapse the removed days leave the trigger off-screen,
+          // so the browser should be allowed to bring it back.
+          if (!interactedOutsideRef.current) triggerRef.current?.focus({ preventScroll: expanded })
           interactedOutsideRef.current = false
         }}
       >
