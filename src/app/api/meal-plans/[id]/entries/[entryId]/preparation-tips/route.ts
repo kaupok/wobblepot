@@ -174,7 +174,15 @@ async function handlePOST(
             model: anthropic(TIPS_MODEL),
             schema: supplementaryTipsSchema,
             prompt,
-            maxOutputTokens: 400,
+            // Sized for Sonnet 5's adaptive thinking (HON-693): reasoning
+            // tokens are billed as output and count against this cap, so the
+            // old 400 was not a tips-sized budget any more. Measured against
+            // a deliberately hard meal, this call reached 593 output tokens
+            // (335 of them reasoning) and truncated outright at 400 —
+            // `finish: 'length'`, then NoObjectGeneratedError and no tips for
+            // the user. This is a ceiling, not a target: a typical call still
+            // returns in ~195 tokens.
+            maxOutputTokens: 1200,
             maxRetries: 3,
             abortSignal: timeout,
           }),
@@ -222,7 +230,11 @@ async function handlePOST(
             model: anthropic(TIPS_MODEL),
             schema: fullTipsSchema,
             prompt,
-            maxOutputTokens: 1000,
+            // Same adaptive-thinking headroom as the supplementary call above
+            // (HON-693). The full schema is larger, and on the same hard meal
+            // this reached 892 output tokens (330 reasoning) — 89% of the old
+            // 1000, close enough to truncation to move.
+            maxOutputTokens: 2000,
             maxRetries: 3,
             abortSignal: timeout,
           }),
