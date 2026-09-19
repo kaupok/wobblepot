@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { estimateCostUsd, MODEL_PRICES } from './pricing'
+import { PLANNING_MODEL, RECIPE_MODEL, TIPS_MODEL, IMAGINE_MODEL, REVIEW_MODEL } from './models'
 
 describe('estimateCostUsd', () => {
   it('charges 1M input tokens at the table rate', () => {
@@ -56,6 +57,23 @@ describe('estimateCostUsd', () => {
   // still name 4-6. Dropping the entry would silently reprice their model to
   // $0 via the unknown-model path, so the retention is a requirement, not
   // leftover cruft.
+  // The guard that matters for *live* traffic. `estimateCostUsd` returns 0 for
+  // a model it doesn't know, and that zero is not an error anywhere: it lands
+  // in `AiUsage.estimatedCostUsd`, which `assertUnderCap` sums, so a model
+  // constant with no price entry silently disables the monthly spend cap. The
+  // next upgrade will edit `models.ts`; this fails the build if it forgets
+  // `MODEL_PRICES`.
+  it.each([
+    ['PLANNING_MODEL', PLANNING_MODEL],
+    ['RECIPE_MODEL', RECIPE_MODEL],
+    ['TIPS_MODEL', TIPS_MODEL],
+    ['IMAGINE_MODEL', IMAGINE_MODEL],
+    ['REVIEW_MODEL', REVIEW_MODEL],
+  ])('prices %s, so the spend cap cannot be zeroed by an unpriced model', (_name, model) => {
+    expect(MODEL_PRICES[model]).toBeDefined()
+    expect(estimateCostUsd({ model, inputTokens: 1000, outputTokens: 1000 })).toBeGreaterThan(0)
+  })
+
   it('still prices the superseded claude-sonnet-4-6 for historical usage rows', () => {
     const cost = estimateCostUsd({
       model: 'claude-sonnet-4-6',

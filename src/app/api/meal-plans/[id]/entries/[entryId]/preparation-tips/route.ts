@@ -147,7 +147,14 @@ async function handlePOST(
       .join('\n')
 
     const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
-    const timeout = AbortSignal.timeout(30_000)
+    // One wall-clock budget for the whole request, shared by the initial
+    // attempt and every `maxRetries` retry below — not a per-attempt timeout.
+    // Sonnet 5's adaptive thinking made a single hard-meal generation take up
+    // to 21s (measured, HON-693), so at the old 30s a slow first attempt left
+    // no room for even one retry: the call aborted and the user got a 504
+    // instead of the tips the larger token ceilings were meant to buy. 50s
+    // fits two worst-case attempts (~42s) inside the 60s `maxDuration` above.
+    const timeout = AbortSignal.timeout(50_000)
 
     let tips: StructuredTips
 
@@ -322,5 +329,15 @@ async function handlePOST(
     return NextResponse.json({ error: "Couldn't generate tips. Try again." }, { status: 500 })
   }
 }
+
+/**
+ * Platform execution ceiling for this route, in seconds.
+ *
+ * Stated explicitly because the AbortSignal budget inside `handlePOST` is only
+ * meaningful if the platform lets the function run that long — otherwise the
+ * request is killed first and the friendly 504 above never runs. 60 is the
+ * value every Vercel plan allows, so this cannot fail to deploy (HON-693).
+ */
+export const maxDuration = 60
 
 export const POST = withRequestId(handlePOST)
