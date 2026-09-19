@@ -184,6 +184,7 @@
       "note": "Märkus",
       "swap": "Vaheta",
       "clear": "Eemalda",
+      "moreActions": "Rohkem toiminguid",
       "rate": "Hinda",
       "servings": "{count, plural, one {# portsjon} other {# portsjonit}}",
       "statusUpdateFailed": "Oleku uuendamine ebaõnnestus. Palun proovi uuesti.",

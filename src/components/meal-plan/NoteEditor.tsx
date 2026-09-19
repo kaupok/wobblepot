@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
@@ -124,31 +125,18 @@ export function NoteEditor({
           rows={compact ? 1 : 2}
           className={cn(
             'border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring w-full resize-none rounded-md border px-2 py-1 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
-            compact && 'text-xs',
           )}
           disabled={isSaving}
         />
         <div className="flex items-center justify-between">
-          <span className="text-muted-foreground text-xs">
+          <Body variant="caption">
             {editValue.length}/{MAX_NOTE_LENGTH}
-          </span>
+          </Body>
           <div className="flex gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-xs"
-              onClick={handleCancel}
-              disabled={isSaving}
-            >
+            <Button variant="ghost" size="sm" onClick={handleCancel} disabled={isSaving}>
               {t('cancel')}
             </Button>
-            <Button
-              variant="default"
-              size="sm"
-              className="h-6 px-2 text-xs"
-              onClick={handleSave}
-              disabled={isSaving}
-            >
+            <Button variant="default" size="sm" onClick={handleSave} disabled={isSaving}>
               {isSaving ? t('saving') : t('save')}
             </Button>
           </div>
@@ -157,7 +145,9 @@ export function NoteEditor({
     )
   }
 
-  // Display mode with note
+  // Display mode with note. A native button rather than `Button`: a note runs
+  // to 200 characters and wraps, which every fixed-height `Button` size would
+  // overflow. `min-h-8` holds a one-line note to the 32px `sm` floor.
   if (note) {
     return (
       <button
@@ -167,11 +157,11 @@ export function NoteEditor({
           setIsEditing(true)
         }}
         className={cn(
-          'text-muted-foreground hover:text-foreground w-full cursor-pointer text-left transition-colors',
+          'text-muted-foreground hover:text-foreground min-h-8 w-full cursor-pointer text-left transition-colors',
           className,
         )}
       >
-        <Body variant={compact ? 'caption' : 'muted'} className="italic">
+        <Body variant="muted" className="italic">
           {note}
         </Body>
       </button>
@@ -184,16 +174,14 @@ export function NoteEditor({
 
   // Uncontrolled: show add button
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
+      size="sm"
       onClick={() => setIsEditing(true)}
-      className={cn(
-        'text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors',
-        className,
-      )}
+      className={cn('text-muted-foreground self-start', className)}
     >
-      <span className="text-sm">+</span>
-      <span>{t('addNote')}</span>
-    </button>
+      <Plus aria-hidden="true" />
+      {t('addNote')}
+    </Button>
   )
 }

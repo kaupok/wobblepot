@@ -4,8 +4,16 @@ import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { MoreHorizontal, NotebookPen, Repeat, X } from 'lucide-react'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Body } from '@/components/ui/typography'
 import { useRouter } from 'next/navigation'
 import { StatusSelect, type MealStatus } from './StatusSelect'
@@ -221,7 +229,7 @@ export function MealCard({
         <Card className="gap-2 py-2">
           <CardContent className="flex flex-col gap-1.5 px-3 pb-1">
             {note ? (
-              <Body variant="caption" className="italic">
+              <Body variant="muted" className="italic">
                 {note}
               </Body>
             ) : (
@@ -242,7 +250,7 @@ export function MealCard({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 w-full text-xs"
+                className="w-full"
                 onClick={() => setIsSelectorOpen(true)}
               >
                 {tCard('addMeal')}
@@ -272,44 +280,46 @@ export function MealCard({
       <Card className="gap-2 py-2">
         <CardHeader className="px-3 pb-0">
           <div className="flex items-start justify-between gap-1">
-            <CardTitle className="text-xs leading-tight font-semibold">
+            {/* A native button rather than `Button`: the name wraps, and every
+                `Button` size is a fixed height a second line would overflow.
+                `min-h-8` holds it to the same 32px floor as the actions beside
+                it (docs/DESIGN.md → Spacing, radius, elevation). */}
+            <Body variant="small" className="min-w-0 font-semibold">
               <button
                 type="button"
-                className="cursor-pointer text-left underline-offset-2 hover:underline"
+                className="min-h-8 cursor-pointer text-left leading-snug underline-offset-2 hover:underline"
                 onClick={() => setIsDetailModalOpen(true)}
               >
                 {meal.name}
               </button>
-            </CardTitle>
+            </Body>
             {!isReadOnly && !isPast && (
-              <div className="flex shrink-0 gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-5 px-1.5 text-xs"
-                  onClick={() => setIsNoteEditing(true)}
-                >
+              <div className="flex shrink-0 items-center gap-1">
+                <Button variant="ghost" size="sm" onClick={() => setIsNoteEditing(true)}>
+                  <NotebookPen aria-hidden="true" />
                   {tCard('note')}
                 </Button>
-                {canSwapMeal && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-5 px-1.5 text-xs"
-                    onClick={() => setIsRegenerateModalOpen(true)}
-                  >
-                    {tCard('swap')}
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-5 px-1.5 text-xs"
-                  onClick={handleClear}
-                  disabled={isClearing}
-                >
-                  {tCard('clear')}
-                </Button>
+                {/* Swap and Clear share one trigger: three labelled `sm` buttons
+                    leave a 390px card too little room for the meal name. */}
+                <DropdownMenu modal={false}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon-sm" aria-label={tCard('moreActions')}>
+                      <MoreHorizontal aria-hidden="true" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {canSwapMeal && (
+                      <DropdownMenuItem onSelect={() => setIsRegenerateModalOpen(true)}>
+                        <Repeat aria-hidden="true" />
+                        {tCard('swap')}
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onSelect={handleClear} disabled={isClearing}>
+                      <X aria-hidden="true" />
+                      {tCard('clear')}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             )}
           </div>
@@ -318,9 +328,7 @@ export function MealCard({
               <AvailabilityIndicator availability={availability} />
             )}
             {hasServingOverride && (
-              <span className="bg-info-muted text-info rounded-full px-1.5 py-0.5 text-xs font-medium">
-                {tCard('servings', { count: effectiveServings })}
-              </span>
+              <Badge variant="secondary">{tCard('servings', { count: effectiveServings })}</Badge>
             )}
             {status === 'completed' && rating && !showRatingPrompt && (
               <RatingBadge rating={rating} onClick={() => setShowRatingPrompt(true)} />
@@ -340,7 +348,7 @@ export function MealCard({
           )}
           {/* Display note for past/readonly slots */}
           {(isReadOnly || isPast) && note && (
-            <Body variant="caption" className="italic">
+            <Body variant="muted" className="italic">
               {note}
             </Body>
           )}
@@ -365,7 +373,7 @@ export function MealCard({
         )}
         {status === 'completed' && !rating && !showRatingPrompt && !isReadOnly && (
           <CardContent className="flex items-center gap-1.5 px-3 pb-1">
-            <span className="text-muted-foreground text-xs">{tCard('rate')}</span>
+            <Body variant="caption">{tCard('rate')}</Body>
             <MealRatingInline
               planId={planId}
               entryId={entryId}

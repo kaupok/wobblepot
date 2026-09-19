@@ -81,13 +81,7 @@ export function TimelineEmptySlot({
     <>
       <div className="flex items-center justify-between rounded-lg border border-dashed px-3 py-2">
         <Body variant="caption">{tCard('noMealPlanned')}</Body>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 text-xs"
-          onClick={handlePickMeal}
-          disabled={isCreating}
-        >
+        <Button variant="outline" size="sm" onClick={handlePickMeal} disabled={isCreating}>
           {isCreating ? tCard('adding') : tCard('pickMeal')}
         </Button>
       </div>

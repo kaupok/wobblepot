@@ -44,6 +44,26 @@ export const Default: Story = {}
 
 export const Compact: Story = {
   args: { compact: true },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Compact tightens the gaps, not the type: the header, rows and staples line stay at the same size as the default list (HON-688).',
+      },
+    },
+  },
+}
+
+export const CompactWithCheckboxes: Story = {
+  args: {
+    compact: true,
+    pantryIngredients: [
+      { ingredientId: 'chicken-thigh', isStaple: false },
+      { ingredientId: 'garlic', isStaple: true },
+      { ingredientId: 'olive-oil', isStaple: true },
+    ] satisfies PantryIngredient[],
+    onToggleAvailability: fn(),
+  },
 }
 
 export const WithPantryAvailability: Story = {

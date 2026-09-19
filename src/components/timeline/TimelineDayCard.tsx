@@ -69,7 +69,7 @@ export function TimelineDayCard({
         </Heading>
       </div>
       {slots.length === 0 ? (
-        <span className="text-muted-foreground text-xs">{tDay('noMealsPlanned')}</span>
+        <Body variant="muted">{tDay('noMealsPlanned')}</Body>
       ) : (
         <div className="flex flex-col gap-2">
           {slots.map((slot) => {

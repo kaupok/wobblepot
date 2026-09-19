@@ -184,6 +184,7 @@
       "note": "Note",
       "swap": "Swap",
       "clear": "Clear",
+      "moreActions": "More actions",
       "rate": "Rate",
       "servings": "{count, plural, one {# serving} other {# servings}}",
       "statusUpdateFailed": "Failed to update status. Please try again.",

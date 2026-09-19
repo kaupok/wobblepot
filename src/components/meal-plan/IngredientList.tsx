@@ -134,7 +134,7 @@ export function IngredientList({
 
   // Default header label
   const defaultHeader = (
-    <Body variant="small" className={cn('font-semibold', compact && 'text-xs')}>
+    <Body variant="small" className="font-semibold">
       {tDetail('ingredientsHeader', { count: servings })}
     </Body>
   )
@@ -145,7 +145,7 @@ export function IngredientList({
         {headerElement ?? defaultHeader}
         {availability && <AvailabilityIndicator availability={availability} />}
       </div>
-      <Ul className={cn('my-0 ml-0', compact && 'text-xs leading-tight')}>
+      <Ul className="my-0 ml-0">
         {regularComponents.map((comp) => {
           // Use optimistic override if available, otherwise fall back to server state
           const serverHasIt = availableIds ? availableIds.has(comp.ingredientId) : true
@@ -172,7 +172,6 @@ export function IngredientList({
                 <Checkbox
                   checked={hasIt}
                   onCheckedChange={(checked) => handleCheckedChange(comp.ingredientId, checked)}
-                  className={cn('h-4 w-4', compact && 'h-3 w-3')}
                   aria-label={tAvailability('ariaToggle', {
                     name: comp.ingredient.name,
                     state: hasIt
@@ -202,11 +201,7 @@ export function IngredientList({
           )
         })}
       </Ul>
-      {staplesLine && (
-        <Body variant="muted" className={cn(compact && 'text-xs')}>
-          {staplesLine}
-        </Body>
-      )}
+      {staplesLine && <Body variant="muted">{staplesLine}</Body>}
     </div>
   )
 }
