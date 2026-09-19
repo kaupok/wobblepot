@@ -1,10 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fn, within } from 'storybook/test'
+import { expect, fn, userEvent, within } from 'storybook/test'
 import {
   createMeal,
   lemonGarlicChickenComponentsFull,
   lemonGarlicChickenPantryWithOil,
 } from '@/stories/fixtures'
+import { expectSingleLine, expectWithinHorizontally } from '@/stories/layout-helpers'
 import { MealDetail } from './MealDetail'
 import type { StructuredTips } from './types'
 
@@ -176,5 +177,92 @@ export const HideAvailability: Story = {
         story: 'For completed/skipped meals — hides checkboxes and missing-ingredient styling.',
       },
     },
+  },
+}
+
+// The ingredients column at ~300px, the width it gets in the desktop meal detail
+// modal (HON-692): below md the grid is one 300px column; at md+ a 640px
+// container splits into two ~300px columns beside the preparation panel. The
+// Vitest browser viewport sits below md, so CI exercises the first case.
+const narrowColumnDecorator: NonNullable<Story['decorators']> = [
+  (Story) => (
+    <div className="w-75 md:w-160">
+      <Story />
+    </div>
+  ),
+]
+
+const narrowColumnArgs = {
+  pantryIngredients: lemonGarlicChickenPantryWithOil,
+  servings: 4,
+  onServingsChange: fn(async () => true),
+  onHowToPrepare: fn(),
+} satisfies Partial<Story['args']>
+
+/** The ingredients column: the grid cell holding the header row. */
+function ingredientsColumn(el: HTMLElement): HTMLElement {
+  const column = el.closest<HTMLElement>('.grid > *')
+  if (!column) throw new Error('Ingredients column not found')
+  return column
+}
+
+function assertRowUnbroken(header: HTMLElement, badge: HTMLElement): void {
+  const column = ingredientsColumn(header)
+  expectSingleLine(header)
+  expectSingleLine(badge)
+  expectWithinHorizontally(header, column)
+  expectWithinHorizontally(badge, column)
+}
+
+export const NarrowColumn: Story = {
+  name: 'Narrow ingredients column',
+  args: narrowColumnArgs,
+  decorators: narrowColumnDecorator,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The ingredients column at the ~300px width of the desktop modal. "Ingredients (Serves 4)" stays on one line with its parentheses joined, in both the button and the editing state, and the availability badge moves to its own line rather than wrapping inside itself (HON-692).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const badge = canvas.getByText(/ingredients? missing|have all ingredients/i)
+    const button = canvas.getByRole('button', { name: /serves 4/i })
+    const header = button.parentElement!
+    await expect(header).toHaveTextContent('Ingredients (Serves 4)')
+    assertRowUnbroken(header, badge)
+
+    await userEvent.click(button)
+    await expect(canvas.getByLabelText('Number of servings')).toBeInTheDocument()
+    assertRowUnbroken(header, badge)
+    await userEvent.keyboard('{Escape}')
+  },
+}
+
+export const NarrowColumnEstonian: Story = {
+  name: 'Narrow ingredients column (Estonian)',
+  globals: { locale: 'et' },
+  args: narrowColumnArgs,
+  decorators: narrowColumnDecorator,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const badge = canvas.getByText(/puudu|olemas/)
+    const header = canvas.getByRole('button', { name: /4 portsjonit/ }).parentElement!
+    await expect(header).toHaveTextContent('Koostisosad (4 portsjonit)')
+    assertRowUnbroken(header, badge)
+  },
+}
+
+export const NarrowColumnCompleted: Story = {
+  name: 'Narrow ingredients column (completed)',
+  args: { ...narrowColumnArgs, status: 'completed', servings: 6 },
+  decorators: narrowColumnDecorator,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const header = canvas.getByText('Ingredients (serves 6)')
+    expectSingleLine(header)
+    expectWithinHorizontally(header, ingredientsColumn(header))
   },
 }

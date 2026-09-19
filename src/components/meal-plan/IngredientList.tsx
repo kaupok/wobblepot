@@ -134,14 +134,14 @@ export function IngredientList({
 
   // Default header label
   const defaultHeader = (
-    <Body variant="small" className="font-semibold">
+    <Body variant="small" className="font-semibold whitespace-nowrap">
       {tDetail('ingredientsHeader', { count: servings })}
     </Body>
   )
 
   return (
     <div className={cn('flex flex-col', compact ? 'gap-1.5' : 'gap-3')}>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {headerElement ?? defaultHeader}
         {availability && <AvailabilityIndicator availability={availability} />}
       </div>
