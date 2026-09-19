@@ -131,8 +131,8 @@ export const AllVariants: Story = {
   ),
 }
 
-// `Input` is `h-touch md:h-9`, so the field is 44px at the default mobile
-// viewport and 36px here. Same a11y waiver as `AllVariants` — it renders the
+// `Input` is `h-touch md:h-10`, so the field is 44px at the default mobile
+// viewport and 40px here. Same a11y waiver as `AllVariants` — it renders the
 // same disabled field.
 export const Desktop: Story = {
   parameters: {

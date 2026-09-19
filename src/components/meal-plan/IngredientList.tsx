@@ -172,7 +172,7 @@ export function IngredientList({
                 <Checkbox
                   checked={hasIt}
                   onCheckedChange={(checked) => handleCheckedChange(comp.ingredientId, checked)}
-                  className={cn('h-4 w-4', compact && 'h-3 w-3')}
+                  className={cn(compact && 'size-4')}
                   aria-label={tAvailability('ariaToggle', {
                     name: comp.ingredient.name,
                     state: hasIt

@@ -80,7 +80,7 @@ export function MealCardBase({
           className="text-primary hover:text-primary/80 inline-flex items-center gap-1 text-sm underline"
         >
           {tDetail('viewSource')}
-          <ExternalLink className="h-3 w-3" />
+          <ExternalLink className="size-3.5" />
         </a>
       )}
 
@@ -91,13 +91,13 @@ export function MealCardBase({
       <div className="flex flex-wrap items-center gap-1.5">
         {meal.timeMinutes && (
           <div className="text-muted-foreground flex items-center gap-1">
-            <Clock className="h-3 w-3" />
+            <Clock className="size-3.5" />
             <Body variant="small">{tDetail('timeMinutes', { count: meal.timeMinutes })}</Body>
           </div>
         )}
         {meal.kidFriendly && (
           <Badge variant="secondary" className="text-xs">
-            <Users className="mr-1 h-3 w-3" />
+            <Users className="mr-1 size-3.5" />
             {tDetail('kidFriendly')}
           </Badge>
         )}

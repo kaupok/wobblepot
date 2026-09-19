@@ -22,16 +22,16 @@ export function ShoppingItemSkeleton() {
   return (
     <div className="min-h-touch flex items-center justify-between gap-3 rounded-lg border p-3">
       <div className="flex items-center gap-3">
-        {/* The `Checkbox`, `h-5 w-5` at the callsite. */}
+        {/* The `Checkbox`, `size-5` by default. */}
         <Skeleton aria-hidden className="size-5 shrink-0 rounded-sm" />
         {/* `h-7` is the `leading-7` line box the item name sits in — that box,
             plus `p-3` and the border, is where the row's height comes from. The
             bar inside is text-sized so the row still reads as a row. */}
         <div className="flex h-7 items-center">
-          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-5 w-32" />
         </div>
       </div>
-      {/* The "today" / "next week" urgency label. */}
+      {/* The "today" / "next week" urgency label, a `text-xs` caption. */}
       <Skeleton aria-hidden className="h-4 w-12 shrink-0" />
     </div>
   )

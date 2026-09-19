@@ -123,13 +123,13 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
                 className="flex w-full items-center justify-between text-xs"
               >
                 <span className="text-muted-foreground flex items-center gap-1">
-                  <Check className="h-3 w-3" />
+                  <Check className="size-3.5" />
                   {tToday('purchasedCollapse', { count: purchasedItems.length })}
                 </span>
                 {isPurchasedExpanded ? (
-                  <ChevronUp className="text-muted-foreground h-3 w-3" />
+                  <ChevronUp className="text-muted-foreground size-3.5" />
                 ) : (
-                  <ChevronDown className="text-muted-foreground h-3 w-3" />
+                  <ChevronDown className="text-muted-foreground size-3.5" />
                 )}
               </button>
               {isPurchasedExpanded && (

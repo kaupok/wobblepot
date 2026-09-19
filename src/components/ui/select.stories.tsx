@@ -231,7 +231,7 @@ export const AllVariants: Story = {
   ),
 }
 
-// The default `SelectTrigger` is 44px at the mobile viewport and 36px here;
+// The default `SelectTrigger` is 44px at the mobile viewport and 40px here;
 // `SmallSize` stays 32px at both. Same a11y waiver as `AllVariants` — it
 // renders the same disabled trigger.
 export const Desktop: Story = {

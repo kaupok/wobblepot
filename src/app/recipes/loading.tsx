@@ -7,15 +7,15 @@ export default function RecipesLoading() {
         {/* Card header */}
         <div className="mb-6 flex flex-col gap-2">
           <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-4 w-64" />
+          <Skeleton className="h-5 w-64" />
         </div>
 
         {/* Content */}
         <div className="flex flex-col gap-6">
           {/* Recipe count and button */}
           <div className="flex items-center justify-between">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-touch w-32 rounded-md md:h-9" />
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-touch w-32 rounded-md md:h-10" />
           </div>
 
           {/* Loading area */}

@@ -7,7 +7,7 @@ export default function InviteLoading() {
         {/* Card header */}
         <div className="mb-6 flex flex-col gap-2">
           <Skeleton className="h-7 w-40" />
-          <Skeleton className="h-4 w-56" />
+          <Skeleton className="h-5 w-56" />
         </div>
 
         {/* Invite details */}
@@ -18,7 +18,7 @@ export default function InviteLoading() {
 
         {/* Action button */}
         <div className="mt-6">
-          <Skeleton className="h-touch w-full rounded-md md:h-9" />
+          <Skeleton className="h-touch w-full rounded-md md:h-10" />
         </div>
       </div>
     </div>

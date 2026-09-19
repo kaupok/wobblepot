@@ -53,7 +53,6 @@ export function CustomShoppingItem({
           checked={item.checked}
           onCheckedChange={handleCheckedChange}
           disabled={disabled}
-          className="h-5 w-5"
           aria-label={tShopping('ariaToggleItem', {
             name: item.name,
             state: item.checked ? tShopping('stateNotPurchased') : tShopping('statePurchased'),
@@ -83,7 +82,7 @@ export function CustomShoppingItem({
                 className="text-muted-foreground hover:text-foreground rounded p-1 transition-colors"
                 aria-label={tShopping('ariaUnlink', { name: item.name })}
               >
-                <Unlink className="h-3.5 w-3.5" />
+                <Unlink className="size-4" />
               </button>
             </TooltipTrigger>
             <TooltipContent>
@@ -99,7 +98,7 @@ export function CustomShoppingItem({
               className="text-muted-foreground hover:text-destructive rounded p-1 transition-colors"
               aria-label={tShopping('ariaRemove', { name: item.name })}
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="size-4" />
             </button>
           </TooltipTrigger>
           <TooltipContent>

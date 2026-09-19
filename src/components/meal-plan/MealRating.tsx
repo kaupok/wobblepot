@@ -77,7 +77,7 @@ export function MealRatingPrompt({ planId, entryId, onRated, onDismiss }: MealRa
         disabled={isSubmitting}
         aria-label={t('dismiss')}
       >
-        <X className="h-3.5 w-3.5" />
+        <X className="size-4" />
       </Button>
     </div>
   )
@@ -99,7 +99,7 @@ export function RatingBadge({ rating, onClick }: RatingBadgeProps) {
         isUp ? 'bg-success-muted text-success' : 'bg-destructive/10 text-destructive',
       )}
     >
-      {isUp ? <ThumbsUp className="h-3 w-3" /> : <ThumbsDown className="h-3 w-3" />}
+      {isUp ? <ThumbsUp className="size-3.5" /> : <ThumbsDown className="size-3.5" />}
     </span>
   )
 
@@ -181,7 +181,7 @@ export function MealRatingInline({
         aria-label={t('thumbsUp')}
         aria-pressed={rating === 'up'}
       >
-        <ThumbsUp className="h-3.5 w-3.5" />
+        <ThumbsUp className="size-4" />
       </button>
       <button
         type="button"
@@ -196,7 +196,7 @@ export function MealRatingInline({
         aria-label={t('thumbsDown')}
         aria-pressed={rating === 'down'}
       >
-        <ThumbsDown className="h-3.5 w-3.5" />
+        <ThumbsDown className="size-4" />
       </button>
     </div>
   )

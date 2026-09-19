@@ -41,7 +41,7 @@ export function BottomTabBar({ session, hasHousehold }: BottomTabBarProps) {
                 isActive ? 'text-primary' : 'text-muted-foreground'
               }`}
             >
-              <Icon className="h-5 w-5" />
+              <Icon className="size-6" />
               {t(key)}
             </Link>
           )

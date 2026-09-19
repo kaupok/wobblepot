@@ -9,7 +9,7 @@ export default function ImagineRecipeLoading() {
           {/* Card header */}
           <div className="mb-6 flex flex-col gap-2">
             <Skeleton className="h-7 w-36" />
-            <Skeleton className="h-4 w-64" />
+            <Skeleton className="h-5 w-64" />
           </div>
 
           {/* Textarea */}
@@ -17,7 +17,7 @@ export default function ImagineRecipeLoading() {
 
           {/* Footer with button */}
           <div className="flex justify-end">
-            <Skeleton className="h-touch w-28 rounded-md md:h-9" />
+            <Skeleton className="h-touch w-28 rounded-md md:h-10" />
           </div>
         </div>
       </div>

@@ -171,7 +171,7 @@ export function IngredientRow({
         </Body>
         {isDuplicate && (
           <div className="mt-1 flex items-center gap-1.5">
-            <Info className="text-warning h-3 w-3 shrink-0" />
+            <Info className="text-warning size-3.5 shrink-0" />
             <Body variant="small" className="text-warning">
               {t('duplicateRow', {
                 count: duplicateIndices.length,

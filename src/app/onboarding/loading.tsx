@@ -7,24 +7,24 @@ export default function OnboardingLoading() {
         {/* Card header */}
         <div className="mb-6 flex flex-col gap-2">
           <Skeleton className="h-7 w-48" />
-          <Skeleton className="h-4 w-64" />
+          <Skeleton className="h-5 w-64" />
         </div>
 
         {/* Form fields */}
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-touch w-full rounded-md md:h-9" />
+            <Skeleton className="h-touch w-full rounded-md md:h-10" />
           </div>
           <div className="flex flex-col gap-1">
             <Skeleton className="h-4 w-20" />
-            <Skeleton className="h-touch w-full rounded-md md:h-9" />
+            <Skeleton className="h-touch w-full rounded-md md:h-10" />
           </div>
         </div>
 
         {/* Submit button */}
         <div className="mt-6">
-          <Skeleton className="h-touch w-full rounded-md md:h-9" />
+          <Skeleton className="h-touch w-full rounded-md md:h-10" />
         </div>
       </div>
     </div>

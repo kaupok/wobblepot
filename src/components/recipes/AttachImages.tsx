@@ -174,7 +174,7 @@ export function AttachImages({
                 className="bg-background/80 absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full border shadow-sm"
                 aria-label={removeImageLabel(file.name)}
               >
-                <X className="h-3 w-3" />
+                <X className="size-3.5" />
               </button>
             </div>
           ))}
