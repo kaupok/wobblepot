@@ -52,6 +52,14 @@ export const Default: Story = {
       ingredientCategory: 'fat',
     }),
   },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // Unlink and delete are `icon-sm` (32px), up from 22px raw buttons (HON-688).
+    for (const name of [/unlink/i, /remove/i]) {
+      const button = canvas.getByRole('button', { name })
+      await expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(32)
+    }
+  },
 }
 
 export const Unlinked: Story = {

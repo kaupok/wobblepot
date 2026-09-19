@@ -174,10 +174,20 @@ describe('NoteEditor', () => {
   })
 
   describe('compact mode', () => {
-    it('uses smaller text when compact prop is true', () => {
+    // Compact tightens the editor (one textarea row), never the type size:
+    // the note stays at the Secondary level instead of dropping to Caption
+    // (HON-688).
+    it('keeps the note at the Secondary level when compact', () => {
       render(<NoteEditor {...defaultProps} note="Test note" compact />)
       const noteElement = screen.getByText('Test note')
-      expect(noteElement.className).toContain('text-xs')
+      expect(noteElement.className).toContain('text-sm')
+      expect(noteElement.className).not.toContain('text-xs')
+    })
+
+    it('renders the textarea at one row when compact', async () => {
+      render(<NoteEditor {...defaultProps} compact />)
+      await userEvent.click(screen.getByRole('button', { name: 'Add note' }))
+      expect(screen.getByRole('textbox')).toHaveAttribute('rows', '1')
     })
   })
 })

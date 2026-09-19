@@ -2,6 +2,7 @@
 
 import { X, Unlink } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Body } from '@/components/ui/typography'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -72,18 +73,23 @@ export function CustomShoppingItem({
           )}
         </div>
       </label>
-      <div className="flex shrink-0 items-center gap-1">
+      {/* `-my-0.5` lets the 32px `icon-sm` actions reach 2px into the row's
+          `p-3` instead of growing the row past the 28px name line — the row
+          stays the same height as `ShoppingItem`, which
+          `ShoppingItemSkeleton.stories.tsx` holds both to. */}
+      <div className="-my-0.5 flex shrink-0 items-center gap-1">
         {item.ingredientId && !item.checked && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={() => onUnlink(item.id)}
-                className="text-muted-foreground hover:text-foreground rounded p-1 transition-colors"
+                className="text-muted-foreground"
                 aria-label={tShopping('ariaUnlink', { name: item.name })}
               >
                 <Unlink className="size-4" />
-              </button>
+              </Button>
             </TooltipTrigger>
             <TooltipContent>
               <p>{tShopping('unlinkTooltip')}</p>
@@ -92,14 +98,15 @@ export function CustomShoppingItem({
         )}
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={() => onDelete(item.id)}
-              className="text-muted-foreground hover:text-destructive rounded p-1 transition-colors"
+              className="text-muted-foreground hover:text-destructive"
               aria-label={tShopping('ariaRemove', { name: item.name })}
             >
               <X className="size-4" />
-            </button>
+            </Button>
           </TooltipTrigger>
           <TooltipContent>
             <p>{tShopping('removeTooltip')}</p>

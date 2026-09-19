@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { fn } from 'storybook/test'
+import { expect, fn, within } from 'storybook/test'
 import { MealRatingInline, MealRatingPrompt, RatingBadge } from './MealRating'
 
 const meta = {
@@ -12,6 +12,15 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
+/** Every button in the story clears the 32px `sm` / `icon-sm` floor (HON-688). */
+async function expectButtonsAtFloor(canvasElement: HTMLElement) {
+  const buttons = within(canvasElement).getAllByRole('button')
+  await expect(buttons.length).toBeGreaterThan(0)
+  for (const button of buttons) {
+    await expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(32)
+  }
+}
+
 export const InlineNoRating: Story = {
   args: {
     planId: 'plan-1',
@@ -19,6 +28,7 @@ export const InlineNoRating: Story = {
     rating: null,
     onRatingChange: fn(),
   },
+  play: async ({ canvasElement }) => expectButtonsAtFloor(canvasElement),
 }
 
 export const InlineThumbsUp: Story = {
@@ -50,6 +60,7 @@ export const Prompt: StoryObj = {
   render: () => (
     <MealRatingPrompt planId="plan-1" entryId="entry-1" onRated={fn()} onDismiss={fn()} />
   ),
+  play: async ({ canvasElement }) => expectButtonsAtFloor(canvasElement),
 }
 
 export const BadgeUp: StoryObj = {
@@ -69,4 +80,5 @@ export const BadgeClickable: StoryObj = {
     },
   },
   render: () => <RatingBadge rating="up" onClick={fn()} />,
+  play: async ({ canvasElement }) => expectButtonsAtFloor(canvasElement),
 }
