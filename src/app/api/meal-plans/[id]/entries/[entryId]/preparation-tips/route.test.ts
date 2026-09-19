@@ -72,7 +72,7 @@ const mockEntryFindFirst = vi.mocked(prisma.mealPlanEntry.findFirst)
 const mockEntryUpdate = vi.mocked(prisma.mealPlanEntry.update)
 /**
  * The cache write. Conditional (`updateMany`, not `update`) so that a
- * `servingOverride` or locale PATCH committing during the 30s generation wins:
+ * `servingOverride` or locale PATCH committing during the 45s generation wins:
  * that PATCH nulled the cache because the prompt's inputs moved, and writing
  * anyway would put the stale tips straight back, where every later read is a
  * cache hit (HON-681).
@@ -298,7 +298,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   })
 
   it('scopes the cache write to the meal, servings and locale the prompt was priced from', async () => {
-    // Generation takes up to 30s. A `servingOverride` or locale PATCH that
+    // Generation takes up to 45s. A `servingOverride` or locale PATCH that
     // commits in the meantime nulls this cache precisely because those inputs
     // moved, so the write has to lose that race rather than re-cache tips for
     // a count nobody is cooking — which no later read would ever regenerate,

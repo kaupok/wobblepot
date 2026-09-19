@@ -238,6 +238,27 @@ describe('useMealTips', () => {
       expect(result.current.tipsError).toBe('Entry not found')
     })
 
+    // 504 is the one 5xx that must not retry: it means the route already spent
+    // its full 45s AI budget, so a second attempt costs another 45s of spinner
+    // (~92s total) to re-learn what the first one proved (HON-693). The other
+    // 5xx codes fail fast, which is why they still retry.
+    it('does not retry on 504, so a timeout fails fast instead of doubling the wait', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 504,
+        json: () => Promise.resolve({ error: 'Request timed out. Please try again.' }),
+      })
+
+      const { result } = renderHook(() => useMealTips(defaultOptions))
+
+      await act(async () => {
+        await result.current.fetchTips()
+      })
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      expect(result.current.tipsError).toBe('Request timed out. Please try again.')
+    })
+
     it('clears previous error on new fetch', async () => {
       // First call fails
       mockFetch.mockResolvedValueOnce({
@@ -350,7 +371,7 @@ describe('useMealTips', () => {
     })
 
     it('aborts a generation in flight so it cannot repopulate the tips', async () => {
-      // Generation takes up to 30s, and the serving control stays enabled
+      // Generation takes up to 45s, and the serving control stays enabled
       // throughout. Without the abort the original request resolves after the
       // cancel and writes the stale tips back — after which handleHowToPrepare
       // short-circuits on them forever, while the stored row is null.

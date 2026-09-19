@@ -30,8 +30,18 @@ export function useMealTips({ planId, entryId, initialTips = null }: UseMealTips
     try {
       let response = await fetch(url, { method: 'POST', signal: controller.signal })
 
-      // Auto-retry once after 2s for retryable server errors
-      if (!response.ok && (response.status >= 500 || response.status === 429)) {
+      // Auto-retry once after 2s for retryable server errors.
+      //
+      // 504 is deliberately excluded: it means the route already spent its
+      // full 45s AI budget and gave up, so a retry buys another 45s of
+      // spinner — ~92s before the user sees anything — for a request that
+      // just demonstrated it does not fit. The other 5xx codes fail fast, so
+      // retrying those still costs ~2s (HON-693).
+      if (
+        !response.ok &&
+        response.status !== 504 &&
+        (response.status >= 500 || response.status === 429)
+      ) {
         await new Promise<void>((resolve, reject) => {
           const id = setTimeout(resolve, 2000)
           controller.signal.addEventListener('abort', () => {
@@ -75,7 +85,7 @@ export function useMealTips({ planId, entryId, initialTips = null }: UseMealTips
    * entry's serving count, say — which the server answers by nulling the cached
    * copy (HON-681).
    *
-   * Clearing the state alone is not enough: a generation takes up to 30s, and
+   * Clearing the state alone is not enough: a generation takes up to 45s, and
    * the request in flight would resolve afterwards and `setTips` the stale
    * object right back — after which `handleHowToPrepare` short-circuits on it
    * and never re-fetches, while the stored row is correctly null. Aborting

@@ -94,4 +94,15 @@ async function handlePOST(request: Request) {
   }
 }
 
+/**
+ * Platform execution ceiling for this route, in seconds.
+ *
+ * The quantity review scales with ingredient count and measured 25-32s on
+ * Sonnet 5 for a 24-ingredient meal (HON-693). Without this the route runs
+ * under an unstated platform default that such a call can exceed, and the
+ * client's 45s budget would never be reachable. 60 is allowed on every
+ * Vercel plan.
+ */
+export const maxDuration = 60
+
 export const POST = withRequestId(handlePOST)

@@ -147,14 +147,22 @@ async function handlePOST(
       .join('\n')
 
     const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
-    // One wall-clock budget for the whole request, shared by the initial
-    // attempt and every `maxRetries` retry below — not a per-attempt timeout.
+    // One wall-clock budget for all AI time in this request, shared by the
+    // initial attempt and every `maxRetries` retry below — not a per-attempt
+    // timeout. It is the real bound on retries: `maxRetries: 3` permits four
+    // attempts, but how many actually fit depends on how each one fails. A
+    // fast failure (429, 5xx) costs well under a second, so those still retry
+    // freely; a slow generation does not.
+    //
     // Sonnet 5's adaptive thinking made a single hard-meal generation take up
     // to 21s (measured, HON-693), so at the old 30s a slow first attempt left
-    // no room for even one retry: the call aborted and the user got a 504
-    // instead of the tips the larger token ceilings were meant to buy. 50s
-    // fits two worst-case attempts (~42s) inside the 60s `maxDuration` above.
-    const timeout = AbortSignal.timeout(50_000)
+    // no room for even one retry — the call aborted and the user got a 504
+    // instead of the tips the larger token ceilings were meant to buy. 45s
+    // covers two worst-case attempts plus ai@7's ~2s backoff (~45s), and
+    // leaves 15s under the 60s `maxDuration` for the DB reads before this
+    // point and the writes after it, so the 504 branch below stays reachable
+    // rather than the platform killing the function first.
+    const timeout = AbortSignal.timeout(45_000)
 
     let tips: StructuredTips
 
@@ -272,7 +280,7 @@ async function handlePOST(
     // Cache tips as JSON in the database — but only while the inputs they were
     // priced from still hold. This prompt was built from `entry.meal`,
     // `entry.servingOverride` and `household.locale` as read at the top of the
-    // handler, and generation takes up to 30s; a swap, a `servingOverride` or a
+    // handler, and generation takes up to 45s; a swap, a `servingOverride` or a
     // locale PATCH that commits in the meantime nulls this cache precisely
     // because one of those inputs moved (HON-681).
     // An unconditional write would put the stale tips straight back, and every

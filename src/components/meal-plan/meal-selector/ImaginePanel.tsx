@@ -167,7 +167,11 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(reviewPayload),
-        signal: AbortSignal.timeout(15_000),
+        // Matches the budget in ImagineClient.tsx: Sonnet 5's reasoning pushes
+        // a 24-ingredient review to 25-32s, past the old 15s, and the catch
+        // below degrades silently — so the corrections are dropped after the
+        // household has already been billed for them (HON-693).
+        signal: AbortSignal.timeout(45_000),
       })
 
       if (response.ok) {
