@@ -7,24 +7,24 @@ export default function SignInLoading() {
         {/* Card header */}
         <div className="mb-6 flex flex-col gap-2">
           <Skeleton className="h-7 w-20" />
-          <Skeleton className="h-4 w-48" />
+          <Skeleton className="h-5 w-48" />
         </div>
 
         {/* Form fields */}
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Skeleton className="h-4 w-12" />
-            <Skeleton className="h-touch w-full rounded-md md:h-9" />
+            <Skeleton className="h-touch w-full rounded-md md:h-10" />
           </div>
           <div className="flex flex-col gap-2">
             <Skeleton className="h-4 w-16" />
-            <Skeleton className="h-touch w-full rounded-md md:h-9" />
+            <Skeleton className="h-touch w-full rounded-md md:h-10" />
           </div>
         </div>
 
         {/* Submit button */}
         <div className="mt-6">
-          <Skeleton className="h-touch w-full rounded-md md:h-9" />
+          <Skeleton className="h-touch w-full rounded-md md:h-10" />
         </div>
       </div>
     </div>

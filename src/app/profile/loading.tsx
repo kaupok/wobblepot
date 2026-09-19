@@ -7,7 +7,7 @@ export default function ProfileLoading() {
         {/* Card header */}
         <div className="mb-6 flex flex-col gap-2">
           <Skeleton className="h-7 w-20" />
-          <Skeleton className="h-4 w-48" />
+          <Skeleton className="h-5 w-48" />
         </div>
 
         {/* Profile fields */}
@@ -28,8 +28,8 @@ export default function ProfileLoading() {
         {/* Danger zone */}
         <div className="flex flex-col gap-3">
           <Skeleton className="h-6 w-28" />
-          <Skeleton className="h-4 w-64" />
-          <Skeleton className="h-touch w-32 rounded-md md:h-9" />
+          <Skeleton className="h-5 w-64" />
+          <Skeleton className="h-touch w-32 rounded-md md:h-10" />
         </div>
       </div>
     </div>

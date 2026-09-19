@@ -166,7 +166,7 @@ export function InlineAddItem({
                   <CategoryHint category={ingredient.category} />
                   {isInPantry && (
                     <span className="text-muted-foreground flex items-center gap-1 text-xs">
-                      <Check className="h-3 w-3" />
+                      <Check className="size-3.5" />
                       {tPantry('inPantry')}
                     </span>
                   )}

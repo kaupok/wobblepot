@@ -71,14 +71,14 @@ const TagInput = forwardRef<TagInputRef, TagInputProps>(function TagInput(
     <div
       data-testid="tag-input-container"
       className={cn(
-        'border-input dark:bg-input/30 min-h-touch flex w-full flex-wrap items-center gap-1.5 rounded-md border bg-transparent px-3 py-1.5 shadow-xs transition-[color,box-shadow] md:min-h-9',
+        'border-input dark:bg-input/30 min-h-touch flex w-full flex-wrap items-center gap-1.5 rounded-md border bg-transparent px-3 py-1.5 shadow-xs transition-[color,box-shadow] md:min-h-10',
         'focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-3',
         disabled && 'cursor-not-allowed opacity-50',
         className,
       )}
     >
       {value.map((tag) => (
-        <Badge key={tag} variant="secondary" className="h-6 gap-1 pr-1 text-xs">
+        <Badge key={tag} variant="secondary" className="h-6 gap-1 py-0 pr-1 text-xs">
           {tag}
           {!disabled && (
             <button
@@ -87,7 +87,7 @@ const TagInput = forwardRef<TagInputRef, TagInputProps>(function TagInput(
               className="hover:bg-muted-foreground/20 rounded-full p-0.5"
               aria-label={`Remove ${tag}`}
             >
-              <X className="size-3" />
+              <X className="size-3.5" />
             </button>
           )}
         </Badge>

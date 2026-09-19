@@ -34,10 +34,10 @@ export function PantryItemRowSkeleton() {
             carries the row past its buttons. */}
         <div className="flex flex-col">
           <div className="flex h-7 items-center">
-            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-5 w-28" />
           </div>
           <div className="flex h-5 items-center">
-            <Skeleton aria-hidden className="h-3 w-20" />
+            <Skeleton aria-hidden className="h-4 w-20" />
           </div>
         </div>
       </div>

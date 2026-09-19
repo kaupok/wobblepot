@@ -97,9 +97,9 @@ export function RatingBadge({ rating, onClick }: RatingBadgeProps) {
         isUp ? 'bg-success-muted text-success' : 'bg-destructive/10 text-destructive',
       )}
     >
-      {/* `size-3`, not `h-3 w-3`: the clickable badge sits inside a `Button`, whose
+      {/* `size-3.5`, not `h-3.5 w-3.5`: the clickable badge sits inside a `Button`, whose
           `[&_svg:not([class*=size-])]:size-4` would otherwise grow the icon. */}
-      {isUp ? <ThumbsUp className="size-3" /> : <ThumbsDown className="size-3" />}
+      {isUp ? <ThumbsUp className="size-3.5" /> : <ThumbsDown className="size-3.5" />}
     </span>
   )
 

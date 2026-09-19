@@ -269,13 +269,13 @@ export function ImagineReviewDialog({
           <div className="flex flex-wrap items-center gap-2">
             {meal.timeMinutes && (
               <Badge variant="outline">
-                <Clock className="h-3 w-3" />
+                <Clock className="size-3.5" />
                 {tDetail('timeMinutes', { count: meal.timeMinutes })}
               </Badge>
             )}
             {meal.kidFriendly && (
               <Badge variant="outline">
-                <Baby className="h-3 w-3" />
+                <Baby className="size-3.5" />
                 {t('kidFriendly')}
               </Badge>
             )}

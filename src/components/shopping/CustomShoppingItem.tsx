@@ -54,7 +54,6 @@ export function CustomShoppingItem({
           checked={item.checked}
           onCheckedChange={handleCheckedChange}
           disabled={disabled}
-          className="h-5 w-5"
           aria-label={tShopping('ariaToggleItem', {
             name: item.name,
             state: item.checked ? tShopping('stateNotPurchased') : tShopping('statePurchased'),
