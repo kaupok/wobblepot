@@ -37,7 +37,7 @@ export function TimelinePastSection({
   if (!expanded || days.length === 0) return null
 
   return (
-    <div ref={ref} className="flex flex-col gap-6">
+    <div ref={ref} className="scroll-mt-below-header flex flex-col gap-6">
       {days.map((day) => (
         <TimelineDayCard
           key={day.date}

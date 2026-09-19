@@ -98,6 +98,12 @@ export const Expanded: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByText(/tuesday apr 14/i)).toBeVisible()
     await expect(canvas.getByText(/monday apr 13/i)).toBeVisible()
+
+    // The list is the scroll target on expand; its scroll margin keeps the
+    // first day clear of the fixed header (80px = h-16 row + 1rem, no notch).
+    const list = canvasElement.querySelector('.scroll-mt-below-header')
+    await expect(list).not.toBeNull()
+    await expect(getComputedStyle(list as Element).scrollMarginTop).toBe('80px')
   },
 }
 
