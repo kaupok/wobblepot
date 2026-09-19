@@ -89,7 +89,10 @@ export default defineConfig({
           name: 'storybook',
           browser: {
             enabled: true,
-            provider: playwright({}),
+            // WHY: Playwright launches headless Chromium with --hide-scrollbars, which
+            // zeroes the scrollbar width and turns the HON-690 scroll-lock guard in
+            // select.stories.tsx into a no-op. Showing classic scrollbars makes it live.
+            provider: playwright({ launchOptions: { ignoreDefaultArgs: ['--hide-scrollbars'] } }),
             headless: true,
             instances: [{ browser: 'chromium' }],
           },
