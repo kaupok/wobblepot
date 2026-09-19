@@ -1,75 +1,54 @@
 'use client'
 
-import { useState } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
-import { useTranslations } from 'next-intl'
-import { Button } from '@/components/ui/button'
+import type { Ref } from 'react'
 import { TimelineDayCard } from './TimelineDayCard'
 import type { TimelineDay, PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
 
+/** Past entries that still need action (planned status with a meal). */
+export function countPastCatchUp(days: TimelineDay[]): number {
+  return days.reduce(
+    (count, day) => count + day.entries.filter((e) => e.status === 'planned' && e.meal).length,
+    0,
+  )
+}
+
 interface TimelinePastSectionProps {
   days: TimelineDay[]
+  expanded: boolean
   planId: string
   householdSize: number
   pantryIngredients: PantryIngredient[]
   pantryItems: PantryItemFull[]
   onEntryUpdated: () => void
+  /** Attached to the list, whose top edge is the first past day — the scroll target on expand. */
+  ref?: Ref<HTMLDivElement>
 }
 
 export function TimelinePastSection({
   days,
+  expanded,
   planId,
   householdSize,
   pantryIngredients,
   pantryItems,
   onEntryUpdated,
+  ref,
 }: TimelinePastSectionProps) {
-  const tPast = useTranslations('meal-plan.past')
-  const [isExpanded, setIsExpanded] = useState(false)
-
-  // Count past entries that still need action (planned status)
-  const plannedCount = days.reduce(
-    (count, day) => count + day.entries.filter((e) => e.status === 'planned' && e.meal).length,
-    0,
-  )
-
-  if (days.length === 0) return null
+  if (!expanded || days.length === 0) return null
 
   return (
-    <div className="flex flex-col gap-3">
-      <Button
-        variant="ghost"
-        size="sm"
-        className="self-end"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        {isExpanded ? (
-          <ChevronUp className="mr-1 h-4 w-4" />
-        ) : (
-          <ChevronDown className="mr-1 h-4 w-4" />
-        )}
-        {isExpanded ? tPast('hide') : tPast('show')}
-        {plannedCount > 0 && (
-          <span className="bg-warning-muted text-warning ml-1.5 rounded-full px-1.5 py-0.5 text-xs font-medium">
-            {tPast('catchUp', { count: plannedCount })}
-          </span>
-        )}
-      </Button>
-      {isExpanded && (
-        <div className="flex flex-col gap-6">
-          {days.map((day) => (
-            <TimelineDayCard
-              key={day.date}
-              day={day}
-              planId={planId}
-              householdSize={householdSize}
-              pantryIngredients={pantryIngredients}
-              pantryItems={pantryItems}
-              onEntryUpdated={onEntryUpdated}
-            />
-          ))}
-        </div>
-      )}
+    <div ref={ref} className="scroll-mt-below-header flex flex-col gap-6">
+      {days.map((day) => (
+        <TimelineDayCard
+          key={day.date}
+          day={day}
+          planId={planId}
+          householdSize={householdSize}
+          pantryIngredients={pantryIngredients}
+          pantryItems={pantryItems}
+          onEntryUpdated={onEntryUpdated}
+        />
+      ))}
     </div>
   )
 }

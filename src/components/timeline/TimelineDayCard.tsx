@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { MealCard } from '@/components/meal-plan/MealCard'
 import { Body, Heading } from '@/components/ui/typography'
 import { TimelineEmptySlot } from './TimelineEmptySlot'
@@ -26,6 +27,8 @@ interface TimelineDayCardProps {
   pantryIngredients: PantryIngredient[]
   pantryItems: PantryItemFull[]
   onEntryUpdated: () => void
+  /** Rendered at the end of the heading row, e.g. the Today overflow menu. */
+  headerAction?: ReactNode
 }
 
 export function TimelineDayCard({
@@ -35,6 +38,7 @@ export function TimelineDayCard({
   pantryIngredients,
   pantryItems,
   onEntryUpdated: _onEntryUpdated,
+  headerAction,
 }: TimelineDayCardProps) {
   const tDay = useTranslations('meal-plan.day')
   // Build a combined list of entries and empty slots, sorted by meal type
@@ -63,10 +67,11 @@ export function TimelineDayCard({
 
   return (
     <div className={containerClass}>
-      <div className="flex items-baseline gap-2">
+      <div className="flex items-center justify-between gap-2">
         <Heading variant="section" as="h5" className={day.isToday ? 'text-primary' : undefined}>
           {day.label}
         </Heading>
+        {headerAction && <div className="shrink-0">{headerAction}</div>}
       </div>
       {slots.length === 0 ? (
         <Body variant="muted">{tDay('noMealsPlanned')}</Body>

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fn, userEvent, within } from 'storybook/test'
+import { expect, fn, within } from 'storybook/test'
 import {
   createPlanEntry,
   createTimelineDay,
@@ -85,46 +85,52 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const CollapsedWithCatchUp: Story = {
-  args: { days: pastDaysWithCatchUp },
+// The past day cards include meal-card action buttons, so inactive-state
+// contrast is waived — same as the other expanded timeline stories.
+const inactiveStateA11y = {
+  config: { rules: [{ id: 'color-contrast', enabled: false }] },
 }
 
-export const CollapsedAllResolved: Story = {
-  args: { days: pastDaysAllResolved },
+export const Expanded: Story = {
+  args: { days: pastDaysWithCatchUp, expanded: true },
+  parameters: { a11y: inactiveStateA11y },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText(/tuesday apr 14/i)).toBeVisible()
+    await expect(canvas.getByText(/monday apr 13/i)).toBeVisible()
+
+    // The list is the scroll target on expand; its scroll margin keeps the
+    // first day clear of the fixed header (80px = h-16 row + 1rem, no notch).
+    const list = canvasElement.querySelector('.scroll-mt-below-header')
+    await expect(list).not.toBeNull()
+    await expect(getComputedStyle(list as Element).scrollMarginTop).toBe('80px')
+  },
+}
+
+export const ExpandedAllResolved: Story = {
+  args: { days: pastDaysAllResolved, expanded: true },
+  parameters: { a11y: inactiveStateA11y },
+}
+
+export const Collapsed: Story = {
+  args: { days: pastDaysWithCatchUp, expanded: false },
   parameters: {
     docs: {
       description: {
-        story: 'No planned past meals — the amber "to catch up" badge is hidden.',
+        story:
+          'Renders nothing — the show/hide control lives in the ⋯ menu on the Today heading (`TimelinePastMenu`).',
       },
     },
   },
 }
 
 export const NoDays: Story = {
-  args: { days: [] },
+  args: { days: [], expanded: true },
   parameters: {
     docs: {
       description: {
         story: 'Component returns null — nothing renders when there is no past history.',
       },
     },
-  },
-}
-
-// Expanding reveals the past day cards. The meal cards rendered inside include
-// action buttons, so inactive-state contrast is waived for this exercise.
-const inactiveStateA11y = {
-  config: { rules: [{ id: 'color-contrast', enabled: false }] },
-}
-
-export const ExpandsToRevealDays: Story = {
-  args: { days: pastDaysWithCatchUp },
-  parameters: { a11y: inactiveStateA11y },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    const toggle = canvas.getByRole('button', { name: /show past meals/i })
-    await userEvent.click(toggle)
-    await expect(canvas.getByText(/tuesday apr 14/i)).toBeVisible()
-    await expect(canvas.getByText(/monday apr 13/i)).toBeVisible()
   },
 }

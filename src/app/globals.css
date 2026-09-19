@@ -108,6 +108,14 @@
   min-height: calc(100vh - 8rem);
 }
 
+/* Clears the fixed header when an element is scrolled to with
+   `scrollIntoView({ block: 'start' })`: the header's h-16 row, its safe-area top
+   padding, and 1rem of breathing room so the target's heading is not flush
+   against the header's border. Used by the timeline's past days (HON-691). */
+@utility scroll-mt-below-header {
+  scroll-margin-top: calc(5rem + env(safe-area-inset-top, 0px));
+}
+
 /* Tallest a dialog body may grow before it scrolls internally. Shared by every
    modal so they all stop at the same place. */
 @utility max-h-dialog {

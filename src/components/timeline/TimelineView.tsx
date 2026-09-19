@@ -1,13 +1,15 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { TimelineDayCard } from './TimelineDayCard'
-import { TimelinePastSection } from './TimelinePastSection'
+import { TimelinePastSection, countPastCatchUp } from './TimelinePastSection'
+import { TimelinePastMenu } from './TimelinePastMenu'
 import { FillDaysAction } from './FillDaysAction'
 import { UrgentShopping } from './UrgentShopping'
 import { parseLocalDate, toDateString, isWeekday } from '@/lib/meal-planning/dates'
+import { prefersReducedMotion } from '@/lib/utils'
 import { formatAbsoluteDate, formatDayLong } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
 import type {
@@ -78,6 +80,18 @@ export function TimelineView({
   const router = useRouter()
   const locale = useLocale() as Locale
   const tDates = useTranslations('dates')
+  const [isPastExpanded, setIsPastExpanded] = useState(false)
+  const pastSectionRef = useRef<HTMLDivElement>(null)
+
+  // Past days render above Today, so expanding pushes the menu that revealed
+  // them down the page. Bring the first past day into view instead.
+  useEffect(() => {
+    if (!isPastExpanded) return
+    pastSectionRef.current?.scrollIntoView({
+      block: 'start',
+      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+    })
+  }, [isPastExpanded])
 
   const { pastDays, futureDays, firstEmptyDate } = useMemo(() => {
     const todayParsed = parseLocalDate(todayDate)
@@ -167,13 +181,41 @@ export function TimelineView({
     : futureDays
   const emptyDays = firstEmptyDate ? futureDays.filter((d) => d.date >= firstEmptyDate) : []
 
+  // Today can land in either plannedDays or emptyDays, so the menu is attached
+  // per card rather than at a fixed position in the list.
+  const pastMenu =
+    pastDays.length > 0 ? (
+      <TimelinePastMenu
+        expanded={isPastExpanded}
+        catchUpCount={countPastCatchUp(pastDays)}
+        onToggle={() => setIsPastExpanded((expanded) => !expanded)}
+      />
+    ) : null
+
+  function renderDay(day: TimelineDay) {
+    return (
+      <TimelineDayCard
+        key={day.date}
+        day={day}
+        planId={planId}
+        householdSize={householdSize}
+        pantryIngredients={pantryIngredients}
+        pantryItems={pantryItems}
+        onEntryUpdated={handleEntryUpdated}
+        headerAction={day.isToday ? pastMenu : undefined}
+      />
+    )
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="lg:grid-cols-timeline grid gap-6">
         {/* Left column: Timeline */}
         <div className="flex flex-col gap-6">
           <TimelinePastSection
+            ref={pastSectionRef}
             days={pastDays}
+            expanded={isPastExpanded}
             planId={planId}
             householdSize={householdSize}
             pantryIngredients={pantryIngredients}
@@ -181,33 +223,13 @@ export function TimelineView({
             onEntryUpdated={handleEntryUpdated}
           />
 
-          {plannedDays.map((day) => (
-            <TimelineDayCard
-              key={day.date}
-              day={day}
-              planId={planId}
-              householdSize={householdSize}
-              pantryIngredients={pantryIngredients}
-              pantryItems={pantryItems}
-              onEntryUpdated={handleEntryUpdated}
-            />
-          ))}
+          {plannedDays.map(renderDay)}
 
           {hasEmptyFutureSlots && firstEmptyDate && (
             <FillDaysAction planId={planId} firstEmptyDate={firstEmptyDate} />
           )}
 
-          {emptyDays.map((day) => (
-            <TimelineDayCard
-              key={day.date}
-              day={day}
-              planId={planId}
-              householdSize={householdSize}
-              pantryIngredients={pantryIngredients}
-              pantryItems={pantryItems}
-              onEntryUpdated={handleEntryUpdated}
-            />
-          ))}
+          {emptyDays.map(renderDay)}
         </div>
 
         {/* Right column: Shopping */}
