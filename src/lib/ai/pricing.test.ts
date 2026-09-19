@@ -53,10 +53,6 @@ describe('estimateCostUsd', () => {
     expect(estimateCostUsd({ model: 'claude-sonnet-5', inputTokens: 0, outputTokens: 0 })).toBe(0)
   })
 
-  // The app moved to Sonnet 5 in HON-693, but usage rows written before that
-  // still name 4-6. Dropping the entry would silently reprice their model to
-  // $0 via the unknown-model path, so the retention is a requirement, not
-  // leftover cruft.
   // The guard that matters for *live* traffic. `estimateCostUsd` returns 0 for
   // a model it doesn't know, and that zero is not an error anywhere: it lands
   // in `AiUsage.estimatedCostUsd`, which `assertUnderCap` sums, so a model
@@ -74,6 +70,10 @@ describe('estimateCostUsd', () => {
     expect(estimateCostUsd({ model, inputTokens: 1000, outputTokens: 1000 })).toBeGreaterThan(0)
   })
 
+  // The app moved to Sonnet 5 in HON-693, but usage rows written before that
+  // still name 4-6. Dropping the entry would silently reprice their model to
+  // $0 via the unknown-model path, so the retention is a requirement, not
+  // leftover cruft.
   it('still prices the superseded claude-sonnet-4-6 for historical usage rows', () => {
     const cost = estimateCostUsd({
       model: 'claude-sonnet-4-6',
