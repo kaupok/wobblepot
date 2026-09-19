@@ -27,6 +27,7 @@ export function TimelinePastMenu({ expanded, catchUpCount, onToggle }: TimelineP
   const tPast = useTranslations('meal-plan.past')
   const hasCatchUp = catchUpCount > 0
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const interactedOutsideRef = useRef(false)
 
   return (
     <DropdownMenu modal={false}>
@@ -53,10 +54,15 @@ export function TimelinePastMenu({ expanded, catchUpCount, onToggle }: TimelineP
         align="end"
         // Radix restores focus with a plain `focus()`, which scrolls the
         // trigger back into view and cancels the scroll to the first past day
-        // that `TimelineView` starts on expand. Restore it without scrolling.
+        // that `TimelineView` starts on expand. Restore it without scrolling,
+        // keeping Radix's rule of leaving focus alone after an outside click.
+        onInteractOutside={() => {
+          interactedOutsideRef.current = true
+        }}
         onCloseAutoFocus={(event) => {
           event.preventDefault()
-          triggerRef.current?.focus({ preventScroll: true })
+          if (!interactedOutsideRef.current) triggerRef.current?.focus({ preventScroll: true })
+          interactedOutsideRef.current = false
         }}
       >
         <DropdownMenuItem onSelect={onToggle}>

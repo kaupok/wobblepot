@@ -68,3 +68,29 @@ export const SelectAndEscape: Story = {
     await waitFor(() => expect(trigger).toHaveFocus())
   },
 }
+
+export const OutsideClickKeepsFocus: Story = {
+  args: { catchUpCount: 2 },
+  decorators: [
+    (Story) => (
+      <div className="flex items-center gap-4">
+        <Story />
+        <input aria-label="Elsewhere" className="border-input rounded-md border px-2" />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const body = within(document.body)
+
+    await userEvent.click(canvas.getByRole('button', { name: /timeline options/i }))
+    await expect(await body.findByRole('menu')).toBeInTheDocument()
+
+    // Clicking another control closes the menu and leaves focus where the
+    // user put it, rather than pulling it back to the trigger.
+    const elsewhere = canvas.getByRole('textbox', { name: 'Elsewhere' })
+    await userEvent.click(elsewhere)
+    await waitFor(() => expect(body.queryByRole('menu')).not.toBeInTheDocument())
+    await expect(elsewhere).toHaveFocus()
+  },
+}
