@@ -45,6 +45,7 @@ export async function parseRecipeText(
   if (trimmedText.length < 20) {
     throw new RecipeParseError(
       'The text is too short to be a recipe. Please paste a complete recipe with ingredients.',
+      'text_too_short',
     )
   }
 
@@ -81,6 +82,7 @@ export async function parseRecipeText(
     if (!object.name || object.ingredients.length === 0) {
       throw new RecipeParseError(
         "Couldn't extract a recipe from this text. Please make sure it includes a recipe name and list of ingredients.",
+        'no_recipe_found',
       )
     }
 
@@ -99,6 +101,7 @@ export async function parseRecipeText(
     if (invalidIngredients.length > 0 || object.ingredients.length === invalidIngredients.length) {
       throw new RecipeParseError(
         "Couldn't identify specific ingredients from this text. Please paste a recipe with a clear list of ingredients.",
+        'no_ingredients_found',
       )
     }
 
@@ -108,6 +111,7 @@ export async function parseRecipeText(
       throw new RecipeParseError(
         confidence.message ??
           "This doesn't appear to contain a recipe. Try pasting the recipe text directly.",
+        'low_confidence',
       )
     }
 
@@ -126,6 +130,7 @@ export async function parseRecipeText(
     // AI generation error
     throw new RecipeParseError(
       'Failed to parse the recipe. Please try again or use the manual form.',
+      'parse_failed',
     )
   }
 }

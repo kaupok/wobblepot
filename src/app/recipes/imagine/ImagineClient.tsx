@@ -16,6 +16,7 @@ import type { PrefilledIngredient } from '@/components/household/MealForm'
 import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
+import { IMAGINE_ERROR_KEYS, translateErrorCode } from '@/lib/ai/error-codes'
 import { convertToPrefilledData, type ImaginedMealResponse } from '@/lib/imagine-utils'
 import { track } from '@/lib/analytics'
 import {
@@ -236,7 +237,17 @@ export function ImagineClient() {
       const data = await response.json()
 
       if (!response.ok || !data.success) {
-        setError(data.error || data.message || t('errors.generic'))
+        // Deliberately not falling back to `data.error` / `data.message`: both
+        // carry untranslated English, which would render verbatim to an
+        // Estonian household. The route's machine-readable `code` is what
+        // picks the copy; the prose is kept as a console breadcrumb only
+        // (HON-700).
+        console.error('[imagine] request failed', { code: data.code, error: data.error })
+        setError(
+          t(`errors.${translateErrorCode(data.code, IMAGINE_ERROR_KEYS, 'generic')}`, {
+            max: MAX_ATTACHED_IMAGES,
+          }),
+        )
         return
       }
 

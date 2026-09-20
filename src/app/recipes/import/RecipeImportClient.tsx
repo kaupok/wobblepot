@@ -10,6 +10,7 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Heading, Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
+import { RECIPE_IMPORT_ERROR_KEYS, translateErrorCode } from '@/lib/ai/error-codes'
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
 import type { PrefilledIngredient } from '@/components/household/MealForm'
 
@@ -269,7 +270,14 @@ export function RecipeImportClient() {
       const data = await response.json()
 
       if (!response.ok || !data.success) {
-        setError(data.error || t('errors.parseFailed'))
+        // Deliberately not falling back to `data.error`: it carries
+        // untranslated English, which would render verbatim to an Estonian
+        // household. The route's machine-readable `code` is what picks the
+        // copy; the prose is kept as a console breadcrumb only (HON-700).
+        console.error('[recipe-import] request failed', { code: data.code, error: data.error })
+        setError(
+          t(`errors.${translateErrorCode(data.code, RECIPE_IMPORT_ERROR_KEYS, 'parseFailed')}`),
+        )
         return
       }
 

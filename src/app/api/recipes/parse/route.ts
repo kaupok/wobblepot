@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { parseAndMatchRecipe } from '@/lib/ai/parse-recipe'
-import { fetchRecipeFromUrl, ROBOTS_DISALLOWED_MESSAGE } from '@/lib/ai/recipe-fetch'
+import { fetchRecipeFromUrl } from '@/lib/ai/recipe-fetch'
 import { RecipeParseError } from '@/lib/ai/recipe-errors'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import {
@@ -17,6 +17,7 @@ import { withRequestId } from '@/lib/request-id'
 import { getServerFlag } from '@/lib/feature-flags'
 import { captureApiError } from '@/lib/errors'
 import { isAiBudgetTimeout } from '@/lib/ai/timeout'
+import type { RecipeImportErrorCode } from '@/lib/ai/error-codes'
 
 /**
  * Resolve the locale the recipe parser runs in. The `FEATURE_RECIPE_PARSER_ET`
@@ -28,6 +29,15 @@ import { isAiBudgetTimeout } from '@/lib/ai/timeout'
  */
 function resolveParserLocale(householdLocale: string): string {
   return householdLocale
+}
+
+/**
+ * Failure body for this route: English prose for logs and Sentry breadcrumbs,
+ * plus the machine-readable `code` the client translates (HON-700). Every
+ * error response below goes through here so no branch can ship without one.
+ */
+function errorBody(error: string, code: RecipeImportErrorCode) {
+  return { success: false as const, error, code }
 }
 
 const parseRecipeSchema = z.object({
@@ -94,21 +104,20 @@ async function handlePOST(request: Request) {
   })
 
   if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json(errorBody('Unauthorized', 'unauthorized'), { status: 401 })
   }
 
   const membership = await getHouseholdMembership(session.user.id)
 
   if (!membership) {
-    return NextResponse.json({ error: 'No household found' }, { status: 404 })
+    return NextResponse.json(errorBody('No household found', 'no_household'), { status: 404 })
   }
 
   const rateLimitResult = await checkRateLimit(membership.household.id, 'recipe-parse')
   if (!rateLimitResult.allowed) {
     return NextResponse.json(
       {
-        success: false,
-        error: 'Rate limit exceeded',
+        ...errorBody('Rate limit exceeded', 'rate_limited'),
         message: `Maximum ${rateLimitResult.limit} recipe parses per hour`,
         resetAt: rateLimitResult.resetAt.toISOString(),
       },
@@ -127,8 +136,7 @@ async function handlePOST(request: Request) {
   if (!recipeImportEnabled) {
     return NextResponse.json(
       {
-        success: false,
-        error: 'Recipe import is temporarily disabled',
+        ...errorBody('Recipe import is temporarily disabled', 'import_disabled'),
         message: 'Recipe import is currently turned off. Please try again later.',
       },
       { status: 503 },
@@ -148,14 +156,17 @@ async function handlePOST(request: Request) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return NextResponse.json(errorBody('Invalid JSON', 'invalid_request'), { status: 400 })
   }
 
   const parsed = parseRecipeSchema.safeParse(body)
 
   if (!parsed.success) {
     const errors = parsed.error.flatten().fieldErrors
-    return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
+    return NextResponse.json(
+      { ...errorBody('Validation failed', 'invalid_request'), details: errors },
+      { status: 400 },
+    )
   }
 
   try {
@@ -210,14 +221,10 @@ async function handlePOST(request: Request) {
     })
   } catch (error) {
     if (error instanceof RecipeParseError) {
-      const status = error.message === ROBOTS_DISALLOWED_MESSAGE ? 403 : 400
-      return NextResponse.json(
-        {
-          success: false,
-          error: error.message,
-        },
-        { status },
-      )
+      // The code, not the prose, picks the status — the message is free text
+      // that a copy edit could silently break (HON-700).
+      const status = error.code === 'robots_disallowed' ? 403 : 400
+      return NextResponse.json(errorBody(error.message, error.code), { status })
     }
 
     captureApiError(error, {
@@ -233,19 +240,13 @@ async function handlePOST(request: Request) {
     // exactly what should show up in Sentry.
     if (isAiBudgetTimeout(error)) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Reading that recipe took too long. Please try again.',
-        },
+        errorBody('Reading that recipe took too long. Please try again.', 'parse_timeout'),
         { status: 504 },
       )
     }
 
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to parse the recipe. Please try again.',
-      },
+      errorBody('Failed to parse the recipe. Please try again.', 'parse_failed'),
       { status: 500 },
     )
   }
