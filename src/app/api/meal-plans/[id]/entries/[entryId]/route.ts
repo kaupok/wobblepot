@@ -327,39 +327,51 @@ export async function PATCH(
 
       swapMealComponents = meal.components
       updateData.mealId = parsed.data.mealId
-      // Clear cached preparation tips when meal is swapped
-      updateData.preparationTips = null
-      // Reset serving override when meal is swapped
-      updateData.servingOverride = null
-      // Third column describing the meal, same treatment: a rating is a
-      // verdict on *the meal this entry points at*, so it does not survive the
-      // entry being repointed. Left in place it is a 👍 the household gave a
-      // dish they then replaced, now attached to one they have said nothing
-      // about — reachable as complete → rate → revert to `planned` (which the
-      // guard above still allows to swap, nothing having been charged) → swap.
+
+      // Everything below describes *the meal that was on this entry*, so it is
+      // reset only when the entry is actually repointed. `mealId` being
+      // present in the body is not the same as the meal changing:
+      // `/regenerate` filters the planned meal out of its suggestions, but
+      // search and "my recipes" browse go to `/api/meals` unfiltered
+      // (`meal-selector/use-meal-alternatives.ts`), so the dish already on the
+      // entry can be listed and clicked — and `MealSelectorModal.handleSelect`
+      // PATCHes whatever row was selected. Re-selecting what is already
+      // planned changes nothing and must cost nothing; the same distinction
+      // the `servingOverride` block below draws for a resent count.
       //
-      // Cosmetic while nothing reads the column; HON-340 will feed it into
-      // candidate scoring, at which point a rating on the wrong meal stops
-      // being a stale badge and starts steering what the household is offered
-      // (HON-703). Clearing rather than refusing the swap: unlike the
-      // completed-entry guard above there is no pantry accounting to protect,
-      // so a 409 here would only block "we rated it, we changed our minds".
-      //
-      // An explicit `rating` in the same request still wins — it is applied
-      // below, the same precedence `servingOverride` has.
-      //
-      // Only on a real change, the same distinction the `servingOverride`
-      // block below draws for a resent count. `mealId` being *present* is not
-      // the same as the meal *changing*: `/regenerate` filters the planned
-      // meal out of its suggestions, but search and "my recipes" browse go to
-      // `/api/meals` unfiltered (`use-meal-alternatives.ts`), so the dish
-      // already on the entry can be listed and clicked —
-      // `MealSelectorModal.handleSelect` PATCHes whatever row was selected.
-      // That is a no-op write, and throwing the rating away on it would
-      // destroy a verdict about the meal the entry still holds. Unlike the
-      // two resets above, a rating cannot be regenerated: only the household
-      // can say it again.
+      // Unguarded, that no-op write silently reverted a deliberate serving
+      // override to the household size and bought a fresh tips generation —
+      // and, carrying `status: 'completed'` + `deductPantry`, charged the
+      // pantry at the household size for an entry stored at the override,
+      // because `effectiveServings` keys off `'servingOverride' in updateData`
+      // (HON-703).
       if (parsed.data.mealId !== entry.mealId) {
+        // Cached tips describe the previous meal, down to its equipment and
+        // timings (HON-682).
+        updateData.preparationTips = null
+        // The override was chosen for the previous meal; the incoming one
+        // starts at the household's own size (HON-682).
+        updateData.servingOverride = null
+        // Third column describing the meal, same treatment: a rating is a
+        // verdict on *the meal this entry points at*, so it does not survive
+        // the entry being repointed. Left in place it is a 👍 the household
+        // gave a dish they then replaced, now attached to one they have said
+        // nothing about — reachable as complete → rate → revert to `planned`
+        // (which the guard above still allows to swap, nothing having been
+        // charged) → swap.
+        //
+        // Cosmetic while nothing reads the column; HON-340 will feed it into
+        // candidate scoring, at which point a rating on the wrong meal stops
+        // being a stale badge and starts steering what the household is
+        // offered (HON-703). Clearing rather than refusing the swap: unlike
+        // the completed-entry guard above there is no pantry accounting to
+        // protect, so a 409 here would only block "we rated it, we changed our
+        // minds". An explicit `rating` in the same request still wins — it is
+        // applied below, the same precedence `servingOverride` has.
+        //
+        // This is also the one of the three that a mistaken reset cannot undo:
+        // tips regenerate and an override can be re-entered, but only the
+        // household can say again what they thought of the meal.
         updateData.rating = null
       }
     }

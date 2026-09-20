@@ -1831,17 +1831,19 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - rating', () => {
     )
   })
 
-  it('keeps the rating when the PATCH re-sends the meal already on the entry', async () => {
+  it('resets nothing when the PATCH re-sends the meal already on the entry', async () => {
     // Not a swap, however it looks: `/regenerate` filters the planned meal out
     // of its suggestions, but search and "my recipes" browse do not
-    // (`use-meal-alternatives.ts` hits `/api/meals` unfiltered), so the dish
-    // already on the entry can be listed and clicked. Keying the reset on
-    // `mealId` being present rather than on it changing would destroy a
-    // verdict about the meal the entry still holds — and unlike the tips and
-    // the serving override beside it, a rating cannot be regenerated.
+    // (`meal-selector/use-meal-alternatives.ts` hits `/api/meals` unfiltered),
+    // so the dish already on the entry can be listed and clicked. Keying the
+    // resets on `mealId` being present rather than on it changing made that
+    // no-op click destroy a verdict about the meal the entry still holds, drop
+    // a deliberate serving override back to the household size, and buy a
+    // fresh tips generation.
     mockFindFirstEntry.mockResolvedValue({
       id: 'entry-123',
       mealId: 'meal-123',
+      servingOverride: 2,
       plan: {
         household: { members: [{ id: 'member-1' }] },
       },
@@ -1862,10 +1864,46 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - rating', () => {
     // `expect.anything()` does not match `null`, so that form would pass on
     // the very write it is meant to catch.
     expect(mockSwapEntry).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { mealId: 'meal-123', preparationTips: null, servingOverride: null },
-      }),
+      expect.objectContaining({ data: { mealId: 'meal-123' } }),
     )
+  })
+
+  it('charges the stored override when a re-send of the same meal completes', async () => {
+    // The reset's sharpest consequence, and the reason it is not merely
+    // cosmetic: `effectiveServings` prices the deduction off
+    // `'servingOverride' in updateData`, so a re-send that nulled the override
+    // would charge a household of 4 for 4 servings of an entry the user had
+    // set to 2 — and a completed entry's count is then frozen, with nothing to
+    // reconcile it against the pantry (HON-652).
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      servingOverride: 2,
+      pantryDeductedAt: null,
+      plan: {
+        household: {
+          members: [{ id: 'member-1' }, { id: 'member-2' }, { id: 'member-3' }, { id: 'member-4' }],
+        },
+      },
+      meal: {
+        components: [{ ingredientId: 'ing-1', quantityPerServing: 100 }],
+      },
+    } as never)
+
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({
+      id: 'meal-123',
+      components: [{ ingredientId: 'ing-1', quantityPerServing: 100 }],
+    } as never)
+    mockDeductionTransaction(1, 'meal-123', 2)
+
+    const response = await PATCH(
+      createPatchRequest({ mealId: 'meal-123', status: 'completed', deductPantry: true }),
+      { params: createParams() },
+    )
+
+    expect(response.status).toBe(200)
+    // 100 × the stored 2, not × the 4 members a reset would have fallen back to.
+    expect(mockPantryUpdateMany).toHaveBeenCalledWith(decrementOf('ing-1', 200))
   })
 
   it('lets an explicit rating in the same request win over the swap reset', async () => {
