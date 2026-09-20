@@ -306,6 +306,33 @@ describe('POST /api/recipes/parse locale threading (gate retired in HON-506)', (
     expect(mockParseAndMatchRecipe.mock.calls[0]![4]).toBeInstanceOf(AbortSignal)
   })
 
+  it('shortens the AI budget when the text came from a URL import (HON-694)', async () => {
+    // `fetchRecipeFromUrl` is mocked in this file, so the only
+    // `AbortSignal.timeout` call left is the route's own budget.
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout')
+
+    mockGetMembership.mockResolvedValue(membership('en') as never)
+    mockFetchRecipeFromUrl.mockResolvedValue('Fetched recipe: 400g chicken, 200g rice, salt.')
+    successfulParse()
+    await POST(jsonRequest({ text: 'https://example.com/recipe' }))
+    const urlBudget = timeoutSpy.mock.calls.at(-1)![0]
+
+    await POST(jsonRequest({ text: 'Simple English recipe: 400g chicken, 200g rice, salt.' }))
+    const pasteBudget = timeoutSpy.mock.calls.at(-1)![0]
+
+    // A URL import has already spent up to 20s before the model starts —
+    // `checkRobotsAllowed` (5s) then the page fetch (15s) — so its budget must
+    // be the shorter of the two, and must still leave slack under the route's
+    // `maxDuration` of 60s for ingredient matching and the response. A single
+    // constant sized for the paste path would run the worst case past the
+    // ceiling, where the platform kills the function and the 504 never fires.
+    expect(urlBudget).toBeLessThan(pasteBudget)
+    expect(urlBudget + 20_000).toBeLessThanOrEqual(50_000)
+    expect(pasteBudget).toBeLessThanOrEqual(50_000)
+
+    timeoutSpy.mockRestore()
+  })
+
   it('returns 504 when the extraction exceeds its budget', async () => {
     mockGetMembership.mockResolvedValue(membership('en') as never)
     const err = new Error('The operation was aborted due to timeout')

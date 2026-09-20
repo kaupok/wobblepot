@@ -34,26 +34,34 @@ const parseRecipeSchema = z.object({
 })
 
 /**
- * Wall-clock budget for all AI time in this request, in milliseconds.
+ * Wall-clock budget for all AI time in this request, in milliseconds — one
+ * value per input path, because only one of them pays a fetch first.
  *
- * Shared by the initial attempt and every `maxRetries` retry rather than being
- * a per-attempt timeout, which makes it the real bound on retries — a fast
- * failure (429, 5xx) costs well under a second and still retries freely; a
- * slow generation does not.
+ * Each is shared by the initial attempt and every `maxRetries` retry rather
+ * than being a per-attempt timeout, which makes it the real bound on retries —
+ * a fast failure (429, 5xx) costs well under a second and still retries
+ * freely; a slow generation does not. Both signals are created *after* any
+ * fetch, so network time is spent from the ceiling below, never from the model
+ * budget.
  *
  * Sized against the figures recorded on Sonnet 5 during HON-693: preparation
  * tips 15-21s, quantity review 25-32s, both on deliberately hard inputs.
- * Recipe extraction is the quantity-review shape, so 35s rather than the 40s
- * the plan and imagine routes use: this is the one AI route that can spend
- * real time *before* the model call, because a URL import first runs
- * `fetchRecipeFromUrl`, which allows itself up to 15s
- * (`AbortSignal.timeout(15000)`, `recipe-fetch.ts`). 15 + 35 = 50s leaves 10s
- * under `maxDuration` for ingredient matching and the response, which is what
- * keeps the 504 below reachable on the URL path instead of the platform
- * killing the function first. The signal is therefore created *after* the
- * fetch, so a slow fetch shortens nothing but itself.
+ * Recipe extraction is the quantity-review shape, so it wants the full 45s the
+ * tips route uses — and on pasted text it gets it, leaving 15s under
+ * `maxDuration` for ingredient matching and the response.
+ *
+ * A URL import cannot afford that. `fetchRecipeFromUrl` runs two sequential
+ * network calls before returning any text: `checkRobotsAllowed`, up to 5s on a
+ * cache miss (`ROBOTS_FETCH_TIMEOUT_MS`, `src/lib/robots.ts`), and then the
+ * page itself, up to 15s (`AbortSignal.timeout(15000)`, `recipe-fetch.ts`).
+ * Worst case that is 20s gone before the model starts, so the budget drops to
+ * 30s: 20 + 30 = 50s, the same 10s of slack the other two routes keep. A
+ * single 45s constant would put the worst case at 65s — past the ceiling, so
+ * the platform would kill the function and the 504 below would never run,
+ * which is the whole failure this issue exists to close.
  */
-const AI_BUDGET_MS = 35_000
+const AI_BUDGET_MS = 45_000
+const AI_BUDGET_AFTER_URL_FETCH_MS = 30_000
 
 /**
  * Detect if the input starts with a URL and extract it along with optional user context.
@@ -177,8 +185,9 @@ async function handlePOST(request: Request) {
         }),
       { householdId: membership.household.id, locale: parserLocale },
       // Started here, after any URL fetch above, so the budget covers AI time
-      // only.
-      AbortSignal.timeout(AI_BUDGET_MS),
+      // only. `sourceUrl` is set exactly when that fetch ran, so it is also
+      // the test for which budget applies.
+      AbortSignal.timeout(sourceUrl ? AI_BUDGET_AFTER_URL_FETCH_MS : AI_BUDGET_MS),
     )
 
     return NextResponse.json({
@@ -246,7 +255,7 @@ export const POST = withRequestId(handlePOST)
 /**
  * Platform execution ceiling for this route, in seconds.
  *
- * Stated explicitly because `AI_BUDGET_MS` is only meaningful if the platform
+ * Stated explicitly because the AI budgets above are only meaningful if the platform
  * lets the function run that long — otherwise the request is killed first and
  * the friendly 504 above never runs. 60 is the value every Vercel plan allows,
  * so this cannot fail to deploy (HON-693).
