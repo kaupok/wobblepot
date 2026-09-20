@@ -273,6 +273,63 @@ describe('PATCH /api/households/me/members/[id]', () => {
     expect(data.preferences.portionMultiplier).toBe(1.25)
   })
 
+  // A rename or a preferences edit leaves `_count.members` where it was, so the
+  // cached prep tips are still priced correctly and must not be thrown away —
+  // every needless invalidation costs a paid regeneration (HON-684).
+  it('leaves preparation tips alone on a member PATCH', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    mockFindFirst.mockResolvedValue({
+      id: 'member-123',
+      householdId: 'household-123',
+      userId: 'user-123',
+      role: 'owner',
+      household: { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn' },
+    } as never)
+
+    mockFindUnique.mockResolvedValue({
+      id: 'member-manual',
+      householdId: 'household-123',
+      userId: null,
+      name: 'Test Child',
+      role: 'member',
+    } as never)
+
+    mockTransaction.mockImplementation(async (fn) =>
+      (fn as (tx: unknown) => never)({
+        householdMember: {
+          update: vi.fn().mockResolvedValue({}),
+          findUnique: vi.fn().mockResolvedValue({
+            id: 'member-manual',
+            householdId: 'household-123',
+            userId: null,
+            name: 'Renamed',
+            role: 'member',
+            joinedAt: new Date(),
+            user: null,
+            preferences: null,
+          }),
+        },
+        memberPreferences: { upsert: vi.fn().mockResolvedValue({}) },
+        mealPlanEntry: { updateMany: mockEntryUpdateMany },
+      }),
+    )
+
+    const response = await PATCH(
+      new Request('http://localhost', {
+        method: 'PATCH',
+        body: JSON.stringify({ name: 'Renamed' }),
+      }),
+      { params: Promise.resolve({ id: 'member-manual' }) },
+    )
+
+    expect(response.status).toBe(200)
+    expect(mockEntryUpdateMany).not.toHaveBeenCalled()
+  })
+
   it('returns 400 when trying to update name of linked member', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },

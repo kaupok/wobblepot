@@ -42,6 +42,11 @@ import { getStartOfTodayInTimezone } from './dates'
  *   `not: 'completed'` rather than `'planned'`: a `skipped` entry can be
  *   un-skipped later, and it must not come back holding tips priced at the old
  *   member count.
+ *
+ *   A `completed` entry can be reverted the same way, and this clause skips
+ *   it — so the entry PATCH nulls its tips on the way out of `completed`
+ *   instead. Skipping is only sound while the entry stays skipped; the
+ *   invalidation is deferred to the revert rather than dropped.
  * - `preparationTips: { not: null }` — only touch rows that actually hold a
  *   cache, so an untouched plan costs no writes.
  *
