@@ -291,4 +291,26 @@ describe('RecipeImportClient error localization', () => {
       expect.objectContaining({ code: 'parse_timeout', error: SERVER_PROSE }),
     )
   })
+
+  it('renders the translated medium-confidence warning, not the server sentence', async () => {
+    // The success path had the same dead `||` as the error path:
+    // `evaluateRecipeConfidence` always sets a message on the medium tier, so
+    // the translation was never reached.
+    const SERVER_WARNING =
+      "We're not confident this is a complete recipe. The results may be incomplete or inaccurate."
+    respondWith(
+      {
+        success: true,
+        confidenceTier: 'medium',
+        confidenceWarning: SERVER_WARNING,
+        recipe: { name: 'Kanapraad', ingredients: [] },
+      },
+      200,
+    )
+
+    parse('et')
+
+    await screen.findByText(etMessages.recipes.import.warningDefault)
+    expect(screen.queryByText(SERVER_WARNING)).not.toBeInTheDocument()
+  })
 })

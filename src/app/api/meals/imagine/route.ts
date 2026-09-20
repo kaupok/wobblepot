@@ -154,8 +154,18 @@ async function handlePOST(request: Request) {
 
     const parsed = imagineRequestSchema.safeParse(body)
     if (!parsed.success) {
+      // `min(1)` and `max(500)` are different user errors with different copy,
+      // and this is the branch both clients take whenever no photo is attached
+      // — collapsing them would answer a 501-character prompt with "describe
+      // what kind of meal you want", and leave `prompt_too_long` reachable
+      // only by attaching a photo.
+      const tooLong = parsed.error.issues.some(
+        (issue) => issue.code === 'too_big' && issue.path[0] === 'prompt',
+      )
       return NextResponse.json(
-        errorBody('Please enter a description of the meal you want', 'prompt_required'),
+        tooLong
+          ? errorBody('Prompt must be 500 characters or less', 'prompt_too_long')
+          : errorBody('Please enter a description of the meal you want', 'prompt_required'),
         { status: 400 },
       )
     }

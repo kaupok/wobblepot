@@ -288,10 +288,13 @@ export function RecipeImportClient() {
 
       // Handle medium confidence — show warning with options
       if (data.confidenceTier === 'medium') {
-        setWarning({
-          message: data.confidenceWarning || t('warningDefault'),
-          recipe: data.recipe,
-        })
+        // Same reason the error path above ignores `data.error`:
+        // `evaluateRecipeConfidence` always sets a message on the medium tier,
+        // so `data.confidenceWarning ||` never reached the translation and an
+        // Estonian household read the English sentence. There is exactly one
+        // medium-tier message and `warningDefault` already says it in both
+        // catalogs, so nothing specific is lost (HON-700).
+        setWarning({ message: t('warningDefault'), recipe: data.recipe })
         return
       }
 

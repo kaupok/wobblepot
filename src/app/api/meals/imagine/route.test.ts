@@ -245,7 +245,22 @@ describe('POST /api/meals/imagine', () => {
 
     expect(response.status).toBe(400)
     expect(data.error).toContain('description')
-    expect(data.code).toMatch(/^prompt_(required|or_photo_required)$/)
+    expect(data.code).toBe('prompt_required')
+  })
+
+  it('returns prompt_too_long when the JSON prompt exceeds 500 chars', async () => {
+    // The JSON branch is the one both clients take whenever no photo is
+    // attached, and neither textarea caps the length — so this, not the
+    // multipart case below, is how a too-long prompt normally arrives.
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+
+    const response = await POST(jsonRequest({ prompt: 'x'.repeat(501) }))
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toContain('500 characters')
+    expect(data.code).toBe('prompt_too_long')
   })
 
   it('returns 400 when multipart has no prompt and no images', async () => {
@@ -258,7 +273,7 @@ describe('POST /api/meals/imagine', () => {
 
     expect(response.status).toBe(400)
     expect(data.error).toContain('description')
-    expect(data.code).toMatch(/^prompt_(required|or_photo_required)$/)
+    expect(data.code).toBe('prompt_or_photo_required')
   })
 
   it('returns 400 when too many images are attached', async () => {
