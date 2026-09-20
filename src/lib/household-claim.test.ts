@@ -8,7 +8,7 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 import { prisma } from '@/lib/prisma'
-import { runHouseholdClaim, MAX_CLAIM_ATTEMPTS } from './household-claim'
+import { runHouseholdClaim, backoffDelayMs, MAX_CLAIM_ATTEMPTS } from './household-claim'
 
 const mockTransaction = vi.mocked(prisma.$transaction)
 
@@ -17,6 +17,11 @@ const serializationFailure = () =>
     code: 'P2034',
     clientVersion: 'test',
   })
+
+/** Distinct fractions, cycled, so each wait in a round draws a different one. */
+const JITTER_DRAWS = [0.25, 0.75, 0.5, 0.125]
+
+const jitterDraw = (index: number): number => JITTER_DRAWS[index % JITTER_DRAWS.length]!
 
 describe('runHouseholdClaim', () => {
   beforeEach(() => {
@@ -102,22 +107,49 @@ describe('runHouseholdClaim', () => {
     const claim = vi.fn()
     const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout')
     // Distinct draws, so a delay computed from a shared constant rather than
-    // from Math.random would show up as two identical arguments.
-    vi.spyOn(Math, 'random').mockReturnValueOnce(0.25).mockReturnValueOnce(0.75)
+    // from Math.random would show up as identical arguments. Cycled rather
+    // than `mockReturnValueOnce` twice, so raising MAX_CLAIM_ATTEMPTS does not
+    // fall off the end of the mock and fail a test that has nothing to say
+    // about the budget.
+    let draw = 0
+    vi.spyOn(Math, 'random').mockImplementation(() => jitterDraw(draw++))
     mockTransaction.mockRejectedValue(serializationFailure())
 
     const assertion = expect(runHouseholdClaim(claim)).rejects.toMatchObject({ code: 'P2034' })
     await vi.runAllTimersAsync()
     await assertion
 
-    // Full jitter over [0, 50) then [0, 100): the window doubles, and the draw
-    // is uniform over the whole of it rather than added to a fixed floor —
-    // two claims that lost to each other must not retry in lockstep.
+    // Full jitter over [0, 50), then [0, 100), …: the window doubles up to the
+    // 400 ms ceiling, and the draw is uniform over the whole of it rather than
+    // added to a fixed floor — two claims that lost to each other must not
+    // retry in lockstep. The windows are restated here from literals rather
+    // than imported, so a change to either constant has to be made twice.
     const delays = setTimeoutSpy.mock.calls.map(([, ms]) => ms)
-    expect(delays).toEqual([0.25 * 50, 0.75 * 100])
+    expect(delays).toEqual(
+      Array.from(
+        { length: MAX_CLAIM_ATTEMPTS - 1 },
+        (_, i) => jitterDraw(i) * Math.min(50 * 2 ** i, 400),
+      ),
+    )
     // MAX_CLAIM_ATTEMPTS attempts means one fewer wait — no sleep after the
     // last failure, which would only delay the 500.
     expect(delays).toHaveLength(MAX_CLAIM_ATTEMPTS - 1)
+  })
+
+  it('caps the jitter window, not the base delay', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5)
+
+    // Unreachable through runHouseholdClaim at MAX_CLAIM_ATTEMPTS = 3, which is
+    // exactly why it is asserted here: the 50 ms and 100 ms windows both sit
+    // under the ceiling, so no end-to-end test can distinguish a capped window
+    // from `Math.min(RETRY_BASE_DELAY_MS, MAX_RETRY_DELAY_MS) * 2 ** (attempt - 1)`,
+    // which caps the base and leaves the growth unbounded. At attempt 6 the
+    // uncapped window would be 50 × 2**5 = 1600 ms.
+    expect(backoffDelayMs(6)).toBe(0.5 * 400)
+
+    // And it must not bind early: today's two waits are unaffected by it.
+    expect(backoffDelayMs(1)).toBe(0.5 * 50)
+    expect(backoffDelayMs(2)).toBe(0.5 * 100)
   })
 
   it('does not retry an error the claim threw deliberately', async () => {

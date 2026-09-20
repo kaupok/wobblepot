@@ -89,8 +89,14 @@ const MAX_RETRY_DELAY_MS = 400
  * The sleep happens between `$transaction` calls, never inside one, so it does
  * not eat into any attempt's 5 s timeout: the budget is spent waiting for the
  * conflict to clear rather than burning inside a single contention window.
+ *
+ * Exported only so the tests can assert the ceiling directly. At
+ * {@link MAX_CLAIM_ATTEMPTS} = 3 the windows are 50 ms and 100 ms, so
+ * `Math.min` never picks {@link MAX_RETRY_DELAY_MS} — driving it through
+ * `runHouseholdClaim` alone cannot tell a capped *window* from a capped
+ * *base*, and the second silently leaves growth unbounded.
  */
-function backoffDelayMs(attempt: number): number {
+export function backoffDelayMs(attempt: number): number {
   return Math.random() * Math.min(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1), MAX_RETRY_DELAY_MS)
 }
 
