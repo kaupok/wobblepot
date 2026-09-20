@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Prisma } from '@/generated/prisma/client'
 
 vi.mock('@/lib/prisma', () => ({
@@ -21,6 +21,17 @@ const serializationFailure = () =>
 describe('runHouseholdClaim', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    // Fake timers throughout: the retry path now waits between attempts, and a
+    // suite that slept for real would pay that wait on every retry test.
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    // Restore spies before the timers: a `setTimeout` spy was installed on the
+    // *fake* global, so restoring it after `useRealTimers` would put the fake
+    // back and leak it into the next file.
+    vi.restoreAllMocks()
+    vi.useRealTimers()
   })
 
   it('runs the claim at Serializable isolation', async () => {
@@ -46,7 +57,10 @@ describe('runHouseholdClaim', () => {
       .mockRejectedValueOnce(serializationFailure())
       .mockResolvedValueOnce('claimed on retry' as never)
 
-    await expect(runHouseholdClaim(claim)).resolves.toBe('claimed on retry')
+    const result = runHouseholdClaim(claim)
+    await vi.runAllTimersAsync()
+
+    await expect(result).resolves.toBe('claimed on retry')
     expect(mockTransaction).toHaveBeenCalledTimes(2)
   })
 
@@ -54,8 +68,56 @@ describe('runHouseholdClaim', () => {
     const claim = vi.fn()
     mockTransaction.mockRejectedValue(serializationFailure())
 
-    await expect(runHouseholdClaim(claim)).rejects.toMatchObject({ code: 'P2034' })
+    const assertion = expect(runHouseholdClaim(claim)).rejects.toMatchObject({ code: 'P2034' })
+    await vi.runAllTimersAsync()
+
+    await assertion
     expect(mockTransaction).toHaveBeenCalledTimes(MAX_CLAIM_ATTEMPTS)
+  })
+
+  it('waits before retrying instead of re-entering the same contention window', async () => {
+    const claim = vi.fn()
+    // 0.5 of the [0, 50) ms window for the first wait.
+    vi.spyOn(Math, 'random').mockReturnValue(0.5)
+    mockTransaction
+      .mockRejectedValueOnce(serializationFailure())
+      .mockResolvedValueOnce('claimed on retry' as never)
+
+    const result = runHouseholdClaim(claim)
+
+    // Flush the first attempt's rejection without advancing the clock: the
+    // retry must still be pending on the timer, not already in flight.
+    await vi.advanceTimersByTimeAsync(0)
+    expect(mockTransaction).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(24)
+    expect(mockTransaction).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(mockTransaction).toHaveBeenCalledTimes(2)
+    await expect(result).resolves.toBe('claimed on retry')
+  })
+
+  it('jitters each wait over a window that grows per attempt', async () => {
+    const claim = vi.fn()
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout')
+    // Distinct draws, so a delay computed from a shared constant rather than
+    // from Math.random would show up as two identical arguments.
+    vi.spyOn(Math, 'random').mockReturnValueOnce(0.25).mockReturnValueOnce(0.75)
+    mockTransaction.mockRejectedValue(serializationFailure())
+
+    const assertion = expect(runHouseholdClaim(claim)).rejects.toMatchObject({ code: 'P2034' })
+    await vi.runAllTimersAsync()
+    await assertion
+
+    // Full jitter over [0, 50) then [0, 100): the window doubles, and the draw
+    // is uniform over the whole of it rather than added to a fixed floor —
+    // two claims that lost to each other must not retry in lockstep.
+    const delays = setTimeoutSpy.mock.calls.map(([, ms]) => ms)
+    expect(delays).toEqual([0.25 * 50, 0.75 * 100])
+    // MAX_CLAIM_ATTEMPTS attempts means one fewer wait — no sleep after the
+    // last failure, which would only delay the 500.
+    expect(delays).toHaveLength(MAX_CLAIM_ATTEMPTS - 1)
   })
 
   it('does not retry an error the claim threw deliberately', async () => {

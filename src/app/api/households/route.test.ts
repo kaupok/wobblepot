@@ -231,6 +231,79 @@ describe('POST /api/households', () => {
     expect(data.details.name).toBeDefined()
   })
 
+  it('returns 400 without opening a transaction when members exceeds the bound', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    // One past MAX_ADDITIONAL_MEMBERS in the route. Each member costs two
+    // writes inside the claim transaction, re-run once per retry, so the
+    // rejection has to happen before the transaction opens — not inside it.
+    const request = new Request('http://localhost/api/households', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'My Household',
+        members: Array.from({ length: 21 }, (_, i) => ({ name: `Member ${i}` })),
+      }),
+    })
+
+    const response = await POST(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Validation failed')
+    expect(data.details.members).toBeDefined()
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
+  it('accepts a members array exactly at the bound', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    mockTransaction.mockImplementation(async (callback) => {
+      const mockTx = {
+        household: {
+          create: vi.fn().mockResolvedValue({ id: 'household-123' }),
+          findUnique: vi.fn().mockResolvedValue({
+            id: 'household-123',
+            name: 'My Household',
+            timezone: 'Europe/Tallinn',
+            createdAt: new Date('2024-01-01'),
+            preferences: { id: 'prefs-123' },
+          }),
+        },
+        householdMember: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockResolvedValue({ id: 'member-123' }),
+        },
+        householdPreferences: {
+          create: vi.fn().mockResolvedValue({ id: 'prefs-123' }),
+        },
+        memberPreferences: {
+          create: vi.fn().mockResolvedValue({ id: 'member-prefs-123' }),
+        },
+      }
+      return callback(mockTx as never)
+    })
+
+    const request = new Request('http://localhost/api/households', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'My Household',
+        members: Array.from({ length: 20 }, (_, i) => ({ name: `Member ${i}` })),
+      }),
+    })
+
+    const response = await POST(request)
+
+    // The bound is inclusive: a payload at exactly the limit is legitimate and
+    // must not be rejected off by one.
+    expect(response.status).toBe(201)
+  })
+
   it('creates household with owner role and returns 201', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
