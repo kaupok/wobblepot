@@ -493,12 +493,15 @@ describe('PATCH /api/households/me/meals/[id]', () => {
   // nothing and still answered 200 with the unchanged list. The divisor for
   // `quantityPerServing` is now the meal's stored `servings`.
   describe('components sent without servings', () => {
-    // 600g of chicken over the stored 4 servings is the 150 per-serving on
-    // disk, so a payload of 800 scaled by the same 4 lands on 200.
+    // 750g of chicken over the stored 5 servings is the 150 per-serving on
+    // disk, so a payload of 800 scaled by the same 5 lands on 160. The 5 is
+    // deliberately not `Meal.servings`'s `@default(4)` — with 4 here, a
+    // hardcoded `servings ?? 4` that never reads the stored meal would pass
+    // every assertion below, including the one this describe exists for.
     const storedMeal = {
       ...mockMealResult,
       deletedAt: null,
-      servings: 4,
+      servings: 5,
       preparationNotes: 'Sear the chicken first',
       sourceUrl: null,
       components: [{ ingredientId: 'ing-1', quantityPerServing: 150 }],
@@ -527,7 +530,7 @@ describe('PATCH /api/households/me/meals/[id]', () => {
           {
             mealId: 'meal-1',
             ingredientId: 'ing-1',
-            quantityPerServing: 200,
+            quantityPerServing: 160,
             isVague: false,
             originalPhrase: null,
           },
@@ -565,7 +568,7 @@ describe('PATCH /api/households/me/meals/[id]', () => {
 
       expect(response.status).toBe(200)
       expect(deriveProteinType).toHaveBeenCalledWith([
-        { quantityPerServing: 200, ingredient: { id: 'ing-2', proteinType: 'plant', protein: 8 } },
+        { quantityPerServing: 160, ingredient: { id: 'ing-2', proteinType: 'plant', protein: 8 } },
       ])
       expect(mealUpdate).toHaveBeenCalledWith({
         where: { id: 'meal-1' },
