@@ -761,8 +761,7 @@ export function createReviewMealData(overrides: Partial<ReviewMealData> = {}): R
 
 /**
  * Miso-glazed salmon scenario, shaped as `AlternativeMeal` — includes the
- * `reason`, `primaryProteinType`, `description` fields that `AlternativeCard`
- * renders.
+ * `primaryProteinType` and `description` fields that `AlternativeCard` renders.
  */
 export const misoSalmonAlternative: AlternativeMeal = {
   id: 'alt-1',
@@ -772,7 +771,6 @@ export const misoSalmonAlternative: AlternativeMeal = {
   kidFriendly: true,
   primaryProteinType: 'fish',
   suitableFor: [MealType.dinner],
-  reason: 'Balances your week’s protein mix — you’ve had poultry three times already.',
   components: [
     createMealComponent({ ingredientId: 'salmon-fillet', quantityPerServing: 150 }),
     createMealComponent({ ingredientId: 'short-grain-rice', quantityPerServing: 75 }),

@@ -36,7 +36,6 @@ function toAlternativeMeal(meal: LibraryMeal): AlternativeMeal {
     kidFriendly: meal.kidFriendly,
     primaryProteinType: meal.primaryProteinType,
     suitableFor: meal.suitableFor,
-    reason: '',
     components: meal.components,
     nutrition: meal.nutrition,
   }

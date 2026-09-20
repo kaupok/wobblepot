@@ -12,6 +12,7 @@ import { computeRequiredSlots } from '@/lib/meal-planning/slots'
 import { getWeekDates, toDateString, getMondayOfWeek } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
+import { SLOT_FIT_WEIGHTS, scoreCandidate, scoreJitter } from '@/lib/meal-planning/candidate-score'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import {
   ingredientTranslationsInclude,
@@ -22,67 +23,8 @@ import {
 import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
-import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
+import type { Allergen, MealType } from '@/generated/prisma/enums'
 import type { AlternativeMeal } from '@/components/meal-plan/types'
-
-/**
- * Score a candidate for personalization and variety.
- * Higher score = better match.
- */
-function scoreCandidate(
-  candidate: {
-    isFavorite: boolean
-    isCustom: boolean
-    kidFriendly: boolean
-    topIngredients: { name: string }[]
-  },
-  pantryIngredientNames?: Set<string>,
-): number {
-  let score = 0
-  if (candidate.isFavorite) score += 3 // Explicit preference signal
-  if (candidate.isCustom) score += 2 // Household created/imported
-  // Kid-friendly gives slight boost for family households
-  if (candidate.kidFriendly) score += 1
-  // Pantry-aware: boost meals using ingredients already in stock
-  if (pantryIngredientNames && pantryIngredientNames.size > 0) {
-    const matchCount = candidate.topIngredients.filter((i) =>
-      pantryIngredientNames.has(i.name),
-    ).length
-    score += matchCount * 0.5
-  }
-  return score
-}
-
-/**
- * Generate a reason string for why this meal is suggested.
- * Prioritizes personalization reasons (favorite, household meal).
- */
-function generateReason(meal: {
-  isFavorite: boolean
-  isCustom: boolean
-  kidFriendly: boolean
-  primaryProteinType: ProteinType
-  topIngredients: { name: string }[]
-}): string {
-  // Personalization reasons take priority
-  if (meal.isFavorite) {
-    return 'One of your favorites'
-  }
-  if (meal.isCustom) {
-    return 'From your recipes'
-  }
-  if (meal.kidFriendly) {
-    return 'Kid-friendly option'
-  }
-
-  // Fall back to protein type
-  const proteinLabel = meal.primaryProteinType !== 'none' ? meal.primaryProteinType : null
-  if (proteinLabel) {
-    return `${proteinLabel.charAt(0).toUpperCase() + proteinLabel.slice(1)}-based`
-  }
-
-  return 'Matches your preferences'
-}
 
 /**
  * POST /api/meal-plans/[id]/entries/[entryId]/suggestions
@@ -230,11 +172,14 @@ async function handlePOST(
       )
     }
 
-    // Score and sort candidates by personalization priority and pantry overlap
-    // Add small random factor (0-0.5) for variety among equal-scored items
+    // Score and sort candidates by personalization priority and pantry overlap.
+    // The jitter is a seeded tie-break, so the same slot ranks reproducibly while
+    // different slots still vary — see candidate-score.ts.
     const scored = candidates.map((c) => ({
       candidate: c,
-      score: scoreCandidate(c, pantryIngredientNames) + Math.random() * 0.5,
+      score:
+        scoreCandidate(c, SLOT_FIT_WEIGHTS, { pantryIngredientNames }) +
+        scoreJitter({ entryId, dateString: entryDateString, candidateId: c.id }),
     }))
     scored.sort((a, b) => b.score - a.score)
 
@@ -272,7 +217,6 @@ async function handlePOST(
         kidFriendly: candidate.kidFriendly,
         primaryProteinType: candidate.primaryProteinType,
         suitableFor: mealDetail?.suitableFor as MealType[] | undefined,
-        reason: generateReason(candidate),
         components: components.map((comp) => {
           const translatedIngredient = translateIngredient(comp.ingredient, household.locale)
           return {

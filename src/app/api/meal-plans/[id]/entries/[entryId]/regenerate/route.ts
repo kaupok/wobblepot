@@ -12,6 +12,11 @@ import { computeRequiredSlots } from '@/lib/meal-planning/slots'
 import { getWeekDates, toDateString, getMondayOfWeek } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
+import {
+  SIMILARITY_WEIGHTS,
+  scoreCandidate,
+  scoreJitter,
+} from '@/lib/meal-planning/candidate-score'
 import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
@@ -35,95 +40,6 @@ interface ScoredCandidate {
     isCustom: boolean
   }
   score: number
-  timeMinutes: number | null
-  reasons: string[]
-}
-
-/**
- * Score a candidate for similarity and personalization.
- * Returns score and reasons for the suggestion.
- */
-function scoreCandidate(
-  candidate: {
-    kidFriendly: boolean
-    primaryProteinType: ProteinType
-    topIngredients: { name: string }[]
-    isFavorite: boolean
-    isCustom: boolean
-  },
-  timeMinutes: number | null,
-  currentProteinType: ProteinType | null,
-  currentTimeMinutes: number | null,
-  pantryIngredientNames?: Set<string>,
-): { score: number; reasons: string[] } {
-  let score = 0
-  const reasons: string[] = []
-
-  // Similarity scoring (for swaps, similarity to current meal matters)
-  if (currentProteinType && candidate.primaryProteinType === currentProteinType) {
-    score += 3
-    reasons.push('Same protein type')
-  }
-  if (currentTimeMinutes && timeMinutes) {
-    const timeDiff = Math.abs(timeMinutes - currentTimeMinutes)
-    if (timeDiff <= 15) {
-      score += 2
-      reasons.push('Similar prep time')
-    }
-  }
-
-  // Personalization scoring
-  if (candidate.isFavorite) {
-    score += 2
-    reasons.push('One of your favorites')
-  }
-  if (candidate.isCustom) {
-    score += 1
-    reasons.push('From your recipes')
-  }
-
-  // Kid-friendly is a minor boost
-  if (candidate.kidFriendly) {
-    score += 0.5
-  }
-
-  // Pantry-aware scoring: boost meals using ingredients already in stock
-  if (pantryIngredientNames && pantryIngredientNames.size > 0) {
-    const matchCount = candidate.topIngredients.filter((i) =>
-      pantryIngredientNames.has(i.name),
-    ).length
-    if (matchCount > 0) {
-      score += matchCount * 0.5
-      reasons.push('Uses ingredients you have')
-    }
-  }
-
-  return { score, reasons }
-}
-
-/**
- * Generate a reason string from scored reasons.
- */
-function generateReason(
-  reasons: string[],
-  candidate: { kidFriendly: boolean; primaryProteinType: ProteinType },
-): string {
-  // Use the most relevant reason from scoring
-  if (reasons.length > 0) {
-    return reasons[0]!
-  }
-
-  // Fallback reasons
-  if (candidate.kidFriendly) {
-    return 'Kid-friendly option'
-  }
-
-  const proteinLabel = candidate.primaryProteinType !== 'none' ? candidate.primaryProteinType : null
-  if (proteinLabel) {
-    return `${proteinLabel.charAt(0).toUpperCase() + proteinLabel.slice(1)}-based`
-  }
-
-  return 'Matches your preferences'
 }
 
 async function handlePOST(
@@ -273,22 +189,21 @@ async function handlePOST(
     })
     const timeMap = new Map(candidateMealDetails.map((m) => [m.id, m.timeMinutes]))
 
-    // Score candidates by similarity, personalization, and pantry overlap
+    // Score candidates by similarity, personalization, and pantry overlap.
+    // The jitter is a seeded tie-break, so the same entry ranks reproducibly while
+    // different entries still vary — see candidate-score.ts.
     const scored: ScoredCandidate[] = filteredCandidates.map((candidate) => {
       const timeMinutes = timeMap.get(candidate.id) ?? null
-      const { score, reasons } = scoreCandidate(
-        candidate,
+      const score = scoreCandidate(candidate, SIMILARITY_WEIGHTS, {
         timeMinutes,
         currentProteinType,
-        currentMealTime,
+        currentTimeMinutes: currentMealTime,
         pantryIngredientNames,
-      )
-      // Add small random factor (0-0.5) for variety among equal-scored items
+      })
       return {
         candidate,
-        score: score + Math.random() * 0.5,
-        timeMinutes,
-        reasons,
+        score:
+          score + scoreJitter({ entryId, dateString: entryDateString, candidateId: candidate.id }),
       }
     })
 
@@ -315,7 +230,7 @@ async function handlePOST(
 
     // Build response
     const alternatives: AlternativeMeal[] = selected.map((scoredItem) => {
-      const { candidate, reasons } = scoredItem
+      const { candidate } = scoredItem
       const mealDetail = mealDetailsMap.get(candidate.id)
       const translatedMeal = mealDetail ? translateMeal(mealDetail, household.locale) : null
       const components = mealDetail?.components ?? []
@@ -328,7 +243,6 @@ async function handlePOST(
         kidFriendly: candidate.kidFriendly,
         primaryProteinType: candidate.primaryProteinType,
         suitableFor: mealDetail?.suitableFor as MealType[] | undefined,
-        reason: generateReason(reasons, candidate),
         components: components.map((comp) => {
           const translatedIngredient = translateIngredient(comp.ingredient, household.locale)
           return {

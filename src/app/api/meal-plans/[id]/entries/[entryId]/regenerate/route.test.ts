@@ -266,7 +266,6 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/regenerate', () => {
     const alt = data.alternatives[0]
     expect(alt.id).toBeDefined()
     expect(alt.name).toBeDefined()
-    expect(alt.reason).toBeDefined()
     expect(alt.nutrition).toBeDefined()
   })
 

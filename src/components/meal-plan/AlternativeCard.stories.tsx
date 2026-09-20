@@ -44,7 +44,6 @@ export const NotKidFriendly: Story = {
       description: 'Bold, spiced lamb with bright pomegranate seeds and yogurt.',
       kidFriendly: false,
       primaryProteinType: 'lamb',
-      reason: 'Something different — you rated this well last month.',
     },
   },
 }
@@ -56,7 +55,6 @@ export const Vegetarian: Story = {
       name: 'Chickpea and spinach curry',
       description: 'Weeknight one-pot curry with tomato, chickpeas and basmati.',
       primaryProteinType: 'legume',
-      reason: 'Meatless Monday — aligns with your vegetarian preference.',
     },
   },
 }
