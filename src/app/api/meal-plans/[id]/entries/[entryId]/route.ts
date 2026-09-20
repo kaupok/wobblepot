@@ -347,7 +347,21 @@ export async function PATCH(
       //
       // An explicit `rating` in the same request still wins — it is applied
       // below, the same precedence `servingOverride` has.
-      updateData.rating = null
+      //
+      // Only on a real change, the same distinction the `servingOverride`
+      // block below draws for a resent count. `mealId` being *present* is not
+      // the same as the meal *changing*: `/regenerate` filters the planned
+      // meal out of its suggestions, but search and "my recipes" browse go to
+      // `/api/meals` unfiltered (`use-meal-alternatives.ts`), so the dish
+      // already on the entry can be listed and clicked —
+      // `MealSelectorModal.handleSelect` PATCHes whatever row was selected.
+      // That is a no-op write, and throwing the rating away on it would
+      // destroy a verdict about the meal the entry still holds. Unlike the
+      // two resets above, a rating cannot be regenerated: only the household
+      // can say it again.
+      if (parsed.data.mealId !== entry.mealId) {
+        updateData.rating = null
+      }
     }
 
     // Handle note updates (including explicit null to clear)

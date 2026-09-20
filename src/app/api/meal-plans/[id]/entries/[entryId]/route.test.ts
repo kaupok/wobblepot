@@ -1800,7 +1800,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - rating', () => {
     )
   })
 
-  it('keeps the rating when the PATCH does not change the meal', async () => {
+  it('keeps the rating when the PATCH carries no mealId at all', async () => {
     // The other direction: only a swap discards a rating. A note-only write
     // must not carry a `rating` key at all, or every unrelated edit would
     // throw the household's verdict away.
@@ -1828,6 +1828,43 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - rating', () => {
     expect(data.rating).toBe('up')
     expect(mockUpdateEntry).toHaveBeenCalledWith(
       expect.objectContaining({ data: { note: 'Leftovers' } }),
+    )
+  })
+
+  it('keeps the rating when the PATCH re-sends the meal already on the entry', async () => {
+    // Not a swap, however it looks: `/regenerate` filters the planned meal out
+    // of its suggestions, but search and "my recipes" browse do not
+    // (`use-meal-alternatives.ts` hits `/api/meals` unfiltered), so the dish
+    // already on the entry can be listed and clicked. Keying the reset on
+    // `mealId` being present rather than on it changing would destroy a
+    // verdict about the meal the entry still holds — and unlike the tips and
+    // the serving override beside it, a rating cannot be regenerated.
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      plan: {
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: { components: [] },
+    } as never)
+
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({ id: 'meal-123' } as never)
+    swapReturns({ id: 'entry-123', status: 'planned', mealId: 'meal-123', rating: 'up' })
+
+    const response = await PATCH(createPatchRequest({ mealId: 'meal-123' }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.rating).toBe('up')
+    // The exact shape, not `not.objectContaining({ rating: anything() })`:
+    // `expect.anything()` does not match `null`, so that form would pass on
+    // the very write it is meant to catch.
+    expect(mockSwapEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { mealId: 'meal-123', preparationTips: null, servingOverride: null },
+      }),
     )
   })
 
