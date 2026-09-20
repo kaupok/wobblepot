@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { Prisma } from '@/generated/prisma/client'
 import { POST } from './route'
 
 // Mock dependencies
@@ -78,6 +79,46 @@ describe('POST /api/households', () => {
     expect(response.status).toBe(400)
     expect(data.error).toBe('already_in_household')
     expect(data.message).toBe('You are already a member of a household.')
+  })
+
+  it('creates the membership at Serializable isolation', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockTransaction.mockImplementation(async (callback) => {
+      const mockTx = {
+        householdMember: { findFirst: vi.fn().mockResolvedValue(null) },
+        household: {
+          create: vi.fn().mockResolvedValue({ id: 'household-1' }),
+          findUnique: vi.fn().mockResolvedValue({ id: 'household-1', name: 'My Household' }),
+        },
+        householdPreferences: { create: vi.fn() },
+      }
+      mockTx.householdMember = {
+        ...mockTx.householdMember,
+        create: vi.fn(),
+      } as never
+      return callback(mockTx as never)
+    })
+
+    const request = new Request('http://localhost/api/households', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'My Household' }),
+    })
+
+    await POST(request)
+
+    // Without Serializable this check is a SELECT matching zero rows, so it
+    // takes no lock: two concurrent creates for the same user insert two
+    // *different* member rows and `@@unique([householdId, userId])` never
+    // fires. A double submit is enough. It also has to hold on *this* side —
+    // PostgreSQL only registers the conflict when the writing transaction is
+    // serializable too, so a read-committed create here would reopen the race
+    // for the invite-join route as well (HON-679).
+    expect(mockTransaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    })
   })
 
   it('returns 400 for invalid JSON', async () => {
