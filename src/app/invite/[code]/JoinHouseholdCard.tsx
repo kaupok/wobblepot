@@ -42,7 +42,18 @@ export function JoinHouseholdCard({
         } else if (data.error === 'invite_invalid') {
           setError(t('errors.inviteInvalid'))
         } else {
-          setError(data.message || t('errors.joinFailed'))
+          // Deliberately not falling back to `data.message` / `data.error`:
+          // both carry untranslated English (`Invite code not found.`,
+          // `Failed to join household`), which would render verbatim inside an
+          // otherwise Estonian screen (HON-697). Every code without an explicit
+          // branch above renders the translated fallback; the server prose is
+          // kept as a console breadcrumb only, and the route still returns the
+          // distinct `error` code so logs and Sentry tell the cases apart.
+          console.error('[invite-join] request failed', {
+            error: data.error,
+            message: data.message,
+          })
+          setError(t('errors.joinFailed'))
         }
         return
       }

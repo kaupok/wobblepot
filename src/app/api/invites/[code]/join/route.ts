@@ -38,9 +38,13 @@ class AlreadyInHouseholdError extends Error {
  * Mapped to the existing `invite_invalid` 400 rather than the `invite_not_found`
  * 404: the code *did* resolve, so "not found" is the wrong diagnosis, and
  * `JoinHouseholdCard` has a translated branch for `invite_invalid` but none for
- * `invite_not_found` — routing here through the 404 would render its English
- * `message` verbatim to an Estonian user. "Expired or reached its maximum uses"
+ * `invite_not_found` — routing here through the 404 would tell the user only
+ * the generic "joining failed" instead. "Expired or reached its maximum uses"
  * is also simply accurate for the loser of a race on a single-use link.
+ *
+ * (Before HON-697 the 404 was worse than generic: the card rendered this
+ * route's English `message` verbatim to an Estonian user. It no longer reads
+ * `message` at all — but the mapping above is right on its own merits.)
  */
 class InviteNoLongerClaimableError extends Error {
   constructor() {

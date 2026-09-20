@@ -148,8 +148,8 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
         // Deliberately not falling back to `data.error`: that field carries a
         // machine code or untranslated English (`Validation failed`,
         // `Failed to create household`), which would render verbatim to an
-        // Estonian user. `JoinHouseholdCard` reads `message` only for the same
-        // reason.
+        // Estonian user. `JoinHouseholdCard` went further for the same reason
+        // and now ignores the server string entirely (HON-697).
         throw new Error(data.message || t('errors.createFailed'))
       }
 
