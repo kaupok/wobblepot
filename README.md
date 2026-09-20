@@ -2,7 +2,7 @@
 
 AI-powered weekly meal planning for families. Wobblepot builds a household's week of meals around what the family likes and what is already in the pantry, then turns the plan into a shopping list with nutrition you can actually read. It is live at [wobblepot.com](https://wobblepot.com).
 
-This is the production codebase, published for transparency and as a working example of an agent-driven engineering process. It is not an open-source project: all rights reserved, and pull requests are not accepted. Reading, learning from, and asking about it are all welcome.
+This is the production codebase, published for transparency and as a working example of an agent-driven engineering process. It is not an open-source project: all rights reserved, and pull requests are not accepted. Reading and learning from it are welcome; questions can go to [support@wobblepot.com](mailto:support@wobblepot.com).
 
 The product brand is Wobblepot. Honkadori OÜ is the legal entity behind it, and "Honkadori" appears only in legal text and internal identifiers such as the package name, the Linear workspace, and vendor accounts.
 

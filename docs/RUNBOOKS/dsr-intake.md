@@ -36,7 +36,7 @@ This is not a customer-service playbook for general feature questions; it is the
   - `src/app/status/page.tsx` — public `/status`
   - `src/app/(legal)/terms/page.tsx` — the Terms contact
   - `LICENSE` (HON-604) — the licensing-questions line in the root notice
-  - `README.md` — the Security section, for vulnerability reports
+  - `README.md` — twice: the intro paragraph, for general questions (HON-603), and the Security section, for vulnerability reports
   - `docs/RUNBOOKS/status-page.md` — canonical incident-banner copy, pasted verbatim into a user-facing banner
   - `docs/RUNBOOKS/breach-notification.md` — the `supportUrl` value for the Art. 34 affected-user email
   - `docs/EMAIL_SETUP.md` — outbound-sender notes
