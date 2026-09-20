@@ -319,6 +319,40 @@ describe('reviewImaginedMeal', () => {
     timeoutSpy.mockRestore()
   })
 
+  it("reports a platform timeout, whose body is not the route's JSON (HON-699)", async () => {
+    // Vercel kills the handler at `maxDuration` and serves its own error page,
+    // so `captureApiError` never runs — this is the only side that sees it, and
+    // it is the exact overrun the 65s client wait exists to observe.
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response('<!DOCTYPE html>FUNCTION_INVOCATION_TIMEOUT', { status: 504 }),
+      )
+
+    const meal = reviewableMeal()
+    const result = await reviewImaginedMeal(meal)
+
+    expect(result).toEqual(meal)
+    expect(mockCaptureClientError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('non-route 504') }),
+      {
+        route: '/api/meals/imagine/review',
+        $exception_source: 'imagine.review',
+        statusCode: 504,
+      },
+    )
+  })
+
+  it('does not treat a JSON array body as the route answering', async () => {
+    // The discriminator is a parse, not a `startsWith('{')` sniff — but a bare
+    // array is still JSON, so it must not be reported as a platform failure.
+    global.fetch = vi.fn().mockResolvedValue(new Response('[]', { status: 502 }))
+
+    await reviewImaginedMeal(reviewableMeal())
+
+    expect(mockCaptureClientError).not.toHaveBeenCalled()
+  })
+
   it('degrades without reporting when the route answers 504', async () => {
     global.fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ error: 'Reviewing the quantities took too long.' }), {
@@ -330,8 +364,9 @@ describe('reviewImaginedMeal', () => {
     const result = await reviewImaginedMeal(meal)
 
     expect(result).toEqual(meal)
-    // The route already captured this one server-side with the user and
-    // household attached; reporting it again here would double-count it.
+    // A JSON body means the route itself answered, and it already captured this
+    // server-side with the user and household attached; reporting it again here
+    // would double-count it.
     expect(mockCaptureClientError).not.toHaveBeenCalled()
   })
 

@@ -155,6 +155,34 @@ export function convertToPrefilledData(meal: ImaginedMealResponse): {
 const REVIEW_TIMEOUT_MS = 65000
 
 /**
+ * Did this body come from the route handler rather than from something upstream
+ * of it? Every response the route writes is `NextResponse.json`, so a parse is
+ * the discriminator — not a `startsWith('{')` sniff, which an HTML error page
+ * could satisfy and a JSON array could fail.
+ */
+function isRouteJsonBody(body: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(body)
+    return typeof parsed === 'object' && parsed !== null
+  } catch {
+    return false
+  }
+}
+
+/**
+ * `$exception_source` tags it the way `app/error.tsx` does, so a degraded review
+ * is separable in PostHog from a route-level error boundary. These captures are
+ * the *only* trace of the failure, since the user is shown none.
+ */
+function report(error: unknown, extra: Record<string, unknown> = {}): Promise<void> {
+  return captureClientError(error, {
+    route: '/api/meals/imagine/review',
+    $exception_source: 'imagine.review',
+    ...extra,
+  })
+}
+
+/**
  * Ask `/api/meals/imagine/review` to sanity-check an imagined meal's
  * per-serving quantities, and fold any corrections back into the meal.
  *
@@ -164,10 +192,20 @@ const REVIEW_TIMEOUT_MS = 65000
  * *is* reported, so a mis-sized server budget is visible to us without being
  * visible to them.
  *
- * Only the `catch` reports. A non-ok response was already captured server-side
- * by `captureApiError` with the route, user and household attached; reporting
- * it again here would double-count it. What reaches no server reporter is an
- * abort or a network failure, which is exactly what lands in the `catch`.
+ * Which failures get reported is deliberate, because the two sides do not cover
+ * the same ground. The route's `captureApiError` call sits inside the one
+ * try/catch around `reviewMealQuantities`, so it covers a thrown AI error and
+ * nothing else: its 401/404/429/400 answers skip it (they are client-caused and
+ * not worth an exception), and — the case that matters — the platform's own
+ * `maxDuration` kill never reaches the handler at all, so nothing server-side
+ * runs. That kill is reachable precisely because `AI_BUDGET_MS` bounds only the
+ * AI call while the session, membership, cap and usage work sit outside it, and
+ * it is the exact overrun the 65s wait above exists to observe.
+ *
+ * So: a non-ok answer *from the route* is left to the server's own capture, and
+ * anything else — a body that is not the route's JSON, an abort, a network
+ * failure — is reported here. Otherwise the "budget is mis-sized" signal this
+ * whole change exists to surface would be invisible on both sides.
  *
  * Shared by `ImagineClient` (the `/recipes/imagine` page) and `ImaginePanel`
  * (the meal-plan selector), which ran byte-identical copies of this before.
@@ -192,7 +230,19 @@ export async function reviewImaginedMeal(
       signal: AbortSignal.timeout(REVIEW_TIMEOUT_MS),
     })
 
-    if (!response.ok) return meal
+    if (!response.ok) {
+      // A JSON body means the route answered and already captured it server-side
+      // with the user and household attached. A non-JSON body means something
+      // upstream of the handler did — Vercel's `FUNCTION_INVOCATION_TIMEOUT`
+      // page, a proxy 502 — and nothing server-side saw it.
+      const body = await response.text()
+      if (!isRouteJsonBody(body)) {
+        void report(new Error(`Review failed with a non-route ${response.status} response`), {
+          statusCode: response.status,
+        })
+      }
+      return meal
+    }
 
     const data = (await response.json()) as {
       success?: boolean
@@ -217,13 +267,7 @@ export async function reviewImaginedMeal(
       }),
     }
   } catch (error) {
-    // `$exception_source` tags it the way `app/error.tsx` does, so a degraded
-    // review is separable in PostHog from a route-level error boundary — this
-    // capture is the *only* trace of the failure, since the user sees none.
-    void captureClientError(error, {
-      route: '/api/meals/imagine/review',
-      $exception_source: 'imagine.review',
-    })
+    void report(error)
     return meal
   }
 }
