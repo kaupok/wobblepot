@@ -362,6 +362,10 @@ export function respondCapExceeded(error: AiCostCapExceededError): NextResponse 
   return NextResponse.json(
     {
       error: 'AI usage cap exceeded',
+      // Machine-readable, so the AI clients can render a translated string
+      // instead of the English `message` below (HON-700). Callers that still
+      // read `message` are unaffected — this is purely additive.
+      code: 'ai_cap_exceeded',
       message: `You've hit this month's AI usage cap. It resets on ${localDate}.`,
       resetAt: error.resetAt.toISOString(),
     },

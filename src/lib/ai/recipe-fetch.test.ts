@@ -459,6 +459,11 @@ describe('fetchRecipeFromUrl', () => {
     await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(
       ROBOTS_DISALLOWED_MESSAGE,
     )
+    // The code, not the message, is what makes `/api/recipes/parse` answer 403
+    // and what picks the Estonian copy (HON-700).
+    await expect(fetchRecipeFromUrl('https://example.com/recipe')).rejects.toMatchObject({
+      code: 'robots_disallowed',
+    })
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 

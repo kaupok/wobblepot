@@ -64,8 +64,15 @@ const imagineSuccess = [
 const imagineFailure = [
   http.post('/api/meals/imagine', () =>
     HttpResponse.json(
-      { success: false, error: 'The kitchen is busy — try again' },
-      { status: 500 },
+      // `error` is the route's English prose for logs; `code` is what the
+      // client translates. The story asserts the translated string below, so
+      // a regression that renders `error` again fails here (HON-700).
+      {
+        success: false,
+        error: 'The kitchen is busy — try again',
+        code: 'imagine_timeout',
+      },
+      { status: 504 },
     ),
   ),
 ]
@@ -268,14 +275,21 @@ export const SavingOneKeepsTheStash: Story = {
 export const RequestFailed: Story = {
   parameters: {
     msw: { handlers: imagineFailure },
-    docs: { description: { story: 'The endpoint returns a 500 — the error text is surfaced.' } },
+    docs: {
+      description: {
+        story:
+          'The endpoint returns a coded 504 — the client renders its own translated copy, never the server prose.',
+      },
+    },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.type(canvas.getByRole('textbox'), 'something with lentils')
     await userEvent.click(canvas.getByRole('button', { name: /imagine meals/i }))
 
-    await canvas.findByText('The kitchen is busy — try again')
+    await canvas.findByText('Generating meal ideas took too long. Please try again.')
+    // The server's prose must not reach the screen.
+    expect(canvas.queryByText('The kitchen is busy — try again')).not.toBeInTheDocument()
     // A failed run must not leave a stash behind for the next mount to restore.
     await waitFor(() => expect(sessionStorage.getItem(STORAGE_KEY)).toBeNull())
   },

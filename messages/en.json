@@ -364,7 +364,15 @@
         "wrongImageType": "Images must be JPEG, PNG, or WebP",
         "imageTooLarge": "Each image must be 5 MB or less",
         "imagineFailed": "Failed to generate meal ideas. Please try again.",
-        "generic": "Failed to generate meal ideas"
+        "generic": "Failed to generate meal ideas",
+        "unauthorized": "Please sign in to imagine meals.",
+        "noHousehold": "You need a household before you can imagine meals.",
+        "rateLimited": "You've reached this hour's limit for imagining meals. Please try again later.",
+        "aiCapExceeded": "This month's AI usage limit is used up. It resets at the start of next month.",
+        "promptTooLong": "Your description can be up to 500 characters.",
+        "promptRequired": "Please describe what kind of meal you want.",
+        "invalidRequest": "Something went wrong with that request. Please try again.",
+        "imagineTimeout": "Generating meal ideas took too long. Please try again."
       }
     },
     "import": {
@@ -387,8 +395,23 @@
       },
       "errors": {
         "empty": "Please paste a recipe or URL first",
-        "parseFailed": "Failed to parse recipe",
-        "parseGeneric": "Failed to parse recipe. Please try again."
+        "parseGeneric": "Failed to parse recipe. Please try again.",
+        "unauthorized": "Please sign in to import recipes.",
+        "noHousehold": "You need a household before you can import recipes.",
+        "rateLimited": "You've reached this hour's limit for recipe imports. Please try again later.",
+        "aiCapExceeded": "This month's AI usage limit is used up. It resets at the start of next month.",
+        "importDisabled": "Recipe import is temporarily turned off. Please try again later.",
+        "invalidRequest": "Something went wrong with that request. Please try again.",
+        "urlNotAllowed": "That address can't be imported. Please paste the recipe text instead.",
+        "robotsDisallowed": "That site doesn't allow importing. Please copy and paste the recipe text instead.",
+        "urlFetchFailed": "We couldn't import from that link. Try copying and pasting the recipe text instead.",
+        "urlNotAPage": "That link doesn't point to a web page. Please paste a link to a recipe page.",
+        "urlContentTooShort": "We couldn't find enough content at that link. Try pasting the recipe text directly.",
+        "textTooShort": "That text is too short to be a recipe. Please paste a complete recipe with its ingredients.",
+        "noRecipeFound": "We couldn't find a recipe in that text. Make sure it has a name and a list of ingredients.",
+        "noIngredientsFound": "We couldn't identify the ingredients. Please paste a recipe with a clear ingredient list.",
+        "lowConfidence": "That doesn't look like a recipe. Try pasting the recipe text directly.",
+        "parseTimeout": "Reading that recipe took too long. Please try again."
       }
     },
     "edit": {

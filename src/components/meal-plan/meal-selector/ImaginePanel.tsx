@@ -11,6 +11,7 @@ import { Body } from '@/components/ui/typography'
 import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
 import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
+import { IMAGINE_ERROR_KEYS, translateErrorCode } from '@/lib/ai/error-codes'
 import {
   convertToPrefilledData,
   reviewImaginedMeal,
@@ -29,7 +30,11 @@ export interface ImaginePanelProps {
   onMealSaved: (mealId: string) => void | Promise<void>
 }
 
-/** Thrown so `useMutation` treats a failed imagine response as an error. */
+/**
+ * Thrown so `useMutation` treats a failed imagine response as an error. Its
+ * `message` is the already-translated string the panel renders — the route's
+ * English prose never reaches it (HON-700).
+ */
 class ImagineRequestError extends Error {}
 
 /**
@@ -42,6 +47,10 @@ class ImagineRequestError extends Error {}
  */
 export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
   const t = useTranslations('meal-plan.selector.imagine')
+  // `/api/meals/imagine` is shared with `/recipes/imagine`, so its error codes
+  // resolve against that screen's catalog rather than duplicating thirteen
+  // strings into this namespace (HON-700).
+  const tRouteErrors = useTranslations('recipes.imagine.errors')
 
   const [prompt, setPrompt] = useState('')
   const [imaginedMeals, setImaginedMeals] = useState<ImaginedMealResponse[] | null>(null)
@@ -100,7 +109,23 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
         const data = await response.json()
 
         if (!response.ok || !data.success) {
-          throw new ImagineRequestError(data.error || data.message || t('imagineFailed'))
+          // Deliberately not falling back to `data.error` / `data.message`:
+          // both carry untranslated English, which would render verbatim to an
+          // Estonian household. The route's machine-readable `code` is what
+          // picks the copy; the prose is kept as a console breadcrumb only.
+          console.error('[imagine] request failed', {
+            code: data.code,
+            // `message` carries the detail on the 429 branches — the hourly
+            // limit, and the household-local date the AI cap resets on.
+            // `error` is a bare label there.
+            message: data.message,
+            error: data.error,
+          })
+          throw new ImagineRequestError(
+            tRouteErrors(translateErrorCode(data.code, IMAGINE_ERROR_KEYS, 'imagineFailed'), {
+              max: MAX_ATTACHED_IMAGES,
+            }),
+          )
         }
 
         return data.meals as ImaginedMealResponse[]

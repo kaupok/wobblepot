@@ -19,6 +19,7 @@ import { deriveProteinType } from '@/lib/meal-planning/protein'
 import { withRequestId } from '@/lib/request-id'
 import type { ExtractedIngredient } from '@/lib/ai/recipe-schema'
 import { MAX_ATTACHED_IMAGES, validateImageAttachments } from '@/lib/image-attachments'
+import type { ImagineErrorCode } from '@/lib/ai/error-codes'
 
 const imagineRequestSchema = z.object({
   prompt: z.string().min(1).max(500),
@@ -43,19 +44,36 @@ const imagineRequestSchema = z.object({
  */
 const AI_BUDGET_MS = 40_000
 
+/**
+ * Failure body for this route: English prose for logs and Sentry breadcrumbs,
+ * plus the machine-readable `code` the clients translate (HON-700). Every
+ * error response *this handler builds* goes through here, so no branch of it
+ * can ship without a code. The one failure it does not build is the shared AI
+ * cost-cap 429, which `respondCapExceeded` (`src/lib/ai/usage.ts`) returns
+ * whole — it carries its own `ai_cap_exceeded` code.
+ *
+ * `success: false` mirrors `/api/recipes/parse` and the `success: true` this
+ * route already sends on the happy path. Both clients test
+ * `!response.ok || !data.success`, so they read it — and the shape the two AI
+ * routes hand those clients should not differ by route.
+ */
+function errorBody(error: string, code: ImagineErrorCode) {
+  return { success: false as const, error, code }
+}
+
 async function handlePOST(request: Request) {
   const session = await auth.api.getSession({
     headers: await headers(),
   })
 
   if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json(errorBody('Unauthorized', 'unauthorized'), { status: 401 })
   }
 
   const membership = await getHouseholdMembership(session.user.id)
 
   if (!membership) {
-    return NextResponse.json({ error: 'No household found' }, { status: 404 })
+    return NextResponse.json(errorBody('No household found', 'no_household'), { status: 404 })
   }
 
   const { household } = membership
@@ -64,7 +82,7 @@ async function handlePOST(request: Request) {
   if (!rateLimitResult.allowed) {
     return NextResponse.json(
       {
-        error: 'Rate limit exceeded',
+        ...errorBody('Rate limit exceeded', 'rate_limited'),
         message: `Maximum ${rateLimitResult.limit} meal imagination requests per hour`,
         resetAt: rateLimitResult.resetAt.toISOString(),
       },
@@ -96,7 +114,7 @@ async function handlePOST(request: Request) {
     if (promptField && typeof promptField === 'string' && promptField.trim()) {
       if (promptField.length > 500) {
         return NextResponse.json(
-          { error: 'Prompt must be 500 characters or less' },
+          errorBody('Prompt must be 500 characters or less', 'prompt_too_long'),
           { status: 400 },
         )
       }
@@ -111,13 +129,13 @@ async function handlePOST(request: Request) {
     // counted them. Passing the difference as `alreadyAttached` keeps that.
     const rejection = validateImageAttachments(imageFiles, imageFields.length - imageFiles.length)
     if (rejection) {
-      const error =
+      const [error, code]: [string, ImagineErrorCode] =
         rejection === 'too-many'
-          ? `Maximum ${MAX_ATTACHED_IMAGES} images allowed`
+          ? [`Maximum ${MAX_ATTACHED_IMAGES} images allowed`, 'too_many_images']
           : rejection === 'wrong-type'
-            ? 'Images must be JPEG, PNG, or WebP'
-            : 'Each image must be 5MB or less'
-      return NextResponse.json({ error }, { status: 400 })
+            ? ['Images must be JPEG, PNG, or WebP', 'wrong_image_type']
+            : ['Each image must be 5MB or less', 'image_too_large']
+      return NextResponse.json(errorBody(error, code), { status: 400 })
     }
 
     for (const file of imageFiles) {
@@ -127,7 +145,10 @@ async function handlePOST(request: Request) {
 
     if (!prompt && images.length === 0) {
       return NextResponse.json(
-        { error: 'Please provide a description or attach at least one image' },
+        errorBody(
+          'Please provide a description or attach at least one image',
+          'prompt_or_photo_required',
+        ),
         { status: 400 },
       )
     }
@@ -136,13 +157,23 @@ async function handlePOST(request: Request) {
     try {
       body = await request.json()
     } catch {
-      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+      return NextResponse.json(errorBody('Invalid JSON', 'invalid_request'), { status: 400 })
     }
 
     const parsed = imagineRequestSchema.safeParse(body)
     if (!parsed.success) {
+      // `min(1)` and `max(500)` are different user errors with different copy,
+      // and this is the branch both clients take whenever no photo is attached
+      // — collapsing them would answer a 501-character prompt with "describe
+      // what kind of meal you want", and leave `prompt_too_long` reachable
+      // only by attaching a photo.
+      const tooLong = parsed.error.issues.some(
+        (issue) => issue.code === 'too_big' && issue.path[0] === 'prompt',
+      )
       return NextResponse.json(
-        { error: 'Please enter a description of the meal you want' },
+        tooLong
+          ? errorBody('Prompt must be 500 characters or less', 'prompt_too_long')
+          : errorBody('Please enter a description of the meal you want', 'prompt_required'),
         { status: 400 },
       )
     }
@@ -290,13 +321,13 @@ async function handlePOST(request: Request) {
     // exactly what should show up in Sentry.
     if (isAiBudgetTimeout(error)) {
       return NextResponse.json(
-        { error: 'Generating meal ideas took too long. Please try again.' },
+        errorBody('Generating meal ideas took too long. Please try again.', 'imagine_timeout'),
         { status: 504 },
       )
     }
 
     return NextResponse.json(
-      { error: 'Failed to generate meal ideas. Please try again.' },
+      errorBody('Failed to generate meal ideas. Please try again.', 'imagine_failed'),
       { status: 500 },
     )
   }

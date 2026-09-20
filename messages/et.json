@@ -364,7 +364,15 @@
         "wrongImageType": "Fotod peavad olema JPEG, PNG või WebP",
         "imageTooLarge": "Iga foto peab olema kuni 5 MB",
         "imagineFailed": "Toiduideede koostamine ebaõnnestus. Palun proovi uuesti.",
-        "generic": "Toiduideede koostamine ebaõnnestus"
+        "generic": "Toiduideede koostamine ebaõnnestus",
+        "unauthorized": "Palun logi sisse, et toite välja mõelda.",
+        "noHousehold": "Toitude väljamõtlemiseks pead kuuluma leibkonda.",
+        "rateLimited": "Oled jõudnud selle tunni toiduideede piiranguni. Palun proovi hiljem uuesti.",
+        "aiCapExceeded": "Selle kuu AI kasutuslimiit on täis. See lähtestub järgmise kuu alguses.",
+        "promptTooLong": "Kirjeldus tohib olla kuni 500 tähemärki.",
+        "promptRequired": "Palun kirjelda, millist toitu soovid.",
+        "invalidRequest": "Päringuga läks midagi valesti. Palun proovi uuesti.",
+        "imagineTimeout": "Toiduideede koostamine võttis liiga kaua aega. Palun proovi uuesti."
       }
     },
     "import": {
@@ -387,8 +395,23 @@
       },
       "errors": {
         "empty": "Palun kleebi retsept või URL",
-        "parseFailed": "Retsepti töötlemine ebaõnnestus",
-        "parseGeneric": "Retsepti töötlemine ebaõnnestus. Palun proovi uuesti."
+        "parseGeneric": "Retsepti töötlemine ebaõnnestus. Palun proovi uuesti.",
+        "unauthorized": "Palun logi sisse, et retsepte importida.",
+        "noHousehold": "Retseptide importimiseks pead kuuluma leibkonda.",
+        "rateLimited": "Oled jõudnud selle tunni retseptiimpordi piiranguni. Palun proovi hiljem uuesti.",
+        "aiCapExceeded": "Selle kuu AI kasutuslimiit on täis. See lähtestub järgmise kuu alguses.",
+        "importDisabled": "Retseptide import on ajutiselt välja lülitatud. Palun proovi hiljem uuesti.",
+        "invalidRequest": "Päringuga läks midagi valesti. Palun proovi uuesti.",
+        "urlNotAllowed": "Seda aadressi ei saa importida. Palun kleebi retsepti tekst.",
+        "robotsDisallowed": "See veebileht ei luba importimist. Palun kopeeri ja kleebi retsepti tekst.",
+        "urlFetchFailed": "Sellelt lingilt importimine ebaõnnestus. Proovi kopeerida ja kleepida retsepti tekst.",
+        "urlNotAPage": "See link ei viita veebilehele. Palun kleebi link retseptilehele.",
+        "urlContentTooShort": "Sellelt lingilt ei leidnud piisavalt sisu. Proovi kleepida retsepti tekst otse.",
+        "textTooShort": "See tekst on retsepti jaoks liiga lühike. Palun kleebi terviklik retsept koos koostisosadega.",
+        "noRecipeFound": "Sellest tekstist ei leidnud retsepti. Veendu, et selles on nimi ja koostisosade loetelu.",
+        "noIngredientsFound": "Koostisosi ei õnnestunud tuvastada. Palun kleebi retsept selge koostisosade loeteluga.",
+        "lowConfidence": "See ei tundu olevat retsept. Proovi kleepida retsepti tekst otse.",
+        "parseTimeout": "Retsepti lugemine võttis liiga kaua aega. Palun proovi uuesti."
       }
     },
     "edit": {
