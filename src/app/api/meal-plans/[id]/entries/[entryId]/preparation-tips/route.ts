@@ -281,9 +281,10 @@ async function handlePOST(
     // Cache tips as JSON in the database — but only while the inputs they were
     // priced from still hold. This prompt was built from `entry.meal`,
     // `entry.servingOverride` and `household.locale` as read at the top of the
-    // handler, and generation takes up to 45s; a swap, a `servingOverride` or a
-    // locale PATCH that commits in the meantime nulls this cache precisely
-    // because one of those inputs moved (HON-681).
+    // handler, and generation takes up to 45s; a swap, a `servingOverride`, a
+    // locale PATCH or an edit to the meal itself that commits in the meantime
+    // nulls this cache precisely because one of those inputs moved (HON-681,
+    // HON-683).
     // An unconditional write would put the stale tips straight back, and every
     // later read is a cache hit (above) — so the entry would keep pan sizes for
     // a count nobody is cooking, permanently rather than for one request.
@@ -302,6 +303,16 @@ async function handlePOST(
         mealId: entry.mealId,
         servingOverride: entry.servingOverride,
         plan: { household: { locale: household.locale } },
+        // `PATCH /api/households/me/meals/[id]` is the fourth writer that
+        // nulls this cache, and it moves the meal's *contents* — name, time,
+        // notes, components — while `mealId` stays put, so none of the fields
+        // above would notice. `Meal.updatedAt` is `@updatedAt` and that route
+        // calls `meal.update` unconditionally, so it moves on every such edit
+        // and is the one field that does (HON-683). A meal edit the prompt
+        // does not read (a `sourceUrl` fix) bumps it too and discards this
+        // write — the caller still gets its tips, and the next open
+        // regenerates.
+        meal: { is: { updatedAt: entry.meal.updatedAt } },
       },
       data: { preparationTips: JSON.stringify(tips) },
     })

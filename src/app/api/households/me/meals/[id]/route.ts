@@ -224,12 +224,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    // Verify meal exists and belongs to this household
+    // Verify meal exists and belongs to this household. The components come
+    // along so the prep-tips invalidation below can tell a real ingredient
+    // edit from the unchanged list every save resends.
     const existingMeal = await prisma.meal.findFirst({
       where: {
         id,
         householdId: membership.household.id,
         deletedAt: null,
+      },
+      include: {
+        components: {
+          select: { ingredientId: true, quantityPerServing: true },
+        },
       },
     })
 
@@ -251,6 +258,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     // If components are being updated, verify all ingredients exist and recalculate protein type
     let primaryProteinType = existingMeal.primaryProteinType
+    let componentsChanged = false
     if (components && servings) {
       const ingredientIds = components.map((c) => c.ingredientId)
       const ingredients = await prisma.ingredient.findMany({
@@ -278,6 +286,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         ingredient: ingredientMap.get(c.ingredientId)!,
       }))
       primaryProteinType = deriveProteinType(componentData)
+
+      // The prep-tips prompt renders one line per component from its
+      // ingredient and its `quantityPerServing` — the same division applied
+      // below — so those two fields are the whole of what a tips regeneration
+      // would see. `isVague` and `originalPhrase` are not in the prompt, and a
+      // vague flip zeroes `totalQuantity` in the schema transform, so it shows
+      // up here as a quantity change anyway.
+      const existingQuantities = new Map(
+        existingMeal.components.map((c) => [c.ingredientId, c.quantityPerServing]),
+      )
+      componentsChanged =
+        components.length !== existingMeal.components.length ||
+        components.some(
+          (c) => existingQuantities.get(c.ingredientId) !== c.totalQuantity / servings,
+        )
     }
 
     // Build update data
@@ -311,8 +334,42 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         data: updateData,
       })
 
-      // Invalidate cached preparation tips when notes change
-      if (preparationNotes !== undefined) {
+      // Every field below is an input to the cached prep-tips prompt
+      // (`MealPlanEntry.preparationTips`): `buildFullTipsPrompt` takes
+      // `mealName`, `timeMinutes` and an ingredient list built from the
+      // meal's components, and `preparationNotes` both feeds
+      // `buildSupplementaryTipsPrompt` and selects which of the two prompts
+      // runs. Leaving tips cached after a component swap means "pat the
+      // chicken dry" survives on a meal that is now tofu, and every read is a
+      // cache hit, so nothing regenerates it. Invalidate here for the same
+      // reason `PATCH /api/households/me` invalidates on a locale change
+      // (HON-683, HON-681, and the AI-cache rule in `docs/LOCALIZATION.md`).
+      //
+      // Per-field on purpose: `sourceUrl`, `description`, `kidFriendly` and
+      // `suitableFor` never reach the prompt, so an edit touching only those
+      // must not burn a regeneration across the household's whole plan.
+      //
+      // `Meal.servings` has no clause of its own, for the same reason: the
+      // prompt scales by the entry's effective servings
+      // (`getEffectiveServings`, household members or the entry override),
+      // never by the meal's. It reaches the prompt only through
+      // `quantityPerServing`, which `componentsChanged` already compares — and
+      // a real servings edit always arrives with the components, since that is
+      // the divisor they are stored under.
+      //
+      // And by value, not by presence — the same "only on a real change" rule
+      // the other two sites follow. The meal form PATCHes its whole payload on
+      // every save (`src/components/household/use-meal-form.ts`), so a
+      // `sourceUrl`-only edit still arrives carrying an unchanged `name`,
+      // `timeMinutes` and component list. A presence check would fire on every
+      // save and leave the per-field condition doing nothing.
+      const tipsInputChanged =
+        (name !== undefined && name !== existingMeal.name) ||
+        (preparationNotes !== undefined && preparationNotes !== existingMeal.preparationNotes) ||
+        (timeMinutes !== undefined && timeMinutes !== existingMeal.timeMinutes) ||
+        componentsChanged
+
+      if (tipsInputChanged) {
         await tx.mealPlanEntry.updateMany({
           where: { mealId: id, preparationTips: { not: null } },
           data: { preparationTips: null },
