@@ -190,6 +190,9 @@ describe('POST /api/meals/imagine/review', () => {
       validBody.ingredients,
       expect.any(String),
       expect.any(Function),
+      // The route's wall-clock budget. Asserted so the 504 branch below cannot
+      // quietly become dead code by the signal stopping being passed (HON-699).
+      expect.any(AbortSignal),
     )
   })
 
@@ -219,5 +222,32 @@ describe('POST /api/meals/imagine/review', () => {
 
     expect(response.status).toBe(500)
     expect(data.error).toBe('Failed to review quantities')
+  })
+
+  it('returns 504 when reviewMealQuantities exceeds its budget', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    const err = new Error('The operation was aborted due to timeout')
+    err.name = 'TimeoutError'
+    mockReview.mockRejectedValue(err)
+
+    const response = await POST(createRequest(validBody))
+    const data = await response.json()
+
+    expect(response.status).toBe(504)
+    expect(data.error).toContain('too long')
+  })
+
+  it('returns 504 when the budget fires during a retry sleep (AbortError)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    // Not a hand-built TimeoutError: when the budget fires during ai@7's retry
+    // sleep the SDK surfaces `AbortError` instead, and a check that only knows
+    // the one name falls through to the generic 500 (HON-694, round 3).
+    mockReview.mockRejectedValue(new DOMException('Delay was aborted', 'AbortError'))
+
+    const response = await POST(createRequest(validBody))
+    const data = await response.json()
+
+    expect(response.status).toBe(504)
+    expect(data.error).toContain('too long')
   })
 })

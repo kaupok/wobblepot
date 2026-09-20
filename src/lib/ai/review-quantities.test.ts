@@ -62,6 +62,24 @@ describe('reviewMealQuantities', () => {
     expect(result).toEqual(aiResponse)
   })
 
+  it('forwards the caller-supplied abort signal to generateObject (HON-699)', async () => {
+    mockGenerateObject.mockResolvedValue({ object: { ingredients: [] } } as never)
+    const abortSignal = AbortSignal.timeout(45_000)
+
+    await reviewMealQuantities(
+      'Chicken stir fry',
+      4,
+      sampleIngredients,
+      'en',
+      undefined,
+      abortSignal,
+    )
+
+    // The route owns the budget; if it stops arriving here the AI call is
+    // unbounded again and the platform kills the function before the 504.
+    expect(mockGenerateObject).toHaveBeenCalledWith(expect.objectContaining({ abortSignal }))
+  })
+
   it('reports the SDK usage to onAiUsage via toAiUsageStats', async () => {
     mockGenerateObject.mockResolvedValue({
       object: { ingredients: [] },

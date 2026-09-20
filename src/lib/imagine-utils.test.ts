@@ -1,6 +1,18 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { IngredientCategory, Unit } from '@/generated/prisma/enums'
-import { convertToPrefilledData, type ImaginedMealResponse } from './imagine-utils'
+
+vi.mock('@/lib/errors-client', () => ({
+  captureClientError: vi.fn(),
+}))
+
+import { captureClientError } from '@/lib/errors-client'
+import {
+  convertToPrefilledData,
+  reviewImaginedMeal,
+  type ImaginedMealResponse,
+} from './imagine-utils'
+
+const mockCaptureClientError = vi.mocked(captureClientError)
 
 function baseMeal(): ImaginedMealResponse {
   return {
@@ -225,5 +237,150 @@ describe('convertToPrefilledData', () => {
     const result = convertToPrefilledData(meal)
 
     expect(result.prefilledIngredients).toEqual([])
+  })
+})
+
+describe('reviewImaginedMeal', () => {
+  const originalFetch = global.fetch
+
+  function reviewableMeal(): ImaginedMealResponse {
+    const meal = baseMeal()
+    meal.components = [
+      {
+        ingredientId: 'ing-chicken',
+        quantityPerServing: 400,
+        ingredient: {
+          id: 'ing-chicken',
+          name: 'Chicken breast',
+          category: 'protein' as IngredientCategory,
+          defaultUnit: 'g' as Unit,
+        },
+      },
+    ]
+    meal.ingredients = [matchedIngredient({ convertedQuantity: 1600 })]
+    return meal
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    global.fetch = originalFetch
+  })
+
+  it('folds the corrected quantities into components and matched ingredients', async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          ingredients: [{ ingredientId: 'ing-chicken', quantityPerServing: 150 }],
+        }),
+        { status: 200 },
+      ),
+    )
+
+    const result = await reviewImaginedMeal(reviewableMeal())
+
+    expect(result.components[0]!.quantityPerServing).toBe(150)
+    // Matched ingredients carry the *total*, so the correction is re-multiplied
+    // by servings (4) — 150 per serving is 600 in total, not 150.
+    expect((result.ingredients[0] as { convertedQuantity: number }).convertedQuantity).toBe(600)
+    expect(mockCaptureClientError).not.toHaveBeenCalled()
+  })
+
+  it('leaves an ingredient the review did not mention untouched', async () => {
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ success: true, ingredients: [] }), { status: 200 }),
+      )
+
+    const result = await reviewImaginedMeal(reviewableMeal())
+
+    expect(result.components[0]!.quantityPerServing).toBe(400)
+    expect((result.ingredients[0] as { convertedQuantity: number }).convertedQuantity).toBe(1600)
+  })
+
+  it('waits past the route maxDuration of 60s before giving up (HON-699)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ success: true, ingredients: [] }), { status: 200 }),
+      )
+    global.fetch = fetchMock
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout')
+
+    await reviewImaginedMeal(reviewableMeal())
+
+    // Below 60_000 the client throws away a review the server may still be
+    // running, after the household has already been billed for it.
+    expect(timeoutSpy).toHaveBeenCalledWith(65000)
+    timeoutSpy.mockRestore()
+  })
+
+  it('degrades without reporting when the route answers 504', async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: 'Reviewing the quantities took too long.' }), {
+        status: 504,
+      }),
+    )
+
+    const meal = reviewableMeal()
+    const result = await reviewImaginedMeal(meal)
+
+    expect(result).toEqual(meal)
+    // The route already captured this one server-side with the user and
+    // household attached; reporting it again here would double-count it.
+    expect(mockCaptureClientError).not.toHaveBeenCalled()
+  })
+
+  it('reports and still returns the meal when the request itself fails', async () => {
+    const error = new DOMException('The operation timed out', 'TimeoutError')
+    global.fetch = vi.fn().mockRejectedValue(error)
+
+    const meal = reviewableMeal()
+    const result = await reviewImaginedMeal(meal)
+
+    // Degrades: the user still gets a usable meal, with the AI's original
+    // quantities rather than the corrected ones.
+    expect(result).toEqual(meal)
+    // ...but a client-side abort reaches no server reporter, so this is the
+    // only place a mis-sized budget becomes visible to us (HON-699).
+    expect(mockCaptureClientError).toHaveBeenCalledWith(error, {
+      route: '/api/meals/imagine/review',
+      $exception_source: 'imagine.review',
+    })
+  })
+
+  it('reports and still returns the meal when the response body is not JSON', async () => {
+    global.fetch = vi.fn().mockResolvedValue(new Response('<html>gateway</html>', { status: 200 }))
+
+    const meal = reviewableMeal()
+    const result = await reviewImaginedMeal(meal)
+
+    expect(result).toEqual(meal)
+    expect(mockCaptureClientError).toHaveBeenCalledTimes(1)
+  })
+
+  it('posts the per-serving quantities the route expects', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ success: true, ingredients: [] }), { status: 200 }),
+      )
+    global.fetch = fetchMock
+
+    await reviewImaginedMeal(reviewableMeal())
+
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe('/api/meals/imagine/review')
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({
+      mealName: 'Chicken stir fry',
+      servings: 4,
+      ingredients: [
+        { ingredientId: 'ing-chicken', name: 'Chicken breast', quantityPerServing: 400, unit: 'g' },
+      ],
+    })
   })
 })
