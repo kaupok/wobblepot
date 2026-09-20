@@ -90,12 +90,10 @@ export async function POST(request: Request) {
         memberId,
         code,
         expiresAt,
-        maxUses: 1,
       },
       update: {
         code,
         expiresAt,
-        usesCount: 0,
       },
     })
 
@@ -107,8 +105,6 @@ export async function POST(request: Request) {
         memberId: invite.memberId,
         memberName: member.name,
         expiresAt: invite.expiresAt.toISOString(),
-        maxUses: invite.maxUses,
-        usesCount: invite.usesCount,
         createdAt: invite.createdAt.toISOString(),
       },
       { status: 201 },
@@ -154,9 +150,9 @@ export async function GET() {
 
     return NextResponse.json({
       invites: invites.map((invite) => {
+        // Expiry alone: an invite that still has a row has not been used,
+        // because claiming one deletes it (HON-680).
         const isExpired = invite.expiresAt < now
-        // null maxUses means unlimited uses
-        const isMaxedOut = invite.maxUses !== null && invite.usesCount >= invite.maxUses
 
         return {
           id: invite.id,
@@ -165,9 +161,7 @@ export async function GET() {
           memberId: invite.memberId,
           memberName: invite.member?.name ?? null,
           expiresAt: invite.expiresAt.toISOString(),
-          maxUses: invite.maxUses,
-          usesCount: invite.usesCount,
-          isActive: !isExpired && !isMaxedOut,
+          isActive: !isExpired,
           createdAt: invite.createdAt.toISOString(),
         }
       }),

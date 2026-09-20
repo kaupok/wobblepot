@@ -125,16 +125,17 @@ describe('DELETE /api/households/me/invites/[id]', () => {
       role: 'owner',
       household: { id: 'household-123' },
     } as never)
+    // `as never` because the stored row still carries `maxUses` / `usesCount`
+    // — the columns stay in the schema (HON-680) — while this route only ever
+    // reads the invite's id and household.
     mockInviteFindFirst.mockResolvedValue({
       id: 'invite-123',
       householdId: 'household-123',
       memberId: 'member-456',
       code: 'abc123',
       expiresAt: new Date(),
-      maxUses: 1,
-      usesCount: 0,
       createdAt: new Date(),
-    })
+    } as never)
     mockInviteDelete.mockResolvedValue({} as never)
 
     const response = await DELETE(createRequest(), { params: createParams() })

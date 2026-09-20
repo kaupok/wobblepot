@@ -37,8 +37,8 @@ class AlreadyInHouseholdError extends Error {
  *
  * Mapped to the existing `invite_invalid` 400 rather than the `invite_not_found`
  * 404: the code *did* resolve, so "not found" is the wrong diagnosis, and
- * "expired or reached its maximum uses" is simply accurate for the loser of a
- * race on a single-use link.
+ * "expired or already used" is simply accurate for the loser of a race on a
+ * single-use link.
  *
  * The client copy no longer turns on the choice. Before HON-697,
  * `JoinHouseholdCard` had a translated branch for `invite_invalid` and none
@@ -46,8 +46,9 @@ class AlreadyInHouseholdError extends Error {
  * verbatim to an Estonian user. It now ignores the server prose entirely and
  * renders the same translated string for both codes — the 404 is the commoner
  * way to lose the same race (a click after the winner's claim committed misses
- * at `findUnique`), so the two describe one situation to the user. Keep them
- * distinct on the wire regardless: logs and Sentry want them apart.
+ * at `findUnique`; see the expiry check below), so the two describe one
+ * situation to the user. Keep them distinct on the wire regardless: logs and
+ * Sentry want them apart.
  */
 class InviteNoLongerClaimableError extends Error {
   constructor() {
@@ -94,16 +95,19 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
       )
     }
 
-    // Validate invite is still active
+    // Validate invite is still active. Expiry is the only condition to check:
+    // an invite that has been used no longer exists, because claiming it
+    // deletes the row (see the `deleteMany` in the claim callback below), so a
+    // second join on the same code falls through to the `invite_not_found` 404
+    // above rather than reaching here.
     const now = new Date()
     const isExpired = invite.expiresAt < now
-    const isMaxedOut = invite.maxUses !== null && invite.usesCount >= invite.maxUses
 
-    if (isExpired || isMaxedOut) {
+    if (isExpired) {
       return NextResponse.json(
         {
           error: 'invite_invalid',
-          message: 'This invite has expired or reached its maximum uses.',
+          message: 'This invite has expired or has already been used.',
         },
         { status: 400 },
       )
@@ -153,9 +157,11 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
         throw new InviteNoLongerClaimableError()
       }
 
-      // Delete the invite after use. Count-checked for the same reason: the
-      // loser of a race for one shared link must get the `invite_invalid` 400,
-      // not a `P2025` that falls through to a 500.
+      // Deleting the invite is what makes it single-use: there is no uses
+      // counter, so the absence of the row is the whole enforcement (HON-680).
+      // Count-checked for the same reason as the claim above: the loser of a
+      // race for one shared link must get the `invite_invalid` 400, not a
+      // `P2025` that falls through to a 500.
       const consumed = await tx.householdInvite.deleteMany({
         where: { id: inviteId },
       })
@@ -198,7 +204,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
       return NextResponse.json(
         {
           error: 'invite_invalid',
-          message: 'This invite has expired or reached its maximum uses.',
+          message: 'This invite has expired or has already been used.',
         },
         { status: 400 },
       )

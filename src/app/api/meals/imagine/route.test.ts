@@ -189,6 +189,7 @@ describe('POST /api/meals/imagine', () => {
 
     expect(response.status).toBe(401)
     expect(data.error).toBe('Unauthorized')
+    expect(data.code).toBe('unauthorized')
   })
 
   it('returns 404 when user has no household', async () => {
@@ -200,6 +201,7 @@ describe('POST /api/meals/imagine', () => {
 
     expect(response.status).toBe(404)
     expect(data.error).toBe('No household found')
+    expect(data.code).toBe('no_household')
   })
 
   it('returns 429 with Retry-After header when rate limit exceeded', async () => {
@@ -218,6 +220,13 @@ describe('POST /api/meals/imagine', () => {
     expect(response.status).toBe(429)
     expect(response.headers.get('Retry-After')).toBe('60')
     expect(data.error).toBe('Rate limit exceeded')
+    expect(data.code).toBe('rate_limited')
+    // Both clients gate on `!response.ok || !data.success`, and the happy path
+    // of this route already sends `success: true` — the failure shape must
+    // match `/api/recipes/parse` rather than differing by route.
+    expect(data.success).toBe(false)
+    // The detail lives in `message`, not `error`, on this branch.
+    expect(data.message).toContain('per hour')
     expect(data.resetAt).toBe('2026-02-01T12:00:00.000Z')
   })
 
@@ -230,6 +239,7 @@ describe('POST /api/meals/imagine', () => {
 
     expect(response.status).toBe(400)
     expect(data.error).toBe('Invalid JSON')
+    expect(data.code).toBe('invalid_request')
   })
 
   it('returns 400 when JSON prompt is empty', async () => {
@@ -241,6 +251,22 @@ describe('POST /api/meals/imagine', () => {
 
     expect(response.status).toBe(400)
     expect(data.error).toContain('description')
+    expect(data.code).toBe('prompt_required')
+  })
+
+  it('returns prompt_too_long when the JSON prompt exceeds 500 chars', async () => {
+    // The JSON branch is the one both clients take whenever no photo is
+    // attached, and neither textarea caps the length — so this, not the
+    // multipart case below, is how a too-long prompt normally arrives.
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+
+    const response = await POST(jsonRequest({ prompt: 'x'.repeat(501) }))
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toContain('500 characters')
+    expect(data.code).toBe('prompt_too_long')
   })
 
   it('returns 400 when multipart has no prompt and no images', async () => {
@@ -253,6 +279,7 @@ describe('POST /api/meals/imagine', () => {
 
     expect(response.status).toBe(400)
     expect(data.error).toContain('description')
+    expect(data.code).toBe('prompt_or_photo_required')
   })
 
   it('returns 400 when too many images are attached', async () => {
@@ -268,6 +295,7 @@ describe('POST /api/meals/imagine', () => {
 
     expect(response.status).toBe(400)
     expect(data.error).toContain('Maximum')
+    expect(data.code).toBe('too_many_images')
   })
 
   it('returns 400 for unsupported image mime type', async () => {
@@ -283,6 +311,7 @@ describe('POST /api/meals/imagine', () => {
 
     expect(response.status).toBe(400)
     expect(data.error).toContain('JPEG, PNG, or WebP')
+    expect(data.code).toBe('wrong_image_type')
   })
 
   it('returns 400 when image exceeds 5MB', async () => {
@@ -299,6 +328,7 @@ describe('POST /api/meals/imagine', () => {
 
     expect(response.status).toBe(400)
     expect(data.error).toContain('5MB')
+    expect(data.code).toBe('image_too_large')
   })
 
   it('returns 400 when multipart prompt exceeds 500 chars', async () => {
@@ -312,6 +342,7 @@ describe('POST /api/meals/imagine', () => {
 
     expect(response.status).toBe(400)
     expect(data.error).toContain('500 characters')
+    expect(data.code).toBe('prompt_too_long')
   })
 
   it('happy path: returns generated meals with nutrition and records rate limit', async () => {
@@ -390,6 +421,7 @@ describe('POST /api/meals/imagine', () => {
 
     expect(response.status).toBe(500)
     expect(data.error).toContain('Failed to generate meal ideas')
+    expect(data.code).toBe('imagine_failed')
   })
 
   it('returns 504 when imagineMeals exceeds its budget', async () => {
@@ -404,6 +436,7 @@ describe('POST /api/meals/imagine', () => {
 
     expect(response.status).toBe(504)
     expect(data.error).toContain('too long')
+    expect(data.code).toBe('imagine_timeout')
   })
 
   it('returns 504 when the budget fires during a retry sleep (AbortError)', async () => {
@@ -419,6 +452,7 @@ describe('POST /api/meals/imagine', () => {
 
     expect(response.status).toBe(504)
     expect(data.error).toContain('too long')
+    expect(data.code).toBe('imagine_timeout')
   })
 
   it('accepts a multipart request with just an image (no prompt)', async () => {

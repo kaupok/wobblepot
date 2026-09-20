@@ -131,7 +131,7 @@ describe('JoinHouseholdCard error localization', () => {
 
   it('still renders its own key for invite_invalid', async () => {
     respondWith(
-      { error: 'invite_invalid', message: 'This invite has expired or reached its maximum uses.' },
+      { error: 'invite_invalid', message: 'This invite has expired or has already been used.' },
       400,
     )
 

@@ -83,13 +83,13 @@ export async function GET() {
         // Compute invite status
         let invite = null
         if (member.invite) {
+          // Expiry alone: an invite that still has a row has not been used,
+          // because claiming one deletes it (HON-680).
           const isExpired = member.invite.expiresAt < now
-          const isMaxedOut =
-            member.invite.maxUses !== null && member.invite.usesCount >= member.invite.maxUses
           invite = {
             url: `${baseUrl}/invite/${member.invite.code}`,
             expiresAt: member.invite.expiresAt.toISOString(),
-            isActive: !isExpired && !isMaxedOut,
+            isActive: !isExpired,
           }
         }
 

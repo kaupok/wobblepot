@@ -178,6 +178,7 @@ describe('POST /api/recipes/parse rate limiting', () => {
     expect(response.headers.get('Retry-After')).toBe('60')
     expect(data.success).toBe(false)
     expect(data.error).toBe('Rate limit exceeded')
+    expect(data.code).toBe('rate_limited')
     expect(mockCheckRateLimit).toHaveBeenCalledWith('household-42', 'recipe-parse')
   })
 })
@@ -208,7 +209,9 @@ describe('POST /api/recipes/parse RecipeParseError handling', () => {
   }
 
   it('returns 403 when the fetch throws the robots-disallowed sentinel', async () => {
-    mockFetchRecipeFromUrl.mockRejectedValue(new RecipeParseError(ROBOTS_DISALLOWED_MESSAGE))
+    mockFetchRecipeFromUrl.mockRejectedValue(
+      new RecipeParseError(ROBOTS_DISALLOWED_MESSAGE, 'robots_disallowed'),
+    )
 
     const response = await POST(jsonRequest({ text: 'https://example.com/recipe' }))
     const data = await response.json()
@@ -216,10 +219,13 @@ describe('POST /api/recipes/parse RecipeParseError handling', () => {
     expect(response.status).toBe(403)
     expect(data.success).toBe(false)
     expect(data.error).toBe(ROBOTS_DISALLOWED_MESSAGE)
+    expect(data.code).toBe('robots_disallowed')
   })
 
   it('returns 400 for other RecipeParseError messages', async () => {
-    mockFetchRecipeFromUrl.mockRejectedValue(new RecipeParseError('Some other fetch failure'))
+    mockFetchRecipeFromUrl.mockRejectedValue(
+      new RecipeParseError('Some other fetch failure', 'url_fetch_failed'),
+    )
 
     const response = await POST(jsonRequest({ text: 'https://example.com/recipe' }))
     const data = await response.json()
@@ -227,6 +233,19 @@ describe('POST /api/recipes/parse RecipeParseError handling', () => {
     expect(response.status).toBe(400)
     expect(data.success).toBe(false)
     expect(data.error).toBe('Some other fetch failure')
+    expect(data.code).toBe('url_fetch_failed')
+  })
+
+  it('carries the code from the throw site, not the message, into the status', async () => {
+    // The robots prose with no code attached is a 400: the code alone picks
+    // the status, so a copy edit to the message cannot silently change it.
+    mockFetchRecipeFromUrl.mockRejectedValue(new RecipeParseError(ROBOTS_DISALLOWED_MESSAGE))
+
+    const response = await POST(jsonRequest({ text: 'https://example.com/recipe' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.code).toBe('parse_failed')
   })
 })
 
@@ -347,6 +366,7 @@ describe('POST /api/recipes/parse locale threading (gate retired in HON-506)', (
 
     expect(response.status).toBe(504)
     expect(data.error).toContain('too long')
+    expect(data.code).toBe('parse_timeout')
   })
 
   it('returns 504 when the extraction exceeds its budget', async () => {
@@ -363,5 +383,6 @@ describe('POST /api/recipes/parse locale threading (gate retired in HON-506)', (
     expect(response.status).toBe(504)
     expect(data.success).toBe(false)
     expect(data.error).toContain('too long')
+    expect(data.code).toBe('parse_timeout')
   })
 })

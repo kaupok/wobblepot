@@ -72,8 +72,6 @@ const VALID_INVITE = {
   memberId: 'member-456',
   code: 'abc123',
   expiresAt: new Date('2030-01-01'),
-  maxUses: 1,
-  usesCount: 0,
   household: { id: 'household-123', name: 'Smith Family' },
   member: { id: 'member-456', name: 'Baby' },
 }
@@ -192,13 +190,13 @@ describe('POST /api/invites/[code]/join', () => {
     const data = await response.json()
 
     // Not a 500, and not the `invite_not_found` 404 either: the code *did*
-    // resolve, so "not found" is the wrong diagnosis, and "expired or reached
-    // its maximum uses" is accurate for the loser of a race on a single-use
-    // link. (Since HON-697 both codes render the same translated copy in
+    // resolve, so "not found" is the wrong diagnosis, and "expired or already
+    // used" is accurate for the loser of a race on a single-use link. (Since
+    // HON-697 both codes render the same translated copy in
     // `JoinHouseholdCard`, so this distinction is for logs and Sentry.)
     expect(response.status).toBe(400)
     expect(data.error).toBe('invite_invalid')
-    expect(data.message).toBe('This invite has expired or reached its maximum uses.')
+    expect(data.message).toBe('This invite has expired or has already been used.')
     expect(mockCaptureApiError).not.toHaveBeenCalled()
   })
 
@@ -256,23 +254,31 @@ describe('POST /api/invites/[code]/join', () => {
 
     expect(response.status).toBe(400)
     expect(data.error).toBe('invite_invalid')
-    expect(data.message).toBe('This invite has expired or reached its maximum uses.')
+    expect(data.message).toBe('This invite has expired or has already been used.')
     expect(mockRunHouseholdClaim).not.toHaveBeenCalled()
   })
 
-  it('returns 400 when invite has reached max uses', async () => {
+  it('returns invite_not_found on a second join with an already-claimed code', async () => {
+    // Single use is enforced by deleting the invite row, not by a uses
+    // counter (HON-680), so the second join finds no invite at all and never
+    // reaches the validity checks.
     mockGetSession.mockResolvedValue(SESSION as never)
-    mockInviteFindUnique.mockResolvedValue({
-      ...VALID_INVITE,
-      usesCount: 1, // Max uses reached
-    } as never)
+    mockInviteFindUnique.mockResolvedValueOnce(VALID_INVITE as never)
 
-    const response = await POST(createRequest(), { params: createParams('abc123') })
-    const data = await response.json()
+    const first = await POST(createRequest(), { params: createParams('abc123') })
 
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('invite_invalid')
-    expect(data.message).toBe('This invite has expired or reached its maximum uses.')
+    expect(first.status).toBe(200)
+    expect(tx.householdInvite.deleteMany).toHaveBeenCalledWith({ where: { id: 'invite-123' } })
+
+    // The row the first join deleted: the code no longer resolves.
+    mockInviteFindUnique.mockResolvedValueOnce(null as never)
+    mockRunHouseholdClaim.mockClear()
+
+    const second = await POST(createRequest(), { params: createParams('abc123') })
+    const data = await second.json()
+
+    expect(second.status).toBe(404)
+    expect(data.error).toBe('invite_not_found')
     expect(mockRunHouseholdClaim).not.toHaveBeenCalled()
   })
 

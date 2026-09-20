@@ -2,8 +2,11 @@ import { WOBBLEPOT_BOT_USER_AGENT, checkRobotsAllowed } from '@/lib/robots'
 import { RecipeParseError } from './recipe-errors'
 
 /**
- * Error message emitted when robots.txt disallows the fetch. Used as a sentinel
- * by `/api/recipes/parse` to return 403 specifically for this case.
+ * Error message emitted when robots.txt disallows the fetch. It travels with
+ * the `robots_disallowed` code, which is what `/api/recipes/parse` reads to
+ * return 403 for this case and what the client maps to translated copy — the
+ * message itself is no longer a sentinel, so it is free to be reworded
+ * (HON-700).
  */
 export const ROBOTS_DISALLOWED_MESSAGE =
   "This site doesn't allow automated content extraction. Try pasting the recipe text directly instead."
@@ -252,7 +255,7 @@ function validatePublicUrl(url: string): void {
     hostname.startsWith('10.') ||
     /^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname)
   ) {
-    throw new RecipeParseError('Cannot fetch from private or local addresses.')
+    throw new RecipeParseError('Cannot fetch from private or local addresses.', 'url_not_allowed')
   }
 }
 
@@ -265,7 +268,7 @@ export async function fetchRecipeFromUrl(url: string): Promise<string> {
 
   const allowed = await checkRobotsAllowed(url)
   if (!allowed) {
-    throw new RecipeParseError(ROBOTS_DISALLOWED_MESSAGE)
+    throw new RecipeParseError(ROBOTS_DISALLOWED_MESSAGE, 'robots_disallowed')
   }
 
   try {
@@ -281,6 +284,7 @@ export async function fetchRecipeFromUrl(url: string): Promise<string> {
     if (!response.ok) {
       throw new RecipeParseError(
         "We couldn't import from that URL. Try copying and pasting the recipe text directly instead.",
+        'url_fetch_failed',
       )
     }
 
@@ -288,6 +292,7 @@ export async function fetchRecipeFromUrl(url: string): Promise<string> {
     if (!contentType.includes('text/html') && !contentType.includes('text/plain')) {
       throw new RecipeParseError(
         'The URL does not point to a web page. Please paste a link to a recipe page.',
+        'url_not_a_page',
       )
     }
 
@@ -305,6 +310,7 @@ export async function fetchRecipeFromUrl(url: string): Promise<string> {
     if (text.length < 50) {
       throw new RecipeParseError(
         'Could not extract enough content from the URL. Try pasting the recipe text directly.',
+        'url_content_too_short',
       )
     }
 
@@ -316,10 +322,12 @@ export async function fetchRecipeFromUrl(url: string): Promise<string> {
     if (error instanceof DOMException && error.name === 'TimeoutError') {
       throw new RecipeParseError(
         "We couldn't import from that URL. Try copying and pasting the recipe text directly instead.",
+        'url_fetch_failed',
       )
     }
     throw new RecipeParseError(
       "We couldn't import from that URL. Try copying and pasting the recipe text directly instead.",
+      'url_fetch_failed',
     )
   }
 }

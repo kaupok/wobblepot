@@ -3093,4 +3093,671 @@ describe('orchestrator.sh', () => {
       expect(runbook()).toMatch(/not a leak|held for the life of the PR/i)
     })
   })
+  describe('wt watch summary data (watch_scan_log)', () => {
+    /** Write a fixture orchestrator.log and scan it through the real helper. */
+    const scan = (lines: string[], since = ''): Record<string, string> => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-watch-scan-'))
+      const log = path.join(dir, 'orchestrator.log')
+      fs.writeFileSync(log, `${lines.join('\n')}\n`)
+      try {
+        const out = runHarness('watch-scan-log', log, since)
+        return Object.fromEntries(
+          out
+            .split('\n')
+            .filter(Boolean)
+            .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]),
+        )
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    }
+
+    const OUTCOMES = [
+      '2026-09-20 10:00:00 INFO  [OUTCOME] HON-700 SUCCESS 5m0s 2-commits phase=done',
+      '2026-09-20 10:10:00 INFO  [OUTCOME] HON-701 FAILED 1m1s 0-commits phase=initializing triage=NEEDS_HUMAN',
+      '2026-09-20 10:20:00 WARN  [OUTCOME] HON-702 STRANDED 3h0m 16-commits phase=pr-review pr=#707 ci=green exit=timeout',
+      '2026-09-20 10:30:00 WARN  [OUTCOME] HON-703 GATED 6m1s 0-commits phase=planning',
+      '2026-09-20 10:40:00 INFO  [OUTCOME] HON-704 TIMEOUT 1h0m 2-commits phase=pr-review triage=RETRY',
+    ]
+
+    it('tallies every verdict the orchestrator can emit', () => {
+      // All five [OUTCOME] grammars, since a verdict this misses would silently
+      // read as zero on the dashboard rather than as an error.
+      const r = scan(OUTCOMES)
+
+      expect(r.TALLY_SUCCESS).toBe('1')
+      expect(r.TALLY_FAILED).toBe('1')
+      expect(r.TALLY_STRANDED).toBe('1')
+      expect(r.TALLY_GATED).toBe('1')
+      expect(r.TALLY_TIMEOUT).toBe('1')
+    })
+
+    it('reports the most recent outcome with its duration and commit count', () => {
+      const r = scan(OUTCOMES)
+
+      expect(r.LAST_OUTCOME).toBe('HON-704 TIMEOUT 1h0m 2-commits phase=pr-review triage=RETRY')
+      expect(r.LAST_OUTCOME_AT).toBe('10:40')
+    })
+
+    it('excludes outcomes older than the run it is summarising', () => {
+      // The window is what makes the pane "this run" rather than "all time":
+      // orchestrator.log outlives any single orchestrator process.
+      const r = scan(OUTCOMES, '2026-09-20 10:15:00')
+
+      expect(r.TALLY_SUCCESS).toBe('0')
+      expect(r.TALLY_FAILED).toBe('0')
+      expect(r.TALLY_STRANDED).toBe('1')
+      expect(r.TALLY_GATED).toBe('1')
+      expect(r.TALLY_TIMEOUT).toBe('1')
+    })
+
+    it('flags a window that opens before the log does, so a floor is not shown as a total', () => {
+      const inWindow = scan(OUTCOMES, '2026-09-20 09:00:00')
+      const covered = scan(OUTCOMES, '2026-09-20 10:00:00')
+
+      expect(inWindow.TALLY_TRUNCATED).toBe('1')
+      expect(covered.TALLY_TRUNCATED).toBe('0')
+    })
+
+    it('reports the last claim, not a prediction of the next one', () => {
+      // `Selected:` is the only trace selection leaves on disk, and it is
+      // written after the pick — the candidate list never leaves select_next_issue.
+      const r = scan([
+        '2026-09-20 10:00:00 INFO  Selected: HON-700 — an earlier issue',
+        '2026-09-20 11:00:00 INFO  Selected: HON-706 — Two drifting scoreCandidate() implementations',
+      ])
+
+      expect(r.LAST_PICK).toBe('HON-706')
+      expect(r.LAST_PICK_AT).toBe('11:00')
+    })
+
+    it('counts each skipped issue once per reason, not once per poll', () => {
+      // Every poll re-skips the same issues, so a raw line count would measure
+      // orchestrator uptime rather than queue health.
+      const r = scan([
+        '2026-09-20 10:00:00 INFO  [SKIP] HON-640 blocked by HON-639 (Todo)',
+        '2026-09-20 10:01:00 INFO  [SKIP] HON-640 blocked by HON-639 (Todo)',
+        '2026-09-20 10:02:00 INFO  [SKIP] HON-640 blocked by HON-639 (Todo)',
+      ])
+
+      expect(r.SKIPS).toBe('1')
+      expect(r.SKIP_SUMMARY).toBe('1 blocked')
+    })
+
+    it('groups skip reasons into the categories the pane has room for', () => {
+      const r = scan([
+        '2026-09-20 10:00:00 INFO  [SKIP] HON-640 blocked by HON-639 (Todo)',
+        '2026-09-20 10:00:00 INFO  [SKIP] HON-641 blocker HON-639 is being worked on',
+        '2026-09-20 10:00:00 INFO  [SKIP] HON-642 gated (Gated label) — remove it to re-enable',
+        '2026-09-20 10:00:00 INFO  [SKIP] HON-643 stranded (Stranded label) — release with wt cleanup',
+        '2026-09-20 10:00:00 INFO  [SKIP] HON-644 requeued at the Neon branch cap — cooling down',
+        '2026-09-20 10:00:00 INFO  [SKIP] HON-645 assigned',
+      ])
+
+      expect(r.SKIPS).toBe('6')
+      // Two distinct blocker grammars collapse to one category; the rest stay apart.
+      expect(r.SKIP_SUMMARY).toContain('2 blocked')
+      expect(r.SKIP_SUMMARY).toContain('1 gated')
+      expect(r.SKIP_SUMMARY).toContain('1 stranded')
+      expect(r.SKIP_SUMMARY).toContain('1 cap cooldown')
+      expect(r.SKIP_SUMMARY).toContain('1 assigned')
+    })
+
+    it('surfaces the operational alert that explains an unfilled worker slot', () => {
+      const r = scan([
+        '2026-09-20 10:00:00 INFO  Selected: HON-700 — something',
+        '2026-09-20 10:06:00 WARN  Pausing: low disk space',
+      ])
+
+      expect(r.ALERT).toBe('Pausing: low disk space')
+      expect(r.ALERT_AT).toBe('10:06')
+    })
+
+    it.each([
+      ['Low disk space: 0GB free (< 1GB threshold)'],
+      ['Pausing: low disk space'],
+      ['Failed to fetch issues from Linear'],
+      ['Todo queue is deeper than the 50-issue query cap — this poll considered 51 issue(s)'],
+    ])('recognises %j as an operational alert', (message) => {
+      const r = scan([`2026-09-20 10:06:00 WARN  ${message}`])
+
+      expect(r.ALERT).toBe(message)
+    })
+
+    it('suppresses an alert the orchestrator has since recovered from', () => {
+      // The regression this prevents: a Linear fetch that failed hours ago stayed
+      // pinned to the summary while three workers it had claimed since ran
+      // happily below it, which reads as a live fault.
+      const r = scan([
+        '2026-09-20 19:25:39 ERROR Linear API request failed (curl error)',
+        '2026-09-20 19:25:39 WARN  Failed to fetch issues from Linear',
+        '2026-09-20 22:59:52 INFO  Selected: HON-706 — a later claim proves recovery',
+      ])
+
+      expect(r.ALERT).toBeUndefined()
+      expect(r.LAST_PICK).toBe('HON-706')
+    })
+
+    it('keeps an alert that no later progress answers', () => {
+      const r = scan([
+        '2026-09-20 22:59:52 INFO  Selected: HON-706 — an earlier claim',
+        '2026-09-20 23:10:00 WARN  Failed to fetch issues from Linear',
+      ])
+
+      expect(r.ALERT).toBe('Failed to fetch issues from Linear')
+    })
+
+    it('ignores ordinary progress logging', () => {
+      // Only the blockers listed in the helper are alerts; routine INFO/WARN
+      // chatter must not claim the alert line.
+      const r = scan([
+        '2026-09-20 10:00:00 INFO  Worker HON-700 (PID 1) exited cleanly (exit 0)',
+        '2026-09-20 10:00:01 INFO  Cleaning up worktree for HON-700',
+        '2026-09-20 10:00:02 WARN  Some unrelated warning nobody needs on screen',
+      ])
+
+      expect(r.ALERT).toBeUndefined()
+    })
+
+    it('answers with zeroes rather than failing on a log that does not exist', () => {
+      // The dashboard renders on a timer from the first tick, which can precede
+      // the orchestrator's first log write.
+      const out = runHarness(
+        'watch-scan-log',
+        path.join(os.tmpdir(), 'no-such-orchestrator.log'),
+        '',
+      )
+
+      expect(out).toBe('')
+    })
+  })
+
+  describe('wt watch column widths', () => {
+    // These exist because bash printf pads `%-8s` by BYTES while `${#s}` counts
+    // CHARACTERS: `printf '%-6s' 'ab…'` yields four visible columns, not six, so
+    // one clipped title or one ↻ used to skew every column to its right.
+    const pad = (s: string, w: number) => {
+      const out = runHarness('watch-pad', s, String(w)).trim()
+      return out.slice(1, -1)
+    }
+    const clip = (s: string, w: number) => {
+      const out = runHarness('watch-clip', s, String(w)).trim()
+      return out.slice(1, -1)
+    }
+
+    it.each([
+      ['ab', 6],
+      ['abcdef', 6],
+      ['abcdefghij', 6],
+      ['HON-706↻', 8],
+      ['HON-706↻', 12],
+      ['…', 4],
+    ])('pads %j to exactly %i visible characters', (input, width) => {
+      expect([...pad(input, width)]).toHaveLength(width)
+    })
+
+    it('marks a truncated string with an ellipsis inside the budget', () => {
+      expect(clip('abcdefghij', 6)).toBe('abcde…')
+      expect([...clip('abcdefghij', 6)]).toHaveLength(6)
+    })
+
+    it('leaves a string that already fits untouched', () => {
+      expect(clip('abcdef', 6)).toBe('abcdef')
+      expect(clip('abc', 6)).toBe('abc')
+    })
+
+    it('hard-cuts rather than spending the whole budget on an ellipsis', () => {
+      expect(clip('abcdef', 1)).toBe('a')
+    })
+
+    it('counts a multi-byte glyph as one column', () => {
+      // The specific failure: '…' is three bytes, so printf under-pads by two.
+      expect([...pad('ab…', 6)]).toHaveLength(6)
+      expect(pad('ab…', 6)).toBe('ab…   ')
+    })
+  })
+  describe('wt watch PR + CI probe (watch_pr_probe)', () => {
+    type Check = { bucket: string; workflow: string }
+    const probe = (
+      prs: unknown,
+      checks: Check[] = [],
+      checksExit = 0,
+    ): { state: string; number: string; ci: string } => {
+      const out = runHarness(
+        'watch-pr-probe',
+        JSON.stringify(prs),
+        JSON.stringify(checks),
+        String(checksExit),
+      ).trim()
+      const fields = out.split('\t')
+      return { state: fields[0] ?? '', number: fields[1] ?? '', ci: fields[2] ?? '' }
+    }
+    const OPEN = [{ state: 'OPEN', number: 790 }]
+
+    it('reports no PR for a branch that has none', () => {
+      // A branch pushed but not yet PR'd is the normal mid-run state, and must
+      // not read as an error.
+      expect(probe([])).toEqual({ state: 'NONE', number: '-', ci: '-' })
+    })
+
+    it.each([
+      [[{ bucket: 'pass', workflow: 'CI' }], 'green'],
+      [
+        [
+          { bucket: 'pass', workflow: 'CI' },
+          { bucket: 'skipping', workflow: 'E2E' },
+        ],
+        'green',
+      ],
+      [
+        [
+          { bucket: 'pending', workflow: 'CI' },
+          { bucket: 'pass', workflow: 'Lint' },
+        ],
+        'pending',
+      ],
+      [
+        [
+          { bucket: 'fail', workflow: 'CI' },
+          { bucket: 'pass', workflow: 'Lint' },
+        ],
+        'failing',
+      ],
+      [[{ bucket: 'cancel', workflow: 'CI' }], 'failing'],
+    ])('buckets %j as %s', (checks, expected) => {
+      // Same ladder as orchestrator.sh's pr_ci_state: pending wins over
+      // everything, then anything outside pass|skipping is a failure.
+      expect(probe(OPEN, checks as Check[]).ci).toBe(expected)
+    })
+
+    it('reads the buckets even though gh exits non-zero for pending and failing', () => {
+      // The one deliberate divergence from pr_ci_state, and the whole reason this
+      // mode exists: `gh pr checks` exits 8 when checks are pending and 1 when
+      // they fail. Collapsing a non-zero exit to "unknown" would mislabel every
+      // PR the dashboard is actually waiting on.
+      expect(probe(OPEN, [{ bucket: 'pending', workflow: 'CI' }], 8).ci).toBe('pending')
+      expect(probe(OPEN, [{ bucket: 'fail', workflow: 'CI' }], 1).ci).toBe('failing')
+    })
+
+    it('exempts a pending third-party status with no workflow name', () => {
+      // HON-600: the Vercel commit status can sit pending after the deploy is
+      // Ready, so it must not hold an otherwise-green PR at pending.
+      const checks = [
+        { bucket: 'pass', workflow: 'CI' },
+        { bucket: 'pending', workflow: '' },
+      ]
+
+      expect(probe(OPEN, checks).ci).toBe('green')
+    })
+
+    it('still fails on a third-party status that reports failure', () => {
+      // The exemption is for pending only: CI runs no `next build`, so Vercel is
+      // the only build gate and a fail there is real.
+      const checks = [
+        { bucket: 'pass', workflow: 'CI' },
+        { bucket: 'fail', workflow: '' },
+      ]
+
+      expect(probe(OPEN, checks).ci).toBe('failing')
+    })
+
+    it('reports unknown when nothing but a stuck third-party status has spoken', () => {
+      expect(probe(OPEN, [{ bucket: 'pending', workflow: '' }]).ci).toBe('unknown')
+      expect(probe(OPEN, []).ci).toBe('unknown')
+    })
+
+    it.each([
+      ['MERGED', 'merged'],
+      ['CLOSED', 'closed'],
+    ])('short-circuits a %s PR to ci=%s without asking for checks', (state, expected) => {
+      // Checks on a merged PR are noise, and the column wants "merged", not the
+      // CI state of a run that no longer matters.
+      const r = probe([{ state, number: 790 }], [{ bucket: 'fail', workflow: 'CI' }])
+
+      expect(r.ci).toBe(expected)
+      expect(r.number).toBe('790')
+    })
+  })
+
+  describe('wt watch recently-landed probe (watch_landed_probe)', () => {
+    const landed = (prs: unknown) =>
+      runHarness('watch-landed-probe', JSON.stringify(prs))
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => {
+          const f = l.split('\t')
+          return { number: f[0] ?? '', id: f[1] ?? '', title: f[2] ?? '', mergedAt: f[3] ?? '' }
+        })
+
+    const PR = (number: number, title: string, branch: string, mergedAt: string) => ({
+      number,
+      title,
+      headRefName: branch,
+      mergedAt,
+    })
+
+    it('orders by merge time, which gh does not do', () => {
+      // The actual observed bug: `gh pr list --state merged` returned #787
+      // (merged 11:53) above #786 (merged 12:50), so the pane claimed the wrong
+      // PR had landed last.
+      const rows = landed([
+        PR(787, 'docs: c (HON-603)', 'kaupo/hon-603-c', '2026-09-20T11:53:28Z'),
+        PR(786, 'feat: a (HON-513)', 'kaupo/hon-513-a', '2026-09-20T12:50:18Z'),
+        PR(785, 'fix: b (HON-682)', 'kaupo/hon-682-b', '2026-09-20T12:08:48Z'),
+      ])
+
+      expect(rows.map((r) => r.number)).toEqual(['786', '785', '787'])
+    })
+
+    it('strips the trailing issue id, which has its own column', () => {
+      const rows = landed([
+        PR(786, 'feat(i18n): Localize emails (HON-513)', 'kaupo/hon-513-a', '2026-09-20T12:50:18Z'),
+      ])
+
+      expect(rows[0]?.id).toBe('HON-513')
+      expect(rows[0]?.title).toBe('feat(i18n): Localize emails')
+    })
+
+    it('strips only a trailing id, not one inside the subject', () => {
+      const rows = landed([
+        PR(
+          786,
+          'fix: Revert (HON-500) behaviour (HON-513)',
+          'kaupo/hon-513-a',
+          '2026-09-20T12:50:18Z',
+        ),
+      ])
+
+      expect(rows[0]?.title).toBe('fix: Revert (HON-500) behaviour')
+    })
+
+    it('derives the issue id from the branch, upcased', () => {
+      const rows = landed([
+        PR(786, 'feat: a', 'kaupo/hon-513-localize-emails', '2026-09-20T12:50:18Z'),
+      ])
+
+      expect(rows[0]?.id).toBe('HON-513')
+    })
+
+    it('emits "-" for a branch carrying no id, never an empty field', () => {
+      // An ad-hoc branch still belongs in the pane; it just has no id to show.
+      // The placeholder is load-bearing rather than cosmetic: the consumer reads
+      // these rows with IFS=$'\t', tab is IFS whitespace, and an empty field
+      // would collapse and shift every later column left.
+      const rows = landed([PR(786, 'chore: tidy', 'kaupo/no-issue-here', '2026-09-20T12:50:18Z')])
+
+      expect(rows[0]?.id).toBe('-')
+      expect(rows[0]?.title).toBe('chore: tidy')
+    })
+
+    it('skips a row with no merge time rather than sorting on null', () => {
+      const rows = landed([
+        PR(786, 'feat: a', 'kaupo/hon-513-a', '2026-09-20T12:50:18Z'),
+        { number: 999, title: 'odd', headRefName: 'kaupo/hon-1-x', mergedAt: null },
+      ])
+
+      expect(rows.map((r) => r.number)).toEqual(['786'])
+    })
+  })
+
+  describe('wt watch pane rule width', () => {
+    const head = (label: string, width: number) =>
+      runHarness('watch-pane-head', label, String(width)).trim().slice(1, -1)
+
+    it.each([
+      ['ORCHESTRATOR', 48],
+      ['THIS RUN (since 11:03)', 50],
+      ['RECENTLY LANDED', 98],
+    ])('pads the %j rule to exactly %i visible characters', (label, width) => {
+      // The panes are laid out by arithmetic on this width; a rule that overruns
+      // wraps and silently adds a line the height budget has not counted.
+      expect([...head(label as string, width as number)]).toHaveLength(width as number)
+    })
+
+    it('still emits the label when the width cannot fit a rule', () => {
+      // Degrades rather than corrupting the layout on a very narrow terminal.
+      expect(head('ORCHESTRATOR', 4)).toContain('ORCHESTRATOR')
+    })
+  })
+  describe('wt watch landed rows survive the shell read path', () => {
+    // A JS split of the TSV cannot see this class of bug at all: tab is IFS
+    // *whitespace*, so bash collapses adjacent tabs and a single empty field
+    // shifts every later field one to the left. These go through the same
+    // `IFS=$'\t' read` the render loop uses.
+    const readRows = (prs: unknown): string[][] =>
+      runHarness('watch-landed-read', JSON.stringify(prs))
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => [...l.matchAll(/\[([^\]]*)\]/g)].map((m) => m[1] ?? ''))
+
+    const PR = (number: number, title: string, branch: string, mergedAt: string) => ({
+      number,
+      title,
+      headRefName: branch,
+      mergedAt,
+    })
+
+    it('keeps the columns aligned for a branch carrying no issue id', () => {
+      // The reported bug, and the shape this very branch has: an ad-hoc
+      // `kaupo/<slug>` branch rendered its TITLE in the id column and lost the
+      // merge timestamp entirely.
+      const rows = readRows([PR(786, 'chore: tidy', 'kaupo/no-issue-here', '2026-09-20T12:50:18Z')])
+
+      expect(rows[0]).toEqual(['786', '-', 'chore: tidy', '2026-09-20T12:50:18Z'])
+    })
+
+    it('never emits an empty field, which is what makes the read safe', () => {
+      const raw = runHarness(
+        'watch-landed-probe',
+        JSON.stringify([PR(786, 'chore: tidy', 'kaupo/no-issue-here', '2026-09-20T12:50:18Z')]),
+      )
+
+      expect(raw).not.toMatch(/\t\t/)
+    })
+
+    it('keeps the columns aligned for an ordinary issue branch', () => {
+      const rows = readRows([
+        PR(786, 'feat(i18n): Localize emails', 'kaupo/hon-513-a', '2026-09-20T12:50:18Z'),
+      ])
+
+      expect(rows[0]).toEqual([
+        '786',
+        'HON-513',
+        'feat(i18n): Localize emails',
+        '2026-09-20T12:50:18Z',
+      ])
+    })
+  })
+
+  describe('wt watch widths do not depend on the caller locale', () => {
+    // `${#s}` counts characters only in a UTF-8 locale; under LC_ALL=C it counts
+    // bytes, which turned `watch_pad "HON-706↻" 9` into `HON-706…` — silently
+    // eating the retried marker. Vitest inherits the developer's UTF-8 locale,
+    // so only an explicit override exercises this.
+    const padIn = (locale: string, s: string, w: number) =>
+      runHarnessEnv({ LC_ALL: locale }, 'watch-pad', s, String(w)).trim().slice(1, -1)
+
+    it.each([['en_US.UTF-8'], ['C'], ['POSIX'], ['']])(
+      'pads to exact visible width under LC_ALL=%j',
+      (locale) => {
+        expect([...padIn(locale as string, 'HON-706↻', 9)]).toHaveLength(9)
+        expect([...padIn(locale as string, 'ab…', 6)]).toHaveLength(6)
+      },
+    )
+
+    it('keeps the retried marker instead of clipping it under LC_ALL=C', () => {
+      expect(padIn('C', 'HON-706↻', 9)).toBe('HON-706↻ ')
+    })
+  })
+
+  describe('wt watch skip histogram ordering', () => {
+    const summary = (lines: string[]): string => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-watch-order-'))
+      const log = path.join(dir, 'orchestrator.log')
+      fs.writeFileSync(log, `${lines.join('\n')}\n`)
+      try {
+        const out = runHarness('watch-scan-log', log, '')
+        return (
+          out
+            .split('\n')
+            .find((l) => l.startsWith('SKIP_SUMMARY='))
+            ?.slice(13) ?? ''
+        )
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    }
+
+    const ALL = [
+      '2026-09-20 10:00:00 INFO  [SKIP] HON-1 assigned',
+      '2026-09-20 10:00:00 INFO  [SKIP] HON-2 blocked by HON-9 (Todo)',
+      '2026-09-20 10:00:00 INFO  [SKIP] HON-3 stranded (Stranded label)',
+      '2026-09-20 10:00:00 INFO  [SKIP] HON-4 gated (Gated label)',
+      '2026-09-20 10:00:00 INFO  [SKIP] HON-5 requeued at the Neon branch cap — cooling down',
+    ]
+
+    it('is deterministic rather than following awk hash order', () => {
+      // Three runs of the same input must agree, or the pane reshuffles on every
+      // redraw and the clip drops a different category each time.
+      const runs = [summary(ALL), summary(ALL), summary(ALL)]
+
+      expect(new Set(runs).size).toBe(1)
+    })
+
+    it('leads with the categories that need a human', () => {
+      // gated needs the label removed, stranded needs `wt cleanup`; blocked and
+      // assigned resolve themselves. The summary is clipped to fit the pane, so
+      // ordering decides what survives.
+      expect(summary(ALL)).toBe('1 gated, 1 stranded, 1 cap cooldown, 1 blocked, 1 assigned')
+    })
+  })
+  describe('wt watch ignores log lines that are not log lines', () => {
+    // orchestrator.sh:784 appends a raw, untimestamped 20-line worker tail
+    // straight into orchestrator.log on a timeout. The window test is a string
+    // compare on the first 19 characters, so those lines were admitted or
+    // rejected on their first byte alone — "npm ERR …" sorts above any 2026 date
+    // and was always "in window"; "  [OUTCOME] …" sorts below and never was.
+    const scan = (lines: string[], since = ''): Record<string, string> => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-watch-untimed-'))
+      const log = path.join(dir, 'orchestrator.log')
+      fs.writeFileSync(log, `${lines.join('\n')}\n`)
+      try {
+        return Object.fromEntries(
+          runHarness('watch-scan-log', log, since)
+            .split('\n')
+            .filter(Boolean)
+            .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]),
+        )
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    }
+
+    const REAL = '2026-09-21 10:00:00 INFO  Selected: HON-2 — work'
+
+    it('does not let a worker echoing [OUTCOME] inflate the run tally', () => {
+      const r = scan(
+        [REAL, 'npm ERR [OUTCOME] HON-9 FAILED 1m1s 0-commits phase=initializing'],
+        '2026-09-21 00:00:00',
+      )
+
+      expect(r.TALLY_FAILED).toBe('0')
+      expect(r.LAST_OUTCOME).toBeUndefined()
+    })
+
+    it('does not raise an alert from an untimestamped tail line', () => {
+      // This produced ALERT_AT=could — the 12th to 16th characters of the text,
+      // read as if they were a clock.
+      const r = scan([REAL, 'npm ERROR  could not reach Linear API'], '2026-09-21 00:00:00')
+
+      expect(r.ALERT).toBeUndefined()
+      expect(r.ALERT_AT).toBeUndefined()
+    })
+
+    it('cannot be pinned by a garbage timestamp that no real one can beat', () => {
+      // The compounding failure: alert_ts came from the same bad substring, so it
+      // sorted above every real timestamp and the suppression rule — which fires
+      // when a later claim proves recovery — could never clear it.
+      const r = scan(['2026-09-21 09:00:00 WARN  zzz unreachable', REAL], '2026-09-21 00:00:00')
+
+      expect(r.ALERT).toBeUndefined()
+    })
+
+    it.each([
+      ['a bare continuation line', 'pnpm ERR! command failed'],
+      ['an indented one', '    at Object.<anonymous> (/app/x.ts:1:1)'],
+      ['a blank-prefixed one', ' 2026 was a good year'],
+      ['a lookalike missing the time', '2026-09-21 INFO  [OUTCOME] HON-9 FAILED 1m 0-commits'],
+    ])('ignores %s', (_label, line) => {
+      const r = scan([REAL, line], '2026-09-21 00:00:00')
+
+      expect(r.TALLY_FAILED).toBe('0')
+      expect(r.ALERT).toBeUndefined()
+    })
+
+    it('still reads genuine log lines', () => {
+      // The guard must not be so tight that it drops the real thing.
+      const r = scan(
+        [
+          '2026-09-21 10:00:00 INFO  [OUTCOME] HON-3 SUCCESS 5m0s 2-commits phase=done',
+          '2026-09-21 10:05:00 WARN  Pausing: low disk space',
+        ],
+        '2026-09-21 00:00:00',
+      )
+
+      expect(r.TALLY_SUCCESS).toBe('1')
+      expect(r.ALERT).toBe('Pausing: low disk space')
+    })
+
+    it('measures the rotation window from the first real line, not the first line', () => {
+      // first_ts feeds TALLY_TRUNCATED; if an untimestamped line set it, the
+      // comparison against the window would be meaningless.
+      const r = scan(
+        ['npm ERR something', '2026-09-21 10:00:00 INFO  Selected: HON-2 — work'],
+        '2026-09-21 00:00:00',
+      )
+
+      expect(r.TALLY_TRUNCATED).toBe('1')
+    })
+  })
+
+  describe('wt watch rules are valid UTF-8 in any locale', () => {
+    // The rule used to be drawn with `tr ' ' '─'`, which is byte-oriented: BSD tr
+    // honours a UTF-8 locale, but GNU tr has NO multi-byte support at all, so the
+    // same code drew a clean rule on macOS and a row of U+FFFD on Linux CI — this
+    // test is what caught that. It is now built by slicing a repeated string, so
+    // no tr is involved on any platform. A machine offering no UTF-8 locale falls
+    // back to ASCII rather than emitting replacement characters, so either unit is
+    // accepted as long as the rule is uniform and exactly the requested width.
+    const head = (locale: string, label: string, width: number) =>
+      runHarnessEnv({ LC_ALL: locale }, 'watch-pane-head', label, String(width)).trim().slice(1, -1)
+
+    it.each([['en_US.UTF-8'], ['C'], ['POSIX'], ['']])(
+      'draws a decodable rule of exact width under LC_ALL=%j',
+      (locale) => {
+        const rule = head(locale as string, 'TEST', 24)
+
+        expect([...rule]).toHaveLength(24)
+        // A lone lead byte would not survive the round trip through UTF-8.
+        expect(Buffer.from(rule, 'utf8').toString('utf8')).toBe(rule)
+        expect(rule).not.toContain('�')
+        expect(rule).toMatch(/[─-]$/)
+        // One unit throughout: a mix would mean a slice landed mid-character.
+        const unit = rule.slice(-1)
+        expect(rule.endsWith(unit.repeat(8))).toBe(true)
+      },
+    )
+  })
+
+  describe('wt watch clips to nothing rather than overflowing', () => {
+    // The title budget floors at 0 now: the fixed columns already spend 54, so a
+    // 12-column floor made the worker row 66 wide on a 64-column terminal. It
+    // wrapped, and the wrap consumed a row the height budget had already counted.
+    const clip = (s: string, w: number) =>
+      runHarness('watch-clip', s, String(w)).trim().slice(1, -1)
+
+    it.each([[0], [-1]])('returns empty for a budget of %i', (w) => {
+      expect(clip('a title that cannot fit', w as number)).toBe('')
+    })
+  })
 })

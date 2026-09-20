@@ -11,7 +11,12 @@ import { Body } from '@/components/ui/typography'
 import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
 import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
-import { convertToPrefilledData, type ImaginedMealResponse } from '@/lib/imagine-utils'
+import { IMAGINE_ERROR_KEYS, translateErrorCode } from '@/lib/ai/error-codes'
+import {
+  convertToPrefilledData,
+  reviewImaginedMeal,
+  type ImaginedMealResponse,
+} from '@/lib/imagine-utils'
 import { MealCardBase } from '../MealCardBase'
 import { AlternativeSkeleton } from './AlternativesList'
 
@@ -25,7 +30,11 @@ export interface ImaginePanelProps {
   onMealSaved: (mealId: string) => void | Promise<void>
 }
 
-/** Thrown so `useMutation` treats a failed imagine response as an error. */
+/**
+ * Thrown so `useMutation` treats a failed imagine response as an error. Its
+ * `message` is the already-translated string the panel renders — the route's
+ * English prose never reaches it (HON-700).
+ */
 class ImagineRequestError extends Error {}
 
 /**
@@ -38,6 +47,10 @@ class ImagineRequestError extends Error {}
  */
 export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
   const t = useTranslations('meal-plan.selector.imagine')
+  // `/api/meals/imagine` is shared with `/recipes/imagine`, so its error codes
+  // resolve against that screen's catalog rather than duplicating thirteen
+  // strings into this namespace (HON-700).
+  const tRouteErrors = useTranslations('recipes.imagine.errors')
 
   const [prompt, setPrompt] = useState('')
   const [imaginedMeals, setImaginedMeals] = useState<ImaginedMealResponse[] | null>(null)
@@ -96,7 +109,23 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
         const data = await response.json()
 
         if (!response.ok || !data.success) {
-          throw new ImagineRequestError(data.error || data.message || t('imagineFailed'))
+          // Deliberately not falling back to `data.error` / `data.message`:
+          // both carry untranslated English, which would render verbatim to an
+          // Estonian household. The route's machine-readable `code` is what
+          // picks the copy; the prose is kept as a console breadcrumb only.
+          console.error('[imagine] request failed', {
+            code: data.code,
+            // `message` carries the detail on the 429 branches — the hourly
+            // limit, and the household-local date the AI cap resets on.
+            // `error` is a bare label there.
+            message: data.message,
+            error: data.error,
+          })
+          throw new ImagineRequestError(
+            tRouteErrors(translateErrorCode(data.code, IMAGINE_ERROR_KEYS, 'imagineFailed'), {
+              max: MAX_ATTACHED_IMAGES,
+            }),
+          )
         }
 
         return data.meals as ImaginedMealResponse[]
@@ -143,66 +172,14 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
   }
 
   /**
-   * Ask the review endpoint to sanity-check the AI's per-serving quantities
-   * before opening the save dialog. Degrades gracefully: on any failure the
-   * original quantities are used.
+   * Sanity-check the AI's per-serving quantities before opening the save
+   * dialog. `reviewImaginedMeal` degrades on any failure — the original
+   * quantities are used and the failure is reported, not surfaced (HON-699).
    */
   const handleSelectImaginedMeal = async (meal: ImaginedMealResponse) => {
     setReviewingMealId(meal.id)
 
-    let finalMeal = meal
-    try {
-      const reviewPayload = {
-        mealName: meal.name,
-        servings: meal.servings,
-        ingredients: meal.components.map((comp) => ({
-          ingredientId: comp.ingredientId,
-          name: comp.ingredient.name,
-          quantityPerServing: comp.quantityPerServing,
-          unit: comp.ingredient.defaultUnit,
-        })),
-      }
-
-      const response = await fetch('/api/meals/imagine/review', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(reviewPayload),
-        // Matches the budget in ImagineClient.tsx: Sonnet 5's reasoning pushes
-        // a 24-ingredient review to 25-32s, past the old 15s, and the catch
-        // below degrades silently — so the corrections are dropped after the
-        // household has already been billed for them (HON-693).
-        signal: AbortSignal.timeout(45_000),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success && data.ingredients) {
-          const correctionMap = new Map<string, number>(
-            data.ingredients.map((ing: { ingredientId: string; quantityPerServing: number }) => [
-              ing.ingredientId,
-              ing.quantityPerServing,
-            ]),
-          )
-
-          finalMeal = {
-            ...meal,
-            components: meal.components.map((comp) => {
-              const corrected = correctionMap.get(comp.ingredientId)
-              return corrected != null ? { ...comp, quantityPerServing: corrected } : comp
-            }),
-            ingredients: meal.ingredients.map((ing) => {
-              if (ing.type !== 'matched') return ing
-              const corrected = correctionMap.get(ing.ingredient.id)
-              return corrected != null
-                ? { ...ing, convertedQuantity: corrected * meal.servings }
-                : ing
-            }),
-          }
-        }
-      }
-    } catch {
-      // Graceful degradation: proceed with original quantities
-    }
+    const finalMeal = await reviewImaginedMeal(meal)
 
     setReviewingMealId(null)
     const prefilledData = convertToPrefilledData(finalMeal)

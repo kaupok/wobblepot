@@ -66,7 +66,7 @@ Then use `wt new feat/my-feature` from anywhere.
 1. **Use `/next-issue` first** - Get 3 candidates with ready-to-copy commands before spawning worktrees
 2. **Use branch names from Linear** - `wt auto kaupokorv/hon-51-...` creates properly named worktrees
 3. **Clean up regularly** - Run `wt cleanup-all` to remove merged worktrees
-4. **Check status** - Run `wt status` for orchestrator/worker status, `wt list` for worktree listing, or `watch -n 5 wt status` for a live dashboard
+4. **Check status** - Run `wt watch` for the live dashboard (health, run tally, PR/CI, activity), `wt status` for a one-shot summary, `wt list` for worktree listing
 
 ## Worktree Location
 
@@ -244,7 +244,26 @@ The cap message itself names the budget, the ceiling in force and the branch cou
 
 ### Monitoring
 
-**Live status:** Run `wt status` from any terminal to see orchestrator state, worker phases, elapsed times, and git progress. Use `watch -n 5 wt status` for a live dashboard.
+**Live status:** Run `wt status` from any terminal to see orchestrator state, worker phases, elapsed times, and git progress.
+
+**Live dashboard:** `wt watch [interval]` (default 5s) is the full-screen version, and shows four things `wt status` does not:
+
+| Region              | What it answers                                                                                                                                                                  | Source                                                                                      |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `ORCHESTRATOR` pane | Is it alive, how long has it been up, how stale is the last poll, is the circuit breaker paused (with the remaining countdown)                                                   | `orchestrator-status.json`                                                                  |
+| `THIS RUN` pane     | What this run has produced — merged / failed / stranded / gated / timeout counts, the last `[OUTCOME]` in full, the last issue claimed, and how many issues were skipped and why | `[OUTCOME]`, `Selected:` and `[SKIP]` lines in `orchestrator.log`, windowed to `started_at` |
+| Worker table        | Per worker: phase, elapsed, commits, **PR number and CI bucket**, and the issue title                                                                                            | status file + cached `gh` probes                                                            |
+| `RECENTLY LANDED`   | Which PRs have merged recently, newest first                                                                                                                                     | `gh pr list --state merged`                                                                 |
+
+Below those, each worker keeps a tail of its Claude activity, with a `●` on any worker whose session advanced since the last redraw. Every worker keeps its slot whether or not it moved — hiding the quiet ones empties the screen exactly when several workers are sitting in a CI wait, which is when you are most likely to be watching.
+
+Three things about that display are worth knowing before you trust it:
+
+- **The `THIS RUN` tallies are scoped to the current orchestrator process**, by windowing `orchestrator.log` at the status file's `started_at`. If the run predates a 50 MB log rotation, the counts are a floor and are labelled `(floor: log rotated)` rather than passed off as totals.
+- **PR and CI state come from a background cache, not from the redraw.** A `gh` call costs about a second, so probing three workers on every 5s tick would stall the interval it promises; instead a probe runs at most every 30s per worker (120s for the landed pane), the redraw renders whatever the cache holds, and a failed probe keeps the last known value rather than blanking the column. A freshly pushed branch therefore shows `…` in the `PR` column for one tick.
+- **There is no "next issue" on the dashboard, because there is none on disk.** The candidate list never leaves the `jq` expression inside `select_next_issue`, so the pane reports the last issue _claimed_ (`last claim`) and the skip histogram — never a prediction. When a slot sits empty, the reason is the `⚠` alert line, which surfaces the most recent blocker (`Pausing: low disk space`, `Failed to fetch issues from Linear`, the Todo query cap) and is suppressed once a later claim or completion proves the orchestrator recovered from it.
+
+Use `watch -n 5 wt status` if you want the terse one-screen version in a pane instead.
 
 Commit counts and the git-heuristic phases derived from them — in `wt status`, `wt watch`, the `[OUTCOME]` lines and the Linear comments — are measured against `origin/main` as last fetched, which is the ref autonomous worktrees are cut from. Your local `main` never affects them, so you do not need to `git pull` in the primary checkout to keep those honest (HON-601). `wt list` and `wt cleanup` are the exception: they still measure against local `main`, so on a checkout you have not pulled they can report `unpushed commits` for a worktree `wt status` shows as empty.
 
