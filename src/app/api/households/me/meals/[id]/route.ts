@@ -269,6 +269,23 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     let componentsChanged = false
     if (components) {
       const ingredientIds = components.map((c) => c.ingredientId)
+
+      // A repeated id makes `findMany` return one row for two components, so
+      // the existence check below fires with an empty `missingIds` — a 400 that
+      // names nothing. Diagnose it here instead. The guard itself is load-
+      // bearing either way: `createMany` would hit
+      // `@@unique([mealId, ingredientId])` and answer 500.
+      const duplicateIds = [
+        ...new Set(ingredientIds.filter((id, i) => ingredientIds.indexOf(id) !== i)),
+      ]
+
+      if (duplicateIds.length > 0) {
+        return NextResponse.json(
+          { error: 'Duplicate ingredients in components', duplicateIds },
+          { status: 400 },
+        )
+      }
+
       const ingredients = await prisma.ingredient.findMany({
         where: { id: { in: ingredientIds } },
         select: {

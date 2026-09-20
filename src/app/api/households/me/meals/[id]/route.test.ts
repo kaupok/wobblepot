@@ -590,6 +590,26 @@ describe('PATCH /api/households/me/meals/[id]', () => {
       expect(mealComponentCreateMany).not.toHaveBeenCalled()
     })
 
+    // The existence check below it cannot tell a repeated id from a missing
+    // one — `findMany` returns one row for two components — so it used to
+    // answer `400 { missingIds: [] }`, naming nothing. Newly reachable on this
+    // path, hence pinned here.
+    it('names the repeated ingredient when a component id appears twice', async () => {
+      const { mealComponentCreateMany } = setupTransaction(mockMealResult)
+
+      const response = await patchMeal({
+        components: [
+          { ingredientId: 'ing-1', totalQuantity: 400 },
+          { ingredientId: 'ing-1', totalQuantity: 350 },
+        ],
+      })
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.duplicateIds).toEqual(['ing-1'])
+      expect(mealComponentCreateMany).not.toHaveBeenCalled()
+    })
+
     // The other direction, unchanged by HON-701: a bare `servings` edit leaves
     // the stored per-serving quantities exactly where they are.
     it('leaves the component rows alone for a servings-only PATCH', async () => {
