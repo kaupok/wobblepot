@@ -1761,6 +1761,104 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - rating', () => {
 
     expect(response.status).toBe(400)
   })
+
+  // A rating is a verdict on the meal the entry points at, so it goes when the
+  // meal does — otherwise complete → rate → revert → swap leaves the entry
+  // holding a verdict on a dish it no longer names, which HON-340 will read as
+  // a preference for the one it does (HON-703). The exact `data` shape is
+  // asserted rather than `objectContaining`, so the two resets this one joins
+  // cannot quietly go missing from the same write.
+  it('clears the rating when the meal is swapped', async () => {
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      plan: {
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: { components: [] },
+    } as never)
+
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({ id: 'new-meal-456' } as never)
+    swapReturns({ id: 'entry-123', status: 'planned', mealId: 'new-meal-456', rating: null })
+
+    const response = await PATCH(createPatchRequest({ mealId: 'new-meal-456' }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.rating).toBeNull()
+    expect(mockSwapEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          mealId: 'new-meal-456',
+          preparationTips: null,
+          servingOverride: null,
+          rating: null,
+        },
+      }),
+    )
+  })
+
+  it('keeps the rating when the PATCH does not change the meal', async () => {
+    // The other direction: only a swap discards a rating. A note-only write
+    // must not carry a `rating` key at all, or every unrelated edit would
+    // throw the household's verdict away.
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      plan: {
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: { components: [] },
+    } as never)
+    mockUpdateEntry.mockResolvedValue({
+      id: 'entry-123',
+      status: 'planned',
+      mealId: 'meal-123',
+      rating: 'up',
+    } as never)
+
+    const response = await PATCH(createPatchRequest({ note: 'Leftovers' }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.rating).toBe('up')
+    expect(mockUpdateEntry).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { note: 'Leftovers' } }),
+    )
+  })
+
+  it('lets an explicit rating in the same request win over the swap reset', async () => {
+    // The swap reset is written before the `'rating' in parsed.data` handler,
+    // so a caller that swaps and rates in one request gets the rating it sent
+    // — the same precedence `servingOverride` already has. Pinned so a reorder
+    // of the two blocks fails here rather than silently discarding the value.
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      plan: {
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: { components: [] },
+    } as never)
+
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({ id: 'new-meal-456' } as never)
+    swapReturns({ id: 'entry-123', status: 'planned', mealId: 'new-meal-456', rating: 'up' })
+
+    const response = await PATCH(createPatchRequest({ mealId: 'new-meal-456', rating: 'up' }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.rating).toBe('up')
+    expect(mockSwapEntry).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ rating: 'up' }) }),
+    )
+  })
 })
 
 describe('DELETE /api/meal-plans/[id]/entries/[entryId]', () => {

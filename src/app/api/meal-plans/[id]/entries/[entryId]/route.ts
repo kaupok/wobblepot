@@ -331,6 +331,23 @@ export async function PATCH(
       updateData.preparationTips = null
       // Reset serving override when meal is swapped
       updateData.servingOverride = null
+      // Third column describing the meal, same treatment: a rating is a
+      // verdict on *the meal this entry points at*, so it does not survive the
+      // entry being repointed. Left in place it is a 👍 the household gave a
+      // dish they then replaced, now attached to one they have said nothing
+      // about — reachable as complete → rate → revert to `planned` (which the
+      // guard above still allows to swap, nothing having been charged) → swap.
+      //
+      // Cosmetic while nothing reads the column; HON-340 will feed it into
+      // candidate scoring, at which point a rating on the wrong meal stops
+      // being a stale badge and starts steering what the household is offered
+      // (HON-703). Clearing rather than refusing the swap: unlike the
+      // completed-entry guard above there is no pantry accounting to protect,
+      // so a 409 here would only block "we rated it, we changed our minds".
+      //
+      // An explicit `rating` in the same request still wins — it is applied
+      // below, the same precedence `servingOverride` has.
+      updateData.rating = null
     }
 
     // Handle note updates (including explicit null to clear)
