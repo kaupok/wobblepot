@@ -37,14 +37,17 @@ class AlreadyInHouseholdError extends Error {
  *
  * Mapped to the existing `invite_invalid` 400 rather than the `invite_not_found`
  * 404: the code *did* resolve, so "not found" is the wrong diagnosis, and
- * `JoinHouseholdCard` has a translated branch for `invite_invalid` but none for
- * `invite_not_found` — routing here through the 404 would tell the user only
- * the generic "joining failed" instead. "Expired or reached its maximum uses"
- * is also simply accurate for the loser of a race on a single-use link.
+ * "expired or reached its maximum uses" is simply accurate for the loser of a
+ * race on a single-use link.
  *
- * (Before HON-697 the 404 was worse than generic: the card rendered this
- * route's English `message` verbatim to an Estonian user. It no longer reads
- * `message` at all — but the mapping above is right on its own merits.)
+ * The client copy no longer turns on the choice. Before HON-697,
+ * `JoinHouseholdCard` had a translated branch for `invite_invalid` and none
+ * for `invite_not_found`, so the 404 rendered this route's English `message`
+ * verbatim to an Estonian user. It now ignores the server prose entirely and
+ * renders the same translated string for both codes — the 404 is the commoner
+ * way to lose the same race (a click after the winner's claim committed misses
+ * at `findUnique`), so the two describe one situation to the user. Keep them
+ * distinct on the wire regardless: logs and Sentry want them apart.
  */
 class InviteNoLongerClaimableError extends Error {
   constructor() {

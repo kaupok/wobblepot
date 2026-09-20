@@ -62,21 +62,25 @@ describe('JoinHouseholdCard error localization', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders the Estonian fallback for invite_not_found, never the server prose', async () => {
+  // `invite_not_found` reaches this card only when the invite vanished between
+  // render and click (`page.tsx` `notFound()`s on a code that never resolved),
+  // which is the commoner half of the race `invite_invalid` describes — so it
+  // shares that copy rather than the generic fallback.
+  it('renders the Estonian invite_invalid copy for invite_not_found, never the server prose', async () => {
     respondWith({ error: 'invite_not_found', message: SERVER_PROSE }, 404)
 
     await clickJoin('et')
 
-    await screen.findByText(etMessages.auth.invite.errors.joinFailed)
+    await screen.findByText(etMessages.auth.invite.errors.inviteInvalid)
     expect(screen.queryByText(SERVER_PROSE)).not.toBeInTheDocument()
   })
 
-  it('renders the English fallback for invite_not_found on the en locale', async () => {
+  it('renders the English invite_invalid copy for invite_not_found on the en locale', async () => {
     respondWith({ error: 'invite_not_found', message: SERVER_PROSE }, 404)
 
     await clickJoin('en')
 
-    await screen.findByText(enMessages.auth.invite.errors.joinFailed)
+    await screen.findByText(enMessages.auth.invite.errors.inviteInvalid)
     expect(screen.queryByText(SERVER_PROSE)).not.toBeInTheDocument()
   })
 
@@ -88,6 +92,15 @@ describe('JoinHouseholdCard error localization', () => {
     await clickJoin('et')
 
     await screen.findByText(etMessages.auth.invite.errors.joinFailed)
+    expect(screen.queryByText('Some untranslated English.')).not.toBeInTheDocument()
+  })
+
+  it('renders the English generic fallback for an unbranched code on the en locale', async () => {
+    respondWith({ error: 'some_future_code', message: 'Some untranslated English.' }, 500)
+
+    await clickJoin('en')
+
+    await screen.findByText(enMessages.auth.invite.errors.joinFailed)
     expect(screen.queryByText('Some untranslated English.')).not.toBeInTheDocument()
   })
 

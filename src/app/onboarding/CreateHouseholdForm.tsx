@@ -150,6 +150,13 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
         // `Failed to create household`), which would render verbatim to an
         // Estonian user. `JoinHouseholdCard` went further for the same reason
         // and now ignores the server string entirely (HON-697).
+        //
+        // `data.message` is not a translated channel either — it is simply
+        // unreachable here today: `POST /api/households` sets it on the
+        // `already_in_household` branch alone, which the early return above
+        // intercepts. Every other failure carries `error` only, so this throw
+        // always resolves to `t('errors.createFailed')`. If that route ever
+        // adds a second `message`, translate it here rather than rendering it.
         throw new Error(data.message || t('errors.createFailed'))
       }
 

@@ -191,10 +191,11 @@ describe('POST /api/invites/[code]/join', () => {
     const response = await POST(createRequest(), { params: createParams('abc123') })
     const data = await response.json()
 
-    // Not a 500, and not the `invite_not_found` 404 either: JoinHouseholdCard
-    // has no branch for that error, so its English `message` would render
-    // verbatim to an Estonian user. `invite_invalid` is translated, and is
-    // accurate for the loser of a race on a single-use link.
+    // Not a 500, and not the `invite_not_found` 404 either: the code *did*
+    // resolve, so "not found" is the wrong diagnosis, and "expired or reached
+    // its maximum uses" is accurate for the loser of a race on a single-use
+    // link. (Since HON-697 both codes render the same translated copy in
+    // `JoinHouseholdCard`, so this distinction is for logs and Sentry.)
     expect(response.status).toBe(400)
     expect(data.error).toBe('invite_invalid')
     expect(data.message).toBe('This invite has expired or reached its maximum uses.')
