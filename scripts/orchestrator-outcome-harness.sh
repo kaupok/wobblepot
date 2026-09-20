@@ -150,6 +150,13 @@
 #     The jq is the thing under test: gh does not order by mergedAt, so the sort
 #     is the helper's own, as is the trailing "(HON-NNN)" strip.
 #
+#   watch-landed-read <pr-list-json>                        (wt watch rework)
+#     watch_landed_probe piped through the SAME `IFS=$'\t' read` loop cmd_watch
+#     uses, printing bracketed fields. This mode exists because a test that
+#     splits the TSV in JavaScript cannot see the real failure: tab is IFS
+#     *whitespace*, so bash collapses adjacent tabs and one empty field shifts
+#     every later field left. Only the shell read path shows that.
+#
 #   watch-pane-head <label> <width>                         (wt watch rework)
 #     The REAL watch_pane_head. Bracketed output, so a test can assert the rule
 #     is padded to exactly <width> visible characters.
@@ -944,6 +951,26 @@ EOF
       printf '%s' "$LANDED_FIXTURE" | jq -r "$jq_expr" 2>/dev/null
     }
     watch_landed_probe 6
+    exit 0
+    ;;
+
+  watch-landed-read)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    REPO_ROOT="$HARNESS_DIR/.."
+    LANDED_FIXTURE="$A1"
+    gh() {
+      local jq_expr=""
+      while [ $# -gt 0 ]; do
+        [ "$1" = "--jq" ] && jq_expr="$2"
+        shift
+      done
+      printf '%s' "$LANDED_FIXTURE" | jq -r "$jq_expr" 2>/dev/null
+    }
+    # Deliberately the same read as the render loop, field separator included.
+    watch_landed_probe 6 | while IFS=$'\t' read -r l_num l_id l_title l_merged; do
+      printf '[%s][%s][%s][%s]\n' "$l_num" "$l_id" "$l_title" "$l_merged"
+    done
     exit 0
     ;;
 

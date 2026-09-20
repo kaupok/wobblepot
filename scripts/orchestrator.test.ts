@@ -3479,11 +3479,14 @@ describe('orchestrator.sh', () => {
       expect(rows[0]?.id).toBe('HON-513')
     })
 
-    it('leaves the id blank for a branch that carries none', () => {
+    it('emits "-" for a branch carrying no id, never an empty field', () => {
       // An ad-hoc branch still belongs in the pane; it just has no id to show.
+      // The placeholder is load-bearing rather than cosmetic: the consumer reads
+      // these rows with IFS=$'\t', tab is IFS whitespace, and an empty field
+      // would collapse and shift every later column left.
       const rows = landed([PR(786, 'chore: tidy', 'kaupo/no-issue-here', '2026-09-20T12:50:18Z')])
 
-      expect(rows[0]?.id).toBe('')
+      expect(rows[0]?.id).toBe('-')
       expect(rows[0]?.title).toBe('chore: tidy')
     })
 
@@ -3514,6 +3517,118 @@ describe('orchestrator.sh', () => {
     it('still emits the label when the width cannot fit a rule', () => {
       // Degrades rather than corrupting the layout on a very narrow terminal.
       expect(head('ORCHESTRATOR', 4)).toContain('ORCHESTRATOR')
+    })
+  })
+  describe('wt watch landed rows survive the shell read path', () => {
+    // A JS split of the TSV cannot see this class of bug at all: tab is IFS
+    // *whitespace*, so bash collapses adjacent tabs and a single empty field
+    // shifts every later field one to the left. These go through the same
+    // `IFS=$'\t' read` the render loop uses.
+    const readRows = (prs: unknown): string[][] =>
+      runHarness('watch-landed-read', JSON.stringify(prs))
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => [...l.matchAll(/\[([^\]]*)\]/g)].map((m) => m[1] ?? ''))
+
+    const PR = (number: number, title: string, branch: string, mergedAt: string) => ({
+      number,
+      title,
+      headRefName: branch,
+      mergedAt,
+    })
+
+    it('keeps the columns aligned for a branch carrying no issue id', () => {
+      // The reported bug, and the shape this very branch has: an ad-hoc
+      // `kaupo/<slug>` branch rendered its TITLE in the id column and lost the
+      // merge timestamp entirely.
+      const rows = readRows([PR(786, 'chore: tidy', 'kaupo/no-issue-here', '2026-09-20T12:50:18Z')])
+
+      expect(rows[0]).toEqual(['786', '-', 'chore: tidy', '2026-09-20T12:50:18Z'])
+    })
+
+    it('never emits an empty field, which is what makes the read safe', () => {
+      const raw = runHarness(
+        'watch-landed-probe',
+        JSON.stringify([PR(786, 'chore: tidy', 'kaupo/no-issue-here', '2026-09-20T12:50:18Z')]),
+      )
+
+      expect(raw).not.toMatch(/\t\t/)
+    })
+
+    it('keeps the columns aligned for an ordinary issue branch', () => {
+      const rows = readRows([
+        PR(786, 'feat(i18n): Localize emails', 'kaupo/hon-513-a', '2026-09-20T12:50:18Z'),
+      ])
+
+      expect(rows[0]).toEqual([
+        '786',
+        'HON-513',
+        'feat(i18n): Localize emails',
+        '2026-09-20T12:50:18Z',
+      ])
+    })
+  })
+
+  describe('wt watch widths do not depend on the caller locale', () => {
+    // `${#s}` counts characters only in a UTF-8 locale; under LC_ALL=C it counts
+    // bytes, which turned `watch_pad "HON-706↻" 9` into `HON-706…` — silently
+    // eating the retried marker. Vitest inherits the developer's UTF-8 locale,
+    // so only an explicit override exercises this.
+    const padIn = (locale: string, s: string, w: number) =>
+      runHarnessEnv({ LC_ALL: locale }, 'watch-pad', s, String(w)).trim().slice(1, -1)
+
+    it.each([['en_US.UTF-8'], ['C'], ['POSIX'], ['']])(
+      'pads to exact visible width under LC_ALL=%j',
+      (locale) => {
+        expect([...padIn(locale as string, 'HON-706↻', 9)]).toHaveLength(9)
+        expect([...padIn(locale as string, 'ab…', 6)]).toHaveLength(6)
+      },
+    )
+
+    it('keeps the retried marker instead of clipping it under LC_ALL=C', () => {
+      expect(padIn('C', 'HON-706↻', 9)).toBe('HON-706↻ ')
+    })
+  })
+
+  describe('wt watch skip histogram ordering', () => {
+    const summary = (lines: string[]): string => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-watch-order-'))
+      const log = path.join(dir, 'orchestrator.log')
+      fs.writeFileSync(log, `${lines.join('\n')}\n`)
+      try {
+        const out = runHarness('watch-scan-log', log, '')
+        return (
+          out
+            .split('\n')
+            .find((l) => l.startsWith('SKIP_SUMMARY='))
+            ?.slice(13) ?? ''
+        )
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    }
+
+    const ALL = [
+      '2026-09-20 10:00:00 INFO  [SKIP] HON-1 assigned',
+      '2026-09-20 10:00:00 INFO  [SKIP] HON-2 blocked by HON-9 (Todo)',
+      '2026-09-20 10:00:00 INFO  [SKIP] HON-3 stranded (Stranded label)',
+      '2026-09-20 10:00:00 INFO  [SKIP] HON-4 gated (Gated label)',
+      '2026-09-20 10:00:00 INFO  [SKIP] HON-5 requeued at the Neon branch cap — cooling down',
+    ]
+
+    it('is deterministic rather than following awk hash order', () => {
+      // Three runs of the same input must agree, or the pane reshuffles on every
+      // redraw and the clip drops a different category each time.
+      const runs = [summary(ALL), summary(ALL), summary(ALL)]
+
+      expect(new Set(runs).size).toBe(1)
+    })
+
+    it('leads with the categories that need a human', () => {
+      // gated needs the label removed, stranded needs `wt cleanup`; blocked and
+      // assigned resolve themselves. The summary is clipped to fit the pane, so
+      // ordering decides what survives.
+      expect(summary(ALL)).toBe('1 gated, 1 stranded, 1 cap cooldown, 1 blocked, 1 assigned')
     })
   })
 })

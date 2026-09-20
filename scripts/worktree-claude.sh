@@ -1825,11 +1825,24 @@ cmd_logs() {
 # below goes through watch_pad, and printf padding is reserved for cells that
 # are ASCII by construction.
 
+# Resolved once at load. `${#s}` counts CHARACTERS only in a UTF-8 locale; under
+# LC_ALL=C it counts BYTES, which silently destroys the very glyphs the width
+# helpers exist to handle (`watch_pad "HON-706↻" 8` returns `HON-706…`, eating
+# the retried marker). The common case costs nothing — the caller's locale is
+# already UTF-8 and is left alone; only a non-UTF-8 caller pays one `locale -a`,
+# and an empty result means the machine has no UTF-8 locale to switch to.
+case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
+  *[Uu][Tt][Ff]8* | *[Uu][Tt][Ff]-8*) WT_WIDTH_LOCALE="" ;;
+  *) WT_WIDTH_LOCALE="$(locale -a 2>/dev/null | grep -iE '^(C|en_US)\.utf-?8$' | head -1)" ;;
+esac
+
 # Truncate a string to a display width, marking the cut with an ellipsis.
 # A width under 2 degenerates to a hard cut, because "…" would be all there is.
 #
 # Usage: watch_clip <string> <width>
 watch_clip() {
+  # See WT_WIDTH_LOCALE: scoped to the call, so the caller's locale is untouched.
+  local LC_ALL="${WT_WIDTH_LOCALE:-${LC_ALL:-}}"
   local s="$1" w="$2"
   [ "$w" -lt 1 ] && { printf ''; return; }
   if [ "${#s}" -le "$w" ]; then
@@ -1845,6 +1858,7 @@ watch_clip() {
 #
 # Usage: watch_pad <string> <width>
 watch_pad() {
+  local LC_ALL="${WT_WIDTH_LOCALE:-${LC_ALL:-}}"
   local s="$1" w="$2"
   s=$(watch_clip "$s" "$w")
   local pad=$(( w - ${#s} ))
@@ -2001,8 +2015,18 @@ watch_scan_log() {
         printf "LAST_PICK_AT=%s\n", last_pick_at
       }
       printf "SKIPS=%d\n", skips + 0
+      # Fixed order, actionable first, rather than the awk hash order: the summary
+      # is clipped to fit the pane, so whichever category the clip drops must be
+      # the one an operator can do least about. `gated` and `stranded` both need
+      # a human (remove the label / `wt cleanup`), so they lead; `blocked` and
+      # `assigned` resolve themselves.
+      split("gated stranded cap-cooldown blocked assigned running other", order, " ")
       sep = ""; summary = ""
-      for (c in skipcat) { summary = summary sep skipcat[c] " " c; sep = ", " }
+      for (oi = 1; oi <= 7; oi++) {
+        c = order[oi]
+        if (c == "cap-cooldown") c = "cap cooldown"
+        if (c in skipcat) { summary = summary sep skipcat[c] " " c; sep = ", " }
+      }
       if (summary != "") printf "SKIP_SUMMARY=%s\n", summary
       # An alert the orchestrator has demonstrably recovered from is noise, not
       # news: a Linear fetch that failed at 19:25 is answered by the three
@@ -2155,16 +2179,27 @@ watch_landed_probe() {
   # Sorted here, not by gh: `gh pr list --state merged` orders by the search
   # default, not by mergedAt, so #787 (merged 11:53) came back above #786
   # (merged 12:50) and the pane would have lied about what landed last.
+  #
+  # And over-fetched before sorting, because `--limit` is applied SERVER-side in
+  # that same wrong order: sorting only the rows gh chose to return cannot
+  # recover a PR it left out — exactly the stranded-then-hand-merged shape this
+  # orchestrator produces, where a long-open PR merges after newer ones.
+  local fetch=$(( limit * 5 ))
+  [ "$fetch" -gt 50 ] && fetch=50
   # The trailing "(HON-NNN)" comes off the title because the ID has its own
   # column — the commit convention puts it there on every squash merge.
-  ( cd "$REPO_ROOT" && gh pr list --state merged --limit "$limit" \
+  # A missing id emits "-", never "": the consumer reads these rows with
+  # IFS=$'\t', and tab is IFS *whitespace*, so bash collapses adjacent tabs and
+  # an empty field shifts every later field one to the left. An ad-hoc branch
+  # with no HON id would otherwise render its title in the id column.
+  ( cd "$REPO_ROOT" && gh pr list --state merged --limit "$fetch" \
     --json number,title,headRefName,mergedAt \
     --jq '[.[] | select(.mergedAt)] | sort_by(.mergedAt) | reverse | .[] | [
       .number,
-      (.headRefName | [scan("[A-Za-z]+-[0-9]+")] | (.[0] // "") | ascii_upcase),
+      (.headRefName | [scan("[A-Za-z]+-[0-9]+")] | (.[0] // "-") | ascii_upcase),
       (.title | sub(" \\([A-Za-z]+-[0-9]+\\)$"; "")),
       .mergedAt
-    ] | @tsv' ) 2>/dev/null
+    ] | @tsv' ) 2>/dev/null | head -n "$limit"
 }
 
 # "── LABEL ─────────" to a given width.
@@ -2382,8 +2417,8 @@ cmd_watch() {
       pick_line+=" · ${skips} skipped"
       pick_plain+=" · ${skips} skipped"
       if [ -n "$skip_summary" ]; then
-        pick_line+=" ${DIM}($(watch_clip "$skip_summary" 28))${NC}"
-        pick_plain+=" ($(watch_clip "$skip_summary" 28))"
+        pick_line+=" ${DIM}($(watch_clip "$skip_summary" 44))${NC}"
+        pick_plain+=" ($(watch_clip "$skip_summary" 44))"
       fi
     fi
     r_rows+=("$pick_line")
@@ -2545,12 +2580,14 @@ cmd_watch() {
       # column did not already say, since the branch is that issue's slug. The
       # width buys the title, which is the one thing you could not get from this
       # screen at all.
-      # 54, not 53: the fixed columns occupy 53, so this leaves the row one
-      # column short of the terminal width like every other line here, rather
-      # than landing exactly on it and relying on deferred wrap.
-      local title_w=$(( term_cols - 54 ))
+      # The fixed columns occupy 54 (issue 9 + phase 12 + time 6 + git 6 + pr 6
+      # + ci 8, plus the leading indent and separators), and this leaves the row
+      # one column short of the terminal width like every other line here rather
+      # than landing exactly on it and relying on deferred wrap. Issue is 9, not
+      # 8, so `HON-1000↻` still fits once the counter rolls over.
+      local title_w=$(( term_cols - 55 ))
       [ "$title_w" -lt 12 ] && title_w=12
-      buf+="${DIM}  $(watch_pad "ISSUE" 8) $(watch_pad "PHASE" 12) "
+      buf+="${DIM}  $(watch_pad "ISSUE" 9) $(watch_pad "PHASE" 12) "
       buf+="$(printf '%6s %6s ' "TIME" "GIT")$(watch_pad "PR" 6) $(watch_pad "CI" 8)TITLE${NC}\n"
 
       local i=0
@@ -2579,12 +2616,17 @@ cmd_watch() {
         local issue_cell="${w_issues[$i]}"
         [ "${w_retried[$i]}" = "1" ] && issue_cell="${issue_cell}↻"
 
-        buf+="  $(watch_pad "$issue_cell" 8) "
+        buf+="  $(watch_pad "$issue_cell" 9) "
         buf+="${phase_color}$(watch_pad "${w_phases[$i]}" 12)${NC} "
         buf+="$(printf '%6s %6s ' "${w_elapsed[$i]}" "${w_git[$i]}")"
         buf+="$(watch_pad "${w_pr[$i]}" 6) "
         buf+="${ci_color}$(watch_pad "${w_ci[$i]}" 8)${NC}"
-        buf+="$(watch_clip "${w_titles[$i]}" "$title_w")${w_alive[$i]}\n"
+        # " (dead)" is 7 visible columns and is appended AFTER the title, so it
+        # has to come out of the title's budget or the row overruns the terminal.
+        local row_title_w="$title_w"
+        [ -n "${w_alive[$i]}" ] && row_title_w=$(( title_w - 7 ))
+        [ "$row_title_w" -lt 8 ] && row_title_w=8
+        buf+="$(watch_clip "${w_titles[$i]}" "$row_title_w")${w_alive[$i]}\n"
         i=$((i + 1))
       done
       buf+="\n"
