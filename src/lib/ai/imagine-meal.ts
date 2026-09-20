@@ -72,12 +72,22 @@ interface HouseholdContext {
   householdSize: number
 }
 
+/**
+ * Generate three meal suggestions from a prompt and/or attached photos.
+ *
+ * `abortSignal` is the wall-clock budget for the AI call, owned by
+ * `/api/meals/imagine`. It is a trailing positional parameter rather than an
+ * options object only because this signature already is one — see the plan on
+ * HON-694. Undefined leaves the call unbounded, which is the pre-HON-694
+ * behaviour and what the tests rely on.
+ */
 export async function imagineMeals(
   prompt: string | null,
   household: HouseholdContext,
   locale: string,
   images?: { base64: string; mimeType: string }[],
   onAiUsage?: (usage: AiUsageStats) => void,
+  abortSignal?: AbortSignal,
 ): Promise<ImaginedMeal[]> {
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
 
@@ -167,6 +177,9 @@ The user may attach photos for context — these could show ingredients they hav
       schema: ImaginedMealsSchema,
       messages: [{ role: 'user' as const, content }],
       system: systemPrompt,
+      // Wall-clock budget owned by `/api/meals/imagine` — shared by this
+      // attempt and every retry, not a per-attempt timeout.
+      abortSignal,
     }),
   )
 

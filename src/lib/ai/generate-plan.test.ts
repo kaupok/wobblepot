@@ -331,10 +331,15 @@ describe('generateMealPlan', () => {
         })),
       } as never)
 
-      await generateMealPlan(defaultOptions)
+      await generateMealPlan({ ...defaultOptions, aiBudgetMs: 40_000 })
 
-      // Verify the AI was called (pool capping happens internally)
-      expect(mockGenerateObject).toHaveBeenCalled()
+      // Verify the AI was called (pool capping happens internally) and that the
+      // route-owned budget reached it as a live signal. Without it the call is
+      // unbounded again and the platform kills the function before the mapped
+      // 504 (HON-694).
+      expect(mockGenerateObject).toHaveBeenCalledWith(
+        expect.objectContaining({ abortSignal: expect.any(AbortSignal) }),
+      )
     })
   })
 

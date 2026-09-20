@@ -5,6 +5,7 @@ import {
   errorGenerateHandlers,
   rateLimitGenerateHandlers,
   slowGenerateHandlers,
+  timeoutGenerateHandlers,
 } from '@/stories/msw-handlers'
 import { FillDaysAction } from './FillDaysAction'
 
@@ -77,6 +78,25 @@ export const RateLimited: Story = {
     await userEvent.click(canvas.getByRole('button', { name: /^generate$/i }))
     await waitFor(() =>
       expect(canvas.getByText(/rate limit exceeded\. please try again later/i)).toBeVisible(),
+    )
+  },
+}
+
+export const TimedOut: Story = {
+  parameters: {
+    msw: { handlers: timeoutGenerateHandlers },
+    docs: {
+      description: {
+        story:
+          '504 response — the server gave up inside its own AI budget (HON-694). The component shows the localized timeout copy, not the English message the route sent.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('button', { name: /^generate$/i }))
+    await waitFor(() =>
+      expect(canvas.getByText(/generation timed out\. please try again/i)).toBeVisible(),
     )
   },
 }

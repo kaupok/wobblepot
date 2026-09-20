@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
+import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
@@ -280,9 +281,10 @@ async function handlePOST(
     // Cache tips as JSON in the database — but only while the inputs they were
     // priced from still hold. This prompt was built from `entry.meal`,
     // `entry.servingOverride` and `household.locale` as read at the top of the
-    // handler, and generation takes up to 45s; a swap, a `servingOverride` or a
-    // locale PATCH that commits in the meantime nulls this cache precisely
-    // because one of those inputs moved (HON-681).
+    // handler, and generation takes up to 45s; a swap, a `servingOverride`, a
+    // locale PATCH or an edit to the meal itself that commits in the meantime
+    // nulls this cache precisely because one of those inputs moved (HON-681,
+    // HON-683).
     // An unconditional write would put the stale tips straight back, and every
     // later read is a cache hit (above) — so the entry would keep pan sizes for
     // a count nobody is cooking, permanently rather than for one request.
@@ -292,7 +294,7 @@ async function handlePOST(
     // `updateMany` matches nothing when an input moved, and writes nothing.
     // The caller still gets the tips it asked for — only the cache is guarded.
     //
-    // The household's member count is a fourth priced-from input, because
+    // The household's member count is a further priced-from input, because
     // `getEffectiveServings` above falls back to it whenever the entry carries
     // no `servingOverride` — the default state of an entry. It cannot join the
     // `where` below: Prisma has no filter for a relation `_count`. And the
@@ -304,9 +306,9 @@ async function handlePOST(
     // (HON-684). So re-read the count and skip the write if it moved.
     //
     // This closes the 45s window to the microseconds between the count and the
-    // write, which is the same residual exposure the three pinned inputs carry
-    // — parity with them is the bar, not elimination. HON-681 recorded the
-    // one-request window as accepted.
+    // write, which is the same residual exposure every input pinned in the
+    // `where` below carries — parity with them is the bar, not elimination.
+    // HON-681 recorded the one-request window as accepted.
     const membersWhenPriced = household._count.members
     const membersNow =
       entry.servingOverride !== null
@@ -329,6 +331,16 @@ async function handlePOST(
         mealId: entry.mealId,
         servingOverride: entry.servingOverride,
         plan: { household: { locale: household.locale } },
+        // `PATCH /api/households/me/meals/[id]` is the fourth writer that
+        // nulls this cache, and it moves the meal's *contents* — name, time,
+        // notes, components — while `mealId` stays put, so none of the fields
+        // above would notice. `Meal.updatedAt` is `@updatedAt` and that route
+        // calls `meal.update` unconditionally, so it moves on every such edit
+        // and is the one field that does (HON-683). A meal edit the prompt
+        // does not read (a `sourceUrl` fix) bumps it too and discards this
+        // write — the caller still gets its tips, and the next open
+        // regenerates.
+        meal: { is: { updatedAt: entry.meal.updatedAt } },
       },
       data: { preparationTips: JSON.stringify(tips) },
     })
@@ -358,7 +370,10 @@ async function handlePOST(
       )
     }
 
-    if (error instanceof Error && error.name === 'TimeoutError') {
+    // Same two-name check as the other AI routes: a budget that fires during
+    // ai@7's retry sleep surfaces as `AbortError`, not `TimeoutError`, and
+    // would otherwise fall through to the 500 below (HON-694).
+    if (isAiBudgetTimeout(error)) {
       return NextResponse.json({ error: 'Request timed out. Please try again.' }, { status: 504 })
     }
 

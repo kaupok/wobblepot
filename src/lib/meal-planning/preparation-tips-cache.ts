@@ -54,8 +54,8 @@ import { getStartOfTodayInTimezone } from './dates'
  * holds `preparationTips: null`, so the clause above excludes it, and the
  * write lands after this `updateMany` regardless. The member count is
  * therefore re-read at the cache-write site in `preparation-tips/route.ts`,
- * next to the `mealId` / `servingOverride` / `locale` filters already pinned
- * there.
+ * next to the `mealId` / `servingOverride` / `locale` / `meal.updatedAt`
+ * filters already pinned there.
  *
  * The cost is real and accepted: a membership change now triggers a
  * regeneration burst across the remaining plan, each one a paid AI call

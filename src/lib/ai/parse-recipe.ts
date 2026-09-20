@@ -14,6 +14,7 @@ import {
   type ConfidenceTier,
 } from './recipe-confidence'
 import { buildRecipeExtractionPrompt } from './recipe-prompt'
+import { isAiBudgetTimeout } from './timeout'
 import { matchIngredients, type IngredientMatchResult } from './match-ingredients'
 
 /**
@@ -27,11 +28,16 @@ export interface ParseRecipeResult {
 /**
  * Parse recipe text using AI to extract structured data.
  * Throws RecipeParseError if the text doesn't contain enough information or confidence is low.
+ *
+ * `abortSignal` is the wall-clock budget for the AI call, owned by
+ * `/api/recipes/parse`. Undefined leaves the call unbounded, which is the
+ * pre-HON-694 behaviour.
  */
 export async function parseRecipeText(
   recipeText: string,
   locale?: string,
   onAiUsage?: (usage: AiUsageStats) => void,
+  abortSignal?: AbortSignal,
 ): Promise<ParseRecipeResult> {
   const trimmedText = recipeText.trim()
 
@@ -51,6 +57,9 @@ export async function parseRecipeText(
         model: anthropic(RECIPE_MODEL),
         schema: RecipeExtractionSchema,
         prompt,
+        // Wall-clock budget owned by `/api/recipes/parse` — shared by this
+        // attempt and every retry, not a per-attempt timeout.
+        abortSignal,
       }),
     )
 
@@ -107,6 +116,13 @@ export async function parseRecipeText(
     if (error instanceof RecipeParseError) {
       throw error
     }
+    // The route's wall-clock budget firing is not a parse failure, and must
+    // reach `/api/recipes/parse` intact: wrapping it here would make the 400
+    // below match first, so the mapped 504 would be unreachable and
+    // `captureApiError` would never report the mis-sized budget (HON-694).
+    if (isAiBudgetTimeout(error)) {
+      throw error
+    }
     // AI generation error
     throw new RecipeParseError(
       'Failed to parse the recipe. Please try again or use the manual form.',
@@ -146,6 +162,10 @@ export async function parseAndMatchRecipe(
   sourceUrl?: string,
   onAiUsage?: (usage: AiUsageStats) => void,
   matchOptions: { householdId?: string | null; locale?: string } = {},
+  // Kept out of `matchOptions`: that object is forwarded to `matchIngredients`,
+  // which is deterministic, so an AI-only budget on it would misstate what it
+  // controls.
+  abortSignal?: AbortSignal,
 ): Promise<ParsedRecipe> {
   // Step 1: Extract structured data from text (low confidence throws). Thread
   // the household locale so the parser prompt includes the output-language
@@ -154,6 +174,7 @@ export async function parseAndMatchRecipe(
     recipeText,
     matchOptions.locale,
     onAiUsage,
+    abortSignal,
   )
 
   // Step 2: Match ingredients against database (pass servings for validation)

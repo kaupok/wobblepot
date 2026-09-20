@@ -546,6 +546,21 @@ export const rateLimitGenerateHandlers: HttpHandler[] = [
 ]
 
 /**
+ * Return 504 for `POST /api/meal-plans/generate`. Covers the server-timeout
+ * branch added in HON-694: the route gives up within its own AI budget and
+ * both clients show the localized `generationTimeout` copy rather than the
+ * route's English message.
+ */
+export const timeoutGenerateHandlers: HttpHandler[] = [
+  http.post('/api/meal-plans/generate', () =>
+    HttpResponse.json(
+      { error: 'Request timed out', message: 'Generating the plan took too long.' },
+      { status: 504 },
+    ),
+  ),
+]
+
+/**
  * Hold `POST /api/meal-plans/generate` open. Use to render the `GeneratingOverlay`
  * in `FillDaysAction` / `FirstTimeSetup` stories.
  */

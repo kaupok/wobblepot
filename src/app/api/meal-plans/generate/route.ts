@@ -21,6 +21,7 @@ import {
 import { withRequestId } from '@/lib/request-id'
 import { getServerFlag } from '@/lib/feature-flags'
 import { captureApiError } from '@/lib/errors'
+import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
 
@@ -33,6 +34,35 @@ const generateRequestSchema = z.object({
 
 /** Maximum number of days allowed in a single generation request. */
 const MAX_DAYS = 14
+
+/**
+ * Wall-clock budget for all AI time in this request, in milliseconds.
+ *
+ * One budget, not one per call site: `mode` is an enum and each branch
+ * returns, so `generateMealPlan` and `fillEmptySlots` are mutually exclusive
+ * and exactly one of them runs. It is shared by the initial attempt and every
+ * `maxRetries` retry rather than being a per-attempt timeout, which makes it
+ * the real bound on retries — a fast failure (429, 5xx) costs well under a
+ * second and still retries freely; a slow generation does not.
+ *
+ * Sized against the figures recorded on Sonnet 5 during HON-693: preparation
+ * tips 15-21s, quantity review 25-32s, both on deliberately hard inputs. Plan
+ * generation is the app's largest generation, so assume worse than the 25-32s
+ * anchor; 40s covers a worst-case attempt with room for the fast failures
+ * above.
+ *
+ * Passed as a duration, not a ready-made signal: this route's DB prelude runs
+ * *inside* `generateMealPlan` / `fillEmptySlots` (the kept-slot read, the
+ * parallel history/favourite/pantry fetch, `loadCandidatePools`, and for
+ * fill-empty a nested plan `findUnique`), so a signal started here would spend
+ * the AI budget on queries. The lib starts the clock immediately before the
+ * model call instead. That leaves the 20s under `maxDuration` for the prelude
+ * plus `hydratePlan` and the bulk entry write afterwards — more than the 15s
+ * the tips route reserves, because this route's DB work is the heaviest in the
+ * app. That headroom is what keeps the 504 below reachable instead of the
+ * platform killing the function first.
+ */
+const AI_BUDGET_MS = 40_000
 
 async function handlePOST(request: Request) {
   // Auth check
@@ -144,6 +174,7 @@ async function handlePOST(request: Request) {
 
     try {
       const result = await fillEmptySlots({
+        aiBudgetMs: AI_BUDGET_MS,
         planId,
         householdId: household.id,
         startDate,
@@ -198,6 +229,20 @@ async function handlePOST(request: Request) {
         feature: 'plan_fill_empty',
         householdId: household.id,
       })
+
+      // Reported before it is classified, as the reference route does: a
+      // timeout is user-facing but it also means the budget above is
+      // mis-sized, which is exactly what should show up in Sentry.
+      if (isAiBudgetTimeout(error)) {
+        return NextResponse.json(
+          {
+            error: 'Request timed out',
+            message: 'Filling the empty days took too long. Please try again.',
+          },
+          { status: 504 },
+        )
+      }
+
       return NextResponse.json({ error: 'Failed to fill empty slots' }, { status: 500 })
     }
   }
@@ -226,6 +271,7 @@ async function handlePOST(request: Request) {
   try {
     // Generate meal plan (default mode)
     const result = await generateMealPlan({
+      aiBudgetMs: AI_BUDGET_MS,
       householdId: household.id,
       startDate,
       endDate,
@@ -270,8 +316,36 @@ async function handlePOST(request: Request) {
       feature: 'plan_generate',
       householdId: household.id,
     })
+
+    // Reported before it is classified, as the reference route does: a timeout
+    // is user-facing but it also means the budget above is mis-sized, which is
+    // exactly what should show up in Sentry.
+    if (isAiBudgetTimeout(error)) {
+      return NextResponse.json(
+        {
+          error: 'Request timed out',
+          message: 'Generating the plan took too long. Please try again.',
+        },
+        { status: 504 },
+      )
+    }
+
     return NextResponse.json({ error: 'Failed to generate meal plan' }, { status: 500 })
   }
 }
 
 export const POST = withRequestId(handlePOST)
+
+/**
+ * Platform execution ceiling for this route, in seconds.
+ *
+ * Stated explicitly because `AI_BUDGET_MS` is only meaningful if the platform
+ * lets the function run that long — otherwise the request is killed first and
+ * the friendly 504s above never run. 60 is the value every Vercel plan allows,
+ * so this cannot fail to deploy (HON-693).
+ *
+ * The two client callers of this route must outlast it, or they abort work the
+ * household has already been billed for — see `CLIENT_TIMEOUT_MS` in
+ * `src/components/timeline/FirstTimeSetup.tsx` and `FillDaysAction.tsx`.
+ */
+export const maxDuration = 60

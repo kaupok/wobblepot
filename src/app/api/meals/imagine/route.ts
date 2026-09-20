@@ -14,6 +14,7 @@ import {
   respondCapExceeded,
 } from '@/lib/ai/usage'
 import { captureApiError } from '@/lib/errors'
+import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import { deriveProteinType } from '@/lib/meal-planning/protein'
 import { withRequestId } from '@/lib/request-id'
 import type { ExtractedIngredient } from '@/lib/ai/recipe-schema'
@@ -22,6 +23,25 @@ import { MAX_ATTACHED_IMAGES, validateImageAttachments } from '@/lib/image-attac
 const imagineRequestSchema = z.object({
   prompt: z.string().min(1).max(500),
 })
+
+/**
+ * Wall-clock budget for all AI time in this request, in milliseconds.
+ *
+ * Shared by the initial attempt and every `maxRetries` retry rather than being
+ * a per-attempt timeout, which makes it the real bound on retries — a fast
+ * failure (429, 5xx) costs well under a second and still retries freely; a
+ * slow generation does not.
+ *
+ * Sized against the figures recorded on Sonnet 5 during HON-693: preparation
+ * tips 15-21s, quantity review 25-32s, both on deliberately hard inputs.
+ * Imagine is the quantity-review shape, but it also accepts photos, which add
+ * input tokens and latency — so it is sized above that anchor rather than at
+ * it. The remaining 20s under `maxDuration` covers base64-decoding up to
+ * `MAX_ATTACHED_IMAGES` before the call and the three parallel
+ * `matchIngredients` passes plus nutrition reads after it, which is what keeps
+ * the 504 below reachable instead of the platform killing the function first.
+ */
+const AI_BUDGET_MS = 40_000
 
 async function handlePOST(request: Request) {
   const session = await auth.api.getSession({
@@ -146,6 +166,7 @@ async function handlePOST(request: Request) {
       household.locale,
       images.length > 0 ? images : undefined,
       (usage) => recordAiUsage({ householdId: household.id, feature: 'meal_imagine', ...usage }),
+      AbortSignal.timeout(AI_BUDGET_MS),
     )
 
     // Match ingredients and compute nutrition for each meal
@@ -263,6 +284,17 @@ async function handlePOST(request: Request) {
       feature: 'meal_imagine',
       householdId: household.id,
     })
+
+    // Reported before it is classified, as the reference route does: a timeout
+    // is user-facing but it also means the budget above is mis-sized, which is
+    // exactly what should show up in Sentry.
+    if (isAiBudgetTimeout(error)) {
+      return NextResponse.json(
+        { error: 'Generating meal ideas took too long. Please try again.' },
+        { status: 504 },
+      )
+    }
+
     return NextResponse.json(
       { error: 'Failed to generate meal ideas. Please try again.' },
       { status: 500 },
@@ -271,3 +303,16 @@ async function handlePOST(request: Request) {
 }
 
 export const POST = withRequestId(handlePOST)
+
+/**
+ * Platform execution ceiling for this route, in seconds.
+ *
+ * Stated explicitly because `AI_BUDGET_MS` is only meaningful if the platform
+ * lets the function run that long — otherwise the request is killed first and
+ * the friendly 504 above never runs. 60 is the value every Vercel plan allows,
+ * so this cannot fail to deploy (HON-693).
+ *
+ * Both client callers (`ImagineClient`, `ImaginePanel`) abort only on an
+ * explicit user cancel or unmount, so neither pre-empts this ceiling.
+ */
+export const maxDuration = 60

@@ -121,6 +121,8 @@ function buildMembership(locale: string = 'en') {
 
 const mockMembership = buildMembership()
 
+const MEAL_UPDATED_AT = new Date('2026-02-01T10:00:00.000Z')
+
 function sampleEntry(overrides: Record<string, unknown> = {}) {
   return {
     id: 'entry-1',
@@ -136,6 +138,10 @@ function sampleEntry(overrides: Record<string, unknown> = {}) {
       name: 'Chicken stir fry',
       timeMinutes: 30,
       preparationNotes: null,
+      // Same reason as `servingOverride` above: the cache write filters on it
+      // so that a meal edit committing mid-generation wins (HON-683), and an
+      // absent column would make that filter `undefined` — no filter at all.
+      updatedAt: MEAL_UPDATED_AT,
       components: [
         {
           quantityPerServing: 150,
@@ -306,6 +312,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
         mealId: 'meal-1',
         servingOverride: null,
         plan: { household: { locale: 'en' } },
+        meal: { is: { updatedAt: MEAL_UPDATED_AT } },
       },
       data: { preparationTips: JSON.stringify(fresh) },
     })
@@ -333,9 +340,32 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
         mealId: 'meal-1',
         servingOverride: 6,
         plan: { household: { locale: 'et' } },
+        meal: { is: { updatedAt: MEAL_UPDATED_AT } },
       },
       data: { preparationTips: JSON.stringify(fresh) },
     })
+  })
+
+  it('scopes the cache write to the meal contents the prompt was priced from', async () => {
+    // The meal PATCH is the fourth writer that nulls this cache, and it moves
+    // the meal's *contents* — name, time, notes, components — while `mealId`
+    // stays put, so the three filters above would all still match and the
+    // pre-edit tips would land right back on the entry, permanently (HON-683).
+    // `Meal.updatedAt` is the field that moves on such an edit.
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    const fresh = { equipment: ['Wok'], steps: ['Sear'], pitfalls: ['Crowding'] }
+    mockGenerateObject.mockResolvedValue({ object: fresh } as never)
+
+    const response = await callPost()
+
+    expect(response.status).toBe(200)
+    expect(mockEntryCacheWrite).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ meal: { is: { updatedAt: MEAL_UPDATED_AT } } }),
+      }),
+    )
   })
 
   it('skips the cache write when the member count moved during generation', async () => {
