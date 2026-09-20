@@ -32,12 +32,14 @@ import enMessages from '../../messages/en.json'
  * The surface is opaque so the card reads on both light and dark preview
  * chrome rather than borrowing the host's background.
  *
- * No `fonts` option: Geist is loaded through `next/font/google`, whose font
- * files only exist inside `.next` after the loader runs, and fetching from
- * Google Fonts here would make every build depend on an outbound request. The
- * satori default face is used instead — it ships a single weight, so don't
- * reach for `fontWeight` here expecting it to do anything; size and colour are
- * the only hierarchy this card has.
+ * No `fonts` option, and none is needed for the brand face: `@vercel/og`
+ * bundles `Geist-Regular.ttf` as its default
+ * (`next/dist/compiled/@vercel/og/`), so the card already renders in Geist —
+ * the same family `next/font/google` loads for the app. Don't add a `fonts`
+ * entry to "get Geist"; you would only be re-fetching what is already here,
+ * and the app's own copy lives inside `.next` with no stable path to read.
+ * What the bundled face does lack is weights: it is Regular only, so
+ * `fontWeight` is a no-op and size and colour are the card's whole hierarchy.
  */
 
 const { ogTitle, ogDescription } = enMessages.meta.root
