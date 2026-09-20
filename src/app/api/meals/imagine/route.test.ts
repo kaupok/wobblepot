@@ -349,6 +349,9 @@ describe('POST /api/meals/imagine', () => {
       expect.any(String),
       undefined,
       expect.any(Function),
+      // HON-694: without a signal the AI call is unbounded and the platform,
+      // not the mapped 504, decides when a slow generation ends.
+      expect.any(AbortSignal),
     )
   })
 
@@ -389,6 +392,20 @@ describe('POST /api/meals/imagine', () => {
     expect(data.error).toContain('Failed to generate meal ideas')
   })
 
+  it('returns 504 when imagineMeals exceeds its budget', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    const err = new Error('The operation was aborted due to timeout')
+    err.name = 'TimeoutError'
+    mockImagineMeals.mockRejectedValue(err)
+
+    const response = await POST(jsonRequest({ prompt: 'anything' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(504)
+    expect(data.error).toContain('too long')
+  })
+
   it('accepts a multipart request with just an image (no prompt)', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
@@ -419,6 +436,7 @@ describe('POST /api/meals/imagine', () => {
       expect.any(String),
       expect.arrayContaining([expect.objectContaining({ mimeType: 'image/jpeg' })]),
       expect.any(Function),
+      expect.any(AbortSignal),
     )
   })
 })

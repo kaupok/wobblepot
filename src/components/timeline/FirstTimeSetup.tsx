@@ -18,7 +18,17 @@ import type { Locale } from '@/lib/i18n/locales'
 import type { DatesTranslator } from '@/lib/i18n/format-dates'
 import { track } from '@/lib/analytics'
 
-const CLIENT_TIMEOUT_MS = 45000
+/**
+ * How long the client waits before giving up on `/api/meal-plans/generate`.
+ *
+ * Must stay *above* that route's `maxDuration` of 60s (HON-694). It used to be
+ * 45s, which pre-empted the server: a generation that ran past 45s was thrown
+ * away client-side even though the household had already been billed for it,
+ * and the server's own 504 never reached the user. Waiting past the platform
+ * ceiling means the request always resolves — with the plan, or with the
+ * mapped 504 handled below.
+ */
+const CLIENT_TIMEOUT_MS = 65000
 
 interface FirstTimeSetupProps {
   userName?: string
@@ -64,6 +74,10 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
         const data = await response.json().catch(() => ({}))
         if (response.status === 429) {
           setError(tErrors('rateLimit'))
+        } else if (response.status === 504) {
+          // The server gave up on the generation within its own budget. Show
+          // the localized timeout copy rather than the route's English message.
+          setError(tErrors('generationTimeout'))
         } else {
           setError(data.message || tErrors('generationFailed'))
         }

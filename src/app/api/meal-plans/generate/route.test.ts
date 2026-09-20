@@ -228,6 +228,9 @@ describe('POST /api/meal-plans/generate', () => {
         householdId: 'household-123',
         startDate: expect.any(Date),
         endDate: expect.any(Date),
+        // HON-694: without a signal the AI call is unbounded and the platform,
+        // not the 504 below, decides when a slow generation ends.
+        abortSignal: expect.any(AbortSignal),
       }),
     )
     expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'plan-generation')
@@ -298,6 +301,8 @@ describe('POST /api/meal-plans/generate', () => {
         householdId: 'household-123',
         startDate: expect.any(Date),
         endDate: expect.any(Date),
+        // HON-694: same budget applies on the fill-empty path.
+        abortSignal: expect.any(AbortSignal),
       }),
     )
     expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'plan-generation')
@@ -337,5 +342,40 @@ describe('POST /api/meal-plans/generate', () => {
 
     expect(response.status).toBe(500)
     expect(data.error).toBe('Failed to generate meal plan')
+  })
+
+  it('returns 504 when the generation exceeds its budget', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    const err = new Error('The operation was aborted due to timeout')
+    err.name = 'TimeoutError'
+    mockGenerateMealPlan.mockRejectedValue(err)
+
+    const response = await POST(createRequest({ startDate: '2026-02-02', endDate: '2026-02-09' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(504)
+    expect(data.message).toContain('too long')
+  })
+
+  it('returns 504 when fill-empty exceeds its budget', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    const err = new Error('The operation was aborted due to timeout')
+    err.name = 'TimeoutError'
+    mockFillEmptySlots.mockRejectedValue(err)
+
+    const response = await POST(
+      createRequest({
+        startDate: '2026-02-02',
+        endDate: '2026-02-09',
+        mode: 'fill-empty',
+        planId: 'plan-123',
+      }),
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(504)
+    expect(data.message).toContain('too long')
   })
 })

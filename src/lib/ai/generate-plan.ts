@@ -131,6 +131,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     weekdayMealTypes = ['dinner'] as MealType[],
     weekendMealTypes = ['dinner'] as MealType[],
     onAiUsage,
+    abortSignal,
   } = options
 
   // Get dates for entries from the flexible date range (endDate is exclusive)
@@ -212,6 +213,10 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
       model: anthropic(PLANNING_MODEL),
       schema: MealPlanResponseSchema,
       prompt,
+      // Wall-clock budget owned by `/api/meal-plans/generate` — shared by this
+      // attempt and every retry, not a per-attempt timeout. Undefined only in
+      // tests and other direct callers, which is the pre-HON-694 behaviour.
+      abortSignal,
     }),
   )
 

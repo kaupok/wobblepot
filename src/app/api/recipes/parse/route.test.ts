@@ -294,4 +294,31 @@ describe('POST /api/recipes/parse locale threading (gate retired in HON-506)', (
     const matchOptions = mockParseAndMatchRecipe.mock.calls[0]![3]!
     expect(matchOptions).toMatchObject({ householdId: 'household-42', locale: 'et' })
   })
+
+  it('passes an abort signal so the AI call is bounded (HON-694)', async () => {
+    mockGetMembership.mockResolvedValue(membership('en') as never)
+    successfulParse()
+
+    await POST(jsonRequest({ text: 'Simple English recipe: 400g chicken, 200g rice, salt.' }))
+
+    // Without a signal the AI call is unbounded and the platform, not the
+    // mapped 504, decides when a slow extraction ends.
+    expect(mockParseAndMatchRecipe.mock.calls[0]![4]).toBeInstanceOf(AbortSignal)
+  })
+
+  it('returns 504 when the extraction exceeds its budget', async () => {
+    mockGetMembership.mockResolvedValue(membership('en') as never)
+    const err = new Error('The operation was aborted due to timeout')
+    err.name = 'TimeoutError'
+    mockParseAndMatchRecipe.mockRejectedValue(err)
+
+    const response = await POST(
+      jsonRequest({ text: 'Simple English recipe: 400g chicken, 200g rice, salt.' }),
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(504)
+    expect(data.success).toBe(false)
+    expect(data.error).toContain('too long')
+  })
 })

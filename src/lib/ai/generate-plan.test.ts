@@ -331,10 +331,14 @@ describe('generateMealPlan', () => {
         })),
       } as never)
 
-      await generateMealPlan(defaultOptions)
+      const abortSignal = AbortSignal.timeout(40_000)
+      await generateMealPlan({ ...defaultOptions, abortSignal })
 
-      // Verify the AI was called (pool capping happens internally)
-      expect(mockGenerateObject).toHaveBeenCalled()
+      // Verify the AI was called (pool capping happens internally) and that the
+      // route-owned budget reached it. Without the signal the call is unbounded
+      // again and the platform kills the function before the mapped 504
+      // (HON-694).
+      expect(mockGenerateObject).toHaveBeenCalledWith(expect.objectContaining({ abortSignal }))
     })
   })
 

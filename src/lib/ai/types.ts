@@ -75,6 +75,14 @@ export interface GeneratePlanOptions {
   weekendMealTypes?: MealType[]
   /** Optional callback fired with token usage after the AI call returns. */
   onAiUsage?: (usage: AiUsageStats) => void
+  /**
+   * Wall-clock budget for the AI call, owned by the calling route.
+   *
+   * The route creates it so the number sits in the same file as that route's
+   * `maxDuration`, which it has to stay under for the mapped 504 to be
+   * reachable at all. See `src/app/api/meal-plans/generate/route.ts`.
+   */
+  abortSignal?: AbortSignal
 }
 
 /**
@@ -108,6 +116,14 @@ export interface FillEmptySlotsOptions {
   weekendMealTypes: MealType[]
   /** Optional callback fired with token usage after the AI call returns. */
   onAiUsage?: (usage: AiUsageStats) => void
+  /**
+   * Wall-clock budget for the AI call, owned by the calling route.
+   *
+   * The route creates it so the number sits in the same file as that route's
+   * `maxDuration`, which it has to stay under for the mapped 504 to be
+   * reachable at all. See `src/app/api/meal-plans/generate/route.ts`.
+   */
+  abortSignal?: AbortSignal
 }
 
 /**

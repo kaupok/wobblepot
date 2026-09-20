@@ -44,6 +44,7 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     weekdayMealTypes,
     weekendMealTypes,
     onAiUsage,
+    abortSignal,
   } = options
 
   // Fetch existing plan with entries
@@ -181,6 +182,10 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
       model: anthropic(PLANNING_MODEL),
       schema: MealPlanResponseSchema,
       prompt,
+      // Wall-clock budget owned by `/api/meal-plans/generate` — shared by this
+      // attempt and every retry, not a per-attempt timeout. Undefined only in
+      // tests and other direct callers, which is the pre-HON-694 behaviour.
+      abortSignal,
     }),
   )
 

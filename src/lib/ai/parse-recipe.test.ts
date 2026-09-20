@@ -91,6 +91,44 @@ describe('parseRecipeText', () => {
     expect(result.confidence.tier).toBe('high')
   })
 
+  it('forwards the caller-supplied abort signal to generateObject (HON-694)', async () => {
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        name: 'Chicken Stir Fry',
+        description: null,
+        preparationNotes: null,
+        timeMinutes: 30,
+        servings: 4,
+        mealTypes: ['dinner'],
+        kidFriendly: true,
+        recipeConfidence: 90,
+        ingredients: [
+          {
+            name: 'chicken breast',
+            quantity: 500,
+            unit: 'g',
+            originalText: '500g chicken breast',
+            isVague: false,
+            vaguePhrase: null,
+            isDried: null,
+          },
+        ],
+      },
+    } as never)
+    const abortSignal = AbortSignal.timeout(35_000)
+
+    await parseRecipeText(
+      'A full recipe with chicken breast and vegetables for dinner',
+      undefined,
+      undefined,
+      abortSignal,
+    )
+
+    // The route owns the budget; if it stops arriving here the AI call is
+    // unbounded again and the platform kills the function before the 504.
+    expect(mockGenerateObject).toHaveBeenCalledWith(expect.objectContaining({ abortSignal }))
+  })
+
   it('reports the SDK usage to onAiUsage via toAiUsageStats', async () => {
     mockGenerateObject.mockResolvedValue({
       object: {

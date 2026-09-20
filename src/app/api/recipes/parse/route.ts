@@ -34,6 +34,28 @@ const parseRecipeSchema = z.object({
 })
 
 /**
+ * Wall-clock budget for all AI time in this request, in milliseconds.
+ *
+ * Shared by the initial attempt and every `maxRetries` retry rather than being
+ * a per-attempt timeout, which makes it the real bound on retries — a fast
+ * failure (429, 5xx) costs well under a second and still retries freely; a
+ * slow generation does not.
+ *
+ * Sized against the figures recorded on Sonnet 5 during HON-693: preparation
+ * tips 15-21s, quantity review 25-32s, both on deliberately hard inputs.
+ * Recipe extraction is the quantity-review shape, so 35s rather than the 40s
+ * the plan and imagine routes use: this is the one AI route that can spend
+ * real time *before* the model call, because a URL import first runs
+ * `fetchRecipeFromUrl`, which allows itself up to 15s
+ * (`AbortSignal.timeout(15000)`, `recipe-fetch.ts`). 15 + 35 = 50s leaves 10s
+ * under `maxDuration` for ingredient matching and the response, which is what
+ * keeps the 504 below reachable on the URL path instead of the platform
+ * killing the function first. The signal is therefore created *after* the
+ * fetch, so a slow fetch shortens nothing but itself.
+ */
+const AI_BUDGET_MS = 35_000
+
+/**
  * Detect if the input starts with a URL and extract it along with optional user context.
  */
 export function extractUrlAndContext(text: string): { url: string; context: string } | null {
@@ -154,6 +176,9 @@ async function handlePOST(request: Request) {
           ...usage,
         }),
       { householdId: membership.household.id, locale: parserLocale },
+      // Started here, after any URL fetch above, so the budget covers AI time
+      // only.
+      AbortSignal.timeout(AI_BUDGET_MS),
     )
 
     return NextResponse.json({
@@ -190,6 +215,22 @@ async function handlePOST(request: Request) {
       userId: session.user.id,
       feature: 'recipe_parse',
     })
+
+    // Only the AI call can surface a `TimeoutError` here: `fetchRecipeFromUrl`
+    // converts its own 15s abort into a `RecipeParseError`, handled above.
+    // Reported before it is classified, as the reference route does: a timeout
+    // is user-facing but it also means the budget above is mis-sized, which is
+    // exactly what should show up in Sentry.
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Reading that recipe took too long. Please try again.',
+        },
+        { status: 504 },
+      )
+    }
+
     return NextResponse.json(
       {
         success: false,
@@ -201,3 +242,16 @@ async function handlePOST(request: Request) {
 }
 
 export const POST = withRequestId(handlePOST)
+
+/**
+ * Platform execution ceiling for this route, in seconds.
+ *
+ * Stated explicitly because `AI_BUDGET_MS` is only meaningful if the platform
+ * lets the function run that long — otherwise the request is killed first and
+ * the friendly 504 above never runs. 60 is the value every Vercel plan allows,
+ * so this cannot fail to deploy (HON-693).
+ *
+ * `RecipeImportClient` aborts only on an explicit user cancel or unmount, so
+ * it does not pre-empt this ceiling.
+ */
+export const maxDuration = 60
