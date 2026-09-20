@@ -291,6 +291,34 @@ async function handlePOST(
     // (`servingsWritableWhere` and its `updateManyAndReturn` claims):
     // `updateMany` matches nothing when an input moved, and writes nothing.
     // The caller still gets the tips it asked for — only the cache is guarded.
+    //
+    // The household's member count is a fourth priced-from input, because
+    // `getEffectiveServings` above falls back to it whenever the entry carries
+    // no `servingOverride` — the default state of an entry. It cannot join the
+    // `where` below: Prisma has no filter for a relation `_count`. And the
+    // membership invalidation cannot cover this gap from its side either — a
+    // row that is mid-generation holds `preparationTips: null`, which is
+    // exactly what `invalidateFutureEntryTips`'s `preparationTips: { not: null }`
+    // clause excludes, so its `updateMany` matches zero rows and this write
+    // would then put tips for the old household size back permanently
+    // (HON-684). So re-read the count and skip the write if it moved.
+    //
+    // This closes the 45s window to the microseconds between the count and the
+    // write, which is the same residual exposure the three pinned inputs carry
+    // — parity with them is the bar, not elimination. HON-681 recorded the
+    // one-request window as accepted.
+    const membersWhenPriced = household._count.members
+    const membersNow =
+      entry.servingOverride !== null
+        ? // An override priced the prompt, so the member count never entered it
+          // and there is nothing to re-check.
+          membersWhenPriced
+        : await prisma.householdMember.count({ where: { householdId: household.id } })
+
+    if (membersNow !== membersWhenPriced) {
+      return NextResponse.json({ tips }, { status: 200 })
+    }
+
     await prisma.mealPlanEntry.updateMany({
       where: {
         id: entryId,

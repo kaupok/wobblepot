@@ -32,7 +32,10 @@ import { getStartOfTodayInTimezone } from './dates'
  *   rather than against the current time; `getStartOfTodayInTimezone` is the
  *   same derivation the shopping list and pantry routes use for plan dates.
  * - `preparationTips: { not: null }` — only touch rows that actually hold a
- *   cache, so an untouched plan costs no writes.
+ *   cache, so an untouched plan costs no writes. This is also why the tips
+ *   route has to guard its own cache write on the member count: a row that is
+ *   mid-generation holds `null` here, so this clause excludes it and no
+ *   invalidation from this side can stop the write that follows.
  *
  * The cost is real and accepted: a membership change now triggers a
  * regeneration burst across the remaining plan, each one a paid AI call

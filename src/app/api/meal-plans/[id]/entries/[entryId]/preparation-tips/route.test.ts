@@ -24,6 +24,9 @@ vi.mock('@/lib/prisma', () => ({
       update: vi.fn(),
       updateMany: vi.fn(),
     },
+    householdMember: {
+      count: vi.fn(),
+    },
   },
 }))
 
@@ -78,6 +81,14 @@ const mockEntryUpdate = vi.mocked(prisma.mealPlanEntry.update)
  * cache hit (HON-681).
  */
 const mockEntryCacheWrite = vi.mocked(prisma.mealPlanEntry.updateMany)
+/**
+ * The member-count re-read that guards the cache write against a membership
+ * change committing during the 45s generation. The count is a priced-from input
+ * whenever the entry has no `servingOverride`, but it cannot join the `where`
+ * (Prisma has no relation `_count` filter) and the membership invalidation
+ * cannot see a row that is still `preparationTips: null` (HON-684).
+ */
+const mockMemberCount = vi.mocked(prisma.householdMember.count)
 const mockGenerateObject = vi.mocked(generateObject)
 const mockCheckRateLimit = vi.mocked(checkRateLimit)
 const mockAssertUnderCap = vi.mocked(assertUnderCap)
@@ -155,6 +166,9 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
       resetAt: new Date('2026-02-01T12:00:00.000Z'),
     })
     mockAssertUnderCap.mockResolvedValue(undefined)
+    // Unchanged membership is the default: the re-read agrees with the
+    // `_count.members` the prompt was priced from, so the cache write proceeds.
+    mockMemberCount.mockResolvedValue(4 as never)
   })
 
   it('returns 401 when not authenticated', async () => {
@@ -322,6 +336,78 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
       },
       data: { preparationTips: JSON.stringify(fresh) },
     })
+  })
+
+  it('skips the cache write when the member count moved during generation', async () => {
+    // The count priced this prompt (no `servingOverride`), and it cannot be
+    // pinned in the `where` — Prisma has no relation `_count` filter. The
+    // membership invalidation cannot cover the gap either: this row is still
+    // `preparationTips: null` while it generates, so that `updateMany` matches
+    // nothing. Writing anyway would cache tips for the old household size
+    // permanently, because every later read is a cache hit (HON-684).
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    const fresh = { equipment: ['Wok'], steps: ['Sear'], pitfalls: ['Crowding'] }
+    mockGenerateObject.mockResolvedValue({ object: fresh } as never)
+    // A member joined at t+5s: 4 when priced, 5 now.
+    mockMemberCount.mockResolvedValue(5 as never)
+
+    const response = await callPost()
+    const data = await response.json()
+
+    // The caller still gets what it asked for — only the cache is guarded.
+    expect(response.status).toBe(200)
+    expect(data.tips).toEqual(fresh)
+    expect(mockEntryCacheWrite).not.toHaveBeenCalled()
+  })
+
+  it('skips the cache write when a member left during generation', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockGenerateObject.mockResolvedValue({
+      object: { equipment: ['Wok'], steps: ['Sear'], pitfalls: ['Crowding'] },
+    } as never)
+    mockMemberCount.mockResolvedValue(3 as never)
+
+    const response = await callPost()
+
+    expect(response.status).toBe(200)
+    expect(mockEntryCacheWrite).not.toHaveBeenCalled()
+  })
+
+  it('does not re-read the member count when the entry has a serving override', async () => {
+    // An override priced the prompt, so the member count never entered it and a
+    // membership change cannot have invalidated these tips.
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockEntryFindFirst.mockResolvedValue(sampleEntry({ servingOverride: 6 }) as never)
+    const fresh = { equipment: ['Wok'], steps: ['Sear'], pitfalls: ['Crowding'] }
+    mockGenerateObject.mockResolvedValue({ object: fresh } as never)
+    // Would fail the comparison if it were consulted at all.
+    mockMemberCount.mockResolvedValue(99 as never)
+
+    const response = await callPost()
+
+    expect(response.status).toBe(200)
+    expect(mockMemberCount).not.toHaveBeenCalled()
+    expect(mockEntryCacheWrite).toHaveBeenCalledTimes(1)
+  })
+
+  it('caches normally when the member count is unchanged', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    const fresh = { equipment: ['Wok'], steps: ['Sear'], pitfalls: ['Crowding'] }
+    mockGenerateObject.mockResolvedValue({ object: fresh } as never)
+    mockMemberCount.mockResolvedValue(4 as never)
+
+    const response = await callPost()
+
+    expect(response.status).toBe(200)
+    expect(mockMemberCount).toHaveBeenCalledWith({ where: { householdId: 'household-123' } })
+    expect(mockEntryCacheWrite).toHaveBeenCalledTimes(1)
   })
 
   it('still returns the generated tips when the cache write matches nothing', async () => {
