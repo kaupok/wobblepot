@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { deriveProteinType } from '@/lib/meal-planning/protein'
+import type { ComponentForProtein } from '@/lib/meal-planning/protein'
 import {
   ingredientTranslationsInclude,
   mealTranslationsInclude,
@@ -224,19 +225,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    // Verify meal exists and belongs to this household. The components come
-    // along so the prep-tips invalidation below can tell a real ingredient
-    // edit from the unchanged list every save resends.
+    // Verify meal exists and belongs to this household, and carry the fields
+    // the prep-tips invalidation compares by value. The components are read
+    // inside the transaction instead, next to the divisor they are scaled by.
     const existingMeal = await prisma.meal.findFirst({
       where: {
         id,
         householdId: membership.household.id,
         deletedAt: null,
       },
-      include: {
-        components: {
-          select: { ingredientId: true, quantityPerServing: true },
-        },
+      select: {
+        name: true,
+        preparationNotes: true,
+        timeMinutes: true,
+        primaryProteinType: true,
       },
     })
 
@@ -256,11 +258,36 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       components,
     } = parsed.data
 
-    // If components are being updated, verify all ingredients exist and recalculate protein type
-    let primaryProteinType = existingMeal.primaryProteinType
-    let componentsChanged = false
-    if (components && servings) {
+    // If components are being updated, verify all ingredients exist. This half
+    // only reads the global ingredient table, so it stays out of the write
+    // transaction below — a 400 here must not open one.
+    let ingredientMap: Map<string, ComponentForProtein['ingredient'] & { id: string }> | null = null
+
+    if (components) {
       const ingredientIds = components.map((c) => c.ingredientId)
+
+      // A repeated id makes `findMany` return one row for two components, so
+      // the existence check below fires with an empty `missingIds` — a 400 that
+      // names nothing. Diagnose it here instead. The guard itself is load-
+      // bearing either way: `createMany` would hit
+      // `@@unique([mealId, ingredientId])` and answer 500.
+      const seen = new Set<string>()
+      const duplicates = new Set<string>()
+
+      for (const ingredientId of ingredientIds) {
+        if (seen.has(ingredientId)) duplicates.add(ingredientId)
+        else seen.add(ingredientId)
+      }
+
+      const duplicateIds = [...duplicates]
+
+      if (duplicateIds.length > 0) {
+        return NextResponse.json(
+          { error: 'Duplicate ingredients in components', duplicateIds },
+          { status: 400 },
+        )
+      }
+
       const ingredients = await prisma.ingredient.findMany({
         where: { id: { in: ingredientIds } },
         select: {
@@ -279,28 +306,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         )
       }
 
-      // Derive primary protein type from ingredients
-      const ingredientMap = new Map(ingredients.map((i) => [i.id, i]))
-      const componentData = components.map((c) => ({
-        quantityPerServing: c.totalQuantity / servings,
-        ingredient: ingredientMap.get(c.ingredientId)!,
-      }))
-      primaryProteinType = deriveProteinType(componentData)
-
-      // The prep-tips prompt renders one line per component from its
-      // ingredient and its `quantityPerServing` — the same division applied
-      // below — so those two fields are the whole of what a tips regeneration
-      // would see. `isVague` and `originalPhrase` are not in the prompt, and a
-      // vague flip zeroes `totalQuantity` in the schema transform, so it shows
-      // up here as a quantity change anyway.
-      const existingQuantities = new Map(
-        existingMeal.components.map((c) => [c.ingredientId, c.quantityPerServing]),
-      )
-      componentsChanged =
-        components.length !== existingMeal.components.length ||
-        components.some(
-          (c) => existingQuantities.get(c.ingredientId) !== c.totalQuantity / servings,
-        )
+      ingredientMap = new Map(ingredients.map((i) => [i.id, i]))
     }
 
     // Build update data
@@ -313,7 +319,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       kidFriendly?: boolean
       suitableFor?: ('breakfast' | 'lunch' | 'dinner')[]
       servings?: number
-      primaryProteinType?: typeof primaryProteinType
+      primaryProteinType?: typeof existingMeal.primaryProteinType
     } = {}
 
     if (name !== undefined) updateData.name = name
@@ -324,10 +330,62 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (kidFriendly !== undefined) updateData.kidFriendly = kidFriendly
     if (suitableFor !== undefined) updateData.suitableFor = suitableFor
     if (servings !== undefined) updateData.servings = servings
-    if (components && servings) updateData.primaryProteinType = primaryProteinType
 
     // Use transaction to update meal and components atomically
     const meal = await prisma.$transaction(async (tx) => {
+      // `components` and `servings` are independently optional in the schema,
+      // so a components-only PATCH has to scale against something. The meal's
+      // own stored `servings` is that divisor — it is what the rows already on
+      // disk are kept under, and `Meal.servings` is non-nullable, so it always
+      // exists. Gating the component path on both fields instead dropped the
+      // whole edit and still answered 200 with the unchanged list (HON-701).
+      //
+      // Read here rather than from `existingMeal` above: that read happens
+      // before the transaction opens, and once the divisor decides what gets
+      // *written*, a concurrent `PATCH {servings}` landing in between would
+      // store the rows under a divisor the meal no longer uses — 800g sent,
+      // 1600g stored, no error either side. The component comparison feeding
+      // `componentsChanged` reads the same stale-or-fresh pair, so it moves in
+      // with it.
+      //
+      // Both are only meaningful under `components`; the `createMany` further
+      // down reads `componentServings` behind that same condition.
+      let componentServings = 0
+      let componentsChanged = false
+
+      if (components) {
+        const current = await tx.meal.findUniqueOrThrow({
+          where: { id },
+          select: {
+            servings: true,
+            components: { select: { ingredientId: true, quantityPerServing: true } },
+          },
+        })
+        componentServings = servings ?? current.servings
+
+        // Derive primary protein type from ingredients
+        const componentData = components.map((c) => ({
+          quantityPerServing: c.totalQuantity / componentServings,
+          ingredient: ingredientMap!.get(c.ingredientId)!,
+        }))
+        updateData.primaryProteinType = deriveProteinType(componentData)
+
+        // The prep-tips prompt renders one line per component from its
+        // ingredient and its `quantityPerServing` — the same division applied
+        // below — so those two fields are the whole of what a tips
+        // regeneration would see. `isVague` and `originalPhrase` are not in
+        // the prompt, and a vague flip zeroes `totalQuantity` in the schema
+        // transform, so it shows up here as a quantity change anyway.
+        const existingQuantities = new Map(
+          current.components.map((c) => [c.ingredientId, c.quantityPerServing]),
+        )
+        componentsChanged =
+          components.length !== current.components.length ||
+          components.some(
+            (c) => existingQuantities.get(c.ingredientId) !== c.totalQuantity / componentServings,
+          )
+      }
+
       // Update meal base fields
       await tx.meal.update({
         where: { id },
@@ -377,7 +435,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       }
 
       // If components are provided, delete old and create new
-      if (components && servings) {
+      if (components) {
         await tx.mealComponent.deleteMany({
           where: { mealId: id },
         })
@@ -386,7 +444,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           data: components.map((c) => ({
             mealId: id,
             ingredientId: c.ingredientId,
-            quantityPerServing: c.totalQuantity / servings,
+            quantityPerServing: c.totalQuantity / componentServings,
             isVague: c.isVague ?? false,
             originalPhrase: c.originalPhrase ?? null,
           })),
