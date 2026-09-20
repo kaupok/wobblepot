@@ -8,6 +8,20 @@ import { resolveLocale } from '@/lib/i18n/resolve-locale'
 import { runHouseholdClaim } from '@/lib/household-claim'
 import { captureApiError } from '@/lib/errors'
 
+/**
+ * Upper bound on the `members` array, which is the *additional* members beyond
+ * the owner. Each one costs two writes (`householdMember` + `memberPreferences`)
+ * inside the claim transaction, and `runHouseholdClaim` may re-run that loop
+ * once per retry — so an unbounded array is an unbounded transaction, paid up
+ * to `MAX_CLAIM_ATTEMPTS` times.
+ *
+ * 20 is well clear of anything a legitimate client sends: `CreateHouseholdForm`
+ * clamps total household size to 10 and disables the `+` control there, so the
+ * onboarding screen can produce at most 9. It is generous for the family
+ * household the product targets while still bounding the write.
+ */
+const MAX_ADDITIONAL_MEMBERS = 20
+
 const createHouseholdSchema = z.object({
   name: z.string().min(1).max(100),
   members: z
@@ -17,6 +31,7 @@ const createHouseholdSchema = z.object({
         portionType: z.enum(['adult', 'child']).default('adult'),
       }),
     )
+    .max(MAX_ADDITIONAL_MEMBERS)
     .optional(),
 })
 

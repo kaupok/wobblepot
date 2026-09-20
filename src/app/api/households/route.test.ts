@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Prisma } from '@/generated/prisma/client'
 import { POST } from './route'
 
@@ -36,6 +36,11 @@ const mockCaptureApiError = vi.mocked(captureApiError)
 describe('POST /api/households', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    // No-op unless a test installed fake timers for the retry backoff.
+    vi.useRealTimers()
   })
 
   it('returns 401 when not authenticated', async () => {
@@ -128,6 +133,10 @@ describe('POST /api/households', () => {
   })
 
   it('answers a persistent serialization failure with a reported JSON 500', async () => {
+    // This is the one test here that exhausts `runHouseholdClaim`'s retry
+    // budget, so it is the one that would otherwise sit through both real
+    // backoff waits. `afterEach` restores real timers.
+    vi.useFakeTimers()
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
       session: { id: 'session-123' },
@@ -144,7 +153,9 @@ describe('POST /api/households', () => {
       body: JSON.stringify({ name: 'My Household' }),
     })
 
-    const response = await POST(request)
+    const responsePromise = POST(request)
+    await vi.runAllTimersAsync()
+    const response = await responsePromise
     const data = await response.json()
 
     // Rethrowing would let Next render an HTML error page, and
@@ -229,6 +240,79 @@ describe('POST /api/households', () => {
     expect(response.status).toBe(400)
     expect(data.error).toBe('Validation failed')
     expect(data.details.name).toBeDefined()
+  })
+
+  it('returns 400 without opening a transaction when members exceeds the bound', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    // One past MAX_ADDITIONAL_MEMBERS in the route. Each member costs two
+    // writes inside the claim transaction, re-run once per retry, so the
+    // rejection has to happen before the transaction opens — not inside it.
+    const request = new Request('http://localhost/api/households', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'My Household',
+        members: Array.from({ length: 21 }, (_, i) => ({ name: `Member ${i}` })),
+      }),
+    })
+
+    const response = await POST(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Validation failed')
+    expect(data.details.members).toBeDefined()
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
+  it('accepts a members array exactly at the bound', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    mockTransaction.mockImplementation(async (callback) => {
+      const mockTx = {
+        household: {
+          create: vi.fn().mockResolvedValue({ id: 'household-123' }),
+          findUnique: vi.fn().mockResolvedValue({
+            id: 'household-123',
+            name: 'My Household',
+            timezone: 'Europe/Tallinn',
+            createdAt: new Date('2024-01-01'),
+            preferences: { id: 'prefs-123' },
+          }),
+        },
+        householdMember: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockResolvedValue({ id: 'member-123' }),
+        },
+        householdPreferences: {
+          create: vi.fn().mockResolvedValue({ id: 'prefs-123' }),
+        },
+        memberPreferences: {
+          create: vi.fn().mockResolvedValue({ id: 'member-prefs-123' }),
+        },
+      }
+      return callback(mockTx as never)
+    })
+
+    const request = new Request('http://localhost/api/households', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'My Household',
+        members: Array.from({ length: 20 }, (_, i) => ({ name: `Member ${i}` })),
+      }),
+    })
+
+    const response = await POST(request)
+
+    // The bound is inclusive: a payload at exactly the limit is legitimate and
+    // must not be rejected off by one.
+    expect(response.status).toBe(201)
   })
 
   it('creates household with owner role and returns 201', async () => {
