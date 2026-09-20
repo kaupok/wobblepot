@@ -152,6 +152,10 @@ export function scoreCandidate(
  * draw is half-open, `[0, SCORE_JITTER_RANGE)`, so a jittered score is strictly under the next
  * signal up and can never lift a candidate past one that scored a signal it did not. Raising
  * this constant above 0.5 breaks that, and `candidate-score.test.ts` asserts the bound.
+ *
+ * The argument rests on every weight above being a multiple of 0.5, so a real score gap is
+ * either 0 or at least 0.5. Introduce a finer weight — 0.25, say — and this constant has to
+ * come down with it, or the jitter starts outranking a signal that genuinely fired.
  */
 export const SCORE_JITTER_RANGE = 0.5
 
@@ -188,8 +192,16 @@ function hashSeed(seed: string): number {
  * from one day to the next, while making any single ranking reproducible.
  *
  * Note the consequence: re-opening the swap modal for the same entry on the same day now returns
- * the same three meals. That is the intended trade — come back tomorrow, or change the pool by
- * planning, favouriting, or stocking the pantry, and the order moves.
+ * the same three meals, where `Math.random()` reshuffled ties on every request. That is the
+ * intended trade (HON-706 specifies seeded jitter as the default), but be clear about who pays
+ * for it: a household with no favourites, no custom meals and an empty pantry scores every
+ * candidate at 0 or `kidFriendly`, so its top 3 is decided *entirely* by this offset and is
+ * frozen for the day. "Change the pool by planning, favouriting, or stocking the pantry" is the
+ * escape hatch, and it is exactly the one a brand-new household has not used yet.
+ *
+ * The daily rotation is also keyed on the *server's* calendar day: callers pass
+ * `toDateString(new Date())`, which on a UTC host rolls over at 03:00 Estonian time rather than
+ * at local midnight.
  */
 export function scoreJitter({ entryId, dateString, candidateId }: ScoreJitterSeed): number {
   // mulberry32, seeded by the hash — one step is enough for a well-distributed value.
