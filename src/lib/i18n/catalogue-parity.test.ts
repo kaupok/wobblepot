@@ -19,11 +19,18 @@ function flatten(node: unknown, prefix = '', out = new Map<string, unknown>()) {
  * The sorted set of ICU arguments (`{name}`, including the leading argument of
  * a `plural` / `select` block) and markup tags (`<strong>`) a message uses,
  * rendered as a comparable string. Also kept inline per HON-669.
+ *
+ * The negative lookbehind skips plural/select *option bodies*, which have the
+ * same `{word}` shape as an argument: without it `{count, plural, one {Day}
+ * other {Days}}` reads as three arguments, while its Estonian counterpart
+ * `one {Päev}` reads as one (the ASCII character class stops at `P`) — so two
+ * correct translations would be reported as drift.
  */
 function placeholders(message: unknown): string {
   if (typeof message !== 'string') return ''
   const found = new Set<string>()
-  for (const match of message.matchAll(/\{\s*([a-zA-Z0-9_]+)\s*[,}]/g)) found.add(match[1]!)
+  const argument = /(?<!(?:=\d+|zero|one|two|few|many|other)\s)\{\s*([a-zA-Z0-9_]+)\s*[,}]/g
+  for (const match of message.matchAll(argument)) found.add(match[1]!)
   for (const match of message.matchAll(/<([a-zA-Z][a-zA-Z0-9]*)>/g)) found.add(`<${match[1]!}>`)
   return [...found].sort().join(', ')
 }
@@ -42,6 +49,19 @@ describe('message catalogue parity', () => {
 
     expect(enOnly, 'keys present in en.json but missing from et.json').toEqual([])
     expect(etOnly, 'keys present in et.json but missing from en.json').toEqual([])
+  })
+
+  it.each([
+    ['{appName} account will be deleted on {date}', 'appName, date'],
+    ['Deleted on <strong>{date}</strong>', '<strong>, date'],
+    // Plural option bodies are not arguments — `one {Day}` must not read as one.
+    ['{count, plural, one {Day} other {Days}}', 'count'],
+    ['{count, plural, one {Päev} other {Päeva}}', 'count'],
+    ['{count, plural, =0 {None} other {# rows}}', 'count'],
+    // A genuine argument nested inside an option body still counts.
+    ['{count, plural, one {# of {rows}} other {# of {rows}}}', 'count, rows'],
+  ])('reads %s as [%s]', (message, expected) => {
+    expect(placeholders(message)).toBe(expected)
   })
 
   it('en.json and et.json use the same ICU placeholders and markup tags', () => {
