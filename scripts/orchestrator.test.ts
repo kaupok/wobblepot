@@ -3631,4 +3631,127 @@ describe('orchestrator.sh', () => {
       expect(summary(ALL)).toBe('1 gated, 1 stranded, 1 cap cooldown, 1 blocked, 1 assigned')
     })
   })
+  describe('wt watch ignores log lines that are not log lines', () => {
+    // orchestrator.sh:784 appends a raw, untimestamped 20-line worker tail
+    // straight into orchestrator.log on a timeout. The window test is a string
+    // compare on the first 19 characters, so those lines were admitted or
+    // rejected on their first byte alone — "npm ERR …" sorts above any 2026 date
+    // and was always "in window"; "  [OUTCOME] …" sorts below and never was.
+    const scan = (lines: string[], since = ''): Record<string, string> => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-watch-untimed-'))
+      const log = path.join(dir, 'orchestrator.log')
+      fs.writeFileSync(log, `${lines.join('\n')}\n`)
+      try {
+        return Object.fromEntries(
+          runHarness('watch-scan-log', log, since)
+            .split('\n')
+            .filter(Boolean)
+            .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]),
+        )
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    }
+
+    const REAL = '2026-09-21 10:00:00 INFO  Selected: HON-2 — work'
+
+    it('does not let a worker echoing [OUTCOME] inflate the run tally', () => {
+      const r = scan(
+        [REAL, 'npm ERR [OUTCOME] HON-9 FAILED 1m1s 0-commits phase=initializing'],
+        '2026-09-21 00:00:00',
+      )
+
+      expect(r.TALLY_FAILED).toBe('0')
+      expect(r.LAST_OUTCOME).toBeUndefined()
+    })
+
+    it('does not raise an alert from an untimestamped tail line', () => {
+      // This produced ALERT_AT=could — the 12th to 16th characters of the text,
+      // read as if they were a clock.
+      const r = scan([REAL, 'npm ERROR  could not reach Linear API'], '2026-09-21 00:00:00')
+
+      expect(r.ALERT).toBeUndefined()
+      expect(r.ALERT_AT).toBeUndefined()
+    })
+
+    it('cannot be pinned by a garbage timestamp that no real one can beat', () => {
+      // The compounding failure: alert_ts came from the same bad substring, so it
+      // sorted above every real timestamp and the suppression rule — which fires
+      // when a later claim proves recovery — could never clear it.
+      const r = scan(['2026-09-21 09:00:00 WARN  zzz unreachable', REAL], '2026-09-21 00:00:00')
+
+      expect(r.ALERT).toBeUndefined()
+    })
+
+    it.each([
+      ['a bare continuation line', 'pnpm ERR! command failed'],
+      ['an indented one', '    at Object.<anonymous> (/app/x.ts:1:1)'],
+      ['a blank-prefixed one', ' 2026 was a good year'],
+      ['a lookalike missing the time', '2026-09-21 INFO  [OUTCOME] HON-9 FAILED 1m 0-commits'],
+    ])('ignores %s', (_label, line) => {
+      const r = scan([REAL, line], '2026-09-21 00:00:00')
+
+      expect(r.TALLY_FAILED).toBe('0')
+      expect(r.ALERT).toBeUndefined()
+    })
+
+    it('still reads genuine log lines', () => {
+      // The guard must not be so tight that it drops the real thing.
+      const r = scan(
+        [
+          '2026-09-21 10:00:00 INFO  [OUTCOME] HON-3 SUCCESS 5m0s 2-commits phase=done',
+          '2026-09-21 10:05:00 WARN  Pausing: low disk space',
+        ],
+        '2026-09-21 00:00:00',
+      )
+
+      expect(r.TALLY_SUCCESS).toBe('1')
+      expect(r.ALERT).toBe('Pausing: low disk space')
+    })
+
+    it('measures the rotation window from the first real line, not the first line', () => {
+      // first_ts feeds TALLY_TRUNCATED; if an untimestamped line set it, the
+      // comparison against the window would be meaningless.
+      const r = scan(
+        ['npm ERR something', '2026-09-21 10:00:00 INFO  Selected: HON-2 — work'],
+        '2026-09-21 00:00:00',
+      )
+
+      expect(r.TALLY_TRUNCATED).toBe('1')
+    })
+  })
+
+  describe('wt watch rules are valid UTF-8 in any locale', () => {
+    // `tr ' ' '─'` is byte-oriented outside a UTF-8 locale: it maps the space to
+    // the FIRST BYTE of ─ only, so every pane rule and worker separator became a
+    // run of lone 0xE2 lead bytes. tr is a child process, so the fix has to reach
+    // it through the environment, not a shell local.
+    const head = (locale: string, label: string, width: number) =>
+      runHarnessEnv({ LC_ALL: locale }, 'watch-pane-head', label, String(width)).trim().slice(1, -1)
+
+    it.each([['en_US.UTF-8'], ['C'], ['POSIX'], ['']])(
+      'draws a decodable rule of exact width under LC_ALL=%j',
+      (locale) => {
+        const rule = head(locale as string, 'TEST', 24)
+
+        expect([...rule]).toHaveLength(24)
+        // A lone lead byte would not survive the round trip through UTF-8.
+        expect(Buffer.from(rule, 'utf8').toString('utf8')).toBe(rule)
+        expect(rule).not.toContain('�')
+        expect(rule.endsWith('─')).toBe(true)
+      },
+    )
+  })
+
+  describe('wt watch clips to nothing rather than overflowing', () => {
+    // The title budget floors at 0 now: the fixed columns already spend 54, so a
+    // 12-column floor made the worker row 66 wide on a 64-column terminal. It
+    // wrapped, and the wrap consumed a row the height budget had already counted.
+    const clip = (s: string, w: number) =>
+      runHarness('watch-clip', s, String(w)).trim().slice(1, -1)
+
+    it.each([[0], [-1]])('returns empty for a budget of %i', (w) => {
+      expect(clip('a title that cannot fit', w as number)).toBe('')
+    })
+  })
 })

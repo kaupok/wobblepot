@@ -957,6 +957,8 @@ EOF
   watch-landed-read)
     # shellcheck source=./worktree-claude.sh
     source "$HARNESS_DIR/worktree-claude.sh"
+    # shellcheck disable=SC2034  # read by watch_landed_probe's `cd "$REPO_ROOT"`,
+    # which shellcheck cannot see because it does not follow the source above.
     REPO_ROOT="$HARNESS_DIR/.."
     LANDED_FIXTURE="$A1"
     gh() {

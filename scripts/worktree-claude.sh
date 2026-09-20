@@ -1928,7 +1928,19 @@ watch_scan_log() {
     function ts(line) { return substr(line, 1, 19) }
     function in_window(line) { return since == "" || ts(line) >= since }
 
-    NR == 1 { first_ts = ts($0) }
+    # orchestrator.sh:784 appends a raw, untimestamped 20-line worker tail
+    # straight into orchestrator.log on a timeout. Those lines have no timestamp,
+    # so the window test — a string compare on the first 19 characters — admitted
+    # or rejected them on their first byte alone: "npm ERR …" sorts above any
+    # 2026 date and was always in window, "  [OUTCOME] …" sorts below and never
+    # was. That let a worker echoing text inflate the run tally, and pinned an
+    # alert ("ALERT_AT=could") whose fake timestamp no real one could ever beat,
+    # so the suppression rule could never clear it. Scan only real log lines.
+    !/^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9] / { next }
+
+    # First surviving line, not first line in the file: the guard above may have
+    # skipped it, and this is what the rotation test compares against.
+    first_ts == "" { first_ts = ts($0) }
 
     /\[OUTCOME\]/ {
       if (in_window($0)) {
@@ -2203,9 +2215,19 @@ watch_landed_probe() {
 }
 
 # "── LABEL ─────────" to a given width.
+#
+# The locale is set as a command prefix rather than a shell local because `tr` is
+# a child process: it reads the environment, and a `local LC_ALL` never reaches
+# it. Byte-oriented `tr` maps the space to the first byte of `─` alone, so under
+# LC_ALL=C every rule came out as a run of lone 0xE2 lead bytes — invalid UTF-8.
+# Prefixing here keeps the helper correct when called outside cmd_watch, which is
+# also what lets a test assert it.
 watch_pane_head() {
   local label="$1" width="$2" dashes="" used=$(( ${#1} + 4 ))
-  [ "$width" -gt "$used" ] && dashes=$(printf '%*s' $(( width - used )) '' | tr ' ' '-' | tr '-' '─')
+  if [ "$width" -gt "$used" ]; then
+    dashes=$(LC_ALL="${WT_WIDTH_LOCALE:-${LC_ALL:-}}" \
+      printf '%*s' $(( width - used )) '' | LC_ALL="${WT_WIDTH_LOCALE:-${LC_ALL:-}}" tr ' ' '─')
+  fi
   printf '── %s %s' "$label" "$dashes"
 }
 
@@ -2221,6 +2243,14 @@ watch_pane_head() {
 # for twenty minutes was green. All of that was already on disk (orchestrator.log
 # and the status file) or one gh call away; none of it was rendered.
 cmd_watch() {
+  # One locale for the entire render, exported rather than local: `tr`, `awk` and
+  # `jq` are child processes and read the environment, not shell variables, and
+  # the rules are drawn with `tr ' ' '─'` — byte-oriented under LC_ALL=C, where
+  # it emits a lone 0xE2 lead byte per character and every pane rule and worker
+  # separator becomes invalid UTF-8. This also brings the pane-padding
+  # arithmetic (`${#l_plain[…]}`) under the same guard as watch_pad's own.
+  [ -n "${WT_WIDTH_LOCALE:-}" ] && export LC_ALL="$WT_WIDTH_LOCALE"
+
   local interval="${1:-5}"
   local status_file="$WORKTREE_BASE/orchestrator-status.json"
   local orch_log="$WORKTREE_BASE/logs/orchestrator.log"
@@ -2570,8 +2600,14 @@ cmd_watch() {
         else
           w_alive+=(" ${RED}(dead)${NC}")
         fi
+      # Every field falls back to "-" for the same reason watch_landed_probe does:
+      # this row is read with IFS=$'\t', tab is IFS whitespace, and one empty
+      # field would collapse and shift the rest left — rendering the pid as the
+      # title. Linear titles are never empty, so this is the hazard removed
+      # rather than a bug fixed.
       done < <(echo "$status" | jq -r '.workers[] | [
-        .issue, .title, (.pid|tostring), .branch, .started_at, .log_file,
+        (.issue // "-"), (if (.title // "") == "" then "-" else .title end),
+        (.pid|tostring), (.branch // "-"), (.started_at // "-"), (.log_file // "-"),
         (if .retried then "1" else "0" end)
       ] | @tsv' 2>/dev/null)
 
@@ -2586,7 +2622,11 @@ cmd_watch() {
       # than landing exactly on it and relying on deferred wrap. Issue is 9, not
       # 8, so `HON-1000↻` still fits once the counter rolls over.
       local title_w=$(( term_cols - 55 ))
-      [ "$title_w" -lt 12 ] && title_w=12
+      # Floors at 0, not 12: the fixed columns already spend 54, so a 12-column
+      # floor made the row 66 wide on a 64-column terminal — it wrapped, and the
+      # wrap consumed a line the height budget had already counted. Below ~67
+      # columns the title is simply dropped.
+      [ "$title_w" -lt 0 ] && title_w=0
       buf+="${DIM}  $(watch_pad "ISSUE" 9) $(watch_pad "PHASE" 12) "
       buf+="$(printf '%6s %6s ' "TIME" "GIT")$(watch_pad "PR" 6) $(watch_pad "CI" 8)TITLE${NC}\n"
 
@@ -2625,7 +2665,7 @@ cmd_watch() {
         # has to come out of the title's budget or the row overruns the terminal.
         local row_title_w="$title_w"
         [ -n "${w_alive[$i]}" ] && row_title_w=$(( title_w - 7 ))
-        [ "$row_title_w" -lt 8 ] && row_title_w=8
+        [ "$row_title_w" -lt 0 ] && row_title_w=0
         buf+="$(watch_clip "${w_titles[$i]}" "$row_title_w")${w_alive[$i]}\n"
         i=$((i + 1))
       done
@@ -2667,6 +2707,27 @@ cmd_watch() {
           [ -n "$sig" ] && [ -n "$prev" ] && [ "$sig" != "$prev" ] && changed=" ${GREEN}●${NC}"
           [ -n "$sig" ] && printf '%s' "$sig" > "$sig_file"
           log_output=$(render_log_lines "$jsonl" "$msgs_per_worker" "$tz_offset" | tail -"$lines_per_worker")
+          # Clip the tail to the terminal as well. Assistant text runs to 500
+          # characters in JQ_LOG_FILTER, so on a narrow terminal a single line
+          # wrapped into three and silently spent rows the height budget had
+          # already allocated. A coloured error line is measured without its
+          # escapes and recoloured after the clip, so it stays red instead of
+          # losing its highlight to the byte count.
+          if [ -n "$log_output" ]; then
+            local clipped="" logline="" plainline=""
+            while IFS= read -r logline; do
+              case "$logline" in
+                *$'\033'*)
+                  plainline=$(printf '%s' "$logline" | sed -E $'s/\033\\[[0-9;]*m//g')
+                  clipped+="${RED}$(watch_clip "$plainline" $(( term_cols - 1 )))${NC}"$'\n'
+                  ;;
+                *)
+                  clipped+="$(watch_clip "$logline" $(( term_cols - 1 )))"$'\n'
+                  ;;
+              esac
+            done <<< "$log_output"
+            log_output="${clipped%$'\n'}"
+          fi
         fi
 
         local head_text="$issue · ${w_phases[$i]} · ${w_elapsed[$i]}"
