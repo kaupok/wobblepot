@@ -53,7 +53,12 @@ export async function generateMetadata(): Promise<Metadata> {
     description,
     // No `images` here on purpose (HON-483): `src/app/opengraph-image.tsx`
     // emits `og:image`, `og:image:type|width|height` and `twitter:image` via
-    // the file convention. Adding an entry back would emit a second tag.
+    // the file convention. An `images` entry here would *suppress* it, not
+    // duplicate it — `mergeStaticMetadata` merges the file-based image only
+    // when this segment's own metadata has no `images` key
+    // (`next/dist/lib/metadata/resolve-metadata.js:148`) — leaving whatever
+    // manual URL was written here as the only og:image tag. That is exactly
+    // how `/og-image.png`, a file that never existed, was the one tag served.
     openGraph: {
       title: ogTitle,
       description: ogDescription,

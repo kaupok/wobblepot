@@ -7,14 +7,22 @@ import enMessages from '../../messages/en.json'
  *
  * Emitted by Next's `opengraph-image` file convention, which writes the
  * `og:image`, `og:image:type`, `og:image:width` and `og:image:height` tags
- * itself — `src/app/layout.tsx` deliberately carries no `images` entry, or we
- * would emit two. Dropping an `opengraph-image.png` into this segment replaces
- * this route with no other change.
+ * itself — `src/app/layout.tsx` deliberately carries no `images` entry. An
+ * entry there does not add a second tag, it *replaces* this one:
+ * `mergeStaticMetadata` merges the file-based image only when the segment's
+ * own metadata has no `images` key
+ * (`next/dist/lib/metadata/resolve-metadata.js:148`), so a per-route override
+ * would silently take this card out of the HTML while the route still builds
+ * and still serves a valid PNG at `/opengraph-image`. Dropping an
+ * `opengraph-image.png` into this segment replaces this route with no other
+ * change.
  *
  * Copy is read from the same `meta.root.ogTitle` / `meta.root.ogDescription`
- * keys `generateMetadata` uses, so the card and the meta tags cannot drift.
- * English only, on purpose: per-locale cards are a separate, larger investment
- * (and `getTranslations` would re-resolve the request locale here, not 'en').
+ * keys `generateMetadata` uses, so the card and the meta tags cannot drift in
+ * English. They do diverge for other locales — `generateMetadata` translates
+ * per request while this card stays English on purpose: per-locale cards are a
+ * separate, larger investment (and `getTranslations` would re-resolve the
+ * request locale here, not 'en').
  *
  * Colours are the `globals.css` tokens resolved to their literal sRGB values,
  * because satori parses neither `var()` nor `oklch()`:

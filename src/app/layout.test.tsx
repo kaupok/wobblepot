@@ -179,9 +179,12 @@ describe('generateMetadata', () => {
   })
 
   // HON-483: `src/app/opengraph-image.tsx` emits og:image / twitter:image via
-  // the file convention. A manual `images` entry here would emit a second tag
-  // — which is exactly how `/og-image.png` (a file that never existed) stayed
-  // in the rendered HTML for five months.
+  // the file convention, but only while this segment's own metadata has no
+  // `images` key — `mergeStaticMetadata` treats one as an override, not a
+  // duplicate (`next/dist/lib/metadata/resolve-metadata.js:148`). So a manual
+  // entry here silently takes the generated card out of the HTML, which is
+  // exactly how `/og-image.png` (a file that never existed) was the only
+  // og:image tag served for five months. Guard the absence, not the count.
   it('leaves the image tags to the opengraph-image file convention', async () => {
     const metadata = await generateMetadata()
 
