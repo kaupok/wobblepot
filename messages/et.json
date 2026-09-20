@@ -395,7 +395,6 @@
       },
       "errors": {
         "empty": "Palun kleebi retsept või URL",
-        "parseFailed": "Retsepti töötlemine ebaõnnestus",
         "parseGeneric": "Retsepti töötlemine ebaõnnestus. Palun proovi uuesti.",
         "unauthorized": "Palun logi sisse, et retsepte importida.",
         "noHousehold": "Retseptide importimiseks pead kuuluma leibkonda.",

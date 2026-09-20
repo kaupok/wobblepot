@@ -23,7 +23,7 @@ const surfaces = [
     keys: RECIPE_IMPORT_ERROR_KEYS,
     en: enMessages.recipes.import.errors as Record<string, unknown>,
     et: etMessages.recipes.import.errors as Record<string, unknown>,
-    fallback: 'parseFailed',
+    fallback: 'parseGeneric',
   },
 ] as const
 
@@ -59,7 +59,7 @@ describe('translateErrorCode', () => {
     expect(translateErrorCode('imagine_timeout', IMAGINE_ERROR_KEYS, 'generic')).toBe(
       'imagineTimeout',
     )
-    expect(translateErrorCode('robots_disallowed', RECIPE_IMPORT_ERROR_KEYS, 'parseFailed')).toBe(
+    expect(translateErrorCode('robots_disallowed', RECIPE_IMPORT_ERROR_KEYS, 'parseGeneric')).toBe(
       'robotsDisallowed',
     )
   })

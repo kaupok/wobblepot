@@ -282,7 +282,7 @@ export function RecipeImportClient() {
           error: data.error,
         })
         setError(
-          t(`errors.${translateErrorCode(data.code, RECIPE_IMPORT_ERROR_KEYS, 'parseFailed')}`),
+          t(`errors.${translateErrorCode(data.code, RECIPE_IMPORT_ERROR_KEYS, 'parseGeneric')}`),
         )
         return
       }

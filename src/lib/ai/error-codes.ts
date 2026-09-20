@@ -108,7 +108,11 @@ export const RECIPE_IMPORT_ERROR_KEYS = {
   no_ingredients_found: 'noIngredientsFound',
   low_confidence: 'lowConfidence',
   parse_timeout: 'parseTimeout',
-  parse_failed: 'parseFailed',
+  // `parseGeneric`, not `parseFailed`: this covers the 500 and the
+  // AI-generation catch-all, whose prose explicitly told the user to retry.
+  // It also matches the network-failure path in the same component, which
+  // would otherwise give better guidance than the server does.
+  parse_failed: 'parseGeneric',
 } as const satisfies Record<RecipeImportErrorCode, string>
 
 /**

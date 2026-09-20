@@ -34,7 +34,10 @@ function resolveParserLocale(householdLocale: string): string {
 /**
  * Failure body for this route: English prose for logs and Sentry breadcrumbs,
  * plus the machine-readable `code` the client translates (HON-700). Every
- * error response below goes through here so no branch can ship without one.
+ * error response *this handler builds* goes through here, so no branch of it
+ * can ship without a code. The one failure it does not build is the shared AI
+ * cost-cap 429, which `respondCapExceeded` (`src/lib/ai/usage.ts`) returns
+ * whole — it carries its own `ai_cap_exceeded` code.
  */
 function errorBody(error: string, code: RecipeImportErrorCode) {
   return { success: false as const, error, code }

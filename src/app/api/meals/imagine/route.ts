@@ -47,7 +47,10 @@ const AI_BUDGET_MS = 40_000
 /**
  * Failure body for this route: English prose for logs and Sentry breadcrumbs,
  * plus the machine-readable `code` the clients translate (HON-700). Every
- * error response below goes through here so no branch can ship without one.
+ * error response *this handler builds* goes through here, so no branch of it
+ * can ship without a code. The one failure it does not build is the shared AI
+ * cost-cap 429, which `respondCapExceeded` (`src/lib/ai/usage.ts`) returns
+ * whole — it carries its own `ai_cap_exceeded` code.
  *
  * `success: false` mirrors `/api/recipes/parse` and the `success: true` this
  * route already sends on the happy path. Both clients test

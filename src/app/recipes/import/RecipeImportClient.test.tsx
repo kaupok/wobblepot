@@ -107,7 +107,7 @@ describe('RecipeImportClient progress steps', () => {
 
     // Error shown, progress step cleared. The rendered string is the client's
     // own translated copy — never the server's `error` prose (HON-700).
-    expect(screen.getByText(enMessages.recipes.import.errors.parseFailed)).toBeInTheDocument()
+    expect(screen.getByText(enMessages.recipes.import.errors.parseGeneric)).toBeInTheDocument()
     expect(screen.queryByText('Failed to parse')).not.toBeInTheDocument()
     expect(screen.queryByText('Fetching page…')).not.toBeInTheDocument()
     expect(screen.queryByText('Extracting recipe…')).not.toBeInTheDocument()
@@ -276,7 +276,7 @@ describe('RecipeImportClient error localization', () => {
 
     parse('et')
 
-    await screen.findByText(etMessages.recipes.import.errors.parseFailed)
+    await screen.findByText(etMessages.recipes.import.errors.parseGeneric)
     expect(screen.queryByText('Some brand new failure')).not.toBeInTheDocument()
   })
 

@@ -395,7 +395,6 @@
       },
       "errors": {
         "empty": "Please paste a recipe or URL first",
-        "parseFailed": "Failed to parse recipe",
         "parseGeneric": "Failed to parse recipe. Please try again.",
         "unauthorized": "Please sign in to import recipes.",
         "noHousehold": "You need a household before you can import recipes.",
