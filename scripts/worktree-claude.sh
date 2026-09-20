@@ -499,7 +499,7 @@ print_usage() {
   echo "Commands:"
   echo "  start [flags]          Start orchestrator in background (flags passed through)"
   echo "  stop                   Stop the running orchestrator"
-  echo "  watch [interval]       Live dashboard with status + activity (default: 5s)"
+  echo "  watch [interval]       Live dashboard: health, run tally, PR/CI, activity (default: 5s)"
   echo "  status [-v]            Show orchestrator and worker status (-v for details)"
   echo "  logs <issue> [lines]   Show recent Claude activity for a worker (default: 20 messages)"
   echo ""
@@ -1812,16 +1812,396 @@ cmd_logs() {
   render_log_lines "$jsonl_file" "$lines" "$(get_tz_offset_sec)"
 }
 
-# ─── Live dashboard ───────────────────────────────────────────────────────────
+# ─── Live dashboard: shared helpers ───────────────────────────────────────────
+#
+# The helpers below back `wt watch`. They are deliberately pure (or
+# filesystem-only) so scripts/orchestrator-outcome-harness.sh can source this
+# file and assert on them — the render loop itself is unreachable from a test.
+#
+# A note on widths, because it bites every column in this file: bash's printf
+# pads `%-8s` by BYTES, while `${#s}` counts CHARACTERS. Any cell that can hold
+# a multi-byte glyph — a clipped title's `…`, a retried worker's `↻` — comes out
+# of printf too short and skews every column to its right. So every padded cell
+# below goes through watch_pad, and printf padding is reserved for cells that
+# are ASCII by construction.
 
+# Truncate a string to a display width, marking the cut with an ellipsis.
+# A width under 2 degenerates to a hard cut, because "…" would be all there is.
+#
+# Usage: watch_clip <string> <width>
+watch_clip() {
+  local s="$1" w="$2"
+  [ "$w" -lt 1 ] && { printf ''; return; }
+  if [ "${#s}" -le "$w" ]; then
+    printf '%s' "$s"
+  elif [ "$w" -lt 2 ]; then
+    printf '%s' "${s:0:$w}"
+  else
+    printf '%s…' "${s:0:$((w - 1))}"
+  fi
+}
+
+# Left-align a string in a character-counted field. See the width note above.
+#
+# Usage: watch_pad <string> <width>
+watch_pad() {
+  local s="$1" w="$2"
+  s=$(watch_clip "$s" "$w")
+  local pad=$(( w - ${#s} ))
+  [ "$pad" -lt 0 ] && pad=0
+  printf '%s%*s' "$s" "$pad" ''
+}
+
+# Convert a UTC ISO-Z timestamp to the `YYYY-MM-DD HH:MM:SS` local form that
+# orchestrator.sh's log() writes, so the two can be compared as strings.
+# Prints nothing when the input is unparseable — callers treat that as "no
+# window", i.e. scan the whole log rather than silently reporting zero.
+#
+# Usage: watch_local_log_ts <iso-z>
+watch_local_log_ts() {
+  local iso="$1" epoch=""
+  epoch=$(TZ=UTC date -jf '%Y-%m-%dT%H:%M:%SZ' "$iso" '+%s' 2>/dev/null) || \
+  epoch=$(date -d "$iso" '+%s' 2>/dev/null) || return 0
+  [ -n "$epoch" ] || return 0
+  date -r "$epoch" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || \
+  date -d "@$epoch" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || return 0
+}
+
+# Compact relative age from an ISO-8601 timestamp ("14m", "3h", "2d").
+watch_relative_age() {
+  local iso="$1" epoch="" delta=0
+  epoch=$(TZ=UTC date -jf '%Y-%m-%dT%H:%M:%SZ' "$iso" '+%s' 2>/dev/null) || \
+  epoch=$(date -d "$iso" '+%s' 2>/dev/null) || { printf '?'; return; }
+  delta=$(( $(date +%s) - epoch ))
+  [ "$delta" -lt 0 ] && delta=0
+  if [ "$delta" -lt 3600 ]; then printf '%dm' $(( delta / 60 ))
+  elif [ "$delta" -lt 86400 ]; then printf '%dh' $(( delta / 3600 ))
+  else printf '%dd' $(( delta / 86400 ))
+  fi
+}
+
+# Everything `wt watch` reads out of orchestrator.log, in a single pass.
+#
+# One awk over the file rather than six greps: the log is append-only and
+# already multi-megabyte between the 50 MB rotations, and the dashboard rescans
+# it on every redraw. Emits `KEY=value` lines (never more than one per key) so
+# the caller can parse it with a read loop and no eval.
+#
+# `since` is a `YYYY-MM-DD HH:MM:SS` prefix; lines older than it are ignored for
+# the tallies, which is what makes them "this run" rather than "all time". An
+# empty `since` means no window. Rotation is not stitched: a run that predates
+# the current file's first line reports only what the file still holds, which is
+# why TALLY_TRUNCATED is emitted for the caller to disclose rather than passing
+# a floor off as a total.
+#
+# Keys: TALLY_SUCCESS TALLY_FAILED TALLY_STRANDED TALLY_GATED TALLY_TIMEOUT
+#       TALLY_TRUNCATED LAST_OUTCOME LAST_OUTCOME_AT LAST_PICK LAST_PICK_AT
+#       SKIPS SKIP_SUMMARY ALERT ALERT_AT
+#
+# `grace` is a second, later `YYYY-MM-DD HH:MM:SS` prefix used only for the
+# TALLY_TRUNCATED test. Without it, a log whose first line lands a second after
+# started_at — which is every log freshly created by this run — would report
+# itself as rotated. Truncation is a gap of minutes, not of seconds.
+#
+# Usage: watch_scan_log <log_file> <since_local_ts> [grace_local_ts]
+watch_scan_log() {
+  local log_file="$1" since="$2" grace="${3:-$2}"
+  [ -f "$log_file" ] || return 0
+
+  awk -v since="$since" -v grace="$grace" '
+    # The log is "YYYY-MM-DD HH:MM:SS LEVEL message". Lines that do not match
+    # that shape are continuation output and carry no timestamp to window on.
+    function ts(line) { return substr(line, 1, 19) }
+    function in_window(line) { return since == "" || ts(line) >= since }
+
+    NR == 1 { first_ts = ts($0) }
+
+    /\[OUTCOME\]/ {
+      if (in_window($0)) {
+        # [OUTCOME] <ID> <VERDICT> <duration> <n>-commits ...
+        if (match($0, /\[OUTCOME\] [A-Z]+-[0-9]+ [A-Z]+/)) {
+          n = split(substr($0, RSTART, RLENGTH), f, " ")
+          tally[f[n]]++
+        }
+        last_outcome = substr($0, index($0, "[OUTCOME]") + 10)
+        last_outcome_at = substr($0, 12, 5)
+        if (ts($0) > progress_ts) progress_ts = ts($0)
+      }
+      next
+    }
+
+    / Selected: / {
+      if (in_window($0)) {
+        rest = substr($0, index($0, " Selected: ") + 11)
+        split(rest, s, " ")
+        last_pick = s[1]
+        last_pick_at = substr($0, 12, 5)
+        if (ts($0) > progress_ts) progress_ts = ts($0)
+      }
+      next
+    }
+
+    /\[SKIP\] / {
+      if (in_window($0)) {
+        rest = substr($0, index($0, "[SKIP] ") + 7)
+        split(rest, s, " ")
+        id = s[1]
+        reason = substr(rest, length(id) + 2)
+        # Collapse to a category: the per-issue detail is already one line each
+        # in the log, and the dashboard has room for a histogram, not a list.
+        if (reason ~ /^blocked by/ || reason ~ /^blocker /) cat = "blocked"
+        else if (reason ~ /^gated/) cat = "gated"
+        else if (reason ~ /^stranded/) cat = "stranded"
+        else if (reason ~ /^requeued at the Neon branch cap/) cat = "cap cooldown"
+        else if (reason ~ /^assigned/) cat = "assigned"
+        else if (reason ~ /^already running/) cat = "running"
+        else cat = "other"
+        # Count each issue once per category, not once per poll: every poll
+        # re-skips the same issues, so a raw count would only measure uptime.
+        if (!(id SUBSEP cat in seen_skip)) {
+          seen_skip[id SUBSEP cat] = 1
+          skipcat[cat]++
+          skips++
+        }
+      }
+      next
+    }
+
+    # Operational blockers — the reason the orchestrator is not spawning even
+    # though slots are free. Only the most recent one is worth screen space.
+    / (ERROR|WARN) / {
+      if (!in_window($0)) next
+      msg = $0
+      sub(/^[0-9-]+ [0-9:]+ (ERROR|WARN) +/, "", msg)
+      if (msg ~ /^Pausing/ || msg ~ /^Low disk space/ || msg ~ /Linear/ ||
+          msg ~ /^Circuit breaker/ || msg ~ /Neon branch cap/ ||
+          msg ~ /^Todo queue is deeper/) {
+        alert = msg
+        alert_at = substr($0, 12, 5)
+        alert_ts = ts($0)
+      }
+      next
+    }
+
+    END {
+      printf "TALLY_SUCCESS=%d\n",  tally["SUCCESS"]  + 0
+      printf "TALLY_FAILED=%d\n",   tally["FAILED"]   + 0
+      printf "TALLY_STRANDED=%d\n", tally["STRANDED"] + 0
+      printf "TALLY_GATED=%d\n",    tally["GATED"]    + 0
+      printf "TALLY_TIMEOUT=%d\n",  tally["TIMEOUT"]  + 0
+      # The window opens before the file does — the run predates a rotation, so
+      # the tallies are a floor, not a total.
+      printf "TALLY_TRUNCATED=%d\n", (since != "" && first_ts != "" && first_ts > grace) ? 1 : 0
+      if (last_outcome != "") {
+        printf "LAST_OUTCOME=%s\n", last_outcome
+        printf "LAST_OUTCOME_AT=%s\n", last_outcome_at
+      }
+      if (last_pick != "") {
+        printf "LAST_PICK=%s\n", last_pick
+        printf "LAST_PICK_AT=%s\n", last_pick_at
+      }
+      printf "SKIPS=%d\n", skips + 0
+      sep = ""; summary = ""
+      for (c in skipcat) { summary = summary sep skipcat[c] " " c; sep = ", " }
+      if (summary != "") printf "SKIP_SUMMARY=%s\n", summary
+      # An alert the orchestrator has demonstrably recovered from is noise, not
+      # news: a Linear fetch that failed at 19:25 is answered by the three
+      # issues it claimed at 23:00. So it is reported only when nothing has
+      # been claimed or completed since — which is exactly the case where a
+      # free worker slot is going unfilled and the operator wants the reason.
+      if (alert != "" && (progress_ts == "" || alert_ts > progress_ts)) {
+        printf "ALERT=%s\n", alert
+        printf "ALERT_AT=%s\n", alert_at
+      }
+    }
+  ' "$log_file" 2>/dev/null || true
+}
+
+# watch_scan_log, but off the redraw's critical path.
+#
+# The scan is O(log size), and orchestrator.log runs to 50 MB before it rotates:
+# measured 0.23s at the current 3.9 MB and 2.6s at 47 MB, against a 5s default
+# interval. Windowing does not help — `since` is applied inside awk, after the
+# whole file has been read — so a five-minute-old run still re-reads every byte
+# on every tick. That is the same cost the gh probes are cached to avoid, so it
+# is cached the same way: a synchronous first scan so frame one is complete,
+# then a background refresh on a 10s TTL.
+#
+# The cache is keyed on the run's start epoch, so a restarted orchestrator gets
+# a new window rather than inheriting the previous run's tallies.
+#
+# Usage: watch_scan_log_cached <cache_dir> <log_file> <since> <grace> <start_epoch>
+watch_scan_log_cached() {
+  local cache_dir="$1" log_file="$2" since="$3" grace="$4" start_epoch="$5"
+  local cache="$cache_dir/scan-${start_epoch:-0}"
+
+  if [ -f "$cache" ]; then
+    watch_refresh_async "$cache" 10 watch_scan_log "$log_file" "$since" "$grace"
+  else
+    watch_scan_log "$log_file" "$since" "$grace" > "${cache}.tmp" 2>/dev/null || true
+    mv "${cache}.tmp" "$cache" 2>/dev/null || true
+  fi
+  [ -f "$cache" ] && cat "$cache"
+  return 0
+}
+
+# Age of a cache file in seconds; a huge number when it does not exist, so
+# every caller's `-gt TTL` test treats "missing" as "stale".
+watch_cache_age() {
+  local f="$1" m=""
+  # -e, not -f: this also ages the lock DIRECTORY below.
+  [ -e "$f" ] || { echo 999999; return; }
+  m=$(stat -f %m "$f" 2>/dev/null) || m=$(stat -c %Y "$f" 2>/dev/null) || m=0
+  echo $(( $(date +%s) - m ))
+}
+
+# Run a command in the background at most once per cache key, writing its
+# stdout to <cache_file> atomically. A lock DIRECTORY, not a file: mkdir is the
+# atomic test-and-set every filesystem agrees on, so two redraws racing the same
+# key cannot both spawn a fetch.
+#
+# The dashboard never blocks on these — it renders whatever the cache holds and
+# picks the result up on a later tick. That is the whole design: a `gh` call
+# costs about a second, and three workers times two calls every five seconds
+# would stall the redraw far longer than the interval it promises. A failing
+# command leaves the previous value in place rather than blanking the column,
+# because "the last PR state we knew" beats "?" when gh is offline or throttled.
+#
+# Usage: watch_refresh_async <cache_file> <ttl_secs> <command...>
+watch_refresh_async() {
+  local cache_file="$1" ttl="$2"
+  shift 2
+  [ "$(watch_cache_age "$cache_file")" -gt "$ttl" ] || return 0
+  local lock="${cache_file}.lock"
+  # Reclaim a lock whose owner died before its rmdir. Closing the terminal that
+  # runs `wt watch` sends SIGHUP, which kills the probe subshell mid-flight; the
+  # lock then outlives the dashboard and freezes that cache entry for good,
+  # leaving the column showing `…` or a stale value forever. A probe that has
+  # held the lock for two minutes is dead either way — no gh call takes that long.
+  if [ -d "$lock" ] && [ "$(watch_cache_age "$lock")" -gt 120 ]; then
+    rmdir "$lock" 2>/dev/null || true
+  fi
+  mkdir "$lock" 2>/dev/null || return 0
+  (
+    out=""
+    if out=$("$@" 2>/dev/null) && [ -n "$out" ]; then
+      printf '%s\n' "$out" > "${cache_file}.tmp" && mv "${cache_file}.tmp" "$cache_file"
+    elif [ -f "$cache_file" ]; then
+      # Touch on failure so a hard-down gh is retried on the TTL rather than on
+      # every redraw, and the stale value stays visible meanwhile.
+      touch "$cache_file"
+    fi
+    rmdir "$lock" 2>/dev/null
+  ) > /dev/null 2>&1 &
+}
+
+# PR state + number + CI bucket for a branch, as one TSV line.
+# Mirrors orchestrator.sh's pr_for_branch + pr_ci_state, which run only at
+# outcome time and publish shell globals that no second process can read.
+#
+# The `cd "$REPO_ROOT"` is load-bearing exactly as it is there: gh resolves the
+# repo from the working directory, and `wt watch` is run from wherever the
+# operator happens to be standing.
+#
+# One deliberate divergence from pr_ci_state: `gh pr checks` exits non-zero when
+# checks are pending (8) or failing (1), so this reads its stdout regardless of
+# exit status instead of collapsing both to "unknown".
+#
+# Usage: watch_pr_probe <branch>
+watch_pr_probe() {
+  local branch="$1" row="" state="" number="" ci="unknown"
+  command -v gh &> /dev/null || return 1
+  row=$( ( cd "$REPO_ROOT" && gh pr list --head "$branch" --state all --limit 1 \
+    --json state,number --jq '.[0] | select(.) | "\(.state)\t\(.number)"' ) 2>/dev/null ) || return 1
+  [ -n "$row" ] || { printf 'NONE\t-\t-\n'; return 0; }
+  state=$(printf '%s' "$row" | cut -f1)
+  number=$(printf '%s' "$row" | cut -f2)
+
+  if [ "$state" = "MERGED" ]; then
+    ci="merged"
+  elif [ "$state" = "CLOSED" ]; then
+    ci="closed"
+  else
+    # Same third-party exemption as pr_ci_state: a status with no workflow name
+    # (Vercel) can sit pending after the deploy is Ready, and must not mask green.
+    local buckets=""
+    buckets=$( ( cd "$REPO_ROOT" && gh pr checks "$number" --json bucket,workflow \
+      --jq '.[] | select(.workflow != "" or .bucket != "pending") | .bucket' ) 2>/dev/null || true )
+    if [ -z "$buckets" ]; then
+      ci="unknown"
+    elif printf '%s\n' "$buckets" | grep -qx 'pending'; then
+      ci="pending"
+    elif printf '%s\n' "$buckets" | grep -qvxE 'pass|skipping'; then
+      ci="failing"
+    else
+      ci="green"
+    fi
+  fi
+  printf '%s\t%s\t%s\n' "$state" "$number" "$ci"
+}
+
+# Recently merged PRs, newest first, as `<number>\t<issue>\t<title>\t<mergedAt>`.
+#
+# Read from GitHub rather than from local git on purpose: `origin/main` is only
+# as fresh as the last fetch, and a dashboard has no business running `git fetch`
+# to freshen it — that would move the very ref `commits_ahead` measures the
+# PROGRESS column against, so the display would be rewriting its own numbers
+# (HON-601 is about keeping that ref honest, not about a UI moving it).
+#
+# Usage: watch_landed_probe [limit]
+watch_landed_probe() {
+  local limit="${1:-6}"
+  command -v gh &> /dev/null || return 1
+  # Sorted here, not by gh: `gh pr list --state merged` orders by the search
+  # default, not by mergedAt, so #787 (merged 11:53) came back above #786
+  # (merged 12:50) and the pane would have lied about what landed last.
+  # The trailing "(HON-NNN)" comes off the title because the ID has its own
+  # column — the commit convention puts it there on every squash merge.
+  ( cd "$REPO_ROOT" && gh pr list --state merged --limit "$limit" \
+    --json number,title,headRefName,mergedAt \
+    --jq '[.[] | select(.mergedAt)] | sort_by(.mergedAt) | reverse | .[] | [
+      .number,
+      (.headRefName | [scan("[A-Za-z]+-[0-9]+")] | (.[0] // "") | ascii_upcase),
+      (.title | sub(" \\([A-Za-z]+-[0-9]+\\)$"; "")),
+      .mergedAt
+    ] | @tsv' ) 2>/dev/null
+}
+
+# "── LABEL ─────────" to a given width.
+watch_pane_head() {
+  local label="$1" width="$2" dashes="" used=$(( ${#1} + 4 ))
+  [ "$width" -gt "$used" ] && dashes=$(printf '%*s' $(( width - used )) '' | tr ' ' '-' | tr '-' '─')
+  printf '── %s %s' "$label" "$dashes"
+}
+
+# ─── Live dashboard ───────────────────────────────────────────────────────────
+#
+# Layout, top to bottom: a two-pane summary (orchestrator health | what this run
+# has produced), the worker table, what has recently landed on main, then a log
+# tail per worker filling whatever height is left.
+#
+# The panes exist because the old dashboard answered only "what are the three
+# workers doing right now" — it never said what the run had accomplished, why a
+# free slot was not being filled, or whether the PR a worker had been sitting on
+# for twenty minutes was green. All of that was already on disk (orchestrator.log
+# and the status file) or one gh call away; none of it was rendered.
 cmd_watch() {
   local interval="${1:-5}"
   local status_file="$WORKTREE_BASE/orchestrator-status.json"
+  local orch_log="$WORKTREE_BASE/logs/orchestrator.log"
+  local cache_dir="${TMPDIR:-/tmp}/wt-watch-$REPO_NAME"
   local tz_offset
   tz_offset=$(get_tz_offset_sec)
 
+  mkdir -p "$cache_dir"
+
   # Clean exit on Ctrl-C: show cursor, clear to end, print message
-  trap 'tput cnorm 2>/dev/null; tput ed 2>/dev/null; echo ""; exit 0' INT TERM
+  # Locks are also dropped here, so an interactive Ctrl-C never leaves one behind
+  # (SIGHUP cannot run a trap reliably, which is why watch_refresh_async reclaims
+  # by age as well).
+  # shellcheck disable=SC2064  # $cache_dir is expanded now on purpose: the path is
+  # fixed for the life of the loop, and baking it in cannot be defeated later.
+  trap "tput cnorm 2>/dev/null; tput ed 2>/dev/null; rm -rf '$cache_dir'/*.lock 2>/dev/null; echo ''; exit 0" INT TERM
 
   tput civis 2>/dev/null  # hide cursor during updates
 
@@ -1829,175 +2209,439 @@ cmd_watch() {
     local buf=""
     local now
     now=$(date +%s)
-    local term_lines
-    term_lines=$(tput lines 2>/dev/null || echo 40)
+    local term_lines term_cols
+    # COLUMNS/LINES as the fallback rather than a hardcoded guess: tput needs a
+    # terminal, and without one the old 100x40 default silently ignored the size
+    # the caller had told us about (and made the layout untestable off a tty).
+    term_lines=$(tput lines 2>/dev/null || echo "${LINES:-40}")
+    term_cols=$(tput cols 2>/dev/null || echo "${COLUMNS:-100}")
+    [ "$term_cols" -lt 60 ] && term_cols=60
 
-    # ── Header ──
     if [ ! -f "$status_file" ]; then
-      buf+="${YELLOW}Orchestrator not running${NC}\n"
+      clear
+      echo -e "${YELLOW}Orchestrator not running${NC}  ${DIM}· start it with: wt start${NC}"
+      sleep "$interval"
+      continue
+    fi
+
+    local status=""
+    status=$(cat "$status_file" 2>/dev/null) || true
+    if [ -z "$status" ]; then
+      clear
+      echo -e "${RED}Error reading status${NC}"
+      sleep "$interval"
+      continue
+    fi
+
+    # One jq pass for the header, one more below for the workers: the old loop
+    # spent six jq processes per worker per redraw.
+    local orch_pid started_at last_poll max_workers cb_failures cb_paused worker_count
+    IFS=$'\t' read -r orch_pid started_at last_poll max_workers cb_failures cb_paused worker_count \
+      <<< "$(echo "$status" | jq -r '[
+        (.pid|tostring), .started_at, .last_poll, (.max_workers // 3 | tostring),
+        (.circuit_breaker.consecutive_failures | tostring),
+        (.circuit_breaker.paused_until // "-"),
+        (.workers | length | tostring)
+      ] | @tsv' 2>/dev/null)"
+    [ -n "${worker_count:-}" ] || worker_count=0
+
+    local orch_alive=false
+    if [ -n "$orch_pid" ] && kill -0 "$orch_pid" 2>/dev/null; then
+      orch_alive=true
+    fi
+
+    local uptime_str="?" start_epoch=0
+    start_epoch=$(TZ=UTC date -jf '%Y-%m-%dT%H:%M:%SZ' "$started_at" '+%s' 2>/dev/null) || \
+    start_epoch=$(date -d "$started_at" '+%s' 2>/dev/null) || start_epoch=0
+    [ "$start_epoch" -gt 0 ] && uptime_str=$(format_duration $((now - start_epoch)))
+
+    local poll_age_str="?" poll_epoch=0
+    poll_epoch=$(TZ=UTC date -jf '%Y-%m-%dT%H:%M:%SZ' "$last_poll" '+%s' 2>/dev/null) || \
+    poll_epoch=$(date -d "$last_poll" '+%s' 2>/dev/null) || poll_epoch=0
+    [ "$poll_epoch" -gt 0 ] && poll_age_str=$(format_duration $((now - poll_epoch)))
+
+    # ── Log-derived state: run tallies, last claim, skips, operational alerts ──
+    local since_ts="" grace_ts=""
+    since_ts=$(watch_local_log_ts "$started_at")
+    # Two minutes of slack before calling the log rotated — see watch_scan_log.
+    [ "$start_epoch" -gt 0 ] && grace_ts=$(date -r $((start_epoch + 120)) '+%Y-%m-%d %H:%M:%S' 2>/dev/null \
+      || date -d "@$((start_epoch + 120))" '+%Y-%m-%d %H:%M:%S' 2>/dev/null) || true
+    [ -n "$grace_ts" ] || grace_ts="$since_ts"
+    local t_success=0 t_failed=0 t_stranded=0 t_gated=0 t_timeout=0 t_truncated=0
+    local last_outcome="" last_outcome_at="" last_pick="" last_pick_at=""
+    local skips=0 skip_summary="" alert="" alert_at="" scan_key scan_val scan_line
+    while IFS= read -r scan_line; do
+      scan_key="${scan_line%%=*}"
+      scan_val="${scan_line#*=}"
+      case "$scan_key" in
+        TALLY_SUCCESS)   t_success="$scan_val" ;;
+        TALLY_FAILED)    t_failed="$scan_val" ;;
+        TALLY_STRANDED)  t_stranded="$scan_val" ;;
+        TALLY_GATED)     t_gated="$scan_val" ;;
+        TALLY_TIMEOUT)   t_timeout="$scan_val" ;;
+        TALLY_TRUNCATED) t_truncated="$scan_val" ;;
+        LAST_OUTCOME)    last_outcome="$scan_val" ;;
+        LAST_OUTCOME_AT) last_outcome_at="$scan_val" ;;
+        LAST_PICK)       last_pick="$scan_val" ;;
+        LAST_PICK_AT)    last_pick_at="$scan_val" ;;
+        SKIPS)           skips="$scan_val" ;;
+        SKIP_SUMMARY)    skip_summary="$scan_val" ;;
+        ALERT)           alert="$scan_val" ;;
+        ALERT_AT)        alert_at="$scan_val" ;;
+      esac
+    done < <(watch_scan_log_cached "$cache_dir" "$orch_log" "$since_ts" "$grace_ts" "$start_epoch")
+
+    local landed_cache="$cache_dir/landed"
+    watch_refresh_async "$landed_cache" 120 watch_landed_probe 6
+
+    # ── Two-pane summary ──
+    local pane_l=$(( term_cols / 2 - 1 ))
+    [ "$pane_l" -lt 30 ] && pane_l=30
+    local pane_r=$(( term_cols - pane_l - 2 ))
+    [ "$pane_r" -lt 24 ] && pane_r=24
+
+    # Each pane row is built twice: once decorated, once plain. The plain twin is
+    # the only way to measure a row that carries inline colour, and at a narrow
+    # width the decorated row is dropped in favour of the clipped plain one —
+    # losing colour beats running past the terminal edge and wrapping.
+    local l_rows=() l_plain=() r_rows=() r_plain=()
+    if [ "$orch_alive" = true ]; then
+      l_rows+=("${GREEN}running${NC} ${uptime_str} · poll ${poll_age_str} ago")
+      l_plain+=("running ${uptime_str} · poll ${poll_age_str} ago")
     else
-      local status
-      status=$(cat "$status_file" 2>/dev/null) || { buf+="${RED}Error reading status${NC}\n"; }
+      l_rows+=("${YELLOW}stopped${NC} · last active ${poll_age_str} ago")
+      l_plain+=("stopped · last active ${poll_age_str} ago")
+    fi
+    l_rows+=("pid ${orch_pid} · ${worker_count}/${max_workers} workers")
+    l_plain+=("pid ${orch_pid} · ${worker_count}/${max_workers} workers")
 
-      if [ -n "${status:-}" ]; then
-        local orch_pid started_at last_poll max_workers
-        orch_pid=$(echo "$status" | jq -r '.pid')
-        started_at=$(echo "$status" | jq -r '.started_at')
-        last_poll=$(echo "$status" | jq -r '.last_poll')
-        max_workers=$(echo "$status" | jq -r '.max_workers // 3')
-
-        # Orchestrator liveness
-        local orch_alive=false
-        if [ -n "$orch_pid" ] && kill -0 "$orch_pid" 2>/dev/null; then
-          orch_alive=true
-        fi
-
-        # Uptime
-        local uptime_str="?"
-        local start_epoch
-        start_epoch=$(TZ=UTC date -jf '%Y-%m-%dT%H:%M:%SZ' "$started_at" '+%s' 2>/dev/null) || \
-        start_epoch=$(date -d "$started_at" '+%s' 2>/dev/null) || start_epoch=0
-        if [ "$start_epoch" -gt 0 ]; then
-          uptime_str=$(format_duration $((now - start_epoch)))
-        fi
-
-        # Poll age
-        local poll_age_str="?"
-        local poll_epoch
-        poll_epoch=$(TZ=UTC date -jf '%Y-%m-%dT%H:%M:%SZ' "$last_poll" '+%s' 2>/dev/null) || \
-        poll_epoch=$(date -d "$last_poll" '+%s' 2>/dev/null) || poll_epoch=0
-        if [ "$poll_epoch" -gt 0 ]; then
-          poll_age_str=$(format_duration $((now - poll_epoch)))
-        fi
-
-        local worker_count
-        worker_count=$(echo "$status" | jq '.workers | length')
-        local cb_failures
-        cb_failures=$(echo "$status" | jq -r '.circuit_breaker.consecutive_failures')
-
-        if [ "$orch_alive" = true ]; then
-          buf+="${GREEN}Orchestrator running${NC} (uptime ${uptime_str}, poll ${poll_age_str} ago) · "
-        else
-          buf+="${YELLOW}Orchestrator stopped${NC} (last active ${poll_age_str} ago) · "
-        fi
-        buf+="${worker_count}/${max_workers} workers"
-        [ "$cb_failures" -gt 0 ] 2>/dev/null && buf+=" · ${YELLOW}${cb_failures} CB failure(s)${NC}"
-        buf+="\n\n"
-
-        # ── Worker table ──
-        if [ "$worker_count" -eq 0 ]; then
-          buf+="  ${DIM}No active workers${NC}\n"
-        else
-          buf+="$(printf "  ${DIM}%-9s %-16s %7s %13s  %s${NC}" "ISSUE" "PHASE" "TIME" "PROGRESS" "BRANCH")\n"
-
-          # Compute log lines per worker: fill remaining terminal space
-          # Account for: header(2) + blank(1) + table header(1) + worker rows + blank(1) + separator per worker(1)
-          local chrome_lines=$(( 5 + worker_count + worker_count ))
-          local remaining=$(( term_lines - chrome_lines ))
-          local lines_per_worker=$(( remaining / worker_count ))
-          [ "$lines_per_worker" -lt 3 ] && lines_per_worker=3
-          [ "$lines_per_worker" -gt 12 ] && lines_per_worker=12
-          # Fetch more JSONL messages than display lines (some messages produce no output)
-          local msgs_per_worker=$(( lines_per_worker * 3 ))
-
-          # Collect per-worker data in a single loop
-          local w_issues=() w_pids=() w_branches=() w_logs=() w_phases=() w_elapsed=() w_progress=() w_alive=()
-          local i=0
-          while [ "$i" -lt "$worker_count" ]; do
-            local worker
-            worker=$(echo "$status" | jq -c ".workers[$i]")
-
-            w_issues+=("$(echo "$worker" | jq -r '.issue')")
-            w_pids+=("$(echo "$worker" | jq -r '.pid')")
-            w_branches+=("$(echo "$worker" | jq -r '.branch')")
-            w_logs+=("$(echo "$worker" | jq -r '.log_file')")
-            local w_started
-            w_started=$(echo "$worker" | jq -r '.started_at')
-
-            # Elapsed time
-            local w_start_epoch=0
-            w_start_epoch=$(TZ=UTC date -jf '%Y-%m-%dT%H:%M:%SZ' "$w_started" '+%s' 2>/dev/null) || \
-            w_start_epoch=$(date -d "$w_started" '+%s' 2>/dev/null) || w_start_epoch=0
-            if [ "$w_start_epoch" -gt 0 ]; then
-              w_elapsed+=("$(format_duration $((now - w_start_epoch)))")
-            else
-              w_elapsed+=("?")
-            fi
-
-            # Git progress + phase detection
-            local ahead=0 dirty="" wt_path progress phase
-            wt_path=$(get_worktree_path "${w_branches[$i]}")
-            if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
-              ahead=$(commits_ahead "$wt_path") || true
-              [[ "$ahead" =~ ^[0-9]+$ ]] || ahead=0
-              [ -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)" ] && dirty="+"
-              progress="${ahead} commit(s)${dirty}"
-            else
-              progress="setting up"
-            fi
-            w_progress+=("$progress")
-
-            # Phase detection (from log markers + git heuristics)
-            local w_log="${w_logs[$i]}"
-            phase=$(wt_detect_phase "$w_log" "$wt_path" "${w_branches[$i]}" "$ahead" "$dirty")
-            w_phases+=("$phase")
-
-            # Alive check
-            if kill -0 "${w_pids[$i]}" 2>/dev/null; then
-              w_alive+=("")
-            else
-              w_alive+=(" ${RED}(dead)${NC}")
-            fi
-
-            i=$((i + 1))
-          done
-
-          # Render worker table rows
-          i=0
-          while [ "$i" -lt "$worker_count" ]; do
-            local phase_color="$NC"
-            case "${w_phases[$i]}" in
-              Initializing) phase_color="$DIM" ;;
-              Planning)     phase_color="$BLUE" ;;
-              Implementing) phase_color="$GREEN" ;;
-              Reviewing)    phase_color="$YELLOW" ;;
-              Committing)   phase_color="$BLUE" ;;
-              "PR review")  phase_color="$YELLOW" ;;
-              Merging)      phase_color="$GREEN" ;;
-              Done)         phase_color="$GREEN" ;;
-            esac
-
-            buf+="$(printf "  %-9s ${phase_color}%-16s${NC} %7s %13s  %s" \
-              "${w_issues[$i]}" "${w_phases[$i]}" "${w_elapsed[$i]}" "${w_progress[$i]}" "${w_branches[$i]}")${w_alive[$i]}\n"
-            i=$((i + 1))
-          done
-
-          # ── Log tails per worker ──
-          buf+="\n"
-          local separator_line="──────────────────────────────────────────────────────"
-          i=0
-          while [ "$i" -lt "$worker_count" ]; do
-            buf+="${DIM}─── ${NC}${w_issues[$i]}${DIM} ${separator_line:0:$((50 - ${#w_issues[$i]}))}${NC}\n"
-
-            local search_term
-            search_term=$(echo "${w_issues[$i]}" | tr '[:upper:]' '[:lower:]')
-
-            if find_session_jsonl "$search_term"; then
-              local log_output
-              log_output=$(render_log_lines "$REPLY" "$msgs_per_worker" "$tz_offset" | tail -"$lines_per_worker")
-              if [ -n "$log_output" ]; then
-                buf+="$log_output\n"
-              else
-                buf+="  ${DIM}(no activity yet)${NC}\n"
-              fi
-            else
-              buf+="  ${DIM}(no session found)${NC}\n"
-            fi
-
-            i=$((i + 1))
-          done
-        fi
+    # The circuit breaker's remaining pause, not just its failure count: `wt
+    # status` has shown the countdown since HON-572 and watch never did, so a
+    # paused orchestrator looked merely idle here.
+    local cb_line="breaker ${cb_failures} failure(s)" cb_plain="breaker ${cb_failures} failure(s)"
+    if [ -n "${cb_paused:-}" ] && [ "$cb_paused" != "-" ]; then
+      local pause_epoch=0
+      pause_epoch=$(TZ=UTC date -jf '%Y-%m-%dT%H:%M:%SZ' "$cb_paused" '+%s' 2>/dev/null) || \
+      pause_epoch=$(date -d "$cb_paused" '+%s' 2>/dev/null) || pause_epoch=0
+      if [ "$pause_epoch" -gt "$now" ]; then
+        cb_line="${YELLOW}breaker paused $(format_duration $((pause_epoch - now))) more${NC}"
+        cb_plain="breaker paused $(format_duration $((pause_epoch - now))) more"
       fi
+    fi
+    l_rows+=("$cb_line")
+    l_plain+=("$cb_plain")
+
+    local tally_line="${GREEN}${t_success} merged${NC}" tally_plain="${t_success} merged"
+    if [ "${t_failed:-0}" -gt 0 ] 2>/dev/null; then
+      tally_line+=" · ${RED}${t_failed} failed${NC}"
+    else
+      tally_line+=" · ${t_failed} failed"
+    fi
+    tally_plain+=" · ${t_failed} failed"
+    if [ "${t_stranded:-0}" -gt 0 ] 2>/dev/null; then
+      tally_line+=" · ${YELLOW}${t_stranded} stranded${NC}"
+    else
+      tally_line+=" · ${t_stranded} stranded"
+    fi
+    tally_plain+=" · ${t_stranded} stranded"
+    if [ "${t_gated:-0}" -gt 0 ] 2>/dev/null; then
+      tally_line+=" · ${YELLOW}${t_gated} gated${NC}"
+      tally_plain+=" · ${t_gated} gated"
+    fi
+    if [ "${t_timeout:-0}" -gt 0 ] 2>/dev/null; then
+      tally_line+=" · ${YELLOW}${t_timeout} timeout${NC}"
+      tally_plain+=" · ${t_timeout} timeout"
+    fi
+    if [ "$t_truncated" = "1" ]; then
+      tally_line+=" ${DIM}(floor: log rotated)${NC}"
+      tally_plain+=" (floor: log rotated)"
+    fi
+    r_rows+=("$tally_line")
+    r_plain+=("$tally_plain")
+
+    if [ -n "$last_outcome" ]; then
+      r_rows+=("${DIM}${last_outcome_at}${NC} $(watch_clip "$last_outcome" $((pane_r - 6)))")
+      r_plain+=("${last_outcome_at} $(watch_clip "$last_outcome" $((pane_r - 6)))")
+    else
+      r_rows+=("${DIM}no completions yet this run${NC}")
+      r_plain+=("no completions yet this run")
+    fi
+
+    # `Selected:` is the last issue CLAIMED, not a lookahead: the candidate list
+    # never leaves the jq expression that ranks it, so there is no "next issue"
+    # on disk to show here and this line must not imply one.
+    local pick_line="" pick_plain=""
+    if [ -n "$last_pick" ]; then
+      pick_line="last claim ${last_pick} ${DIM}${last_pick_at}${NC}"
+      pick_plain="last claim ${last_pick} ${last_pick_at}"
+    else
+      pick_line="${DIM}nothing claimed yet${NC}"
+      pick_plain="nothing claimed yet"
+    fi
+    if [ "${skips:-0}" -gt 0 ] 2>/dev/null; then
+      pick_line+=" · ${skips} skipped"
+      pick_plain+=" · ${skips} skipped"
+      if [ -n "$skip_summary" ]; then
+        pick_line+=" ${DIM}($(watch_clip "$skip_summary" 28))${NC}"
+        pick_plain+=" ($(watch_clip "$skip_summary" 28))"
+      fi
+    fi
+    r_rows+=("$pick_line")
+    r_plain+=("$pick_plain")
+
+    # The leading space and `pane_l - 2` put the right pane's heading over the
+    # right pane's text: content rows are ` ` + pane_l + rest, so the heading has
+    # to spend the same leading column and give back the two spaces between the
+    # panes. Total is term_cols - 1, matching the content rows, so a full-width
+    # heading cannot wrap and add a line the height budget has not counted.
+    local since_label=""
+    [ -n "$since_ts" ] && since_label=" (since ${since_ts:11:5})"
+    buf+=" ${DIM}$(watch_pane_head "ORCHESTRATOR" $(( pane_l - 2 )))${NC}  "
+    buf+="${DIM}$(watch_pane_head "THIS RUN${since_label}" "$pane_r")${NC}\n"
+
+    local ri=0
+    while [ "$ri" -lt 3 ]; do
+      # The left cell is padded to the pane so the right column starts in the
+      # same place on all three rows; a row too long for its pane is clipped
+      # rather than allowed to shove the right pane off the screen.
+      local lcell rcell
+      if [ "${#l_plain[$ri]}" -gt "$pane_l" ]; then
+        # pane_l - 1, so a clipped left cell still leaves one space before the
+        # right pane instead of butting straight against it.
+        lcell=$(watch_pad "$(watch_clip "${l_plain[$ri]}" $(( pane_l - 1 )))" "$pane_l")
+      else
+        lcell="${l_rows[$ri]}$(printf '%*s' $(( pane_l - ${#l_plain[$ri]} )) '')"
+      fi
+      if [ "${#r_plain[$ri]}" -gt "$pane_r" ]; then
+        rcell=$(watch_clip "${r_plain[$ri]}" "$pane_r")
+      else
+        rcell="${r_rows[$ri]}"
+      fi
+      buf+=" ${lcell}${rcell}\n"
+      ri=$((ri + 1))
+    done
+    if [ -n "$alert" ]; then
+      buf+=" ${YELLOW}⚠ ${alert_at} $(watch_clip "$alert" $((term_cols - 12)))${NC}\n"
+    fi
+    buf+="\n"
+
+    # Built before the worker branch so an idle orchestrator still shows it: what
+    # landed recently is the most useful thing on screen precisely when nothing
+    # is running. The height budget below also needs the row count.
+    local landed_rows=()
+    if [ -f "$landed_cache" ]; then
+      local l_num l_id l_title l_merged l_title_w=$(( term_cols - 27 ))
+      [ "$l_title_w" -lt 12 ] && l_title_w=12
+      while IFS=$'\t' read -r l_num l_id l_title l_merged; do
+        [ -n "$l_num" ] || continue
+        # The title is padded so the ages line up in a column; the age itself is
+        # not, so no row ends in trailing whitespace.
+        landed_rows+=(" ${DIM}#$(watch_pad "$l_num" 5)${NC} $(watch_pad "$l_id" 8) $(watch_pad "$l_title" "$l_title_w")  ${DIM}$(watch_relative_age "$l_merged") ago${NC}")
+      done < "$landed_cache"
+    fi
+
+    watch_render_landed() {
+      local out
+      # Leading space like the rows beneath it, and term_cols - 2 so the whole
+      # line is term_cols - 1 and cannot wrap.
+      out=" ${DIM}$(watch_pane_head "RECENTLY LANDED" $(( term_cols - 2 )))${NC}\n"
+      if [ "${#landed_rows[@]}" -eq 0 ]; then
+        out+=" ${DIM}(fetching merged PRs…)${NC}\n"
+      else
+        local li=0
+        while [ "$li" -lt "${#landed_rows[@]}" ]; do
+          out+="${landed_rows[$li]}\n"
+          li=$((li + 1))
+        done
+      fi
+      printf '%s\n' "$out"
+    }
+
+    if [ "$worker_count" -eq 0 ]; then
+      buf+="  ${DIM}No active workers${NC}\n\n"
+      buf+="$(watch_render_landed)"
+    else
+      # ── Collect per-worker data ──
+      local w_issues=() w_titles=() w_pids=() w_branches=() w_logs=() w_retried=()
+      local w_phases=() w_elapsed=() w_git=() w_pr=() w_ci=() w_alive=()
+      local wi_issue wi_title wi_pid wi_branch wi_started wi_log wi_retried
+      while IFS=$'\t' read -r wi_issue wi_title wi_pid wi_branch wi_started wi_log wi_retried; do
+        [ -n "$wi_issue" ] || continue
+        w_issues+=("$wi_issue")
+        w_titles+=("$wi_title")
+        w_pids+=("$wi_pid")
+        w_branches+=("$wi_branch")
+        w_logs+=("$wi_log")
+        w_retried+=("$wi_retried")
+
+        local w_start_epoch=0
+        w_start_epoch=$(TZ=UTC date -jf '%Y-%m-%dT%H:%M:%SZ' "$wi_started" '+%s' 2>/dev/null) || \
+        w_start_epoch=$(date -d "$wi_started" '+%s' 2>/dev/null) || w_start_epoch=0
+        if [ "$w_start_epoch" -gt 0 ]; then
+          w_elapsed+=("$(format_duration $((now - w_start_epoch)))")
+        else
+          w_elapsed+=("?")
+        fi
+
+        local ahead=0 dirty="" wt_path="" pushed=false
+        wt_path=$(get_worktree_path "$wi_branch")
+        if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
+          ahead=$(commits_ahead "$wt_path") || true
+          [[ "$ahead" =~ ^[0-9]+$ ]] || ahead=0
+          [ -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)" ] && dirty="+"
+          w_git+=("${ahead}c${dirty}")
+          git -C "$wt_path" show-ref --verify --quiet "refs/remotes/origin/$wi_branch" 2>/dev/null && pushed=true
+        else
+          w_git+=("-")
+        fi
+
+        # Assigned through a `phase=` local rather than pushed inline, because
+        # the HON-576 static guard counts that assignment across both display
+        # call sites — which is what stops either of them re-growing its own
+        # copy of the phase ladder. (Spelling the matched text out in a comment
+        # would itself count, so it is described rather than quoted here.)
+        local phase=""
+        phase=$(wt_detect_phase "$wi_log" "$wt_path" "$wi_branch" "$ahead" "$dirty")
+        w_phases+=("$phase")
+
+        # PR + CI from a cache that a background probe fills, and only once the
+        # branch is actually pushed — before that gh would 404 on every redraw.
+        local pr_cell="-" ci_cell="-"
+        if [ "$pushed" = true ]; then
+          local pr_cache="$cache_dir/pr-$wi_issue"
+          watch_refresh_async "$pr_cache" 30 watch_pr_probe "$wi_branch"
+          if [ -f "$pr_cache" ]; then
+            # c_state is read but unused: the cache line is <state> <number>
+            # <ci>, and watch_pr_probe has already folded MERGED/CLOSED into the
+            # ci field, so the name exists to land the positional read on c_ci.
+            local c_state="" c_num="" c_ci=""
+            # shellcheck disable=SC2034
+            IFS=$'\t' read -r c_state c_num c_ci < "$pr_cache" || true
+            if [ -n "${c_num:-}" ] && [ "$c_num" != "-" ]; then
+              pr_cell="#${c_num}"
+              ci_cell="${c_ci:-unknown}"
+            else
+              pr_cell="none"
+            fi
+          else
+            pr_cell="…"
+          fi
+        fi
+        w_pr+=("$pr_cell")
+        w_ci+=("$ci_cell")
+
+        if kill -0 "$wi_pid" 2>/dev/null; then
+          w_alive+=("")
+        else
+          w_alive+=(" ${RED}(dead)${NC}")
+        fi
+      done < <(echo "$status" | jq -r '.workers[] | [
+        .issue, .title, (.pid|tostring), .branch, .started_at, .log_file,
+        (if .retried then "1" else "0" end)
+      ] | @tsv' 2>/dev/null)
+
+      # ── Worker table ──
+      # BRANCH is gone: it was the widest column and carried nothing the ISSUE
+      # column did not already say, since the branch is that issue's slug. The
+      # width buys the title, which is the one thing you could not get from this
+      # screen at all.
+      # 54, not 53: the fixed columns occupy 53, so this leaves the row one
+      # column short of the terminal width like every other line here, rather
+      # than landing exactly on it and relying on deferred wrap.
+      local title_w=$(( term_cols - 54 ))
+      [ "$title_w" -lt 12 ] && title_w=12
+      buf+="${DIM}  $(watch_pad "ISSUE" 8) $(watch_pad "PHASE" 12) "
+      buf+="$(printf '%6s %6s ' "TIME" "GIT")$(watch_pad "PR" 6) $(watch_pad "CI" 8)TITLE${NC}\n"
+
+      local i=0
+      while [ "$i" -lt "$worker_count" ]; do
+        local phase_color="$NC"
+        case "${w_phases[$i]}" in
+          Initializing) phase_color="$DIM" ;;
+          Planning)     phase_color="$BLUE" ;;
+          Implementing) phase_color="$GREEN" ;;
+          Reviewing)    phase_color="$YELLOW" ;;
+          Committing)   phase_color="$BLUE" ;;
+          "PR review")  phase_color="$YELLOW" ;;
+          Merging)      phase_color="$GREEN" ;;
+          Done)         phase_color="$GREEN" ;;
+        esac
+        local ci_color="$DIM"
+        case "${w_ci[$i]}" in
+          green)   ci_color="$GREEN" ;;
+          pending) ci_color="$YELLOW" ;;
+          failing) ci_color="$RED" ;;
+          merged)  ci_color="$GREEN" ;;
+          closed)  ci_color="$RED" ;;
+        esac
+        # ↻ marks a worker the orchestrator respawned after a RETRY triage —
+        # written to the status file since HON-572, never rendered until now.
+        local issue_cell="${w_issues[$i]}"
+        [ "${w_retried[$i]}" = "1" ] && issue_cell="${issue_cell}↻"
+
+        buf+="  $(watch_pad "$issue_cell" 8) "
+        buf+="${phase_color}$(watch_pad "${w_phases[$i]}" 12)${NC} "
+        buf+="$(printf '%6s %6s ' "${w_elapsed[$i]}" "${w_git[$i]}")"
+        buf+="$(watch_pad "${w_pr[$i]}" 6) "
+        buf+="${ci_color}$(watch_pad "${w_ci[$i]}" 8)${NC}"
+        buf+="$(watch_clip "${w_titles[$i]}" "$title_w")${w_alive[$i]}\n"
+        i=$((i + 1))
+      done
+      buf+="\n"
+
+      buf+="$(watch_render_landed)"
+      buf+="\n"
+
+      # ── Per-worker activity tails ──
+      # Height budget: pane header + 3 pane rows (+1 alert) + blank + table
+      # header + one row per worker + blank + landed header + landed rows +
+      # blank + one separator per worker + the newline echo -e adds.
+      local landed_count="${#landed_rows[@]}"
+      [ "$landed_count" -eq 0 ] && landed_count=1
+      local chrome=$(( 4 + 1 + 1 + worker_count + 1 + 1 + landed_count + 1 + worker_count + 1 ))
+      [ -n "$alert" ] && chrome=$((chrome + 1))
+      local remaining=$(( term_lines - chrome ))
+      local lines_per_worker=$(( remaining / worker_count ))
+      [ "$lines_per_worker" -lt 2 ] && lines_per_worker=2
+      [ "$lines_per_worker" -gt 14 ] && lines_per_worker=14
+      # Fetch more JSONL messages than display lines (some produce no output)
+      local msgs_per_worker=$(( lines_per_worker * 3 ))
+
+      i=0
+      while [ "$i" -lt "$worker_count" ]; do
+        local issue="${w_issues[$i]}" log_output="" changed=""
+        local search_term
+        search_term=$(echo "$issue" | tr '[:upper:]' '[:lower:]')
+
+        if find_session_jsonl "$search_term"; then
+          local jsonl="$REPLY"
+          # "Advanced since the last redraw": byte size is monotonic for an
+          # append-only JSONL, so it needs no parse. Every worker keeps its slot
+          # either way — hiding the quiet ones would empty the screen exactly
+          # when three workers sit in a CI wait, which is when you are watching.
+          local sig_file="$cache_dir/sig-$issue" sig="" prev=""
+          sig=$(stat -f %z "$jsonl" 2>/dev/null) || sig=$(stat -c %s "$jsonl" 2>/dev/null) || sig=""
+          [ -f "$sig_file" ] && prev=$(cat "$sig_file" 2>/dev/null) || true
+          [ -n "$sig" ] && [ -n "$prev" ] && [ "$sig" != "$prev" ] && changed=" ${GREEN}●${NC}"
+          [ -n "$sig" ] && printf '%s' "$sig" > "$sig_file"
+          log_output=$(render_log_lines "$jsonl" "$msgs_per_worker" "$tz_offset" | tail -"$lines_per_worker")
+        fi
+
+        local head_text="$issue · ${w_phases[$i]} · ${w_elapsed[$i]}"
+        # The ● marker is two visible columns, and must come out of the dash
+        # budget or a marked separator runs past the terminal edge.
+        local used=$(( ${#head_text} + 6 )) dashes=""
+        [ -n "$changed" ] && used=$(( used + 2 ))
+        [ "$term_cols" -gt "$used" ] && dashes=$(printf '%*s' $(( term_cols - used )) '' | tr ' ' '-' | tr '-' '─')
+        buf+="${DIM}─── ${NC}${head_text}${changed}${DIM} ${dashes}${NC}\n"
+
+        if [ -n "$log_output" ]; then
+          buf+="$log_output\n"
+        else
+          buf+="  ${DIM}(no activity yet)${NC}\n"
+        fi
+        i=$((i + 1))
+      done
     fi
 
     # ── Render ──

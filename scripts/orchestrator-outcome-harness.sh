@@ -129,6 +129,36 @@
 #     Its two call sites live inside interactive render loops, so this helper is
 #     the only part of them a test can reach.
 #
+#   watch-scan-log <log-file> <since>                     (wt watch rework)
+#     Sources worktree-claude.sh and runs the REAL watch_scan_log over a fixture
+#     orchestrator.log, printing its KEY=value lines. This is the whole data
+#     layer of the `wt watch` summary panes — run tallies, last claim, the skip
+#     histogram and the alert-suppression rule — and the render loop that calls
+#     it is unreachable from a test, so this mode is the only way to assert on it.
+#
+#   watch-pr-probe <pr-list-json> <pr-checks-json> [checks-exit]  (wt watch rework)
+#     Sources worktree-claude.sh and runs the REAL watch_pr_probe with gh
+#     stubbed the same way as pr-for-branch: the helper's own --jq is applied to
+#     the fixture, so the jq and the bucket ladder are what is under test.
+#     <checks-exit> lets a test drive the ONE deliberate divergence from
+#     orchestrator.sh's pr_ci_state — `gh pr checks` exits 8 for pending and 1
+#     for failing, and this helper reads stdout regardless of exit status rather
+#     than collapsing both to "unknown".
+#
+#   watch-landed-probe <pr-list-json>                       (wt watch rework)
+#     The REAL watch_landed_probe over a `gh pr list --state merged` fixture.
+#     The jq is the thing under test: gh does not order by mergedAt, so the sort
+#     is the helper's own, as is the trailing "(HON-NNN)" strip.
+#
+#   watch-pane-head <label> <width>                         (wt watch rework)
+#     The REAL watch_pane_head. Bracketed output, so a test can assert the rule
+#     is padded to exactly <width> visible characters.
+#
+#   watch-pad <string> <width> / watch-clip <string> <width>  (wt watch rework)
+#     The REAL width helpers. They exist because bash printf pads by BYTES while
+#     ${#s} counts CHARACTERS, so a cell holding `…` or `↻` skews every column to
+#     its right; these modes let a test assert the visible width is exact.
+#
 #   count-commits <wt_path> <branch>                                (HON-601)
 #     Runs the REAL count_commits with get_worktree_path stubbed to <wt_path> —
 #     the same one-stub pattern as detect-phase. The base ref is what is under
@@ -841,6 +871,86 @@ EOF
     trap 'rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE"' EXIT
     echo "PICK:$(select_next_issue "$A1" | head -1)"
     cat "$MAIN_LOG"
+    exit 0
+    ;;
+
+  # ─── wt watch summary data + width helpers (wt watch rework) ───────────────
+  watch-scan-log)
+    # Sourced, not executed — see neon-gc-select above for why that is safe.
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    watch_scan_log "$A1" "$A2"
+    exit 0
+    ;;
+
+  watch-pad)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    # Bracketed so a test can see trailing padding, which is the point.
+    printf '[%s]\n' "$(watch_pad "$A1" "$A2")"
+    exit 0
+    ;;
+
+  watch-clip)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    printf '[%s]\n' "$(watch_clip "$A1" "$A2")"
+    exit 0
+    ;;
+
+  watch-pr-probe)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    REPO_ROOT="$HARNESS_DIR/.."
+    PR_LIST_FIXTURE="$A1"
+    PR_CHECKS_FIXTURE="$A2"
+    CHECKS_EXIT="${A3:-0}"
+    # Same shape as the pr-for-branch stub: apply the caller's own --jq to the
+    # fixture exactly as gh would, so the helper's jq is under test. Dispatches
+    # on the subcommand because watch_pr_probe makes two different gh calls.
+    gh() {
+      local sub="$2" jq_expr="" fixture="" rc=0
+      while [ $# -gt 0 ]; do
+        [ "$1" = "--jq" ] && jq_expr="$2"
+        shift
+      done
+      if [ "$sub" = "checks" ]; then
+        fixture="$PR_CHECKS_FIXTURE"; rc="$CHECKS_EXIT"
+      else
+        fixture="$PR_LIST_FIXTURE"
+      fi
+      if [ -n "$jq_expr" ]; then
+        printf '%s' "$fixture" | jq -r "$jq_expr" 2>/dev/null
+      else
+        printf '%s' "$fixture"
+      fi
+      return "$rc"
+    }
+    watch_pr_probe some-branch
+    exit 0
+    ;;
+
+  watch-landed-probe)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    REPO_ROOT="$HARNESS_DIR/.."
+    LANDED_FIXTURE="$A1"
+    gh() {
+      local jq_expr=""
+      while [ $# -gt 0 ]; do
+        [ "$1" = "--jq" ] && jq_expr="$2"
+        shift
+      done
+      printf '%s' "$LANDED_FIXTURE" | jq -r "$jq_expr" 2>/dev/null
+    }
+    watch_landed_probe 6
+    exit 0
+    ;;
+
+  watch-pane-head)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    printf '[%s]\n' "$(watch_pane_head "$A1" "$A2")"
     exit 0
     ;;
 
