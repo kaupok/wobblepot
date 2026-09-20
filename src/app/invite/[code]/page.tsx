@@ -66,12 +66,13 @@ export default async function InvitePage({ params }: InvitePageProps) {
     notFound()
   }
 
-  // Check if invite is still valid
+  // Check if invite is still valid. Expiry is the only condition: a claimed
+  // invite is deleted rather than counted, so a used code resolves to no
+  // invite at all and `notFound()` above has already handled it (HON-680).
   const now = new Date()
   const isExpired = invite.expiresAt < now
-  const isMaxedOut = invite.maxUses !== null && invite.usesCount >= invite.maxUses
 
-  if (isExpired || isMaxedOut) {
+  if (isExpired) {
     return (
       <div className="min-h-screen-below-header grid place-items-center p-4">
         <JoinHouseholdCard

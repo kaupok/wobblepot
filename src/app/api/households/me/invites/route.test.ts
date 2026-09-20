@@ -216,16 +216,17 @@ describe('POST /api/households/me/invites', () => {
     const createdAt = new Date('2024-01-01T00:00:00.000Z')
     const expiresAt = new Date('2024-01-08T00:00:00.000Z')
 
+    // `as never` because the stored row still carries `maxUses` / `usesCount`
+    // — the columns stay in the schema (HON-680) — while the route no longer
+    // reads them, so the fixture only models what the response is built from.
     mockInviteUpsert.mockResolvedValue({
       id: 'invite-123',
       householdId: 'household-123',
       memberId: 'member-456',
       code: 'abc123xyz456',
       expiresAt,
-      maxUses: 1,
-      usesCount: 0,
       createdAt,
-    })
+    } as never)
 
     const request = new Request('http://localhost/api/households/me/invites', {
       method: 'POST',
@@ -241,8 +242,6 @@ describe('POST /api/households/me/invites', () => {
     expect(data.url).toBe('https://wobblepot.com/invite/abc123xyz456')
     expect(data.memberId).toBe('member-456')
     expect(data.memberName).toBe('Baby')
-    expect(data.maxUses).toBe(1)
-    expect(data.usesCount).toBe(0)
   })
 })
 
@@ -340,8 +339,6 @@ describe('GET /api/households/me/invites', () => {
         memberId: 'member-baby',
         code: 'active123',
         expiresAt: futureDate,
-        maxUses: 1,
-        usesCount: 0,
         createdAt: new Date('2024-01-01'),
         member: { id: 'member-baby', name: 'Baby' },
       },
@@ -351,8 +348,6 @@ describe('GET /api/households/me/invites', () => {
         memberId: 'member-grandma',
         code: 'expired123',
         expiresAt: pastDate,
-        maxUses: 1,
-        usesCount: 0,
         createdAt: new Date('2024-01-01'),
         member: { id: 'member-grandma', name: 'Grandma' },
       },

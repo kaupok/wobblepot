@@ -666,7 +666,7 @@
       },
       "errors": {
         "alreadyInHousehold": "You are already a member of a household.",
-        "inviteInvalid": "This invite has expired or reached its maximum uses.",
+        "inviteInvalid": "This invite has expired or has already been used.",
         "joinFailed": "Failed to join household",
         "generic": "An error occurred. Please try again."
       }
