@@ -1,5 +1,7 @@
 import { serverEnv } from '@/lib/env'
 import { LEGAL_ENTITY_NAME } from '@/lib/support'
+import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
+import { emailTranslator } from './i18n'
 
 /**
  * Account Deletion Requested Email Template (GDPR Art. 17)
@@ -13,6 +15,10 @@ import { LEGAL_ENTITY_NAME } from '@/lib/support'
  * (`NEXT_PUBLIC_APP_NAME` → Wobblepot); the legal entity (Honkadori OÜ) appears
  * only in the sign-off footer as the data-controller attribution.
  *
+ * Copy lives in `messages/{en,et}.json` under `emails.accountDeletionRequested`.
+ * The locale is resolved at the call site (`resolveEmailLocale`), so this stays
+ * a pure function — see `./i18n.ts` for why `getTranslations` is not used.
+ *
  * Inline HTML with email-safe styles + a plain-text fallback, mirroring
  * `reset-password.ts`.
  */
@@ -22,6 +28,8 @@ interface AccountDeletionRequestedEmailOptions {
   purgeDate: Date
   /** Address the user emails to cancel deletion within the grace window. */
   recoveryEmail: string
+  /** Recipient locale. Defaults to English for callers that cannot resolve one. */
+  locale?: Locale
 }
 
 interface EmailContent {
@@ -31,13 +39,25 @@ interface EmailContent {
 }
 
 /**
- * Formats the purge date deterministically in UTC. `purgeScheduledFor` is a UTC
- * timestamp and the purge cron runs at 03:00 UTC, so a fixed UTC, locale-stable
- * format (e.g. "5 July 2026") avoids server-timezone drift between the email
- * copy and the actual purge.
+ * BCP 47 tag used to render the purge date per locale.
+ *
+ * `en` maps to `en-GB` rather than plain `en` so English keeps the unambiguous
+ * day-month-year form ("5 July 2026") it has always used in this email.
+ * Estonian uses the bare locale, as `src/lib/i18n/format-dates.ts` does.
  */
-function formatPurgeDate(date: Date): string {
-  return new Intl.DateTimeFormat('en-GB', {
+const DATE_FORMAT_LOCALES: Record<Locale, string> = {
+  en: 'en-GB',
+  et: 'et',
+}
+
+/**
+ * Formats the purge date deterministically in UTC. `purgeScheduledFor` is a UTC
+ * timestamp and the purge cron runs at 03:00 UTC, so a fixed UTC format (e.g.
+ * "5 July 2026" / "5. juuli 2026") avoids server-timezone drift between the
+ * email copy and the actual purge.
+ */
+function formatPurgeDate(date: Date, locale: Locale): string {
+  return new Intl.DateTimeFormat(DATE_FORMAT_LOCALES[locale], {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -48,22 +68,24 @@ function formatPurgeDate(date: Date): string {
 /**
  * Generates account-deletion-requested email content.
  *
- * @param options - the purge date and the recovery (cancellation) email
+ * @param options - the purge date, the recovery (cancellation) email, and the
+ *   recipient locale
  * @returns Object with subject, html, and text content
  */
 export function generateAccountDeletionRequestedEmail(
   options: AccountDeletionRequestedEmailOptions,
 ): EmailContent {
-  const { purgeDate, recoveryEmail } = options
+  const { purgeDate, recoveryEmail, locale = DEFAULT_LOCALE } = options
   const appName = serverEnv.NEXT_PUBLIC_APP_NAME
-  const formattedDate = formatPurgeDate(purgeDate)
-  const cancelHref = `mailto:${recoveryEmail}?subject=${encodeURIComponent('Cancel account deletion')}`
+  const t = emailTranslator(locale, 'accountDeletionRequested')
+  const formattedDate = formatPurgeDate(purgeDate, locale)
+  const cancelHref = `mailto:${recoveryEmail}?subject=${encodeURIComponent(t('cancelMailtoSubject'))}`
 
-  const subject = `Your ${appName} account will be deleted on ${formattedDate}`
+  const subject = t('subject', { appName, date: formattedDate })
 
   const html = `
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${locale}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -77,31 +99,37 @@ export function generateAccountDeletionRequestedEmail(
           <tr>
             <td style="padding: 40px;">
               <h1 style="margin: 0 0 24px; font-size: 24px; font-weight: 600; color: #18181b;">
-                Account deletion scheduled
+                ${t('heading')}
               </h1>
               <p style="margin: 0 0 24px; font-size: 16px; line-height: 24px; color: #3f3f46;">
-                We received a request to delete your ${appName} account. Your account has been deactivated and you've been signed out on all devices.
+                ${t('intro', { appName })}
               </p>
               <p style="margin: 0 0 32px; font-size: 16px; line-height: 24px; color: #3f3f46;">
-                Your account and all associated data are scheduled to be permanently deleted on <strong>${formattedDate}</strong>, 30 days from now.
+                ${t.markup('scheduledFor', {
+                  date: formattedDate,
+                  strong: (chunks) => `<strong>${chunks}</strong>`,
+                })}
               </p>
               <h2 style="margin: 0 0 12px; font-size: 18px; font-weight: 600; color: #18181b;">
-                Changed your mind?
+                ${t('changedMindHeading')}
               </h2>
               <p style="margin: 0 0 32px; font-size: 16px; line-height: 24px; color: #3f3f46;">
-                You can cancel the deletion and restore your account any time before that date by emailing us. After ${formattedDate}, your data cannot be recovered.
+                ${t('changedMindHtml', { date: formattedDate })}
               </p>
               <table role="presentation" style="margin: 0 0 32px;">
                 <tr>
                   <td style="background-color: #18181b; border-radius: 6px;">
                     <a href="${cancelHref}" style="display: inline-block; padding: 12px 24px; font-size: 16px; font-weight: 500; color: #ffffff; text-decoration: none;">
-                      Cancel deletion
+                      ${t('cta')}
                     </a>
                   </td>
                 </tr>
               </table>
               <p style="margin: 0; font-size: 14px; line-height: 20px; color: #71717a;">
-                If you didn't request this, email <a href="${cancelHref}" style="color: #71717a;">${recoveryEmail}</a> right away to keep your account.
+                ${t.markup('lastWarning', {
+                  email: recoveryEmail,
+                  link: (chunks) => `<a href="${cancelHref}" style="color: #71717a;">${chunks}</a>`,
+                })}
               </p>
             </td>
           </tr>
@@ -124,16 +152,16 @@ export function generateAccountDeletionRequestedEmail(
 `.trim()
 
   const text = `
-Account deletion scheduled
+${t('heading')}
 
-We received a request to delete your ${appName} account. Your account has been deactivated and you've been signed out on all devices.
+${t('intro', { appName })}
 
-Your account and all associated data are scheduled to be permanently deleted on ${formattedDate}, 30 days from now.
+${t.markup('scheduledFor', { date: formattedDate, strong: (chunks) => chunks })}
 
-Changed your mind?
-You can cancel the deletion and restore your account any time before that date by emailing ${recoveryEmail}. After ${formattedDate}, your data cannot be recovered.
+${t('changedMindHeading')}
+${t('changedMindText', { date: formattedDate, email: recoveryEmail })}
 
-If you didn't request this, email ${recoveryEmail} right away to keep your account.
+${t.markup('lastWarning', { email: recoveryEmail, link: (chunks) => chunks })}
 
 ---
 ${appName}

@@ -1,14 +1,22 @@
 import { serverEnv } from '@/lib/env'
+import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
+import { emailTranslator } from './i18n'
 
 /**
  * Password Reset Email Template
  *
  * Generates email content for password reset requests.
  * Includes HTML with inline styles (email-safe) and plain text fallback.
+ *
+ * Copy lives in `messages/{en,et}.json` under `emails.resetPassword`. The
+ * locale is resolved at the call site (`resolveEmailLocale`), so this stays a
+ * pure function — see `./i18n.ts` for why `getTranslations` is not used.
  */
 
 interface ResetPasswordEmailOptions {
   resetUrl: string
+  /** Recipient locale. Defaults to English for callers that cannot resolve one. */
+  locale?: Locale
 }
 
 interface EmailContent {
@@ -20,18 +28,19 @@ interface EmailContent {
 /**
  * Generates password reset email content
  *
- * @param options - Email options containing the reset URL
+ * @param options - Email options containing the reset URL and recipient locale
  * @returns Object with subject, html, and text content
  */
 export function generateResetPasswordEmail(options: ResetPasswordEmailOptions): EmailContent {
-  const { resetUrl } = options
+  const { resetUrl, locale = DEFAULT_LOCALE } = options
   const appName = serverEnv.NEXT_PUBLIC_APP_NAME
+  const t = emailTranslator(locale, 'resetPassword')
 
-  const subject = `Reset your ${appName} password`
+  const subject = t('subject', { appName })
 
   const html = `
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${locale}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -45,28 +54,28 @@ export function generateResetPasswordEmail(options: ResetPasswordEmailOptions): 
           <tr>
             <td style="padding: 40px;">
               <h1 style="margin: 0 0 24px; font-size: 24px; font-weight: 600; color: #18181b;">
-                Reset your password
+                ${t('heading')}
               </h1>
               <p style="margin: 0 0 24px; font-size: 16px; line-height: 24px; color: #3f3f46;">
-                We received a request to reset the password for your ${appName} account.
+                ${t('intro', { appName })}
               </p>
               <p style="margin: 0 0 32px; font-size: 16px; line-height: 24px; color: #3f3f46;">
-                Click the button below to choose a new password:
+                ${t('instructionHtml')}
               </p>
               <table role="presentation" style="margin: 0 0 32px;">
                 <tr>
                   <td style="background-color: #18181b; border-radius: 6px;">
                     <a href="${resetUrl}" style="display: inline-block; padding: 12px 24px; font-size: 16px; font-weight: 500; color: #ffffff; text-decoration: none;">
-                      Reset password
+                      ${t('cta')}
                     </a>
                   </td>
                 </tr>
               </table>
               <p style="margin: 0 0 16px; font-size: 14px; line-height: 20px; color: #71717a;">
-                This link will expire in 1 hour for security reasons.
+                ${t('expiry')}
               </p>
               <p style="margin: 0; font-size: 14px; line-height: 20px; color: #71717a;">
-                If you didn't request this password reset, you can safely ignore this email. Your password will remain unchanged.
+                ${t('ignore')}
               </p>
             </td>
           </tr>
@@ -86,16 +95,16 @@ export function generateResetPasswordEmail(options: ResetPasswordEmailOptions): 
 `.trim()
 
   const text = `
-Reset your ${appName} password
+${subject}
 
-We received a request to reset the password for your ${appName} account.
+${t('intro', { appName })}
 
-Click the link below to choose a new password:
+${t('instructionText')}
 ${resetUrl}
 
-This link will expire in 1 hour for security reasons.
+${t('expiry')}
 
-If you didn't request this password reset, you can safely ignore this email. Your password will remain unchanged.
+${t('ignore')}
 
 ---
 ${appName}

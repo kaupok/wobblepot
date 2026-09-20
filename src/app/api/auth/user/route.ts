@@ -6,6 +6,7 @@ import { isUserSoleOwnerWithOtherMembers } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
 import { resend, isEmailConfigured, EMAIL_SENDERS, envSubject } from '@/lib/resend'
 import { generateAccountDeletionRequestedEmail } from '@/lib/emails/account-deletion-requested'
+import { resolveEmailLocale } from '@/lib/emails/locale'
 import { PRIVACY_EMAIL } from '@/lib/support'
 
 /** GDPR Art. 17 grace window: days between a deletion request and the hard purge. */
@@ -46,16 +47,25 @@ function computePurgeInstant(now: Date): Date {
  * never thrown — we must not trap the user in a half-deleted state, and the
  * 30-day window still applies regardless of email delivery.
  */
-async function sendDeletionConfirmationEmail(to: string, purgeDate: Date): Promise<void> {
+async function sendDeletionConfirmationEmail(
+  userId: string,
+  to: string,
+  purgeDate: Date,
+): Promise<void> {
   if (!isEmailConfigured() || !resend) {
     // eslint-disable-next-line no-console
     console.warn('Email not configured. Account-deletion confirmation not sent.')
     return
   }
 
+  // Household locale, validated against PUBLIC_LOCALES, falling back to `en`
+  // for a user with no household (HON-513).
+  const locale = await resolveEmailLocale(userId)
+
   const { subject, ...rest } = generateAccountDeletionRequestedEmail({
     purgeDate,
     recoveryEmail: PRIVACY_EMAIL,
+    locale,
   })
 
   try {
@@ -134,7 +144,7 @@ export async function DELETE() {
     })
 
     // Confirmation email is sent after the soft-delete commits (best-effort).
-    await sendDeletionConfirmationEmail(userEmail, purgeScheduledFor)
+    await sendDeletionConfirmationEmail(userId, userEmail, purgeScheduledFor)
 
     return NextResponse.json({ success: true, purgeScheduledFor })
   } catch (error) {

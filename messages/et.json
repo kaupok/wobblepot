@@ -672,6 +672,30 @@
       }
     }
   },
+  "emails": {
+    "resetPassword": {
+      "subject": "Lähtesta oma {appName} parool",
+      "heading": "Lähtesta parool",
+      "intro": "Saime taotluse sinu {appName} konto parooli lähtestamiseks.",
+      "instructionHtml": "Uue parooli valimiseks klõpsa allolevat nuppu:",
+      "instructionText": "Uue parooli valimiseks ava allolev link:",
+      "cta": "Lähtesta parool",
+      "expiry": "Turvalisuse huvides aegub see link ühe tunni pärast.",
+      "ignore": "Kui sa ei taotlenud parooli lähtestamist, võid selle kirja rahulikult eirata. Sinu parool jääb muutumatuks."
+    },
+    "accountDeletionRequested": {
+      "subject": "Sinu {appName} konto kustutatakse kuupäeval {date}",
+      "heading": "Konto kustutamine on ajastatud",
+      "intro": "Saime taotluse sinu {appName} konto kustutamiseks. Konto on deaktiveeritud ja sind on kõigist seadmetest välja logitud.",
+      "scheduledFor": "Sinu konto ja kõik sellega seotud andmed kustutatakse jäädavalt kuupäeval <strong>{date}</strong>, 30 päeva pärast.",
+      "changedMindHeading": "Muutsid meelt?",
+      "changedMindHtml": "Võid kustutamise tühistada ja konto taastada igal ajal enne seda kuupäeva, kirjutades meile. Pärast kuupäeva {date} ei ole andmeid enam võimalik taastada.",
+      "changedMindText": "Võid kustutamise tühistada ja konto taastada igal ajal enne seda kuupäeva, kirjutades aadressile {email}. Pärast kuupäeva {date} ei ole andmeid enam võimalik taastada.",
+      "cta": "Tühista kustutamine",
+      "cancelMailtoSubject": "Tühista konto kustutamine",
+      "lastWarning": "Kui sa seda ei taotlenud, kirjuta kohe aadressile <link>{email}</link>, et konto alles hoida."
+    }
+  },
   "errors": {
     "boundary": {
       "tryAgain": "Proovi uuesti",
