@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { GeneratingOverlay } from '@/components/meal-plan/GeneratingOverlay'
+import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import { computeEndDate } from '@/lib/meal-planning/day-picker'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { formatDateRange } from '@/lib/i18n/format-dates'
@@ -41,6 +42,7 @@ interface FillDaysActionProps {
 
 export function FillDaysAction({ planId, firstEmptyDate }: FillDaysActionProps) {
   const router = useRouter()
+  const dropSuggestionCache = useDropPlanSuggestions(planId)
   const locale = useLocale() as Locale
   const tFill = useTranslations('meal-plan.fillDays')
   const tErrors = useTranslations('meal-plan.errors')
@@ -99,6 +101,10 @@ export function FillDaysAction({ planId, firstEmptyDate }: FillDaysActionProps) 
         void track('meal_plan:plan_generated', { plan_id: data.id })
       }
 
+      // A generation assigns meals across up to 14 days at once, which is the
+      // largest possible change to the plan's `recentMealIds` — every cached
+      // suggestion list on the page is stale (HON-682).
+      dropSuggestionCache()
       router.refresh()
     } catch (err) {
       clearTimeout(timeoutId)

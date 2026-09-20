@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -18,13 +18,14 @@ import { Body } from '@/components/ui/typography'
 import { useRouter } from 'next/navigation'
 import { StatusSelect, type MealStatus } from './StatusSelect'
 import { MealSelectorModal } from './MealSelectorModal'
-import { MealDetailModal } from './MealDetailModal'
+import { MealDetailModal, type MealDetailModalHandle } from './MealDetailModal'
 import { PantryDeductionModal } from './PantryDeductionModal'
 import { AvailabilityIndicator, computeMealAvailability } from './AvailabilityIndicator'
 import { NoteEditor } from './NoteEditor'
 import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
 import type { EntryRating, MealData, PantryIngredient, PantryItemFull } from './types'
 import type { MealType } from '@/generated/prisma/enums'
+import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import { track } from '@/lib/analytics'
 
 interface MealCardProps {
@@ -62,6 +63,7 @@ export function MealCard({
   pantryDeducted = false,
 }: MealCardProps) {
   const router = useRouter()
+  const dropSuggestionCache = useDropPlanSuggestions(planId)
   const tCard = useTranslations('meal-plan.card')
   const [status, setStatus] = useState<MealStatus>(initialStatus)
   const [rating, setRating] = useState<EntryRating | null>(initialRating ?? null)
@@ -81,6 +83,32 @@ export function MealCard({
 
   const effectiveServings = servingOverride ?? householdSize
   const hasServingOverride = servingOverride !== null && servingOverride !== householdSize
+
+  const detailModalRef = useRef<MealDetailModalHandle>(null)
+
+  // The PATCH that repoints this entry also nulls its cached `preparationTips`
+  // and resets its `servingOverride` server-side (the swap branch of
+  // `/api/meal-plans/[id]/entries/[entryId]`). Neither lives in the tree
+  // `router.refresh()` re-renders: `servingOverride` is this card's own state,
+  // and the detail modal below is rendered unconditionally, so its
+  // `useMealTips` instance survives the swap still holding the previous meal's
+  // tips. Without resetting both here the card keeps showing the old serving
+  // count and the modal replays the old meal's tips until a full reload
+  // (HON-682).
+  //
+  // Deliberately not `key={meal?.id}` on the modal: remounting would also
+  // discard whatever is unsaved in `NoteEditor`'s local draft, and a swap does
+  // not clear the entry's note server-side, so that text is still wanted.
+  //
+  // Shared with the empty-slot callsite below, which renders no detail modal —
+  // the optional call no-ops there — but does run the same server-side reset
+  // when a meal is assigned, so the override still has to be dropped.
+  const handleSwapComplete = useCallback(() => {
+    setServingOverride(null)
+    detailModalRef.current?.resetForSwap()
+    dropSuggestionCache()
+    router.refresh()
+  }, [router, dropSuggestionCache])
 
   const availability = useMemo(() => {
     if (!meal) return null
@@ -163,6 +191,9 @@ export function MealCard({
       }
     },
     onSuccess: () => {
+      // Clearing frees this entry's meal to be suggested elsewhere again, so
+      // every other card's cached list is now wrong in the other direction.
+      dropSuggestionCache()
       router.refresh()
     },
     onError: () => {
@@ -266,7 +297,7 @@ export function MealCard({
             entryId={entryId}
             mealType={mealType}
             householdSize={householdSize}
-            onSwapComplete={() => router.refresh()}
+            onSwapComplete={handleSwapComplete}
             mode="add"
             pantryIngredients={pantryIngredients}
           />
@@ -384,6 +415,7 @@ export function MealCard({
         )}
       </Card>
       <MealDetailModal
+        ref={detailModalRef}
         meal={meal}
         householdSize={householdSize}
         status={status}
@@ -406,7 +438,7 @@ export function MealCard({
         householdSize={householdSize}
         currentMealName={meal?.name}
         currentMealId={meal?.id}
-        onSwapComplete={() => router.refresh()}
+        onSwapComplete={handleSwapComplete}
         mode="swap"
         pantryIngredients={pantryIngredients}
       />

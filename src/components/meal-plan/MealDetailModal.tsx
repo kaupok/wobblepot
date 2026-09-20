@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useImperativeHandle } from 'react'
+import type { Ref } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
@@ -18,6 +19,14 @@ import { NoteEditor } from './NoteEditor'
 import type { MealStatus } from './StatusSelect'
 import type { MealData, PantryIngredient } from './types'
 
+export interface MealDetailModalHandle {
+  /**
+   * Drop the client state the server invalidated when this entry was repointed
+   * at a different meal. Called by `MealCard`'s `onSwapComplete` (HON-682).
+   */
+  resetForSwap: () => void
+}
+
 interface MealDetailModalProps {
   meal: MealData
   householdSize: number
@@ -32,6 +41,7 @@ interface MealDetailModalProps {
   onNoteChange?: (note: string | null) => void
   servingOverride?: number | null
   onServingOverrideChange?: (servingOverride: number | null) => void
+  ref?: Ref<MealDetailModalHandle>
 }
 
 export function MealDetailModal({
@@ -47,6 +57,7 @@ export function MealDetailModal({
   onNoteChange,
   servingOverride,
   onServingOverrideChange,
+  ref,
 }: MealDetailModalProps) {
   const router = useRouter()
   const tDetail = useTranslations('meal-plan.detail')
@@ -116,6 +127,33 @@ export function MealDetailModal({
       }
     },
     [planId, entryId, householdSize, localServings, onServingOverrideChange, tServing, cancelTips],
+  )
+
+  // A swap repoints this entry at a different meal, and the same PATCH nulls
+  // the entry's cached `preparationTips` and resets its `servingOverride`
+  // server-side. `MealCard` renders this component unconditionally — `open` is
+  // a prop, not a mount guard — so the `useMealTips` instance above survives
+  // the swap holding the previous meal's tips, and `entryId` does not change,
+  // so nothing remounts it. `router.refresh()` re-renders the server tree but
+  // cannot reach either piece of client state (HON-682).
+  //
+  // `cancelTips` rather than clearing the state: a generation started before
+  // the swap runs for up to 45s and would otherwise resolve into the state we
+  // just emptied, after which `handleHowToPrepare` short-circuits on it and
+  // never re-POSTs for the meal now on screen.
+  useImperativeHandle(
+    ref,
+    () => ({
+      resetForSwap: () => {
+        cancelTips()
+        // The sync above only runs while the modal is closed, which is the
+        // usual case — the Swap control lives on the card behind this dialog.
+        // Resetting here keeps the count right if a swap ever lands while it
+        // is open, since the server reverted the entry to the household size.
+        setLocalServings(householdSize)
+      },
+    }),
+    [cancelTips, householdSize],
   )
 
   return (

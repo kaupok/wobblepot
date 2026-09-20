@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
+import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import type { MealType } from '@/generated/prisma/enums'
 import type { PantryIngredient } from '@/components/meal-plan/types'
 
@@ -26,6 +27,7 @@ export function TimelineEmptySlot({
   pantryIngredients = [],
 }: TimelineEmptySlotProps) {
   const router = useRouter()
+  const dropSuggestionCache = useDropPlanSuggestions(planId)
   const tCard = useTranslations('meal-plan.card')
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
@@ -60,6 +62,10 @@ export function TimelineEmptySlot({
 
   function handleSwapComplete() {
     hasSelectedRef.current = true
+    // Filling this slot adds a meal to the plan's `recentMealIds`, so every
+    // other card's cached suggestion list now offers a meal that is planned
+    // (HON-682) — see `useDropPlanSuggestions`.
+    dropSuggestionCache()
     router.refresh()
   }
 
