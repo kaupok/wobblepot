@@ -286,7 +286,6 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/suggestions', () => {
     const suggestion = data.alternatives[0]
     expect(suggestion.id).toBeDefined()
     expect(suggestion.name).toBeDefined()
-    expect(suggestion.reason).toBeDefined()
     expect(suggestion.nutrition).toBeDefined()
   })
 

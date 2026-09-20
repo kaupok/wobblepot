@@ -77,7 +77,6 @@ export interface AlternativeMeal {
   kidFriendly: boolean
   primaryProteinType: string
   suitableFor?: MealType[]
-  reason: string
   components: MealComponent[]
   nutrition: NutritionData
 }

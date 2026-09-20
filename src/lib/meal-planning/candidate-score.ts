@@ -1,0 +1,215 @@
+import type { ProteinType } from '@/generated/prisma/enums'
+
+/**
+ * Candidate ranking for the two meal-swap surfaces.
+ *
+ * `/entries/[entryId]/suggestions` and `/entries/[entryId]/regenerate` both rank a
+ * household-scoped candidate pool with an additive score. They used to carry a private
+ * `scoreCandidate()` each, with different weights for the same signal and no record of
+ * whether that was deliberate (HON-706). Both now score through this module, and the
+ * difference lives in a named profile instead of in two drifting copies.
+ */
+
+/**
+ * Weight of every signal the score considers, in points.
+ *
+ * A weight of `0` means the signal is not part of that profile — written out rather than
+ * made optional, so the asymmetry between the profiles is visible in both of them.
+ */
+export interface CandidateScoreWeights {
+  /** Household marked the meal a favourite — an explicit, deliberate preference. */
+  isFavorite: number
+  /** Meal was created or imported by the household rather than seeded. */
+  isCustom: number
+  /** Meal is flagged kid-friendly. */
+  kidFriendly: number
+  /** Added once per candidate ingredient the household already has in the pantry. */
+  pantryMatchPerIngredient: number
+  /** Candidate shares the primary protein type of the meal being replaced. */
+  sameProteinType: number
+  /** Candidate's prep time is within {@link SIMILAR_PREP_TIME_MINUTES} of the current meal's. */
+  similarPrepTime: number
+}
+
+/** Prep times within this many minutes of each other count as similar. */
+export const SIMILAR_PREP_TIME_MINUTES = 15
+
+/**
+ * Slot fit — used by `/suggestions`, which fills an **empty** slot.
+ *
+ * The question is "what belongs in this slot", so only household-preference signals apply.
+ * Favourite is weighted a full point above the similarity profile's, and kid-friendly double
+ * it: with no meal to be similar to, preference is the whole signal, and spreading the weights
+ * further apart is what keeps a pool of otherwise-identical candidates from collapsing into
+ * one big tie.
+ *
+ * `sameProteinType` and `similarPrepTime` are 0 because an empty slot holds no meal to resemble.
+ * Where the slot does require a protein type, that constraint is already applied upstream as a
+ * candidate filter, so every candidate would score it identically — which is equally why the
+ * similarity profile's +3 is a no-op on a required-protein slot rather than a thumb on the scale.
+ */
+export const SLOT_FIT_WEIGHTS: CandidateScoreWeights = {
+  isFavorite: 3,
+  isCustom: 2,
+  kidFriendly: 1,
+  pantryMatchPerIngredient: 0.5,
+  sameProteinType: 0,
+  similarPrepTime: 0,
+}
+
+/**
+ * Similarity — used by `/regenerate`, which **replaces** a meal already in the slot.
+ *
+ * The question is "what is like the meal already here", so resemblance to the current meal
+ * outranks household preference: `sameProteinType` takes the top weight that slot fit gives
+ * to `isFavorite`, and every preference signal is deliberately one band lower than its
+ * slot-fit counterpart (favourite 2 vs 3, custom 1 vs 2, kid-friendly 0.5 vs 1). A swap that
+ * returned the household's favourites regardless of what it is replacing would not be a swap.
+ *
+ * Pantry matching is the one signal weighted identically in both profiles: "you already have
+ * the ingredients" means the same thing whichever question is being asked.
+ */
+export const SIMILARITY_WEIGHTS: CandidateScoreWeights = {
+  isFavorite: 2,
+  isCustom: 1,
+  kidFriendly: 0.5,
+  pantryMatchPerIngredient: 0.5,
+  sameProteinType: 3,
+  similarPrepTime: 2,
+}
+
+export interface ScorableCandidate {
+  kidFriendly: boolean
+  primaryProteinType: ProteinType
+  topIngredients: { name: string }[]
+  isFavorite: boolean
+  isCustom: boolean
+}
+
+export interface CandidateScoreContext {
+  /**
+   * Candidate's own prep time, when known. Read under both profiles — slot fit contributes
+   * nothing from it only because its `similarPrepTime` weight is 0.
+   */
+  timeMinutes?: number | null
+  /** Primary protein type of the meal being replaced, if there is one. */
+  currentProteinType?: ProteinType | null
+  /** Prep time of the meal being replaced, if there is one. */
+  currentTimeMinutes?: number | null
+  /**
+   * Pantry ingredient names for the household, as raw `Ingredient.name` values — the exact
+   * strings `getPantryIngredientNames()` returns, matched against the equally raw names on
+   * `candidate.topIngredients`. Neither side is normalised; case-folding one and not the other
+   * would silently zero the pantry signal.
+   */
+  pantryIngredientNames?: Set<string>
+}
+
+/**
+ * Score a candidate under one of the weight profiles. Higher is better.
+ *
+ * Pure and jitter-free: the tie-break offset is {@link scoreJitter}, applied by the caller,
+ * so a test can pin an exact ranking.
+ */
+export function scoreCandidate(
+  candidate: ScorableCandidate,
+  weights: CandidateScoreWeights,
+  context: CandidateScoreContext = {},
+): number {
+  const { timeMinutes, currentProteinType, currentTimeMinutes, pantryIngredientNames } = context
+  let score = 0
+
+  if (currentProteinType && candidate.primaryProteinType === currentProteinType) {
+    score += weights.sameProteinType
+  }
+
+  if (currentTimeMinutes && timeMinutes) {
+    const timeDiff = Math.abs(timeMinutes - currentTimeMinutes)
+    if (timeDiff <= SIMILAR_PREP_TIME_MINUTES) {
+      score += weights.similarPrepTime
+    }
+  }
+
+  if (candidate.isFavorite) score += weights.isFavorite
+  if (candidate.isCustom) score += weights.isCustom
+  if (candidate.kidFriendly) score += weights.kidFriendly
+
+  if (pantryIngredientNames && pantryIngredientNames.size > 0) {
+    const matchCount = candidate.topIngredients.filter((i) =>
+      pantryIngredientNames.has(i.name),
+    ).length
+    score += matchCount * weights.pantryMatchPerIngredient
+  }
+
+  return score
+}
+
+/**
+ * Width of the tie-break offset, in points.
+ *
+ * Set to the smallest weight in either profile (`pantryMatchPerIngredient`, 0.5) — and no
+ * larger, which is what keeps the jitter to reordering candidates that are already tied. The
+ * draw is half-open, `[0, SCORE_JITTER_RANGE)`, so a jittered score is strictly under the next
+ * signal up and can never lift a candidate past one that scored a signal it did not. Raising
+ * this constant above 0.5 breaks that, and `candidate-score.test.ts` asserts the bound.
+ *
+ * The argument rests on every weight above being a multiple of 0.5, so a real score gap is
+ * either 0 or at least 0.5. Introduce a finer weight — 0.25, say — and this constant has to
+ * come down with it, or the jitter starts outranking a signal that genuinely fired.
+ */
+export const SCORE_JITTER_RANGE = 0.5
+
+export interface ScoreJitterSeed {
+  /** The plan entry being filled or swapped. */
+  entryId: string
+  /**
+   * `YYYY-MM-DD` of the day the ranking is being computed **for** — pass today's date,
+   * not the entry's. An entry's own date is written once at create and never updated, so
+   * seeding on it would be a pure function of `entryId` and add no entropy at all.
+   */
+  dateString: string
+  /** The candidate being scored. Without it every candidate would get the same offset. */
+  candidateId: string
+}
+
+/** FNV-1a: a stable 32-bit hash of the seed string. */
+function hashSeed(seed: string): number {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < seed.length; i++) {
+    hash ^= seed.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return hash >>> 0
+}
+
+/**
+ * Deterministic tie-break offset in `[0, SCORE_JITTER_RANGE)`.
+ *
+ * The integer weights produce many exact ties, so without an offset a household would see the
+ * candidate pool's own ordering every time. `Math.random()` gave that variety but made the
+ * ranking impossible to assert on, which is why the weights had no regression coverage at all
+ * (HON-706). Seeding on entry + current date + candidate keeps the variety *between* entries and
+ * from one day to the next, while making any single ranking reproducible.
+ *
+ * Note the consequence: re-opening the swap modal for the same entry on the same day now returns
+ * the same three meals, where `Math.random()` reshuffled ties on every request. That is the
+ * intended trade (HON-706 specifies seeded jitter as the default), but be clear about who pays
+ * for it: a household with no favourites, no custom meals and an empty pantry scores every
+ * candidate at 0 or `kidFriendly`, so its top 3 is decided *entirely* by this offset and is
+ * frozen for the day. "Change the pool by planning, favouriting, or stocking the pantry" is the
+ * escape hatch, and it is exactly the one a brand-new household has not used yet.
+ *
+ * The daily rotation is also keyed on the *server's* calendar day: callers pass
+ * `toDateString(new Date())`, which on a UTC host rolls over at 03:00 Estonian time rather than
+ * at local midnight.
+ */
+export function scoreJitter({ entryId, dateString, candidateId }: ScoreJitterSeed): number {
+  // mulberry32, seeded by the hash — one step is enough for a well-distributed value.
+  let state = hashSeed(`${entryId}:${dateString}:${candidateId}`)
+  state = (state + 0x6d2b79f5) | 0
+  let t = state
+  t = Math.imul(t ^ (t >>> 15), t | 1)
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+  const unit = ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  return unit * SCORE_JITTER_RANGE
+}
