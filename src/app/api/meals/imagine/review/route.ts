@@ -11,6 +11,7 @@ import {
   respondCapExceeded,
 } from '@/lib/ai/usage'
 import { captureApiError } from '@/lib/errors'
+import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import { withRequestId } from '@/lib/request-id'
 
 const reviewRequestSchema = z.object({
@@ -27,6 +28,29 @@ const reviewRequestSchema = z.object({
     )
     .min(1),
 })
+
+/**
+ * Wall-clock budget for the AI call in this request, in milliseconds.
+ *
+ * Shared by the initial attempt and every `maxRetries` retry rather than being
+ * a per-attempt timeout, which makes it the real bound on retries — a fast
+ * failure (429, 5xx) costs well under a second and still retries freely; a
+ * slow generation does not.
+ *
+ * Sized against the figures recorded on Sonnet 5 during HON-693: preparation
+ * tips 15-21s, quantity review 25-32s, both on deliberately hard inputs. This
+ * route *is* the quantity review, so 45s is ~1.4x its own measured upper bound
+ * — no extrapolation from a neighbouring call site is involved.
+ *
+ * The remaining 15s under `maxDuration` covers the session read, the
+ * membership lookup and `assertUnderCap` before the call and the usage write
+ * after it, which is what keeps the 504 below reachable instead of the
+ * platform killing the function first. That is the same headroom the reference
+ * route (`preparation-tips`) reserves, and less than `imagine/route.ts`'s 20s:
+ * this route runs no ingredient matching and no nutrition reads, so its
+ * non-AI work is the lightest of the AI routes.
+ */
+const AI_BUDGET_MS = 45_000
 
 async function handlePOST(request: Request) {
   const session = await auth.api.getSession({
@@ -76,6 +100,7 @@ async function handlePOST(request: Request) {
       household.locale,
       (usage) =>
         recordAiUsage({ householdId: household.id, feature: 'meal_review_quantities', ...usage }),
+      AbortSignal.timeout(AI_BUDGET_MS),
     )
 
     // Filter out non-positive quantities the AI may return (schema can't enforce .positive())
@@ -90,6 +115,22 @@ async function handlePOST(request: Request) {
       feature: 'meal_review_quantities',
       householdId: household.id,
     })
+
+    // Reported before it is classified, as the sibling routes do: a fired
+    // budget means the number above is mis-sized, which is exactly what should
+    // show up in error tracking.
+    //
+    // Both callers degrade rather than render this body (see
+    // `reviewImaginedMeal` in `lib/imagine-utils.ts`), so the distinct status
+    // is what makes a mis-sized budget separable from a genuine AI failure in
+    // the logs. Localizing the prose is HON-700's scope, not this route's.
+    if (isAiBudgetTimeout(error)) {
+      return NextResponse.json(
+        { error: 'Reviewing the quantities took too long. Please try again.' },
+        { status: 504 },
+      )
+    }
+
     return NextResponse.json({ error: 'Failed to review quantities' }, { status: 500 })
   }
 }
@@ -98,10 +139,14 @@ async function handlePOST(request: Request) {
  * Platform execution ceiling for this route, in seconds.
  *
  * The quantity review scales with ingredient count and measured 25-32s on
- * Sonnet 5 for a 24-ingredient meal (HON-693). Without this the route runs
- * under an unstated platform default that such a call can exceed, and the
- * client's 45s budget would never be reachable. 60 is allowed on every
- * Vercel plan.
+ * Sonnet 5 for a 24-ingredient meal (HON-693). Stated explicitly because
+ * `AI_BUDGET_MS` is only meaningful if the platform lets the function run that
+ * long — otherwise the request is killed first and the 504 above never runs.
+ * 60 is the value every Vercel plan allows, so this cannot fail to deploy.
+ *
+ * Both client callers go through `reviewImaginedMeal`, which waits 65s — above
+ * this ceiling, so neither pre-empts it. It used to be 45s, under the ceiling,
+ * which threw away work the household had already been billed for (HON-699).
  */
 export const maxDuration = 60
 

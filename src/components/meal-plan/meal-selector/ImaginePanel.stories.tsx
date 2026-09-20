@@ -59,6 +59,37 @@ const imaginePending = [
   }),
 ]
 
+/**
+ * Selecting a meal posts it to the review endpoint before the save dialog
+ * opens. `reviewSpy` proves the round-trip happened; the per-ingredient
+ * arithmetic is covered by `imagine-utils.test.ts` rather than here.
+ */
+const reviewSpy = fn()
+const reviewSuccess = [
+  ...imagineSuccess,
+  http.post('/api/meals/imagine/review', () => {
+    reviewSpy()
+    return HttpResponse.json({
+      success: true,
+      ingredients: [{ ingredientId: 'ing-lentil', quantityPerServing: 75 }],
+    })
+  }),
+]
+
+/**
+ * The review budget fired server-side. A failed review costs the corrections,
+ * not the meal — the dialog must still open and no error may surface (HON-699).
+ */
+const reviewTimeout = [
+  ...imagineSuccess,
+  http.post('/api/meals/imagine/review', () =>
+    HttpResponse.json(
+      { error: 'Reviewing the quantities took too long. Please try again.' },
+      { status: 504 },
+    ),
+  ),
+]
+
 const meta = {
   title: 'Meal plan/ImaginePanel',
   component: ImaginePanel,
@@ -165,5 +196,61 @@ export const ExitInvokesCallback: Story = {
     const canvas = within(canvasElement)
     await userEvent.click(canvas.getByRole('button', { name: /back/i }))
     await waitFor(() => expect(args.onExit).toHaveBeenCalled())
+  },
+}
+
+export const SelectReviewsThenOpensDialog: Story = {
+  parameters: {
+    msw: { handlers: reviewSuccess },
+    docs: {
+      description: {
+        story:
+          'Selecting a meal posts it to `/api/meals/imagine/review` first, then opens the save dialog on the reviewed meal.',
+      },
+    },
+  },
+  beforeEach: () => {
+    reviewSpy.mockClear()
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const body = within(document.body)
+
+    await userEvent.type(canvas.getByRole('textbox'), 'something with lentils')
+    await userEvent.click(canvas.getByRole('button', { name: /imagine meals/i }))
+    await canvas.findByText('Smoky red lentil stew')
+
+    const [firstSelect] = canvas.getAllByRole('button', { name: /^select$/i })
+    await userEvent.click(firstSelect!)
+
+    // The dialog is portalled, so it lives outside `canvasElement`.
+    await body.findByRole('dialog')
+    await waitFor(() => expect(reviewSpy).toHaveBeenCalled())
+  },
+}
+
+export const SelectDegradesWhenReviewTimesOut: Story = {
+  parameters: {
+    msw: { handlers: reviewTimeout },
+    docs: {
+      description: {
+        story:
+          'The review endpoint returns a 504. The save dialog still opens and no error is surfaced — the user never asked for the review by name, so a failed one is a degradation rather than a blocker (HON-699).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const body = within(document.body)
+
+    await userEvent.type(canvas.getByRole('textbox'), 'something with lentils')
+    await userEvent.click(canvas.getByRole('button', { name: /imagine meals/i }))
+    await canvas.findByText('Smoky red lentil stew')
+
+    const [firstSelect] = canvas.getAllByRole('button', { name: /^select$/i })
+    await userEvent.click(firstSelect!)
+
+    await body.findByRole('dialog')
+    await expect(canvas.queryByText(/too long/i)).not.toBeInTheDocument()
   },
 }

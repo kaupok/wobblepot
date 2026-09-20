@@ -16,7 +16,11 @@ import type { PrefilledIngredient } from '@/components/household/MealForm'
 import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
-import { convertToPrefilledData, type ImaginedMealResponse } from '@/lib/imagine-utils'
+import {
+  convertToPrefilledData,
+  reviewImaginedMeal,
+  type ImaginedMealResponse,
+} from '@/lib/imagine-utils'
 import { track } from '@/lib/analytics'
 import {
   IMAGINE_ROUTE,
@@ -98,61 +102,8 @@ export function ImagineClient() {
   const navigateToCreate = async (meal: ImaginedMealResponse) => {
     setReviewingMealId(meal.id)
 
-    let finalMeal = meal
-    try {
-      const reviewPayload = {
-        mealName: meal.name,
-        servings: meal.servings,
-        ingredients: meal.components.map((comp) => ({
-          ingredientId: comp.ingredientId,
-          name: comp.ingredient.name,
-          quantityPerServing: comp.quantityPerServing,
-          unit: comp.ingredient.defaultUnit,
-        })),
-      }
-
-      const response = await fetch('/api/meals/imagine/review', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(reviewPayload),
-        // Sonnet 5 reasons before answering, and this call scales with the
-        // ingredient count: a 24-ingredient meal measured 25-32s, where 4.6
-        // fit inside 15s (HON-693). The catch below degrades silently, so an
-        // abort here does not surface an error — it just drops the quantity
-        // corrections this call exists to make, after the server has already
-        // billed the household for them.
-        signal: AbortSignal.timeout(45_000),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success && data.ingredients) {
-          const correctionMap = new Map<string, number>(
-            data.ingredients.map((ing: { ingredientId: string; quantityPerServing: number }) => [
-              ing.ingredientId,
-              ing.quantityPerServing,
-            ]),
-          )
-
-          finalMeal = {
-            ...meal,
-            components: meal.components.map((comp) => {
-              const corrected = correctionMap.get(comp.ingredientId)
-              return corrected != null ? { ...comp, quantityPerServing: corrected } : comp
-            }),
-            ingredients: meal.ingredients.map((ing) => {
-              if (ing.type !== 'matched') return ing
-              const corrected = correctionMap.get(ing.ingredient.id)
-              return corrected != null
-                ? { ...ing, convertedQuantity: corrected * meal.servings }
-                : ing
-            }),
-          }
-        }
-      }
-    } catch {
-      // Graceful degradation: proceed with original quantities
-    }
+    // Degrades on failure and reports it — see `reviewImaginedMeal` (HON-699).
+    const finalMeal = await reviewImaginedMeal(meal)
 
     setReviewingMealId(null)
     const prefilledData = convertToPrefilledData(finalMeal)
