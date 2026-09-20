@@ -389,13 +389,29 @@ describe('PATCH /api/households/me/meals/[id]', () => {
       expect(mealPlanEntryUpdateMany).toHaveBeenCalledWith(expectedInvalidation)
     })
 
-    it('clears tips when servings change', async () => {
+    // A servings edit from the form restates the same totals over a new
+    // divisor, so every `quantityPerServing` moves and the prompt's ingredient
+    // lines move with it — 600g over 6 is 100 per serving, not the stored 150.
+    it('clears tips when servings change, via the component quantities', async () => {
       const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
 
       const response = await patchMeal({ ...unchangedPayload, servings: 6 })
 
       expect(response.status).toBe(200)
       expect(mealPlanEntryUpdateMany).toHaveBeenCalledWith(expectedInvalidation)
+    })
+
+    // The converse, and the reason `servings` has no clause of its own: the
+    // prompt scales by the entry's effective servings, so a bare `servings`
+    // PATCH that leaves every `quantityPerServing` where it was produces a
+    // byte-identical prompt and must not regenerate the household's plan.
+    it('leaves tips alone for a servings change that moves no component quantity', async () => {
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+
+      const response = await patchMeal({ servings: 8 })
+
+      expect(response.status).toBe(200)
+      expect(mealPlanEntryUpdateMany).not.toHaveBeenCalled()
     })
 
     it('clears tips when timeMinutes changes', async () => {

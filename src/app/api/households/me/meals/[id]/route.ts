@@ -337,29 +337,36 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       // Every field below is an input to the cached prep-tips prompt
       // (`MealPlanEntry.preparationTips`): `buildFullTipsPrompt` takes
       // `mealName`, `timeMinutes` and an ingredient list built from the
-      // meal's components scaled by `servings`, and `preparationNotes` both
-      // feeds `buildSupplementaryTipsPrompt` and selects which of the two
-      // prompts runs. Leaving tips cached after a component swap means "pat
-      // the chicken dry" survives on a meal that is now tofu, and every read
-      // is a cache hit, so nothing regenerates it. Invalidate here for the
-      // same reason `PATCH /api/households/me` invalidates on a locale change
+      // meal's components, and `preparationNotes` both feeds
+      // `buildSupplementaryTipsPrompt` and selects which of the two prompts
+      // runs. Leaving tips cached after a component swap means "pat the
+      // chicken dry" survives on a meal that is now tofu, and every read is a
+      // cache hit, so nothing regenerates it. Invalidate here for the same
+      // reason `PATCH /api/households/me` invalidates on a locale change
       // (HON-683, HON-681, and the AI-cache rule in `docs/LOCALIZATION.md`).
       //
       // Per-field on purpose: `sourceUrl`, `description`, `kidFriendly` and
       // `suitableFor` never reach the prompt, so an edit touching only those
       // must not burn a regeneration across the household's whole plan.
       //
+      // `Meal.servings` has no clause of its own, for the same reason: the
+      // prompt scales by the entry's effective servings
+      // (`getEffectiveServings`, household members or the entry override),
+      // never by the meal's. It reaches the prompt only through
+      // `quantityPerServing`, which `componentsChanged` already compares — and
+      // a real servings edit always arrives with the components, since that is
+      // the divisor they are stored under.
+      //
       // And by value, not by presence — the same "only on a real change" rule
       // the other two sites follow. The meal form PATCHes its whole payload on
       // every save (`src/components/household/use-meal-form.ts`), so a
       // `sourceUrl`-only edit still arrives carrying an unchanged `name`,
-      // `timeMinutes`, `servings` and component list. A presence check would
-      // fire on every save and leave the per-field condition doing nothing.
+      // `timeMinutes` and component list. A presence check would fire on every
+      // save and leave the per-field condition doing nothing.
       const tipsInputChanged =
         (name !== undefined && name !== existingMeal.name) ||
         (preparationNotes !== undefined && preparationNotes !== existingMeal.preparationNotes) ||
         (timeMinutes !== undefined && timeMinutes !== existingMeal.timeMinutes) ||
-        (servings !== undefined && servings !== existingMeal.servings) ||
         componentsChanged
 
       if (tipsInputChanged) {
