@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { MoreHorizontal, NotebookPen, Repeat, X } from 'lucide-react'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
@@ -62,6 +62,7 @@ export function MealCard({
   pantryDeducted = false,
 }: MealCardProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const tCard = useTranslations('meal-plan.card')
   const [status, setStatus] = useState<MealStatus>(initialStatus)
   const [rating, setRating] = useState<EntryRating | null>(initialRating ?? null)
@@ -104,8 +105,18 @@ export function MealCard({
   const handleSwapComplete = useCallback(() => {
     setServingOverride(null)
     detailModalRef.current?.resetForSwap()
+    // Same shape again, one component over: the selector is rendered
+    // unconditionally too, so its `['meal-suggestions', planId, entryId, mode]`
+    // observer stays subscribed at `staleTime: Infinity`, and its own `reset()`
+    // on close clears only the search and my-recipes keys. The key carries no
+    // meal id, while `regenerate/route.ts` filters out whichever meal the entry
+    // held when the list was built — so after A -> B the cached list still
+    // excludes A and offers B, i.e. reopening Swap proposes the meal now on the
+    // entry as an alternative to itself. Dropped here rather than in `reset()`
+    // because a plain cancel must keep the cache: refetching costs an AI call.
+    queryClient.removeQueries({ queryKey: ['meal-suggestions', planId, entryId] })
     router.refresh()
-  }, [router])
+  }, [router, queryClient, planId, entryId])
 
   const availability = useMemo(() => {
     if (!meal) return null

@@ -4,9 +4,11 @@ import { expect, userEvent, waitFor, within } from 'storybook/test'
 import { MealType } from '@/generated/prisma/enums'
 import {
   createMeal,
+  lemonGarlicChickenComponents,
   lemonGarlicChickenPantry,
   lemonGarlicChickenPantryItems,
 } from '@/stories/fixtures'
+import type { AlternativeMeal } from './types'
 import { MealCard } from './MealCard'
 
 const mealFixture = createMeal()
@@ -99,9 +101,35 @@ export const PlannedAlreadyCharged: Story = {
   },
 }
 
-// Counts the tips POSTs the story's handler serves, so the second click can be
-// proven to be a real re-fetch rather than a replay of the hook's cached state.
+// Counts the POSTs the story's handlers serve, so a second one can be proven to
+// be a real re-fetch rather than a replay of cached state.
 let swapTipsRequests = 0
+let swapSuggestionRequests = 0
+
+/**
+ * Stands in for `regenerate/route.ts`, which excludes whichever meal the entry
+ * holds when the list is built. Call 1 runs against the chicken and offers the
+ * stir-fry; call 2 runs against the stir-fry just picked and offers the risotto
+ * instead — so a replayed call-1 list is visible as the stir-fry being proposed
+ * as an alternative to itself.
+ */
+function swapAlternatives(call: number): AlternativeMeal[] {
+  const meal = (id: string, name: string): AlternativeMeal => ({
+    id,
+    name,
+    description: `${name} — a weeknight alternative.`,
+    timeMinutes: 30,
+    kidFriendly: true,
+    primaryProteinType: 'none',
+    suitableFor: [MealType.dinner],
+    reason: 'Matches your preferences',
+    components: lemonGarlicChickenComponents,
+    nutrition: { calories: 480, protein: 30, carbs: 40, fat: 18 },
+  })
+  return call === 1
+    ? [meal('meal-stir-fry', 'Beef stir-fry')]
+    : [meal('meal-risotto', 'Mushroom risotto')]
+}
 
 /**
  * A swap repoints the entry server-side, and the same PATCH nulls the entry's
@@ -127,33 +155,44 @@ export const SwapDropsCachedTips: Story = {
     servingOverride: 6,
   },
   parameters: {
-    // Keyed rather than an array, so `defaultHandlers` — which already serve
-    // the swap suggestions and the entry PATCH — are extended, not replaced.
+    // An array replaces `defaultHandlers` wholesale, which is what this story
+    // needs: it has to count the suggestions POST, and a keyed override would
+    // merely be appended after the default handler that already matches it.
+    // So the entry PATCH has to be re-declared alongside — without it the swap
+    // fails and nothing downstream is asserted.
     msw: {
-      handlers: {
-        tips: [
-          // Varies per call, so the second click can be told apart from a
-          // replay of the first one's object.
-          http.post('/api/meal-plans/:planId/entries/:entryId/preparation-tips', () => {
-            swapTipsRequests += 1
-            return HttpResponse.json({
-              tips: {
-                equipment: [
-                  swapTipsRequests === 1
-                    ? 'A roasting tin for the chicken'
-                    : 'A wok for the stir-fry',
-                ],
-                steps: ['Preheat while you prep'],
-                pitfalls: ['Crowding the pan steams instead of browning'],
-              },
-            })
-          }),
-        ],
-      },
+      handlers: [
+        http.patch('/api/meal-plans/:planId/entries/:entryId', () =>
+          HttpResponse.json({ ok: true }),
+        ),
+        // The real route filters out whichever meal the entry currently holds,
+        // so the list is only correct for the meal it was built against.
+        http.post('/api/meal-plans/:planId/entries/:entryId/regenerate', () => {
+          swapSuggestionRequests += 1
+          return HttpResponse.json({ alternatives: swapAlternatives(swapSuggestionRequests) })
+        }),
+        // Varies per call, so the second click can be told apart from a
+        // replay of the first one's object.
+        http.post('/api/meal-plans/:planId/entries/:entryId/preparation-tips', () => {
+          swapTipsRequests += 1
+          return HttpResponse.json({
+            tips: {
+              equipment: [
+                swapTipsRequests === 1
+                  ? 'A roasting tin for the chicken'
+                  : 'A wok for the stir-fry',
+              ],
+              steps: ['Preheat while you prep'],
+              pitfalls: ['Crowding the pan steams instead of browning'],
+            },
+          })
+        }),
+      ],
     },
   },
   play: async ({ canvasElement }) => {
     swapTipsRequests = 0
+    swapSuggestionRequests = 0
     const canvas = within(canvasElement)
     const body = within(document.body)
 
@@ -171,9 +210,8 @@ export const SwapDropsCachedTips: Story = {
     await openMoreActions(canvasElement)
     await userEvent.click(await body.findByRole('menuitem', { name: /^swap$/i }))
     const selector = await body.findByRole('dialog')
-    const [firstSelect] = await within(selector).findAllByRole('button', { name: /^select$/i })
-    if (!firstSelect) throw new Error('The swap selector rendered no alternatives to pick')
-    await userEvent.click(firstSelect)
+    await within(selector).findByText('Beef stir-fry')
+    await userEvent.click(within(selector).getByRole('button', { name: /^select$/i }))
     await waitFor(() => expect(body.queryByRole('dialog')).not.toBeInTheDocument())
 
     // The card is back to the household's own size, matching the
@@ -197,6 +235,20 @@ export const SwapDropsCachedTips: Story = {
     await userEvent.click(prompt)
     await body.findByText(/wok for the stir-fry/i)
     await expect(swapTipsRequests).toBe(2)
+
+    // The suggestions list is stale for the same reason and at the same
+    // callsite: its query key carries no meal id, it is held at
+    // `staleTime: Infinity`, and the selector never unmounts either. Replayed,
+    // it would offer the meal just picked as an alternative to itself, and
+    // picking it would re-PATCH the entry to the meal it already holds.
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(body.queryByRole('dialog')).not.toBeInTheDocument())
+    await openMoreActions(canvasElement)
+    await userEvent.click(await body.findByRole('menuitem', { name: /^swap$/i }))
+    const reopenedSelector = await body.findByRole('dialog')
+    await within(reopenedSelector).findByText('Mushroom risotto')
+    await expect(within(reopenedSelector).queryByText('Beef stir-fry')).not.toBeInTheDocument()
+    await expect(swapSuggestionRequests).toBe(2)
   },
 }
 
