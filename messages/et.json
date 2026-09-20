@@ -689,7 +689,7 @@
       },
       "errors": {
         "alreadyInHousehold": "Sa oled juba ühe leibkonna liige.",
-        "inviteInvalid": "See kutse on aegunud või jõudnud maksimaalse kasutuste arvuni.",
+        "inviteInvalid": "See kutse on aegunud või juba kasutatud.",
         "joinFailed": "Leibkonnaga liitumine ebaõnnestus",
         "generic": "Tekkis viga. Palun proovi uuesti."
       }

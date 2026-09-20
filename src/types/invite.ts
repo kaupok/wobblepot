@@ -5,8 +5,6 @@ export interface Invite {
   memberId: string
   memberName: string
   expiresAt: string
-  maxUses: number | null
-  usesCount: number
   isActive: boolean
   createdAt: string
 }
