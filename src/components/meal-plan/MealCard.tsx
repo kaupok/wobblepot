@@ -85,6 +85,27 @@ export function MealCard({
 
   const detailModalRef = useRef<MealDetailModalHandle>(null)
 
+  // The swap selector is rendered unconditionally too, so its
+  // `['meal-suggestions', planId, entryId, mode]` observer stays subscribed at
+  // `staleTime: Infinity`, and its own `reset()` on close clears only the
+  // search and my-recipes keys. Nothing else drops it.
+  //
+  // Scoped to the whole plan, not to this entry: both suggestion routes filter
+  // candidates through `recentMealIds` — every meal the household has planned
+  // within `NO_REPEAT_DAYS`, excluded by `candidates.ts:128` — which any entry
+  // gaining or losing a meal changes for every *other* entry in the plan. Every
+  // card shares one `QueryClient`, so a per-entry removal would leave Tuesday's
+  // cached list still offering the meal just planned for Monday, and picking it
+  // would plan the same dinner twice in one week.
+  //
+  // Refetching is a Prisma query and a scoring pass, not a model call — both
+  // routes only touch AI through `assertUnderCap`. So over-removing is cheap;
+  // it is the plain cancel path in `reset()`, which changes no meal at all,
+  // that has no reason to pay for it.
+  const dropSuggestionCache = useCallback(() => {
+    queryClient.removeQueries({ queryKey: ['meal-suggestions', planId] })
+  }, [queryClient, planId])
+
   // The PATCH that repoints this entry also nulls its cached `preparationTips`
   // and resets its `servingOverride` server-side (the swap branch of
   // `/api/meal-plans/[id]/entries/[entryId]`). Neither lives in the tree
@@ -105,18 +126,9 @@ export function MealCard({
   const handleSwapComplete = useCallback(() => {
     setServingOverride(null)
     detailModalRef.current?.resetForSwap()
-    // Same shape again, one component over: the selector is rendered
-    // unconditionally too, so its `['meal-suggestions', planId, entryId, mode]`
-    // observer stays subscribed at `staleTime: Infinity`, and its own `reset()`
-    // on close clears only the search and my-recipes keys. The key carries no
-    // meal id, while `regenerate/route.ts` filters out whichever meal the entry
-    // held when the list was built — so after A -> B the cached list still
-    // excludes A and offers B, i.e. reopening Swap proposes the meal now on the
-    // entry as an alternative to itself. Dropped here rather than in `reset()`
-    // because a plain cancel must keep the cache: refetching costs an AI call.
-    queryClient.removeQueries({ queryKey: ['meal-suggestions', planId, entryId] })
+    dropSuggestionCache()
     router.refresh()
-  }, [router, queryClient, planId, entryId])
+  }, [router, dropSuggestionCache])
 
   const availability = useMemo(() => {
     if (!meal) return null
@@ -199,6 +211,9 @@ export function MealCard({
       }
     },
     onSuccess: () => {
+      // Clearing frees this entry's meal to be suggested elsewhere again, so
+      // every other card's cached list is now wrong in the other direction.
+      dropSuggestionCache()
       router.refresh()
     },
     onError: () => {
