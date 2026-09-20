@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { serverEnv, getServerBaseURL } from '@/lib/env'
 import { resend, isEmailConfigured, EMAIL_SENDERS, envSubject } from '@/lib/resend'
 import { generateResetPasswordEmail } from '@/lib/emails/reset-password'
+import { resolveEmailLocale } from '@/lib/emails/locale'
 import { isPasswordBreached } from '@/lib/breached-password'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
 import { linkUsedBy, releaseClaim, validateAndClaimInviteCode } from '@/lib/signup-codes'
@@ -168,7 +169,10 @@ export const auth = betterAuth({
         return
       }
 
-      const { subject, ...rest } = generateResetPasswordEmail({ resetUrl: url })
+      // Household locale, validated against PUBLIC_LOCALES, falling back to
+      // `en` for a user with no household (HON-513).
+      const locale = await resolveEmailLocale(user.id)
+      const { subject, ...rest } = generateResetPasswordEmail({ resetUrl: url, locale })
 
       try {
         await resend.emails.send({

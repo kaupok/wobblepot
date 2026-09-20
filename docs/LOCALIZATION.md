@@ -49,7 +49,7 @@ These are settled. Don't re-open without cause.
 
 `src/lib/i18n/`:
 
-- `locales.ts` — `KNOWN_LOCALES = ['en', 'et']`, `PUBLIC_LOCALES = ['en', 'et']`, `LocaleSchema`, `DEFAULT_LOCALE = 'en'`, helpers `isKnownLocale` / `isPublicLocale` / `isDefaultLocale`. **`KNOWN_LOCALES` is what the DB and API accept; `PUBLIC_LOCALES` is what the locale selector exposes to general users.** The two sets are identical today (HON-549 widened `PUBLIC_LOCALES` to include Estonian) — the distinction is kept so a future locale can land in the DB / translation tables before being exposed in the selector. New locales should only join `PUBLIC_LOCALES` once transactional email templates exist in that locale (HON-513 for Estonian remains the accepted gap — users hit English emails at password reset / invite / verification until that ships).
+- `locales.ts` — `KNOWN_LOCALES = ['en', 'et']`, `PUBLIC_LOCALES = ['en', 'et']`, `LocaleSchema`, `DEFAULT_LOCALE = 'en'`, helpers `isKnownLocale` / `isPublicLocale` / `isDefaultLocale`. **`KNOWN_LOCALES` is what the DB and API accept; `PUBLIC_LOCALES` is what the locale selector exposes to general users.** The two sets are identical today (HON-549 widened `PUBLIC_LOCALES` to include Estonian) — the distinction is kept so a future locale can land in the DB / translation tables before being exposed in the selector. New locales should only join `PUBLIC_LOCALES` once transactional email templates exist in that locale — HON-513 closed that gap for Estonian; see [Transactional email](#transactional-email) below.
 - `accept-language.ts`, `resolve-locale.ts` — pre-household locale resolution from headers.
 - `get-locale.ts`, `request.ts` — server-side locale plumbing for `next-intl`.
 
@@ -75,6 +75,16 @@ These are settled. Don't re-open without cause.
 The Estonian recipe-parser surface was gated behind `FEATURE_RECIPE_PARSER_ET` until ingredient translations landed — Estonian input without translation data created duplicate household-scoped ingredient rows that needed admin cleanup later (HON-514). HON-506 seeded an Estonian translation for every global ingredient and **retired that gate**: `resolveParserLocale` in `src/app/api/recipes/parse/route.ts` now threads the household locale straight through, and the matcher resolves Estonian ingredient names directly. The env flag no longer exists.
 
 The selector + onboarding-clamp gate (`FEATURE_PUBLIC_LOCALES_FULL`, plus the `effectivePublicLocales` / `isEffectivelyPublicLocale` helpers) was retired in HON-549 alongside the public flip. With `PUBLIC_LOCALES = ['en', 'et']`, the selector in `src/app/household/household/HouseholdSettingsForm.tsx` reads `PUBLIC_LOCALES` directly, and `src/app/api/households/route.ts` persists the `resolveLocale` result without clamping. Removing the env var from Vercel (staging + production) is a manual follow-up tracked in the HON-549 PR.
+
+### Transactional email
+
+Two templates are localized (HON-513): `src/lib/emails/reset-password.ts` and `src/lib/emails/account-deletion-requested.ts`. Both are pure functions taking `{ ..., locale }` and returning `subject` / `html` / `text`, with `<html lang>` set from that locale.
+
+- **Copy** lives in `messages/{en,et}.json` under `emails.<template>`, so `catalogue-parity.test.ts` enforces en/et parity for email strings too.
+- **Catalog access** goes through `emailTranslator(locale, namespace)` in `src/lib/emails/i18n.ts`, which wraps `createTranslator` over statically imported catalogs. `getTranslations` is deliberately _not_ used: it resolves the locale via `getRequestConfig` → `getLocale()` → `headers()`, and the Better Auth `sendResetPassword` hook has no guaranteed request scope.
+- **Locale resolution** is at the call site, via `resolveEmailLocale(userId)` in `src/lib/emails/locale.ts` — household locale only, validated against `PUBLIC_LOCALES`, falling back to `en` for a user with no household, an unrecognised locale, or a failed lookup. `Accept-Language` is not consulted: it is unavailable in the Better Auth hook, and household locale is the stronger signal anyway.
+- **Mixed HTML/plain-text strings** (the bolded purge date, the linked recovery address) use one key with `t.markup`, which returns a string — `t.rich` returns a `ReactNode` and is unusable here.
+- `breach-notification.ts` is English-only by design — see [Out of scope](#out-of-scope).
 
 ### Form input parsing
 
@@ -129,7 +139,7 @@ Each line is a single JSON record after the prefix. Retention is bounded by Verc
 5. Seed step 4 **before** exposing the new locale. `resolveParserLocale` in `src/app/api/recipes/parse/route.ts` threads the household locale straight through (the `FEATURE_RECIPE_PARSER_ET` gate was retired in HON-506), so a new-locale household reaches the recipe parser immediately — and without seeded `IngredientTranslation` rows the matcher can't resolve names, recreating the duplicate household-scoped ingredient problem (HON-514) the old gate guarded against. The **selector** reads `PUBLIC_LOCALES` directly today (HON-549 retired the staging-only env-flag override), so the new locale is not offered in household settings until it lands there. **Onboarding is not clamped**, though: `POST /api/households` persists `resolveLocale`'s result as-is (`src/app/api/households/route.ts:50`), and `resolveLocale` / `matchAcceptLanguage` gate on `isKnownLocale`, not `isPublicLocale` — which has no non-test callers. A browser sending the new locale in `Accept-Language` will therefore be onboarded into it the moment it joins `KNOWN_LOCALES`. Keep it out of `KNOWN_LOCALES` until it is ready, or add the clamp.
 6. **RTL languages only:** add a `direction` field to a parallel map, set `<html dir>` from it in `src/app/layout.tsx`, and audit Tailwind direction-sensitive utilities (`mr-`, `ml-`, `pl-`, `pr-` → `me-`, `ms-`, `pe-`, `ps-`). Tracked as deferred — the codebase currently assumes LTR.
 7. Pilot-test with a target user before adding to `PUBLIC_LOCALES`.
-8. Add to `PUBLIC_LOCALES` to expose in the locale selector. Verify transactional email templates exist in the locale (see HON-513) before flipping public.
+8. Add to `PUBLIC_LOCALES` to expose in the locale selector. Before flipping public, add the locale's copy to the `emails` namespace in `messages/<locale>.json` — the templates read it through `emailTranslator` and fall back to English for anything missing, so a half-translated catalog ships a mixed-language email rather than failing loudly. See [Transactional email](#transactional-email).
 
 ## Adding a new AI call site
 
@@ -149,7 +159,7 @@ Architectural decisions that the platform supports but we deliberately don't shi
 - **User-level locale override** within a household. Household locale is the unit.
 - **Cultural adaptation** — no locale-specific meal swaps or ingredient substitutions. Same row, different display name.
 - **Automated AI quality scoring** (LLM-as-judge). Sampling exists for human review, not synthetic grading.
-- **Better Auth email-template localization.** Estonian households receive English transactional emails at launch — tracked as HON-513. `PUBLIC_LOCALES` enablement is gated on this.
+- **Localized `breach-notification.ts`.** The GDPR Art. 33/34 breach email is sent by an operator following a runbook, to an audience that is not locale-resolvable at send time. Deliberately English-only (HON-513).
 - **Mid-lifetime locale-change UX** (visual markers, on-demand translation, switch-time prompts). Silent mixed state by design.
 - **Sentry / PostHog locale tagging** (HON-516). Not yet wired; useful for triage during partner-test windows but not blocking.
 - **Non-Estonian AI output sampling.** English is "known good" and excluded by design from `logAiSample`.
@@ -178,7 +188,7 @@ Architectural decisions that the platform supports but we deliberately don't shi
 - HON-505 / 506 / 507 — Tier 2 content translations.
 - HON-508 / 509 / 510 / 511 — Tier 3 chrome.
 - HON-512 — partner test.
-- HON-513 — Better Auth email localization (deferred; gates `PUBLIC_LOCALES` enablement).
+- HON-513 — transactional email localization (password reset, account deletion).
 - HON-514 — admin promotion of household-scoped ingredients to the global pool.
 - HON-515 — input-side decimal-separator parsing.
 - HON-516 — Sentry / PostHog locale tagging (deferred observability).

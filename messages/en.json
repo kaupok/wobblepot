@@ -672,6 +672,30 @@
       }
     }
   },
+  "emails": {
+    "resetPassword": {
+      "subject": "Reset your {appName} password",
+      "heading": "Reset your password",
+      "intro": "We received a request to reset the password for your {appName} account.",
+      "instructionHtml": "Click the button below to choose a new password:",
+      "instructionText": "Click the link below to choose a new password:",
+      "cta": "Reset password",
+      "expiry": "This link will expire in 1 hour for security reasons.",
+      "ignore": "If you didn't request this password reset, you can safely ignore this email. Your password will remain unchanged."
+    },
+    "accountDeletionRequested": {
+      "subject": "Your {appName} account will be deleted on {date}",
+      "heading": "Account deletion scheduled",
+      "intro": "We received a request to delete your {appName} account. Your account has been deactivated and you've been signed out on all devices.",
+      "scheduledFor": "Your account and all associated data are scheduled to be permanently deleted on <strong>{date}</strong>, 30 days from now.",
+      "changedMindHeading": "Changed your mind?",
+      "changedMindHtml": "You can cancel the deletion and restore your account any time before that date by emailing us. After {date}, your data cannot be recovered.",
+      "changedMindText": "You can cancel the deletion and restore your account any time before that date by emailing {email}. After {date}, your data cannot be recovered.",
+      "cta": "Cancel deletion",
+      "cancelMailtoSubject": "Cancel account deletion",
+      "lastWarning": "If you didn't request this, email <link>{email}</link> right away to keep your account."
+    }
+  },
   "errors": {
     "boundary": {
       "tryAgain": "Try again",
