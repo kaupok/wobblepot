@@ -111,6 +111,17 @@ describe('imagineMeals', () => {
     expect(onAiUsage).toHaveBeenCalledWith({ ...expectedUsageStats(IMAGINE_MODEL), success: false })
   })
 
+  it('forwards the caller-supplied abort signal to generateObject (HON-694)', async () => {
+    mockGenerateObject.mockResolvedValue({ object: { meals: [] } } as never)
+    const abortSignal = AbortSignal.timeout(40_000)
+
+    await imagineMeals('test', emptyHousehold, 'en', undefined, undefined, abortSignal)
+
+    // The route owns the budget; if it stops arriving here the AI call is
+    // unbounded again and the platform kills the function before the 504.
+    expect(mockGenerateObject).toHaveBeenCalledWith(expect.objectContaining({ abortSignal }))
+  })
+
   it('initializes Anthropic with the server API key', async () => {
     mockGenerateObject.mockResolvedValue({ object: { meals: [] } } as never)
 

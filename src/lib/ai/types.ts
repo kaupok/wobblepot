@@ -75,6 +75,18 @@ export interface GeneratePlanOptions {
   weekendMealTypes?: MealType[]
   /** Optional callback fired with token usage after the AI call returns. */
   onAiUsage?: (usage: AiUsageStats) => void
+  /**
+   * Wall-clock budget for the AI call in milliseconds, owned by the calling
+   * route. Omit to leave the call unbounded.
+   *
+   * Passed as a duration rather than a ready-made `AbortSignal` so the clock
+   * starts immediately before the AI call rather than when the route builds
+   * these options: the slot/candidate-pool queries below run first and would
+   * otherwise eat the budget the number is sized for. The route still owns the
+   * number, so it stays in the same file as the `maxDuration` it has to fit
+   * under. See `src/app/api/meal-plans/generate/route.ts`.
+   */
+  aiBudgetMs?: number
 }
 
 /**
@@ -108,6 +120,18 @@ export interface FillEmptySlotsOptions {
   weekendMealTypes: MealType[]
   /** Optional callback fired with token usage after the AI call returns. */
   onAiUsage?: (usage: AiUsageStats) => void
+  /**
+   * Wall-clock budget for the AI call in milliseconds, owned by the calling
+   * route. Omit to leave the call unbounded.
+   *
+   * Passed as a duration rather than a ready-made `AbortSignal` so the clock
+   * starts immediately before the AI call rather than when the route builds
+   * these options: the slot/candidate-pool queries below run first and would
+   * otherwise eat the budget the number is sized for. The route still owns the
+   * number, so it stays in the same file as the `maxDuration` it has to fit
+   * under. See `src/app/api/meal-plans/generate/route.ts`.
+   */
+  aiBudgetMs?: number
 }
 
 /**

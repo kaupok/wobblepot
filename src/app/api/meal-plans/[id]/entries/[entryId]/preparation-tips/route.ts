@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
+import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
@@ -330,7 +331,10 @@ async function handlePOST(
       )
     }
 
-    if (error instanceof Error && error.name === 'TimeoutError') {
+    // Same two-name check as the other AI routes: a budget that fires during
+    // ai@7's retry sleep surfaces as `AbortError`, not `TimeoutError`, and
+    // would otherwise fall through to the 500 below (HON-694).
+    if (isAiBudgetTimeout(error)) {
       return NextResponse.json({ error: 'Request timed out. Please try again.' }, { status: 504 })
     }
 

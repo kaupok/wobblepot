@@ -1,7 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
-import { errorGenerateHandlers, slowGenerateHandlers } from '@/stories/msw-handlers'
+import {
+  errorGenerateHandlers,
+  slowGenerateHandlers,
+  timeoutGenerateHandlers,
+} from '@/stories/msw-handlers'
 import { FirstTimeSetup } from './FirstTimeSetup'
 
 const meta = {
@@ -64,6 +68,26 @@ export const Error: Story = {
     await userEvent.click(canvas.getByRole('button', { name: /^generate meal plan$/i }))
     await waitFor(() =>
       expect(canvas.getByText(/generation failed\. please try again/i)).toBeVisible(),
+    )
+  },
+}
+
+export const TimedOut: Story = {
+  args: { userName: 'Alex' },
+  parameters: {
+    msw: { handlers: timeoutGenerateHandlers },
+    docs: {
+      description: {
+        story:
+          '504 response — the server gave up inside its own AI budget (HON-694). The component shows the localized timeout copy, not the English message the route sent.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('button', { name: /^generate meal plan$/i }))
+    await waitFor(() =>
+      expect(canvas.getByText(/generation timed out\. please try again/i)).toBeVisible(),
     )
   },
 }

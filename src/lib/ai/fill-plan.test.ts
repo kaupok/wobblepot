@@ -286,6 +286,63 @@ describe('fillEmptySlots', () => {
     expect(onAiUsage).toHaveBeenCalledWith(expectedUsageStats(PLANNING_MODEL))
   })
 
+  it('leaves generateObject unbounded when no budget is given (HON-694)', async () => {
+    mockMealPlanFindUnique.mockResolvedValueOnce({
+      id: 'plan-1',
+      householdId: 'household-1',
+      entries: [
+        entry('2026-01-12', 'dinner', 'meal-1'),
+        entry('2026-01-13', 'dinner', 'meal-2'),
+        entry('2026-01-14', 'dinner', 'meal-3'),
+        entry('2026-01-15', 'dinner', 'meal-4'),
+        entry('2026-01-16', 'dinner', 'meal-5'),
+        entry('2026-01-17', 'dinner', 'meal-6'),
+      ],
+    } as never)
+    mockGetCandidates.mockResolvedValue([createCandidate({ id: 'meal-new' })])
+    mockGenerateObject.mockResolvedValue({
+      object: { entries: [] },
+      usage: USAGE_FIXTURE,
+    } as never)
+    mockMealFindMany.mockResolvedValue([] as never)
+
+    await expect(fillEmptySlots(fillOptions)).rejects.toThrow()
+
+    expect(mockGenerateObject).toHaveBeenCalledWith(
+      expect.objectContaining({ abortSignal: undefined }),
+    )
+  })
+
+  it('turns the caller-supplied budget into a live abort signal (HON-694)', async () => {
+    mockMealPlanFindUnique.mockResolvedValueOnce({
+      id: 'plan-1',
+      householdId: 'household-1',
+      entries: [
+        entry('2026-01-12', 'dinner', 'meal-1'),
+        entry('2026-01-13', 'dinner', 'meal-2'),
+        entry('2026-01-14', 'dinner', 'meal-3'),
+        entry('2026-01-15', 'dinner', 'meal-4'),
+        entry('2026-01-16', 'dinner', 'meal-5'),
+        entry('2026-01-17', 'dinner', 'meal-6'),
+      ],
+    } as never)
+    mockGetCandidates.mockResolvedValue([createCandidate({ id: 'meal-new' })])
+    mockGenerateObject.mockResolvedValue({
+      object: { entries: [] },
+      usage: USAGE_FIXTURE,
+    } as never)
+    mockMealFindMany.mockResolvedValue([] as never)
+    // The empty entry list makes this reject downstream; the AI call has
+    // already happened by then, which is what this asserts on.
+    await expect(fillEmptySlots({ ...fillOptions, aiBudgetMs: 40_000 })).rejects.toThrow()
+
+    // The route owns the budget; if it stops arriving here the AI call is
+    // unbounded again and the platform kills the function before the 504.
+    expect(mockGenerateObject).toHaveBeenCalledWith(
+      expect.objectContaining({ abortSignal: expect.any(AbortSignal) }),
+    )
+  })
+
   it('reports the billed usage with success: false when generateObject throws NoObjectGeneratedError', async () => {
     mockMealPlanFindUnique.mockResolvedValueOnce({
       id: 'plan-1',

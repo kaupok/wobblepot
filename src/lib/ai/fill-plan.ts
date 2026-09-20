@@ -44,6 +44,7 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     weekdayMealTypes,
     weekendMealTypes,
     onAiUsage,
+    aiBudgetMs,
   } = options
 
   // Fetch existing plan with entries
@@ -176,11 +177,21 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
 
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
 
+  // Started here, not when the route built its options: every query above —
+  // the slot/kept-entry reads, the parallel history/favourite/pantry fetch and
+  // `loadCandidatePools` — runs first, and a signal created earlier would
+  // spend the AI budget on them. See `aiBudgetMs` in `./types`.
+  const abortSignal = aiBudgetMs === undefined ? undefined : AbortSignal.timeout(aiBudgetMs)
+
   const result = await withUsageOnFailure(PLANNING_MODEL, onAiUsage, () =>
     generateObject({
       model: anthropic(PLANNING_MODEL),
       schema: MealPlanResponseSchema,
       prompt,
+      // Wall-clock budget owned by `/api/meal-plans/generate` — shared by this
+      // attempt and every retry, not a per-attempt timeout. Undefined only in
+      // tests and other direct callers, which is the pre-HON-694 behaviour.
+      abortSignal,
     }),
   )
 
