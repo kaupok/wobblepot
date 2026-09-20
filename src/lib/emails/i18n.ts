@@ -66,13 +66,19 @@ function withFallback(
  * Note the limit: a key that is *present* but whose ICU syntax is malformed
  * still renders the key path, because next-intl only falls back on a missing
  * message, not on a parse error.
+ *
+ * `?? {}` covers a catalog with no `emails` key at all — the likeliest shape
+ * when a new locale's catalog first lands. This runs at module scope, and
+ * `i18n.ts` is in the static import graph of `reset-password.ts` → `auth.ts`,
+ * so throwing here would fail Better Auth initialisation and 500 every auth
+ * route rather than degrading to English.
  */
 const EMAIL_MESSAGES = (Object.keys(CATALOGUES) as Locale[]).reduce(
   (accumulator, locale) => {
     accumulator[locale] = {
       emails: withFallback(
-        CATALOGUES[DEFAULT_LOCALE].emails as Record<string, unknown>,
-        CATALOGUES[locale].emails as Record<string, unknown>,
+        (CATALOGUES[DEFAULT_LOCALE].emails as Record<string, unknown> | undefined) ?? {},
+        (CATALOGUES[locale].emails as Record<string, unknown> | undefined) ?? {},
       ),
     }
     return accumulator

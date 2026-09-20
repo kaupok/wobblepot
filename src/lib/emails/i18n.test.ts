@@ -49,6 +49,27 @@ describe('emailTranslator', () => {
     }
   })
 
+  it('falls back to English wholesale when a catalog has no emails namespace', async () => {
+    // The likeliest shape when a new locale's catalog first lands. This is
+    // built at module scope and `i18n.ts` is in `auth.ts`'s static import
+    // graph, so throwing here would 500 every Better Auth route instead of
+    // degrading to English — the behaviour `docs/LOCALIZATION.md` promises.
+    const withoutEmails = structuredClone(etMessages)
+    delete (withoutEmails as Partial<typeof etMessages>).emails
+
+    vi.resetModules()
+    vi.doMock('../../../messages/et.json', () => ({ default: withoutEmails }))
+
+    const { emailTranslator: translatorWithoutNamespace } = await import('./i18n')
+    const t = translatorWithoutNamespace('et', 'resetPassword')
+
+    expect(t('cta')).toBe(enMessages.emails.resetPassword.cta)
+    expect(t('heading')).toBe(enMessages.emails.resetPassword.heading)
+
+    vi.doUnmock('../../../messages/et.json')
+    vi.resetModules()
+  })
+
   it('falls back to English for a key a locale catalog is missing', async () => {
     // Stub an `et` catalog with one key removed, then re-import the module so
     // the overlay is rebuilt against it.
