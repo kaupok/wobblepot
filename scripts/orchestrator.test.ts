@@ -3722,10 +3722,13 @@ describe('orchestrator.sh', () => {
   })
 
   describe('wt watch rules are valid UTF-8 in any locale', () => {
-    // `tr ' ' '─'` is byte-oriented outside a UTF-8 locale: it maps the space to
-    // the FIRST BYTE of ─ only, so every pane rule and worker separator became a
-    // run of lone 0xE2 lead bytes. tr is a child process, so the fix has to reach
-    // it through the environment, not a shell local.
+    // The rule used to be drawn with `tr ' ' '─'`, which is byte-oriented: BSD tr
+    // honours a UTF-8 locale, but GNU tr has NO multi-byte support at all, so the
+    // same code drew a clean rule on macOS and a row of U+FFFD on Linux CI — this
+    // test is what caught that. It is now built by slicing a repeated string, so
+    // no tr is involved on any platform. A machine offering no UTF-8 locale falls
+    // back to ASCII rather than emitting replacement characters, so either unit is
+    // accepted as long as the rule is uniform and exactly the requested width.
     const head = (locale: string, label: string, width: number) =>
       runHarnessEnv({ LC_ALL: locale }, 'watch-pane-head', label, String(width)).trim().slice(1, -1)
 
@@ -3738,7 +3741,10 @@ describe('orchestrator.sh', () => {
         // A lone lead byte would not survive the round trip through UTF-8.
         expect(Buffer.from(rule, 'utf8').toString('utf8')).toBe(rule)
         expect(rule).not.toContain('�')
-        expect(rule.endsWith('─')).toBe(true)
+        expect(rule).toMatch(/[─-]$/)
+        // One unit throughout: a mix would mean a slice landed mid-character.
+        const unit = rule.slice(-1)
+        expect(rule.endsWith(unit.repeat(8))).toBe(true)
       },
     )
   })

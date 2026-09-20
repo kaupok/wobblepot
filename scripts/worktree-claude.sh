@@ -1832,9 +1832,40 @@ cmd_logs() {
 # already UTF-8 and is left alone; only a non-UTF-8 caller pays one `locale -a`,
 # and an empty result means the machine has no UTF-8 locale to switch to.
 case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
-  *[Uu][Tt][Ff]8* | *[Uu][Tt][Ff]-8*) WT_WIDTH_LOCALE="" ;;
-  *) WT_WIDTH_LOCALE="$(locale -a 2>/dev/null | grep -iE '^(C|en_US)\.utf-?8$' | head -1)" ;;
+  *[Uu][Tt][Ff]8* | *[Uu][Tt][Ff]-8*) WT_WIDTH_LOCALE=""; WT_WIDE_GLYPHS=1 ;;
+  *)
+    WT_WIDTH_LOCALE="$(locale -a 2>/dev/null | grep -iE '^(C|en_US)\.utf-?8$' | head -1)"
+    # An empty WT_WIDTH_LOCALE is ambiguous on its own — it means either "the
+    # caller is already UTF-8" or "this machine has no UTF-8 locale at all", and
+    # only the second must stop us drawing multi-byte glyphs.
+    if [ -n "$WT_WIDTH_LOCALE" ]; then WT_WIDE_GLYPHS=1; else WT_WIDE_GLYPHS=0; fi
+    ;;
 esac
+
+# A horizontal rule of <width> characters.
+#
+# Built by slicing a repeated string rather than with `tr ' ' '─'`, because tr is
+# byte-oriented: BSD tr honours a UTF-8 locale, but GNU tr has no multi-byte
+# support at all, so on Linux every rule came out as a row of U+FFFD no matter
+# what the locale said. Pure parameter expansion has no such split, and pinning
+# the locale locally is enough because no child process is involved.
+#
+# Falls back to ASCII when the machine offers no UTF-8 locale: a clean-looking
+# rule beats a row of replacement characters.
+#
+# Usage: watch_rule <width>
+watch_rule() {
+  local n="$1"
+  [ "$n" -le 0 ] && { printf ''; return; }
+  local LC_ALL="${WT_WIDTH_LOCALE:-${LC_ALL:-}}"
+  local unit="─"
+  [ "${WT_WIDE_GLYPHS:-1}" = "1" ] || unit="-"
+  local chunk="$unit$unit$unit$unit$unit$unit$unit$unit"
+  chunk="$chunk$chunk$chunk$chunk"   # 32 units
+  local out=""
+  while [ "${#out}" -lt "$n" ]; do out+="$chunk"; done
+  printf '%s' "${out:0:n}"
+}
 
 # Truncate a string to a display width, marking the cut with an ellipsis.
 # A width under 2 degenerates to a hard cut, because "…" would be all there is.
@@ -2216,18 +2247,9 @@ watch_landed_probe() {
 
 # "── LABEL ─────────" to a given width.
 #
-# The locale is set as a command prefix rather than a shell local because `tr` is
-# a child process: it reads the environment, and a `local LC_ALL` never reaches
-# it. Byte-oriented `tr` maps the space to the first byte of `─` alone, so under
-# LC_ALL=C every rule came out as a run of lone 0xE2 lead bytes — invalid UTF-8.
-# Prefixing here keeps the helper correct when called outside cmd_watch, which is
-# also what lets a test assert it.
 watch_pane_head() {
   local label="$1" width="$2" dashes="" used=$(( ${#1} + 4 ))
-  if [ "$width" -gt "$used" ]; then
-    dashes=$(LC_ALL="${WT_WIDTH_LOCALE:-${LC_ALL:-}}" \
-      printf '%*s' $(( width - used )) '' | LC_ALL="${WT_WIDTH_LOCALE:-${LC_ALL:-}}" tr ' ' '─')
-  fi
+  [ "$width" -gt "$used" ] && dashes=$(watch_rule $(( width - used )))
   printf '── %s %s' "$label" "$dashes"
 }
 
@@ -2243,12 +2265,11 @@ watch_pane_head() {
 # for twenty minutes was green. All of that was already on disk (orchestrator.log
 # and the status file) or one gh call away; none of it was rendered.
 cmd_watch() {
-  # One locale for the entire render, exported rather than local: `tr`, `awk` and
-  # `jq` are child processes and read the environment, not shell variables, and
-  # the rules are drawn with `tr ' ' '─'` — byte-oriented under LC_ALL=C, where
-  # it emits a lone 0xE2 lead byte per character and every pane rule and worker
-  # separator becomes invalid UTF-8. This also brings the pane-padding
-  # arithmetic (`${#l_plain[…]}`) under the same guard as watch_pad's own.
+  # One locale for the entire render, exported rather than local: `awk` and `jq`
+  # are child processes and read the environment, not shell variables. It also
+  # brings the pane-padding arithmetic (`${#l_plain[…]}`) under the same guard as
+  # watch_pad's own, which is what kept the two panes aligned on a row holding a
+  # multi-byte `·`.
   [ -n "${WT_WIDTH_LOCALE:-}" ] && export LC_ALL="$WT_WIDTH_LOCALE"
 
   local interval="${1:-5}"
@@ -2735,7 +2756,7 @@ cmd_watch() {
         # budget or a marked separator runs past the terminal edge.
         local used=$(( ${#head_text} + 6 )) dashes=""
         [ -n "$changed" ] && used=$(( used + 2 ))
-        [ "$term_cols" -gt "$used" ] && dashes=$(printf '%*s' $(( term_cols - used )) '' | tr ' ' '-' | tr '-' '─')
+        [ "$term_cols" -gt "$used" ] && dashes=$(watch_rule $(( term_cols - used )))
         buf+="${DIM}─── ${NC}${head_text}${changed}${DIM} ${dashes}${NC}\n"
 
         if [ -n "$log_output" ]; then
