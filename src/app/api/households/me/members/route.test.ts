@@ -24,6 +24,9 @@ vi.mock('@/lib/prisma', () => ({
     memberPreferences: {
       create: vi.fn(),
     },
+    mealPlanEntry: {
+      updateMany: vi.fn(),
+    },
     $transaction: vi.fn(),
     user: {
       findUnique: vi.fn(),
@@ -33,11 +36,36 @@ vi.mock('@/lib/prisma', () => ({
 
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
 const mockFindMany = vi.mocked(prisma.householdMember.findMany)
 const mockTransaction = vi.mocked(prisma.$transaction)
+const mockEntryUpdateMany = vi.mocked(prisma.mealPlanEntry.updateMany)
+
+/**
+ * Run the member-add transaction against spies the assertions below can read.
+ * `mealPlanEntry.updateMany` is the same spy as `mockEntryUpdateMany`, so a
+ * test can assert that adding a member cleared the household's cached prep tips
+ * inside the same transaction as the membership write (HON-684).
+ */
+const mockMemberTransaction = (createdMember: unknown) => {
+  const tx = {
+    householdMember: {
+      create: vi.fn().mockResolvedValue({ id: 'member-new' }),
+      findUnique: vi.fn().mockResolvedValue(createdMember),
+    },
+    memberPreferences: {
+      create: vi.fn().mockResolvedValue({}),
+    },
+    mealPlanEntry: {
+      updateMany: mockEntryUpdateMany,
+    },
+  }
+  mockTransaction.mockImplementation(async (fn) => (fn as (tx: unknown) => never)(tx))
+  return tx
+}
 
 describe('GET /api/households/me/members', () => {
   beforeEach(() => {
@@ -374,19 +402,7 @@ describe('POST /api/households/me/members', () => {
       },
     }
 
-    mockTransaction.mockImplementation(async (fn) => {
-      // Simulate transaction with mock tx
-      const tx = {
-        householdMember: {
-          create: vi.fn().mockResolvedValue({ id: 'member-new' }),
-          findUnique: vi.fn().mockResolvedValue(createdMember),
-        },
-        memberPreferences: {
-          create: vi.fn().mockResolvedValue({}),
-        },
-      }
-      return fn(tx as never)
-    })
+    mockMemberTransaction(createdMember)
 
     const request = new Request('http://localhost/api/households/me/members', {
       method: 'POST',
@@ -410,5 +426,96 @@ describe('POST /api/households/me/members', () => {
     expect(data.role).toBe('member')
     expect(data.preferences.allergens).toEqual(['nuts'])
     expect(data.preferences.portionMultiplier).toBe(0.5)
+  })
+
+  // The new member raises the household's size, which prices the cached
+  // prep-tips prompt on every entry without a `servingOverride` (HON-684).
+  it('clears cached preparation tips on the household future entries', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    mockFindFirst.mockResolvedValue({
+      id: 'member-123',
+      householdId: 'household-123',
+      userId: 'user-123',
+      role: 'owner',
+      household: {
+        id: 'household-123',
+        name: 'Test Household',
+        timezone: 'Europe/Tallinn',
+        preferences: null,
+      },
+    } as never)
+
+    mockMemberTransaction({
+      id: 'member-new',
+      householdId: 'household-123',
+      userId: null,
+      name: 'Test Child',
+      role: 'member',
+      joinedAt: new Date(),
+      preferences: null,
+    })
+
+    const request = new Request('http://localhost/api/households/me/members', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Test Child' }),
+    })
+
+    const response = await POST(request)
+
+    expect(response.status).toBe(201)
+    // Inside the same transaction as the membership write, so a failed write
+    // leaves neither the new member nor an emptied cache behind.
+    expect(mockTransaction).toHaveBeenCalledTimes(1)
+    expect(mockEntryUpdateMany).toHaveBeenCalledTimes(1)
+    expect(mockEntryUpdateMany).toHaveBeenCalledWith({
+      where: {
+        plan: { householdId: 'household-123' },
+        // An entry with an override was priced from the override, not from the
+        // member count, and an entry already in the past is never read again.
+        servingOverride: null,
+        preparationTips: { not: null },
+        status: { not: 'completed' },
+        date: { gte: getStartOfTodayInTimezone('Europe/Tallinn') },
+      },
+      data: { preparationTips: null },
+    })
+  })
+
+  it.each([
+    ['a non-owner is rejected', { role: 'member', userId: 'user-456' }, { name: 'Test Child' }],
+    ['the body fails validation', { role: 'owner', userId: 'user-123' }, { name: '' }],
+  ])('leaves preparation tips alone when %s', async (_case, membership, body) => {
+    mockGetSession.mockResolvedValue({
+      user: { id: membership.userId, name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    mockFindFirst.mockResolvedValue({
+      id: 'member-123',
+      householdId: 'household-123',
+      userId: membership.userId,
+      role: membership.role,
+      household: {
+        id: 'household-123',
+        name: 'Test Household',
+        timezone: 'Europe/Tallinn',
+        preferences: null,
+      },
+    } as never)
+
+    const request = new Request('http://localhost/api/households/me/members', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+
+    const response = await POST(request)
+
+    expect(response.status).toBeGreaterThanOrEqual(400)
+    expect(mockTransaction).not.toHaveBeenCalled()
+    expect(mockEntryUpdateMany).not.toHaveBeenCalled()
   })
 })

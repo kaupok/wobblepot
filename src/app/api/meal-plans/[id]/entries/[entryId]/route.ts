@@ -277,6 +277,20 @@ export async function PATCH(
 
     if (parsed.data.status) {
       updateData.status = parsed.data.status as MealPlanEntryStatus
+
+      // Leaving `completed` re-opens an entry the membership invalidation
+      // deliberately skipped: `invalidateFutureEntryTips` carries
+      // `status: { not: 'completed' }` because nulling the tips on a dinner
+      // already eaten only buys a paid regeneration nobody reads (HON-684).
+      // That trade holds only while the entry stays completed. Come back to a
+      // cookable status and the cached tips may be priced at a member count the
+      // household no longer has, with nothing left to clear them — the next
+      // membership change is the rare event this whole invalidation is about.
+      // So drop them on the way out of `completed`, the same shape as the swap
+      // and `servingOverride` writers below.
+      if (entry.status === MealPlanEntryStatus.completed && parsed.data.status !== 'completed') {
+        updateData.preparationTips = null
+      }
     }
 
     // Components of the meal this request swaps to, if it swaps at all. The

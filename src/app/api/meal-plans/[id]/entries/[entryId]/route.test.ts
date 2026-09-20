@@ -1502,6 +1502,79 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - servings on a completed
     )
   })
 
+  // `invalidateFutureEntryTips` carries `status: { not: 'completed' }`, so a
+  // membership change deliberately leaves a completed entry's tips alone —
+  // nulling a dinner already eaten would only buy a paid regeneration. That
+  // trade holds only while the entry stays completed, so leaving `completed`
+  // has to drop them, or the entry comes back priced at a member count the
+  // household no longer has with nothing left to clear it (HON-684).
+  it.each(['planned', 'skipped'])(
+    'clears cached preparation tips when a completed entry reverts to %s',
+    async (status) => {
+      entryWith('completed', null)
+      mockUpdateEntry.mockResolvedValue({
+        id: 'entry-123',
+        status,
+        mealId: 'meal-123',
+        rating: null,
+      } as never)
+
+      const response = await PATCH(createPatchRequest({ status }), {
+        params: createParams(),
+      })
+
+      expect(response.status).toBe(200)
+      expect(mockUpdateEntry).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { status, preparationTips: null },
+        }),
+      )
+    },
+  )
+
+  it('keeps cached preparation tips when a completed entry is re-completed', async () => {
+    // Resending the stored status changes no input to the tips, and the entry
+    // never becomes cookable again, so throwing them away costs a regeneration
+    // for nothing.
+    entryWith('completed', null)
+    mockUpdateEntry.mockResolvedValue({
+      id: 'entry-123',
+      status: 'completed',
+      mealId: 'meal-123',
+      rating: null,
+    } as never)
+
+    const response = await PATCH(createPatchRequest({ status: 'completed' }), {
+      params: createParams(),
+    })
+
+    expect(response.status).toBe(200)
+    expect(mockUpdateEntry).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'completed' } }),
+    )
+  })
+
+  it('keeps cached preparation tips when a planned entry is skipped', async () => {
+    // The membership invalidation already reaches a skipped entry
+    // (`not: 'completed'`), so there is nothing to defer to this transition.
+    entryWith('planned', null)
+    mockUpdateEntry.mockResolvedValue({
+      id: 'entry-123',
+      status: 'skipped',
+      mealId: 'meal-123',
+      rating: null,
+    } as never)
+
+    const response = await PATCH(createPatchRequest({ status: 'skipped' }), {
+      params: createParams(),
+    })
+
+    expect(response.status).toBe(200)
+    expect(mockUpdateEntry).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'skipped' } }),
+    )
+  })
+
   it('keeps cached preparation tips on a note-only PATCH', async () => {
     entryWith('planned', 4)
     mockUpdateEntry.mockResolvedValue({
