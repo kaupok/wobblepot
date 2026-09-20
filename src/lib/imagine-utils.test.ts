@@ -343,14 +343,28 @@ describe('reviewImaginedMeal', () => {
     )
   })
 
-  it('does not treat a JSON array body as the route answering', async () => {
-    // The discriminator is a parse, not a `startsWith('{')` sniff — but a bare
-    // array is still JSON, so it must not be reported as a platform failure.
+  it("reports a JSON body that is not the route's error shape", async () => {
+    // Vercel's own errors nest an object under `error`. If a platform timeout
+    // ever arrives as JSON rather than as the HTML page, it must still report —
+    // this is what keeps the fix independent of the platform's body format.
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: { code: 'FUNCTION_INVOCATION_TIMEOUT' } }), {
+        status: 504,
+      }),
+    )
+
+    await reviewImaginedMeal(reviewableMeal())
+
+    expect(mockCaptureClientError).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not treat a bare JSON array body as the route answering', async () => {
     global.fetch = vi.fn().mockResolvedValue(new Response('[]', { status: 502 }))
 
     await reviewImaginedMeal(reviewableMeal())
 
-    expect(mockCaptureClientError).not.toHaveBeenCalled()
+    // No string `error`, so it is not the route's shape — reported, not dropped.
+    expect(mockCaptureClientError).toHaveBeenCalledTimes(1)
   })
 
   it('degrades without reporting when the route answers 504', async () => {

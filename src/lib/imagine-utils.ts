@@ -156,14 +156,22 @@ const REVIEW_TIMEOUT_MS = 65000
 
 /**
  * Did this body come from the route handler rather than from something upstream
- * of it? Every response the route writes is `NextResponse.json`, so a parse is
- * the discriminator — not a `startsWith('{')` sniff, which an HTML error page
- * could satisfy and a JSON array could fail.
+ * of it? Every non-ok answer the route writes is `NextResponse.json` with a
+ * **string** `error` — 401, 404, the cap-exceeded 429, both 400s, the 504 and
+ * the 500 (`review/route.ts`, and `respondCapExceeded` in `ai/usage.ts`).
+ *
+ * Matching that shape rather than merely "parses as JSON" is what makes this
+ * independent of the platform's body format. Vercel's own errors are
+ * `{ error: { code, message } }` — an *object* under `error` — so a
+ * `FUNCTION_INVOCATION_TIMEOUT` is still reported even if it arrives as JSON
+ * rather than as the HTML error page. A `startsWith('{')` sniff would have been
+ * fooled by both.
  */
 function isRouteJsonBody(body: string): boolean {
   try {
     const parsed: unknown = JSON.parse(body)
-    return typeof parsed === 'object' && parsed !== null
+    if (typeof parsed !== 'object' || parsed === null) return false
+    return typeof (parsed as { error?: unknown }).error === 'string'
   } catch {
     return false
   }
