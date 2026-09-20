@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Prisma } from '@/generated/prisma/client'
 import { POST } from './route'
 
@@ -36,6 +36,11 @@ const mockCaptureApiError = vi.mocked(captureApiError)
 describe('POST /api/households', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    // No-op unless a test installed fake timers for the retry backoff.
+    vi.useRealTimers()
   })
 
   it('returns 401 when not authenticated', async () => {
@@ -128,6 +133,10 @@ describe('POST /api/households', () => {
   })
 
   it('answers a persistent serialization failure with a reported JSON 500', async () => {
+    // This is the one test here that exhausts `runHouseholdClaim`'s retry
+    // budget, so it is the one that would otherwise sit through both real
+    // backoff waits. `afterEach` restores real timers.
+    vi.useFakeTimers()
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
       session: { id: 'session-123' },
@@ -144,7 +153,9 @@ describe('POST /api/households', () => {
       body: JSON.stringify({ name: 'My Household' }),
     })
 
-    const response = await POST(request)
+    const responsePromise = POST(request)
+    await vi.runAllTimersAsync()
+    const response = await responsePromise
     const data = await response.json()
 
     // Rethrowing would let Next render an HTML error page, and

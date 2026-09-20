@@ -62,9 +62,23 @@ export const MAX_CLAIM_ATTEMPTS = 3
 const RETRY_BASE_DELAY_MS = 50
 
 /**
+ * Ceiling on the jitter window. The doubling is there to spread a *repeated*
+ * conflict, not to accumulate latency, and decorrelation comes from the jitter
+ * — which a capped window still provides in full.
+ *
+ * Without it the worst case would be a property of this comment rather than of
+ * the code: raising {@link MAX_CLAIM_ATTEMPTS} — the change that makes either
+ * half of this file matter — would silently multiply the tail latency of a
+ * user-facing onboarding POST, reaching a `[0, 1600)` ms final window at 7
+ * attempts. Capped, each further attempt adds at most 400 ms.
+ */
+const MAX_RETRY_DELAY_MS = 400
+
+/**
  * Full jitter: the wait before attempt `attempt + 1` is uniform over
- * `[0, RETRY_BASE_DELAY_MS * 2 ** (attempt - 1))` — `[0, 50)` ms, then
- * `[0, 100)` ms.
+ * `[0, min(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1), MAX_RETRY_DELAY_MS))` —
+ * `[0, 50)` ms, then `[0, 100)` ms at today's budget, and never past
+ * `[0, 400)`.
  *
  * Jitter is the load-bearing part, not the growth. Two transactions that lose
  * to each other and then wait the *same* fixed delay retry in lockstep and
@@ -77,7 +91,7 @@ const RETRY_BASE_DELAY_MS = 50
  * conflict to clear rather than burning inside a single contention window.
  */
 function backoffDelayMs(attempt: number): number {
-  return Math.random() * RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)
+  return Math.random() * Math.min(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1), MAX_RETRY_DELAY_MS)
 }
 
 function sleep(ms: number): Promise<void> {
@@ -104,7 +118,9 @@ function isSerializationFailure(error: unknown): boolean {
  * ms, so an exhausted budget adds strictly under 150 ms of waiting before the
  * `P2034` is rethrown — on top of the three attempts' own runtime, which
  * Prisma caps at 5 s each. Both callsites are user-facing POSTs on the
- * onboarding path, where 150 ms is invisible.
+ * onboarding path, where 150 ms is invisible. {@link MAX_RETRY_DELAY_MS} keeps
+ * that arithmetic bounded if the budget is ever raised: every attempt past the
+ * fourth adds at most 400 ms rather than doubling.
  */
 export async function runHouseholdClaim<T>(
   claim: (tx: Prisma.TransactionClient) => Promise<T>,
