@@ -48,9 +48,14 @@ const AI_BUDGET_MS = 40_000
  * Failure body for this route: English prose for logs and Sentry breadcrumbs,
  * plus the machine-readable `code` the clients translate (HON-700). Every
  * error response below goes through here so no branch can ship without one.
+ *
+ * `success: false` mirrors `/api/recipes/parse` and the `success: true` this
+ * route already sends on the happy path. Both clients test
+ * `!response.ok || !data.success`, so they read it — and the shape the two AI
+ * routes hand those clients should not differ by route.
  */
 function errorBody(error: string, code: ImagineErrorCode) {
-  return { error, code }
+  return { success: false as const, error, code }
 }
 
 async function handlePOST(request: Request) {

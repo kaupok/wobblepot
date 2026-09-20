@@ -110,6 +110,34 @@ describe('ImagineClient error localization', () => {
     )
   })
 
+  it('logs `message` too, where the 429 branches keep their detail', async () => {
+    // On both 429s `error` is a bare label ('Rate limit exceeded', 'AI usage
+    // cap exceeded') and everything actionable — the hourly limit, the
+    // household-local reset date — is in `message`. Dropping it would make
+    // that date visible neither to the user nor in any log.
+    respondWith(
+      {
+        success: false,
+        error: 'AI usage cap exceeded',
+        code: 'ai_cap_exceeded',
+        message: "You've hit this month's AI usage cap. It resets on 2026-10-01.",
+        resetAt: '2026-10-01T00:00:00.000Z',
+      },
+      429,
+    )
+
+    await generate('et')
+
+    await screen.findByText(etMessages.recipes.imagine.errors.aiCapExceeded)
+    expect(console.error).toHaveBeenCalledWith(
+      '[imagine] request failed',
+      expect.objectContaining({
+        code: 'ai_cap_exceeded',
+        message: "You've hit this month's AI usage cap. It resets on 2026-10-01.",
+      }),
+    )
+  })
+
   it('renders the translated image-cap message, with its {max} argument filled in', async () => {
     // The only coded branch whose message takes an ICU argument — a regression
     // here renders the literal `{max}` rather than the limit.

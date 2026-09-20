@@ -242,7 +242,14 @@ export function ImagineClient() {
         // Estonian household. The route's machine-readable `code` is what
         // picks the copy; the prose is kept as a console breadcrumb only
         // (HON-700).
-        console.error('[imagine] request failed', { code: data.code, error: data.error })
+        console.error('[imagine] request failed', {
+          code: data.code,
+          // `message` carries the detail on the 429 branches — the hourly
+          // limit, and the household-local date the AI cap resets on. `error`
+          // is a bare label there.
+          message: data.message,
+          error: data.error,
+        })
         setError(
           t(`errors.${translateErrorCode(data.code, IMAGINE_ERROR_KEYS, 'generic')}`, {
             max: MAX_ATTACHED_IMAGES,

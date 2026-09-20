@@ -274,7 +274,13 @@ export function RecipeImportClient() {
         // untranslated English, which would render verbatim to an Estonian
         // household. The route's machine-readable `code` is what picks the
         // copy; the prose is kept as a console breadcrumb only (HON-700).
-        console.error('[recipe-import] request failed', { code: data.code, error: data.error })
+        console.error('[recipe-import] request failed', {
+          code: data.code,
+          // `message` carries the detail on the 429 and 503 branches — the
+          // hourly limit, the AI-cap reset date, the kill-switch note.
+          message: data.message,
+          error: data.error,
+        })
         setError(
           t(`errors.${translateErrorCode(data.code, RECIPE_IMPORT_ERROR_KEYS, 'parseFailed')}`),
         )
