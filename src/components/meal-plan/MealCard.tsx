@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { MoreHorizontal, NotebookPen, Repeat, X } from 'lucide-react'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
@@ -25,6 +25,7 @@ import { NoteEditor } from './NoteEditor'
 import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
 import type { EntryRating, MealData, PantryIngredient, PantryItemFull } from './types'
 import type { MealType } from '@/generated/prisma/enums'
+import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import { track } from '@/lib/analytics'
 
 interface MealCardProps {
@@ -62,7 +63,7 @@ export function MealCard({
   pantryDeducted = false,
 }: MealCardProps) {
   const router = useRouter()
-  const queryClient = useQueryClient()
+  const dropSuggestionCache = useDropPlanSuggestions(planId)
   const tCard = useTranslations('meal-plan.card')
   const [status, setStatus] = useState<MealStatus>(initialStatus)
   const [rating, setRating] = useState<EntryRating | null>(initialRating ?? null)
@@ -84,27 +85,6 @@ export function MealCard({
   const hasServingOverride = servingOverride !== null && servingOverride !== householdSize
 
   const detailModalRef = useRef<MealDetailModalHandle>(null)
-
-  // The swap selector is rendered unconditionally too, so its
-  // `['meal-suggestions', planId, entryId, mode]` observer stays subscribed at
-  // `staleTime: Infinity`, and its own `reset()` on close clears only the
-  // search and my-recipes keys. Nothing else drops it.
-  //
-  // Scoped to the whole plan, not to this entry: both suggestion routes filter
-  // candidates through `recentMealIds` — every meal the household has planned
-  // within `NO_REPEAT_DAYS`, excluded by `candidates.ts:128` — which any entry
-  // gaining or losing a meal changes for every *other* entry in the plan. Every
-  // card shares one `QueryClient`, so a per-entry removal would leave Tuesday's
-  // cached list still offering the meal just planned for Monday, and picking it
-  // would plan the same dinner twice in one week.
-  //
-  // Refetching is a Prisma query and a scoring pass, not a model call — both
-  // routes only touch AI through `assertUnderCap`. So over-removing is cheap;
-  // it is the plain cancel path in `reset()`, which changes no meal at all,
-  // that has no reason to pay for it.
-  const dropSuggestionCache = useCallback(() => {
-    queryClient.removeQueries({ queryKey: ['meal-suggestions', planId] })
-  }, [queryClient, planId])
 
   // The PATCH that repoints this entry also nulls its cached `preparationTips`
   // and resets its `servingOverride` server-side (the swap branch of
