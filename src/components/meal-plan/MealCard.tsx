@@ -96,19 +96,35 @@ export function MealCard({
   // count and the modal replays the old meal's tips until a full reload
   // (HON-682).
   //
+  // Only when the meal actually changed, mirroring the server: search and "my
+  // recipes" browse list the dish already on the entry (only `/regenerate`
+  // filters it out), so a selection is not necessarily a swap, and the server
+  // resets nothing on a re-send of the same `mealId` (HON-703). Resetting
+  // anyway would drop a deliberate serving override the row still holds and
+  // throw away tips the row still holds, with `router.refresh()` unable to
+  // reseed either — the card would disagree with the database for the rest of
+  // the session.
+  //
   // Deliberately not `key={meal?.id}` on the modal: remounting would also
   // discard whatever is unsaved in `NoteEditor`'s local draft, and a swap does
   // not clear the entry's note server-side, so that text is still wanted.
   //
   // Shared with the empty-slot callsite below, which renders no detail modal —
   // the optional call no-ops there — but does run the same server-side reset
-  // when a meal is assigned, so the override still has to be dropped.
-  const handleSwapComplete = useCallback(() => {
-    setServingOverride(null)
-    detailModalRef.current?.resetForSwap()
-    dropSuggestionCache()
-    router.refresh()
-  }, [router, dropSuggestionCache])
+  // when a meal is assigned, so the override still has to be dropped. `meal`
+  // is null there, so the change test always passes, which is right: filling
+  // an empty slot is always a change.
+  const handleSwapComplete = useCallback(
+    (selectedMealId: string) => {
+      if (selectedMealId !== meal?.id) {
+        setServingOverride(null)
+        detailModalRef.current?.resetForSwap()
+        dropSuggestionCache()
+      }
+      router.refresh()
+    },
+    [router, dropSuggestionCache, meal?.id],
+  )
 
   const availability = useMemo(() => {
     if (!meal) return null

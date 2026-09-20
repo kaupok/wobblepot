@@ -256,6 +256,119 @@ export const SwapDropsCachedTips: Story = {
 // refetch after the first card swaps.
 const planSuggestionRequests: Record<string, number> = {}
 
+// POSTs served while re-selecting the meal already on the entry.
+let reselectTipsRequests = 0
+
+/**
+ * Selecting a meal is not necessarily a *swap*. `/regenerate` filters the
+ * planned meal out of its suggestions, but search and "my recipes" browse go
+ * to `/api/meals` unfiltered (`meal-selector/use-meal-alternatives.ts`), so the
+ * dish already on the entry is listed there and can be clicked —
+ * `MealSelectorModal.handleSelect` PATCHes whatever row was selected.
+ *
+ * That write changes nothing, and the server treats it as nothing: the three
+ * resets in the swap branch are gated on `parsed.data.mealId !== entry.mealId`,
+ * so `servingOverride`, `preparationTips` and `rating` all survive (HON-703).
+ * The card has to draw the same line — it resets its own copies in
+ * `onSwapComplete`, and `router.refresh()` cannot reseed a `useState`, so an
+ * unconditional reset would leave the card showing 4 servings against a row
+ * that says 6 for the rest of the session.
+ *
+ * The counterpart to `SwapDropsCachedTips` above: same controls, same
+ * assertions, opposite expectations — which is what makes either story
+ * meaningful.
+ */
+export const ReselectingThePlannedMealResetsNothing: Story = {
+  args: {
+    meal: mealFixture,
+    status: 'planned',
+    // Household is 4, so this renders a "6 servings" badge — and the badge is
+    // the assertion, since a reset would drop it back to the household size.
+    servingOverride: 6,
+  },
+  parameters: {
+    msw: {
+      handlers: [
+        http.patch('/api/meal-plans/:planId/entries/:entryId', () =>
+          HttpResponse.json({ ok: true }),
+        ),
+        // Search does not exclude the planned meal, so it comes back with the
+        // very id the entry already holds — the whole point of the story.
+        http.get('/api/meals', () =>
+          HttpResponse.json({
+            meals: [
+              {
+                id: mealFixture.id,
+                name: mealFixture.name,
+                description: 'The dish already on this entry.',
+                timeMinutes: 45,
+                kidFriendly: true,
+                primaryProteinType: 'poultry',
+                suitableFor: [MealType.dinner],
+                components: lemonGarlicChickenComponents,
+                nutrition: { calories: 520, protein: 42, carbs: 30, fat: 28 },
+              },
+            ],
+            hasMore: false,
+            total: 1,
+          }),
+        ),
+        http.post('/api/meal-plans/:planId/entries/:entryId/regenerate', () =>
+          HttpResponse.json({ alternatives: swapAlternatives(1) }),
+        ),
+        http.post('/api/meal-plans/:planId/entries/:entryId/preparation-tips', () => {
+          reselectTipsRequests += 1
+          return HttpResponse.json({
+            tips: {
+              equipment: ['A roasting tin for the chicken'],
+              steps: ['Preheat while you prep'],
+              pitfalls: ['Crowding the pan steams instead of browning'],
+            },
+          })
+        }),
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    reselectTipsRequests = 0
+    const canvas = within(canvasElement)
+    const body = within(document.body)
+
+    // Generate tips for the planned meal, so there is something to lose.
+    await expect(canvas.getByText('6 servings')).toBeInTheDocument()
+    await userEvent.click(canvas.getByRole('button', { name: /lemon-garlic roast chicken/i }))
+    await userEvent.click(await body.findByRole('button', { name: /how to prepare/i }))
+    await body.findByText(/roasting tin/i)
+    await expect(reselectTipsRequests).toBe(1)
+
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(body.queryByRole('dialog')).not.toBeInTheDocument())
+
+    // Search for the meal already planned and select it again.
+    await openMoreActions(canvasElement)
+    await userEvent.click(await body.findByRole('menuitem', { name: /^swap$/i }))
+    const selector = await body.findByRole('dialog')
+    await userEvent.type(within(selector).getByRole('searchbox'), 'lemon')
+    // The search list offers the planned dish back — `/regenerate` would not.
+    const result = await within(selector).findByText(mealFixture.name)
+    await expect(result).toBeInTheDocument()
+    await userEvent.click(within(selector).getByRole('button', { name: /^select$/i }))
+    await waitFor(() => expect(body.queryByRole('dialog')).not.toBeInTheDocument())
+
+    // The override the household set is still on the card, matching the row
+    // the server did not touch.
+    await expect(canvas.getByText('6 servings')).toBeInTheDocument()
+
+    // And the tips were not discarded: reopening shows them still expanded,
+    // and no second POST was issued. `SwapDropsCachedTips` asserts the exact
+    // opposite pair for a real swap.
+    await userEvent.click(canvas.getByRole('button', { name: /lemon-garlic roast chicken/i }))
+    const reopened = await body.findByRole('dialog')
+    await expect(within(reopened).getByText(/roasting tin/i)).toBeInTheDocument()
+    await expect(reselectTipsRequests).toBe(1)
+  },
+}
+
 /**
  * The suggestions cache has to be dropped for the whole plan, not just the
  * entry that was swapped. Both suggestion routes filter candidates through
