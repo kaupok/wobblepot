@@ -205,18 +205,34 @@ describe('scoreJitter', () => {
     }
   })
 
-  it('never lifts a candidate past one that scored the smallest signal', () => {
-    // The smallest weight in either profile is pantryMatchPerIngredient (0.5), so that is the
-    // gap SCORE_JITTER_RANGE has to stay under. Asserting against kid-friendly's 1.0 would
-    // leave slack the invariant does not have: the range could be raised to 0.75 with this
-    // test still green while a single pantry match got reordered below no match at all.
-    const lower = scoreCandidate(meal('a'), SLOT_FIT_WEIGHTS) + scoreJitter(seed)
-    const higher =
-      scoreCandidate(meal('b', { topIngredients: [{ name: 'rice' }] }), SLOT_FIT_WEIGHTS, {
-        pantryIngredientNames: PANTRY,
-      }) + scoreJitter({ ...seed, candidateId: 'meal-2' })
+  it('is bounded by the smallest weight in either profile', () => {
+    // The whole safety argument for the jitter is that it cannot outrun one signal. The
+    // smallest weight in either profile is pantryMatchPerIngredient (0.5), so assert the
+    // constant against it directly — a single seed pair cannot, since any one pair holds for
+    // a far larger range by luck of the draw.
+    const smallestWeight = Math.min(
+      ...[SLOT_FIT_WEIGHTS, SIMILARITY_WEIGHTS].flatMap((w) =>
+        Object.values(w).filter((weight) => weight > 0),
+      ),
+    )
 
-    expect(higher).toBeGreaterThan(lower)
+    expect(SCORE_JITTER_RANGE).toBeLessThanOrEqual(smallestWeight)
+  })
+
+  it('never lifts a candidate past one that scored the smallest signal, for any seed', () => {
+    // 500 pairs, not one: at SCORE_JITTER_RANGE = 0.75 this fails on 29 of them and at 1.0 on
+    // 69, so it actually pins the constant rather than passing on a lucky draw.
+    for (let i = 0; i < 500; i++) {
+      const lower =
+        scoreCandidate(meal('a'), SLOT_FIT_WEIGHTS) +
+        scoreJitter({ ...seed, candidateId: `low-${i}` })
+      const higher =
+        scoreCandidate(meal('b', { topIngredients: [{ name: 'rice' }] }), SLOT_FIT_WEIGHTS, {
+          pantryIngredientNames: PANTRY,
+        }) + scoreJitter({ ...seed, candidateId: `high-${i}` })
+
+      expect(higher).toBeGreaterThan(lower)
+    }
   })
 
   it('spreads values across the range rather than clustering', () => {

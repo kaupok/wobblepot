@@ -87,13 +87,21 @@ export interface ScorableCandidate {
 }
 
 export interface CandidateScoreContext {
-  /** Candidate's own prep time, when known. Only read by the similarity profile. */
+  /**
+   * Candidate's own prep time, when known. Read under both profiles — slot fit contributes
+   * nothing from it only because its `similarPrepTime` weight is 0.
+   */
   timeMinutes?: number | null
   /** Primary protein type of the meal being replaced, if there is one. */
   currentProteinType?: ProteinType | null
   /** Prep time of the meal being replaced, if there is one. */
   currentTimeMinutes?: number | null
-  /** Pantry ingredient names for the household, lowercased exactly as `getCandidates` emits them. */
+  /**
+   * Pantry ingredient names for the household, as raw `Ingredient.name` values — the exact
+   * strings `getPantryIngredientNames()` returns, matched against the equally raw names on
+   * `candidate.topIngredients`. Neither side is normalised; case-folding one and not the other
+   * would silently zero the pantry signal.
+   */
   pantryIngredientNames?: Set<string>
 }
 
@@ -139,8 +147,11 @@ export function scoreCandidate(
 /**
  * Width of the tie-break offset, in points.
  *
- * Deliberately below the smallest weight (0.5) so jitter only reorders candidates that are
- * already tied — it can never lift a candidate past one that scored a signal it did not.
+ * Set to the smallest weight in either profile (`pantryMatchPerIngredient`, 0.5) — and no
+ * larger, which is what keeps the jitter to reordering candidates that are already tied. The
+ * draw is half-open, `[0, SCORE_JITTER_RANGE)`, so a jittered score is strictly under the next
+ * signal up and can never lift a candidate past one that scored a signal it did not. Raising
+ * this constant above 0.5 breaks that, and `candidate-score.test.ts` asserts the bound.
  */
 export const SCORE_JITTER_RANGE = 0.5
 
