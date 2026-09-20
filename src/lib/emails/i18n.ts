@@ -1,7 +1,7 @@
 import { createTranslator, type Messages } from 'next-intl'
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import type { Locale } from '@/lib/i18n/locales'
+import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
 
 /**
  * Catalog access for email templates.
@@ -18,7 +18,7 @@ import type { Locale } from '@/lib/i18n/locales'
  */
 
 /**
- * The two catalogs, typed as `Messages` (next-intl's own default catalog type)
+ * The catalogs, typed as `Messages` (next-intl's own default catalog type)
  * rather than as their literal shapes. Handing `createTranslator` the literal
  * shape of a ~700-key JSON catalog makes it derive every nested message key,
  * which trips `TS2589: Type instantiation is excessively deep`. Email copy is a
@@ -33,6 +33,53 @@ const CATALOGUES: Record<Locale, Messages> = {
 /** Namespaces under `emails` in the catalog — one per template. */
 export type EmailNamespace = 'resetPassword' | 'accountDeletionRequested'
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * Recursively overlays `locale` onto `fallback`, keeping the fallback's value
+ * for any key the locale catalog does not define.
+ */
+function withFallback(
+  fallback: Record<string, unknown>,
+  locale: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...fallback }
+  for (const [key, value] of Object.entries(locale)) {
+    const base = fallback[key]
+    merged[key] = isPlainObject(base) && isPlainObject(value) ? withFallback(base, value) : value
+  }
+  return merged
+}
+
+/**
+ * The `emails` namespace per locale, with English underneath as a fallback.
+ *
+ * Without this, a key missing from a locale's catalog renders next-intl's
+ * default fallback — the literal key path — so a password-reset button would
+ * read `emails.resetPassword.cta`. Overlaying English means a half-translated
+ * catalog degrades to a mixed-language email instead, which is recoverable copy
+ * rather than visible breakage. `catalogue-parity.test.ts` is still the thing
+ * that should catch the gap first; this is the floor under it.
+ *
+ * Note the limit: a key that is *present* but whose ICU syntax is malformed
+ * still renders the key path, because next-intl only falls back on a missing
+ * message, not on a parse error.
+ */
+const EMAIL_MESSAGES = (Object.keys(CATALOGUES) as Locale[]).reduce(
+  (accumulator, locale) => {
+    accumulator[locale] = {
+      emails: withFallback(
+        CATALOGUES[DEFAULT_LOCALE].emails as Record<string, unknown>,
+        CATALOGUES[locale].emails as Record<string, unknown>,
+      ),
+    }
+    return accumulator
+  },
+  {} as Record<Locale, Messages>,
+)
+
 /**
  * Builds a translator scoped to a namespace under `emails` in the catalog.
  *
@@ -42,7 +89,7 @@ export type EmailNamespace = 'resetPassword' | 'accountDeletionRequested'
 export function emailTranslator(locale: Locale, namespace: EmailNamespace) {
   return createTranslator({
     locale,
-    messages: CATALOGUES[locale],
+    messages: EMAIL_MESSAGES[locale],
     namespace: `emails.${namespace}`,
   })
 }

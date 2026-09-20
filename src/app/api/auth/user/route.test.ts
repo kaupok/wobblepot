@@ -22,6 +22,10 @@ vi.mock('@/lib/prisma', () => ({
     session: {
       deleteMany: vi.fn(),
     },
+    // Read by `resolveEmailLocale` to pick the confirmation email's language.
+    householdMember: {
+      findFirst: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }))
@@ -53,8 +57,11 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { isUserSoleOwnerWithOtherMembers } from '@/lib/household'
 import { resend, isEmailConfigured } from '@/lib/resend'
+import { generateAccountDeletionRequestedEmail } from '@/lib/emails/account-deletion-requested'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
+const mockFindMembership = vi.mocked(prisma.householdMember.findFirst)
+const mockGenerateEmail = vi.mocked(generateAccountDeletionRequestedEmail)
 const mockIsUserSoleOwner = vi.mocked(isUserSoleOwnerWithOtherMembers)
 const mockTransaction = vi.mocked(prisma.$transaction)
 const mockIsEmailConfigured = vi.mocked(isEmailConfigured)
@@ -87,6 +94,15 @@ describe('DELETE /api/auth/user', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockIsEmailConfigured.mockReturnValue(true)
+    // Default: an English household. Without this the lookup rejects on an
+    // undefined mock, `resolveEmailLocale` swallows it, and every test would
+    // silently exercise the fallback path instead of the real one.
+    mockFindMembership.mockResolvedValue({ household: { locale: 'en' } } as never)
+    mockGenerateEmail.mockReturnValue({
+      subject: 'Deletion scheduled',
+      html: '<p>html</p>',
+      text: 'text',
+    })
   })
 
   it('returns 401 when not authenticated', async () => {
@@ -168,6 +184,32 @@ describe('DELETE /api/auth/user', () => {
 
     expect(mockSend).toHaveBeenCalledOnce()
     expect(mockSend.mock.calls[0]![0]).toMatchObject({ to: 'john@example.com' })
+  })
+
+  it('writes the confirmation email in the household locale (HON-513)', async () => {
+    mockGetSession.mockResolvedValue(signedInUser)
+    mockIsUserSoleOwner.mockResolvedValue({ isSoleOwner: false })
+    mockFindMembership.mockResolvedValue({ household: { locale: 'et' } } as never)
+    mockSoftDeleteTx()
+
+    await DELETE()
+
+    expect(mockFindMembership).toHaveBeenCalledWith({
+      where: { userId: 'user-123' },
+      select: { household: { select: { locale: true } } },
+    })
+    expect(mockGenerateEmail).toHaveBeenCalledWith(expect.objectContaining({ locale: 'et' }))
+  })
+
+  it('falls back to English when the user has no household (HON-513)', async () => {
+    mockGetSession.mockResolvedValue(signedInUser)
+    mockIsUserSoleOwner.mockResolvedValue({ isSoleOwner: false })
+    mockFindMembership.mockResolvedValue(null as never)
+    mockSoftDeleteTx()
+
+    await DELETE()
+
+    expect(mockGenerateEmail).toHaveBeenCalledWith(expect.objectContaining({ locale: 'en' }))
   })
 
   it('still succeeds when email is not configured (no send attempted)', async () => {

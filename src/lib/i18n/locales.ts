@@ -18,8 +18,9 @@ export const KNOWN_LOCALES = ['en', 'et'] as const
 // Today this is identical to `KNOWN_LOCALES`; the distinction is kept so a new
 // locale can be added to `KNOWN_LOCALES` (DB + API + translations land) before
 // being made selectable in the UI. New locales should not be added here until
-// transactional email templates exist in that locale (see HON-513) — otherwise
-// users land in localized UI but receive English emails.
+// their `emails` namespace is translated in `messages/<locale>.json` (HON-513):
+// `emailTranslator` overlays English underneath, so an untranslated locale ships
+// localized UI alongside English email rather than failing loudly.
 export const PUBLIC_LOCALES = ['en', 'et'] as const
 
 export type Locale = (typeof KNOWN_LOCALES)[number]
