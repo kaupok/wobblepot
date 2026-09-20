@@ -34,7 +34,15 @@ interface MealSelectorModalProps {
   currentMealName?: string
   /** Current meal id when `mode === 'swap'`. Used as `from_meal_id` on `meal_plan:meal_swapped`. */
   currentMealId?: string
-  onSwapComplete: () => void
+  /**
+   * Called with the meal id that was selected, which is NOT always a different
+   * meal: search and "my recipes" browse list the dish already on the entry
+   * (only `/regenerate` filters it out), so a re-select is a no-op write. The
+   * server resets `servingOverride`, `preparationTips` and `rating` only when
+   * the meal actually changes (HON-703), so the callback has to be able to
+   * draw the same distinction rather than reset unconditionally.
+   */
+  onSwapComplete: (selectedMealId: string) => void
   /** 'swap' = replacing existing meal (suggestions based on current meal), 'add' = empty slot (suggestions based on slot context) */
   mode: 'swap' | 'add'
   /** When provided, ingredient lists on cards are color-coded by pantry availability */
@@ -137,7 +145,7 @@ export function MealSelectorModal({
         })
       }
 
-      onSwapComplete()
+      onSwapComplete(mealId)
       handleOpenChange(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : tSelector('updateMealFailed'))
@@ -160,7 +168,7 @@ export function MealSelectorModal({
       })
 
       setIsImagineMode(false)
-      onSwapComplete()
+      onSwapComplete(mealId)
       handleOpenChange(false)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : tSelector('imagine.assignFailed'))

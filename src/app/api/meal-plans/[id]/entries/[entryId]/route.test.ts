@@ -1761,6 +1761,179 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - rating', () => {
 
     expect(response.status).toBe(400)
   })
+
+  // A rating is a verdict on the meal the entry points at, so it goes when the
+  // meal does — otherwise complete → rate → revert → swap leaves the entry
+  // holding a verdict on a dish it no longer names, which HON-340 will read as
+  // a preference for the one it does (HON-703). The exact `data` shape is
+  // asserted rather than `objectContaining`, so the two resets this one joins
+  // cannot quietly go missing from the same write.
+  it('clears the rating when the meal is swapped', async () => {
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      plan: {
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: { components: [] },
+    } as never)
+
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({ id: 'new-meal-456' } as never)
+    swapReturns({ id: 'entry-123', status: 'planned', mealId: 'new-meal-456', rating: null })
+
+    const response = await PATCH(createPatchRequest({ mealId: 'new-meal-456' }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.rating).toBeNull()
+    expect(mockSwapEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          mealId: 'new-meal-456',
+          preparationTips: null,
+          servingOverride: null,
+          rating: null,
+        },
+      }),
+    )
+  })
+
+  it('keeps the rating when the PATCH carries no mealId at all', async () => {
+    // The other direction: only a swap discards a rating. A note-only write
+    // must not carry a `rating` key at all, or every unrelated edit would
+    // throw the household's verdict away.
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      plan: {
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: { components: [] },
+    } as never)
+    mockUpdateEntry.mockResolvedValue({
+      id: 'entry-123',
+      status: 'planned',
+      mealId: 'meal-123',
+      rating: 'up',
+    } as never)
+
+    const response = await PATCH(createPatchRequest({ note: 'Leftovers' }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.rating).toBe('up')
+    expect(mockUpdateEntry).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { note: 'Leftovers' } }),
+    )
+  })
+
+  it('resets nothing when the PATCH re-sends the meal already on the entry', async () => {
+    // Not a swap, however it looks: `/regenerate` filters the planned meal out
+    // of its suggestions, but search and "my recipes" browse do not
+    // (`meal-selector/use-meal-alternatives.ts` hits `/api/meals` unfiltered),
+    // so the dish already on the entry can be listed and clicked. Keying the
+    // resets on `mealId` being present rather than on it changing made that
+    // no-op click destroy a verdict about the meal the entry still holds, drop
+    // a deliberate serving override back to the household size, and buy a
+    // fresh tips generation.
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      servingOverride: 2,
+      plan: {
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: { components: [] },
+    } as never)
+
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({ id: 'meal-123' } as never)
+    swapReturns({ id: 'entry-123', status: 'planned', mealId: 'meal-123', rating: 'up' })
+
+    const response = await PATCH(createPatchRequest({ mealId: 'meal-123' }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.rating).toBe('up')
+    // The exact shape, not `not.objectContaining({ rating: anything() })`:
+    // `expect.anything()` does not match `null`, so that form would pass on
+    // the very write it is meant to catch.
+    expect(mockSwapEntry).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { mealId: 'meal-123' } }),
+    )
+  })
+
+  it('charges the stored override when a re-send of the same meal completes', async () => {
+    // The reset's sharpest consequence, and the reason it is not merely
+    // cosmetic: `effectiveServings` prices the deduction off
+    // `'servingOverride' in updateData`, so a re-send that nulled the override
+    // would charge a household of 4 for 4 servings of an entry the user had
+    // set to 2 — and a completed entry's count is then frozen, with nothing to
+    // reconcile it against the pantry (HON-652).
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      servingOverride: 2,
+      pantryDeductedAt: null,
+      plan: {
+        household: {
+          members: [{ id: 'member-1' }, { id: 'member-2' }, { id: 'member-3' }, { id: 'member-4' }],
+        },
+      },
+      meal: {
+        components: [{ ingredientId: 'ing-1', quantityPerServing: 100 }],
+      },
+    } as never)
+
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({
+      id: 'meal-123',
+      components: [{ ingredientId: 'ing-1', quantityPerServing: 100 }],
+    } as never)
+    mockDeductionTransaction(1, 'meal-123', 2)
+
+    const response = await PATCH(
+      createPatchRequest({ mealId: 'meal-123', status: 'completed', deductPantry: true }),
+      { params: createParams() },
+    )
+
+    expect(response.status).toBe(200)
+    // 100 × the stored 2, not × the 4 members a reset would have fallen back to.
+    expect(mockPantryUpdateMany).toHaveBeenCalledWith(decrementOf('ing-1', 200))
+  })
+
+  it('lets an explicit rating in the same request win over the swap reset', async () => {
+    // The swap reset is written before the `'rating' in parsed.data` handler,
+    // so a caller that swaps and rates in one request gets the rating it sent
+    // — the same precedence `servingOverride` already has. Pinned so a reorder
+    // of the two blocks fails here rather than silently discarding the value.
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      plan: {
+        household: { members: [{ id: 'member-1' }] },
+      },
+      meal: { components: [] },
+    } as never)
+
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({ id: 'new-meal-456' } as never)
+    swapReturns({ id: 'entry-123', status: 'planned', mealId: 'new-meal-456', rating: 'up' })
+
+    const response = await PATCH(createPatchRequest({ mealId: 'new-meal-456', rating: 'up' }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.rating).toBe('up')
+    expect(mockSwapEntry).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ rating: 'up' }) }),
+    )
+  })
 })
 
 describe('DELETE /api/meal-plans/[id]/entries/[entryId]', () => {
