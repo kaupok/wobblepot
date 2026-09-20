@@ -93,8 +93,13 @@ test.describe('Account deletion (grace window)', () => {
     expect(soft.households, 'the household itself survives until the purge').toBe(1)
 
     // The toast date and the stored purge instant agree (both formatted in UTC).
-    const purgeDay = new Intl.DateTimeFormat('en-US', {
-      dateStyle: 'long',
+    // Field-by-field rather than `dateStyle`, mirroring `formatLongDate` in
+    // `src/lib/i18n/format-dates.ts` — the one helper both the toast and the
+    // confirmation email now render the purge date with (HON-705).
+    const purgeDay = new Intl.DateTimeFormat('en', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
       timeZone: 'UTC',
     }).format(new Date(soft.purgeScheduledFor!))
     expect(toastText).toContain(purgeDay)
@@ -110,14 +115,11 @@ test.describe('Account deletion (grace window)', () => {
         sentAfter: requestedAt,
       })
       expect(message, 'No account-deletion confirmation email arrived').not.toBeNull()
-      const purgeDateGB = new Intl.DateTimeFormat('en-GB', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        timeZone: 'UTC',
-      }).format(new Date(soft.purgeScheduledFor!))
-      expect(message!.subject).toContain(purgeDateGB)
-      expect(`${message!.html ?? ''}${message!.text ?? ''}`).toContain(purgeDateGB)
+      // The same string the toast was checked against above: since HON-705 both
+      // channels format the purge date with `formatLongDate`, so a divergence
+      // here is the regression this asserts against.
+      expect(message!.subject).toContain(purgeDay)
+      expect(`${message!.html ?? ''}${message!.text ?? ''}`).toContain(purgeDay)
     }
 
     // Sign-in is refused, and refused without saying why.

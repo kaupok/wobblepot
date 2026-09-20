@@ -7,6 +7,7 @@ import {
   formatDayLong,
   formatDateDisplay,
   formatFullDate,
+  formatLongDate,
   formatDateTime,
   formatRelativeDate,
   type DatesTranslator,
@@ -220,6 +221,35 @@ describe('formatFullDate', () => {
     expect(out).toContain('esmaspäev')
     expect(out.toLowerCase()).toContain('jaanuar')
     expect(out).toContain('2026')
+  })
+})
+
+describe('formatLongDate', () => {
+  // The purge instant the account-deletion flow quotes: 03:00 UTC, the hour the
+  // purge cron runs.
+  const purgeInstant = new Date('2026-07-05T03:00:00.000Z')
+
+  it('renders month, day, and year in en', () => {
+    expect(formatLongDate(purgeInstant, 'en', { timeZone: 'UTC' })).toBe('July 5, 2026')
+  })
+
+  it('renders the localized month and Estonian day-first order in et', () => {
+    expect(formatLongDate(purgeInstant, 'et', { timeZone: 'UTC' })).toBe('5. juuli 2026')
+  })
+
+  it('omits the weekday, unlike formatFullDate', () => {
+    expect(formatLongDate(MONDAY, 'en')).not.toContain('Monday')
+    expect(formatFullDate(MONDAY, 'en')).toContain('Monday')
+  })
+
+  it('honours the timeZone option at a day boundary', () => {
+    // 23:30Z is still the 5th in UTC but already the 6th in Tallinn (UTC+3).
+    // The deletion dialog and the confirmation email both pass 'UTC' so they
+    // never quote the following calendar day.
+    const lateDay = new Date('2026-07-05T23:30:00.000Z')
+
+    expect(formatLongDate(lateDay, 'en', { timeZone: 'UTC' })).toBe('July 5, 2026')
+    expect(formatLongDate(lateDay, 'en', { timeZone: 'Europe/Tallinn' })).toBe('July 6, 2026')
   })
 })
 
