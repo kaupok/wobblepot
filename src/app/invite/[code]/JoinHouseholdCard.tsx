@@ -42,7 +42,30 @@ export function JoinHouseholdCard({
         } else if (data.error === 'invite_invalid') {
           setError(t('errors.inviteInvalid'))
         } else {
-          setError(data.message || t('errors.joinFailed'))
+          // Deliberately not falling back to `data.message` / `data.error`:
+          // both carry untranslated English (`Invite code not found.`,
+          // `Failed to join household`), which would render verbatim inside an
+          // otherwise Estonian screen (HON-697). Every code without an explicit
+          // branch renders a translated string; the server prose is kept as a
+          // console breadcrumb only, and the route still returns the distinct
+          // `error` code so logs and Sentry tell the cases apart.
+          console.error('[invite-join] request failed', {
+            error: data.error,
+            message: data.message,
+          })
+          // `invite_not_found` reaches this card only when the invite was
+          // consumed, revoked or cascade-deleted *between* render and click —
+          // `page.tsx` calls `notFound()` for a code that never resolved, so
+          // the button does not exist for one. That is the same situation the
+          // route maps to `invite_invalid` for the loser of a concurrent claim
+          // (see `InviteNoLongerClaimableError` there), and it is in fact the
+          // commoner half of it: the 404 is what a click after another user's
+          // claim already committed produces. Same copy, no new strings — and
+          // it tells the user to ask for a new invite, which the generic
+          // fallback does not.
+          setError(
+            data.error === 'invite_not_found' ? t('errors.inviteInvalid') : t('errors.joinFailed'),
+          )
         }
         return
       }
