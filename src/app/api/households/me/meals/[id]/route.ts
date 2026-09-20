@@ -256,10 +256,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       components,
     } = parsed.data
 
+    // `components` and `servings` are independently optional in the schema, so
+    // a components-only PATCH has to scale against something. The meal's own
+    // stored `servings` is that divisor — it is what the rows already on disk
+    // are kept under, and `Meal.servings` is non-nullable, so it always exists.
+    // Gating the component path on both fields instead dropped the whole edit
+    // and still answered 200 with the unchanged list (HON-701).
+    const componentServings = servings ?? existingMeal.servings
+
     // If components are being updated, verify all ingredients exist and recalculate protein type
     let primaryProteinType = existingMeal.primaryProteinType
     let componentsChanged = false
-    if (components && servings) {
+    if (components) {
       const ingredientIds = components.map((c) => c.ingredientId)
       const ingredients = await prisma.ingredient.findMany({
         where: { id: { in: ingredientIds } },
@@ -282,7 +290,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       // Derive primary protein type from ingredients
       const ingredientMap = new Map(ingredients.map((i) => [i.id, i]))
       const componentData = components.map((c) => ({
-        quantityPerServing: c.totalQuantity / servings,
+        quantityPerServing: c.totalQuantity / componentServings,
         ingredient: ingredientMap.get(c.ingredientId)!,
       }))
       primaryProteinType = deriveProteinType(componentData)
@@ -299,7 +307,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       componentsChanged =
         components.length !== existingMeal.components.length ||
         components.some(
-          (c) => existingQuantities.get(c.ingredientId) !== c.totalQuantity / servings,
+          (c) => existingQuantities.get(c.ingredientId) !== c.totalQuantity / componentServings,
         )
     }
 
@@ -324,7 +332,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (kidFriendly !== undefined) updateData.kidFriendly = kidFriendly
     if (suitableFor !== undefined) updateData.suitableFor = suitableFor
     if (servings !== undefined) updateData.servings = servings
-    if (components && servings) updateData.primaryProteinType = primaryProteinType
+    if (components) updateData.primaryProteinType = primaryProteinType
 
     // Use transaction to update meal and components atomically
     const meal = await prisma.$transaction(async (tx) => {
@@ -377,7 +385,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       }
 
       // If components are provided, delete old and create new
-      if (components && servings) {
+      if (components) {
         await tx.mealComponent.deleteMany({
           where: { mealId: id },
         })
@@ -386,7 +394,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           data: components.map((c) => ({
             mealId: id,
             ingredientId: c.ingredientId,
-            quantityPerServing: c.totalQuantity / servings,
+            quantityPerServing: c.totalQuantity / componentServings,
             isVague: c.isVague ?? false,
             originalPhrase: c.originalPhrase ?? null,
           })),

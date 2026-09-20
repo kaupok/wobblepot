@@ -43,6 +43,7 @@ vi.mock('@/lib/meal-planning/protein', () => ({
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
+import { deriveProteinType } from '@/lib/meal-planning/protein'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -105,23 +106,27 @@ const mockMealResult = {
 const paramsPromise = (id: string) => Promise.resolve({ id })
 
 /**
- * Mocks `prisma.$transaction` for the PATCH route and hands back the
- * `mealPlanEntry.updateMany` spy, which is how the prep-tips invalidation
- * (HON-683) is asserted in both directions.
+ * Mocks `prisma.$transaction` for the PATCH route and hands back the spies the
+ * PATCH tests assert on: `mealPlanEntry.updateMany` for the prep-tips
+ * invalidation (HON-683), and `meal.update` plus the two `mealComponent`
+ * writers for the component rewrite (HON-701).
  */
 const setupTransaction = (updatedMeal: unknown) => {
   const mealPlanEntryUpdateMany = vi.fn()
+  const mealUpdate = vi.fn()
+  const mealComponentDeleteMany = vi.fn()
+  const mealComponentCreateMany = vi.fn()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   mockTransaction.mockImplementation(async (fn: any) => {
     const tx = {
       meal: {
-        update: vi.fn(),
+        update: mealUpdate,
         findUniqueOrThrow: vi.fn().mockResolvedValue(updatedMeal),
       },
       mealComponent: {
-        deleteMany: vi.fn(),
-        createMany: vi.fn(),
+        deleteMany: mealComponentDeleteMany,
+        createMany: mealComponentCreateMany,
       },
       mealPlanEntry: {
         updateMany: mealPlanEntryUpdateMany,
@@ -130,7 +135,7 @@ const setupTransaction = (updatedMeal: unknown) => {
     return fn(tx)
   })
 
-  return { mealPlanEntryUpdateMany }
+  return { mealPlanEntryUpdateMany, mealUpdate, mealComponentDeleteMany, mealComponentCreateMany }
 }
 
 const patchMeal = (body: Record<string, unknown>) =>
@@ -480,6 +485,123 @@ describe('PATCH /api/households/me/meals/[id]', () => {
 
       expect(response.status).toBe(200)
       expect(mealPlanEntryUpdateMany).not.toHaveBeenCalled()
+    })
+  })
+
+  // HON-701: `components` and `servings` are independently optional, but the
+  // component path used to be gated on both, so a components-only PATCH wrote
+  // nothing and still answered 200 with the unchanged list. The divisor for
+  // `quantityPerServing` is now the meal's stored `servings`.
+  describe('components sent without servings', () => {
+    // 600g of chicken over the stored 4 servings is the 150 per-serving on
+    // disk, so a payload of 800 scaled by the same 4 lands on 200.
+    const storedMeal = {
+      ...mockMealResult,
+      deletedAt: null,
+      servings: 4,
+      preparationNotes: 'Sear the chicken first',
+      sourceUrl: null,
+      components: [{ ingredientId: 'ing-1', quantityPerServing: 150 }],
+    }
+
+    beforeEach(() => {
+      mockGetSession.mockResolvedValue(mockSession as never)
+      mockGetMembership.mockResolvedValue(mockMembership as never)
+      mockMealFindFirst.mockResolvedValue(storedMeal as never)
+      mockIngredientFindMany.mockResolvedValue([
+        { id: 'ing-1', proteinType: 'poultry', protein: 31 },
+      ] as never)
+    })
+
+    it('rewrites the component rows against the stored servings', async () => {
+      const { mealComponentDeleteMany, mealComponentCreateMany } = setupTransaction(mockMealResult)
+
+      const response = await patchMeal({
+        components: [{ ingredientId: 'ing-1', totalQuantity: 800 }],
+      })
+
+      expect(response.status).toBe(200)
+      expect(mealComponentDeleteMany).toHaveBeenCalledWith({ where: { mealId: 'meal-1' } })
+      expect(mealComponentCreateMany).toHaveBeenCalledWith({
+        data: [
+          {
+            mealId: 'meal-1',
+            ingredientId: 'ing-1',
+            quantityPerServing: 200,
+            isVague: false,
+            originalPhrase: null,
+          },
+        ],
+      })
+    })
+
+    it('clears cached preparation tips for that same request', async () => {
+      mockIngredientFindMany.mockResolvedValue([
+        { id: 'ing-2', proteinType: 'plant', protein: 8 },
+      ] as never)
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+
+      const response = await patchMeal({
+        components: [{ ingredientId: 'ing-2', totalQuantity: 800 }],
+      })
+
+      expect(response.status).toBe(200)
+      expect(mealPlanEntryUpdateMany).toHaveBeenCalledWith({
+        where: { mealId: 'meal-1', preparationTips: { not: null } },
+        data: { preparationTips: null },
+      })
+    })
+
+    it('recomputes primaryProteinType on that path', async () => {
+      mockIngredientFindMany.mockResolvedValue([
+        { id: 'ing-2', proteinType: 'plant', protein: 8 },
+      ] as never)
+      vi.mocked(deriveProteinType).mockReturnValueOnce('plant' as never)
+      const { mealUpdate } = setupTransaction(mockMealResult)
+
+      const response = await patchMeal({
+        components: [{ ingredientId: 'ing-2', totalQuantity: 800 }],
+      })
+
+      expect(response.status).toBe(200)
+      expect(deriveProteinType).toHaveBeenCalledWith([
+        { quantityPerServing: 200, ingredient: { id: 'ing-2', proteinType: 'plant', protein: 8 } },
+      ])
+      expect(mealUpdate).toHaveBeenCalledWith({
+        where: { id: 'meal-1' },
+        data: expect.objectContaining({ primaryProteinType: 'plant' }),
+      })
+    })
+
+    it('still returns 400 when a component names an unknown ingredient', async () => {
+      mockIngredientFindMany.mockResolvedValue([] as never)
+      const { mealComponentCreateMany } = setupTransaction(mockMealResult)
+
+      const response = await patchMeal({
+        components: [{ ingredientId: 'ing-missing', totalQuantity: 800 }],
+      })
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.missingIds).toEqual(['ing-missing'])
+      expect(mealComponentCreateMany).not.toHaveBeenCalled()
+    })
+
+    // The other direction, unchanged by HON-701: a bare `servings` edit leaves
+    // the stored per-serving quantities exactly where they are.
+    it('leaves the component rows alone for a servings-only PATCH', async () => {
+      const { mealComponentDeleteMany, mealComponentCreateMany, mealUpdate } =
+        setupTransaction(mockMealResult)
+
+      const response = await patchMeal({ servings: 6 })
+
+      expect(response.status).toBe(200)
+      expect(mealComponentDeleteMany).not.toHaveBeenCalled()
+      expect(mealComponentCreateMany).not.toHaveBeenCalled()
+      expect(mealUpdate).toHaveBeenCalledWith({
+        where: { id: 'meal-1' },
+        data: { servings: 6 },
+      })
     })
   })
 
