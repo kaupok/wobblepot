@@ -46,15 +46,16 @@ vi.mock('@/components/ConsentProvider', () => ({ ConsentProvider: () => null }))
 import { getSession, getHouseholdIdForUser } from '@/lib/session'
 import { readConsentCookieServer } from '@/lib/consent.server'
 import { getLocale } from '@/lib/i18n/get-locale'
-import { getMessages } from 'next-intl/server'
+import { getMessages, getTranslations } from 'next-intl/server'
 import { bootstrapFlags } from '@/lib/feature-flags'
-import RootLayout from './layout'
+import RootLayout, { generateMetadata } from './layout'
 
 const mockGetSession = vi.mocked(getSession)
 const mockGetHouseholdIdForUser = vi.mocked(getHouseholdIdForUser)
 const mockReadConsentCookieServer = vi.mocked(readConsentCookieServer)
 const mockGetLocale = vi.mocked(getLocale)
 const mockGetMessages = vi.mocked(getMessages)
+const mockGetTranslations = vi.mocked(getTranslations)
 const mockBootstrapFlags = vi.mocked(bootstrapFlags)
 
 type Session = Awaited<ReturnType<typeof getSession>>
@@ -108,6 +109,9 @@ describe('RootLayout', () => {
     mockReadConsentCookieServer.mockResolvedValue(null)
     mockGetLocale.mockResolvedValue('en')
     mockGetMessages.mockResolvedValue({})
+    // The translator is only ever asked for `meta.root` keys here; echoing the
+    // key back keeps the assertions about metadata shape, not about copy.
+    mockGetTranslations.mockResolvedValue(((key: string) => key) as never)
     mockBootstrapFlags.mockResolvedValue(BOOTSTRAP)
   })
 
@@ -164,5 +168,40 @@ describe('RootLayout', () => {
 
     expect(mockGetHouseholdIdForUser).not.toHaveBeenCalled()
     expect(mockBootstrapFlags).toHaveBeenCalledWith('anonymous')
+  })
+})
+
+describe('generateMetadata', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetLocale.mockResolvedValue('en')
+    mockGetTranslations.mockResolvedValue(((key: string) => key) as never)
+  })
+
+  // HON-483: `src/app/opengraph-image.tsx` emits og:image / twitter:image via
+  // the file convention. A manual `images` entry here would emit a second tag
+  // — which is exactly how `/og-image.png` (a file that never existed) stayed
+  // in the rendered HTML for five months.
+  it('leaves the image tags to the opengraph-image file convention', async () => {
+    const metadata = await generateMetadata()
+
+    expect(metadata.openGraph).not.toHaveProperty('images')
+    expect(metadata.twitter).not.toHaveProperty('images')
+    expect(JSON.stringify(metadata)).not.toContain('og-image.png')
+  })
+
+  it('still describes the card through the meta.root keys', async () => {
+    const metadata = await generateMetadata()
+
+    expect(metadata.openGraph).toMatchObject({
+      title: 'ogTitle',
+      description: 'ogDescription',
+      type: 'website',
+    })
+    expect(metadata.twitter).toMatchObject({
+      card: 'summary_large_image',
+      title: 'ogTitle',
+      description: 'ogDescription',
+    })
   })
 })

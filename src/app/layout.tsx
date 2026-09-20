@@ -51,12 +51,14 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(getServerBaseURL()),
     title: { default: title, template: titleTemplate },
     description,
+    // No `images` here on purpose (HON-483): `src/app/opengraph-image.tsx`
+    // emits `og:image`, `og:image:type|width|height` and `twitter:image` via
+    // the file convention. Adding an entry back would emit a second tag.
     openGraph: {
       title: ogTitle,
       description: ogDescription,
       url: '/',
       siteName: title,
-      images: [{ url: '/og-image.png', width: 1200, height: 630 }],
       type: 'website',
       locale: toOgLocale(locale),
     },
@@ -64,7 +66,6 @@ export async function generateMetadata(): Promise<Metadata> {
       card: 'summary_large_image',
       title: ogTitle,
       description: ogDescription,
-      images: ['/og-image.png'],
     },
     appleWebApp: {
       capable: true,
