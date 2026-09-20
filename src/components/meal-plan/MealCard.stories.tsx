@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { http, HttpResponse } from 'msw'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
 import { MealType } from '@/generated/prisma/enums'
 import {
@@ -95,6 +96,107 @@ export const PlannedAlreadyCharged: Story = {
       ),
     )
     await expect(body.queryByRole('dialog')).not.toBeInTheDocument()
+  },
+}
+
+// Counts the tips POSTs the story's handler serves, so the second click can be
+// proven to be a real re-fetch rather than a replay of the hook's cached state.
+let swapTipsRequests = 0
+
+/**
+ * A swap repoints the entry server-side, and the same PATCH nulls the entry's
+ * cached `preparationTips` and resets its `servingOverride`. Neither reset
+ * reaches the client on its own. The detail modal is rendered unconditionally
+ * by this card
+ * — `open` is a prop, not a mount guard — so its `useMealTips` instance never
+ * unmounts, and `entryId` does not change on a swap either; the serving count
+ * is this card's own `useState`. Without the reset in `onSwapComplete`,
+ * reopening the modal replays the previous meal's tips under the new meal's
+ * name and never re-POSTs, and the card keeps the old override (HON-682).
+ *
+ * The card still shows the old meal name after the swap here: the real reset
+ * comes from `router.refresh()`, which is a no-op under the Storybook app-router
+ * mock. That is fine — what this story pins is the client state the refresh
+ * cannot reach.
+ */
+export const SwapDropsCachedTips: Story = {
+  args: {
+    meal: mealFixture,
+    status: 'planned',
+    // The swap resets this to null server-side, so the badge must go with it.
+    servingOverride: 6,
+  },
+  parameters: {
+    // Keyed rather than an array, so `defaultHandlers` — which already serve
+    // the swap suggestions and the entry PATCH — are extended, not replaced.
+    msw: {
+      handlers: {
+        tips: [
+          // Varies per call, so the second click can be told apart from a
+          // replay of the first one's object.
+          http.post('/api/meal-plans/:planId/entries/:entryId/preparation-tips', () => {
+            swapTipsRequests += 1
+            return HttpResponse.json({
+              tips: {
+                equipment: [
+                  swapTipsRequests === 1
+                    ? 'A roasting tin for the chicken'
+                    : 'A wok for the stir-fry',
+                ],
+                steps: ['Preheat while you prep'],
+                pitfalls: ['Crowding the pan steams instead of browning'],
+              },
+            })
+          }),
+        ],
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    swapTipsRequests = 0
+    const canvas = within(canvasElement)
+    const body = within(document.body)
+
+    // Generate tips for the meal currently on the entry.
+    await expect(canvas.getByText('6 servings')).toBeInTheDocument()
+    await userEvent.click(canvas.getByRole('button', { name: /lemon-garlic roast chicken/i }))
+    await userEvent.click(await body.findByRole('button', { name: /how to prepare/i }))
+    await body.findByText(/roasting tin/i)
+
+    // Close the detail modal — the Swap control lives on the card behind it.
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(body.queryByRole('dialog')).not.toBeInTheDocument())
+
+    // Swap the entry to a different meal.
+    await openMoreActions(canvasElement)
+    await userEvent.click(await body.findByRole('menuitem', { name: /^swap$/i }))
+    const selector = await body.findByRole('dialog')
+    const [firstSelect] = await within(selector).findAllByRole('button', { name: /^select$/i })
+    if (!firstSelect) throw new Error('The swap selector rendered no alternatives to pick')
+    await userEvent.click(firstSelect)
+    await waitFor(() => expect(body.queryByRole('dialog')).not.toBeInTheDocument())
+
+    // The card is back to the household's own size, matching the
+    // `servingOverride: null` the server wrote.
+    await waitFor(() => expect(canvas.queryByText('6 servings')).not.toBeInTheDocument())
+
+    // Reopen the modal. The panel offers the prompt again rather than the
+    // previous meal's expanded tips, and the serving control agrees with the
+    // card...
+    await userEvent.click(canvas.getByRole('button', { name: /lemon-garlic roast chicken/i }))
+    const reopened = await body.findByRole('dialog')
+    await expect(within(reopened).getByRole('button', { name: /serves 4/i })).toBeInTheDocument()
+    const prompt = await body.findByRole('button', { name: /how to prepare/i })
+    await expect(body.queryByText(/roasting tin/i)).not.toBeInTheDocument()
+
+    // ...and asking again issues a real second POST. This is the assertion
+    // that pins `cancelTips()`: collapsing the panel alone would satisfy
+    // everything above, because `MealDetail` renders the prompt off
+    // `isTipsExpanded` and never reads `tips` — but with the stale object
+    // still in the hook, `handleHowToPrepare` just re-expands it.
+    await userEvent.click(prompt)
+    await body.findByText(/wok for the stir-fry/i)
+    await expect(swapTipsRequests).toBe(2)
   },
 }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -18,7 +18,7 @@ import { Body } from '@/components/ui/typography'
 import { useRouter } from 'next/navigation'
 import { StatusSelect, type MealStatus } from './StatusSelect'
 import { MealSelectorModal } from './MealSelectorModal'
-import { MealDetailModal } from './MealDetailModal'
+import { MealDetailModal, type MealDetailModalHandle } from './MealDetailModal'
 import { PantryDeductionModal } from './PantryDeductionModal'
 import { AvailabilityIndicator, computeMealAvailability } from './AvailabilityIndicator'
 import { NoteEditor } from './NoteEditor'
@@ -81,6 +81,31 @@ export function MealCard({
 
   const effectiveServings = servingOverride ?? householdSize
   const hasServingOverride = servingOverride !== null && servingOverride !== householdSize
+
+  const detailModalRef = useRef<MealDetailModalHandle>(null)
+
+  // The PATCH that repoints this entry also nulls its cached `preparationTips`
+  // and resets its `servingOverride` server-side (the swap branch of
+  // `/api/meal-plans/[id]/entries/[entryId]`). Neither lives in the tree
+  // `router.refresh()` re-renders: `servingOverride` is this card's own state,
+  // and the detail modal below is rendered unconditionally, so its
+  // `useMealTips` instance survives the swap still holding the previous meal's
+  // tips. Without resetting both here the card keeps showing the old serving
+  // count and the modal replays the old meal's tips until a full reload
+  // (HON-682).
+  //
+  // Deliberately not `key={meal?.id}` on the modal: remounting would also
+  // discard whatever is unsaved in `NoteEditor`'s local draft, and a swap does
+  // not clear the entry's note server-side, so that text is still wanted.
+  //
+  // Shared with the empty-slot callsite below, which renders no detail modal —
+  // the optional call no-ops there — but does run the same server-side reset
+  // when a meal is assigned, so the override still has to be dropped.
+  const handleSwapComplete = useCallback(() => {
+    setServingOverride(null)
+    detailModalRef.current?.resetForSwap()
+    router.refresh()
+  }, [router])
 
   const availability = useMemo(() => {
     if (!meal) return null
@@ -266,7 +291,7 @@ export function MealCard({
             entryId={entryId}
             mealType={mealType}
             householdSize={householdSize}
-            onSwapComplete={() => router.refresh()}
+            onSwapComplete={handleSwapComplete}
             mode="add"
             pantryIngredients={pantryIngredients}
           />
@@ -384,6 +409,7 @@ export function MealCard({
         )}
       </Card>
       <MealDetailModal
+        ref={detailModalRef}
         meal={meal}
         householdSize={householdSize}
         status={status}
@@ -406,7 +432,7 @@ export function MealCard({
         householdSize={householdSize}
         currentMealName={meal?.name}
         currentMealId={meal?.id}
-        onSwapComplete={() => router.refresh()}
+        onSwapComplete={handleSwapComplete}
         mode="swap"
         pantryIngredients={pantryIngredients}
       />
