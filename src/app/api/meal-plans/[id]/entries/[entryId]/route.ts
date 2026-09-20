@@ -287,7 +287,9 @@ export async function PATCH(
       // household no longer has, with nothing left to clear them — the next
       // membership change is the rare event this whole invalidation is about.
       // So drop them on the way out of `completed`, the same shape as the swap
-      // and `servingOverride` writers below.
+      // and `servingOverride` writers below. The locale invalidation in
+      // `PATCH /api/households/me` skips completed entries too, and relies on
+      // this same write to drop tips in the old language (HON-702).
       if (entry.status === MealPlanEntryStatus.completed && parsed.data.status !== 'completed') {
         updateData.preparationTips = null
       }

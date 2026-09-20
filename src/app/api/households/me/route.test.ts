@@ -31,6 +31,7 @@ vi.mock('@/lib/prisma', () => ({
 
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
@@ -456,9 +457,77 @@ describe('PATCH /api/households/me', () => {
       where: {
         plan: { householdId: 'household-123' },
         preparationTips: { not: null },
+        date: { gte: getStartOfTodayInTimezone('Europe/Tallinn') },
+        status: { not: 'completed' },
       },
       data: { preparationTips: null },
     })
+  })
+
+  /** The `where` of the single locale-change `updateMany`. */
+  const localeInvalidationWhere = async (timezone = mockHousehold.timezone) => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue({
+      ...mockMembership,
+      household: { ...mockHousehold, timezone },
+    } as never)
+    mockLocaleTransaction()
+    mockHouseholdUpdate.mockResolvedValue({ ...mockHousehold, locale: 'et' } as never)
+
+    const response = await PATCH(
+      new Request('http://localhost/api/households/me', {
+        method: 'PATCH',
+        body: JSON.stringify({ locale: 'et' }),
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(mockEntryUpdateMany).toHaveBeenCalledTimes(1)
+    return mockEntryUpdateMany.mock.calls[0]?.[0]?.where as Record<string, unknown>
+  }
+
+  // Tips on an entry dated before today are never read again, so regenerating
+  // them after a locale change is pure AI spend (HON-702, same rule as HON-684).
+  it('leaves tips on entries dated before today when the locale changes', async () => {
+    const where = await localeInvalidationWhere()
+
+    expect(where.date).toEqual({ gte: getStartOfTodayInTimezone('Europe/Tallinn') })
+  })
+
+  // The date bound is only a proxy for "already cooked": today's dinner may be
+  // eaten already. Leaving `completed` nulls the tips at the entry PATCH, so a
+  // reverted entry cannot come back holding the old locale's tips.
+  it('leaves tips on completed entries when the locale changes', async () => {
+    const where = await localeInvalidationWhere()
+
+    expect(where.status).toEqual({ not: 'completed' })
+  })
+
+  // Unlike the member-count invalidation, a locale change makes an entry's
+  // tips wrong whatever its serving override is — the language is wrong. So
+  // the `where` must not narrow to `servingOverride: null` (HON-702).
+  it('clears tips on entries with a serving override when the locale changes', async () => {
+    const where = await localeInvalidationWhere()
+
+    expect(where).not.toHaveProperty('servingOverride')
+  })
+
+  it('derives the date bound from the household timezone', async () => {
+    vi.useFakeTimers()
+    try {
+      // 22:30 UTC — already the next day in Auckland, still the same day in Honolulu.
+      vi.setSystemTime(new Date('2026-09-20T22:30:00Z'))
+
+      const where = await localeInvalidationWhere('Pacific/Auckland')
+
+      expect(where.date).toEqual({ gte: getStartOfTodayInTimezone('Pacific/Auckland') })
+      expect(where.date).not.toEqual({ gte: getStartOfTodayInTimezone('Pacific/Honolulu') })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('leaves preparation tips alone when the PATCH resends the stored locale', async () => {

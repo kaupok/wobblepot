@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { KNOWN_LOCALES } from '@/lib/i18n/locales'
 import { captureApiError } from '@/lib/errors'
+import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
 
 const updateHouseholdSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -109,10 +110,23 @@ export async function PATCH(request: Request) {
       ? await prisma.$transaction(async (tx) => {
           const updated = await tx.household.update(updateArgs)
 
+          // Bounded like the membership invalidation (HON-684): tips on an
+          // entry dated before today, or on one already `completed`, are never
+          // read again, so regenerating them is pure AI spend against the
+          // household's cap. Leaving `completed` nulls an entry's tips at the
+          // entry PATCH, so a reverted entry does not come back holding the
+          // old locale's tips (HON-702).
+          //
+          // Deliberately not `invalidateFutureEntryTips`: its
+          // `servingOverride: null` clause is right for a member-count change
+          // and wrong here — a locale change makes every entry's tips wrong,
+          // override or not, because the language is wrong.
           await tx.mealPlanEntry.updateMany({
             where: {
               plan: { householdId: membership.household.id },
               preparationTips: { not: null },
+              date: { gte: getStartOfTodayInTimezone(membership.household.timezone) },
+              status: { not: 'completed' },
             },
             data: { preparationTips: null },
           })
