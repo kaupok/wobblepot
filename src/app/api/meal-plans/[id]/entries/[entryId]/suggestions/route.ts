@@ -173,13 +173,15 @@ async function handlePOST(
     }
 
     // Score and sort candidates by personalization priority and pantry overlap.
-    // The jitter is a seeded tie-break, so the same slot ranks reproducibly while
-    // different slots still vary — see candidate-score.ts.
+    // The jitter is a seeded tie-break, so the same slot ranks reproducibly today while
+    // different slots — and tomorrow — still vary. Seeded on the *current* date, not the
+    // entry's: an entry's date never changes, so it would add nothing. See candidate-score.ts.
+    const jitterDate = toDateString(new Date())
     const scored = candidates.map((c) => ({
       candidate: c,
       score:
         scoreCandidate(c, SLOT_FIT_WEIGHTS, { pantryIngredientNames }) +
-        scoreJitter({ entryId, dateString: entryDateString, candidateId: c.id }),
+        scoreJitter({ entryId, dateString: jitterDate, candidateId: c.id }),
     }))
     scored.sort((a, b) => b.score - a.score)
 

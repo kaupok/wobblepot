@@ -43,9 +43,10 @@ export const SIMILAR_PREP_TIME_MINUTES = 15
  * further apart is what keeps a pool of otherwise-identical candidates from collapsing into
  * one big tie.
  *
- * `sameProteinType` and `similarPrepTime` are 0 because there is no reference meal — and the
- * slot's required protein type, where it has one, is already applied upstream as a candidate
- * filter, so scoring it again here would weight it twice.
+ * `sameProteinType` and `similarPrepTime` are 0 because an empty slot holds no meal to resemble.
+ * Where the slot does require a protein type, that constraint is already applied upstream as a
+ * candidate filter, so every candidate would score it identically — which is equally why the
+ * similarity profile's +3 is a no-op on a required-protein slot rather than a thumb on the scale.
  */
 export const SLOT_FIT_WEIGHTS: CandidateScoreWeights = {
   isFavorite: 3,
@@ -146,7 +147,11 @@ export const SCORE_JITTER_RANGE = 0.5
 export interface ScoreJitterSeed {
   /** The plan entry being filled or swapped. */
   entryId: string
-  /** `YYYY-MM-DD` for the entry's date — rotates the ordering day to day. */
+  /**
+   * `YYYY-MM-DD` of the day the ranking is being computed **for** — pass today's date,
+   * not the entry's. An entry's own date is written once at create and never updated, so
+   * seeding on it would be a pure function of `entryId` and add no entropy at all.
+   */
   dateString: string
   /** The candidate being scored. Without it every candidate would get the same offset. */
   candidateId: string
@@ -168,12 +173,12 @@ function hashSeed(seed: string): number {
  * The integer weights produce many exact ties, so without an offset a household would see the
  * candidate pool's own ordering every time. `Math.random()` gave that variety but made the
  * ranking impossible to assert on, which is why the weights had no regression coverage at all
- * (HON-706). Seeding on entry + date + candidate keeps the variety *between* entries and across
- * days while making any single ranking reproducible.
+ * (HON-706). Seeding on entry + current date + candidate keeps the variety *between* entries and
+ * from one day to the next, while making any single ranking reproducible.
  *
  * Note the consequence: re-opening the swap modal for the same entry on the same day now returns
- * the same three meals. That is the intended trade — the pool itself changes as the household
- * plans, favourites, and stocks its pantry.
+ * the same three meals. That is the intended trade — come back tomorrow, or change the pool by
+ * planning, favouriting, or stocking the pantry, and the order moves.
  */
 export function scoreJitter({ entryId, dateString, candidateId }: ScoreJitterSeed): number {
   // mulberry32, seeded by the hash — one step is enough for a well-distributed value.

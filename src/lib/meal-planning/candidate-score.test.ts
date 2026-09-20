@@ -193,7 +193,7 @@ describe('scoreJitter', () => {
     expect(scoreJitter({ ...seed, candidateId: 'meal-2' })).not.toBe(scoreJitter(seed))
   })
 
-  it('varies between dates, so the same slot rotates as the week moves', () => {
+  it('varies between dates, so the same slot rotates from one day to the next', () => {
     expect(scoreJitter({ ...seed, dateString: '2026-09-22' })).not.toBe(scoreJitter(seed))
   })
 
@@ -205,11 +205,16 @@ describe('scoreJitter', () => {
     }
   })
 
-  it('never lifts a candidate past one that scored a whole extra signal', () => {
+  it('never lifts a candidate past one that scored the smallest signal', () => {
+    // The smallest weight in either profile is pantryMatchPerIngredient (0.5), so that is the
+    // gap SCORE_JITTER_RANGE has to stay under. Asserting against kid-friendly's 1.0 would
+    // leave slack the invariant does not have: the range could be raised to 0.75 with this
+    // test still green while a single pantry match got reordered below no match at all.
     const lower = scoreCandidate(meal('a'), SLOT_FIT_WEIGHTS) + scoreJitter(seed)
     const higher =
-      scoreCandidate(meal('b', { kidFriendly: true }), SLOT_FIT_WEIGHTS) +
-      scoreJitter({ ...seed, candidateId: 'meal-2' })
+      scoreCandidate(meal('b', { topIngredients: [{ name: 'rice' }] }), SLOT_FIT_WEIGHTS, {
+        pantryIngredientNames: PANTRY,
+      }) + scoreJitter({ ...seed, candidateId: 'meal-2' })
 
     expect(higher).toBeGreaterThan(lower)
   })

@@ -190,8 +190,10 @@ async function handlePOST(
     const timeMap = new Map(candidateMealDetails.map((m) => [m.id, m.timeMinutes]))
 
     // Score candidates by similarity, personalization, and pantry overlap.
-    // The jitter is a seeded tie-break, so the same entry ranks reproducibly while
-    // different entries still vary — see candidate-score.ts.
+    // The jitter is a seeded tie-break, so the same entry ranks reproducibly today while
+    // different entries — and tomorrow — still vary. Seeded on the *current* date, not the
+    // entry's: an entry's date never changes, so it would add nothing. See candidate-score.ts.
+    const jitterDate = toDateString(new Date())
     const scored: ScoredCandidate[] = filteredCandidates.map((candidate) => {
       const timeMinutes = timeMap.get(candidate.id) ?? null
       const score = scoreCandidate(candidate, SIMILARITY_WEIGHTS, {
@@ -202,8 +204,7 @@ async function handlePOST(
       })
       return {
         candidate,
-        score:
-          score + scoreJitter({ entryId, dateString: entryDateString, candidateId: candidate.id }),
+        score: score + scoreJitter({ entryId, dateString: jitterDate, candidateId: candidate.id }),
       }
     })
 
