@@ -12,7 +12,11 @@ import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages
 import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
 import { IMAGINE_ERROR_KEYS, translateErrorCode } from '@/lib/ai/error-codes'
-import { convertToPrefilledData, type ImaginedMealResponse } from '@/lib/imagine-utils'
+import {
+  convertToPrefilledData,
+  reviewImaginedMeal,
+  type ImaginedMealResponse,
+} from '@/lib/imagine-utils'
 import { MealCardBase } from '../MealCardBase'
 import { AlternativeSkeleton } from './AlternativesList'
 
@@ -168,66 +172,14 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
   }
 
   /**
-   * Ask the review endpoint to sanity-check the AI's per-serving quantities
-   * before opening the save dialog. Degrades gracefully: on any failure the
-   * original quantities are used.
+   * Sanity-check the AI's per-serving quantities before opening the save
+   * dialog. `reviewImaginedMeal` degrades on any failure — the original
+   * quantities are used and the failure is reported, not surfaced (HON-699).
    */
   const handleSelectImaginedMeal = async (meal: ImaginedMealResponse) => {
     setReviewingMealId(meal.id)
 
-    let finalMeal = meal
-    try {
-      const reviewPayload = {
-        mealName: meal.name,
-        servings: meal.servings,
-        ingredients: meal.components.map((comp) => ({
-          ingredientId: comp.ingredientId,
-          name: comp.ingredient.name,
-          quantityPerServing: comp.quantityPerServing,
-          unit: comp.ingredient.defaultUnit,
-        })),
-      }
-
-      const response = await fetch('/api/meals/imagine/review', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(reviewPayload),
-        // Matches the budget in ImagineClient.tsx: Sonnet 5's reasoning pushes
-        // a 24-ingredient review to 25-32s, past the old 15s, and the catch
-        // below degrades silently — so the corrections are dropped after the
-        // household has already been billed for them (HON-693).
-        signal: AbortSignal.timeout(45_000),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success && data.ingredients) {
-          const correctionMap = new Map<string, number>(
-            data.ingredients.map((ing: { ingredientId: string; quantityPerServing: number }) => [
-              ing.ingredientId,
-              ing.quantityPerServing,
-            ]),
-          )
-
-          finalMeal = {
-            ...meal,
-            components: meal.components.map((comp) => {
-              const corrected = correctionMap.get(comp.ingredientId)
-              return corrected != null ? { ...comp, quantityPerServing: corrected } : comp
-            }),
-            ingredients: meal.ingredients.map((ing) => {
-              if (ing.type !== 'matched') return ing
-              const corrected = correctionMap.get(ing.ingredient.id)
-              return corrected != null
-                ? { ...ing, convertedQuantity: corrected * meal.servings }
-                : ing
-            }),
-          }
-        }
-      }
-    } catch {
-      // Graceful degradation: proceed with original quantities
-    }
+    const finalMeal = await reviewImaginedMeal(meal)
 
     setReviewingMealId(null)
     const prefilledData = convertToPrefilledData(finalMeal)

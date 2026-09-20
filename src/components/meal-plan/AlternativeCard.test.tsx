@@ -10,7 +10,6 @@ const mockMeal: AlternativeMeal = {
   timeMinutes: 30,
   kidFriendly: true,
   primaryProteinType: 'poultry',
-  reason: 'Similar prep time',
   components: [
     {
       ingredientId: 'ingredient-1',

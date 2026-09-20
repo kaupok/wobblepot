@@ -122,7 +122,6 @@ function swapAlternatives(call: number): AlternativeMeal[] {
     kidFriendly: true,
     primaryProteinType: 'none',
     suitableFor: [MealType.dinner],
-    reason: 'Matches your preferences',
     components: lemonGarlicChickenComponents,
     nutrition: { calories: 480, protein: 30, carbs: 40, fat: 18 },
   })

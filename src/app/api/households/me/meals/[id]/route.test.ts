@@ -43,6 +43,7 @@ vi.mock('@/lib/meal-planning/protein', () => ({
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
+import { deriveProteinType } from '@/lib/meal-planning/protein'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -105,23 +106,36 @@ const mockMealResult = {
 const paramsPromise = (id: string) => Promise.resolve({ id })
 
 /**
- * Mocks `prisma.$transaction` for the PATCH route and hands back the
- * `mealPlanEntry.updateMany` spy, which is how the prep-tips invalidation
- * (HON-683) is asserted in both directions.
+ * Mocks `prisma.$transaction` for the PATCH route and hands back the spies the
+ * PATCH tests assert on: `mealPlanEntry.updateMany` for the prep-tips
+ * invalidation (HON-683), and `meal.update` plus the two `mealComponent`
+ * writers for the component rewrite (HON-701).
+ *
+ * `tx.meal.findUniqueOrThrow` serves two reads: the divisor read the component
+ * path makes inside the transaction (selects `servings`), and the final fetch
+ * of the updated row. They are told apart by their `select`, not by call order,
+ * so a test that adds a read cannot silently get the wrong fixture. Pass
+ * `currentMeal` whenever the payload carries `components`.
  */
-const setupTransaction = (updatedMeal: unknown) => {
+const setupTransaction = (updatedMeal: unknown, currentMeal?: unknown) => {
   const mealPlanEntryUpdateMany = vi.fn()
+  const mealUpdate = vi.fn()
+  const mealComponentDeleteMany = vi.fn()
+  const mealComponentCreateMany = vi.fn()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   mockTransaction.mockImplementation(async (fn: any) => {
     const tx = {
       meal: {
-        update: vi.fn(),
-        findUniqueOrThrow: vi.fn().mockResolvedValue(updatedMeal),
+        update: mealUpdate,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        findUniqueOrThrow: vi.fn(async (args: any) =>
+          args?.select?.servings ? (currentMeal ?? updatedMeal) : updatedMeal,
+        ),
       },
       mealComponent: {
-        deleteMany: vi.fn(),
-        createMany: vi.fn(),
+        deleteMany: mealComponentDeleteMany,
+        createMany: mealComponentCreateMany,
       },
       mealPlanEntry: {
         updateMany: mealPlanEntryUpdateMany,
@@ -130,7 +144,7 @@ const setupTransaction = (updatedMeal: unknown) => {
     return fn(tx)
   })
 
-  return { mealPlanEntryUpdateMany }
+  return { mealPlanEntryUpdateMany, mealUpdate, mealComponentDeleteMany, mealComponentCreateMany }
 }
 
 const patchMeal = (body: Record<string, unknown>) =>
@@ -362,7 +376,7 @@ describe('PATCH /api/households/me/meals/[id]', () => {
     })
 
     it('clears tips when a component quantity changes', async () => {
-      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult, storedMeal)
 
       const response = await patchMeal({
         ...unchangedPayload,
@@ -378,7 +392,7 @@ describe('PATCH /api/households/me/meals/[id]', () => {
       mockIngredientFindMany.mockResolvedValue([
         { id: 'ing-2', proteinType: 'plant', protein: 8 },
       ] as never)
-      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult, storedMeal)
 
       const response = await patchMeal({
         ...unchangedPayload,
@@ -393,7 +407,7 @@ describe('PATCH /api/households/me/meals/[id]', () => {
     // divisor, so every `quantityPerServing` moves and the prompt's ingredient
     // lines move with it — 600g over 6 is 100 per serving, not the stored 150.
     it('clears tips when servings change, via the component quantities', async () => {
-      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult, storedMeal)
 
       const response = await patchMeal({ ...unchangedPayload, servings: 6 })
 
@@ -406,7 +420,7 @@ describe('PATCH /api/households/me/meals/[id]', () => {
     // PATCH that leaves every `quantityPerServing` where it was produces a
     // byte-identical prompt and must not regenerate the household's plan.
     it('leaves tips alone for a servings change that moves no component quantity', async () => {
-      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult, storedMeal)
 
       const response = await patchMeal({ servings: 8 })
 
@@ -415,7 +429,7 @@ describe('PATCH /api/households/me/meals/[id]', () => {
     })
 
     it('clears tips when timeMinutes changes', async () => {
-      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult, storedMeal)
 
       const response = await patchMeal({ ...unchangedPayload, timeMinutes: 45 })
 
@@ -424,7 +438,7 @@ describe('PATCH /api/households/me/meals/[id]', () => {
     })
 
     it('clears tips when the name changes', async () => {
-      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult, storedMeal)
 
       const response = await patchMeal({ ...unchangedPayload, name: 'Tofu Rice Bowl' })
 
@@ -433,7 +447,7 @@ describe('PATCH /api/households/me/meals/[id]', () => {
     })
 
     it('clears tips when preparationNotes change', async () => {
-      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult, storedMeal)
 
       const response = await patchMeal({
         ...unchangedPayload,
@@ -449,7 +463,7 @@ describe('PATCH /api/households/me/meals/[id]', () => {
     // prompt never reads. Firing here would regenerate the household's whole
     // plan over a pasted link.
     it('leaves tips alone when only sourceUrl changes', async () => {
-      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult, storedMeal)
 
       const response = await patchMeal({
         ...unchangedPayload,
@@ -461,7 +475,7 @@ describe('PATCH /api/households/me/meals/[id]', () => {
     })
 
     it('leaves tips alone when only description and kidFriendly change', async () => {
-      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult, storedMeal)
 
       const response = await patchMeal({
         ...unchangedPayload,
@@ -474,12 +488,179 @@ describe('PATCH /api/households/me/meals/[id]', () => {
     })
 
     it('leaves tips alone when the payload resends every stored value unchanged', async () => {
-      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult, storedMeal)
 
       const response = await patchMeal(unchangedPayload)
 
       expect(response.status).toBe(200)
       expect(mealPlanEntryUpdateMany).not.toHaveBeenCalled()
+    })
+  })
+
+  // HON-701: `components` and `servings` are independently optional, but the
+  // component path used to be gated on both, so a components-only PATCH wrote
+  // nothing and still answered 200 with the unchanged list. The divisor for
+  // `quantityPerServing` is now the meal's stored `servings`.
+  describe('components sent without servings', () => {
+    // 750g of chicken over the stored 5 servings is the 150 per-serving on
+    // disk, so a payload of 800 scaled by the same 5 lands on 160. The 5 is
+    // deliberately not `Meal.servings`'s `@default(4)` — with 4 here, a
+    // hardcoded `servings ?? 4` that never reads the stored meal would pass
+    // every assertion below, including the one this describe exists for.
+    const storedMeal = {
+      ...mockMealResult,
+      deletedAt: null,
+      servings: 5,
+      preparationNotes: 'Sear the chicken first',
+      sourceUrl: null,
+      components: [{ ingredientId: 'ing-1', quantityPerServing: 150 }],
+    }
+
+    beforeEach(() => {
+      mockGetSession.mockResolvedValue(mockSession as never)
+      mockGetMembership.mockResolvedValue(mockMembership as never)
+      mockMealFindFirst.mockResolvedValue(storedMeal as never)
+      mockIngredientFindMany.mockResolvedValue([
+        { id: 'ing-1', proteinType: 'poultry', protein: 31 },
+      ] as never)
+    })
+
+    it('rewrites the component rows against the stored servings', async () => {
+      const { mealComponentDeleteMany, mealComponentCreateMany } = setupTransaction(
+        mockMealResult,
+        storedMeal,
+      )
+
+      const response = await patchMeal({
+        components: [{ ingredientId: 'ing-1', totalQuantity: 800 }],
+      })
+
+      expect(response.status).toBe(200)
+      expect(mealComponentDeleteMany).toHaveBeenCalledWith({ where: { mealId: 'meal-1' } })
+      expect(mealComponentCreateMany).toHaveBeenCalledWith({
+        data: [
+          {
+            mealId: 'meal-1',
+            ingredientId: 'ing-1',
+            quantityPerServing: 160,
+            isVague: false,
+            originalPhrase: null,
+          },
+        ],
+      })
+    })
+
+    it('clears cached preparation tips for that same request', async () => {
+      mockIngredientFindMany.mockResolvedValue([
+        { id: 'ing-2', proteinType: 'plant', protein: 8 },
+      ] as never)
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult, storedMeal)
+
+      const response = await patchMeal({
+        components: [{ ingredientId: 'ing-2', totalQuantity: 800 }],
+      })
+
+      expect(response.status).toBe(200)
+      expect(mealPlanEntryUpdateMany).toHaveBeenCalledWith({
+        where: { mealId: 'meal-1', preparationTips: { not: null } },
+        data: { preparationTips: null },
+      })
+    })
+
+    it('recomputes primaryProteinType on that path', async () => {
+      mockIngredientFindMany.mockResolvedValue([
+        { id: 'ing-2', proteinType: 'plant', protein: 8 },
+      ] as never)
+      vi.mocked(deriveProteinType).mockReturnValueOnce('plant' as never)
+      const { mealUpdate } = setupTransaction(mockMealResult, storedMeal)
+
+      const response = await patchMeal({
+        components: [{ ingredientId: 'ing-2', totalQuantity: 800 }],
+      })
+
+      expect(response.status).toBe(200)
+      expect(deriveProteinType).toHaveBeenCalledWith([
+        { quantityPerServing: 160, ingredient: { id: 'ing-2', proteinType: 'plant', protein: 8 } },
+      ])
+      expect(mealUpdate).toHaveBeenCalledWith({
+        where: { id: 'meal-1' },
+        data: expect.objectContaining({ primaryProteinType: 'plant' }),
+      })
+    })
+
+    it('still returns 400 when a component names an unknown ingredient', async () => {
+      mockIngredientFindMany.mockResolvedValue([] as never)
+      const { mealComponentCreateMany } = setupTransaction(mockMealResult, storedMeal)
+
+      const response = await patchMeal({
+        components: [{ ingredientId: 'ing-missing', totalQuantity: 800 }],
+      })
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.missingIds).toEqual(['ing-missing'])
+      expect(mealComponentCreateMany).not.toHaveBeenCalled()
+    })
+
+    // The divisor decides what gets written, so it is read inside the write
+    // transaction rather than from the pre-transaction lookup at the top of the
+    // handler. A concurrent servings edit landing between the two would
+    // otherwise store the rows under a divisor the meal no longer uses. Here
+    // the meal is read as 5 servings before the transaction and 8 inside it:
+    // 800 must be scaled by the 8 that is actually current.
+    it('scales against the servings read inside the transaction', async () => {
+      const { mealComponentCreateMany } = setupTransaction(mockMealResult, {
+        ...storedMeal,
+        servings: 8,
+      })
+
+      const response = await patchMeal({
+        components: [{ ingredientId: 'ing-1', totalQuantity: 800 }],
+      })
+
+      expect(response.status).toBe(200)
+      expect(mealComponentCreateMany).toHaveBeenCalledWith({
+        data: [expect.objectContaining({ quantityPerServing: 100 })],
+      })
+    })
+
+    // The existence check below it cannot tell a repeated id from a missing
+    // one — `findMany` returns one row for two components — so it used to
+    // answer `400 { missingIds: [] }`, naming nothing. Newly reachable on this
+    // path, hence pinned here.
+    it('names the repeated ingredient when a component id appears twice', async () => {
+      const { mealComponentCreateMany } = setupTransaction(mockMealResult, storedMeal)
+
+      const response = await patchMeal({
+        components: [
+          { ingredientId: 'ing-1', totalQuantity: 400 },
+          { ingredientId: 'ing-1', totalQuantity: 350 },
+        ],
+      })
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.duplicateIds).toEqual(['ing-1'])
+      expect(mealComponentCreateMany).not.toHaveBeenCalled()
+    })
+
+    // The other direction, unchanged by HON-701: a bare `servings` edit leaves
+    // the stored per-serving quantities exactly where they are.
+    it('leaves the component rows alone for a servings-only PATCH', async () => {
+      const { mealComponentDeleteMany, mealComponentCreateMany, mealUpdate } = setupTransaction(
+        mockMealResult,
+        storedMeal,
+      )
+
+      const response = await patchMeal({ servings: 6 })
+
+      expect(response.status).toBe(200)
+      expect(mealComponentDeleteMany).not.toHaveBeenCalled()
+      expect(mealComponentCreateMany).not.toHaveBeenCalled()
+      expect(mealUpdate).toHaveBeenCalledWith({
+        where: { id: 'meal-1' },
+        data: { servings: 6 },
+      })
     })
   })
 

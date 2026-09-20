@@ -97,6 +97,21 @@ const reviewAndSaveHandlers = [
 ]
 
 /**
+ * The server's review budget fired. A failed review costs the corrections, not
+ * the meal: the dialog must still open, on the AI's original quantities, with
+ * no error surfaced — the user never asked for the review by name (HON-699).
+ */
+const reviewTimeoutHandlers = [
+  ...imagineSuccess,
+  http.post('/api/meals/imagine/review', () =>
+    HttpResponse.json(
+      { error: 'Reviewing the quantities took too long. Please try again.' },
+      { status: 504 },
+    ),
+  ),
+]
+
+/**
  * Records every hit on the generate endpoint so `RestoredFromSession` can prove
  * a restore costs no AI call — the whole point of HON-362.
  */
@@ -277,5 +292,32 @@ export const RequestFailed: Story = {
     expect(canvas.queryByText('The kitchen is busy — try again')).not.toBeInTheDocument()
     // A failed run must not leave a stash behind for the next mount to restore.
     await waitFor(() => expect(sessionStorage.getItem(STORAGE_KEY)).toBeNull())
+  },
+}
+
+export const ReviewTimeoutStillOpensDialog: Story = {
+  parameters: {
+    msw: { handlers: reviewTimeoutHandlers },
+    docs: {
+      description: {
+        story:
+          'The review endpoint returns a 504. "Select" still opens the review dialog on the uncorrected meal, and nothing about the failure reaches the user — it is reported instead (HON-699).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const body = within(document.body)
+
+    await userEvent.type(canvas.getByRole('textbox'), 'something with lentils')
+    await userEvent.click(canvas.getByRole('button', { name: /imagine meals/i }))
+    await canvas.findByText('Smoky red lentil stew')
+
+    const [firstSelect] = canvas.getAllByRole('button', { name: /^select$/i })
+    await userEvent.click(firstSelect!)
+
+    // The dialog is portalled, so it lives outside `canvasElement`.
+    await body.findByRole('dialog')
+    await expect(canvas.queryByText(/too long/i)).not.toBeInTheDocument()
   },
 }
