@@ -129,6 +129,28 @@ describe('parseRecipeText', () => {
     expect(mockGenerateObject).toHaveBeenCalledWith(expect.objectContaining({ abortSignal }))
   })
 
+  it('rethrows a TimeoutError instead of wrapping it in RecipeParseError (HON-694)', async () => {
+    const err = new Error('The operation was aborted due to timeout')
+    err.name = 'TimeoutError'
+    mockGenerateObject.mockRejectedValue(err)
+
+    // The catch-all below rewrites every other AI failure into a
+    // `RecipeParseError`. If it swallowed this one too, `/api/recipes/parse`
+    // would match its 400 branch first and the mapped 504 would be dead code —
+    // which the route tests cannot catch, because they mock this module out.
+    await expect(
+      parseRecipeText('A full recipe with chicken breast and vegetables for dinner'),
+    ).rejects.toBe(err)
+  })
+
+  it('still wraps other AI failures in RecipeParseError', async () => {
+    mockGenerateObject.mockRejectedValue(new Error('upstream exploded'))
+
+    await expect(
+      parseRecipeText('A full recipe with chicken breast and vegetables for dinner'),
+    ).rejects.toBeInstanceOf(RecipeParseError)
+  })
+
   it('reports the SDK usage to onAiUsage via toAiUsageStats', async () => {
     mockGenerateObject.mockResolvedValue({
       object: {

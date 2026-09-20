@@ -228,9 +228,9 @@ describe('POST /api/meal-plans/generate', () => {
         householdId: 'household-123',
         startDate: expect.any(Date),
         endDate: expect.any(Date),
-        // HON-694: without a signal the AI call is unbounded and the platform,
+        // HON-694: without a budget the AI call is unbounded and the platform,
         // not the 504 below, decides when a slow generation ends.
-        abortSignal: expect.any(AbortSignal),
+        aiBudgetMs: expect.any(Number),
       }),
     )
     expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'plan-generation')
@@ -302,7 +302,7 @@ describe('POST /api/meal-plans/generate', () => {
         startDate: expect.any(Date),
         endDate: expect.any(Date),
         // HON-694: same budget applies on the fill-empty path.
-        abortSignal: expect.any(AbortSignal),
+        aiBudgetMs: expect.any(Number),
       }),
     )
     expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'plan-generation')

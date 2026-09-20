@@ -115,6 +115,13 @@ export async function parseRecipeText(
     if (error instanceof RecipeParseError) {
       throw error
     }
+    // The route's wall-clock budget firing is not a parse failure, and must
+    // reach `/api/recipes/parse` intact: wrapping it here would make the 400
+    // below match first, so the mapped 504 would be unreachable and
+    // `captureApiError` would never report the mis-sized budget (HON-694).
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      throw error
+    }
     // AI generation error
     throw new RecipeParseError(
       'Failed to parse the recipe. Please try again or use the manual form.',

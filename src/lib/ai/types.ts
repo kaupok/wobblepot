@@ -76,13 +76,17 @@ export interface GeneratePlanOptions {
   /** Optional callback fired with token usage after the AI call returns. */
   onAiUsage?: (usage: AiUsageStats) => void
   /**
-   * Wall-clock budget for the AI call, owned by the calling route.
+   * Wall-clock budget for the AI call in milliseconds, owned by the calling
+   * route. Omit to leave the call unbounded.
    *
-   * The route creates it so the number sits in the same file as that route's
-   * `maxDuration`, which it has to stay under for the mapped 504 to be
-   * reachable at all. See `src/app/api/meal-plans/generate/route.ts`.
+   * Passed as a duration rather than a ready-made `AbortSignal` so the clock
+   * starts immediately before the AI call rather than when the route builds
+   * these options: the slot/candidate-pool queries below run first and would
+   * otherwise eat the budget the number is sized for. The route still owns the
+   * number, so it stays in the same file as the `maxDuration` it has to fit
+   * under. See `src/app/api/meal-plans/generate/route.ts`.
    */
-  abortSignal?: AbortSignal
+  aiBudgetMs?: number
 }
 
 /**
@@ -117,13 +121,17 @@ export interface FillEmptySlotsOptions {
   /** Optional callback fired with token usage after the AI call returns. */
   onAiUsage?: (usage: AiUsageStats) => void
   /**
-   * Wall-clock budget for the AI call, owned by the calling route.
+   * Wall-clock budget for the AI call in milliseconds, owned by the calling
+   * route. Omit to leave the call unbounded.
    *
-   * The route creates it so the number sits in the same file as that route's
-   * `maxDuration`, which it has to stay under for the mapped 504 to be
-   * reachable at all. See `src/app/api/meal-plans/generate/route.ts`.
+   * Passed as a duration rather than a ready-made `AbortSignal` so the clock
+   * starts immediately before the AI call rather than when the route builds
+   * these options: the slot/candidate-pool queries below run first and would
+   * otherwise eat the budget the number is sized for. The route still owns the
+   * number, so it stays in the same file as the `maxDuration` it has to fit
+   * under. See `src/app/api/meal-plans/generate/route.ts`.
    */
-  abortSignal?: AbortSignal
+  aiBudgetMs?: number
 }
 
 /**

@@ -48,11 +48,17 @@ const MAX_DAYS = 14
  * tips 15-21s, quantity review 25-32s, both on deliberately hard inputs. Plan
  * generation is the app's largest generation, so assume worse than the 25-32s
  * anchor; 40s covers a worst-case attempt with room for the fast failures
- * above. The remaining 20s under `maxDuration` — more than the 15s the tips
- * route leaves — covers this route's surrounding DB work, which is the
- * heaviest in the app: three parallel history/favourite/pantry queries plus
- * `loadCandidatePools` before the call, `hydratePlan` and a bulk entry write
- * after. That headroom is what keeps the 504 below reachable instead of the
+ * above.
+ *
+ * Passed as a duration, not a ready-made signal: this route's DB prelude runs
+ * *inside* `generateMealPlan` / `fillEmptySlots` (the kept-slot read, the
+ * parallel history/favourite/pantry fetch, `loadCandidatePools`, and for
+ * fill-empty a nested plan `findUnique`), so a signal started here would spend
+ * the AI budget on queries. The lib starts the clock immediately before the
+ * model call instead. That leaves the 20s under `maxDuration` for the prelude
+ * plus `hydratePlan` and the bulk entry write afterwards — more than the 15s
+ * the tips route reserves, because this route's DB work is the heaviest in the
+ * app. That headroom is what keeps the 504 below reachable instead of the
  * platform killing the function first.
  */
 const AI_BUDGET_MS = 40_000
@@ -167,7 +173,7 @@ async function handlePOST(request: Request) {
 
     try {
       const result = await fillEmptySlots({
-        abortSignal: AbortSignal.timeout(AI_BUDGET_MS),
+        aiBudgetMs: AI_BUDGET_MS,
         planId,
         householdId: household.id,
         startDate,
@@ -264,7 +270,7 @@ async function handlePOST(request: Request) {
   try {
     // Generate meal plan (default mode)
     const result = await generateMealPlan({
-      abortSignal: AbortSignal.timeout(AI_BUDGET_MS),
+      aiBudgetMs: AI_BUDGET_MS,
       householdId: household.id,
       startDate,
       endDate,

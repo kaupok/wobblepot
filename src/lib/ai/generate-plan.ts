@@ -131,7 +131,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     weekdayMealTypes = ['dinner'] as MealType[],
     weekendMealTypes = ['dinner'] as MealType[],
     onAiUsage,
-    abortSignal,
+    aiBudgetMs,
   } = options
 
   // Get dates for entries from the flexible date range (endDate is exclusive)
@@ -207,6 +207,12 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
   })
 
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
+
+  // Started here, not when the route built its options: every query above —
+  // the slot/kept-entry reads, the parallel history/favourite/pantry fetch and
+  // `loadCandidatePools` — runs first, and a signal created earlier would
+  // spend the AI budget on them. See `aiBudgetMs` in `./types`.
+  const abortSignal = aiBudgetMs === undefined ? undefined : AbortSignal.timeout(aiBudgetMs)
 
   const result = await withUsageOnFailure(PLANNING_MODEL, onAiUsage, () =>
     generateObject({
