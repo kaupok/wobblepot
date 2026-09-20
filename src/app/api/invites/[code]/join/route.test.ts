@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { Prisma } from '@/generated/prisma/client'
 import { POST } from './route'
 
 vi.mock('next/headers', () => ({
@@ -50,10 +51,10 @@ const mockCaptureApiError = vi.mocked(captureApiError)
 const tx = {
   householdMember: {
     findFirst: vi.fn(),
-    update: vi.fn(),
+    updateMany: vi.fn(),
   },
   householdInvite: {
-    delete: vi.fn(),
+    deleteMany: vi.fn(),
   },
 }
 
@@ -76,10 +77,13 @@ const SESSION = {
 
 describe('POST /api/invites/[code]/join', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    // resetAllMocks, not clearAllMocks: the retry tests below queue
+    // `mockResolvedValueOnce` implementations, and `clearAllMocks` clears call
+    // history without draining that queue — it would leak into the next test.
+    vi.resetAllMocks()
     tx.householdMember.findFirst.mockResolvedValue(null)
-    tx.householdMember.update.mockResolvedValue({})
-    tx.householdInvite.delete.mockResolvedValue({})
+    tx.householdMember.updateMany.mockResolvedValue({ count: 1 })
+    tx.householdInvite.deleteMany.mockResolvedValue({ count: 1 })
     // The route uses the interactive form, so the mock has to run the callback
     // rather than resolve an array.
     mockTransaction.mockImplementation((callback: unknown) =>
@@ -124,8 +128,8 @@ describe('POST /api/invites/[code]/join', () => {
       'You are already a member of a household. Leave your current household to join another.',
     )
     // The claim must roll back with it.
-    expect(tx.householdMember.update).not.toHaveBeenCalled()
-    expect(tx.householdInvite.delete).not.toHaveBeenCalled()
+    expect(tx.householdMember.updateMany).not.toHaveBeenCalled()
+    expect(tx.householdInvite.deleteMany).not.toHaveBeenCalled()
   })
 
   it('runs the membership check on the transaction client, not on prisma', async () => {
@@ -156,10 +160,107 @@ describe('POST /api/invites/[code]/join', () => {
     expect(mockCaptureApiError).not.toHaveBeenCalled()
   })
 
+  it('runs the claim under Serializable isolation', async () => {
+    mockGetSession.mockResolvedValue(SESSION as never)
+    mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
+
+    await POST(createRequest(), { params: createParams('abc123') })
+
+    // Sharing a transaction is not enough on its own. At read committed the
+    // membership check is a SELECT matching zero rows, so it takes no lock,
+    // and two joins claiming two *different* member rows never conflict —
+    // write skew. Only SSI's predicate locks stop that (HON-679).
+    expect(mockTransaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    })
+  })
+
+  it('retries a serialization failure and resolves to the 400 the winner caused', async () => {
+    mockGetSession.mockResolvedValue(SESSION as never)
+    mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
+
+    // First attempt loses the SSI conflict; on the retry the winner's
+    // membership row is visible, so the loser gets a deterministic 400 rather
+    // than a 500.
+    tx.householdMember.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'member-123', userId: 'user-123' })
+    // SSI aborts at commit, so the callback runs to completion first and only
+    // then does the transaction fail — model it that way, or the retry test
+    // passes against a route that never ran the check.
+    mockTransaction.mockImplementationOnce(async (callback: unknown) => {
+      await (callback as (client: typeof tx) => Promise<unknown>)(tx)
+      throw new Prisma.PrismaClientKnownRequestError('could not serialize access', {
+        code: 'P2034',
+        clientVersion: 'test',
+      })
+    })
+
+    const response = await POST(createRequest(), { params: createParams('abc123') })
+    const data = await response.json()
+
+    expect(mockTransaction).toHaveBeenCalledTimes(2)
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('already_in_household')
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
+  })
+
+  it('gives up after the retry budget and reports a persistent serialization failure', async () => {
+    mockGetSession.mockResolvedValue(SESSION as never)
+    mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
+    mockTransaction.mockImplementation(() => {
+      throw new Prisma.PrismaClientKnownRequestError('could not serialize access', {
+        code: 'P2034',
+        clientVersion: 'test',
+      })
+    })
+
+    const response = await POST(createRequest(), { params: createParams('abc123') })
+    const data = await response.json()
+
+    // Bounded: the loop must not spin forever on a conflict that never clears.
+    expect(mockTransaction).toHaveBeenCalledTimes(3)
+    expect(response.status).toBe(500)
+    expect(data.error).toBe('Failed to join household')
+    expect(mockCaptureApiError).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns 404 when a concurrent join consumed the invite first', async () => {
+    mockGetSession.mockResolvedValue(SESSION as never)
+    mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
+    tx.householdInvite.deleteMany.mockResolvedValue({ count: 0 })
+
+    const response = await POST(createRequest(), { params: createParams('abc123') })
+    const data = await response.json()
+
+    // The sequential form of this scenario returns 404 invite_not_found, so
+    // the concurrent form must not diverge into a 500.
+    expect(response.status).toBe(404)
+    expect(data.error).toBe('invite_not_found')
+    expect(data.message).toBe('Invite code not found.')
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
+  })
+
+  it('returns 404 when the member row was already claimed or deleted', async () => {
+    mockGetSession.mockResolvedValue(SESSION as never)
+    mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
+    tx.householdMember.updateMany.mockResolvedValue({ count: 0 })
+
+    const response = await POST(createRequest(), { params: createParams('abc123') })
+    const data = await response.json()
+
+    expect(response.status).toBe(404)
+    expect(data.error).toBe('invite_not_found')
+    // A row that vanished must not be reported as a server fault, and the
+    // invite must not be consumed on its way out.
+    expect(tx.householdInvite.deleteMany).not.toHaveBeenCalled()
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
+  })
+
   it('returns 500 when the transaction fails for any other reason', async () => {
     mockGetSession.mockResolvedValue(SESSION as never)
     mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
-    tx.householdMember.update.mockRejectedValue(new Error('connection lost'))
+    tx.householdMember.updateMany.mockRejectedValue(new Error('connection lost'))
 
     const response = await POST(createRequest(), { params: createParams('abc123') })
     const data = await response.json()
@@ -247,11 +348,13 @@ describe('POST /api/invites/[code]/join', () => {
 
     // The claim and the invite deletion both happen on the transaction client.
     expect(mockTransaction).toHaveBeenCalledTimes(1)
-    expect(tx.householdMember.update).toHaveBeenCalledWith({
-      where: { id: 'member-456' },
+    // Claim-if-unclaimed: a member row a concurrent join already took must
+    // match nothing rather than be silently overwritten.
+    expect(tx.householdMember.updateMany).toHaveBeenCalledWith({
+      where: { id: 'member-456', userId: null },
       data: { userId: 'user-123' },
     })
-    expect(tx.householdInvite.delete).toHaveBeenCalledWith({
+    expect(tx.householdInvite.deleteMany).toHaveBeenCalledWith({
       where: { id: 'invite-123' },
     })
   })
