@@ -18,6 +18,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Body } from '@/components/ui/typography'
+import { formatLongDate } from '@/lib/i18n/format-dates'
+import type { Locale } from '@/lib/i18n/locales'
 
 interface DeleteAccountDialogProps {
   userEmail: string
@@ -33,7 +35,7 @@ export function DeleteAccountDialog({
   memberCount,
 }: DeleteAccountDialogProps) {
   const t = useTranslations('profile.delete')
-  const locale = useLocale()
+  const locale = useLocale() as Locale
   const router = useRouter()
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState('')
@@ -57,15 +59,14 @@ export function DeleteAccountDialog({
 
       // Surface the scheduled purge date returned by the route. The Toaster is
       // mounted at the root layout, so this survives the redirect below.
-      // Format in UTC to match the confirmation email (next-intl has no timeZone
-      // configured, so its default would use the browser zone and could show a
-      // different calendar day than the email — see HON-481 review).
+      // `formatLongDate` is the same helper the confirmation email formats with,
+      // so the two channels quote the user an identical date string (HON-705).
+      // Pinned to UTC for the same reason the email is: `purgeScheduledFor` is a
+      // UTC instant and the purge cron runs at 03:00 UTC, so the browser zone
+      // could otherwise show a different calendar day (see HON-481 review).
       const { purgeScheduledFor } = (await response.json()) as { purgeScheduledFor?: string }
       if (purgeScheduledFor) {
-        const date = new Intl.DateTimeFormat(locale, {
-          dateStyle: 'long',
-          timeZone: 'UTC',
-        }).format(new Date(purgeScheduledFor))
+        const date = formatLongDate(new Date(purgeScheduledFor), locale, { timeZone: 'UTC' })
         toast.success(t('scheduledToast', { date }))
       }
 

@@ -34,7 +34,7 @@ describe('emailTranslator', () => {
           // Every argument every email message can take; extras are ignored.
           const rendered = t.markup(key, {
             appName: 'Wobblepot',
-            date: '5 July 2026',
+            date: 'July 5, 2026',
             email: 'privacy@wobblepot.com',
             strong: (chunks) => chunks,
             link: (chunks) => chunks,

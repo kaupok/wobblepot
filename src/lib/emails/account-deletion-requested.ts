@@ -1,6 +1,7 @@
 import { serverEnv } from '@/lib/env'
 import { LEGAL_ENTITY_NAME } from '@/lib/support'
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
+import { formatLongDate } from '@/lib/i18n/format-dates'
 import { emailTranslator } from './i18n'
 
 /**
@@ -39,33 +40,6 @@ interface EmailContent {
 }
 
 /**
- * BCP 47 tag used to render the purge date per locale.
- *
- * `en` maps to `en-GB` rather than plain `en` so English keeps the unambiguous
- * day-month-year form ("5 July 2026") it has always used in this email.
- * Estonian uses the bare locale, as `src/lib/i18n/format-dates.ts` does.
- */
-const DATE_FORMAT_LOCALES: Record<Locale, string> = {
-  en: 'en-GB',
-  et: 'et',
-}
-
-/**
- * Formats the purge date deterministically in UTC. `purgeScheduledFor` is a UTC
- * timestamp and the purge cron runs at 03:00 UTC, so a fixed UTC format (e.g.
- * "5 July 2026" / "5. juuli 2026") avoids server-timezone drift between the
- * email copy and the actual purge.
- */
-function formatPurgeDate(date: Date, locale: Locale): string {
-  return new Intl.DateTimeFormat(DATE_FORMAT_LOCALES[locale], {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(date)
-}
-
-/**
  * Generates account-deletion-requested email content.
  *
  * @param options - the purge date, the recovery (cancellation) email, and the
@@ -78,7 +52,11 @@ export function generateAccountDeletionRequestedEmail(
   const { purgeDate, recoveryEmail, locale = DEFAULT_LOCALE } = options
   const appName = serverEnv.NEXT_PUBLIC_APP_NAME
   const t = emailTranslator(locale, 'accountDeletionRequested')
-  const formattedDate = formatPurgeDate(purgeDate, locale)
+  // Pinned to UTC: `purgeScheduledFor` is a UTC timestamp and the purge cron
+  // runs at 03:00 UTC, so a server in a positive-offset zone must not quote the
+  // following calendar day. `DeleteAccountDialog` pins it the same way, so the
+  // dialog and this email always name the same date (HON-705).
+  const formattedDate = formatLongDate(purgeDate, locale, { timeZone: 'UTC' })
   const cancelHref = `mailto:${recoveryEmail}?subject=${encodeURIComponent(t('cancelMailtoSubject'))}`
 
   const subject = t('subject', { appName, date: formattedDate })

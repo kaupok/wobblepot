@@ -24,7 +24,7 @@ describe('generateAccountDeletionRequestedEmail', () => {
   it('puts the app brand and formatted purge date in the subject', () => {
     const result = generateAccountDeletionRequestedEmail({ purgeDate, recoveryEmail })
 
-    expect(result.subject).toBe('Your TestApp account will be deleted on 5 July 2026')
+    expect(result.subject).toBe('Your TestApp account will be deleted on July 5, 2026')
   })
 
   it('formats the purge date in UTC regardless of host timezone', () => {
@@ -33,15 +33,15 @@ describe('generateAccountDeletionRequestedEmail', () => {
     const lateDay = new Date('2026-07-05T23:30:00.000Z')
     const result = generateAccountDeletionRequestedEmail({ purgeDate: lateDay, recoveryEmail })
 
-    expect(result.subject).toContain('5 July 2026')
-    expect(result.html).toContain('5 July 2026')
+    expect(result.subject).toContain('July 5, 2026')
+    expect(result.html).toContain('July 5, 2026')
   })
 
   it('states the purge date in HTML and plain text', () => {
     const result = generateAccountDeletionRequestedEmail({ purgeDate, recoveryEmail })
 
-    expect(result.html).toContain('5 July 2026')
-    expect(result.text).toContain('5 July 2026')
+    expect(result.html).toContain('July 5, 2026')
+    expect(result.text).toContain('July 5, 2026')
   })
 
   it('explains how to cancel via the recovery email', () => {
@@ -96,7 +96,7 @@ describe('generateAccountDeletionRequestedEmail — locale (HON-513)', () => {
     const en = generateAccountDeletionRequestedEmail({ purgeDate, recoveryEmail, locale: 'en' })
     const et = generateAccountDeletionRequestedEmail({ purgeDate, recoveryEmail, locale: 'et' })
 
-    expect(en.subject).toBe('Your TestApp account will be deleted on 5 July 2026')
+    expect(en.subject).toBe('Your TestApp account will be deleted on July 5, 2026')
     expect(et.subject).toBe('Sinu TestApp konto kustutatakse kuupäeval 5. juuli 2026')
     expect(et.subject).not.toBe(en.subject)
   })
@@ -112,7 +112,7 @@ describe('generateAccountDeletionRequestedEmail — locale (HON-513)', () => {
 
     for (const body of [subject, html, text]) {
       expect(body).toContain('5. juuli 2026')
-      expect(body).not.toContain('5 July 2026')
+      expect(body).not.toContain('July 5, 2026')
     }
   })
 

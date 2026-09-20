@@ -144,6 +144,33 @@ export function formatFullDate(
 }
 
 /**
+ * Format a date as day, month and year, without the weekday (e.g. "July 5,
+ * 2026" / "5. juuli 2026"). Use this where a single date has to read
+ * unambiguously inside running copy — it is what the account-deletion dialog
+ * and the confirmation email both render the purge date with, so the two
+ * channels quote the user the same string (HON-705).
+ *
+ * `timeZone` is deliberately a caller-supplied option rather than a fixed
+ * `'UTC'` baked in here. Both purge-date callers do pass `'UTC'`, because
+ * `purgeScheduledFor` is a UTC instant and the purge cron runs at 03:00 UTC —
+ * but that is their decision about their data, not a property of "long date".
+ * Leaving it open keeps the helper usable for household-local dates, which
+ * must render in the household timezone instead.
+ */
+export function formatLongDate(
+  date: Date,
+  locale: Locale,
+  options: DateFormatOptions = {},
+): string {
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: options.timeZone,
+  }).format(date)
+}
+
+/**
  * Format a date together with the time of day (e.g. "Apr 5, 2026, 2:30 PM" /
  * "5. apr 2026, 14:30"). Hour convention (12h vs 24h) follows the locale.
  * Used for audit-style timestamps; callers that want a fixed language (e.g.
