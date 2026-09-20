@@ -21,6 +21,7 @@ import {
 import { withRequestId } from '@/lib/request-id'
 import { getServerFlag } from '@/lib/feature-flags'
 import { captureApiError } from '@/lib/errors'
+import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
 
@@ -232,7 +233,7 @@ async function handlePOST(request: Request) {
       // Reported before it is classified, as the reference route does: a
       // timeout is user-facing but it also means the budget above is
       // mis-sized, which is exactly what should show up in Sentry.
-      if (error instanceof Error && error.name === 'TimeoutError') {
+      if (isAiBudgetTimeout(error)) {
         return NextResponse.json(
           {
             error: 'Request timed out',
@@ -319,7 +320,7 @@ async function handlePOST(request: Request) {
     // Reported before it is classified, as the reference route does: a timeout
     // is user-facing but it also means the budget above is mis-sized, which is
     // exactly what should show up in Sentry.
-    if (error instanceof Error && error.name === 'TimeoutError') {
+    if (isAiBudgetTimeout(error)) {
       return NextResponse.json(
         {
           error: 'Request timed out',

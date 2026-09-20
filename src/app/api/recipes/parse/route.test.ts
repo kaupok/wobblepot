@@ -333,6 +333,22 @@ describe('POST /api/recipes/parse locale threading (gate retired in HON-506)', (
     timeoutSpy.mockRestore()
   })
 
+  it('returns 504 when the budget fires during a retry sleep (AbortError)', async () => {
+    mockGetMembership.mockResolvedValue(membership('en') as never)
+    // Not a hand-built TimeoutError: when the budget fires during ai@7's retry
+    // sleep the SDK surfaces `AbortError` instead, and a check that only knows
+    // the one name falls through to the generic 500 (HON-694, round 3).
+    mockParseAndMatchRecipe.mockRejectedValue(new DOMException('Delay was aborted', 'AbortError'))
+
+    const response = await POST(
+      jsonRequest({ text: 'Simple English recipe: 400g chicken, 200g rice, salt.' }),
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(504)
+    expect(data.error).toContain('too long')
+  })
+
   it('returns 504 when the extraction exceeds its budget', async () => {
     mockGetMembership.mockResolvedValue(membership('en') as never)
     const err = new Error('The operation was aborted due to timeout')

@@ -406,6 +406,21 @@ describe('POST /api/meals/imagine', () => {
     expect(data.error).toContain('too long')
   })
 
+  it('returns 504 when the budget fires during a retry sleep (AbortError)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    // Not a hand-built TimeoutError: when the budget fires during ai@7's retry
+    // sleep the SDK surfaces `AbortError` instead, and a check that only knows
+    // the one name falls through to the generic 500 (HON-694, round 3).
+    mockImagineMeals.mockRejectedValue(new DOMException('Delay was aborted', 'AbortError'))
+
+    const response = await POST(jsonRequest({ prompt: 'anything' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(504)
+    expect(data.error).toContain('too long')
+  })
+
   it('accepts a multipart request with just an image (no prompt)', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)

@@ -14,6 +14,7 @@ import {
   type ConfidenceTier,
 } from './recipe-confidence'
 import { buildRecipeExtractionPrompt } from './recipe-prompt'
+import { isAiBudgetTimeout } from './timeout'
 import { matchIngredients, type IngredientMatchResult } from './match-ingredients'
 
 /**
@@ -119,7 +120,7 @@ export async function parseRecipeText(
     // reach `/api/recipes/parse` intact: wrapping it here would make the 400
     // below match first, so the mapped 504 would be unreachable and
     // `captureApiError` would never report the mis-sized budget (HON-694).
-    if (error instanceof Error && error.name === 'TimeoutError') {
+    if (isAiBudgetTimeout(error)) {
       throw error
     }
     // AI generation error

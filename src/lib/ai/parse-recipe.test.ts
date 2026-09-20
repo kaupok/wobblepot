@@ -143,6 +143,18 @@ describe('parseRecipeText', () => {
     ).rejects.toBe(err)
   })
 
+  it('rethrows the AbortError a retry-sleep abort surfaces too (HON-694)', async () => {
+    const err = new DOMException('Delay was aborted', 'AbortError')
+    mockGenerateObject.mockRejectedValue(err)
+
+    // Wrapping this one would put the route on its 400 branch — telling the
+    // user their recipe could not be parsed when the budget simply ran out,
+    // and skipping `captureApiError` so nothing reports the mis-sized budget.
+    await expect(
+      parseRecipeText('A full recipe with chicken breast and vegetables for dinner'),
+    ).rejects.toBe(err)
+  })
+
   it('still wraps other AI failures in RecipeParseError', async () => {
     mockGenerateObject.mockRejectedValue(new Error('upstream exploded'))
 

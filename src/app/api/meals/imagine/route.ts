@@ -14,6 +14,7 @@ import {
   respondCapExceeded,
 } from '@/lib/ai/usage'
 import { captureApiError } from '@/lib/errors'
+import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import { deriveProteinType } from '@/lib/meal-planning/protein'
 import { withRequestId } from '@/lib/request-id'
 import type { ExtractedIngredient } from '@/lib/ai/recipe-schema'
@@ -287,7 +288,7 @@ async function handlePOST(request: Request) {
     // Reported before it is classified, as the reference route does: a timeout
     // is user-facing but it also means the budget above is mis-sized, which is
     // exactly what should show up in Sentry.
-    if (error instanceof Error && error.name === 'TimeoutError') {
+    if (isAiBudgetTimeout(error)) {
       return NextResponse.json(
         { error: 'Generating meal ideas took too long. Please try again.' },
         { status: 504 },

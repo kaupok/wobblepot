@@ -16,6 +16,7 @@ import {
 import { withRequestId } from '@/lib/request-id'
 import { getServerFlag } from '@/lib/feature-flags'
 import { captureApiError } from '@/lib/errors'
+import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 
 /**
  * Resolve the locale the recipe parser runs in. The `FEATURE_RECIPE_PARSER_ET`
@@ -230,7 +231,7 @@ async function handlePOST(request: Request) {
     // Reported before it is classified, as the reference route does: a timeout
     // is user-facing but it also means the budget above is mis-sized, which is
     // exactly what should show up in Sentry.
-    if (error instanceof Error && error.name === 'TimeoutError') {
+    if (isAiBudgetTimeout(error)) {
       return NextResponse.json(
         {
           success: false,
