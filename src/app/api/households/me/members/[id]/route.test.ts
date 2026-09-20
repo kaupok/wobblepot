@@ -649,6 +649,7 @@ describe('DELETE /api/households/me/members/[id]', () => {
         // member count, and an entry already in the past is never read again.
         servingOverride: null,
         preparationTips: { not: null },
+        status: { not: 'completed' },
         date: { gte: getStartOfTodayInTimezone('Europe/Tallinn') },
       },
       data: { preparationTips: null },

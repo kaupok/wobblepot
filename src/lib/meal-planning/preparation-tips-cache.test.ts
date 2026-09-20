@@ -30,6 +30,7 @@ describe('invalidateFutureEntryTips', () => {
         plan: { householdId: 'household-123' },
         servingOverride: null,
         preparationTips: { not: null },
+        status: { not: 'completed' },
         date: { gte: getStartOfTodayInTimezone('Europe/Tallinn') },
       },
       data: { preparationTips: null },
@@ -92,6 +93,28 @@ describe('invalidateFutureEntryTips', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  // The date bound is only a proxy for "already cooked" and lets today's
+  // already-eaten dinner through. Nulling its tips buys a paid regeneration
+  // that answers for the new household size a meal cooked for the old one.
+  it('excludes entries that are already completed', async () => {
+    const { tx, updateMany } = fakeTx()
+
+    await invalidateFutureEntryTips(tx, 'household-123', 'Europe/Tallinn')
+
+    expect(whereOf(updateMany).status).toEqual({ not: 'completed' })
+  })
+
+  // Not `status: 'planned'`: a skipped entry can be un-skipped later, and must
+  // not come back holding tips priced at the old member count.
+  it('still invalidates a skipped entry', async () => {
+    const { tx, updateMany } = fakeTx()
+
+    await invalidateFutureEntryTips(tx, 'household-123', 'Europe/Tallinn')
+
+    expect(whereOf(updateMany).status).not.toEqual('planned')
+    expect(whereOf(updateMany).status.not).toBe('completed')
   })
 
   it('only touches rows that actually hold a cached value', async () => {

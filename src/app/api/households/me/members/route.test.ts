@@ -478,6 +478,7 @@ describe('POST /api/households/me/members', () => {
         // member count, and an entry already in the past is never read again.
         servingOverride: null,
         preparationTips: { not: null },
+        status: { not: 'completed' },
         date: { gte: getStartOfTodayInTimezone('Europe/Tallinn') },
       },
       data: { preparationTips: null },

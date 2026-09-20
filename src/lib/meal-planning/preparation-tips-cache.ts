@@ -31,11 +31,26 @@ import { getStartOfTodayInTimezone } from './dates'
  *   date-only, so this compares against midnight in the household's timezone
  *   rather than against the current time; `getStartOfTodayInTimezone` is the
  *   same derivation the shopping list and pantry routes use for plan dates.
+ * - `status: { not: 'completed' }` — the date bound is only a *proxy* for
+ *   "already cooked", and it lets through the one entry that most certainly
+ *   is: today's dinner, cooked at 18:00, when a member joins at 20:00. Nulling
+ *   its tips buys a paid regeneration that answers for the *new* household
+ *   size a meal was cooked for the old one. Both sibling queries that share
+ *   this date derivation pair it with a `status` filter for the same reason
+ *   (`shopping-list.ts:160-167`, `pantry/route.ts:83-91`).
+ *
+ *   `not: 'completed'` rather than `'planned'`: a `skipped` entry can be
+ *   un-skipped later, and it must not come back holding tips priced at the old
+ *   member count.
  * - `preparationTips: { not: null }` — only touch rows that actually hold a
- *   cache, so an untouched plan costs no writes. This is also why the tips
- *   route has to guard its own cache write on the member count: a row that is
- *   mid-generation holds `null` here, so this clause excludes it and no
- *   invalidation from this side can stop the write that follows.
+ *   cache, so an untouched plan costs no writes.
+ *
+ * None of this reaches an entry whose tips are *mid-generation* — that row
+ * holds `preparationTips: null`, so the clause above excludes it, and the
+ * write lands after this `updateMany` regardless. The member count is
+ * therefore re-read at the cache-write site in `preparation-tips/route.ts`,
+ * next to the `mealId` / `servingOverride` / `locale` filters already pinned
+ * there.
  *
  * The cost is real and accepted: a membership change now triggers a
  * regeneration burst across the remaining plan, each one a paid AI call
@@ -52,6 +67,7 @@ export async function invalidateFutureEntryTips(
       plan: { householdId },
       servingOverride: null,
       preparationTips: { not: null },
+      status: { not: 'completed' },
       date: { gte: getStartOfTodayInTimezone(timezone) },
     },
     data: { preparationTips: null },

@@ -138,6 +138,7 @@ describe('purgeUser', () => {
           plan: { householdId: 'hh-1' },
           servingOverride: null,
           preparationTips: { not: null },
+          status: { not: 'completed' },
           date: { gte: getStartOfTodayInTimezone('Europe/Tallinn') },
         },
         data: { preparationTips: null },
