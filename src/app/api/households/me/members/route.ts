@@ -6,6 +6,7 @@ import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { getServerBaseURL } from '@/lib/env'
 import { captureApiError } from '@/lib/errors'
+import { invalidateFutureEntryTips } from '@/lib/meal-planning/preparation-tips-cache'
 
 const createManualMemberSchema = z.object({
   name: z.string().min(1).max(100),
@@ -191,6 +192,19 @@ export async function POST(request: Request) {
           },
         })
       }
+
+      // The new member raises the household's size, which prices the cached
+      // prep-tips prompt on every entry without a `servingOverride` — the
+      // default state — so the household's whole remaining plan is now scaled
+      // for a smaller household. Drop those tips in the same transaction as
+      // the membership write and let the next open of the modal regenerate
+      // through the existing rate-limited path. See
+      // `docs/LOCALIZATION.md` → "AI surfaces (Tier 1)" (HON-684).
+      await invalidateFutureEntryTips(
+        tx,
+        householdMembership.householdId,
+        householdMembership.household.timezone,
+      )
 
       return tx.householdMember.findUnique({
         where: { id: newMember.id },

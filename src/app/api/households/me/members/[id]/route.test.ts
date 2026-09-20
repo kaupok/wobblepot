@@ -25,18 +25,38 @@ vi.mock('@/lib/prisma', () => ({
     memberPreferences: {
       upsert: vi.fn(),
     },
+    mealPlanEntry: {
+      updateMany: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }))
 
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
 const mockFindUnique = vi.mocked(prisma.householdMember.findUnique)
 const mockDelete = vi.mocked(prisma.householdMember.delete)
 const mockTransaction = vi.mocked(prisma.$transaction)
+const mockEntryUpdateMany = vi.mocked(prisma.mealPlanEntry.updateMany)
+
+/**
+ * Run the member-removal transaction against the same `prisma` mock, so
+ * `tx.householdMember.delete` and `tx.mealPlanEntry.updateMany` are the same
+ * spies the assertions below read. Losing a member changes the household's
+ * size, which prices the cached prep tips on every entry without a
+ * `servingOverride`, so both writes belong to one transaction (HON-684).
+ */
+const mockRemovalTransaction = () =>
+  mockTransaction.mockImplementation(async (fn) =>
+    (fn as (tx: unknown) => never)({
+      householdMember: { delete: mockDelete },
+      mealPlanEntry: { updateMany: mockEntryUpdateMany },
+    }),
+  )
 
 describe('GET /api/households/me/members/[id]', () => {
   beforeEach(() => {
@@ -571,6 +591,7 @@ describe('DELETE /api/households/me/members/[id]', () => {
       role: 'member',
     } as never)
 
+    mockRemovalTransaction()
     mockDelete.mockResolvedValue({} as never)
 
     const response = await DELETE(new Request('http://localhost'), {
@@ -583,6 +604,90 @@ describe('DELETE /api/households/me/members/[id]', () => {
     expect(mockDelete).toHaveBeenCalledWith({
       where: { id: 'member-manual' },
     })
+  })
+
+  // Losing the member lowers the household's size, which prices the cached
+  // prep-tips prompt on every entry without a `servingOverride` (HON-684).
+  it('clears cached preparation tips on the household future entries', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    mockFindFirst.mockResolvedValue({
+      id: 'member-123',
+      householdId: 'household-123',
+      userId: 'user-123',
+      role: 'owner',
+      household: { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn' },
+    } as never)
+
+    mockFindUnique.mockResolvedValue({
+      id: 'member-manual',
+      householdId: 'household-123',
+      userId: null,
+      name: 'Test Child',
+      role: 'member',
+    } as never)
+
+    mockRemovalTransaction()
+    mockDelete.mockResolvedValue({} as never)
+
+    const response = await DELETE(new Request('http://localhost'), {
+      params: Promise.resolve({ id: 'member-manual' }),
+    })
+
+    expect(response.status).toBe(200)
+    // Inside the same transaction as the membership write, so a failed write
+    // leaves neither the removal nor an emptied cache behind.
+    expect(mockTransaction).toHaveBeenCalledTimes(1)
+    expect(mockEntryUpdateMany).toHaveBeenCalledTimes(1)
+    expect(mockEntryUpdateMany).toHaveBeenCalledWith({
+      where: {
+        plan: { householdId: 'household-123' },
+        // An entry with an override was priced from the override, not from the
+        // member count, and an entry already in the past is never read again.
+        servingOverride: null,
+        preparationTips: { not: null },
+        date: { gte: getStartOfTodayInTimezone('Europe/Tallinn') },
+      },
+      data: { preparationTips: null },
+    })
+  })
+
+  it.each([
+    ['a non-owner is rejected', 'member', 'user-456', 'member-manual'],
+    ['the owner targets themselves', 'owner', 'user-123', 'member-123'],
+  ])('leaves preparation tips alone when %s', async (_case, role, userId, targetId) => {
+    mockGetSession.mockResolvedValue({
+      user: { id: userId, name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    mockFindFirst.mockResolvedValue({
+      id: 'member-123',
+      householdId: 'household-123',
+      userId,
+      role,
+      household: { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn' },
+    } as never)
+
+    mockFindUnique.mockResolvedValue({
+      id: 'member-123',
+      householdId: 'household-123',
+      userId: 'user-123',
+      name: null,
+      role: 'owner',
+    } as never)
+
+    const response = await DELETE(new Request('http://localhost'), {
+      params: Promise.resolve({ id: targetId }),
+    })
+
+    expect(response.status).toBeGreaterThanOrEqual(400)
+    expect(mockTransaction).not.toHaveBeenCalled()
+    expect(mockDelete).not.toHaveBeenCalled()
+    expect(mockEntryUpdateMany).not.toHaveBeenCalled()
   })
 
   it('returns 500 with the { error } JSON shape when the delete throws', async () => {
@@ -607,6 +712,7 @@ describe('DELETE /api/households/me/members/[id]', () => {
       role: 'member',
     } as never)
 
+    mockRemovalTransaction()
     mockDelete.mockRejectedValue(new Error('db down'))
 
     const response = await DELETE(new Request('http://localhost'), {

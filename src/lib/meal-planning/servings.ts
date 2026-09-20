@@ -17,6 +17,11 @@
  *
  * `servingOverride` is validated `int().min(1).max(20)` on write, so 0 is
  * unreachable and `??` is the correct null-check.
+ *
+ * The `householdSize` fallback is the default path, which makes the household's
+ * member count an input to the prep-tips cache on almost every entry. Every
+ * membership write therefore has to clear that cache — see
+ * `invalidateFutureEntryTips` in `./preparation-tips-cache.ts` (HON-684).
  */
 export function getEffectiveServings(
   entry: { servingOverride: number | null },

@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { captureApiError } from '@/lib/errors'
+import { invalidateFutureEntryTips } from '@/lib/meal-planning/preparation-tips-cache'
 
 const updateMemberSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -307,8 +308,23 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Cannot remove the household owner' }, { status: 400 })
     }
 
-    await prisma.householdMember.delete({
-      where: { id: memberId },
+    await prisma.$transaction(async (tx) => {
+      await tx.householdMember.delete({
+        where: { id: memberId },
+      })
+
+      // Losing the member lowers the household's size, which prices the cached
+      // prep-tips prompt on every entry without a `servingOverride` — the
+      // default state — so the household's whole remaining plan is now scaled
+      // for a larger household. Drop those tips in the same transaction as the
+      // membership write and let the next open of the modal regenerate through
+      // the existing rate-limited path. See `docs/LOCALIZATION.md` → "AI
+      // surfaces (Tier 1)" (HON-684).
+      await invalidateFutureEntryTips(
+        tx,
+        householdMembership.householdId,
+        householdMembership.household.timezone,
+      )
     })
 
     return NextResponse.json({ success: true })
