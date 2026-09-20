@@ -48,6 +48,7 @@ const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockMealFindFirst = vi.mocked(prisma.meal.findFirst)
 const mockTransaction = vi.mocked(prisma.$transaction)
+const mockIngredientFindMany = vi.mocked(prisma.ingredient.findMany)
 
 const mockHousehold = {
   id: 'household-123',
@@ -102,6 +103,44 @@ const mockMealResult = {
 }
 
 const paramsPromise = (id: string) => Promise.resolve({ id })
+
+/**
+ * Mocks `prisma.$transaction` for the PATCH route and hands back the
+ * `mealPlanEntry.updateMany` spy, which is how the prep-tips invalidation
+ * (HON-683) is asserted in both directions.
+ */
+const setupTransaction = (updatedMeal: unknown) => {
+  const mealPlanEntryUpdateMany = vi.fn()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  mockTransaction.mockImplementation(async (fn: any) => {
+    const tx = {
+      meal: {
+        update: vi.fn(),
+        findUniqueOrThrow: vi.fn().mockResolvedValue(updatedMeal),
+      },
+      mealComponent: {
+        deleteMany: vi.fn(),
+        createMany: vi.fn(),
+      },
+      mealPlanEntry: {
+        updateMany: mealPlanEntryUpdateMany,
+      },
+    }
+    return fn(tx)
+  })
+
+  return { mealPlanEntryUpdateMany }
+}
+
+const patchMeal = (body: Record<string, unknown>) =>
+  PATCH(
+    new Request('http://localhost/api/households/me/meals/meal-1', {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+    { params: paramsPromise('meal-1') },
+  )
 
 describe('GET /api/households/me/meals/[id]', () => {
   beforeEach(() => {
@@ -262,24 +301,10 @@ describe('PATCH /api/households/me/meals/[id]', () => {
     mockGetMembership.mockResolvedValue(mockMembership as never)
     mockMealFindFirst.mockResolvedValue({ ...mockMealResult, deletedAt: null } as never)
 
-    const updatedMeal = {
+    setupTransaction({
       ...mockMealResult,
       name: 'Updated Chicken Bowl',
       updatedAt: new Date(),
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    mockTransaction.mockImplementation(async (fn: any) => {
-      const tx = {
-        meal: {
-          update: vi.fn(),
-          findUniqueOrThrow: vi.fn().mockResolvedValue(updatedMeal),
-        },
-        mealComponent: {
-          deleteMany: vi.fn(),
-          createMany: vi.fn(),
-        },
-      }
-      return fn(tx)
     })
 
     const request = new Request('http://localhost/api/households/me/meals/meal-1', {
@@ -292,6 +317,154 @@ describe('PATCH /api/households/me/meals/[id]', () => {
     expect(response.status).toBe(200)
     expect(data.name).toBe('Updated Chicken Bowl')
     expect(data.nutrition).toBeDefined()
+  })
+
+  // HON-683: `preparationTips` is cached per entry from a prompt built out of
+  // the meal's name, time budget, notes and components scaled by servings, so
+  // an edit to any of those has to drop the cache — and an edit to a field the
+  // prompt never sees must not. The meal form resends its whole payload on
+  // every save, so these assert on values changing, not on fields being sent.
+  describe('cached preparation tips', () => {
+    const expectedInvalidation = {
+      where: { mealId: 'meal-1', preparationTips: { not: null } },
+      data: { preparationTips: null },
+    }
+
+    // What is already in the database. 600g of chicken over 4 servings is the
+    // 150 per-serving the stored component holds, so a payload resending
+    // `totalQuantity: 600` describes no change at all.
+    const storedMeal = {
+      ...mockMealResult,
+      deletedAt: null,
+      name: 'Chicken Rice Bowl',
+      preparationNotes: 'Sear the chicken first',
+      sourceUrl: null,
+      timeMinutes: 30,
+      servings: 4,
+      components: [{ ingredientId: 'ing-1', quantityPerServing: 150 }],
+    }
+
+    const unchangedPayload = {
+      name: 'Chicken Rice Bowl',
+      preparationNotes: 'Sear the chicken first',
+      timeMinutes: 30,
+      servings: 4,
+      components: [{ ingredientId: 'ing-1', totalQuantity: 600 }],
+    }
+
+    beforeEach(() => {
+      mockGetSession.mockResolvedValue(mockSession as never)
+      mockGetMembership.mockResolvedValue(mockMembership as never)
+      mockMealFindFirst.mockResolvedValue(storedMeal as never)
+      mockIngredientFindMany.mockResolvedValue([
+        { id: 'ing-1', proteinType: 'poultry', protein: 31 },
+      ] as never)
+    })
+
+    it('clears tips when a component quantity changes', async () => {
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+
+      const response = await patchMeal({
+        ...unchangedPayload,
+        components: [{ ingredientId: 'ing-1', totalQuantity: 800 }],
+      })
+
+      expect(response.status).toBe(200)
+      expect(mealPlanEntryUpdateMany).toHaveBeenCalledTimes(1)
+      expect(mealPlanEntryUpdateMany).toHaveBeenCalledWith(expectedInvalidation)
+    })
+
+    it('clears tips when a component is swapped for another ingredient', async () => {
+      mockIngredientFindMany.mockResolvedValue([
+        { id: 'ing-2', proteinType: 'plant', protein: 8 },
+      ] as never)
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+
+      const response = await patchMeal({
+        ...unchangedPayload,
+        components: [{ ingredientId: 'ing-2', totalQuantity: 600 }],
+      })
+
+      expect(response.status).toBe(200)
+      expect(mealPlanEntryUpdateMany).toHaveBeenCalledWith(expectedInvalidation)
+    })
+
+    it('clears tips when servings change', async () => {
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+
+      const response = await patchMeal({ ...unchangedPayload, servings: 6 })
+
+      expect(response.status).toBe(200)
+      expect(mealPlanEntryUpdateMany).toHaveBeenCalledWith(expectedInvalidation)
+    })
+
+    it('clears tips when timeMinutes changes', async () => {
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+
+      const response = await patchMeal({ ...unchangedPayload, timeMinutes: 45 })
+
+      expect(response.status).toBe(200)
+      expect(mealPlanEntryUpdateMany).toHaveBeenCalledWith(expectedInvalidation)
+    })
+
+    it('clears tips when the name changes', async () => {
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+
+      const response = await patchMeal({ ...unchangedPayload, name: 'Tofu Rice Bowl' })
+
+      expect(response.status).toBe(200)
+      expect(mealPlanEntryUpdateMany).toHaveBeenCalledWith(expectedInvalidation)
+    })
+
+    it('clears tips when preparationNotes change', async () => {
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+
+      const response = await patchMeal({
+        ...unchangedPayload,
+        preparationNotes: 'Marinate overnight',
+      })
+
+      expect(response.status).toBe(200)
+      expect(mealPlanEntryUpdateMany).toHaveBeenCalledWith(expectedInvalidation)
+    })
+
+    // The half that pays for the per-field condition: the form sends every
+    // field on every save, so these full payloads differ only in something the
+    // prompt never reads. Firing here would regenerate the household's whole
+    // plan over a pasted link.
+    it('leaves tips alone when only sourceUrl changes', async () => {
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+
+      const response = await patchMeal({
+        ...unchangedPayload,
+        sourceUrl: 'https://example.com/recipe',
+      })
+
+      expect(response.status).toBe(200)
+      expect(mealPlanEntryUpdateMany).not.toHaveBeenCalled()
+    })
+
+    it('leaves tips alone when only description and kidFriendly change', async () => {
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+
+      const response = await patchMeal({
+        ...unchangedPayload,
+        description: 'Weeknight staple',
+        kidFriendly: false,
+      })
+
+      expect(response.status).toBe(200)
+      expect(mealPlanEntryUpdateMany).not.toHaveBeenCalled()
+    })
+
+    it('leaves tips alone when the payload resends every stored value unchanged', async () => {
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult)
+
+      const response = await patchMeal(unchangedPayload)
+
+      expect(response.status).toBe(200)
+      expect(mealPlanEntryUpdateMany).not.toHaveBeenCalled()
+    })
   })
 
   it('returns 500 with the { error } JSON shape when the transaction throws', async () => {
