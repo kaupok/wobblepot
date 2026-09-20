@@ -432,6 +432,28 @@ describe('CreateHouseholdForm', () => {
       })
     })
 
+    it('shows the translated fallback when the failure carries no message', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        // Deliberately distinct from the translated fallback, so this test can
+        // tell the two apart — a value that merely matched it would pass
+        // whether or not `data.error` still leaks through.
+        json: () => Promise.resolve({ error: 'Validation failed' }),
+      })
+
+      renderForm()
+
+      await navigateToFinalStep()
+      await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
+
+      await waitFor(() => {
+        // The raw `error` field is a machine code or untranslated English, so
+        // it must not reach the user — the translated string does.
+        expect(screen.getByRole('alert')).toHaveTextContent('Failed to create household')
+      })
+      expect(mockFetch).toHaveBeenCalled()
+    })
+
     it('redirects to meal-plan if user already has household', async () => {
       mockFetch.mockResolvedValue({
         ok: false,
