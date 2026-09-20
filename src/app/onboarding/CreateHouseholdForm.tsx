@@ -145,7 +145,12 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
           router.refresh()
           return
         }
-        throw new Error(data.message || data.error || t('errors.createFailed'))
+        // Deliberately not falling back to `data.error`: that field carries a
+        // machine code or untranslated English (`Validation failed`,
+        // `Failed to create household`), which would render verbatim to an
+        // Estonian user. `JoinHouseholdCard` reads `message` only for the same
+        // reason.
+        throw new Error(data.message || t('errors.createFailed'))
       }
 
       return data

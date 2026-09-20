@@ -21,11 +21,17 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { captureApiError } from '@/lib/errors'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockTransaction = vi.mocked(prisma.$transaction)
+const mockCaptureApiError = vi.mocked(captureApiError)
 
 describe('POST /api/households', () => {
   beforeEach(() => {
@@ -119,6 +125,35 @@ describe('POST /api/households', () => {
     expect(mockTransaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     })
+  })
+
+  it('answers a persistent serialization failure with a reported JSON 500', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockTransaction.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('could not serialize access', {
+        code: 'P2034',
+        clientVersion: 'test',
+      }),
+    )
+
+    const request = new Request('http://localhost/api/households', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'My Household' }),
+    })
+
+    const response = await POST(request)
+    const data = await response.json()
+
+    // Rethrowing would let Next render an HTML error page, and
+    // CreateHouseholdForm calls `response.json()` outside its network-error
+    // try — so the user would see a raw SyntaxError and nothing would be
+    // reported. Serializable retries make this reachable.
+    expect(response.status).toBe(500)
+    expect(data.error).toBe('Failed to create household')
+    expect(mockCaptureApiError).toHaveBeenCalledTimes(1)
   })
 
   it('returns 400 for invalid JSON', async () => {

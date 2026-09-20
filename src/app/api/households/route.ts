@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { MealType } from '@/generated/prisma/enums'
 import { resolveLocale } from '@/lib/i18n/resolve-locale'
 import { runHouseholdClaim } from '@/lib/household-claim'
+import { captureApiError } from '@/lib/errors'
 
 const createHouseholdSchema = z.object({
   name: z.string().min(1).max(100),
@@ -151,6 +152,14 @@ export async function POST(request: Request) {
         { status: 400 },
       )
     }
-    throw error
+
+    // Answer in JSON rather than rethrowing. `CreateHouseholdForm` calls
+    // `response.json()` outside the `try` that catches network failures, so a
+    // rethrow — which Next renders as an HTML error page — surfaces to the user
+    // as a raw `SyntaxError` on the onboarding screen, and nothing is reported.
+    // `runHouseholdClaim` makes this reachable for a persistent `P2034`, but
+    // any unexpected database error lands here the same way.
+    captureApiError(error, { route: '/api/households', userId: session.user.id })
+    return NextResponse.json({ error: 'Failed to create household' }, { status: 500 })
   }
 }

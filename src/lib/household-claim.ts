@@ -27,9 +27,9 @@ import { prisma } from '@/lib/prisma'
  *
  * The durable fix is a unique index on `household_member.user_id` — nullable,
  * so PostgreSQL's NULLS DISTINCT still permits the many manual member rows
- * with no user. That is a migration against existing data and is tracked
- * separately; until it lands, every membership-creating transaction must go
- * through here.
+ * with no user. That is a migration against existing data, and needs an audit
+ * for rows this race already created, so it is tracked as HON-696. Until it
+ * lands, every membership-creating transaction must go through here.
  */
 const CLAIM_TRANSACTION_OPTIONS = {
   isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
