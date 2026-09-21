@@ -14,6 +14,7 @@ Complete guide for setting up and managing environment variables in the Honkador
 - [Email Service (Resend)](#email-service-resend)
 - [Upstash Redis (rate limiting)](#upstash-redis-rate-limiting)
 - [PostHog (analytics, errors, source maps)](#posthog-analytics-errors-source-maps)
+- [Vercel Blob (meal images)](#vercel-blob-meal-images)
 - [Neon Database Branching](#neon-database-branching-optional)
 - [Cron secret (account-deletion purge)](#cron-secret-account-deletion-purge)
 - [Admin email](#admin-email)
@@ -61,6 +62,7 @@ Environment variables are validated at runtime using Zod. This ensures all requi
 | `UPSTASH_REDIS_REST_TOKEN`                                          | Yes                  | Rate limiting.                                                                                                                                                 |
 | `ADMIN_EMAIL`                                                       | Yes, for `/admin`    | The single beta admin. See [Admin email](#admin-email).                                                                                                        |
 | `CRON_SECRET`                                                       | Production only      | Authenticates the account-deletion purge cron. See [Cron secret](#cron-secret-account-deletion-purge).                                                         |
+| `BLOB_STORE_ID`                                                     | No                   | Vercel Blob store for generated meal images. Read by `@vercel/blob` with `VERCEL_OIDC_TOKEN`. See [Vercel Blob](#vercel-blob-meal-images).                     |
 | `STATUS_INCIDENT_MESSAGE`                                           | No                   | Operator banner on `/status` during an incident. See [Diagnostics and test-only switches](#diagnostics-and-test-only-switches).                                |
 | `E2E_DISABLE_RATE_LIMIT`                                            | No, test-only        | Bypasses the abuse rate limiter for E2E runs. Only honoured when `NEXT_PUBLIC_APP_ENV` is `ci`, `test`, or `dev`; throws at boot anywhere else.                |
 | `SIGNUP_TIMING_LOG`                                                 | No, diagnostics      | Logs per-step sign-up timings to stderr. Set by the local E2E runner.                                                                                          |
@@ -190,6 +192,24 @@ Details and the backend-selection logic: `tests/e2e/README.md` §
 
 Code constants in [`src/lib/resend.ts`](../src/lib/resend.ts) → `EMAIL_SENDERS`.
 Not env-configurable; see [EMAIL_SETUP.md](./EMAIL_SETUP.md) for the rationale.
+
+## Vercel Blob (meal images)
+
+Generated meal illustrations (HON-726) are stored in Vercel Blob by [`src/lib/meal-images/storage.ts`](../src/lib/meal-images/storage.ts). Since `@vercel/blob` 2.x the SDK authenticates with Vercel OIDC: it reads `VERCEL_OIDC_TOKEN` and `BLOB_STORE_ID` from the environment itself, so our code never passes credentials in. A static `BLOB_READ_WRITE_TOKEN` also works, but Vercel no longer creates one when a store is connected.
+
+**Deployed environments need nothing by hand.** Two stores are connected to the `honkadori` project: one serves Preview, Development and staging, the other Production only. Each connection writes `BLOB_STORE_ID` and `BLOB_WEBHOOK_PUBLIC_KEY` into its environments, and Vercel injects `VERCEL_OIDC_TOKEN` at runtime. We register no Blob webhooks, so `BLOB_WEBHOOK_PUBLIC_KEY` is unread and listed in `INTEGRATION_MANAGED` in `scripts/env-audit.ts`.
+
+**Local dev** only needs this to upload images; the app boots and every test passes with both unset. Put `BLOB_STORE_ID` and a fresh `VERCEL_OIDC_TOKEN` in `.env`. The token expires after about a day, so refresh it by pulling into a temp file and copying the one line across:
+
+```bash
+vercel env pull /tmp/vercel.env
+grep '^VERCEL_OIDC_TOKEN=' /tmp/vercel.env   # copy this line into .env
+rm /tmp/vercel.env
+```
+
+**Never run a bare `vercel env pull`.** It writes `.env.local`, which Next.js loads ahead of `.env`, so its `DATABASE_URL` silently overrides your Neon branch.
+
+Public blob URLs are served from `https://<store id>.public.blob.vercel-storage.com`. That wildcard host is allowed in both `images.remotePatterns` (`next.config.ts`) and the CSP `img-src` (`src/proxy.ts`). Keep the two in sync.
 
 ## Upstash Redis (rate limiting)
 

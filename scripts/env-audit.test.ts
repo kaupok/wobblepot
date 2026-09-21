@@ -31,10 +31,15 @@ describe('ignoreReason', () => {
     expect(ignoreReason('UPSTASH_REDIS_URL')).toBeTruthy()
   })
 
+  it('suppresses the Blob store connection webhook key', () => {
+    expect(ignoreReason('BLOB_WEBHOOK_PUBLIC_KEY')).toBeTruthy()
+  })
+
   it('does not suppress the names our code actually reads', () => {
     expect(ignoreReason('UPSTASH_REDIS_REST_URL')).toBeNull()
     expect(ignoreReason('UPSTASH_REDIS_REST_TOKEN')).toBeNull()
     expect(ignoreReason('DATABASE_URL')).toBeNull()
+    expect(ignoreReason('BLOB_STORE_ID')).toBeNull()
   })
 })
 

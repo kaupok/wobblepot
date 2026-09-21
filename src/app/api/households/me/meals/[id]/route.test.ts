@@ -36,6 +36,19 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
+vi.mock('@vercel/blob', () => ({
+  put: vi.fn(),
+  del: vi.fn(),
+}))
+
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
+vi.mock('@/lib/meal-images/storage', () => ({
+  discardMealImage: vi.fn(),
+}))
+
 vi.mock('@/lib/meal-planning/protein', () => ({
   deriveProteinType: vi.fn(() => 'poultry'),
 }))
@@ -44,12 +57,17 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { deriveProteinType } from '@/lib/meal-planning/protein'
+import { discardMealImage } from '@/lib/meal-images/storage'
+import { del } from '@vercel/blob'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockMealFindFirst = vi.mocked(prisma.meal.findFirst)
 const mockTransaction = vi.mocked(prisma.$transaction)
 const mockIngredientFindMany = vi.mocked(prisma.ingredient.findMany)
+const mockDiscardMealImage = vi.mocked(discardMealImage)
+
+const storedImageUrl = 'https://store123.public.blob.vercel-storage.com/meals/meal-1-AbC123.png'
 
 const mockHousehold = {
   id: 'household-123',
@@ -115,7 +133,8 @@ const paramsPromise = (id: string) => Promise.resolve({ id })
  * path makes inside the transaction (selects `servings`), and the final fetch
  * of the updated row. They are told apart by their `select`, not by call order,
  * so a test that adds a read cannot silently get the wrong fixture. Pass
- * `currentMeal` whenever the payload carries `components`.
+ * `currentMeal` whenever the payload carries `components`. A third read,
+ * `clearMealImage`'s (selects `imageUrl`), answers with `storedImageUrl`.
  */
 const setupTransaction = (updatedMeal: unknown, currentMeal?: unknown) => {
   const mealPlanEntryUpdateMany = vi.fn()
@@ -129,9 +148,10 @@ const setupTransaction = (updatedMeal: unknown, currentMeal?: unknown) => {
       meal: {
         update: mealUpdate,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        findUniqueOrThrow: vi.fn(async (args: any) =>
-          args?.select?.servings ? (currentMeal ?? updatedMeal) : updatedMeal,
-        ),
+        findUniqueOrThrow: vi.fn(async (args: any) => {
+          if (args?.select?.imageUrl) return { imageUrl: storedImageUrl }
+          return args?.select?.servings ? (currentMeal ?? updatedMeal) : updatedMeal
+        }),
       },
       mealComponent: {
         deleteMany: mealComponentDeleteMany,
@@ -664,6 +684,116 @@ describe('PATCH /api/households/me/meals/[id]', () => {
     })
   })
 
+  describe('meal image invalidation', () => {
+    const storedMeal = {
+      ...mockMealResult,
+      deletedAt: null,
+      name: 'Chicken Rice Bowl',
+      description: 'Simple chicken rice',
+      preparationNotes: 'Sear the chicken first',
+      sourceUrl: null,
+      timeMinutes: 30,
+      servings: 4,
+      components: [{ ingredientId: 'ing-1', quantityPerServing: 150 }],
+    }
+
+    // What the meal form sends on every save: the whole payload, unchanged.
+    const unchangedPayload = {
+      name: 'Chicken Rice Bowl',
+      description: 'Simple chicken rice',
+      preparationNotes: 'Sear the chicken first',
+      timeMinutes: 30,
+      servings: 4,
+      components: [{ ingredientId: 'ing-1', totalQuantity: 600 }],
+    }
+
+    const expectedReset = {
+      where: { id: 'meal-1' },
+      data: {
+        imageUrl: null,
+        imagePromptVersion: null,
+        imageStatus: 'none',
+        imageClaimedAt: null,
+        imageAttempts: 0,
+      },
+    }
+
+    beforeEach(() => {
+      vi.clearAllMocks()
+      mockGetSession.mockResolvedValue(mockSession as never)
+      mockGetMembership.mockResolvedValue(mockMembership as never)
+      mockMealFindFirst.mockResolvedValue(storedMeal as never)
+      const ingredients = [
+        { id: 'ing-1', proteinType: 'poultry', protein: 31 },
+        { id: 'ing-2', proteinType: 'none', protein: 2 },
+      ]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockIngredientFindMany.mockImplementation((async (args: any) =>
+        ingredients.filter((i) => args.where.id.in.includes(i.id))) as never)
+    })
+
+    it.each([
+      ['name', { name: 'Tofu Rice Bowl' }],
+      ['description', { description: 'Crispy tofu over rice' }],
+      ['preparationNotes', { preparationNotes: 'Press the tofu first' }],
+      ['components', { components: [{ ingredientId: 'ing-2', totalQuantity: 600 }] }],
+    ])('clears the image and deletes the blob when %s changes', async (_field, change) => {
+      const { mealUpdate } = setupTransaction(mockMealResult, storedMeal)
+
+      const response = await patchMeal({ ...unchangedPayload, ...change })
+
+      expect(response.status).toBe(200)
+      expect(mealUpdate).toHaveBeenCalledWith(expectedReset)
+      expect(mockDiscardMealImage).toHaveBeenCalledWith(
+        storedImageUrl,
+        '/api/households/me/meals/[id]',
+      )
+    })
+
+    it('leaves the image alone for a servings-only change', async () => {
+      const { mealUpdate } = setupTransaction(mockMealResult, storedMeal)
+
+      const response = await patchMeal({ servings: 6 })
+
+      expect(response.status).toBe(200)
+      expect(mealUpdate).not.toHaveBeenCalledWith(expectedReset)
+      expect(mockDiscardMealImage).toHaveBeenCalledWith(null, expect.any(String))
+    })
+
+    it('leaves the image alone when the payload resends every stored value unchanged', async () => {
+      const { mealUpdate } = setupTransaction(mockMealResult, storedMeal)
+
+      const response = await patchMeal(unchangedPayload)
+
+      expect(response.status).toBe(200)
+      expect(mealUpdate).not.toHaveBeenCalledWith(expectedReset)
+      expect(mockDiscardMealImage).toHaveBeenCalledWith(null, expect.any(String))
+    })
+
+    it('leaves the image alone when only sourceUrl, timeMinutes and kidFriendly change', async () => {
+      const { mealUpdate } = setupTransaction(mockMealResult, storedMeal)
+
+      const response = await patchMeal({
+        ...unchangedPayload,
+        sourceUrl: 'https://example.com/recipe',
+        timeMinutes: 45,
+        kidFriendly: false,
+      })
+
+      expect(response.status).toBe(200)
+      expect(mealUpdate).not.toHaveBeenCalledWith(expectedReset)
+    })
+
+    it('does not delete the blob when the transaction rolls back', async () => {
+      mockTransaction.mockRejectedValue(new Error('db down'))
+
+      const response = await patchMeal({ ...unchangedPayload, name: 'Tofu Rice Bowl' })
+
+      expect(response.status).toBe(500)
+      expect(mockDiscardMealImage).not.toHaveBeenCalled()
+    })
+  })
+
   it('returns 500 with the { error } JSON shape when the transaction throws', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
@@ -689,6 +819,27 @@ describe('DELETE /api/households/me/meals/[id]', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
+
+  const setupDeleteTransaction = (imageUrl: string | null) => {
+    const mealUpdate = vi.fn()
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockTransaction.mockImplementation(async (fn: any) =>
+      fn({
+        meal: {
+          update: mealUpdate,
+          findUniqueOrThrow: vi.fn(async () => ({ imageUrl })),
+        },
+      }),
+    )
+
+    return { mealUpdate }
+  }
+
+  const deleteMeal = () =>
+    DELETE(new Request('http://localhost/api/households/me/meals/meal-1', { method: 'DELETE' }), {
+      params: paramsPromise('meal-1'),
+    })
 
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
@@ -736,7 +887,7 @@ describe('DELETE /api/households/me/meals/[id]', () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
     mockMealFindFirst.mockResolvedValue({ ...mockMealResult, deletedAt: null } as never)
-    vi.mocked(prisma.meal.update).mockResolvedValue({} as never)
+    const { mealUpdate } = setupDeleteTransaction(null)
 
     const request = new Request('http://localhost/api/households/me/meals/meal-1', {
       method: 'DELETE',
@@ -746,17 +897,53 @@ describe('DELETE /api/households/me/meals/[id]', () => {
 
     expect(response.status).toBe(200)
     expect(data.success).toBe(true)
-    expect(vi.mocked(prisma.meal.update)).toHaveBeenCalledWith({
+    expect(mealUpdate).toHaveBeenCalledWith({
       where: { id: 'meal-1' },
       data: { deletedAt: expect.any(Date) },
     })
+  })
+
+  it('clears the image and deletes its blob with the meal', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockMealFindFirst.mockResolvedValue({ ...mockMealResult, deletedAt: null } as never)
+    const { mealUpdate } = setupDeleteTransaction(storedImageUrl)
+
+    const response = await deleteMeal()
+
+    expect(response.status).toBe(200)
+    expect(mealUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ imageUrl: null }) }),
+    )
+    expect(mockDiscardMealImage).toHaveBeenCalledWith(
+      storedImageUrl,
+      '/api/households/me/meals/[id]',
+    )
+  })
+
+  it('still succeeds when the blob delete fails', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockMealFindFirst.mockResolvedValue({ ...mockMealResult, deletedAt: null } as never)
+    setupDeleteTransaction(storedImageUrl)
+    // Pass through to the real helper so its swallow is what is under test.
+    const actual = await vi.importActual<typeof import('@/lib/meal-images/storage')>(
+      '@/lib/meal-images/storage',
+    )
+    mockDiscardMealImage.mockImplementationOnce(actual.discardMealImage)
+    vi.mocked(del).mockRejectedValueOnce(new Error('blob down'))
+
+    const response = await deleteMeal()
+
+    expect(response.status).toBe(200)
+    expect(vi.mocked(del)).toHaveBeenCalledWith(storedImageUrl)
   })
 
   it('returns 500 with the { error } JSON shape when the soft delete throws', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
     mockMealFindFirst.mockResolvedValue({ ...mockMealResult, deletedAt: null } as never)
-    vi.mocked(prisma.meal.update).mockRejectedValue(new Error('db down'))
+    mockTransaction.mockRejectedValue(new Error('db down'))
 
     const request = new Request('http://localhost/api/households/me/meals/meal-1', {
       method: 'DELETE',

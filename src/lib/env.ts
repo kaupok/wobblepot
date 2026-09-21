@@ -143,6 +143,14 @@ const serverOnlyEnvSchema = z.object({
       'Email of the single beta admin. Used by isAdmin(session) in src/lib/auth-helpers.ts to gate /admin/signup-codes (HON-488). One person for invite-only beta — switch to a role-based check before opening up admin access.',
     ),
 
+  BLOB_STORE_ID: z
+    .string()
+    .min(1, 'BLOB_STORE_ID must not be empty when set')
+    .optional()
+    .describe(
+      'Vercel Blob store for generated meal images (HON-734). Written by the store connection in Vercel; read by @vercel/blob itself together with VERCEL_OIDC_TOKEN, so our code never passes it in. Unset = no image uploads. See docs/ENVIRONMENT_SETUP.md § "Vercel Blob".',
+    ),
+
   CRON_SECRET: z
     .string()
     .min(32, 'CRON_SECRET must be at least 32 characters for security')
@@ -248,6 +256,7 @@ export const serverEnv = new Proxy(
     POSTHOG_CLI_API_KEY: process.env.POSTHOG_CLI_API_KEY,
     ADMIN_EMAIL: process.env.ADMIN_EMAIL,
     CRON_SECRET: process.env.CRON_SECRET,
+    BLOB_STORE_ID: process.env.BLOB_STORE_ID,
   } as z.infer<typeof serverEnvSchema>,
   {
     get(target, prop) {
