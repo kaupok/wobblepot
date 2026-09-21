@@ -169,6 +169,9 @@ export const MEAL_SELECT = {
   imageStatus: true,
   imagePromptVersion: true,
   components: {
+    // A stable order: `ingredientsByWeight` keeps row order on equal weights, and
+    // publish compares prompts built from two databases whose row order differs.
+    orderBy: { ingredient: { name: 'asc' } },
     select: {
       quantityPerServing: true,
       ingredient: {
@@ -219,17 +222,22 @@ export async function selectMeals(
 }
 
 /**
- * Keep only meals whose slug is unique among `meals`. Publish finds a meal by
- * slug (ids differ per database), so a shared slug could attach one meal's
- * image to the other.
+ * Keep only the `meals` whose slug no other global meal shares. Publish finds
+ * a meal by slug among *all* global meals (ids differ per database) and skips
+ * a shared one, so drawing it would be paid for on every run and never used.
+ * `all` is every non-deleted global meal's name, ready or not.
  */
 export function uniqueBySlug<T extends { name: string }>(
   meals: T[],
+  all: { name: string }[],
 ): { unique: T[]; ambiguous: string[] } {
   const counts = new Map<string, number>()
-  for (const m of meals) counts.set(slugify(m.name), (counts.get(slugify(m.name)) ?? 0) + 1)
-  const ambiguous = [...counts].filter(([, n]) => n > 1).map(([slug]) => slug)
-  return { unique: meals.filter((m) => counts.get(slugify(m.name)) === 1), ambiguous }
+  for (const m of all) counts.set(slugify(m.name), (counts.get(slugify(m.name)) ?? 0) + 1)
+  const shared = (m: { name: string }) => (counts.get(slugify(m.name)) ?? 0) > 1
+  return {
+    unique: meals.filter((m) => !shared(m)),
+    ambiguous: [...new Set(meals.filter(shared).map((m) => slugify(m.name)))],
+  }
 }
 
 /**
@@ -749,7 +757,11 @@ export async function run(args: ParsedArgs, deps: RunDeps): Promise<void> {
   }
 
   const selected = await selectMeals(deps.db, args)
-  const { unique: meals, ambiguous } = uniqueBySlug(selected)
+  const allGlobal = await deps.db.meal.findMany({
+    where: { householdId: null, deletedAt: null },
+    select: { name: true },
+  })
+  const { unique: meals, ambiguous } = uniqueBySlug(selected, allGlobal)
   if (ambiguous.length > 0) {
     log(
       `Skipping meals whose names share a slug (publish could not tell them apart): ${ambiguous.join(', ')}`,

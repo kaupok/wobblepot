@@ -12,6 +12,7 @@ import {
   estimateUsd,
   IMAGE_EST_USD,
   JUDGE_EST_USD,
+  MEAL_SELECT,
   parseArgs,
   parseExclude,
   readManifest,
@@ -207,10 +208,16 @@ describe('selection', () => {
     )
   })
 
-  it('drops meals whose names share a slug', () => {
-    const { unique, ambiguous } = uniqueBySlug([meal('Pad Thai'), meal('Pad thai!'), meal('Ramen')])
+  it('drops meals whose names share a slug with any global meal, ready or not', () => {
+    const selected = [meal('Pad Thai'), meal('Ramen'), meal('Chicken stir-fry')]
+    const all = [...selected, meal('Pad thai!'), meal('Chicken stir fry'), meal('Tacos')]
+    const { unique, ambiguous } = uniqueBySlug(selected, all)
     expect(unique.map((m) => m.name)).toEqual(['Ramen'])
-    expect(ambiguous).toEqual(['pad-thai'])
+    expect(ambiguous).toEqual(['pad-thai', 'chicken-stir-fry'])
+  })
+
+  it('orders components by ingredient name, so prompts match across databases', () => {
+    expect(MEAL_SELECT.components.orderBy).toEqual({ ingredient: { name: 'asc' } })
   })
 
   it('builds the prompt from the English name and description', () => {
