@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   buildJobs,
   buildJudgePrompt,
+  buildJudgeV2Prompt,
   buildPrompt,
   computePass,
+  computePassV2,
   costFromUsage,
+  dropListedExtras,
+  dropServingware,
   estimateTotalUsd,
   extensionFor,
   ingredientsByQuantity,
@@ -16,13 +20,18 @@ import {
   passRates,
   PREP_EST_USD,
   renderContactSheet,
+  sampleEvenly,
+  STYLE_PREFIX_ILLUSTRATION_V3,
   STYLES,
   summarize,
   thinkingTokensFrom,
+  toSpikeMeal,
   V2_EXCLUSIONS,
   variantsFor,
+  visibleIngredients,
   type JobResult,
   type JudgeResult,
+  type JudgeV2Result,
   type PrepSample,
   type SpikeMeal,
 } from './spike-meal-images'
@@ -47,6 +56,7 @@ const ok = (over: Partial<JobResult> = {}): JobResult => ({
   mealSlug: 'greek-salad',
   styleId: 'illustration',
   version: 'v1',
+  repeat: 1,
   prompt: 'p',
   latencyMs: 10_000,
   file: 'flare/greek-salad-illustration-v1.png',
@@ -147,7 +157,7 @@ describe('parseArgs / buildJobs', () => {
   it('rejects an unknown model, style or version rather than silently running nothing', () => {
     expect(() => parseArgs(['--models=dall-e'])).toThrow(/Unknown model/)
     expect(() => parseArgs(['--styles=oil-painting'])).toThrow(/Unknown style/)
-    expect(() => parseArgs(['--versions=v3'])).toThrow(/Unknown version/)
+    expect(() => parseArgs(['--versions=v9'])).toThrow(/Unknown version/)
   })
 })
 
@@ -208,8 +218,8 @@ describe('computePass / passRates / judgeSummary', () => {
       ok({ version: 'v2', judge: judge() }),
     ])
     expect(rates).toEqual([
-      { model: 'flare', version: 'v1', judged: 2, passed: 1, ratePct: 50 },
-      { model: 'flare', version: 'v2', judged: 1, passed: 1, ratePct: 100 },
+      { model: 'flare', version: 'v1', judged: 2, passed: 1, strictPassed: 1, ratePct: 50 },
+      { model: 'flare', version: 'v2', judged: 1, passed: 1, strictPassed: 1, ratePct: 100 },
     ])
   })
 
@@ -360,5 +370,194 @@ describe('thinkingTokensFrom', () => {
     expect(thinkingTokensFrom(undefined)).toBeUndefined()
     expect(thinkingTokensFrom({ openai: {} })).toBeUndefined()
     expect(thinkingTokensFrom({ google: { usageMetadata: {} } })).toBeUndefined()
+  })
+})
+
+describe('HON-733: V3, the seed sample and judge V2', () => {
+  const v3Args = parseArgs(['--models=flare', '--versions=v3', '--repeats=2'])
+  const judgeV2 = (over: Partial<JudgeV2Result> = {}): JudgeV2Result => ({
+    extraIngredients: [],
+    propsOrCookware: [],
+    missingIngredients: [],
+    portion: 'one-serving',
+    pass: true,
+    strictPass: true,
+    latencyMs: 6_000,
+    usd: 0.01,
+    ...over,
+  })
+
+  it('builds V3 as the V2 body under the one-person prefix', () => {
+    const v2 = buildPrompt(meal('chicken-thighs'), illustration, 'v2')
+    const v3 = buildPrompt(meal('chicken-thighs'), illustration, 'v3')
+    expect(v3.startsWith(STYLE_PREFIX_ILLUSTRATION_V3)).toBe(true)
+    expect(v3).toContain('a single modest serving for one person')
+    expect(v3.slice(STYLE_PREFIX_ILLUSTRATION_V3.length)).toBe(
+      v2.slice(illustration.prefixV2!.length),
+    )
+  })
+
+  it('keeps v3 opt-in, illustration-only, and repeats each prompt on --repeats', () => {
+    expect(defaultArgs.versions).toEqual(['v1', 'v2'])
+    expect(() => parseArgs(['--versions=v3', '--styles=photo'])).toThrow(/v3 is defined only/)
+    expect(() => parseArgs(['--repeats=0'])).toThrow(/--repeats/)
+    expect(() => parseArgs(['--meals=all'])).toThrow(/Unknown meal set/)
+    const jobs = buildJobs(v3Args)
+    expect(jobs).toHaveLength(MEALS.length * 2)
+    expect(jobs.map((j) => j.repeat).slice(0, 2)).toEqual([1, 2])
+  })
+
+  it('charges no prep sample for a v3-only run', () => {
+    const jobs = buildJobs(v3Args)
+    const images = jobs.reduce((sum, j) => sum + j.model.estPerImageUsd, 0)
+    expect(estimateTotalUsd(jobs, { judge: true })).toBeCloseTo(
+      images + jobs.length * JUDGE_EST_USD,
+    )
+  })
+
+  it('maps a seed meal onto the spike shape with each ingredient unit', () => {
+    const spike = toSpikeMeal(
+      {
+        name: 'Smoked Salmon Bagel',
+        description: 'Bagel with salmon',
+        components: [
+          { ingredient: 'bagel', quantity: 1 },
+          { ingredient: 'smoked salmon', quantity: 60 },
+        ],
+      },
+      new Map([['bagel', 'piece']]),
+    )
+    expect(spike.slug).toBe('smoked-salmon-bagel')
+    expect(spike.components).toEqual([
+      { name: 'bagel', quantity: 1, unit: 'piece' },
+      { name: 'smoked salmon', quantity: 60, unit: 'g' },
+    ])
+  })
+
+  it('samples evenly across the list rather than from its head', () => {
+    const items = Array.from({ length: 100 }, (_, i) => i)
+    const sample = sampleEvenly(items, 10)
+    expect(sample).toHaveLength(10)
+    expect(sample.at(-1)).toBeGreaterThan(90)
+  })
+
+  it('never asks the judge about ingredients that vanish once cooked', () => {
+    expect(visibleIngredients(meal('lamb-stew'))).toEqual([
+      'lamb shank',
+      'potato',
+      'carrot',
+      'onion',
+    ])
+    const visible = visibleIngredients({
+      ...meal('greek-salad'),
+      components: [
+        { name: 'bell pepper', quantity: 60, unit: 'g' },
+        { name: 'black pepper', quantity: 1, unit: 'g' },
+        { name: 'olive oil', quantity: 15, unit: 'ml' },
+      ],
+    })
+    expect(visible).toEqual(['bell pepper'])
+  })
+
+  it('gives the judge the full list, the visible list and no prep steps', () => {
+    const prompt = buildJudgeV2Prompt(meal('chicken-thighs'))
+    expect(prompt).toContain('- potato: 150g\n')
+    expect(prompt).toMatch(/- garlic: \d+g \(may not be visible\)/)
+    expect(prompt).toContain(meal('chicken-thighs').preparationNotes!)
+    expect(prompt).not.toContain('Preparation steps shown to the user')
+  })
+
+  it('drops an extra that names a listed ingredient, and keeps a real one', () => {
+    const tacos: SpikeMeal = {
+      ...meal('greek-salad'),
+      components: [
+        { name: 'sour cream', quantity: 30, unit: 'g' },
+        { name: 'greek yogurt', quantity: 50, unit: 'g' },
+        { name: 'lime', quantity: 0.5, unit: 'piece' },
+      ],
+    }
+    expect(
+      dropListedExtras(['sour cream', 'yogurt sauce with herbs', 'lime wedge', 'olives'], tacos),
+    ).toEqual(['olives'])
+  })
+
+  it('does not excuse an unlisted food that shares a word with a listed one', () => {
+    expect(
+      dropListedExtras(['black olive slices', 'parmesan cheese', 'oregano'], meal('greek-salad')),
+    ).toEqual(['black olive slices', 'parmesan cheese', 'oregano'])
+    expect(dropListedExtras(['green olives'], meal('lentil-bolognese'))).toEqual(['green olives'])
+    expect(dropListedExtras(['crumbled feta', 'tomatoes'], meal('greek-salad'))).toEqual([])
+  })
+
+  it('drops only the serving plate, skewers and a listed garnish from props', () => {
+    const tacos: SpikeMeal = {
+      ...meal('greek-salad'),
+      components: [{ name: 'lime', quantity: 0.5, unit: 'piece' }],
+    }
+    const kept = [
+      'raw carrot and celery on a cutting board',
+      'small bowl of grated parmesan beside the plate',
+      'casserole dish',
+      'fork',
+    ]
+    expect(dropServingware(['plate', 'metal skewers', 'lime wedge', ...kept], tacos)).toEqual(kept)
+  })
+
+  it('does not hide sausage behind sage', () => {
+    const m: SpikeMeal = {
+      ...meal('greek-salad'),
+      components: [
+        { name: 'italian sausage', quantity: 100, unit: 'g' },
+        { name: 'sage', quantity: 2, unit: 'g' },
+      ],
+    }
+    expect(visibleIngredients(m)).toEqual(['italian sausage'])
+  })
+
+  it('fails only on serious findings and reports the strict verdict beside it', () => {
+    expect(computePassV2(judgeV2())).toEqual({ pass: true, strictPass: true })
+    expect(computePassV2(judgeV2({ missingIngredients: ['onion'] }))).toEqual({
+      pass: true,
+      strictPass: false,
+    })
+    expect(computePassV2(judgeV2({ portion: 'several-servings' })).strictPass).toBe(false)
+    expect(computePassV2(judgeV2({ extraIngredients: ['olives'] })).pass).toBe(false)
+    expect(computePassV2(judgeV2({ propsOrCookware: ['fork'] })).pass).toBe(false)
+  })
+
+  it('counts serious-only and strict passes per version', () => {
+    const rates = passRates([
+      ok({ version: 'v3', judgeV2: judgeV2() }),
+      ok({ version: 'v3', judgeV2: judgeV2({ strictPass: false, portion: 'whole-dish' }) }),
+      ok({ version: 'v3', judgeV2: judgeV2({ pass: false, strictPass: false }) }),
+    ])
+    expect(rates).toEqual([
+      { model: 'flare', version: 'v3', judged: 3, passed: 2, strictPassed: 1, ratePct: 67 },
+    ])
+  })
+
+  it('renders the seed meals and the minor badge when given them', () => {
+    const seedMeal = toSpikeMeal(
+      { name: 'Pork Gyoza', description: 'd', components: [] },
+      new Map(),
+    )
+    const html = renderContactSheet(
+      [
+        ok({
+          mealSlug: 'pork-gyoza',
+          version: 'v3',
+          judgeV2: judgeV2({ strictPass: false, portion: 'several-servings' }),
+        }),
+      ],
+      {
+        startedAt: 'now',
+        models: MODELS.filter((m) => m.key === 'flare'),
+        variants: variantsFor({ styles: ['illustration'], versions: ['v3'] }),
+        meals: [seedMeal],
+      },
+    )
+    expect(html).toContain('Pork Gyoza')
+    expect(html).toContain('badge minor')
+    expect(html).toContain('several-servings')
   })
 })
