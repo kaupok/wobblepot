@@ -237,9 +237,38 @@ describe('generateMealImage', () => {
     expect(mockGenerateImage).toHaveBeenCalledTimes(1)
   })
 
-  it('rethrows a budget timeout from the judge', async () => {
-    mockGenerateImage.mockResolvedValue(imageResult())
+  it('keeps the image when the judge runs out of budget', async () => {
+    mockGenerateImage.mockResolvedValue(imageResult([4]))
     mockGenerateObject.mockRejectedValue(Object.assign(new Error('t'), { name: 'TimeoutError' }))
+
+    const result = await generateMealImage(meal)
+
+    expect(result).toMatchObject({ bytes: new Uint8Array([4]), attempts: 1 })
+  })
+
+  it('keeps the first image when the regeneration runs out of budget', async () => {
+    mockGenerateImage
+      .mockResolvedValueOnce(imageResult([1]))
+      .mockRejectedValueOnce(Object.assign(new Error('t'), { name: 'TimeoutError' }))
+    mockGenerateObject.mockResolvedValue(judgeResult({ ...clean, extraIngredients: ['olives'] }))
+
+    const result = await generateMealImage(meal)
+
+    expect(mockGenerateImage).toHaveBeenCalledTimes(2)
+    expect(result).toMatchObject({ bytes: new Uint8Array([1]), attempts: 1 })
+  })
+
+  it('rethrows a regeneration error that is not a timeout', async () => {
+    mockGenerateImage
+      .mockResolvedValueOnce(imageResult([1]))
+      .mockRejectedValueOnce(new Error('content policy'))
+    mockGenerateObject.mockResolvedValue(judgeResult({ ...clean, extraIngredients: ['olives'] }))
+
+    await expect(generateMealImage(meal)).rejects.toThrow('content policy')
+  })
+
+  it('rethrows a budget timeout from the first draw', async () => {
+    mockGenerateImage.mockRejectedValue(Object.assign(new Error('t'), { name: 'TimeoutError' }))
 
     await expect(generateMealImage(meal)).rejects.toMatchObject({ name: 'TimeoutError' })
   })

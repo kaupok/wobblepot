@@ -110,7 +110,7 @@ export async function generateMealImage(
     return { bytes: result.image.uint8Array, mediaType: result.image.mediaType }
   }
 
-  /** `null` when the judge call itself failed: that costs the verdict, not the image. */
+  /** `null` when the judge call itself failed or timed out: that costs the verdict, not the image. */
   const judge = async (
     image: { bytes: Uint8Array; mediaType: string },
     attempt: number,
@@ -152,7 +152,8 @@ export async function generateMealImage(
       )
       return verdict
     } catch (error) {
-      if (isAiBudgetTimeout(error)) throw error
+      // A timeout included: the image is already paid for and most likely fine,
+      // so running out of budget on its verdict must not throw it away.
       // eslint-disable-next-line no-console
       console.warn(`[meal-image] judge failed for meal ${mealId}; keeping the image`, error)
       return null
@@ -171,15 +172,26 @@ export async function generateMealImage(
         `[meal-image] serious judge finding for meal ${mealId}, but only ${remaining} ms left; keeping the first image`,
       )
     } else {
-      image = await draw()
-      attempts = 2
-      const second = await judge(image, attempts)
-      if (second && !second.pass) {
-        // 0 of 36 spike images had a real serious finding, so a second fail is
-        // most likely a judge false positive. Keep it rather than show nothing.
+      try {
+        const second = await draw()
+        image = second
+        attempts = 2
+        const verdict = await judge(second, attempts)
+        if (verdict && !verdict.pass) {
+          // 0 of 36 spike images had a real serious finding, so a second fail is
+          // most likely a judge false positive. Keep it rather than show nothing.
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[meal-image] regenerated image for meal ${mealId} also failed the judge; keeping it`,
+          )
+        }
+      } catch (error) {
+        // The gate above only guarantees room at the start: a retried draw can
+        // still overrun. The first image is paid for, so keep it over a 504.
+        if (!isAiBudgetTimeout(error)) throw error
         // eslint-disable-next-line no-console
         console.warn(
-          `[meal-image] regenerated image for meal ${mealId} also failed the judge; keeping it`,
+          `[meal-image] regeneration for meal ${mealId} ran out of budget; keeping the first image`,
         )
       }
     }

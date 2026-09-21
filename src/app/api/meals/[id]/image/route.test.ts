@@ -354,6 +354,16 @@ describe('POST /api/meals/[id]/image', () => {
     expect(mockAssertUnderCap).not.toHaveBeenCalled()
   })
 
+  it('answers 202 for a global meal the batch is generating, without claiming it', async () => {
+    seedMeal({ householdId: null, imageStatus: 'generating', imageClaimedAt: new Date(0) })
+
+    const response = await post()
+
+    expect(response.status).toBe(202)
+    expect(await response.json()).toEqual({ status: 'generating' })
+    expect(mockGenerateImage).not.toHaveBeenCalled()
+  })
+
   it('serves a global meal image the batch already made', async () => {
     seedMeal({ householdId: null, imageStatus: 'ready', imageUrl: BLOB_URL })
 
@@ -405,6 +415,16 @@ describe('POST /api/meals/[id]/image', () => {
     expect(response.status).toBe(500)
     expect(row()).toMatchObject({ imageStatus: 'failed', imageAttempts: 1 })
     expect(mockPut).not.toHaveBeenCalled()
+  })
+
+  it('does not count a provider 429 against the meal', async () => {
+    seedMeal({ imageStatus: 'failed', imageAttempts: 2 })
+    mockGenerateImage.mockRejectedValue(Object.assign(new Error('busy'), { statusCode: 429 }))
+
+    const response = await post()
+
+    expect(response.status).toBe(429)
+    expect(row()).toMatchObject({ imageStatus: 'failed', imageAttempts: 2 })
   })
 
   it('deletes the uploaded blob when the final write throws', async () => {

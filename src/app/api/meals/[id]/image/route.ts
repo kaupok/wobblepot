@@ -29,9 +29,9 @@ import { discardMealImage, putMealImage } from '@/lib/meal-images/storage'
  * - 200 `none` — the meal was edited while this request generated, so the
  *   image was thrown away; the next request draws the edited meal.
  * - 200 `failed` — generation has failed `MAX_ATTEMPTS` times; never retried.
- * - 200 with the stored status for a global meal, which is never generated
- *   here: an operator batch pays for shared assets (HON-738), so one
- *   household's AI cap is never charged for them.
+ * - The stored status for a global meal (202 while `generating`), which is
+ *   never generated here: an operator batch pays for shared assets (HON-738),
+ *   so one household's AI cap is never charged for them.
  */
 
 const ROUTE = '/api/meals/[id]/image'
@@ -158,7 +158,9 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
 
   // Global meals are drawn once by the operator batch, never on a household's cap.
   if (meal.householdId === null) {
-    return respond({ status: meal.imageStatus === 'ready' ? 'none' : meal.imageStatus })
+    const status = meal.imageStatus === 'ready' ? 'none' : meal.imageStatus
+    // Same 202 as a household meal mid-generation, so a client polls both alike.
+    return respond({ status }, status === 'generating' ? 202 : 200)
   }
 
   if (meal.imageStatus === 'failed' && meal.imageAttempts >= MAX_ATTEMPTS) {
@@ -288,10 +290,16 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
     // Only reached before the image was attached, so an uploaded blob is an orphan.
     await discardMealImage(uploadedUrl, ROUTE)
 
+    const statusCode = getErrorStatusCode(error)
+    // A 429 or a missing key says nothing about this meal, and retrying later
+    // succeeds — counting it would lock the meal out after three busy moments.
+    // Everything else counts: it was probably billed, or will fail again.
+    const transient = statusCode === 429 || error instanceof MealImageUnavailableError
+
     try {
       await writeUnderClaim(meal.id, claimedAt, meal.updatedAt, {
         imageStatus: 'failed',
-        imageAttempts: { increment: 1 },
+        ...(transient ? {} : { imageAttempts: { increment: 1 } }),
       })
     } catch (writeError) {
       // The stale-claim takeover recovers the row; the original error is the one to map.
@@ -307,7 +315,6 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
       return respond({ status: 'failed', error: 'Meal images are not available' }, 503)
     }
 
-    const statusCode = getErrorStatusCode(error)
     if (statusCode === 429) {
       return respond({ status: 'failed', error: 'Image service is busy.' }, 429)
     }
