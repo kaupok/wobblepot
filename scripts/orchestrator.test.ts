@@ -3517,8 +3517,9 @@ describe('orchestrator.sh', () => {
       ['', ''],
       ['not-a-number', '3'],
     ])('treats a non-numeric %j lines / %j workers as zero', (lines, workers) => {
-      // term_lines comes from `tput lines || echo "${LINES:-40}"` and the worker
-      // count out of jq over the status file. An unguarded `[` would print
+      // The worker count comes straight out of jq over the status file, and the
+      // helper does not rely on watch_term_size to have cleaned term_lines. An
+      // unguarded `[` would print
       // "integer expression expected" straight over the freshly cleared
       // dashboard — stderr is not redirected in the render loop.
       const out = runHarness('watch-height-budget', lines, workers, '6', '0')

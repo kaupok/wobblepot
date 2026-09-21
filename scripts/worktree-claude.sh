@@ -2189,10 +2189,11 @@ watch_term_size() {
 # Usage: watch_height_budget <term_lines> <workers> <landed_available> <has_alert>
 watch_height_budget() {
   local lines="$1" workers="$2" avail="$3" alert="${4:-0}"
-  # term_lines comes from `tput lines || echo "${LINES:-40}"` and worker_count
-  # out of jq over the status file, so neither is guaranteed to be a number.
-  # Anything else reads as 0 — `[` would otherwise print "integer expression
-  # expected" straight over the freshly cleared dashboard.
+  # watch_term_size already coerces term_lines, but this helper is also called
+  # with worker_count straight out of jq over the status file, so it does not
+  # rely on its callers. Anything non-numeric reads as 0 — `[` would otherwise
+  # print "integer expression expected" straight over the freshly cleared
+  # dashboard.
   case "$lines"   in ''|*[!0-9]*) lines=0 ;; esac
   case "$workers" in ''|*[!0-9]*) workers=0 ;; esac
   case "$avail"   in ''|*[!0-9]*) avail=0 ;; esac
