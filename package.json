@@ -30,6 +30,7 @@
     "db:seed": "prisma db seed",
     "db:validate": "npx tsx prisma/seed-validator.ts",
     "test:ai-selection": "npx tsx scripts/test-ai-selection.ts",
+    "spike:meal-images": "npx tsx scripts/spike-meal-images.ts",
     "env:audit": "npx tsx scripts/env-audit.ts",
     "lockfile:check": "npx tsx scripts/check-lockfile-pins.ts",
     "storybook": "storybook dev -p 6006",
@@ -42,6 +43,8 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "4.0.49",
+    "@ai-sdk/google": "4.0.64",
+    "@ai-sdk/openai": "4.0.60",
     "@better-auth/prisma-adapter": "1.7.2",
     "@posthog/react": "1.10.5",
     "@prisma/adapter-pg": "7.10.0",
