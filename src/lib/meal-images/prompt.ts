@@ -41,8 +41,12 @@ export interface MealImageMeal {
   preparationNotes?: string | null
 }
 
-/** A component's weight, so a piece of pita no longer sorts below 3 g of cumin. */
-export function gramsOf(component: MealImageComponent): number {
+/**
+ * A component's weight, so a piece of pita no longer sorts below 3 g of cumin.
+ * Also the key the meal PATCH ranks by to decide whether an edit changed what
+ * the prompt would draw (`src/app/api/households/me/meals/[id]/route.ts`).
+ */
+export function gramsOf(component: Omit<MealImageComponent, 'name'>): number {
   switch (component.unit) {
     case 'piece':
       return component.quantity * (component.gramsPerPiece ?? DEFAULT_GRAMS_PER_PIECE)

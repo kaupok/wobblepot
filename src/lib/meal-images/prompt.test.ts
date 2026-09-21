@@ -68,12 +68,12 @@ describe('ingredientsByWeight', () => {
   })
 
   it('falls back to the shared default for a piece with no gramsPerPiece', () => {
-    expect(gramsOf({ name: 'egg', quantity: 2, unit: 'piece', gramsPerPiece: null })).toBe(60)
+    expect(gramsOf({ quantity: 2, unit: 'piece', gramsPerPiece: null })).toBe(60)
   })
 
   it('converts ml with the density, or at 1 g/ml without one', () => {
-    expect(gramsOf({ name: 'oil', quantity: 10, unit: 'ml', densityGPerMl: 0.9 })).toBe(9)
-    expect(gramsOf({ name: 'stock', quantity: 300, unit: 'ml' })).toBe(300)
+    expect(gramsOf({ quantity: 10, unit: 'ml', densityGPerMl: 0.9 })).toBe(9)
+    expect(gramsOf({ quantity: 300, unit: 'ml' })).toBe(300)
   })
 
   it('keeps the meal order for ties', () => {
