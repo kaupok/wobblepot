@@ -157,6 +157,11 @@
 #     *whitespace*, so bash collapses adjacent tabs and one empty field shifts
 #     every later field left. Only the shell read path shows that.
 #
+#   watch-height-budget <lines> <workers> <landed_avail> <has_alert>  (HON-715)
+#     The REAL watch_height_budget. Prints "<landed_rows> <lines_per_worker>",
+#     the two numbers that decide what `wt watch` gives up on a short terminal.
+#     The render loop itself is unreachable from a test, so this is the seam.
+#
 #   watch-pick-alert <workers> <max> <alert> <at> <full> <full_at>  (HON-716)
 #     The REAL watch_pick_alert. Bracketed per field, so a test can tell an
 #     empty message from a message that is the timestamp — the tab-collapse
@@ -978,6 +983,13 @@ EOF
     watch_landed_probe 6 | while IFS=$'\t' read -r l_num l_id l_title l_merged; do
       printf '[%s][%s][%s][%s]\n' "$l_num" "$l_id" "$l_title" "$l_merged"
     done
+    exit 0
+    ;;
+
+  watch-height-budget)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    watch_height_budget "$A1" "$A2" "$A3" "${A4:-0}"
     exit 0
     ;;
 

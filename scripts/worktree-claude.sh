@@ -2118,6 +2118,92 @@ watch_scan_log() {
   ' "$log_file" 2>/dev/null || true
 }
 
+# How many landed rows and how many log lines per worker fit on this terminal.
+#
+# `wt watch` prints the summary panes FIRST, so anything that overruns the
+# terminal scrolls them off the top — spending the health readout the dashboard
+# exists for on a log tail. Height is therefore allocated rather than simply
+# consumed in print order:
+#
+#   1. mandatory — the summary panes, the worker table, one separator per
+#      worker, and a 2-line floor under each tail;
+#   2. what is left goes to RECENTLY LANDED, up to six rows;
+#   3. what is left after THAT lengthens the tails toward 14 lines.
+#
+# So the tails are what give first on a shrinking terminal: six landed rows cost
+# six lines where a 14-line tail costs fourteen per worker, and what merged an
+# hour ago is worth more screen than a worker's eighth-oldest log line. Only
+# once even step 1 stops fitting does it become a ladder — the landed pane is
+# trimmed to zero rows (its heading and its blank line go with the last row),
+# then the tails drop to a single line, then the activity section is dropped
+# whole. Separators go with it: a separator with no tail under it is a heading
+# for nothing, and the space they were holding goes back to the landed pane.
+#
+# A terminal too short for the summary and the table alone — 11 lines at three
+# workers — still gets them and scrolls. There is nothing left to give up at
+# that point, and a truncated worker table would be worse than a scrolled one.
+#
+# Prints "<landed_rows> <lines_per_worker>". landed_rows counts pane BODY lines,
+# so 1 with nothing fetched yet is the "(fetching merged PRs…)" placeholder —
+# the same line the old fixed budget reserved. lines_per_worker 0 means the
+# caller must skip the activity section entirely, separators included.
+#
+# Usage: watch_height_budget <term_lines> <workers> <landed_available> <has_alert>
+watch_height_budget() {
+  local lines="$1" workers="$2" avail="$3" alert="${4:-0}"
+  # term_lines comes from `tput lines || echo "${LINES:-40}"` and worker_count
+  # out of jq over the status file, so neither is guaranteed to be a number.
+  # Anything else reads as 0 — `[` would otherwise print "integer expression
+  # expected" straight over the freshly cleared dashboard.
+  case "$lines"   in ''|*[!0-9]*) lines=0 ;; esac
+  case "$workers" in ''|*[!0-9]*) workers=0 ;; esac
+  case "$avail"   in ''|*[!0-9]*) avail=0 ;; esac
+  case "$alert"   in ''|*[!0-9]*) alert=0 ;; esac
+  # Never given up: the pane heading, its three rows, the alert line, the blank
+  # under them, and the newline `echo -e` appends to the whole buffer.
+  local fixed=$(( 4 + alert + 1 + 1 ))
+  # The landed pane costs its heading, its rows, and — with workers on screen —
+  # the blank that separates it from the first activity separator.
+  local landed_chrome=1
+  if [ "$workers" -gt 0 ]; then
+    fixed=$(( fixed + 1 + workers + 1 ))   # table heading, one row each, blank
+    landed_chrome=2
+  else
+    fixed=$(( fixed + 1 + 1 ))             # "No active workers", blank
+  fi
+
+  # What the landed pane has to leave behind: one separator per worker plus the
+  # 2-line tail floor. Claiming it would break the priority order.
+  local tails_min=0
+  [ "$workers" -gt 0 ] && tails_min=$(( workers * 3 ))
+
+  # An empty cache still shows one line, so it is budgeted for one.
+  [ "$avail" -lt 1 ] && avail=1
+  local landed=$(( lines - fixed - tails_min - landed_chrome ))
+  [ "$landed" -gt "$avail" ] && landed="$avail"
+  [ "$landed" -lt 0 ] && landed=0
+  local landed_cost=0
+  [ "$landed" -gt 0 ] && landed_cost=$(( landed + landed_chrome ))
+
+  local per=0
+  if [ "$workers" -gt 0 ]; then
+    # `- workers` for the separators, which are part of the mandatory chrome.
+    per=$(( (lines - fixed - landed_cost - workers) / workers ))
+    [ "$per" -gt 14 ] && per=14
+    if [ "$per" -lt 1 ]; then
+      per=0
+      # The tails and their separators are gone, so the room reserved for them
+      # leaves with them — and the landed pane, which had to step around that
+      # reservation, can have it. Without this a 16-line terminal rendered 11
+      # lines and five blank ones with the pane suppressed.
+      landed=$(( lines - fixed - landed_chrome ))
+      [ "$landed" -gt "$avail" ] && landed="$avail"
+      [ "$landed" -lt 0 ] && landed=0
+    fi
+  fi
+  printf '%s %s\n' "$landed" "$per"
+}
+
 # Which of watch_scan_log's two alert channels the summary shows.
 #
 # With every slot busy, a blocker that only explains an UNFILLED slot has
@@ -2598,7 +2684,21 @@ cmd_watch() {
       done < "$landed_cache"
     fi
 
+    # ── Height budget ──
+    # Computed before anything below the summary is rendered, because what has
+    # to give when the terminal is short is decided here rather than by print
+    # order. Everything printed above this point is mandatory.
+    local budget_landed=0 budget_lines=0 budget=""
+    budget=$(watch_height_budget "$term_lines" "$worker_count" "${#landed_rows[@]}" \
+      "$([ -n "$alert" ] && echo 1 || echo 0)")
+    budget_landed="${budget%% *}"
+    budget_lines="${budget##* }"
+
+    # <limit> is the number of body rows to print; 0 drops the pane, heading
+    # included, which is the first thing this dashboard gives up for height.
     watch_render_landed() {
+      local limit="$1"
+      [ "$limit" -gt 0 ] || return 0
       local out
       # Leading space like the rows beneath it, and term_cols - 2 so the whole
       # line is term_cols - 1 and cannot wrap.
@@ -2607,7 +2707,7 @@ cmd_watch() {
         out+=" ${DIM}(fetching merged PRs…)${NC}\n"
       else
         local li=0
-        while [ "$li" -lt "${#landed_rows[@]}" ]; do
+        while [ "$li" -lt "${#landed_rows[@]}" ] && [ "$li" -lt "$limit" ]; do
           out+="${landed_rows[$li]}\n"
           li=$((li + 1))
         done
@@ -2617,7 +2717,7 @@ cmd_watch() {
 
     if [ "$worker_count" -eq 0 ]; then
       buf+="  ${DIM}No active workers${NC}\n\n"
-      buf+="$(watch_render_landed)"
+      buf+="$(watch_render_landed "$budget_landed")"
     else
       # ── Collect per-worker data ──
       local w_issues=() w_titles=() w_pids=() w_branches=() w_logs=() w_retried=()
@@ -2764,26 +2864,24 @@ cmd_watch() {
       done
       buf+="\n"
 
-      buf+="$(watch_render_landed)"
-      buf+="\n"
+      # The trailing blank belongs to the pane, so it goes when the pane does.
+      local landed_out=""
+      landed_out=$(watch_render_landed "$budget_landed")
+      if [ -n "$landed_out" ]; then
+        buf+="$landed_out"
+        buf+="\n"
+      fi
 
       # ── Per-worker activity tails ──
-      # Height budget: pane header + 3 pane rows (+1 alert) + blank + table
-      # header + one row per worker + blank + landed header + landed rows +
-      # blank + one separator per worker + the newline echo -e adds.
-      local landed_count="${#landed_rows[@]}"
-      [ "$landed_count" -eq 0 ] && landed_count=1
-      local chrome=$(( 4 + 1 + 1 + worker_count + 1 + 1 + landed_count + 1 + worker_count + 1 ))
-      [ -n "$alert" ] && chrome=$((chrome + 1))
-      local remaining=$(( term_lines - chrome ))
-      local lines_per_worker=$(( remaining / worker_count ))
-      [ "$lines_per_worker" -lt 2 ] && lines_per_worker=2
-      [ "$lines_per_worker" -gt 14 ] && lines_per_worker=14
+      local lines_per_worker="$budget_lines"
       # Fetch more JSONL messages than display lines (some produce no output)
       local msgs_per_worker=$(( lines_per_worker * 3 ))
 
       i=0
-      while [ "$i" -lt "$worker_count" ]; do
+      # A budget of 0 drops the whole activity section, separators included:
+      # below that height a separator is a heading for a tail there is no room
+      # to print.
+      while [ "$i" -lt "$worker_count" ] && [ "$lines_per_worker" -gt 0 ]; do
         local issue="${w_issues[$i]}" log_output="" changed=""
         local search_term
         search_term=$(echo "$issue" | tr '[:upper:]' '[:lower:]')
