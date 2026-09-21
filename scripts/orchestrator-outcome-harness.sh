@@ -158,9 +158,9 @@
 #     every later field left. Only the shell read path shows that.
 #
 #   watch-term-size                                                   (HON-715)
-#     The REAL watch_term_size. Runs without a tty here, so it exercises the
-#     fallback chain — which is the half a test can reach; the stty branch is
-#     verified by hand in a tmux pane.
+#     The REAL watch_term_size with `stty` stubbed to fail, so it exercises the
+#     fallback chain whether or not the test run has a controlling terminal.
+#     The stty branch is verified by hand in a tmux pane.
 #
 #   watch-height-budget <lines> <workers> <landed_avail> <has_alert>  (HON-715)
 #     The REAL watch_height_budget. Prints "<landed_rows> <lines_per_worker>",
@@ -994,6 +994,12 @@ EOF
   watch-term-size)
     # shellcheck source=./worktree-claude.sh
     source "$HARNESS_DIR/worktree-claude.sh"
+    # Stubbed, not left to chance: `pnpm test` from an interactive shell
+    # inherits a controlling terminal, so the real `stty size </dev/tty`
+    # answered with the developer's window and the fallback test failed
+    # everywhere except CI. This mode is for the fallback chain; the stty
+    # branch is verified by hand in a tmux pane.
+    stty() { return 1; }
     watch_term_size
     exit 0
     ;;

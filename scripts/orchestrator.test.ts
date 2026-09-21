@@ -3375,8 +3375,9 @@ describe('orchestrator.sh', () => {
     }
 
     it('honours the size the caller declares when there is no terminal to ask', () => {
-      // The harness runs off a tty, so this is the fallback path — and the one
-      // that keeps the whole layout assertable from a test.
+      // The harness stubs `stty` to fail, so this is the fallback path however
+      // the suite is run: from an interactive shell the real one reaches the
+      // developer's window through /dev/tty and answers with that instead.
       expect(size({ LINES: '17', COLUMNS: '90' })).toEqual([17, 90])
     })
 
