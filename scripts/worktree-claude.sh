@@ -2118,6 +2118,44 @@ watch_scan_log() {
   ' "$log_file" 2>/dev/null || true
 }
 
+# The terminal's size, as "<lines> <cols>".
+#
+# NOT `tput lines` / `tput cols`. macOS tput reports the terminfo entry's static
+# 24x80 and consults only $LINES/$COLUMNS — it never asks the terminal — so the
+# dashboard sized itself to a terminal that was not there: a 17-row tmux pane
+# read as 24 rows and 100 columns read as 80. Every height and width decision
+# below it was then made against a fiction, which is most of why the panes
+# scrolled off a short pane in the first place. `stty size` asks the kernel for
+# the window size the terminal actually has, and is spelled the same on macOS
+# and Linux.
+#
+# With no terminal at all — a pipe, the test harness — there is nothing to ask,
+# so the caller's $LINES/$COLUMNS are honoured and then a default. tput is kept
+# ahead of that default because it is still right when the terminfo entry says
+# something other than 24x80.
+#
+# Usage: watch_term_size
+watch_term_size() {
+  local size="" lines="" cols=""
+  # </dev/tty rather than stdin: this runs inside a command substitution, whose
+  # stdout is a pipe, and the caller may have redirected stdin too.
+  size=$(stty size 2>/dev/null < /dev/tty) || size=""
+  if [ -n "$size" ]; then
+    lines="${size%% *}"
+    cols="${size##* }"
+  fi
+  # Then the caller's word, ahead of tput: an explicitly set $LINES is a
+  # stronger signal than a terminfo entry's static default, and it is what makes
+  # the layout assertable off a tty.
+  case "$lines" in ''|0|*[!0-9]*) lines="${LINES:-}" ;; esac
+  case "$cols"  in ''|0|*[!0-9]*) cols="${COLUMNS:-}" ;; esac
+  case "$lines" in ''|0|*[!0-9]*) lines=$(tput lines 2>/dev/null) || lines="" ;; esac
+  case "$cols"  in ''|0|*[!0-9]*) cols=$(tput cols 2>/dev/null)  || cols=""  ;; esac
+  case "$lines" in ''|0|*[!0-9]*) lines=40 ;; esac
+  case "$cols"  in ''|0|*[!0-9]*) cols=100 ;; esac
+  printf '%s %s\n' "$lines" "$cols"
+}
+
 # How many landed rows and how many log lines per worker fit on this terminal.
 #
 # `wt watch` prints the summary panes FIRST, so anything that overruns the
@@ -2159,9 +2197,14 @@ watch_height_budget() {
   case "$workers" in ''|*[!0-9]*) workers=0 ;; esac
   case "$avail"   in ''|*[!0-9]*) avail=0 ;; esac
   case "$alert"   in ''|*[!0-9]*) alert=0 ;; esac
-  # Never given up: the pane heading, its three rows, the alert line, the blank
-  # under them, and the newline `echo -e` appends to the whole buffer.
-  local fixed=$(( 4 + alert + 1 + 1 ))
+  # Never given up: the pane heading, its three rows, the alert line and the
+  # blank under them. The + 2 is the render call, not content: `buf` already
+  # ends in a newline and `echo -e` appends another, so the last line is
+  # followed by a blank one AND the cursor has to land on the row below that.
+  # Budgeting for only one of those overruns by a line on every terminal the
+  # budget fills exactly — verified in a 6-row tmux pane, where five lines of
+  # content already scroll the first one away.
+  local fixed=$(( 4 + alert + 1 + 2 ))
   # The landed pane costs its heading, its rows, and — with workers on screen —
   # the blank that separates it from the first activity separator.
   local landed_chrome=1
@@ -2445,11 +2488,12 @@ cmd_watch() {
     local now
     now=$(date +%s)
     local term_lines term_cols
-    # COLUMNS/LINES as the fallback rather than a hardcoded guess: tput needs a
-    # terminal, and without one the old 100x40 default silently ignored the size
-    # the caller had told us about (and made the layout untestable off a tty).
-    term_lines=$(tput lines 2>/dev/null || echo "${LINES:-40}")
-    term_cols=$(tput cols 2>/dev/null || echo "${COLUMNS:-100}")
+    # See watch_term_size: the real window size from the kernel, with
+    # $LINES/$COLUMNS as the fallback off a tty so the layout stays testable.
+    local term_size=""
+    term_size=$(watch_term_size)
+    term_lines="${term_size%% *}"
+    term_cols="${term_size##* }"
     [ "$term_cols" -lt 60 ] && term_cols=60
 
     if [ ! -f "$status_file" ]; then

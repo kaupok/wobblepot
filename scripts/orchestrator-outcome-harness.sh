@@ -157,6 +157,11 @@
 #     *whitespace*, so bash collapses adjacent tabs and one empty field shifts
 #     every later field left. Only the shell read path shows that.
 #
+#   watch-term-size                                                   (HON-715)
+#     The REAL watch_term_size. Runs without a tty here, so it exercises the
+#     fallback chain — which is the half a test can reach; the stty branch is
+#     verified by hand in a tmux pane.
+#
 #   watch-height-budget <lines> <workers> <landed_avail> <has_alert>  (HON-715)
 #     The REAL watch_height_budget. Prints "<landed_rows> <lines_per_worker>",
 #     the two numbers that decide what `wt watch` gives up on a short terminal.
@@ -983,6 +988,13 @@ EOF
     watch_landed_probe 6 | while IFS=$'\t' read -r l_num l_id l_title l_merged; do
       printf '[%s][%s][%s][%s]\n' "$l_num" "$l_id" "$l_title" "$l_merged"
     done
+    exit 0
+    ;;
+
+  watch-term-size)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    watch_term_size
     exit 0
     ;;
 
