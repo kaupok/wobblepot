@@ -3367,6 +3367,33 @@ describe('orchestrator.sh', () => {
     })
   })
 
+  describe('the disk check reaches a fully occupied orchestrator (HON-716)', () => {
+    const source = () => fs.readFileSync(orchestrator, 'utf8')
+
+    it('checks the disk every poll, not only when a slot is free', () => {
+      // It used to be the spawn gate's own condition, inside
+      // `if [ "$active" -lt "$MAX_WORKERS" ]`. A disk filling under three
+      // running workers therefore logged nothing at all — and `wt watch` shows
+      // this WARN as one of the two alerts a busy orchestrator still gets, so
+      // the channel existed for a line that could never be written.
+      const body = shellFunctionBody(source(), 'main')
+
+      expect(body).toContain('check_disk_space || disk_ok=false')
+      expect(body).not.toContain('elif check_disk_space; then')
+      // Ordering is the whole point: the check has to precede the slot test.
+      expect(body.indexOf('check_disk_space || disk_ok=false')).toBeLessThan(
+        body.indexOf('local active=${#WORKER_PIDS[@]}'),
+      )
+    })
+
+    it('still gates spawning on the result rather than ignoring it', () => {
+      const body = shellFunctionBody(source(), 'main')
+
+      expect(body).toContain('elif [ "$disk_ok" = true ]; then')
+      expect(body).toContain('log WARN "Pausing: low disk space"')
+    })
+  })
+
   describe('wt watch alert channel by slot state (watch_pick_alert)', () => {
     /** The real helper, plus the same split cmd_watch does. Returns [message, at]. */
     const pick = (

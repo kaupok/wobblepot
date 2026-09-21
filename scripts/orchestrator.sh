@@ -2520,6 +2520,15 @@ main() {
 
     write_status_file
 
+    # Disk space is checked every poll, not only when a slot is free. This call
+    # used to sit inside the spawn gate below, so a disk filling under a full
+    # set of workers produced no warning at all — which is exactly when nobody
+    # is watching the terminal, and when a worker's next worktree, commit or log
+    # write is what runs out of room. `wt watch` treats this WARN as one of the
+    # two alerts worth showing an orchestrator with no slot left to fill.
+    local disk_ok=true
+    check_disk_space || disk_ok=false
+
     # Spawn new worker if slots available
     local active=${#WORKER_PIDS[@]}
 
@@ -2544,7 +2553,7 @@ main() {
         : # Circuit breaker still active
       elif [ "$RUN_ONCE" = true ] && [ "$ONCE_SPAWNED" = true ]; then
         : # Already spawned in --once mode
-      elif check_disk_space; then
+      elif [ "$disk_ok" = true ]; then
         log DEBUG "Polling: $active/$MAX_WORKERS workers active"
 
         local response=""
