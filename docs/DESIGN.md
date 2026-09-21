@@ -127,10 +127,10 @@ grep -rnE "transition-all|ease-in([\"' ]|$)|duration-([4-9][0-9]{2}|[0-9]{4,})" 
 
 ## Imagery
 
-The app has one piece of content imagery: a generated illustration of each meal, shown where someone decides to cook it. It is decoration. The meal name, ingredients, and steps carry everything the user needs, so the image is allowed only where it cannot get in their way. Decided in HON-726; built in HON-735 (generation) and HON-737 (UI).
+The app has one piece of content imagery: a generated illustration of each meal, shown where someone decides to cook it. It is decoration. The meal name, ingredients, and steps carry everything the user needs, so the image is allowed only where it cannot get in their way. Decided in HON-726; the code does not exist yet (see [Pending code changes](#pending-code-changes)).
 
 - **One style, one source.** The only content imagery is the generated meal illustration: a warm, stylised, gouache-like illustration of one serving of the finished dish, produced by the single prompt in `src/lib/meal-images/prompt.ts`. No stock photos, no second illustration style, no hand-placed decorative images, and no AI imagery anywhere else in the product. A second style or source is a second visual language the rest of the guide was not written for.
-- **The meal detail modal only.** The image is the first element in the modal, above the description. Not on meal cards, the planner grid, or lists: those are scanned many times a session, and a picture per row costs height and bandwidth for a decision the name already carries.
+- **The meal detail modal only.** The image sits directly under the dialog title, above the note and the meal's details — the first content in the modal, whether or not the meal has a description. Not on meal cards, the planner grid, or lists: those are scanned many times a session, and a picture per row costs height and bandwidth for a decision the name already carries.
 - **Geometry.** 3:2 landscape, the full width of the dialog content, `rounded-lg` (the dialog and list-row radius from [Spacing, radius, elevation](#spacing-radius-elevation)), rendered through `next/image` with `object-cover`. No border, no shadow, no caption: the dialog is already the container, and only overlays cast a shadow.
 - **Absence renders nothing.** A meal without an image has no image element at all: no placeholder, icon, skeleton, or shimmer. A placeholder tells the user something is missing when nothing is. The one exception is while `imageStatus` is `generating`: a plain `bg-muted` 3:2 box holds the space so the content does not jump when the image lands. The box has no animation and no icon.
 - **Arrival is a fade.** The image fades in on load with `transition-opacity duration-200 ease-out` — the overlay duration and house easing from [Motion](#motion). Nothing else moves: the reserved box already holds the space, and the text below stays put.
@@ -196,4 +196,4 @@ Add one here when a review finds code and rule disagreeing and the fix is not ob
 
 Decisions above that the code does not yet reflect. Each has a Linear issue; update this list when one ships.
 
-None open.
+- [Imagery](#imagery): the generation library and `src/lib/meal-images/prompt.ts` (HON-735), and the image in `MealDetailModal` (HON-737). `imageStatus` arrives with the meal image columns in HON-734.
