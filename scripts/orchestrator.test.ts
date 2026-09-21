@@ -3367,6 +3367,228 @@ describe('orchestrator.sh', () => {
     })
   })
 
+  describe('wt watch terminal size (watch_term_size)', () => {
+    const size = (env: Record<string, string>): [number, number] => {
+      const out = runHarnessEnv(env, 'watch-term-size')
+      const [lines, cols] = out.trim().split(' ').map(Number)
+      return [lines ?? -1, cols ?? -1]
+    }
+
+    it('honours the size the caller declares when there is no terminal to ask', () => {
+      // The harness stubs `stty` to fail, so this is the fallback path however
+      // the suite is run: from an interactive shell the real one reaches the
+      // developer's window through /dev/tty and answers with that instead.
+      expect(size({ LINES: '17', COLUMNS: '90' })).toEqual([17, 90])
+    })
+
+    it('always answers with two usable numbers', () => {
+      // cmd_watch does arithmetic on both immediately; an empty or non-numeric
+      // answer is a shell error printed over the freshly cleared dashboard.
+      const envs: Record<string, string>[] = [
+        {},
+        { LINES: 'abc', COLUMNS: '' },
+        { LINES: '0', COLUMNS: '0' },
+      ]
+      for (const env of envs) {
+        const [lines, cols] = size(env)
+
+        expect(lines).toBeGreaterThan(0)
+        expect(cols).toBeGreaterThan(0)
+      }
+    })
+
+    it('asks the kernel rather than tput', () => {
+      // macOS tput reports the terminfo entry's static 24x80 and consults only
+      // $LINES/$COLUMNS — it never asks the terminal. A 17-row tmux pane read
+      // as 24 rows, and every height decision below was made against a terminal
+      // that was not there. Verified by hand in real tmux panes at 12-40 rows
+      // and 80/100/130 columns; only `stty size` tracked them.
+      const body = shellFunctionBody(fs.readFileSync(worktreeClaude, 'utf8'), 'watch_term_size')
+
+      expect(body).toContain('stty size')
+      expect(body.indexOf('stty size')).toBeLessThan(body.indexOf('tput lines'))
+    })
+  })
+
+  describe('wt watch height budget (watch_height_budget)', () => {
+    /** The real helper. Returns [landed rows, log lines per worker]. */
+    const budget = (
+      lines: number,
+      workers: number,
+      landedAvailable = 6,
+      hasAlert = 0,
+    ): [number, number] => {
+      const out = runHarness(
+        'watch-height-budget',
+        String(lines),
+        String(workers),
+        String(landedAvailable),
+        String(hasAlert),
+      ).trim()
+      const [landed, per] = out.split(' ').map(Number)
+      return [landed ?? -1, per ?? -1]
+    }
+
+    /**
+     * The lines cmd_watch prints for a given budget, counted the same way the
+     * render loop builds them: pane heading + 3 rows (+ alert), blank, table
+     * heading, one row per worker, blank, the landed pane with its heading and
+     * trailing blank, one separator per worker, the tails, and the newline
+     * `echo -e` appends — and one more for the row the cursor lands on, since
+     * `buf` already ends in a newline so the last line is followed by a blank
+     * one. This is the invariant the budget exists to hold, so the tests assert
+     * against it rather than against the arithmetic twice. Verified against a
+     * real 6-row tmux pane: five lines of content already scroll the first away.
+     */
+    const rendered = (workers: number, landed: number, per: number, hasAlert = 0) => {
+      let n = 4 + hasAlert + 1 + 2
+      if (workers > 0) n += 1 + workers + 1
+      else n += 1 + 1
+      if (landed > 0) n += landed + (workers > 0 ? 2 : 1)
+      if (workers > 0 && per > 0) n += workers + workers * per
+      return n
+    }
+
+    it('leaves an 80-line terminal exactly as it was', () => {
+      // The full landed pane and the 14-line tail cap: the rework's own layout,
+      // which this issue must not change on a terminal that fits it.
+      expect(budget(80, 3)).toEqual([6, 14])
+    })
+
+    it('shortens the tails before it touches the landed pane', () => {
+      // Six landed rows cost six lines; a 14-line tail costs fourteen per
+      // worker. So the surplus above the 2-line tail floor is offered to the
+      // pane first and the tails are what shrink on the way down — what merged
+      // an hour ago is worth more screen than a worker's eighth-oldest log line.
+      expect(budget(65, 3)).toEqual([6, 14])
+      expect(budget(64, 3)).toEqual([6, 13])
+      expect(budget(29, 3)).toEqual([6, 2])
+    })
+
+    it('trims the landed pane only once the tails are at their floor', () => {
+      // 29 lines is the last height at which all six landed rows and the 2-line
+      // tail floor both fit. One line less has to come out of the pane.
+      expect(budget(29, 3)).toEqual([6, 2])
+      expect(budget(28, 3)).toEqual([5, 2])
+      expect(budget(27, 3)).toEqual([4, 2])
+    })
+
+    it('keeps the summary and the worker table on a 24-line terminal', () => {
+      // The reported case: a 20-24 line tmux pane, three workers. Before this,
+      // the landed pane was fixed at six rows and the overflow scrolled the
+      // ORCHESTRATOR and THIS RUN panes off the top — losing exactly what the
+      // rework was built to add.
+      const [landed, per] = budget(24, 3)
+
+      expect(per).toBeGreaterThanOrEqual(2)
+      expect(rendered(3, landed, per)).toBeLessThanOrEqual(24)
+    })
+
+    it('drops the landed pane whole rather than leaving a heading over nothing', () => {
+      expect(budget(23, 3)[0]).toBe(0)
+      expect(budget(21, 3)).toEqual([0, 2])
+    })
+
+    it('shortens the tails to one line before dropping them', () => {
+      expect(budget(19, 3)).toEqual([0, 1])
+    })
+
+    it('drops the activity section whole once a single line will not fit', () => {
+      // 0 tells cmd_watch to skip the separators too: a separator with no tail
+      // under it is a heading for nothing.
+      expect(budget(17, 3)[1]).toBe(0)
+      expect(budget(14, 3)).toEqual([0, 0])
+    })
+
+    it('gives the landed pane the room the dropped tails were holding', () => {
+      // The pane is sized around a reservation for the separators and the
+      // 2-line tail floor. When that reservation is never spent the room has to
+      // go back, or a 16-line terminal renders 11 lines and five blank ones
+      // with the pane suppressed for space nothing is using.
+      expect(budget(17, 3)).toEqual([3, 0])
+      expect(budget(15, 3)).toEqual([1, 0])
+      expect(rendered(3, 3, 0)).toBe(17)
+      expect(rendered(3, 1, 0)).toBe(15)
+    })
+
+    it.each([
+      ['null', '3'],
+      ['40', 'null'],
+      ['', ''],
+      ['not-a-number', '3'],
+    ])('treats a non-numeric %j lines / %j workers as zero', (lines, workers) => {
+      // The worker count comes straight out of jq over the status file, and the
+      // helper does not rely on watch_term_size to have cleaned term_lines. An
+      // unguarded `[` would print
+      // "integer expression expected" straight over the freshly cleared
+      // dashboard — stderr is not redirected in the render loop.
+      const out = runHarness('watch-height-budget', lines, workers, '6', '0')
+
+      expect(out).not.toMatch(/integer expression/)
+      expect(out.trim()).toMatch(/^\d+ \d+$/)
+    })
+
+    it.each([
+      [80, 3, 6, 0],
+      [65, 3, 6, 0],
+      [64, 3, 6, 0],
+      [40, 3, 6, 0],
+      [29, 3, 6, 0],
+      [28, 3, 6, 0],
+      [24, 3, 6, 0],
+      [24, 3, 6, 1],
+      [23, 3, 6, 0],
+      [21, 3, 6, 0],
+      [19, 3, 6, 0],
+      [17, 3, 6, 0],
+      [15, 3, 6, 0],
+      [14, 3, 6, 0],
+      [12, 3, 6, 0],
+      [11, 3, 6, 0],
+      [24, 1, 6, 0],
+      [24, 5, 6, 0],
+      [30, 0, 6, 0],
+      [12, 0, 6, 0],
+      [24, 3, 0, 0],
+    ])(
+      'never overruns a %i-line terminal with %i workers (%i landed, alert=%i)',
+      (lines, workers, landedAvailable, hasAlert) => {
+        const [landed, per] = budget(lines, workers, landedAvailable, hasAlert)
+        const total = rendered(workers, landed, per, hasAlert)
+
+        // The one exception is a terminal too short for the mandatory chrome
+        // alone, where there is nothing left to give up. Everything else fits.
+        const mandatory = rendered(workers, 0, 0, hasAlert)
+        if (mandatory <= lines) expect(total).toBeLessThanOrEqual(lines)
+        else expect(total).toBe(mandatory)
+      },
+    )
+
+    it('budgets the placeholder line an empty landed cache still prints', () => {
+      // With nothing fetched yet the pane renders "(fetching merged PRs…)",
+      // which costs a row whether or not any PR has landed.
+      expect(budget(80, 3, 0)).toEqual([1, 14])
+    })
+
+    it('trims the landed pane on an idle orchestrator too', () => {
+      // No workers means no table and no tails, but the pane is still the first
+      // thing that gives — the summary above it is the point of the screen.
+      expect(budget(30, 0)).toEqual([6, 0])
+      expect(budget(13, 0)).toEqual([3, 0])
+      expect(budget(11, 0)).toEqual([1, 0])
+      expect(budget(10, 0)).toEqual([0, 0])
+    })
+
+    it('counts the alert line against the budget', () => {
+      // It is printed above everything the budget can trim, so it has to be
+      // paid for out of the same total.
+      const [withoutAlert] = budget(27, 3, 6, 0)
+      const [withAlert] = budget(27, 3, 6, 1)
+
+      expect(withAlert).toBe(withoutAlert - 1)
+    })
+  })
+
   describe('the disk check reaches a fully occupied orchestrator (HON-716)', () => {
     const source = () => fs.readFileSync(orchestrator, 'utf8')
 
