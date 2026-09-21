@@ -24,6 +24,15 @@ describe('MealImage', () => {
     await waitFor(() => expect(img).toHaveClass('opacity-100'))
   })
 
+  it('renders nothing once the image URL fails to load', async () => {
+    const { container } = render(
+      <MealImage mealName="Lemon garlic chicken" status="ready" imageUrl={URL} />,
+    )
+
+    fireEvent.error(screen.getByRole('img'))
+    await waitFor(() => expect(container).toBeEmptyDOMElement())
+  })
+
   it.each(['none', 'failed'] as const)(
     'renders no image element and no placeholder when %s',
     (status) => {

@@ -47,7 +47,8 @@ interface UseMealImageOptions {
  * The meal detail modal's hero illustration (HON-737).
  *
  * Opening a household-owned meal that has no image fires one
- * `POST /api/meals/{id}/image`, which generates it. A global meal never does:
+ * `POST /api/meals/{id}/image`, which generates it (or, for a meal already
+ * `generating`, answers 202 or takes over a dead claim). A global meal never does:
  * the operator batch draws those (HON-738). While another request holds the
  * claim, the stored state is re-read every 5 s for at most 90 s.
  *
@@ -87,8 +88,12 @@ export function useMealImage({ meal, open }: UseMealImageOptions) {
       queryClient.setQueryData<MealImageState>(key, normalise(body))
     },
     // No toast, whatever the status: 503 without a key, 429, over the cap.
+    // A meal that was already `generating` goes to nothing rather than back to
+    // the box, which would otherwise sit there for the whole poll budget.
     onError: (_error, { mealId }, context) => {
-      if (context) queryClient.setQueryData(mealImageQueryKey(mealId), context.snapshot)
+      if (!context) return
+      const restored = context.snapshot?.status === 'generating' ? GAVE_UP : context.snapshot
+      queryClient.setQueryData(mealImageQueryKey(mealId), restored)
     },
     onSettled: (_data, _error, _variables, context) => {
       if (context) clearTimeout(context.placeholderTimer)
@@ -131,11 +136,36 @@ export function useMealImage({ meal, open }: UseMealImageOptions) {
   const status = data.status
   const { mutate } = mutation
 
+  // `initialData` only seeds an empty cache entry, and `MealCard` keeps this
+  // modal mounted for the whole session — so without this, a meal edit that
+  // cleared the image (and deleted its blob) would keep the old `ready` URL
+  // here forever. When the server payload changes, it wins, and the meal may
+  // be asked for again. The first render is skipped: the cache can hold a
+  // newer answer from this session than the payload the page was rendered with.
+  const payloadStatus = meal.imageStatus ?? 'none'
+  const payloadUrl = meal.imageUrl ?? null
+  const payloadKey = `${mealId}|${payloadStatus}|${payloadUrl}`
+  const lastPayloadKeyRef = useRef(payloadKey)
+  useEffect(() => {
+    if (lastPayloadKeyRef.current === payloadKey) return
+    lastPayloadKeyRef.current = payloadKey
+    attemptedRef.current.delete(mealId)
+    deadlinesRef.current.delete(mealId)
+    queryClient.setQueryData<MealImageState>(
+      mealImageQueryKey(mealId),
+      normalise({ status: payloadStatus, imageUrl: payloadUrl }),
+    )
+  }, [payloadKey, mealId, payloadStatus, payloadUrl, queryClient])
+
   // Fired by the modal opening rather than by a click: `MealCard` owns `open`,
   // so this is the one place that sees it change. It is a write, not a read.
+  //
+  // `generating` asks too: only the POST takes over a claim whose function
+  // died (older than 3 minutes). For a live claim it answers 202 cheaply,
+  // without spending a rate-limit token, and the poll below takes over.
   useEffect(() => {
     if (!open || !meal.isCustom) return
-    if (status !== 'none' && status !== 'failed') return
+    if (status === 'ready') return
     if (attemptedRef.current.has(mealId)) return
     attemptedRef.current.add(mealId)
 

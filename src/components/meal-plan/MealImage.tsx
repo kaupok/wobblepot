@@ -40,6 +40,11 @@ export function MealImage({ mealName, status, imageUrl }: MealImageProps) {
 
 function LoadedImage({ alt, src }: { alt: string; src: string }) {
   const [loaded, setLoaded] = useState(false)
+  const [broken, setBroken] = useState(false)
+
+  // A URL that no longer resolves (a blob deleted by a meal edit) is an
+  // absent image, not a grey box: errors are silent.
+  if (broken) return null
 
   return (
     <div className="bg-muted relative aspect-3/2 overflow-hidden rounded-lg">
@@ -49,6 +54,7 @@ function LoadedImage({ alt, src }: { alt: string; src: string }) {
         fill
         sizes={SIZES}
         onLoad={() => setLoaded(true)}
+        onError={() => setBroken(true)}
         className={cn(
           'object-cover transition-opacity duration-200 ease-out',
           loaded ? 'opacity-100' : 'opacity-0',

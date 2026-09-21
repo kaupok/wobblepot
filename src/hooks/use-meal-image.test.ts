@@ -226,16 +226,74 @@ describe('useMealImage', () => {
     expect(posts()).toHaveLength(1)
   })
 
-  it('polls a meal that arrives already generating, without a POST', async () => {
+  it('asks once for a meal that arrives generating, then polls after the 202', async () => {
+    mockFetch.mockImplementation(async (_url, init) =>
+      init?.method === 'POST'
+        ? json({ status: 'generating' }, 202)
+        : json({ status: 'ready', imageUrl: URL_1 }),
+    )
+    const { result } = renderImageHook({
+      meal: { ...householdMeal, imageStatus: 'generating' },
+      open: true,
+    })
+
+    await waitFor(() => expect(posts()).toHaveLength(1))
+    await act(() => vi.advanceTimersByTimeAsync(MEAL_IMAGE_POLL_INTERVAL_MS))
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    expect(posts()).toHaveLength(1)
+  })
+
+  it('lets the POST take over a generation whose function died', async () => {
+    // The route reclaims a claim older than 3 minutes and draws the image.
     mockFetch.mockResolvedValue(json({ status: 'ready', imageUrl: URL_1 }))
     const { result } = renderImageHook({
       meal: { ...householdMeal, imageStatus: 'generating' },
       open: true,
     })
 
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    expect(posts()).toHaveLength(1)
+  })
+
+  it('drops the box, rather than restoring it, when a generating meal’s POST fails', async () => {
+    mockFetch.mockResolvedValue(json({ error: 'Meal images are not available' }, 503))
+    const { result } = renderImageHook({
+      meal: { ...householdMeal, imageStatus: 'generating' },
+      open: true,
+    })
+
+    await waitFor(() => expect(posts()).toHaveLength(1))
+    await waitFor(() => expect(result.current.status).toBe('none'))
+    await act(() => vi.advanceTimersByTimeAsync(MEAL_IMAGE_POLL_INTERVAL_MS * 2))
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('polls a global meal the batch is generating, without a POST', async () => {
+    mockFetch.mockResolvedValue(json({ status: 'ready', imageUrl: URL_1 }))
+    const { result } = renderImageHook({
+      meal: { ...globalMeal, imageStatus: 'generating' },
+      open: true,
+    })
+
     await act(() => vi.advanceTimersByTimeAsync(MEAL_IMAGE_POLL_INTERVAL_MS))
     await waitFor(() => expect(result.current.status).toBe('ready'))
     expect(posts()).toHaveLength(0)
+  })
+
+  it('takes a changed server payload over the cache, and asks again after an edit', async () => {
+    const readyMeal: Meal = { ...householdMeal, imageStatus: 'ready', imageUrl: URL_1 }
+    const { result, rerender } = renderImageHook({ meal: readyMeal, open: false })
+    expect(result.current.imageUrl).toBe(URL_1)
+
+    // The meal was edited: the server cleared the image and deleted its blob.
+    mockFetch.mockResolvedValue(json({ status: 'ready', imageUrl: URL_2 }))
+    rerender({ meal: householdMeal, open: false })
+    await waitFor(() => expect(result.current.status).toBe('none'))
+    expect(result.current.imageUrl).toBeNull()
+
+    rerender({ meal: householdMeal, open: true })
+    await waitFor(() => expect(result.current.imageUrl).toBe(URL_2))
+    expect(posts()).toHaveLength(1)
   })
 
   describe('swapping the meal mid-request (HON-682)', () => {
