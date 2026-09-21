@@ -157,6 +157,11 @@
 #     *whitespace*, so bash collapses adjacent tabs and one empty field shifts
 #     every later field left. Only the shell read path shows that.
 #
+#   watch-pick-alert <workers> <max> <alert> <at> <full> <full_at>  (HON-716)
+#     The REAL watch_pick_alert. Bracketed per field, so a test can tell an
+#     empty message from a message that is the timestamp — the tab-collapse
+#     failure this helper's output order exists to rule out.
+#
 #   watch-pane-head <label> <width>                         (wt watch rework)
 #     The REAL watch_pane_head. Bracketed output, so a test can assert the rule
 #     is padded to exactly <width> visible characters.
@@ -230,7 +235,7 @@ HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Capture every argument BEFORE clearing "$@": orchestrator.sh parses "$@" at
 # top level, so a sourcing script's own positional parameters would otherwise be
 # read as orchestrator flags.
-MODE="${1:-}"; A1="${2:-}"; A2="${3:-}"; A3="${4:-}"; A4="${5:-}"; A5="${6:-}"
+MODE="${1:-}"; A1="${2:-}"; A2="${3:-}"; A3="${4:-}"; A4="${5:-}"; A5="${6:-}"; A6="${7:-}"
 set --
 
 # The NEON_BRANCH_CAP this process actually inherited, captured before
@@ -973,6 +978,16 @@ EOF
     watch_landed_probe 6 | while IFS=$'\t' read -r l_num l_id l_title l_merged; do
       printf '[%s][%s][%s][%s]\n' "$l_num" "$l_id" "$l_title" "$l_merged"
     done
+    exit 0
+    ;;
+
+  watch-pick-alert)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    # Split exactly the way cmd_watch does, so the test covers the parse and not
+    # just the helper.
+    picked=$(watch_pick_alert "$A1" "$A2" "$A3" "$A4" "${A5:-}" "${A6:-}")
+    printf '[%s][%s]\n' "${picked#*$'\t'}" "${picked%%$'\t'*}"
     exit 0
     ;;
 

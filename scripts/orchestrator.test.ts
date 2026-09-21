@@ -3259,6 +3259,101 @@ describe('orchestrator.sh', () => {
       expect(r.ALERT).toBeUndefined()
     })
 
+    it.each([
+      ['HON-700 is no longer In Progress — leaving it untouched after the Neon branch cap'],
+      [
+        'Could not read the state of HON-701 — requeueing anyway; the Neon branch cap is not its fault',
+      ],
+    ])('does not report the already-handled requeue %j as a live fault', (message) => {
+      // orchestrator.sh:1930 and :1934. Both say "the requeue has been dealt
+      // with"; the old `/Neon branch cap/` pattern could not tell them from the
+      // cap failure below, so a finished piece of bookkeeping claimed the alert
+      // line — and, since nothing clears an alert but a later claim or outcome,
+      // held it.
+      const r = scan([`2026-09-20 10:00:00 WARN  ${message}`])
+
+      expect(r.ALERT).toBeUndefined()
+      expect(r.ALERT_FULL).toBeUndefined()
+    })
+
+    it('still reports the Neon-cap failure that actually costs a worker slot', () => {
+      // orchestrator.sh:1769 — the one cap line that means a worker could not
+      // be started. Narrowing the pattern must not lose it.
+      const message =
+        'HON-700 failed on the Neon branch cap during worktree setup — capacity, not the issue'
+      const r = scan([`2026-09-20 10:00:00 WARN  ${message}`])
+
+      expect(r.ALERT).toBe(message)
+      // Slot-scoped, though: it says a worker could not be STARTED, which is
+      // not a question a full orchestrator is asking.
+      expect(r.ALERT_FULL).toBeUndefined()
+    })
+
+    it('prefers the always-relevant alert when the two land in the same second', () => {
+      // The channels are compared on a 19-character timestamp, so a tie is
+      // reachable. It resolves to the alert that survives a full orchestrator,
+      // which is the one that stays true under either slot state.
+      const r = scan([
+        '2026-09-20 10:00:00 WARN  Failed to fetch issues from Linear',
+        '2026-09-20 10:00:00 WARN  Low disk space: 0GB free (< 1GB threshold)',
+      ])
+
+      expect(r.ALERT).toBe('Low disk space: 0GB free (< 1GB threshold)')
+    })
+
+    it.each([['Low disk space: 0GB free (< 1GB threshold)'], ['Pausing: low disk space']])(
+      'reports %j on the channel that survives a full orchestrator',
+      (message) => {
+        // These halt the orchestrator outright and bite the workers already
+        // running, so they are worth the line whether or not a slot is free.
+        const r = scan([`2026-09-20 10:06:00 WARN  ${message}`])
+
+        expect(r.ALERT).toBe(message)
+        expect(r.ALERT_FULL).toBe(message)
+      },
+    )
+
+    it.each([
+      ['Failed to fetch issues from Linear'],
+      ['Circuit breaker: 3 consecutive failures, pausing new workers for 600s'],
+      ['Todo queue is deeper than the 50-issue query cap — this poll considered 51 issue(s)'],
+    ])('keeps %j off the full-orchestrator channel', (message) => {
+      // Each of these only answers "why is a slot unfilled". With no slot to
+      // fill the question does not arise, so ALERT_FULL must stay empty.
+      const r = scan([`2026-09-20 10:06:00 WARN  ${message}`])
+
+      expect(r.ALERT).toBe(message)
+      expect(r.ALERT_FULL).toBeUndefined()
+    })
+
+    it('does not let an older always-relevant alert mask a newer slot-only one', () => {
+      // The two channels are tracked independently, so ALERT is still the most
+      // recent blocker of either kind — the split decides what survives a full
+      // orchestrator, not what is reported first.
+      const r = scan([
+        '2026-09-20 09:00:00 WARN  Low disk space: 0GB free (< 1GB threshold)',
+        '2026-09-20 10:00:00 WARN  Failed to fetch issues from Linear',
+      ])
+
+      expect(r.ALERT).toBe('Failed to fetch issues from Linear')
+      expect(r.ALERT_AT).toBe('10:00')
+      expect(r.ALERT_FULL).toBe('Low disk space: 0GB free (< 1GB threshold)')
+      expect(r.ALERT_FULL_AT).toBe('09:00')
+    })
+
+    it('suppresses a recovered alert on both channels independently', () => {
+      // The disk warning predates the claim and is answered by it; the Linear
+      // failure does not and is not.
+      const r = scan([
+        '2026-09-20 09:00:00 WARN  Low disk space: 0GB free (< 1GB threshold)',
+        '2026-09-20 09:30:00 INFO  Selected: HON-706 — a later claim proves recovery',
+        '2026-09-20 10:00:00 WARN  Failed to fetch issues from Linear',
+      ])
+
+      expect(r.ALERT).toBe('Failed to fetch issues from Linear')
+      expect(r.ALERT_FULL).toBeUndefined()
+    })
+
     it('answers with zeroes rather than failing on a log that does not exist', () => {
       // The dashboard renders on a timer from the first tick, which can precede
       // the orchestrator's first log write.
@@ -3269,6 +3364,100 @@ describe('orchestrator.sh', () => {
       )
 
       expect(out).toBe('')
+    })
+  })
+
+  describe('the disk check reaches a fully occupied orchestrator (HON-716)', () => {
+    const source = () => fs.readFileSync(orchestrator, 'utf8')
+
+    it('checks the disk every poll, not only when a slot is free', () => {
+      // It used to be the spawn gate's own condition, inside
+      // `if [ "$active" -lt "$MAX_WORKERS" ]`. A disk filling under three
+      // running workers therefore logged nothing at all — and `wt watch` shows
+      // this WARN as one of the two alerts a busy orchestrator still gets, so
+      // the channel existed for a line that could never be written.
+      const body = shellFunctionBody(source(), 'main')
+
+      expect(body).toContain('check_disk_space || disk_ok=false')
+      expect(body).not.toContain('elif check_disk_space; then')
+      // Ordering is the whole point: the check has to precede the slot test.
+      expect(body.indexOf('check_disk_space || disk_ok=false')).toBeLessThan(
+        body.indexOf('local active=${#WORKER_PIDS[@]}'),
+      )
+    })
+
+    it('still gates spawning on the result rather than ignoring it', () => {
+      const body = shellFunctionBody(source(), 'main')
+
+      expect(body).toContain('elif [ "$disk_ok" = true ]; then')
+      expect(body).toContain('log WARN "Pausing: low disk space"')
+    })
+  })
+
+  describe('wt watch alert channel by slot state (watch_pick_alert)', () => {
+    /** The real helper, plus the same split cmd_watch does. Returns [message, at]. */
+    const pick = (
+      workers: number | string,
+      max: number | string,
+      alert: string,
+      at: string,
+      full = '',
+      fullAt = '',
+    ): [string, string] => {
+      const out = runHarness(
+        'watch-pick-alert',
+        String(workers),
+        String(max),
+        alert,
+        at,
+        full,
+        fullAt,
+      ).trim()
+      const m = /^\[([\s\S]*)\]\[([\s\S]*)\]$/.exec(out)
+      if (!m) throw new Error(`unparseable harness output: ${out}`)
+      return [m[1] ?? '', m[2] ?? '']
+    }
+
+    const LINEAR = 'Failed to fetch issues from Linear'
+    const DISK = 'Low disk space: 0GB free (< 1GB threshold)'
+
+    it('shows a slot-only blocker while a slot is free', () => {
+      expect(pick(2, 3, LINEAR, '10:06')).toEqual([LINEAR, '10:06'])
+    })
+
+    it('drops a slot-only blocker once every slot is busy', () => {
+      // Nothing can clear it either: a full orchestrator claims nothing and
+      // logs no outcome until a worker finishes, so the recovery rule never
+      // fires and the line would stand for the whole run.
+      expect(pick(3, 3, LINEAR, '10:06')).toEqual(['', ''])
+    })
+
+    it('keeps a blocker that bites the running workers too', () => {
+      expect(pick(3, 3, DISK, '10:06', DISK, '10:06')).toEqual([DISK, '10:06'])
+    })
+
+    it('falls back to the full-orchestrator alert rather than showing nothing', () => {
+      // ALERT is the newer Linear failure, but with no free slot the older disk
+      // warning is the one that still applies.
+      expect(pick(3, 3, LINEAR, '10:06', DISK, '09:00')).toEqual([DISK, '09:00'])
+    })
+
+    it('leaves an empty alert empty instead of promoting the timestamp', () => {
+      // The pair is printed time-first and split on the first tab precisely
+      // because `IFS=$'\t' read` collapses adjacent tabs: with the fields the
+      // other way round, an empty message would render the clock AS the alert.
+      expect(pick(3, 3, LINEAR, '10:06', '', '')).toEqual(['', ''])
+    })
+
+    it('leaves the alert alone when the worker counts are not numbers', () => {
+      // Both come out of jq over orchestrator-status.json. A malformed status
+      // file must not silently suppress the one line explaining the trouble —
+      // and an unguarded `[ -ge ]` on a non-number is a shell error, not a
+      // false comparison.
+      expect(pick('null', 'null', LINEAR, '10:06')).toEqual([LINEAR, '10:06'])
+      expect(pick('', '', LINEAR, '10:06')).toEqual([LINEAR, '10:06'])
+      // max_workers of 0 is not "every slot is full", it is a broken read.
+      expect(pick(0, 0, LINEAR, '10:06')).toEqual([LINEAR, '10:06'])
     })
   })
 
