@@ -4,7 +4,6 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { generateImage, generateObject, type ImageModelUsage } from 'ai'
 import { MEAL_IMAGE_MODEL, REVIEW_MODEL } from '@/lib/ai/models'
 import { estimateCostUsd } from '@/lib/ai/pricing'
-import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import { toAiUsageStats, withUsageOnFailure, type AiUsageStats } from '@/lib/ai/usage'
 import { serverEnv } from '@/lib/env'
 import { applyJudgeFilters, buildJudgeV2Prompt, judgeV2Schema, type JudgeVerdict } from './judge'
@@ -186,12 +185,13 @@ export async function generateMealImage(
           )
         }
       } catch (error) {
-        // The gate above only guarantees room at the start: a retried draw can
-        // still overrun. The first image is paid for, so keep it over a 504.
-        if (!isAiBudgetTimeout(error)) throw error
+        // The first image is paid for and most likely fine, so no failure of
+        // the retry — a budget overrun (the gate above only guarantees room at
+        // the start), a 429, a content-policy refusal — may cost the meal it.
         // eslint-disable-next-line no-console
         console.warn(
-          `[meal-image] regeneration for meal ${mealId} ran out of budget; keeping the first image`,
+          `[meal-image] regeneration for meal ${mealId} failed; keeping the first image`,
+          error,
         )
       }
     }

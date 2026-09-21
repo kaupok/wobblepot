@@ -258,13 +258,15 @@ describe('generateMealImage', () => {
     expect(result).toMatchObject({ bytes: new Uint8Array([1]), attempts: 1 })
   })
 
-  it('rethrows a regeneration error that is not a timeout', async () => {
+  it('keeps the first image when the regeneration fails for any other reason', async () => {
     mockGenerateImage
       .mockResolvedValueOnce(imageResult([1]))
       .mockRejectedValueOnce(new Error('content policy'))
     mockGenerateObject.mockResolvedValue(judgeResult({ ...clean, extraIngredients: ['olives'] }))
 
-    await expect(generateMealImage(meal)).rejects.toThrow('content policy')
+    const result = await generateMealImage(meal)
+
+    expect(result).toMatchObject({ bytes: new Uint8Array([1]), attempts: 1 })
   })
 
   it('rethrows a budget timeout from the first draw', async () => {

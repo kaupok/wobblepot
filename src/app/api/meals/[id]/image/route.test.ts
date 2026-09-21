@@ -110,7 +110,7 @@ vi.mock('@vercel/blob', () => ({
   del: vi.fn(),
 }))
 
-import { generateImage, generateObject } from 'ai'
+import { APICallError, generateImage, generateObject, RetryError } from 'ai'
 import { del, put } from '@vercel/blob'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
@@ -417,9 +417,19 @@ describe('POST /api/meals/[id]/image', () => {
     expect(mockPut).not.toHaveBeenCalled()
   })
 
-  it('does not count a provider 429 against the meal', async () => {
+  it('does not count a provider 429 against the meal, even after the SDK retried it', async () => {
     seedMeal({ imageStatus: 'failed', imageAttempts: 2 })
-    mockGenerateImage.mockRejectedValue(Object.assign(new Error('busy'), { statusCode: 429 }))
+    const busy = new APICallError({
+      message: 'busy',
+      url: 'https://api.openai.com/v1/images/generations',
+      requestBodyValues: {},
+      statusCode: 429,
+      isRetryable: true,
+    })
+    // What `generateImage` with `maxRetries: 1` actually throws.
+    mockGenerateImage.mockRejectedValue(
+      new RetryError({ message: 'failed', reason: 'maxRetriesExceeded', errors: [busy, busy] }),
+    )
 
     const response = await post()
 

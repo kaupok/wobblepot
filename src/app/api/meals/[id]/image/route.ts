@@ -13,6 +13,7 @@ import {
   respondCapExceeded,
 } from '@/lib/ai/usage'
 import { isAiBudgetTimeout } from '@/lib/ai/timeout'
+import { aiErrorStatusCode } from '@/lib/ai/error-status'
 import { captureApiError } from '@/lib/errors'
 import { withRequestId } from '@/lib/request-id'
 import { generateMealImage, MealImageUnavailableError } from '@/lib/meal-images/generate'
@@ -91,15 +92,6 @@ async function writeUnderClaim(
     data,
   })
   return moved.count > 0
-}
-
-function getErrorStatusCode(err: unknown): number | undefined {
-  if (err !== null && typeof err === 'object') {
-    const e = err as Record<string, unknown>
-    if (typeof e['statusCode'] === 'number') return e['statusCode']
-    if (typeof e['status'] === 'number') return e['status']
-  }
-  return undefined
 }
 
 async function handlePOST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -290,7 +282,7 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
     // Only reached before the image was attached, so an uploaded blob is an orphan.
     await discardMealImage(uploadedUrl, ROUTE)
 
-    const statusCode = getErrorStatusCode(error)
+    const statusCode = aiErrorStatusCode(error)
     // A 429 or a missing key says nothing about this meal, and retrying later
     // succeeds — counting it would lock the meal out after three busy moments.
     // Everything else counts: it was probably billed, or will fail again.
