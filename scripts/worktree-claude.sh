@@ -1941,7 +1941,11 @@ watch_relative_age() {
 #
 # Keys: TALLY_SUCCESS TALLY_FAILED TALLY_STRANDED TALLY_GATED TALLY_TIMEOUT
 #       TALLY_TRUNCATED LAST_OUTCOME LAST_OUTCOME_AT LAST_PICK LAST_PICK_AT
-#       SKIPS SKIP_SUMMARY ALERT ALERT_AT
+#       SKIPS SKIP_SUMMARY ALERT ALERT_AT ALERT_FULL ALERT_FULL_AT
+#
+# ALERT is the operational blocker to show while a worker slot is free;
+# ALERT_FULL is the subset of that which still applies when every slot is busy,
+# so the caller picks one by slot state rather than this scan guessing.
 #
 # `grace` is a second, later `YYYY-MM-DD HH:MM:SS` prefix used only for the
 # TALLY_TRUNCATED test. Without it, a log whose first line lands a second after
@@ -2026,16 +2030,34 @@ watch_scan_log() {
 
     # Operational blockers — the reason the orchestrator is not spawning even
     # though slots are free. Only the most recent one is worth screen space.
+    #
+    # Split by who the blocker applies to. Pausing and Low disk space halt the
+    # whole orchestrator and bite the workers already running, so they are worth
+    # the line whatever the slots are doing. The rest only answer "why is a slot
+    # unfilled" — a question that does not arise while every slot is full, which
+    # is why they are reported apart for the caller to drop.
     / (ERROR|WARN) / {
       if (!in_window($0)) next
       msg = $0
       sub(/^[0-9-]+ [0-9:]+ (ERROR|WARN) +/, "", msg)
-      if (msg ~ /^Pausing/ || msg ~ /^Low disk space/ || msg ~ /Linear/ ||
-          msg ~ /^Circuit breaker/ || msg ~ /Neon branch cap/ ||
-          msg ~ /^Todo queue is deeper/) {
-        alert = msg
-        alert_at = substr($0, 12, 5)
-        alert_ts = ts($0)
+      if (msg ~ /^Pausing/ || msg ~ /^Low disk space/) {
+        alert_any = msg
+        alert_any_at = substr($0, 12, 5)
+        alert_any_ts = ts($0)
+      }
+      # "failed on the Neon branch cap", not "Neon branch cap": the broader
+      # pattern also caught orchestrator.sh:1930 and :1934, two WARNs that
+      # report a requeue the orchestrator has ALREADY handled. Rendering either
+      # as an alert claimed a live fault where there was none, and the recovery
+      # suppression below then held it on screen until the next claim. The
+      # requeue itself is still visible — the skip histogram counts it under
+      # "cap cooldown".
+      else if (msg ~ /^Circuit breaker/ || msg ~ /Linear/ ||
+               msg ~ /failed on the Neon branch cap/ ||
+               msg ~ /^Todo queue is deeper/) {
+        alert_slot = msg
+        alert_slot_at = substr($0, 12, 5)
+        alert_slot_ts = ts($0)
       }
       next
     }
@@ -2076,12 +2098,53 @@ watch_scan_log() {
       # issues it claimed at 23:00. So it is reported only when nothing has
       # been claimed or completed since — which is exactly the case where a
       # free worker slot is going unfilled and the operator wants the reason.
-      if (alert != "" && (progress_ts == "" || alert_ts > progress_ts)) {
-        printf "ALERT=%s\n", alert
-        printf "ALERT_AT=%s\n", alert_at
+      show_any  = (alert_any  != "" && (progress_ts == "" || alert_any_ts  > progress_ts))
+      show_slot = (alert_slot != "" && (progress_ts == "" || alert_slot_ts > progress_ts))
+      # ALERT is the line to show while a worker slot is free: the most recent
+      # blocker of either kind. ALERT_FULL is what survives once every slot is
+      # busy — only the blockers a running worker is also subject to.
+      if (show_any && (!show_slot || alert_any_ts >= alert_slot_ts)) {
+        printf "ALERT=%s\n", alert_any
+        printf "ALERT_AT=%s\n", alert_any_at
+      } else if (show_slot) {
+        printf "ALERT=%s\n", alert_slot
+        printf "ALERT_AT=%s\n", alert_slot_at
+      }
+      if (show_any) {
+        printf "ALERT_FULL=%s\n", alert_any
+        printf "ALERT_FULL_AT=%s\n", alert_any_at
       }
     }
   ' "$log_file" 2>/dev/null || true
+}
+
+# Which of watch_scan_log's two alert channels the summary shows.
+#
+# With every slot busy, a blocker that only explains an UNFILLED slot has
+# nothing left to explain — and the recovery rule cannot clear it either, since
+# a full orchestrator claims nothing and logs no outcome until a worker
+# finishes. So it would sit on screen for the whole run asserting a fault that
+# is not one. In that state only ALERT_FULL — the blockers a running worker is
+# subject to as well — is shown.
+#
+# Prints "<HH:MM>\t<message>" — the timestamp first because it is the field that
+# cannot contain a tab, so the caller can split on the first one and keep an
+# empty message empty. (`IFS=$'\t' read` is not usable here: tab is IFS
+# whitespace, so it collapses the pair and renders the time AS the message.)
+# Both fields are empty when there is nothing to show.
+#
+# Usage: watch_pick_alert <workers> <max_workers> <alert> <alert_at> <full> <full_at>
+watch_pick_alert() {
+  local workers="$1" max="$2" alert="$3" alert_at="$4" full="$5" full_at="$6"
+  # Both counts come out of jq and are only as trustworthy as the status file;
+  # anything non-numeric reads as 0, which leaves the alert alone.
+  case "$workers" in ''|*[!0-9]*) workers=0 ;; esac
+  case "$max" in ''|*[!0-9]*) max=0 ;; esac
+  if [ "$max" -gt 0 ] && [ "$workers" -ge "$max" ]; then
+    alert="$full"
+    alert_at="$full_at"
+  fi
+  printf '%s\t%s\n' "$alert_at" "$alert"
 }
 
 # watch_scan_log, but off the redraw's critical path.
@@ -2356,6 +2419,7 @@ cmd_watch() {
     local t_success=0 t_failed=0 t_stranded=0 t_gated=0 t_timeout=0 t_truncated=0
     local last_outcome="" last_outcome_at="" last_pick="" last_pick_at=""
     local skips=0 skip_summary="" alert="" alert_at="" scan_key scan_val scan_line
+    local alert_full="" alert_full_at=""
     while IFS= read -r scan_line; do
       scan_key="${scan_line%%=*}"
       scan_val="${scan_line#*=}"
@@ -2374,8 +2438,16 @@ cmd_watch() {
         SKIP_SUMMARY)    skip_summary="$scan_val" ;;
         ALERT)           alert="$scan_val" ;;
         ALERT_AT)        alert_at="$scan_val" ;;
+        ALERT_FULL)      alert_full="$scan_val" ;;
+        ALERT_FULL_AT)   alert_full_at="$scan_val" ;;
       esac
     done < <(watch_scan_log_cached "$cache_dir" "$orch_log" "$since_ts" "$grace_ts" "$start_epoch")
+
+    local picked_alert=""
+    picked_alert=$(watch_pick_alert \
+      "$worker_count" "$max_workers" "$alert" "$alert_at" "$alert_full" "$alert_full_at")
+    alert_at="${picked_alert%%$'\t'*}"
+    alert="${picked_alert#*$'\t'}"
 
     local landed_cache="$cache_dir/landed"
     watch_refresh_async "$landed_cache" 120 watch_landed_probe 6
