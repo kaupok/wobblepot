@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
@@ -15,6 +16,8 @@ import type { MealData, PantryIngredient, StructuredTips } from './types'
 
 interface MealDetailProps {
   meal: MealData
+  /** The meal's hero illustration, rendered first (`MealImage`, HON-737) */
+  image?: ReactNode
   householdSize: number
   /** Status of the plan entry this meal belongs to */
   status?: MealStatus
@@ -51,6 +54,7 @@ interface MealDetailProps {
 
 export function MealDetail({
   meal,
+  image,
   householdSize,
   status,
   servings,
@@ -85,6 +89,8 @@ export function MealDetail({
 
   return (
     <div className="flex flex-col gap-4">
+      {image}
+
       {/* Meal description — seeded MealTranslation renders in the household locale */}
       {meal.description && <Body variant="muted">{meal.description}</Body>}
 

@@ -133,6 +133,11 @@ export async function GET(request: NextRequest) {
                 timeMinutes: entry.meal.timeMinutes,
                 preparationNotes: translatedMeal.preparationNotes ?? null,
                 primaryProteinType: entry.meal.primaryProteinType,
+                // The meal detail modal's hero illustration (HON-737). A global
+                // meal is drawn by the operator batch, never lazily on open.
+                isCustom: entry.meal.householdId !== null,
+                imageUrl: entry.meal.imageUrl,
+                imageStatus: entry.meal.imageStatus,
                 nutrition: computeMealNutrition(entry.meal.components),
                 components: entry.meal.components.map((comp) => ({
                   ingredientId: comp.ingredientId,

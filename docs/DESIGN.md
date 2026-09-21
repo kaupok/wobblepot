@@ -127,7 +127,7 @@ grep -rnE "transition-all|ease-in([\"' ]|$)|duration-([4-9][0-9]{2}|[0-9]{4,})" 
 
 ## Imagery
 
-The product supplies one piece of content imagery: a generated illustration of each meal, shown where someone decides to cook it. Photos a user attaches themselves (the recipe photos in `AttachImages`) are their input, not our imagery, and these rules do not cover them. It is decoration. The meal name, ingredients, and steps carry everything the user needs, so the image is allowed only where it cannot get in their way. Decided in HON-726; the code does not exist yet (see [Pending code changes](#pending-code-changes)).
+The product supplies one piece of content imagery: a generated illustration of each meal, shown where someone decides to cook it. Photos a user attaches themselves (the recipe photos in `AttachImages`) are their input, not our imagery, and these rules do not cover them. It is decoration. The meal name, ingredients, and steps carry everything the user needs, so the image is allowed only where it cannot get in their way. Decided in HON-726; shipped as `MealImage` in the meal detail modal (HON-737).
 
 - **One style, one source.** The only content imagery is the generated meal illustration: a warm, stylised, gouache-like illustration of one serving of the finished dish, produced by the single prompt in `src/lib/meal-images/prompt.ts`. No stock photos, no second illustration style, no hand-placed decorative images, and no AI imagery anywhere else in the product. A second style or source is a second visual language the rest of the guide was not written for.
 - **The meal detail modal only.** The image is the first element of the meal's details (`MealDetail`), below the title and the note and above the description; a meal with no description puts it above whatever comes first there. Not on meal cards, the planner grid, or lists: those are scanned many times a session, and a picture per row costs height and bandwidth for a decision the name already carries.
@@ -196,4 +196,4 @@ Add one here when a review finds code and rule disagreeing and the fix is not ob
 
 Decisions above that the code does not yet reflect. Each has a Linear issue; update this list when one ships.
 
-- [Imagery](#imagery): the generation library and `src/lib/meal-images/prompt.ts` (HON-735), and the image in `MealDetailModal` (HON-737). `imageStatus` arrives with the meal image columns in HON-734.
+None right now.

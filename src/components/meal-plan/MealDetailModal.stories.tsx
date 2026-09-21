@@ -14,6 +14,7 @@ import {
   lemonGarlicChickenComponentsFull,
   lemonGarlicChickenPantryWithOil,
 } from '@/stories/fixtures'
+import mealIllustration from '@/stories/assets/meal-illustration.jpg'
 import { MealDetailModal } from './MealDetailModal'
 
 const mealFixture = createMeal({ components: lemonGarlicChickenComponentsFull })
@@ -46,6 +47,59 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const Open: Story = {}
+
+export const WithImage: Story = {
+  args: {
+    meal: {
+      ...mealFixture,
+      id: 'meal-with-image',
+      isCustom: true,
+      imageStatus: 'ready',
+      imageUrl: mealIllustration.src,
+    },
+  },
+  play: async () => {
+    const body = within(document.body)
+    const dialog = await body.findByRole('dialog')
+    const img = await within(dialog).findByRole('img', { name: mealFixture.name })
+    await expect(img).toHaveAttribute('alt', mealFixture.name)
+    // Decoration, not a control: the dialog's initial focus is unchanged.
+    await expect(img).not.toHaveFocus()
+    await expect(dialog.contains(document.activeElement)).toBe(true)
+  },
+}
+
+// Counts the image POSTs, to prove opening a household meal asks exactly once.
+let imageRequests = 0
+
+// A household meal without an image asks for one on open. Without a key the
+// route answers 503 — the modal must render as if the meal had no image, with
+// no box, no toast and no error copy.
+export const WithoutImage: Story = {
+  args: {
+    meal: { ...mealFixture, id: 'meal-without-image', isCustom: true, imageStatus: 'none' },
+  },
+  parameters: {
+    msw: {
+      handlers: [
+        http.post('/api/meals/:id/image', () => {
+          imageRequests += 1
+          return HttpResponse.json({ error: 'Meal images are not available' }, { status: 503 })
+        }),
+      ],
+    },
+  },
+  play: async () => {
+    imageRequests = 0
+    const body = within(document.body)
+    const dialog = await body.findByRole('dialog')
+
+    await waitFor(() => expect(imageRequests).toBe(1))
+    await expect(within(dialog).queryByRole('img')).not.toBeInTheDocument()
+    await expect(within(dialog).queryByTestId('meal-image-placeholder')).not.toBeInTheDocument()
+    await expect(body.queryByRole('alert')).not.toBeInTheDocument()
+  },
+}
 
 export const WithNote: Story = {
   args: {

@@ -321,6 +321,58 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
 export const POST = withRequestId(handlePOST)
 
 /**
+ * GET /api/meals/[id]/image — the stored image state, for the meal detail
+ * modal to poll while another request holds the claim (HON-737).
+ *
+ * Read-only on purpose: polling the POST would re-claim a failed or stale row
+ * and could start a paid generation from a poll. Same `{ status, imageUrl? }`
+ * body as the POST, always 200.
+ */
+async function handleGET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  })
+
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const membership = await getHouseholdMembership(session.user.id)
+
+  if (!membership) {
+    return NextResponse.json({ error: 'No household found' }, { status: 404 })
+  }
+
+  const { id: mealId } = await params
+
+  try {
+    const meal = await prisma.meal.findFirst({
+      where: {
+        id: mealId,
+        deletedAt: null,
+        OR: [{ householdId: null }, { householdId: membership.household.id }],
+      },
+      select: { imageUrl: true, imageStatus: true },
+    })
+
+    if (!meal) {
+      return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
+    }
+
+    if (meal.imageStatus === 'ready' && meal.imageUrl) {
+      return respond({ status: 'ready', imageUrl: meal.imageUrl })
+    }
+
+    return respond({ status: meal.imageStatus === 'ready' ? 'none' : meal.imageStatus })
+  } catch (error) {
+    captureApiError(error, { route: ROUTE, userId: session.user.id, operation: 'meal-image-read' })
+    return NextResponse.json({ error: "Couldn't read the meal image." }, { status: 500 })
+  }
+}
+
+export const GET = withRequestId(handleGET)
+
+/**
  * Platform execution ceiling for this route, in seconds.
  *
  * Stated explicitly because `AI_BUDGET_MS` is only meaningful if the platform

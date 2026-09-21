@@ -1,5 +1,5 @@
 import type { MealStatus } from './StatusSelect'
-import type { MealType } from '@/generated/prisma/enums'
+import type { MealImageStatus, MealType } from '@/generated/prisma/enums'
 
 export interface MealComponent {
   ingredientId: string
@@ -31,6 +31,11 @@ export interface MealData {
   preparationNotes?: string | null
   components: MealComponent[]
   nutrition: NutritionData
+  /** Household-owned meal. Only these generate an image on open (HON-737). */
+  isCustom?: boolean
+  /** Hero illustration in Vercel Blob, set once `imageStatus` is `ready` */
+  imageUrl?: string | null
+  imageStatus?: MealImageStatus
 }
 
 export interface StructuredTips {

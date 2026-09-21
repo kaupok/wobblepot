@@ -6,7 +6,9 @@ import {
   lemonGarlicChickenPantryWithOil,
 } from '@/stories/fixtures'
 import { expectSingleLine, expectWithinHorizontally } from '@/stories/layout-helpers'
+import mealIllustration from '@/stories/assets/meal-illustration.jpg'
 import { MealDetail } from './MealDetail'
+import { MealImage } from './MealImage'
 import type { StructuredTips } from './types'
 
 const mealFixture = createMeal({ components: lemonGarlicChickenComponentsFull })
@@ -59,6 +61,33 @@ export const WithDescription: Story = {
           'Seeded meals carry a description (a localized `MealTranslation` field). It renders as muted body text above the nutrition summary.',
       },
     },
+  },
+}
+
+export const WithImage: Story = {
+  args: {
+    meal: createMeal({
+      description: 'Lemon-garlic roast chicken with crisp potatoes and a bright pan sauce.',
+    }),
+    image: (
+      <MealImage mealName="Lemon garlic chicken" status="ready" imageUrl={mealIllustration.src} />
+    ),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The hero illustration (HON-737) is the first element, above the description. `MealDetailModal` supplies it through the `image` slot.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const img = await within(canvasElement).findByRole('img', { name: 'Lemon garlic chicken' })
+    // First child of the details, above the description.
+    await expect(
+      img.compareDocumentPosition(within(canvasElement).getByText(/lemon-garlic roast chicken/i)) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
   },
 }
 

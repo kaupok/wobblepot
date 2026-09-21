@@ -257,6 +257,51 @@ describe('GET /api/entries', () => {
     expect(entry.meal.nutrition).toBeDefined()
   })
 
+  it.each([
+    { householdId: 'household-123', isCustom: true },
+    { householdId: null, isCustom: false },
+  ])(
+    'sends the meal image state, with isCustom $isCustom for householdId $householdId',
+    async ({ householdId, isCustom }) => {
+      mockGetSession.mockResolvedValue(mockSession as never)
+      mockGetMembership.mockResolvedValue(mockMembership as never)
+      mockPlanFindUnique.mockResolvedValue({ id: 'plan-1', householdId: 'household-123' } as never)
+      mockEntriesFindMany.mockResolvedValue([
+        {
+          id: 'entry-1',
+          date: new Date('2026-02-03T00:00:00'),
+          mealType: 'dinner',
+          status: 'planned',
+          rating: null,
+          preparationTips: null,
+          note: null,
+          servingOverride: null,
+          pantryDeductedAt: null,
+          meal: {
+            id: 'meal-1',
+            name: 'Spaghetti Bolognese',
+            kidFriendly: true,
+            timeMinutes: 45,
+            preparationNotes: null,
+            primaryProteinType: 'red_meat',
+            householdId,
+            imageUrl: 'https://store.public.blob.vercel-storage.com/meals/meal-1.png',
+            imageStatus: 'ready',
+            components: [],
+          },
+        },
+      ] as never)
+
+      const data = await (await GET(createRequest())).json()
+
+      expect(data.entries[0].meal).toMatchObject({
+        isCustom,
+        imageUrl: 'https://store.public.blob.vercel-storage.com/meals/meal-1.png',
+        imageStatus: 'ready',
+      })
+    },
+  )
+
   it('reports pantryDeducted for an entry that was charged, even after a revert', async () => {
     // The card uses this to skip the deduction preview: the server will not
     // charge the entry again, so a preview would promise a change that never
