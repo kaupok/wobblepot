@@ -9,7 +9,7 @@
  * images, 24 judge calls and 6 prep calls. No production surface: no schema,
  * no storage, no env schema, no AiUsage ledger.
  *
- * COSTS REAL MONEY (~$1.70 for the default run). Without `--confirm` it is a
+ * COSTS REAL MONEY (~$1.80 for the default run). Without `--confirm` it is a
  * dry run: it prints the job matrix and the estimated total, then exits.
  *
  * Needs OPENAI_API_KEY (and GOOGLE_GENERATIVE_AI_API_KEY for Gemini) in
@@ -211,7 +211,7 @@ const PROMPT_SUFFIX =
  * garnish and olives, raw-ingredient props, and whole pots or baking dishes.
  */
 export const V2_EXCLUSIONS =
-  'Show only the finished, cooked dish as it is served. Nothing that is not in that list: no garnish, herbs, olives, bread or side dishes. No raw ingredients, cutting boards, pots, pans, baking dishes or other props around it.'
+  'Show only the finished, cooked dish as it is served. Nothing that is not in that list: no garnish, no herbs beyond those listed, no olives, bread or side dishes. No raw ingredients, cutting boards, pots, pans, baking dishes or other props around it.'
 
 /** Largest amount first, as the prep route's quantities would rank them. */
 export function ingredientsByQuantity(meal: SpikeMeal): string[] {
