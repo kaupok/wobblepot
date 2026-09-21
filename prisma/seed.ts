@@ -10,6 +10,7 @@ import { importCoverageIngredients } from './seed-import-coverage'
 import { mealTranslationsEt, type MealTranslationEt } from './seed-meal-translations-et'
 import { ingredientTranslationsEt } from './seed-ingredient-translations-et'
 import { normalizeIngredientKey } from '../src/lib/i18n/ingredient-key'
+import { MEAL_IMAGE_CLEARED } from '../src/lib/meal-images/invalidation'
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL!,
@@ -3803,6 +3804,12 @@ async function seedMeals() {
           primaryProteinType: meal.primaryProteinType as Parameters<
             typeof prisma.meal.update
           >[0]['data']['primaryProteinType'],
+          // The description feeds the meal image prompt, and this runs on
+          // every production migration deploy, so a seed edit to it would
+          // otherwise leave an illustration of the old dish (HON-734). The
+          // blob itself is left orphaned — harmless, and the seed has no
+          // Blob credentials to delete it with.
+          ...(existingMeal.description !== meal.description ? MEAL_IMAGE_CLEARED : {}),
         },
       })
       seededCount++

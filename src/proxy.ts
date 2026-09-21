@@ -96,7 +96,7 @@ function buildCspHeader(nonce: string): string {
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}'${isDev ? " 'unsafe-eval'" : " 'strict-dynamic'"}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https://*.posthog.com",
+    "img-src 'self' data: blob: https://*.posthog.com https://*.public.blob.vercel-storage.com",
     "font-src 'self'",
     "connect-src 'self' https://*.posthog.com https://eu.i.posthog.com",
     "frame-ancestors 'none'",

@@ -20,6 +20,13 @@ enum DietaryType {
   pescatarian
 }
 
+enum MealImageStatus {
+  none
+  generating
+  ready
+  failed
+}
+
 enum MealType {
   breakfast
   lunch
@@ -368,6 +375,15 @@ model Meal {
   householdId        String?
   deletedAt          DateTime?
   household          Household?  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  // Generated hero illustration (HON-726). One per meal, shared by every
+  // household that sees it. Reset by `clearMealImage` whenever the meal's
+  // content changes (src/lib/meal-images/invalidation.ts).
+  imageUrl           String?
+  imagePromptVersion String?
+  imageStatus        MealImageStatus @default(none)
+  imageClaimedAt     DateTime?
+  imageAttempts      Int             @default(0)
 
   components   MealComponent[]
   planEntries  MealPlanEntry[]

@@ -15,6 +15,12 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  images: {
+    // Generated meal images live in Vercel Blob (HON-734). Each store has its
+    // own subdomain and staging/production use different stores, hence the
+    // wildcard. Keep in sync with `img-src` in src/proxy.ts.
+    remotePatterns: [{ protocol: 'https', hostname: '*.public.blob.vercel-storage.com' }],
+  },
   async redirects() {
     return [
       {

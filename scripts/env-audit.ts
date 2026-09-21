@@ -47,6 +47,10 @@ const INTEGRATION_MANAGED: { pattern: RegExp; why: string }[] = [
     pattern: /^UPSTASH_REDIS_URL$/,
     why: 'Injected by the Upstash Marketplace integration alongside UPSTASH_KV_*; not read by our code.',
   },
+  {
+    pattern: /^BLOB_WEBHOOK_PUBLIC_KEY$/,
+    why: 'Written by the Vercel Blob store connection alongside BLOB_STORE_ID (HON-734); we register no Blob webhooks, so nothing verifies against it.',
+  },
 ]
 
 export function ignoreReason(name: string): string | null {

@@ -1,5 +1,6 @@
 import { prisma, type PrismaClientType } from '@/lib/prisma'
 import { invalidateFutureEntryTips } from '@/lib/meal-planning/preparation-tips-cache'
+import { discardMealImage } from '@/lib/meal-images/storage'
 
 /**
  * Hard-deletes a user and every record that should not outlive their account.
@@ -14,6 +15,8 @@ import { invalidateFutureEntryTips } from '@/lib/meal-planning/preparation-tips-
  * - Household where the user is owner-and-only-member → deleted; Prisma
  *   `onDelete: Cascade` removes its preferences, invites, meals, plans, pantry,
  *   favorites, custom shopping items, household-scoped ingredients, and AI usage.
+ *   Its meals' generated images live in Vercel Blob, outside the database, so
+ *   they are deleted after the transaction commits (HON-734).
  * - Household where the user is a non-owner member → only the membership is
  *   removed; shared household data is left intact for the remaining members,
  *   except that the cached prep tips on its forward-looking entries are
@@ -31,7 +34,9 @@ import { invalidateFutureEntryTips } from '@/lib/meal-planning/preparation-tips-
  * table in the same PR.
  */
 export async function purgeUser(userId: string, db: PrismaClientType = prisma): Promise<void> {
-  await db.$transaction(async (tx) => {
+  const imageUrls = await db.$transaction(async (tx) => {
+    const imageUrls: string[] = []
+
     // Find all household memberships for this user
     const memberships = await tx.householdMember.findMany({
       where: { userId },
@@ -56,6 +61,15 @@ export async function purgeUser(userId: string, db: PrismaClientType = prisma): 
         })
 
         if (memberCount === 1) {
+          // The cascade drops these rows and, with them, the only reference
+          // to each image blob — collect the URLs first so the files do not
+          // outlive the erasure at a public URL nothing can find again.
+          const imagedMeals = await tx.meal.findMany({
+            where: { householdId: membership.householdId, imageUrl: { not: null } },
+            select: { imageUrl: true },
+          })
+          for (const { imageUrl } of imagedMeals) if (imageUrl) imageUrls.push(imageUrl)
+
           // Delete household (cascade handles related records)
           await tx.household.delete({
             where: { id: membership.householdId },
@@ -97,5 +111,13 @@ export async function purgeUser(userId: string, db: PrismaClientType = prisma): 
     await tx.user.delete({
       where: { id: userId },
     })
+
+    return imageUrls
   })
+
+  // After commit, so a rolled-back purge keeps its images. Best-effort: a
+  // failed delete is reported and swallowed rather than failing the purge.
+  for (const url of imageUrls) {
+    await discardMealImage(url, '/api/cron/purge-deleted-users')
+  }
 }

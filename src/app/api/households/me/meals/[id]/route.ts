@@ -13,6 +13,8 @@ import {
   translateMeal,
 } from '@/lib/i18n/content'
 import { captureApiError } from '@/lib/errors'
+import { clearMealImage } from '@/lib/meal-images/invalidation'
+import { discardMealImage } from '@/lib/meal-images/storage'
 
 const updateMealSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -52,6 +54,14 @@ const updateMealSchema = z.object({
     .min(1)
     .optional(),
 })
+
+/** Ingredient ids, largest amount first; ties broken by id so the key is stable. */
+function rankIngredients(rows: { id: string; amount: number }[]): string {
+  return [...rows]
+    .sort((a, b) => b.amount - a.amount || a.id.localeCompare(b.id))
+    .map((r) => r.id)
+    .join(',')
+}
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -226,8 +236,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     // Verify meal exists and belongs to this household, and carry the fields
-    // the prep-tips invalidation compares by value. The components are read
-    // inside the transaction instead, next to the divisor they are scaled by.
+    // the prep-tips and image invalidations compare by value. The components
+    // are read inside the transaction instead, next to the divisor they are
+    // scaled by.
     const existingMeal = await prisma.meal.findFirst({
       where: {
         id,
@@ -236,6 +247,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       },
       select: {
         name: true,
+        description: true,
         preparationNotes: true,
         timeMinutes: true,
         primaryProteinType: true,
@@ -332,7 +344,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (servings !== undefined) updateData.servings = servings
 
     // Use transaction to update meal and components atomically
-    const meal = await prisma.$transaction(async (tx) => {
+    const { meal, discardedImageUrl } = await prisma.$transaction(async (tx) => {
       // `components` and `servings` are independently optional in the schema,
       // so a components-only PATCH has to scale against something. The meal's
       // own stored `servings` is that divisor — it is what the rows already on
@@ -352,6 +364,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       // down reads `componentServings` behind that same condition.
       let componentServings = 0
       let componentsChanged = false
+      let imageComponentsChanged = false
 
       if (components) {
         const current = await tx.meal.findUniqueOrThrow({
@@ -384,6 +397,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           components.some(
             (c) => existingQuantities.get(c.ingredientId) !== c.totalQuantity / componentServings,
           )
+
+        // The image prompt sees the ingredients ranked largest amount first
+        // (HON-733's V3), not their amounts. A servings edit from the form
+        // resends unchanged totals over a new divisor — every per-serving
+        // quantity moves, the ranking does not — so it must not cost the
+        // meal its illustration.
+        imageComponentsChanged =
+          rankIngredients(
+            current.components.map((c) => ({ id: c.ingredientId, amount: c.quantityPerServing })),
+          ) !==
+          rankIngredients(components.map((c) => ({ id: c.ingredientId, amount: c.totalQuantity })))
       }
 
       // Update meal base fields
@@ -451,8 +475,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         })
       }
 
+      // The meal image depicts the meal's content, so it goes stale on the
+      // same by-value rule as the tips above, over a different field set:
+      // `description` feeds the image but not the tips, `timeMinutes` the
+      // reverse. Components compare by ingredient ranking rather than
+      // `componentsChanged`, so a servings edit keeps the image (HON-734).
+      const imageInputChanged =
+        (name !== undefined && name !== existingMeal.name) ||
+        (description !== undefined && description !== existingMeal.description) ||
+        (preparationNotes !== undefined && preparationNotes !== existingMeal.preparationNotes) ||
+        imageComponentsChanged
+
+      const discardedImageUrl = imageInputChanged ? await clearMealImage(tx, id) : null
+
       // Fetch updated meal with components
-      return tx.meal.findUniqueOrThrow({
+      const updated = await tx.meal.findUniqueOrThrow({
         where: { id },
         select: {
           id: true,
@@ -494,7 +531,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           },
         },
       })
+
+      return { meal: updated, discardedImageUrl }
     })
+
+    // After commit: a rolled-back edit must not have lost its image.
+    await discardMealImage(discardedImageUrl, '/api/households/me/meals/[id]')
 
     const nutrition = meal.components.reduce(
       (acc, comp) => {
@@ -588,11 +630,19 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
     }
 
-    // Soft delete - set deletedAt timestamp
-    await prisma.meal.update({
-      where: { id },
-      data: { deletedAt: new Date() },
+    // Soft delete - set deletedAt timestamp, and drop the image with it
+    // (HON-734). Past plan entries can still render a soft-deleted meal; they
+    // do so without its illustration.
+    const discardedImageUrl = await prisma.$transaction(async (tx) => {
+      await tx.meal.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      })
+
+      return clearMealImage(tx, id)
     })
+
+    await discardMealImage(discardedImageUrl, '/api/households/me/meals/[id]')
 
     return NextResponse.json({ success: true })
   } catch (error) {

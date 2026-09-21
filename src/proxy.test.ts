@@ -185,6 +185,20 @@ describe('proxy', () => {
     expect(connectSrc).toContain('https://eu.i.posthog.com')
   })
 
+  it('allows Vercel Blob meal images in img-src', async () => {
+    const { proxy } = await import('./proxy')
+    const { NextRequest } = await import('next/server')
+    const req = new NextRequest('https://wobblepot.dev/')
+
+    proxy(req)
+
+    const csp = nextMock.responseHeaders.get('Content-Security-Policy')!
+    const imgSrc = csp.split(';').find((d) => d.trim().startsWith('img-src'))!
+
+    // Same host `images.remotePatterns` allows in next.config.ts (HON-734).
+    expect(imgSrc.trim().split(/\s+/)).toContain('https://*.public.blob.vercel-storage.com')
+  })
+
   it('includes upgrade-insecure-requests in production', async () => {
     const { proxy } = await import('./proxy')
     const { NextRequest } = await import('next/server')
