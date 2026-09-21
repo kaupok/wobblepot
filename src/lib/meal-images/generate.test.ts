@@ -103,6 +103,7 @@ describe('generateMealImage', () => {
       mediaType: 'image/png',
       attempts: 1,
       totalUsd: IMAGE_USD + JUDGE_USD,
+      verdict: expect.objectContaining({ pass: true, strictPass: true }),
     })
   })
 
@@ -120,6 +121,8 @@ describe('generateMealImage', () => {
     expect(mockGenerateObject).toHaveBeenCalledTimes(2)
     expect(result.attempts).toBe(2)
     expect(result.bytes).toEqual(new Uint8Array([2]))
+    // The verdict belongs to the image returned, not the rejected first one.
+    expect(result.verdict?.pass).toBe(true)
   })
 
   it('regenerates on props beside the dish too', async () => {
@@ -287,6 +290,32 @@ describe('generateMealImage', () => {
 
     expect(mockGenerateImage).toHaveBeenCalledTimes(1)
     expect(result.attempts).toBe(1)
+  })
+
+  it("judges once and never regenerates in 'report' mode", async () => {
+    mockGenerateImage.mockResolvedValue(imageResult())
+    mockGenerateObject.mockResolvedValue(judgeResult({ ...clean, extraIngredients: ['olives'] }))
+
+    const result = await generateMealImage(meal, { judge: 'report' })
+
+    expect(mockGenerateImage).toHaveBeenCalledTimes(1)
+    expect(mockGenerateObject).toHaveBeenCalledTimes(1)
+    expect(result.attempts).toBe(1)
+    expect(result.verdict).toMatchObject({
+      pass: false,
+      filtered: { extraIngredients: ['olives'] },
+    })
+    expect(result.totalUsd).toBeCloseTo(IMAGE_USD + JUDGE_USD)
+  })
+
+  it("makes no judge call in 'off' mode", async () => {
+    mockGenerateImage.mockResolvedValue(imageResult())
+
+    const result = await generateMealImage(meal, { judge: 'off' })
+
+    expect(mockGenerateObject).not.toHaveBeenCalled()
+    expect(result).toMatchObject({ attempts: 1, verdict: null })
+    expect(result.totalUsd).toBeCloseTo(IMAGE_USD)
   })
 
   it('refuses without an OpenAI key, before any call', async () => {

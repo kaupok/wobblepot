@@ -11,6 +11,8 @@ Complete guide for deploying Honkadori to staging and production environments.
   - [Vercel Configuration](#vercel-configuration)
   - [Rollback Procedure](#rollback-procedure)
   - [Security incidents and data breaches](#security-incidents-and-data-breaches)
+  - [Scheduled jobs (cron)](#scheduled-jobs-cron)
+  - [Global meal illustrations](#global-meal-illustrations)
 
 ## CI Pipeline
 
@@ -207,3 +209,41 @@ A failed deploy that **exposes or corrupts personal data** is not just a rollbac
 ### Scheduled jobs (cron)
 
 `vercel.json` defines a daily Vercel Cron at 03:00 UTC that calls `/api/cron/purge-deleted-users` — the GDPR Art. 17 hard-purge of accounts whose 30-day grace window has elapsed. It is authenticated by `CRON_SECRET`, which **must be set on Production** (Vercel auto-injects the `Authorization: Bearer` header on scheduled runs). If `CRON_SECRET` is unset in production the route returns 500 and the purge never runs, breaking the published 30-day retention promise. See [RUNBOOKS/gdpr-deletion.md](RUNBOOKS/gdpr-deletion.md) for the full deletion/recovery flow and the per-model cascade, and [ENVIRONMENT_SETUP.md](ENVIRONMENT_SETUP.md) § "Cron secret" for provisioning.
+
+### Global meal illustrations
+
+Global meals (`householdId` null — the seed catalogue every household sees) never get an image from the lazy route `POST /api/meals/[id]/image`: one household's AI cap must not pay for a shared asset (HON-735). An operator draws them once with `scripts/generate-global-meal-images.ts` (HON-738).
+
+**When to run it:** after new global seed meals land, after a global meal's name, description, ingredients or preparation notes change (the edit clears its image), and after a bump of `MEAL_IMAGE_PROMPT_VERSION` in `src/lib/meal-images/prompt.ts`, which makes every existing image stale. It selects global meals whose `imageStatus` is not `ready`, or whose `imagePromptVersion` is not the current one, so a rerun only picks up what is missing.
+
+**Cost:** about $0.042 per image, plus about $0.008 per image with `--judge`, so ~$11.50 for the full ~273-meal catalogue. It is printed at the end and never ledgered: no household owns it, so there are no `AiUsage` rows.
+
+**1. Dry run (free).** Prints the number of meals and the estimated cost. It only reads the database.
+
+```bash
+pnpm meal-images:global                       # all meals that need an image
+pnpm meal-images:global --meal="Irish Lamb Stew"   # one meal, by id or English name
+```
+
+**2. Generate (costs money, needs `OPENAI_API_KEY`).** Draws into `.temp/global-meal-images/<timestamp>/`: one image per meal (`<slug>.png`), a `manifest.json` and a contact sheet, `index.html`. It writes nothing to the database or to Blob, so it is safe against any `DATABASE_URL` — which is only read to select the meals. Start with a small slice.
+
+```bash
+pnpm meal-images:global --confirm --limit=3
+pnpm meal-images:global --confirm [--judge] [--concurrency=4]
+```
+
+`--judge` adds the `REVIEW_MODEL` vision check in report-only mode: its findings show on each contact-sheet cell but never trigger a regeneration. Here the operator is the gate, so it is optional.
+
+**3. Review.** Open `index.html` and note the slug of every image to reject. The images are drawn from the English name and description and shared by every locale.
+
+**4. Publish to staging, then to production.** Point the environment at the target — its `DATABASE_URL`, plus Blob credentials for the **same** environment, since staging and production use different Blob stores (see [ENVIRONMENT_SETUP.md § Vercel Blob](ENVIRONMENT_SETUP.md#vercel-blob-meal-images)). Blob authenticates with `BLOB_STORE_ID` plus `VERCEL_OIDC_TOKEN`, and the token expires after about a day. The script checks it before uploading and prints the refresh steps; `vercel env pull --environment=<env> /tmp/<file>` gives you a fresh one (never a bare `vercel env pull`, which writes `.env.local`). A static `BLOB_READ_WRITE_TOKEN` for the store also works.
+
+```bash
+pnpm meal-images:global --publish=.temp/global-meal-images/<timestamp> --exclude=slug-one,slug-two
+```
+
+It prints what it will skip and why, then the database host and Blob store, and publishes only after you type the host back exactly (`--yes=<host>` does the same non-interactively). For each image it uploads through `putMealImage` and sets `imageUrl`, `imageStatus = ready` and `imagePromptVersion`, and it deletes the blob of an older-version image it replaces.
+
+Because generation does not depend on the environment, publish the **same run directory** to staging, check it on `wobblepot.dev`, then publish it to production. Meals are matched by the slug of their English name (ids differ between databases). A meal is skipped if it is already `ready` at the current version, so publishing twice is a no-op. It is also skipped if its prompt no longer matches the one drawn, meaning the meal changed since: regenerate it. Publish uses the route's claim columns (`imageClaimedAt`), so two concurrent publishes cannot both attach an image, and an edit mid-upload discards the upload.
+
+**5. Rejected meals.** An excluded meal stays without an image and is selected again by the next `--confirm` run. Repeat steps 2–4 for just those, with `--meal=` or a fresh full run.
