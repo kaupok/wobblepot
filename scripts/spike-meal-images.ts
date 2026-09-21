@@ -118,6 +118,11 @@ export type ModelKey = 'flare' | 'sunburst' | 'nano-banana-2'
 export interface TokenRate {
   inputPerM: number
   outputPerM: number
+  /**
+   * Rate for thinking/text output tokens when the provider bills them apart
+   * from image output tokens. The AI SDK folds them into `outputTokens`.
+   */
+  thinkingPerM?: number
 }
 
 type ImageCallOptions = Pick<
@@ -140,7 +145,7 @@ export interface SpikeModel {
 
 // Rates checked 2026-09-21:
 // OpenAI — https://developers.openai.com/api/docs/pricing (GPT Image 2.5: text in $5, image out $30 per 1M)
-// Google — https://ai.google.dev/gemini-api/docs/pricing (3.1 Flash Image: in $0.50, image out $60 per 1M; 1K ≈ 1120 tokens ≈ $0.067)
+// Google — https://ai.google.dev/gemini-api/docs/pricing (3.1 Flash Image: in $0.50, image out $60, text and thinking out $3 per 1M; 1K ≈ 1120 tokens ≈ $0.067)
 const OPENAI_IMAGE_RATE: TokenRate = { inputPerM: 5, outputPerM: 30 }
 const OPENAI_CALL_OPTIONS: ImageCallOptions = {
   size: '1536x1024',
@@ -178,7 +183,7 @@ export const MODELS: SpikeModel[] = [
       aspectRatio: '3:2',
       providerOptions: { google: { imageConfig: { imageSize: '1K' } } },
     },
-    rate: { inputPerM: 0.5, outputPerM: 60 },
+    rate: { inputPerM: 0.5, outputPerM: 60, thinkingPerM: 3 },
     estPerImageUsd: 0.067,
     apiKeyEnv: 'GOOGLE_GENERATIVE_AI_API_KEY',
   },
@@ -266,15 +271,36 @@ export function estimateTotalUsd(jobs: Job[]): number {
   return jobs.reduce((sum, job) => sum + job.model.estPerImageUsd, 0)
 }
 
+/**
+ * `measured` is true only when every billed token could be priced at its own
+ * rate. When the model bills thinking separately and the thinking count is
+ * missing, all output is priced at the image rate — an upper bound, not a
+ * measurement.
+ */
 export function costFromUsage(
   usage: Partial<ImageModelUsage> | undefined,
   rate: TokenRate,
   estPerImageUsd: number,
+  thinkingTokens?: number,
 ): { usd: number; measured: boolean } {
   if (usage?.outputTokens == null) return { usd: estPerImageUsd, measured: false }
+  const splitThinking = rate.thinkingPerM != null && thinkingTokens != null
+  const thinking = splitThinking ? Math.min(thinkingTokens, usage.outputTokens) : 0
   const usd =
-    ((usage.inputTokens ?? 0) * rate.inputPerM + usage.outputTokens * rate.outputPerM) / 1_000_000
-  return { usd, measured: true }
+    ((usage.inputTokens ?? 0) * rate.inputPerM +
+      (usage.outputTokens - thinking) * rate.outputPerM +
+      thinking * (rate.thinkingPerM ?? 0)) /
+    1_000_000
+  return { usd, measured: rate.thinkingPerM == null || splitThinking }
+}
+
+/** Gemini's `thoughtsTokenCount`, surfaced through the image result's provider metadata. */
+export function thinkingTokensFrom(providerMetadata: unknown): number | undefined {
+  const count = (
+    providerMetadata as
+      { google?: { usageMetadata?: { thoughtsTokenCount?: unknown } } } | undefined
+  )?.google?.usageMetadata?.thoughtsTokenCount
+  return typeof count === 'number' ? count : undefined
 }
 
 export interface ModelSummary {
@@ -459,6 +485,9 @@ async function main() {
   for (const m of models) mkdirSync(join(outDir, m.key), { recursive: true })
 
   const results: JobResult[] = []
+  // Set when the run must stop early. Outputs are still written below, so
+  // images already paid for keep their latency and cost data.
+  let abortReason: string | undefined
   for (const [i, job] of jobs.entries()) {
     const prompt = buildPrompt(job.meal, job.style)
     const base = { modelKey: job.model.key, mealSlug: job.meal.slug, styleId: job.style.id, prompt }
@@ -475,7 +504,12 @@ async function main() {
       // Gemini returns JPEG even though OpenAI honours outputFormat: 'png'.
       const file = `${job.model.key}/${job.meal.slug}-${job.style.id}.${extensionFor(result.image.mediaType)}`
       writeFileSync(join(outDir, file), result.image.uint8Array)
-      const cost = costFromUsage(result.usage, job.model.rate, job.model.estPerImageUsd)
+      const cost = costFromUsage(
+        result.usage,
+        job.model.rate,
+        job.model.estPerImageUsd,
+        thinkingTokensFrom(result.providerMetadata),
+      )
       const warnings = result.warnings.map((w) => JSON.stringify(w))
       results.push({
         ...base,
@@ -492,14 +526,14 @@ async function main() {
       )
     } catch (error) {
       const latencyMs = performance.now() - t0
-      if (isOrgVerificationError(error)) {
-        throw new Error(
-          'OpenAI returned 403 "Organization must be verified" — a console fix, not a code bug. Verify the org (see HON-731) and rerun.',
-        )
-      }
       const message = error instanceof Error ? error.message : String(error)
       results.push({ ...base, latencyMs, error: message })
       console.log(`${tag}  FAILED after ${(latencyMs / 1000).toFixed(1)}s: ${message}`)
+      if (isOrgVerificationError(error)) {
+        abortReason =
+          'OpenAI returned 403 "Organization must be verified" — a console fix, not a code bug. Verify the org (see HON-731) and rerun the remaining models with --models=.'
+        break
+      }
     }
   }
 
@@ -510,6 +544,8 @@ async function main() {
   console.log('\nPer-model summary:')
   console.table(summarize(results))
   console.log(`\nContact sheet: ${pathToFileURL(sheet).href}`)
+
+  if (abortReason) throw new Error(abortReason)
 }
 
 // Guarded so the unit test can import the pure helpers without spending money.

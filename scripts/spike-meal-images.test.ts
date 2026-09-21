@@ -11,6 +11,7 @@ import {
   renderContactSheet,
   STYLES,
   summarize,
+  thinkingTokensFrom,
   type JobResult,
 } from './spike-meal-images'
 
@@ -79,6 +80,20 @@ describe('costFromUsage', () => {
     expect(cost.usd).toBeCloseTo((200 * 5 + 1_000 * 30) / 1_000_000)
   })
 
+  it('prices thinking tokens at their own rate when the count is known', () => {
+    const gemini = { inputPerM: 0.5, outputPerM: 60, thinkingPerM: 3 }
+    const cost = costFromUsage({ inputTokens: 100, outputTokens: 1_570 }, gemini, 0.067, 450)
+    expect(cost.measured).toBe(true)
+    expect(cost.usd).toBeCloseTo((100 * 0.5 + 1_120 * 60 + 450 * 3) / 1_000_000)
+  })
+
+  it('labels the all-image-rate price as not measured when the thinking count is missing', () => {
+    const gemini = { inputPerM: 0.5, outputPerM: 60, thinkingPerM: 3 }
+    const cost = costFromUsage({ inputTokens: 100, outputTokens: 1_570 }, gemini, 0.067)
+    expect(cost.measured).toBe(false)
+    expect(cost.usd).toBeCloseTo((100 * 0.5 + 1_570 * 60) / 1_000_000)
+  })
+
   it('falls back to the labelled estimate when the provider reports no output tokens', () => {
     expect(costFromUsage(undefined, rate, 0.05)).toEqual({ usd: 0.05, measured: false })
     expect(
@@ -142,5 +157,17 @@ describe('extensionFor', () => {
     expect(extensionFor('image/png')).toBe('png')
     expect(extensionFor('image/jpeg')).toBe('jpg')
     expect(extensionFor('image/webp')).toBe('webp')
+  })
+})
+
+describe('thinkingTokensFrom', () => {
+  it("reads Gemini's thoughtsTokenCount from provider metadata", () => {
+    expect(thinkingTokensFrom({ google: { usageMetadata: { thoughtsTokenCount: 450 } } })).toBe(450)
+  })
+
+  it('is undefined when the provider reports no thinking count', () => {
+    expect(thinkingTokensFrom(undefined)).toBeUndefined()
+    expect(thinkingTokensFrom({ openai: {} })).toBeUndefined()
+    expect(thinkingTokensFrom({ google: { usageMetadata: {} } })).toBeUndefined()
   })
 })
