@@ -118,6 +118,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
   const unknown = argv.filter((a) => !KNOWN_FLAGS.includes(flagOf(a)))
   if (unknown.length > 0) throw new Error(`Unknown argument: ${unknown.join(' ')}`)
 
+  const bare = ['--limit', '--meal', '--concurrency', '--exclude', '--yes'].filter((f) =>
+    argv.includes(f),
+  )
+  if (bare.length > 0) throw new Error(`${bare.join(', ')} needs a value: ${bare[0]}=<value>`)
+
   const publish = valueOf(argv, '--publish')
   const args: ParsedArgs = {
     confirm: argv.includes('--confirm'),
@@ -667,18 +672,20 @@ function jwtExpiry(token: string): number | undefined {
  * rather than on the first `put` with a bare 403.
  */
 export function checkBlobCredentials(env: Env, now: Date): string {
+  // Same order as `@vercel/blob`'s `resolveBlobAuth`: OIDC plus a store id wins
+  // over a static token, so this must report — and expiry-check — that pair.
+  if (env.VERCEL_OIDC_TOKEN && env.BLOB_STORE_ID) {
+    const exp = jwtExpiry(env.VERCEL_OIDC_TOKEN)
+    // Five minutes of margin: a batch of ~270 uploads takes a few minutes.
+    if (exp !== undefined && exp * 1000 < now.getTime() + 5 * 60_000) {
+      throw new Error(`VERCEL_OIDC_TOKEN has expired (tokens last about a day).\n${REFRESH_HINT}`)
+    }
+    return `BLOB_STORE_ID ${env.BLOB_STORE_ID} via VERCEL_OIDC_TOKEN`
+  }
   if (env.BLOB_READ_WRITE_TOKEN) return 'BLOB_READ_WRITE_TOKEN'
-  if (!env.BLOB_STORE_ID || !env.VERCEL_OIDC_TOKEN) {
-    throw new Error(
-      `Blob needs BLOB_STORE_ID and VERCEL_OIDC_TOKEN (or BLOB_READ_WRITE_TOKEN).\n${REFRESH_HINT}`,
-    )
-  }
-  const exp = jwtExpiry(env.VERCEL_OIDC_TOKEN)
-  // Five minutes of margin: a batch of ~270 uploads takes a few minutes.
-  if (exp !== undefined && exp * 1000 < now.getTime() + 5 * 60_000) {
-    throw new Error(`VERCEL_OIDC_TOKEN has expired (tokens last about a day).\n${REFRESH_HINT}`)
-  }
-  return `BLOB_STORE_ID ${env.BLOB_STORE_ID} via VERCEL_OIDC_TOKEN`
+  throw new Error(
+    `Blob needs BLOB_STORE_ID and VERCEL_OIDC_TOKEN (or BLOB_READ_WRITE_TOKEN).\n${REFRESH_HINT}`,
+  )
 }
 
 /**

@@ -158,6 +158,8 @@ describe('parseArgs', () => {
     [['--exclude=a']],
     [['--yes=host']],
     [['--bogus']],
+    [['--limit']],
+    [['--meal']],
   ])('rejects %j', (argv) => {
     expect(() => parseArgs(argv)).toThrow()
   })
@@ -660,6 +662,23 @@ describe('environment checks', () => {
     expect(() =>
       checkBlobCredentials({ BLOB_STORE_ID: 's', VERCEL_OIDC_TOKEN: token }, NOW),
     ).toThrow(/expired[\s\S]*vercel env pull --environment=/)
+  })
+
+  it('prefers OIDC over a static token, as @vercel/blob does, and still checks its expiry', () => {
+    const live = jwt(NOW.getTime() / 1000 + 3600)
+    expect(
+      checkBlobCredentials(
+        { BLOB_STORE_ID: 'store_1', VERCEL_OIDC_TOKEN: live, BLOB_READ_WRITE_TOKEN: 't' },
+        NOW,
+      ),
+    ).toContain('store_1')
+    const expired = jwt(NOW.getTime() / 1000 - 60)
+    expect(() =>
+      checkBlobCredentials(
+        { BLOB_STORE_ID: 'store_1', VERCEL_OIDC_TOKEN: expired, BLOB_READ_WRITE_TOKEN: 't' },
+        NOW,
+      ),
+    ).toThrow(/expired/)
   })
 
   it('rejects missing credentials', () => {
