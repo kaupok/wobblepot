@@ -127,7 +127,7 @@ grep -rnE "transition-all|ease-in([\"' ]|$)|duration-([4-9][0-9]{2}|[0-9]{4,})" 
 
 ## Imagery
 
-The app has one piece of content imagery: a generated illustration of each meal, shown where someone decides to cook it. It is decoration. The meal name, ingredients, and steps carry everything the user needs, so the image is allowed only where it cannot get in their way. Decided in HON-726; the code does not exist yet (see [Pending code changes](#pending-code-changes)).
+The product supplies one piece of content imagery: a generated illustration of each meal, shown where someone decides to cook it. Photos a user attaches themselves (the recipe photos in `AttachImages`) are their input, not our imagery, and these rules do not cover them. It is decoration. The meal name, ingredients, and steps carry everything the user needs, so the image is allowed only where it cannot get in their way. Decided in HON-726; the code does not exist yet (see [Pending code changes](#pending-code-changes)).
 
 - **One style, one source.** The only content imagery is the generated meal illustration: a warm, stylised, gouache-like illustration of one serving of the finished dish, produced by the single prompt in `src/lib/meal-images/prompt.ts`. No stock photos, no second illustration style, no hand-placed decorative images, and no AI imagery anywhere else in the product. A second style or source is a second visual language the rest of the guide was not written for.
 - **The meal detail modal only.** The image sits directly under the dialog title, above the note and the meal's details — the first content in the modal, whether or not the meal has a description. Not on meal cards, the planner grid, or lists: those are scanned many times a session, and a picture per row costs height and bandwidth for a decision the name already carries.
@@ -184,7 +184,7 @@ Agents produce these by default. Recognise them and do not ship them.
 - A placeholder, icon, skeleton, or shimmer for a missing meal image (the plain `bg-muted` box while `imageStatus` is `generating` excepted)
 - Stock or decorative photography
 - A second image style alongside the generated meal illustration
-- Imagery outside the meal detail modal: on meal cards, the planner grid, lists, or empty states
+- Product-supplied imagery outside the meal detail modal: on meal cards, the planner grid, lists, or empty states (photos a user attaches are theirs, not ours)
 
 ## Open questions for review
 
