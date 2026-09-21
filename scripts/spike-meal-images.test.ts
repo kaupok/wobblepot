@@ -481,10 +481,37 @@ describe('HON-733: V3, the seed sample and judge V2', () => {
     ).toEqual(['olives'])
   })
 
-  it('does not count the serving plate or skewers as props, but keeps a baking dish', () => {
-    expect(dropServingware(['plate', 'metal skewers', 'baking dish', 'fork', 'side bowl'])).toEqual(
-      ['baking dish', 'fork', 'side bowl'],
-    )
+  it('does not excuse an unlisted food that shares a word with a listed one', () => {
+    expect(
+      dropListedExtras(['black olive slices', 'parmesan cheese', 'oregano'], meal('greek-salad')),
+    ).toEqual(['black olive slices', 'parmesan cheese', 'oregano'])
+    expect(dropListedExtras(['green olives'], meal('lentil-bolognese'))).toEqual(['green olives'])
+    expect(dropListedExtras(['crumbled feta', 'tomatoes'], meal('greek-salad'))).toEqual([])
+  })
+
+  it('drops only the serving plate, skewers and a listed garnish from props', () => {
+    const tacos: SpikeMeal = {
+      ...meal('greek-salad'),
+      components: [{ name: 'lime', quantity: 0.5, unit: 'piece' }],
+    }
+    const kept = [
+      'raw carrot and celery on a cutting board',
+      'small bowl of grated parmesan beside the plate',
+      'casserole dish',
+      'fork',
+    ]
+    expect(dropServingware(['plate', 'metal skewers', 'lime wedge', ...kept], tacos)).toEqual(kept)
+  })
+
+  it('does not hide sausage behind sage', () => {
+    const m: SpikeMeal = {
+      ...meal('greek-salad'),
+      components: [
+        { name: 'italian sausage', quantity: 100, unit: 'g' },
+        { name: 'sage', quantity: 2, unit: 'g' },
+      ],
+    }
+    expect(visibleIngredients(m)).toEqual(['italian sausage'])
   })
 
   it('fails only on serious findings and reports the strict verdict beside it', () => {

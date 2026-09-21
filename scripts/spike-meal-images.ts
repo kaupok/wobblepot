@@ -505,7 +505,7 @@ Leave a list empty when there is nothing to report. Do not report lighting, colo
 // HON-732's judge flagged garlic and thyme as missing although its prompt said
 // to ignore them. Removing them in code means it is never asked about them.
 const INVISIBLE_WHEN_COOKED =
-  /garlic|ginger|stock|broth|\boil\b|butter|\bsalt\b|seasoning|powder|masala|cumin|paprika|cinnamon|turmeric|saffron|nutmeg|chili flakes|thyme|rosemary|oregano|sage|bay lea|miso|cream\b|yogurt|mayonnaise|vinegar|soy sauce|fish sauce|honey|syrup|sugar|flour|breadcrumbs|mustard|wine|tomato paste|lemon|lime/i
+  /garlic|ginger|stock|broth|\boil\b|butter|\bsalt\b|seasoning|powder|masala|cumin|paprika|cinnamon|turmeric|saffron|nutmeg|chili flakes|thyme|rosemary|oregano|\bsage\b|bay lea|miso|cream\b|yogurt|mayonnaise|vinegar|soy sauce|fish sauce|honey|syrup|sugar|flour|breadcrumbs|mustard|wine|tomato paste|lemon|lime/i
 
 /** `pepper` alone is the spice; `bell pepper` is a vegetable. */
 const isInvisible = (name: string): boolean =>
@@ -545,23 +545,98 @@ export interface JudgeV2Result extends JudgeV2Findings {
   usd: number
 }
 
-const words = (s: string): string[] => s.toLowerCase().match(/[a-z]{4,}/g) ?? []
+const words = (s: string): string[] =>
+  (s.toLowerCase().match(/[a-z]{3,}/g) ?? []).map((w) => w.replace(/(es|s)$/, ''))
+
+// A head noun shared by unrelated foods: "feta cheese" must not excuse "parmesan cheese".
+const GENERIC_HEADS = new Set([
+  'cheese',
+  'oil',
+  'sauce',
+  'cream',
+  'bean',
+  'bread',
+  'rice',
+  'pepper',
+  'stock',
+  'seed',
+  'leav',
+  'powder',
+  'paste',
+  'juice',
+  'milk',
+  'flour',
+  'butter',
+  'onion',
+  'sheet',
+  'meat',
+])
+
+const DERIVED_HEADS = new Set([
+  'oil',
+  'sauce',
+  'paste',
+  'juice',
+  'powder',
+  'stock',
+  'milk',
+  'flour',
+  'butter',
+])
+
+/** True when `text` names `ingredient`: every word of it, or its distinctive head noun ("greek yogurt" → yogurt). */
+function names(text: string, ingredient: string): boolean {
+  const have = new Set(words(text))
+  const name = words(ingredient)
+  if (name.length === 0) return false
+  if (name.every((w) => have.has(w))) return true
+  const head = name[name.length - 1]!
+  if (!GENERIC_HEADS.has(head)) return have.has(head)
+  // "feta cheese" is named by "crumbled feta". A derived product is not named
+  // by its source: "olive oil" must not be matched by "black olives".
+  const modifiers = name.slice(0, -1)
+  return !DERIVED_HEADS.has(head) && modifiers.length > 0 && modifiers.every((w) => have.has(w))
+}
 
 /**
  * Drops an "extra" that names a listed ingredient. The first HON-733 run failed
  * 13 of 24 images on listed sour cream, sage, lemon and paprika — a gate that
- * regenerates on extras cannot leave that to the prompt alone.
+ * regenerates on extras cannot leave that to the prompt alone. Matching is by
+ * whole name or head noun, never by any shared word: "olive oil" must not
+ * excuse "black olives", nor "green lentils" "green olives".
  */
 export function dropListedExtras(extras: string[], meal: SpikeMeal): string[] {
-  const listed = new Set(meal.components.flatMap((c) => words(c.name)))
-  return extras.filter((extra) => !words(extra).some((w) => listed.has(w)))
+  return extras.filter((extra) => !meal.components.some((c) => names(extra, c.name)))
 }
 
-/** The judge keeps reporting the serving plate and kofta skewers as props despite being told not to. */
-export function dropServingware(props: string[]): string[] {
-  return props.filter(
-    (p) => !/\b(plate|bowl|dish|skewers?)\b/i.test(p) || /\b(baking|side|second|extra)\b/i.test(p),
-  )
+const SERVINGWARE =
+  /^(the |a |one |single |serving |dinner |plain |white |metal |wooden |bamboo )*(plate|bowl|skewers?)$/i
+const GARNISH_FORM = new Set([
+  'wedge',
+  'slice',
+  'half',
+  'halv',
+  'piece',
+  'sprig',
+  'the',
+  'and',
+  'plate',
+])
+
+/**
+ * Drops only what the judge misreports as a prop: the serving plate itself,
+ * kofta skewers, and a listed ingredient served on the plate ("lime wedge").
+ * Anything longer — "raw carrot on a cutting board", "casserole dish",
+ * "bowl of parmesan beside the plate" — stays a serious finding.
+ */
+export function dropServingware(props: string[], meal?: SpikeMeal): string[] {
+  return props.filter((p) => {
+    if (SERVINGWARE.test(p.trim())) return false
+    if (!meal) return true
+    const listed = new Set(meal.components.flatMap((c) => words(c.name)))
+    const rest = words(p).filter((w) => !listed.has(w) && !GARNISH_FORM.has(w))
+    return !(rest.length === 0 && meal.components.some((c) => names(p, c.name)))
+  })
 }
 
 /** Serious findings mislead (an allergen that is not there); the rest only look off. */
@@ -1206,7 +1281,7 @@ async function judgeImageV2(
     ...result.object,
     extraIngredients: dropListedExtras(result.object.extraIngredients, meal),
     // A listed lime wedge on the plate came back as a prop.
-    propsOrCookware: dropListedExtras(dropServingware(result.object.propsOrCookware), meal),
+    propsOrCookware: dropServingware(result.object.propsOrCookware, meal),
   }
   return {
     ...findings,
