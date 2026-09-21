@@ -55,6 +55,14 @@ const updateMealSchema = z.object({
     .optional(),
 })
 
+/** Ingredient ids, largest amount first; ties broken by id so the key is stable. */
+function rankIngredients(rows: { id: string; amount: number }[]): string {
+  return [...rows]
+    .sort((a, b) => b.amount - a.amount || a.id.localeCompare(b.id))
+    .map((r) => r.id)
+    .join(',')
+}
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
@@ -356,6 +364,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       // down reads `componentServings` behind that same condition.
       let componentServings = 0
       let componentsChanged = false
+      let imageComponentsChanged = false
 
       if (components) {
         const current = await tx.meal.findUniqueOrThrow({
@@ -388,6 +397,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           components.some(
             (c) => existingQuantities.get(c.ingredientId) !== c.totalQuantity / componentServings,
           )
+
+        // The image prompt sees the ingredients ranked largest amount first
+        // (HON-733's V3), not their amounts. A servings edit from the form
+        // resends unchanged totals over a new divisor — every per-serving
+        // quantity moves, the ranking does not — so it must not cost the
+        // meal its illustration.
+        imageComponentsChanged =
+          rankIngredients(
+            current.components.map((c) => ({ id: c.ingredientId, amount: c.quantityPerServing })),
+          ) !==
+          rankIngredients(components.map((c) => ({ id: c.ingredientId, amount: c.totalQuantity })))
       }
 
       // Update meal base fields
@@ -458,13 +478,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       // The meal image depicts the meal's content, so it goes stale on the
       // same by-value rule as the tips above, over a different field set:
       // `description` feeds the image but not the tips, `timeMinutes` the
-      // reverse. A servings-only PATCH moves no per-serving quantity, so
-      // `componentsChanged` stays false and the image survives it (HON-734).
+      // reverse. Components compare by ingredient ranking rather than
+      // `componentsChanged`, so a servings edit keeps the image (HON-734).
       const imageInputChanged =
         (name !== undefined && name !== existingMeal.name) ||
         (description !== undefined && description !== existingMeal.description) ||
         (preparationNotes !== undefined && preparationNotes !== existingMeal.preparationNotes) ||
-        componentsChanged
+        imageComponentsChanged
 
       const discardedImageUrl = imageInputChanged ? await clearMealImage(tx, id) : null
 

@@ -760,6 +760,41 @@ describe('PATCH /api/households/me/meals/[id]', () => {
       expect(mockDiscardMealImage).toHaveBeenCalledWith(null, expect.any(String))
     })
 
+    // What the meal form actually sends for a servings edit: the whole payload
+    // with unchanged totals, so every per-serving quantity moves (150 → 100).
+    it('leaves the image alone for a servings edit sent by the form', async () => {
+      const { mealUpdate } = setupTransaction(mockMealResult, storedMeal)
+
+      const response = await patchMeal({ ...unchangedPayload, servings: 6 })
+
+      expect(response.status).toBe(200)
+      expect(mealUpdate).not.toHaveBeenCalledWith(expectedReset)
+      expect(mockDiscardMealImage).toHaveBeenCalledWith(null, expect.any(String))
+    })
+
+    it('clears the image when a quantity change reorders the ingredients', async () => {
+      const twoIngredientMeal = {
+        ...storedMeal,
+        components: [
+          { ingredientId: 'ing-1', quantityPerServing: 150 },
+          { ingredientId: 'ing-2', quantityPerServing: 50 },
+        ],
+      }
+      mockMealFindFirst.mockResolvedValue(twoIngredientMeal as never)
+      const { mealUpdate } = setupTransaction(mockMealResult, twoIngredientMeal)
+
+      const response = await patchMeal({
+        ...unchangedPayload,
+        components: [
+          { ingredientId: 'ing-1', totalQuantity: 200 },
+          { ingredientId: 'ing-2', totalQuantity: 800 },
+        ],
+      })
+
+      expect(response.status).toBe(200)
+      expect(mealUpdate).toHaveBeenCalledWith(expectedReset)
+    })
+
     it('leaves the image alone when the payload resends every stored value unchanged', async () => {
       const { mealUpdate } = setupTransaction(mockMealResult, storedMeal)
 
