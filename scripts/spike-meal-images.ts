@@ -19,13 +19,20 @@
  *
  * Output: .temp/spike-meal-images/<timestamp>/index.html (gitignored)
  *
+ * HON-733 adds V3 (V2 plus a one-person portion), a production-shaped judge
+ * (no prep sample — production tips belong to a plan entry, the image to a
+ * meal) and a sample of real seed meals, because six trap meals say little
+ * about tacos, gyoza or a bagel:
+ *   pnpm spike:meal-images --models=flare --versions=v3 --meals=seed
+ *
  * Usage: pnpm spike:meal-images [--confirm] [--no-judge]
  *          [--models=flare,sunburst,nano-banana-2] [--styles=photo,illustration,flat]
- *          [--versions=v1,v2]
+ *          [--versions=v1,v2,v3] [--meals=traps,seed] [--repeats=N]
+ *          [--rejudge=<run dir>]   judge a previous run's V3 images again, no image spend
  */
 
 import 'dotenv/config'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createAnthropic } from '@ai-sdk/anthropic'
@@ -50,7 +57,8 @@ export interface SpikeComponent {
   name: string
   /** Per serving, as `MealComponent.quantityPerServing`. */
   quantity: number
-  unit: 'g' | 'ml'
+  /** The ingredient's `defaultUnit` — 'g', 'ml', 'piece', … */
+  unit: string
 }
 
 export interface SpikeMeal {
@@ -164,13 +172,67 @@ export const MEALS: SpikeMeal[] = [
 ]
 
 // ============================================
+// SEED SAMPLE (HON-733)
+// ============================================
+
+export interface SeedMealInput {
+  name: string
+  description: string
+  components: { ingredient: string; quantity: number }[]
+}
+
+export const SEED_SAMPLE_SIZE = 24
+
+export const slugify = (name: string): string =>
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+
+export function toSpikeMeal(meal: SeedMealInput, units: Map<string, string>): SpikeMeal {
+  return {
+    slug: slugify(meal.name),
+    name: meal.name,
+    description: meal.description,
+    components: meal.components.map((c) => ({
+      name: c.ingredient,
+      quantity: c.quantity,
+      unit: units.get(c.ingredient) ?? 'g',
+    })),
+  }
+}
+
+/** Every `step`-th meal, so the sample spans the seed file's protein sections. */
+export function sampleEvenly<T>(items: T[], size: number): T[] {
+  const step = Math.max(1, Math.floor(items.length / size))
+  return items.filter((_, i) => i % step === Math.floor(step / 2)).slice(0, size)
+}
+
+/**
+ * Imported lazily: `prisma/seed.ts` constructs a Prisma client at module load,
+ * which the unit test and a traps-only run should not pay for.
+ */
+async function loadSeedSample(): Promise<SpikeMeal[]> {
+  const [{ baseIngredients }, { newIngredients, newMeals }] = await Promise.all([
+    import('../prisma/seed'),
+    import('../prisma/seed-expansion'),
+  ])
+  const units = new Map<string, string>(
+    [...baseIngredients, ...newIngredients].map((i) => [i.name, i.defaultUnit]),
+  )
+  return sampleEvenly(newMeals, SEED_SAMPLE_SIZE).map((m) => toSpikeMeal(m, units))
+}
+
+// ============================================
 // STYLES AND PROMPT VERSIONS
 // ============================================
 
 export type StyleId = 'photo' | 'illustration' | 'flat'
-export type PromptVersion = 'v1' | 'v2'
+export type PromptVersion = 'v1' | 'v2' | 'v3'
 
-export const PROMPT_VERSIONS: PromptVersion[] = ['v1', 'v2']
+export const PROMPT_VERSIONS: PromptVersion[] = ['v1', 'v2', 'v3']
+/** HON-732's comparison. V3 is opt-in, so that default run stays reproducible. */
+export const DEFAULT_VERSIONS: PromptVersion[] = ['v1', 'v2']
 
 export interface SpikeStyle {
   id: StyleId
@@ -179,6 +241,8 @@ export interface SpikeStyle {
   prefix: string
   /** V2 prefix; only the chosen style (HON-726) has one. */
   prefixV2?: string
+  /** V3 prefix (HON-733): V2 with the portion pinned to one person. */
+  prefixV3?: string
 }
 
 export const STYLE_PREFIX_PHOTO_V1 =
@@ -192,6 +256,10 @@ export const STYLE_PREFIX_FLAT_V1 =
 export const STYLE_PREFIX_ILLUSTRATION_V2 =
   'Warm stylised illustration of one served portion of a home-cooked dish, on a single plain plate or in a single bowl, soft gouache textures, gentle hand-drawn linework, muted natural palette, seen from a three-quarter angle on a plain, uncluttered surface.'
 
+/** HON-733: V2 heaped several servings onto one platter twice in twelve images. */
+export const STYLE_PREFIX_ILLUSTRATION_V3 =
+  'Warm stylised illustration of a single modest serving for one person of a home-cooked dish, on a single plain dinner plate or in a single bowl with space around the food, soft gouache textures, gentle hand-drawn linework, muted natural palette, seen from a three-quarter angle on a plain, uncluttered surface.'
+
 export const STYLES: SpikeStyle[] = [
   { id: 'photo', label: 'Photoreal overhead', prefix: STYLE_PREFIX_PHOTO_V1 },
   {
@@ -199,6 +267,7 @@ export const STYLES: SpikeStyle[] = [
     label: 'Stylised illustration',
     prefix: STYLE_PREFIX_ILLUSTRATION_V1,
     prefixV2: STYLE_PREFIX_ILLUSTRATION_V2,
+    prefixV3: STYLE_PREFIX_ILLUSTRATION_V3,
   },
   { id: 'flat', label: 'Flat / iconographic', prefix: STYLE_PREFIX_FLAT_V1 },
 ]
@@ -227,11 +296,13 @@ function buildPromptV1(meal: SpikeMeal, style: SpikeStyle): string {
   ].join(' ')
 }
 
-function buildPromptV2(meal: SpikeMeal, style: SpikeStyle): string {
-  if (!style.prefixV2) throw new Error(`Style "${style.id}" has no V2 prefix`)
+/** V2 and V3 share a body; only the prefix differs. */
+function buildPromptV2(meal: SpikeMeal, style: SpikeStyle, version: 'v2' | 'v3' = 'v2'): string {
+  const prefix = version === 'v2' ? style.prefixV2 : style.prefixV3
+  if (!prefix) throw new Error(`Style "${style.id}" has no ${version.toUpperCase()} prefix`)
   const notes = meal.preparationNotes?.trim()
   return [
-    style.prefixV2,
+    prefix,
     `The dish: ${meal.name} — ${meal.description}.`,
     // Phrased as what the dish is made from, not a list to display — the V1
     // "Key ingredients:" line drew the raw ingredients around the plate.
@@ -245,7 +316,7 @@ function buildPromptV2(meal: SpikeMeal, style: SpikeStyle): string {
 }
 
 export function buildPrompt(meal: SpikeMeal, style: SpikeStyle, version: PromptVersion): string {
-  return version === 'v1' ? buildPromptV1(meal, style) : buildPromptV2(meal, style)
+  return version === 'v1' ? buildPromptV1(meal, style) : buildPromptV2(meal, style, version)
 }
 
 // ============================================
@@ -428,6 +499,105 @@ Leave a list empty when there is nothing to report. Do not report lighting, colo
 }
 
 // ============================================
+// JUDGE V2 (HON-733)
+// ============================================
+
+// HON-732's judge flagged garlic and thyme as missing although its prompt said
+// to ignore them. Removing them in code means it is never asked about them.
+const INVISIBLE_WHEN_COOKED =
+  /garlic|ginger|stock|broth|\boil\b|butter|\bsalt\b|seasoning|powder|masala|cumin|paprika|cinnamon|turmeric|saffron|nutmeg|chili flakes|thyme|rosemary|oregano|sage|bay lea|miso|cream\b|yogurt|mayonnaise|vinegar|soy sauce|fish sauce|honey|syrup|sugar|flour|breadcrumbs|mustard|wine|tomato paste|lemon|lime/i
+
+/** `pepper` alone is the spice; `bell pepper` is a vegetable. */
+const isInvisible = (name: string): boolean =>
+  /^(black |white )?pepper$/i.test(name) || INVISIBLE_WHEN_COOKED.test(name)
+
+/** The ingredients a viewer should be able to point at in the finished dish. */
+export function visibleIngredients(meal: SpikeMeal): string[] {
+  return ingredientsByQuantity(meal).filter((name) => !isInvisible(name))
+}
+
+export const judgeV2Schema = z.object({
+  extraIngredients: z
+    .array(z.string())
+    .describe('Foods visible in or on the dish that are not in the full ingredient list'),
+  propsOrCookware: z
+    .array(z.string())
+    .describe(
+      'Anything beside the dish: raw ingredients, side dishes, cutlery, boards, pots, pans, baking dishes',
+    ),
+  missingIngredients: z
+    .array(z.string())
+    .describe('Names from the expected-visible list that cannot be found in the image'),
+  portion: z
+    .enum(['one-serving', 'several-servings', 'whole-dish'])
+    .describe('How much food the image shows'),
+  notes: z.string().describe('One sentence on anything else worth knowing').optional(),
+})
+
+export type JudgeV2Findings = z.infer<typeof judgeV2Schema>
+
+export interface JudgeV2Result extends JudgeV2Findings {
+  /** No serious finding: nothing added, nothing beside the dish. The likely production gate. */
+  pass: boolean
+  /** `pass`, and nothing missing, and one serving. */
+  strictPass: boolean
+  latencyMs: number
+  usd: number
+}
+
+const words = (s: string): string[] => s.toLowerCase().match(/[a-z]{4,}/g) ?? []
+
+/**
+ * Drops an "extra" that names a listed ingredient. The first HON-733 run failed
+ * 13 of 24 images on listed sour cream, sage, lemon and paprika — a gate that
+ * regenerates on extras cannot leave that to the prompt alone.
+ */
+export function dropListedExtras(extras: string[], meal: SpikeMeal): string[] {
+  const listed = new Set(meal.components.flatMap((c) => words(c.name)))
+  return extras.filter((extra) => !words(extra).some((w) => listed.has(w)))
+}
+
+/** The judge keeps reporting the serving plate and kofta skewers as props despite being told not to. */
+export function dropServingware(props: string[]): string[] {
+  return props.filter(
+    (p) => !/\b(plate|bowl|dish|skewers?)\b/i.test(p) || /\b(baking|side|second|extra)\b/i.test(p),
+  )
+}
+
+/** Serious findings mislead (an allergen that is not there); the rest only look off. */
+export function computePassV2(f: JudgeV2Findings): { pass: boolean; strictPass: boolean } {
+  const pass = f.extraIngredients.length === 0 && f.propsOrCookware.length === 0
+  return {
+    pass,
+    strictPass: pass && f.missingIngredients.length === 0 && f.portion === 'one-serving',
+  }
+}
+
+/** No prep sample: production tips are per plan entry, so a production judge never sees them. */
+export function buildJudgeV2Prompt(meal: SpikeMeal): string {
+  const notes = meal.preparationNotes?.trim()
+  return `You are checking a generated illustration of a meal against the meal's own recipe data. Judge only what is visibly in the image, not the art style.
+
+Meal: ${meal.name} — ${meal.description}
+
+Ingredients per serving — the complete list. Those marked "(may not be visible)" usually disappear into the dish, but are still part of it:
+${meal.components
+  .map(
+    (c) =>
+      `- ${c.name}: ${c.quantity}${c.unit}${isInvisible(c.name) ? ' (may not be visible)' : ''}`,
+  )
+  .join('\n')}
+${notes ? `\nThe cook's own preparation notes:\n${notes}\n` : ''}
+Report:
+- extraIngredients: foods visible in or on the dish that appear nowhere in the list above — garnishes, fresh herbs, olives, cheese, sauces. Name each once. Every listed ingredient is allowed to be visible, marked or not: a listed herb, spice, lemon wedge or spoonful of yogurt is not an extra. Nor is a sauce, glaze, browned surface or cooking juice made from listed ingredients. Report food only — a skewer or a plate is not an ingredient.
+- propsOrCookware: anything beside the dish — raw ingredients, side dishes, cutlery, napkins, cutting boards, pots, pans or baking dishes. The one plate or bowl the food is served on is not a prop, and neither is a listed ingredient served on that plate.
+- missingIngredients: only unmarked ingredients that you cannot find anywhere in the image. An ingredient that is present but cut or cooked differently than you would expect is not missing.
+- portion: "one-serving" for a normal plate or bowl for one person, "several-servings" for a heaped platter or a sharing bowl, "whole-dish" for an entire pie, tray or pot.
+
+Leave a list empty when there is nothing to report. Do not report lighting, colour, composition or how ingredients are cut.`
+}
+
+// ============================================
 // PURE HELPERS
 // ============================================
 
@@ -436,6 +606,8 @@ export interface Job {
   meal: SpikeMeal
   style: SpikeStyle
   version: PromptVersion
+  /** 1-based; above 1 only with `--repeats`, to measure variance per prompt. */
+  repeat: number
 }
 
 export interface JobResult {
@@ -443,6 +615,7 @@ export interface JobResult {
   mealSlug: string
   styleId: StyleId
   version: PromptVersion
+  repeat: number
   prompt: string
   latencyMs: number
   /** Relative to the run dir; absent when generation failed. */
@@ -454,9 +627,15 @@ export interface JobResult {
   /** Raw provider metadata — Gemini's per-modality token breakdown lives here. */
   providerMetadata?: unknown
   error?: string
+  /** V1 and V2 images: HON-732's judge, against the prep sample. */
   judge?: JudgeResult
+  /** V3 images: the production-shaped judge. */
+  judgeV2?: JudgeV2Result
   judgeError?: string
 }
+
+export type MealSet = 'traps' | 'seed'
+const MEAL_SETS: MealSet[] = ['traps', 'seed']
 
 export interface ParsedArgs {
   confirm: boolean
@@ -464,6 +643,10 @@ export interface ParsedArgs {
   models: ModelKey[]
   styles: StyleId[]
   versions: PromptVersion[]
+  mealSets: MealSet[]
+  repeats: number
+  /** A previous run's directory: judge its V3 images again, generate nothing. */
+  rejudge?: string
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
@@ -479,7 +662,14 @@ export function parseArgs(argv: string[]): ParsedArgs {
   const allStyles = STYLES.map((s) => s.id)
   const models = list('models') ?? DEFAULT_MODELS
   const styles = list('styles') ?? DEFAULT_STYLES
-  const versions = list('versions') ?? PROMPT_VERSIONS
+  const versions = list('versions') ?? DEFAULT_VERSIONS
+  const mealSets = list('meals') ?? ['traps']
+  const badSet = mealSets.find((m) => !MEAL_SETS.includes(m as MealSet))
+  if (badSet) throw new Error(`Unknown meal set "${badSet}". Known: ${MEAL_SETS.join(', ')}`)
+  const repeats = Number(list('repeats')?.[0] ?? 1)
+  if (!Number.isInteger(repeats) || repeats < 1 || repeats > 4) {
+    throw new Error('--repeats must be a whole number from 1 to 4')
+  }
   const badModel = models.find((m) => !allModels.includes(m as ModelKey))
   if (badModel) throw new Error(`Unknown model "${badModel}". Known: ${allModels.join(', ')}`)
   const badStyle = styles.find((s) => !allStyles.includes(s as StyleId))
@@ -488,10 +678,12 @@ export function parseArgs(argv: string[]): ParsedArgs {
   if (badVersion) {
     throw new Error(`Unknown version "${badVersion}". Known: ${PROMPT_VERSIONS.join(', ')}`)
   }
-  if (versions.includes('v2')) {
-    const noV2 = STYLES.filter((s) => styles.includes(s.id) && !s.prefixV2).map((s) => s.id)
-    if (noV2.length > 0) {
-      throw new Error(`Version v2 is defined only for illustration, not ${noV2.join(', ')}`)
+  for (const v of ['v2', 'v3'] as const) {
+    if (!versions.includes(v)) continue
+    const key = v === 'v2' ? 'prefixV2' : 'prefixV3'
+    const without = STYLES.filter((s) => styles.includes(s.id) && !s[key]).map((s) => s.id)
+    if (without.length > 0) {
+      throw new Error(`Version ${v} is defined only for illustration, not ${without.join(', ')}`)
     }
   }
   return {
@@ -500,27 +692,34 @@ export function parseArgs(argv: string[]): ParsedArgs {
     models: models as ModelKey[],
     styles: styles as StyleId[],
     versions: versions as PromptVersion[],
+    mealSets: mealSets as MealSet[],
+    repeats,
+    rejudge: list('rejudge')?.[0],
   }
 }
 
-export function buildJobs(args: Pick<ParsedArgs, 'models' | 'styles' | 'versions'>): Job[] {
+export function buildJobs(
+  args: Pick<ParsedArgs, 'models' | 'styles' | 'versions'> & { repeats?: number },
+  meals: SpikeMeal[] = MEALS,
+): Job[] {
   const jobs: Job[] = []
   for (const model of MODELS.filter((m) => args.models.includes(m.key))) {
-    for (const meal of MEALS) {
-      for (const style of STYLES.filter((s) => args.styles.includes(s.id))) {
-        for (const version of PROMPT_VERSIONS.filter((v) => args.versions.includes(v))) {
-          jobs.push({ model, meal, style, version })
-        }
+    for (const meal of meals) {
+      for (const { style, version, repeat } of variantsFor(args)) {
+        jobs.push({ model, meal, style, version, repeat })
       }
     }
   }
   return jobs
 }
 
+/** Only V1 and V2 images are judged against a prep sample. */
+const needsPrep = (job: Pick<Job, 'version'>): boolean => job.version !== 'v3'
+
 export function estimateTotalUsd(jobs: Job[], opts: { judge: boolean }): number {
   const images = jobs.reduce((sum, job) => sum + job.model.estPerImageUsd, 0)
   if (!opts.judge) return images
-  const meals = new Set(jobs.map((j) => j.meal.slug)).size
+  const meals = new Set(jobs.filter(needsPrep).map((j) => j.meal.slug)).size
   return images + jobs.length * JUDGE_EST_USD + meals * PREP_EST_USD
 }
 
@@ -615,20 +814,27 @@ export interface PassRate {
   version: PromptVersion
   /** Images with a judge verdict — a failed image or judge call is not judged. */
   judged: number
+  /** V3: no serious finding. V1 and V2: HON-732's strict rule, so equal to `strictPassed`. */
   passed: number
+  strictPassed: number
   /** Percent of `judged`; null when nothing was judged. */
   ratePct: number | null
 }
 
+const verdictOf = (r: JobResult): JudgeResult | JudgeV2Result | undefined => r.judge ?? r.judgeV2
+
 export function passRates(results: JobResult[]): PassRate[] {
   return groups(results).map(({ model, version }) => {
-    const judged = results.filter((r) => r.modelKey === model && r.version === version && r.judge)
-    const passed = judged.filter((r) => r.judge?.pass).length
+    const judged = results.filter(
+      (r) => r.modelKey === model && r.version === version && verdictOf(r),
+    )
+    const passed = judged.filter((r) => verdictOf(r)?.pass).length
     return {
       model,
       version,
       judged: judged.length,
       passed,
+      strictPassed: judged.filter((r) => r.judgeV2?.strictPass ?? r.judge?.pass).length,
       ratePct: judged.length ? Math.round((passed / judged.length) * 100) : null,
     }
   })
@@ -644,7 +850,7 @@ export interface JudgeSummary {
 }
 
 export function judgeSummary(results: JobResult[]): JudgeSummary {
-  const judged = results.flatMap((r) => (r.judge ? [r.judge] : []))
+  const judged = results.flatMap((r) => verdictOf(r) ?? [])
   const latencies = judged.map((j) => j.latencyMs / 1000)
   const total = judged.reduce((a, j) => a + j.usd, 0)
   return {
@@ -676,36 +882,45 @@ export function escapeHtml(s: string): string {
 export interface Variant {
   style: SpikeStyle
   version: PromptVersion
+  repeat: number
 }
 
-export function variantsFor(args: Pick<ParsedArgs, 'styles' | 'versions'>): Variant[] {
+export function variantsFor(
+  args: Pick<ParsedArgs, 'styles' | 'versions'> & { repeats?: number },
+): Variant[] {
+  const repeats = Array.from({ length: args.repeats ?? 1 }, (_, i) => i + 1)
   return STYLES.filter((s) => args.styles.includes(s.id)).flatMap((style) =>
-    PROMPT_VERSIONS.filter((v) => args.versions.includes(v)).map((version) => ({
-      style,
-      version,
-    })),
+    PROMPT_VERSIONS.filter((v) => args.versions.includes(v)).flatMap((version) =>
+      repeats.map((repeat) => ({ style, version, repeat })),
+    ),
   )
 }
 
-const variantLabel = (v: Variant) => `${v.style.label} ${v.version.toUpperCase()}`
+const variantLabel = (v: Variant) =>
+  `${v.style.label} ${v.version.toUpperCase()}${v.repeat > 1 ? ` #${v.repeat}` : ''}`
 
 function judgeHtml(r: JobResult): string {
   if (r.judgeError) {
     return `<div class="judge failed">Judge failed: ${escapeHtml(r.judgeError)}</div>`
   }
-  if (!r.judge) return ''
-  const j = r.judge
   const list = (label: string, items: string[]) =>
     items.length
       ? `<div><strong>${label}:</strong><ul>${items.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}</ul></div>`
       : ''
+  if (r.judgeV2) {
+    const j = r.judgeV2
+    const minor = j.pass && !j.strictPass ? ' <span class="badge minor">minor</span>' : ''
+    return `<div class="judge"><span class="badge ${j.pass ? 'pass' : 'fail'}">${j.pass ? 'PASS' : 'FAIL'}</span>${minor}${list('Extra', j.extraIngredients)}${list('Props', j.propsOrCookware)}${list('Missing (minor)', j.missingIngredients)}${j.portion === 'one-serving' ? '' : `<div><strong>Portion (minor):</strong> ${j.portion}</div>`}${j.notes ? `<div class="note">${escapeHtml(j.notes)}</div>` : ''}</div>`
+  }
+  if (!r.judge) return ''
+  const j = r.judge
   return `<div class="judge"><span class="badge ${j.pass ? 'pass' : 'fail'}">${j.pass ? 'PASS' : 'FAIL'}</span>${list('Extra', j.extraIngredients)}${list('Missing', j.missingIngredients)}${list('Contradicts prep', j.prepContradictions)}${j.notes ? `<div class="note">${escapeHtml(j.notes)}</div>` : ''}</div>`
 }
 
-function prepHtml(prep: PrepSample[]): string {
+function prepHtml(prep: PrepSample[], meals: SpikeMeal[]): string {
   return prep
     .map((p) => {
-      const meal = MEALS.find((m) => m.slug === p.mealSlug)
+      const meal = meals.find((m) => m.slug === p.mealSlug)
       const notes = meal?.preparationNotes
         ? `<p class="meta">Notes: ${escapeHtml(meal.preparationNotes)}</p>`
         : ''
@@ -724,8 +939,11 @@ export function renderContactSheet(
     models: SpikeModel[]
     variants: Variant[]
     prep?: PrepSample[]
+    /** Defaults to the trap meals. */
+    meals?: SpikeMeal[]
   },
 ): string {
+  const meals = meta.meals ?? MEALS
   const cell = (r: JobResult | undefined): string => {
     if (!r) return '<td class="empty">—</td>'
     if (r.error) return `<td class="failed"><strong>Failed</strong><br>${escapeHtml(r.error)}</td>`
@@ -735,22 +953,25 @@ export function renderContactSheet(
 
   const sections = meta.models
     .map((model) => {
-      const rows = MEALS.map((meal) => {
-        const cells = meta.variants
-          .map((v) =>
-            cell(
-              results.find(
-                (r) =>
-                  r.modelKey === model.key &&
-                  r.mealSlug === meal.slug &&
-                  r.styleId === v.style.id &&
-                  r.version === v.version,
+      const rows = meals
+        .map((meal) => {
+          const cells = meta.variants
+            .map((v) =>
+              cell(
+                results.find(
+                  (r) =>
+                    r.modelKey === model.key &&
+                    r.mealSlug === meal.slug &&
+                    r.styleId === v.style.id &&
+                    r.version === v.version &&
+                    r.repeat === v.repeat,
+                ),
               ),
-            ),
-          )
-          .join('')
-        return `<tr><th scope="row">${escapeHtml(meal.name)}</th>${cells}</tr>`
-      }).join('\n')
+            )
+            .join('')
+          return `<tr><th scope="row">${escapeHtml(meal.name)}</th>${cells}</tr>`
+        })
+        .join('\n')
       const head = meta.variants
         .map((v) => `<th scope="col">${escapeHtml(variantLabel(v))}</th>`)
         .join('')
@@ -773,20 +994,23 @@ ${rows}
   const passRows = passRates(results)
     .map(
       (p) =>
-        `<tr><td>${escapeHtml(p.model)}</td><td>${p.version}</td><td>${p.passed}/${p.judged}</td><td>${p.ratePct == null ? '—' : `${p.ratePct}%`}</td></tr>`,
+        `<tr><td>${escapeHtml(p.model)}</td><td>${p.version}</td><td>${p.passed}/${p.judged}</td><td>${p.strictPassed}/${p.judged}</td><td>${p.ratePct == null ? '—' : `${p.ratePct}%`}</td></tr>`,
     )
     .join('\n')
   const js = judgeSummary(results)
 
   const prompts = meta.variants
     .map((v) => {
-      const prefix = v.version === 'v1' ? v.style.prefix : (v.style.prefixV2 ?? '')
+      const prefix =
+        v.version === 'v1'
+          ? v.style.prefix
+          : ((v.version === 'v2' ? v.style.prefixV2 : v.style.prefixV3) ?? '')
       return `<li><strong>${escapeHtml(variantLabel(v))}:</strong> ${escapeHtml(prefix)}</li>`
     })
     .join('\n')
 
   const prep = meta.prep?.length
-    ? `<h2>Prep sample the judge compared against (${PREP_SERVINGS} servings)</h2>\n${prepHtml(meta.prep)}`
+    ? `<h2>Prep sample the judge compared against (${PREP_SERVINGS} servings)</h2>\n${prepHtml(meta.prep, meals)}`
     : ''
 
   return `<!doctype html>
@@ -810,13 +1034,14 @@ ${rows}
   .badge { display: inline-block; font-weight: 700; padding: 1px 6px; border-radius: 4px; }
   .pass { background: #dcfce7; color: #166534; }
   .fail { background: #fee2e2; color: #991b1b; }
+  .minor { background: #fef3c7; color: #92400e; }
   .note { color: #57534e; }
 </style>
 </head>
 <body>
-<h1>Meal image spike (HON-717, HON-732) — ${escapeHtml(meta.startedAt)}</h1>
+<h1>Meal image spike (HON-717, HON-732, HON-733) — ${escapeHtml(meta.startedAt)}</h1>
 <h2>Judge pass rate</h2>
-<table class="summary"><thead><tr><th>Model</th><th>Version</th><th>Passed</th><th>Rate</th></tr></thead><tbody>
+<table class="summary"><thead><tr><th>Model</th><th>Version</th><th>Passed</th><th>Strict</th><th>Rate</th></tr></thead><tbody>
 ${passRows}
 </tbody></table>
 <p class="meta">Judge (${escapeHtml(REVIEW_MODEL)}): ${js.judged} calls, ${js.errors} errors, mean ${js.meanLatencyS}s (max ${js.maxLatencyS}s), mean $${js.meanUsd.toFixed(4)}, total $${js.totalUsd.toFixed(4)}.</p>
@@ -826,7 +1051,7 @@ ${summaryRows}
 </tbody></table>
 <h2>Style prefixes</h2>
 <ul>${prompts}</ul>
-<p class="meta">V1 = prefix + meal name/description + “Key ingredients: …” + suffix. V2 = prefix + name/description + ingredients by quantity + preparation notes (when set) + “${escapeHtml(V2_EXCLUSIONS)}” + suffix. Suffix: “${escapeHtml(PROMPT_SUFFIX)}”. Full prompts in results.json.</p>
+<p class="meta">V1 = prefix + meal name/description + “Key ingredients: …” + suffix. V3 = V2 with its own prefix. V2 = prefix + name/description + ingredients by quantity + preparation notes (when set) + “${escapeHtml(V2_EXCLUSIONS)}” + suffix. Suffix: “${escapeHtml(PROMPT_SUFFIX)}”. Full prompts in results.json.</p>
 ${prep}
 ${sections}
 </body>
@@ -955,23 +1180,113 @@ async function judgeImage(
   }
 }
 
+async function judgeImageV2(
+  anthropic: Anthropic,
+  image: Uint8Array,
+  mediaType: string,
+  meal: SpikeMeal,
+): Promise<JudgeV2Result> {
+  const t0 = performance.now()
+  const result = await generateObject({
+    model: anthropic(REVIEW_MODEL),
+    schema: judgeV2Schema,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          { type: 'file', data: image, mediaType },
+          { type: 'text', text: buildJudgeV2Prompt(meal) },
+        ],
+      },
+    ],
+    maxOutputTokens: 2000,
+    maxRetries: 2,
+  })
+  const findings = {
+    ...result.object,
+    extraIngredients: dropListedExtras(result.object.extraIngredients, meal),
+    // A listed lime wedge on the plate came back as a prop.
+    propsOrCookware: dropListedExtras(dropServingware(result.object.propsOrCookware), meal),
+  }
+  return {
+    ...findings,
+    ...computePassV2(findings),
+    latencyMs: performance.now() - t0,
+    usd: claudeUsd(REVIEW_MODEL, result.usage),
+  }
+}
+
+/**
+ * Judge iteration without image spend: reads a run's results.json, judges its
+ * V3 images again with the current judge, and writes `*-rejudged` beside it.
+ */
+async function rejudge(dir: string, confirm: boolean) {
+  const runDir = resolve(dir)
+  const run = JSON.parse(readFileSync(join(runDir, 'results.json'), 'utf8')) as {
+    startedAt: string
+    results: JobResult[]
+  }
+  const all = [...MEALS, ...(await loadSeedSample())]
+  const targets = run.results.filter((r) => r.file && r.version === 'v3')
+  console.log(
+    `\nRejudge ${targets.length} V3 images in ${runDir} — ~$${(targets.length * JUDGE_EST_USD).toFixed(2)}`,
+  )
+  if (!confirm) return console.log('Dry run — pass --confirm to spend.')
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error('Missing ANTHROPIC_API_KEY in .env')
+  const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  for (const r of targets) {
+    const meal = all.find((m) => m.slug === r.mealSlug)
+    if (!meal || !r.file) continue
+    const mediaType = r.file.endsWith('.png') ? 'image/png' : 'image/jpeg'
+    try {
+      const j = await judgeImageV2(anthropic, readFileSync(join(runDir, r.file)), mediaType, meal)
+      r.judgeV2 = j
+      delete r.judgeError
+      console.log(
+        `${r.mealSlug.padEnd(30)} ${j.pass ? 'PASS' : 'FAIL'}${j.pass && !j.strictPass ? ' (minor)' : ''}  extra=${JSON.stringify(j.extraIngredients)} props=${JSON.stringify(j.propsOrCookware)} missing=${JSON.stringify(j.missingIngredients)} ${j.portion}`,
+      )
+    } catch (error) {
+      r.judgeError = messageOf(error)
+    }
+  }
+  const meals = all.filter((m) => run.results.some((r) => r.mealSlug === m.slug))
+  const repeats = Math.max(...run.results.map((r) => r.repeat ?? 1))
+  const models = MODELS.filter((m) => run.results.some((r) => r.modelKey === m.key))
+  const variants = variantsFor({ styles: ['illustration'], versions: ['v3'], repeats })
+  writeFileSync(join(runDir, 'results-rejudged.json'), JSON.stringify(run, null, 2))
+  const sheet = join(runDir, 'index-rejudged.html')
+  writeFileSync(
+    sheet,
+    renderContactSheet(run.results, { startedAt: run.startedAt, models, variants, meals }),
+  )
+  console.table(passRates(run.results))
+  console.table([judgeSummary(run.results)])
+  console.log(`\nContact sheet: ${pathToFileURL(sheet).href}`)
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2))
-  const jobs = buildJobs(args)
+  if (args.rejudge) return rejudge(args.rejudge, args.confirm)
+  const meals = [
+    ...(args.mealSets.includes('traps') ? MEALS : []),
+    ...(args.mealSets.includes('seed') ? await loadSeedSample() : []),
+  ]
+  const jobs = buildJobs(args, meals)
+  const prepMeals = meals.filter((meal) => jobs.some((j) => j.meal === meal && needsPrep(j)))
   const models = MODELS.filter((m) => args.models.includes(m.key))
   const variants = variantsFor(args)
   const line = (label: string, n: number, each: number) =>
     console.log(`  ${label.padEnd(32)} ${n} × ~$${each.toFixed(3)} = ~$${(n * each).toFixed(2)}`)
 
   console.log(`\nMeal image spike — ${jobs.length} images`)
-  console.log(`  Meals:    ${MEALS.map((m) => m.name).join(', ')}`)
+  console.log(`  Meals:    ${meals.map((m) => m.name).join(', ')}`)
   console.log(`  Variants: ${variants.map(variantLabel).join(', ')}`)
   for (const m of models) {
     line(m.label, jobs.filter((j) => j.model.key === m.key).length, m.estPerImageUsd)
   }
   if (args.judge) {
     line(`Judge (${REVIEW_MODEL})`, jobs.length, JUDGE_EST_USD)
-    line(`Prep sample (${TIPS_MODEL})`, MEALS.length, PREP_EST_USD)
+    line(`Prep sample (${TIPS_MODEL})`, prepMeals.length, PREP_EST_USD)
   } else {
     console.log('  Judge and prep sample skipped (--no-judge)')
   }
@@ -1002,7 +1317,7 @@ async function main() {
   // The judge compares every image of a meal against the same prep sample.
   const prep: PrepSample[] = []
   if (anthropic) {
-    for (const meal of MEALS) {
+    for (const meal of prepMeals) {
       const sample = await generatePrepSample(anthropic, meal)
       prep.push(sample)
       console.log(
@@ -1024,9 +1339,11 @@ async function main() {
       mealSlug: job.meal.slug,
       styleId: job.style.id,
       version: job.version,
+      repeat: job.repeat,
       prompt,
     }
-    const tag = `[${String(i + 1).padStart(2)}/${jobs.length}] ${job.model.key} · ${job.meal.slug} · ${job.style.id} ${job.version}`
+    const suffix = job.repeat > 1 ? `-r${job.repeat}` : ''
+    const tag = `[${String(i + 1).padStart(2)}/${jobs.length}] ${job.model.key} · ${job.meal.slug} · ${job.style.id} ${job.version}${suffix}`
     const t0 = performance.now()
     try {
       const result = await generateImage({
@@ -1037,7 +1354,7 @@ async function main() {
       })
       const latencyMs = performance.now() - t0
       // Gemini returns JPEG even though OpenAI honours outputFormat: 'png'.
-      const file = `${job.model.key}/${job.meal.slug}-${job.style.id}-${job.version}.${extensionFor(result.image.mediaType)}`
+      const file = `${job.model.key}/${job.meal.slug}-${job.style.id}-${job.version}${suffix}.${extensionFor(result.image.mediaType)}`
       writeFileSync(join(outDir, file), result.image.uint8Array)
       const cost = costFromUsage(
         result.usage,
@@ -1057,7 +1374,21 @@ async function main() {
         providerMetadata: result.providerMetadata,
       }
       let verdict = ''
-      if (anthropic) {
+      if (anthropic && job.version === 'v3') {
+        try {
+          const j = await judgeImageV2(
+            anthropic,
+            result.image.uint8Array,
+            result.image.mediaType,
+            job.meal,
+          )
+          row.judgeV2 = j
+          verdict = `  judge ${j.pass ? 'PASS' : 'FAIL'}${j.pass && !j.strictPass ? ' (minor)' : ''} (+${j.extraIngredients.length} props ${j.propsOrCookware.length} −${j.missingIngredients.length} ${j.portion}) ${(j.latencyMs / 1000).toFixed(1)}s $${j.usd.toFixed(4)}`
+        } catch (error) {
+          row.judgeError = messageOf(error)
+          verdict = `  judge FAILED: ${row.judgeError}`
+        }
+      } else if (anthropic) {
         try {
           const j = await judgeImage(
             anthropic,
@@ -1093,7 +1424,7 @@ async function main() {
 
   writeFileSync(join(outDir, 'results.json'), JSON.stringify({ startedAt, prep, results }, null, 2))
   const sheet = join(outDir, 'index.html')
-  writeFileSync(sheet, renderContactSheet(results, { startedAt, models, variants, prep }))
+  writeFileSync(sheet, renderContactSheet(results, { startedAt, models, variants, prep, meals }))
 
   console.log('\nImages per model × version:')
   console.table(summarize(results))
