@@ -125,6 +125,18 @@ The mechanical part is a grep. It must return nothing:
 grep -rnE "transition-all|ease-in([\"' ]|$)|duration-([4-9][0-9]{2}|[0-9]{4,})" src --include='*.tsx' | grep -v '\.stories\.\|\.test\.'
 ```
 
+## Imagery
+
+The product supplies one piece of content imagery: a generated illustration of each meal, shown where someone decides to cook it. Photos a user attaches themselves (the recipe photos in `AttachImages`) are their input, not our imagery, and these rules do not cover them. It is decoration. The meal name, ingredients, and steps carry everything the user needs, so the image is allowed only where it cannot get in their way. Decided in HON-726; the code does not exist yet (see [Pending code changes](#pending-code-changes)).
+
+- **One style, one source.** The only content imagery is the generated meal illustration: a warm, stylised, gouache-like illustration of one serving of the finished dish, produced by the single prompt in `src/lib/meal-images/prompt.ts`. No stock photos, no second illustration style, no hand-placed decorative images, and no AI imagery anywhere else in the product. A second style or source is a second visual language the rest of the guide was not written for.
+- **The meal detail modal only.** The image is the first element of the meal's details (`MealDetail`), below the title and the note and above the description; a meal with no description puts it above whatever comes first there. Not on meal cards, the planner grid, or lists: those are scanned many times a session, and a picture per row costs height and bandwidth for a decision the name already carries.
+- **Geometry.** 3:2 landscape, the full width of the dialog content, `rounded-lg` (the dialog and list-row radius from [Spacing, radius, elevation](#spacing-radius-elevation)), rendered through `next/image` with `object-cover`. No border, no shadow, no caption: the dialog is already the container, and only overlays cast a shadow.
+- **Absence renders nothing.** A meal without an image has no image element at all: no placeholder, icon, skeleton, or shimmer. A placeholder tells the user something is missing when nothing is. The one exception is while `imageStatus` is `generating`: a plain `bg-muted` 3:2 box holds the space so the content does not jump when the image lands. The box has no animation and no icon.
+- **Arrival is a fade.** The image fades in on load with `transition-opacity duration-200 ease-out` — the overlay duration and house easing from [Motion](#motion). Nothing else moves: the reserved box already holds the space, and the text below stays put.
+- **Alt text is the meal name.** Nothing more — not "Illustration of …". A screen reader already announces it as an image, and the name is the only fact the picture adds.
+- **Errors are silent.** A failed or unavailable image never produces a toast or error UI; the modal renders as if the meal had no image. The image is decoration and must not interrupt cooking.
+
 ## Composition rules
 
 Each of these came from a review that found the opposite in production.
@@ -169,6 +181,10 @@ Agents produce these by default. Recognise them and do not ship them.
 - `transition-all`, `ease-in`, or a transition or one-shot animation longer than 300ms inside the app (looping spinners and skeletons excepted)
 - An entrance, bounce, or stagger on something done many times a session (ticking an item, toggling a staple), or a staged reveal of AI output
 - Motion as the only sign that something changed: a state that is visible only while its animation runs
+- A placeholder, icon, skeleton, or shimmer for a missing meal image (the plain `bg-muted` box while `imageStatus` is `generating` excepted)
+- Stock or decorative photography
+- A second image style alongside the generated meal illustration
+- Product-supplied imagery outside the meal detail modal: on meal cards, the planner grid, lists, or empty states (photos a user attaches are theirs, not ours)
 
 ## Open questions for review
 
@@ -180,4 +196,4 @@ Add one here when a review finds code and rule disagreeing and the fix is not ob
 
 Decisions above that the code does not yet reflect. Each has a Linear issue; update this list when one ships.
 
-None open.
+- [Imagery](#imagery): the generation library and `src/lib/meal-images/prompt.ts` (HON-735), and the image in `MealDetailModal` (HON-737). `imageStatus` arrives with the meal image columns in HON-734.
