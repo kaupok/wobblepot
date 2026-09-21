@@ -6,9 +6,14 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
+vi.mock('@/lib/meal-images/storage', () => ({
+  discardMealImage: vi.fn(),
+}))
+
 import { purgeUser } from './purge-user'
 import { prisma } from '@/lib/prisma'
 import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
+import { discardMealImage } from '@/lib/meal-images/storage'
 
 const mockTransaction = vi.mocked(prisma.$transaction)
 
@@ -25,6 +30,7 @@ function mockTx(opts: {
     household?: { timezone: string }
   }>
   memberCount?: number
+  imageUrls?: string[]
 }) {
   const householdDelete = vi.fn()
   const memberDelete = vi.fn()
@@ -32,6 +38,9 @@ function mockTx(opts: {
   const accountDeleteMany = vi.fn()
   const userDelete = vi.fn()
   const entryUpdateMany = vi.fn()
+  const mealFindMany = vi
+    .fn()
+    .mockResolvedValue((opts.imageUrls ?? []).map((imageUrl) => ({ imageUrl })))
 
   mockTransaction.mockImplementation(async (fn) => {
     const tx = {
@@ -46,6 +55,7 @@ function mockTx(opts: {
         delete: memberDelete,
       },
       household: { delete: householdDelete },
+      meal: { findMany: mealFindMany },
       mealPlanEntry: { updateMany: entryUpdateMany },
       session: { deleteMany: sessionDeleteMany },
       account: { deleteMany: accountDeleteMany },
@@ -61,12 +71,57 @@ function mockTx(opts: {
     accountDeleteMany,
     userDelete,
     entryUpdateMany,
+    mealFindMany,
   }
 }
 
 describe('purgeUser', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  describe('meal image blobs', () => {
+    const urls = [
+      'https://store123.public.blob.vercel-storage.com/meals/m-1-a.png',
+      'https://store123.public.blob.vercel-storage.com/meals/m-2-b.png',
+    ]
+
+    it('deletes the blobs of a deleted household after the transaction commits', async () => {
+      const m = mockTx({
+        memberships: [{ id: 'member-1', householdId: 'hh-1', role: 'owner' }],
+        memberCount: 1,
+        imageUrls: urls,
+      })
+
+      await purgeUser('user-123')
+
+      expect(m.mealFindMany).toHaveBeenCalledWith({
+        where: { householdId: 'hh-1', imageUrl: { not: null } },
+        select: { imageUrl: true },
+      })
+      expect(vi.mocked(discardMealImage)).toHaveBeenCalledTimes(2)
+      expect(vi.mocked(discardMealImage)).toHaveBeenCalledWith(urls[0], expect.any(String))
+      expect(vi.mocked(discardMealImage)).toHaveBeenCalledWith(urls[1], expect.any(String))
+    })
+
+    it('leaves the images of a household that outlives the purge', async () => {
+      const m = mockTx({
+        memberships: [{ id: 'member-1', householdId: 'hh-1', role: 'member' }],
+        imageUrls: urls,
+      })
+
+      await purgeUser('user-123')
+
+      expect(m.mealFindMany).not.toHaveBeenCalled()
+      expect(vi.mocked(discardMealImage)).not.toHaveBeenCalled()
+    })
+
+    it('deletes no blob when the transaction rolls back', async () => {
+      mockTransaction.mockRejectedValue(new Error('db down'))
+
+      await expect(purgeUser('user-123')).rejects.toThrow('db down')
+      expect(vi.mocked(discardMealImage)).not.toHaveBeenCalled()
+    })
   })
 
   it('deletes sessions, accounts, and the user row', async () => {
