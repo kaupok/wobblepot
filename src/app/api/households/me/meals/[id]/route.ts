@@ -15,6 +15,7 @@ import {
 import { captureApiError } from '@/lib/errors'
 import { clearMealImage } from '@/lib/meal-images/invalidation'
 import { discardMealImage } from '@/lib/meal-images/storage'
+import { gramsOf } from '@/lib/meal-images/prompt'
 
 const updateMealSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -273,7 +274,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     // If components are being updated, verify all ingredients exist. This half
     // only reads the global ingredient table, so it stays out of the write
     // transaction below — a 400 here must not open one.
-    let ingredientMap: Map<string, ComponentForProtein['ingredient'] & { id: string }> | null = null
+    let ingredientMap: Map<
+      string,
+      ComponentForProtein['ingredient'] & {
+        id: string
+        defaultUnit: string
+        gramsPerPiece: number | null
+        densityGPerMl: number | null
+      }
+    > | null = null
 
     if (components) {
       const ingredientIds = components.map((c) => c.ingredientId)
@@ -306,6 +315,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           id: true,
           proteinType: true,
           protein: true,
+          // For the image ranking below, which orders by grams as the prompt does.
+          defaultUnit: true,
+          gramsPerPiece: true,
+          densityGPerMl: true,
         },
       })
 
@@ -403,11 +416,34 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         // resends unchanged totals over a new divisor — every per-serving
         // quantity moves, the ranking does not — so it must not cost the
         // meal its illustration.
+        //
+        // Ranked by grams through the prompt's own `gramsOf` (HON-735): raw
+        // quantities put 1 egg below 2 g of cheese, so this would both clear
+        // images the prompt would redraw identically and keep ones it would
+        // not. `ingredientMap` holds only the incoming ids, which is enough —
+        // when the id sets differ the two keys differ whatever the amounts.
+        const grams = (ingredientId: string, quantity: number) => {
+          const ingredient = ingredientMap!.get(ingredientId)
+          return gramsOf({
+            quantity,
+            unit: ingredient?.defaultUnit ?? 'g',
+            gramsPerPiece: ingredient?.gramsPerPiece,
+            densityGPerMl: ingredient?.densityGPerMl,
+          })
+        }
         imageComponentsChanged =
           rankIngredients(
-            current.components.map((c) => ({ id: c.ingredientId, amount: c.quantityPerServing })),
+            current.components.map((c) => ({
+              id: c.ingredientId,
+              amount: grams(c.ingredientId, c.quantityPerServing),
+            })),
           ) !==
-          rankIngredients(components.map((c) => ({ id: c.ingredientId, amount: c.totalQuantity })))
+          rankIngredients(
+            components.map((c) => ({
+              id: c.ingredientId,
+              amount: grams(c.ingredientId, c.totalQuantity),
+            })),
+          )
       }
 
       // Update meal base fields

@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
 import { isAiBudgetTimeout } from '@/lib/ai/timeout'
+import { aiErrorStatusCode } from '@/lib/ai/error-status'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
@@ -29,15 +30,6 @@ import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
 import { getEffectiveServings } from '@/lib/meal-planning/servings'
 import type { StructuredTips } from '@/components/meal-plan/types'
-
-function getErrorStatusCode(err: unknown): number | undefined {
-  if (err !== null && typeof err === 'object') {
-    const e = err as Record<string, unknown>
-    if (typeof e['statusCode'] === 'number') return e['statusCode']
-    if (typeof e['status'] === 'number') return e['status']
-  }
-  return undefined
-}
 
 async function handlePOST(
   request: Request,
@@ -354,7 +346,7 @@ async function handlePOST(
     })
 
     // Classify error for appropriate HTTP status
-    const statusCode = getErrorStatusCode(error)
+    const statusCode = aiErrorStatusCode(error)
 
     if (statusCode === 429) {
       return NextResponse.json(

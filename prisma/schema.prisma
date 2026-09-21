@@ -99,6 +99,7 @@ enum AiFeature {
   entry_suggestions
   entry_preparation_tips
   entry_regenerate
+  meal_image
 }
 
 // ============================================

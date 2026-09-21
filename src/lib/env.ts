@@ -69,6 +69,14 @@ const serverOnlyEnvSchema = z.object({
     .min(1, 'ANTHROPIC_API_KEY is required for AI features')
     .describe('Anthropic API key for Claude AI integration'),
 
+  OPENAI_API_KEY: z
+    .string()
+    .min(1, 'OPENAI_API_KEY must not be empty when set')
+    .optional()
+    .describe(
+      'OpenAI API key for generated meal illustrations (HON-735). Unset = POST /api/meals/[id]/image answers 503 and no image is generated; the rest of the app is unaffected. Production only once HON-736 (vendor compliance) is Done.',
+    ),
+
   RESEND_API_KEY: z
     .string()
     .min(1, 'RESEND_API_KEY is required for email sending')
@@ -245,6 +253,7 @@ export const serverEnv = new Proxy(
     DATABASE_URL: process.env.DATABASE_URL,
     DATABASE_URL_UNPOOLED: process.env.DATABASE_URL_UNPOOLED,
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,

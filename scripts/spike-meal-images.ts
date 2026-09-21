@@ -48,6 +48,18 @@ import {
   supplementaryTipsSchema,
 } from '../src/lib/ai/preparation-tips'
 import { estimateCostUsd } from '../src/lib/ai/pricing'
+import {
+  applyJudgeFilters,
+  buildJudgeV2Prompt,
+  judgeV2Schema,
+  type JudgeV2Findings,
+} from '../src/lib/meal-images/judge'
+import {
+  buildMealImagePromptBody,
+  PROMPT_SUFFIX,
+  STYLE_PREFIX_ILLUSTRATION_V3,
+  V2_EXCLUSIONS,
+} from '../src/lib/meal-images/prompt'
 
 // ============================================
 // MEALS
@@ -256,10 +268,6 @@ export const STYLE_PREFIX_FLAT_V1 =
 export const STYLE_PREFIX_ILLUSTRATION_V2 =
   'Warm stylised illustration of one served portion of a home-cooked dish, on a single plain plate or in a single bowl, soft gouache textures, gentle hand-drawn linework, muted natural palette, seen from a three-quarter angle on a plain, uncluttered surface.'
 
-/** HON-733: V2 heaped several servings onto one platter twice in twelve images. */
-export const STYLE_PREFIX_ILLUSTRATION_V3 =
-  'Warm stylised illustration of a single modest serving for one person of a home-cooked dish, on a single plain dinner plate or in a single bowl with space around the food, soft gouache textures, gentle hand-drawn linework, muted natural palette, seen from a three-quarter angle on a plain, uncluttered surface.'
-
 export const STYLES: SpikeStyle[] = [
   { id: 'photo', label: 'Photoreal overhead', prefix: STYLE_PREFIX_PHOTO_V1 },
   {
@@ -272,21 +280,6 @@ export const STYLES: SpikeStyle[] = [
   { id: 'flat', label: 'Flat / iconographic', prefix: STYLE_PREFIX_FLAT_V1 },
 ]
 
-const PROMPT_SUFFIX =
-  'A single dish, landscape 3:2 composition with the food filling the frame. No text, no labels, no logos, no hands, no people.'
-
-/**
- * V2's exclusion sentence. Names the HON-717 failures explicitly: added
- * garnish and olives, raw-ingredient props, and whole pots or baking dishes.
- */
-export const V2_EXCLUSIONS =
-  'Show only the finished, cooked dish as it is served. Nothing that is not in that list: no garnish, no herbs beyond those listed, no olives, bread or side dishes. No raw ingredients, cutting boards, pots, pans, baking dishes or other props around it.'
-
-/** Largest amount first, as the prep route's quantities would rank them. */
-export function ingredientsByQuantity(meal: SpikeMeal): string[] {
-  return [...meal.components].sort((a, b) => b.quantity - a.quantity).map((c) => c.name)
-}
-
 function buildPromptV1(meal: SpikeMeal, style: SpikeStyle): string {
   return [
     style.prefix,
@@ -296,23 +289,11 @@ function buildPromptV1(meal: SpikeMeal, style: SpikeStyle): string {
   ].join(' ')
 }
 
-/** V2 and V3 share a body; only the prefix differs. */
+/** V2 and V3 share a body (now in `src/lib/meal-images/prompt.ts`); only the prefix differs. */
 function buildPromptV2(meal: SpikeMeal, style: SpikeStyle, version: 'v2' | 'v3' = 'v2'): string {
   const prefix = version === 'v2' ? style.prefixV2 : style.prefixV3
   if (!prefix) throw new Error(`Style "${style.id}" has no ${version.toUpperCase()} prefix`)
-  const notes = meal.preparationNotes?.trim()
-  return [
-    prefix,
-    `The dish: ${meal.name} — ${meal.description}.`,
-    // Phrased as what the dish is made from, not a list to display — the V1
-    // "Key ingredients:" line drew the raw ingredients around the plate.
-    `It is made from exactly these ingredients, largest amount first: ${ingredientsByQuantity(meal).join(', ')}.`,
-    ...(notes
-      ? [`How it is prepared: ${notes} Show the ingredients cut and cooked exactly as described.`]
-      : []),
-    V2_EXCLUSIONS,
-    PROMPT_SUFFIX,
-  ].join(' ')
+  return `${prefix} ${buildMealImagePromptBody(meal)}`
 }
 
 export function buildPrompt(meal: SpikeMeal, style: SpikeStyle, version: PromptVersion): string {
@@ -499,177 +480,16 @@ Leave a list empty when there is nothing to report. Do not report lighting, colo
 }
 
 // ============================================
-// JUDGE V2 (HON-733)
+// JUDGE V2 (HON-733) — prompt, schema and filters live in src/lib/meal-images/judge.ts
 // ============================================
 
-// HON-732's judge flagged garlic and thyme as missing although its prompt said
-// to ignore them. Removing them in code means it is never asked about them.
-const INVISIBLE_WHEN_COOKED =
-  /garlic|ginger|stock|broth|\boil\b|butter|\bsalt\b|seasoning|powder|masala|cumin|paprika|cinnamon|turmeric|saffron|nutmeg|chili flakes|thyme|rosemary|oregano|\bsage\b|bay lea|miso|cream\b|yogurt|mayonnaise|vinegar|soy sauce|fish sauce|honey|syrup|sugar|flour|breadcrumbs|mustard|wine|tomato paste|lemon|lime/i
-
-/** `pepper` alone is the spice; `bell pepper` is a vegetable. */
-const isInvisible = (name: string): boolean =>
-  /^(black |white )?pepper$/i.test(name) || INVISIBLE_WHEN_COOKED.test(name)
-
-/** The ingredients a viewer should be able to point at in the finished dish. */
-export function visibleIngredients(meal: SpikeMeal): string[] {
-  return ingredientsByQuantity(meal).filter((name) => !isInvisible(name))
-}
-
-export const judgeV2Schema = z.object({
-  extraIngredients: z
-    .array(z.string())
-    .describe('Foods visible in or on the dish that are not in the full ingredient list'),
-  propsOrCookware: z
-    .array(z.string())
-    .describe(
-      'Anything beside the dish: raw ingredients, side dishes, cutlery, boards, pots, pans, baking dishes',
-    ),
-  missingIngredients: z
-    .array(z.string())
-    .describe('Names from the expected-visible list that cannot be found in the image'),
-  portion: z
-    .enum(['one-serving', 'several-servings', 'whole-dish'])
-    .describe('How much food the image shows'),
-  notes: z.string().describe('One sentence on anything else worth knowing').optional(),
-})
-
-export type JudgeV2Findings = z.infer<typeof judgeV2Schema>
-
 export interface JudgeV2Result extends JudgeV2Findings {
-  /** No serious finding: nothing added, nothing beside the dish. The likely production gate. */
+  /** No serious finding: nothing added, nothing beside the dish. The production gate. */
   pass: boolean
   /** `pass`, and nothing missing, and one serving. */
   strictPass: boolean
   latencyMs: number
   usd: number
-}
-
-const words = (s: string): string[] =>
-  (s.toLowerCase().match(/[a-z]{3,}/g) ?? []).map((w) => w.replace(/(es|s)$/, ''))
-
-// A head noun shared by unrelated foods: "feta cheese" must not excuse "parmesan cheese".
-const GENERIC_HEADS = new Set([
-  'cheese',
-  'oil',
-  'sauce',
-  'cream',
-  'bean',
-  'bread',
-  'rice',
-  'pepper',
-  'stock',
-  'seed',
-  'leav',
-  'powder',
-  'paste',
-  'juice',
-  'milk',
-  'flour',
-  'butter',
-  'onion',
-  'sheet',
-  'meat',
-])
-
-const DERIVED_HEADS = new Set([
-  'oil',
-  'sauce',
-  'paste',
-  'juice',
-  'powder',
-  'stock',
-  'milk',
-  'flour',
-  'butter',
-])
-
-/** True when `text` names `ingredient`: every word of it, or its distinctive head noun ("greek yogurt" → yogurt). */
-function names(text: string, ingredient: string): boolean {
-  const have = new Set(words(text))
-  const name = words(ingredient)
-  if (name.length === 0) return false
-  if (name.every((w) => have.has(w))) return true
-  const head = name[name.length - 1]!
-  if (!GENERIC_HEADS.has(head)) return have.has(head)
-  // "feta cheese" is named by "crumbled feta". A derived product is not named
-  // by its source: "olive oil" must not be matched by "black olives".
-  const modifiers = name.slice(0, -1)
-  return !DERIVED_HEADS.has(head) && modifiers.length > 0 && modifiers.every((w) => have.has(w))
-}
-
-/**
- * Drops an "extra" that names a listed ingredient. The first HON-733 run failed
- * 13 of 24 images on listed sour cream, sage, lemon and paprika — a gate that
- * regenerates on extras cannot leave that to the prompt alone. Matching is by
- * whole name or head noun, never by any shared word: "olive oil" must not
- * excuse "black olives", nor "green lentils" "green olives".
- */
-export function dropListedExtras(extras: string[], meal: SpikeMeal): string[] {
-  return extras.filter((extra) => !meal.components.some((c) => names(extra, c.name)))
-}
-
-const SERVINGWARE =
-  /^(the |a |one |single |serving |dinner |plain |white |metal |wooden |bamboo )*(plate|bowl|skewers?)$/i
-const GARNISH_FORM = new Set([
-  'wedge',
-  'slice',
-  'half',
-  'halv',
-  'piece',
-  'sprig',
-  'the',
-  'and',
-  'plate',
-])
-
-/**
- * Drops only what the judge misreports as a prop: the serving plate itself,
- * kofta skewers, and a listed ingredient served on the plate ("lime wedge").
- * Anything longer — "raw carrot on a cutting board", "casserole dish",
- * "bowl of parmesan beside the plate" — stays a serious finding.
- */
-export function dropServingware(props: string[], meal?: SpikeMeal): string[] {
-  return props.filter((p) => {
-    if (SERVINGWARE.test(p.trim())) return false
-    if (!meal) return true
-    const listed = new Set(meal.components.flatMap((c) => words(c.name)))
-    const rest = words(p).filter((w) => !listed.has(w) && !GARNISH_FORM.has(w))
-    return !(rest.length === 0 && meal.components.some((c) => names(p, c.name)))
-  })
-}
-
-/** Serious findings mislead (an allergen that is not there); the rest only look off. */
-export function computePassV2(f: JudgeV2Findings): { pass: boolean; strictPass: boolean } {
-  const pass = f.extraIngredients.length === 0 && f.propsOrCookware.length === 0
-  return {
-    pass,
-    strictPass: pass && f.missingIngredients.length === 0 && f.portion === 'one-serving',
-  }
-}
-
-/** No prep sample: production tips are per plan entry, so a production judge never sees them. */
-export function buildJudgeV2Prompt(meal: SpikeMeal): string {
-  const notes = meal.preparationNotes?.trim()
-  return `You are checking a generated illustration of a meal against the meal's own recipe data. Judge only what is visibly in the image, not the art style.
-
-Meal: ${meal.name} — ${meal.description}
-
-Ingredients per serving — the complete list. Those marked "(may not be visible)" usually disappear into the dish, but are still part of it:
-${meal.components
-  .map(
-    (c) =>
-      `- ${c.name}: ${c.quantity}${c.unit}${isInvisible(c.name) ? ' (may not be visible)' : ''}`,
-  )
-  .join('\n')}
-${notes ? `\nThe cook's own preparation notes:\n${notes}\n` : ''}
-Report:
-- extraIngredients: foods visible in or on the dish that appear nowhere in the list above — garnishes, fresh herbs, olives, cheese, sauces. Name each once. Every listed ingredient is allowed to be visible, marked or not: a listed herb, spice, lemon wedge or spoonful of yogurt is not an extra. Nor is a sauce, glaze, browned surface or cooking juice made from listed ingredients. Report food only — a skewer or a plate is not an ingredient.
-- propsOrCookware: anything beside the dish — raw ingredients, side dishes, cutlery, napkins, cutting boards, pots, pans or baking dishes. The one plate or bowl the food is served on is not a prop, and neither is a listed ingredient served on that plate.
-- missingIngredients: only unmarked ingredients that you cannot find anywhere in the image. An ingredient that is present but cut or cooked differently than you would expect is not missing.
-- portion: "one-serving" for a normal plate or bowl for one person, "several-servings" for a heaped platter or a sharing bowl, "whole-dish" for an entire pie, tray or pot.
-
-Leave a list empty when there is nothing to report. Do not report lighting, colour, composition or how ingredients are cut.`
 }
 
 // ============================================
@@ -1277,15 +1097,11 @@ async function judgeImageV2(
     maxOutputTokens: 2000,
     maxRetries: 2,
   })
-  const findings = {
-    ...result.object,
-    extraIngredients: dropListedExtras(result.object.extraIngredients, meal),
-    // A listed lime wedge on the plate came back as a prop.
-    propsOrCookware: dropServingware(result.object.propsOrCookware, meal),
-  }
+  const { filtered, pass, strictPass } = applyJudgeFilters(result.object, meal)
   return {
-    ...findings,
-    ...computePassV2(findings),
+    ...filtered,
+    pass,
+    strictPass,
     latencyMs: performance.now() - t0,
     usd: claudeUsd(REVIEW_MODEL, result.usage),
   }

@@ -795,6 +795,70 @@ describe('PATCH /api/households/me/meals/[id]', () => {
       expect(mealUpdate).toHaveBeenCalledWith(expectedReset)
     })
 
+    // Ranked by grams, as the prompt ranks them (HON-735). An egg is 55 g, so
+    // raw counts and weights disagree whenever a piece ingredient is involved.
+    describe('with a piece ingredient', () => {
+      const withComponents = (egg: number, cheese: number) => ({
+        ...storedMeal,
+        components: [
+          { ingredientId: 'egg', quantityPerServing: egg },
+          { ingredientId: 'cheese', quantityPerServing: cheese },
+        ],
+      })
+
+      beforeEach(() => {
+        const ingredients = [
+          { id: 'egg', proteinType: 'eggs', protein: 13, defaultUnit: 'piece', gramsPerPiece: 55 },
+          {
+            id: 'cheese',
+            proteinType: 'dairy',
+            protein: 25,
+            defaultUnit: 'g',
+            gramsPerPiece: null,
+          },
+        ]
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        mockIngredientFindMany.mockImplementation((async (args: any) =>
+          ingredients.filter((i) => args.where.id.in.includes(i.id))) as never)
+      })
+
+      it('leaves the image alone when raw counts reorder but weights do not', async () => {
+        // 3 eggs (165 g) and 2 g of cheese; the cheese goes to 5 g per serving.
+        const current = withComponents(3, 2)
+        mockMealFindFirst.mockResolvedValue(current as never)
+        const { mealUpdate } = setupTransaction(mockMealResult, current)
+
+        const response = await patchMeal({
+          ...unchangedPayload,
+          components: [
+            { ingredientId: 'egg', totalQuantity: 12 },
+            { ingredientId: 'cheese', totalQuantity: 20 },
+          ],
+        })
+
+        expect(response.status).toBe(200)
+        expect(mealUpdate).not.toHaveBeenCalledWith(expectedReset)
+      })
+
+      it('clears the image when weights reorder but raw counts do not', async () => {
+        // 1 egg (55 g) and 50 g of cheese; the cheese goes to 60 g per serving.
+        const current = withComponents(1, 50)
+        mockMealFindFirst.mockResolvedValue(current as never)
+        const { mealUpdate } = setupTransaction(mockMealResult, current)
+
+        const response = await patchMeal({
+          ...unchangedPayload,
+          components: [
+            { ingredientId: 'egg', totalQuantity: 4 },
+            { ingredientId: 'cheese', totalQuantity: 240 },
+          ],
+        })
+
+        expect(response.status).toBe(200)
+        expect(mealUpdate).toHaveBeenCalledWith(expectedReset)
+      })
+    })
+
     it('leaves the image alone when the payload resends every stored value unchanged', async () => {
       const { mealUpdate } = setupTransaction(mockMealResult, storedMeal)
 
