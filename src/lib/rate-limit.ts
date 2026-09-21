@@ -65,6 +65,7 @@ export type RateLimitFeature =
   | 'recipe-parse'
   | 'meal-prep-tips'
   | 'meal-suggestions'
+  | 'meal-image'
   | 'sign-up'
   | 'sign-in'
   | 'forgot-password'
@@ -88,6 +89,9 @@ export const RATE_LIMIT_CONFIG: Record<RateLimitFeature, FeatureConfig> = {
   'recipe-parse': { limit: 20, window: '1 h', dimension: 'household' },
   'meal-prep-tips': { limit: 30, window: '1 h', dimension: 'household' },
   'meal-suggestions': { limit: 60, window: '1 h', dimension: 'household' },
+  // Only generations count: a ready image, a poll on a fresh claim and a
+  // global meal all return before the limiter (HON-735).
+  'meal-image': { limit: 30, window: '1 h', dimension: 'household' },
   'sign-up': {
     limit: 5,
     window: '1 h',

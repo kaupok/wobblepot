@@ -69,6 +69,7 @@ describe('rate-limit', () => {
       expect(Object.keys(RATE_LIMIT_CONFIG).sort()).toEqual([
         'data-export',
         'forgot-password',
+        'meal-image',
         'meal-imagination',
         'meal-prep-tips',
         'meal-suggestions',

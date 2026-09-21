@@ -87,14 +87,23 @@ describe('estimateCostUsd', () => {
 describe('estimateCostUsd › prompt-cache tiers', () => {
   const price = MODEL_PRICES['claude-sonnet-5']!
 
-  it('carries both cache rates for every model in the table', () => {
-    for (const [model, entry] of Object.entries(MODEL_PRICES)) {
+  it('carries both cache rates for every Claude model in the table', () => {
+    // The OpenAI image model is excluded: it uses no prompt caching.
+    const claude = Object.entries(MODEL_PRICES).filter(([model]) => model.startsWith('claude-'))
+    expect(claude.length).toBeGreaterThan(0)
+    for (const [model, entry] of claude) {
       expect(entry.cacheReadPerMTok, model).toBeGreaterThan(0)
       expect(entry.cacheWritePerMTok, model).toBeGreaterThan(0)
       // Anthropic prices cache reads below, and cache writes above, base input.
       expect(entry.cacheReadPerMTok, model).toBeLessThan(entry.inputPerMTok)
       expect(entry.cacheWritePerMTok, model).toBeGreaterThan(entry.inputPerMTok)
     }
+  })
+
+  it('prices the meal-image model at the OpenAI image rates (HON-735)', () => {
+    expect(
+      estimateCostUsd({ model: 'gpt-image-2.5-flare', inputTokens: 110, outputTokens: 1_372 }),
+    ).toBeCloseTo(0.04171, 5)
   })
 
   it('bills cache-read tokens below the all-at-base-rate figure by the rate difference', () => {

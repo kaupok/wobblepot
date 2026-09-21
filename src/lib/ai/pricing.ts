@@ -5,7 +5,7 @@
  * token counts and a static price table. Update this table when models change
  * (rare, same cadence as `models.ts`).
  *
- * Prices are in USD per million tokens, taken from Anthropic's pricing page.
+ * Prices are in USD per million tokens, taken from each provider's pricing page.
  */
 
 export interface ModelPrice {
@@ -39,6 +39,17 @@ export const MODEL_PRICES: Record<string, ModelPrice> = {
     cacheReadPerMTok: 0.3,
     cacheWritePerMTok: 3.75,
     outputPerMTok: 15,
+  },
+  // Meal illustrations (HON-735). OpenAI's GPT Image 2.5 rates, checked
+  // 2026-09-21: text in $5, image out $30 per 1M
+  // (https://developers.openai.com/api/docs/pricing). Image calls use no
+  // prompt caching, so the cache tiers are never populated; they carry the
+  // input rate only because the shape requires them.
+  'gpt-image-2.5-flare': {
+    inputPerMTok: 5,
+    cacheReadPerMTok: 5,
+    cacheWritePerMTok: 5,
+    outputPerMTok: 30,
   },
 }
 

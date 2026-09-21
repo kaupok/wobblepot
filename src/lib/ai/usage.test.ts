@@ -207,6 +207,66 @@ describe('recordAiUsage', () => {
   })
 })
 
+describe('recordAiUsage › meal images (HON-735)', () => {
+  it('prices image tokens at the OpenAI image rate and labels the provider openai', async () => {
+    mockCreate.mockResolvedValue({} as never)
+
+    await recordAiUsage({
+      householdId: 'h1',
+      feature: 'meal_image',
+      model: 'gpt-image-2.5-flare',
+      inputTokens: 110,
+      outputTokens: 1_372,
+    })
+
+    // 110 × $5 + 1,372 × $30 per 1M = $0.04171 — the spike's measured $0.0422.
+    const cost = (110 * 5 + 1_372 * 30) / 1_000_000
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ feature: 'meal_image', estimatedCostUsd: cost }),
+    })
+    expect(mockCapture).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: expect.objectContaining({ $ai_provider: 'openai', $ai_total_cost_usd: cost }),
+      }),
+    )
+  })
+
+  it('records fallbackCostUsd when the usage is missing', async () => {
+    mockCreate.mockResolvedValue({} as never)
+
+    await recordAiUsage({
+      householdId: 'h1',
+      feature: 'meal_image',
+      model: 'gpt-image-2.5-flare',
+      inputTokens: 0,
+      outputTokens: 0,
+      usageMissing: true,
+      fallbackCostUsd: 0.05,
+    })
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ estimatedCostUsd: 0.05 }),
+    })
+  })
+
+  it('ignores fallbackCostUsd when the usage is present', async () => {
+    mockCreate.mockResolvedValue({} as never)
+
+    await recordAiUsage({
+      householdId: 'h1',
+      feature: 'meal_image',
+      model: 'gpt-image-2.5-flare',
+      inputTokens: 0,
+      outputTokens: 1_000_000,
+      fallbackCostUsd: 0.05,
+    })
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ estimatedCostUsd: 30 }),
+    })
+  })
+})
+
 describe('recordAiUsage › PostHog streaming', () => {
   it('captures one $ai_generation event with the documented property shape on success', async () => {
     mockCreate.mockResolvedValue({} as never)

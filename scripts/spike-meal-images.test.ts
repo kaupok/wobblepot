@@ -2,16 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   buildJobs,
   buildJudgePrompt,
-  buildJudgeV2Prompt,
   buildPrompt,
   computePass,
-  computePassV2,
   costFromUsage,
-  dropListedExtras,
-  dropServingware,
   estimateTotalUsd,
   extensionFor,
-  ingredientsByQuantity,
   JUDGE_EST_USD,
   judgeSummary,
   MEALS,
@@ -21,20 +16,22 @@ import {
   PREP_EST_USD,
   renderContactSheet,
   sampleEvenly,
-  STYLE_PREFIX_ILLUSTRATION_V3,
   STYLES,
   summarize,
   thinkingTokensFrom,
   toSpikeMeal,
-  V2_EXCLUSIONS,
   variantsFor,
-  visibleIngredients,
   type JobResult,
   type JudgeResult,
   type JudgeV2Result,
   type PrepSample,
   type SpikeMeal,
 } from './spike-meal-images'
+import {
+  ingredientsByWeight,
+  STYLE_PREFIX_ILLUSTRATION_V3,
+  V2_EXCLUSIONS,
+} from '../src/lib/meal-images/prompt'
 
 const defaultArgs = parseArgs([])
 const illustration = STYLES.find((s) => s.id === 'illustration')!
@@ -101,7 +98,7 @@ describe('buildPrompt v2', () => {
 
   it('lists every ingredient, largest amount first', () => {
     const stew = meal('lamb-stew')
-    expect(ingredientsByQuantity(stew)).toEqual([
+    expect(ingredientsByWeight(stew)).toEqual([
       'beef stock',
       'lamb shank',
       'potato',
@@ -439,90 +436,6 @@ describe('HON-733: V3, the seed sample and judge V2', () => {
     const sample = sampleEvenly(items, 10)
     expect(sample).toHaveLength(10)
     expect(sample.at(-1)).toBeGreaterThan(90)
-  })
-
-  it('never asks the judge about ingredients that vanish once cooked', () => {
-    expect(visibleIngredients(meal('lamb-stew'))).toEqual([
-      'lamb shank',
-      'potato',
-      'carrot',
-      'onion',
-    ])
-    const visible = visibleIngredients({
-      ...meal('greek-salad'),
-      components: [
-        { name: 'bell pepper', quantity: 60, unit: 'g' },
-        { name: 'black pepper', quantity: 1, unit: 'g' },
-        { name: 'olive oil', quantity: 15, unit: 'ml' },
-      ],
-    })
-    expect(visible).toEqual(['bell pepper'])
-  })
-
-  it('gives the judge the full list, the visible list and no prep steps', () => {
-    const prompt = buildJudgeV2Prompt(meal('chicken-thighs'))
-    expect(prompt).toContain('- potato: 150g\n')
-    expect(prompt).toMatch(/- garlic: \d+g \(may not be visible\)/)
-    expect(prompt).toContain(meal('chicken-thighs').preparationNotes!)
-    expect(prompt).not.toContain('Preparation steps shown to the user')
-  })
-
-  it('drops an extra that names a listed ingredient, and keeps a real one', () => {
-    const tacos: SpikeMeal = {
-      ...meal('greek-salad'),
-      components: [
-        { name: 'sour cream', quantity: 30, unit: 'g' },
-        { name: 'greek yogurt', quantity: 50, unit: 'g' },
-        { name: 'lime', quantity: 0.5, unit: 'piece' },
-      ],
-    }
-    expect(
-      dropListedExtras(['sour cream', 'yogurt sauce with herbs', 'lime wedge', 'olives'], tacos),
-    ).toEqual(['olives'])
-  })
-
-  it('does not excuse an unlisted food that shares a word with a listed one', () => {
-    expect(
-      dropListedExtras(['black olive slices', 'parmesan cheese', 'oregano'], meal('greek-salad')),
-    ).toEqual(['black olive slices', 'parmesan cheese', 'oregano'])
-    expect(dropListedExtras(['green olives'], meal('lentil-bolognese'))).toEqual(['green olives'])
-    expect(dropListedExtras(['crumbled feta', 'tomatoes'], meal('greek-salad'))).toEqual([])
-  })
-
-  it('drops only the serving plate, skewers and a listed garnish from props', () => {
-    const tacos: SpikeMeal = {
-      ...meal('greek-salad'),
-      components: [{ name: 'lime', quantity: 0.5, unit: 'piece' }],
-    }
-    const kept = [
-      'raw carrot and celery on a cutting board',
-      'small bowl of grated parmesan beside the plate',
-      'casserole dish',
-      'fork',
-    ]
-    expect(dropServingware(['plate', 'metal skewers', 'lime wedge', ...kept], tacos)).toEqual(kept)
-  })
-
-  it('does not hide sausage behind sage', () => {
-    const m: SpikeMeal = {
-      ...meal('greek-salad'),
-      components: [
-        { name: 'italian sausage', quantity: 100, unit: 'g' },
-        { name: 'sage', quantity: 2, unit: 'g' },
-      ],
-    }
-    expect(visibleIngredients(m)).toEqual(['italian sausage'])
-  })
-
-  it('fails only on serious findings and reports the strict verdict beside it', () => {
-    expect(computePassV2(judgeV2())).toEqual({ pass: true, strictPass: true })
-    expect(computePassV2(judgeV2({ missingIngredients: ['onion'] }))).toEqual({
-      pass: true,
-      strictPass: false,
-    })
-    expect(computePassV2(judgeV2({ portion: 'several-servings' })).strictPass).toBe(false)
-    expect(computePassV2(judgeV2({ extraIngredients: ['olives'] })).pass).toBe(false)
-    expect(computePassV2(judgeV2({ propsOrCookware: ['fork'] })).pass).toBe(false)
   })
 
   it('counts serious-only and strict passes per version', () => {

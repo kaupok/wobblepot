@@ -57,6 +57,12 @@ export interface RecordAiUsageInput extends Omit<
   success?: boolean
   retryCount?: number
   requestId?: string | null
+  /**
+   * Flat USD to record when `usageMissing` is set, instead of `$0`. For calls
+   * with a known per-call price — an image generation (HON-735) — where a
+   * missing token count must still count against the cap.
+   */
+  fallbackCostUsd?: number
 }
 
 /**
@@ -269,7 +275,8 @@ export async function assertUnderCap(householdId: string, now: Date = new Date()
  * `input_tokens` is the uncached count only. Nothing enables prompt caching
  * today; add the columns in the change that does.
  *
- * When `usageMissing` is set the row is still written (0 tokens, `$0`), but the
+ * When `usageMissing` is set the row is still written (0 tokens, `$0` unless
+ * `fallbackCostUsd` is given), but the
  * PostHog event carries `$ai_usage_missing: true` and a warning is logged, so
  * an unbilled call is visible instead of passing as a free one.
  */
@@ -277,13 +284,16 @@ export async function recordAiUsage(input: RecordAiUsageInput): Promise<void> {
   const usageMissing = input.usageMissing ?? false
   const cacheReadTokens = input.cacheReadTokens ?? 0
   const cacheWriteTokens = input.cacheWriteTokens ?? 0
-  const cost = estimateCostUsd({
-    model: input.model,
-    inputTokens: input.inputTokens,
-    cacheReadTokens,
-    cacheWriteTokens,
-    outputTokens: input.outputTokens,
-  })
+  const cost =
+    usageMissing && input.fallbackCostUsd !== undefined
+      ? input.fallbackCostUsd
+      : estimateCostUsd({
+          model: input.model,
+          inputTokens: input.inputTokens,
+          cacheReadTokens,
+          cacheWriteTokens,
+          outputTokens: input.outputTokens,
+        })
 
   if (usageMissing) {
     console.warn(
@@ -331,7 +341,7 @@ export async function recordAiUsage(input: RecordAiUsageInput): Promise<void> {
         $ai_output_tokens: input.outputTokens,
         $ai_model: input.model,
         $ai_total_cost_usd: cost,
-        $ai_provider: 'anthropic',
+        $ai_provider: providerFor(input.model),
         $ai_trace_id: requestId ?? undefined,
         $ai_is_error: !(input.success ?? true),
         feature: input.feature,
@@ -374,6 +384,11 @@ export function respondCapExceeded(error: AiCostCapExceededError): NextResponse 
       headers: { 'Retry-After': String(seconds) },
     },
   )
+}
+
+/** PostHog's `$ai_provider`. Every model is Claude except the meal-image one (HON-735). */
+function providerFor(model: string): 'anthropic' | 'openai' {
+  return model.startsWith('gpt-') ? 'openai' : 'anthropic'
 }
 
 function formatYearMonth(timezone: string, instant: Date): string {
