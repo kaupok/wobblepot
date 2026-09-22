@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { fn } from 'storybook/test'
+import { expect, fn, within } from 'storybook/test'
+import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { misoSalmonAlternative } from '@/stories/fixtures'
 import { AlternativeCard } from './AlternativeCard'
 import type { PantryIngredient } from './types'
@@ -30,6 +31,29 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {
   args: { meal: mealFixture },
+}
+
+/** The dialog's tall card puts the image below the ingredients, above Select (HON-750). */
+export const WithImage: Story = {
+  args: {
+    meal: {
+      ...mealFixture,
+      imageStatus: 'ready',
+      imageUrl: mealIllustration.src,
+      imageHue: 200,
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await canvas.findByRole('img', { name: mealFixture.name })
+    const box = canvas.getByTestId('meal-card-image').getBoundingClientRect()
+    await expect(canvas.getByRole('list').getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      box.top,
+    )
+    await expect(
+      canvas.getByRole('button', { name: 'Select' }).getBoundingClientRect().top,
+    ).toBeGreaterThanOrEqual(box.bottom)
+  },
 }
 
 export const Selecting: Story = {

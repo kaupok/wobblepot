@@ -58,6 +58,64 @@ describe('MealImageCard', () => {
     expect(wrapper).not.toHaveClass('right-0', 'w-9/20', '@md/meal-image:w-5/8')
   })
 
+  // HON-750: a tall card puts the image below the content instead of behind it.
+  it('renders a bottom image in flow after the content and before the footer', () => {
+    const { container } = render(
+      <MealImageCard
+        meal={{ name: 'Lemon garlic chicken', imageStatus: 'ready', imageUrl: URL, imageHue: 264 }}
+        layout="bottom"
+        footer={<button type="button">Select</button>}
+      >
+        <p>Content</p>
+      </MealImageCard>,
+    )
+    const card = container.querySelector('[data-slot="card"]') as HTMLElement
+    const wrapper = screen.getByTestId('meal-card-image')
+    const [content, image, footer] = Array.from(card.children)
+
+    expect(content).toBe(screen.getByText('Content'))
+    expect(image).toBe(wrapper)
+    expect(footer).toBe(screen.getByRole('button', { name: 'Select' }))
+    expect(wrapper).toHaveClass(
+      'relative',
+      'aspect-3/2',
+      'w-full',
+      'mask-t-from-60%',
+      'mix-blend-multiply',
+    )
+    expect(wrapper).not.toHaveClass('absolute', '-z-10', 'mask-l-from-30%')
+    expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 280px, 100vw')
+    // Still tinted, but without the named group the title cap never applies.
+    expect(card).toHaveAttribute('data-meal-surface')
+    expect(card).toHaveClass('relative', 'isolate', 'overflow-hidden')
+    expect(card).not.toHaveClass('group/meal-image', '@container/meal-image')
+  })
+
+  it('renders the side image as the absolutely positioned wrapper ahead of the content', () => {
+    const card = renderCard({ imageStatus: 'ready', imageUrl: URL, imageHue: 264 })
+    const wrapper = screen.getByTestId('meal-card-image')
+
+    expect(card.firstElementChild).toBe(wrapper)
+    expect(wrapper).toHaveClass('absolute', 'inset-y-0', '-z-10')
+    expect(card).toHaveClass('group/meal-image')
+  })
+
+  it('renders the footer on a plain bottom card with no image', () => {
+    const { container } = render(
+      <MealImageCard
+        meal={{ name: 'Lemon garlic chicken' }}
+        layout="bottom"
+        footer={<span>Foot</span>}
+      >
+        <p>Content</p>
+      </MealImageCard>,
+    )
+    const card = container.querySelector('[data-slot="card"]') as HTMLElement
+
+    expect(Array.from(card.children).map((el) => el.textContent)).toEqual(['Content', 'Foot'])
+    expect(screen.queryByTestId('meal-card-image')).not.toBeInTheDocument()
+  })
+
   it('narrows the title to the tint left of the image', () => {
     // Scoped to a tinted card, so a card whose image fails goes back to the full row.
     expect(mealImageTitleWidth()).toBe(
@@ -133,6 +191,28 @@ describe('MealImageCard', () => {
     // The same node, not a remount: focus restore on modal close targets it.
     expect(screen.getByRole('button')).toBe(trigger)
     expect(trigger.isConnected).toBe(true)
+    expect(screen.getByTestId('meal-card-image')).toBeInTheDocument()
+  })
+
+  it('keeps the content mounted when the tint switches on in the bottom layout', () => {
+    const plain = { name: 'Lemon garlic chicken', imageStatus: 'none' as const }
+    const { rerender } = render(
+      <MealImageCard meal={plain} layout="bottom">
+        <button type="button">Lemon garlic chicken</button>
+      </MealImageCard>,
+    )
+    const trigger = screen.getByRole('button')
+
+    rerender(
+      <MealImageCard
+        meal={{ ...plain, imageStatus: 'ready', imageUrl: URL, imageHue: 40 }}
+        layout="bottom"
+      >
+        <button type="button">Lemon garlic chicken</button>
+      </MealImageCard>,
+    )
+
+    expect(screen.getByRole('button')).toBe(trigger)
     expect(screen.getByTestId('meal-card-image')).toBeInTheDocument()
   })
 })
