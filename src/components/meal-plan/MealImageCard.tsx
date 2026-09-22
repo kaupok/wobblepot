@@ -35,10 +35,14 @@ const SIZES = '(min-width: 768px) 480px, 45vw'
  * `px-3`. The inset box can be narrower than 3:2, so `object-cover` may crop the
  * plate at its right edge; the short right fade keeps that from reading as a
  * hard edge.
+ *
+ * The narrow/wide switch is a container query on the card (`@md`, 448px), not
+ * a viewport breakpoint: the alternatives grid puts ~250px cards on a desktop
+ * screen, and those need the narrow geometry as much as a phone does.
  */
 const IMAGE_BOX = {
-  default: 'right-0 w-9/20 sm:w-5/8',
-  trailingActions: 'right-36 left-1/3 sm:left-3/8 mask-r-from-80%',
+  default: 'right-0 w-9/20 @md/meal-image:w-5/8',
+  trailingActions: 'right-36 left-1/3 @md/meal-image:left-3/8 mask-r-from-80%',
 } as const
 
 /**
@@ -52,9 +56,9 @@ const IMAGE_BOX = {
  */
 const TITLE_WIDTH = {
   default:
-    'group-data-meal-surface/meal-image:max-w-1/2 sm:group-data-meal-surface/meal-image:max-w-3/8',
+    'group-data-meal-surface/meal-image:max-w-1/2 @md/meal-image:group-data-meal-surface/meal-image:max-w-3/8',
   trailingActions:
-    'group-data-meal-surface/meal-image:max-w-1/3 sm:group-data-meal-surface/meal-image:max-w-3/8',
+    'group-data-meal-surface/meal-image:max-w-1/3 @md/meal-image:group-data-meal-surface/meal-image:max-w-3/8',
 } as const
 
 /** The `max-width` classes for a title inside a `MealImageCard`, matching its image box. */
@@ -121,7 +125,10 @@ export function MealImageCard({
   return (
     <Card
       data-meal-surface={tinted ? '' : undefined}
-      className={cn(tinted && 'group/meal-image relative isolate overflow-hidden', className)}
+      className={cn(
+        tinted && 'group/meal-image @container/meal-image relative isolate overflow-hidden',
+        className,
+      )}
       // eslint-disable-next-line shadcn/no-inline-styles -- --meal-hue is the one per-meal value (docs/DESIGN.md → Imagery); every colour is derived from it by [data-meal-surface] in globals.css.
       style={tinted ? { ...style, ...mealHueStyle(hue) } : style}
       {...props}

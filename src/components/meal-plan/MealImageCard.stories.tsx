@@ -233,3 +233,41 @@ export const TrailingActionsBrokenImage: Story = {
     await expect(getComputedStyle(titleWrapper).maxWidth).toBe('none')
   },
 }
+
+/**
+ * The alternatives grid: ~250px cards on a desktop screen. The geometry follows
+ * the card's width (a container query), so these get the narrow layout — the
+ * name keeps half the row rather than 3/8 of it.
+ */
+export const NarrowGridDesktop: Story = {
+  name: 'Narrow grid (desktop)',
+  globals: { viewport: { value: 'desktop', isRotated: false } },
+  parameters: { layout: 'fullscreen' },
+  render: (args) => (
+    <div className="grid max-w-3xl grid-cols-3 gap-3 p-4">
+      {HUES.map(({ hue, name }) => {
+        const meal = withImage(hue, { name })
+        return (
+          <MealImageCard key={hue} {...args} meal={meal} className="h-full">
+            <CardContent className="p-4">
+              <MealCardBase meal={meal} />
+            </CardContent>
+          </MealImageCard>
+        )
+      })}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await canvas.findAllByRole('img')
+    const cards = canvasElement.querySelectorAll<HTMLElement>('[data-slot="card"]')
+    for (const card of cards) {
+      const box = within(card).getByTestId('meal-card-image').getBoundingClientRect()
+      const wrapper = within(card).getByRole('heading').parentElement!
+      const content = wrapper.parentElement!.getBoundingClientRect().width
+      // Half the content row: the narrow geometry, not the viewport's `sm` one.
+      await expect(wrapper.getBoundingClientRect().width).toBeCloseTo(content / 2, 0)
+      await expect(box.width).toBeCloseTo(card.clientWidth * 0.45, 0)
+    }
+  },
+}
