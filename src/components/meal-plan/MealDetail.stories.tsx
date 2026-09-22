@@ -153,10 +153,41 @@ export const Completed: Story = {
   },
 }
 
+/** The ingredients/tips grid and its cells. */
+function detailGrid(canvasElement: HTMLElement): HTMLElement {
+  const grid = canvasElement.querySelector<HTMLElement>('.grid')
+  if (!grid) throw new Error('Ingredients grid not found')
+  return grid
+}
+
 export const TipsCollapsed: Story = {
   args: {
     pantryIngredients: lemonGarlicChickenPantryWithOil,
     onHowToPrepare: fn(),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Collapsed tips reserve no panel: "How to prepare" is an outline button under the ingredients, which take the full width (HON-763).',
+      },
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const grid = detailGrid(canvasElement)
+    const button = canvas.getByRole('button', { name: 'How to prepare' })
+    // One cell: the ingredients with the button under them, no empty tips panel.
+    await expect(grid.children).toHaveLength(1)
+    await expect(grid).not.toHaveClass('md:grid-cols-2')
+    await expect(grid.firstElementChild).toContainElement(button)
+    await expect(
+      canvas.getByText(/^Ingredients/).compareDocumentPosition(button) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+
+    await userEvent.click(button)
+    await expect(args.onHowToPrepare).toHaveBeenCalledOnce()
   },
 }
 
@@ -167,6 +198,21 @@ export const TipsExpanded: Story = {
     isTipsExpanded: true,
     onHowToPrepare: fn(),
     onHideTips: fn(),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Shown tips take the right column on md+, beside the ingredients.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const grid = detailGrid(canvasElement)
+    await expect(grid.children).toHaveLength(2)
+    await expect(grid).toHaveClass('md:grid-cols-2')
+    await expect(grid.children[1]).toContainElement(canvas.getByText('Steps'))
+    await expect(canvas.queryByRole('button', { name: 'How to prepare' })).toBeNull()
   },
 }
 
@@ -218,8 +264,9 @@ export const HideAvailability: Story = {
 
 // The ingredients column at ~300px, the width it gets in the desktop meal detail
 // modal (HON-692): below md the grid is one 300px column; at md+ a 640px
-// container splits into two ~300px columns beside the preparation panel. The
-// Vitest browser viewport sits below md, so CI exercises the first case.
+// container splits into two ~300px columns beside the expanded preparation tips
+// (collapsed tips leave the ingredients full width, HON-763). The Vitest browser
+// viewport sits below md, so CI exercises the first case.
 const narrowColumnDecorator: NonNullable<Story['decorators']> = [
   (Story) => (
     <div className="w-75 md:w-160">
@@ -232,7 +279,10 @@ const narrowColumnArgs = {
   pantryIngredients: lemonGarlicChickenPantryWithOil,
   servings: 4,
   onServingsChange: fn(async () => true),
+  tips,
+  isTipsExpanded: true,
   onHowToPrepare: fn(),
+  onHideTips: fn(),
 } satisfies Partial<Story['args']>
 
 /** The ingredients column: the grid cell holding the header row. */
@@ -258,7 +308,7 @@ export const NarrowColumn: Story = {
     docs: {
       description: {
         story:
-          'The ingredients column at the ~300px width of the desktop modal. "Ingredients (Serves 4)" stays on one line with its parentheses joined, in both the button and the editing state, and the availability badge moves to its own line rather than wrapping inside itself (HON-692).',
+          'The ingredients column at the ~300px width of the desktop modal. "Ingredients" and the "Serves 4" control stay on one line with no brackets around the control (HON-763), in both the button and the editing state, and the availability badge moves to its own line rather than wrapping inside itself (HON-692).',
       },
     },
   },
@@ -267,7 +317,8 @@ export const NarrowColumn: Story = {
     const badge = canvas.getByText(/ingredients? missing|have all ingredients/i)
     const button = canvas.getByRole('button', { name: /serves 4/i })
     const header = button.parentElement!
-    await expect(header).toHaveTextContent('Ingredients (Serves 4)')
+    await expect(within(header).getByText('Ingredients')).toBeInTheDocument()
+    await expect(header).not.toHaveTextContent(/[()]/)
     assertRowUnbroken(header, badge)
 
     await userEvent.click(button)
@@ -286,7 +337,8 @@ export const NarrowColumnEstonian: Story = {
     const canvas = within(canvasElement)
     const badge = canvas.getByText(/puudu|olemas/)
     const header = canvas.getByRole('button', { name: /4 portsjonit/ }).parentElement!
-    await expect(header).toHaveTextContent('Koostisosad (4 portsjonit)')
+    await expect(within(header).getByText('Koostisosad')).toBeInTheDocument()
+    await expect(header).not.toHaveTextContent(/[()]/)
     assertRowUnbroken(header, badge)
   },
 }
@@ -312,7 +364,7 @@ export const NarrowColumnCustomServingsEstonian: Story = {
     docs: {
       description: {
         story:
-          'The longest header: an overridden count adds the "(kohandatud)" suffix. When it cannot fit, the header breaks only at the space after "Koostisosad" — the serving control stays whole with its parentheses attached — and nothing overflows the column.',
+          'The longest header: an overridden count adds the "(kohandatud)" suffix. When it cannot fit, the header breaks only between "Koostisosad" and the serving control — the control stays whole — and nothing overflows the column.',
       },
     },
   },
@@ -321,7 +373,8 @@ export const NarrowColumnCustomServingsEstonian: Story = {
     const button = canvas.getByRole('button', { name: /4 portsjonit/ })
     const header = button.parentElement!
     const column = ingredientsColumn(header)
-    await expect(header).toHaveTextContent(/^Koostisosad \(4 portsjonit\s*\(kohandatud\)\)$/)
+    await expect(within(header).getByText('Koostisosad')).toBeInTheDocument()
+    await expect(button).toHaveTextContent(/^4 portsjonit\s*\(kohandatud\)$/)
     expectSingleLine(button)
     expectWithinHorizontally(header, column)
     expectWithinHorizontally(button, column)
