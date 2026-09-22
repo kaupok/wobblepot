@@ -114,11 +114,12 @@ import { APICallError, generateImage, generateObject, RetryError } from 'ai'
 import { del, put } from '@vercel/blob'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
+import { prisma } from '@/lib/prisma'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
 import { clearMealImage } from '@/lib/meal-images/invalidation'
 import type { Prisma } from '@/generated/prisma/client'
-import { POST } from './route'
+import { GET, POST } from './route'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -500,4 +501,62 @@ describe('POST /api/meals/[id]/image', () => {
     expect(response.headers.get('Retry-After')).toBe('60')
     expect(row().imageStatus).toBe('none')
   })
+})
+
+describe('GET /api/meals/[id]/image', () => {
+  const get = () =>
+    GET(new Request('http://localhost/api/meals/meal-1/image'), {
+      params: Promise.resolve({ id: 'meal-1' }),
+    })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    env.OPENAI_API_KEY = 'sk-test'
+    seedMeal()
+    mockGetSession.mockResolvedValue(session as never)
+    mockGetMembership.mockResolvedValue(membership as never)
+  })
+
+  it('returns 401 without a session', async () => {
+    mockGetSession.mockResolvedValue(null)
+    expect((await get()).status).toBe(401)
+  })
+
+  it('returns 404 for a meal the household cannot see', async () => {
+    db.state.row = null
+    expect((await get()).status).toBe(404)
+  })
+
+  it('returns a ready image', async () => {
+    seedMeal({ imageStatus: 'ready', imageUrl: BLOB_URL })
+
+    const response = await get()
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL })
+  })
+
+  it('returns the { error } shape when the read fails', async () => {
+    vi.mocked(prisma.meal.findFirst).mockRejectedValueOnce(new Error('db down'))
+
+    const response = await get()
+
+    expect(response.status).toBe(500)
+    expect(await response.json()).toHaveProperty('error')
+  })
+
+  it.each(['none', 'generating', 'failed'] as const)(
+    'returns the stored %s status without claiming or generating',
+    async (imageStatus) => {
+      seedMeal({ imageStatus, imageClaimedAt: null })
+
+      const response = await get()
+
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({ status: imageStatus })
+      expect(row().imageStatus).toBe(imageStatus)
+      expect(mockGenerateImage).not.toHaveBeenCalled()
+      expect(mockCheckRateLimit).not.toHaveBeenCalled()
+    },
+  )
 })

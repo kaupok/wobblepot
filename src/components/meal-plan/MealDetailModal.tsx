@@ -14,7 +14,9 @@ import {
 } from '@/components/ui/dialog'
 import { useIngredientAvailability } from '@/hooks/use-ingredient-availability'
 import { useMealTips } from '@/hooks/use-meal-tips'
+import { useMealImage } from '@/hooks/use-meal-image'
 import { MealDetail } from './MealDetail'
+import { MealImage } from './MealImage'
 import { NoteEditor } from './NoteEditor'
 import type { MealStatus } from './StatusSelect'
 import type { MealData, PantryIngredient } from './types'
@@ -77,6 +79,7 @@ export function MealDetailModal({
     hideTips,
     cancelTips,
   } = useMealTips({ planId, entryId })
+  const { status: imageStatus, imageUrl, cancelImage } = useMealImage({ meal, open })
 
   // Sync local state when prop changes
   const effectiveServings = servingOverride ?? householdSize
@@ -146,6 +149,10 @@ export function MealDetailModal({
     () => ({
       resetForSwap: () => {
         cancelTips()
+        // Same trap for the image: its request is keyed by the old meal's id,
+        // so it can never show under the new one, but it should not keep
+        // running for a meal that is no longer on this entry.
+        cancelImage()
         // The sync above only runs while the modal is closed, which is the
         // usual case — the Swap control lives on the card behind this dialog.
         // Resetting here keeps the count right if a swap ever lands while it
@@ -153,7 +160,7 @@ export function MealDetailModal({
         setLocalServings(householdSize)
       },
     }),
-    [cancelTips, householdSize],
+    [cancelTips, cancelImage, householdSize],
   )
 
   return (
@@ -176,6 +183,7 @@ export function MealDetailModal({
         </div>
         <MealDetail
           meal={meal}
+          image={<MealImage mealName={meal.name} status={imageStatus} imageUrl={imageUrl} />}
           householdSize={householdSize}
           status={status}
           servings={localServings}
