@@ -461,5 +461,26 @@ describe('useMealImage', () => {
       expect(result.current.status).toBe('none')
       expect(result.current.imageUrl).toBeNull()
     })
+
+    it('renders the new meal’s payload when the card’s observer created its entry first', () => {
+      // `MealCard` calls `useMealImageFields` before rendering the modal, so on
+      // a swap the new meal's cache entry exists without data by the time this
+      // hook switches keys — which used to throw on `data.status`.
+      const { wrapper } = createQueryWrapper()
+      const swapped: Meal = { ...globalMeal, imageStatus: 'ready', imageUrl: URL_2, imageHue: 30 }
+      const { result, rerender } = renderHook(
+        (props: { meal: Meal }) => {
+          useMealImageFields(props.meal)
+          return useMealImage({ meal: props.meal, open: false })
+        },
+        { wrapper, initialProps: { meal: householdMeal } },
+      )
+
+      rerender({ meal: swapped })
+
+      expect(result.current.status).toBe('ready')
+      expect(result.current.imageUrl).toBe(URL_2)
+      expect(result.current.imageHue).toBe(30)
+    })
   })
 })
