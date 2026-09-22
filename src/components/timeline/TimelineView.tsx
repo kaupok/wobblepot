@@ -116,7 +116,14 @@ export function TimelineView({
     // Build timeline days
     const allDays: TimelineDay[] = []
     const current = new Date(startParsed)
-    let lastPlanned: string | null = null
+    // Filling starts on the first future day with nothing planned, so the fill
+    // bar sits where the planned run from today ends and its range matches its
+    // position. Gaps inside that run (an empty breakfast on a day with a
+    // dinner) are filled per slot, not by the bar (HON-758). Anchoring on the
+    // first unplanned day rather than after the last planned one keeps a
+    // single far-future entry from hiding the bar above a run of empty days.
+    // Null when every day in the window has an entry.
+    let fillStart: string | null = null
 
     while (current <= endParsed) {
       const dateStr = toDateString(current)
@@ -144,9 +151,8 @@ export function TimelineView({
       const existingTypes = new Set(dayEntries.map((e) => e.mealType))
       const emptySlots = expectedTypes.filter((mt) => !existingTypes.has(mt))
 
-      // Track the last future date with anything planned
-      if (!isPast && dayEntries.length > 0) {
-        lastPlanned = dateStr
+      if (!isPast && dayEntries.length === 0 && fillStart === null) {
+        fillStart = dateStr
       }
 
       allDays.push({
@@ -165,18 +171,6 @@ export function TimelineView({
     // Split into past and future (today counts as future)
     const past = allDays.filter((d) => d.isPast && d.entries.length > 0)
     const future = allDays.filter((d) => !d.isPast)
-
-    // Filling starts the day after the last planned day, so the fill bar sits
-    // at the planned/unplanned boundary and its range matches its position.
-    // Gaps inside the planned stretch (an empty breakfast on a day with a
-    // dinner) are filled per slot, not by the bar (HON-758). When the last
-    // planned day is the end of the window there is nothing left to fill.
-    let fillStart: string | null = todayDate
-    if (lastPlanned) {
-      const next = parseLocalDate(lastPlanned)
-      next.setDate(next.getDate() + 1)
-      fillStart = next <= endParsed ? toDateString(next) : null
-    }
 
     return { pastDays: past, futureDays: future, fillStartDate: fillStart }
   }, [entries, todayDate, expectedMealTypes, locale, tDates])

@@ -247,6 +247,26 @@ describe('TimelineView', () => {
       expect(isBefore(bar, screen.getByTestId('day-card-2026-03-29'))).toBe(true)
     })
 
+    it('stays above a run of empty days when only a far-future day is planned', () => {
+      // Only entry is on the last day of the window (today + 14).
+      renderInLocale(<TimelineView {...defaultProps} entries={[entry('2026-04-12')]} />)
+
+      const bar = screen.getByTestId('fill-days')
+      expect(bar).toHaveTextContent('Fill from 2026-03-29')
+      expect(isBefore(bar, screen.getByTestId('day-card-2026-03-29'))).toBe(true)
+    })
+
+    it('anchors at the end of the planned run from today, not after a later isolated entry', () => {
+      const entries = [entry('2026-03-29'), entry('2026-03-30'), entry('2026-04-08')]
+
+      renderInLocale(<TimelineView {...defaultProps} entries={entries} />)
+
+      const bar = screen.getByTestId('fill-days')
+      expect(bar).toHaveTextContent('Fill from 2026-03-31')
+      expect(isBefore(screen.getByTestId('day-card-2026-03-30'), bar)).toBe(true)
+      expect(isBefore(bar, screen.getByTestId('day-card-2026-03-31'))).toBe(true)
+    })
+
     it('hides when every day in the window has an entry but slots are still empty', () => {
       // Today + 14 days = 15 days, each with dinner only; breakfasts stay empty.
       const entries = futureDates(15).map((date) => entry(date))
