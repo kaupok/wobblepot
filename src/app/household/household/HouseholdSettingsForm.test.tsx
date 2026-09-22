@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { toast } from 'sonner'
 import type { ReactNode } from 'react'
+import { renderToString } from 'react-dom/server'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NextIntlClientProvider } from 'next-intl'
 import enMessages from '../../../../messages/en.json'
 import { HouseholdSettingsForm } from './HouseholdSettingsForm'
@@ -347,11 +349,84 @@ describe('HouseholdSettingsForm', () => {
       expect(timezoneTrigger).toHaveTextContent('Europe/Tallinn')
     })
 
+    it('updates the timezone trigger and saves the new zone', async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
+      renderForm()
+
+      const timezoneTrigger = screen.getByRole('combobox', { name: /timezone/i })
+      await userEvent.click(timezoneTrigger)
+      await userEvent.click(screen.getByRole('option', { name: 'America/New York' }))
+
+      expect(timezoneTrigger).toHaveTextContent('America/New York')
+
+      await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledWith(
+          '/api/households/me',
+          expect.objectContaining({
+            body: JSON.stringify({
+              name: 'Test Household',
+              timezone: 'America/New_York',
+              locale: 'en',
+            }),
+          }),
+        )
+      })
+    })
+
+    it('updates the language trigger and saves the new locale', async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
+      renderForm()
+
+      const localeTrigger = screen.getByRole('combobox', { name: /language/i })
+      expect(localeTrigger).toHaveTextContent('English')
+      await userEvent.click(localeTrigger)
+      await userEvent.click(screen.getByRole('option', { name: 'Estonian' }))
+
+      expect(localeTrigger).toHaveTextContent('Estonian')
+
+      await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledWith(
+          '/api/households/me',
+          expect.objectContaining({
+            body: JSON.stringify({
+              name: 'Test Household',
+              timezone: 'Europe/Tallinn',
+              locale: 'et',
+            }),
+          }),
+        )
+      })
+    })
+
     it('disables timezone select for non-owners', () => {
       renderForm({ isOwner: false })
 
       const timezoneTrigger = screen.getByRole('combobox', { name: /timezone/i })
       expect(timezoneTrigger).toBeDisabled()
+    })
+  })
+
+  // Radix only mirrors a selected item's text into a childless SelectValue
+  // after mount, so the server HTML used to carry empty triggers (HON-761).
+  describe('server render', () => {
+    it('includes the timezone and language values inside their triggers', () => {
+      const html = renderToString(
+        <NextIntlClientProvider locale="en" messages={enMessages}>
+          <QueryClientProvider client={new QueryClient()}>
+            <HouseholdSettingsForm
+              household={defaultHousehold}
+              preferences={defaultPreferences}
+              isOwner
+            />
+          </QueryClientProvider>
+        </NextIntlClientProvider>,
+      )
+      const doc = new DOMParser().parseFromString(html, 'text/html')
+
+      expect(doc.getElementById('timezone')?.textContent).toContain('Europe/Tallinn')
+      expect(doc.getElementById('locale')?.textContent).toContain('English')
     })
   })
 

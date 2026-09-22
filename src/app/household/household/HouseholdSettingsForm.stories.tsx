@@ -48,9 +48,18 @@ export const Default: Story = {
     docs: {
       description: {
         story:
-          'Standard household on the default English locale. Both English and Estonian are selectable.',
+          'Standard household on the default English locale. Both English and Estonian are selectable. The play function checks that both select triggers carry their value text from the first render, not only after Radix mounts the options (HON-761).',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // No waitFor: the value text must be there synchronously, not only after
+    // Radix mirrors it from the mounted items (HON-761).
+    await expect(canvas.getByRole('combobox', { name: /timezone/i })).toHaveTextContent(
+      'Europe/Tallinn',
+    )
+    await expect(canvas.getByRole('combobox', { name: 'Language' })).toHaveTextContent('English')
   },
 }
 
@@ -76,6 +85,10 @@ export const EstonianHousehold: Story = {
           'Household whose persisted `locale` is Estonian — selector trigger reflects the current value and both options remain selectable.',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('combobox', { name: 'Language' })).toHaveTextContent('Estonian')
   },
 }
 
