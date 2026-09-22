@@ -511,6 +511,11 @@
       "save": "Salvesta toit",
       "saving": "Salvestan…",
       "editDetails": "Muuda üksikasju",
+      "saveBlocked": {
+        "unmatched": "Salvestamiseks sobita või eemalda {count, plural, one {# koostisosa} other {# koostisosa}}",
+        "lowConfidence": "Salvestamiseks kinnita {count, plural, one {# koostisosa} other {# koostisosa}}",
+        "both": "Salvestamiseks sobita või eemalda {unmatched, plural, one {# koostisosa} other {# koostisosa}} ja kinnita {lowConfidence}"
+      },
       "errors": {
         "saveFailed": "Toidu salvestamine ebaõnnestus",
         "generic": "Tekkis viga"

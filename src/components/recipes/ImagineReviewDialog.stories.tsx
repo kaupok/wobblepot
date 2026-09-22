@@ -186,6 +186,73 @@ export const SaveDisabledWhenUnresolved: Story = {
     const saveButton = await body.findByRole('button', { name: /^save meal$/i })
     await expect(saveButton).toBeDisabled()
     await expect(args.onSaved).not.toHaveBeenCalled()
+
+    // The disabled state states its reason, wired to the button for screen readers.
+    const reason = body.getByText('Match or drop 1 ingredient to save')
+    await expect(saveButton).toHaveAttribute('aria-describedby', reason.id)
+    await expect(saveButton).toHaveAccessibleDescription('Match or drop 1 ingredient to save')
+
+    // Dropping the last unresolved row enables Save and removes the reason.
+    await userEvent.click(body.getByRole('button', { name: /^drop$/i }))
+    await waitFor(() => expect(saveButton).toBeEnabled())
+    await expect(body.queryByText(/to save$/)).not.toBeInTheDocument()
+    await expect(saveButton).not.toHaveAttribute('aria-describedby')
+  },
+}
+
+// Storybook defaults to a mobile viewport, where the footer is a column anyway.
+// From `sm` up, `DialogFooter`'s `sm:flex-row` once put the full-width Save beside
+// "Edit details" and pushed it out through the dialog's left padding (HON-759).
+export const DesktopWithUnresolvedIngredients: Story = {
+  args: {
+    meal: createReviewMealData({
+      prefilledIngredients: [
+        createMatchedPrefilledIngredient({ convertedQuantity: 600 }),
+        createUnmatchedPrefilledIngredient(),
+        createUnmatchedPrefilledIngredient({ extractedName: 'yuzu', originalText: '1 yuzu' }),
+        createLowConfidencePrefilledIngredient(),
+      ],
+    }),
+  },
+  globals: {
+    viewport: { value: 'desktop', isRotated: false },
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Desktop width with unmatched and low-confidence rows. Save spans the footer inside the dialog padding, the reason line sits below it, and "Edit details" is centred beneath on one line.',
+      },
+    },
+  },
+  play: async () => {
+    const body = within(document.body)
+    const dialog = await body.findByRole('dialog')
+    const saveButton = await body.findByRole('button', { name: /^save meal$/i })
+    await expect(saveButton).toHaveAccessibleDescription(
+      'Match or drop 2 ingredients and confirm 1 to save',
+    )
+
+    // The open animation scales the dialog; measure its settled geometry.
+    await Promise.all(dialog.getAnimations().map((animation) => animation.finished))
+    await expect(dialog.scrollWidth).toBe(dialog.clientWidth)
+
+    const style = getComputedStyle(dialog)
+    const box = dialog.getBoundingClientRect()
+    const contentLeft = box.left + dialog.clientLeft + parseFloat(style.paddingLeft)
+    const contentRight =
+      box.left + dialog.clientLeft + dialog.clientWidth - parseFloat(style.paddingRight)
+    const save = saveButton.getBoundingClientRect()
+    await expect(save.left).toBeGreaterThanOrEqual(contentLeft - 0.5)
+    await expect(save.right).toBeLessThanOrEqual(contentRight + 0.5)
+
+    // "Edit details" sits below Save, on a single line.
+    const editDetails = body.getByRole('button', { name: /^edit details$/i })
+    const edit = editDetails.getBoundingClientRect()
+    await expect(edit.top).toBeGreaterThanOrEqual(save.bottom)
+    await expect(edit.height).toBeLessThan(
+      parseFloat(getComputedStyle(editDetails).lineHeight) * 1.5,
+    )
   },
 }
 

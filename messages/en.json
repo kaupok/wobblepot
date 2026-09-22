@@ -511,6 +511,11 @@
       "save": "Save meal",
       "saving": "Saving…",
       "editDetails": "Edit details",
+      "saveBlocked": {
+        "unmatched": "Match or drop {count, plural, one {# ingredient} other {# ingredients}} to save",
+        "lowConfidence": "Confirm {count, plural, one {# ingredient} other {# ingredients}} to save",
+        "both": "Match or drop {unmatched, plural, one {# ingredient} other {# ingredients}} and confirm {lowConfidence} to save"
+      },
       "errors": {
         "saveFailed": "Failed to save meal",
         "generic": "An error occurred"
