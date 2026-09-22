@@ -317,7 +317,7 @@ export function renderContactSheet(
   .grid .card { width: auto }
   .card.light { background: oklch(var(--l-light) var(--c-light) var(--hue)); color: oklch(0.25 0.03 var(--hue)) }
   .card.dark  { background: oklch(var(--l-dark)  var(--c-dark)  var(--hue)); color: oklch(0.95 0.02 var(--hue)) }
-  .card img { position: absolute; top: 0; right: 0; height: 100%; width: calc(var(--img-w) * 1%); display: block;
+  .card img { position: absolute; top: 0; right: 0; height: 100%; width: calc(var(--img-w) * 1%); display: block; object-fit: cover;
     mask-image: linear-gradient(to right, transparent 0%, #000 calc(var(--fade) * 100%));
     -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 calc(var(--fade) * 100%)); }
   .card .text { position: absolute; left: 16px; bottom: 14px; right: 40% }
