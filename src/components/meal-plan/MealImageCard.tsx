@@ -59,28 +59,28 @@ export function MealImageCard({ meal, className, style, children, ...props }: Me
 
   // A URL that no longer resolves is an absent image: the card goes neutral
   // rather than keeping a tint with nothing to explain it. Errors are silent.
-  if (hue === null || !imageUrl || imageUrl === brokenUrl) {
-    return (
-      <Card className={className} style={style} {...props}>
-        {children}
-      </Card>
-    )
-  }
+  const tinted = hue !== null && !!imageUrl && imageUrl !== brokenUrl
 
+  // One tree for both states, with the image in a slot of its own ahead of
+  // the content: the tint can switch on mid-session (an image generated from
+  // the detail modal), and moving `children` to a different position would
+  // remount the whole card — including the trigger the modal returns focus to.
   return (
     <Card
-      data-meal-surface=""
-      className={cn('relative isolate overflow-hidden', className)}
+      data-meal-surface={tinted ? '' : undefined}
+      className={cn(tinted && 'relative isolate overflow-hidden', className)}
       // eslint-disable-next-line shadcn/no-inline-styles -- --meal-hue is the one per-meal value (docs/DESIGN.md → Imagery); every colour is derived from it by [data-meal-surface] in globals.css.
-      style={{ ...style, ...mealHueStyle(hue) }}
+      style={tinted ? { ...style, ...mealHueStyle(hue) } : style}
       {...props}
     >
-      <CardImage
-        key={imageUrl}
-        src={imageUrl}
-        alt={meal.name}
-        onError={() => setBrokenUrl(imageUrl)}
-      />
+      {tinted ? (
+        <CardImage
+          key={imageUrl}
+          src={imageUrl}
+          alt={meal.name}
+          onError={() => setBrokenUrl(imageUrl)}
+        />
+      ) : null}
       {children}
     </Card>
   )

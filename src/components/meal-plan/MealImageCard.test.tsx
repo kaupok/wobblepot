@@ -82,4 +82,25 @@ describe('MealImageCard', () => {
     expect(card.style.getPropertyValue('--meal-hue')).toBe('')
     expect(card).not.toHaveClass('isolate')
   })
+
+  it('keeps the content mounted when the tint switches on', () => {
+    const plain = { name: 'Lemon garlic chicken', imageStatus: 'none' as const }
+    const { rerender } = render(
+      <MealImageCard meal={plain}>
+        <button type="button">Lemon garlic chicken</button>
+      </MealImageCard>,
+    )
+    const trigger = screen.getByRole('button')
+
+    rerender(
+      <MealImageCard meal={{ ...plain, imageStatus: 'ready', imageUrl: URL, imageHue: 40 }}>
+        <button type="button">Lemon garlic chicken</button>
+      </MealImageCard>,
+    )
+
+    // The same node, not a remount: focus restore on modal close targets it.
+    expect(screen.getByRole('button')).toBe(trigger)
+    expect(trigger.isConnected).toBe(true)
+    expect(screen.getByTestId('meal-card-image')).toBeInTheDocument()
+  })
 })
