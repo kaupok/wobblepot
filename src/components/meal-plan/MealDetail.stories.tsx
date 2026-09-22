@@ -35,8 +35,10 @@ const meta = {
     householdSize: 4,
   },
   decorators: [
+    // `p-6` and clipping like `DialogContent`: the hero bleeds through that
+    // padding (HON-752).
     (Story) => (
-      <div className="max-w-3xl rounded-lg border p-4">
+      <div className="max-w-3xl overflow-hidden rounded-lg border p-6">
         <Story />
       </div>
     ),
