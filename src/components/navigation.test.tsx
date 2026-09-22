@@ -1,6 +1,50 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+import { usePathname } from 'next/navigation'
 import { NavigationLeft, NavigationRight } from './navigation'
+
+vi.mock('next/navigation', () => ({
+  usePathname: vi.fn(() => '/'),
+}))
+
+function renderBoth() {
+  return render(
+    <>
+      <NavigationLeft isAuthenticated={true} hasHousehold={true} />
+      <NavigationRight isAuthenticated={true} hasHousehold={true} />
+    </>,
+  )
+}
+
+describe('active page', () => {
+  it.each([
+    ['/', 'Today'],
+    ['/shopping', 'Pantry & shopping'],
+    ['/recipes', 'My recipes'],
+    ['/recipes/imagine', 'My recipes'],
+    ['/household', 'Household'],
+  ])('marks exactly one link as current on %s', (pathname, expected) => {
+    vi.mocked(usePathname).mockReturnValue(pathname)
+    renderBoth()
+
+    const current = screen
+      .getAllByRole('link')
+      .filter((link) => link.getAttribute('aria-current') === 'page')
+    expect(current).toHaveLength(1)
+    expect(current[0]).toHaveAccessibleName(expected)
+    expect(current[0]).toHaveClass('text-foreground', 'underline')
+  })
+
+  it('styles inactive links as muted with no aria-current', () => {
+    vi.mocked(usePathname).mockReturnValue('/shopping')
+    renderBoth()
+
+    const today = screen.getByRole('link', { name: 'Today' })
+    expect(today).not.toHaveAttribute('aria-current')
+    expect(today).toHaveClass('text-muted-foreground')
+    expect(today).not.toHaveClass('underline')
+  })
+})
 
 describe('NavigationLeft', () => {
   it('renders nav links when authenticated and has household', () => {

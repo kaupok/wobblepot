@@ -1,11 +1,39 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { isNavItemActive } from '@/lib/navigation'
+import { cn } from '@/lib/utils'
 
 interface NavigationProps {
   isAuthenticated: boolean
   hasHousehold: boolean
+}
+
+/**
+ * A header link that marks the current page. The underline is the non-colour
+ * cue DESIGN.md asks for; `aria-current` carries the same signal to assistive
+ * tech. Active-route matching is shared with `BottomTabBar`.
+ */
+function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+  const pathname = usePathname()
+  const isActive = isNavItemActive(href, pathname)
+
+  return (
+    <Link
+      href={href}
+      aria-current={isActive ? 'page' : undefined}
+      className={cn(
+        'text-sm font-medium transition-colors',
+        isActive
+          ? 'text-foreground underline decoration-2 underline-offset-8'
+          : 'text-muted-foreground hover:text-primary',
+      )}
+    >
+      {children}
+    </Link>
+  )
 }
 
 /**
@@ -19,12 +47,8 @@ export function NavigationLeft({ isAuthenticated, hasHousehold }: NavigationProp
 
   return (
     <nav aria-label={t('ariaLabel')} className="hidden items-center gap-6 md:flex">
-      <Link href="/" className="hover:text-primary text-sm font-medium transition-colors">
-        {t('today')}
-      </Link>
-      <Link href="/shopping" className="hover:text-primary text-sm font-medium transition-colors">
-        {t('pantryAndShopping')}
-      </Link>
+      <NavLink href="/">{t('today')}</NavLink>
+      <NavLink href="/shopping">{t('pantryAndShopping')}</NavLink>
     </nav>
   )
 }
@@ -40,12 +64,8 @@ export function NavigationRight({ isAuthenticated, hasHousehold }: NavigationPro
 
   return (
     <nav aria-label={t('ariaLabel')} className="hidden items-center gap-6 md:flex">
-      <Link href="/recipes" className="hover:text-primary text-sm font-medium transition-colors">
-        {t('myRecipes')}
-      </Link>
-      <Link href="/household" className="hover:text-primary text-sm font-medium transition-colors">
-        {t('household')}
-      </Link>
+      <NavLink href="/recipes">{t('myRecipes')}</NavLink>
+      <NavLink href="/household">{t('household')}</NavLink>
     </nav>
   )
 }

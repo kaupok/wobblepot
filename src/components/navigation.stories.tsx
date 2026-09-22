@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { expect, within } from 'storybook/test'
 import { NavigationLeft, NavigationRight } from './navigation'
 
 const meta = {
@@ -10,7 +11,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Desktop top-nav link groups rendered inside the `Header`. `NavigationLeft` covers daily operational views (Today, Pantry & shopping); `NavigationRight` covers configuration (My recipes, Household). Both render `null` when not authenticated or no household — the desktop nav only exists after onboarding.',
+          'Desktop top-nav link groups rendered inside the `Header`. `NavigationLeft` covers daily operational views (Today, Pantry & shopping); `NavigationRight` covers configuration (My recipes, Household). The link for the current route is underlined and carries `aria-current="page"`, using the same `isNavItemActive` rule as `BottomTabBar`. Both render `null` when not authenticated or no household — the desktop nav only exists after onboarding.',
       },
     },
   },
@@ -28,17 +29,20 @@ type Story = StoryObj<typeof meta>
 
 export const LeftWithHousehold: Story = {
   args: { isAuthenticated: true, hasHousehold: true },
+  parameters: { nextjs: { navigation: { pathname: '/' } } },
   render: (args) => <NavigationLeft {...args} />,
 }
 
 export const RightWithHousehold: Story = {
   args: { isAuthenticated: true, hasHousehold: true },
+  parameters: { nextjs: { navigation: { pathname: '/household' } } },
   render: (args) => <NavigationRight {...args} />,
 }
 
 export const BothAllVariants: Story = {
   args: { isAuthenticated: true, hasHousehold: true },
   parameters: {
+    nextjs: { navigation: { pathname: '/' } },
     docs: {
       description: {
         story:
@@ -53,6 +57,40 @@ export const BothAllVariants: Story = {
     </div>
   ),
 }
+
+function bothGroups(args: Story['args']) {
+  return (
+    <div className="flex items-center justify-between gap-8">
+      <NavigationLeft {...args} />
+      <NavigationRight {...args} />
+    </div>
+  )
+}
+
+const activeStory = (pathname: string, label: string): Story => ({
+  args: { isAuthenticated: true, hasHousehold: true },
+  parameters: {
+    nextjs: { navigation: { pathname } },
+    docs: {
+      description: {
+        story: `On \`${pathname}\`, "${label}" is the current page: foreground colour, an underline, and \`aria-current="page"\`. Every other link stays muted.`,
+      },
+    },
+  },
+  render: (args) => bothGroups(args),
+  play: async ({ canvasElement }) => {
+    const current = within(canvasElement)
+      .getAllByRole('link')
+      .filter((link) => link.getAttribute('aria-current') === 'page')
+    await expect(current).toHaveLength(1)
+    await expect(current[0]).toHaveAccessibleName(label)
+  },
+})
+
+export const ActiveToday: Story = activeStory('/', 'Today')
+export const ActiveShopping: Story = activeStory('/shopping', 'Pantry & shopping')
+export const ActiveRecipesSubRoute: Story = activeStory('/recipes/imagine', 'My recipes')
+export const ActiveHousehold: Story = activeStory('/household', 'Household')
 
 export const HiddenWhenLoggedOut: Story = {
   args: { isAuthenticated: false, hasHousehold: false },

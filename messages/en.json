@@ -141,8 +141,7 @@
     "summaryToday": "{count} for today",
     "summaryTomorrow": "{count} for tomorrow",
     "summaryNeed": "Need {parts}",
-    "purchasedCollapse": "{count, plural, one {# item purchased} other {# items purchased}}",
-    "backToPlan": "Back to plan"
+    "purchasedCollapse": "{count, plural, one {# item purchased} other {# items purchased}}"
   },
   "meal-plan": {
     "generating": {

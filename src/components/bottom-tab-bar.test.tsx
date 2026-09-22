@@ -78,6 +78,8 @@ describe('BottomTabBar', () => {
 
     expect(todayLink).toHaveClass('text-muted-foreground')
     expect(shoppingLink).toHaveClass('text-primary')
+    expect(shoppingLink).toHaveAttribute('aria-current', 'page')
+    expect(todayLink).not.toHaveAttribute('aria-current')
   })
 
   it('highlights tab for nested routes using startsWith', async () => {

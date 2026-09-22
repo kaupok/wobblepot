@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { BookOpen, Home, ShoppingCart, Users } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { Session } from '@/lib/auth'
+import { isNavItemActive } from '@/lib/navigation'
 
 const tabs = [
   { key: 'today', icon: Home, href: '/' },
@@ -31,12 +32,13 @@ export function BottomTabBar({ session, hasHousehold }: BottomTabBarProps) {
     >
       <div className="flex h-16 items-center justify-around">
         {tabs.map(({ key, icon: Icon, href }) => {
-          const isActive = href === '/' ? pathname === '/' : pathname.startsWith(href)
+          const isActive = isNavItemActive(href, pathname)
 
           return (
             <Link
               key={href}
               href={href}
+              aria-current={isActive ? 'page' : undefined}
               className={`flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors ${
                 isActive ? 'text-primary' : 'text-muted-foreground'
               }`}

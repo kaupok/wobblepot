@@ -1,12 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useTranslations } from 'next-intl'
-import { ArrowLeft } from 'lucide-react'
 import type { IngredientCategory } from '@/generated/prisma/enums'
-import { Button } from '@/components/ui/button'
 import { PantrySection } from './PantrySection'
 import { ShoppingSection } from './ShoppingSection'
 import { ShoppingEmptyState, type ShoppingEmptyStateVariant } from './ShoppingEmptyState'
@@ -56,7 +52,6 @@ export function InventoryPage({
   // visit and exactly once, so the reconcile reaches the header-less states
   // (`no-plan`, `error`) and can never fire twice.
   useWindowReconcile(windowDays ?? 7, windowDaysFromUrl)
-  const tToday = useTranslations('today')
   const [isMobile, setIsMobile] = useState(false)
   const [pantryItems, setPantryItems] = useState<PantryItemData[]>(initialPantryItems)
   const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(new Set())
@@ -115,15 +110,6 @@ export function InventoryPage({
 
   return (
     <div className="container mx-auto max-w-6xl p-4">
-      <div className="mb-4 flex items-center justify-between md:hidden">
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/meal-plan">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            {tToday('backToPlan')}
-          </Link>
-        </Button>
-      </div>
-
       <div className="grid gap-6 md:grid-cols-2">
         {/* Pantry section - on mobile it's collapsible and comes second, on desktop it's first */}
         <div className="order-2 md:order-1">
