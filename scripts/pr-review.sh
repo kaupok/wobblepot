@@ -20,7 +20,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-MODEL="${CLAUDE_REVIEW_MODEL:-claude-opus-5}"
+MODEL="${CLAUDE_REVIEW_MODEL:-claude-opus-5-5}"
 
 # ─── Colors ───────────────────────────────────────────────────────────────────
 
