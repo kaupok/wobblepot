@@ -51,7 +51,10 @@ export const Loading: Story = {
   args: { isLoading: true },
   parameters: {
     docs: {
-      description: { story: 'Three skeleton cards stand in for the grid. No header is rendered.' },
+      description: {
+        story:
+          'Three skeleton cards stand in for the grid, each with the 3:2 image block an illustrated alternative has above Select. No header is rendered.',
+      },
     },
   },
 }

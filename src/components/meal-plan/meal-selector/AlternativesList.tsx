@@ -8,11 +8,18 @@ import { Body } from '@/components/ui/typography'
 import { AlternativeCard } from '../AlternativeCard'
 import type { AlternativeMeal, PantryIngredient } from '../types'
 
-/** Placeholder card matching `AlternativeCard`'s footprint while meals load. */
-export function AlternativeSkeleton() {
+/**
+ * Placeholder card matching `AlternativeCard`'s footprint while meals load.
+ *
+ * `withImage` adds the 3:2 block an illustrated alternative has between its
+ * content and the Select button (`layout="bottom"`, HON-750), so the grid does
+ * not grow ~200px per row when the meals land. Imagine drafts have no image,
+ * so `ImaginePanel` leaves it off.
+ */
+export function AlternativeSkeleton({ withImage = false }: { withImage?: boolean }) {
   return (
     <Card className="flex h-full flex-col">
-      <CardContent className="flex flex-col gap-3 pt-6">
+      <CardContent className="flex flex-1 flex-col gap-3 pt-6">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-5 w-32" />
           <Skeleton className="h-5 w-24" />
@@ -25,8 +32,11 @@ export function AlternativeSkeleton() {
           <Skeleton className="ml-4 h-4 w-16" />
           <Skeleton className="ml-4 h-4 w-22" />
         </div>
-        <Skeleton className="h-touch mt-auto w-full md:h-10" />
       </CardContent>
+      {withImage ? <Skeleton className="aspect-3/2 w-full shrink-0 rounded-none" /> : null}
+      <div className="px-6">
+        <Skeleton className="h-touch w-full md:h-10" />
+      </div>
     </Card>
   )
 }
@@ -80,9 +90,9 @@ export function AlternativesList({
   if (isLoading) {
     return (
       <div className="grid gap-4 md:grid-cols-3">
-        <AlternativeSkeleton />
-        <AlternativeSkeleton />
-        <AlternativeSkeleton />
+        <AlternativeSkeleton withImage />
+        <AlternativeSkeleton withImage />
+        <AlternativeSkeleton withImage />
       </div>
     )
   }
