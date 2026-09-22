@@ -335,7 +335,7 @@ export function renderContactSheet(
   :root {
     --l-light: 0.95; --c-light: 0.035;
     --l-dark: 0.26; --c-dark: 0.04;
-    --fade: 0.55; --accent-c: 0.12; --img-w: 62; --img-scale: 1; --vignette: 0;
+    --fade: 0.55; --accent-c: 0.12; --img-w: 62;
     font-family: system-ui, sans-serif; color: #222; background: #f4f4f2;
   }
   body { margin: 0; padding: 24px; }
@@ -365,14 +365,8 @@ export function renderContactSheet(
   .card.light { background: oklch(var(--l-light) var(--c-light) var(--hue)); color: oklch(0.25 0.03 var(--hue)) }
   .card.dark  { background: oklch(var(--l-dark)  var(--c-dark)  var(--hue)); color: oklch(0.95 0.02 var(--hue)) }
   .card img { position: absolute; top: 0; right: 0; height: 100%; width: calc(var(--img-w) * 1%); display: block; object-fit: cover;
-    transform: scale(var(--img-scale)); transform-origin: 50% 50%;
-    /* Left-to-right fade into the card, intersected with an elliptical vignette so the
-       tabletop dissolves on every edge. vignette 0 = no edge fade. */
-    mask-image: linear-gradient(to right, transparent 0%, #000 calc(var(--fade) * 100%)),
-      radial-gradient(ellipse 50% 50% at 50% 50%, #000 calc((1 - var(--vignette)) * 100%), transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 calc(var(--fade) * 100%)),
-      radial-gradient(ellipse 50% 50% at 50% 50%, #000 calc((1 - var(--vignette)) * 100%), transparent 100%);
-    mask-composite: intersect; -webkit-mask-composite: source-in; }
+    mask-image: linear-gradient(to right, transparent 0%, #000 calc(var(--fade) * 100%));
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 calc(var(--fade) * 100%)); }
   .card .text { position: absolute; left: 16px; bottom: 14px; right: 40% }
   .card .title { font-weight: 600; font-size: 16px; line-height: 1.2 }
   .card .meta { font-size: 12px; opacity: .75; margin-top: 2px }
@@ -400,8 +394,6 @@ export function renderContactSheet(
   <label>fade <input type="range" min="0.1" max="1" step="0.05" name="fade" value="0.55"><output></output></label>
   <label>image width % <input type="range" min="40" max="100" step="2" name="img-w" value="62"><output></output></label>
   <label>accent C <input type="range" min="0" max="0.2" step="0.01" name="accent-c" value="0.12"><output></output></label>
-  <label>image scale <input type="range" min="0.6" max="1.1" step="0.02" name="img-scale" value="1"><output></output></label>
-  <label>vignette <input type="range" min="0" max="0.8" step="0.05" name="vignette" value="0"><output></output></label>
   <pre id="tokens" style="margin:0;font-size:11px;align-self:center"></pre>
 </form>
 <script>
