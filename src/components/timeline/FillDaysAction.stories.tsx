@@ -16,7 +16,7 @@ const meta = {
   parameters: { layout: 'padded' },
   args: {
     planId: 'plan-1',
-    firstEmptyDate: '2026-04-16',
+    startDate: '2026-04-16',
   },
   decorators: [
     (Story) => (

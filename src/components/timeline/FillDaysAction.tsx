@@ -37,10 +37,10 @@ const DAY_OPTION_VALUES = ['3', '5', '7', '14'] as const
 
 interface FillDaysActionProps {
   planId: string
-  firstEmptyDate: string // YYYY-MM-DD
+  startDate: string // YYYY-MM-DD, first day of the fill range
 }
 
-export function FillDaysAction({ planId, firstEmptyDate }: FillDaysActionProps) {
+export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
   const router = useRouter()
   const dropSuggestionCache = useDropPlanSuggestions(planId)
   const locale = useLocale() as Locale
@@ -51,12 +51,12 @@ export function FillDaysAction({ planId, firstEmptyDate }: FillDaysActionProps) 
   const [error, setError] = useState<string | null>(null)
 
   const dateRangeLabel = useMemo(() => {
-    const start = parseLocalDate(firstEmptyDate)
-    const endExclusive = parseLocalDate(computeEndDate(firstEmptyDate, Number(days)))
+    const start = parseLocalDate(startDate)
+    const endExclusive = parseLocalDate(computeEndDate(startDate, Number(days)))
     const endInclusive = new Date(endExclusive)
     endInclusive.setDate(endInclusive.getDate() - 1)
     return formatDateRange(start, endInclusive, locale)
-  }, [firstEmptyDate, days, locale])
+  }, [startDate, days, locale])
 
   async function handleFill() {
     setIsGenerating(true)
@@ -66,14 +66,14 @@ export function FillDaysAction({ planId, firstEmptyDate }: FillDaysActionProps) 
     const timeoutId = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS)
 
     try {
-      const endDate = computeEndDate(firstEmptyDate, Number(days))
+      const endDate = computeEndDate(startDate, Number(days))
       const response = await fetch('/api/meal-plans/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mode: 'fill-empty',
           planId,
-          startDate: firstEmptyDate,
+          startDate,
           endDate,
         }),
         signal: controller.signal,

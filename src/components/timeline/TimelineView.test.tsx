@@ -47,8 +47,8 @@ vi.mock('./TimelinePastSection', async (importOriginal) => ({
 }))
 
 vi.mock('./FillDaysAction', () => ({
-  FillDaysAction: vi.fn(({ firstEmptyDate }) => (
-    <div data-testid="fill-days">Fill from {firstEmptyDate}</div>
+  FillDaysAction: vi.fn(({ startDate }) => (
+    <div data-testid="fill-days">Fill from {startDate}</div>
   )),
 }))
 
@@ -173,6 +173,111 @@ describe('TimelineView', () => {
 
     // No empty future slots, so fill days action should be hidden
     expect(screen.queryByTestId('fill-days')).not.toBeInTheDocument()
+  })
+
+  describe('fill bar placement', () => {
+    const breakfastAndDinner = {
+      weekdayMealTypes: ['breakfast', 'dinner'],
+      weekendMealTypes: ['breakfast', 'dinner'],
+    } as ExpectedMealTypes
+
+    function entry(date: string, mealType: PlanEntry['mealType'] = 'dinner'): PlanEntry {
+      return {
+        id: `e-${date}-${mealType}`,
+        date,
+        mealType,
+        status: 'planned',
+        rating: null,
+        meal: {
+          id: `m-${date}-${mealType}`,
+          name: `Meal ${date}`,
+          kidFriendly: true,
+          components: [],
+          nutrition: { calories: 500, protein: 30, carbs: 50, fat: 15 },
+        },
+        preparationTips: null,
+        note: null,
+        servingOverride: null,
+      }
+    }
+
+    // Consecutive dates from 2026-03-29 (today) onward.
+    function futureDates(count: number): string[] {
+      return Array.from({ length: count }, (_, i) => {
+        const date = new Date(2026, 2, 29 + i)
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+      })
+    }
+
+    function isBefore(a: HTMLElement, b: HTMLElement) {
+      return Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    }
+
+    it('anchors after the last planned day when earlier days have empty slots', () => {
+      // Today has breakfast + dinner; dinners through Thu Apr 2; breakfasts empty after today.
+      const entries = [
+        entry('2026-03-29', 'breakfast'),
+        ...futureDates(5).map((date) => entry(date)),
+      ]
+
+      renderInLocale(
+        <TimelineView {...defaultProps} expectedMealTypes={breakfastAndDinner} entries={entries} />,
+      )
+
+      const bar = screen.getByTestId('fill-days')
+      expect(bar).toHaveTextContent('Fill from 2026-04-03')
+      expect(isBefore(screen.getByTestId('day-card-2026-04-02'), bar)).toBe(true)
+      expect(isBefore(bar, screen.getByTestId('day-card-2026-04-03'))).toBe(true)
+    })
+
+    it('anchors after Today when Today is the last planned day', () => {
+      renderInLocale(<TimelineView {...defaultProps} entries={[entry('2026-03-29')]} />)
+
+      const bar = screen.getByTestId('fill-days')
+      expect(bar).toHaveTextContent('Fill from 2026-03-30')
+      expect(isBefore(screen.getByTestId('day-card-2026-03-29'), bar)).toBe(true)
+      expect(isBefore(bar, screen.getByTestId('day-card-2026-03-30'))).toBe(true)
+    })
+
+    it('sits above Today and starts today when no future day has an entry', () => {
+      renderInLocale(<TimelineView {...defaultProps} entries={[entry('2026-03-27')]} />)
+
+      const bar = screen.getByTestId('fill-days')
+      expect(bar).toHaveTextContent('Fill from 2026-03-29')
+      expect(isBefore(bar, screen.getByTestId('day-card-2026-03-29'))).toBe(true)
+    })
+
+    it('stays above a run of empty days when only a far-future day is planned', () => {
+      // Only entry is on the last day of the window (today + 14).
+      renderInLocale(<TimelineView {...defaultProps} entries={[entry('2026-04-12')]} />)
+
+      const bar = screen.getByTestId('fill-days')
+      expect(bar).toHaveTextContent('Fill from 2026-03-29')
+      expect(isBefore(bar, screen.getByTestId('day-card-2026-03-29'))).toBe(true)
+    })
+
+    it('anchors at the end of the planned run from today, not after a later isolated entry', () => {
+      const entries = [entry('2026-03-29'), entry('2026-03-30'), entry('2026-04-08')]
+
+      renderInLocale(<TimelineView {...defaultProps} entries={entries} />)
+
+      const bar = screen.getByTestId('fill-days')
+      expect(bar).toHaveTextContent('Fill from 2026-03-31')
+      expect(isBefore(screen.getByTestId('day-card-2026-03-30'), bar)).toBe(true)
+      expect(isBefore(bar, screen.getByTestId('day-card-2026-03-31'))).toBe(true)
+    })
+
+    it('hides when every day in the window has an entry but slots are still empty', () => {
+      // Today + 14 days = 15 days, each with dinner only; breakfasts stay empty.
+      const entries = futureDates(15).map((date) => entry(date))
+
+      renderInLocale(
+        <TimelineView {...defaultProps} expectedMealTypes={breakfastAndDinner} entries={entries} />,
+      )
+
+      expect(screen.getByTestId('day-card-2026-04-12')).toHaveTextContent('1 entries, 1 empty')
+      expect(screen.queryByTestId('fill-days')).not.toBeInTheDocument()
+    })
   })
 
   it('separates past and future days correctly', () => {
