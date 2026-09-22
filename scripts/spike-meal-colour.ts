@@ -14,20 +14,51 @@
  *
  * A `background: 'transparent'` redraw was tried first (2026-09-22, $0.60) and
  * rejected: the V3 prompt's tabletop survives as a halo and the shadows look
- * wrong once isolated. The illustrations stay opaque; the fade does the work.
+ * wrong once isolated. The illustrations stay opaque. A CSS scale-and-vignette
+ * was rejected next: the space has to be in the image. So `--draw` redraws a
+ * few meals with candidate V4 composition lines (see PROMPT_VARIANTS) next to
+ * the shipped image, at ~$0.05 each. Needs OPENAI_API_KEY in `.env`, read from
+ * process.env on purpose (see spike-meal-images.ts); one draw at a time, which
+ * stays under the org's five images a minute.
  *
  * Usage: pnpm spike:meal-colour [--source=<run dir>] [--limit=N]
+ *        pnpm spike:meal-colour --draw=v4,v4-fade [--meals=slug,slug] [--limit=N] [--confirm]
  *
  * Output: .temp/spike-meal-colour/<timestamp>/index.html (gitignored)
  */
 
+import 'dotenv/config'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { createOpenAI } from '@ai-sdk/openai'
+import { generateImage } from 'ai'
 import sharp from 'sharp'
+import { PROMPT_SUFFIX } from '../src/lib/meal-images/prompt'
 
 const DEFAULT_SOURCE = '.temp/global-meal-images/2026-09-22T07-01-28-144Z'
 const PREVIEW_WIDTH = 768
+const MODEL = 'gpt-image-2.5-flare'
+const EST_PER_IMAGE_USD = 0.05
+
+/**
+ * Candidate replacements for the V3 suffix's composition clause ("with the
+ * food filling the frame"). Each variant is the shipped prompt with the
+ * suffix swapped, so the only thing that changes is the framing.
+ */
+export const PROMPT_VARIANTS: Record<string, string> = {
+  v4: 'A single dish, landscape 3:2 composition. The plate sits in the centre and takes up about half the width of the frame, with generous empty surface around it on every side. No text, no labels, no logos, no hands, no people.',
+  'v4-fade':
+    'A single dish, landscape 3:2 composition. The plate sits in the centre and takes up about half the width of the frame, with generous empty surface around it on every side; the surface is plain and even and fades softly towards the edges of the frame. No text, no labels, no logos, no hands, no people.',
+}
+
+export function variantPrompt(shipped: string, variant: string): string {
+  const suffix = PROMPT_VARIANTS[variant]
+  if (!suffix) throw new Error(`Unknown prompt variant: ${variant}`)
+  if (!shipped.endsWith(PROMPT_SUFFIX))
+    throw new Error('Shipped prompt does not end with the V3 suffix')
+  return shipped.slice(0, -PROMPT_SUFFIX.length) + suffix
+}
 
 // ============================================
 // INPUT
@@ -48,13 +79,23 @@ interface Manifest {
 export interface ParsedArgs {
   source: string
   limit?: number
+  meals?: string[]
+  draw: string[]
+  confirm: boolean
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
-  const args: ParsedArgs = { source: DEFAULT_SOURCE }
+  const args: ParsedArgs = { source: DEFAULT_SOURCE, draw: [], confirm: false }
   for (const arg of argv) {
     if (arg.startsWith('--source=')) args.source = arg.slice('--source='.length)
-    else if (arg.startsWith('--limit=')) {
+    else if (arg === '--confirm') args.confirm = true
+    else if (arg.startsWith('--meals='))
+      args.meals = arg.slice('--meals='.length).split(',').filter(Boolean)
+    else if (arg.startsWith('--draw=')) {
+      args.draw = arg.slice('--draw='.length).split(',').filter(Boolean)
+      for (const v of args.draw)
+        if (!PROMPT_VARIANTS[v]) throw new Error(`Unknown prompt variant: ${v}`)
+    } else if (arg.startsWith('--limit=')) {
       const n = Number(arg.slice('--limit='.length))
       if (!Number.isInteger(n) || n < 1)
         throw new Error(`--limit must be a positive integer, got ${arg}`)
@@ -214,11 +255,17 @@ export async function extractHue(file: string, options: HueOptions = DEFAULT_HUE
 // CONTACT SHEET
 // ============================================
 
+export interface SheetImage {
+  /** `shipped` for the HON-741 image, otherwise the PROMPT_VARIANTS key. */
+  label: string
+  preview: string
+  hue: HueResult
+}
+
 export interface SheetRow {
   slug: string
   name: string
-  preview: string
-  hue: HueResult
+  images: SheetImage[]
 }
 
 const escape = (s: string) =>
@@ -226,19 +273,19 @@ const escape = (s: string) =>
 
 const fmt = (n: number, digits = 2) => n.toFixed(digits)
 
-function card(row: SheetRow, theme: 'light' | 'dark') {
-  const hue = row.hue.hue ?? 0
-  return `<div class="card ${theme}" style="--hue:${hue}" title="${theme}, hue ${hue}">
-      <img src="${row.preview}" alt="">
+function card(row: SheetRow, image: SheetImage, theme: 'light' | 'dark') {
+  const hue = image.hue.hue ?? 0
+  return `<div class="card ${theme}" style="--hue:${hue}" title="${image.label}, ${theme}, hue ${hue}">
+      <img src="${image.preview}" alt="">
       <div class="text"><div class="title">${escape(row.name)}</div><div class="meta">35 min · 4 servings</div><span class="chip">Dinner</span></div>
     </div>`
 }
 
-function hero(row: SheetRow, theme: 'light' | 'dark') {
-  const hue = row.hue.hue ?? 0
+function hero(row: SheetRow, image: SheetImage, theme: 'light' | 'dark') {
+  const hue = image.hue.hue ?? 0
   return `<div class="hero ${theme}" style="--hue:${hue}">
-      <img src="${row.preview}" alt="">
-      <div class="text"><div class="title">${escape(row.name)}</div><div class="meta">${theme}</div></div>
+      <img src="${image.preview}" alt="">
+      <div class="text"><div class="title">${escape(row.name)}</div><div class="meta">${image.label} · ${theme}</div></div>
     </div>`
 }
 
@@ -264,20 +311,20 @@ export function renderContactSheet(
   rows: SheetRow[],
   meta: { startedAt: string; options: HueOptions },
 ) {
-  const grid = (theme: 'light' | 'dark') =>
-    `<section class="grid-section ${theme}"><h3>${theme}</h3><div class="grid">${rows
-      .map((r) => card(r, theme))
+  const labels = [...new Set(rows.flatMap((r) => r.images.map((i) => i.label)))]
+  const grid = (label: string, theme: 'light' | 'dark') =>
+    `<section class="grid-section ${theme}"><h3>${label} · ${theme}</h3><div class="grid">${rows
+      .flatMap((r) => r.images.filter((i) => i.label === label).map((i) => card(r, i, theme)))
       .join('')}</div></section>`
+  const grids = labels.map((l) => grid(l, 'light') + grid(l, 'dark')).join('')
   const body = rows
     .map(
       (r) => `<section class="meal">
       <h2>${escape(r.name)} <code>${r.slug}</code></h2>
-      <div class="hues">${hueLine('hue', r.hue)}</div>
-      <div class="previews">
-        <figure><img src="${r.preview}" alt=""><figcaption>as shipped</figcaption></figure>
-      </div>
-      <div class="cards">${card(r, 'light')}${card(r, 'dark')}</div>
-      <div class="heroes">${hero(r, 'light')}${hero(r, 'dark')}</div>
+      <div class="hues">${r.images.map((i) => hueLine(i.label, i.hue)).join('')}</div>
+      <div class="previews">${r.images.map((i) => `<figure><img src="${i.preview}" alt=""><figcaption>${i.label}</figcaption></figure>`).join('')}</div>
+      <div class="cards">${r.images.map((i) => card(r, i, 'light') + card(r, i, 'dark')).join('')}</div>
+      <div class="heroes">${r.images.map((i) => hero(r, i, 'light') + hero(r, i, 'dark')).join('')}</div>
     </section>`,
     )
     .join('\n')
@@ -288,7 +335,7 @@ export function renderContactSheet(
   :root {
     --l-light: 0.95; --c-light: 0.035;
     --l-dark: 0.26; --c-dark: 0.04;
-    --fade: 0.55; --accent-c: 0.12; --img-w: 62;
+    --fade: 0.55; --accent-c: 0.12; --img-w: 62; --img-scale: 1; --vignette: 0;
     font-family: system-ui, sans-serif; color: #222; background: #f4f4f2;
   }
   body { margin: 0; padding: 24px; }
@@ -318,8 +365,14 @@ export function renderContactSheet(
   .card.light { background: oklch(var(--l-light) var(--c-light) var(--hue)); color: oklch(0.25 0.03 var(--hue)) }
   .card.dark  { background: oklch(var(--l-dark)  var(--c-dark)  var(--hue)); color: oklch(0.95 0.02 var(--hue)) }
   .card img { position: absolute; top: 0; right: 0; height: 100%; width: calc(var(--img-w) * 1%); display: block; object-fit: cover;
-    mask-image: linear-gradient(to right, transparent 0%, #000 calc(var(--fade) * 100%));
-    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 calc(var(--fade) * 100%)); }
+    transform: scale(var(--img-scale)); transform-origin: 50% 50%;
+    /* Left-to-right fade into the card, intersected with an elliptical vignette so the
+       tabletop dissolves on every edge. vignette 0 = no edge fade. */
+    mask-image: linear-gradient(to right, transparent 0%, #000 calc(var(--fade) * 100%)),
+      radial-gradient(ellipse 50% 50% at 50% 50%, #000 calc((1 - var(--vignette)) * 100%), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 calc(var(--fade) * 100%)),
+      radial-gradient(ellipse 50% 50% at 50% 50%, #000 calc((1 - var(--vignette)) * 100%), transparent 100%);
+    mask-composite: intersect; -webkit-mask-composite: source-in; }
   .card .text { position: absolute; left: 16px; bottom: 14px; right: 40% }
   .card .title { font-weight: 600; font-size: 16px; line-height: 1.2 }
   .card .meta { font-size: 12px; opacity: .75; margin-top: 2px }
@@ -347,6 +400,8 @@ export function renderContactSheet(
   <label>fade <input type="range" min="0.1" max="1" step="0.05" name="fade" value="0.55"><output></output></label>
   <label>image width % <input type="range" min="40" max="100" step="2" name="img-w" value="62"><output></output></label>
   <label>accent C <input type="range" min="0" max="0.2" step="0.01" name="accent-c" value="0.12"><output></output></label>
+  <label>image scale <input type="range" min="0.6" max="1.1" step="0.02" name="img-scale" value="1"><output></output></label>
+  <label>vignette <input type="range" min="0" max="0.8" step="0.05" name="vignette" value="0"><output></output></label>
   <pre id="tokens" style="margin:0;font-size:11px;align-self:center"></pre>
 </form>
 <script>
@@ -360,7 +415,7 @@ export function renderContactSheet(
   apply()
 </script>
 <h2>All meals together</h2>
-${grid('light')}${grid('dark')}
+${grids}
 ${body}
 </body></html>`
 }
@@ -373,12 +428,50 @@ async function preview(src: string, dest: string) {
   await sharp(src).resize({ width: PREVIEW_WIDTH }).webp({ quality: 82 }).toFile(dest)
 }
 
+async function drawVariant(prompt: string, apiKey: string): Promise<Uint8Array> {
+  const openai = createOpenAI({ apiKey })
+  const result = await generateImage({
+    model: openai.image(MODEL),
+    prompt,
+    size: '1536x1024',
+    providerOptions: { openai: { quality: 'high', outputFormat: 'png' } },
+    maxRetries: 2,
+  })
+  return result.image.uint8Array
+}
+
+async function addImage(row: SheetRow, label: string, src: string, outDir: string) {
+  const previewFile = `preview/${row.slug}-${label}.webp`
+  await preview(src, join(outDir, previewFile))
+  const hue = await extractHue(src)
+  row.images.push({ label, preview: previewFile, hue })
+  console.log(
+    `${row.slug.padEnd(32)} ${label.padEnd(8)} ${String(hue.hue ?? '-').padStart(4)}°  C ${hue.chroma.toFixed(3)}  voted ${Math.round(hue.coverage * 100)}%`,
+  )
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2))
   const source = resolve(args.source)
   const manifest = readManifest(source)
-  const entries = args.limit ? manifest.entries.slice(0, args.limit) : manifest.entries
+  let entries = args.meals
+    ? manifest.entries.filter((e) => args.meals?.includes(e.slug))
+    : manifest.entries
+  if (args.limit) entries = entries.slice(0, args.limit)
   console.log(`${entries.length} meal(s) from ${source} (prompt ${manifest.promptVersion})`)
+
+  if (args.draw.length) {
+    const n = entries.length * args.draw.length
+    console.log(
+      `Redraw ${args.draw.join(', ')}: ${n} image(s), ~$${(n * EST_PER_IMAGE_USD).toFixed(2)}`,
+    )
+    if (!args.confirm) {
+      console.log('Dry run — pass --confirm to spend.')
+      return
+    }
+  }
+  const apiKey = process.env.OPENAI_API_KEY
+  if (args.draw.length && !apiKey) throw new Error('OPENAI_API_KEY is not set')
 
   const startedAt = new Date().toISOString()
   const outDir = resolve('.temp/spike-meal-colour', startedAt.replace(/[:.]/g, '-'))
@@ -386,19 +479,27 @@ async function main() {
 
   const rows: SheetRow[] = []
   for (const entry of entries) {
-    const src = join(source, entry.file)
-    const previewFile = `preview/${entry.slug}.webp`
-    await preview(src, join(outDir, previewFile))
-    const hue = await extractHue(src)
-    rows.push({ slug: entry.slug, name: entry.name, preview: previewFile, hue })
-    console.log(
-      `${entry.slug.padEnd(32)} ${String(hue.hue ?? '-').padStart(4)}°  C ${hue.chroma.toFixed(3)}  voted ${Math.round(hue.coverage * 100)}%`,
-    )
+    const row: SheetRow = { slug: entry.slug, name: entry.name, images: [] }
+    await addImage(row, 'shipped', join(source, entry.file), outDir)
+    for (const variant of args.draw) {
+      const file = join(outDir, `${entry.slug}-${variant}.png`)
+      try {
+        writeFileSync(file, await drawVariant(variantPrompt(entry.prompt, variant), apiKey ?? ''))
+        await addImage(row, variant, file, outDir)
+      } catch (error) {
+        console.log(`${entry.slug} ${variant} FAILED: ${String(error).slice(0, 200)}`)
+      }
+    }
+    rows.push(row)
   }
 
   writeFileSync(
     join(outDir, 'results.json'),
-    JSON.stringify({ startedAt, source, options: DEFAULT_HUE_OPTIONS, rows }, null, 2),
+    JSON.stringify(
+      { startedAt, source, options: DEFAULT_HUE_OPTIONS, variants: args.draw, rows },
+      null,
+      2,
+    ),
   )
   writeFileSync(
     join(outDir, 'index.html'),

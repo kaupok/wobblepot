@@ -5,7 +5,9 @@ import {
   parseArgs,
   renderContactSheet,
   srgbToOklch,
+  variantPrompt,
 } from './spike-meal-colour'
+import { PROMPT_SUFFIX } from '../src/lib/meal-images/prompt'
 
 describe('HON-743: meal colour spike', () => {
   it('converts sRGB primaries to the expected OKLCH hues', () => {
@@ -33,7 +35,13 @@ describe('HON-743: meal colour spike', () => {
   })
 
   it('parses args and rejects a bad limit', () => {
-    expect(parseArgs(['--limit=3', '--source=x'])).toEqual({ limit: 3, source: 'x' })
+    expect(parseArgs(['--limit=3', '--source=x', '--draw=v4', '--confirm'])).toEqual({
+      limit: 3,
+      source: 'x',
+      draw: ['v4'],
+      confirm: true,
+    })
+    expect(() => parseArgs(['--draw=v9'])).toThrow('Unknown prompt variant')
     expect(() => parseArgs(['--limit=0'])).toThrow('--limit')
     expect(() => parseArgs(['--nope'])).toThrow('Unknown argument')
   })
@@ -42,8 +50,12 @@ describe('HON-743: meal colour spike', () => {
     const hue = { hue: 120, chroma: 0.1, coverage: 0.5, opaque: 1, bins: new Array(18).fill(0) }
     const html = renderContactSheet(
       [
-        { slug: 'a', name: 'A & B', preview: 'a.webp', hue },
-        { slug: 'b', name: 'B', preview: 'b.webp', hue: { ...hue, hue: 30 } },
+        { slug: 'a', name: 'A & B', images: [{ label: 'shipped', preview: 'a.webp', hue }] },
+        {
+          slug: 'b',
+          name: 'B',
+          images: [{ label: 'shipped', preview: 'b.webp', hue: { ...hue, hue: 30 } }],
+        },
       ],
       { startedAt: 'now', options: DEFAULT_HUE_OPTIONS },
     )
@@ -51,5 +63,14 @@ describe('HON-743: meal colour spike', () => {
     expect(html).toContain('--hue:30')
     // Two meals × (grid light, grid dark, section light, section dark).
     expect(html.match(/class="card (light|dark)"/g)).toHaveLength(8)
+  })
+
+  it('swaps only the V3 suffix for a variant composition', () => {
+    const shipped = 'Prefix. Body. ' + PROMPT_SUFFIX
+    const v4 = variantPrompt(shipped, 'v4')
+    expect(v4.startsWith('Prefix. Body. ')).toBe(true)
+    expect(v4).not.toContain('filling the frame')
+    expect(v4).toContain('about half the width')
+    expect(() => variantPrompt('no suffix here', 'v4')).toThrow('V3 suffix')
   })
 })
