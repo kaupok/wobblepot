@@ -16,18 +16,29 @@ export interface MealImageFields {
 }
 
 /**
- * The image covers at most the right 5/8 of a card (45% below `sm`). Cards run
- * from full width on a phone to a ~776px planner row, a ~448px grid column or
- * the 400px add-meal dialog.
- */
-const SIZES = '(min-width: 768px) 480px, 45vw'
-
-/**
+ * The rendered width of each image box (`IMAGE_BOX`), so `next/image` fetches a
+ * file sharp at the device's pixel ratio (HON-748). Each is an upper bound: an
+ * over-estimate costs a few KB, an under-estimate a soft image.
+ *
+ * The widest side card is a planner row at the 1152px page width: 1fr beside
+ * the 320px sidebar, ~776px. Its image is 5/8 of that, 485px; with trailing
+ * actions it ends `right-36` (144px) earlier, 341px. Below `md` the card is
+ * `100vw - 2rem` at most, so 5/8 of it stays under 62vw and the trailing box
+ * under 40vw. The recipes list's cards are narrower and share the default.
+ *
  * The bottom image spans the card. Its one callsite is the alternatives grid:
- * three ~271px columns from `md` in the `max-w-4xl` add-meal dialog, a single
+ * three ~272px columns from `md` in the `max-w-4xl` add-meal dialog, a single
  * full-width column below it.
+ *
+ * Measuring these in a browser: `img.naturalWidth` is density-corrected (file
+ * width × `sizes` length / candidate `w`), so it reads back roughly the `sizes`
+ * value, not the file. Load `img.currentSrc` into a `new Image()` for the file.
  */
-const BOTTOM_SIZES = '(min-width: 768px) 280px, 100vw'
+const SIZES = {
+  default: '(min-width: 768px) 485px, 62vw',
+  trailingActions: '(min-width: 768px) 341px, 40vw',
+  bottom: '(min-width: 768px) 272px, 100vw',
+} as const
 
 /**
  * Where the image sits in the card. Nothing the user reads or taps sits on its
@@ -216,7 +227,7 @@ function CardImage({ src, alt, layout, trailingActions, onError }: CardImageProp
         src={src}
         alt={alt}
         fill
-        sizes={bottom ? BOTTOM_SIZES : SIZES}
+        sizes={bottom ? SIZES.bottom : trailingActions ? SIZES.trailingActions : SIZES.default}
         onLoad={() => setLoaded(true)}
         onError={onError}
         className={cn(

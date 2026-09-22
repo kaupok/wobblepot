@@ -84,11 +84,36 @@ describe('MealImageCard', () => {
       'mix-blend-multiply',
     )
     expect(wrapper).not.toHaveClass('absolute', '-z-10', 'mask-l-from-30%')
-    expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 280px, 100vw')
+    expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 272px, 100vw')
     // Still tinted, but without the named group the title cap never applies.
     expect(card).toHaveAttribute('data-meal-surface')
     expect(card).toHaveClass('relative', 'isolate', 'overflow-hidden')
     expect(card).not.toHaveClass('group/meal-image', '@container/meal-image')
+  })
+
+  // HON-748: each surface's `sizes` describes its own image box, so a DPR 2
+  // screen fetches a file at least twice the rendered width.
+  describe('sizes per surface', () => {
+    const ready: MealImageFields = { imageStatus: 'ready', imageUrl: URL, imageHue: 264 }
+
+    it('describes the recipes-list side image up to the widest card', () => {
+      renderCard(ready)
+      expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 485px, 62vw')
+    })
+
+    it('describes the planner side image, which ends before the action column', () => {
+      renderCard(ready, undefined, true)
+      expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 341px, 40vw')
+    })
+
+    it('describes the add-meal dialog bottom image as one grid column', () => {
+      render(
+        <MealImageCard meal={{ name: 'Lemon garlic chicken', ...ready }} layout="bottom">
+          <p>Content</p>
+        </MealImageCard>,
+      )
+      expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 272px, 100vw')
+    })
   })
 
   it('renders the side image as the absolutely positioned wrapper ahead of the content', () => {
