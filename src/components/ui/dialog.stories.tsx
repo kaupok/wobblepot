@@ -128,6 +128,13 @@ export const LongTitle: Story = {
       expect(rect.right).toBeLessThanOrEqual(closeLeft)
     }
     expect(title.getBoundingClientRect().right).toBeLessThanOrEqual(closeLeft)
+
+    // The header is centred below `sm` and left-aligned above it, so the
+    // padding is symmetric on mobile and right-only on desktop.
+    const header = title.closest('[data-slot="dialog-header"]') as HTMLElement
+    const { paddingLeft, paddingRight, textAlign } = window.getComputedStyle(header)
+    expect(paddingRight).not.toBe('0px')
+    expect(paddingLeft).toBe(textAlign === 'center' ? paddingRight : '0px')
   },
 }
 

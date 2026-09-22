@@ -80,9 +80,10 @@ function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot="dialog-header"
       className={cn(
-        // `pr-8` keeps a long title clear of the close button, which sits at
-        // `right-4` over the content's `p-6`; dialogs without one keep full width.
-        'flex flex-col gap-2 text-center group-data-close-button/dialog:pr-8 sm:text-left',
+        // Keeps a long title clear of the close button, which sits at `right-4`
+        // over the content's `p-6`; dialogs without one keep full width. Below
+        // `sm` the header is centred, so it pads both sides to stay centred.
+        'flex flex-col gap-2 text-center group-data-close-button/dialog:px-8 sm:text-left sm:group-data-close-button/dialog:pl-0',
         className,
       )}
       {...props}
