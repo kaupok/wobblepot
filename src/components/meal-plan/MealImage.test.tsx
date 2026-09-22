@@ -12,7 +12,10 @@ describe('MealImage', () => {
 
     const img = screen.getByRole('img', { name: 'Lemon garlic chicken' })
     expect(img).toHaveAttribute('alt', 'Lemon garlic chicken')
-    expect(img).toHaveAttribute('sizes', expect.stringContaining('624px'))
+    expect(img).toHaveAttribute(
+      'sizes',
+      '(min-width: 768px) 624px, (min-width: 640px) 400px, calc(100vw - 5rem)',
+    )
   })
 
   it('puts the image on the meal tint, multiplied in and fading bottom-up', () => {

@@ -10,6 +10,11 @@ import type { MealImageStatus } from '@/generated/prisma/enums'
  * Rendered width of the dialog content: `MealDetailModal` is `md:max-w-2xl`
  * (672px) and `sm:max-w-md` (448px) with `p-6`, and `max-w-[calc(100%-2rem)]`
  * below `sm`.
+ *
+ * At DPR 2 this picks the 1920w candidate, which Next caps at the 1536px
+ * source, so the hero gets ~2.5 device pixels per CSS pixel (HON-748). The
+ * browser's `naturalWidth` is density-corrected and reads ~499 for it; load
+ * `currentSrc` into a `new Image()` to see the file's real width.
  */
 const SIZES = '(min-width: 768px) 624px, (min-width: 640px) 400px, calc(100vw - 5rem)'
 
