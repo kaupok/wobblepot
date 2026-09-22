@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MealImageCard, mealImageTitleWidth, type MealImageFields } from './MealImageCard'
 
@@ -166,6 +166,50 @@ describe('MealImageCard', () => {
     await waitFor(() => expect(img).toHaveClass('opacity-100'))
   })
 
+  // HON-754: an image already loaded before React attached `onLoad` (a cache
+  // hit, or a load that beat hydration) never fires it, so the ref has to see it.
+  describe('an image that is already complete', () => {
+    afterEach(() => vi.restoreAllMocks())
+
+    it('shows it without waiting for a load event', () => {
+      vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true)
+      vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(279)
+      renderCard({ imageStatus: 'ready', imageUrl: URL, imageHue: 40 })
+
+      expect(screen.getByRole('img')).toHaveClass('opacity-100')
+    })
+
+    it('waits for the load event while the image has no pixels yet', () => {
+      vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true)
+      vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(0)
+      renderCard({ imageStatus: 'ready', imageUrl: URL, imageHue: 40 })
+
+      expect(screen.getByRole('img')).toHaveClass('opacity-0')
+    })
+  })
+
+  it('fades a new image in again when the URL changes', async () => {
+    const meal = { name: 'Lemon garlic chicken', imageStatus: 'ready' as const, imageHue: 40 }
+    const { rerender } = render(<MealImageCard meal={{ ...meal, imageUrl: URL }} />)
+    fireEvent.load(screen.getByRole('img'))
+    await waitFor(() => expect(screen.getByRole('img')).toHaveClass('opacity-100'))
+
+    rerender(<MealImageCard meal={{ ...meal, imageUrl: `${URL}?v=2` }} />)
+
+    expect(screen.getByRole('img')).toHaveClass('opacity-0')
+  })
+
+  // HON-754: a picture that was generated is never hidden by its colour.
+  it('shows an image without a hue on the neutral card', () => {
+    const card = renderCard({ imageStatus: 'ready', imageUrl: URL, imageHue: null })
+
+    expect(card).toHaveAttribute('data-meal-surface', 'neutral')
+    expect(card.style.getPropertyValue('--meal-hue')).toBe('')
+    expect(card).toHaveClass('relative', 'isolate', 'overflow-hidden', '@container/meal-image')
+    expect(screen.getByRole('img', { name: 'Lemon garlic chicken' })).toBeInTheDocument()
+    expect(screen.getByTestId('meal-card-image')).toHaveClass('mix-blend-multiply')
+  })
+
   // "Unchanged" means exactly the plain Card: its own classes plus the caller's,
   // no tint attribute, no inline style, no image element.
   it.each<[string, MealImageFields]>([
@@ -173,7 +217,6 @@ describe('MealImageCard', () => {
     ['status none', { imageStatus: 'none', imageUrl: null, imageHue: null }],
     ['generating', { imageStatus: 'generating', imageUrl: null, imageHue: null }],
     ['failed', { imageStatus: 'failed', imageUrl: null, imageHue: null }],
-    ['ready without a hue', { imageStatus: 'ready', imageUrl: URL, imageHue: null }],
     ['ready without a URL', { imageStatus: 'ready', imageUrl: null, imageHue: 120 }],
   ])('renders the plain card for %s', (_label, fields) => {
     const card = renderCard(fields)

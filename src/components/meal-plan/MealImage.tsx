@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
-import { mealHueStyle } from './MealImageCard'
+import { mealHueStyle, useImageLoaded } from './MealImageCard'
 import type { MealImageStatus } from '@/generated/prisma/enums'
 
 /**
@@ -30,7 +30,7 @@ interface MealImageProps {
   mealName: string
   status: MealImageStatus
   imageUrl: string | null
-  /** OKLCH hue taken from the image (HON-744); without one there is no hero */
+  /** OKLCH hue taken from the image (HON-744); without one the hero is untinted */
   imageHue: number | null
 }
 
@@ -38,13 +38,14 @@ interface MealImageProps {
  * The meal's hero illustration (HON-737, HON-746), following `docs/DESIGN.md`
  * → Imagery: 2:1, full-bleed across the dialog, on the meal's tinted surface
  * with the image multiplied into it, the whole hero fading bottom-up into the
- * dialog (and briefly at the top), and the image fading in on load. A meal without an image, or without a hue, renders
- * nothing at all. The one exception is `generating`, where a plain box holds
- * the space so the content below does not jump when the image lands.
+ * dialog (and briefly at the top), and the image fading in on load. A meal
+ * with an image but no hue keeps the image, on the untinted neutral surface
+ * (HON-754). A meal without an image renders nothing at all. The one
+ * exception is `generating`, where a plain box holds the space so the content
+ * below does not jump when the image lands.
  */
 export function MealImage({ mealName, status, imageUrl, imageHue }: MealImageProps) {
   if (status === 'ready' && imageUrl) {
-    if (imageHue === null) return null
     // Keyed by URL so a different image starts transparent and fades in again.
     return <LoadedImage key={imageUrl} alt={mealName} src={imageUrl} hue={imageHue} />
   }
@@ -56,8 +57,8 @@ export function MealImage({ mealName, status, imageUrl, imageHue }: MealImagePro
   return null
 }
 
-function LoadedImage({ alt, src, hue }: { alt: string; src: string; hue: number }) {
-  const [loaded, setLoaded] = useState(false)
+function LoadedImage({ alt, src, hue }: { alt: string; src: string; hue: number | null }) {
+  const { loaded, ref, onLoad } = useImageLoaded()
   const [broken, setBroken] = useState(false)
 
   // A URL that no longer resolves (a blob deleted by a meal edit) is an
@@ -68,21 +69,23 @@ function LoadedImage({ alt, src, hue }: { alt: string; src: string; hue: number 
   // and the hero ends in the dialog's own background rather than at an edge.
   // A short top fade does the same under the note, so the full-bleed band has
   // no hard edge anywhere (HON-752).
-  // `isolate` keeps the multiply against the tint alone.
+  // `isolate` keeps the multiply against the tint alone. Without a hue the
+  // surface is `neutral`: the tint's lightness at zero chroma (globals.css).
   return (
     <div
-      data-meal-surface=""
+      data-meal-surface={hue === null ? 'neutral' : ''}
       data-testid="meal-image-hero"
       className={cn('relative isolate overflow-hidden mask-t-from-85% mask-b-from-60%', HERO_BOX)}
       // eslint-disable-next-line shadcn/no-inline-styles -- --meal-hue is the one per-meal value (docs/DESIGN.md → Imagery); every colour is derived from it by [data-meal-surface] in globals.css.
-      style={mealHueStyle(hue)}
+      style={hue === null ? undefined : mealHueStyle(hue)}
     >
       <Image
         src={src}
         alt={alt}
         fill
         sizes={SIZES}
-        onLoad={() => setLoaded(true)}
+        ref={ref}
+        onLoad={onLoad}
         onError={() => setBroken(true)}
         className={cn(
           'object-cover mix-blend-multiply transition-opacity duration-200 ease-out',

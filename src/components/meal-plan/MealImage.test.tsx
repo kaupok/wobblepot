@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MealImage } from './MealImage'
 
@@ -44,12 +44,52 @@ describe('MealImage', () => {
     expect(hero.className).not.toMatch(/\brounded-/)
   })
 
-  it('renders nothing for a ready image without a hue', () => {
-    const { container } = render(
+  // HON-754: the image stays, on the dialog's own surface, untinted.
+  it('renders a ready image without a hue on a neutral surface', () => {
+    render(
       <MealImage mealName="Lemon garlic chicken" status="ready" imageUrl={URL} imageHue={null} />,
     )
 
-    expect(container).toBeEmptyDOMElement()
+    const hero = screen.getByTestId('meal-image-hero')
+    expect(hero).toHaveAttribute('data-meal-surface', 'neutral')
+    expect(hero).not.toHaveAttribute('style')
+    expect(screen.getByRole('img', { name: 'Lemon garlic chicken' })).toHaveClass(
+      'mix-blend-multiply',
+    )
+  })
+
+  describe('an image that is already complete', () => {
+    afterEach(() => vi.restoreAllMocks())
+
+    // HON-754: a cache hit loads before React attaches `onLoad`.
+    it('shows it without waiting for a load event', () => {
+      vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true)
+      vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(279)
+      render(
+        <MealImage mealName="Lemon garlic chicken" status="ready" imageUrl={URL} imageHue={264} />,
+      )
+
+      expect(screen.getByRole('img')).toHaveClass('opacity-100')
+    })
+  })
+
+  it('fades a new image in again when the URL changes', async () => {
+    const { rerender } = render(
+      <MealImage mealName="Lemon garlic chicken" status="ready" imageUrl={URL} imageHue={264} />,
+    )
+    fireEvent.load(screen.getByRole('img'))
+    await waitFor(() => expect(screen.getByRole('img')).toHaveClass('opacity-100'))
+
+    rerender(
+      <MealImage
+        mealName="Lemon garlic chicken"
+        status="ready"
+        imageUrl={`${URL}?v=2`}
+        imageHue={264}
+      />,
+    )
+
+    expect(screen.getByRole('img')).toHaveClass('opacity-0')
   })
 
   it('fades the image in once it has loaded', async () => {
