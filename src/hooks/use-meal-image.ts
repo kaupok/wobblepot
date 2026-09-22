@@ -139,9 +139,15 @@ export function useMealImage({ meal, open }: UseMealImageOptions) {
   // `initialData` only seeds an empty cache entry, and `MealCard` keeps this
   // modal mounted for the whole session — so without this, a meal edit that
   // cleared the image (and deleted its blob) would keep the old `ready` URL
-  // here forever. When the server payload changes, it wins, and the meal may
-  // be asked for again. The first render is skipped: the cache can hold a
-  // newer answer from this session than the payload the page was rendered with.
+  // here forever. The first render is skipped: the cache can hold a newer
+  // answer from this session than the payload the page was rendered with.
+  //
+  // Only `none` re-arms the POST, because that is what an edit resets the
+  // image to (`clearMealImage`). Any `router.refresh()` — ticking an
+  // ingredient does one — also delivers a new payload, and a `failed` or
+  // `generating` there is usually this session's own attempt coming back:
+  // re-asking would pay for another generation, or restart the poll after
+  // it gave up.
   const payloadStatus = meal.imageStatus ?? 'none'
   const payloadUrl = meal.imageUrl ?? null
   const payloadKey = `${mealId}|${payloadStatus}|${payloadUrl}`
@@ -149,8 +155,12 @@ export function useMealImage({ meal, open }: UseMealImageOptions) {
   useEffect(() => {
     if (lastPayloadKeyRef.current === payloadKey) return
     lastPayloadKeyRef.current = payloadKey
-    attemptedRef.current.delete(mealId)
-    deadlinesRef.current.delete(mealId)
+    if (payloadStatus === 'none') {
+      attemptedRef.current.delete(mealId)
+      deadlinesRef.current.delete(mealId)
+    } else if (payloadStatus !== 'ready' && attemptedRef.current.has(mealId)) {
+      return
+    }
     queryClient.setQueryData<MealImageState>(
       mealImageQueryKey(mealId),
       normalise({ status: payloadStatus, imageUrl: payloadUrl }),

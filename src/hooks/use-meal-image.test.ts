@@ -296,6 +296,26 @@ describe('useMealImage', () => {
     expect(posts()).toHaveLength(1)
   })
 
+  it.each([
+    ['failed', json({ error: "Couldn't generate the image." }, 500)],
+    ['generating', json({ status: 'generating' }, 202)],
+  ] as const)(
+    'does not re-POST when a refresh reports this session’s own %s',
+    async (refreshed, answer) => {
+      mockFetch.mockResolvedValue(answer)
+      const { result, rerender } = renderImageHook({ meal: householdMeal, open: true })
+      await waitFor(() => expect(posts()).toHaveLength(1))
+
+      // Ticking an ingredient calls router.refresh(), which re-sends the row.
+      mockFetch.mockResolvedValue(json({ status: 'generating' }))
+      rerender({ meal: { ...householdMeal, imageStatus: refreshed }, open: true })
+      await act(() => vi.advanceTimersByTimeAsync(MEAL_IMAGE_POLL_TIMEOUT_MS * 2))
+
+      expect(posts()).toHaveLength(1)
+      expect(result.current.status).not.toBe('ready')
+    },
+  )
+
   describe('swapping the meal mid-request (HON-682)', () => {
     it('never shows the previous meal’s image when its answer lands after the swap', async () => {
       const post = deferred()
