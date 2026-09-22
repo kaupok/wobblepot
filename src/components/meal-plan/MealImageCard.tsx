@@ -152,7 +152,8 @@ interface MealImageCardProps extends ComponentProps<typeof Card> {
  * right of the card, or below its content with `layout="bottom"`. A meal
  * without an image is a plain `Card` — no tint, no image element, nothing
  * reserved while it generates. A meal with an image but no hue keeps the
- * image on the neutral card (`data-meal-surface="neutral"`, no `--meal-hue`).
+ * image on an untinted surface (`data-meal-surface="neutral"`: the tint's
+ * lightness at zero chroma, globals.css).
  *
  * The children are the card's content, unchanged: the tint re-scopes the theme
  * tokens (`[data-meal-surface]` in globals.css), so nothing inside needs a
@@ -199,7 +200,7 @@ export function MealImageCard({
   return (
     <Card
       // `neutral` keeps the geometry and the title cap below, but not the
-      // tint: globals.css re-scopes the tokens only for a hued surface.
+      // colour: globals.css gives it the tint's lightness at zero chroma.
       data-meal-surface={tinted ? '' : hasImage ? 'neutral' : undefined}
       className={cn(
         hasImage && 'relative isolate overflow-hidden',

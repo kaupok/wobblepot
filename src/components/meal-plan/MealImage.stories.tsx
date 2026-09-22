@@ -12,7 +12,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "The hero illustration at the top of the meal detail modal (HON-737, HON-746). 2:1 and full-bleed: it cancels the dialog's `p-6` so it runs edge to edge with no radius of its own (HON-752). On the meal's tinted surface (`imageHue`), the image multiplied in so its white surface takes the tint, and the whole hero fading bottom-up into the dialog. Without a hue the image sits on the dialog's own surface, untinted (HON-754); without an image it renders nothing, and a plain box while it is generating (`docs/DESIGN.md` → Imagery).",
+          "The hero illustration at the top of the meal detail modal (HON-737, HON-746). 2:1 and full-bleed: it cancels the dialog's `p-6` so it runs edge to edge with no radius of its own (HON-752). On the meal's tinted surface (`imageHue`), the image multiplied in so its white surface takes the tint, and the whole hero fading bottom-up into the dialog. Without a hue the image sits on an untinted surface at the tint's lightness (HON-754); without an image it renders nothing, and a plain box while it is generating (`docs/DESIGN.md` → Imagery).",
       },
     },
   },
@@ -61,8 +61,8 @@ export const Hues: Story = {
   ),
 }
 
-// An image whose extraction found no colour: the hero keeps the image on the
-// dialog's own surface, untinted (HON-754).
+// An image whose extraction found no colour: the hero keeps the image on an
+// untinted surface at the tint's lightness (HON-754).
 export const ReadyWithoutHue: Story = {
   name: 'Ready without a hue',
   args: { imageHue: null },
@@ -72,6 +72,17 @@ export const ReadyWithoutHue: Story = {
     const hero = canvas.getByTestId('meal-image-hero')
     await expect(hero).toHaveAttribute('data-meal-surface', 'neutral')
     await expect(hero.style.getPropertyValue('--meal-hue')).toBe('')
+  },
+}
+
+export const ReadyWithoutHueDark: Story = {
+  name: 'Ready without a hue (dark)',
+  args: { imageHue: null },
+  globals: { theme: 'dark' },
+  play: async ({ canvasElement }) => {
+    const hero = within(canvasElement).getByTestId('meal-image-hero')
+    // The dark tint's lightness, not the near-black dialog background (HON-754).
+    await expect(getComputedStyle(hero).backgroundColor).toBe('oklch(0.35 0 0)')
   },
 }
 

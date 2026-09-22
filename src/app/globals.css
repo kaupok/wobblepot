@@ -265,13 +265,22 @@
    conflicts with, and a set of re-scoped tokens has none. In @layer base so
    any utility on the element still wins.
 
-   A `neutral` surface is a meal image without an imageHue (HON-754): it keeps
-   the image and its geometry but not the tint. It has to be excluded here
-   rather than left without --meal-hue, because an unset var() makes these
-   declarations invalid at computed-value time and --card would go
-   transparent, not back to the neutral card. */
+   A `neutral` surface is a meal image without an imageHue (HON-754): the
+   tint's lightness at zero chroma. The lightness is what keeps the multiplied
+   image legible — on the dark theme's own --card or --background it would
+   multiply to near-black — and the contrast measured for the tint holds at
+   any chroma. It sets --meal-hue itself: left unset, the var() makes every
+   declaration below invalid at computed-value time and --card transparent. */
 @layer base {
-  [data-meal-surface]:not([data-meal-surface='neutral']) {
+  [data-meal-surface='neutral'] {
+    --meal-hue: 0;
+    --meal-surface-c: 0;
+    --meal-text-c: 0;
+    --meal-muted-c: 0;
+    --meal-chip-c: 0;
+  }
+
+  [data-meal-surface] {
     --meal-text: oklch(var(--meal-text-l) var(--meal-text-c) var(--meal-hue));
     --meal-chip: oklch(var(--meal-chip-l) var(--meal-chip-c) var(--meal-hue));
     --card: oklch(var(--meal-surface-l) var(--meal-surface-c) var(--meal-hue));

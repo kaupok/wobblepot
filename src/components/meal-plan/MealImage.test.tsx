@@ -31,7 +31,7 @@ describe('MealImage', () => {
     expect(hero).toHaveAttribute('data-meal-surface')
     expect(hero).toHaveClass('isolate', 'overflow-hidden', 'mask-b-from-60%', 'mask-t-from-85%')
     // No neutral box behind the image any more: the tint is the surface.
-    expect(hero).not.toHaveClass('bg-muted', 'bg-background')
+    expect(hero).not.toHaveClass('bg-muted')
   })
 
   it('bleeds the hero through the dialog padding at 2:1 with no radius of its own', () => {
@@ -53,8 +53,6 @@ describe('MealImage', () => {
     const hero = screen.getByTestId('meal-image-hero')
     expect(hero).toHaveAttribute('data-meal-surface', 'neutral')
     expect(hero).not.toHaveAttribute('style')
-    // The multiply needs a backdrop inside the isolated hero: the dialog's own.
-    expect(hero).toHaveClass('isolate', 'bg-background')
     expect(screen.getByRole('img', { name: 'Lemon garlic chicken' })).toHaveClass(
       'mix-blend-multiply',
     )

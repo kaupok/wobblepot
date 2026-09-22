@@ -39,8 +39,8 @@ interface MealImageProps {
  * → Imagery: 2:1, full-bleed across the dialog, on the meal's tinted surface
  * with the image multiplied into it, the whole hero fading bottom-up into the
  * dialog (and briefly at the top), and the image fading in on load. A meal
- * with an image but no hue keeps the image, on the dialog's own neutral
- * surface (HON-754). A meal without an image renders nothing at all. The one
+ * with an image but no hue keeps the image, on the untinted neutral surface
+ * (HON-754). A meal without an image renders nothing at all. The one
  * exception is `generating`, where a plain box holds the space so the content
  * below does not jump when the image lands.
  */
@@ -70,18 +70,12 @@ function LoadedImage({ alt, src, hue }: { alt: string; src: string; hue: number 
   // A short top fade does the same under the note, so the full-bleed band has
   // no hard edge anywhere (HON-752).
   // `isolate` keeps the multiply against the tint alone. Without a hue the
-  // surface is `neutral`: no tint, so the hero takes the dialog's own
-  // background — an isolated group with no backdrop would leave nothing to
-  // multiply against, and the image's white surface would show.
+  // surface is `neutral`: the tint's lightness at zero chroma (globals.css).
   return (
     <div
       data-meal-surface={hue === null ? 'neutral' : ''}
       data-testid="meal-image-hero"
-      className={cn(
-        'relative isolate overflow-hidden mask-t-from-85% mask-b-from-60%',
-        hue === null && 'bg-background',
-        HERO_BOX,
-      )}
+      className={cn('relative isolate overflow-hidden mask-t-from-85% mask-b-from-60%', HERO_BOX)}
       // eslint-disable-next-line shadcn/no-inline-styles -- --meal-hue is the one per-meal value (docs/DESIGN.md → Imagery); every colour is derived from it by [data-meal-surface] in globals.css.
       style={hue === null ? undefined : mealHueStyle(hue)}
     >
