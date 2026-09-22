@@ -70,9 +70,44 @@ export const PlannedThenEmpty: Story = {
     docs: {
       description: {
         story:
-          'Typical mid-week view: past history (collapsed), a few planned days, then the fill-days action sits above empty future days.',
+          'Typical mid-week view: past history (collapsed), a few planned days, then the fill-days action sits after the last planned day and above the empty future days.',
       },
     },
+  },
+}
+
+export const DinnersPlannedBreakfastsEmpty: Story = {
+  args: {
+    expectedMealTypes: createExpectedMealTypes({
+      weekdayMealTypes: [MealType.breakfast, MealType.dinner],
+      weekendMealTypes: [MealType.breakfast, MealType.dinner],
+    }),
+    entries: [
+      createPlanEntry({ id: 'e-today-breakfast', mealType: MealType.breakfast }),
+      ...['2026-04-15', '2026-04-16', '2026-04-17', '2026-04-18'].map((date) =>
+        createPlanEntry({ id: `e-dinner-${date}`, date, mealType: MealType.dinner }),
+      ),
+    ],
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Dinners planned through Saturday, breakfasts empty after today (HON-758). The fill-days action sits after Saturday — the last day with anything planned — and fills from Sunday. The empty breakfasts above it are filled per slot.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const label = canvas.getByText(/^Fill Apr 19\s*–\s*25$/)
+    const saturday = canvas.getByText(/saturday.*18/i)
+    const sunday = canvas.getByText(/sunday.*19/i)
+    await expect(
+      saturday.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    await expect(
+      label.compareDocumentPosition(sunday) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
   },
 }
 
@@ -161,7 +196,8 @@ export const FullyPlanned: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'The next 7 days are planned — no fill-days action, empty days start after that.',
+        story:
+          'The next 7 days are planned — the fill-days action sits after the seventh day, followed by the empty days.',
       },
     },
   },

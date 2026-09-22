@@ -93,7 +93,7 @@ export function TimelineView({
     })
   }, [isPastExpanded])
 
-  const { pastDays, futureDays, firstEmptyDate } = useMemo(() => {
+  const { pastDays, futureDays, fillStartDate } = useMemo(() => {
     const todayParsed = parseLocalDate(todayDate)
     const tomorrowParsed = new Date(todayParsed)
     tomorrowParsed.setDate(tomorrowParsed.getDate() + 1)
@@ -116,7 +116,7 @@ export function TimelineView({
     // Build timeline days
     const allDays: TimelineDay[] = []
     const current = new Date(startParsed)
-    let firstEmpty: string | null = null
+    let lastPlanned: string | null = null
 
     while (current <= endParsed) {
       const dateStr = toDateString(current)
@@ -144,9 +144,9 @@ export function TimelineView({
       const existingTypes = new Set(dayEntries.map((e) => e.mealType))
       const emptySlots = expectedTypes.filter((mt) => !existingTypes.has(mt))
 
-      // Track first empty future date
-      if (!isPast && emptySlots.length > 0 && !firstEmpty) {
-        firstEmpty = dateStr
+      // Track the last future date with anything planned
+      if (!isPast && dayEntries.length > 0) {
+        lastPlanned = dateStr
       }
 
       allDays.push({
@@ -166,7 +166,19 @@ export function TimelineView({
     const past = allDays.filter((d) => d.isPast && d.entries.length > 0)
     const future = allDays.filter((d) => !d.isPast)
 
-    return { pastDays: past, futureDays: future, firstEmptyDate: firstEmpty }
+    // Filling starts the day after the last planned day, so the fill bar sits
+    // at the planned/unplanned boundary and its range matches its position.
+    // Gaps inside the planned stretch (an empty breakfast on a day with a
+    // dinner) are filled per slot, not by the bar (HON-758). When the last
+    // planned day is the end of the window there is nothing left to fill.
+    let fillStart: string | null = todayDate
+    if (lastPlanned) {
+      const next = parseLocalDate(lastPlanned)
+      next.setDate(next.getDate() + 1)
+      fillStart = next <= endParsed ? toDateString(next) : null
+    }
+
+    return { pastDays: past, futureDays: future, fillStartDate: fillStart }
   }, [entries, todayDate, expectedMealTypes, locale, tDates])
 
   function handleEntryUpdated() {
@@ -175,11 +187,9 @@ export function TimelineView({
 
   const hasEmptyFutureSlots = futureDays.some((d) => d.emptySlots.length > 0)
 
-  // Split future days at the first empty date boundary
-  const plannedDays = firstEmptyDate
-    ? futureDays.filter((d) => d.date < firstEmptyDate)
-    : futureDays
-  const emptyDays = firstEmptyDate ? futureDays.filter((d) => d.date >= firstEmptyDate) : []
+  // Split future days at the fill boundary
+  const plannedDays = fillStartDate ? futureDays.filter((d) => d.date < fillStartDate) : futureDays
+  const emptyDays = fillStartDate ? futureDays.filter((d) => d.date >= fillStartDate) : []
 
   // Today can land in either plannedDays or emptyDays, so the menu is attached
   // per card rather than at a fixed position in the list.
@@ -225,8 +235,8 @@ export function TimelineView({
 
           {plannedDays.map(renderDay)}
 
-          {hasEmptyFutureSlots && firstEmptyDate && (
-            <FillDaysAction planId={planId} firstEmptyDate={firstEmptyDate} />
+          {hasEmptyFutureSlots && fillStartDate && (
+            <FillDaysAction planId={planId} startDate={fillStartDate} />
           )}
 
           {emptyDays.map(renderDay)}
