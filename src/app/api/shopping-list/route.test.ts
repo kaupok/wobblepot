@@ -228,6 +228,75 @@ describe('GET /api/shopping-list', () => {
     expect(data.summary.remainingItems).toBe(1)
   })
 
+  // HON-762: `dueToday` drives the warning colour on the due label, so it must
+  // agree with `neededByRelative` in the household's timezone — here 21:00 on
+  // Feb 1 in New York, already Feb 2 on a UTC server.
+  //
+  // Pinned to a UTC runtime, as on Vercel: the route builds its reference day
+  // with the runtime-local `parseLocalDate` and then compares in the household
+  // zone, so west of UTC both dates shift by a day and the fixed expectations
+  // below no longer hold. That mix predates HON-762.
+  it('computes dueToday against the household day, in step with neededByRelative', async () => {
+    const originalTZ = process.env.TZ
+    process.env.TZ = 'UTC'
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-02-02T02:00:00Z'))
+    try {
+      const ingredient = (id: string) => ({
+        id,
+        name: id,
+        category: 'protein' as const,
+        defaultUnit: 'g' as const,
+        gramsPerPiece: null,
+      })
+      const row = (id: string, date: string) => ({
+        ingredientId: id,
+        ingredient: ingredient(id),
+        neededQuantity: 100,
+        pantryQuantity: null,
+        shoppingQuantity: 100,
+        mealCount: 1,
+        earliestNeededDate: new Date(date),
+        isVague: false,
+        originalPhrase: null,
+      })
+      mockGetSession.mockResolvedValue(mockSession as never)
+      mockFindFirst.mockResolvedValue({
+        ...mockMembership,
+        household: { ...mockHousehold, timezone: 'America/New_York' },
+      } as never)
+      mockComputeShoppingList.mockResolvedValue({
+        groups: [
+          {
+            category: 'protein',
+            categoryLabel: 'Proteins',
+            items: [row('today-item', '2026-02-01'), row('tomorrow-item', '2026-02-02')],
+          },
+        ],
+        startDate: '2026-02-01',
+        endDate: '2026-02-07',
+        windowDays: 7,
+        earliestPlanCreatedAt: new Date('2026-01-30'),
+        hasAnyPlan: true,
+      })
+      mockPantryFindMany.mockResolvedValue([])
+
+      const data = await (await GET(createMockRequest())).json()
+      const byId = Object.fromEntries(
+        data.groups[0].items.map((item: { ingredientId: string }) => [item.ingredientId, item]),
+      )
+
+      expect(byId['today-item']).toMatchObject({ neededByRelative: 'today', dueToday: true })
+      expect(byId['tomorrow-item']).toMatchObject({
+        neededByRelative: 'tomorrow',
+        dueToday: false,
+      })
+    } finally {
+      vi.useRealTimers()
+      process.env.TZ = originalTZ
+    }
+  })
+
   it('marks items as purchased when pantry item exists and was updated after plan creation', async () => {
     const planCreatedAt = new Date('2026-01-30')
     const neededDate = new Date('2026-02-01')

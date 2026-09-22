@@ -43,6 +43,22 @@ export const Unchecked: Story = {
   },
 }
 
+// Due today: the label takes the `warning` status token, the same one the
+// Today card uses for "Today" (HON-762).
+export const DueToday: Story = {
+  args: {
+    item: createShoppingItem({
+      name: 'Chicken thigh',
+      displayQuantity: '500g',
+      neededByRelative: 'Today',
+      dueToday: true,
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText('Today')).toHaveClass('text-warning')
+  },
+}
+
 export const Checked: Story = {
   args: {
     item: createShoppingItem({
@@ -119,6 +135,16 @@ export const AllStates: Story = {
     <div className="flex flex-col gap-2">
       <ShoppingItem
         item={createShoppingItem({ name: 'Chicken thigh', displayQuantity: '500g' })}
+        onToggle={fn()}
+      />
+      <ShoppingItem
+        item={createShoppingItem({
+          ingredientId: 'due-today',
+          name: 'Lemon',
+          displayQuantity: '2 pcs',
+          neededByRelative: 'Today',
+          dueToday: true,
+        })}
         onToggle={fn()}
       />
       <ShoppingItem

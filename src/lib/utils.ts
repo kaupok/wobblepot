@@ -46,7 +46,7 @@ export const CUSTOM_UTILITY_CLASS_GROUPS = {
   'max-h': ['max-h-dialog'],
   'max-w': ['max-w-page'],
   'min-h': ['min-h-screen-below-header', 'min-h-screen-below-header-gutters'],
-  'grid-cols': ['grid-cols-timeline'],
+  'grid-cols': ['grid-cols-timeline', 'grid-cols-shopping-row'],
   'scroll-mt': ['scroll-mt-below-header'],
 } as const
 

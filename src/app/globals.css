@@ -128,6 +128,14 @@
   grid-template-columns: 1fr 320px;
 }
 
+/* A shopping row on the Today card: name, quantity, due tag. Rows share the
+   columns through `grid-cols-subgrid`, so the tag column is as wide as the
+   widest tag in the list and every quantity ends at the same x, whatever the
+   locale's "Today" / "Tomorrow" measure (HON-762). */
+@utility grid-cols-shopping-row {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
 /* The one page width (docs/DESIGN.md → Composition rules → "One page width",
    HON-376), shared by the main column, the header row and the footer row.
    Literal px on purpose: 1152px is an absolute cap, so it must not scale with

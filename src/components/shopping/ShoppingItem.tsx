@@ -15,6 +15,12 @@ export interface ShoppingItemData {
   neededByRelative: string
   neededByAbsolute: string
   isVague?: boolean
+  /**
+   * Needed today (or overdue) in the household's timezone, computed by the API
+   * against the same day as `neededByRelative`. The due label takes the
+   * `warning` token, matching the Today card (HON-762).
+   */
+  dueToday?: boolean
 }
 
 interface ShoppingItemProps {
@@ -77,7 +83,11 @@ export function ShoppingItem({ item, onToggle, disabled, pending }: ShoppingItem
           <span
             className={cn(
               'shrink-0 text-xs',
-              item.purchased ? 'text-muted-foreground/60' : 'text-muted-foreground',
+              item.purchased
+                ? 'text-muted-foreground/60'
+                : item.dueToday
+                  ? 'text-warning font-medium'
+                  : 'text-muted-foreground',
             )}
           >
             {item.neededByRelative}

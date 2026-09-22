@@ -20,8 +20,58 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
+/**
+ * Every unpurchased row's quantity must end at the same x, whichever due tag
+ * follows it — "Today" and "Tomorrow" differ in width (HON-762).
+ */
+async function expectQuantitiesAligned(canvasElement: HTMLElement) {
+  const rows = within(canvasElement).getAllByRole('listitem')
+  const [first, ...rest] = rows.map((row) => row.children[1]?.getBoundingClientRect().right)
+  await expect(rest.length).toBeGreaterThan(0)
+  for (const right of rest) await expect(right).toBeCloseTo(first ?? Number.NaN, 0)
+}
+
 export const MixedUrgency: Story = {
   args: { items: urgentShoppingItems },
+  play: async ({ canvasElement }) => {
+    await expectQuantitiesAligned(canvasElement)
+    const today = within(canvasElement).getByText('today')
+    await expect(today).toHaveClass('text-warning')
+    await expect(today).not.toHaveClass('text-destructive')
+  },
+}
+
+// Estonian tags ("Täna" / "Homme") measure differently from English ones; the
+// quantity column has to line up in both.
+export const MixedUrgencyEstonian: Story = {
+  globals: { locale: 'et' },
+  args: {
+    items: [
+      createUrgentShoppingItem({
+        ingredientId: 'kanakints',
+        name: 'Kanakints',
+        displayQuantity: '600 g',
+        neededByRelative: 'Täna',
+      }),
+      createUrgentShoppingItem({
+        ingredientId: 'sidrun',
+        name: 'Sidrun',
+        displayQuantity: '2 tk',
+        neededByRelative: 'Täna',
+      }),
+      createUrgentShoppingItem({
+        ingredientId: 'lohefilee',
+        name: 'Lõhefilee',
+        displayQuantity: '40 g',
+        neededByDate: '2026-04-16',
+        neededByRelative: 'Homme',
+        urgency: 'tomorrow',
+      }),
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    await expectQuantitiesAligned(canvasElement)
+  },
 }
 
 export const TodayOnly: Story = {

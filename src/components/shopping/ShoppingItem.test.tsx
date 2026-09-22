@@ -92,6 +92,23 @@ describe('ShoppingItem', () => {
     expect(label?.className).toContain('opacity-70')
   })
 
+  it('marks the due label with the warning token when due today', () => {
+    render(<ShoppingItem item={{ ...baseItem, dueToday: true }} onToggle={vi.fn()} />)
+    expect(screen.getByText('tomorrow')).toHaveClass('text-warning')
+  })
+
+  it('keeps the due label muted when not due today', () => {
+    render(<ShoppingItem item={baseItem} onToggle={vi.fn()} />)
+    const label = screen.getByText('tomorrow')
+    expect(label).toHaveClass('text-muted-foreground')
+    expect(label).not.toHaveClass('text-warning')
+  })
+
+  it('dims a due-today label once the item is purchased', () => {
+    render(<ShoppingItem item={{ ...purchasedItem, dueToday: true }} onToggle={vi.fn()} />)
+    expect(screen.getByText('tomorrow')).not.toHaveClass('text-warning')
+  })
+
   it('applies disabled styling when disabled', () => {
     const { container } = render(<ShoppingItem item={baseItem} onToggle={vi.fn()} disabled />)
     const label = container.querySelector('label')
