@@ -14,7 +14,7 @@ describe('MealImage', () => {
     expect(img).toHaveAttribute('alt', 'Lemon garlic chicken')
     expect(img).toHaveAttribute(
       'sizes',
-      '(min-width: 768px) 624px, (min-width: 640px) 400px, calc(100vw - 5rem)',
+      '(min-width: 768px) 670px, (min-width: 640px) 446px, calc(100vw - 2rem)',
     )
   })
 
@@ -29,9 +29,19 @@ describe('MealImage', () => {
     expect(hero).toBe(img.parentElement)
     expect(hero.style.getPropertyValue('--meal-hue')).toBe('264')
     expect(hero).toHaveAttribute('data-meal-surface')
-    expect(hero).toHaveClass('aspect-3/2', 'isolate', 'overflow-hidden', 'mask-b-from-60%')
+    expect(hero).toHaveClass('isolate', 'overflow-hidden', 'mask-b-from-60%', 'mask-t-from-85%')
     // No neutral box behind the image any more: the tint is the surface.
     expect(hero).not.toHaveClass('bg-muted')
+  })
+
+  it('bleeds the hero through the dialog padding at 2:1 with no radius of its own', () => {
+    render(
+      <MealImage mealName="Lemon garlic chicken" status="ready" imageUrl={URL} imageHue={264} />,
+    )
+
+    const hero = screen.getByTestId('meal-image-hero')
+    expect(hero).toHaveClass('-mx-6', 'aspect-2/1')
+    expect(hero.className).not.toMatch(/\brounded-/)
   })
 
   it('renders nothing for a ready image without a hue', () => {
@@ -88,7 +98,7 @@ describe('MealImage', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('renders only a plain 3:2 box while generating', () => {
+  it('renders only a plain box with the hero geometry while generating', () => {
     const { container } = render(
       <MealImage
         mealName="Lemon garlic chicken"
@@ -102,7 +112,8 @@ describe('MealImage', () => {
     const box = screen.getByTestId('meal-image-placeholder')
     expect(container.childNodes).toHaveLength(1)
     expect(box).toBeEmptyDOMElement()
-    expect(box).toHaveClass('bg-muted', 'aspect-3/2', 'rounded-lg')
+    expect(box).toHaveClass('bg-muted', '-mx-6', 'aspect-2/1')
+    expect(box.className).not.toMatch(/\brounded-/)
     expect(box.className).not.toMatch(/animate-/)
   })
 })
