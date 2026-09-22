@@ -4,10 +4,11 @@ import { useCallback } from 'react'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import type { AlternativeMeal, MealComponent, NutritionData } from '../types'
+import type { MealImageFields } from '../MealImageCard'
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
 
 /** Shape of a meal in the `/api/meals` response. */
-interface LibraryMeal {
+interface LibraryMeal extends MealImageFields {
   id: string
   name: string
   description: string | null
@@ -38,6 +39,9 @@ function toAlternativeMeal(meal: LibraryMeal): AlternativeMeal {
     suitableFor: meal.suitableFor,
     components: meal.components,
     nutrition: meal.nutrition,
+    imageUrl: meal.imageUrl,
+    imageStatus: meal.imageStatus,
+    imageHue: meal.imageHue,
   }
 }
 

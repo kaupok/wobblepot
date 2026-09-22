@@ -133,13 +133,14 @@ The product supplies one piece of content imagery: a generated illustration of e
 - **Meal hue.** Every meal with an image has an `imageHue`: an integer from 0 to 360, the OKLCH hue of its food, extracted once when the image is generated and stored on the meal. It is the **only** per-meal colour variable. Lightness and chroma are never per meal, and nothing else about the meal (type, cuisine, tags) picks a colour. Components receive it as the `--meal-hue` CSS variable.
 - **Tinted surfaces.** A meal card and the modal hero take their background from `oklch(L C var(--meal-hue))`, with L and C fixed tokens:
 
-  | Token                    | Light                              | Dark                               |
-  | ------------------------ | ---------------------------------- | ---------------------------------- |
-  | Surface                  | L 0.97, C 0.035                    | L 0.45, C 0.035                    |
-  | Accent chip              | C 0.11                             | C 0.11                             |
-  | Text on a tinted surface | `oklch(0.25 0.03 var(--meal-hue))` | `oklch(0.95 0.02 var(--meal-hue))` |
+  | Token                            | Light                              | Dark                               |
+  | -------------------------------- | ---------------------------------- | ---------------------------------- |
+  | Surface                          | L 0.97, C 0.035                    | L 0.35, C 0.035                    |
+  | Text on a tinted surface         | `oklch(0.25 0.03 var(--meal-hue))` | `oklch(0.95 0.02 var(--meal-hue))` |
+  | Muted text on a tinted surface   | `oklch(0.48 0.03 var(--meal-hue))` | `oklch(0.78 0.02 var(--meal-hue))` |
+  | Accent chip (text: the text row) | L 0.90, C 0.11                     | L 0.27, C 0.11                     |
 
-  The dark surface is a starting point judged on the HON-743 contact sheet only; the implementation tunes it against the real dark theme and updates this table. HON-743 fixed only the chip's chroma: HON-746 sets its lightness and its text colour, measured at ≥5:1 like the status pairings, and adds them to the row. Fixed L and C are the point: every meal gets the same contrast, so one number is measured and tuned for all meals instead of one per dish, and no hue can produce an unreadable card. Text and chips on a tinted surface use these tokens, not `foreground` or `muted-foreground`, which are calibrated for the neutral background (see [Color](#color)).
+  The values live as `--meal-*-l` / `--meal-*-c` tokens in `globals.css`, and `[data-meal-surface]` there re-scopes the theme tokens (`card`, `foreground`, `muted-foreground`, and `secondary` / `accent` as the chip) on the element that carries `--meal-hue`, so everything already inside a card uses the tinted values without a variant of its own. `src/lib/meal-tint.test.ts` measures every pairing against all 360 hues: the text and muted rows and the theme's `success`, `warning` and `primary` at ≥4.5:1 on the surface, and the chip at ≥5:1 like the status pairings. The dark surface is L 0.35, not the 0.45 the HON-743 contact sheet started from: at 0.45 the dark `success` / `warning` ingredient colours and the muted text fall below 4.5:1. The cost is that `multiply` on a dark surface darkens the food too, so in dark mode the image reads as a dim shape in the tint instead of a bright plate. That is acceptable for decoration, and a lighter surface would buy it back only by failing contrast. Fixed L and C are the point: every meal gets the same contrast, so one number is measured and tuned for all meals instead of one per dish, and no hue can produce an unreadable card. Text and chips on a tinted surface use these tokens, not the neutral `foreground` or `muted-foreground` values, which are calibrated for the neutral background (see [Color](#color)).
 
 - **The image on a surface.** Rendered through `next/image` with `object-fit: cover` and `mix-blend-mode: multiply`, so the white surface of the illustration takes the tint and the plate sits on the card rather than in a white box. A `mask-image` linear fade blends its edge into the surface:
   - **Cards:** the image sits on the right at about 62% of the card width, and the fade runs left to right, reaching full opacity at 70% of the image width. The text sits on the plain tint to its left.
@@ -212,5 +213,4 @@ Add one here when a review finds code and rule disagreeing and the fix is not ob
 
 Decisions above that the code does not yet reflect. Each has a Linear issue; update this list when one ships.
 
-- **HON-744** — prompt V4 (white surface, plate at half the frame) and `Meal.imageHue`, extracted at generation. Until it ships, `prompt.ts` is V3 and no meal has a hue.
-- **HON-746** — hue-tinted meal cards with the blended illustration, and the tinted modal hero. Until it ships, the image appears only in the meal detail modal as an opaque, `rounded-lg` 3:2 image, the dark surface token in [Imagery](#imagery) is untuned, and the accent chip has no lightness or text colour yet.
+None at the moment.

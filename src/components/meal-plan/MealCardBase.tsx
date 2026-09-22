@@ -6,11 +6,17 @@ import { Badge } from '@/components/ui/badge'
 import { Body, Heading, type HeadingTag } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { getIngredientAvailabilitySets } from './AvailabilityIndicator'
+import type { MealImageFields } from './MealImageCard'
 import { NutritionSummary } from './NutritionSummary'
 import type { MealComponent, NutritionData, PantryIngredient } from './types'
 import type { MealType } from '@/generated/prisma/enums'
 
-export interface MealCardBaseData {
+/**
+ * The image fields are read by the `MealImageCard` a caller wraps this in, not
+ * rendered here: the tint and the image belong to the card, which this
+ * component deliberately does not own.
+ */
+export interface MealCardBaseData extends MealImageFields {
   name: string
   description?: string | null
   sourceUrl?: string | null

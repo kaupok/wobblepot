@@ -5,11 +5,13 @@ import {
   MEAL_IMAGE_PLACEHOLDER_DELAY_MS,
   MEAL_IMAGE_POLL_INTERVAL_MS,
   MEAL_IMAGE_POLL_TIMEOUT_MS,
+  mealImageQueryKey,
   useMealImage,
+  useMealImageFields,
 } from './use-meal-image'
 import type { MealData } from '@/components/meal-plan/types'
 
-type Meal = Pick<MealData, 'id' | 'isCustom' | 'imageUrl' | 'imageStatus'>
+type Meal = Pick<MealData, 'id' | 'isCustom' | 'imageUrl' | 'imageStatus' | 'imageHue'>
 
 const URL_1 = 'https://store.public.blob.vercel-storage.com/meals/meal-1.png'
 const URL_2 = 'https://store.public.blob.vercel-storage.com/meals/meal-2.png'
@@ -47,6 +49,56 @@ function renderImageHook(initial: { meal: Meal; open: boolean }) {
   })
 }
 
+describe('useMealImageFields', () => {
+  it('passes the payload through while there is no image state for the meal', () => {
+    const { wrapper } = createQueryWrapper()
+    const meal = { ...householdMeal, name: 'Soup' }
+    const { result } = renderHook(() => useMealImageFields(meal), { wrapper })
+
+    expect(result.current).toBe(meal)
+  })
+
+  it('takes an image generated from the modal over the stale payload', async () => {
+    const { wrapper, queryClient } = createQueryWrapper()
+    const meal = { ...householdMeal, name: 'Soup' }
+    const { result } = renderHook(() => useMealImageFields(meal), { wrapper })
+
+    act(() => {
+      queryClient.setQueryData(mealImageQueryKey('meal-1'), {
+        status: 'ready',
+        imageUrl: URL_1,
+        imageHue: 40,
+      })
+    })
+
+    await waitFor(() =>
+      expect(result.current).toEqual({
+        ...meal,
+        imageStatus: 'ready',
+        imageUrl: URL_1,
+        imageHue: 40,
+      }),
+    )
+  })
+
+  it('never fetches on its own', () => {
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    const { wrapper } = createQueryWrapper()
+    renderHook(() => useMealImageFields(householdMeal), { wrapper })
+
+    expect(fetchSpy).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+
+  it('returns null for an empty slot', () => {
+    const { wrapper } = createQueryWrapper()
+    const { result } = renderHook(() => useMealImageFields(null), { wrapper })
+
+    expect(result.current).toBeNull()
+  })
+})
+
 describe('useMealImage', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
@@ -68,6 +120,18 @@ describe('useMealImage', () => {
 
     expect(result.current.status).toBe('ready')
     expect(result.current.imageUrl).toBe(URL_1)
+  })
+
+  it('carries the hue from the payload and from a generated image', async () => {
+    const { result } = renderImageHook({
+      meal: { ...householdMeal, imageStatus: 'ready', imageUrl: URL_1, imageHue: 52 },
+      open: false,
+    })
+    expect(result.current.imageHue).toBe(52)
+
+    mockFetch.mockResolvedValue(json({ status: 'ready', imageUrl: URL_2, imageHue: 264 }))
+    const generated = renderImageHook({ meal: { ...householdMeal, id: 'meal-2' }, open: true })
+    await waitFor(() => expect(generated.result.current.imageHue).toBe(264))
   })
 
   it('fires exactly one POST when a household meal without an image opens', async () => {

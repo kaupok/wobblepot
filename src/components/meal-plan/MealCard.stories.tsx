@@ -8,6 +8,7 @@ import {
   lemonGarlicChickenPantry,
   lemonGarlicChickenPantryItems,
 } from '@/stories/fixtures'
+import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import type { AlternativeMeal } from './types'
 import { MealCard } from './MealCard'
 
@@ -41,6 +42,28 @@ type Story = StoryObj<typeof meta>
 /** Swap and Clear live behind the card's "More actions" menu (HON-688). */
 async function openMoreActions(canvasElement: HTMLElement) {
   await userEvent.click(within(canvasElement).getByRole('button', { name: /more actions/i }))
+}
+
+/** A meal with an illustration takes its hue (HON-746); the controls stay where they were. */
+export const PlannedWithImage: Story = {
+  args: {
+    meal: { ...mealFixture, imageStatus: 'ready', imageUrl: mealIllustration.src, imageHue: 52 },
+    status: 'planned',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await canvas.findByRole('img', { name: mealFixture.name })
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    await expect(card.style.getPropertyValue('--meal-hue')).toBe('52')
+    await expect(canvas.getByRole('button', { name: /more actions/i })).toBeVisible()
+  },
+}
+
+export const PlannedWithImageDark: Story = {
+  ...PlannedWithImage,
+  name: 'Planned with image (dark)',
+  globals: { theme: 'dark' },
+  play: undefined,
 }
 
 export const Planned: Story = {

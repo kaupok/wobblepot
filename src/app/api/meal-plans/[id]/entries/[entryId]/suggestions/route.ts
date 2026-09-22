@@ -236,6 +236,9 @@ async function handlePOST(
           }
         }),
         nutrition: computeMealNutrition(components),
+        imageUrl: mealDetail?.imageUrl ?? null,
+        imageStatus: mealDetail?.imageStatus,
+        imageHue: mealDetail?.imageHue ?? null,
       }
     })
 

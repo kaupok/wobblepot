@@ -1,9 +1,10 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { Card, CardContent, CardFooter } from '@/components/ui/card'
+import { CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { MealCardBase } from './MealCardBase'
+import { MealImageCard } from './MealImageCard'
 import type { AlternativeMeal, PantryIngredient } from './types'
 
 interface AlternativeCardProps {
@@ -22,7 +23,7 @@ export function AlternativeCard({
 }: AlternativeCardProps) {
   const t = useTranslations('meal-plan.alternative')
   return (
-    <Card className="flex h-full flex-col">
+    <MealImageCard meal={meal} className="flex h-full flex-col">
       <CardContent className="flex-1 p-4 pb-2">
         <MealCardBase meal={meal} pantryIngredients={pantryIngredients} nameHeadingTag="h3" />
       </CardContent>
@@ -31,6 +32,6 @@ export function AlternativeCard({
           {isSelecting ? t('selecting') : t('select')}
         </Button>
       </CardFooter>
-    </Card>
+    </MealImageCard>
   )
 }

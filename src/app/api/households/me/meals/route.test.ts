@@ -147,6 +147,29 @@ describe('GET /api/households/me/meals', () => {
     expect(data.nextCursor).toBeNull()
   })
 
+  it('carries the image fields the card tint reads (HON-746)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockMealFindMany.mockResolvedValue([
+      { ...mockMealData, imageUrl: 'https://blob/meal-1.png', imageStatus: 'ready', imageHue: 30 },
+    ] as never)
+
+    const data = await (
+      await GET(new NextRequest('http://localhost/api/households/me/meals'))
+    ).json()
+
+    expect(data.meals[0]).toMatchObject({
+      imageUrl: 'https://blob/meal-1.png',
+      imageStatus: 'ready',
+      imageHue: 30,
+    })
+    expect(mockMealFindMany.mock.calls[0]?.[0]?.select).toMatchObject({
+      imageUrl: true,
+      imageStatus: true,
+      imageHue: true,
+    })
+  })
+
   it('returns empty meals array when none exist', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)

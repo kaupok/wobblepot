@@ -1,4 +1,5 @@
 import type { MealStatus } from './StatusSelect'
+import type { MealImageFields } from './MealImageCard'
 import type { MealImageStatus, MealType } from '@/generated/prisma/enums'
 
 export interface MealComponent {
@@ -76,7 +77,7 @@ export interface MealPlan {
   entries: PlanEntry[]
 }
 
-export interface AlternativeMeal {
+export interface AlternativeMeal extends MealImageFields {
   id: string
   name: string
   description?: string | null
