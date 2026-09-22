@@ -3,7 +3,6 @@
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { Body } from '@/components/ui/typography'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
-import { getUrgencyBucket } from '@/lib/meal-planning/dates'
 import { ShoppingItem, type ShoppingItemData } from './ShoppingItem'
 import { CustomShoppingItem } from './CustomShoppingItem'
 import type { CustomItemData } from './CustomItemInput'
@@ -79,7 +78,6 @@ export function CategoryGroup({
             onToggle={onToggleItem}
             disabled={disabled}
             pending={pendingIds?.has(item.ingredientId)}
-            urgent={getUrgencyBucket(item.neededByDate) === 'today'}
           />
         ))}
         {customItems?.map((item) => (

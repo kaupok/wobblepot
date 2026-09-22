@@ -240,7 +240,7 @@ export function formatRelativeDate(
  * subtracts using local-midnight `Date` math — no DST drift, no
  * runtime-local-vs-`timeZone` skew.
  */
-function calendarDaysBetween(from: Date, to: Date, timeZone?: string): number {
+export function calendarDaysBetween(from: Date, to: Date, timeZone?: string): number {
   const fromDay = parseISODay(toCalendarDay(from, timeZone))
   const toDay = parseISODay(toCalendarDay(to, timeZone))
   const diffMs = toDay.getTime() - fromDay.getTime()

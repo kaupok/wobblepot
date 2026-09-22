@@ -15,6 +15,12 @@ export interface ShoppingItemData {
   neededByRelative: string
   neededByAbsolute: string
   isVague?: boolean
+  /**
+   * Needed today (or overdue) in the household's timezone, computed by the API
+   * against the same day as `neededByRelative`. The due label takes the
+   * `warning` token, matching the Today card (HON-762).
+   */
+  dueToday?: boolean
 }
 
 interface ShoppingItemProps {
@@ -22,11 +28,9 @@ interface ShoppingItemProps {
   onToggle: (ingredientId: string, purchased: boolean) => void
   disabled?: boolean
   pending?: boolean
-  /** Due today: the due label takes the `warning` token, matching the Today card. */
-  urgent?: boolean
 }
 
-export function ShoppingItem({ item, onToggle, disabled, pending, urgent }: ShoppingItemProps) {
+export function ShoppingItem({ item, onToggle, disabled, pending }: ShoppingItemProps) {
   const tShopping = useTranslations('shopping')
   const handleCheckedChange = (checked: boolean | 'indeterminate') => {
     if (checked === 'indeterminate') return
@@ -81,7 +85,7 @@ export function ShoppingItem({ item, onToggle, disabled, pending, urgent }: Shop
               'shrink-0 text-xs',
               item.purchased
                 ? 'text-muted-foreground/60'
-                : urgent
+                : item.dueToday
                   ? 'text-warning font-medium'
                   : 'text-muted-foreground',
             )}

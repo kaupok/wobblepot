@@ -496,6 +496,7 @@ export const shoppingItemsByUrgency: Record<UrgencyBucket, ShoppingItemData[]> =
       neededByDate: '2026-04-17',
       neededByRelative: 'today',
       neededByAbsolute: 'Friday, April 17',
+      dueToday: true,
     }),
     createShoppingItem({
       ingredientId: 'onion',
@@ -504,6 +505,7 @@ export const shoppingItemsByUrgency: Record<UrgencyBucket, ShoppingItemData[]> =
       neededByDate: '2026-04-17',
       neededByRelative: 'today',
       neededByAbsolute: 'Friday, April 17',
+      dueToday: true,
       purchased: true,
     }),
   ],

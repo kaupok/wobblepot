@@ -51,8 +51,8 @@ export const DueToday: Story = {
       name: 'Chicken thigh',
       displayQuantity: '500g',
       neededByRelative: 'Today',
+      dueToday: true,
     }),
-    urgent: true,
   },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByText('Today')).toHaveClass('text-warning')
@@ -143,9 +143,9 @@ export const AllStates: Story = {
           name: 'Lemon',
           displayQuantity: '2 pcs',
           neededByRelative: 'Today',
+          dueToday: true,
         })}
         onToggle={fn()}
-        urgent
       />
       <ShoppingItem
         item={createShoppingItem({

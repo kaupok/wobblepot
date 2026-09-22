@@ -41,6 +41,7 @@ vi.mock('@/lib/meal-planning/dates', () => ({
 vi.mock('@/lib/i18n/format-dates', () => ({
   formatRelativeDate: vi.fn(() => 'Tomorrow'),
   formatAbsoluteDate: vi.fn(() => 'Mon 27 Jan'),
+  calendarDaysBetween: vi.fn(() => 1),
 }))
 
 vi.mock('@/lib/i18n/get-locale', () => ({

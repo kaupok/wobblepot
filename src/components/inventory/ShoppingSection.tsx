@@ -24,7 +24,7 @@ import { ShoppingEmptyState } from './ShoppingEmptyState'
 import { ShoppingListHeader } from './ShoppingListHeader'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { track } from '@/lib/analytics'
-import { getUrgencyBucket, parseLocalDate } from '@/lib/meal-planning/dates'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { formatDateRange } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
 import {
@@ -568,7 +568,6 @@ export function ShoppingSection({
                     item={entry.item}
                     onToggle={handleToggle}
                     pending={pendingIds.has(entry.item.ingredientId)}
-                    urgent={getUrgencyBucket(entry.item.neededByDate) === 'today'}
                   />
                 ) : (
                   <CustomShoppingItem

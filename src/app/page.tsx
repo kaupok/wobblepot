@@ -195,7 +195,8 @@ export default async function Home() {
           neededByDate: item.neededByDate,
           neededByRelative: item.neededByRelative,
           purchased: item.purchased,
-          urgency: getUrgencyBucket(item.neededByDate),
+          // Bucket against the household's day, not the server's (HON-762).
+          urgency: getUrgencyBucket(item.neededByDate, new Date(todayParsed)),
         })
       }
     }

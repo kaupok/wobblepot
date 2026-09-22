@@ -6,7 +6,11 @@ import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { computeRollingWindowShoppingList } from '@/lib/meal-planning/shopping-list'
 import { toDateString, parseLocalDate, getTodayInTimezone } from '@/lib/meal-planning/dates'
-import { formatRelativeDate, formatAbsoluteDate } from '@/lib/i18n/format-dates'
+import {
+  calendarDaysBetween,
+  formatRelativeDate,
+  formatAbsoluteDate,
+} from '@/lib/i18n/format-dates'
 import { formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
 import { getLocale } from '@/lib/i18n/get-locale'
 import { captureApiError } from '@/lib/errors'
@@ -120,6 +124,10 @@ export async function GET(request: NextRequest) {
           neededByAbsolute: formatAbsoluteDate(item.earliestNeededDate, locale, {
             timeZone: household.timezone,
           }),
+          // Same reference day as `neededByRelative`, so the warning colour and
+          // the "Today" label cannot disagree (HON-762). Overdue counts as today.
+          dueToday:
+            calendarDaysBetween(todayInTz, item.earliestNeededDate, household.timezone) <= 0,
           isVague: item.isVague,
         }
       })
