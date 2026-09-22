@@ -13,7 +13,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Fixed bottom tab bar for mobile. Hidden on `md:` and up. Active tab is derived from the current pathname — root path (`/`) matches exactly; other tabs match via `startsWith` so nested routes (e.g. `/recipes/123`) still highlight the correct tab.',
+          'Fixed bottom tab bar for mobile. Hidden on `md:` and up. Active tab is derived from the current pathname — root path (`/`) matches exactly; other tabs also match their sub-routes (via the shared `isNavItemActive` helper) so nested routes (e.g. `/recipes/123`) still highlight the correct tab.',
       },
     },
   },

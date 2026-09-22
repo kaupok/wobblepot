@@ -141,8 +141,7 @@
     "summaryToday": "{count} tänaseks",
     "summaryTomorrow": "{count} homseks",
     "summaryNeed": "Vaja: {parts}",
-    "purchasedCollapse": "{count, plural, one {# toode ostetud} other {# toodet ostetud}}",
-    "backToPlan": "Tagasi plaani juurde"
+    "purchasedCollapse": "{count, plural, one {# toode ostetud} other {# toodet ostetud}}"
   },
   "meal-plan": {
     "generating": {
