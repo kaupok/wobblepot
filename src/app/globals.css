@@ -263,9 +263,15 @@
    An attribute selector rather than an @utility: an @utility has to be
    registered in CUSTOM_UTILITY_CLASS_GROUPS under a tailwind-merge family it
    conflicts with, and a set of re-scoped tokens has none. In @layer base so
-   any utility on the element still wins. */
+   any utility on the element still wins.
+
+   A `neutral` surface is a meal image without an imageHue (HON-754): it keeps
+   the image and its geometry but not the tint. It has to be excluded here
+   rather than left without --meal-hue, because an unset var() makes these
+   declarations invalid at computed-value time and --card would go
+   transparent, not back to the neutral card. */
 @layer base {
-  [data-meal-surface] {
+  [data-meal-surface]:not([data-meal-surface='neutral']) {
     --meal-text: oklch(var(--meal-text-l) var(--meal-text-c) var(--meal-hue));
     --meal-chip: oklch(var(--meal-chip-l) var(--meal-chip-c) var(--meal-hue));
     --card: oklch(var(--meal-surface-l) var(--meal-surface-c) var(--meal-hue));

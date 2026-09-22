@@ -1,6 +1,12 @@
 'use client'
 
-import { useState, type ComponentProps, type CSSProperties, type ReactNode } from 'react'
+import {
+  useCallback,
+  useState,
+  type ComponentProps,
+  type CSSProperties,
+  type ReactNode,
+} from 'react'
 import Image from 'next/image'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -69,8 +75,8 @@ const IMAGE_BOX = {
  * `IMAGE_BOX` plus the 30% fade — change the two together.
  *
  * Keyed on the card's own `data-meal-surface` rather than the meal's fields: a
- * card whose image fails to load goes neutral, and its title gets the full row
- * back with it.
+ * card whose image fails to load drops it, and its title gets the full row
+ * back with it. A neutral surface (an image without a hue) keeps the cap.
  */
 const TITLE_WIDTH = {
   default:
@@ -87,11 +93,28 @@ export function mealImageTitleWidth(trailingActions = false): string {
 /**
  * The hue to tint with, or null when the meal renders the neutral card: no
  * image, not `ready`, or no hue (docs/DESIGN.md → Imagery, "Absence renders
- * the neutral card").
+ * the neutral card"). A meal with an image but no hue still shows the image,
+ * on the neutral card (HON-754).
  */
 export function mealTintHue(meal: MealImageFields): number | null {
   if (meal.imageStatus !== 'ready' || !meal.imageUrl) return null
   return meal.imageHue ?? null
+}
+
+/**
+ * Whether an image has loaded, for its fade-in (docs/DESIGN.md → Imagery,
+ * "Arrival is a fade"). `onLoad` alone misses an image that finished before
+ * React attached the handler — a cache hit, or a load that beat hydration —
+ * and leaves it at opacity 0 for good (HON-754), so the ref checks as well.
+ * Reset by remounting: callers key the image by its URL.
+ */
+export function useImageLoaded() {
+  const [loaded, setLoaded] = useState(false)
+  const ref = useCallback((img: HTMLImageElement | null) => {
+    if (img?.complete && img.naturalWidth > 0) setLoaded(true)
+  }, [])
+  const onLoad = useCallback(() => setLoaded(true), [])
+  return { loaded, ref, onLoad }
 }
 
 /** The value for the `style` prop of an element that carries `data-meal-surface`. */
@@ -127,8 +150,9 @@ interface MealImageCardProps extends ComponentProps<typeof Card> {
  * A `Card` that takes its meal's colour (HON-746, `docs/DESIGN.md` → Imagery):
  * tinted with the meal's `imageHue`, with the illustration blended into the
  * right of the card, or below its content with `layout="bottom"`. A meal
- * without an image, or without a hue, is a plain `Card` — no tint, no image
- * element, nothing reserved while it generates.
+ * without an image is a plain `Card` — no tint, no image element, nothing
+ * reserved while it generates. A meal with an image but no hue keeps the
+ * image on the neutral card (`data-meal-surface="neutral"`, no `--meal-hue`).
  *
  * The children are the card's content, unchanged: the tint re-scopes the theme
  * tokens (`[data-meal-surface]` in globals.css), so nothing inside needs a
@@ -148,13 +172,16 @@ export function MealImageCard({
   // Keyed by URL so a new image after an edit gets its own chance to load.
   const [brokenUrl, setBrokenUrl] = useState<string | null>(null)
   const hue = mealTintHue(meal)
-  const imageUrl = meal.imageUrl
+  const imageUrl = meal.imageStatus === 'ready' ? meal.imageUrl : null
 
   // A URL that no longer resolves is an absent image: the card goes neutral
   // rather than keeping a tint with nothing to explain it. Errors are silent.
-  const tinted = hue !== null && !!imageUrl && imageUrl !== brokenUrl
+  const hasImage = !!imageUrl && imageUrl !== brokenUrl
+  // An image without a hue is still shown, on the neutral card: a picture
+  // that was generated and paid for is never hidden by its colour (HON-754).
+  const tinted = hasImage && hue !== null
 
-  const image = tinted ? (
+  const image = hasImage ? (
     <CardImage
       key={imageUrl}
       src={imageUrl}
@@ -171,13 +198,15 @@ export function MealImageCard({
   // remount the whole card — including the trigger the modal returns focus to.
   return (
     <Card
-      data-meal-surface={tinted ? '' : undefined}
+      // `neutral` keeps the geometry and the title cap below, but not the
+      // tint: globals.css re-scopes the tokens only for a hued surface.
+      data-meal-surface={tinted ? '' : hasImage ? 'neutral' : undefined}
       className={cn(
-        tinted && 'relative isolate overflow-hidden',
+        hasImage && 'relative isolate overflow-hidden',
         // The named group and container drive the side image's geometry and
         // the title cap (`mealImageTitleWidth`). A bottom card leaves them off,
         // so its title keeps the full row: nothing sits beside it.
-        tinted && layout === 'side' && 'group/meal-image @container/meal-image',
+        hasImage && layout === 'side' && 'group/meal-image @container/meal-image',
         className,
       )}
       // eslint-disable-next-line shadcn/no-inline-styles -- --meal-hue is the one per-meal value (docs/DESIGN.md → Imagery); every colour is derived from it by [data-meal-surface] in globals.css.
@@ -201,7 +230,7 @@ interface CardImageProps {
 }
 
 function CardImage({ src, alt, layout, trailingActions, onError }: CardImageProps) {
-  const [loaded, setLoaded] = useState(false)
+  const { loaded, ref, onLoad } = useImageLoaded()
   const bottom = layout === 'bottom'
 
   return (
@@ -228,7 +257,8 @@ function CardImage({ src, alt, layout, trailingActions, onError }: CardImageProp
         alt={alt}
         fill
         sizes={bottom ? SIZES.bottom : trailingActions ? SIZES.trailingActions : SIZES.default}
-        onLoad={() => setLoaded(true)}
+        ref={ref}
+        onLoad={onLoad}
         onError={onError}
         className={cn(
           'object-cover transition-opacity duration-200 ease-out',

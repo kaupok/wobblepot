@@ -27,7 +27,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "The card every `MealCardBase` callsite (and the planner's `MealCard`) wraps its content in (HON-746, `docs/DESIGN.md` → Imagery). With a `ready` image and an `imageHue`, the card takes the meal's tint and the illustration blends into its right 5/8 (45% on a phone) — multiplied, so the white surface takes the tint, and fading in from the left. Without one it is the plain `Card`: no tint, no image, nothing reserved while generating. With `trailingActions` (the planner card's Note and menu) the image ends before the action column, so nothing the user taps sits on it (HON-749). With `layout=\"bottom\"` (cards taller than wide, like the add-meal dialog's alternatives) the image is a full-width 3:2 block below the content, fading upward, with `footer` below it (HON-750).",
+          "The card every `MealCardBase` callsite (and the planner's `MealCard`) wraps its content in (HON-746, `docs/DESIGN.md` → Imagery). With a `ready` image and an `imageHue`, the card takes the meal's tint and the illustration blends into its right 5/8 (45% on a phone) — multiplied, so the white surface takes the tint, and fading in from the left. Without an image it is the plain `Card`: no tint, no image, nothing reserved while generating. With an image but no hue, the image stays on the untinted card (HON-754). With `trailingActions` (the planner card's Note and menu) the image ends before the action column, so nothing the user taps sits on it (HON-749). With `layout=\"bottom\"` (cards taller than wide, like the add-meal dialog's alternatives) the image is a full-width 3:2 block below the content, fading upward, with `footer` below it (HON-750).",
       },
     },
   },
@@ -59,7 +59,7 @@ export const WithImage: Story = {
     const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
     await expect(card.style.getPropertyValue('--meal-hue')).toBe('52')
     // The tint is on the card itself, so the background is no longer the neutral --card.
-    await expect(getComputedStyle(card).backgroundColor).not.toBe('rgb(255, 255, 255)')
+    await expect(getComputedStyle(card).backgroundColor).not.toBe('oklch(1 0 0)')
     // The name wraps before the opaque image (HON-749).
     const box = canvas.getByTestId('meal-card-image').getBoundingClientRect()
     const heading = canvas.getByRole('heading', { name: 'Lemon-garlic roast chicken' })
@@ -84,6 +84,30 @@ export const WithoutImage: Story = {
     const heading = within(canvasElement).getByRole('heading')
     await expect(getComputedStyle(heading.parentElement!).maxWidth).toBe('none')
   },
+}
+
+// An image whose extraction found no colour: the image stays, on the neutral
+// card (HON-754). A generated picture is never hidden by its colour.
+export const WithImageWithoutHue: Story = {
+  name: 'With image, without a hue',
+  args: { meal: withImage(0, { imageHue: null }) },
+  play: async ({ canvasElement }) => {
+    const img = await within(canvasElement).findByRole('img', {
+      name: 'Lemon-garlic roast chicken',
+    })
+    await expect(img).toBeInTheDocument()
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    await expect(card).toHaveAttribute('data-meal-surface', 'neutral')
+    await expect(card.style.getPropertyValue('--meal-hue')).toBe('')
+    // No tint: the tokens are the neutral card's, not an invalid oklch().
+    await expect(getComputedStyle(card).backgroundColor).toBe('oklch(1 0 0)')
+  },
+}
+
+export const WithImageWithoutHueDark: Story = {
+  name: 'With image, without a hue (dark)',
+  args: { meal: withImage(0, { imageHue: null }) },
+  globals: { theme: 'dark' },
 }
 
 // Cards show nothing extra while the image is drawn: no box, no skeleton.
