@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Body, Heading, type HeadingTag } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { getIngredientAvailabilitySets } from './AvailabilityIndicator'
-import type { MealImageFields } from './MealImageCard'
+import { mealImageTitleWidth, type MealImageFields } from './MealImageCard'
 import { NutritionSummary } from './NutritionSummary'
 import type { MealComponent, NutritionData, PantryIngredient } from './types'
 import type { MealType } from '@/generated/prisma/enums'
@@ -69,10 +69,13 @@ export function MealCardBase({
 
   return (
     <div className="flex flex-col gap-1.5">
-      {/* 1. Meal name */}
-      <Heading variant="h4" as={nameHeadingTag}>
-        {meal.name}
-      </Heading>
+      {/* 1. Meal name — wraps before the image on a tinted `MealImageCard`, full
+          width anywhere else (HON-749) */}
+      <div className={mealImageTitleWidth()}>
+        <Heading variant="h4" as={nameHeadingTag}>
+          {meal.name}
+        </Heading>
+      </div>
 
       {/* 2. Description */}
       {meal.description && <Body variant="muted">{meal.description}</Body>}

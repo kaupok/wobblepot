@@ -60,6 +60,12 @@ export const WithImage: Story = {
     await expect(card.style.getPropertyValue('--meal-hue')).toBe('52')
     // The tint is on the card itself, so the background is no longer the neutral --card.
     await expect(getComputedStyle(card).backgroundColor).not.toBe('rgb(255, 255, 255)')
+    // The name wraps before the opaque image (HON-749).
+    const box = canvas.getByTestId('meal-card-image').getBoundingClientRect()
+    const heading = canvas.getByRole('heading', { name: 'Lemon-garlic roast chicken' })
+    await expect(heading.getBoundingClientRect().right).toBeLessThanOrEqual(
+      box.left + box.width * 0.3,
+    )
   },
 }
 
@@ -74,6 +80,9 @@ export const WithoutImage: Story = {
     await expect(within(canvasElement).queryByRole('img')).not.toBeInTheDocument()
     const card = canvasElement.querySelector('[data-slot="card"]')!
     await expect(card).not.toHaveAttribute('data-meal-surface')
+    // A neutral card gives the name the full width.
+    const heading = within(canvasElement).getByRole('heading')
+    await expect(getComputedStyle(heading.parentElement!).maxWidth).toBe('none')
   },
 }
 
