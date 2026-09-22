@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { Body } from '@/components/ui/typography'
 import { NutritionDisclaimer } from '@/components/NutritionDisclaimer'
 import { NutritionSummary } from './NutritionSummary'
@@ -82,6 +83,7 @@ export function MealDetail({
   }, [meal, pantryIngredients])
 
   const showPreparationSection = !!onHowToPrepare
+  const showTips = showPreparationSection && isTipsExpanded
   // A completed entry's servings are what the pantry was charged for, and the
   // API refuses to change them (409, HON-652) — so show the count as the
   // static header instead of offering an edit that can only fail.
@@ -116,61 +118,66 @@ export function MealDetail({
         )}
       </div>
 
-      {/* Ingredients + Preparation tips side-by-side on md+ */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Ingredients (left) */}
-        <IngredientList
-          components={meal.components}
-          servings={effectiveServings}
-          householdSize={householdSize}
-          pantryIngredients={pantryIngredients}
-          onToggleAvailability={hideAvailability ? undefined : onToggleAvailability}
-          togglingIds={togglingIds}
-          optimisticOverrides={optimisticOverrides}
-          availability={hideAvailabilityBadge ? null : availability}
-          hideAvailability={hideAvailability}
-          headerElement={
-            showServingControl ? (
-              <span className="text-sm font-semibold">
-                {tDetail.rich('ingredientsHeaderInline', {
-                  servings: (_chunks) => (
-                    <ServingControl
-                      servings={effectiveServings}
-                      householdSize={householdSize}
-                      onServingsChange={onServingsChange}
-                      disabled={hideAvailability}
-                    />
-                  ),
-                })}
-              </span>
-            ) : undefined
-          }
-        />
+      {/* Ingredients, with the preparation tips beside them on md+ once shown */}
+      <div className={cn('grid grid-cols-1 gap-4', showTips && 'md:grid-cols-2')}>
+        <div className="flex flex-col gap-4">
+          <IngredientList
+            components={meal.components}
+            servings={effectiveServings}
+            householdSize={householdSize}
+            pantryIngredients={pantryIngredients}
+            onToggleAvailability={hideAvailability ? undefined : onToggleAvailability}
+            togglingIds={togglingIds}
+            optimisticOverrides={optimisticOverrides}
+            availability={hideAvailabilityBadge ? null : availability}
+            hideAvailability={hideAvailability}
+            headerElement={
+              showServingControl ? (
+                // The control sits beside the title rather than inside
+                // parentheses, where its padding read as stray spaces (HON-763).
+                <div className="flex flex-wrap items-baseline gap-x-1">
+                  <Body variant="small" className="font-semibold whitespace-nowrap">
+                    {tDetail('ingredientsTitle')}
+                  </Body>
+                  <ServingControl
+                    servings={effectiveServings}
+                    householdSize={householdSize}
+                    onServingsChange={onServingsChange}
+                    disabled={hideAvailability}
+                  />
+                </div>
+              ) : undefined
+            }
+          />
 
-        {/* Preparation tips (right) */}
-        {showPreparationSection && (
-          <div className="bg-muted/50 flex flex-col items-center justify-center gap-4 rounded-lg p-4">
-            {isTipsExpanded ? (
-              <div className="w-full">
-                <PreparationTips
-                  tips={tips ?? null}
-                  isLoading={isLoadingTips}
-                  error={tipsError ?? null}
-                  onRetry={onRetryTips ?? (() => {})}
-                  preparationNotes={meal.preparationNotes}
-                />
-                {tips && onHideTips && (
-                  <div className="mt-3 flex justify-center">
-                    <Button variant="ghost" size="sm" onClick={onHideTips}>
-                      {tDetail('hideTips')}
-                    </Button>
-                  </div>
-                )}
+          {/* Collapsed tips reserve no panel — just the button (HON-763) */}
+          {showPreparationSection && !isTipsExpanded && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto sm:self-start"
+              onClick={onHowToPrepare}
+            >
+              {tDetail('howToPrepare')}
+            </Button>
+          )}
+        </div>
+
+        {showTips && (
+          <div className="bg-muted/50 rounded-lg p-4">
+            <PreparationTips
+              tips={tips ?? null}
+              isLoading={isLoadingTips}
+              error={tipsError ?? null}
+              onRetry={onRetryTips ?? (() => {})}
+              preparationNotes={meal.preparationNotes}
+            />
+            {tips && onHideTips && (
+              <div className="mt-3 flex justify-center">
+                <Button variant="ghost" size="sm" onClick={onHideTips}>
+                  {tDetail('hideTips')}
+                </Button>
               </div>
-            ) : (
-              <Button variant="outline" size="sm" onClick={onHowToPrepare}>
-                {tDetail('howToPrepare')}
-              </Button>
             )}
           </div>
         )}

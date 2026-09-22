@@ -260,7 +260,7 @@
       "kidFriendly": "Lastesõbralik",
       "timeMinutes": "{count} min",
       "ingredientsHeader": "Koostisosad ({count, plural, one {# portsjon} other {# portsjonit}})",
-      "ingredientsHeaderInline": "Koostisosad (<servings>portsjonid</servings>)",
+      "ingredientsTitle": "Koostisosad",
       "staplesPrefix": "Põhitooted: {list}",
       "viewSource": "Vaata algset retsepti",
       "howToPrepare": "Kuidas valmistada",

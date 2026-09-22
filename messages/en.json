@@ -260,7 +260,7 @@
       "kidFriendly": "Kid-friendly",
       "timeMinutes": "{count} min",
       "ingredientsHeader": "Ingredients (serves {count})",
-      "ingredientsHeaderInline": "Ingredients (<servings>servings</servings>)",
+      "ingredientsTitle": "Ingredients",
       "staplesPrefix": "Staples: {list}",
       "viewSource": "View original recipe",
       "howToPrepare": "How to prepare",
