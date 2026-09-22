@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Check, ChevronDown, ChevronUp, ShoppingCart } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,7 @@ interface UrgentShoppingProps {
 
 export function UrgentShopping({ items }: UrgentShoppingProps) {
   const tToday = useTranslations('today')
+  const locale = useLocale()
   const [isPurchasedExpanded, setIsPurchasedExpanded] = useState(false)
 
   // Filter to only today and tomorrow items, sorted by urgency (today first)
@@ -35,10 +36,14 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
         // Today items come first
         if (a.urgency === 'today' && b.urgency !== 'today') return -1
         if (a.urgency !== 'today' && b.urgency === 'today') return 1
-        // Within same urgency, sort by name
-        return a.name.localeCompare(b.name)
+        // Within same urgency, sort by name. Collate in the app locale: a bare
+        // `localeCompare` resolves the runtime's default locale, which is
+        // `en-US` on the server and the browser's language on the client —
+        // Estonian sorts `z` before `t`, so the two lists came out in different
+        // orders and hydration failed with React error 418 (HON-751).
+        return a.name.localeCompare(b.name, locale)
       })
-  }, [items])
+  }, [items, locale])
 
   const unpurchasedItems = urgentItems.filter((item) => !item.purchased)
   const purchasedItems = urgentItems.filter((item) => item.purchased)
