@@ -1,44 +1,31 @@
 /**
  * Meal Colour Spike (HON-743)
  *
- * Two questions before any more meal illustrations are drawn:
+ * Which hue is "the meal's colour", and how does an opaque illustration fade
+ * into a card tinted with it? The naive dominant colour of a plated dish is
+ * the plate or the table, so the rule crops to the centre, drops grey pixels
+ * below a chroma floor, and takes the chroma-weighted winner of 18 hue bins.
  *
- *   1. Does the V3 gouache style survive `background: 'transparent'`, so an
- *      image can be faded into a tinted card without dragging its painted
- *      tabletop along as a halo?
- *   2. Which hue is "the meal's colour"? The naive dominant colour of a plated
- *      dish is the plate or the table, so the rule crops to the centre, drops
- *      transparent and grey pixels, and takes the chroma-weighted winner of 24
- *      hue bins.
+ * Input is a HON-738 run directory (the images as shipped). Output is a
+ * contact sheet with the extracted hue, mock cards in light and dark, a modal
+ * hero, and sliders for the few numbers that are meant to be tuned once for
+ * every meal (lightness, chroma, fade). No spend, no database, no Blob, no
+ * product code.
  *
- * Input is a HON-738 run directory: its `manifest.json` carries the exact V3
- * prompt each meal was drawn with, so the transparent redraw changes exactly
- * one variable. Output is a contact sheet with both variants, the extracted
- * hue, mock cards in light and dark, a modal hero, and sliders for the few
- * numbers that are meant to be tuned once for every meal (lightness, chroma,
- * fade). No database, no Blob, no product code.
+ * A `background: 'transparent'` redraw was tried first (2026-09-22, $0.60) and
+ * rejected: the V3 prompt's tabletop survives as a halo and the shadows look
+ * wrong once isolated. The illustrations stay opaque; the fade does the work.
  *
- * COSTS REAL MONEY with `--confirm` (~$0.05 per image). Without it, a dry run.
- * Needs OPENAI_API_KEY in `.env`, read from process.env on purpose (see
- * spike-meal-images.ts). Draws one image at a time: the org tier allows five
- * images a minute and a draw takes ~20 s, so sequential never trips it.
- *
- * Usage: pnpm spike:meal-colour [--confirm] [--source=<run dir>] [--limit=N]
- *        pnpm spike:meal-colour --render=<spike run dir>   re-extract hues and rewrite the sheet, no spend
+ * Usage: pnpm spike:meal-colour [--source=<run dir>] [--limit=N]
  *
  * Output: .temp/spike-meal-colour/<timestamp>/index.html (gitignored)
  */
 
-import 'dotenv/config'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { createOpenAI } from '@ai-sdk/openai'
-import { generateImage } from 'ai'
 import sharp from 'sharp'
 
-const MODEL = 'gpt-image-2.5-flare'
-const EST_PER_IMAGE_USD = 0.05
 const DEFAULT_SOURCE = '.temp/global-meal-images/2026-09-22T07-01-28-144Z'
 const PREVIEW_WIDTH = 768
 
@@ -59,18 +46,14 @@ interface Manifest {
 }
 
 export interface ParsedArgs {
-  confirm: boolean
   source: string
   limit?: number
-  render?: string
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
-  const args: ParsedArgs = { confirm: false, source: DEFAULT_SOURCE }
+  const args: ParsedArgs = { source: DEFAULT_SOURCE }
   for (const arg of argv) {
-    if (arg === '--confirm') args.confirm = true
-    else if (arg.startsWith('--source=')) args.source = arg.slice('--source='.length)
-    else if (arg.startsWith('--render=')) args.render = arg.slice('--render='.length)
+    if (arg.startsWith('--source=')) args.source = arg.slice('--source='.length)
     else if (arg.startsWith('--limit=')) {
       const n = Number(arg.slice('--limit='.length))
       if (!Number.isInteger(n) || n < 1)
@@ -228,40 +211,14 @@ export async function extractHue(file: string, options: HueOptions = DEFAULT_HUE
 }
 
 // ============================================
-// DRAWING
-// ============================================
-
-async function drawTransparent(prompt: string, apiKey: string): Promise<Uint8Array> {
-  const openai = createOpenAI({ apiKey })
-  const attempt = () =>
-    generateImage({
-      model: openai.image(MODEL),
-      prompt,
-      size: '1536x1024',
-      providerOptions: {
-        openai: { quality: 'high', outputFormat: 'png', background: 'transparent' },
-      },
-      maxRetries: 1,
-    })
-  try {
-    return (await attempt()).image.uint8Array
-  } catch (error) {
-    // One long retry on a per-minute rate limit; anything else is the caller's.
-    if (!String(error).includes('Rate limit')) throw error
-    await new Promise((r) => setTimeout(r, 15_000))
-    return (await attempt()).image.uint8Array
-  }
-}
-
-// ============================================
 // CONTACT SHEET
 // ============================================
 
 export interface SheetRow {
   slug: string
   name: string
-  opaque: { preview: string; hue: HueResult }
-  transparent?: { preview: string; hue: HueResult }
+  preview: string
+  hue: HueResult
 }
 
 const escape = (s: string) =>
@@ -269,24 +226,19 @@ const escape = (s: string) =>
 
 const fmt = (n: number, digits = 2) => n.toFixed(digits)
 
-function card(row: SheetRow, variant: 'opaque' | 'transparent', theme: 'light' | 'dark') {
-  const v = row[variant]
-  if (!v) return `<div class="card missing ${theme}">not drawn</div>`
-  const hue = v.hue.hue ?? 0
-  const fit = variant === 'transparent' ? 'contain' : 'cover'
-  return `<div class="card ${theme} ${variant}" style="--hue:${hue}" title="${variant}, ${theme}, hue ${hue}">
-      <img src="${v.preview}" alt="" style="object-fit:${fit}">
+function card(row: SheetRow, theme: 'light' | 'dark') {
+  const hue = row.hue.hue ?? 0
+  return `<div class="card ${theme}" style="--hue:${hue}" title="${theme}, hue ${hue}">
+      <img src="${row.preview}" alt="">
       <div class="text"><div class="title">${escape(row.name)}</div><div class="meta">35 min · 4 servings</div><span class="chip">Dinner</span></div>
     </div>`
 }
 
-function hero(row: SheetRow, variant: 'opaque' | 'transparent', theme: 'light' | 'dark') {
-  const v = row[variant]
-  if (!v) return ''
-  const hue = v.hue.hue ?? 0
-  return `<div class="hero ${theme} ${variant}" style="--hue:${hue}">
-      <img src="${v.preview}" alt="">
-      <div class="text"><div class="title">${escape(row.name)}</div><div class="meta">${variant} · ${theme}</div></div>
+function hero(row: SheetRow, theme: 'light' | 'dark') {
+  const hue = row.hue.hue ?? 0
+  return `<div class="hero ${theme}" style="--hue:${hue}">
+      <img src="${row.preview}" alt="">
+      <div class="text"><div class="title">${escape(row.name)}</div><div class="meta">${theme}</div></div>
     </div>`
 }
 
@@ -312,25 +264,20 @@ export function renderContactSheet(
   rows: SheetRow[],
   meta: { startedAt: string; options: HueOptions },
 ) {
-  const grid = (variant: 'opaque' | 'transparent', theme: 'light' | 'dark') =>
-    `<section class="grid-section ${theme}"><h3>${variant} · ${theme}</h3><div class="grid">${rows
-      .map((r) => card(r, variant, theme))
+  const grid = (theme: 'light' | 'dark') =>
+    `<section class="grid-section ${theme}"><h3>${theme}</h3><div class="grid">${rows
+      .map((r) => card(r, theme))
       .join('')}</div></section>`
   const body = rows
     .map(
       (r) => `<section class="meal">
       <h2>${escape(r.name)} <code>${r.slug}</code></h2>
-      <div class="hues">${hueLine('opaque', r.opaque.hue)}${r.transparent ? hueLine('transparent', r.transparent.hue) : ''}</div>
+      <div class="hues">${hueLine('hue', r.hue)}</div>
       <div class="previews">
-        <figure><img src="${r.opaque.preview}" alt=""><figcaption>opaque (as shipped)</figcaption></figure>
-        ${r.transparent ? `<figure class="checker"><img src="${r.transparent.preview}" alt=""><figcaption>transparent</figcaption></figure>` : '<figure><figcaption>transparent: not drawn</figcaption></figure>'}
+        <figure><img src="${r.preview}" alt=""><figcaption>as shipped</figcaption></figure>
       </div>
-      <div class="cards">
-        ${card(r, 'opaque', 'light')}${card(r, 'transparent', 'light')}${card(r, 'opaque', 'dark')}${card(r, 'transparent', 'dark')}
-      </div>
-      <div class="heroes">
-        ${hero(r, 'transparent', 'light')}${hero(r, 'transparent', 'dark')}${hero(r, 'opaque', 'light')}${hero(r, 'opaque', 'dark')}
-      </div>
+      <div class="cards">${card(r, 'light')}${card(r, 'dark')}</div>
+      <div class="heroes">${hero(r, 'light')}${hero(r, 'dark')}</div>
     </section>`,
     )
     .join('\n')
@@ -359,7 +306,6 @@ export function renderContactSheet(
   .previews { display: flex; gap: 12px; margin-bottom: 12px }
   .previews figure { margin: 0; width: 300px } .previews img { width: 300px; aspect-ratio: 3/2; object-fit: cover; border-radius: 6px; display: block }
   figcaption { font-size: 11px; opacity: .6; margin-top: 4px }
-  .checker img { background: repeating-conic-gradient(#ddd 0 25%, #fff 0 50%) 0 0 / 16px 16px }
   .cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px }
   .heroes { display: flex; gap: 12px; flex-wrap: wrap }
   .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px }
@@ -380,7 +326,6 @@ export function renderContactSheet(
   .card .chip { display: inline-block; margin-top: 8px; font-size: 11px; padding: 2px 8px; border-radius: 999px; }
   .card.light .chip { background: oklch(0.86 var(--accent-c) var(--hue)); color: oklch(0.3 0.08 var(--hue)) }
   .card.dark  .chip { background: oklch(0.4 var(--accent-c) var(--hue)); color: oklch(0.95 0.03 var(--hue)) }
-  .card.missing { display: grid; place-items: center; font-size: 12px; opacity: .5; background: #eee }
 
   .hero { position: relative; width: 416px; aspect-ratio: 3/2; border-radius: 10px; overflow: hidden }
   .hero.light { background: oklch(var(--l-light) var(--c-light) var(--hue)); color: oklch(0.25 0.03 var(--hue)) }
@@ -388,13 +333,12 @@ export function renderContactSheet(
   .hero img { width: 100%; height: 100%; object-fit: cover; display: block;
     mask-image: linear-gradient(to top, transparent 0%, #000 calc(var(--fade) * 60%));
     -webkit-mask-image: linear-gradient(to top, transparent 0%, #000 calc(var(--fade) * 60%)); }
-  .hero.transparent img { object-fit: contain }
   .hero .text { position: absolute; left: 20px; bottom: 16px }
   .hero .title { font-weight: 600; font-size: 20px } .hero .meta { font-size: 12px; opacity: .7 }
 </style></head>
 <body>
 <h1>Meal colour spike (HON-743) <code>${meta.startedAt}</code></h1>
-<p style="font-size:12px;max-width:80ch">Hue rule: centre crop ${meta.options.cropFraction}, ${meta.options.size}×${meta.options.size} sample, chroma floor ${meta.options.chromaFloor}, ${meta.options.bins} bins, chroma-weighted vote, circular mean of the winner. Only hue varies per meal; the sliders are the tokens that would be fixed for all meals.</p>
+<p style="font-size:12px;max-width:80ch">Opaque illustrations as shipped, faded into a card tinted with their hue. Hue rule: centre crop ${meta.options.cropFraction}, ${meta.options.size}×${meta.options.size} sample, chroma floor ${meta.options.chromaFloor}, ${meta.options.bins} bins, chroma-weighted vote, circular mean of the winner. Only hue varies per meal; the sliders are the tokens that would be fixed for all meals.</p>
 <form class="controls" oninput="apply()">
   <label>light L <input type="range" min="0.85" max="0.99" step="0.005" name="l-light" value="0.95"><output></output></label>
   <label>light C <input type="range" min="0" max="0.12" step="0.005" name="c-light" value="0.035"><output></output></label>
@@ -416,7 +360,7 @@ export function renderContactSheet(
   apply()
 </script>
 <h2>All meals together</h2>
-${grid('transparent', 'light')}${grid('transparent', 'dark')}${grid('opaque', 'light')}${grid('opaque', 'dark')}
+${grid('light')}${grid('dark')}
 ${body}
 </body></html>`
 }
@@ -429,109 +373,38 @@ async function preview(src: string, dest: string) {
   await sharp(src).resize({ width: PREVIEW_WIDTH }).webp({ quality: 82 }).toFile(dest)
 }
 
-async function buildRows(
-  source: string,
-  entries: ManifestEntry[],
-  outDir: string,
-  transparentFile: (slug: string) => string,
-): Promise<SheetRow[]> {
-  mkdirSync(join(outDir, 'preview'), { recursive: true })
-  const rows: SheetRow[] = []
-  for (const entry of entries) {
-    const opaqueSrc = join(source, entry.file)
-    const opaquePreview = `preview/${entry.slug}-opaque.webp`
-    await preview(opaqueSrc, join(outDir, opaquePreview))
-    const row: SheetRow = {
-      slug: entry.slug,
-      name: entry.name,
-      opaque: { preview: opaquePreview, hue: await extractHue(opaqueSrc) },
-    }
-    const t = transparentFile(entry.slug)
-    if (existsSync(t)) {
-      const tPreview = `preview/${entry.slug}-transparent.webp`
-      await preview(t, join(outDir, tPreview))
-      row.transparent = { preview: tPreview, hue: await extractHue(t) }
-    }
-    rows.push(row)
-    const th = row.transparent?.hue.hue
-    console.log(
-      `${entry.slug.padEnd(32)} opaque ${String(row.opaque.hue.hue).padStart(4)}°  transparent ${th == null ? '   -' : String(th).padStart(4) + '°'}`,
-    )
-  }
-  return rows
-}
-
 async function main() {
   const args = parseArgs(process.argv.slice(2))
-
-  if (args.render) {
-    const outDir = resolve(args.render)
-    const run = JSON.parse(readFileSync(join(outDir, 'run.json'), 'utf8')) as {
-      startedAt: string
-      source: string
-    }
-    const manifest = readManifest(resolve(run.source))
-    const rows = await buildRows(run.source, manifest.entries, outDir, (slug) =>
-      join(outDir, `${slug}-transparent.png`),
-    )
-    writeFileSync(
-      join(outDir, 'index.html'),
-      renderContactSheet(rows, { startedAt: run.startedAt, options: DEFAULT_HUE_OPTIONS }),
-    )
-    console.log(`\nContact sheet: ${pathToFileURL(join(outDir, 'index.html')).href}`)
-    return
-  }
-
   const source = resolve(args.source)
   const manifest = readManifest(source)
   const entries = args.limit ? manifest.entries.slice(0, args.limit) : manifest.entries
   console.log(`${entries.length} meal(s) from ${source} (prompt ${manifest.promptVersion})`)
-  console.log(
-    `Estimated: ~$${(entries.length * EST_PER_IMAGE_USD).toFixed(2)} for ${entries.length} transparent redraw(s)`,
-  )
-  if (!args.confirm) {
-    console.log('Dry run — pass --confirm to spend.')
-    return
-  }
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) throw new Error('OPENAI_API_KEY is not set')
 
   const startedAt = new Date().toISOString()
   const outDir = resolve('.temp/spike-meal-colour', startedAt.replace(/[:.]/g, '-'))
-  mkdirSync(outDir, { recursive: true })
-  writeFileSync(
-    join(outDir, 'run.json'),
-    JSON.stringify({ startedAt, source, model: MODEL }, null, 2),
-  )
+  mkdirSync(join(outDir, 'preview'), { recursive: true })
 
-  let spent = 0
-  for (const [i, entry] of entries.entries()) {
-    const t0 = Date.now()
-    try {
-      const bytes = await drawTransparent(entry.prompt, apiKey)
-      writeFileSync(join(outDir, `${entry.slug}-transparent.png`), bytes)
-      spent += EST_PER_IMAGE_USD
-      console.log(
-        `[${i + 1}/${entries.length}] ${entry.slug}  ${((Date.now() - t0) / 1000).toFixed(1)}s`,
-      )
-    } catch (error) {
-      console.log(
-        `[${i + 1}/${entries.length}] ${entry.slug}  FAILED: ${String(error).slice(0, 200)}`,
-      )
-    }
+  const rows: SheetRow[] = []
+  for (const entry of entries) {
+    const src = join(source, entry.file)
+    const previewFile = `preview/${entry.slug}.webp`
+    await preview(src, join(outDir, previewFile))
+    const hue = await extractHue(src)
+    rows.push({ slug: entry.slug, name: entry.name, preview: previewFile, hue })
+    console.log(
+      `${entry.slug.padEnd(32)} ${String(hue.hue ?? '-').padStart(4)}°  C ${hue.chroma.toFixed(3)}  voted ${Math.round(hue.coverage * 100)}%`,
+    )
   }
 
-  const rows = await buildRows(source, entries, outDir, (slug) =>
-    join(outDir, `${slug}-transparent.png`),
+  writeFileSync(
+    join(outDir, 'results.json'),
+    JSON.stringify({ startedAt, source, options: DEFAULT_HUE_OPTIONS, rows }, null, 2),
   )
-  writeFileSync(join(outDir, 'results.json'), JSON.stringify(rows, null, 2))
   writeFileSync(
     join(outDir, 'index.html'),
     renderContactSheet(rows, { startedAt, options: DEFAULT_HUE_OPTIONS }),
   )
-  console.log(
-    `\nSpent ~$${spent.toFixed(2)}. Contact sheet: ${pathToFileURL(join(outDir, 'index.html')).href}`,
-  )
+  console.log(`\nContact sheet: ${pathToFileURL(join(outDir, 'index.html')).href}`)
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

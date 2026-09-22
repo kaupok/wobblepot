@@ -33,32 +33,23 @@ describe('HON-743: meal colour spike', () => {
   })
 
   it('parses args and rejects a bad limit', () => {
-    expect(parseArgs(['--confirm', '--limit=3', '--source=x'])).toEqual({
-      confirm: true,
-      limit: 3,
-      source: 'x',
-    })
+    expect(parseArgs(['--limit=3', '--source=x'])).toEqual({ limit: 3, source: 'x' })
     expect(() => parseArgs(['--limit=0'])).toThrow('--limit')
     expect(() => parseArgs(['--nope'])).toThrow('Unknown argument')
   })
 
-  it('renders one section per meal with both variants and the hue', () => {
-    const hue = { hue: 120, chroma: 0.1, coverage: 0.5, opaque: 1, bins: new Array(24).fill(0) }
+  it('renders one section per meal with the hue on light and dark cards', () => {
+    const hue = { hue: 120, chroma: 0.1, coverage: 0.5, opaque: 1, bins: new Array(18).fill(0) }
     const html = renderContactSheet(
       [
-        { slug: 'a', name: 'A & B', opaque: { preview: 'a.webp', hue } },
-        {
-          slug: 'b',
-          name: 'B',
-          opaque: { preview: 'b.webp', hue },
-          transparent: { preview: 'bt.webp', hue: { ...hue, hue: 30 } },
-        },
+        { slug: 'a', name: 'A & B', preview: 'a.webp', hue },
+        { slug: 'b', name: 'B', preview: 'b.webp', hue: { ...hue, hue: 30 } },
       ],
       { startedAt: 'now', options: DEFAULT_HUE_OPTIONS },
     )
     expect(html).toContain('A &amp; B')
     expect(html).toContain('--hue:30')
-    expect(html).toContain('transparent: not drawn')
-    expect(html.match(/class="card (light|dark) transparent"/g)).toHaveLength(4)
+    // Two meals × (grid light, grid dark, section light, section dark).
+    expect(html.match(/class="card (light|dark)"/g)).toHaveLength(8)
   })
 })
