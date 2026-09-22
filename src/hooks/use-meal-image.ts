@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { skipToken, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import type { MealData } from '@/components/meal-plan/types'
 import type { MealImageStatus } from '@/generated/prisma/enums'
@@ -40,6 +40,27 @@ const normalise = (body: {
   imageUrl: body.status === 'ready' ? (body.imageUrl ?? null) : null,
   imageHue: body.status === 'ready' ? (body.imageHue ?? null) : null,
 })
+
+/**
+ * The image fields a meal card should render with: this session's image state
+ * for the meal when there is one, otherwise the payload's.
+ *
+ * `useMealImage` writes an image generated from the detail modal into the
+ * `['meal-image', id]` cache and nowhere else — the entries payload the card
+ * was rendered from still says `none` until something refreshes it. Reading
+ * the same cache keeps the card's tint in step with the hero above it
+ * (HON-746). The observer never fetches: only `useMealImage` does.
+ */
+export function useMealImageFields<
+  T extends Pick<MealData, 'id' | 'imageUrl' | 'imageStatus' | 'imageHue'>,
+>(meal: T | null): T | null {
+  const { data } = useQuery<MealImageState>({
+    queryKey: mealImageQueryKey(meal?.id ?? ''),
+    queryFn: skipToken,
+  })
+  if (!meal || !data) return meal
+  return { ...meal, imageStatus: data.status, imageUrl: data.imageUrl, imageHue: data.imageHue }
+}
 
 interface UseMealImageOptions {
   meal: Pick<MealData, 'id' | 'isCustom' | 'imageUrl' | 'imageStatus' | 'imageHue'>

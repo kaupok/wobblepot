@@ -27,6 +27,7 @@ import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
 import type { EntryRating, MealData, PantryIngredient, PantryItemFull } from './types'
 import type { MealType } from '@/generated/prisma/enums'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
+import { useMealImageFields } from '@/hooks/use-meal-image'
 import { track } from '@/lib/analytics'
 
 interface MealCardProps {
@@ -86,6 +87,8 @@ export function MealCard({
   const hasServingOverride = servingOverride !== null && servingOverride !== householdSize
 
   const detailModalRef = useRef<MealDetailModalHandle>(null)
+  // The tint follows an image generated from the detail modal, not only the payload.
+  const tintMeal = useMealImageFields(meal)
 
   // The PATCH that repoints this entry also nulls its cached `preparationTips`
   // and resets its `servingOverride` server-side (the swap branch of
@@ -325,7 +328,7 @@ export function MealCard({
 
   return (
     <>
-      <MealImageCard meal={meal} className="gap-2 py-2">
+      <MealImageCard meal={tintMeal ?? meal} className="gap-2 py-2">
         <CardHeader className="px-3 pb-0">
           <div className="flex items-start justify-between gap-1">
             {/* A native button rather than `Button`: the name wraps, and every
