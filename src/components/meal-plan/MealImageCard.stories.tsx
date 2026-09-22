@@ -1,10 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, within } from 'storybook/test'
-import { CardContent } from '@/components/ui/card'
+import { expect, waitFor, within } from 'storybook/test'
+import { MoreHorizontal, NotebookPen } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { CardContent, CardHeader } from '@/components/ui/card'
+import { Body } from '@/components/ui/typography'
+import { cn } from '@/lib/utils'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { createMealCardBaseData, lemonGarlicChickenPantry } from '@/stories/fixtures'
 import { MealCardBase, type MealCardBaseData } from './MealCardBase'
-import { MealImageCard } from './MealImageCard'
+import { MealImageCard, mealImageTitleWidth } from './MealImageCard'
 
 const withImage = (hue: number, overrides: Partial<MealCardBaseData> = {}) =>
   createMealCardBaseData({
@@ -23,7 +27,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "The card every `MealCardBase` callsite (and the planner's `MealCard`) wraps its content in (HON-746, `docs/DESIGN.md` → Imagery). With a `ready` image and an `imageHue`, the card takes the meal's tint and the illustration blends into its right 5/8 — multiplied, so the white surface takes the tint, and fading in from the left. Without one it is the plain `Card`: no tint, no image, nothing reserved while generating.",
+          "The card every `MealCardBase` callsite (and the planner's `MealCard`) wraps its content in (HON-746, `docs/DESIGN.md` → Imagery). With a `ready` image and an `imageHue`, the card takes the meal's tint and the illustration blends into its right 5/8 (45% on a phone) — multiplied, so the white surface takes the tint, and fading in from the left. Without one it is the plain `Card`: no tint, no image, nothing reserved while generating. With `trailingActions` (the planner card's Note and menu) the image ends before the action column, so nothing the user taps sits on it (HON-749).",
       },
     },
   },
@@ -56,6 +60,12 @@ export const WithImage: Story = {
     await expect(card.style.getPropertyValue('--meal-hue')).toBe('52')
     // The tint is on the card itself, so the background is no longer the neutral --card.
     await expect(getComputedStyle(card).backgroundColor).not.toBe('rgb(255, 255, 255)')
+    // The name wraps before the opaque image (HON-749).
+    const box = canvas.getByTestId('meal-card-image').getBoundingClientRect()
+    const heading = canvas.getByRole('heading', { name: 'Lemon-garlic roast chicken' })
+    await expect(heading.getBoundingClientRect().right).toBeLessThanOrEqual(
+      box.left + box.width * 0.3,
+    )
   },
 }
 
@@ -70,6 +80,9 @@ export const WithoutImage: Story = {
     await expect(within(canvasElement).queryByRole('img')).not.toBeInTheDocument()
     const card = canvasElement.querySelector('[data-slot="card"]')!
     await expect(card).not.toHaveAttribute('data-meal-surface')
+    // A neutral card gives the name the full width.
+    const heading = within(canvasElement).getByRole('heading')
+    await expect(getComputedStyle(heading.parentElement!).maxWidth).toBe('none')
   },
 }
 
@@ -129,4 +142,132 @@ export const AllVariantsDark: Story = {
       <Hues {...args} />
     </div>
   ),
+}
+
+const LONG_TITLE = 'Baked Salmon with Asparagus'
+
+/**
+ * The planner card's title row: a long name and the Note / menu action column
+ * (HON-749). The image ends before the actions, and the title wraps before the
+ * image, so both sit on the plain tint. Mirrors `MealCard`'s header markup.
+ */
+function TrailingActionsCard({ meal, ...args }: React.ComponentProps<typeof MealImageCard>) {
+  return (
+    <MealImageCard {...args} meal={meal} trailingActions className="gap-2 py-2">
+      <CardHeader className="px-3 pb-0">
+        <div className="flex items-start justify-between gap-1">
+          <div className={cn('min-w-0', mealImageTitleWidth(true))}>
+            <Body variant="small" className="font-semibold">
+              <button type="button" className="min-h-8 text-left leading-snug">
+                {meal.name}
+              </button>
+            </Body>
+          </div>
+          <div data-testid="card-actions" className="flex shrink-0 items-center gap-1">
+            <Button variant="ghost" size="sm">
+              <NotebookPen aria-hidden="true" />
+              Note
+            </Button>
+            <Button variant="ghost" size="icon-sm" aria-label="More actions">
+              <MoreHorizontal aria-hidden="true" />
+            </Button>
+          </div>
+        </div>
+        <Body variant="caption">All ingredients in pantry</Body>
+      </CardHeader>
+    </MealImageCard>
+  )
+}
+
+/**
+ * Asserts that the actions and the title clear the image's opaque part: the
+ * actions start at or after the image box's right edge, and the title ends
+ * inside the left fade (the first 30% of the box).
+ */
+async function assertOnTint(canvasElement: HTMLElement) {
+  const canvas = within(canvasElement)
+  await canvas.findByRole('img', { name: LONG_TITLE })
+  const box = canvas.getByTestId('meal-card-image').getBoundingClientRect()
+  const actions = canvas.getByTestId('card-actions').getBoundingClientRect()
+  const title = canvas.getByRole('button', { name: LONG_TITLE }).getBoundingClientRect()
+  await expect(box.width).toBeGreaterThan(0)
+  await expect(actions.left).toBeGreaterThanOrEqual(box.right)
+  await expect(title.right).toBeLessThanOrEqual(box.left + box.width * 0.3)
+}
+
+export const TrailingActionsPhone: Story = {
+  name: 'Trailing actions, long title (phone)',
+  args: { meal: withImage(28, { name: LONG_TITLE }), className: undefined },
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  render: (args) => <TrailingActionsCard {...args} />,
+  play: async ({ canvasElement }) => assertOnTint(canvasElement),
+}
+
+export const TrailingActionsDesktop: Story = {
+  name: 'Trailing actions, long title (desktop)',
+  args: { meal: withImage(28, { name: LONG_TITLE }), className: undefined },
+  globals: { viewport: { value: 'desktop', isRotated: false } },
+  parameters: { layout: 'fullscreen' },
+  render: (args) => (
+    <div className="max-w-3xl p-4">
+      <TrailingActionsCard {...args} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => assertOnTint(canvasElement),
+}
+
+/** An image that fails to load leaves a neutral card, and the title its full row. */
+export const TrailingActionsBrokenImage: Story = {
+  name: 'Trailing actions, broken image',
+  args: {
+    meal: withImage(28, { name: LONG_TITLE, imageUrl: '/missing-meal-image.png' }),
+    className: undefined,
+  },
+  render: (args) => <TrailingActionsCard {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await waitFor(() => expect(canvas.queryByTestId('meal-card-image')).not.toBeInTheDocument())
+    const card = canvasElement.querySelector('[data-slot="card"]')!
+    await expect(card).not.toHaveAttribute('data-meal-surface')
+    const titleWrapper = canvas.getByRole('button', { name: LONG_TITLE }).closest('div')!
+    await expect(getComputedStyle(titleWrapper).maxWidth).toBe('none')
+  },
+}
+
+/**
+ * The alternatives grid: ~250px cards on a desktop screen. The geometry follows
+ * the card's width (a container query), so these get the narrow layout — the
+ * name keeps half the row rather than 3/8 of it.
+ */
+export const NarrowGridDesktop: Story = {
+  name: 'Narrow grid (desktop)',
+  globals: { viewport: { value: 'desktop', isRotated: false } },
+  parameters: { layout: 'fullscreen' },
+  render: (args) => (
+    <div className="grid max-w-3xl grid-cols-3 gap-3 p-4">
+      {HUES.map(({ hue, name }) => {
+        const meal = withImage(hue, { name })
+        return (
+          <MealImageCard key={hue} {...args} meal={meal} className="h-full">
+            <CardContent className="p-4">
+              <MealCardBase meal={meal} />
+            </CardContent>
+          </MealImageCard>
+        )
+      })}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await canvas.findAllByRole('img')
+    const cards = canvasElement.querySelectorAll<HTMLElement>('[data-slot="card"]')
+    for (const card of cards) {
+      const box = within(card).getByTestId('meal-card-image').getBoundingClientRect()
+      const wrapper = within(card).getByRole('heading').parentElement!
+      const content = wrapper.parentElement!.getBoundingClientRect().width
+      // Half the content row: the narrow geometry, not the viewport's `sm` one.
+      await expect(wrapper.getBoundingClientRect().width).toBeCloseTo(content / 2, 0)
+      await expect(box.width).toBeCloseTo(card.clientWidth * 0.45, 0)
+    }
+  },
 }

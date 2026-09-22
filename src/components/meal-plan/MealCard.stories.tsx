@@ -55,7 +55,16 @@ export const PlannedWithImage: Story = {
     await canvas.findByRole('img', { name: mealFixture.name })
     const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
     await expect(card.style.getPropertyValue('--meal-hue')).toBe('52')
-    await expect(canvas.getByRole('button', { name: /more actions/i })).toBeVisible()
+    const menu = canvas.getByRole('button', { name: /more actions/i })
+    await expect(menu).toBeVisible()
+    // The image ends before Note and the menu, and the title wraps before the
+    // image's opaque part (HON-749).
+    const box = canvas.getByTestId('meal-card-image').getBoundingClientRect()
+    const note = canvas.getByRole('button', { name: /^note$/i }).getBoundingClientRect()
+    const title = canvas.getByRole('button', { name: mealFixture.name }).getBoundingClientRect()
+    await expect(note.left).toBeGreaterThanOrEqual(box.right)
+    await expect(menu.getBoundingClientRect().left).toBeGreaterThanOrEqual(box.right)
+    await expect(title.right).toBeLessThanOrEqual(box.left + box.width * 0.3)
   },
 }
 

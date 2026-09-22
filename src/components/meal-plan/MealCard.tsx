@@ -22,13 +22,14 @@ import { MealDetailModal, type MealDetailModalHandle } from './MealDetailModal'
 import { PantryDeductionModal } from './PantryDeductionModal'
 import { AvailabilityIndicator, computeMealAvailability } from './AvailabilityIndicator'
 import { NoteEditor } from './NoteEditor'
-import { MealImageCard } from './MealImageCard'
+import { MealImageCard, mealImageTitleWidth } from './MealImageCard'
 import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
 import type { EntryRating, MealData, PantryIngredient, PantryItemFull } from './types'
 import type { MealType } from '@/generated/prisma/enums'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import { useMealImageFields } from '@/hooks/use-meal-image'
 import { track } from '@/lib/analytics'
+import { cn } from '@/lib/utils'
 
 interface MealCardProps {
   entryId: string
@@ -272,6 +273,10 @@ export function MealCard({
   const isUpdating = statusMutation.isPending
   const isClearing = clearMutation.isPending
 
+  // Note and the menu sit at the right end of the title row; the image ends
+  // before them and the title wraps before it (HON-749).
+  const hasTrailingActions = !isReadOnly && !isPast
+
   if (!meal) {
     const canEdit = !isReadOnly && !isPast
 
@@ -328,23 +333,29 @@ export function MealCard({
 
   return (
     <>
-      <MealImageCard meal={tintMeal ?? meal} className="gap-2 py-2">
+      <MealImageCard
+        meal={tintMeal ?? meal}
+        trailingActions={hasTrailingActions}
+        className="gap-2 py-2"
+      >
         <CardHeader className="px-3 pb-0">
           <div className="flex items-start justify-between gap-1">
             {/* A native button rather than `Button`: the name wraps, and every
                 `Button` size is a fixed height a second line would overflow.
                 `min-h-8` holds it to the same 32px floor as the actions beside
                 it (docs/DESIGN.md → Spacing, radius, elevation). */}
-            <Body variant="small" className="min-w-0 font-semibold">
-              <button
-                type="button"
-                className="min-h-8 cursor-pointer text-left leading-snug underline-offset-2 hover:underline"
-                onClick={() => setIsDetailModalOpen(true)}
-              >
-                {meal.name}
-              </button>
-            </Body>
-            {!isReadOnly && !isPast && (
+            <div className={cn('min-w-0', mealImageTitleWidth(hasTrailingActions))}>
+              <Body variant="small" className="font-semibold">
+                <button
+                  type="button"
+                  className="min-h-8 cursor-pointer text-left leading-snug underline-offset-2 hover:underline"
+                  onClick={() => setIsDetailModalOpen(true)}
+                >
+                  {meal.name}
+                </button>
+              </Body>
+            </div>
+            {hasTrailingActions && (
               <div className="flex shrink-0 items-center gap-1">
                 <Button variant="ghost" size="sm" onClick={() => setIsNoteEditing(true)}>
                   <NotebookPen aria-hidden="true" />
