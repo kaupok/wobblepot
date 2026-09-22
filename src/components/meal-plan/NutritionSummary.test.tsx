@@ -60,4 +60,41 @@ describe('NutritionSummary', () => {
     expect(screen.getByText('31g')).toBeInTheDocument()
     expect(screen.getByText('28g')).toBeInTheDocument()
   })
+
+  describe('vague-quantity footnote (HON-764)', () => {
+    const footnote = '*includes estimates for vague quantities'
+    const nutrition = { calories: 520, protein: 42, carbs: 30, fat: 12 }
+
+    it.each([
+      ['compact', true],
+      ['full', false],
+    ])('renders the asterisk with its footnote in %s mode', (_mode, compact) => {
+      renderInLocale(
+        <NutritionSummary
+          nutrition={nutrition}
+          compact={compact}
+          components={[{ isVague: true }]}
+        />,
+      )
+      expect(screen.getByText(footnote)).toBeInTheDocument()
+    })
+
+    it.each([
+      ['compact', true],
+      ['full', false],
+    ])(
+      'renders neither asterisk nor footnote in %s mode without vague quantities',
+      (_mode, compact) => {
+        const { container } = renderInLocale(
+          <NutritionSummary
+            nutrition={nutrition}
+            compact={compact}
+            components={[{ isVague: false }]}
+          />,
+        )
+        expect(screen.queryByText(footnote)).not.toBeInTheDocument()
+        expect(container.textContent).not.toContain('*')
+      },
+    )
+  })
 })

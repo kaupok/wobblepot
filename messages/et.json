@@ -505,7 +505,6 @@
     },
     "review": {
       "nutritionLine": "{calories} kcal · {protein}g valku · {carbs}g süsivesikuid · {fat}g rasva",
-      "kidFriendly": "Lastesõbralik",
       "matchedCollapse": "{count, plural, one {# sobitatud koostisosa} other {# sobitatud koostisosa}}",
       "save": "Salvesta toit",
       "saving": "Salvestan…",

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useId } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { Loader2, ChevronDown, ChevronRight, Clock, Baby, Check } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronRight, Clock, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { Badge } from '@/components/ui/badge'
@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
+import { KidFriendlyBadge } from '@/components/meal-plan/KidFriendlyBadge'
 import { IngredientRow, type IngredientRowData } from './IngredientRow'
 import type { IngredientResult } from './IngredientRow'
 import { buildFinalComponents, formatUnit } from '@/components/household/meal-form-types'
@@ -281,12 +282,7 @@ export function ImagineReviewDialog({
                 {tDetail('timeMinutes', { count: meal.timeMinutes })}
               </Badge>
             )}
-            {meal.kidFriendly && (
-              <Badge variant="outline">
-                <Baby className="size-3.5" />
-                {t('kidFriendly')}
-              </Badge>
-            )}
+            {meal.kidFriendly && <KidFriendlyBadge />}
             {meal.mealTypes.map((type) => (
               <MealTypeBadge key={type} type={type} />
             ))}
