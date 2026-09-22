@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { expect, within } from 'storybook/test'
 import { NutritionSummary } from './NutritionSummary'
 
 const meta = {
@@ -10,7 +11,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Per-serving macro summary rendered on the meal detail view. Defaults to a two-column label/value grid; the `compact` variant renders a single interpunct-separated line. When any component has `isVague: true`, a `*` is appended to the heading (or the compact line) and a footnote is shown in the full layout.',
+          'Per-serving macro summary rendered on the meal detail view. Defaults to a two-column label/value grid; the `compact` variant renders a single interpunct-separated line. When any component has `isVague: true`, a `*` is appended to the heading (or the compact line) and the footnote explaining it is shown below, in both layouts (HON-764).',
       },
     },
   },
@@ -22,23 +23,40 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const Default: Story = {}
+const FOOTNOTE = '*includes estimates for vague quantities'
+
+const expectNoFootnote: Story['play'] = async ({ canvasElement }) => {
+  await expect(within(canvasElement).queryByText(FOOTNOTE)).not.toBeInTheDocument()
+  await expect(canvasElement.textContent).not.toContain('*')
+}
+
+const expectFootnote: Story['play'] = async ({ canvasElement }) => {
+  await expect(within(canvasElement).getByText(FOOTNOTE)).toBeInTheDocument()
+}
+
+export const Default: Story = {
+  play: expectNoFootnote,
+}
 
 export const Compact: Story = {
   args: { compact: true },
+  play: expectNoFootnote,
 }
 
 export const WithVagueEstimates: Story = {
   args: {
     components: [{ isVague: true }, { isVague: false }],
   },
+  play: expectFootnote,
 }
 
+/** The asterisk on the compact line (cards, meal detail) carries its own footnote (HON-764). */
 export const CompactWithVagueEstimates: Story = {
   args: {
     compact: true,
     components: [{ isVague: true }],
   },
+  play: expectFootnote,
 }
 
 /**

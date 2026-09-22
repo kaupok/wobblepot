@@ -1,11 +1,11 @@
 'use client'
 
-import { Clock, ExternalLink, Users } from 'lucide-react'
+import { Clock, ExternalLink } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Badge } from '@/components/ui/badge'
 import { Body, Heading, type HeadingTag } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { getIngredientAvailabilitySets } from './AvailabilityIndicator'
+import { KidFriendlyBadge } from './KidFriendlyBadge'
 import { mealImageTitleWidth, type MealImageFields } from './MealImageCard'
 import { NutritionSummary } from './NutritionSummary'
 import type { MealComponent, NutritionData, PantryIngredient } from './types'
@@ -104,12 +104,7 @@ export function MealCardBase({
             <Body variant="small">{tDetail('timeMinutes', { count: meal.timeMinutes })}</Body>
           </div>
         )}
-        {meal.kidFriendly && (
-          <Badge variant="secondary" className="text-xs">
-            <Users className="mr-1 size-3.5" />
-            {tDetail('kidFriendly')}
-          </Badge>
-        )}
+        {meal.kidFriendly && <KidFriendlyBadge />}
       </div>
 
       {/* 5. Meal types + protein type */}

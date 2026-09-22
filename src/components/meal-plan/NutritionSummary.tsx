@@ -19,14 +19,19 @@ export function NutritionSummary({ nutrition, compact, components }: NutritionSu
   const locale = useLocale() as Locale
   const hasVague = hasVagueIngredients(components)
 
+  // The asterisk and its footnote render together in both layouts, so no
+  // callsite can show one without the other (HON-764).
   if (compact) {
     return (
-      <div className="text-muted-foreground text-xs">
-        {formatInteger(nutrition.calories, locale)} kcal ·{' '}
-        {formatInteger(nutrition.protein, locale)}g {t('compact.protein')} ·{' '}
-        {formatInteger(nutrition.carbs, locale)}g {t('compact.carbs')} ·{' '}
-        {formatInteger(nutrition.fat, locale)}g {t('compact.fat')}
-        {hasVague && '*'}
+      <div className="flex flex-col gap-0.5">
+        <div className="text-muted-foreground text-xs">
+          {formatInteger(nutrition.calories, locale)} kcal ·{' '}
+          {formatInteger(nutrition.protein, locale)}g {t('compact.protein')} ·{' '}
+          {formatInteger(nutrition.carbs, locale)}g {t('compact.carbs')} ·{' '}
+          {formatInteger(nutrition.fat, locale)}g {t('compact.fat')}
+          {hasVague && '*'}
+        </div>
+        {hasVague && <Body variant="caption">{t('vagueDisclaimer')}</Body>}
       </div>
     )
   }

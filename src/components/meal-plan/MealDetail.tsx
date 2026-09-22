@@ -9,6 +9,7 @@ import { Body } from '@/components/ui/typography'
 import { NutritionDisclaimer } from '@/components/NutritionDisclaimer'
 import { NutritionSummary } from './NutritionSummary'
 import { IngredientList } from './IngredientList'
+import { KidFriendlyBadge } from './KidFriendlyBadge'
 import { computeMealAvailability } from './AvailabilityIndicator'
 import { PreparationTips } from './PreparationTips'
 import { ServingControl } from './ServingControl'
@@ -111,11 +112,7 @@ export function MealDetail({
             {tDetail('timeMinutes', { count: meal.timeMinutes })}
           </span>
         )}
-        {meal.kidFriendly && (
-          <span className="bg-success-muted text-success rounded-full px-2 py-0.5 text-xs">
-            {tDetail('kidFriendly')}
-          </span>
-        )}
+        {meal.kidFriendly && <KidFriendlyBadge />}
       </div>
 
       {/* Ingredients, with the preparation tips beside them on md+ once shown */}

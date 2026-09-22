@@ -506,7 +506,6 @@
     },
     "review": {
       "nutritionLine": "{calories} kcal · {protein}g protein · {carbs}g carbs · {fat}g fat",
-      "kidFriendly": "Kid-friendly",
       "matchedCollapse": "{count, plural, one {# ingredient matched} other {# ingredients matched}}",
       "save": "Save meal",
       "saving": "Saving…",
