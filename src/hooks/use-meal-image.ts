@@ -129,7 +129,12 @@ export function useMealImage({ meal, open }: UseMealImageOptions) {
     },
   })
 
-  const { data } = useQuery({
+  const seed = normalise({
+    status: meal.imageStatus ?? 'none',
+    imageUrl: meal.imageUrl,
+    imageHue: meal.imageHue,
+  })
+  const { data: cached } = useQuery({
     queryKey: mealImageQueryKey(mealId),
     queryFn: async ({ signal }): Promise<MealImageState> => {
       // The first poll fires one interval after polling starts, which is when
@@ -154,11 +159,7 @@ export function useMealImage({ meal, open }: UseMealImageOptions) {
       attemptedRef.current.add(mealId)
       return GAVE_UP
     },
-    initialData: normalise({
-      status: meal.imageStatus ?? 'none',
-      imageUrl: meal.imageUrl,
-      imageHue: meal.imageHue,
-    }),
+    initialData: seed,
     // Only the poll below reads; the payload seeded the rest.
     staleTime: Infinity,
     retry: false,
@@ -169,6 +170,14 @@ export function useMealImage({ meal, open }: UseMealImageOptions) {
         : false,
   })
 
+  // `initialData` does not cover a swap. The card's `useMealImageFields`
+  // observer renders first and creates the new meal's cache entry without
+  // data, and a key change on an existing observer only resolves the query
+  // during render — `initialData` is applied to an existing entry in
+  // `setOptions`, which runs after commit. So for one render after a swap
+  // `data` is undefined despite its type, and reading it crashed the Today
+  // view.
+  const data: MealImageState = cached ?? seed
   const status = data.status
   const { mutate } = mutation
 
