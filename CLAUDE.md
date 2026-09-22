@@ -329,6 +329,14 @@ A Linear issue counts as "the source" when the task names a HON-NNN, when the or
 
 **Linear issue references — use plain text (`HON-455`), never hand-copied `<issue id="uuid">` tags.** Linear auto-resolves plain text on save. Hand-copying a `<issue id="uuid">` tag from one description into another risks silent mis-linking — the UUID controls where the link goes, not the HON text beside it, so a reference can look correct in plain-text review but click through to the wrong issue.
 
+**Linear title prefixes — `[DRAFT]` and `[AUTO DRAFT]` mean different things; pick by _who filed it and how_, never by copying a neighbouring title.** Both keep an issue out of unattended selection (`/auto-implement` 1.5, `/next-issue --auto` step 5), but they are cleared by different passes:
+
+- **`[DRAFT]`** — filed by a human, or by an agent in a session a human is driving (conversation, research, `/ideate`, `/refine-backlog`, `/chrome-review`), whose spec is not yet ready to implement. It means "unrefined", not "unreviewed". Cleared by `/refine-backlog` (no args) once the spec is written up.
+- **`[AUTO DRAFT]`** — filed **only** by `/auto-implement` 6.8, for a review finding the unattended cycle deferred. No human saw it at birth; the prefix is the gate that stops the cycle implementing work it generated for itself. Cleared only by `/refine-backlog --auto-drafts` after a human judges the finding real and current.
+- **No prefix** — ready for pickup. An issue a human reviewed as it was created (e.g. a `/branch-review` proposal the user approved) needs no prefix.
+
+If you are filing an issue and a human is in the loop, `[AUTO DRAFT]` is wrong — even when the issue is agent-written, well-specced, or related to existing `[AUTO DRAFT]` issues (HON-695 was mislabelled this way). Full rules live in `.claude/skills/refine-backlog/SKILL.md` and `.claude/skills/auto-implement/SKILL.md` → 6.8.
+
 **Before committing:** Run `pnpm lint && pnpm type-check && pnpm test`
 
 **Pre-commit hook:** Husky + lint-staged runs type-check, ESLint, and Prettier on staged files.
