@@ -50,6 +50,10 @@ export const PROMPT_VARIANTS: Record<string, string> = {
   v4: 'A single dish, landscape 3:2 composition. The plate sits in the centre and takes up about half the width of the frame, with generous empty surface around it on every side. No text, no labels, no logos, no hands, no people.',
   'v4-fade':
     'A single dish, landscape 3:2 composition. The plate sits in the centre and takes up about half the width of the frame, with generous empty surface around it on every side; the surface is plain and even and fades softly towards the edges of the frame. No text, no labels, no logos, no hands, no people.',
+  // A white surface disappears under `mix-blend-mode: multiply` on any card tint,
+  // so the meal hue comes from the food alone and the fade has nothing to clash with.
+  'v4-white':
+    'A single dish, landscape 3:2 composition. The plate sits in the centre and takes up about half the width of the frame, with generous empty space around it on every side. The surface is pure white, flat and untextured, with only a soft light shadow under the plate. No text, no labels, no logos, no hands, no people.',
 }
 
 export function variantPrompt(shipped: string, variant: string): string {
