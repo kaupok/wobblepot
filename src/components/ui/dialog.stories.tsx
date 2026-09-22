@@ -83,6 +83,73 @@ export const WithoutCloseButton: Story = {
       </DialogContent>
     </Dialog>
   ),
+  // No close button, so the header reserves no room for one (HON-760).
+  play: async () => {
+    const body = within(document.body)
+    const title = await body.findByRole('heading', { name: 'Generating plan' })
+    const header = title.closest('[data-slot="dialog-header"]')
+    expect(header).not.toBeNull()
+    expect(window.getComputedStyle(header as Element).paddingRight).toBe('0px')
+  },
+}
+
+// A title long enough to wrap must stay clear of the absolutely positioned
+// close button (HON-760). Meal names are AI-generated and user-edited, so this
+// is the normal case, not an edge case. Runs at the default 390px viewport;
+// `LongTitleDesktop` and `LongTitleDark` cover the other width and theme.
+const LONG_TITLE = 'Blood Sausage Potato Cake with Crushed Potato Chip Crust'
+
+export const LongTitle: Story = {
+  args: { open: true },
+  render: (args) => (
+    <Dialog {...args}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{LONG_TITLE}</DialogTitle>
+          <DialogDescription>Review the matched ingredients before saving.</DialogDescription>
+        </DialogHeader>
+      </DialogContent>
+    </Dialog>
+  ),
+  play: async () => {
+    const body = within(document.body)
+    const title = await body.findByRole('heading', { name: LONG_TITLE })
+    const close = body.getByRole('button', { name: 'Close' })
+
+    // A single line would pass trivially, so prove the title actually wraps.
+    const lineHeight = Number.parseFloat(window.getComputedStyle(title).lineHeight)
+    expect(title.getBoundingClientRect().height).toBeGreaterThan(lineHeight * 1.5)
+
+    // Every line box of the title, not just its block, must end left of the ✕.
+    const range = document.createRange()
+    range.selectNodeContents(title)
+    const closeLeft = close.getBoundingClientRect().left
+    for (const rect of Array.from(range.getClientRects())) {
+      expect(rect.right).toBeLessThanOrEqual(closeLeft)
+    }
+    expect(title.getBoundingClientRect().right).toBeLessThanOrEqual(closeLeft)
+
+    // The header is centred below `sm` and left-aligned above it, so the
+    // padding is symmetric on mobile and right-only on desktop.
+    const header = title.closest('[data-slot="dialog-header"]') as HTMLElement
+    const { paddingLeft, paddingRight, textAlign } = window.getComputedStyle(header)
+    expect(paddingRight).not.toBe('0px')
+    expect(paddingLeft).toBe(textAlign === 'center' ? paddingRight : '0px')
+  },
+}
+
+export const LongTitleDesktop: Story = {
+  ...LongTitle,
+  globals: {
+    viewport: { value: 'desktop', isRotated: false },
+  },
+}
+
+export const LongTitleDark: Story = {
+  ...LongTitle,
+  globals: {
+    theme: 'dark',
+  },
 }
 
 // Asserts the house easing curve and the 200ms dialog duration (docs/DESIGN.md
