@@ -135,7 +135,7 @@ For each approved issue:
 ```typescript
 mcp__linear-server__save_issue({
   title: 'Issue title',
-  team: 'Honkadori',
+  team: 'Wobblebot',
   description: 'Full description with acceptance criteria',
   // priority: 1-4 if set (1=Urgent, 2=High, 3=Medium, 4=Low)
   // blockedBy: ['HON-XX'],

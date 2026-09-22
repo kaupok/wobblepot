@@ -1253,7 +1253,7 @@ mcp__linear-server__list_issues({ query: "<distinctive phrase from the finding>"
 
 ```
 mcp__linear-server__save_issue({
-  team: "Honkadori",
+  team: "Wobblebot",
   title: "[AUTO DRAFT] <sentence-case description of the problem>",
   description: "<body — required sections below>",
   state: "Backlog",

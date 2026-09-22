@@ -406,7 +406,7 @@ Record findings: unused exports, orphaned files.
 
 **Goal:** Avoid proposing issues that already exist.
 
-Use `mcp__linear-server__list_issues` with `team: "Honkadori"`, `limit: 100`, `fields: ['id', 'title', 'description', 'labels', 'status']`. Fetch `state: "Backlog"`, `"Todo"`, `"In Progress"`, and `"In Review"` in separate calls.
+Use `mcp__linear-server__list_issues` with `team: "Wobblebot"`, `limit: 100`, `fields: ['id', 'title', 'description', 'labels', 'status']`. Fetch `state: "Backlog"`, `"Todo"`, `"In Progress"`, and `"In Review"` in separate calls.
 
 **Do not filter by `label: "Tech"`.** Accessibility, bug, and test-coverage proposals routinely duplicate issues that carry the `Bug` label or no label at all; a Tech-only fetch hides them and the audit re-proposes tracked work. Use the returned `labels` field to note which label the existing issue carries when classifying.
 

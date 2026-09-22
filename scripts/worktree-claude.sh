@@ -2424,6 +2424,8 @@ watch_landed_probe() {
   [ "$fetch" -gt 50 ] && fetch=50
   # The trailing "(HON-NNN)" comes off the title because the ID has its own
   # column — the commit convention puts it there on every squash merge.
+  # Both matches are pinned to the `hon-` team key, as the branch parsing above
+  # is: a generic `[A-Za-z]+-[0-9]+` read `chore/bump-opus-5-5` as issue OPUS-5.
   # A missing id emits "-", never "": the consumer reads these rows with
   # IFS=$'\t', and tab is IFS *whitespace*, so bash collapses adjacent tabs and
   # an empty field shifts every later field one to the left. An ad-hoc branch
@@ -2432,8 +2434,8 @@ watch_landed_probe() {
     --json number,title,headRefName,mergedAt \
     --jq '[.[] | select(.mergedAt)] | sort_by(.mergedAt) | reverse | .[] | [
       .number,
-      (.headRefName | [scan("[A-Za-z]+-[0-9]+")] | (.[0] // "-") | ascii_upcase),
-      (.title | sub(" \\([A-Za-z]+-[0-9]+\\)$"; "")),
+      (.headRefName | [scan("\\bhon-[0-9]+"; "i")] | (.[0] // "-") | ascii_upcase),
+      (.title | sub(" \\(HON-[0-9]+\\)$"; ""; "i")),
       .mergedAt
     ] | @tsv' ) 2>/dev/null | head -n "$limit"
 }

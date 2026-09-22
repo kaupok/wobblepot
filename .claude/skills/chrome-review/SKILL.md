@@ -119,7 +119,7 @@ When the user agrees a finding is worth tracking:
 ```typescript
 mcp__linear-server__save_issue({
     title: 'Agreed title in sentence case',
-    team: 'Honkadori',
+    team: 'Wobblebot',
     description: `## What
 Description of the finding.
 

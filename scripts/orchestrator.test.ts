@@ -3901,6 +3901,22 @@ describe('orchestrator.sh', () => {
       expect(rows[0]?.title).toBe('chore: tidy')
     })
 
+    it('does not read a version-like branch segment as an issue id', () => {
+      // `chore/bump-opus-5-5` (#818) rendered as issue "OPUS-5" when any
+      // letters-dash-digits run counted as an id.
+      const rows = landed([
+        PR(
+          818,
+          'chore(scripts): Bump agent Opus default',
+          'chore/bump-opus-5-5',
+          '2026-09-22T09:00:00Z',
+        ),
+        PR(817, 'fix: b', 'posthog/hon-748-size-images', '2026-09-22T08:00:00Z'),
+      ])
+
+      expect(rows.map((r) => r.id)).toEqual(['-', 'HON-748'])
+    })
+
     it('skips a row with no merge time rather than sorting on null', () => {
       const rows = landed([
         PR(786, 'feat: a', 'kaupo/hon-513-a', '2026-09-20T12:50:18Z'),
