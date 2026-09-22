@@ -153,9 +153,13 @@ export const Completed: Story = {
   },
 }
 
-/** The ingredients/tips grid and its cells. */
+/**
+ * The ingredients/tips grid, found from the ingredients header — not the first
+ * `.grid`, which is `NutritionSummary`'s when the meal has nutrition.
+ */
 function detailGrid(canvasElement: HTMLElement): HTMLElement {
-  const grid = canvasElement.querySelector<HTMLElement>('.grid')
+  const header = within(canvasElement).getByText(/^Ingredients/)
+  const grid = header.closest<HTMLElement>('.grid')
   if (!grid) throw new Error('Ingredients grid not found')
   return grid
 }
