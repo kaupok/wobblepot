@@ -106,6 +106,10 @@ function MealTypeCheckbox({
 // Get all IANA timezones
 const TIMEZONES = Intl.supportedValuesOf('timeZone')
 
+function timezoneLabel(tz: string) {
+  return tz.replace(/_/g, ' ')
+}
+
 interface HouseholdSettingsFormProps {
   household: {
     id: string
@@ -286,12 +290,18 @@ export function HouseholdSettingsForm({
                   aria-invalid={!!error}
                   aria-describedby={error ? 'form-error' : undefined}
                 >
-                  <SelectValue placeholder={tSettings('timezonePlaceholder')} />
+                  {/* Explicit children: without them Radix mirrors the selected
+                      item's text only after mount, so the server HTML shows an
+                      empty trigger until hydration (HON-761). An empty value
+                      still falls back to the placeholder. */}
+                  <SelectValue placeholder={tSettings('timezonePlaceholder')}>
+                    {timezoneLabel(timezone)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {TIMEZONES.map((tz) => (
                     <SelectItem key={tz} value={tz}>
-                      {tz.replace(/_/g, ' ')}
+                      {timezoneLabel(tz)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -305,7 +315,7 @@ export function HouseholdSettingsForm({
                 disabled={controlsDisabled}
               >
                 <SelectTrigger id="locale" className="w-full">
-                  <SelectValue />
+                  <SelectValue>{t(`localeOption.${locale}`)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {PUBLIC_LOCALES.map((code) => (
