@@ -287,6 +287,7 @@ describe('GET /api/entries', () => {
             householdId,
             imageUrl: 'https://store.public.blob.vercel-storage.com/meals/meal-1.png',
             imageStatus: 'ready',
+            imageHue: 264,
             components: [],
           },
         },
@@ -298,6 +299,7 @@ describe('GET /api/entries', () => {
         isCustom,
         imageUrl: 'https://store.public.blob.vercel-storage.com/meals/meal-1.png',
         imageStatus: 'ready',
+        imageHue: 264,
       })
     },
   )

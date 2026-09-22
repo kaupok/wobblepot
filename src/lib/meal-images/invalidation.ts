@@ -7,6 +7,7 @@ export const MEAL_IMAGE_CLEARED = {
   imageStatus: 'none',
   imageClaimedAt: null,
   imageAttempts: 0,
+  imageHue: null,
 } as const satisfies Prisma.MealUpdateInput
 
 /**

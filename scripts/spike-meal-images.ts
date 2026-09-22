@@ -280,12 +280,19 @@ export const STYLES: SpikeStyle[] = [
   { id: 'flat', label: 'Flat / iconographic', prefix: STYLE_PREFIX_FLAT_V1 },
 ]
 
+/**
+ * The suffix V1 to V3 were drawn with. Production moved to the HON-743 white
+ * surface in V4 (HON-744); V1 keeps this one so its pinned prompt still holds.
+ */
+export const V3_PROMPT_SUFFIX =
+  'A single dish, landscape 3:2 composition with the food filling the frame. No text, no labels, no logos, no hands, no people.'
+
 function buildPromptV1(meal: SpikeMeal, style: SpikeStyle): string {
   return [
     style.prefix,
     `The dish: ${meal.name} — ${meal.description}.`,
     `Key ingredients: ${meal.components.map((c) => c.name).join(', ')}.`,
-    PROMPT_SUFFIX,
+    V3_PROMPT_SUFFIX,
   ].join(' ')
 }
 

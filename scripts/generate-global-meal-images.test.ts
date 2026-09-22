@@ -1,6 +1,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import sharp from 'sharp'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { JudgeVerdict } from '../src/lib/meal-images/judge'
 import { buildMealImagePrompt, MEAL_IMAGE_PROMPT_VERSION } from '../src/lib/meal-images/prompt'
@@ -34,6 +35,13 @@ import {
 
 const UPDATED_AT = new Date('2026-09-01T00:00:00Z')
 const NOW = new Date('2026-09-22T12:00:00Z')
+
+/** A 3:2 PNG with a white surface and a saturated blue disc: hue ≈ 264 (HON-744). */
+async function bluePlate(): Promise<Buffer> {
+  const svg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200"><rect width="300" height="200" fill="#fff"/><circle cx="150" cy="100" r="50" fill="#0000ff"/></svg>'
+  return sharp(Buffer.from(svg)).png().toBuffer()
+}
 
 function meal(name: string, overrides: Partial<GlobalMeal> = {}): GlobalMeal {
   return {
@@ -299,6 +307,25 @@ describe('--confirm', () => {
     expect(d.lines.join('\n')).toContain('Spent $0.15 (not ledgered)')
   })
 
+  it('records the hue of each image in the manifest, and null for an unreadable one', async () => {
+    const { db } = mockDb({ findMany: [meal('Pad Thai'), meal('Ramen')] })
+    const png = await bluePlate()
+    const generate = vi
+      .fn()
+      .mockResolvedValueOnce({ bytes: new Uint8Array(png), mediaType: 'image/png', totalUsd: 0.04 })
+      .mockResolvedValueOnce({ bytes: new Uint8Array([1]), mediaType: 'image/png', totalUsd: 0.04 })
+    const d = deps({ db, generate, env: { OPENAI_API_KEY: 'sk-test' } })
+
+    await run(parseArgs(['--confirm', '--concurrency=1']), d)
+
+    const manifest = readManifest(join(dir, NOW.toISOString().replace(/[:.]/g, '-')))
+    expect(manifest.entries).toMatchObject([
+      { slug: 'pad-thai', hue: expect.closeTo(264, -1) },
+      { slug: 'ramen', hue: null },
+    ])
+    expect(d.lines.join('\n')).toContain('ramen: could not extract the hue')
+  })
+
   it('does not judge without --judge', async () => {
     const { db } = mockDb({ findMany: [meal('Ramen')] })
     const generate = vi.fn().mockResolvedValue({
@@ -446,9 +473,10 @@ describe('runPublish', () => {
     log: () => {},
   })
 
-  it('claims, uploads, and sets the three columns', async () => {
+  it('claims, uploads, and sets the image columns with the hue from the PNG', async () => {
     const stew = meal('Irish Lamb Stew')
-    writeImages('irish-lamb-stew')
+    const png = await bluePlate()
+    writeFileSync(join(dir, 'irish-lamb-stew.png'), png)
     const { db, updateMany } = mockDb()
     const d = publishDeps(db)
 
@@ -459,7 +487,7 @@ describe('runPublish', () => {
     )
 
     expect(result.published).toEqual(['irish-lamb-stew'])
-    expect(d.put).toHaveBeenCalledWith(stew.id, Buffer.from([9]), 'image/png')
+    expect(d.put).toHaveBeenCalledWith(stew.id, png, 'image/png')
     // Claim: only while the meal still needs an image and no live claim holds it.
     expect(updateMany).toHaveBeenNthCalledWith(1, {
       where: expect.objectContaining({ id: stew.id, householdId: null, updatedAt: UPDATED_AT }),
@@ -472,12 +500,34 @@ describe('runPublish', () => {
         imageStatus: 'ready',
         imageUrl: 'https://blob/new.png',
         imagePromptVersion: MEAL_IMAGE_PROMPT_VERSION,
+        imageHue: expect.closeTo(264, -1),
         imageClaimedAt: null,
         imageAttempts: 0,
         updatedAt: UPDATED_AT,
       },
     })
     expect(d.remove).not.toHaveBeenCalled()
+  })
+
+  it('publishes with a null hue when the image cannot be read for colour', async () => {
+    const stew = meal('Irish Lamb Stew')
+    writeImages('irish-lamb-stew') // one byte: not a decodable image
+    const { db, updateMany } = mockDb()
+    const lines: string[] = []
+    const d = { ...publishDeps(db), log: (line: string) => lines.push(line) }
+
+    const result = await runPublish(
+      buildPublishPlan(manifestOf([entryFor(stew)]), [stew], []),
+      dir,
+      d,
+    )
+
+    expect(result.published).toEqual(['irish-lamb-stew'])
+    expect(updateMany).toHaveBeenNthCalledWith(2, {
+      where: expect.anything(),
+      data: expect.objectContaining({ imageStatus: 'ready', imageHue: null }),
+    })
+    expect(lines.join('\n')).toContain('could not extract the hue')
   })
 
   it('is idempotent: a second run over the published state uploads nothing', async () => {

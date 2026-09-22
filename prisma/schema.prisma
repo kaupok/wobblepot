@@ -385,6 +385,9 @@ model Meal {
   imageStatus        MealImageStatus @default(none)
   imageClaimedAt     DateTime?
   imageAttempts      Int             @default(0)
+  // OKLCH hue in degrees taken from the image's food (HON-743), for the card
+  // tint. Null when the image carries no chroma or extraction failed.
+  imageHue           Int?
 
   components   MealComponent[]
   planEntries  MealPlanEntry[]

@@ -11,7 +11,8 @@
  *      (`index.html`) and a `manifest.json`. Writes nothing to the database
  *      or to Blob. Without `--confirm` it is a dry run: count and cost only.
  *   2. Publish   — `--publish=<run dir>` uploads the reviewed images through
- *      `putMealImage` and sets `imageUrl`, `imageStatus`, `imagePromptVersion`.
+ *      `putMealImage` and sets `imageUrl`, `imageStatus`, `imagePromptVersion`
+ *      and `imageHue` (HON-744).
  *      `--exclude=slug,slug` leaves the rejected ones out; the next
  *      `--confirm` run selects them again.
  *
@@ -37,6 +38,7 @@ import { join, resolve } from 'node:path'
 import { createInterface } from 'node:readline/promises'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { Prisma, PrismaClient } from '../src/generated/prisma/client'
+import { extractHue } from '../src/lib/meal-images/colour'
 import type { GeneratedMealImage, GenerateMealImageOptions } from '../src/lib/meal-images/generate'
 import type { JudgeVerdict } from '../src/lib/meal-images/judge'
 import {
@@ -286,6 +288,8 @@ export interface ManifestEntry {
   usd?: number
   latencyMs: number
   verdict?: JudgeVerdict | null
+  /** The card hue the route would store (HON-744); null when the image carries no colour. */
+  hue?: number | null
   error?: string
 }
 
@@ -305,6 +309,23 @@ export type GenerateFn = (
 const IMAGE_TIMEOUT_MS = 120_000
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
+
+/**
+ * The meal's card hue from the image bytes (HON-744). As in the route, a
+ * failure is logged and yields null: it must never cost a paid image.
+ */
+async function hueOf(
+  bytes: Uint8Array,
+  slug: string,
+  log: (line: string) => void,
+): Promise<number | null> {
+  try {
+    return (await extractHue(bytes)).hue
+  } catch (error) {
+    log(`  ${slug}: could not extract the hue, storing null: ${messageOf(error)}`)
+    return null
+  }
+}
 
 /** Run `worker` over `items`, at most `concurrency` at a time. */
 async function pool<T>(items: T[], concurrency: number, worker: (item: T) => Promise<void>) {
@@ -417,6 +438,7 @@ export async function runGenerate(
         usd: image.totalUsd,
         latencyMs: performance.now() - t0,
         verdict: image.verdict,
+        hue: await hueOf(image.bytes, slug, deps.log),
       }
     } catch (error) {
       entry = { ...base, latencyMs: performance.now() - t0, error: messageOf(error) }
@@ -541,7 +563,7 @@ export interface PublishResult {
  * - Claim: set `imageClaimedAt` only while the meal still needs an image, no
  *   live claim holds it, and `updatedAt` is what the plan read. A concurrent
  *   publish of the same meal matches nothing and skips it.
- * - Attach: write the three columns only while the claim still holds.
+ * - Attach: write the image columns only while the claim still holds.
  *   `clearMealImage` (HON-734) resets `imageClaimedAt` on any content edit,
  *   so an edit mid-upload makes this match nothing, and the blob is deleted.
  *
@@ -595,17 +617,18 @@ export async function runPublish(
 
     let uploadedUrl: string | null = null
     try {
-      uploadedUrl = await deps.put(
-        meal.id,
-        deps.readFile(join(runDir, entry.file)),
-        entry.mediaType,
-      )
+      const bytes = deps.readFile(join(runDir, entry.file))
+      // Re-extracted rather than read from the manifest: the same rule as the
+      // route, whatever an older run recorded.
+      const imageHue = await hueOf(bytes, entry.slug, deps.log)
+      uploadedUrl = await deps.put(meal.id, bytes, entry.mediaType)
       const attached = await deps.db.meal.updateMany({
         where: { id: meal.id, imageClaimedAt: claimedAt, updatedAt: meal.updatedAt },
         data: {
           imageStatus: 'ready',
           imageUrl: uploadedUrl,
           imagePromptVersion: MEAL_IMAGE_PROMPT_VERSION,
+          imageHue,
           imageClaimedAt: null,
           imageAttempts: 0,
           updatedAt: meal.updatedAt,

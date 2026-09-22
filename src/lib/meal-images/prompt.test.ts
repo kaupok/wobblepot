@@ -25,12 +25,13 @@ const chickenThighs: MealImageMeal = {
 }
 
 describe('buildMealImagePrompt', () => {
-  it('is byte-identical to the spike V3 prompt HON-726 accepted', () => {
+  it('is the V3 prompt HON-726 accepted with the HON-743 V4 suffix', () => {
     // Printed from `buildPrompt(chicken-thighs, illustration, 'v3')` in the
-    // spike before the move (HON-735). Pinned, not re-derived: a drift in any
+    // spike before the move (HON-735), with the suffix swapped for the
+    // `v4-white` variant HON-743 chose. Pinned, not re-derived: a drift in any
     // constant or in the ordering shows up here.
     expect(buildMealImagePrompt(chickenThighs)).toBe(
-      'Warm stylised illustration of a single modest serving for one person of a home-cooked dish, on a single plain dinner plate or in a single bowl with space around the food, soft gouache textures, gentle hand-drawn linework, muted natural palette, seen from a three-quarter angle on a plain, uncluttered surface. The dish: Baked Chicken Thighs — Herb-roasted chicken thighs with potatoes. It is made from exactly these ingredients, largest amount first: chicken thigh, potato, olive oil, garlic, rosemary, thyme. How it is prepared: Cut the potatoes into 2cm cubes and roast them in a single layer. Roast the thighs on a separate tray, then pull the meat off the bone in large shreds, discard the skin, and pile the chicken over the potatoes. Show the ingredients cut and cooked exactly as described. Show only the finished, cooked dish as it is served. Nothing that is not in that list: no garnish, no herbs beyond those listed, no olives, bread or side dishes. No raw ingredients, cutting boards, pots, pans, baking dishes or other props around it. A single dish, landscape 3:2 composition with the food filling the frame. No text, no labels, no logos, no hands, no people.',
+      'Warm stylised illustration of a single modest serving for one person of a home-cooked dish, on a single plain dinner plate or in a single bowl with space around the food, soft gouache textures, gentle hand-drawn linework, muted natural palette, seen from a three-quarter angle on a plain, uncluttered surface. The dish: Baked Chicken Thighs — Herb-roasted chicken thighs with potatoes. It is made from exactly these ingredients, largest amount first: chicken thigh, potato, olive oil, garlic, rosemary, thyme. How it is prepared: Cut the potatoes into 2cm cubes and roast them in a single layer. Roast the thighs on a separate tray, then pull the meat off the bone in large shreds, discard the skin, and pile the chicken over the potatoes. Show the ingredients cut and cooked exactly as described. Show only the finished, cooked dish as it is served. Nothing that is not in that list: no garnish, no herbs beyond those listed, no olives, bread or side dishes. No raw ingredients, cutting boards, pots, pans, baking dishes or other props around it. A single dish, landscape 3:2 composition. The plate sits in the centre and takes up about half the width of the frame, with generous empty space around it on every side. The surface is pure white, flat and untextured, with only a soft light shadow under the plate. No text, no labels, no logos, no hands, no people.',
     )
   })
 
@@ -49,8 +50,8 @@ describe('buildMealImagePrompt', () => {
     )
   })
 
-  it('is version v3', () => {
-    expect(MEAL_IMAGE_PROMPT_VERSION).toBe('v3')
+  it('is version v4', () => {
+    expect(MEAL_IMAGE_PROMPT_VERSION).toBe('v4')
   })
 })
 

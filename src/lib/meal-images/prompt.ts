@@ -1,14 +1,15 @@
 import { DEFAULT_GRAMS_PER_PIECE } from '@/lib/ai/recipe-quantities'
 
 /**
- * Meal illustration prompt, V3 (HON-726 decision, proven by the HON-733 spike).
+ * Meal illustration prompt, V4: the V3 prefix, body and exclusions (HON-726
+ * decision, proven by the HON-733 spike) with the HON-743 white-surface suffix.
  *
  * Deliberately free of `server-only`: `scripts/spike-meal-images.ts` runs under
  * `tsx` and imports these builders, and the module holds no secrets.
  */
 
 /** Stored on `Meal.imagePromptVersion`, so a later prompt change can find old images. */
-export const MEAL_IMAGE_PROMPT_VERSION = 'v3'
+export const MEAL_IMAGE_PROMPT_VERSION = 'v4'
 
 /** HON-733: V2 heaped several servings onto one platter twice in twelve images. */
 export const STYLE_PREFIX_ILLUSTRATION_V3 =
@@ -21,8 +22,13 @@ export const STYLE_PREFIX_ILLUSTRATION_V3 =
 export const V2_EXCLUSIONS =
   'Show only the finished, cooked dish as it is served. Nothing that is not in that list: no garnish, no herbs beyond those listed, no olives, bread or side dishes. No raw ingredients, cutting boards, pots, pans, baking dishes or other props around it.'
 
+/**
+ * V4 (HON-743): only this suffix changed from V3. A pure white surface vanishes
+ * under `mix-blend-mode: multiply` on any card tint, and the space around the
+ * plate is what lets the card fade the image in.
+ */
 export const PROMPT_SUFFIX =
-  'A single dish, landscape 3:2 composition with the food filling the frame. No text, no labels, no logos, no hands, no people.'
+  'A single dish, landscape 3:2 composition. The plate sits in the centre and takes up about half the width of the frame, with generous empty space around it on every side. The surface is pure white, flat and untextured, with only a soft light shadow under the plate. No text, no labels, no logos, no hands, no people.'
 
 export interface MealImageComponent {
   name: string
@@ -84,7 +90,7 @@ export function buildMealImagePromptBody(meal: MealImageMeal): string {
   ].join(' ')
 }
 
-/** The production prompt: V3 prefix and body. */
+/** The production prompt: V3 prefix and the V4 body. */
 export function buildMealImagePrompt(meal: MealImageMeal): string {
   return `${STYLE_PREFIX_ILLUSTRATION_V3} ${buildMealImagePromptBody(meal)}`
 }

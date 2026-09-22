@@ -110,6 +110,11 @@ vi.mock('@vercel/blob', () => ({
   del: vi.fn(),
 }))
 
+// The mocked image bytes are not a real PNG; `colour.test.ts` covers the extraction.
+vi.mock('@/lib/meal-images/colour', () => ({
+  extractHue: vi.fn(),
+}))
+
 import { APICallError, generateImage, generateObject, RetryError } from 'ai'
 import { del, put } from '@vercel/blob'
 import { auth } from '@/lib/auth'
@@ -118,6 +123,8 @@ import { prisma } from '@/lib/prisma'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
 import { clearMealImage } from '@/lib/meal-images/invalidation'
+import { extractHue } from '@/lib/meal-images/colour'
+import { captureApiError } from '@/lib/errors'
 import type { Prisma } from '@/generated/prisma/client'
 import { GET, POST } from './route'
 
@@ -130,6 +137,14 @@ const mockGenerateImage = vi.mocked(generateImage)
 const mockGenerateObject = vi.mocked(generateObject)
 const mockPut = vi.mocked(put)
 const mockDel = vi.mocked(del)
+const mockExtractHue = vi.mocked(extractHue)
+const hue = (value: number | null) => ({
+  hue: value,
+  chroma: 0.2,
+  coverage: 0.3,
+  opaque: 1,
+  bins: [],
+})
 
 const HOUSEHOLD_ID = 'household-123'
 const BLOB_URL = 'https://store.public.blob.vercel-storage.com/meals/meal-1-abc.png'
@@ -158,6 +173,7 @@ function seedMeal(over: Record<string, unknown> = {}) {
     imageClaimedAt: null,
     imageAttempts: 0,
     imagePromptVersion: null,
+    imageHue: null,
     components: [
       {
         quantityPerServing: 3,
@@ -217,6 +233,7 @@ describe('POST /api/meals/[id]/image', () => {
     mockGenerateObject.mockResolvedValue(cleanJudge)
     mockPut.mockResolvedValue({ url: BLOB_URL } as never)
     mockDel.mockResolvedValue(undefined)
+    mockExtractHue.mockResolvedValue(hue(264))
     vi.spyOn(console, 'info').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
@@ -236,27 +253,29 @@ describe('POST /api/meals/[id]/image', () => {
   })
 
   it('returns a ready image without generating or spending a rate-limit token', async () => {
-    seedMeal({ imageStatus: 'ready', imageUrl: BLOB_URL })
+    seedMeal({ imageStatus: 'ready', imageUrl: BLOB_URL, imageHue: 120 })
 
     const response = await post()
 
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL })
+    expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL, imageHue: 120 })
     expect(mockCheckRateLimit).not.toHaveBeenCalled()
     expect(mockGenerateImage).not.toHaveBeenCalled()
   })
 
-  it('generates, uploads and stores the image with its prompt version', async () => {
+  it('generates, uploads and stores the image with its prompt version and hue', async () => {
     const response = await post()
 
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL })
+    expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL, imageHue: 264 })
     expect(mockGenerateImage).toHaveBeenCalledTimes(1)
     expect(mockPut).toHaveBeenCalledWith('meals/meal-1.png', expect.any(Buffer), expect.anything())
+    expect(mockExtractHue).toHaveBeenCalledWith(new Uint8Array([1, 2, 3]))
     expect(row()).toMatchObject({
       imageStatus: 'ready',
       imageUrl: BLOB_URL,
-      imagePromptVersion: 'v3',
+      imagePromptVersion: 'v4',
+      imageHue: 264,
     })
     expect(mockCheckRateLimit).toHaveBeenCalledWith(HOUSEHOLD_ID, 'meal-image')
   })
@@ -368,7 +387,11 @@ describe('POST /api/meals/[id]/image', () => {
   it('serves a global meal image the batch already made', async () => {
     seedMeal({ householdId: null, imageStatus: 'ready', imageUrl: BLOB_URL })
 
-    expect(await (await post()).json()).toEqual({ status: 'ready', imageUrl: BLOB_URL })
+    expect(await (await post()).json()).toEqual({
+      status: 'ready',
+      imageUrl: BLOB_URL,
+      imageHue: null,
+    })
   })
 
   it('discards the image when the meal is edited mid-generation', async () => {
@@ -404,8 +427,32 @@ describe('POST /api/meals/[id]/image', () => {
 
     const response = await post()
 
-    expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL })
+    expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL, imageHue: 264 })
     expect(mockDel).not.toHaveBeenCalled()
+  })
+
+  it('stores a null hue and still returns ready when extraction fails', async () => {
+    mockExtractHue.mockRejectedValueOnce(new Error('unsupported image format'))
+
+    const response = await post()
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL, imageHue: null })
+    expect(row()).toMatchObject({ imageStatus: 'ready', imageUrl: BLOB_URL, imageHue: null })
+    expect(mockDel).not.toHaveBeenCalled()
+    expect(captureApiError).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ operation: 'meal-image-hue', mealId: 'meal-1' }),
+    )
+  })
+
+  it('stores a null hue when the image carries no colour', async () => {
+    mockExtractHue.mockResolvedValueOnce(hue(null))
+
+    await post()
+
+    expect(row()).toMatchObject({ imageStatus: 'ready', imageHue: null })
+    expect(captureApiError).not.toHaveBeenCalled()
   })
 
   it('marks the image failed and counts the attempt when generation fails', async () => {
@@ -527,13 +574,13 @@ describe('GET /api/meals/[id]/image', () => {
     expect((await get()).status).toBe(404)
   })
 
-  it('returns a ready image', async () => {
-    seedMeal({ imageStatus: 'ready', imageUrl: BLOB_URL })
+  it('returns a ready image with its hue', async () => {
+    seedMeal({ imageStatus: 'ready', imageUrl: BLOB_URL, imageHue: 40 })
 
     const response = await get()
 
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL })
+    expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL, imageHue: 40 })
   })
 
   it('returns the { error } shape when the read fails', async () => {
