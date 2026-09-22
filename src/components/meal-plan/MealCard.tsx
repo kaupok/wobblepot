@@ -22,7 +22,7 @@ import { MealDetailModal, type MealDetailModalHandle } from './MealDetailModal'
 import { PantryDeductionModal } from './PantryDeductionModal'
 import { AvailabilityIndicator, computeMealAvailability } from './AvailabilityIndicator'
 import { NoteEditor } from './NoteEditor'
-import { MealImageCard, mealImageTitleWidth, mealTintHue } from './MealImageCard'
+import { MealImageCard, mealImageTitleWidth } from './MealImageCard'
 import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
 import type { EntryRating, MealData, PantryIngredient, PantryItemFull } from './types'
 import type { MealType } from '@/generated/prisma/enums'
@@ -344,12 +344,7 @@ export function MealCard({
                 `Button` size is a fixed height a second line would overflow.
                 `min-h-8` holds it to the same 32px floor as the actions beside
                 it (docs/DESIGN.md → Spacing, radius, elevation). */}
-            <div
-              className={cn(
-                'min-w-0',
-                mealTintHue(tintMeal ?? meal) !== null && mealImageTitleWidth(hasTrailingActions),
-              )}
-            >
+            <div className={cn('min-w-0', mealImageTitleWidth(hasTrailingActions))}>
               <Body variant="small" className="font-semibold">
                 <button
                   type="button"

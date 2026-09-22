@@ -52,8 +52,13 @@ describe('MealImageCard', () => {
   })
 
   it('narrows the title to the tint left of the image', () => {
-    expect(mealImageTitleWidth()).toBe('max-w-1/2 sm:max-w-3/8')
-    expect(mealImageTitleWidth(true)).toBe('max-w-1/3 sm:max-w-3/8')
+    // Scoped to a tinted card, so a card whose image fails goes back to the full row.
+    expect(mealImageTitleWidth()).toBe(
+      'group-data-meal-surface/meal-image:max-w-1/2 sm:group-data-meal-surface/meal-image:max-w-3/8',
+    )
+    expect(mealImageTitleWidth(true)).toBe(
+      'group-data-meal-surface/meal-image:max-w-1/3 sm:group-data-meal-surface/meal-image:max-w-3/8',
+    )
   })
 
   it('tints a hue of 0, which is a real hue rather than a missing one', () => {

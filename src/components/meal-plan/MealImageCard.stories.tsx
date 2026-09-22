@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, within } from 'storybook/test'
+import { expect, waitFor, within } from 'storybook/test'
 import { MoreHorizontal, NotebookPen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CardContent, CardHeader } from '@/components/ui/card'
@@ -205,4 +205,22 @@ export const TrailingActionsDesktop: Story = {
     </div>
   ),
   play: async ({ canvasElement }) => assertOnTint(canvasElement),
+}
+
+/** An image that fails to load leaves a neutral card, and the title its full row. */
+export const TrailingActionsBrokenImage: Story = {
+  name: 'Trailing actions, broken image',
+  args: {
+    meal: withImage(28, { name: LONG_TITLE, imageUrl: '/missing-meal-image.png' }),
+    className: undefined,
+  },
+  render: (args) => <TrailingActionsCard {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await waitFor(() => expect(canvas.queryByTestId('meal-card-image')).not.toBeInTheDocument())
+    const card = canvasElement.querySelector('[data-slot="card"]')!
+    await expect(card).not.toHaveAttribute('data-meal-surface')
+    const titleWrapper = canvas.getByRole('button', { name: LONG_TITLE }).closest('div')!
+    await expect(getComputedStyle(titleWrapper).maxWidth).toBe('none')
+  },
 }

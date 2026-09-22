@@ -45,13 +45,19 @@ const IMAGE_BOX = {
  * The widest the title may be on a tinted card: it wraps before it reaches the
  * image's opaque part. Fractions of the card's content row, matched to
  * `IMAGE_BOX` plus the 30% fade — change the two together.
+ *
+ * Keyed on the card's own `data-meal-surface` rather than the meal's fields: a
+ * card whose image fails to load goes neutral, and its title gets the full row
+ * back with it.
  */
 const TITLE_WIDTH = {
-  default: 'max-w-1/2 sm:max-w-3/8',
-  trailingActions: 'max-w-1/3 sm:max-w-3/8',
+  default:
+    'group-data-meal-surface/meal-image:max-w-1/2 sm:group-data-meal-surface/meal-image:max-w-3/8',
+  trailingActions:
+    'group-data-meal-surface/meal-image:max-w-1/3 sm:group-data-meal-surface/meal-image:max-w-3/8',
 } as const
 
-/** The `max-width` classes for a tinted card's title, matching its image box. */
+/** The `max-width` classes for a title inside a `MealImageCard`, matching its image box. */
 export function mealImageTitleWidth(trailingActions = false): string {
   return trailingActions ? TITLE_WIDTH.trailingActions : TITLE_WIDTH.default
 }
@@ -115,7 +121,7 @@ export function MealImageCard({
   return (
     <Card
       data-meal-surface={tinted ? '' : undefined}
-      className={cn(tinted && 'relative isolate overflow-hidden', className)}
+      className={cn(tinted && 'group/meal-image relative isolate overflow-hidden', className)}
       // eslint-disable-next-line shadcn/no-inline-styles -- --meal-hue is the one per-meal value (docs/DESIGN.md → Imagery); every colour is derived from it by [data-meal-surface] in globals.css.
       style={tinted ? { ...style, ...mealHueStyle(hue) } : style}
       {...props}
