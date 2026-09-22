@@ -6,7 +6,7 @@ import {
   lemonGarlicChickenPantryWithOil,
 } from '@/stories/fixtures'
 import { expectSingleLine, expectWithinHorizontally } from '@/stories/layout-helpers'
-import mealIllustration from '@/stories/assets/meal-illustration.jpg'
+import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { MealDetail } from './MealDetail'
 import { MealImage } from './MealImage'
 import type { StructuredTips } from './types'
@@ -70,7 +70,12 @@ export const WithImage: Story = {
       description: 'Lemon-garlic roast chicken with crisp potatoes and a bright pan sauce.',
     }),
     image: (
-      <MealImage mealName="Lemon garlic chicken" status="ready" imageUrl={mealIllustration.src} />
+      <MealImage
+        mealName="Lemon garlic chicken"
+        status="ready"
+        imageUrl={mealIllustration.src}
+        imageHue={52}
+      />
     ),
   },
   parameters: {

@@ -180,6 +180,19 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* Meal tint (docs/DESIGN.md → Imagery, HON-743/746). Lightness and chroma
+     only: the hue is the one per-meal value, set as --meal-hue on the element
+     that carries [data-meal-surface]. Fixed L and C are what give every meal
+     the same contrast; src/lib/meal-tint.test.ts measures every pairing below
+     against every hue. */
+  --meal-surface-l: 0.97;
+  --meal-surface-c: 0.035;
+  --meal-text-l: 0.25;
+  --meal-text-c: 0.03;
+  --meal-muted-l: 0.48;
+  --meal-muted-c: 0.03;
+  --meal-chip-l: 0.9;
+  --meal-chip-c: 0.11;
 }
 
 .dark {
@@ -224,6 +237,48 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  /* Darker than the 0.45 the HON-743 contact sheet started from: at 0.45 the
+     dark --success/--warning ingredient colours and the muted text fall under
+     4.5:1 on the tint. */
+  --meal-surface-l: 0.35;
+  --meal-surface-c: 0.035;
+  --meal-text-l: 0.95;
+  --meal-text-c: 0.02;
+  --meal-muted-l: 0.78;
+  --meal-muted-c: 0.02;
+  --meal-chip-l: 0.27;
+  --meal-chip-c: 0.11;
+}
+
+/* A meal's tinted surface: a meal card or the modal hero with an image and an
+   imageHue (docs/DESIGN.md → Imagery). The element sets --meal-hue inline;
+   these declarations have to sit on that same element, because a custom
+   property that reads var(--meal-hue) resolves where it is declared.
+
+   It re-scopes the theme tokens rather than adding new colour utilities, so
+   everything already inside a card — text-muted-foreground, the secondary
+   Badge, Heading, a ghost Button's hover — takes the tinted token without a
+   change of its own. `secondary` and `accent` are the accent chip.
+
+   An attribute selector rather than an @utility: an @utility has to be
+   registered in CUSTOM_UTILITY_CLASS_GROUPS under a tailwind-merge family it
+   conflicts with, and a set of re-scoped tokens has none. In @layer base so
+   any utility on the element still wins. */
+@layer base {
+  [data-meal-surface] {
+    --meal-text: oklch(var(--meal-text-l) var(--meal-text-c) var(--meal-hue));
+    --meal-chip: oklch(var(--meal-chip-l) var(--meal-chip-c) var(--meal-hue));
+    --card: oklch(var(--meal-surface-l) var(--meal-surface-c) var(--meal-hue));
+    --card-foreground: var(--meal-text);
+    --foreground: var(--meal-text);
+    --muted-foreground: oklch(var(--meal-muted-l) var(--meal-muted-c) var(--meal-hue));
+    --secondary: var(--meal-chip);
+    --secondary-foreground: var(--meal-text);
+    --accent: var(--meal-chip);
+    --accent-foreground: var(--meal-text);
+    background-color: var(--card);
+    color: var(--card-foreground);
+  }
 }
 
 @layer base {

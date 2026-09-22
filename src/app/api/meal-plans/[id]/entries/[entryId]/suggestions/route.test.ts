@@ -247,6 +247,9 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/suggestions', () => {
         kidFriendly: true,
         primaryProteinType: 'none',
         suitableFor: ['dinner', 'lunch'],
+        imageUrl: 'https://blob/meal-1.png',
+        imageStatus: 'ready',
+        imageHue: 145,
         components: [
           {
             ingredientId: 'ing-1',
@@ -287,6 +290,16 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/suggestions', () => {
     expect(suggestion.id).toBeDefined()
     expect(suggestion.name).toBeDefined()
     expect(suggestion.nutrition).toBeDefined()
+
+    // The card tint reads these straight off the payload (HON-746).
+    const withImage = data.alternatives.find((a: { id: string }) => a.id === 'meal-1')
+    expect(withImage).toMatchObject({
+      imageUrl: 'https://blob/meal-1.png',
+      imageStatus: 'ready',
+      imageHue: 145,
+    })
+    const withoutImage = data.alternatives.find((a: { id: string }) => a.id === 'meal-2')
+    expect(withoutImage).toMatchObject({ imageUrl: null, imageHue: null })
   })
 
   it('returns at most 3 suggestions', async () => {

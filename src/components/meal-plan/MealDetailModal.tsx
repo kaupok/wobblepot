@@ -79,7 +79,7 @@ export function MealDetailModal({
     hideTips,
     cancelTips,
   } = useMealTips({ planId, entryId })
-  const { status: imageStatus, imageUrl, cancelImage } = useMealImage({ meal, open })
+  const { status: imageStatus, imageUrl, imageHue, cancelImage } = useMealImage({ meal, open })
 
   // Sync local state when prop changes
   const effectiveServings = servingOverride ?? householdSize
@@ -183,7 +183,14 @@ export function MealDetailModal({
         </div>
         <MealDetail
           meal={meal}
-          image={<MealImage mealName={meal.name} status={imageStatus} imageUrl={imageUrl} />}
+          image={
+            <MealImage
+              mealName={meal.name}
+              status={imageStatus}
+              imageUrl={imageUrl}
+              imageHue={imageHue}
+            />
+          }
           householdSize={householdSize}
           status={status}
           servings={localServings}

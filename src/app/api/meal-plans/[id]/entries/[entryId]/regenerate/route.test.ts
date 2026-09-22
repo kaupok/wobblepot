@@ -227,6 +227,9 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/regenerate', () => {
           kidFriendly: true,
           primaryProteinType: 'fish',
           suitableFor: ['dinner'],
+          imageUrl: 'https://blob/salmon.png',
+          imageStatus: 'ready',
+          imageHue: 30,
           components: [
             {
               ingredientId: 'ing-10',
@@ -267,6 +270,14 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/regenerate', () => {
     expect(alt.id).toBeDefined()
     expect(alt.name).toBeDefined()
     expect(alt.nutrition).toBeDefined()
+
+    // The card tint reads these straight off the payload (HON-746).
+    const salmon = data.alternatives.find((a: { id: string }) => a.id === 'meal-alt-1')
+    expect(salmon).toMatchObject({
+      imageUrl: 'https://blob/salmon.png',
+      imageStatus: 'ready',
+      imageHue: 30,
+    })
   })
 
   it('excludes current meal from candidates', async () => {

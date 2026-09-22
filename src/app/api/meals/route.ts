@@ -192,6 +192,9 @@ export async function GET(request: NextRequest) {
         primaryProteinType: true,
         suitableFor: true,
         householdId: true,
+        imageUrl: true,
+        imageStatus: true,
+        imageHue: true,
         components: {
           select: {
             ingredientId: true,
@@ -282,6 +285,9 @@ export async function GET(request: NextRequest) {
         suitableFor: translatedMeal.suitableFor,
         isCustom: meal.householdId !== null,
         isFavorite: meal.favoritedBy.length > 0,
+        imageUrl: meal.imageUrl,
+        imageStatus: meal.imageStatus,
+        imageHue: meal.imageHue,
         components,
         nutrition: {
           calories: Math.round(nutrition.calories),

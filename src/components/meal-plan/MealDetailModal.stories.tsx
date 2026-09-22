@@ -14,7 +14,7 @@ import {
   lemonGarlicChickenComponentsFull,
   lemonGarlicChickenPantryWithOil,
 } from '@/stories/fixtures'
-import mealIllustration from '@/stories/assets/meal-illustration.jpg'
+import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { MealDetailModal } from './MealDetailModal'
 
 const mealFixture = createMeal({ components: lemonGarlicChickenComponentsFull })
@@ -56,6 +56,7 @@ export const WithImage: Story = {
       isCustom: true,
       imageStatus: 'ready',
       imageUrl: mealIllustration.src,
+      imageHue: 52,
     },
   },
   play: async () => {

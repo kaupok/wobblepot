@@ -155,6 +155,25 @@ describe('GET /api/meals', () => {
     })
   })
 
+  it('carries the image fields the card tint reads (HON-746)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockMealCount.mockResolvedValue(1)
+    mockMealFindMany.mockResolvedValue([
+      sampleMeal({ imageUrl: 'https://blob/meal-1.png', imageStatus: 'ready', imageHue: 42 }),
+    ] as never)
+
+    const data = await (await GET(createRequest())).json()
+
+    expect(data.meals[0]).toMatchObject({
+      imageUrl: 'https://blob/meal-1.png',
+      imageStatus: 'ready',
+      imageHue: 42,
+    })
+    const select = mockMealFindMany.mock.calls[0]?.[0]?.select
+    expect(select).toMatchObject({ imageUrl: true, imageStatus: true, imageHue: true })
+  })
+
   it('applies source=system filter', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)

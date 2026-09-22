@@ -22,6 +22,7 @@ import { MealDetailModal, type MealDetailModalHandle } from './MealDetailModal'
 import { PantryDeductionModal } from './PantryDeductionModal'
 import { AvailabilityIndicator, computeMealAvailability } from './AvailabilityIndicator'
 import { NoteEditor } from './NoteEditor'
+import { MealImageCard } from './MealImageCard'
 import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
 import type { EntryRating, MealData, PantryIngredient, PantryItemFull } from './types'
 import type { MealType } from '@/generated/prisma/enums'
@@ -324,7 +325,7 @@ export function MealCard({
 
   return (
     <>
-      <Card className="gap-2 py-2">
+      <MealImageCard meal={meal} className="gap-2 py-2">
         <CardHeader className="px-3 pb-0">
           <div className="flex items-start justify-between gap-1">
             {/* A native button rather than `Button`: the name wraps, and every
@@ -429,7 +430,7 @@ export function MealCard({
             />
           </CardContent>
         )}
-      </Card>
+      </MealImageCard>
       <MealDetailModal
         ref={detailModalRef}
         meal={meal}

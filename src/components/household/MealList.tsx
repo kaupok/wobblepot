@@ -6,14 +6,15 @@ import { toast } from 'sonner'
 import { Pencil, Trash2, Heart } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { CardContent } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { MealCardBase } from '@/components/meal-plan/MealCardBase'
 import { cn } from '@/lib/utils'
+import { MealImageCard, type MealImageFields } from '@/components/meal-plan/MealImageCard'
 import type { IngredientCategory, MealType, ProteinType, Unit } from '@/generated/prisma/enums'
 
-export interface MealData {
+export interface MealData extends MealImageFields {
   id: string
   name: string
   description?: string | null
@@ -115,7 +116,7 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
   return (
     <div className="flex flex-col gap-4">
       {meals.map((meal) => (
-        <Card key={meal.id}>
+        <MealImageCard key={meal.id} meal={meal}>
           <CardContent className="p-4">
             <div className="flex flex-col gap-2">
               <MealCardBase meal={meal} />
@@ -150,7 +151,7 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </MealImageCard>
       ))}
 
       <ConfirmDialog

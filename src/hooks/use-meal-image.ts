@@ -9,6 +9,8 @@ import type { MealImageStatus } from '@/generated/prisma/enums'
 export interface MealImageState {
   status: MealImageStatus
   imageUrl: string | null
+  /** OKLCH hue of the image, for the hero's tint (HON-744, HON-746) */
+  imageHue: number | null
 }
 
 /** How often a `generating` image is re-read while the modal is open. */
@@ -25,20 +27,22 @@ export const MEAL_IMAGE_PLACEHOLDER_DELAY_MS = 1_000
 
 export const mealImageQueryKey = (mealId: string) => ['meal-image', mealId] as const
 
-const GAVE_UP: MealImageState = { status: 'none', imageUrl: null }
+const GAVE_UP: MealImageState = { status: 'none', imageUrl: null, imageHue: null }
 
 const isAbort = (error: unknown) => error instanceof DOMException && error.name === 'AbortError'
 
 const normalise = (body: {
   status: MealImageStatus
   imageUrl?: string | null
+  imageHue?: number | null
 }): MealImageState => ({
   status: body.status,
   imageUrl: body.status === 'ready' ? (body.imageUrl ?? null) : null,
+  imageHue: body.status === 'ready' ? (body.imageHue ?? null) : null,
 })
 
 interface UseMealImageOptions {
-  meal: Pick<MealData, 'id' | 'isCustom' | 'imageUrl' | 'imageStatus'>
+  meal: Pick<MealData, 'id' | 'isCustom' | 'imageUrl' | 'imageStatus' | 'imageHue'>
   /** Whether the meal detail modal is open. Nothing is fetched while closed. */
   open: boolean
 }
@@ -73,7 +77,11 @@ export function useMealImage({ meal, open }: UseMealImageOptions) {
       const key = mealImageQueryKey(mealId)
       const snapshot = queryClient.getQueryData<MealImageState>(key)
       const placeholderTimer = setTimeout(() => {
-        queryClient.setQueryData<MealImageState>(key, { status: 'generating', imageUrl: null })
+        queryClient.setQueryData<MealImageState>(key, {
+          status: 'generating',
+          imageUrl: null,
+          imageHue: null,
+        })
       }, MEAL_IMAGE_PLACEHOLDER_DELAY_MS)
       return { snapshot, placeholderTimer }
     },
@@ -125,7 +133,11 @@ export function useMealImage({ meal, open }: UseMealImageOptions) {
       attemptedRef.current.add(mealId)
       return GAVE_UP
     },
-    initialData: normalise({ status: meal.imageStatus ?? 'none', imageUrl: meal.imageUrl }),
+    initialData: normalise({
+      status: meal.imageStatus ?? 'none',
+      imageUrl: meal.imageUrl,
+      imageHue: meal.imageHue,
+    }),
     // Only the poll below reads; the payload seeded the rest.
     staleTime: Infinity,
     retry: false,
@@ -154,7 +166,8 @@ export function useMealImage({ meal, open }: UseMealImageOptions) {
   // it gave up.
   const payloadStatus = meal.imageStatus ?? 'none'
   const payloadUrl = meal.imageUrl ?? null
-  const payloadKey = `${mealId}|${payloadStatus}|${payloadUrl}`
+  const payloadHue = meal.imageHue ?? null
+  const payloadKey = `${mealId}|${payloadStatus}|${payloadUrl}|${payloadHue}`
   // A `none` payload is applied on the first render too: only an edit resets
   // the image to `none`, and the cache entry can outlive this hook by
   // `gcTime` — an edit on another page, then back, would otherwise keep
@@ -171,9 +184,9 @@ export function useMealImage({ meal, open }: UseMealImageOptions) {
     }
     queryClient.setQueryData<MealImageState>(
       mealImageQueryKey(mealId),
-      normalise({ status: payloadStatus, imageUrl: payloadUrl }),
+      normalise({ status: payloadStatus, imageUrl: payloadUrl, imageHue: payloadHue }),
     )
-  }, [payloadKey, mealId, payloadStatus, payloadUrl, queryClient])
+  }, [payloadKey, mealId, payloadStatus, payloadUrl, payloadHue, queryClient])
 
   // Fired by the modal opening rather than by a click: `MealCard` owns `open`,
   // so this is the one place that sees it change. It is a write, not a read.
@@ -205,5 +218,5 @@ export function useMealImage({ meal, open }: UseMealImageOptions) {
     void queryClient.cancelQueries({ queryKey: mealImageQueryKey(mealId) })
   }, [queryClient, mealId])
 
-  return { status, imageUrl: data.imageUrl, cancelImage }
+  return { status, imageUrl: data.imageUrl, imageHue: data.imageHue, cancelImage }
 }
