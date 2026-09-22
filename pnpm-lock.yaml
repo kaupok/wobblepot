@@ -122,6 +122,9 @@ importers:
       robots-parser:
         specifier: 3.0.1
         version: 3.0.1
+      sharp:
+        specifier: 0.35.4
+        version: 0.35.4(@types/node@22.19.7)
       sonner:
         specifier: 2.0.8
         version: 2.0.8(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -222,9 +225,6 @@ importers:
       prisma:
         specifier: 7.10.0
         version: 7.10.0(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(better-sqlite3@12.6.2)(magicast@0.5.4)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)
-      sharp:
-        specifier: 0.35.4
-        version: 0.35.4(@types/node@22.19.7)
       storybook:
         specifier: 10.5.10
         version: 10.5.10(@types/react@19.2.18)(prettier@3.9.6)(react@19.2.8)

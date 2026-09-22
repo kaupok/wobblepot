@@ -36,6 +36,8 @@ export interface MealData {
   /** Hero illustration in Vercel Blob, set once `imageStatus` is `ready` */
   imageUrl?: string | null
   imageStatus?: MealImageStatus
+  /** OKLCH hue in degrees taken from the image, for the card tint (HON-744) */
+  imageHue?: number | null
 }
 
 export interface StructuredTips {

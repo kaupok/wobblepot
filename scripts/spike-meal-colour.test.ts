@@ -1,39 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import {
-  DEFAULT_HUE_OPTIONS,
-  hueFromPixels,
-  parseArgs,
-  renderContactSheet,
-  srgbToOklch,
-  variantPrompt,
-} from './spike-meal-colour'
+import { parseArgs, PROMPT_VARIANTS, renderContactSheet, variantPrompt } from './spike-meal-colour'
+import { V3_PROMPT_SUFFIX } from './spike-meal-images'
+import { DEFAULT_HUE_OPTIONS } from '../src/lib/meal-images/colour'
 import { PROMPT_SUFFIX } from '../src/lib/meal-images/prompt'
 
 describe('HON-743: meal colour spike', () => {
-  it('converts sRGB primaries to the expected OKLCH hues', () => {
-    expect(srgbToOklch(255, 0, 0).h).toBeCloseTo(29, 0)
-    expect(srgbToOklch(0, 255, 0).h).toBeCloseTo(142, 0)
-    expect(srgbToOklch(0, 0, 255).h).toBeCloseTo(264, 0)
-    expect(srgbToOklch(128, 128, 128).C).toBeLessThan(0.001)
-    expect(srgbToOklch(255, 255, 255).L).toBeCloseTo(1, 2)
-  })
-
-  it('votes for the saturated colour and ignores transparent and grey pixels', () => {
-    // 4 pixels: transparent red, opaque grey, two opaque blues.
-    const data = new Uint8Array([
-      255, 0, 0, 0, 128, 128, 128, 255, 0, 0, 255, 255, 10, 10, 250, 255,
-    ])
-    const result = hueFromPixels(data, 4)
-    expect(result.hue).toBeCloseTo(264, -1)
-    expect(result.opaque).toBe(0.75)
-    expect(result.coverage).toBe(0.5)
-  })
-
-  it('reports no hue for an all-grey sample', () => {
-    const data = new Uint8Array([200, 200, 200, 255, 40, 40, 40, 255])
-    expect(hueFromPixels(data, 4).hue).toBeNull()
-  })
-
   it('parses args and rejects a bad limit', () => {
     expect(parseArgs(['--limit=3', '--source=x', '--draw=v4', '--confirm'])).toEqual({
       limit: 3,
@@ -65,12 +36,18 @@ describe('HON-743: meal colour spike', () => {
     expect(html.match(/class="card (light|dark)"/g)).toHaveLength(8)
   })
 
-  it('swaps only the V3 suffix for a variant composition', () => {
-    const shipped = 'Prefix. Body. ' + PROMPT_SUFFIX
-    const v4 = variantPrompt(shipped, 'v4')
-    expect(v4.startsWith('Prefix. Body. ')).toBe(true)
-    expect(v4).not.toContain('filling the frame')
-    expect(v4).toContain('about half the width')
-    expect(() => variantPrompt('no suffix here', 'v4')).toThrow('V3 suffix')
+  it('swaps only the suffix for a variant composition, on V3 and V4 prompts', () => {
+    for (const shipped of ['Prefix. Body. ' + V3_PROMPT_SUFFIX, 'Prefix. Body. ' + PROMPT_SUFFIX]) {
+      const v4 = variantPrompt(shipped, 'v4')
+      expect(v4.startsWith('Prefix. Body. ')).toBe(true)
+      expect(v4).not.toContain('filling the frame')
+      expect(v4).not.toContain('pure white')
+      expect(v4).toContain('about half the width')
+    }
+    expect(() => variantPrompt('no suffix here', 'v4')).toThrow('known suffix')
+  })
+
+  it('ships the v4-white variant as the production suffix', () => {
+    expect(PROMPT_SUFFIX).toBe(PROMPT_VARIANTS['v4-white'])
   })
 })

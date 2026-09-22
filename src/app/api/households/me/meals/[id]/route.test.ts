@@ -715,6 +715,7 @@ describe('PATCH /api/households/me/meals/[id]', () => {
         imageStatus: 'none',
         imageClaimedAt: null,
         imageAttempts: 0,
+        imageHue: null,
       },
     }
 

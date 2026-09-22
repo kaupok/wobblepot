@@ -34,7 +34,16 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createOpenAI } from '@ai-sdk/openai'
 import { generateImage } from 'ai'
 import sharp from 'sharp'
+import {
+  DEFAULT_HUE_OPTIONS,
+  extractHue,
+  srgbToOklch,
+  type HueOptions,
+  type HueResult,
+  type Oklch,
+} from '../src/lib/meal-images/colour'
 import { PROMPT_SUFFIX } from '../src/lib/meal-images/prompt'
+import { V3_PROMPT_SUFFIX } from './spike-meal-images'
 
 const DEFAULT_SOURCE = '.temp/global-meal-images/2026-09-22T07-01-28-144Z'
 const PREVIEW_WIDTH = 768
@@ -59,9 +68,11 @@ export const PROMPT_VARIANTS: Record<string, string> = {
 export function variantPrompt(shipped: string, variant: string): string {
   const suffix = PROMPT_VARIANTS[variant]
   if (!suffix) throw new Error(`Unknown prompt variant: ${variant}`)
-  if (!shipped.endsWith(PROMPT_SUFFIX))
-    throw new Error('Shipped prompt does not end with the V3 suffix')
-  return shipped.slice(0, -PROMPT_SUFFIX.length) + suffix
+  // V4 shipped `v4-white` as `PROMPT_SUFFIX` (HON-744); the HON-738 runs were
+  // drawn at V3, so a run dir holds prompts ending in either.
+  const current = [PROMPT_SUFFIX, V3_PROMPT_SUFFIX].find((s) => shipped.endsWith(s))
+  if (!current) throw new Error('Shipped prompt does not end with a known suffix')
+  return shipped.slice(0, -current.length) + suffix
 }
 
 // ============================================
@@ -122,118 +133,6 @@ function readManifest(dir: string): Manifest {
 // COLOUR
 // ============================================
 
-export interface Oklch {
-  L: number
-  C: number
-  h: number
-}
-
-/** sRGB 0–255 to OKLCH (Björn Ottosson's OKLab, hue in degrees 0–360). */
-export function srgbToOklch(r8: number, g8: number, b8: number): Oklch {
-  const lin = (c: number) => {
-    const v = c / 255
-    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
-  }
-  const r = lin(r8)
-  const g = lin(g8)
-  const b = lin(b8)
-  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
-  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b)
-  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
-  const L = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s
-  const a = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s
-  const bb = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s
-  const C = Math.hypot(a, bb)
-  const h = ((Math.atan2(bb, a) * 180) / Math.PI + 360) % 360
-  return { L, C, h }
-}
-
-export interface HueOptions {
-  /** Fraction of width and height kept around the centre before sampling. */
-  cropFraction: number
-  /** Sampling resolution after the crop. */
-  size: number
-  /** Pixels below this chroma are grey, plate or table and carry no hue. */
-  chromaFloor: number
-  /** Number of hue bins the vote is taken over. */
-  bins: number
-  /** Pixels with alpha below this are background in a transparent image. */
-  alphaFloor: number
-}
-
-export const DEFAULT_HUE_OPTIONS: HueOptions = {
-  cropFraction: 0.6,
-  size: 64,
-  // 0.04 lets the cream plate and the painted tabletop vote; they outnumber
-  // the food. 0.08 keeps sauces, yolks, greens and meat.
-  chromaFloor: 0.08,
-  bins: 18,
-  alphaFloor: 128,
-}
-
-export interface HueResult {
-  /** Winning hue in degrees, or null when nothing in the sample carries chroma. */
-  hue: number | null
-  /** Chroma of the winning bin, averaged: how strongly the meal owns that hue. */
-  chroma: number
-  /** Share of sampled pixels that voted (opaque and above the chroma floor). */
-  coverage: number
-  /** Share of sampled pixels that were opaque at all. */
-  opaque: number
-  /** Chroma mass per bin, for the sheet's histogram. */
-  bins: number[]
-}
-
-/** Vote over RGBA pixels: hue bins weighted by chroma, circular mean of the winner. */
-export function hueFromPixels(
-  data: Uint8Array,
-  channels: number,
-  options: HueOptions = DEFAULT_HUE_OPTIONS,
-): HueResult {
-  // Typed arrays index without `undefined` under noUncheckedIndexedAccess.
-  const bins = new Float64Array(options.bins)
-  const sin = new Float64Array(options.bins)
-  const cos = new Float64Array(options.bins)
-  const count = new Uint32Array(options.bins)
-  const total = Math.floor(data.length / channels)
-  let opaque = 0
-  let voted = 0
-  for (let i = 0; i < total; i++) {
-    const o = i * channels
-    const alpha = channels >= 4 ? (data[o + 3] ?? 0) : 255
-    if (alpha < options.alphaFloor) continue
-    opaque++
-    const { C, h } = srgbToOklch(data[o] ?? 0, data[o + 1] ?? 0, data[o + 2] ?? 0)
-    if (C < options.chromaFloor) continue
-    voted++
-    const bin = Math.min(options.bins - 1, Math.floor((h / 360) * options.bins))
-    const rad = (h * Math.PI) / 180
-    bins[bin] = (bins[bin] ?? 0) + C
-    sin[bin] = (sin[bin] ?? 0) + Math.sin(rad) * C
-    cos[bin] = (cos[bin] ?? 0) + Math.cos(rad) * C
-    count[bin] = (count[bin] ?? 0) + 1
-  }
-  let winner = 0
-  for (let b = 1; b < options.bins; b++) if ((bins[b] ?? 0) > (bins[winner] ?? 0)) winner = b
-  if (bins[winner] === 0) {
-    return {
-      hue: null,
-      chroma: 0,
-      coverage: 0,
-      opaque: total ? opaque / total : 0,
-      bins: Array.from(bins),
-    }
-  }
-  const hue = ((Math.atan2(sin[winner] ?? 0, cos[winner] ?? 0) * 180) / Math.PI + 360) % 360
-  return {
-    hue: Math.round(hue),
-    chroma: (bins[winner] ?? 0) / (count[winner] ?? 1),
-    coverage: total ? voted / total : 0,
-    opaque: total ? opaque / total : 0,
-    bins: Array.from(bins),
-  }
-}
-
 /** Mean OKLCH of the outer 10% frame: the painted surface the image sits on. */
 export async function extractSurface(file: string): Promise<Oklch> {
   const { data, info } = await sharp(file)
@@ -262,27 +161,6 @@ export async function extractSurface(file: string): Promise<Oklch> {
   a /= n
   b /= n
   return { L, C: Math.hypot(a, b), h: ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360 }
-}
-
-export async function extractHue(file: string, options: HueOptions = DEFAULT_HUE_OPTIONS) {
-  const image = sharp(file)
-  const meta = await image.metadata()
-  const width = meta.width ?? 0
-  const height = meta.height ?? 0
-  const w = Math.round(width * options.cropFraction)
-  const h = Math.round(height * options.cropFraction)
-  const { data, info } = await image
-    .extract({
-      left: Math.round((width - w) / 2),
-      top: Math.round((height - h) / 2),
-      width: w,
-      height: h,
-    })
-    .resize(options.size, options.size, { fit: 'fill' })
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true })
-  return hueFromPixels(new Uint8Array(data), info.channels, options)
 }
 
 // ============================================
@@ -491,7 +369,7 @@ async function drawVariant(prompt: string, apiKey: string): Promise<Uint8Array> 
 async function addImage(row: SheetRow, label: string, src: string, outDir: string) {
   const previewFile = `preview/${row.slug}-${label}.webp`
   await preview(src, join(outDir, previewFile))
-  const hue = await extractHue(src)
+  const hue = await extractHue(readFileSync(src))
   const surface = await extractSurface(src)
   row.images.push({ label, preview: previewFile, hue, surface })
   console.log(

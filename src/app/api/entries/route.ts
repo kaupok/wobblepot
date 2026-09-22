@@ -138,6 +138,8 @@ export async function GET(request: NextRequest) {
                 isCustom: entry.meal.householdId !== null,
                 imageUrl: entry.meal.imageUrl,
                 imageStatus: entry.meal.imageStatus,
+                // Card and hero tint (HON-744); null when the image has no colour.
+                imageHue: entry.meal.imageHue,
                 nutrition: computeMealNutrition(entry.meal.components),
                 components: entry.meal.components.map((comp) => ({
                   ingredientId: comp.ingredientId,
