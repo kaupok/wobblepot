@@ -163,7 +163,7 @@ mcp__linear-server__save_issue({
 ```typescript
 mcp__linear-server__save_issue({
   title: 'New issue title',
-  team: 'Honkadori',
+  team: 'Wobblebot',
   description: 'Description',
   parentId: 'HON-XX', // the issue being split — makes this a sub-issue
 })
@@ -202,7 +202,7 @@ Discuss with user:
 ```typescript
 mcp__linear-server__save_issue({
   title: '[DRAFT] Initial idea title', // Keep [DRAFT] if not fully refined
-  team: 'Honkadori',
+  team: 'Wobblebot',
   description: 'Initial description - to be refined',
 })
 ```
