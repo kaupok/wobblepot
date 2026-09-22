@@ -1,12 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { MealImageCard, type MealImageFields } from './MealImageCard'
+import { MealImageCard, mealImageTitleWidth, type MealImageFields } from './MealImageCard'
 
 const URL = 'https://store.public.blob.vercel-storage.com/meals/meal-1.png'
 
-function renderCard(fields: MealImageFields, className = 'gap-2 py-2') {
+function renderCard(fields: MealImageFields, className = 'gap-2 py-2', trailingActions?: boolean) {
   const { container } = render(
-    <MealImageCard meal={{ name: 'Lemon garlic chicken', ...fields }} className={className}>
+    <MealImageCard
+      meal={{ name: 'Lemon garlic chicken', ...fields }}
+      className={className}
+      trailingActions={trailingActions}
+    >
       <p>Content</p>
     </MealImageCard>,
   )
@@ -26,7 +30,8 @@ describe('MealImageCard', () => {
     const wrapper = screen.getByTestId('meal-card-image')
     expect(wrapper).toHaveClass(
       'right-0',
-      'w-5/8',
+      'w-9/20',
+      'sm:w-5/8',
       '-z-10',
       'mix-blend-multiply',
       'mask-l-from-30%',
@@ -34,6 +39,21 @@ describe('MealImageCard', () => {
     // The image comes first, so the content still reads first after it in the DOM.
     expect(card.firstElementChild).toBe(wrapper)
     expect(screen.getByText('Content')).toBeInTheDocument()
+  })
+
+  // HON-749: nothing the user taps sits on the opaque image.
+  it('ends the image before a trailing action column', () => {
+    renderCard({ imageStatus: 'ready', imageUrl: URL, imageHue: 264 }, undefined, true)
+
+    const wrapper = screen.getByTestId('meal-card-image')
+    expect(wrapper).toHaveClass('right-36', 'left-1/3', 'sm:left-3/8', 'mask-r-from-80%')
+    expect(wrapper).toHaveClass('mask-l-from-30%', 'mix-blend-multiply')
+    expect(wrapper).not.toHaveClass('right-0', 'w-9/20', 'sm:w-5/8')
+  })
+
+  it('narrows the title to the tint left of the image', () => {
+    expect(mealImageTitleWidth()).toBe('max-w-1/2 sm:max-w-3/8')
+    expect(mealImageTitleWidth(true)).toBe('max-w-1/3 sm:max-w-3/8')
   })
 
   it('tints a hue of 0, which is a real hue rather than a missing one', () => {

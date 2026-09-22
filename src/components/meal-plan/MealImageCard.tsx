@@ -16,10 +16,45 @@ export interface MealImageFields {
 }
 
 /**
- * The image covers the right 5/8 of a card. Cards run from full width on a
- * phone to a ~448px grid column or the 400px add-meal dialog.
+ * The image covers at most the right 5/8 of a card (45% below `sm`). Cards run
+ * from full width on a phone to a ~776px planner row, a ~448px grid column or
+ * the 400px add-meal dialog.
  */
-const SIZES = '(min-width: 768px) 280px, 62vw'
+const SIZES = '(min-width: 768px) 480px, 45vw'
+
+/**
+ * Where the image sits in the card. Nothing the user reads or taps sits on its
+ * opaque part (docs/DESIGN.md → Imagery → Cards).
+ *
+ * With trailing actions the image ends before the action column instead of
+ * fading under it (HON-749). A right-end fade was the alternative, but a phone
+ * card has room for the title, the actions and ~100px between them, not for an
+ * image underneath the actions as well: fading it under the ~120px column would
+ * leave almost nothing of the dish. `right-36` (144px) is the column — Note
+ * ("Märkus" in Estonian), the `icon-sm` menu, their gap — plus the card's
+ * `px-3`. The inset box can be narrower than 3:2, so `object-cover` may crop the
+ * plate at its right edge; the short right fade keeps that from reading as a
+ * hard edge.
+ */
+const IMAGE_BOX = {
+  default: 'right-0 w-9/20 sm:w-5/8',
+  trailingActions: 'right-36 left-1/3 sm:left-3/8 mask-r-from-80%',
+} as const
+
+/**
+ * The widest the title may be on a tinted card: it wraps before it reaches the
+ * image's opaque part. Fractions of the card's content row, matched to
+ * `IMAGE_BOX` plus the 30% fade — change the two together.
+ */
+const TITLE_WIDTH = {
+  default: 'max-w-1/2 sm:max-w-3/8',
+  trailingActions: 'max-w-1/3 sm:max-w-3/8',
+} as const
+
+/** The `max-width` classes for a tinted card's title, matching its image box. */
+export function mealImageTitleWidth(trailingActions = false): string {
+  return trailingActions ? TITLE_WIDTH.trailingActions : TITLE_WIDTH.default
+}
 
 /**
  * The hue to tint with, or null when the meal renders the neutral card: no
@@ -38,6 +73,11 @@ export function mealHueStyle(hue: number): CSSProperties {
 
 interface MealImageCardProps extends ComponentProps<typeof Card> {
   meal: MealImageFields & { name: string }
+  /**
+   * The card has an action column at the right end of its title row (the
+   * planner card's Note and menu). The image then ends before it.
+   */
+  trailingActions?: boolean
 }
 
 /**
@@ -51,7 +91,14 @@ interface MealImageCardProps extends ComponentProps<typeof Card> {
  * tinted variant, and the image sits behind the content in the card's own
  * stacking context, so nothing inside moves.
  */
-export function MealImageCard({ meal, className, style, children, ...props }: MealImageCardProps) {
+export function MealImageCard({
+  meal,
+  trailingActions = false,
+  className,
+  style,
+  children,
+  ...props
+}: MealImageCardProps) {
   // Keyed by URL so a new image after an edit gets its own chance to load.
   const [brokenUrl, setBrokenUrl] = useState<string | null>(null)
   const hue = mealTintHue(meal)
@@ -78,6 +125,7 @@ export function MealImageCard({ meal, className, style, children, ...props }: Me
           key={imageUrl}
           src={imageUrl}
           alt={meal.name}
+          trailingActions={trailingActions}
           onError={() => setBrokenUrl(imageUrl)}
         />
       ) : null}
@@ -86,7 +134,14 @@ export function MealImageCard({ meal, className, style, children, ...props }: Me
   )
 }
 
-function CardImage({ src, alt, onError }: { src: string; alt: string; onError: () => void }) {
+interface CardImageProps {
+  src: string
+  alt: string
+  trailingActions: boolean
+  onError: () => void
+}
+
+function CardImage({ src, alt, trailingActions, onError }: CardImageProps) {
   const [loaded, setLoaded] = useState(false)
 
   return (
@@ -96,7 +151,10 @@ function CardImage({ src, alt, onError }: { src: string; alt: string; onError: (
     // would multiply against nothing and leave the white surface white.
     <div
       data-testid="meal-card-image"
-      className="absolute inset-y-0 right-0 -z-10 w-5/8 mask-l-from-30% mix-blend-multiply"
+      className={cn(
+        'absolute inset-y-0 -z-10 mask-l-from-30% mix-blend-multiply',
+        trailingActions ? IMAGE_BOX.trailingActions : IMAGE_BOX.default,
+      )}
     >
       <Image
         src={src}
