@@ -836,9 +836,12 @@ export function renderContactSheet(
     prep?: PrepSample[]
     /** Defaults to the trap meals. */
     meals?: SpikeMeal[]
+    /** Page heading; defaults to the spike's. `generate-global-meal-images.ts` sets its own. */
+    title?: string
   },
 ): string {
   const meals = meta.meals ?? MEALS
+  const title = meta.title ?? 'Meal image spike (HON-717, HON-732, HON-733)'
   const cell = (r: JobResult | undefined): string => {
     if (!r) return '<td class="empty">—</td>'
     if (r.error) return `<td class="failed"><strong>Failed</strong><br>${escapeHtml(r.error)}</td>`
@@ -913,7 +916,7 @@ ${rows}
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Meal image spike — ${escapeHtml(meta.startedAt)}</title>
+<title>${escapeHtml(title)} — ${escapeHtml(meta.startedAt)}</title>
 <style>
   body { font: 14px/1.4 system-ui, sans-serif; margin: 24px; color: #1c1917; background: #fafaf9; }
   h1 { font-size: 20px; } h2 { font-size: 16px; margin-top: 32px; }
@@ -934,7 +937,7 @@ ${rows}
 </style>
 </head>
 <body>
-<h1>Meal image spike (HON-717, HON-732, HON-733) — ${escapeHtml(meta.startedAt)}</h1>
+<h1>${escapeHtml(title)} — ${escapeHtml(meta.startedAt)}</h1>
 <h2>Judge pass rate</h2>
 <table class="summary"><thead><tr><th>Model</th><th>Version</th><th>Passed</th><th>Strict</th><th>Rate</th></tr></thead><tbody>
 ${passRows}

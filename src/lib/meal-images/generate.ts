@@ -45,6 +45,12 @@ export interface GenerateMealImageOptions {
   onUsage?: (usage: MealImageUsage) => void | Promise<void>
   /** For log lines only. */
   mealId?: string
+  /**
+   * `gate` (default): judge, and regenerate once on a serious finding — the
+   * unattended route. `report`: judge once, never regenerate — the operator
+   * batch (HON-738), where a human reviews every image. `off`: no judge call.
+   */
+  judge?: 'gate' | 'report' | 'off'
 }
 
 export interface GeneratedMealImage {
@@ -54,6 +60,8 @@ export interface GeneratedMealImage {
   attempts: number
   /** Images and judge calls together, in USD. */
   totalUsd: number
+  /** The judge's verdict on the returned image; `null` when not judged or the judge call failed. */
+  verdict: JudgeVerdict | null
 }
 
 function imageUsageStats(usage: ImageModelUsage | undefined): MealImageUsage {
@@ -83,7 +91,7 @@ export async function generateMealImage(
   const apiKey = serverEnv.OPENAI_API_KEY
   if (!apiKey) throw new MealImageUnavailableError()
 
-  const { abortSignal, budgetMs, mealId } = options
+  const { abortSignal, budgetMs, mealId, judge: judgeMode = 'gate' } = options
   const openai = createOpenAI({ apiKey })
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
   const prompt = buildMealImagePrompt(meal)
@@ -161,9 +169,12 @@ export async function generateMealImage(
 
   let image = await draw()
   let attempts = 1
-  const first = await judge(image, attempts)
+  if (judgeMode === 'off') return { ...image, attempts, totalUsd, verdict: null }
 
-  if (first && !first.pass) {
+  const first = await judge(image, attempts)
+  let verdict = first
+
+  if (judgeMode === 'gate' && first && !first.pass) {
     const remaining = budgetMs === undefined ? Infinity : budgetMs - (Date.now() - startedAt)
     if (remaining < RETRY_MIN_REMAINING_MS) {
       // eslint-disable-next-line no-console
@@ -175,7 +186,7 @@ export async function generateMealImage(
         const second = await draw()
         image = second
         attempts = 2
-        const verdict = await judge(second, attempts)
+        verdict = await judge(second, attempts)
         if (verdict && !verdict.pass) {
           // 0 of 36 spike images had a real serious finding, so a second fail is
           // most likely a judge false positive. Keep it rather than show nothing.
@@ -197,5 +208,5 @@ export async function generateMealImage(
     }
   }
 
-  return { ...image, attempts, totalUsd }
+  return { ...image, attempts, totalUsd, verdict }
 }
