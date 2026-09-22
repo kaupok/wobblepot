@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useId } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, ChevronDown, ChevronRight, Clock, Baby, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -13,7 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@/components/ui/dialog'
 import { IngredientRow, type IngredientRowData } from './IngredientRow'
 import type { IngredientResult } from './IngredientRow'
@@ -160,12 +159,21 @@ export function ImagineReviewDialog({
   const [error, setError] = useState<string | null>(null)
   const [isMatchedOpen, setIsMatchedOpen] = useState(false)
   const locale = useLocale() as Locale
+  const saveBlockedId = useId()
 
   const unresolvedCount = ingredientRows.filter((row) => row.type === 'unmatched').length
   const lowConfidenceCount = ingredientRows.filter((row) => row.type === 'low-confidence').length
   const matchedCount = ingredientRows.filter((row) => row.type === 'matched').length
   const hasIssues = unresolvedCount > 0 || lowConfidenceCount > 0
   const canSave = unresolvedCount === 0 && lowConfidenceCount === 0
+  const saveBlockedReason =
+    unresolvedCount > 0 && lowConfidenceCount > 0
+      ? t('saveBlocked.both', { unmatched: unresolvedCount, lowConfidence: lowConfidenceCount })
+      : unresolvedCount > 0
+        ? t('saveBlocked.unmatched', { count: unresolvedCount })
+        : lowConfidenceCount > 0
+          ? t('saveBlocked.lowConfidence', { count: lowConfidenceCount })
+          : null
 
   const duplicateMap = useMemo(() => {
     const map = new Map<string, number[]>()
@@ -380,8 +388,15 @@ export function ImagineReviewDialog({
           )}
         </div>
 
-        <DialogFooter className="flex-col">
-          <Button onClick={handleSave} disabled={!canSave || isSaving} className="w-full">
+        {/* Plain column, not DialogFooter: its `sm:flex-row sm:justify-end` default
+            would put the full-width Save beside "Edit details" and overflow (HON-759). */}
+        <div className="flex flex-col gap-2">
+          <Button
+            onClick={handleSave}
+            disabled={!canSave || isSaving}
+            aria-describedby={saveBlockedReason ? saveBlockedId : undefined}
+            className="w-full"
+          >
             {isSaving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -391,6 +406,11 @@ export function ImagineReviewDialog({
               t('save')
             )}
           </Button>
+          {saveBlockedReason && (
+            <Body id={saveBlockedId} variant="muted" className="text-center">
+              {saveBlockedReason}
+            </Body>
+          )}
           {onEditDetails && (
             <button
               type="button"
@@ -401,7 +421,7 @@ export function ImagineReviewDialog({
               {t('editDetails')}
             </button>
           )}
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   )

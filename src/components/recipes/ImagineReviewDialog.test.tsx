@@ -6,13 +6,19 @@ import type { ReactNode } from 'react'
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import { ImagineReviewDialog, type ReviewMealData } from './ImagineReviewDialog'
+import type { PrefilledIngredient } from '@/components/household/meal-form-types'
+import { createQueryWrapper } from '@/test/query-wrapper'
 
 function renderInLocale(node: ReactNode, locale: 'en' | 'et') {
   const messages = locale === 'en' ? enMessages : etMessages
+  // Unmatched rows search ingredients via TanStack Query.
+  const { wrapper: QueryWrapper } = createQueryWrapper()
   return render(
-    <NextIntlClientProvider locale={locale} messages={messages}>
-      {node}
-    </NextIntlClientProvider>,
+    <QueryWrapper>
+      <NextIntlClientProvider locale={locale} messages={messages}>
+        {node}
+      </NextIntlClientProvider>
+    </QueryWrapper>,
   )
 }
 
@@ -77,4 +83,80 @@ describe('ImagineReviewDialog locale formatting', () => {
   // `IngredientRow`, so the locale-aware behaviour of `formatQuantity` is
   // already covered by `IngredientRow.test.tsx`; opening the bucket via a
   // user interaction here would only re-test the same code path.
+})
+
+describe('ImagineReviewDialog save-blocked reason', () => {
+  const [matched] = buildMeal().prefilledIngredients as [PrefilledIngredient]
+  const unmatched: PrefilledIngredient = {
+    type: 'unmatched',
+    extractedName: 'pickled daikon',
+    originalText: '50g pickled daikon',
+    extractedQuantity: 50,
+    extractedUnit: 'g',
+    isVague: false,
+    originalPhrase: null,
+  }
+  const lowConfidence: PrefilledIngredient = {
+    type: 'low-confidence',
+    extractedName: 'miso',
+    originalText: '2 tbsp miso',
+    ingredient: {
+      id: 'miso-paste',
+      name: 'Miso paste',
+      category: 'condiment',
+      defaultUnit: 'g',
+      gramsPerPiece: null,
+    },
+    convertedQuantity: 30,
+    alternatives: [],
+    lowConfidence: true,
+    isVague: false,
+    originalPhrase: null,
+  }
+
+  function renderWith(prefilledIngredients: PrefilledIngredient[], locale: 'en' | 'et' = 'en') {
+    renderInLocale(
+      <ImagineReviewDialog
+        open
+        meal={buildMeal({ prefilledIngredients })}
+        onOpenChange={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+      locale,
+    )
+  }
+
+  function expectDescribedSave(name: RegExp, reason: string) {
+    const save = screen.getByRole('button', { name })
+    expect(save).toBeDisabled()
+    expect(save).toHaveAccessibleDescription(reason)
+  }
+
+  it('asks to match or drop unmatched ingredients, pluralised', () => {
+    renderWith([matched, unmatched, { ...unmatched, extractedName: 'yuzu' }])
+    expectDescribedSave(/^save meal$/i, 'Match or drop 2 ingredients to save')
+  })
+
+  it('asks to confirm a single low-confidence ingredient', () => {
+    renderWith([matched, lowConfidence])
+    expectDescribedSave(/^save meal$/i, 'Confirm 1 ingredient to save')
+  })
+
+  it('combines both counts when both kinds are unresolved', () => {
+    renderWith([unmatched, lowConfidence])
+    expectDescribedSave(/^save meal$/i, 'Match or drop 1 ingredient and confirm 1 to save')
+  })
+
+  it('renders the reason in Estonian', () => {
+    renderWith([unmatched, unmatched], 'et')
+    expectDescribedSave(/^salvesta toit$/i, 'Salvestamiseks sobita või eemalda 2 koostisosa')
+  })
+
+  it('shows no reason and no description when everything is matched', () => {
+    renderWith([matched])
+    const save = screen.getByRole('button', { name: /^save meal$/i })
+    expect(save).toBeEnabled()
+    expect(save).not.toHaveAttribute('aria-describedby')
+    expect(screen.queryByText(/to save$/)).not.toBeInTheDocument()
+  })
 })
