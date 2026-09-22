@@ -23,15 +23,23 @@ export function AlternativeCard({
 }: AlternativeCardProps) {
   const t = useTranslations('meal-plan.alternative')
   return (
-    <MealImageCard meal={meal} className="flex h-full flex-col">
+    // The dialog's cards are taller than wide, so the image sits below the
+    // ingredients instead of behind them (HON-750).
+    <MealImageCard
+      meal={meal}
+      layout="bottom"
+      className="flex h-full flex-col"
+      footer={
+        <CardFooter className="p-4 pt-0">
+          <Button className="w-full" onClick={() => onSelect(meal.id)} disabled={isSelecting}>
+            {isSelecting ? t('selecting') : t('select')}
+          </Button>
+        </CardFooter>
+      }
+    >
       <CardContent className="flex-1 p-4 pb-2">
         <MealCardBase meal={meal} pantryIngredients={pantryIngredients} nameHeadingTag="h3" />
       </CardContent>
-      <CardFooter className="p-4 pt-0">
-        <Button className="w-full" onClick={() => onSelect(meal.id)} disabled={isSelecting}>
-          {isSelecting ? t('selecting') : t('select')}
-        </Button>
-      </CardFooter>
     </MealImageCard>
   )
 }

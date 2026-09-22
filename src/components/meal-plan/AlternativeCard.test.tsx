@@ -181,4 +181,30 @@ describe('AlternativeCard', () => {
       expect(screen.getByRole('button', { name: 'Selecting…' })).toBeDisabled()
     })
   })
+
+  // HON-750: the dialog's cards are tall, so the image sits below the ingredients.
+  describe('meal image', () => {
+    it('puts the image below the content and above the Select button', () => {
+      render(
+        <AlternativeCard
+          meal={{
+            ...mockMeal,
+            imageStatus: 'ready',
+            imageUrl: 'https://store.public.blob.vercel-storage.com/meals/meal-1.png',
+            imageHue: 40,
+          }}
+          householdSize={3}
+          onSelect={vi.fn()}
+          isSelecting={false}
+        />,
+      )
+
+      const image = screen.getByTestId('meal-card-image')
+      const ingredient = screen.getByText('Rice')
+      const select = screen.getByRole('button', { name: 'Select' })
+      expect(ingredient.compareDocumentPosition(image)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+      expect(image.compareDocumentPosition(select)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+      expect(image).not.toHaveClass('absolute')
+    })
+  })
 })
