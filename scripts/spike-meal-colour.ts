@@ -230,6 +230,36 @@ export function hueFromPixels(
   }
 }
 
+/** Mean OKLCH of the outer 10% frame: the painted surface the image sits on. */
+export async function extractSurface(file: string): Promise<Oklch> {
+  const { data, info } = await sharp(file)
+    .resize(64, 64, { fit: 'fill' })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true })
+  let L = 0
+  let a = 0
+  let b = 0
+  let n = 0
+  const edge = Math.round(info.width * 0.1)
+  for (let y = 0; y < info.height; y++) {
+    for (let x = 0; x < info.width; x++) {
+      if (x >= edge && x < info.width - edge && y >= edge && y < info.height - edge) continue
+      const o = (y * info.width + x) * info.channels
+      const c = srgbToOklch(data[o] ?? 0, data[o + 1] ?? 0, data[o + 2] ?? 0)
+      const rad = (c.h * Math.PI) / 180
+      L += c.L
+      a += Math.cos(rad) * c.C
+      b += Math.sin(rad) * c.C
+      n++
+    }
+  }
+  L /= n
+  a /= n
+  b /= n
+  return { L, C: Math.hypot(a, b), h: ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360 }
+}
+
 export async function extractHue(file: string, options: HueOptions = DEFAULT_HUE_OPTIONS) {
   const image = sharp(file)
   const meta = await image.metadata()
@@ -260,6 +290,8 @@ export interface SheetImage {
   label: string
   preview: string
   hue: HueResult
+  /** The painted surface at the image edge; a card can take its colour from it. */
+  surface?: Oklch
 }
 
 export interface SheetRow {
@@ -273,17 +305,22 @@ const escape = (s: string) =>
 
 const fmt = (n: number, digits = 2) => n.toFixed(digits)
 
+function styleVars(image: SheetImage) {
+  const hue = image.hue.hue ?? 0
+  const sf = image.surface
+  return `--hue:${hue}${sf ? `;--sf-l:${fmt(sf.L, 3)};--sf-c:${fmt(sf.C, 3)};--sf-h:${Math.round(sf.h)}` : ''}`
+}
+
 function card(row: SheetRow, image: SheetImage, theme: 'light' | 'dark') {
   const hue = image.hue.hue ?? 0
-  return `<div class="card ${theme}" style="--hue:${hue}" title="${image.label}, ${theme}, hue ${hue}">
+  return `<div class="card ${theme}" style="${styleVars(image)}" title="${image.label}, ${theme}, hue ${hue}">
       <img src="${image.preview}" alt="">
       <div class="text"><div class="title">${escape(row.name)}</div><div class="meta">35 min · 4 servings</div><span class="chip">Dinner</span></div>
     </div>`
 }
 
 function hero(row: SheetRow, image: SheetImage, theme: 'light' | 'dark') {
-  const hue = image.hue.hue ?? 0
-  return `<div class="hero ${theme}" style="--hue:${hue}">
+  return `<div class="hero ${theme}" style="${styleVars(image)}">
       <img src="${image.preview}" alt="">
       <div class="text"><div class="title">${escape(row.name)}</div><div class="meta">${image.label} · ${theme}</div></div>
     </div>`
@@ -321,7 +358,15 @@ export function renderContactSheet(
     .map(
       (r) => `<section class="meal">
       <h2>${escape(r.name)} <code>${r.slug}</code></h2>
-      <div class="hues">${r.images.map((i) => hueLine(i.label, i.hue)).join('')}</div>
+      <div class="hues">${r.images
+        .map(
+          (i) =>
+            hueLine(i.label, i.hue) +
+            (i.surface
+              ? `<div class="hue"><b style="background:oklch(${fmt(i.surface.L, 3)} ${fmt(i.surface.C, 3)} ${Math.round(i.surface.h)})"></b><span>surface</span> L ${fmt(i.surface.L)} C ${fmt(i.surface.C, 3)} h ${Math.round(i.surface.h)}°</div>`
+              : ''),
+        )
+        .join('')}</div>
       <div class="previews">${r.images.map((i) => `<figure><img src="${i.preview}" alt=""><figcaption>${i.label}</figcaption></figure>`).join('')}</div>
       <div class="cards">${r.images.map((i) => card(r, i, 'light') + card(r, i, 'dark')).join('')}</div>
       <div class="heroes">${r.images.map((i) => hero(r, i, 'light') + hero(r, i, 'dark')).join('')}</div>
@@ -335,7 +380,7 @@ export function renderContactSheet(
   :root {
     --l-light: 0.95; --c-light: 0.035;
     --l-dark: 0.26; --c-dark: 0.04;
-    --fade: 0.55; --accent-c: 0.12; --img-w: 62;
+    --fade: 0.55; --accent-c: 0.12; --img-w: 62; --blend: normal;
     font-family: system-ui, sans-serif; color: #222; background: #f4f4f2;
   }
   body { margin: 0; padding: 24px; }
@@ -363,6 +408,9 @@ export function renderContactSheet(
   .card { position: relative; width: 300px; height: 168px; border-radius: 10px; overflow: hidden; isolation: isolate; }
   .grid .card { width: auto }
   .card.light { background: oklch(var(--l-light) var(--c-light) var(--hue)); color: oklch(0.25 0.03 var(--hue)) }
+  /* "surface" mode: the light card takes the image's own edge colour, so the fade is seamless. */
+  body.surface .card.light, body.surface .hero.light { background: oklch(var(--sf-l, var(--l-light)) var(--sf-c, var(--c-light)) var(--sf-h, var(--hue))) }
+  .card img, .hero img { mix-blend-mode: var(--blend) }
   .card.dark  { background: oklch(var(--l-dark)  var(--c-dark)  var(--hue)); color: oklch(0.95 0.02 var(--hue)) }
   .card img { position: absolute; top: 0; right: 0; height: 100%; width: calc(var(--img-w) * 1%); display: block; object-fit: cover;
     mask-image: linear-gradient(to right, transparent 0%, #000 calc(var(--fade) * 100%));
@@ -394,13 +442,17 @@ export function renderContactSheet(
   <label>fade <input type="range" min="0.1" max="1" step="0.05" name="fade" value="0.55"><output></output></label>
   <label>image width % <input type="range" min="40" max="100" step="2" name="img-w" value="62"><output></output></label>
   <label>accent C <input type="range" min="0" max="0.2" step="0.01" name="accent-c" value="0.12"><output></output></label>
+  <label>blend <select name="blend"><option>normal</option><option>multiply</option><option>darken</option><option>luminosity</option><option>hard-light</option><option>soft-light</option></select><output></output></label>
+  <label>light card colour <select name="card-colour"><option value="">hue token</option><option value="surface">image surface</option></select><output></output></label>
   <pre id="tokens" style="margin:0;font-size:11px;align-self:center"></pre>
 </form>
 <script>
   function apply() {
     const root = document.documentElement.style, out = []
-    for (const el of document.querySelectorAll('.controls input')) {
-      root.setProperty('--' + el.name, el.value); el.nextElementSibling.value = el.value; out.push(el.name + '=' + el.value)
+    for (const el of document.querySelectorAll('.controls input, .controls select')) {
+      if (el.name === 'card-colour') document.body.classList.toggle('surface', el.value === 'surface')
+      else root.setProperty('--' + el.name, el.value)
+      el.nextElementSibling.value = el.value; out.push(el.name + '=' + el.value)
     }
     document.getElementById('tokens').textContent = out.join('  ')
   }
@@ -436,7 +488,8 @@ async function addImage(row: SheetRow, label: string, src: string, outDir: strin
   const previewFile = `preview/${row.slug}-${label}.webp`
   await preview(src, join(outDir, previewFile))
   const hue = await extractHue(src)
-  row.images.push({ label, preview: previewFile, hue })
+  const surface = await extractSurface(src)
+  row.images.push({ label, preview: previewFile, hue, surface })
   console.log(
     `${row.slug.padEnd(32)} ${label.padEnd(8)} ${String(hue.hue ?? '-').padStart(4)}°  C ${hue.chroma.toFixed(3)}  voted ${Math.round(hue.coverage * 100)}%`,
   )
