@@ -114,6 +114,9 @@ export function useMealImage({ meal, open }: UseMealImageOptions) {
         const next = normalise(
           await apiFetch<MealImageState>(`/api/meals/${mealId}/image`, { signal }),
         )
+        // `none` mid-poll means the row was reset under the claim — a meal
+        // edit — so the POST may ask again; only it ever claims.
+        if (next.status === 'none') attemptedRef.current.delete(mealId)
         if (next.status !== 'generating' || Date.now() < deadline) return next
       } catch (error) {
         if (isAbort(error)) throw error
@@ -140,7 +143,8 @@ export function useMealImage({ meal, open }: UseMealImageOptions) {
   // modal mounted for the whole session — so without this, a meal edit that
   // cleared the image (and deleted its blob) would keep the old `ready` URL
   // here forever. The first render is skipped: the cache can hold a newer
-  // answer from this session than the payload the page was rendered with.
+  // answer from this session than the payload the page was rendered with —
+  // except for `none`, below.
   //
   // Only `none` re-arms the POST, because that is what an edit resets the
   // image to (`clearMealImage`). Any `router.refresh()` — ticking an
@@ -151,7 +155,11 @@ export function useMealImage({ meal, open }: UseMealImageOptions) {
   const payloadStatus = meal.imageStatus ?? 'none'
   const payloadUrl = meal.imageUrl ?? null
   const payloadKey = `${mealId}|${payloadStatus}|${payloadUrl}`
-  const lastPayloadKeyRef = useRef(payloadKey)
+  // A `none` payload is applied on the first render too: only an edit resets
+  // the image to `none`, and the cache entry can outlive this hook by
+  // `gcTime` — an edit on another page, then back, would otherwise keep
+  // showing the deleted blob.
+  const lastPayloadKeyRef = useRef(payloadStatus === 'none' ? null : payloadKey)
   useEffect(() => {
     if (lastPayloadKeyRef.current === payloadKey) return
     lastPayloadKeyRef.current = payloadKey

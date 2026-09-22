@@ -316,6 +316,49 @@ describe('useMealImage', () => {
     },
   )
 
+  it('applies an edited meal’s none over a cached ready left by an earlier mount', async () => {
+    const { wrapper, queryClient } = createQueryWrapper()
+    queryClient.setDefaultOptions({ queries: { retry: false, gcTime: 5 * 60_000 } })
+    const first = renderHook((props: { meal: Meal; open: boolean }) => useMealImage(props), {
+      wrapper,
+      initialProps: {
+        meal: { ...householdMeal, imageStatus: 'ready', imageUrl: URL_1 },
+        open: false,
+      },
+    })
+    first.unmount()
+
+    // Edited on /recipes/[id]/edit, then back: the page now says `none`.
+    mockFetch.mockResolvedValue(json({ status: 'ready', imageUrl: URL_2 }))
+    const { result } = renderHook((props: { meal: Meal; open: boolean }) => useMealImage(props), {
+      wrapper,
+      initialProps: { meal: householdMeal, open: true },
+    })
+
+    await waitFor(() => expect(result.current.imageUrl).toBe(URL_2))
+    expect(posts()).toHaveLength(1)
+  })
+
+  it('asks again when a poll reads none, because an edit reset the row under the claim', async () => {
+    let postCount = 0
+    mockFetch.mockImplementation(async (_url, init) => {
+      if (init?.method === 'POST') {
+        postCount += 1
+        return postCount === 1
+          ? json({ status: 'generating' }, 202)
+          : json({ status: 'ready', imageUrl: URL_2 })
+      }
+      return json({ status: 'none' })
+    })
+    const { result } = renderImageHook({ meal: householdMeal, open: true })
+
+    await waitFor(() => expect(result.current.status).toBe('generating'))
+    await act(() => vi.advanceTimersByTimeAsync(MEAL_IMAGE_POLL_INTERVAL_MS))
+
+    await waitFor(() => expect(result.current.imageUrl).toBe(URL_2))
+    expect(posts()).toHaveLength(2)
+  })
+
   describe('swapping the meal mid-request (HON-682)', () => {
     it('never shows the previous meal’s image when its answer lands after the swap', async () => {
       const post = deferred()

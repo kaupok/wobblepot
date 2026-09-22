@@ -225,7 +225,8 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
   })
 
   // Usually another request won the claim. Rarely the meal was edited since the
-  // read above; 202 is still right, because the next poll re-reads and claims.
+  // read above; 202 is still right, because the client polls the GET, reads the
+  // edit's `none`, and POSTs again (`useMealImage`).
   if (claim.count === 0) {
     return respond({ status: 'generating' }, 202)
   }
