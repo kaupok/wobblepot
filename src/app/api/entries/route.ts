@@ -14,6 +14,7 @@ import {
 } from '@/lib/i18n/content'
 import type { MealPlanEntryStatus } from '@/generated/prisma/enums'
 import { captureApiError } from '@/lib/errors'
+import { presentMealImage } from '@/lib/meal-images/present'
 
 /**
  * GET /api/entries?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD&status=planned
@@ -136,10 +137,9 @@ export async function GET(request: NextRequest) {
                 // The meal detail modal's hero illustration (HON-737). A global
                 // meal is drawn by the operator batch, never lazily on open.
                 isCustom: entry.meal.householdId !== null,
-                imageUrl: entry.meal.imageUrl,
-                imageStatus: entry.meal.imageStatus,
                 // Card and hero tint (HON-744); null when the image has no colour.
-                imageHue: entry.meal.imageHue,
+                // A stale prompt version reads as no image, so it is redrawn (HON-753).
+                ...presentMealImage(entry.meal),
                 nutrition: computeMealNutrition(entry.meal.components),
                 components: entry.meal.components.map((comp) => ({
                   ingredientId: comp.ingredientId,

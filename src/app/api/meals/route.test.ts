@@ -160,7 +160,12 @@ describe('GET /api/meals', () => {
     mockGetMembership.mockResolvedValue(mockMembership as never)
     mockMealCount.mockResolvedValue(1)
     mockMealFindMany.mockResolvedValue([
-      sampleMeal({ imageUrl: 'https://blob/meal-1.png', imageStatus: 'ready', imageHue: 42 }),
+      sampleMeal({
+        imageUrl: 'https://blob/meal-1.png',
+        imageStatus: 'ready',
+        imageHue: 42,
+        imagePromptVersion: 'v4',
+      }),
     ] as never)
 
     const data = await (await GET(createRequest())).json()
@@ -171,7 +176,30 @@ describe('GET /api/meals', () => {
       imageHue: 42,
     })
     const select = mockMealFindMany.mock.calls[0]?.[0]?.select
-    expect(select).toMatchObject({ imageUrl: true, imageStatus: true, imageHue: true })
+    expect(select).toMatchObject({
+      imageUrl: true,
+      imageStatus: true,
+      imageHue: true,
+      imagePromptVersion: true,
+    })
+  })
+
+  it('serializes an image at a stale prompt version as absent (HON-753)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockMealCount.mockResolvedValue(1)
+    mockMealFindMany.mockResolvedValue([
+      sampleMeal({
+        imageUrl: 'https://blob/meal-1.png',
+        imageStatus: 'ready',
+        imageHue: null,
+        imagePromptVersion: 'v3',
+      }),
+    ] as never)
+
+    const data = await (await GET(createRequest())).json()
+
+    expect(data.meals[0]).toMatchObject({ imageUrl: null, imageStatus: 'none', imageHue: null })
   })
 
   it('applies source=system filter', async () => {

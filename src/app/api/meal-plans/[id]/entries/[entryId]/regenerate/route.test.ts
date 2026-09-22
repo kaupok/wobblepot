@@ -230,6 +230,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/regenerate', () => {
           imageUrl: 'https://blob/salmon.png',
           imageStatus: 'ready',
           imageHue: 30,
+          imagePromptVersion: 'v4',
           components: [
             {
               ingredientId: 'ing-10',

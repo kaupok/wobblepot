@@ -151,7 +151,13 @@ describe('GET /api/households/me/meals', () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
     mockMealFindMany.mockResolvedValue([
-      { ...mockMealData, imageUrl: 'https://blob/meal-1.png', imageStatus: 'ready', imageHue: 30 },
+      {
+        ...mockMealData,
+        imageUrl: 'https://blob/meal-1.png',
+        imageStatus: 'ready',
+        imageHue: 30,
+        imagePromptVersion: 'v4',
+      },
     ] as never)
 
     const data = await (

@@ -148,6 +148,7 @@ const hue = (value: number | null) => ({
 
 const HOUSEHOLD_ID = 'household-123'
 const BLOB_URL = 'https://store.public.blob.vercel-storage.com/meals/meal-1-abc.png'
+const OLD_BLOB_URL = 'https://store.public.blob.vercel-storage.com/meals/meal-1-old.png'
 const EDITED_AT = new Date('2026-09-20T10:00:00Z')
 
 const session = {
@@ -253,7 +254,7 @@ describe('POST /api/meals/[id]/image', () => {
   })
 
   it('returns a ready image without generating or spending a rate-limit token', async () => {
-    seedMeal({ imageStatus: 'ready', imageUrl: BLOB_URL, imageHue: 120 })
+    seedMeal({ imageStatus: 'ready', imageUrl: BLOB_URL, imageHue: 120, imagePromptVersion: 'v4' })
 
     const response = await post()
 
@@ -384,8 +385,62 @@ describe('POST /api/meals/[id]/image', () => {
     expect(mockGenerateImage).not.toHaveBeenCalled()
   })
 
+  it('redraws a household image at a stale prompt version and deletes the old blob', async () => {
+    seedMeal({
+      imageStatus: 'ready',
+      imageUrl: OLD_BLOB_URL,
+      imagePromptVersion: 'v3',
+      imageHue: null,
+      imageAttempts: 2,
+    })
+
+    const response = await post()
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL, imageHue: 264 })
+    expect(mockGenerateImage).toHaveBeenCalledTimes(1)
+    expect(row()).toMatchObject({
+      imageStatus: 'ready',
+      imageUrl: BLOB_URL,
+      imagePromptVersion: 'v4',
+      imageHue: 264,
+      imageAttempts: 0,
+      updatedAt: EDITED_AT,
+    })
+    expect(mockDel).toHaveBeenCalledTimes(1)
+    expect(mockDel).toHaveBeenCalledWith(OLD_BLOB_URL)
+  })
+
+  it('keeps the old image referenced when a stale-version redraw fails', async () => {
+    seedMeal({ imageStatus: 'ready', imageUrl: OLD_BLOB_URL, imagePromptVersion: 'v3' })
+    mockGenerateImage.mockRejectedValue(new Error('boom'))
+
+    await post()
+
+    expect(row()).toMatchObject({ imageStatus: 'failed', imageUrl: OLD_BLOB_URL, imageAttempts: 1 })
+    expect(mockDel).not.toHaveBeenCalledWith(OLD_BLOB_URL)
+  })
+
+  it('never redraws a global image at a stale prompt version', async () => {
+    seedMeal({
+      householdId: null,
+      imageStatus: 'ready',
+      imageUrl: BLOB_URL,
+      imagePromptVersion: 'v3',
+    })
+
+    expect(await (await post()).json()).toEqual({ status: 'none' })
+    expect(mockGenerateImage).not.toHaveBeenCalled()
+    expect(row().imageStatus).toBe('ready')
+  })
+
   it('serves a global meal image the batch already made', async () => {
-    seedMeal({ householdId: null, imageStatus: 'ready', imageUrl: BLOB_URL })
+    seedMeal({
+      householdId: null,
+      imageStatus: 'ready',
+      imageUrl: BLOB_URL,
+      imagePromptVersion: 'v4',
+    })
 
     expect(await (await post()).json()).toEqual({
       status: 'ready',
@@ -575,12 +630,18 @@ describe('GET /api/meals/[id]/image', () => {
   })
 
   it('returns a ready image with its hue', async () => {
-    seedMeal({ imageStatus: 'ready', imageUrl: BLOB_URL, imageHue: 40 })
+    seedMeal({ imageStatus: 'ready', imageUrl: BLOB_URL, imageHue: 40, imagePromptVersion: 'v4' })
 
     const response = await get()
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL, imageHue: 40 })
+  })
+
+  it('reports an image at a stale prompt version as none', async () => {
+    seedMeal({ imageStatus: 'ready', imageUrl: BLOB_URL, imagePromptVersion: 'v3' })
+
+    expect(await (await get()).json()).toEqual({ status: 'none' })
   })
 
   it('returns the { error } shape when the read fails', async () => {

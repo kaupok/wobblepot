@@ -250,6 +250,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/suggestions', () => {
         imageUrl: 'https://blob/meal-1.png',
         imageStatus: 'ready',
         imageHue: 145,
+        imagePromptVersion: 'v4',
         components: [
           {
             ingredientId: 'ing-1',
@@ -274,6 +275,10 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/suggestions', () => {
         kidFriendly: false,
         primaryProteinType: 'poultry',
         suitableFor: ['dinner'],
+        imageUrl: null,
+        imageStatus: 'none',
+        imageHue: null,
+        imagePromptVersion: null,
         components: [],
       },
     ] as never)

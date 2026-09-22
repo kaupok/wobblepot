@@ -20,6 +20,7 @@ import {
 import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
+import { presentMealImage } from '@/lib/meal-images/present'
 import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
 import type { AlternativeMeal } from '@/components/meal-plan/types'
 import {
@@ -261,9 +262,9 @@ async function handlePOST(
           }
         }),
         nutrition: computeMealNutrition(components),
-        imageUrl: mealDetail?.imageUrl ?? null,
-        imageStatus: mealDetail?.imageStatus,
-        imageHue: mealDetail?.imageHue ?? null,
+        ...(mealDetail
+          ? presentMealImage(mealDetail)
+          : { imageUrl: null, imageStatus: undefined, imageHue: null }),
       }
     })
 
