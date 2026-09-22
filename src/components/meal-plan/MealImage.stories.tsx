@@ -12,13 +12,15 @@ const meta = {
     docs: {
       description: {
         component:
-          "The hero illustration at the top of the meal detail modal (HON-737, HON-746). 3:2, on the meal's tinted surface (`imageHue`), the image multiplied in so its white surface takes the tint, and the whole hero fading bottom-up into the dialog. Renders nothing without an image or without a hue; a plain box while it is generating (`docs/DESIGN.md` → Imagery).",
+          "The hero illustration at the top of the meal detail modal (HON-737, HON-746). 2:1 and full-bleed: it cancels the dialog's `p-6` so it runs edge to edge with no radius of its own (HON-752). On the meal's tinted surface (`imageHue`), the image multiplied in so its white surface takes the tint, and the whole hero fading bottom-up into the dialog. Renders nothing without an image or without a hue; a plain box while it is generating (`docs/DESIGN.md` → Imagery).",
       },
     },
   },
   decorators: [
+    // Stands in for `DialogContent` (bordered, `p-6`, clipping) so the bleed
+    // through its padding is visible.
     (Story) => (
-      <div className="w-96">
+      <div className="bg-background w-96 overflow-hidden rounded-lg border p-6">
         <Story />
       </div>
     ),

@@ -64,6 +64,14 @@ export const WithImage: Story = {
     const dialog = await body.findByRole('dialog')
     const img = await within(dialog).findByRole('img', { name: mealFixture.name })
     await expect(img).toHaveAttribute('alt', mealFixture.name)
+    // Full-bleed (HON-752): the hero spans the dialog's padding box edge to
+    // edge — inside its borders and any scrollbar — at 2:1. Layout metrics,
+    // not getBoundingClientRect: the dialog's zoom-in transform scales rects.
+    const hero = within(dialog).getByTestId('meal-image-hero')
+    await expect(hero.offsetParent).toBe(dialog)
+    await expect(hero.offsetLeft).toBe(0)
+    await expect(hero.offsetWidth).toBe(dialog.clientWidth)
+    await expect(Math.abs(hero.offsetWidth / hero.offsetHeight - 2)).toBeLessThanOrEqual(0.02)
     // Decoration, not a control: the dialog's initial focus is unchanged.
     await expect(img).not.toHaveFocus()
     await expect(dialog.contains(document.activeElement)).toBe(true)
