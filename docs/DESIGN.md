@@ -85,8 +85,8 @@ Spacing rhythm as used today (Tailwind steps, 4px each):
 ## Color
 
 - Design in monochrome first. The neutral palette carries hierarchy through weight, size, and `muted-foreground`, not hue.
-- Color adds meaning, never decoration. Every colored element also carries a non-color cue: an icon, a label, or a text change.
-- The only accent that exists is `primary` (near-black in light, near-white in dark). Do not introduce a brand hue in components ahead of a brand decision.
+- Color adds meaning, never decoration. Every colored element also carries a non-color cue: an icon, a label, or a text change. The one exception is a meal's `imageHue`, which tints that meal's card and hero from its illustration; it is the only colour driven by data, and its lightness and chroma are fixed tokens. See [Imagery](#imagery).
+- The only accent that exists is `primary` (near-black in light, near-white in dark). Do not introduce a brand hue in components ahead of a brand decision. A meal's hue is not an accent: it lives only on that meal's card and hero.
 - Status has three generic tokens, each with a `-muted` tinted surface: `success`, `warning`, `info`. Use `text-success` for emphasis (text and icons), `bg-success-muted` for the surface, and `border-success/30` for a border — an opacity modifier on the emphasis token, not a token of its own. Red is not one of them: failure stays on `destructive`, so it never reads as one more status.
 - Domain names (available, missing, staple) stay in component props and copy, never in a token name. `AvailabilityIndicator` decides that "available" is success; the token does not know what it means.
 - A `-muted` surface is for short, emphasis-coloured content: pills, badges, icon chips, callouts. It is **not** a panel fill for a block of body copy, because `muted-foreground` is calibrated for the neutral background — it measures 4.60:1 on white, so on any tint it lands at 4.3–4.5:1 and fails AA. A content panel that carries `Body variant="muted"` gets the border and no fill (`border-success/30`); the coloured icon and the coloured name already carry the meaning, and the fill was decoration.
@@ -127,15 +127,31 @@ grep -rnE "transition-all|ease-in([\"' ]|$)|duration-([4-9][0-9]{2}|[0-9]{4,})" 
 
 ## Imagery
 
-The product supplies one piece of content imagery: a generated illustration of each meal, shown where someone decides to cook it. Photos a user attaches themselves (the recipe photos in `AttachImages`) are their input, not our imagery, and these rules do not cover them. It is decoration. The meal name, ingredients, and steps carry everything the user needs, so the image is allowed only where it cannot get in their way. Decided in HON-726; shipped as `MealImage` in the meal detail modal (HON-737).
+The product supplies one piece of content imagery: a generated illustration of each meal. Photos a user attaches themselves (the recipe photos in `AttachImages`) are their input, not our imagery, and these rules do not cover them. The illustration is decoration. The meal name, ingredients, and steps carry everything the user needs, so the image never carries information and never gets in the way. It also gives each meal a colour: the card and hero take a tint from the food in the picture, so a week of meals reads as a week of different dishes before anyone reads a name. Decided in HON-726 (the image) and HON-743 (the hue, the tinted surface, and the blend).
 
-- **One style, one source.** The only content imagery is the generated meal illustration: a warm, stylised, gouache-like illustration of one serving of the finished dish, produced by the single prompt in `src/lib/meal-images/prompt.ts`. No stock photos, no second illustration style, no hand-placed decorative images, and no AI imagery anywhere else in the product. A second style or source is a second visual language the rest of the guide was not written for.
-- **The meal detail modal only.** The image is the first element of the meal's details (`MealDetail`), below the title and the note and above the description; a meal with no description puts it above whatever comes first there. Not on meal cards, the planner grid, or lists: those are scanned many times a session, and a picture per row costs height and bandwidth for a decision the name already carries.
-- **Geometry.** 3:2 landscape, the full width of the dialog content, `rounded-lg` (the dialog and list-row radius from [Spacing, radius, elevation](#spacing-radius-elevation)), rendered through `next/image` with `object-cover`. No border, no shadow, no caption: the dialog is already the container, and only overlays cast a shadow.
-- **Absence renders nothing.** A meal without an image has no image element at all: no placeholder, icon, skeleton, or shimmer. A placeholder tells the user something is missing when nothing is. The one exception is while `imageStatus` is `generating`: a plain `bg-muted` 3:2 box holds the space so the content does not jump when the image lands. The box has no animation and no icon.
-- **Arrival is a fade.** The image fades in on load with `transition-opacity duration-200 ease-out` — the overlay duration and house easing from [Motion](#motion). Nothing else moves: the reserved box already holds the space, and the text below stays put.
+- **One style, one source.** The only content imagery is the generated meal illustration, produced by the single prompt in `src/lib/meal-images/prompt.ts`: V4, a warm, stylised, gouache-like illustration of one serving of the finished dish on a pure white, flat surface, the plate taking about half the width of a 3:2 frame with empty space on every side. No stock photos, no second illustration style, no hand-placed decorative images, and no AI imagery anywhere else in the product. A second style or source is a second visual language the rest of the guide was not written for. The white surface is load-bearing: it is what lets the image blend into a tinted card (below).
+- **Meal hue.** Every meal with an image has an `imageHue`: an integer from 0 to 360, the OKLCH hue of its food, extracted once when the image is generated and stored on the meal. It is the **only** per-meal colour variable. Lightness and chroma are never per meal, and nothing else about the meal (type, cuisine, tags) picks a colour. Components receive it as the `--meal-hue` CSS variable.
+- **Tinted surfaces.** A meal card and the modal hero take their background from `oklch(L C var(--meal-hue))`, with L and C fixed tokens:
+
+  | Token                    | Light                              | Dark                               |
+  | ------------------------ | ---------------------------------- | ---------------------------------- |
+  | Surface                  | L 0.97, C 0.035                    | L 0.45, C 0.035                    |
+  | Accent chip              | C 0.11                             | C 0.11                             |
+  | Text on a tinted surface | `oklch(0.25 0.03 var(--meal-hue))` | `oklch(0.95 0.02 var(--meal-hue))` |
+
+  The dark surface is a starting point judged on the HON-743 contact sheet only; the implementation tunes it against the real dark theme and updates this table. HON-743 fixed only the chip's chroma: HON-746 sets its lightness and its text colour, measured at ≥5:1 like the status pairings, and adds them to the row. Fixed L and C are the point: every meal gets the same contrast, so one number is measured and tuned for all meals instead of one per dish, and no hue can produce an unreadable card. Text and chips on a tinted surface use these tokens, not `foreground` or `muted-foreground`, which are calibrated for the neutral background (see [Color](#color)).
+
+- **The image on a surface.** Rendered through `next/image` with `object-fit: cover` and `mix-blend-mode: multiply`, so the white surface of the illustration takes the tint and the plate sits on the card rather than in a white box. A `mask-image` linear fade blends its edge into the surface:
+  - **Cards:** the image sits on the right at about 62% of the card width, and the fade runs left to right, reaching full opacity at 70% of the image width. The text sits on the plain tint to its left.
+  - **Modal hero:** 3:2, the full width of the dialog content, first element of `MealDetail` (below the title and the note, above the description). The fade runs bottom-up into the content below.
+
+  No border, no shadow, and no radius on the image itself: the card or hero clips it. A hard edge, a frame, or an un-blended white rectangle turns the illustration back into a photo pasted on a card.
+
+- **Absence renders the neutral card.** A meal without an image (no image, or no `imageHue`) renders the ordinary neutral card and hero: no tint, no image element, no placeholder, icon, skeleton, or shimmer. A placeholder tells the user something is missing when nothing is. The one exception is the hero while `imageStatus` is `generating`: a plain `bg-muted` 3:2 box holds the space so the content does not jump when the image lands. The box has no animation and no icon. Cards show nothing extra while generating.
+- **Arrival is a fade.** The image fades in on load with `transition-opacity duration-200 ease-out` — the overlay duration and house easing from [Motion](#motion). Nothing else moves. On the hero the reserved box already holds the space. On a card the tint and text colours come from `imageHue`, which is stored with the image, so they are in place from the first render and only the image fades in.
 - **Alt text is the meal name.** Nothing more — not "Illustration of …". A screen reader already announces it as an image, and the name is the only fact the picture adds.
-- **Errors are silent.** A failed or unavailable image never produces a toast or error UI; the modal renders as if the meal had no image. The image is decoration and must not interrupt cooking.
+- **Errors are silent.** A failed or unavailable image never produces a toast or error UI; the card or modal renders as if the meal had no image. The image is decoration and must not interrupt cooking.
+- **Where.** Meal cards wherever they appear (the planner, alternatives, the household meal list, imagine results) and the modal hero. Not on ingredient rows, shopping lists, pantry items, or empty states: those are about ingredients and tasks, not dishes.
 
 ## Composition rules
 
@@ -170,7 +186,7 @@ Agents produce these by default. Recognise them and do not ship them.
 - Arbitrary font sizes (`text-[10px]`, `text-[13px]`)
 - A raw palette class (`text-green-600`) where an existing pairing or token exists
 - A `dark:` override on a semantic token
-- Gradients, glows, blurred blobs, glass effects, colored side rails, decorative shadows
+- Gradients, glows, blurred blobs, glass effects, colored side rails, decorative shadows (the `mask-image` fade that blends a meal image into its surface excepted)
 - Decorative icons or illustrations in empty states
 - An eyebrow label in all caps above every heading
 - Centered hero plus a three-card grid for anything that is not the landing page
@@ -184,7 +200,7 @@ Agents produce these by default. Recognise them and do not ship them.
 - A placeholder, icon, skeleton, or shimmer for a missing meal image (the plain `bg-muted` box while `imageStatus` is `generating` excepted)
 - Stock or decorative photography
 - A second image style alongside the generated meal illustration
-- Product-supplied imagery outside the meal detail modal: on meal cards, the planner grid, lists, or empty states (photos a user attaches are theirs, not ours)
+- A meal image framed as a photo: hard-edged, bordered, or un-blended on a tinted surface
 
 ## Open questions for review
 
@@ -196,4 +212,5 @@ Add one here when a review finds code and rule disagreeing and the fix is not ob
 
 Decisions above that the code does not yet reflect. Each has a Linear issue; update this list when one ships.
 
-None right now.
+- **HON-744** — prompt V4 (white surface, plate at half the frame) and `Meal.imageHue`, extracted at generation. Until it ships, `prompt.ts` is V3 and no meal has a hue.
+- **HON-746** — hue-tinted meal cards with the blended illustration, and the tinted modal hero. Until it ships, the image appears only in the meal detail modal as an opaque, `rounded-lg` 3:2 image, the dark surface token in [Imagery](#imagery) is untuned, and the accent chip has no lightness or text colour yet.
