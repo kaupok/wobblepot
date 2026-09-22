@@ -18,6 +18,7 @@ import { captureApiError } from '@/lib/errors'
 import { withRequestId } from '@/lib/request-id'
 import { extractHue } from '@/lib/meal-images/colour'
 import { generateMealImage, MealImageUnavailableError } from '@/lib/meal-images/generate'
+import { presentMealImage } from '@/lib/meal-images/present'
 import { MEAL_IMAGE_PROMPT_VERSION } from '@/lib/meal-images/prompt'
 import { discardMealImage, putMealImage } from '@/lib/meal-images/storage'
 
@@ -32,6 +33,9 @@ import { discardMealImage, putMealImage } from '@/lib/meal-images/storage'
  * - 200 `none` — the meal was edited while this request generated, so the
  *   image was thrown away; the next request draws the edited meal.
  * - 200 `failed` — generation has failed `MAX_ATTEMPTS` times; never retried.
+ * - A `ready` image at an older prompt version is treated as absent and
+ *   redrawn, with its attempts reset (HON-753); the old blob is deleted once
+ *   the new one is attached.
  * - The stored status for a global meal (202 while `generating`), which is
  *   never generated here: an operator batch pays for shared assets (HON-738),
  *   so one household's AI cap is never charged for them.
@@ -144,6 +148,7 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
       imageUrl: true,
       imageStatus: true,
       imageHue: true,
+      imagePromptVersion: true,
       imageClaimedAt: true,
       imageAttempts: true,
       components: {
@@ -161,8 +166,9 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
   }
 
-  if (meal.imageStatus === 'ready' && meal.imageUrl) {
-    return respond({ status: 'ready', imageUrl: meal.imageUrl, imageHue: meal.imageHue })
+  const presented = presentMealImage(meal)
+  if (presented.imageStatus === 'ready' && presented.imageUrl) {
+    return respond({ status: 'ready', imageUrl: presented.imageUrl, imageHue: presented.imageHue })
   }
 
   // Global meals are drawn once by the operator batch, never on a household's cap.
@@ -224,21 +230,33 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
   // `updatedAt` is pinned for two reasons: the content below was read at that
   // version, so an edit since then must not be drawn from the stale read; and
   // writing it back keeps this claim from moving it (see `writeUnderClaim`).
+  //
+  // A `ready` row only reaches here at a stale prompt version (HON-753). Its
+  // claim pins the version read, and resets the attempts: a new prompt is a
+  // new image, owed the full `MAX_ATTEMPTS`.
   const claimedAt = now
+  const redraw = meal.imageStatus === 'ready'
   const claim = await prisma.meal.updateMany({
     where: {
       id: meal.id,
       deletedAt: null,
       updatedAt: meal.updatedAt,
-      OR: [
-        { imageStatus: 'none' },
-        { imageStatus: 'failed', imageAttempts: { lt: MAX_ATTEMPTS } },
-        // A crashed function never releases its claim.
-        { imageStatus: 'generating', imageClaimedAt: { lt: staleBefore } },
-        { imageStatus: 'generating', imageClaimedAt: null },
-      ],
+      OR: redraw
+        ? [{ imageStatus: 'ready', imagePromptVersion: meal.imagePromptVersion }]
+        : [
+            { imageStatus: 'none' },
+            { imageStatus: 'failed', imageAttempts: { lt: MAX_ATTEMPTS } },
+            // A crashed function never releases its claim.
+            { imageStatus: 'generating', imageClaimedAt: { lt: staleBefore } },
+            { imageStatus: 'generating', imageClaimedAt: null },
+          ],
     },
-    data: { imageStatus: 'generating', imageClaimedAt: claimedAt, updatedAt: meal.updatedAt },
+    data: {
+      imageStatus: 'generating',
+      imageClaimedAt: claimedAt,
+      updatedAt: meal.updatedAt,
+      ...(redraw ? { imageAttempts: 0 } : {}),
+    },
   })
 
   // Usually another request won the claim. Rarely the meal was edited since the
@@ -288,6 +306,13 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
       // image shows the old ingredients, so it must never be attached.
       await discardMealImage(uploadedUrl, ROUTE)
       return respond({ status: 'none' })
+    }
+
+    // The image this one replaced — a stale-version redraw, or a stale claim
+    // over one. Deleted only now it is detached, as `clearMealImage` orders it;
+    // until then the row still points at it, so a failure orphans nothing.
+    if (meal.imageUrl && meal.imageUrl !== uploadedUrl) {
+      await discardMealImage(meal.imageUrl, ROUTE)
     }
 
     return respond({ status: 'ready', imageUrl: uploadedUrl, imageHue })
@@ -372,18 +397,21 @@ async function handleGET(_request: Request, { params }: { params: Promise<{ id: 
         deletedAt: null,
         OR: [{ householdId: null }, { householdId: membership.household.id }],
       },
-      select: { imageUrl: true, imageStatus: true, imageHue: true },
+      select: { imageUrl: true, imageStatus: true, imageHue: true, imagePromptVersion: true },
     })
 
     if (!meal) {
       return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
     }
 
-    if (meal.imageStatus === 'ready' && meal.imageUrl) {
-      return respond({ status: 'ready', imageUrl: meal.imageUrl, imageHue: meal.imageHue })
+    // A stale prompt version reads as `none`, same as every meal payload (HON-753).
+    const { imageStatus, imageUrl, imageHue } = presentMealImage(meal)
+
+    if (imageStatus === 'ready' && imageUrl) {
+      return respond({ status: 'ready', imageUrl, imageHue })
     }
 
-    return respond({ status: meal.imageStatus === 'ready' ? 'none' : meal.imageStatus })
+    return respond({ status: imageStatus === 'ready' ? 'none' : imageStatus })
   } catch (error) {
     captureApiError(error, { route: ROUTE, userId: session.user.id, operation: 'meal-image-read' })
     return NextResponse.json({ error: "Couldn't read the meal image." }, { status: 500 })

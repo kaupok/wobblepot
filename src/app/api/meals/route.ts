@@ -12,6 +12,7 @@ import {
   translateMeal,
 } from '@/lib/i18n/content'
 import { captureApiError } from '@/lib/errors'
+import { presentMealImage } from '@/lib/meal-images/present'
 
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 50
@@ -195,6 +196,7 @@ export async function GET(request: NextRequest) {
         imageUrl: true,
         imageStatus: true,
         imageHue: true,
+        imagePromptVersion: true,
         components: {
           select: {
             ingredientId: true,
@@ -285,9 +287,7 @@ export async function GET(request: NextRequest) {
         suitableFor: translatedMeal.suitableFor,
         isCustom: meal.householdId !== null,
         isFavorite: meal.favoritedBy.length > 0,
-        imageUrl: meal.imageUrl,
-        imageStatus: meal.imageStatus,
-        imageHue: meal.imageHue,
+        ...presentMealImage(meal),
         components,
         nutrition: {
           calories: Math.round(nutrition.calories),

@@ -288,6 +288,7 @@ describe('GET /api/entries', () => {
             imageUrl: 'https://store.public.blob.vercel-storage.com/meals/meal-1.png',
             imageStatus: 'ready',
             imageHue: 264,
+            imagePromptVersion: 'v4',
             components: [],
           },
         },

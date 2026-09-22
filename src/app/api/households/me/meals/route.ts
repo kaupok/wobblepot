@@ -13,6 +13,7 @@ import {
   translateMeal,
 } from '@/lib/i18n/content'
 import { captureApiError } from '@/lib/errors'
+import { presentMealImage } from '@/lib/meal-images/present'
 
 const createMealSchema = z.object({
   name: z.string().min(1).max(200),
@@ -102,6 +103,7 @@ export async function GET(request: NextRequest) {
         imageUrl: true,
         imageStatus: true,
         imageHue: true,
+        imagePromptVersion: true,
         deletedAt: true,
         createdAt: true,
         updatedAt: true,
@@ -194,9 +196,7 @@ export async function GET(request: NextRequest) {
         servings: meal.servings,
         isCustom: true,
         isFavorite: meal.favoritedBy.length > 0,
-        imageUrl: meal.imageUrl,
-        imageStatus: meal.imageStatus,
-        imageHue: meal.imageHue,
+        ...presentMealImage(meal),
         deletedAt: meal.deletedAt,
         createdAt: meal.createdAt,
         updatedAt: meal.updatedAt,
