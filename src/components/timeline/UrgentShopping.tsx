@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import type { UrgencyBucket } from '@/lib/meal-planning/dates'
 
 interface ShoppingItem {
@@ -99,25 +100,24 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
           <Body variant="muted" className="text-sm">
             {summary}
           </Body>
-          <ul className="flex flex-col gap-2">
+          <ul className="grid-cols-shopping-row grid gap-2">
             {unpurchasedItems.map((item) => (
               <li
                 key={item.ingredientId}
-                className="flex items-center justify-between gap-2 text-sm"
+                className="col-span-3 grid grid-cols-subgrid items-center text-sm"
               >
                 <span className="min-w-0 truncate">{item.name}</span>
-                <div className="flex shrink-0 items-center gap-2">
-                  <span className="text-muted-foreground">{item.displayQuantity}</span>
-                  <span
-                    className={
-                      item.urgency === 'today'
-                        ? 'text-destructive text-xs font-medium'
-                        : 'text-muted-foreground text-xs'
-                    }
-                  >
-                    {item.neededByRelative}
-                  </span>
-                </div>
+                <span className="text-muted-foreground justify-self-end whitespace-nowrap">
+                  {item.displayQuantity}
+                </span>
+                <span
+                  className={cn(
+                    'justify-self-end text-xs whitespace-nowrap',
+                    item.urgency === 'today' ? 'text-warning font-medium' : 'text-muted-foreground',
+                  )}
+                >
+                  {item.neededByRelative}
+                </span>
               </li>
             ))}
           </ul>

@@ -22,9 +22,11 @@ interface ShoppingItemProps {
   onToggle: (ingredientId: string, purchased: boolean) => void
   disabled?: boolean
   pending?: boolean
+  /** Due today: the due label takes the `warning` token, matching the Today card. */
+  urgent?: boolean
 }
 
-export function ShoppingItem({ item, onToggle, disabled, pending }: ShoppingItemProps) {
+export function ShoppingItem({ item, onToggle, disabled, pending, urgent }: ShoppingItemProps) {
   const tShopping = useTranslations('shopping')
   const handleCheckedChange = (checked: boolean | 'indeterminate') => {
     if (checked === 'indeterminate') return
@@ -77,7 +79,11 @@ export function ShoppingItem({ item, onToggle, disabled, pending }: ShoppingItem
           <span
             className={cn(
               'shrink-0 text-xs',
-              item.purchased ? 'text-muted-foreground/60' : 'text-muted-foreground',
+              item.purchased
+                ? 'text-muted-foreground/60'
+                : urgent
+                  ? 'text-warning font-medium'
+                  : 'text-muted-foreground',
             )}
           >
             {item.neededByRelative}

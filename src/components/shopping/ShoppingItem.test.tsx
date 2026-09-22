@@ -92,6 +92,23 @@ describe('ShoppingItem', () => {
     expect(label?.className).toContain('opacity-70')
   })
 
+  it('marks the due label with the warning token when urgent', () => {
+    render(<ShoppingItem item={baseItem} onToggle={vi.fn()} urgent />)
+    expect(screen.getByText('tomorrow')).toHaveClass('text-warning')
+  })
+
+  it('keeps the due label muted when not urgent', () => {
+    render(<ShoppingItem item={baseItem} onToggle={vi.fn()} />)
+    const label = screen.getByText('tomorrow')
+    expect(label).toHaveClass('text-muted-foreground')
+    expect(label).not.toHaveClass('text-warning')
+  })
+
+  it('dims an urgent due label once the item is purchased', () => {
+    render(<ShoppingItem item={purchasedItem} onToggle={vi.fn()} urgent />)
+    expect(screen.getByText('tomorrow')).not.toHaveClass('text-warning')
+  })
+
   it('applies disabled styling when disabled', () => {
     const { container } = render(<ShoppingItem item={baseItem} onToggle={vi.fn()} disabled />)
     const label = container.querySelector('label')

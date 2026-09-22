@@ -56,6 +56,7 @@ export function UrgencyGroup({
             onToggle={onToggleItem}
             disabled={disabled}
             pending={pendingIds?.has(item.ingredientId)}
+            urgent={bucket === 'today'}
           />
         ))}
       </div>

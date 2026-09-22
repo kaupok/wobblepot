@@ -78,6 +78,20 @@ describe('UrgentShopping', () => {
     expect(names).toEqual(['Zucchini', 'Apple'])
   })
 
+  // HON-762: needing something today is urgency, not failure (DESIGN.md → Color).
+  it('marks today with the warning token and leaves tomorrow muted', () => {
+    render(
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        <UrgentShopping items={[item('Apple', 'tomorrow'), item('Zucchini', 'today')]} />
+      </NextIntlClientProvider>,
+    )
+
+    const today = screen.getByText('Today')
+    expect(today).toHaveClass('text-warning')
+    expect(today).not.toHaveClass('text-destructive')
+    expect(screen.getByText('Tomorrow')).toHaveClass('text-muted-foreground')
+  })
+
   // HON-751: the server (Vercel, `en-US`) and an Estonian browser sorted the
   // list differently, so hydration failed with React error 418.
   it('hydrates without a mismatch when the browser default locale differs from the server', async () => {

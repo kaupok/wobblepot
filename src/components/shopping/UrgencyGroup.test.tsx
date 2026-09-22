@@ -56,6 +56,17 @@ describe('UrgencyGroup', () => {
     expect(screen.queryByText(/0\/2/)).not.toBeInTheDocument()
   })
 
+  it('marks unpurchased due labels as urgent only in the today bucket', () => {
+    const unpurchased = items.map((item) => ({ ...item, purchased: false }))
+    const { rerender } = render(
+      <UrgencyGroup bucket="today" items={unpurchased} onToggleItem={vi.fn()} />,
+    )
+    for (const label of screen.getAllByText('today')) expect(label).toHaveClass('text-warning')
+
+    rerender(<UrgencyGroup bucket="tomorrow" items={unpurchased} onToggleItem={vi.fn()} />)
+    for (const label of screen.getAllByText('today')) expect(label).not.toHaveClass('text-warning')
+  })
+
   it('renders all items', () => {
     render(<UrgencyGroup bucket="today" items={items} onToggleItem={vi.fn()} />)
     expect(screen.getByText('Tomatoes')).toBeInTheDocument()
