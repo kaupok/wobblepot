@@ -128,7 +128,7 @@ function ShoppingListScreen({
                   collapses all of them into one group. */}
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <Body variant="small" className="text-muted-foreground font-medium">
+                  <Body variant="small" tone="muted">
                     {tShopping('customItemsSection', { count: customShoppingItems.length })}
                   </Body>
                   <Body variant="muted">
@@ -181,7 +181,7 @@ function ShoppingListScreen({
               {/* Custom items with no ingredient have no category to sit in. */}
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <Body variant="small" className="text-muted-foreground font-medium">
+                  <Body variant="small" tone="muted">
                     {tShopping('otherSection', { count: unlinkedCustomItems.length })}
                   </Body>
                   {checkedUnlinkedCount > 0 && (

@@ -76,10 +76,41 @@ export const BodyVariants: Story = {
         Default — standard paragraph text. Supports multiple sentences with comfortable line-height.
       </Body>
       <Body variant="small">Small — secondary information, compact line-height.</Body>
+      <Body variant="paragraph">
+        Paragraph — multi-line foreground text such as tips and notes. Same size as small, but with
+        a line-height that lets it wrap comfortably across several lines.
+      </Body>
       <Body variant="muted">Muted — de-emphasised supporting text.</Body>
       <Body variant="caption">Caption — compact labels and metadata.</Body>
     </div>
   ),
+}
+
+export const AllTones: Story = {
+  render: () => (
+    <div className="flex flex-col gap-4">
+      <Body tone="default">Default — inherits the foreground colour.</Body>
+      <Body tone="muted">Muted — secondary text.</Body>
+      <Body tone="destructive">Destructive — this field is required.</Body>
+      <Body tone="success">Success — check your email for a reset link.</Body>
+      <Body tone="warning">Warning — this ingredient could not be matched.</Body>
+      <Body tone="info">Info — quantity estimated from the recipe.</Body>
+      <Body variant="small" tone="muted">
+        Small, muted — a single-line label.
+      </Body>
+      <Ul>
+        <Li tone="warning">Li with the warning tone — allergen conflict</Li>
+      </Ul>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          '`tone` sets colour on `Body` and `Li` and composes with every `variant`. A tone is never the only cue: the text or an icon must say the same thing.',
+      },
+    },
+  },
 }
 
 export const BlockquoteStory: Story = {

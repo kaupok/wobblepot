@@ -7,7 +7,6 @@ import { ChefHat } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Heading, Body } from '@/components/ui/typography'
-import { Label } from '@/components/ui/label'
 import { GeneratingOverlay } from '@/components/meal-plan/GeneratingOverlay'
 import {
   getStartDateOptions,
@@ -22,6 +21,7 @@ import {
   mealPlanGenerateFallbackKey,
   translateErrorCode,
 } from '@/lib/ai/error-codes'
+import { FieldError } from '@/components/FieldError'
 
 /**
  * How long the client waits before giving up on `/api/meal-plans/generate`.
@@ -134,8 +134,10 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
             </div>
 
             <div className="flex w-full flex-col gap-4">
-              <section className="flex flex-col gap-2">
-                <Label className="text-sm font-semibold">{tFirst('startFromLabel')}</Label>
+              <section className="flex flex-col gap-2" aria-labelledby="start-from-heading">
+                <Heading variant="section" as="h3" id="start-from-heading">
+                  {tFirst('startFromLabel')}
+                </Heading>
                 <div className="flex flex-wrap gap-2">
                   {startDateOptions.map((option) => (
                     <Button
@@ -151,8 +153,10 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
                 </div>
               </section>
 
-              <section className="flex flex-col gap-2">
-                <Label className="text-sm font-semibold">{tFirst('daysCountLabel')}</Label>
+              <section className="flex flex-col gap-2" aria-labelledby="days-count-heading">
+                <Heading variant="section" as="h3" id="days-count-heading">
+                  {tFirst('daysCountLabel')}
+                </Heading>
                 <div className="flex flex-wrap gap-2">
                   {daysCountOptions.map((option) => (
                     <Button
@@ -169,11 +173,7 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
               </section>
             </div>
 
-            {error && (
-              <Body variant="small" className="text-destructive">
-                {error}
-              </Body>
-            )}
+            {error && <FieldError>{error}</FieldError>}
 
             <Button onClick={handleGenerate} disabled={isGenerating} size="lg" className="w-full">
               {isGenerating ? tFirst('submitting') : tFirst('submit')}

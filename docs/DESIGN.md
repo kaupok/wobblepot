@@ -26,22 +26,23 @@ Use these. Do not restyle them per feature or invent parallel ones.
 
 ## Type scale
 
-Five levels for authenticated app pages (`HON-381`, raised one step in `HON-686`). Differentiate by color before size.
+Six levels for authenticated app pages (`HON-381`, raised one step in `HON-686`, Paragraph added in `HON-675`). Differentiate by color before size.
 
-| Level     | Use for                                                   | Component                     | Renders as                         | Size / line |
-| --------- | --------------------------------------------------------- | ----------------------------- | ---------------------------------- | ----------- |
-| Title     | Page heading: "Shopping list", "My recipes"               | `<Heading variant="h4">`      | `text-xl font-semibold`            | 22px / 30px |
-| Section   | Day names, form sections ("Ingredients")                  | `<Heading variant="section">` | `text-base font-semibold`          | 18px / 28px |
-| Body      | Single-line items: meal names, ingredient rows, links     | `<Body variant="small">`      | `text-sm font-medium leading-none` | 16px / 16px |
-| Secondary | Helper text, descriptions, summaries; any text that wraps | `<Body variant="muted">`      | `text-sm text-muted-foreground`    | 16px / 24px |
-| Caption   | Meal-type labels, badges, quantities, day tags            | `<Body variant="caption">`    | `text-xs font-medium muted`        | 14px / 20px |
+| Level     | Use for                                                                      | Component                     | Renders as                         | Size / line |
+| --------- | ---------------------------------------------------------------------------- | ----------------------------- | ---------------------------------- | ----------- |
+| Title     | Page heading: "Shopping list", "My recipes"                                  | `<Heading variant="h4">`      | `text-xl font-semibold`            | 22px / 30px |
+| Section   | Day names, form sections ("Ingredients")                                     | `<Heading variant="section">` | `text-base font-semibold`          | 18px / 28px |
+| Body      | Single-line items: meal names, ingredient rows, links                        | `<Body variant="small">`      | `text-sm font-medium leading-none` | 16px / 16px |
+| Paragraph | Multi-line foreground text: tips, notes, descriptions that are not secondary | `<Body variant="paragraph">`  | `text-sm leading-normal`           | 16px / 24px |
+| Secondary | Helper text, descriptions, summaries; any text that wraps                    | `<Body variant="muted">`      | `text-sm text-muted-foreground`    | 16px / 24px |
+| Caption   | Meal-type labels, badges, quantities, day tags                               | `<Body variant="caption">`    | `text-xs font-medium muted`        | 14px / 20px |
 
 **`text-xs` … `text-xl` are not stock Tailwind values.** They are re-based one step up in the top-level `@theme` block of `src/app/globals.css` (HON-686): `text-xs` 14/20, `text-sm` 16/24, `text-base` 18/28, `text-lg` 20/28, `text-xl` 22/30. The stock values (14px body, 12px captions) are a dashboard scale, and our reader holds a phone at arm's length. The names were kept so every primitive, variant and raw `text-sm` moves together, and so the next `text-xs` an agent writes lands at 14px rather than 12px. `text-2xl` and up are stock — only marketing, legal and error pages use them. Inputs keep `text-base md:text-sm`, now 18px on phones and 16px from `md`, so both halves stay at or above the 16px iOS no-zoom floor. `UI/Tokens` → `TypeScale` measures every value in Chromium, and the `title-scale` design rule reads its limit from a `text-xl` probe, so neither needs editing when a value moves — this table and the story's `TYPE_SCALE` do.
 
 Rules:
 
 - No arbitrary font sizes (`text-[10px]`). If a size is not in the scale, the design is wrong, not the scale.
-- Do not override a `Body` variant's size with `className`. Pick the right variant.
+- Do not override a `Body` variant's size, weight or colour with `className`. Pick the right variant and `tone`. Enforced by `shadcn/no-restyle` on every `pnpm lint` (HON-675); the handful of text-state classes still allowed on the type primitives are named, each with its reason, in `eslint.config.mjs`.
 - `Heading` `h1`, `h2`, `h3` are for the marketing landing page, legal pages, error pages, and internal pages (`/status`, `/bot`, `/admin`). Inside the household-facing app, page titles are `h4` — no exceptions for overlays or empty states. Decided 2026-09-03, shipped in HON-607, which migrated the last five in-app `h2` components (`ShoppingEmptyState`, `MemberList`, `FirstTimeSetup`, `GeneratingOverlay`, `HouseholdSettingsForm`). Each kept its `<h2>` tag via `as`, so the size changed and the outline did not — except `GeneratingOverlay`, whose tag HON-619 then moved to `<h4>` because the overlay renders inline beside `h5` day labels and `<h2>` there is a skipped level. `/household` was the last in-app page title still on the `h1` _variant_ — a bare `<Heading>`, which falls through to `defaultVariants`; HON-618 moved it to `variant="h4" as="h1"`, keeping the `<h1>` its outline needs. The rule now holds in code: this grep should return only the exempt page types (marketing landing, legal, `/bot`, `global-error`). It spans `src/components` as well as `src/app` — four of the five components named above live there — and matches an explicit `variant="h1"` and a `className`-only `<Heading>`, both of which land on the same `text-4xl` default.
 
   ```bash
@@ -88,6 +89,7 @@ Spacing rhythm as used today (Tailwind steps, 4px each):
 - Color adds meaning, never decoration. Every colored element also carries a non-color cue: an icon, a label, or a text change. The one exception is a meal's `imageHue`, which tints that meal's card and hero from its illustration; it is the only colour driven by data, and its lightness and chroma are fixed tokens. See [Imagery](#imagery).
 - The only accent that exists is `primary` (near-black in light, near-white in dark). Do not introduce a brand hue in components ahead of a brand decision. A meal's hue is not an accent: it lives only on that meal's card and hero.
 - Status has three generic tokens, each with a `-muted` tinted surface: `success`, `warning`, `info`. Use `text-success` for emphasis (text and icons), `bg-success-muted` for the surface, and `border-success/30` for a border — an opacity modifier on the emphasis token, not a token of its own. Red is not one of them: failure stays on `destructive`, so it never reads as one more status.
+- Text colour on the type primitives is a prop, not a class: `Body` and `Li` take `tone` (`default | muted | destructive | success | warning | info`), and `Badge` has `warning` and `info` variants. `variant="muted"` stays the Secondary level and is the same as `variant="paragraph" tone="muted"`; `tone="muted"` exists for `variant="small" tone="muted"`, a single-line muted label. A tone does not exempt the caller from the non-colour-cue rule above. Form errors go through `FieldError`, which adds `role="alert"`. Decided 2026-09-23, shipped in HON-675.
 - Domain names (available, missing, staple) stay in component props and copy, never in a token name. `AvailabilityIndicator` decides that "available" is success; the token does not know what it means.
 - A `-muted` surface is for short, emphasis-coloured content: pills, badges, icon chips, callouts. It is **not** a panel fill for a block of body copy, because `muted-foreground` is calibrated for the neutral background — it measures 4.60:1 on white, so on any tint it lands at 4.3–4.5:1 and fails AA. A content panel that carries `Body variant="muted"` gets the border and no fill (`border-success/30`); the coloured icon and the coloured name already carry the meaning, and the fill was decoration.
 - Never reach for a raw palette class (`text-amber-700`, `bg-green-100`). Every emphasis-on-muted pairing is measured at ≥5:1 in both themes; a hand-picked shade is unmeasured. `UI/Tokens` in Storybook renders every pairing as real text, so the axe gate re-measures them on each run.
@@ -211,7 +213,8 @@ Agents produce these by default. Recognise them and do not ship them.
 
 Add one here when a review finds code and rule disagreeing and the fix is not obvious.
 
-1. The Body level has no wrapping variant. `Body variant="small"` is `leading-none`, so it is only safe for single-line items; multi-line text currently falls back to `muted`. Options: add a `body` variant (`text-sm leading-normal`) or loosen `small`. Still open — HON-606 shipped `Heading`'s `as` prop without taking a position on this, since it needs a design call rather than a mechanical change.
+1. ~~The Body level has no wrapping variant.~~ Resolved 2026-09-23 in HON-675: `Body variant="paragraph"` (`text-sm leading-normal`) is the wrapping foreground level, named after what it renders so a callsite never reads `<Body variant="body">`. `small` stays `leading-none` for single-line items.
+2. Margins on the type primitives. CLAUDE.md → Typography Components says layout goes on a wrapper element, not on `Heading` or `Body`, but `shadcn/no-restyle` runs with `allow: ['layout']`, so `<Heading className="mt-4">` passes lint. Enforcing the wrapper rule would need a `deny` on `m*-*` in the type primitives' contracts in `eslint.config.mjs`, and a burn-down of the callsites that place a primitive by its margin. Open.
 
 ## Pending code changes
 

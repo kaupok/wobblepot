@@ -110,16 +110,12 @@ export function MealCardBase({
       {/* 5. Meal types + protein type */}
       <div className="flex flex-wrap items-center gap-1.5">
         {meal.suitableFor && meal.suitableFor.length > 0 && (
-          <Body variant="small" className="text-muted-foreground">
+          <Body variant="caption">
             <MealTypeList types={meal.suitableFor} />
           </Body>
         )}
-        {meal.suitableFor && meal.suitableFor.length > 0 && (
-          <Body variant="small" className="text-muted-foreground">
-            &middot;
-          </Body>
-        )}
-        <Body variant="small" className="text-muted-foreground">
+        {meal.suitableFor && meal.suitableFor.length > 0 && <Body variant="caption">&middot;</Body>}
+        <Body variant="caption">
           <ProteinTypeBody type={meal.primaryProteinType} />
         </Body>
       </div>

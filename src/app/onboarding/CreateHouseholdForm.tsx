@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { track } from '@/lib/analytics'
+import { FieldError } from '@/components/FieldError'
 
 const TOTAL_STEPS = 2
 
@@ -329,9 +330,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
           {renderStepContent()}
           {error && (
             <div className="mt-4">
-              <Body variant="small" className="text-destructive" role="alert">
-                {error}
-              </Body>
+              <FieldError>{error}</FieldError>
             </div>
           )}
         </CardContent>

@@ -30,6 +30,7 @@ import { MealFormDetails } from './MealFormDetails'
 import { ComponentList } from './ComponentList'
 import { IngredientSearch } from './IngredientSearch'
 import { useMealForm } from './use-meal-form'
+import { FieldError } from '@/components/FieldError'
 
 export type { MealFormData, PrefilledIngredient } from './meal-form-types'
 
@@ -122,9 +123,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
                     ) : (
                       <ChevronRight className="text-muted-foreground h-4 w-4" />
                     )}
-                    <Body variant="small" className="font-medium">
-                      {t('originalTextLabel')}
-                    </Body>
+                    <Body variant="small">{t('originalTextLabel')}</Body>
                   </button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
@@ -156,12 +155,12 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
                 {isImportMode && (unresolvedCount > 0 || lowConfidenceCount > 0) && (
                   <div className="flex gap-2">
                     {lowConfidenceCount > 0 && (
-                      <Badge variant="outline" className="text-info">
+                      <Badge variant="info">
                         {t('toVerifyBadge', { count: lowConfidenceCount })}
                       </Badge>
                     )}
                     {unresolvedCount > 0 && (
-                      <Badge variant="outline" className="text-warning">
+                      <Badge variant="warning">
                         {t('unmatchedBadge', { count: unresolvedCount })}
                       </Badge>
                     )}
@@ -244,7 +243,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
                     </div>
                   )}
                   <div className="mt-2">
-                    <NutritionDisclaimer className="text-xs" />
+                    <NutritionDisclaimer />
                   </div>
                 </div>
               )}
@@ -306,11 +305,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
         </CardContent>
         <CardFooter className="pt-6">
           <div className="flex w-full flex-col gap-4">
-            {error && (
-              <Body variant="small" className="text-destructive" role="alert">
-                {error}
-              </Body>
-            )}
+            {error && <FieldError>{error}</FieldError>}
             <div className="flex gap-2">
               <Button
                 type="button"

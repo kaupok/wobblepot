@@ -486,7 +486,7 @@ export function ShoppingSection({
               {unlinkedCustomItems.length > 0 && (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
-                    <Body variant="small" className="text-muted-foreground font-medium">
+                    <Body variant="small" tone="muted">
                       {tShopping('otherSection', { count: unlinkedCustomItems.length })}
                     </Body>
                     {unlinkedCustomItems.filter((i) => i.checked).length > 0 && (
@@ -528,7 +528,7 @@ export function ShoppingSection({
               {customItems.length > 0 && (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
-                    <Body variant="small" className="text-muted-foreground font-medium">
+                    <Body variant="small" tone="muted">
                       {tShopping('customItemsSection', { count: customItems.length })}
                     </Body>
                     {checkedCustomCount > 0 && (

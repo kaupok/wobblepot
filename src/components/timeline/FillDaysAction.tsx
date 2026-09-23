@@ -25,6 +25,7 @@ import {
   mealPlanGenerateFallbackKey,
   translateErrorCode,
 } from '@/lib/ai/error-codes'
+import { FieldError } from '@/components/FieldError'
 
 /**
  * How long the client waits before giving up on `/api/meal-plans/generate`.
@@ -159,11 +160,7 @@ export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
             {isGenerating ? tFill('submitting') : tFill('submit')}
           </Button>
         </div>
-        {error && (
-          <Body variant="small" className="text-destructive">
-            {error}
-          </Body>
-        )}
+        {error && <FieldError>{error}</FieldError>}
       </div>
     </>
   )

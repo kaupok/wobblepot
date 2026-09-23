@@ -49,11 +49,24 @@ Renders paragraph text with different text sizes and styles:
 <Body variant="lead">Lead/intro text (larger, muted)</Body>
 <Body variant="large">Large text (lg, semibold)</Body>
 <Body variant="small">Small text (sm, medium weight)</Body>
+<Body variant="paragraph">Wrapping foreground text (sm, normal line-height)</Body>
 <Body variant="muted">Muted text (sm, muted color)</Body>
 <Body variant="caption">Caption text (xs, medium weight, muted)</Body>
 ```
 
-**Available variants:** `default` | `lead` | `large` | `small` | `muted` | `caption`
+**Available variants:** `default` | `lead` | `large` | `small` | `paragraph` | `muted` | `caption`
+
+### `tone` — colour
+
+`Body` and `Li` take a `tone` prop that sets the text colour and composes with any `variant`:
+
+```tsx
+<Body variant="small" tone="muted">Single-line muted label</Body>
+<Body variant="small" tone="warning">Could not match this ingredient</Body>
+<Li tone="warning">Missing from pantry</Li>
+```
+
+**Available tones:** `default` | `muted` | `destructive` | `success` | `warning` | `info`. `variant="muted"` is the same as `variant="paragraph" tone="muted"`; keep using `muted` for helper text. A tone never stands alone — the callsite still needs a non-colour cue (docs/DESIGN.md → Color). For form errors use `FieldError` (`@/components/FieldError`), which renders `small` + `destructive` with `role="alert"`.
 
 ## Separation of Concerns
 
@@ -157,12 +170,22 @@ Renders paragraph text with different text sizes and styles:
 
 ## Custom Classes
 
-All typography components accept a `className` prop that merges with component classes via the `cn()` utility. **Only pass text-styling classes** (colors, sizes, weights, text-alignment) to maintain separation of concerns:
+All typography components accept a `className` prop that merges with component classes via the `cn()` utility. Size, weight and colour are **not** `className` concerns: they come from `variant` and `tone`, and `shadcn/no-restyle` fails `pnpm lint` on a `text-*` / `font-*` override (HON-675). The few text-state classes that remain allowed — `italic`, `line-through`, `uppercase` with `tracking-wide`, `transition-colors`, `font-mono` on `Body`; `font-normal` on `Label` — are listed by name, each with its reason, in `eslint.config.mjs`.
 
-**DO - text styling classes:**
+**DON'T - size or colour overrides:**
 
 ```tsx
-<Pre className="text-destructive text-xs">Error details</Pre>
+<Body variant="small" className="text-muted-foreground font-medium">
+  Label
+</Body>
+```
+
+**DO - pick the level and tone:**
+
+```tsx
+<Body variant="small" tone="muted">
+  Label
+</Body>
 ```
 
 **DON'T - layout classes on component:**
@@ -175,6 +198,6 @@ All typography components accept a `className` prop that merges with component c
 
 ```tsx
 <div className="mt-2 mb-4">
-  <Pre className="text-destructive text-xs">Error details</Pre>
+  <Pre>Error details</Pre>
 </div>
 ```

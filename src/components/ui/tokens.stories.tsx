@@ -128,7 +128,7 @@ function DestructiveView() {
       <span className="bg-destructive/10 inline-flex h-6 w-6 items-center justify-center rounded-full">
         <ThumbsDown className="text-destructive h-3.5 w-3.5" role="img" aria-label="Disliked" />
       </span>
-      <Body className="text-destructive">Destructive emphasis on the page surface</Body>
+      <Body tone="destructive">Destructive emphasis on the page surface</Body>
     </div>
   )
 }
@@ -244,7 +244,7 @@ export const TouchTarget: Story = {
  */
 const TYPE_SCALE = [
   { className: 'text-xs', level: 'Caption', fontSizePx: 14, lineHeightPx: 20 },
-  { className: 'text-sm', level: 'Body, Secondary', fontSizePx: 16, lineHeightPx: 24 },
+  { className: 'text-sm', level: 'Body, Paragraph, Secondary', fontSizePx: 16, lineHeightPx: 24 },
   { className: 'text-base', level: 'Section', fontSizePx: 18, lineHeightPx: 28 },
   { className: 'text-lg', level: '—', fontSizePx: 20, lineHeightPx: 28 },
   { className: 'text-xl', level: 'Title', fontSizePx: 22, lineHeightPx: 30 },

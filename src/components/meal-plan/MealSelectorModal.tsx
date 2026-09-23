@@ -286,7 +286,7 @@ export function MealSelectorModal({
                 checked={myRecipesOnly}
                 onCheckedChange={(checked) => setMyRecipesOnly(checked === true)}
               />
-              <Label htmlFor="my-recipes-only" className="cursor-pointer text-sm font-normal">
+              <Label htmlFor="my-recipes-only" className="cursor-pointer font-normal">
                 {tSelector('myRecipesOnly')}
               </Label>
             </div>

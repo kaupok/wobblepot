@@ -29,6 +29,7 @@ import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import type { Locale } from '@/lib/i18n/locales'
 import type { MealType } from '@/generated/prisma/enums'
+import { FieldError } from '@/components/FieldError'
 
 interface NutritionData {
   calories: number
@@ -362,12 +363,12 @@ export function ImagineReviewDialog({
             <div className="flex flex-col gap-2">
               <div className="flex gap-2">
                 {unresolvedCount > 0 && (
-                  <Badge variant="outline" className="text-warning">
+                  <Badge variant="warning">
                     {tForm('unmatchedBadge', { count: unresolvedCount })}
                   </Badge>
                 )}
                 {lowConfidenceCount > 0 && (
-                  <Badge variant="outline" className="text-info">
+                  <Badge variant="info">
                     {tForm('toVerifyBadge', { count: lowConfidenceCount })}
                   </Badge>
                 )}
@@ -411,9 +412,7 @@ export function ImagineReviewDialog({
                   ) : (
                     <ChevronRight className="text-muted-foreground h-4 w-4" />
                   )}
-                  <Body variant="small" className="font-medium">
-                    {t('matchedCollapse', { count: matchedCount })}
-                  </Body>
+                  <Body variant="small">{t('matchedCollapse', { count: matchedCount })}</Body>
                 </button>
               </CollapsibleTrigger>
               <CollapsibleContent>
@@ -427,7 +426,7 @@ export function ImagineReviewDialog({
                     return (
                       <div key={index} className="flex items-center justify-between px-3 py-1">
                         <Body variant="small">{row.ingredient.name}</Body>
-                        <Body variant="muted" className="text-xs">
+                        <Body variant="caption">
                           {row.isVague && row.originalPhrase ? (
                             <span className="italic">{row.originalPhrase}</span>
                           ) : (
@@ -446,11 +445,7 @@ export function ImagineReviewDialog({
           )}
 
           {/* Error */}
-          {error && (
-            <Body variant="small" className="text-destructive" role="alert">
-              {error}
-            </Body>
-          )}
+          {error && <FieldError>{error}</FieldError>}
         </div>
 
         {/* Plain column, not DialogFooter: its `sm:flex-row sm:justify-end` default

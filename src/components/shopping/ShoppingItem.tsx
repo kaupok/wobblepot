@@ -59,10 +59,8 @@ export function ShoppingItem({ item, onToggle, disabled, pending }: ShoppingItem
         />
         <div className="flex items-baseline gap-2">
           <Body
-            className={cn(
-              'transition-colors',
-              item.purchased && 'text-muted-foreground line-through',
-            )}
+            tone={item.purchased ? 'muted' : 'default'}
+            className={cn('transition-colors', item.purchased && 'line-through')}
           >
             {item.name}
           </Body>
@@ -70,7 +68,7 @@ export function ShoppingItem({ item, onToggle, disabled, pending }: ShoppingItem
             variant="muted"
             className={cn(
               'transition-colors',
-              item.purchased && 'text-muted-foreground/60 line-through',
+              item.purchased && 'line-through',
               item.isVague && 'italic',
             )}
           >

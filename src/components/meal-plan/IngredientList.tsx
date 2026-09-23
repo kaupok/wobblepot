@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Body, Ul, Li } from '@/components/ui/typography'
+import { Body, Heading, Ul, Li } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { formatInteger, formatQuantity as formatLocaleQuantity } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
@@ -134,9 +134,9 @@ export function IngredientList({
 
   // Default header label
   const defaultHeader = (
-    <Body variant="small" className="font-semibold whitespace-nowrap">
+    <Heading variant="section" as="h3" className="whitespace-nowrap">
       {tDetail('ingredientsHeader', { count: servings })}
-    </Body>
+    </Heading>
   )
 
   return (
@@ -162,11 +162,8 @@ export function IngredientList({
           return (
             <Li
               key={comp.ingredient.name}
-              className={cn(
-                'flex items-center gap-2',
-                showMissingStyle && 'text-warning',
-                isToggling && 'opacity-60',
-              )}
+              tone={showMissingStyle ? 'warning' : 'default'}
+              className={cn('flex items-center gap-2', isToggling && 'opacity-60')}
             >
               {showCheckbox && (
                 <Checkbox

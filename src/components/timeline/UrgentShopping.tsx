@@ -97,9 +97,7 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
       </CardHeader>
       <CardContent>
         <div className="flex flex-col gap-3">
-          <Body variant="muted" className="text-sm">
-            {summary}
-          </Body>
+          <Body variant="muted">{summary}</Body>
           <ul className="grid-cols-shopping-row grid gap-2">
             {unpurchasedItems.map((item) => (
               <li

@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
+import { FieldError } from '@/components/FieldError'
 
 export function SignInForm() {
   const router = useRouter()
@@ -102,12 +103,7 @@ export function SignInForm() {
         <CardContent>
           <div className="flex flex-col gap-4">
             {successMessage && (
-              <Body
-                variant="small"
-                className="text-success"
-                role="status"
-                data-testid="form-success"
-              >
+              <Body variant="paragraph" tone="success" role="status" data-testid="form-success">
                 {successMessage}
               </Body>
             )}
@@ -153,16 +149,8 @@ export function SignInForm() {
                 aria-describedby={error ? 'form-error' : undefined}
               />
             </div>
-            {error && (
-              <Body id="form-error" variant="small" className="text-destructive" role="alert">
-                {error}
-              </Body>
-            )}
-            {isSlowRequest && !error && (
-              <Body variant="small" className="text-muted-foreground">
-                {t('slowRequest')}
-              </Body>
-            )}
+            {error && <FieldError id="form-error">{error}</FieldError>}
+            {isSlowRequest && !error && <Body variant="muted">{t('slowRequest')}</Body>}
           </div>
         </CardContent>
         <CardFooter className="pt-6">
@@ -170,7 +158,7 @@ export function SignInForm() {
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? t('submitting') : t('submit')}
             </Button>
-            <Body variant="small" className="text-muted-foreground text-center">
+            <Body variant="muted" className="text-center">
               {t('dontHaveAccount')}{' '}
               <Link
                 href={

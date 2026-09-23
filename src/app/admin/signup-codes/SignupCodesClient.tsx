@@ -119,7 +119,7 @@ export function SignupCodesClient({ initialCodes }: SignupCodesClientProps) {
                   <li key={row.id} className="flex items-center justify-between gap-4 py-3">
                     <div className="flex flex-col gap-1">
                       <Body className="font-mono">{row.code}</Body>
-                      <Body variant="small" className="text-muted-foreground">
+                      <Body variant="small" tone="muted">
                         Created {formatDateTime(new Date(row.createdAt), DEFAULT_LOCALE)}
                         {row.note ? ` · ${row.note}` : ''}
                         {used ? ` · Used by ${row.usedByEmail ?? 'unknown'}` : ' · Unused'}

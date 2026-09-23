@@ -44,7 +44,7 @@ export function MealRatingPrompt({ planId, entryId, onRated, onDismiss }: MealRa
 
   return (
     <div className="bg-success-muted flex items-center gap-2 rounded-lg px-3 py-2">
-      <Body variant="small" className="text-success">
+      <Body variant="small" tone="success">
         {t('prompt')}
       </Body>
       <div className="flex gap-1">

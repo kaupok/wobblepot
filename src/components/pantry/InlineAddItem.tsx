@@ -161,9 +161,7 @@ export function InlineAddItem({
                 )}
               >
                 <div className="flex items-center gap-2">
-                  <Body className={isInPantry ? 'text-muted-foreground' : undefined}>
-                    {ingredient.name}
-                  </Body>
+                  <Body tone={isInPantry ? 'muted' : 'default'}>{ingredient.name}</Body>
                   <CategoryHint category={ingredient.category} />
                   {isInPantry && (
                     <span className="text-muted-foreground flex items-center gap-1 text-xs">

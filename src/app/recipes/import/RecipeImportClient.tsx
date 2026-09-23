@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import { RECIPE_IMPORT_ERROR_KEYS, translateErrorCode } from '@/lib/ai/error-codes'
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
 import type { PrefilledIngredient } from '@/components/household/MealForm'
+import { FieldError } from '@/components/FieldError'
 
 // Types for the parsed recipe response from the API
 interface IngredientAlternative {
@@ -344,17 +345,13 @@ export function RecipeImportClient() {
               className="resize-none"
               disabled={isParsing}
             />
-            {error && (
-              <Body variant="small" className="text-destructive">
-                {error}
-              </Body>
-            )}
+            {error && <FieldError>{error}</FieldError>}
             {warning && (
               <div className="border-warning/30 bg-warning-muted rounded-md border p-4">
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="text-warning mt-0.5 h-5 w-5 shrink-0" />
                   <div className="flex flex-col gap-3">
-                    <Body variant="small" className="text-warning">
+                    <Body variant="paragraph" tone="warning">
                       {warning.message}
                     </Body>
                     <div className="flex gap-2">

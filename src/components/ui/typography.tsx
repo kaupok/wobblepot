@@ -5,7 +5,21 @@ import React from 'react'
 // Variant type exports for type reusability
 export type HeadingVariant = 'h1' | 'h2' | 'h3' | 'h4' | 'section'
 export type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'span' | 'div'
-export type BodyVariant = 'default' | 'lead' | 'large' | 'small' | 'muted' | 'caption'
+export type BodyVariant = 'default' | 'lead' | 'large' | 'small' | 'paragraph' | 'muted' | 'caption'
+export type BodyTone = 'default' | 'muted' | 'destructive' | 'success' | 'warning' | 'info'
+
+// Text colour, shared by `Body` and `Li` so the two cannot drift. The primitive
+// owns colour; a caller picks a tone rather than passing a `text-*` class
+// (HON-675, enforced by `shadcn/no-restyle`). A tone never stands alone: the
+// callsite still owes a non-colour cue — see docs/DESIGN.md -> Color.
+export const toneVariants = {
+  default: '',
+  muted: 'text-muted-foreground',
+  destructive: 'text-destructive',
+  success: 'text-success',
+  warning: 'text-warning',
+  info: 'text-info',
+} as const satisfies Record<BodyTone, string>
 
 // Heading component. `variant` picks the visual level from the type scale;
 // `as` picks the HTML tag for the document outline. They are independent —
@@ -66,12 +80,15 @@ const bodyVariants = cva('', {
       lead: 'text-xl text-muted-foreground',
       large: 'text-lg font-semibold',
       small: 'text-sm font-medium leading-none',
+      paragraph: 'text-sm leading-normal',
       muted: 'text-sm text-muted-foreground',
       caption: 'text-xs font-medium text-muted-foreground',
     },
+    tone: toneVariants,
   },
   defaultVariants: {
     variant: 'default',
+    tone: 'default',
   },
 })
 
@@ -79,12 +96,12 @@ interface BodyProps
   extends React.HTMLAttributes<HTMLParagraphElement>, VariantProps<typeof bodyVariants> {}
 
 export const Body = React.forwardRef<HTMLParagraphElement, BodyProps>(
-  ({ className, variant, ...props }, ref) => {
+  ({ className, variant, tone, ...props }, ref) => {
     const effectiveVariant = variant ?? 'default'
     return (
       <p
         ref={ref}
-        className={cn(bodyVariants({ variant: effectiveVariant }), className)}
+        className={cn(bodyVariants({ variant: effectiveVariant, tone }), className)}
         {...props}
       />
     )
@@ -121,10 +138,17 @@ export const Ol = React.forwardRef<HTMLOListElement, React.HTMLAttributes<HTMLOL
 )
 Ol.displayName = 'Ol'
 
-// List item
-export const Li = React.forwardRef<HTMLLIElement, React.HTMLAttributes<HTMLLIElement>>(
-  ({ className, ...props }, ref) => <li ref={ref} className={cn(className)} {...props} />,
-)
+// List item. Only a tone axis: size comes from the surrounding list.
+const liVariants = cva('', {
+  variants: { tone: toneVariants },
+  defaultVariants: { tone: 'default' },
+})
+
+interface LiProps extends React.LiHTMLAttributes<HTMLLIElement>, VariantProps<typeof liVariants> {}
+
+export const Li = React.forwardRef<HTMLLIElement, LiProps>(({ className, tone, ...props }, ref) => (
+  <li ref={ref} className={cn(liVariants({ tone }), className)} {...props} />
+))
 Li.displayName = 'Li'
 
 // Code - Inline code
