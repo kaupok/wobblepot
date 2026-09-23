@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act } from 'react'
+import { hydrateRoot } from 'react-dom/client'
+import { renderToString } from 'react-dom/server'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
 import { ShoppingSection } from './ShoppingSection'
@@ -471,5 +474,47 @@ describe('ShoppingSection copy to clipboard', () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Couldn't copy the list"))
     expect(toast.success).not.toHaveBeenCalled()
     expect(track).not.toHaveBeenCalled()
+  })
+})
+
+// HON-771: both header selects used to be gated on a client-only `mounted`
+// flag, so they were missing from the server HTML and popped in after
+// hydration, re-wrapping the header.
+describe('ShoppingSection server render', () => {
+  function tree() {
+    const { wrapper: Wrapper } = createQueryWrapper()
+    return (
+      <Wrapper>
+        <ShoppingSection {...defaultProps} />
+      </Wrapper>
+    )
+  }
+
+  it('renders the sort and time-window selects in the server HTML', () => {
+    const html = renderToString(tree())
+
+    expect(html).toContain('aria-label="Sort items"')
+    expect(html).toContain('aria-label="Time window"')
+  })
+
+  it('hydrates without a mismatch and then applies a stored sort mode', async () => {
+    // The server has no localStorage, so it renders the default sort.
+    const html = renderToString(tree())
+    localStorage.setItem('shopping-list-sort-mode', 'urgency')
+
+    const container = document.createElement('div')
+    container.innerHTML = html
+    document.body.appendChild(container)
+    const onRecoverableError = vi.fn()
+
+    await act(async () => {
+      hydrateRoot(container, tree(), { onRecoverableError })
+    })
+
+    expect(onRecoverableError).not.toHaveBeenCalled()
+    expect(within(container).getByRole('combobox', { name: 'Sort items' })).toHaveTextContent(
+      'By urgency',
+    )
+    container.remove()
   })
 })
