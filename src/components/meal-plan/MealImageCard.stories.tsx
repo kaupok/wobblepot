@@ -182,7 +182,7 @@ const LONG_TITLE = 'Baked Salmon with Asparagus'
  */
 function TrailingActionsCard({ meal, ...args }: React.ComponentProps<typeof MealImageCard>) {
   return (
-    <MealImageCard {...args} meal={meal} trailingActions className="gap-2 py-2">
+    <MealImageCard {...args} meal={meal} trailingActions size="sm">
       <CardHeader className="px-3 pb-0">
         <div className="flex items-start justify-between gap-1">
           <div className={cn('min-w-0', mealImageTitleWidth(true))}>

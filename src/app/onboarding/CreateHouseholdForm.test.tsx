@@ -189,7 +189,7 @@ describe('CreateHouseholdForm', () => {
       await userEvent.click(member2ChildBtn)
 
       // The Child button for member 2 should now be the "default" variant
-      expect(member2ChildBtn).toHaveClass('text-xs')
+      expect(member2ChildBtn).toHaveClass('bg-primary')
     })
 
     it('allows entering names for additional members', async () => {

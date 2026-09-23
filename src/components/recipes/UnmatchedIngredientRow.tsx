@@ -120,14 +120,7 @@ export function UnmatchedIngredientRow({
             </Body>
           </div>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onRemove}
-          disabled={disabled}
-          className="text-warning hover:text-warning"
-        >
+        <Button type="button" variant="quiet" size="sm" onClick={onRemove} disabled={disabled}>
           <X className="mr-1 h-4 w-4" />
           {t('drop')}
         </Button>

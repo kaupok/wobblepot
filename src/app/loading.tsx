@@ -11,8 +11,8 @@ export default function HomeLoading() {
 
           {/* Meal cards */}
           <div className="flex flex-col gap-4">
-            <Skeleton className="h-28 w-full rounded-lg" />
-            <Skeleton className="h-28 w-full rounded-lg" />
+            <Skeleton shape="card" className="h-28 w-full" />
+            <Skeleton shape="card" className="h-28 w-full" />
           </div>
 
           {/* Tomorrow preview heading */}
@@ -20,7 +20,7 @@ export default function HomeLoading() {
 
           {/* Tomorrow meal cards */}
           <div className="flex flex-col gap-4">
-            <Skeleton className="h-28 w-full rounded-lg" />
+            <Skeleton shape="card" className="h-28 w-full" />
           </div>
         </div>
 
@@ -28,9 +28,9 @@ export default function HomeLoading() {
         <div className="flex flex-col gap-6">
           <Skeleton className="h-7 w-36" />
           <div className="flex flex-col gap-3">
-            <Skeleton className="h-10 w-full rounded-lg" />
-            <Skeleton className="h-10 w-full rounded-lg" />
-            <Skeleton className="h-10 w-full rounded-lg" />
+            <Skeleton shape="card" className="h-10 w-full" />
+            <Skeleton shape="card" className="h-10 w-full" />
+            <Skeleton shape="card" className="h-10 w-full" />
           </div>
         </div>
       </div>

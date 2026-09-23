@@ -18,7 +18,7 @@ export default function InviteLoading() {
 
         {/* Action button */}
         <div className="mt-6">
-          <Skeleton className="h-touch w-full rounded-md md:h-10" />
+          <Skeleton className="h-touch w-full md:h-10" />
         </div>
       </div>
     </div>

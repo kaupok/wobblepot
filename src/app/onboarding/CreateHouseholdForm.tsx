@@ -269,7 +269,6 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
                         variant={row.portionType === 'adult' ? 'default' : 'outline'}
                         onClick={() => handlePortionTypeChange(index, 'adult')}
                         disabled={isLoading || index === 0}
-                        className="px-3 text-xs"
                       >
                         {t('adult')}
                       </Button>
@@ -278,7 +277,6 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
                         variant={row.portionType === 'child' ? 'default' : 'outline'}
                         onClick={() => handlePortionTypeChange(index, 'child')}
                         disabled={isLoading || index === 0}
-                        className="px-3 text-xs"
                       >
                         {t('child')}
                       </Button>

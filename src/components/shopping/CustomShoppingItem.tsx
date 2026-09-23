@@ -82,10 +82,9 @@ export function CustomShoppingItem({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="ghost"
+                variant="quiet"
                 size="icon-sm"
                 onClick={() => onUnlink(item.id)}
-                className="text-muted-foreground"
                 aria-label={tShopping('ariaUnlink', { name: item.name })}
               >
                 <Unlink className="size-4" />
@@ -99,10 +98,9 @@ export function CustomShoppingItem({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant="ghost"
+              variant="quiet-destructive"
               size="icon-sm"
               onClick={() => onDelete(item.id)}
-              className="text-muted-foreground hover:text-destructive"
               aria-label={tShopping('ariaRemove', { name: item.name })}
             >
               <X className="size-4" />

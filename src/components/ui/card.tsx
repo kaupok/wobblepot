@@ -1,13 +1,34 @@
+import { cva, type VariantProps } from 'class-variance-authority'
+
 import { cn } from '@/lib/utils'
 
-function Card({ className, ...props }: React.ComponentProps<'div'>) {
+// `sm` is the dense card of a grid of many (the meal-plan week, the meal
+// library), where `gap-6 py-6` would leave a 390px column mostly padding. It
+// sets only the card's own rhythm; the parts' horizontal padding stays with
+// `CardHeader` / `CardContent` / `CardFooter`, which the page may adjust
+// (HON-674, `shadcn/no-restyle` contract in eslint.config.mjs).
+const cardVariants = cva('bg-card text-card-foreground flex flex-col rounded-xl border', {
+  variants: {
+    size: {
+      default: 'gap-6 py-6',
+      sm: 'gap-2 py-2',
+    },
+  },
+  defaultVariants: {
+    size: 'default',
+  },
+})
+
+function Card({
+  className,
+  size,
+  ...props
+}: React.ComponentProps<'div'> & VariantProps<typeof cardVariants>) {
   return (
     <div
       data-slot="card"
-      className={cn(
-        'bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6',
-        className,
-      )}
+      data-size={size ?? 'default'}
+      className={cn(cardVariants({ size }), className)}
       {...props}
     />
   )

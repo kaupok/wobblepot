@@ -29,7 +29,7 @@ export default function ProfileLoading() {
         <div className="flex flex-col gap-3">
           <Skeleton className="h-6 w-28" />
           <Skeleton className="h-5 w-64" />
-          <Skeleton className="h-touch w-32 rounded-md md:h-10" />
+          <Skeleton className="h-touch w-32 md:h-10" />
         </div>
       </div>
     </div>

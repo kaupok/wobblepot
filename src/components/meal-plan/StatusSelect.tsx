@@ -27,10 +27,20 @@ interface StatusSelectProps {
   disabled?: boolean
 }
 
+// The tint is on our own content rather than on `SelectTrigger` / `SelectItem`:
+// those own their colour (`shadcn/no-restyle`), and `SelectValue` renders this
+// same node in the trigger, so one tint covers both places.
 function StatusOption({ status }: { status: MealStatus }) {
   const label = useEnumLabel('MealPlanEntryStatus', status)
   return (
-    <span className="flex items-center gap-2">
+    <span
+      className={cn(
+        'flex items-center gap-2',
+        status === 'planned' && 'text-muted-foreground',
+        status === 'completed' && 'text-success',
+        status === 'skipped' && 'text-warning',
+      )}
+    >
       <span>{STATUS_ICON[status]}</span>
       <span>{label}</span>
     </span>
@@ -42,31 +52,14 @@ export function StatusSelect({ value, onChange, disabled }: StatusSelectProps) {
 
   return (
     <Select value={value} onValueChange={onChange} disabled={disabled}>
-      <SelectTrigger
-        size="sm"
-        aria-label={tStatus('ariaLabel')}
-        className={cn(
-          'w-35',
-          value === 'planned' && 'text-muted-foreground',
-          value === 'completed' && 'text-success',
-          value === 'skipped' && 'text-warning',
-        )}
-      >
+      <SelectTrigger size="sm" aria-label={tStatus('ariaLabel')} className="w-35">
         <SelectValue>
           <StatusOption status={value} />
         </SelectValue>
       </SelectTrigger>
       <SelectContent>
         {STATUS_VALUES.map((status) => (
-          <SelectItem
-            key={status}
-            value={status}
-            className={cn(
-              status === 'planned' && 'text-muted-foreground',
-              status === 'completed' && 'text-success',
-              status === 'skipped' && 'text-warning',
-            )}
-          >
+          <SelectItem key={status} value={status}>
             <StatusOption status={status} />
           </SelectItem>
         ))}

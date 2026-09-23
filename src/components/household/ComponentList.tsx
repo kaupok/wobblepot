@@ -79,11 +79,10 @@ export function ComponentList({
               {comp.isVague ? (
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="quiet"
                   size="sm"
                   onClick={() => onSetQuantity(comp.ingredientId, comp.ingredient.defaultUnit)}
                   disabled={disabled}
-                  className="text-muted-foreground hover:text-foreground"
                 >
                   {t('setQuantity')}
                 </Button>
@@ -100,7 +99,8 @@ export function ComponentList({
                       onValueChange={(v) => {
                         if (v !== null) onUpdateQuantity(comp.ingredientId, v)
                       }}
-                      className="w-20 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                      embedded
+                      className="w-20"
                       disabled={disabled}
                       aria-label={t('totalQuantityAria', { name: comp.ingredient.name })}
                     />
@@ -112,11 +112,10 @@ export function ComponentList({
                   </div>
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="quiet"
                     size="sm"
                     onClick={() => onMarkAsVague(comp.ingredientId)}
                     disabled={disabled}
-                    className="text-muted-foreground hover:text-foreground"
                   >
                     {t('noQuantity')}
                   </Button>

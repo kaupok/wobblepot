@@ -5,6 +5,27 @@ import testingLibrary from 'eslint-plugin-testing-library'
 import storybook from 'eslint-plugin-storybook'
 import { plugin as shadcn } from '@shadcn/lint'
 
+// `shadcn/no-restyle` (HON-674) classifies a class through its own Tailwind
+// grammar, which does not read our `@theme` spacing tokens or `@utility` names
+// the way `no-unknown-classes` does — so it reports `h-touch` and `max-h-dialog`
+// as "the grammar does not recognize it". Every one of these is layout (a
+// height, a width cap, a grid track), so they are allowed wherever `layout` is.
+// Contracts replace the top-level `allow` rather than extending it, so each
+// contract spreads this list in.
+// REMOVE WHEN: @shadcn/lint's `no-restyle` classifier reads custom `--spacing-*`
+// tokens and `@utility` names from globals.css (checked against 0.1.0).
+const UNCLASSIFIED_LAYOUT = [
+  '*-touch',
+  'min-h-screen-below-header',
+  'min-h-screen-below-header-gutters',
+  'scroll-mt-below-header',
+  'max-h-dialog',
+  'grid-cols-timeline',
+  'grid-cols-shopping-row',
+  'max-w-page',
+]
+const LAYOUT = ['layout', ...UNCLASSIFIED_LAYOUT]
+
 const config = defineConfig([
   // Next.js + TypeScript base rules (native flat config)
   ...nextVitals,
@@ -56,11 +77,13 @@ const config = defineConfig([
     },
   },
 
-  // @shadcn/lint (HON-673). The five rules whose findings need no per-component
-  // judgment, as CI errors. The sixth — `no-restyle`, the one the plugin exists
-  // for — is registered `off` at the bottom of this block; HON-674 (layout,
-  // shape, spacing) and HON-675 (typography, colour) turn it on and reuse this
-  // block and the `src/components/ui/**` override below.
+  // @shadcn/lint (HON-673, HON-674). All six rules as CI errors. The first five
+  // need no per-component judgment. The sixth, `no-restyle`, is the one the
+  // plugin exists for: a page may place a primitive (`layout`), and each
+  // contract below says what else that page may change and why; everything
+  // else — size, shape, colour, padding — is a variant's job. It is off inside
+  // `src/components/ui/**` (the override further down), where primitives
+  // compose each other.
   //
   // Tests and stories are excluded wholesale, through `ignores` rather than
   // per-line disables: test fixtures use fake class names on purpose (`class-1`,
@@ -106,10 +129,65 @@ const config = defineConfig([
       ],
       'shadcn/no-unknown-classes': 'error',
       'shadcn/require-static-classes': 'error',
-      // Off on purpose. It needs per-component contracts, and the ~134 findings
-      // on the type primitives need a design decision first (DESIGN.md → Open
-      // questions). See HON-674 and HON-675.
-      'shadcn/no-restyle': 'off',
+      'shadcn/no-restyle': [
+        'error',
+        {
+          allow: LAYOUT,
+          // The baseline for every primitive without a contract (`Skeleton`,
+          // `Card`, `Select*`, `Dialog*` …) is placement and size only: width,
+          // height, margin, flex and grid participation, position. Padding,
+          // radius, colour and type are the component's, reached through its
+          // variant and size props. Contracts replace `allow` for the
+          // components they match, and the last matching contract wins.
+          contracts: [
+            // Whether a card has a header, a footer, or neither is the page's
+            // decision, and the parts' padding is the seam that decision moves
+            // (`pt-0` under a missing header, `px-3` in a dense `size="sm"`
+            // card). `no-arbitrary-values` still keeps it on the scale.
+            {
+              pattern: '^Card(Content|Header|Footer)$',
+              allow: [...LAYOUT, 'spacing'],
+            },
+            // Control height is the 44px touch floor below `md` (HON-612), set by
+            // the `size` prop — so on the fixed-height controls a height class
+            // is a size override even though the grammar files it under layout.
+            // Width, margin and flex placement stay the page's. `Input` adds
+            // search fields' `pl-9` / `pr-9` inset past a leading search icon
+            // and a trailing clear button (the same at all four callsites), and
+            // `font-mono` for codes and links shown to be copied.
+            {
+              pattern: '^(Button|SelectTrigger)$',
+              allow: LAYOUT,
+              deny: ['h-*', 'min-h-*', 'max-h-*', 'size-*'],
+              message: {
+                layout:
+                  'Set a control height with the size prop, not a class: the default is the 44px touch floor.',
+              },
+            },
+            {
+              pattern: '^Input$',
+              allow: [...LAYOUT, 'pl-9', 'pr-9', 'font-mono'],
+              deny: ['h-*', 'min-h-*', 'max-h-*', 'size-*'],
+              message: {
+                layout:
+                  'An Input is as tall as a default Button so a field and its button line up.',
+              },
+            },
+            // TEMPORARY — HON-675 deletes this contract. Typography and colour
+            // overrides on the type primitives wait on a design decision
+            // (docs/DESIGN.md → Open questions, item 1: `Body` has no wrapping
+            // small variant). `Label` and `Badge` carry the same kind of
+            // override; `NutritionDisclaimer` forwards `className` to `Body`.
+            // `gap-*` / `opacity-*` are `IngredientList`'s flex `Li` rows, and
+            // `transition-colors` animates the shopping rows' checked colour;
+            // HON-675 moves each along with the colour it belongs to.
+            {
+              pattern: '^(Body|Pre|Li|Heading|Label|Badge|NutritionDisclaimer)$',
+              allow: [...LAYOUT, 'typography', 'color', 'gap-*', 'opacity-*', 'transition-colors'],
+            },
+          ],
+        },
+      ],
     },
   },
 
@@ -133,6 +211,15 @@ const config = defineConfig([
       'src/components/ui/{separator,sheet,skeleton,table,textarea,tooltip}.tsx',
     ],
     rules: { 'shadcn/no-arbitrary-values': 'off' },
+  },
+
+  // `no-restyle` is off inside the primitives themselves: they compose each
+  // other (`AlertDialogAction` renders `buttonVariants()`, `NumberInput` wraps
+  // `Input`), and the rule would read that composition as a restyle. A variant
+  // added here is the fix the rule points callsites at, not a finding.
+  {
+    files: ['src/components/ui/**/*.{ts,tsx}'],
+    rules: { 'shadcn/no-restyle': 'off' },
   },
 
   // Testing Library rules (only for test files)

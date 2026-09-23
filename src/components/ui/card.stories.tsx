@@ -68,3 +68,24 @@ export const HeaderOnly: Story = {
     </Card>
   ),
 }
+
+// `size="sm"`: the dense card of a grid of many (a meal-plan day). Only the
+// card's own gap and vertical padding tighten; the parts' horizontal padding
+// is set by the page, as `MealCard` does.
+export const Small: Story = {
+  render: () => (
+    <Card size="sm" className="w-64">
+      <CardHeader className="px-3">
+        <CardTitle>Mushroom risotto</CardTitle>
+      </CardHeader>
+      <CardContent className="px-3">
+        <p className="text-muted-foreground text-sm">Dinner · 45 min</p>
+      </CardContent>
+      <CardFooter className="px-3">
+        <Button variant="outline" size="sm" className="w-full">
+          Swap
+        </Button>
+      </CardFooter>
+    </Card>
+  ),
+}

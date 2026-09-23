@@ -16,17 +16,17 @@ export default function CreateRecipeLoading() {
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Skeleton className="h-4 w-20" />
-              <Skeleton className="h-touch w-full rounded-md md:h-10" />
+              <Skeleton className="h-touch w-full md:h-10" />
             </div>
             <div className="flex flex-col gap-2">
               <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-24 w-full rounded-md" />
+              <Skeleton className="h-24 w-full" />
             </div>
           </div>
 
           {/* Footer with button */}
           <div className="mt-6 flex justify-end">
-            <Skeleton className="h-touch w-28 rounded-md md:h-10" />
+            <Skeleton className="h-touch w-28 md:h-10" />
           </div>
         </div>
       </div>

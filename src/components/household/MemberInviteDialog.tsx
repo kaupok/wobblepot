@@ -128,12 +128,7 @@ export function MemberInviteDialog({
             <div className="flex flex-col gap-2">
               <Label htmlFor="invite-link">{t('linkLabel')}</Label>
               <div className="flex gap-2">
-                <Input
-                  id="invite-link"
-                  value={displayInvite.url}
-                  readOnly
-                  className="font-mono text-sm"
-                />
+                <Input id="invite-link" value={displayInvite.url} readOnly className="font-mono" />
                 <Button variant="outline" onClick={handleCopy} className="shrink-0">
                   {copied ? t('copied') : t('copy')}
                 </Button>

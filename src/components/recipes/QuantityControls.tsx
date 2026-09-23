@@ -51,7 +51,8 @@ export function QuantityControls({
             if (v !== null) onQuantityChange(v)
           }}
           aria-label={t('quantityAria')}
-          className="w-20 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+          embedded
+          className="w-20"
           disabled={disabled}
         />
         {unitLabel && (

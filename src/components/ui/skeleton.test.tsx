@@ -17,6 +17,22 @@ describe('Skeleton', () => {
     expect(screen.getByRole('status')).toHaveClass('animate-pulse', 'h-9', 'w-full')
   })
 
+  // HON-674: the radius is the component's, named after what the skeleton
+  // mirrors, so callsites never pass `rounded-*` (`shadcn/no-restyle`).
+  it.each([
+    [undefined, 'rounded-md'],
+    ['card', 'rounded-lg'],
+    ['circle', 'rounded-full'],
+    ['checkbox', 'rounded-sm'],
+    ['flush', 'rounded-none'],
+  ] as const)('renders shape %s as %s', (shape, radius) => {
+    render(<Skeleton shape={shape} className="size-4" />)
+
+    const skeleton = screen.getByRole('status')
+    expect(skeleton).toHaveClass(radius)
+    expect(skeleton).toHaveAttribute('data-shape', shape ?? 'default')
+  })
+
   // HON-582: this `role="status"` is shared with every success banner in the
   // app, so an unscoped `getByRole('status')` in a Playwright spec matches each
   // loader on screen and fails strict mode instead of waiting for the banner.

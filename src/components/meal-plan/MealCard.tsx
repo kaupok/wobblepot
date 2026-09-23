@@ -284,7 +284,7 @@ export function MealCard({
 
     return (
       <>
-        <Card className="gap-2 py-2">
+        <Card size="sm">
           <CardContent className="flex flex-col gap-1.5 px-3 pb-1">
             {note ? (
               <Body variant="muted" className="italic">
@@ -339,7 +339,7 @@ export function MealCard({
         meal={tintMeal ?? meal}
         trailingActions={hasTrailingActions}
         titleBand
-        className="gap-2 py-2"
+        size="sm"
       >
         <CardHeader className="px-3 pb-0">
           <div className="flex items-start justify-between gap-1">

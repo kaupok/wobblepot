@@ -78,7 +78,7 @@ const TagInput = forwardRef<TagInputRef, TagInputProps>(function TagInput(
       )}
     >
       {value.map((tag) => (
-        <Badge key={tag} variant="secondary" className="h-6 gap-1 py-0 pr-1 text-xs">
+        <Badge key={tag} variant="secondary" className="h-6">
           {tag}
           {!disabled && (
             <button

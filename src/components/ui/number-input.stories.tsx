@@ -129,6 +129,22 @@ export const WithLabel: Story = {
   ),
 }
 
+// The quantity-with-unit group from `ComponentList` and `QuantityControls`: the
+// wrapper draws the border, so the embedded field draws none of its own.
+export const Embedded: Story = {
+  render: () => (
+    <div className="border-input flex w-fit items-center rounded-md border">
+      <Controlled aria-label="quantity" embedded initial={250} className="w-20" />
+      <span className="text-muted-foreground bg-muted border-l px-2 py-1.5 text-sm">g</span>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const input = within(canvasElement).getByRole('textbox', { name: /quantity/i })
+    await expect(input).toHaveClass('border-0')
+    await expect(getComputedStyle(input).borderTopWidth).toBe('0px')
+  },
+}
+
 // WHY: Mirrors `input.stories.tsx` — disabled inputs dip below 4.5:1 contrast,
 // which WCAG 1.4.3 exempts for inactive UI but axe can't infer.
 export const AllVariants: Story = {

@@ -11,19 +11,19 @@ export default function HouseholdLoading() {
         <div className="flex flex-col gap-6">
           <Skeleton className="h-7 w-40" />
           <div className="flex flex-col gap-4">
-            <Skeleton className="h-touch w-full rounded-md md:h-10" />
-            <Skeleton className="h-touch w-full rounded-md md:h-10" />
-            <Skeleton className="h-touch w-full rounded-md md:h-10" />
+            <Skeleton className="h-touch w-full md:h-10" />
+            <Skeleton className="h-touch w-full md:h-10" />
+            <Skeleton className="h-touch w-full md:h-10" />
           </div>
-          <Skeleton className="h-touch w-24 rounded-md md:h-10" />
+          <Skeleton className="h-touch w-24 md:h-10" />
         </div>
 
         {/* Right column: Members */}
         <div className="flex flex-col gap-6">
           <Skeleton className="h-7 w-28" />
           <div className="flex flex-col gap-3">
-            <Skeleton className="h-16 w-full rounded-lg" />
-            <Skeleton className="h-16 w-full rounded-lg" />
+            <Skeleton shape="card" className="h-16 w-full" />
+            <Skeleton shape="card" className="h-16 w-full" />
           </div>
         </div>
       </div>

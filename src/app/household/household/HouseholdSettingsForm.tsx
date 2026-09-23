@@ -340,7 +340,7 @@ export function HouseholdSettingsForm({
                 value={dietaryType}
                 onValueChange={(value) => setDietaryType(value as DietaryType | 'none')}
                 disabled={controlsDisabled}
-                className="flex flex-wrap gap-4"
+                className="flex flex-wrap"
               >
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="none" id="dietary-none" />
