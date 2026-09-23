@@ -5,6 +5,7 @@ import { ThumbsUp, ThumbsDown, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import { Toggle } from '@/components/ui/toggle'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import type { EntryRating } from './types'
@@ -166,36 +167,30 @@ export function MealRatingInline({
     }
   }
 
-  // The thumbs are an aria-pressed toggle pair, not two buttons: round, and
-  // tinted with the rating's own meaning while pressed. `Button` has no pressed
-  // state and there is no `Toggle` primitive yet, so the pressed treatment lives
-  // here — the one deliberate `no-restyle` exception (HON-674).
-  /* eslint-disable shadcn/no-restyle -- pressed-state tint of a toggle pair; see above */
   return (
     <div className="flex items-center gap-1">
-      <Button
-        variant={rating === 'up' ? 'ghost' : 'quiet'}
-        size="icon-sm"
-        onClick={() => handleRate('up')}
+      <Toggle
+        tone="success"
+        shape="circle"
+        size="sm"
+        pressed={rating === 'up'}
+        onPressedChange={() => handleRate('up')}
         disabled={isSubmitting}
-        className={cn('rounded-full', rating === 'up' && 'bg-success-muted text-success')}
         aria-label={t('thumbsUp')}
-        aria-pressed={rating === 'up'}
       >
         <ThumbsUp className="size-4" />
-      </Button>
-      <Button
-        variant={rating === 'down' ? 'ghost' : 'quiet'}
-        size="icon-sm"
-        onClick={() => handleRate('down')}
+      </Toggle>
+      <Toggle
+        tone="destructive"
+        shape="circle"
+        size="sm"
+        pressed={rating === 'down'}
+        onPressedChange={() => handleRate('down')}
         disabled={isSubmitting}
-        className={cn('rounded-full', rating === 'down' && 'bg-destructive/10 text-destructive')}
         aria-label={t('thumbsDown')}
-        aria-pressed={rating === 'down'}
       >
         <ThumbsDown className="size-4" />
-      </Button>
+      </Toggle>
     </div>
   )
-  /* eslint-enable shadcn/no-restyle */
 }

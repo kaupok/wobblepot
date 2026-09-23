@@ -208,7 +208,7 @@ const config = defineConfig([
     files: [
       'src/components/ui/{alert-dialog,badge,button,card,checkbox,collapsible}.tsx',
       'src/components/ui/{dialog,dropdown-menu,input,label,radio-group,select}.tsx',
-      'src/components/ui/{separator,sheet,skeleton,table,textarea,tooltip}.tsx',
+      'src/components/ui/{separator,sheet,skeleton,table,textarea,toggle,tooltip}.tsx',
     ],
     rules: { 'shadcn/no-arbitrary-values': 'off' },
   },

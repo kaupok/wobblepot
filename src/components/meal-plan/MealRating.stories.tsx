@@ -21,6 +21,20 @@ async function expectButtonsAtFloor(canvasElement: HTMLElement) {
   }
 }
 
+/** The thumbs are a toggle pair: `aria-pressed` names the current rating, and each is 32×32. */
+async function expectThumbsPressed(canvasElement: HTMLElement, rating: 'up' | 'down' | null) {
+  const canvas = within(canvasElement)
+  const up = canvas.getByRole('button', { name: 'Thumbs up' })
+  const down = canvas.getByRole('button', { name: 'Thumbs down' })
+  await expect(up).toHaveAttribute('aria-pressed', String(rating === 'up'))
+  await expect(down).toHaveAttribute('aria-pressed', String(rating === 'down'))
+  for (const thumb of [up, down]) {
+    const { width, height } = thumb.getBoundingClientRect()
+    await expect(width).toBe(32)
+    await expect(height).toBe(32)
+  }
+}
+
 export const InlineNoRating: Story = {
   args: {
     planId: 'plan-1',
@@ -28,7 +42,10 @@ export const InlineNoRating: Story = {
     rating: null,
     onRatingChange: fn(),
   },
-  play: async ({ canvasElement }) => expectButtonsAtFloor(canvasElement),
+  play: async ({ canvasElement }) => {
+    await expectButtonsAtFloor(canvasElement)
+    await expectThumbsPressed(canvasElement, null)
+  },
 }
 
 export const InlineThumbsUp: Story = {
@@ -38,6 +55,7 @@ export const InlineThumbsUp: Story = {
     rating: 'up',
     onRatingChange: fn(),
   },
+  play: async ({ canvasElement }) => expectThumbsPressed(canvasElement, 'up'),
 }
 
 export const InlineThumbsDown: Story = {
@@ -47,6 +65,7 @@ export const InlineThumbsDown: Story = {
     rating: 'down',
     onRatingChange: fn(),
   },
+  play: async ({ canvasElement }) => expectThumbsPressed(canvasElement, 'down'),
 }
 
 export const Prompt: StoryObj = {
