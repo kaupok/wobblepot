@@ -114,45 +114,51 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {meals.map((meal) => (
-        <MealImageCard key={meal.id} meal={meal}>
-          <CardContent className="p-4">
-            <div className="flex flex-col gap-2">
-              <MealCardBase meal={meal} />
+    <>
+      {/* One column on a phone, two from `sm`, three from `lg`. Each card
+          picks its image geometry from its own width (`@md/meal-image`), so
+          narrow columns need nothing from here (HON-747). */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {meals.map((meal) => (
+          <MealImageCard key={meal.id} meal={meal}>
+            <CardContent className="p-4">
+              <div className="flex flex-col gap-2">
+                {/* h2: the page title is the h1 (HON-747) */}
+                <MealCardBase meal={meal} nameHeadingTag="h2" />
 
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleToggleFavorite(meal)}
-                  disabled={togglingFavorite === meal.id}
-                  aria-label={
-                    meal.isFavorite ? t('removeFromFavoritesAria') : t('addToFavoritesAria')
-                  }
-                >
-                  <Heart
-                    className={cn('h-4 w-4', meal.isFavorite && 'text-primary fill-current')}
-                  />
-                </Button>
-                <Button variant="ghost" size="sm" asChild aria-label={t('editAria')}>
-                  <Link href={`/recipes/${meal.id}/edit`}>
-                    <Pencil className="h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setDeleteConfirmMeal(meal)}
-                  aria-label={t('deleteAria')}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleToggleFavorite(meal)}
+                    disabled={togglingFavorite === meal.id}
+                    aria-label={
+                      meal.isFavorite ? t('removeFromFavoritesAria') : t('addToFavoritesAria')
+                    }
+                  >
+                    <Heart
+                      className={cn('h-4 w-4', meal.isFavorite && 'text-primary fill-current')}
+                    />
+                  </Button>
+                  <Button variant="ghost" size="sm" asChild aria-label={t('editAria')}>
+                    <Link href={`/recipes/${meal.id}/edit`}>
+                      <Pencil className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDeleteConfirmMeal(meal)}
+                    aria-label={t('deleteAria')}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </MealImageCard>
-      ))}
+            </CardContent>
+          </MealImageCard>
+        ))}
+      </div>
 
       <ConfirmDialog
         open={deleteConfirmMeal !== null}
@@ -168,6 +174,6 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
         onConfirm={handleDelete}
         isLoading={isDeleting}
       />
-    </div>
+    </>
   )
 }

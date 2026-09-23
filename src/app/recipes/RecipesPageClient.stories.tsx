@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { expect, within } from 'storybook/test'
 import { emptyMealsHandlers, errorMealsHandlers } from '@/stories/msw-handlers'
 import { RecipesPageClient } from './RecipesPageClient'
 
@@ -20,7 +21,20 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const Populated: Story = {}
+// The title is the page's h1 on the background, not a card header, and no
+// card wraps the meal cards (HON-747).
+export const Populated: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(await canvas.findByRole('heading', { level: 1, name: 'My recipes' })).toBeVisible()
+    await canvas.findAllByRole('button', { name: /delete meal/i })
+    const cards = canvasElement.querySelectorAll('[data-slot="card"]')
+    await expect(cards.length).toBeGreaterThan(0)
+    for (const card of cards) {
+      await expect(card.parentElement?.closest('[data-slot="card"]')).toBeNull()
+    }
+  },
+}
 
 export const Empty: Story = {
   parameters: {
