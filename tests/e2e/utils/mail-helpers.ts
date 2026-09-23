@@ -64,10 +64,21 @@ async function resendGet<T>(path: string): Promise<T> {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
- * Most recent email to `recipient` whose subject matches, sent no earlier than
- * `sentAfter`. Polls, because Resend's list lags the send by a second or two.
- * Returns `null` if nothing matches within the budget, so callers can decide
- * between failing and skipping.
+ * Most recent email to `recipient`, sent no earlier than `sentAfter`, that
+ * passes every matcher given. Polls, because Resend's list lags the send by a
+ * second or two. Returns `null` if nothing matches within the budget, so
+ * callers can decide between failing and skipping.
+ *
+ * Two matchers, at least one required — recipient and send time alone would
+ * return whatever that address last received:
+ *
+ * - `subjectPattern` is checked against the list, so it costs nothing. The
+ *   subject is localized (HON-513), so it only suits a spec that pins the
+ *   recipient's locale.
+ * - `bodyMatches` needs the rendered body, which only `GET /emails/{id}`
+ *   returns, so candidates are fetched newest-first until one passes. Prefer
+ *   it when a locale-invariant marker exists in the body — a reset link does
+ *   (HON-704).
  *
  * The `sentAfter` bound matters on shared tiers: the fixture inbox accumulates
  * mail from every previous run, and matching an older reset link would make
@@ -75,11 +86,18 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
  */
 export async function findRecentEmail(options: {
   recipient: string
-  subjectPattern: RegExp
+  subjectPattern?: RegExp
+  bodyMatches?: (email: ResendEmailDetail) => boolean
   sentAfter: Date
 }): Promise<ResendEmailDetail | null> {
-  const { recipient, subjectPattern, sentAfter } = options
+  const { recipient, subjectPattern, bodyMatches, sentAfter } = options
+  if (!subjectPattern && !bodyMatches) {
+    throw new Error('[e2e/mail] findRecentEmail needs a subjectPattern or a bodyMatches predicate')
+  }
   const recipientLower = recipient.toLowerCase()
+  // A candidate whose body already failed `bodyMatches` can't start passing on
+  // a later poll, so don't pay to fetch it again.
+  const rejected = new Set<string>()
 
   for (let attempt = 0; attempt < RESEND_POLL_ATTEMPTS; attempt++) {
     // First page only. Resend returns newest-first and this inbox sees a
@@ -87,17 +105,22 @@ export async function findRecentEmail(options: {
     // adding coverage.
     const { data } = await resendGet<{ data: ResendEmail[] }>('/emails')
 
-    const match = (data ?? [])
+    const candidates = (data ?? [])
       .filter(
         (email) =>
+          !rejected.has(email.id) &&
           email.to?.some((to) => to.toLowerCase() === recipientLower) &&
-          subjectPattern.test(email.subject ?? '') &&
+          (!subjectPattern || subjectPattern.test(email.subject ?? '')) &&
           isAtOrAfter(email.created_at, sentAfter),
       )
-      .sort((a, b) => parseResendTimestamp(b.created_at) - parseResendTimestamp(a.created_at))[0]
+      .sort((a, b) => parseResendTimestamp(b.created_at) - parseResendTimestamp(a.created_at))
 
-    if (match) {
-      return await resendGet<ResendEmailDetail>(`/emails/${match.id}`)
+    for (const candidate of candidates) {
+      const detail = await resendGet<ResendEmailDetail>(`/emails/${candidate.id}`)
+      if (!bodyMatches || bodyMatches(detail)) {
+        return detail
+      }
+      rejected.add(candidate.id)
     }
 
     await sleep(RESEND_POLL_INTERVAL_MS)
@@ -147,21 +170,23 @@ export async function resolveResetUrl(options: {
   const { email, requestedAt } = options
 
   if (canReadEmail()) {
+    // Selected by the reset link, never the subject: the subject is localized
+    // to the household's locale (HON-513) and the helper can't know which one
+    // a fixture resolves to. The Better Auth path is locale-invariant (HON-704).
     const message = await findRecentEmail({
       recipient: email,
-      // Matches `Reset your <app> password`, with or without the
-      // `[Staging]` prefix `envSubject()` adds outside production.
-      subjectPattern: /reset your .+ password/i,
+      bodyMatches: (detail) => extractResetUrl(emailBody(detail)) !== null,
       sentAfter: requestedAt,
     })
-    if (!message) {
-      return null
-    }
-    return extractResetUrl(message.html ?? message.text ?? '')
+    return message ? extractResetUrl(emailBody(message)) : null
   }
 
   const payload = await fetchResetToken(email)
   return payload ? `${e2eBaseURL()}${payload.resetPath}` : null
+}
+
+function emailBody(email: ResendEmailDetail): string {
+  return email.html ?? email.text ?? ''
 }
 
 /**
