@@ -3,17 +3,10 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { Prisma } from '@/generated/prisma/client'
 import { getHouseholdMembership } from '@/lib/household'
+import { HOUSEHOLD_MEALS_DEFAULT_LIMIT, listHouseholdMeals } from '@/lib/household-meals'
 import { deriveProteinType } from '@/lib/meal-planning/protein'
-import {
-  ingredientTranslationsInclude,
-  mealTranslationsInclude,
-  translateIngredient,
-  translateMeal,
-} from '@/lib/i18n/content'
 import { captureApiError } from '@/lib/errors'
-import { presentMealImage } from '@/lib/meal-images/present'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { duplicateComponentIds, mealComponentsSchema } from '@/lib/meal-planning/components-schema'
 
@@ -61,145 +54,22 @@ export async function GET(request: NextRequest) {
       .int()
       .positive()
       .max(100)
-      .safeParse(limitParam ?? 30)
+      .safeParse(limitParam ?? HOUSEHOLD_MEALS_DEFAULT_LIMIT)
     if (!limitResult.success) {
       return NextResponse.json({ error: 'Invalid limit parameter' }, { status: 400 })
     }
     const limit = limitResult.data
 
-    const householdLocale = membership.household.locale
-    const baseQuery = {
-      where: {
-        householdId: membership.household.id,
-        ...(includeDeleted ? {} : { deletedAt: null }),
-        ...(search ? { name: { contains: search, mode: 'insensitive' as const } } : {}),
-      },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        preparationNotes: true,
-        sourceUrl: true,
-        timeMinutes: true,
-        kidFriendly: true,
-        primaryProteinType: true,
-        suitableFor: true,
-        servings: true,
-        imageUrl: true,
-        imageStatus: true,
-        imageHue: true,
-        imagePromptVersion: true,
-        deletedAt: true,
-        createdAt: true,
-        updatedAt: true,
-        components: {
-          select: {
-            ingredientId: true,
-            quantityPerServing: true,
-            isVague: true,
-            originalPhrase: true,
-            ingredient: {
-              select: {
-                id: true,
-                name: true,
-                category: true,
-                defaultUnit: true,
-                gramsPerPiece: true,
-                calories: true,
-                protein: true,
-                carbs: true,
-                fat: true,
-                allergens: true,
-                proteinType: true,
-                ...ingredientTranslationsInclude(householdLocale),
-              },
-            },
-          },
-        },
-        favoritedBy: {
-          where: { householdId: membership.household.id },
-          select: { id: true },
-        },
-        ...mealTranslationsInclude(householdLocale),
-      },
-      orderBy: [{ updatedAt: 'desc' as const }, { id: 'desc' as const }],
-      take: limit + 1,
-    }
-
-    let meals
-    try {
-      meals = await prisma.meal.findMany({
-        ...baseQuery,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      })
-    } catch (error) {
-      // Stale or unknown cursor → Prisma throws P2025. Fall back to first page
-      // so bookmarks/refreshes with a since-deleted meal id don't 500.
-      if (
-        cursor &&
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2025'
-      ) {
-        meals = await prisma.meal.findMany(baseQuery)
-      } else {
-        throw error
-      }
-    }
-
-    const hasNext = meals.length > limit
-    const pageMeals = hasNext ? meals.slice(0, limit) : meals
-    const nextCursor = hasNext ? (pageMeals.at(-1)?.id ?? null) : null
-
-    const mealsWithNutrition = pageMeals.map((meal) => {
-      const nutrition = computeMealNutrition(meal.components)
-
-      const allergens = [...new Set(meal.components.flatMap((comp) => comp.ingredient.allergens))]
-      const translatedMeal = translateMeal(meal, householdLocale)
-
-      return {
-        id: translatedMeal.id,
-        name: translatedMeal.name,
-        description: translatedMeal.description,
-        preparationNotes: translatedMeal.preparationNotes,
-        sourceUrl: meal.sourceUrl,
-        timeMinutes: translatedMeal.timeMinutes,
-        kidFriendly: translatedMeal.kidFriendly,
-        primaryProteinType: translatedMeal.primaryProteinType,
-        suitableFor: translatedMeal.suitableFor,
-        servings: meal.servings,
-        isCustom: true,
-        isFavorite: meal.favoritedBy.length > 0,
-        ...presentMealImage(meal),
-        deletedAt: meal.deletedAt,
-        createdAt: meal.createdAt,
-        updatedAt: meal.updatedAt,
-        components: meal.components.map((comp) => {
-          const translatedIngredient = translateIngredient(comp.ingredient, householdLocale)
-          return {
-            ingredientId: comp.ingredientId,
-            quantityPerServing: comp.quantityPerServing,
-            isVague: comp.isVague,
-            originalPhrase: comp.originalPhrase,
-            ingredient: {
-              id: translatedIngredient.id,
-              name: translatedIngredient.name,
-              category: translatedIngredient.category,
-              defaultUnit: translatedIngredient.defaultUnit,
-              gramsPerPiece: translatedIngredient.gramsPerPiece,
-            },
-          }
-        }),
-        nutrition: {
-          calories: Math.round(nutrition.calories),
-          protein: Math.round(nutrition.protein),
-          carbs: Math.round(nutrition.carbs),
-          fat: Math.round(nutrition.fat),
-        },
-        allergens,
-      }
+    const page = await listHouseholdMeals({
+      householdId: membership.household.id,
+      locale: membership.household.locale,
+      search,
+      cursor,
+      limit,
+      includeDeleted,
     })
 
-    return NextResponse.json({ meals: mealsWithNutrition, nextCursor })
+    return NextResponse.json(page)
   } catch (error) {
     captureApiError(error, { route: '/api/households/me/meals', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch meals' }, { status: 500 })

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Plus, Loader2, Sparkles } from 'lucide-react'
+import { Plus, Sparkles } from 'lucide-react'
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
@@ -11,8 +11,13 @@ import { Input } from '@/components/ui/input'
 import { Heading, Body } from '@/components/ui/typography'
 import { MealList, type MealData } from '@/components/household/MealList'
 import { apiFetch } from '@/lib/api'
-
-type MealsPage = { meals: MealData[]; nextCursor: string | null }
+import { RecipesGridSkeleton } from './RecipesGridSkeleton'
+import {
+  getNextMealsPageParam,
+  mealsInitialPageParam,
+  mealsQueryKey,
+  type MealsPage,
+} from './meals-query'
 
 export function RecipesPageClient() {
   const queryClient = useQueryClient()
@@ -36,8 +41,10 @@ export function RecipesPageClient() {
     isFetchNextPageError,
     fetchNextPage,
   } = useInfiniteQuery<MealsPage>({
-    queryKey: ['meals', { search: debouncedSearch || undefined }],
-    initialPageParam: null,
+    // Same key and page params as the server prefetch in `page.tsx`, so the
+    // hydrated first page is adopted rather than refetched (HON-770).
+    queryKey: mealsQueryKey(debouncedSearch || undefined),
+    initialPageParam: mealsInitialPageParam,
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams()
       if (pageParam) params.set('cursor', pageParam as string)
@@ -45,7 +52,7 @@ export function RecipesPageClient() {
       const qs = params.toString() ? `?${params}` : ''
       return apiFetch<MealsPage>(`/api/households/me/meals${qs}`)
     },
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    getNextPageParam: getNextMealsPageParam,
   })
 
   const meals = data?.pages.flatMap((page) => page.meals) ?? []
@@ -127,9 +134,9 @@ export function RecipesPageClient() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin" />
-        </div>
+        // After the server prefetch this only shows while a new search loads;
+        // it draws the same grid as `loading.tsx`, so nothing jumps (HON-770).
+        <RecipesGridSkeleton />
       ) : isSearchEmpty ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <Body variant="muted">{tLibrary('emptySearch', { query: debouncedSearch })}</Body>
@@ -144,14 +151,7 @@ export function RecipesPageClient() {
                 onClick={() => fetchNextPage()}
                 disabled={isFetchingNextPage}
               >
-                {isFetchingNextPage ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {tLibrary('loadingMore')}
-                  </>
-                ) : (
-                  tLibrary('loadMore')
-                )}
+                {isFetchingNextPage ? tLibrary('loadingMore') : tLibrary('loadMore')}
               </Button>
             </div>
           ) : null}
