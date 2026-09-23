@@ -17,6 +17,7 @@ import { clearMealImage } from '@/lib/meal-images/invalidation'
 import { discardMealImage } from '@/lib/meal-images/storage'
 import { gramsOf } from '@/lib/meal-images/prompt'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
+import { duplicateComponentIds, mealComponentsSchema } from '@/lib/meal-planning/components-schema'
 
 const updateMealSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -36,25 +37,7 @@ const updateMealSchema = z.object({
     .min(1)
     .optional(),
   servings: z.number().int().positive().max(50).optional(),
-  components: z
-    .array(
-      z
-        .object({
-          ingredientId: z.string().min(1),
-          totalQuantity: z.number().nonnegative(),
-          isVague: z.boolean().optional().default(false),
-          originalPhrase: z.string().nullish(),
-        })
-        .refine((c) => c.isVague || c.totalQuantity > 0, {
-          message: 'Quantity must be greater than 0 for non-vague components',
-        })
-        .transform((c) => ({
-          ...c,
-          totalQuantity: c.isVague ? 0 : c.totalQuantity,
-        })),
-    )
-    .min(1)
-    .optional(),
+  components: mealComponentsSchema.optional(),
 })
 
 /** Ingredient ids, largest amount first; ties broken by id so the key is stable. */
@@ -215,6 +198,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const parsed = updateMealSchema.safeParse(body)
 
     if (!parsed.success) {
+      const duplicateIds = duplicateComponentIds(parsed.error)
+      if (duplicateIds) {
+        return NextResponse.json(
+          { error: 'Duplicate ingredients in components', duplicateIds },
+          { status: 400 },
+        )
+      }
+
       const errors = parsed.error.flatten().fieldErrors
       return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
     }
@@ -274,29 +265,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     > | null = null
 
     if (components) {
+      // Repeated ids were already rejected by `mealComponentsSchema`.
       const ingredientIds = components.map((c) => c.ingredientId)
-
-      // A repeated id makes `findMany` return one row for two components, so
-      // the existence check below fires with an empty `missingIds` — a 400 that
-      // names nothing. Diagnose it here instead. The guard itself is load-
-      // bearing either way: `createMany` would hit
-      // `@@unique([mealId, ingredientId])` and answer 500.
-      const seen = new Set<string>()
-      const duplicates = new Set<string>()
-
-      for (const ingredientId of ingredientIds) {
-        if (seen.has(ingredientId)) duplicates.add(ingredientId)
-        else seen.add(ingredientId)
-      }
-
-      const duplicateIds = [...duplicates]
-
-      if (duplicateIds.length > 0) {
-        return NextResponse.json(
-          { error: 'Duplicate ingredients in components', duplicateIds },
-          { status: 400 },
-        )
-      }
 
       const ingredients = await prisma.ingredient.findMany({
         where: { id: { in: ingredientIds } },

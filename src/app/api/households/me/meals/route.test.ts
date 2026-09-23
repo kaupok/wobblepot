@@ -548,6 +548,60 @@ describe('POST /api/households/me/meals', () => {
     expect(data.missingIds).toContain('missing-ing')
   })
 
+  // HON-714: a repeated id used to reach the write and trip
+  // `@@unique([mealId, ingredientId])`, answering 500.
+  it('names the repeated ingredient when a component id appears twice', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+
+    const request = new Request('http://localhost/api/households/me/meals', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'New Meal',
+        suitableFor: ['dinner'],
+        servings: 2,
+        components: [
+          { ingredientId: 'ing-1', totalQuantity: 300 },
+          { ingredientId: 'ing-1', totalQuantity: 100 },
+        ],
+      }),
+    })
+    const response = await POST(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      error: 'Duplicate ingredients in components',
+      duplicateIds: ['ing-1'],
+    })
+    expect(mockIngredientFindMany).not.toHaveBeenCalled()
+    expect(mockMealCreate).not.toHaveBeenCalled()
+  })
+
+  it('rejects more than 50 components', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+
+    const request = new Request('http://localhost/api/households/me/meals', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'New Meal',
+        suitableFor: ['dinner'],
+        servings: 2,
+        components: Array.from({ length: 51 }, (_, i) => ({
+          ingredientId: `ing-${i}`,
+          totalQuantity: 10,
+        })),
+      }),
+    })
+    const response = await POST(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Validation failed')
+    expect(data.details.components).toBeDefined()
+    expect(mockMealCreate).not.toHaveBeenCalled()
+  })
+
   it('creates meal successfully and returns 201', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)

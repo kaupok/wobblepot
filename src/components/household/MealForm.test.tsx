@@ -326,6 +326,110 @@ describe('MealForm - Duplicate Detection', () => {
     })
   })
 
+  // HON-714: the inline warning used to be the only feedback — submit went
+  // ahead and the API rejected the repeated ingredient.
+  describe('Submit with duplicates', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+      delete (Element.prototype as Partial<Element>).scrollIntoView
+    })
+
+    it('blocks saving an edited meal that repeats an ingredient', async () => {
+      const user = userEvent.setup()
+      const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      const mockMeal: MealFormData = {
+        id: '1',
+        name: 'Test Meal',
+        kidFriendly: false,
+        suitableFor: ['dinner' as MealType],
+        servings: 4,
+        components: [
+          {
+            ingredientId: 'tomato-1',
+            quantityPerServing: 100,
+            ingredient: createMockIngredient('tomato-1', 'Tomato'),
+          },
+          {
+            ingredientId: 'tomato-1',
+            quantityPerServing: 75,
+            ingredient: createMockIngredient('tomato-1', 'Tomato'),
+          },
+        ],
+      }
+
+      render(<MealForm meal={mockMeal} onSuccess={mockOnSuccess} onCancel={mockOnCancel} />)
+
+      await user.click(screen.getByRole('button', { name: /update meal/i }))
+
+      expect(await screen.findByText(/each ingredient can only be used once/i)).toBeInTheDocument()
+      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(mockOnSuccess).not.toHaveBeenCalled()
+    })
+
+    it('blocks saving an imported recipe that repeats an ingredient', async () => {
+      const user = userEvent.setup()
+      const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      // jsdom has no scrollIntoView; import mode scrolls the rows into view.
+      const scrollIntoView = vi.fn()
+      Element.prototype.scrollIntoView = scrollIntoView
+      const mockMeal: MealFormData = {
+        name: 'Imported Recipe',
+        kidFriendly: false,
+        suitableFor: ['dinner' as MealType],
+        prefilledIngredients: [
+          {
+            type: 'matched',
+            ingredient: createMockIngredient('tomato-1', 'Tomato'),
+            convertedQuantity: 200,
+          },
+          {
+            type: 'matched',
+            ingredient: createMockIngredient('tomato-1', 'Tomato'),
+            convertedQuantity: 150,
+          },
+        ],
+      }
+
+      render(<MealForm meal={mockMeal} onSuccess={mockOnSuccess} onCancel={mockOnCancel} />)
+
+      await user.click(screen.getByRole('button', { name: /create meal/i }))
+
+      expect(await screen.findByText(/each ingredient can only be used once/i)).toBeInTheDocument()
+      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(scrollIntoView).toHaveBeenCalled()
+    })
+  })
+
+  // HON-714: the API caps a meal at 50 components; say so instead of
+  // surfacing the server's untranslated "Validation failed".
+  describe('Submit with too many ingredients', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('blocks saving an imported recipe with more than 50 ingredients', async () => {
+      const user = userEvent.setup()
+      const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      const mockMeal: MealFormData = {
+        name: 'Imported Recipe',
+        kidFriendly: false,
+        suitableFor: ['dinner' as MealType],
+        prefilledIngredients: Array.from({ length: 51 }, (_, i) => ({
+          type: 'matched' as const,
+          ingredient: createMockIngredient(`ing-${i}`, `Ingredient ${i}`),
+          convertedQuantity: 10,
+        })),
+      }
+
+      render(<MealForm meal={mockMeal} onSuccess={mockOnSuccess} onCancel={mockOnCancel} />)
+
+      await user.click(screen.getByRole('button', { name: /create meal/i }))
+
+      expect(await screen.findByText(/a meal can have at most 50 ingredients/i)).toBeInTheDocument()
+      expect(fetchSpy).not.toHaveBeenCalled()
+    })
+  })
+
   describe('Discard confirmation', () => {
     beforeEach(() => {
       vi.clearAllMocks()
