@@ -199,6 +199,13 @@ jobs:
       - name: Check lockfile pins
         run: pnpm lockfile:check
 
+      # Colocated story gate (HON-757): every component under src/components
+      # needs a sibling `.stories.tsx`, or an allowlist entry with a reason in
+      # scripts/check-colocated-stories.ts. A local tree scan like the lockfile
+      # check above — no network, so it sits in the cheap static block.
+      - name: Check colocated stories
+        run: pnpm stories:check
+
       - name: Run unit tests
         run: pnpm test
 
