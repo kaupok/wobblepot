@@ -178,6 +178,15 @@ function isRouteJsonBody(body: string): boolean {
 }
 
 /**
+ * The route's own rate-limit 429 (HON-722). Keyed on `code` rather than on the
+ * status, so the shared AI cost-cap 429 (`ai_cap_exceeded`) is not swept in.
+ * Only called on a body {@link isRouteJsonBody} already accepted.
+ */
+function isRateLimitedBody(body: string): boolean {
+  return (JSON.parse(body) as { code?: unknown }).code === 'rate_limited'
+}
+
+/**
  * `$exception_source` tags it the way `app/error.tsx` does, so a degraded review
  * is separable in PostHog from a route-level error boundary. These captures are
  * the *only* trace of the failure, since the user is shown none.
@@ -215,6 +224,12 @@ function report(error: unknown, extra: Record<string, unknown> = {}): Promise<vo
  * failure — is reported here. Otherwise the "budget is mis-sized" signal this
  * whole change exists to surface would be invisible on both sides.
  *
+ * The one route answer reported here is the rate-limit 429 (HON-722), which
+ * degrades silently by decision like the timeout does. The route does not
+ * capture it — an abuse loop would turn that into one exception per rejected
+ * request — so this is where a real user losing their corrections to it shows
+ * up.
+ *
  * Shared by `ImagineClient` (the `/recipes/imagine` page) and `ImaginePanel`
  * (the meal-plan selector), which ran byte-identical copies of this before.
  */
@@ -248,6 +263,8 @@ export async function reviewImaginedMeal(
         void report(new Error(`Review failed with a non-route ${response.status} response`), {
           statusCode: response.status,
         })
+      } else if (isRateLimitedBody(body)) {
+        void report(new Error('Review was rate limited'), { statusCode: response.status })
       }
       return meal
     }

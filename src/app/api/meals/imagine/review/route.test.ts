@@ -13,6 +13,11 @@ vi.mock('@/lib/auth', () => ({
   },
 }))
 
+vi.mock('@/lib/rate-limit', () => ({
+  checkRateLimit: vi.fn(),
+  retryAfterSeconds: vi.fn(() => 60),
+}))
+
 vi.mock('@/lib/ai/review-quantities', () => ({
   reviewMealQuantities: vi.fn(),
 }))
@@ -34,11 +39,13 @@ import { auth } from '@/lib/auth'
 import { reviewMealQuantities } from '@/lib/ai/review-quantities'
 import { getHouseholdMembership } from '@/lib/household'
 import { AiCostCapExceededError, assertUnderCap } from '@/lib/ai/usage'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockReview = vi.mocked(reviewMealQuantities)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockAssertUnderCap = vi.mocked(assertUnderCap)
+const mockCheckRateLimit = vi.mocked(checkRateLimit)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -67,7 +74,22 @@ describe('POST /api/meals/imagine/review', () => {
     vi.clearAllMocks()
     mockGetMembership.mockResolvedValue({ household: { id: 'h1', locale: 'en' } } as never)
     mockAssertUnderCap.mockResolvedValue(undefined)
+    mockCheckRateLimit.mockResolvedValue({
+      allowed: true,
+      remaining: 149,
+      limit: 150,
+      resetAt: new Date(Date.now() + 3600000),
+    })
   })
+
+  function ingredientList(count: number) {
+    return Array.from({ length: count }, (_, i) => ({
+      ingredientId: `ing-${i}`,
+      name: `Ingredient ${i}`,
+      quantityPerServing: 10,
+      unit: 'g' as const,
+    }))
+  }
 
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
@@ -104,6 +126,31 @@ describe('POST /api/meals/imagine/review', () => {
     expect(data.resetAt).toBe('2026-05-01T00:00:00.000Z')
   })
 
+  it('returns 429 with Retry-After header when the household rate limit trips (HON-722)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockCheckRateLimit.mockResolvedValue({
+      allowed: false,
+      remaining: 0,
+      limit: 150,
+      resetAt: new Date('2026-05-01T01:00:00.000Z'),
+    })
+
+    const response = await POST(createRequest(validBody))
+    const data = await response.json()
+
+    expect(mockCheckRateLimit).toHaveBeenCalledWith('h1', 'meal-quantity-review')
+    expect(response.status).toBe(429)
+    expect(response.headers.get('Retry-After')).toBe('60')
+    expect(data.error).toBe('Rate limit exceeded')
+    // What `reviewImaginedMeal` keys its report on, separating this 429 from
+    // the AI cost-cap one.
+    expect(data.code).toBe('rate_limited')
+    expect(data.resetAt).toBe('2026-05-01T01:00:00.000Z')
+    // A rejected request does no cap read and no AI work.
+    expect(mockAssertUnderCap).not.toHaveBeenCalled()
+    expect(mockReview).not.toHaveBeenCalled()
+  })
+
   it('returns 400 for invalid JSON body', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
 
@@ -137,6 +184,26 @@ describe('POST /api/meals/imagine/review', () => {
 
     expect(response.status).toBe(400)
     expect(data.error).toBe('Invalid request data')
+  })
+
+  it('returns 400 when the ingredients array exceeds 40 entries (HON-722)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+
+    const response = await POST(createRequest({ ...validBody, ingredients: ingredientList(41) }))
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Invalid request data')
+    expect(mockReview).not.toHaveBeenCalled()
+  })
+
+  it('accepts exactly 40 ingredients', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockReview.mockResolvedValue({ ingredients: [] })
+
+    const response = await POST(createRequest({ ...validBody, ingredients: ingredientList(40) }))
+
+    expect(response.status).toBe(200)
   })
 
   it('returns 400 when unit is not g or piece', async () => {

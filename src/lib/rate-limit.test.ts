@@ -72,6 +72,7 @@ describe('rate-limit', () => {
         'meal-image',
         'meal-imagination',
         'meal-prep-tips',
+        'meal-quantity-review',
         'meal-suggestions',
         'plan-generation',
         'recipe-parse',
@@ -96,6 +97,16 @@ describe('rate-limit', () => {
       })
       expect(RATE_LIMIT_CONFIG['meal-imagination']).toMatchObject({
         limit: 50,
+        window: '1 h',
+        dimension: 'household',
+      })
+    })
+
+    it('configures meal-quantity-review at 3x the meal-imagination ceiling (HON-722)', () => {
+      // Each imagination call offers three meals and each selected meal is
+      // reviewed once, so anything lower would throttle a real household.
+      expect(RATE_LIMIT_CONFIG['meal-quantity-review']).toEqual({
+        limit: RATE_LIMIT_CONFIG['meal-imagination'].limit * 3,
         window: '1 h',
         dimension: 'household',
       })

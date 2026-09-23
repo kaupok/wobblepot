@@ -62,6 +62,7 @@ export const RATE_LIMIT_BYPASS_ACTIVE = resolveBypass()
 export type RateLimitFeature =
   | 'plan-generation'
   | 'meal-imagination'
+  | 'meal-quantity-review'
   | 'recipe-parse'
   | 'meal-prep-tips'
   | 'meal-suggestions'
@@ -86,6 +87,10 @@ interface FeatureConfig extends WindowConfig {
 export const RATE_LIMIT_CONFIG: Record<RateLimitFeature, FeatureConfig> = {
   'plan-generation': { limit: 5, window: '1 h', dimension: 'household' },
   'meal-imagination': { limit: 50, window: '1 h', dimension: 'household' },
+  // One review per selected meal, and each imagination call offers three, so
+  // 3 × the 50/h above is the most a real household can reach — only abuse
+  // trips it. A 429 here degrades silently, like the review's timeout (HON-722).
+  'meal-quantity-review': { limit: 150, window: '1 h', dimension: 'household' },
   'recipe-parse': { limit: 20, window: '1 h', dimension: 'household' },
   'meal-prep-tips': { limit: 30, window: '1 h', dimension: 'household' },
   'meal-suggestions': { limit: 60, window: '1 h', dimension: 'household' },

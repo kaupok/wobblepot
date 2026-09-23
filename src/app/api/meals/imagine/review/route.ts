@@ -11,8 +11,16 @@ import {
   respondCapExceeded,
 } from '@/lib/ai/usage'
 import { captureApiError } from '@/lib/errors'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import { withRequestId } from '@/lib/request-id'
+
+/**
+ * Upper bound on the ingredient list one review may carry into the prompt.
+ * An imagined meal is a home-cooked dish of a handful of ingredients; 40 leaves
+ * room for the longest of those while refusing an arbitrarily long payload.
+ */
+const MAX_REVIEW_INGREDIENTS = 40
 
 const reviewRequestSchema = z.object({
   mealName: z.string().min(1),
@@ -26,7 +34,8 @@ const reviewRequestSchema = z.object({
         unit: z.enum(['g', 'piece']),
       }),
     )
-    .min(1),
+    .min(1)
+    .max(MAX_REVIEW_INGREDIENTS),
 })
 
 /**
@@ -68,6 +77,27 @@ async function handlePOST(request: Request) {
   }
 
   const { household } = membership
+
+  // A 429 here degrades silently, like the budget timeout below: both callers
+  // go through `reviewImaginedMeal`, which keeps the unreviewed meal and reports
+  // the drop to PostHog, and no UI copy is shown (HON-722, option 1 — recorded
+  // on the issue). The bucket is sized so only abuse reaches it, so a legitimate
+  // user never takes this path. `code` is what the client keys that report on.
+  const rateLimitResult = await checkRateLimit(household.id, 'meal-quantity-review')
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      {
+        error: 'Rate limit exceeded',
+        code: 'rate_limited',
+        message: `Maximum ${rateLimitResult.limit} quantity review requests per hour`,
+        resetAt: rateLimitResult.resetAt.toISOString(),
+      },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(retryAfterSeconds(rateLimitResult)) },
+      },
+    )
+  }
 
   try {
     await assertUnderCap(household.id)
