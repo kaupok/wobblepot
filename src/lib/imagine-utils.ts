@@ -224,11 +224,13 @@ function report(error: unknown, extra: Record<string, unknown> = {}): Promise<vo
  * failure — is reported here. Otherwise the "budget is mis-sized" signal this
  * whole change exists to surface would be invisible on both sides.
  *
- * The one route answer reported here is the rate-limit 429 (HON-722), which
- * degrades silently by decision like the timeout does. The route does not
- * capture it — an abuse loop would turn that into one exception per rejected
- * request — so this is where a real user losing their corrections to it shows
- * up.
+ * Two route answers are reported here all the same. The rate-limit 429
+ * (HON-722) degrades silently by decision like the timeout does, and the route
+ * does not capture it — an abuse loop would turn that into one exception per
+ * rejected request. A 400 means the route refused a payload this function built
+ * (a meal past its ingredient or name-length bounds), which is our bug, not the
+ * user's. Either way this is the only place a real user losing their
+ * corrections shows up.
  *
  * Shared by `ImagineClient` (the `/recipes/imagine` page) and `ImaginePanel`
  * (the meal-plan selector), which ran byte-identical copies of this before.
@@ -265,6 +267,13 @@ export async function reviewImaginedMeal(
         })
       } else if (isRateLimitedBody(body)) {
         void report(new Error('Review was rate limited'), { statusCode: response.status })
+      } else if (response.status === 400) {
+        // Our own payload was refused — a meal past the route's ingredient-count
+        // or name-length bounds, or a client/schema drift. Returns before the
+        // route's capture, so nothing server-side sees it either.
+        void report(new Error('Review request was rejected as invalid'), {
+          statusCode: response.status,
+        })
       }
       return meal
     }

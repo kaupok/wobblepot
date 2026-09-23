@@ -412,6 +412,29 @@ describe('reviewImaginedMeal', () => {
     )
   })
 
+  it('degrades and reports when the route rejects the payload with a 400 (HON-722)', async () => {
+    // e.g. a meal past the route's 40-ingredient or 200-character bounds —
+    // the route returns before its own capture, so only this side sees it.
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Invalid request data' }), { status: 400 }),
+      )
+
+    const meal = reviewableMeal()
+    const result = await reviewImaginedMeal(meal)
+
+    expect(result).toEqual(meal)
+    expect(mockCaptureClientError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Review request was rejected as invalid' }),
+      {
+        route: '/api/meals/imagine/review',
+        $exception_source: 'imagine.review',
+        statusCode: 400,
+      },
+    )
+  })
+
   it('degrades without reporting when the route answers the AI cost-cap 429', async () => {
     global.fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ error: 'AI usage cap exceeded', code: 'ai_cap_exceeded' }), {
