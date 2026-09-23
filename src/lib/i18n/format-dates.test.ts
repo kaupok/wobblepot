@@ -273,3 +273,30 @@ describe('formatDateTime', () => {
     expect(out).toContain('14:30')
   })
 })
+
+// HON-777: Node pads range and day-period separators with U+2009 / U+202F,
+// Chrome with a plain space, so an unnormalised range hydrated with React 418.
+describe('space normalisation', () => {
+  const NON_ASCII_SPACE = /[  ]/
+
+  it.each(['en', 'et'] as const)('renders ranges with plain spaces only in %s', (locale) => {
+    const crossMonth = formatDateRange(new Date(2026, 8, 26), new Date(2026, 9, 2), locale)
+    const sameMonth = formatDateRange(new Date(2026, 8, 26), new Date(2026, 8, 29), locale)
+    expect(crossMonth).not.toMatch(NON_ASCII_SPACE)
+    expect(sameMonth).not.toMatch(NON_ASCII_SPACE)
+  })
+
+  it('renders an exact en range with U+0020 around the dash', () => {
+    expect(formatDateRange(new Date(2026, 8, 26), new Date(2026, 9, 2), 'en')).toBe(
+      'Sep 26 – Oct 2',
+    )
+  })
+
+  it.each(['en', 'et'] as const)(
+    'renders a date and time with plain spaces only in %s',
+    (locale) => {
+      const out = formatDateTime(new Date('2026-04-05T14:30:00Z'), locale, { timeZone: 'UTC' })
+      expect(out).not.toMatch(NON_ASCII_SPACE)
+    },
+  )
+})
