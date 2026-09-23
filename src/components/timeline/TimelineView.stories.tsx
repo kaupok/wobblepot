@@ -76,6 +76,33 @@ export const PlannedThenEmpty: Story = {
   },
 }
 
+/**
+ * Phone width (the default viewport): the compact shopping summary leads the
+ * screen and the sidebar panel is hidden, instead of rendering after the whole
+ * 14-day timeline (HON-766).
+ */
+export const PhoneShoppingSummary: Story = {
+  args: {
+    entries: baseEntries,
+  },
+  globals: {
+    viewport: { value: 'mobileIphone', isRotated: false },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // Both forms are in the markup; below lg only the compact one shows.
+    const [summary, sidebarSummary] = canvas.getAllByText(/^Need /)
+    await expect(summary).toBeVisible()
+    await expect(sidebarSummary).not.toBeVisible()
+    // One Shopping panel in the accessibility tree: the full one is display:none.
+    await expect(canvas.getAllByRole('link', { name: 'View full list' })).toHaveLength(1)
+    const [today] = canvas.getAllByText('Today')
+    await expect(
+      (summary as Node).compareDocumentPosition(today as Node) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  },
+}
+
 export const DinnersPlannedBreakfastsEmpty: Story = {
   args: {
     expectedMealTypes: createExpectedMealTypes({

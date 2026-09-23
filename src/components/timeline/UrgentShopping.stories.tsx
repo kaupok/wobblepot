@@ -123,6 +123,38 @@ export const Empty: Story = {
   args: { items: [] },
 }
 
+/**
+ * The phone form that leads the Today screen below `lg` (HON-766): title row,
+ * summary and link, no item list.
+ */
+export const Compact: Story = {
+  args: { items: urgentShoppingItems, compact: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText(/^Need /)).toBeVisible()
+    await expect(canvas.getByRole('link', { name: 'View full list' })).toHaveAttribute(
+      'href',
+      '/shopping',
+    )
+    await expect(canvas.queryByRole('list')).not.toBeInTheDocument()
+  },
+}
+
+export const CompactTomorrowOnly: Story = {
+  args: { ...TomorrowOnly.args, compact: true },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText('Need 1 for tomorrow')).toBeVisible()
+  },
+}
+
+// Nothing to buy for today or tomorrow: the phone shows nothing extra.
+export const CompactEmpty: Story = {
+  args: { items: [], compact: true },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).queryByText('Shopping')).not.toBeInTheDocument()
+  },
+}
+
 // WHY: Purchased list items render dimmer text by design — WCAG 1.4.3 exempts
 // inactive controls from contrast requirements, so waive only this rule.
 const inactiveStateA11y = {
