@@ -9,9 +9,9 @@ import { useQueryClient } from '@tanstack/react-query'
  * `MealSelectorModal` caches its alternatives under
  * `['meal-suggestions', planId, entryId, mode]` at `staleTime: Infinity`, and
  * the components that render it — `MealCard`, `TimelineEmptySlot` — keep it
- * mounted whether or not it is open, so the observer stays subscribed and the
- * modal's own `reset()` on close clears only the search and my-recipes keys.
- * Nothing else drops it.
+ * mounted whether or not it is open, so the observer stays subscribed. The
+ * modal's own `reset()` on close drops only its *own* entry's list, so reopening
+ * it draws a fresh tie-break (HON-709); every other entry's list stays cached.
  *
  * The removal is plan-wide rather than per-entry because both suggestion routes
  * filter candidates through `recentMealIds` — every meal the household has
@@ -27,8 +27,9 @@ import { useQueryClient } from '@tanstack/react-query'
  * which re-renders the server tree but cannot reach the query cache (HON-682).
  *
  * Refetching is cheap: both routes are a Prisma query and a scoring pass, and
- * touch AI only through `assertUnderCap`. It is the paths that change no meal
- * at all — a cancelled selector — that have no reason to pay for it.
+ * touch AI only through `assertUnderCap`. A cancelled selector changes no meal,
+ * so it has no reason to refetch the *other* entries — only its own, via
+ * `reset()`.
  */
 export function useDropPlanSuggestions(planId: string) {
   const queryClient = useQueryClient()

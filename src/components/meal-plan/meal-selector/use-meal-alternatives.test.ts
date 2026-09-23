@@ -253,6 +253,70 @@ describe('useMealAlternatives', () => {
       expect(mockApiFetch.mock.calls.length).toBe(callsBefore)
     })
 
+    it("drops this entry's suggestions so reopening asks the server for a fresh draw", async () => {
+      // The server re-draws its tie-break on every request (HON-709); a cached list at
+      // staleTime: Infinity would show the first draw for as long as the page lives.
+      mockApiFetch
+        .mockResolvedValueOnce({ alternatives: [libraryMeal('a', 'Alt A')] })
+        .mockResolvedValueOnce({ alternatives: [libraryMeal('b', 'Alt B')] })
+
+      const { wrapper } = createQueryWrapper()
+      const { result, rerender } = renderHook(
+        (props: { open: boolean }) => useMealAlternatives({ ...baseOptions, ...props }),
+        { wrapper, initialProps: { open: true } },
+      )
+
+      await waitFor(() => expect(result.current.displayedMeals.map((m) => m.id)).toEqual(['a']))
+
+      act(() => result.current.reset())
+      rerender({ open: false })
+      expect(mockApiFetch).toHaveBeenCalledTimes(1)
+
+      rerender({ open: true })
+
+      await waitFor(() => expect(result.current.displayedMeals.map((m) => m.id)).toEqual(['b']))
+      expect(mockApiFetch).toHaveBeenCalledTimes(2)
+    })
+
+    it("leaves other entries' cached suggestions alone", async () => {
+      mockApiFetch.mockResolvedValue({ alternatives: [libraryMeal('a', 'Alt A')] })
+
+      // Two cards on one page share a QueryClient; only the closing one's list may go.
+      const { wrapper, queryClient } = createQueryWrapper()
+      const { result } = renderHook(
+        () => ({
+          closing: useMealAlternatives(baseOptions),
+          other: useMealAlternatives({ ...baseOptions, entryId: 'entry-2' }),
+        }),
+        { wrapper },
+      )
+
+      await waitFor(() => expect(result.current.other.displayedMeals).toHaveLength(1))
+      await waitFor(() => expect(result.current.closing.displayedMeals).toHaveLength(1))
+      act(() => result.current.closing.reset())
+
+      expect(queryClient.getQueryData(['meal-suggestions', 'plan-1', 'entry-1', 'swap'])).toBe(
+        undefined,
+      )
+      expect(
+        queryClient.getQueryData(['meal-suggestions', 'plan-1', 'entry-2', 'swap']),
+      ).toHaveLength(1)
+    })
+
+    it('does not refetch suggestions when called while the query is still enabled', async () => {
+      mockApiFetch.mockResolvedValue({ alternatives: [libraryMeal('a', 'Alt A')] })
+
+      const { result } = render()
+
+      await waitFor(() => expect(result.current.displayedMeals).toHaveLength(1))
+
+      // Same ordering as the modal: reset() runs before `open` flips to false.
+      act(() => result.current.reset())
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      expect(mockApiFetch).toHaveBeenCalledTimes(1)
+    })
+
     it('clears my-recipes pages too', async () => {
       mockApiFetch.mockResolvedValue(page(['c1'], { hasMore: true, total: 5 }))
 
