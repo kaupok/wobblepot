@@ -112,7 +112,7 @@ const libraryMeals: LibraryMeal[] = [
   }),
 ]
 
-const householdMeals: HouseholdMeal[] = libraryMeals.map((meal) =>
+export const householdMeals: HouseholdMeal[] = libraryMeals.map((meal) =>
   buildHouseholdMeal({ ...meal, isCustom: true }),
 )
 
