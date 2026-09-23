@@ -5,7 +5,7 @@ vi.unmock('next-intl')
 import { act } from 'react'
 import { hydrateRoot } from 'react-dom/client'
 import { renderToString } from 'react-dom/server'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import enMessages from '../../../messages/en.json'
 import { UrgentShopping } from './UrgentShopping'
@@ -90,6 +90,63 @@ describe('UrgentShopping', () => {
     expect(today).toHaveClass('text-warning')
     expect(today).not.toHaveClass('text-destructive')
     expect(screen.getByText('Tomorrow')).toHaveClass('text-muted-foreground')
+  })
+
+  describe('compact (HON-766)', () => {
+    const fixture = [
+      item('Apple', 'tomorrow'),
+      item('Zucchini', 'today'),
+      item('Tomato', 'today'),
+      { ...item('Onion', 'today'), purchased: true },
+    ]
+
+    function renderForm(items: ReturnType<typeof item>[], compact: boolean) {
+      return render(
+        <NextIntlClientProvider locale="en" messages={enMessages}>
+          <UrgentShopping items={items} compact={compact} />
+        </NextIntlClientProvider>,
+      )
+    }
+
+    function summaryOf(container: HTMLElement) {
+      const view = within(container)
+      return {
+        count: container.querySelector('.text-warning')?.textContent,
+        summary: view.getByText(/^Need /).textContent,
+        link: view.getByRole('link', { name: 'View full list' }).getAttribute('href'),
+      }
+    }
+
+    it('shows the same count, summary and link as the full panel', () => {
+      const full = renderForm(fixture, false)
+      const expected = summaryOf(full.container)
+      full.unmount()
+
+      const { container } = renderForm(fixture, true)
+      expect(summaryOf(container)).toEqual(expected)
+      expect(expected).toEqual({
+        count: '3',
+        summary: 'Need 2 for today, 1 for tomorrow',
+        link: '/shopping',
+      })
+    })
+
+    it('leaves out the item list and the purchased section', () => {
+      renderForm(fixture, true)
+
+      expect(screen.getByText('Shopping')).toBeInTheDocument()
+      expect(screen.queryByRole('list')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /purchased/i })).not.toBeInTheDocument()
+    })
+
+    it('renders nothing when there is nothing to buy', () => {
+      expect(renderForm([], true).container).toBeEmptyDOMElement()
+    })
+
+    it('renders nothing when every urgent item is purchased', () => {
+      const { container } = renderForm([{ ...item('Onion'), purchased: true }], true)
+      expect(container).toBeEmptyDOMElement()
+    })
   })
 
   // HON-751: the server (Vercel, `en-US`) and an Estonian browser sorted the

@@ -53,7 +53,9 @@ vi.mock('./FillDaysAction', () => ({
 }))
 
 vi.mock('./UrgentShopping', () => ({
-  UrgentShopping: vi.fn(() => <div data-testid="urgent-shopping">Shopping</div>),
+  UrgentShopping: vi.fn(({ compact }) => (
+    <div data-testid={compact ? 'urgent-shopping-compact' : 'urgent-shopping'}>Shopping</div>
+  )),
 }))
 
 const defaultProps = {
@@ -79,6 +81,20 @@ describe('TimelineView', () => {
 
     // Shopping sidebar
     expect(screen.getByTestId('urgent-shopping')).toBeInTheDocument()
+  })
+
+  // HON-766: below lg the sidebar falls under the whole timeline, so a compact
+  // copy leads the left column. CSS picks one; both are in the markup.
+  it('puts the compact shopping summary above the timeline, visible only below lg', () => {
+    renderInLocale(<TimelineView {...defaultProps} />)
+
+    const compact = screen.getByTestId('urgent-shopping-compact')
+    const full = screen.getByTestId('urgent-shopping')
+    const today = screen.getByTestId('day-card-2026-03-29')
+
+    expect(compact.parentElement).toHaveClass('lg:hidden')
+    expect(full.parentElement).toHaveClass('hidden', 'lg:flex')
+    expect(compact.compareDocumentPosition(today) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('groups entries by date correctly', () => {

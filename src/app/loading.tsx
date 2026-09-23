@@ -24,8 +24,10 @@ export default function HomeLoading() {
           </div>
         </div>
 
-        {/* Right column: shopping summary */}
-        <div className="flex flex-col gap-6">
+        {/* Right column: shopping summary. Hidden below lg like the real
+            sidebar (HON-766); no phone placeholder for the compact card, which
+            renders nothing when there is nothing to buy. */}
+        <div className="hidden flex-col gap-6 lg:flex">
           <Skeleton className="h-7 w-36" />
           <div className="flex flex-col gap-3">
             <Skeleton shape="card" className="h-10 w-full" />

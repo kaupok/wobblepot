@@ -216,6 +216,15 @@ export function TimelineView({
       <div className="lg:grid-cols-timeline grid gap-6">
         {/* Left column: Timeline */}
         <div className="flex flex-col gap-6">
+          {/* Below lg the right column falls under 14 days of cards, so the
+              phone gets the summary here instead (HON-766). Both forms are in
+              the server HTML and CSS picks one: no viewport state, and
+              display:none keeps the hidden copy out of the a11y tree. `empty:hidden`
+              drops the wrapper's gap when there is nothing to buy. */}
+          <div className="empty:hidden lg:hidden">
+            <UrgentShopping items={shoppingItems} compact />
+          </div>
+
           <TimelinePastSection
             ref={pastSectionRef}
             days={pastDays}
@@ -237,7 +246,7 @@ export function TimelineView({
         </div>
 
         {/* Right column: Shopping */}
-        <div className="flex flex-col gap-6">
+        <div className="hidden flex-col gap-6 lg:flex">
           <UrgentShopping items={shoppingItems} />
         </div>
       </div>

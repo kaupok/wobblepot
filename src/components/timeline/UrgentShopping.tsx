@@ -22,9 +22,15 @@ interface ShoppingItem {
 
 interface UrgentShoppingProps {
   items: ShoppingItem[]
+  /**
+   * The phone form above the timeline (HON-766): the title row, the summary
+   * and the link, without the item list. Renders nothing when there is nothing
+   * to buy for today or tomorrow.
+   */
+  compact?: boolean
 }
 
-export function UrgentShopping({ items }: UrgentShoppingProps) {
+export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) {
   const tToday = useTranslations('today')
   const locale = useLocale()
   const [isPurchasedExpanded, setIsPurchasedExpanded] = useState(false)
@@ -53,6 +59,7 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
   const tomorrowCount = unpurchasedItems.filter((item) => item.urgency === 'tomorrow').length
 
   if (unpurchasedItems.length === 0) {
+    if (compact) return null
     return (
       <Card>
         <CardHeader>
@@ -84,15 +91,46 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
   }
   const summary = tToday('summaryNeed', { parts: summaryParts.join(', ') })
 
+  const count = (
+    <span className="text-warning flex items-center gap-1.5">
+      <ShoppingCart className="h-4 w-4" />
+      <span className="text-sm font-medium">{unpurchasedItems.length}</span>
+    </span>
+  )
+
+  const viewFullList = (
+    <Button variant="ghost" size="sm" asChild>
+      <Link href="/shopping">{tToday('viewFullList')}</Link>
+    </Button>
+  )
+
+  // The phone form is one tight block, so its link sits on the title row
+  // (DESIGN.md → "Actions sit on the title row") rather than in a footer.
+  if (compact) {
+    return (
+      <Card size="sm">
+        <CardHeader>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle>{tToday('shoppingTitle')}</CardTitle>
+            <div className="flex items-center gap-2">
+              {count}
+              {viewFullList}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Body variant="muted">{summary}</Body>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>{tToday('shoppingTitle')}</CardTitle>
-          <span className="text-warning flex items-center gap-1.5">
-            <ShoppingCart className="h-4 w-4" />
-            <span className="text-sm font-medium">{unpurchasedItems.length}</span>
-          </span>
+          {count}
         </div>
       </CardHeader>
       <CardContent>
@@ -152,11 +190,7 @@ export function UrgentShopping({ items }: UrgentShoppingProps) {
           )}
         </div>
       </CardContent>
-      <CardFooter>
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/shopping">{tToday('viewFullList')}</Link>
-        </Button>
-      </CardFooter>
+      <CardFooter>{viewFullList}</CardFooter>
     </Card>
   )
 }
