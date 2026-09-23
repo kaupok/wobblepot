@@ -349,6 +349,8 @@ If you are filing an issue and a human is in the loop, `[AUTO DRAFT]` is wrong �
 
 **Merging:** Never merge a PR without explicit user request. When the user runs `/merge`, execute without unnecessary confirmation.
 
+**Hooks (HON-727): the destructive-database, push-to-`main` and merge rules are enforced, not just written.** `.claude/settings.json` registers a `PreToolUse` Bash hook, `.claude/hooks/block-destructive.sh` → `block-destructive.mts`, that exits 2 with a reason on `prisma migrate reset`, a `*reset*` package script, `db push --force-reset` / `--accept-data-loss`, `DROP TABLE|DATABASE|SCHEMA` / `TRUNCATE` sent to `psql` or `prisma db execute`, any `git push` whose destination is `main`, any force push, and `gh pr merge` without an inline `WOBBLEPOT_ALLOW_MERGE=1` prefix (which `/merge` and `/auto-implement` add). Hooks fire under `--dangerously-skip-permissions`, so this covers headless workers too. It matches what would _execute_, so `grep "migrate reset"` or a commit message mentioning `gh pr merge` passes. When it blocks you, don't route around it — ask the user; a local-only reset they want can be run by hand. Tests: `scripts/block-destructive-hook.test.ts`.
+
 **CI Pipeline:** All PRs must pass `pnpm lint`, `pnpm type-check`, `pnpm test`. Build verification via Vercel deployment.
 
 **Detailed guide:** See [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)
