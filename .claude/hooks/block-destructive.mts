@@ -270,10 +270,13 @@ const KNOWN_PROGRAMS = new Set([
 ])
 const ASSIGNMENT = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/s
 
+/** `./node_modules/.bin/prisma` → `prisma`; `prisma@6.19.0` → `prisma`. */
+const programName = (word: string): string => path.basename(word).replace(/(.)@[^@/]*$/, '$1')
+
 /**
  * Strips what runs *in front of* the real program — inline env assignments,
  * `sudo`/`env`/`time`-style prefixes, `npx` and `pnpm exec` — and reduces the
- * program to its basename (`./node_modules/.bin/prisma` → `prisma`).
+ * program to its bare name (see `programName`).
  */
 export function unwrap(words: string[]): { argv: string[]; env: Record<string, string> } {
   const env: Record<string, string> = {}
@@ -290,7 +293,7 @@ export function unwrap(words: string[]): { argv: string[]; env: Record<string, s
       argv = argv.slice(1)
       // Prefix options can take values (`sudo -u postgres`, `nice -n 10`,
       // `timeout 60`), so jump to the next program the rules know about.
-      const next = argv.findIndex((w) => ASSIGNMENT.test(w) || KNOWN_PROGRAMS.has(path.basename(w)))
+      const next = argv.findIndex((w) => ASSIGNMENT.test(w) || KNOWN_PROGRAMS.has(programName(w)))
       if (next !== -1) argv = argv.slice(next)
       else while (argv[0]?.startsWith('-')) argv = argv.slice(1)
     } else if (PACKAGE_MANAGERS.has(head) && (argv[1] === 'exec' || argv[1] === 'dlx')) {
@@ -299,7 +302,7 @@ export function unwrap(words: string[]): { argv: string[]; env: Record<string, s
       break
     }
   }
-  if (argv[0]?.includes('/')) argv[0] = path.basename(argv[0])
+  if (argv[0] !== undefined) argv[0] = programName(argv[0])
   return { argv, env }
 }
 
@@ -541,14 +544,34 @@ function analyse(
 ): Analysis {
   const analysis: Analysis = { verdict: PASS, runsSql: false, sqlFiles: [] }
   if (depth > MAX_DEPTH) return analysis
+  // Earlier commands can change where a later bare `git push` runs from.
+  let local = ctx
   for (const segment of splitCommand(command)) {
-    const verdict = checkArgv(tokenize(segment.text), ctx, env, depth, analysis, segment.heredocs)
+    const words = tokenize(segment.text)
+    const verdict = checkArgv(words, local, env, depth, analysis, segment.heredocs)
     if (verdict.blocked) {
       analysis.verdict = verdict
       return analysis
     }
+    local = track(words, local)
   }
   return analysis
+}
+
+/** Follows `cd <dir>` and `git checkout|switch <branch>` into the context of later commands. */
+function track(words: string[], ctx: CheckContext): CheckContext {
+  const [program, ...args] = unwrap(words).argv
+  if (program === 'cd') {
+    const dir = args.find((a) => !a.startsWith('-'))
+    return dir && !dir.startsWith('~') && !dir.includes('$') ? { ...ctx, cwd: path.resolve(ctx.cwd, dir) } : ctx
+  }
+  const sub = args.findIndex((a) => !a.startsWith('-'))
+  if (program !== 'git' || (args[sub] !== 'checkout' && args[sub] !== 'switch')) return ctx
+  const rest = args.slice(sub + 1)
+  if (rest.includes('--')) return ctx // `git checkout main -- file` restores a file, no switch
+  const create = rest.findIndex((a) => ['-b', '-B', '-c', '-C'].includes(a))
+  const branch = create !== -1 ? rest[create + 1] : rest.find((a) => !a.startsWith('-'))
+  return branch ? { ...ctx, currentBranch: () => branch } : ctx
 }
 
 /** Decides whether a Bash tool command may run. */

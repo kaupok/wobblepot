@@ -50,6 +50,9 @@ describe('database commands', () => {
     'DATABASE_URL=postgres://x pnpm prisma migrate reset',
     'cd /tmp && prisma migrate reset',
     'pnpm prisma migrate \\\n  reset --force',
+    'npx prisma@6.19.0 migrate reset --force',
+    'npx -y prisma@6 db push --force-reset',
+    'pnpm dlx prisma@latest migrate reset',
   ])('blocks migrate reset: %s', (command) => {
     expect(blocked(command)).toBe(true)
   })
@@ -124,6 +127,19 @@ describe('git push', () => {
     expect(blocked('git push', onMain)).toBe(true)
     expect(blocked('git push origin', onMain)).toBe(true)
     expect(blocked('git push origin HEAD', onMain)).toBe(true)
+  })
+
+  it('follows a branch switch or cd earlier in the same command', () => {
+    expect(blocked('git checkout main && git push')).toBe(true)
+    expect(blocked('git switch main; git push origin HEAD')).toBe(true)
+    expect(
+      blocked('git checkout -b kaupo/hon-2-x && git push -u origin HEAD', {
+        currentBranch: () => 'main',
+      }),
+    ).toBe(false)
+    expect(blocked('git checkout main -- package.json && git push')).toBe(false)
+    const currentBranch = (dir: string) => (dir === '/repos/main-checkout' ? 'main' : 'feature')
+    expect(blocked('cd /repos/main-checkout && git push', { currentBranch })).toBe(true)
   })
 
   it.each([
