@@ -11,22 +11,35 @@ import {
   respondCapExceeded,
 } from '@/lib/ai/usage'
 import { captureApiError } from '@/lib/errors'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import { withRequestId } from '@/lib/request-id'
 
+/**
+ * Bounds on what one review may carry into the prompt: the ingredient count and
+ * every string in it, so neither a long list nor one oversized name can inflate
+ * the tokens of a single request (the rate limit only bounds how many arrive).
+ * An imagined meal is a home-cooked dish of a handful of ingredients; 40 leaves
+ * room for the longest of those. 200 matches the meal-name ceiling
+ * `imagine-meal.ts` asks the model for.
+ */
+const MAX_REVIEW_INGREDIENTS = 40
+const MAX_NAME_LENGTH = 200
+
 const reviewRequestSchema = z.object({
-  mealName: z.string().min(1),
+  mealName: z.string().min(1).max(MAX_NAME_LENGTH),
   servings: z.number().int().min(1).max(50),
   ingredients: z
     .array(
       z.object({
-        ingredientId: z.string().min(1),
-        name: z.string().min(1),
+        ingredientId: z.string().min(1).max(100),
+        name: z.string().min(1).max(MAX_NAME_LENGTH),
         quantityPerServing: z.number().positive(),
         unit: z.enum(['g', 'piece']),
       }),
     )
-    .min(1),
+    .min(1)
+    .max(MAX_REVIEW_INGREDIENTS),
 })
 
 /**
@@ -68,6 +81,27 @@ async function handlePOST(request: Request) {
   }
 
   const { household } = membership
+
+  // A 429 here degrades silently, like the budget timeout below: both callers
+  // go through `reviewImaginedMeal`, which keeps the unreviewed meal and reports
+  // the drop to PostHog, and no UI copy is shown (HON-722, option 1 — recorded
+  // on the issue). The bucket is sized well above realistic use, so a legitimate
+  // user should never take this path. `code` is what the client keys that report on.
+  const rateLimitResult = await checkRateLimit(household.id, 'meal-quantity-review')
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      {
+        error: 'Rate limit exceeded',
+        code: 'rate_limited',
+        message: `Maximum ${rateLimitResult.limit} quantity review requests per hour`,
+        resetAt: rateLimitResult.resetAt.toISOString(),
+      },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(retryAfterSeconds(rateLimitResult)) },
+      },
+    )
+  }
 
   try {
     await assertUnderCap(household.id)
