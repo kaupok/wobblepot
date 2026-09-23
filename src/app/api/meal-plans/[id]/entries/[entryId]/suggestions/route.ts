@@ -15,6 +15,7 @@ import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
 import {
   SLOT_FIT_WEIGHTS,
   randomScoreJitter,
+  ratingSignal,
   scoreCandidate,
 } from '@/lib/meal-planning/candidate-score'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
@@ -164,6 +165,7 @@ async function handlePOST(
       primaryProteinType: requiredSlot?.proteinType,
       householdId: household.id,
       favoriteMealIds,
+      includeNetRating: true,
     }
 
     // Get candidates
@@ -241,6 +243,7 @@ async function handlePOST(
           }
         }),
         nutrition: computeMealNutrition(components),
+        ratingSignal: ratingSignal(candidate.netRating),
         ...(mealDetail
           ? presentMealImage(mealDetail)
           : { imageUrl: null, imageStatus: undefined, imageHue: null }),

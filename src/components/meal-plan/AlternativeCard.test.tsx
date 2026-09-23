@@ -207,4 +207,27 @@ describe('AlternativeCard', () => {
       expect(image).not.toHaveClass('absolute')
     })
   })
+
+  // HON-340: the card says when the household's own ratings moved the suggestion.
+  describe('rating reason', () => {
+    const renderWith = (meal: AlternativeMeal) =>
+      render(
+        <AlternativeCard meal={meal} householdSize={3} onSelect={vi.fn()} isSelecting={false} />,
+      )
+
+    it('says the household rated a liked meal up', () => {
+      renderWith({ ...mockMeal, ratingSignal: 'liked' })
+      expect(screen.getByText("You've rated this thumbs up")).toBeInTheDocument()
+    })
+
+    it('says the household rated a disliked meal down', () => {
+      renderWith({ ...mockMeal, ratingSignal: 'disliked' })
+      expect(screen.getByText("You've rated this thumbs down")).toBeInTheDocument()
+    })
+
+    it('shows no reason for a meal the household has not rated', () => {
+      renderWith(mockMeal)
+      expect(screen.queryByText(/You've rated this/)).not.toBeInTheDocument()
+    })
+  })
 })

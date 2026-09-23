@@ -5,6 +5,8 @@ import {
   SIMILAR_PREP_TIME_MINUTES,
   SLOT_FIT_WEIGHTS,
   randomScoreJitter,
+  ratingSignal,
+  ratingTerm,
   scoreCandidate,
   scoreJitter,
   type ScorableCandidate,
@@ -176,6 +178,84 @@ describe('scoreCandidate', () => {
       0,
     )
     expect(scoreCandidate(candidate, SLOT_FIT_WEIGHTS)).toBe(0)
+  })
+})
+
+describe('rating term (HON-340)', () => {
+  const PROFILES = [
+    ['slot fit', SLOT_FIT_WEIGHTS],
+    ['similarity', SIMILARITY_WEIGHTS],
+  ] as const
+
+  describe.each(PROFILES)('%s profile', (_name, weights) => {
+    it('ranks a net-positive meal above an otherwise identical unrated one', () => {
+      expect(rank([meal('unrated'), meal('liked', { netRating: 1 })], weights)).toEqual([
+        'liked',
+        'unrated',
+      ])
+    })
+
+    it('ranks a net-negative meal below an otherwise identical unrated one', () => {
+      expect(rank([meal('disliked', { netRating: -1 }), meal('unrated')], weights)).toEqual([
+        'unrated',
+        'disliked',
+      ])
+    })
+
+    it('scores a balanced record (net 0) the same as no ratings', () => {
+      expect(scoreCandidate(meal('a', { netRating: 0 }), weights)).toBe(
+        scoreCandidate(meal('a'), weights),
+      )
+    })
+
+    it('clamps the term to its caps however lopsided the record', () => {
+      expect(ratingTerm(50, weights)).toBe(weights.ratingUpCap)
+      expect(ratingTerm(-50, weights)).toBe(-weights.ratingDownCap)
+    })
+
+    it('pushes down harder on repeated thumbs-down than one thumbs-up lifts', () => {
+      expect(ratingTerm(-2, weights)).toBeLessThan(ratingTerm(-1, weights))
+      expect(-ratingTerm(-2, weights)).toBeGreaterThan(ratingTerm(1, weights))
+    })
+
+    it('never reaches the favourite weight in either direction', () => {
+      expect(weights.ratingUpCap).toBeLessThan(weights.isFavorite)
+      expect(weights.ratingDownCap).toBeLessThan(weights.isFavorite)
+      // A favourite the household keeps rating down still beats a plain meal.
+      expect(
+        rank([meal('plain'), meal('fav-disliked', { isFavorite: true, netRating: -9 })], weights),
+      ).toEqual(['fav-disliked', 'plain'])
+    })
+
+    it('fires at no less than SCORE_JITTER_RANGE, so the jitter cannot mask it', () => {
+      // The smallest non-zero value the term can take is one net vote in either direction.
+      const smallest = Math.min(Math.abs(ratingTerm(1, weights)), Math.abs(ratingTerm(-1, weights)))
+      expect(smallest).toBeGreaterThanOrEqual(SCORE_JITTER_RANGE)
+    })
+
+    it('outranks an unrated meal for every jitter draw', () => {
+      const seed = { entryId: 'entry-1', dateString: '2026-09-23' }
+      for (let i = 0; i < 500; i++) {
+        const unrated =
+          scoreCandidate(meal('a'), weights) + scoreJitter({ ...seed, candidateId: `u-${i}` })
+        const liked =
+          scoreCandidate(meal('b', { netRating: 1 }), weights) +
+          scoreJitter({ ...seed, candidateId: `l-${i}` })
+        const disliked =
+          scoreCandidate(meal('c', { netRating: -1 }), weights) +
+          scoreJitter({ ...seed, candidateId: `d-${i}` })
+
+        expect(liked).toBeGreaterThan(unrated)
+        expect(unrated).toBeGreaterThan(disliked)
+      }
+    })
+  })
+
+  it('reports a signal exactly when the term fires', () => {
+    expect(ratingSignal(undefined)).toBeUndefined()
+    expect(ratingSignal(0)).toBeUndefined()
+    expect(ratingSignal(2)).toBe('liked')
+    expect(ratingSignal(-1)).toBe('disliked')
   })
 })
 

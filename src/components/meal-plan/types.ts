@@ -1,6 +1,7 @@
 import type { MealStatus } from './StatusSelect'
 import type { MealImageFields } from './MealImageCard'
 import type { MealImageStatus, MealType } from '@/generated/prisma/enums'
+import type { RatingSignal } from '@/lib/meal-planning/candidate-score'
 
 export interface MealComponent {
   ingredientId: string
@@ -87,6 +88,11 @@ export interface AlternativeMeal extends MealImageFields {
   suitableFor?: MealType[]
   components: MealComponent[]
   nutrition: NutritionData
+  /**
+   * Set when the household's own thumbs-up/down moved this suggestion's ranking (HON-340),
+   * so the card can say so. Absent for a meal the household has not rated on balance.
+   */
+  ratingSignal?: RatingSignal
 }
 
 export interface WeekContext {

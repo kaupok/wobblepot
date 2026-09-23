@@ -92,3 +92,19 @@ export const WithPantryAvailability: Story = {
     ] satisfies PantryIngredient[],
   },
 }
+
+/** The household's own thumbs moved this suggestion up the ranking (HON-340). */
+export const RatedUp: Story = {
+  args: { meal: { ...mealFixture, ratingSignal: 'liked' } },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText("You've rated this thumbs up")).toBeVisible()
+  },
+}
+
+/** Rated down on balance, but still in the top 3 — the card says so rather than hiding it. */
+export const RatedDown: Story = {
+  args: { meal: { ...mealFixture, ratingSignal: 'disliked' } },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText("You've rated this thumbs down")).toBeVisible()
+  },
+}

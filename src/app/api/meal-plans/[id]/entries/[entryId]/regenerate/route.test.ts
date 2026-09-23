@@ -398,6 +398,57 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/regenerate', () => {
       expect(first).toEqual(['meal-a', 'meal-b', 'meal-c'])
       expect(second).toEqual(['meal-e', 'meal-d', 'meal-c'])
     })
+
+    // HON-340: the household's own ratings move the ranking by more than any jitter draw.
+    it('asks for the household-scoped net rating on the candidate query', async () => {
+      arrange()
+      await topThree()
+
+      expect(mockGetCandidates).toHaveBeenCalledWith(
+        expect.objectContaining({ householdId: 'household-123', includeNetRating: true }),
+      )
+    })
+
+    it('lifts a liked meal and drops a disliked one past the jitter, and says why', async () => {
+      arrange()
+      mockGetCandidates.mockResolvedValue(
+        tiedPool.map((c) =>
+          c.id === 'meal-a'
+            ? { ...c, netRating: -2 }
+            : c.id === 'meal-e'
+              ? { ...c, netRating: 1 }
+              : { ...c, netRating: 0 },
+        ) as never,
+      )
+      // Jitter alone would pick a, b, c — a highest, e lowest.
+      stubDraws({ 'meal-a': 0.49, 'meal-b': 0.3, 'meal-c': 0.2, 'meal-d': 0.1, 'meal-e': 0 })
+
+      const response = await POST(createRequest(), { params: createParams() })
+      const data = await response.json()
+
+      expect(data.alternatives.map((a: { id: string }) => a.id)).toEqual([
+        'meal-e',
+        'meal-b',
+        'meal-c',
+      ])
+      expect(data.alternatives[0].ratingSignal).toBe('liked')
+      expect(data.alternatives[1]).not.toHaveProperty('ratingSignal')
+    })
+
+    it('surfaces a disliked meal that still makes the top 3 as disliked', async () => {
+      arrange()
+      mockGetCandidates.mockResolvedValue(
+        tiedPool.slice(0, 2).map((c) => (c.id === 'meal-a' ? { ...c, netRating: -1 } : c)) as never,
+      )
+      stubDraws({})
+
+      const response = await POST(createRequest(), { params: createParams() })
+      const data = await response.json()
+
+      expect(
+        data.alternatives.map((a: { id: string; ratingSignal?: string }) => a.ratingSignal),
+      ).toEqual([undefined, 'disliked'])
+    })
   })
 
   it('excludes current meal from candidates', async () => {
