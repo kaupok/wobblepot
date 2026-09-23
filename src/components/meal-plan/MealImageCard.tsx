@@ -70,6 +70,23 @@ const IMAGE_BOX = {
 } as const
 
 /**
+ * How tall the side image is. `card` runs it down the card's full height.
+ * `titleRow` confines it to the band above the card's second row, so the rows
+ * below the title (the planner card's note, status and rating) sit on the
+ * plain tint instead of the dish (HON-755).
+ *
+ * `h-12` is where the planner card's second row starts on a one-line title:
+ * the card's `py-2`, the title row's `min-h-8`, and `CardHeader`'s `gap-2` —
+ * change them together. A title that wraps only pushes the lower rows further
+ * down, and it wraps before the image anyway (`TITLE_WIDTH`). The bottom fade
+ * keeps a band that ends mid-card from cutting the plate with a hard edge.
+ */
+const IMAGE_HEIGHT = {
+  card: 'inset-y-0',
+  titleRow: 'top-0 h-12 mask-b-from-60%',
+} as const
+
+/**
  * The widest the title may be on a tinted card: it wraps before it reaches the
  * image's opaque part. Fractions of the card's content row, matched to
  * `IMAGE_BOX` plus the 30% fade — change the two together.
@@ -140,6 +157,11 @@ interface MealImageCardProps extends ComponentProps<typeof Card> {
    */
   trailingActions?: boolean
   /**
+   * The card has rows below its title (the planner card's note, status and
+   * rating). The image then stays in the title row's band. `side` only.
+   */
+  titleBand?: boolean
+  /**
    * Rendered after the image, so a `bottom` card keeps its actions (the
    * alternative card's Select button) below the picture.
    */
@@ -164,6 +186,7 @@ export function MealImageCard({
   meal,
   layout = 'side',
   trailingActions = false,
+  titleBand = false,
   footer,
   className,
   style,
@@ -189,6 +212,7 @@ export function MealImageCard({
       alt={meal.name}
       layout={layout}
       trailingActions={trailingActions}
+      titleBand={titleBand}
       onError={() => setBrokenUrl(imageUrl)}
     />
   ) : null
@@ -227,10 +251,11 @@ interface CardImageProps {
   alt: string
   layout: MealImageLayout
   trailingActions: boolean
+  titleBand: boolean
   onError: () => void
 }
 
-function CardImage({ src, alt, layout, trailingActions, onError }: CardImageProps) {
+function CardImage({ src, alt, layout, trailingActions, titleBand, onError }: CardImageProps) {
   const { loaded, ref, onLoad } = useImageLoaded()
   const bottom = layout === 'bottom'
 
@@ -248,7 +273,8 @@ function CardImage({ src, alt, layout, trailingActions, onError }: CardImageProp
             // fades into the tint above; the full 3:2 frame shows the whole plate.
             'relative aspect-3/2 w-full shrink-0 mask-t-from-60%'
           : cn(
-              'absolute inset-y-0 -z-10 mask-l-from-30%',
+              'absolute -z-10 mask-l-from-30%',
+              titleBand ? IMAGE_HEIGHT.titleRow : IMAGE_HEIGHT.card,
               trailingActions ? IMAGE_BOX.trailingActions : IMAGE_BOX.default,
             ),
       )}

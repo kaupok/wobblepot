@@ -245,6 +245,24 @@ export const TrailingActionsDesktop: Story = {
   play: async ({ canvasElement }) => assertOnTint(canvasElement),
 }
 
+/**
+ * `titleBand` (HON-755): the image stays in the title row's band, so the row
+ * below the title starts at or below its bottom edge and sits on the tint.
+ */
+export const TitleBand: Story = {
+  name: 'Title band',
+  args: { meal: withImage(28, { name: LONG_TITLE }), className: undefined, titleBand: true },
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  render: (args) => <TrailingActionsCard {...args} />,
+  play: async ({ canvasElement }) => {
+    await assertOnTint(canvasElement)
+    const canvas = within(canvasElement)
+    const box = canvas.getByTestId('meal-card-image').getBoundingClientRect()
+    const caption = canvas.getByText('All ingredients in pantry').getBoundingClientRect()
+    await expect(caption.top).toBeGreaterThanOrEqual(box.bottom)
+  },
+}
+
 /** An image that fails to load leaves a neutral card, and the title its full row. */
 export const TrailingActionsBrokenImage: Story = {
   name: 'Trailing actions, broken image',

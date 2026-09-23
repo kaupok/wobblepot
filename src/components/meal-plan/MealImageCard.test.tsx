@@ -58,6 +58,26 @@ describe('MealImageCard', () => {
     expect(wrapper).not.toHaveClass('right-0', 'w-9/20', '@md/meal-image:w-5/8')
   })
 
+  // HON-755: the planner card's lower rows sit on the tint, not the dish.
+  it('confines the side image to the title row band', () => {
+    render(
+      <MealImageCard
+        meal={{ name: 'Lemon garlic chicken', imageStatus: 'ready', imageUrl: URL, imageHue: 264 }}
+        trailingActions
+        titleBand
+      >
+        <p>Content</p>
+      </MealImageCard>,
+    )
+    const wrapper = screen.getByTestId('meal-card-image')
+
+    expect(wrapper).toHaveClass('absolute', 'top-0', 'h-12', 'mask-b-from-60%', '-z-10')
+    expect(wrapper).not.toHaveClass('inset-y-0')
+    // The band keeps the horizontal geometry and fades of the trailing box.
+    expect(wrapper).toHaveClass('right-36', 'left-1/3', 'mask-l-from-30%', 'mask-r-from-80%')
+    expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 341px, 40vw')
+  })
+
   // HON-750: a tall card puts the image below the content instead of behind it.
   it('renders a bottom image in flow after the content and before the footer', () => {
     const { container } = render(
@@ -122,6 +142,7 @@ describe('MealImageCard', () => {
 
     expect(card.firstElementChild).toBe(wrapper)
     expect(wrapper).toHaveClass('absolute', 'inset-y-0', '-z-10')
+    expect(wrapper).not.toHaveClass('top-0', 'h-12', 'mask-b-from-60%')
     expect(card).toHaveClass('group/meal-image')
   })
 
