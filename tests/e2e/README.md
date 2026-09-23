@@ -134,6 +134,11 @@ be a seeded fixture — the invitee has to start with **no** household so the
 join claims the manual member row. It is not `@ai` (no Claude call), so tier 1
 CI runs it on every push.
 
+`tests/e2e/forgot-password-et.spec.ts` (HON-704) is tier-1-only for the same
+account-creation reason: it signs up a fresh user with an Estonian household,
+which no seeded fixture has, to prove the reset flow holds when the email is
+sent in Estonian.
+
 ## Test-only routes
 
 Two routes exist purely for E2E, both gated on `RATE_LIMIT_BYPASS_ACTIVE`
@@ -162,10 +167,12 @@ email assertion in `account-deletion`) go through
 `tests/e2e/utils/mail-helpers.ts`, which has two backends:
 
 1. **Resend** — set `RESEND_TEST_API_KEY` to a _read-capable_ Resend API key on
-   the same team the app sends from. The helper polls `GET /emails`, matches on
-   recipient + subject + a send-time lower bound, then pulls the body with
-   `GET /emails/{id}`. This is the only backend that works on preview and
-   staging, where the app really sends mail.
+   the same team the app sends from. The helper polls `GET /emails`, filters on
+   recipient + a send-time lower bound, then pulls bodies with
+   `GET /emails/{id}`. Reset emails are selected by the Better Auth reset link
+   in the body, never the subject — the subject is localized to the
+   household's locale (HON-513, HON-704). This is the only backend that works
+   on preview and staging, where the app really sends mail.
 2. **Back-channel** — tier 1 CI and `pnpm test:e2e:local` have no
    `RESEND_API_KEY` at all, so `sendResetPassword` short-circuits and no email
    is ever produced. There the helper reads the token from
