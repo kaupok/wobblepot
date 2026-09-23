@@ -245,10 +245,12 @@ If outputs same → **regular repo mode**
 
 ### Step 4: Merge the PR
 
+The `WOBBLEPOT_ALLOW_MERGE=1` prefix is required: `.claude/hooks/block-destructive.mts` blocks every `gh pr merge` without it (HON-727). Keep it inline on the same command — the hook reads it from the command text, so an `export` in an earlier Bash call does not carry over.
+
 **Regular repo mode:**
 
 ```bash
-gh pr merge --squash --delete-branch
+WOBBLEPOT_ALLOW_MERGE=1 gh pr merge --squash --delete-branch
 ```
 
 This command:
@@ -260,7 +262,7 @@ This command:
 **Worktree mode:**
 
 ```bash
-gh pr merge --squash
+WOBBLEPOT_ALLOW_MERGE=1 gh pr merge --squash
 ```
 
 Omit `--delete-branch` because `gh` tries to checkout main internally, which conflicts with the parent worktree. The remote branch is still deleted by GitHub. The local worktree branch is preserved (user cleans up worktree manually).
