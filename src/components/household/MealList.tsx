@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { Pencil, Trash2, Heart } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
-import { CardContent, CardFooter } from '@/components/ui/card'
+import { CardContent } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { MealCardBase } from '@/components/meal-plan/MealCardBase'
@@ -117,49 +117,47 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
     <>
       {/* One column on a phone, two from `sm`, three from `lg` (HON-747). The
           columns make the cards taller than wide, so the image sits below the
-          content rather than behind it, as in the alternatives grid (HON-750),
-          and the actions go in the footer to stay below the picture. */}
+          content rather than behind it, as in the alternatives grid (HON-750).
+          The actions stay on the title row (docs/DESIGN.md → Composition). */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {meals.map((meal) => (
-          <MealImageCard
-            key={meal.id}
-            meal={meal}
-            layout="bottom"
-            className="flex h-full flex-col"
-            footer={
-              <CardFooter className="gap-1 p-4 pt-0">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleToggleFavorite(meal)}
-                  disabled={togglingFavorite === meal.id}
-                  aria-label={
-                    meal.isFavorite ? t('removeFromFavoritesAria') : t('addToFavoritesAria')
-                  }
-                >
-                  <Heart
-                    className={cn('h-4 w-4', meal.isFavorite && 'text-primary fill-current')}
-                  />
-                </Button>
-                <Button variant="ghost" size="sm" asChild aria-label={t('editAria')}>
-                  <Link href={`/recipes/${meal.id}/edit`}>
-                    <Pencil className="h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setDeleteConfirmMeal(meal)}
-                  aria-label={t('deleteAria')}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </CardFooter>
-            }
-          >
-            <CardContent className="flex-1 p-4 pb-2">
+          <MealImageCard key={meal.id} meal={meal} layout="bottom" className="flex h-full flex-col">
+            <CardContent className="flex-1 p-4">
               {/* h2: the page title is the h1 (HON-747) */}
-              <MealCardBase meal={meal} nameHeadingTag="h2" />
+              <MealCardBase
+                meal={meal}
+                nameHeadingTag="h2"
+                titleActions={
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleToggleFavorite(meal)}
+                      disabled={togglingFavorite === meal.id}
+                      aria-label={
+                        meal.isFavorite ? t('removeFromFavoritesAria') : t('addToFavoritesAria')
+                      }
+                    >
+                      <Heart
+                        className={cn('h-4 w-4', meal.isFavorite && 'text-primary fill-current')}
+                      />
+                    </Button>
+                    <Button variant="ghost" size="sm" asChild aria-label={t('editAria')}>
+                      <Link href={`/recipes/${meal.id}/edit`}>
+                        <Pencil className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeleteConfirmMeal(meal)}
+                      aria-label={t('deleteAria')}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </>
+                }
+              />
             </CardContent>
           </MealImageCard>
         ))}
