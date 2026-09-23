@@ -30,10 +30,12 @@ export default async function RecipesPage() {
 
   // Prefetch the first page so the list is in the first HTML response instead
   // of behind a second client round trip (HON-770). A failed prefetch is not
-  // dehydrated, so the client falls back to fetching the list itself.
+  // dehydrated, so the client falls back to fetching the list itself; no
+  // retries here, since the default two would hold the render for seconds.
   const queryClient = getQueryClient()
   await queryClient.prefetchInfiniteQuery({
     queryKey: mealsQueryKey(undefined),
+    retry: false,
     initialPageParam: mealsInitialPageParam,
     queryFn: async () => {
       const page = await listHouseholdMeals({
