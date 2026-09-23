@@ -37,6 +37,8 @@ interface InventoryPageProps {
    */
   view: InventoryView
   pantryItems: PantryItemData[]
+  /** `/api/pantry` failed, so `pantryItems` is empty for lack of data, not stock. */
+  pantryLoadFailed?: boolean
   shoppingData: ShoppingData | null
   emptyStateVariant?: ShoppingEmptyStateVariant
   windowDays?: number
@@ -51,6 +53,7 @@ interface InventoryPageProps {
 export function InventoryPage({
   view,
   pantryItems: initialPantryItems,
+  pantryLoadFailed = false,
   shoppingData,
   emptyStateVariant,
   windowDays,
@@ -120,6 +123,7 @@ export function InventoryPage({
             items={pantryItems}
             onItemsChange={setPantryItems}
             newlyAddedIds={newlyAddedIds}
+            loadFailed={pantryLoadFailed}
             onPantryItemRemoved={handlePantryItemRemoved}
           />
         </div>

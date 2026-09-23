@@ -94,7 +94,12 @@ export async function loadInventory(daysParam: string | undefined): Promise<Inve
     }),
   ])
 
+  // A failed pantry fetch must not read as an empty pantry: on a phone `/pantry`
+  // is nothing but this list, so "Your pantry is empty" after a transient 500
+  // would tell the user their stock is gone. Not thrown either — the shopping
+  // list beside it on desktop loaded fine and should still render.
   let formattedPantryItems: PantryItemData[] = []
+  const pantryLoadFailed = !pantryResponse.ok
   if (pantryResponse.ok) {
     const pantryData: PantryResponse = await pantryResponse.json()
     formattedPantryItems = pantryData.items.map(toPantryItemData)
@@ -103,6 +108,7 @@ export async function loadInventory(daysParam: string | undefined): Promise<Inve
   if (!shoppingResponse.ok) {
     return {
       pantryItems: formattedPantryItems,
+      pantryLoadFailed,
       shoppingData: null,
       emptyStateVariant: 'error',
       windowDays: days,
@@ -146,6 +152,7 @@ export async function loadInventory(daysParam: string | undefined): Promise<Inve
 
   return {
     pantryItems: formattedPantryItems,
+    pantryLoadFailed,
     shoppingData: emptyStateVariant ? null : shoppingData,
     emptyStateVariant,
     windowDays: days,

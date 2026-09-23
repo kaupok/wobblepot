@@ -107,6 +107,7 @@
     "title": "Your pantry",
     "subtitle": "Manage your household inventory",
     "empty": "Your pantry is empty. Add staples like olive oil, salt, and rice to exclude them from shopping lists.",
+    "loadFailed": "We couldn't load your pantry. Reload the page to try again.",
     "footerHint": "Mark items as staples to exclude them from shopping lists",
     "stapleSection": "Staples (always stocked)",
     "onHandSection": "On hand",
@@ -745,6 +746,10 @@
       "generic": {
         "title": "Oops! Something went wrong",
         "body": "We encountered an error while loading this page."
+      },
+      "pantry": {
+        "title": "Couldn't load your pantry",
+        "body": "We had trouble loading your pantry. Please try again."
       },
       "shopping": {
         "title": "Couldn't load your shopping list",

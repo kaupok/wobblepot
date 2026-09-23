@@ -17,6 +17,12 @@ interface PantrySectionProps {
   items: PantryItemData[]
   onItemsChange: Dispatch<SetStateAction<PantryItemData[]>>
   newlyAddedIds?: Set<string>
+  /**
+   * The pantry could not be fetched. Renders an error in place of the list, so
+   * a failed load is never shown as "Your pantry is empty" — and hides the add
+   * search, which would otherwise build a pantry on top of one it cannot see.
+   */
+  loadFailed?: boolean
   onPantryItemRemoved?: (ingredientId: string) => void
 }
 
@@ -24,6 +30,7 @@ export function PantrySection({
   items,
   onItemsChange,
   newlyAddedIds = new Set(),
+  loadFailed = false,
   onPantryItemRemoved,
 }: PantrySectionProps) {
   const tPantry = useTranslations('pantry')
@@ -90,7 +97,11 @@ export function PantrySection({
 
   const content = (
     <>
-      {items.length === 0 ? (
+      {loadFailed ? (
+        <div role="alert" className="rounded-lg border border-dashed p-6 text-center">
+          <Body tone="destructive">{tPantry('loadFailed')}</Body>
+        </div>
+      ) : items.length === 0 ? (
         <div className="flex flex-col gap-4">
           <InlineAddItem onItemAdded={handleItemAdded} pantryIngredientIds={pantryIngredientIds} />
           <div className="rounded-lg border border-dashed p-6 text-center">

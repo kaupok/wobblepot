@@ -132,3 +132,20 @@ export const Empty: Story = {
     },
   },
 }
+
+export const LoadFailed: Story = {
+  args: { items: [], loadFailed: true },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          '`/api/pantry` failed. On a phone `/pantry` is only this card, so the error replaces the list and the add search rather than reading as an empty pantry.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('alert')).toHaveTextContent(/couldn't load your pantry/i)
+    await expect(canvas.queryByText(/your pantry is empty/i)).not.toBeInTheDocument()
+  },
+}

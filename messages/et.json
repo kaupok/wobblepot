@@ -107,6 +107,7 @@
     "title": "Sinu sahver",
     "subtitle": "Halda leibkonna varusid",
     "empty": "Sahver on tühi. Lisa põhitooteid nagu oliiviõli, sool ja riis, et neid poenimekirjast välja jätta.",
+    "loadFailed": "Sahvrit ei õnnestunud laadida. Värskenda lehte, et uuesti proovida.",
     "footerHint": "Märgi tooted põhitoodeteks, et need poenimekirjast välja jätta",
     "stapleSection": "Põhitooted (alati varuks)",
     "onHandSection": "Käepärast",
@@ -745,6 +746,10 @@
       "generic": {
         "title": "Oih! Midagi läks valesti",
         "body": "Lehe laadimisel tekkis viga."
+      },
+      "pantry": {
+        "title": "Sahvrit ei õnnestunud laadida",
+        "body": "Sahvri laadimisel tekkis viga. Palun proovi uuesti."
       },
       "shopping": {
         "title": "Poenimekirja ei õnnestunud laadida",

@@ -149,6 +149,18 @@ describe('InventoryPage view', () => {
     expect(screen.queryByRole('button', { name: /your pantry/i })).not.toBeInTheDocument()
   })
 
+  it('shows a failed pantry load as an error, not as an empty pantry', () => {
+    renderPage({
+      view: 'pantry',
+      pantryLoadFailed: true,
+      emptyStateVariant: 'nothing-needed',
+      windowDays: 7,
+    })
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/couldn't load your pantry/i)
+    expect(screen.queryByText(/your pantry is empty/i)).not.toBeInTheDocument()
+  })
+
   it('moves an item bought on the list into the pantry column without a reload', async () => {
     const user = userEvent.setup()
     vi.mocked(fetch).mockResolvedValueOnce(
