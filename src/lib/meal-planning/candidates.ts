@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import {
   Allergen,
   DietaryType,
+  EntryRating,
   IngredientCategory,
   MealType,
   ProteinType,
@@ -56,6 +57,12 @@ export interface CandidateFilters {
   maxTimeMinutes?: number
   householdId?: string
   favoriteMealIds?: string[]
+  /**
+   * Attach each candidate's {@link CandidateMeal.netRating} from the household's own rated plan
+   * entries. Opt-in: only the swap routes rank on it (HON-340), and plan generation should not
+   * pay for the join. Ignored without `householdId` — ratings are never read unscoped.
+   */
+  includeNetRating?: boolean
 }
 
 export interface CandidateMeal {
@@ -66,6 +73,16 @@ export interface CandidateMeal {
   topIngredients: { name: string; category: IngredientCategory }[]
   isFavorite: boolean
   isCustom: boolean
+  /**
+   * Household thumbs-up count minus thumbs-down count for this meal. Only present when
+   * `includeNetRating` was requested with a `householdId`.
+   */
+  netRating?: number
+}
+
+/** Thumbs-up count minus thumbs-down count. */
+function netRating(entries: { rating: EntryRating | null }[]): number {
+  return entries.reduce((net, e) => net + (e.rating === 'up' ? 1 : e.rating === 'down' ? -1 : 0), 0)
 }
 
 /**
@@ -78,6 +95,7 @@ export interface CandidateMeal {
  */
 export async function getCandidates(filters: CandidateFilters): Promise<CandidateMeal[]> {
   const favoriteMealIds = new Set(filters.favoriteMealIds ?? [])
+  const ratingHouseholdId = filters.includeNetRating ? filters.householdId : undefined
   const excludedProteinTypes = filters.dietaryType
     ? getExcludedProteinTypes(filters.dietaryType)
     : []
@@ -145,6 +163,16 @@ export async function getCandidates(filters: CandidateFilters): Promise<Candidat
           },
         },
       },
+      // Scoped to this household's own plans: a system meal is shared across households, and
+      // one household's thumbs must never move another's ranking.
+      ...(ratingHouseholdId
+        ? {
+            planEntries: {
+              where: { plan: { householdId: ratingHouseholdId }, rating: { not: null } },
+              select: { rating: true },
+            },
+          }
+        : {}),
     },
   })
 
@@ -160,6 +188,7 @@ export async function getCandidates(filters: CandidateFilters): Promise<Candidat
     })),
     isFavorite: favoriteMealIds.has(meal.id),
     isCustom: meal.householdId !== null,
+    ...(ratingHouseholdId ? { netRating: netRating(meal.planEntries ?? []) } : {}),
   }))
 
   // Sort by preference priority: favorites first, then household meals, then system meals

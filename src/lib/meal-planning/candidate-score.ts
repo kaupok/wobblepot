@@ -29,6 +29,15 @@ export interface CandidateScoreWeights {
   sameProteinType: number
   /** Candidate's prep time is within {@link SIMILAR_PREP_TIME_MINUTES} of the current meal's. */
   similarPrepTime: number
+  /**
+   * Points per net household rating (thumbs-up count minus thumbs-down count across the
+   * household's plan entries for the meal), before clamping to the two caps below.
+   */
+  ratingPerNetVote: number
+  /** Most a net-positive rating can add. */
+  ratingUpCap: number
+  /** Most a net-negative rating can subtract, as a positive number. */
+  ratingDownCap: number
 }
 
 /** Prep times within this many minutes of each other count as similar. */
@@ -55,6 +64,9 @@ export const SLOT_FIT_WEIGHTS: CandidateScoreWeights = {
   pantryMatchPerIngredient: 0.5,
   sameProteinType: 0,
   similarPrepTime: 0,
+  ratingPerNetVote: 1,
+  ratingUpCap: 1,
+  ratingDownCap: 2,
 }
 
 /**
@@ -76,7 +88,32 @@ export const SIMILARITY_WEIGHTS: CandidateScoreWeights = {
   pantryMatchPerIngredient: 0.5,
   sameProteinType: 3,
   similarPrepTime: 2,
+  ratingPerNetVote: 0.5,
+  ratingUpCap: 0.5,
+  ratingDownCap: 1,
 }
+
+/*
+ * The rating term (HON-340) — the same shape in both profiles, one band apart like every other
+ * preference signal: a vote is worth the profile's `kidFriendly` weight, the lift is capped at
+ * `kidFriendly` and the drop at `isCustom`.
+ *
+ * Why it sits below `isFavorite`, in both directions: favouriting is a deliberate statement
+ * about a meal, a thumb is a reaction to one night's cooking. Neither cap reaches the
+ * favourite weight, so no amount of rating can outrank a favourite that is otherwise equal,
+ * or erase one — a favourite the household keeps rating down stays above an unrated,
+ * unfavourited meal.
+ *
+ * Why it is asymmetric: one net thumbs-up already takes the whole lift, while the drop keeps
+ * deepening through a second net thumbs-down to twice the lift. A meal rejected twice is
+ * stronger evidence than a meal enjoyed once, and a swap surface that keeps offering what the
+ * household turned down is the failure this term exists to fix.
+ *
+ * Why it is not smaller: the smallest non-zero value it can take (the similarity profile's
+ * 0.5) equals SCORE_JITTER_RANGE, and every value is a multiple of 0.5 like every other weight.
+ * The jitter is drawn from the half-open `[0, SCORE_JITTER_RANGE)`, so a rating that fired
+ * always beats one that did not — `candidate-score.test.ts` asserts both bounds.
+ */
 
 export interface ScorableCandidate {
   kidFriendly: boolean
@@ -84,6 +121,11 @@ export interface ScorableCandidate {
   topIngredients: { name: string }[]
   isFavorite: boolean
   isCustom: boolean
+  /**
+   * The household's thumbs-up count minus thumbs-down count for this meal, across its own plan
+   * entries only. Absent or 0 when the household has never rated it.
+   */
+  netRating?: number
 }
 
 export interface CandidateScoreContext {
@@ -141,7 +183,28 @@ export function scoreCandidate(
     score += matchCount * weights.pantryMatchPerIngredient
   }
 
+  score += ratingTerm(candidate.netRating, weights)
+
   return score
+}
+
+/** Contribution of a net household rating under a profile — see the rating-term comment above. */
+export function ratingTerm(netRating: number | undefined, weights: CandidateScoreWeights): number {
+  if (!netRating) return 0
+  const raw = netRating * weights.ratingPerNetVote
+  return Math.min(weights.ratingUpCap, Math.max(-weights.ratingDownCap, raw))
+}
+
+/** Which way a household's ratings moved a candidate, or `undefined` when they did not. */
+export type RatingSignal = 'liked' | 'disliked'
+
+/**
+ * The swap card's reason for a candidate: set exactly when {@link ratingTerm} is non-zero, so
+ * the household sees its feedback whenever — and only when — that feedback moved the ranking.
+ */
+export function ratingSignal(netRating: number | undefined): RatingSignal | undefined {
+  if (!netRating) return undefined
+  return netRating > 0 ? 'liked' : 'disliked'
 }
 
 /**

@@ -221,7 +221,9 @@
     },
     "alternative": {
       "select": "Select",
-      "selecting": "Selecting…"
+      "selecting": "Selecting…",
+      "ratedUp": "You've rated this thumbs up",
+      "ratedDown": "You've rated this thumbs down"
     },
     "selector": {
       "swapTitle": "Choose a different meal",

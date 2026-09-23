@@ -649,6 +649,72 @@ describe('preference sorting', () => {
   })
 })
 
+describe('net rating (HON-340)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  type SelectArg = { select: Record<string, unknown> }
+  const selectOf = () => (mockFindMany.mock.calls[0]![0] as unknown as SelectArg).select
+
+  it("reads ratings only from the requesting household's own plan entries", async () => {
+    mockFindMany.mockResolvedValue([] as never)
+
+    await getCandidates({ ...baseFilters, householdId: 'household-1', includeNetRating: true })
+
+    // The where on the nested relation is the whole cross-household guarantee: a system meal
+    // is shared, so an unscoped planEntries read would pull in every household's thumbs.
+    expect(selectOf().planEntries).toEqual({
+      where: { plan: { householdId: 'household-1' }, rating: { not: null } },
+      select: { rating: true },
+    })
+  })
+
+  it('nets thumbs-up against thumbs-down per meal', async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        ...createMockMeal({ id: 'liked' }),
+        planEntries: [{ rating: 'up' }, { rating: 'up' }, { rating: 'down' }],
+      },
+      {
+        ...createMockMeal({ id: 'disliked' }),
+        planEntries: [{ rating: 'down' }, { rating: 'down' }],
+      },
+      { ...createMockMeal({ id: 'unrated' }), planEntries: [] },
+    ] as never)
+
+    const result = await getCandidates({
+      ...baseFilters,
+      householdId: 'household-1',
+      includeNetRating: true,
+    })
+
+    expect(Object.fromEntries(result.map((c) => [c.id, c.netRating]))).toEqual({
+      liked: 1,
+      disliked: -2,
+      unrated: 0,
+    })
+  })
+
+  it('does not join ratings unless asked, so plan generation pays nothing for them', async () => {
+    mockFindMany.mockResolvedValue([createMockMeal({})] as never)
+
+    const result = await getCandidates({ ...baseFilters, householdId: 'household-1' })
+
+    expect(selectOf()).not.toHaveProperty('planEntries')
+    expect(result[0]).not.toHaveProperty('netRating')
+  })
+
+  it('never reads ratings without a household to scope them to', async () => {
+    mockFindMany.mockResolvedValue([createMockMeal({})] as never)
+
+    const result = await getCandidates({ ...baseFilters, includeNetRating: true })
+
+    expect(selectOf()).not.toHaveProperty('planEntries')
+    expect(result[0]).not.toHaveProperty('netRating')
+  })
+})
+
 describe('constants', () => {
   it('exports MAX_TIME_MINUTES as 60 (deprecated, no longer used)', () => {
     expect(MAX_TIME_MINUTES).toBe(60)

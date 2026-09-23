@@ -1,8 +1,10 @@
 'use client'
 
+import { ThumbsDown, ThumbsUp } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Body } from '@/components/ui/typography'
 import { MealCardBase } from './MealCardBase'
 import { MealImageCard } from './MealImageCard'
 import type { AlternativeMeal, PantryIngredient } from './types'
@@ -39,6 +41,19 @@ export function AlternativeCard({
     >
       <CardContent className="flex-1 p-4 pb-2">
         <MealCardBase meal={meal} pantryIngredients={pantryIngredients} nameHeadingTag="h3" />
+        {/* Why this suggestion ranked where it did, when the household's own ratings moved it (HON-340). */}
+        {meal.ratingSignal && (
+          <div className="text-muted-foreground mt-2 flex items-center gap-1">
+            {meal.ratingSignal === 'liked' ? (
+              <ThumbsUp className="size-3.5" aria-hidden />
+            ) : (
+              <ThumbsDown className="size-3.5" aria-hidden />
+            )}
+            <Body variant="small">
+              {t(meal.ratingSignal === 'liked' ? 'ratedUp' : 'ratedDown')}
+            </Body>
+          </div>
+        )}
       </CardContent>
     </MealImageCard>
   )

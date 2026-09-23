@@ -221,7 +221,9 @@
     },
     "alternative": {
       "select": "Vali",
-      "selecting": "Valin…"
+      "selecting": "Valin…",
+      "ratedUp": "Sinu hinnang: pöial üles",
+      "ratedDown": "Sinu hinnang: pöial alla"
     },
     "selector": {
       "swapTitle": "Vali teine toit",
