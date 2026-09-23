@@ -1,9 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import {
   SCORE_JITTER_RANGE,
   SIMILARITY_WEIGHTS,
   SIMILAR_PREP_TIME_MINUTES,
   SLOT_FIT_WEIGHTS,
+  randomScoreJitter,
   scoreCandidate,
   scoreJitter,
   type ScorableCandidate,
@@ -243,5 +244,29 @@ describe('scoreJitter', () => {
 
     expect(lowHalf).toBeGreaterThan(60)
     expect(lowHalf).toBeLessThan(140)
+  })
+})
+
+describe('randomScoreJitter', () => {
+  const seed = { entryId: 'entry-1', dateString: '2026-09-21', candidateId: 'meal-1' }
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('draws afresh for the same seed, so reopening a slot can reshuffle its ties', () => {
+    vi.spyOn(Math, 'random').mockReturnValueOnce(0.2).mockReturnValueOnce(0.8)
+
+    expect(randomScoreJitter(seed)).toBe(0.2 * SCORE_JITTER_RANGE)
+    expect(randomScoreJitter(seed)).toBe(0.8 * SCORE_JITTER_RANGE)
+  })
+
+  it('stays inside [0, SCORE_JITTER_RANGE) at both ends of the draw', () => {
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(1 - Number.EPSILON)
+
+    expect(randomScoreJitter(seed)).toBe(0)
+    expect(randomScoreJitter(seed)).toBeLessThan(SCORE_JITTER_RANGE)
   })
 })

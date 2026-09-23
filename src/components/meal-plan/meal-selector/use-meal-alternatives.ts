@@ -80,11 +80,14 @@ export interface UseMealAlternativesResult {
   hasMore: boolean
   loadMore: () => void
   /**
-   * Drop every cached search / browse page. `MealSelectorModal` never unmounts —
-   * its callsites only toggle `open` — so the infinite-query observers stay
-   * subscribed and `gcTime` never fires. Without this, reopening the modal
-   * replays every page loaded in the previous session and refetches them all
-   * sequentially. Call it when the modal closes.
+   * Drop every cached search / browse page, and this entry's suggestion list.
+   * `MealSelectorModal` never unmounts — its callsites only toggle `open` — so
+   * the observers stay subscribed and `gcTime` never fires. Without this,
+   * reopening the modal replays every page loaded in the previous session and
+   * refetches them all sequentially, and shows the same suggestions forever: the
+   * list is cached at `staleTime: Infinity`, so the server's per-request
+   * tie-break draw (HON-709) would never be asked for again. Call it when the
+   * modal closes.
    */
   reset: () => void
   /** Total matches reported by the server for the active list, 0 for suggestions. */
@@ -123,7 +126,8 @@ export function useMealAlternatives({
   const isSearchMode = trimmedSearch.length > 0
   const isMyRecipesBrowseMode = myRecipesOnly && !isSearchMode
 
-  // AI suggestions — fetched once when the modal opens with no search active.
+  // AI suggestions — fetched once per modal session with no search active; `reset()`
+  // drops them on close so the next open draws a fresh top 3.
   const suggestionsEndpoint =
     mode === 'swap'
       ? `/api/meal-plans/${planId}/entries/${entryId}/regenerate`
@@ -195,7 +199,11 @@ export function useMealAlternatives({
   const reset = useCallback(() => {
     queryClient.removeQueries({ queryKey: ['meal-search'] })
     queryClient.removeQueries({ queryKey: ['my-recipes'] })
-  }, [queryClient])
+    queryClient.removeQueries({
+      queryKey: ['meal-suggestions', planId, entryId, mode],
+      exact: true,
+    })
+  }, [queryClient, planId, entryId, mode])
 
   return {
     displayedMeals,

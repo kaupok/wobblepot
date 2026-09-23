@@ -12,7 +12,11 @@ import { computeRequiredSlots } from '@/lib/meal-planning/slots'
 import { getWeekDates, toDateString, getMondayOfWeek } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
-import { SLOT_FIT_WEIGHTS, scoreCandidate, scoreJitter } from '@/lib/meal-planning/candidate-score'
+import {
+  SLOT_FIT_WEIGHTS,
+  randomScoreJitter,
+  scoreCandidate,
+} from '@/lib/meal-planning/candidate-score'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import {
   ingredientTranslationsInclude,
@@ -174,15 +178,15 @@ async function handlePOST(
     }
 
     // Score and sort candidates by personalization priority and pantry overlap.
-    // The jitter is a seeded tie-break, so the same slot ranks reproducibly today while
-    // different slots — and tomorrow — still vary. Seeded on the *current* date, not the
-    // entry's: an entry's date never changes, so it would add nothing. See candidate-score.ts.
+    // The jitter is a fresh per-request tie-break, so reopening the same slot can return a
+    // different top 3 (HON-709). The seed goes unused in production; it is passed so a test
+    // can substitute the seeded `scoreJitter`. See candidate-score.ts.
     const jitterDate = toDateString(new Date())
     const scored = candidates.map((c) => ({
       candidate: c,
       score:
         scoreCandidate(c, SLOT_FIT_WEIGHTS, { pantryIngredientNames }) +
-        scoreJitter({ entryId, dateString: jitterDate, candidateId: c.id }),
+        randomScoreJitter({ entryId, dateString: jitterDate, candidateId: c.id }),
     }))
     scored.sort((a, b) => b.score - a.score)
 
