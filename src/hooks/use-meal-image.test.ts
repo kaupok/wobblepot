@@ -344,6 +344,23 @@ describe('useMealImage', () => {
     expect(posts()).toHaveLength(0)
   })
 
+  it('does not re-POST when a refresh delivers the none a provider 429 released to (HON-742)', async () => {
+    mockFetch.mockResolvedValue(json({ status: 'none', error: 'Image service is busy.' }, 429))
+    const { result, rerender } = renderImageHook({
+      meal: { ...householdMeal, imageStatus: 'failed' },
+      open: true,
+    })
+    await waitFor(() => expect(posts()).toHaveLength(1))
+    expect(result.current.status).toBe('none')
+
+    // Ticking an ingredient calls router.refresh(), which re-sends the released row.
+    rerender({ meal: householdMeal, open: true })
+    await act(() => vi.advanceTimersByTimeAsync(MEAL_IMAGE_POLL_INTERVAL_MS * 2))
+
+    expect(posts()).toHaveLength(1)
+    expect(result.current.status).toBe('none')
+  })
+
   it('takes a changed server payload over the cache, and asks again after an edit', async () => {
     const readyMeal: Meal = { ...householdMeal, imageStatus: 'ready', imageUrl: URL_1 }
     const { result, rerender } = renderImageHook({ meal: readyMeal, open: false })

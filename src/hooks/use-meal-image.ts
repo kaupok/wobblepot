@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react'
 import { skipToken, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch } from '@/lib/api'
+import { ApiError, apiFetch } from '@/lib/api'
 import type { MealData } from '@/components/meal-plan/types'
 import type { MealImageStatus } from '@/generated/prisma/enums'
 
@@ -91,6 +91,16 @@ export function useMealImage({ meal, open }: UseMealImageOptions) {
   const deadlinesRef = useRef(new Map<string, number>())
   const abortRef = useRef<AbortController | null>(null)
 
+  const payloadStatus = meal.imageStatus ?? 'none'
+  const payloadUrl = meal.imageUrl ?? null
+  const payloadHue = meal.imageHue ?? null
+  const payloadKey = `${mealId}|${payloadStatus}|${payloadUrl}|${payloadHue}`
+  // A `none` payload is applied on the first render too: only an edit resets
+  // the image to `none`, and the cache entry can outlive this hook by
+  // `gcTime` — an edit on another page, then back, would otherwise keep
+  // showing the deleted blob.
+  const lastPayloadKeyRef = useRef(payloadStatus === 'none' ? null : payloadKey)
+
   const mutation = useMutation({
     mutationFn: ({ mealId, signal }: { mealId: string; signal: AbortSignal }) =>
       apiFetch<MealImageState>(`/api/meals/${mealId}/image`, { method: 'POST', signal }),
@@ -119,8 +129,17 @@ export function useMealImage({ meal, open }: UseMealImageOptions) {
     // No toast, whatever the status: 503 without a key, 429, over the cap.
     // A meal that was already `generating` goes to nothing rather than back to
     // the box, which would otherwise sit there for the whole poll budget.
-    onError: (_error, { mealId }, context) => {
+    onError: (error, { mealId }, context) => {
       if (!context) return
+      if (error instanceof ApiError && error.status === 429) {
+        // A provider 429 releases the row to `none` (HON-742) — not an edit,
+        // so the refresh that delivers it must not re-arm the POST into a
+        // window that is still exhausted. Our own limiter and the AI cap
+        // leave the row alone, and this is just as right for them.
+        lastPayloadKeyRef.current = `${mealId}|none|null|null`
+        queryClient.setQueryData(mealImageQueryKey(mealId), GAVE_UP)
+        return
+      }
       const restored = context.snapshot?.status === 'generating' ? GAVE_UP : context.snapshot
       queryClient.setQueryData(mealImageQueryKey(mealId), restored)
     },
@@ -194,15 +213,6 @@ export function useMealImage({ meal, open }: UseMealImageOptions) {
   // `generating` there is usually this session's own attempt coming back:
   // re-asking would pay for another generation, or restart the poll after
   // it gave up.
-  const payloadStatus = meal.imageStatus ?? 'none'
-  const payloadUrl = meal.imageUrl ?? null
-  const payloadHue = meal.imageHue ?? null
-  const payloadKey = `${mealId}|${payloadStatus}|${payloadUrl}|${payloadHue}`
-  // A `none` payload is applied on the first render too: only an edit resets
-  // the image to `none`, and the cache entry can outlive this hook by
-  // `gcTime` — an edit on another page, then back, would otherwise keep
-  // showing the deleted blob.
-  const lastPayloadKeyRef = useRef(payloadStatus === 'none' ? null : payloadKey)
   useEffect(() => {
     if (lastPayloadKeyRef.current === payloadKey) return
     lastPayloadKeyRef.current = payloadKey
