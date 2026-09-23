@@ -9,7 +9,7 @@ export default function ProfileLoading() {
         {/* Title (h-7, as /household) and description */}
         <div className="flex flex-col gap-1">
           <Skeleton className="h-7 w-20" />
-          <Skeleton className="h-6 w-56" />
+          <Skeleton className="h-5 w-56" />
         </div>
 
         {/* Name and email */}
@@ -30,7 +30,7 @@ export default function ProfileLoading() {
         {/* Your data */}
         <div className="flex flex-col gap-3">
           <Skeleton className="h-7 w-24" />
-          <Skeleton className="h-6 w-full max-w-sm" />
+          <Skeleton className="h-5 w-full max-w-sm" />
           <Skeleton className="h-touch w-36 md:h-10" />
         </div>
 
@@ -40,7 +40,7 @@ export default function ProfileLoading() {
         {/* Danger zone */}
         <div className="flex flex-col gap-3">
           <Skeleton className="h-7 w-28" />
-          <Skeleton className="h-6 w-full max-w-sm" />
+          <Skeleton className="h-5 w-full max-w-sm" />
           <Skeleton className="h-touch w-32 md:h-10" />
         </div>
       </div>
