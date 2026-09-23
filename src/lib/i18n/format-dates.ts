@@ -29,6 +29,19 @@ interface DateRangeFormatOptions extends DateFormatOptions {
 }
 
 /**
+ * ICU pads some separators with U+2009 THIN SPACE (the dash in a range, "Sep
+ * 26 – Oct 2") or U+202F NARROW NO-BREAK SPACE (before "PM"), but runtimes
+ * disagree on whether to keep them: Node emits them, Chrome swaps them for a
+ * plain space. A Client Component formatting a date then renders different
+ * text on the server and in the browser, and hydration fails with React error
+ * 418 (HON-777). Every formatter here returns its text through this, so both
+ * sides always render U+0020.
+ */
+function normalizeSpaces(text: string): string {
+  return text.replace(/[\u2009\u202F]/g, ' ')
+}
+
+/**
  * Format a date as an absolute short date (e.g. "Apr 5" / "5. apr").
  */
 export function formatAbsoluteDate(
@@ -36,11 +49,13 @@ export function formatAbsoluteDate(
   locale: Locale,
   options: DateFormatOptions = {},
 ): string {
-  return new Intl.DateTimeFormat(locale, {
-    month: 'short',
-    day: 'numeric',
-    timeZone: options.timeZone,
-  }).format(date)
+  return normalizeSpaces(
+    new Intl.DateTimeFormat(locale, {
+      month: 'short',
+      day: 'numeric',
+      timeZone: options.timeZone,
+    }).format(date),
+  )
 }
 
 /**
@@ -65,7 +80,7 @@ export function formatDateRange(
     day: 'numeric',
     timeZone: options.timeZone,
   })
-  return formatter.formatRange(start, end)
+  return normalizeSpaces(formatter.formatRange(start, end))
 }
 
 /**
@@ -76,11 +91,13 @@ export function formatDayMonth(
   locale: Locale,
   options: DateFormatOptions = {},
 ): string {
-  return new Intl.DateTimeFormat(locale, {
-    day: 'numeric',
-    month: 'short',
-    timeZone: options.timeZone,
-  }).format(date)
+  return normalizeSpaces(
+    new Intl.DateTimeFormat(locale, {
+      day: 'numeric',
+      month: 'short',
+      timeZone: options.timeZone,
+    }).format(date),
+  )
 }
 
 /**
@@ -91,20 +108,24 @@ export function formatDayShort(
   locale: Locale,
   options: DateFormatOptions = {},
 ): string {
-  return new Intl.DateTimeFormat(locale, {
-    weekday: 'short',
-    timeZone: options.timeZone,
-  }).format(date)
+  return normalizeSpaces(
+    new Intl.DateTimeFormat(locale, {
+      weekday: 'short',
+      timeZone: options.timeZone,
+    }).format(date),
+  )
 }
 
 /**
  * Format the long weekday name for a date (e.g. "Monday" / "esmaspäev").
  */
 export function formatDayLong(date: Date, locale: Locale, options: DateFormatOptions = {}): string {
-  return new Intl.DateTimeFormat(locale, {
-    weekday: 'long',
-    timeZone: options.timeZone,
-  }).format(date)
+  return normalizeSpaces(
+    new Intl.DateTimeFormat(locale, {
+      weekday: 'long',
+      timeZone: options.timeZone,
+    }).format(date),
+  )
 }
 
 /**
@@ -116,12 +137,14 @@ export function formatDateDisplay(
   locale: Locale,
   options: DateFormatOptions = {},
 ): string {
-  return new Intl.DateTimeFormat(locale, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    timeZone: options.timeZone,
-  }).format(date)
+  return normalizeSpaces(
+    new Intl.DateTimeFormat(locale, {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      timeZone: options.timeZone,
+    }).format(date),
+  )
 }
 
 /**
@@ -134,13 +157,15 @@ export function formatFullDate(
   locale: Locale,
   options: DateFormatOptions = {},
 ): string {
-  return new Intl.DateTimeFormat(locale, {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    timeZone: options.timeZone,
-  }).format(date)
+  return normalizeSpaces(
+    new Intl.DateTimeFormat(locale, {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      timeZone: options.timeZone,
+    }).format(date),
+  )
 }
 
 /**
@@ -162,12 +187,14 @@ export function formatLongDate(
   locale: Locale,
   options: DateFormatOptions = {},
 ): string {
-  return new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    timeZone: options.timeZone,
-  }).format(date)
+  return normalizeSpaces(
+    new Intl.DateTimeFormat(locale, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      timeZone: options.timeZone,
+    }).format(date),
+  )
 }
 
 /**
@@ -182,14 +209,16 @@ export function formatDateTime(
   locale: Locale,
   options: DateFormatOptions = {},
 ): string {
-  return new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: options.timeZone,
-  }).format(date)
+  return normalizeSpaces(
+    new Intl.DateTimeFormat(locale, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: options.timeZone,
+    }).format(date),
+  )
 }
 
 interface RelativeDateOptions extends DateFormatOptions {
