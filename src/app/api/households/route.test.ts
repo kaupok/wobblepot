@@ -33,6 +33,20 @@ const mockGetSession = vi.mocked(auth.api.getSession)
 const mockTransaction = vi.mocked(prisma.$transaction)
 const mockCaptureApiError = vi.mocked(captureApiError)
 
+/** Global salt, black pepper and water ids, as `seedDefaultStaples` finds them. */
+const STAPLE_INGREDIENTS = [{ id: 'ing-salt' }, { id: 'ing-pepper' }, { id: 'ing-water' }]
+
+/** Transaction delegates `seedDefaultStaples` reads and writes (HON-769). */
+function stapleMocks(ingredients: { id: string }[] = STAPLE_INGREDIENTS) {
+  return {
+    ingredient: { findMany: vi.fn().mockResolvedValue(ingredients) },
+    pantryItem: {
+      findMany: vi.fn().mockResolvedValue([]),
+      createMany: vi.fn(async ({ data }: { data: unknown[] }) => ({ count: data.length })),
+    },
+  }
+}
+
 describe('POST /api/households', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -104,6 +118,7 @@ describe('POST /api/households', () => {
           create: vi.fn().mockResolvedValue({ id: 'household-1' }),
           findUnique: vi.fn().mockResolvedValue({ id: 'household-1', name: 'My Household' }),
         },
+        ...stapleMocks(),
         householdPreferences: { create: vi.fn() },
       }
       mockTx.householdMember = {
@@ -324,6 +339,7 @@ describe('POST /api/households', () => {
           findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn().mockResolvedValue({ id: 'member-123' }),
         },
+        ...stapleMocks(),
         householdPreferences: {
           create: vi.fn().mockResolvedValue({ id: 'prefs-123' }),
         },
@@ -382,6 +398,7 @@ describe('POST /api/households', () => {
           findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn().mockResolvedValue({ id: 'member-123' }),
         },
+        ...stapleMocks(),
         householdPreferences: {
           create: vi.fn().mockResolvedValue({ id: 'prefs-123' }),
         },
@@ -435,6 +452,7 @@ describe('POST /api/households', () => {
           findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn().mockResolvedValue({ id: 'member-123' }),
         },
+        ...stapleMocks(),
         householdPreferences: {
           create: vi.fn().mockResolvedValue({ id: 'prefs-123' }),
         },
@@ -484,6 +502,7 @@ describe('POST /api/households', () => {
           findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn().mockResolvedValue({ id: 'member-123' }),
         },
+        ...stapleMocks(),
         householdPreferences: {
           create: vi.fn().mockResolvedValue({ id: 'prefs-123' }),
         },
@@ -530,6 +549,7 @@ describe('POST /api/households', () => {
           findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn().mockResolvedValue({ id: 'member-123' }),
         },
+        ...stapleMocks(),
         householdPreferences: {
           create: vi.fn().mockResolvedValue({ id: 'prefs-123' }),
         },
@@ -583,6 +603,7 @@ describe('POST /api/households', () => {
           findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn().mockResolvedValue({ id: 'member-123' }),
         },
+        ...stapleMocks(),
         householdPreferences: {
           create: vi.fn().mockResolvedValue({ id: 'prefs-123' }),
         },
@@ -603,5 +624,70 @@ describe('POST /api/households', () => {
 
     expect(response.status).toBe(201)
     expect(data.name).toBe('Valid Household')
+  })
+
+  describe('default staples (HON-769)', () => {
+    function mockCreate(staples: ReturnType<typeof stapleMocks>) {
+      mockGetSession.mockResolvedValue({
+        user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+        session: { id: 'session-123' },
+      } as never)
+      mockTransaction.mockImplementation(async (callback) => {
+        const mockTx = {
+          household: {
+            create: vi.fn().mockResolvedValue({ id: 'household-123' }),
+            findUnique: vi.fn().mockResolvedValue({ id: 'household-123', name: 'My Household' }),
+          },
+          householdMember: {
+            findFirst: vi.fn().mockResolvedValue(null),
+            create: vi.fn().mockResolvedValue({ id: 'member-123' }),
+          },
+          ...staples,
+          householdPreferences: { create: vi.fn() },
+        }
+        return callback(mockTx as never)
+      })
+    }
+
+    const request = () =>
+      new Request('http://localhost/api/households', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'My Household' }),
+      })
+
+    it('marks salt, black pepper and water as staples with no quantity', async () => {
+      const staples = stapleMocks()
+      mockCreate(staples)
+
+      const response = await POST(request())
+
+      expect(response.status).toBe(201)
+      expect(staples.ingredient.findMany).toHaveBeenCalledWith({
+        where: { name: { in: ['salt', 'black pepper', 'water'] }, householdId: null },
+        select: { id: true },
+      })
+      expect(staples.pantryItem.createMany).toHaveBeenCalledWith({
+        data: ['ing-salt', 'ing-pepper', 'ing-water'].map((ingredientId) => ({
+          householdId: 'household-123',
+          ingredientId,
+          isStaple: true,
+          quantity: null,
+        })),
+        skipDuplicates: true,
+      })
+    })
+
+    it('still creates the household when a staple ingredient is missing', async () => {
+      const staples = stapleMocks([{ id: 'ing-salt' }, { id: 'ing-water' }])
+      mockCreate(staples)
+
+      const response = await POST(request())
+
+      expect(response.status).toBe(201)
+      const { data } = staples.pantryItem.createMany.mock.calls[0]![0] as {
+        data: { ingredientId: string }[]
+      }
+      expect(data.map((d) => d.ingredientId)).toEqual(['ing-salt', 'ing-water'])
+    })
   })
 })

@@ -70,10 +70,14 @@ export function MealCardBase({
   titleActions,
 }: MealCardBaseProps) {
   const tDetail = useTranslations('meal-plan.detail')
-  const hasPantryData = pantryIngredients && pantryIngredients.length > 0
-  const { availableIds, stapleIds } = hasPantryData
-    ? getIngredientAvailabilitySets(pantryIngredients)
-    : { availableIds: null, stapleIds: null }
+  // Staples alone are not pantry data: every household starts with salt, black
+  // pepper and water as staples (HON-769), so counting them would paint every
+  // other ingredient amber for a household that has never used the pantry.
+  const hasPantryData = pantryIngredients?.some((p) => !p.isStaple) ?? false
+  const { availableIds, stapleIds } =
+    hasPantryData && pantryIngredients
+      ? getIngredientAvailabilitySets(pantryIngredients)
+      : { availableIds: null, stapleIds: null }
 
   return (
     <div className="flex flex-col gap-1.5">

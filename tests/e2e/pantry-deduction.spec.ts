@@ -80,10 +80,16 @@ test.describe('Pantry deduction on meal completion', { tag: '@ai' }, () => {
     expect(planId).not.toBeNull()
 
     // Pick the first entry whose meal has a concrete (non-vague, > 0) component.
+    // Skip the default staples: every new household already has them in the
+    // pantry (HON-769), so adding one below would answer 409, and the seed
+    // catalogue lists salt and pepper as concrete components.
+    const defaultStaples = new Set(['salt', 'black pepper', 'water'])
     let chosen: { entry: Entry; component: EntryComponent } | null = null
     for (const entry of entries) {
       if (!entry.meal) continue
-      const component = entry.meal.components.find((c) => !c.isVague && c.quantityPerServing > 0)
+      const component = entry.meal.components.find(
+        (c) => !c.isVague && c.quantityPerServing > 0 && !defaultStaples.has(c.ingredient.name),
+      )
       if (component) {
         chosen = { entry, component }
         break
@@ -92,7 +98,7 @@ test.describe('Pantry deduction on meal completion', { tag: '@ai' }, () => {
 
     if (!chosen) {
       throw new Error(
-        'No generated entry exposed a concrete (non-vague, > 0) ingredient. ' +
+        'No generated entry exposed a concrete (non-vague, > 0, non-staple) ingredient. ' +
           'Re-run; AI generations vary. If persistent, investigate whether the seed ' +
           'meal catalogue only contains vague components.',
       )

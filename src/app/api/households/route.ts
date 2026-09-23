@@ -7,6 +7,7 @@ import { MealType } from '@/generated/prisma/enums'
 import { resolveLocale } from '@/lib/i18n/resolve-locale'
 import { isMembershipConflict, runHouseholdClaim } from '@/lib/household-claim'
 import { captureApiError } from '@/lib/errors'
+import { seedDefaultStaples } from '@/lib/meal-planning/default-staples'
 
 /**
  * Upper bound on the `members` array, which is the *additional* members beyond
@@ -119,6 +120,10 @@ export async function POST(request: Request) {
           weekendMealTypes: [MealType.dinner],
         },
       })
+
+      // Salt, black pepper and water start as staples so "to taste" seasonings
+      // stay off the shopping list (HON-769). The seed's smoke household calls this too.
+      await seedDefaultStaples(tx, newHousehold.id)
 
       // Create any additional household members with portion preferences
       if (members && members.length > 0) {
