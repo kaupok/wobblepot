@@ -320,7 +320,11 @@ describe('--confirm', () => {
     expect(generate).toHaveBeenCalledTimes(3)
     expect(generate).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'Irish Lamb Stew' }),
-      expect.objectContaining({ judge: 'report', mealId: 'id-irish-lamb-stew' }),
+      expect.objectContaining({
+        judge: 'report',
+        mealId: 'id-irish-lamb-stew',
+        budgetMs: 300_000,
+      }),
     )
     expect(updateMany).not.toHaveBeenCalled()
     expect(d.put).not.toHaveBeenCalled()

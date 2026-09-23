@@ -463,6 +463,9 @@ export async function runGenerate(
         judge: opts.judge ? 'report' : 'off',
         mealId: meal.id,
         abortSignal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
+        // Lets a 429 asking for longer than the image has left fail at once,
+        // instead of sleeping until the abort (HON-742).
+        budgetMs: IMAGE_TIMEOUT_MS,
       })
       const file = `${slug}.${extensionFor(image.mediaType)}`
       writeFileSync(join(opts.outDir, file), image.bytes)
