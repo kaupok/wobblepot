@@ -221,6 +221,19 @@ describe('parseRecipeText', () => {
       await expect(parseRecipeText(TEXT)).rejects.toBe(err)
     })
 
+    it('rethrows a RetryError whose last attempt failed permanently, even at maxRetriesExceeded', async () => {
+      // The SDK checks the retry count before retryability, so 529, 529, 401
+      // reports `maxRetriesExceeded` — the last error is what decides.
+      const err = new RetryError({
+        message: 'Failed after 3 attempts',
+        reason: 'maxRetriesExceeded',
+        errors: [apiCallError(529), apiCallError(529), apiCallError(401, false)],
+      })
+      mockGenerateObject.mockRejectedValue(err)
+
+      await expect(parseRecipeText(TEXT)).rejects.toBe(err)
+    })
+
     it('keeps parse_failed for a model answer that did not fit the schema', async () => {
       mockGenerateObject.mockRejectedValue(noObjectGeneratedError())
 

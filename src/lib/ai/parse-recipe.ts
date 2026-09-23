@@ -159,14 +159,14 @@ export async function parseRecipeText(
 }
 
 /**
- * A provider failure that a later retry may well get past. A `RetryError` with
- * `errorNotRetryable` ended on a non-retryable error after a retryable one, so
- * it is judged by that last error rather than by the retries before it.
+ * A provider failure that a later retry may well get past. A `RetryError` is
+ * judged by its `lastError`, not its `reason`: the SDK checks the retry count
+ * before retryability, so 529, 529, 401 ends as `maxRetriesExceeded` even
+ * though the call finally failed on something no retry fixes.
  */
 function isTransientProviderError(error: unknown): boolean {
-  if (APICallError.isInstance(error)) return error.isRetryable
-  if (RetryError.isInstance(error)) return error.reason !== 'errorNotRetryable'
-  return false
+  const cause = RetryError.isInstance(error) ? error.lastError : error
+  return APICallError.isInstance(cause) && cause.isRetryable
 }
 
 /**
