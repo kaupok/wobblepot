@@ -406,8 +406,10 @@ fi
 #
 # E2E drift: routes and dialogs live in .tsx under src/app and src/components, and
 # user-visible copy lives in the next-intl catalogs, which is what specs assert on.
+# src/proxy.ts owns the anonymous-redirect behaviour tests/e2e/auth-redirect.spec.ts
+# asserts on, so a proxy-only PR can drift a spec without touching a .tsx.
 # Stories and unit tests are excluded — no spec can drift from them.
-E2E_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/(app|components)/.*\.tsx|messages/[^/]*\.json)$' | grep -vE '\.(stories|test)\.tsx$' || true)
+E2E_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/(app|components)/.*\.tsx|messages/[^/]*\.json|src/proxy\.ts)$' | grep -vE '\.(stories|test)\.tsx$' || true)
 # Geometry: the primitives themselves, and the stylesheet holding the @theme tokens.
 GEOMETRY_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/components/ui/[^/]*\.tsx|src/app/globals\.css)$' | grep -vE '\.(stories|test)\.tsx$' || true)
 

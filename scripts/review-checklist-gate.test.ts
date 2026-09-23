@@ -64,7 +64,7 @@ const UNRELATED = [
 ]
 
 describe('E2E-drift gate', () => {
-  it('selects pages, components and the copy catalogs', () => {
+  it('selects pages, components, the copy catalogs and the proxy', () => {
     const hits = [
       'src/app/profile/page.tsx',
       'src/app/meal-plan/MealPlanClient.tsx',
@@ -72,6 +72,8 @@ describe('E2E-drift gate', () => {
       'src/components/meal-plan/MealDetailModal.tsx',
       'messages/en.json',
       'messages/et.json',
+      // Owns the redirects tests/e2e/auth-redirect.spec.ts asserts on.
+      'src/proxy.ts',
     ]
     expect(classify('E2E_FILES', hits)).toEqual(hits)
   })

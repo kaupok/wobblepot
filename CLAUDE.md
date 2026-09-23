@@ -241,7 +241,7 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **CRITICAL: When modifying `src/app/**/page.tsx`, changing a route's URL, renaming a navigation/CTA copy string, or restructuring a modal/dialog, grep `tests/e2e`for references and update the affected specs in the same PR.** The tier 1 E2E check catches drift on`main`, but specs that reference removed routes or renamed copy are cheap to miss locally and expensive to fix in batch (see HON-518). Use the per-spec `// ROUTES: … · COMPONENTS: …` header comments to scope the grep. This is part of the definition of done — the same loud-rule treatment as colocated Storybook stories.
 
-No CI check can enforce this, so `scripts/pr-review.sh` carries it as a reviewer checklist item, appended when the diff touches a `.tsx` under `src/app` or `src/components` or a `messages/*.json` catalog (HON-729). The PR reviewer is a backstop, not a substitute — the rule is still yours to follow while writing the change.
+No CI check can enforce this, so `scripts/pr-review.sh` carries it as a reviewer checklist item, appended when the diff touches a `.tsx` under `src/app` or `src/components`, a `messages/*.json` catalog, or `src/proxy.ts` (HON-729). The PR reviewer is a backstop, not a substitute — the rule is still yours to follow while writing the change.
 
 ## Shared-primitive geometry
 
