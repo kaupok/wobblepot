@@ -252,6 +252,9 @@ async function handlePOST(request: Request) {
             return {
               ingredientId: matched.ingredient.id,
               quantityPerServing,
+              // Vague defaults are grams regardless of defaultUnit, so nutrition
+              // must skip them rather than read them as a piece count.
+              isVague: matched.isVague,
               ingredient: {
                 id: matched.ingredient.id,
                 name: matched.ingredient.name,
@@ -275,6 +278,7 @@ async function handlePOST(request: Request) {
             return [
               {
                 quantityPerServing: comp.quantityPerServing,
+                isVague: comp.isVague,
                 ingredient: {
                   ...ingNutrition,
                   defaultUnit: comp.ingredient.defaultUnit,
@@ -289,6 +293,8 @@ async function handlePOST(request: Request) {
         const componentDataForProtein = components.map((comp) => ({
           quantityPerServing: comp.quantityPerServing,
           ingredient: {
+            defaultUnit: comp.ingredient.defaultUnit,
+            gramsPerPiece: comp.ingredient.gramsPerPiece,
             proteinType: nutritionMap.get(comp.ingredientId)?.proteinType ?? null,
             protein: nutritionMap.get(comp.ingredientId)?.protein ?? 0,
           },

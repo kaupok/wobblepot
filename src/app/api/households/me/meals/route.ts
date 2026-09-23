@@ -272,6 +272,8 @@ export async function POST(request: Request) {
         id: true,
         proteinType: true,
         protein: true,
+        defaultUnit: true,
+        gramsPerPiece: true,
       },
     })
 

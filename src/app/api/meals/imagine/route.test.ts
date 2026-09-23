@@ -386,6 +386,49 @@ describe('POST /api/meals/imagine', () => {
     )
   })
 
+  it('converts piece quantities to grams and skips vague components for nutrition (HON-713)', async () => {
+    const eggIngredient = {
+      id: 'ing-eggs',
+      name: 'Eggs',
+      category: 'protein',
+      subcategory: null,
+      defaultUnit: 'piece',
+      gramsPerPiece: 55,
+      calories: 155,
+      protein: 13,
+      carbs: 1.1,
+      fat: 11,
+    }
+    const onionIngredient = {
+      ...eggIngredient,
+      id: 'ing-onion',
+      name: 'Red onion',
+      gramsPerPiece: 150,
+      calories: 40,
+    }
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockImagineMeals.mockResolvedValue([imaginedMeal() as never])
+    mockMatchIngredients.mockResolvedValue([
+      // 8 eggs for 4 servings = 2 per serving
+      matchedResult({ ingredient: eggIngredient, convertedQuantity: 8 }) as never,
+      // "for garnish": a gram default, which must not be read as 5 onions
+      matchedResult({ ingredient: onionIngredient, convertedQuantity: 20, isVague: true }) as never,
+    ])
+    mockIngredientFindMany.mockResolvedValue([
+      { id: 'ing-eggs', calories: 155, protein: 13, carbs: 1.1, fat: 11, proteinType: 'eggs' },
+      { id: 'ing-onion', calories: 40, protein: 1, carbs: 9, fat: 0, proteinType: null },
+    ] as never)
+
+    const response = await POST(jsonRequest({ prompt: 'eggs' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    // 2 eggs x 55g = 110g -> 170.5 kcal; the vague onion adds nothing
+    expect(data.meals[0].nutrition).toEqual({ calories: 171, protein: 14, carbs: 1, fat: 12 })
+    expect(data.meals[0].primaryProteinType).toBe('eggs')
+  })
+
   it('sets allMatched to false when at least one ingredient is unmatched', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
