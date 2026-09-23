@@ -20,7 +20,8 @@ export interface NumberInputProps extends InheritedInputProps {
   /**
    * The field sits inside a bordered group (a quantity beside its unit label)
    * that draws the border itself, so the input drops its own border and focus
-   * ring rather than drawing a box inside a box.
+   * ring rather than drawing a box inside a box. The group must then draw the
+   * focus ring instead (`focus-within:ring-3 …`), or focus becomes invisible.
    */
   embedded?: boolean
 }

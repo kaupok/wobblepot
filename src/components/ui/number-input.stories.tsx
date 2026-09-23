@@ -133,7 +133,7 @@ export const WithLabel: Story = {
 // wrapper draws the border, so the embedded field draws none of its own.
 export const Embedded: Story = {
   render: () => (
-    <div className="border-input flex w-fit items-center rounded-md border">
+    <div className="border-input focus-within:border-ring focus-within:ring-ring/50 flex w-fit items-center rounded-md border focus-within:ring-3">
       <Controlled aria-label="quantity" embedded initial={250} className="w-20" />
       <span className="text-muted-foreground bg-muted border-l px-2 py-1.5 text-sm">g</span>
     </div>
@@ -142,6 +142,11 @@ export const Embedded: Story = {
     const input = within(canvasElement).getByRole('textbox', { name: /quantity/i })
     await expect(input).toHaveClass('border-0')
     await expect(getComputedStyle(input).borderTopWidth).toBe('0px')
+    // The group, not the field, shows focus — otherwise focus is invisible.
+    const group = input.parentElement as HTMLElement
+    await expect(getComputedStyle(group).boxShadow).toBe('none')
+    input.focus()
+    await expect(getComputedStyle(group).boxShadow).not.toBe('none')
   },
 }
 

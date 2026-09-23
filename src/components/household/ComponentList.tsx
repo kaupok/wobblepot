@@ -90,7 +90,8 @@ export function ComponentList({
                 <>
                   <div
                     className={cn(
-                      'flex items-center rounded-md border',
+                      // The group draws the focus ring its `embedded` field gives up.
+                      'focus-within:border-ring focus-within:ring-ring/50 flex items-center rounded-md border focus-within:ring-3',
                       isInvalidQuantity ? 'border-destructive' : 'border-input',
                     )}
                   >
