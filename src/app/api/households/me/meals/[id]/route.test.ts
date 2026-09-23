@@ -126,25 +126,30 @@ const paramsPromise = (id: string) => Promise.resolve({ id })
 /**
  * Mocks `prisma.$transaction` for the PATCH route and hands back the spies the
  * PATCH tests assert on: `mealPlanEntry.updateMany` for the prep-tips
- * invalidation (HON-683), and `meal.update` plus the two `mealComponent`
- * writers for the component rewrite (HON-701).
+ * invalidation (HON-683), `meal.update` plus the two `mealComponent` writers
+ * for the component rewrite (HON-701), and `mealComponent.update` for the
+ * servings-only rescale plus `$queryRaw` for the meal-row lock (HON-712).
  *
  * `tx.meal.findUniqueOrThrow` serves two reads: the divisor read the component
- * path makes inside the transaction (selects `servings`), and the final fetch
- * of the updated row. They are told apart by their `select`, not by call order,
- * so a test that adds a read cannot silently get the wrong fixture. Pass
- * `currentMeal` whenever the payload carries `components`. A third read,
- * `clearMealImage`'s (selects `imageUrl`), answers with `storedImageUrl`.
+ * and servings paths make inside the transaction (selects `servings`), and the
+ * final fetch of the updated row. They are told apart by their `select`, not
+ * by call order, so a test that adds a read cannot silently get the wrong
+ * fixture. Pass `currentMeal` whenever the payload carries `components` or
+ * `servings`. A third read, `clearMealImage`'s (selects `imageUrl`), answers
+ * with `storedImageUrl`.
  */
 const setupTransaction = (updatedMeal: unknown, currentMeal?: unknown) => {
   const mealPlanEntryUpdateMany = vi.fn()
   const mealUpdate = vi.fn()
   const mealComponentDeleteMany = vi.fn()
   const mealComponentCreateMany = vi.fn()
+  const mealComponentUpdate = vi.fn()
+  const queryRaw = vi.fn()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   mockTransaction.mockImplementation(async (fn: any) => {
     const tx = {
+      $queryRaw: queryRaw,
       meal: {
         update: mealUpdate,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -156,6 +161,7 @@ const setupTransaction = (updatedMeal: unknown, currentMeal?: unknown) => {
       mealComponent: {
         deleteMany: mealComponentDeleteMany,
         createMany: mealComponentCreateMany,
+        update: mealComponentUpdate,
       },
       mealPlanEntry: {
         updateMany: mealPlanEntryUpdateMany,
@@ -164,7 +170,14 @@ const setupTransaction = (updatedMeal: unknown, currentMeal?: unknown) => {
     return fn(tx)
   })
 
-  return { mealPlanEntryUpdateMany, mealUpdate, mealComponentDeleteMany, mealComponentCreateMany }
+  return {
+    mealPlanEntryUpdateMany,
+    mealUpdate,
+    mealComponentDeleteMany,
+    mealComponentCreateMany,
+    mealComponentUpdate,
+    queryRaw,
+  }
 }
 
 const patchMeal = (body: Record<string, unknown>) =>
@@ -470,6 +483,18 @@ describe('PATCH /api/households/me/meals/[id]', () => {
       expect(mealPlanEntryUpdateMany).toHaveBeenCalledWith(expectedInvalidation)
     })
 
+    // A bare `servings` edit keeps the recipe's total, so it restates the
+    // stored rows — 600g over 8 is 75 per serving, not the stored 150 — and
+    // the prompt's ingredient lines move with them (HON-712).
+    it('clears tips when a servings-only change restates the component rows', async () => {
+      const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult, storedMeal)
+
+      const response = await patchMeal({ servings: 8 })
+
+      expect(response.status).toBe(200)
+      expect(mealPlanEntryUpdateMany).toHaveBeenCalledWith(expectedInvalidation)
+    })
+
     // The converse, and the reason `servings` has no clause of its own: the
     // prompt scales by the entry's effective servings, so a bare `servings`
     // PATCH that leaves every `quantityPerServing` where it was produces a
@@ -477,9 +502,29 @@ describe('PATCH /api/households/me/meals/[id]', () => {
     it('leaves tips alone for a servings change that moves no component quantity', async () => {
       const { mealPlanEntryUpdateMany } = setupTransaction(mockMealResult, storedMeal)
 
+      const response = await patchMeal({ servings: 4 })
+
+      expect(response.status).toBe(200)
+      expect(mealPlanEntryUpdateMany).not.toHaveBeenCalled()
+    })
+
+    // Vague rows are stored at 0, so restating them over a new divisor moves
+    // nothing, and the prompt stays byte-identical.
+    it('leaves tips alone for a servings change on a meal of vague components only', async () => {
+      const vagueMeal = {
+        ...storedMeal,
+        components: [{ ingredientId: 'ing-1', quantityPerServing: 0 }],
+      }
+      mockMealFindFirst.mockResolvedValue(vagueMeal as never)
+      const { mealPlanEntryUpdateMany, mealComponentUpdate } = setupTransaction(
+        mockMealResult,
+        vagueMeal,
+      )
+
       const response = await patchMeal({ servings: 8 })
 
       expect(response.status).toBe(200)
+      expect(mealComponentUpdate).not.toHaveBeenCalled()
       expect(mealPlanEntryUpdateMany).not.toHaveBeenCalled()
     })
 
@@ -699,22 +744,106 @@ describe('PATCH /api/households/me/meals/[id]', () => {
       expect(mealComponentCreateMany).not.toHaveBeenCalled()
     })
 
-    // The other direction, unchanged by HON-701: a bare `servings` edit leaves
-    // the stored per-serving quantities exactly where they are.
-    it('leaves the component rows alone for a servings-only PATCH', async () => {
-      const { mealComponentDeleteMany, mealComponentCreateMany, mealUpdate } = setupTransaction(
-        mockMealResult,
-        storedMeal,
-      )
+    // The other direction. HON-701 pinned a bare `servings` edit as leaving the
+    // stored per-serving quantities where they were, which grew the recipe's
+    // total with the divisor. HON-712 made the total the invariant: 750g over
+    // the stored 5 servings is still 750g over 6, so the row is restated from
+    // 150 to 125 in place — not deleted and recreated.
+    it('restates the component rows under the new servings for a servings-only PATCH', async () => {
+      const { mealComponentDeleteMany, mealComponentCreateMany, mealComponentUpdate, mealUpdate } =
+        setupTransaction(mockMealResult, storedMeal)
 
       const response = await patchMeal({ servings: 6 })
 
       expect(response.status).toBe(200)
       expect(mealComponentDeleteMany).not.toHaveBeenCalled()
       expect(mealComponentCreateMany).not.toHaveBeenCalled()
+      expect(mealComponentUpdate).toHaveBeenCalledTimes(1)
+      expect(mealComponentUpdate).toHaveBeenCalledWith({
+        where: { mealId_ingredientId: { mealId: 'meal-1', ingredientId: 'ing-1' } },
+        data: { quantityPerServing: 125 },
+      })
       expect(mealUpdate).toHaveBeenCalledWith({
         where: { id: 'meal-1' },
         data: { servings: 6 },
+      })
+    })
+
+    // Same divisor-race rule as the components path: the old servings the
+    // rows are restated from is the one read inside the transaction. Read as
+    // 5 before it and 3 inside, 150 over 3 servings is 450g, so 6 servings
+    // store 75 — the pre-transaction 5 would have stored 125.
+    it('restates from the servings read inside the transaction', async () => {
+      const { mealComponentUpdate } = setupTransaction(mockMealResult, {
+        ...storedMeal,
+        servings: 3,
+      })
+
+      const response = await patchMeal({ servings: 6 })
+
+      expect(response.status).toBe(200)
+      expect(mealComponentUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { quantityPerServing: 75 } }),
+      )
+    })
+
+    // An in-transaction read alone takes no lock at READ COMMITTED, so two
+    // concurrent PATCHes could both restate from the same stale rows. The
+    // meal row is locked before the divisor is read, and before any write.
+    it('locks the meal row before reading the rows it restates', async () => {
+      const { queryRaw, mealComponentUpdate } = setupTransaction(mockMealResult, storedMeal)
+
+      const response = await patchMeal({ servings: 6 })
+
+      expect(response.status).toBe(200)
+      expect(queryRaw).toHaveBeenCalledTimes(1)
+      const [strings, ...values] = queryRaw.mock.calls[0]!
+      expect((strings as string[]).join('?')).toBe('SELECT 1 FROM "meal" WHERE "id" = ? FOR UPDATE')
+      expect(values).toEqual(['meal-1'])
+      expect(queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+        mealComponentUpdate.mock.invocationCallOrder[0]!,
+      )
+    })
+
+    it('does not lock the meal row for an edit that touches neither servings nor components', async () => {
+      const { queryRaw } = setupTransaction(mockMealResult, storedMeal)
+
+      const response = await patchMeal({ sourceUrl: 'https://example.com/recipe' })
+
+      expect(response.status).toBe(200)
+      expect(queryRaw).not.toHaveBeenCalled()
+    })
+
+    it('leaves the component rows alone when servings resends the stored value', async () => {
+      const { mealComponentUpdate, mealComponentCreateMany } = setupTransaction(
+        mockMealResult,
+        storedMeal,
+      )
+
+      const response = await patchMeal({ servings: 5 })
+
+      expect(response.status).toBe(200)
+      expect(mealComponentUpdate).not.toHaveBeenCalled()
+      expect(mealComponentCreateMany).not.toHaveBeenCalled()
+    })
+
+    // With components present the rows are rewritten from the payload's
+    // totals, so the rescale must not also run over them.
+    it('does not restate rows when the servings edit arrives with components', async () => {
+      const { mealComponentUpdate, mealComponentCreateMany } = setupTransaction(
+        mockMealResult,
+        storedMeal,
+      )
+
+      const response = await patchMeal({
+        servings: 6,
+        components: [{ ingredientId: 'ing-1', totalQuantity: 750 }],
+      })
+
+      expect(response.status).toBe(200)
+      expect(mealComponentUpdate).not.toHaveBeenCalled()
+      expect(mealComponentCreateMany).toHaveBeenCalledWith({
+        data: [expect.objectContaining({ quantityPerServing: 125 })],
       })
     })
   })

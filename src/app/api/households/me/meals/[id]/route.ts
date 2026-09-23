@@ -368,14 +368,47 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       let componentsChanged = false
       let imageComponentsChanged = false
 
-      if (components) {
-        const current = await tx.meal.findUniqueOrThrow({
-          where: { id },
-          select: {
-            servings: true,
-            components: { select: { ingredientId: true, quantityPerServing: true } },
-          },
-        })
+      // Reading inside the transaction is not enough on its own: at Postgres's
+      // default READ COMMITTED a plain read takes no lock, so two PATCHes can
+      // both read the same divisor and rows before either writes — a
+      // servings-only rescale would then overwrite a concurrent components
+      // edit with rows computed from the stale read, or `update` a row the
+      // other request just deleted. Lock the meal row first so every request
+      // that reads-then-writes the components queues behind the last one.
+      const readsComponents = components !== undefined || servings !== undefined
+      if (readsComponents) {
+        await tx.$queryRaw`SELECT 1 FROM "meal" WHERE "id" = ${id} FOR UPDATE`
+      }
+
+      const current = readsComponents
+        ? await tx.meal.findUniqueOrThrow({
+            where: { id },
+            select: {
+              servings: true,
+              components: { select: { ingredientId: true, quantityPerServing: true } },
+            },
+          })
+        : null
+
+      // A bare `servings` edit keeps the recipe's total, not its per-serving
+      // amounts: every reader — the edit form, the shopping list, the imagine
+      // review — reconstructs a total as `quantityPerServing * Meal.servings`,
+      // so leaving the rows put would silently grow 600g of chicken over 4
+      // servings into 900g over 6, and the form would save that back (HON-712).
+      // Restate each row under the new divisor instead. Vague rows are stored
+      // at 0 and have nothing to restate, so a meal made only of those — or a
+      // PATCH resending the stored value — moves no quantity at all.
+      const rescaledComponents =
+        !components && current && servings !== undefined && servings !== current.servings
+          ? current.components
+              .filter((c) => c.quantityPerServing !== 0)
+              .map((c) => ({
+                ingredientId: c.ingredientId,
+                quantityPerServing: (c.quantityPerServing * current.servings) / servings,
+              }))
+          : []
+
+      if (components && current) {
         componentServings = servings ?? current.servings
 
         // Derive primary protein type from ingredients
@@ -460,9 +493,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       // prompt scales by the entry's effective servings
       // (`getEffectiveServings`, household members or the entry override),
       // never by the meal's. It reaches the prompt only through
-      // `quantityPerServing`, which `componentsChanged` already compares — and
-      // a real servings edit always arrives with the components, since that is
-      // the divisor they are stored under.
+      // `quantityPerServing`: through `componentsChanged` when the edit comes
+      // with components, and through the rows restated above when it comes
+      // alone. A servings edit that moves no row leaves the prompt byte-
+      // identical and keeps the tips.
       //
       // And by value, not by presence — the same "only on a real change" rule
       // the other two sites follow. The meal form PATCHes its whole payload on
@@ -474,7 +508,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         (name !== undefined && name !== existingMeal.name) ||
         (preparationNotes !== undefined && preparationNotes !== existingMeal.preparationNotes) ||
         (timeMinutes !== undefined && timeMinutes !== existingMeal.timeMinutes) ||
-        componentsChanged
+        componentsChanged ||
+        rescaledComponents.length > 0
 
       if (tipsInputChanged) {
         await tx.mealPlanEntry.updateMany({
@@ -497,6 +532,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             isVague: c.isVague ?? false,
             originalPhrase: c.originalPhrase ?? null,
           })),
+        })
+      }
+
+      // Sequential on purpose: an interactive transaction runs on one
+      // connection, so concurrent queries on it would only queue anyway.
+      for (const c of rescaledComponents) {
+        await tx.mealComponent.update({
+          where: { mealId_ingredientId: { mealId: id, ingredientId: c.ingredientId } },
+          data: { quantityPerServing: c.quantityPerServing },
         })
       }
 
