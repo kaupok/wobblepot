@@ -5,8 +5,14 @@ import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import { ImagineReviewDialog, type ReviewMealData } from './ImagineReviewDialog'
+import {
+  ImagineReviewDialog,
+  computeReviewNutrition,
+  type ReviewMealData,
+} from './ImagineReviewDialog'
+import type { IngredientRowData } from './IngredientRow'
 import type { PrefilledIngredient } from '@/components/household/meal-form-types'
+import { DEFAULT_GRAMS_PER_PIECE } from '@/lib/ai/recipe-quantities'
 import { createQueryWrapper } from '@/test/query-wrapper'
 
 function renderInLocale(node: ReactNode, locale: 'en' | 'et') {
@@ -41,20 +47,36 @@ function buildMeal(overrides: Partial<ReviewMealData> = {}): ReviewMealData {
           category: 'protein',
           defaultUnit: 'g',
           gramsPerPiece: null,
+          calories: 200,
+          protein: 25,
+          carbs: 0,
+          fat: 10,
         },
         convertedQuantity: 600,
       },
     ],
-    nutrition: { calories: 1234, protein: 56, carbs: 78, fat: 12 },
     ...overrides,
   }
 }
 
 describe('ImagineReviewDialog locale formatting', () => {
   describe('macros', () => {
+    // 1000 g at 123.4 kcal/100g for one serving → 1234 kcal.
+    const [chicken] = buildMeal().prefilledIngredients as [PrefilledIngredient]
+    const bigMeal = buildMeal({
+      servings: 1,
+      prefilledIngredients: [
+        {
+          ...chicken,
+          ingredient: { ...chicken.ingredient!, calories: 123.4 },
+          convertedQuantity: 1000,
+        },
+      ],
+    })
+
     it('uses comma grouping for thousands in en', () => {
       renderInLocale(
-        <ImagineReviewDialog open meal={buildMeal()} onOpenChange={vi.fn()} onSaved={vi.fn()} />,
+        <ImagineReviewDialog open meal={bigMeal} onOpenChange={vi.fn()} onSaved={vi.fn()} />,
         'en',
       )
       expect(screen.getByText(/1,234 kcal/)).toBeInTheDocument()
@@ -62,7 +84,7 @@ describe('ImagineReviewDialog locale formatting', () => {
 
     it('does not use the en grouping form in et', () => {
       renderInLocale(
-        <ImagineReviewDialog open meal={buildMeal()} onOpenChange={vi.fn()} onSaved={vi.fn()} />,
+        <ImagineReviewDialog open meal={bigMeal} onOpenChange={vi.fn()} onSaved={vi.fn()} />,
         'et',
       )
       // The Estonian thousands-grouping character depends on the active ICU
@@ -274,5 +296,190 @@ describe('ImagineReviewDialog ingredient cap', () => {
 
     expect(await screen.findByText('Toidul saab olla kuni 50 koostisosa')).toBeInTheDocument()
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+// HON-721: the macro line is derived from the live rows, through the same
+// `computeMealNutrition` the save endpoint uses, instead of the imagine
+// response's `nutrition` — which predates the AI quantity review and never
+// sees a row edit or removal.
+describe('computeReviewNutrition', () => {
+  const grams = (overrides: Partial<Extract<IngredientRowData, { type: 'matched' }>> = {}) =>
+    ({
+      type: 'matched',
+      ingredient: {
+        id: 'rice',
+        name: 'Rice',
+        category: 'carb',
+        defaultUnit: 'g',
+        gramsPerPiece: null,
+        calories: 350,
+        protein: 7,
+        carbs: 78,
+        fat: 1,
+      },
+      totalQuantity: 400,
+      ...overrides,
+    }) satisfies IngredientRowData
+
+  const eggs: IngredientRowData = {
+    type: 'matched',
+    ingredient: {
+      id: 'egg',
+      name: 'Egg',
+      category: 'protein',
+      defaultUnit: 'piece',
+      gramsPerPiece: 55,
+      calories: 155,
+      protein: 13,
+      carbs: 1,
+      fat: 11,
+    },
+    totalQuantity: 8,
+  }
+
+  it('divides by servings and scales per-100g macros for gram rows', () => {
+    // 400 g / 4 servings = 100 g per serving.
+    expect(computeReviewNutrition([grams()], 4)).toEqual({
+      calories: 350,
+      protein: 7,
+      carbs: 78,
+      fat: 1,
+    })
+  })
+
+  it('converts piece rows through gramsPerPiece, as the save endpoint does', () => {
+    // 8 eggs / 4 servings = 2 eggs × 55 g = 110 g per serving.
+    expect(computeReviewNutrition([eggs], 4)?.calories).toBeCloseTo(170.5)
+  })
+
+  it('falls back to the default piece weight when gramsPerPiece is missing', () => {
+    const row = {
+      ...eggs,
+      ingredient: { ...eggs.ingredient, gramsPerPiece: null },
+    } as IngredientRowData
+    expect(computeReviewNutrition([row], 4)?.calories).toBeCloseTo(
+      (2 * DEFAULT_GRAMS_PER_PIECE * 155) / 100,
+    )
+  })
+
+  it('counts low-confidence rows and skips vague and unmatched ones', () => {
+    const rows: IngredientRowData[] = [
+      grams(),
+      { ...grams(), type: 'low-confidence', extractedName: 'rice', alternatives: [] },
+      grams({ isVague: true, originalPhrase: 'to taste' }),
+      {
+        type: 'unmatched',
+        extractedName: 'yuzu',
+        originalText: '1 yuzu',
+        extractedQuantity: 1,
+        extractedUnit: '',
+      },
+    ]
+    expect(computeReviewNutrition(rows, 4)?.calories).toBe(700)
+  })
+
+  it('returns null rather than a partial total when a counted row has no macros', () => {
+    // A row picked from the low-confidence alternatives carries no macros.
+    const bare = grams({
+      ingredient: { id: 'miso', name: 'Miso', category: 'condiment', defaultUnit: 'g' },
+    })
+    expect(computeReviewNutrition([grams(), bare], 4)).toBeNull()
+  })
+
+  it('ignores missing macros on a vague row, which contributes nothing anyway', () => {
+    const bareVague = grams({
+      ingredient: { id: 'salt', name: 'Salt', category: 'condiment', defaultUnit: 'g' },
+      isVague: true,
+    })
+    expect(computeReviewNutrition([grams(), bareVague], 4)?.calories).toBe(350)
+  })
+
+  it('returns null when there is nothing to sum', () => {
+    expect(computeReviewNutrition([], 4)).toBeNull()
+    expect(computeReviewNutrition([grams({ isVague: true })], 4)).toBeNull()
+  })
+})
+
+describe('ImagineReviewDialog macro line', () => {
+  const [chicken] = buildMeal().prefilledIngredients as [PrefilledIngredient]
+  // 30 g of miso across 4 servings at 200 kcal/100g → 15 kcal per serving.
+  const miso: PrefilledIngredient = {
+    type: 'low-confidence',
+    extractedName: 'miso',
+    originalText: '2 tbsp miso',
+    ingredient: {
+      id: 'miso-paste',
+      name: 'Miso paste',
+      category: 'condiment',
+      defaultUnit: 'g',
+      gramsPerPiece: null,
+      calories: 200,
+      protein: 12,
+      carbs: 26,
+      fat: 6,
+    },
+    convertedQuantity: 30,
+    alternatives: [
+      {
+        id: 'hikari',
+        name: 'White miso (Hikari)',
+        category: 'condiment',
+        defaultUnit: 'g',
+        similarity: 0.8,
+      },
+    ],
+    lowConfidence: true,
+    isVague: false,
+    originalPhrase: null,
+  }
+
+  function renderMeal(prefilledIngredients: PrefilledIngredient[]) {
+    renderInLocale(
+      <ImagineReviewDialog
+        open
+        meal={buildMeal({ prefilledIngredients })}
+        onOpenChange={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+      'en',
+    )
+  }
+
+  // See `QuantityControls.stories.tsx`: a controlled number input on React 19
+  // needs the native setter plus a bubbling `input` event.
+  function setInputValue(input: HTMLInputElement, value: string) {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, value)
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  }
+
+  it('reflects the quantities the dialog opens with, i.e. after the AI review', () => {
+    // 600 g / 4 = 150 g of chicken at 200 kcal, 25 g protein, 10 g fat per 100g.
+    renderMeal([chicken])
+    expect(screen.getByText('300 kcal · 38g protein · 0g carbs · 15g fat')).toBeInTheDocument()
+  })
+
+  it('recomputes after a row quantity edit', () => {
+    renderMeal([chicken, miso])
+    expect(screen.getByText(/^315 kcal/)).toBeInTheDocument()
+
+    setInputValue(screen.getByRole('textbox', { name: 'Quantity' }) as HTMLInputElement, '60')
+
+    expect(screen.getByText(/^330 kcal/)).toBeInTheDocument()
+  })
+
+  it('recomputes after a row removal', () => {
+    renderMeal([chicken, miso])
+    expect(screen.getByText(/^315 kcal/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove ingredient' }))
+
+    expect(screen.getByText(/^300 kcal/)).toBeInTheDocument()
+  })
+
+  it('hides the line instead of rendering zeros when the ingredients carry no macros', () => {
+    const { calories: _c, protein: _p, carbs: _cb, fat: _f, ...bare } = chicken.ingredient!
+    renderMeal([{ ...chicken, ingredient: bare }])
+    expect(screen.queryByText(/kcal/)).not.toBeInTheDocument()
   })
 })

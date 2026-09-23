@@ -579,6 +579,8 @@ export const customShoppingItems: CustomItemData[] = [
  * shared `ingredients` catalog uses `MealComponent['ingredient']` (category
  * is loosely typed as `string`), but `PrefilledIngredient.ingredient` requires
  * a valid `IngredientCategory` enum value, so we keep a narrower lookup here.
+ * Macros are per 100g, as the catalog stores them — `ImagineReviewDialog`
+ * derives its macro line from them and hides it when any are missing.
  */
 const reviewIngredients = {
   'salmon-fillet': {
@@ -587,6 +589,10 @@ const reviewIngredients = {
     category: 'protein',
     defaultUnit: 'g',
     gramsPerPiece: null,
+    calories: 208,
+    protein: 20,
+    carbs: 0,
+    fat: 13,
   },
   'short-grain-rice': {
     id: 'short-grain-rice',
@@ -594,6 +600,10 @@ const reviewIngredients = {
     category: 'carb',
     defaultUnit: 'g',
     gramsPerPiece: null,
+    calories: 358,
+    protein: 6.5,
+    carbs: 79,
+    fat: 0.5,
   },
   'miso-paste': {
     id: 'miso-paste',
@@ -601,6 +611,10 @@ const reviewIngredients = {
     category: 'condiment',
     defaultUnit: 'g',
     gramsPerPiece: null,
+    calories: 198,
+    protein: 12,
+    carbs: 26,
+    fat: 6,
   },
   ginger: {
     id: 'ginger',
@@ -608,6 +622,10 @@ const reviewIngredients = {
     category: 'vegetable',
     defaultUnit: 'g',
     gramsPerPiece: null,
+    calories: 80,
+    protein: 1.8,
+    carbs: 18,
+    fat: 0.8,
   },
   cucumber: {
     id: 'cucumber',
@@ -615,8 +633,17 @@ const reviewIngredients = {
     category: 'vegetable',
     defaultUnit: 'piece',
     gramsPerPiece: 200,
+    calories: 15,
+    protein: 0.7,
+    carbs: 3.6,
+    fat: 0.1,
   },
 } as const satisfies Record<string, IngredientResult>
+
+/** Look up a `reviewIngredients` entry for a `PrefilledIngredient.ingredient` override. */
+export function reviewIngredient(id: keyof typeof reviewIngredients): IngredientResult {
+  return reviewIngredients[id]
+}
 
 type MatchedIngredientOverrides = Partial<
   Pick<PrefilledIngredient, 'ingredient' | 'convertedQuantity' | 'isVague' | 'originalPhrase'>
@@ -738,7 +765,6 @@ export function createReviewMealData(overrides: Partial<ReviewMealData> = {}): R
     servings: 4,
     mealTypes: [MealType.dinner],
     kidFriendly: true,
-    nutrition: { calories: 540, protein: 38, carbs: 55, fat: 18 },
     prefilledIngredients: [
       createMatchedPrefilledIngredient({
         ingredient: reviewIngredients['salmon-fillet'],

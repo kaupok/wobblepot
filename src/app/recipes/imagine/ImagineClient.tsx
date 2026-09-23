@@ -107,11 +107,7 @@ export function ImagineClient() {
     const finalMeal = await reviewImaginedMeal(meal)
 
     setReviewingMealId(null)
-    const prefilledData = convertToPrefilledData(finalMeal)
-    setReviewMeal({
-      ...prefilledData,
-      nutrition: finalMeal.nutrition,
-    })
+    setReviewMeal(convertToPrefilledData(finalMeal))
   }
 
   const handleReviewSaved = (mealId: string) => {
@@ -127,11 +123,10 @@ export function ImagineClient() {
 
   const handleEditDetails = (currentIngredients: PrefilledIngredient[]) => {
     if (!reviewMeal) return
-    const { nutrition: _, ...prefilledData } = reviewMeal
     sessionStorage.setItem(
       'prefilled-meal',
       JSON.stringify({
-        ...prefilledData,
+        ...reviewMeal,
         prefilledIngredients: currentIngredients,
         returnTo: IMAGINE_ROUTE,
       }),
