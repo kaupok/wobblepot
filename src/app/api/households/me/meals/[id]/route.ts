@@ -368,16 +368,27 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       let componentsChanged = false
       let imageComponentsChanged = false
 
-      const current =
-        components || servings !== undefined
-          ? await tx.meal.findUniqueOrThrow({
-              where: { id },
-              select: {
-                servings: true,
-                components: { select: { ingredientId: true, quantityPerServing: true } },
-              },
-            })
-          : null
+      // Reading inside the transaction is not enough on its own: at Postgres's
+      // default READ COMMITTED a plain read takes no lock, so two PATCHes can
+      // both read the same divisor and rows before either writes — a
+      // servings-only rescale would then overwrite a concurrent components
+      // edit with rows computed from the stale read, or `update` a row the
+      // other request just deleted. Lock the meal row first so every request
+      // that reads-then-writes the components queues behind the last one.
+      const readsComponents = components !== undefined || servings !== undefined
+      if (readsComponents) {
+        await tx.$queryRaw`SELECT 1 FROM "meal" WHERE "id" = ${id} FOR UPDATE`
+      }
+
+      const current = readsComponents
+        ? await tx.meal.findUniqueOrThrow({
+            where: { id },
+            select: {
+              servings: true,
+              components: { select: { ingredientId: true, quantityPerServing: true } },
+            },
+          })
+        : null
 
       // A bare `servings` edit keeps the recipe's total, not its per-serving
       // amounts: every reader — the edit form, the shopping list, the imagine

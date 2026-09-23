@@ -128,7 +128,7 @@ const paramsPromise = (id: string) => Promise.resolve({ id })
  * PATCH tests assert on: `mealPlanEntry.updateMany` for the prep-tips
  * invalidation (HON-683), `meal.update` plus the two `mealComponent` writers
  * for the component rewrite (HON-701), and `mealComponent.update` for the
- * servings-only rescale (HON-712).
+ * servings-only rescale plus `$queryRaw` for the meal-row lock (HON-712).
  *
  * `tx.meal.findUniqueOrThrow` serves two reads: the divisor read the component
  * and servings paths make inside the transaction (selects `servings`), and the
@@ -144,10 +144,12 @@ const setupTransaction = (updatedMeal: unknown, currentMeal?: unknown) => {
   const mealComponentDeleteMany = vi.fn()
   const mealComponentCreateMany = vi.fn()
   const mealComponentUpdate = vi.fn()
+  const queryRaw = vi.fn()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   mockTransaction.mockImplementation(async (fn: any) => {
     const tx = {
+      $queryRaw: queryRaw,
       meal: {
         update: mealUpdate,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -174,6 +176,7 @@ const setupTransaction = (updatedMeal: unknown, currentMeal?: unknown) => {
     mealComponentDeleteMany,
     mealComponentCreateMany,
     mealComponentUpdate,
+    queryRaw,
   }
 }
 
@@ -782,6 +785,33 @@ describe('PATCH /api/households/me/meals/[id]', () => {
       expect(mealComponentUpdate).toHaveBeenCalledWith(
         expect.objectContaining({ data: { quantityPerServing: 75 } }),
       )
+    })
+
+    // An in-transaction read alone takes no lock at READ COMMITTED, so two
+    // concurrent PATCHes could both restate from the same stale rows. The
+    // meal row is locked before the divisor is read, and before any write.
+    it('locks the meal row before reading the rows it restates', async () => {
+      const { queryRaw, mealComponentUpdate } = setupTransaction(mockMealResult, storedMeal)
+
+      const response = await patchMeal({ servings: 6 })
+
+      expect(response.status).toBe(200)
+      expect(queryRaw).toHaveBeenCalledTimes(1)
+      const [strings, ...values] = queryRaw.mock.calls[0]!
+      expect((strings as string[]).join('?')).toBe('SELECT 1 FROM "meal" WHERE "id" = ? FOR UPDATE')
+      expect(values).toEqual(['meal-1'])
+      expect(queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+        mealComponentUpdate.mock.invocationCallOrder[0]!,
+      )
+    })
+
+    it('does not lock the meal row for an edit that touches neither servings nor components', async () => {
+      const { queryRaw } = setupTransaction(mockMealResult, storedMeal)
+
+      const response = await patchMeal({ sourceUrl: 'https://example.com/recipe' })
+
+      expect(response.status).toBe(200)
+      expect(queryRaw).not.toHaveBeenCalled()
     })
 
     it('leaves the component rows alone when servings resends the stored value', async () => {
