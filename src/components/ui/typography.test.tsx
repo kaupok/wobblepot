@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import React from 'react'
-import { Heading, Body, Blockquote, Ul, Ol, Li, Code, Pre } from './typography'
+import { Heading, Body, Blockquote, Ul, Ol, Li, Code, Pre, toneVariants } from './typography'
+import type { BodyTone } from './typography'
 
 describe('Typography Components', () => {
   describe('Heading', () => {
@@ -127,6 +128,43 @@ describe('Typography Components', () => {
       expect(body).toHaveClass('text-sm', 'text-muted-foreground')
     })
 
+    it('renders paragraph variant with a wrapping line-height', () => {
+      render(<Body variant="paragraph">Paragraph text</Body>)
+      const body = screen.getByText('Paragraph text')
+      expect(body).toHaveClass('text-sm', 'leading-normal')
+      expect(body).not.toHaveClass('leading-none')
+      expect(body).not.toHaveClass('text-muted-foreground')
+    })
+
+    it.each(Object.entries(toneVariants).filter(([, cls]) => cls !== '') as [BodyTone, string][])(
+      'renders the %s tone as %s',
+      (tone, cls) => {
+        render(<Body tone={tone}>Toned text</Body>)
+        expect(screen.getByText('Toned text')).toHaveClass(cls)
+      },
+    )
+
+    it('adds no colour class for the default tone', () => {
+      render(<Body tone="default">Plain text</Body>)
+      const body = screen.getByText('Plain text')
+      for (const cls of Object.values(toneVariants).filter(Boolean)) {
+        expect(body).not.toHaveClass(cls)
+      }
+    })
+
+    it('composes tone with variant', () => {
+      render(
+        <Body variant="small" tone="muted">
+          Muted label
+        </Body>,
+      )
+      expect(screen.getByText('Muted label')).toHaveClass(
+        'text-sm',
+        'font-medium',
+        'text-muted-foreground',
+      )
+    })
+
     it('renders caption variant', () => {
       render(<Body variant="caption">Caption text</Body>)
       const body = screen.getByText('Caption text')
@@ -196,6 +234,15 @@ describe('Typography Components', () => {
   })
 
   describe('Li', () => {
+    it('renders a tone from the shared tone map', () => {
+      render(
+        <ul>
+          <Li tone="warning">Warned item</Li>
+        </ul>,
+      )
+      expect(screen.getByText('Warned item')).toHaveClass(toneVariants.warning)
+    })
+
     it('renders list item', () => {
       render(
         <ul>

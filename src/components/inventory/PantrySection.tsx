@@ -110,7 +110,7 @@ export function PantrySection({
           {staples.length > 0 && (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <Body variant="small" className="text-muted-foreground">
+                <Body variant="small" tone="muted">
                   {tPantry('stapleSection')}
                 </Body>
                 <Body variant="muted">{tPantry('ingredientCount', { count: staples.length })}</Body>
@@ -132,7 +132,7 @@ export function PantrySection({
           {onHand.length > 0 && (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <Body variant="small" className="text-muted-foreground">
+                <Body variant="small" tone="muted">
                   {tPantry('onHandSection')}
                 </Body>
                 <Body variant="muted">{tPantry('ingredientCount', { count: onHand.length })}</Body>

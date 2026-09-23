@@ -38,7 +38,7 @@ export function NutritionSummary({ nutrition, compact, components }: NutritionSu
 
   return (
     <div className="flex flex-col gap-3">
-      <Body variant="small" className="font-semibold">
+      <Body variant="small">
         {t('summaryHeader')}
         {hasVague && '*'}
       </Body>

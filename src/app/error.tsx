@@ -3,7 +3,8 @@
 import { useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
-import { Heading, Body, Pre } from '@/components/ui/typography'
+import { Heading, Body } from '@/components/ui/typography'
+import { ErrorDetails } from '@/components/ErrorDetails'
 import { captureClientError } from '@/lib/errors-client'
 import { SUPPORT_EMAIL, SUPPORT_EMAIL_HREF } from '@/lib/support'
 
@@ -32,15 +33,7 @@ export default function Error({
             </Body>
           )}
         </div>
-        {process.env.NODE_ENV === 'development' && (
-          <details className="mt-4 mb-4 text-left">
-            <summary className="cursor-pointer font-semibold">{t('detailsLabel')}</summary>
-            <Pre className="text-destructive text-xs">
-              {error.message}
-              {error.stack && `\n\n${error.stack}`}
-            </Pre>
-          </details>
-        )}
+        <ErrorDetails error={error} className="mt-4 mb-4" />
         <div className="mt-4">
           <Body variant="muted">
             {t.rich('supportPrompt', {

@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
+import { FieldError } from '@/components/FieldError'
 
 interface SignUpFormProps {
   inviteRequired: boolean
@@ -160,7 +161,7 @@ export function SignUpForm({
                 aria-invalid={!!error}
                 aria-describedby={error ? 'form-error' : 'password-hint'}
               />
-              <Body id="password-hint" variant="small" className="text-muted-foreground">
+              <Body id="password-hint" variant="muted">
                 {t('passwordHint')}
               </Body>
             </div>
@@ -179,7 +180,7 @@ export function SignUpForm({
                   aria-invalid={!!error}
                   aria-describedby={error ? 'form-error' : 'invite-code-hint'}
                 />
-                <Body id="invite-code-hint" variant="small" className="text-muted-foreground">
+                <Body id="invite-code-hint" variant="muted">
                   {inviteCodeHint}
                 </Body>
               </div>
@@ -194,8 +195,11 @@ export function SignUpForm({
                 aria-invalid={!!error}
                 aria-describedby={error ? 'form-error' : undefined}
               />
-              <Label htmlFor="acceptTerms" id="consent-label" className="leading-snug font-normal">
-                <span>
+              <Label htmlFor="acceptTerms" id="consent-label" className="font-normal">
+                {/* A multi-line consent label: Label is `leading-none`, which
+                    would crowd the wrapped lines. The span is a flex item, so
+                    its own line-height applies. */}
+                <span className="leading-snug">
                   {t.rich('consentLabel', {
                     terms: (chunks) => (
                       <Link
@@ -221,16 +225,8 @@ export function SignUpForm({
                 </span>
               </Label>
             </div>
-            {error && (
-              <Body id="form-error" variant="small" className="text-destructive" role="alert">
-                {error}
-              </Body>
-            )}
-            {isSlowRequest && !error && (
-              <Body variant="small" className="text-muted-foreground">
-                {t('slowRequest')}
-              </Body>
-            )}
+            {error && <FieldError id="form-error">{error}</FieldError>}
+            {isSlowRequest && !error && <Body variant="muted">{t('slowRequest')}</Body>}
           </div>
         </CardContent>
         <CardFooter className="pt-6">
@@ -245,7 +241,7 @@ export function SignUpForm({
             >
               {isLoading ? t('submitting') : t('submit')}
             </Button>
-            <Body variant="small" className="text-muted-foreground text-center">
+            <Body variant="muted" className="text-center">
               {t('alreadyHaveAccount')}{' '}
               <Link
                 href={

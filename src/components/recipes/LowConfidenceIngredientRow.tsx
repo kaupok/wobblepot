@@ -84,7 +84,7 @@ export function LowConfidenceIngredientRow({
         <div className="flex flex-1 flex-col gap-2">
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-col gap-0.5">
-              <Body className="text-info">{data.extractedName}</Body>
+              <Body tone="info">{data.extractedName}</Body>
               {data.originalText && (
                 <Body variant="muted">{t('originalLabel', { text: data.originalText })}</Body>
               )}
@@ -100,7 +100,7 @@ export function LowConfidenceIngredientRow({
               {isDuplicate && (
                 <div className="mt-1 flex items-center gap-1.5">
                   <Info className="text-warning size-3.5 shrink-0" />
-                  <Body variant="small" className="text-warning">
+                  <Body variant="small" tone="warning">
                     {t('duplicateRow', {
                       count: duplicateIndices.length,
                       rows: duplicateIndices.map((i) => i + 1).join(', '),
@@ -135,7 +135,7 @@ export function LowConfidenceIngredientRow({
 
           {/* Disambiguation dropdown */}
           <div className="flex items-center gap-2">
-            <Body variant="small" className="text-info">
+            <Body variant="small" tone="info">
               {t('verifyMatch')}
             </Body>
             <Select

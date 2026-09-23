@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
+import { FieldError } from '@/components/FieldError'
 
 export function ResetPasswordForm() {
   const router = useRouter()
@@ -114,7 +115,7 @@ export function ResetPasswordForm() {
                 placeholder={t('newPasswordPlaceholder')}
                 aria-describedby="password-hint"
               />
-              <Body id="password-hint" variant="small" className="text-muted-foreground">
+              <Body id="password-hint" variant="muted">
                 {t('passwordHint')}
               </Body>
             </div>
@@ -131,11 +132,7 @@ export function ResetPasswordForm() {
                 placeholder={t('confirmPasswordPlaceholder')}
               />
             </div>
-            {error && (
-              <Body variant="small" className="text-destructive" role="alert">
-                {error}
-              </Body>
-            )}
+            {error && <FieldError>{error}</FieldError>}
           </div>
         </CardContent>
         <CardFooter className="pt-6">
@@ -143,7 +140,7 @@ export function ResetPasswordForm() {
             <Button type="submit" className="w-full" disabled={isLoading || !token}>
               {isLoading ? t('submitting') : t('submit')}
             </Button>
-            <Body variant="small" className="text-muted-foreground text-center">
+            <Body variant="muted" className="text-center">
               {t('rememberPassword')}{' '}
               <Link href="/sign-in" className="text-primary hover:underline">
                 {t('signInLink')}

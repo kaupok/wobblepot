@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
+import { FieldError } from '@/components/FieldError'
 
 interface JoinHouseholdCardProps {
   status: 'valid' | 'invalid' | 'already_member'
@@ -148,11 +149,7 @@ export function JoinHouseholdCard({
       </CardContent>
       <CardFooter>
         <div className="flex w-full flex-col gap-4">
-          {error && (
-            <Body variant="small" className="text-destructive">
-              {error}
-            </Body>
-          )}
+          {error && <FieldError>{error}</FieldError>}
           <Button onClick={handleJoin} disabled={isLoading} className="w-full">
             {isLoading
               ? t('valid.joining')

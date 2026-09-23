@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
+import { FieldError } from '@/components/FieldError'
 
 export function ForgotPasswordForm() {
   const t = useTranslations('auth.forgotPassword')
@@ -76,12 +77,7 @@ export function ForgotPasswordForm() {
           <div className="flex flex-col gap-4">
             {success ? (
               <div className="flex flex-col gap-2">
-                <Body
-                  variant="small"
-                  className="text-success"
-                  role="status"
-                  data-testid="form-success"
-                >
+                <Body variant="paragraph" tone="success" role="status" data-testid="form-success">
                   {t('success')}
                 </Body>
               </div>
@@ -99,11 +95,7 @@ export function ForgotPasswordForm() {
                     placeholder={t('emailPlaceholder')}
                   />
                 </div>
-                {error && (
-                  <Body variant="small" className="text-destructive" role="alert">
-                    {error}
-                  </Body>
-                )}
+                {error && <FieldError>{error}</FieldError>}
               </>
             )}
           </div>
@@ -115,7 +107,7 @@ export function ForgotPasswordForm() {
                 {isLoading ? t('submitting') : t('submit')}
               </Button>
             )}
-            <Body variant="small" className="text-muted-foreground text-center">
+            <Body variant="muted" className="text-center">
               {t('rememberPassword')}{' '}
               <Link href="/sign-in" className="text-primary hover:underline">
                 {t('signInLink')}

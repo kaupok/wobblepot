@@ -49,13 +49,13 @@ export default async function ProfilePage() {
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1">
-                <Body variant="small" className="text-muted-foreground">
+                <Body variant="small" tone="muted">
                   {t('nameLabel')}
                 </Body>
                 <Body>{session.user.name}</Body>
               </div>
               <div className="flex flex-col gap-1">
-                <Body variant="small" className="text-muted-foreground">
+                <Body variant="small" tone="muted">
                   {t('emailLabel')}
                 </Body>
                 <Body>{session.user.email}</Body>

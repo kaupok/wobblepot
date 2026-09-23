@@ -2,7 +2,8 @@
 
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
-import { Heading, Body, Pre } from '@/components/ui/typography'
+import { Heading, Body } from '@/components/ui/typography'
+import { ErrorDetails } from '@/components/ErrorDetails'
 import { useEffect } from 'react'
 import { captureClientError } from '@/lib/errors-client'
 
@@ -31,17 +32,7 @@ export default function InviteError({
             </Body>
           )}
         </div>
-        {process.env.NODE_ENV === 'development' && (
-          <div className="mt-4 mb-4">
-            <details className="text-left">
-              <summary className="cursor-pointer font-semibold">{t('detailsLabel')}</summary>
-              <Pre className="text-destructive text-xs">
-                {error.message}
-                {error.stack && `\n\n${error.stack}`}
-              </Pre>
-            </details>
-          </div>
-        )}
+        <ErrorDetails error={error} className="mt-4 mb-4" />
         <Button onClick={reset}>{t('tryAgain')}</Button>
       </div>
     </div>

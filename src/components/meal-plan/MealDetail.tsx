@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Body } from '@/components/ui/typography'
+import { Body, Heading } from '@/components/ui/typography'
 import { NutritionDisclaimer } from '@/components/NutritionDisclaimer'
 import { NutritionSummary } from './NutritionSummary'
 import { IngredientList } from './IngredientList'
@@ -101,7 +101,7 @@ export function MealDetail({
       {meal.nutrition && (
         <div className="flex flex-col gap-1">
           <NutritionSummary nutrition={meal.nutrition} components={meal.components} compact />
-          <NutritionDisclaimer className="text-xs" />
+          <NutritionDisclaimer />
         </div>
       )}
 
@@ -133,9 +133,9 @@ export function MealDetail({
                 // The control sits beside the title rather than inside
                 // parentheses, where its padding read as stray spaces (HON-763).
                 <div className="flex flex-wrap items-baseline gap-x-1">
-                  <Body variant="small" className="font-semibold whitespace-nowrap">
+                  <Heading variant="section" as="h3" className="whitespace-nowrap">
                     {tDetail('ingredientsTitle')}
-                  </Body>
+                  </Heading>
                   <ServingControl
                     servings={effectiveServings}
                     householdSize={householdSize}

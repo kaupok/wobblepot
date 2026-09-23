@@ -9,7 +9,7 @@ const meta = {
   argTypes: {
     variant: {
       control: 'select',
-      options: ['default', 'secondary', 'destructive', 'outline'],
+      options: ['default', 'secondary', 'destructive', 'outline', 'warning', 'info'],
     },
   },
   args: {
@@ -34,6 +34,14 @@ export const Outline: Story = {
   args: { variant: 'outline' },
 }
 
+export const StatusWarning: Story = {
+  args: { variant: 'warning', children: 'Low confidence' },
+}
+
+export const StatusInfo: Story = {
+  args: { variant: 'info', children: 'Estimated' },
+}
+
 export const WithIcon: Story = {
   args: {
     children: (
@@ -52,6 +60,8 @@ export const AllVariants: Story = {
       <Badge variant="secondary">Secondary</Badge>
       <Badge variant="destructive">Destructive</Badge>
       <Badge variant="outline">Outline</Badge>
+      <Badge variant="warning">Warning</Badge>
+      <Badge variant="info">Info</Badge>
     </div>
   ),
 }
