@@ -311,9 +311,9 @@ describe('GET /api/meal-plans/[id]/shopping-list', () => {
               defaultUnit: 'piece',
               gramsPerPiece: 60,
             },
-            neededQuantity: 240,
+            neededQuantity: 4,
             pantryQuantity: null,
-            shoppingQuantity: 240,
+            shoppingQuantity: 4,
             mealCount: 1,
             earliestNeededDate: new Date('2099-01-28T00:00:00.000Z'),
             isVague: false,
@@ -329,7 +329,7 @@ describe('GET /api/meal-plans/[id]/shopping-list', () => {
     const data = await response.json()
 
     expect(response.status).toBe(200)
-    // 240g / 60g per piece = 4 eggs
+    // Piece quantities are already piece counts (HON-713): 4 eggs, not 4 / 60
     expect(data.groups[0].items[0].displayQuantity).toBe('4')
   })
 

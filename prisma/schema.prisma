@@ -433,6 +433,9 @@ model MealComponent {
   id                 String   @id @default(cuid())
   mealId             String
   ingredientId       String
+  /// Stored in the ingredient's `defaultUnit`: a piece count for a piece-unit
+  /// ingredient, grams otherwise (HON-713). Nutrition readers convert pieces
+  /// to grams via `gramsPerPiece` (see `src/lib/meal-planning/nutrition.ts`).
   quantityPerServing Float
   isVague            Boolean  @default(false)
   originalPhrase     String?

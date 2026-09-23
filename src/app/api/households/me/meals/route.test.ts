@@ -147,6 +147,43 @@ describe('GET /api/households/me/meals', () => {
     expect(data.nextCursor).toBeNull()
   })
 
+  it('converts piece-unit quantities to grams for nutrition', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockMealFindMany.mockResolvedValue([
+      {
+        ...mockMealData,
+        components: [
+          {
+            ingredientId: 'ing-eggs',
+            quantityPerServing: 2,
+            isVague: false,
+            originalPhrase: null,
+            ingredient: {
+              id: 'ing-eggs',
+              name: 'Eggs',
+              category: 'protein',
+              defaultUnit: 'piece',
+              gramsPerPiece: 55,
+              calories: 155,
+              protein: 13,
+              carbs: 1.1,
+              fat: 11,
+              allergens: ['eggs'],
+            },
+          },
+        ],
+      },
+    ] as never)
+
+    const request = new NextRequest('http://localhost/api/households/me/meals')
+    const response = await GET(request)
+    const data = await response.json()
+
+    // 2 eggs x 55 g = 110 g per serving; 155 kcal/100g -> 170.5 -> 171 (HON-713)
+    expect(data.meals[0].nutrition).toEqual({ calories: 171, protein: 14, carbs: 1, fat: 12 })
+  })
+
   it('carries the image fields the card tint reads (HON-746)', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)

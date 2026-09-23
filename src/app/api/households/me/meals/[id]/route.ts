@@ -16,6 +16,7 @@ import { captureApiError } from '@/lib/errors'
 import { clearMealImage } from '@/lib/meal-images/invalidation'
 import { discardMealImage } from '@/lib/meal-images/storage'
 import { gramsOf } from '@/lib/meal-images/prompt'
+import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 
 const updateMealSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -137,19 +138,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
     }
 
-    const nutrition = meal.components.reduce(
-      (acc, comp) => {
-        if (comp.isVague) return acc
-        const factor = comp.quantityPerServing / 100
-        return {
-          calories: acc.calories + comp.ingredient.calories * factor,
-          protein: acc.protein + comp.ingredient.protein * factor,
-          carbs: acc.carbs + comp.ingredient.carbs * factor,
-          fat: acc.fat + comp.ingredient.fat * factor,
-        }
-      },
-      { calories: 0, protein: 0, carbs: 0, fat: 0 },
-    )
+    const nutrition = computeMealNutrition(meal.components)
 
     const allergens = [...new Set(meal.components.flatMap((comp) => comp.ingredient.allergens))]
     const translatedMeal = translateMeal(meal, householdLocale)
@@ -574,19 +563,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     // After commit: a rolled-back edit must not have lost its image.
     await discardMealImage(discardedImageUrl, '/api/households/me/meals/[id]')
 
-    const nutrition = meal.components.reduce(
-      (acc, comp) => {
-        if (comp.isVague) return acc
-        const factor = comp.quantityPerServing / 100
-        return {
-          calories: acc.calories + comp.ingredient.calories * factor,
-          protein: acc.protein + comp.ingredient.protein * factor,
-          carbs: acc.carbs + comp.ingredient.carbs * factor,
-          fat: acc.fat + comp.ingredient.fat * factor,
-        }
-      },
-      { calories: 0, protein: 0, carbs: 0, fat: 0 },
-    )
+    const nutrition = computeMealNutrition(meal.components)
 
     const allergens = [...new Set(meal.components.flatMap((comp) => comp.ingredient.allergens))]
 

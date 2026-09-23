@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
 import {
   groupByCategory,
   computeShoppingList,
@@ -1050,6 +1051,38 @@ describe('computeRollingWindowShoppingList', () => {
 
     // 150 × 5 (override) = 750
     expect(result.groups[0]!.items[0]!.neededQuantity).toBe(750)
+  })
+
+  it('keeps piece-unit quantities as piece counts: 2 eggs x 4 servings renders as 8 eggs (HON-713)', async () => {
+    mockFindManyEntries.mockResolvedValue([
+      rollingEntry({
+        mealId: 'meal-eggs',
+        servingOverride: 4,
+        components: [
+          {
+            ingredientId: 'ing-eggs',
+            quantityPerServing: 2,
+            ingredient: {
+              id: 'ing-eggs',
+              name: 'Eggs',
+              category: 'protein',
+              defaultUnit: 'piece',
+              gramsPerPiece: 55,
+            },
+          },
+        ],
+      }),
+    ] as never)
+    mockCountMembers.mockResolvedValue(2)
+    mockFindManyPantry.mockResolvedValue([])
+
+    const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
+    const item = result.groups[0]!.items[0]!
+
+    expect(item.shoppingQuantity).toBe(8)
+    expect(formatShoppingQuantity(item.shoppingQuantity, item.ingredient.defaultUnit, 'en')).toBe(
+      '8',
+    )
   })
 
   it('falls back to default household size when no members exist', async () => {

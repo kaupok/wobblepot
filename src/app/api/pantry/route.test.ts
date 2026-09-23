@@ -378,14 +378,14 @@ describe('GET /api/pantry', () => {
     ]
     mockFindMany.mockResolvedValue(mockItems as never)
 
-    // Mock meal plan entries - needs 180g which is 3 eggs at 60g each
+    // Piece-unit quantities are stored as piece counts (HON-713): 1.5 eggs per serving
     const mockEntries = [
       {
         id: 'entry-1',
         date: new Date(),
         status: 'planned',
         meal: {
-          components: [{ ingredientId: 'ing-1', quantityPerServing: 90 }],
+          components: [{ ingredientId: 'ing-1', quantityPerServing: 1.5 }],
         },
       },
     ]
@@ -395,7 +395,7 @@ describe('GET /api/pantry', () => {
     const data = await response.json()
 
     expect(response.status).toBe(200)
-    // Household size 2, so 90 * 2 = 180g, divided by 60g per piece = 3 eggs
+    // Household size 2, so 1.5 * 2 = 3 eggs — not divided by gramsPerPiece
     expect(data.items[0].neededDisplayQuantity).toBe('3')
   })
 

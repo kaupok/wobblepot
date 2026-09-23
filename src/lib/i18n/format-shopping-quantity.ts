@@ -5,20 +5,21 @@ import type { Locale } from './locales'
 /**
  * Format a shopping-list quantity for display in the active locale.
  *
+ * `quantity` is in the ingredient's `defaultUnit`, the unit
+ * `MealComponent.quantityPerServing` is stored in (HON-713).
+ *
  * - Vague: returns the original phrase (e.g. "to taste") unchanged.
- * - Pieces: converts grams to a piece count via `gramsPerPiece`, rounded up so
- *   the shopper buys enough; falls back to the gram path if `gramsPerPiece` is
- *   missing.
+ * - Pieces: the quantity is already a piece count; rounded up so the shopper
+ *   buys enough.
  * - Grams: renders `<n>g` for sub-kilogram amounts, `<n>kg` for >= 1000g, with
  *   one fraction digit at most (whole kilograms collapse to e.g. `2kg`).
  *
  * Decimal separator and thousands grouping follow `locale`: `1.5kg` in `en`,
- * `1,5kg` in `et`. Quantities are stored in grams.
+ * `1,5kg` in `et`.
  */
 export function formatShoppingQuantity(
-  qtyInGrams: number,
+  quantity: number,
   unit: Unit,
-  gramsPerPiece: number | null,
   locale: Locale,
   isVague?: boolean,
   originalPhrase?: string | null,
@@ -28,20 +29,15 @@ export function formatShoppingQuantity(
   }
 
   if (unit === 'piece') {
-    if (gramsPerPiece && gramsPerPiece > 0) {
-      const pieces = Math.ceil(qtyInGrams / gramsPerPiece)
-      return formatInteger(pieces, locale)
-    }
-    // Fallback: piece-unit ingredient without `gramsPerPiece` always renders
-    // as grams. Don't convert to kg, even past the 1000g threshold — kg of
-    // a piece-unit item (e.g. lemons) is meaningless.
-    return `${formatInteger(qtyInGrams, locale)}g`
+    // The epsilon absorbs float residue from `total / servings * servings`
+    // (8 / 3 * 3 is 8.000000000000002), which would otherwise round up to 9.
+    return formatInteger(Math.ceil(quantity - 1e-9), locale)
   }
 
-  if (qtyInGrams >= 1000) {
-    const kg = qtyInGrams / 1000
+  if (quantity >= 1000) {
+    const kg = quantity / 1000
     return `${formatQuantity(kg, locale, { maximumFractionDigits: 1 })}kg`
   }
 
-  return `${formatInteger(qtyInGrams, locale)}g`
+  return `${formatInteger(quantity, locale)}g`
 }

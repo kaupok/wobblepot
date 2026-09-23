@@ -348,6 +348,42 @@ describe('GET /api/meals', () => {
     expect(data.meals[0].components[0].ingredient.name).toBe('Chicken breast')
   })
 
+  it('converts piece-unit quantities to grams for nutrition', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockMealCount.mockResolvedValue(1)
+    mockMealFindMany.mockResolvedValue([
+      sampleMeal({
+        components: [
+          {
+            ingredientId: 'ing-eggs',
+            quantityPerServing: 2,
+            isVague: false,
+            originalPhrase: null,
+            ingredient: {
+              id: 'ing-eggs',
+              name: 'Eggs',
+              category: 'protein',
+              defaultUnit: 'piece',
+              gramsPerPiece: 55,
+              calories: 155,
+              protein: 13,
+              carbs: 1.1,
+              fat: 11,
+              allergens: ['eggs'],
+            },
+          },
+        ],
+      }),
+    ] as never)
+
+    const response = await GET(createRequest())
+    const data = await response.json()
+
+    // 2 eggs x 55 g = 110 g per serving; 155 kcal/100g -> 170.5 -> 171 (HON-713)
+    expect(data.meals[0].nutrition).toEqual({ calories: 171, protein: 14, carbs: 1, fat: 12 })
+  })
+
   it('marks isCustom and isFavorite correctly', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)

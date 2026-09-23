@@ -177,7 +177,6 @@ export async function GET(request: NextRequest) {
               neededDisplayQuantity: formatShoppingQuantity(
                 neededInfo.quantity,
                 item.ingredient.defaultUnit,
-                item.ingredient.gramsPerPiece,
                 household.locale as Locale,
                 neededInfo.isVague,
                 neededInfo.originalPhrase,

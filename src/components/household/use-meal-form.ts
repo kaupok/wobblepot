@@ -13,6 +13,7 @@ import {
 } from './meal-form-types'
 import { prefersReducedMotion } from '@/lib/utils'
 import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
+import { componentGramsPerServing } from '@/lib/meal-planning/nutrition'
 import type { Unit } from '@/generated/prisma/enums'
 
 const MAX_SERVINGS = 50
@@ -200,13 +201,9 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
       },
       totalQuantity: number,
     ) => {
-      const quantityPerServing = totalQuantity / servingsNum
-      // For piece-unit ingredients, convert pieces to grams first
-      const gramsPerServing =
-        ing.defaultUnit === 'piece' && ing.gramsPerPiece
-          ? quantityPerServing * ing.gramsPerPiece
-          : quantityPerServing
-      const factor = gramsPerServing / 100
+      // Same pieces-to-grams rule the API's `computeMealNutrition` applies,
+      // so the preview and the saved meal report the same numbers.
+      const factor = componentGramsPerServing(totalQuantity / servingsNum, ing) / 100
       nutrition.calories += (ing.calories ?? 0) * factor
       nutrition.protein += (ing.protein ?? 0) * factor
       nutrition.carbs += (ing.carbs ?? 0) * factor
