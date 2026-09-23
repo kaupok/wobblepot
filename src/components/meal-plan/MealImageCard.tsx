@@ -30,11 +30,13 @@ export interface MealImageFields {
  * the 320px sidebar, ~776px. Its image is 5/8 of that, 485px; with trailing
  * actions it ends `right-36` (144px) earlier, 341px. Below `md` the card is
  * `100vw - 2rem` at most, so 5/8 of it stays under 62vw and the trailing box
- * under 40vw. The recipes list's cards are narrower and share the default.
+ * under 40vw.
  *
- * The bottom image spans the card. Its one callsite is the alternatives grid:
- * three ~272px columns from `md` in the `max-w-4xl` add-meal dialog, a single
- * full-width column below it.
+ * The bottom image spans the card. Two callsites: the alternatives grid (three
+ * ~272px columns from `md` in the `max-w-4xl` add-meal dialog) and the recipe
+ * library grid (two 360px columns at `md`, three 320–363px from `lg` up to
+ * the 1152px page width). 364px covers both; below `md` no card is wider than
+ * the viewport.
  *
  * Measuring these in a browser: `img.naturalWidth` is density-corrected (file
  * width × `sizes` length / candidate `w`), so it reads back roughly the `sizes`
@@ -43,7 +45,7 @@ export interface MealImageFields {
 const SIZES = {
   default: '(min-width: 768px) 485px, 62vw',
   trailingActions: '(min-width: 768px) 341px, 40vw',
-  bottom: '(min-width: 768px) 272px, 100vw',
+  bottom: '(min-width: 768px) 364px, 100vw',
 } as const
 
 /**

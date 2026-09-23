@@ -104,7 +104,7 @@ describe('MealImageCard', () => {
       'mix-blend-multiply',
     )
     expect(wrapper).not.toHaveClass('absolute', '-z-10', 'mask-l-from-30%')
-    expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 272px, 100vw')
+    expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 364px, 100vw')
     // Still tinted, but without the named group the title cap never applies.
     expect(card).toHaveAttribute('data-meal-surface')
     expect(card).toHaveClass('relative', 'isolate', 'overflow-hidden')
@@ -132,7 +132,7 @@ describe('MealImageCard', () => {
           <p>Content</p>
         </MealImageCard>,
       )
-      expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 272px, 100vw')
+      expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 364px, 100vw')
     })
   })
 

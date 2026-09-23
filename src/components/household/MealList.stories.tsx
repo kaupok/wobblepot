@@ -12,7 +12,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Renders the user’s custom meals as a stack of cards. Each row exposes favorite, edit, and delete actions; deletion goes through a confirm dialog. Mutations call `/api/meals/:id/favorite` and `/api/households/me/meals/:id` (DELETE) — both backed by MSW in stories.',
+          'Renders the user’s custom meals as a responsive grid of cards (one column on a phone, two from `sm`, three from `lg`). Each card exposes favorite, edit, and delete actions; deletion goes through a confirm dialog. Mutations call `/api/meals/:id/favorite` and `/api/households/me/meals/:id` (DELETE) — both backed by MSW in stories.',
       },
     },
   },

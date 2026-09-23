@@ -114,45 +114,54 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {meals.map((meal) => (
-        <MealImageCard key={meal.id} meal={meal}>
-          <CardContent className="p-4">
-            <div className="flex flex-col gap-2">
-              <MealCardBase meal={meal} />
-
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleToggleFavorite(meal)}
-                  disabled={togglingFavorite === meal.id}
-                  aria-label={
-                    meal.isFavorite ? t('removeFromFavoritesAria') : t('addToFavoritesAria')
-                  }
-                >
-                  <Heart
-                    className={cn('h-4 w-4', meal.isFavorite && 'text-primary fill-current')}
-                  />
-                </Button>
-                <Button variant="ghost" size="sm" asChild aria-label={t('editAria')}>
-                  <Link href={`/recipes/${meal.id}/edit`}>
-                    <Pencil className="h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setDeleteConfirmMeal(meal)}
-                  aria-label={t('deleteAria')}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </MealImageCard>
-      ))}
+    <>
+      {/* One column on a phone, two from `sm`, three from `lg` (HON-747). The
+          columns make the cards taller than wide, so the image sits below the
+          content rather than behind it, as in the alternatives grid (HON-750).
+          The actions stay on the title row (docs/DESIGN.md → Composition). */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {meals.map((meal) => (
+          <MealImageCard key={meal.id} meal={meal} layout="bottom" className="flex h-full flex-col">
+            <CardContent className="flex-1 p-4">
+              {/* h2: the page title is the h1 (HON-747) */}
+              <MealCardBase
+                meal={meal}
+                nameHeadingTag="h2"
+                titleActions={
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleToggleFavorite(meal)}
+                      disabled={togglingFavorite === meal.id}
+                      aria-label={
+                        meal.isFavorite ? t('removeFromFavoritesAria') : t('addToFavoritesAria')
+                      }
+                    >
+                      <Heart
+                        className={cn('h-4 w-4', meal.isFavorite && 'text-primary fill-current')}
+                      />
+                    </Button>
+                    <Button variant="ghost" size="sm" asChild aria-label={t('editAria')}>
+                      <Link href={`/recipes/${meal.id}/edit`}>
+                        <Pencil className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeleteConfirmMeal(meal)}
+                      aria-label={t('deleteAria')}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </>
+                }
+              />
+            </CardContent>
+          </MealImageCard>
+        ))}
+      </div>
 
       <ConfirmDialog
         open={deleteConfirmMeal !== null}
@@ -168,6 +177,6 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
         onConfirm={handleDelete}
         isLoading={isDeleting}
       />
-    </div>
+    </>
   )
 }

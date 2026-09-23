@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { Clock, ExternalLink } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Body, Heading, type HeadingTag } from '@/components/ui/typography'
@@ -39,6 +40,12 @@ interface MealCardBaseProps {
    * stays valid.
    */
   nameHeadingTag?: HeadingTag
+  /**
+   * The card's actions, aligned right on the name's row (docs/DESIGN.md →
+   * Composition, "Actions sit on the title row"). For a `layout="bottom"`
+   * card, whose title row nothing else shares.
+   */
+  titleActions?: ReactNode
 }
 
 function MealTypeList({ types }: { types: MealType[] }) {
@@ -60,6 +67,7 @@ export function MealCardBase({
   meal,
   pantryIngredients,
   nameHeadingTag = 'h4',
+  titleActions,
 }: MealCardBaseProps) {
   const tDetail = useTranslations('meal-plan.detail')
   const hasPantryData = pantryIngredients && pantryIngredients.length > 0
@@ -71,10 +79,15 @@ export function MealCardBase({
     <div className="flex flex-col gap-1.5">
       {/* 1. Meal name — wraps before the image on a tinted `MealImageCard`, full
           width anywhere else (HON-749) */}
-      <div className={mealImageTitleWidth()}>
-        <Heading variant="h4" as={nameHeadingTag}>
-          {meal.name}
-        </Heading>
+      <div className="flex items-start justify-between gap-2">
+        <div className={mealImageTitleWidth()}>
+          <Heading variant="h4" as={nameHeadingTag}>
+            {meal.name}
+          </Heading>
+        </div>
+        {titleActions ? (
+          <div className="flex shrink-0 items-center gap-1">{titleActions}</div>
+        ) : null}
       </div>
 
       {/* 2. Description */}

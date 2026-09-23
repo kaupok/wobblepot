@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { Heart, Pencil, Trash2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { MealType } from '@/generated/prisma/enums'
 import { createMealCardBaseData, createMealComponent } from '@/stories/fixtures'
 import { MealCardBase } from './MealCardBase'
@@ -35,6 +37,33 @@ export const NameAsH3: Story = {
       description: {
         story:
           "`nameHeadingTag` moves the meal name in the document outline without changing its size — it stays at the `h4` title level (`text-xl`). Callers inside a Dialog pass `h3` so the tag follows the Dialog title (an `h2`) and axe's heading-order rule stays valid.",
+      },
+    },
+  },
+}
+
+export const WithTitleActions: Story = {
+  args: {
+    meal: mealFixture,
+    titleActions: (
+      <>
+        <Button variant="ghost" size="sm" aria-label="Add to favorites">
+          <Heart className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="sm" aria-label="Edit meal">
+          <Pencil className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="sm" aria-label="Delete meal">
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </>
+    ),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          '`titleActions` aligns the card\'s actions right on the name\'s row (docs/DESIGN.md → "Actions sit on the title row"). The recipe library grid passes favourite, edit and delete here.',
       },
     },
   },

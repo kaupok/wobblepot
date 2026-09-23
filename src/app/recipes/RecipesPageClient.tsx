@@ -7,7 +7,6 @@ import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/r
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Heading, Body } from '@/components/ui/typography'
 import { MealList, type MealData } from '@/components/household/MealList'
@@ -85,84 +84,79 @@ export function RecipesPageClient() {
   const isSearchEmpty = debouncedSearch !== '' && !isLoading && !error && meals.length === 0
 
   return (
-    <div className="min-h-screen-below-header grid place-items-center p-4">
-      <Card className="w-full max-w-2xl">
-        <CardHeader>
-          <Heading variant="h4">{tLibrary('title')}</Heading>
-          <Body variant="muted">{tLibrary('description')}</Body>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-6">
-            <Input
-              type="search"
-              placeholder={tLibrary('searchPlaceholder')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              aria-label={tLibrary('searchAria')}
-            />
+    // A list page: container shell, title on the background, top-aligned, no
+    // page-level Card — the meal cards are the only cards (HON-767, HON-747).
+    <div className="container mx-auto flex flex-col gap-6 px-4 py-8">
+      <div className="flex flex-col gap-1">
+        <Heading variant="h4" as="h1">
+          {tLibrary('title')}
+        </Heading>
+        <Body variant="muted">{tLibrary('description')}</Body>
+      </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <Body variant="muted">
-                {isLoading
-                  ? tLibrary('loading')
-                  : hasNextPage
-                    ? tRecipes('mealCountMore', { count: meals.length })
-                    : tRecipes('mealCount', { count: meals.length })}
-              </Body>
-              <div className="flex gap-2">
-                <Button variant="outline" asChild>
-                  <Link href="/recipes/imagine">
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    {tLibrary('imagineButton')}
-                  </Link>
-                </Button>
-                <Button asChild>
-                  <Link href="/recipes/import">
-                    <Plus className="mr-2 h-4 w-4" />
-                    {tLibrary('addButton')}
-                  </Link>
-                </Button>
-              </div>
+      <Input
+        type="search"
+        placeholder={tLibrary('searchPlaceholder')}
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        aria-label={tLibrary('searchAria')}
+      />
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Body variant="muted">
+          {isLoading
+            ? tLibrary('loading')
+            : hasNextPage
+              ? tRecipes('mealCountMore', { count: meals.length })
+              : tRecipes('mealCount', { count: meals.length })}
+        </Body>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/recipes/imagine">
+              <Sparkles className="mr-2 h-4 w-4" />
+              {tLibrary('imagineButton')}
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/recipes/import">
+              <Plus className="mr-2 h-4 w-4" />
+              {tLibrary('addButton')}
+            </Link>
+          </Button>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin" />
+        </div>
+      ) : isSearchEmpty ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Body variant="muted">{tLibrary('emptySearch', { query: debouncedSearch })}</Body>
+        </div>
+      ) : (
+        <>
+          <MealList meals={meals} onDelete={handleDelete} onToggleFavorite={handleToggleFavorite} />
+          {hasNextPage ? (
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+              >
+                {isFetchingNextPage ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {tLibrary('loadingMore')}
+                  </>
+                ) : (
+                  tLibrary('loadMore')
+                )}
+              </Button>
             </div>
-
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin" />
-              </div>
-            ) : isSearchEmpty ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Body variant="muted">{tLibrary('emptySearch', { query: debouncedSearch })}</Body>
-              </div>
-            ) : (
-              <>
-                <MealList
-                  meals={meals}
-                  onDelete={handleDelete}
-                  onToggleFavorite={handleToggleFavorite}
-                />
-                {hasNextPage ? (
-                  <div className="flex justify-center">
-                    <Button
-                      variant="outline"
-                      onClick={() => fetchNextPage()}
-                      disabled={isFetchingNextPage}
-                    >
-                      {isFetchingNextPage ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          {tLibrary('loadingMore')}
-                        </>
-                      ) : (
-                        tLibrary('loadMore')
-                      )}
-                    </Button>
-                  </div>
-                ) : null}
-              </>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          ) : null}
+        </>
+      )}
     </div>
   )
 }

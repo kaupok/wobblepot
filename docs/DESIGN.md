@@ -221,4 +221,4 @@ Add one here when a review finds code and rule disagreeing and the fix is not ob
 
 Decisions above that the code does not yet reflect. Each has a Linear issue; update this list when one ships.
 
-- `/recipes` still wraps the page in a centred `Card` and puts its title inside it, against the page-shell rules in [Composition rules](#composition-rules) (`HON-767`). Tracked in `HON-747`.
+None open.
