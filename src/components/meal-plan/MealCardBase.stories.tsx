@@ -123,6 +123,24 @@ export const WithPantryAvailability: Story = {
   },
 }
 
+export const WithOnlyDefaultStaples: Story = {
+  args: {
+    meal: mealFixture,
+    pantryIngredients: [
+      { ingredientId: 'garlic', isStaple: true },
+      { ingredientId: 'olive-oil', isStaple: true },
+    ] satisfies PantryIngredient[],
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A pantry holding only staples, which is how every household starts (HON-769), is not treated as pantry data: the list stays uncoloured rather than marking everything else missing.',
+      },
+    },
+  },
+}
+
 export const Vegetarian: Story = {
   args: {
     meal: createMealCardBaseData({

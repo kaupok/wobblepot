@@ -120,12 +120,27 @@ describe('MealCardBase', () => {
     })
 
     it('renders staples as available (green)', () => {
-      const pantry: PantryIngredient[] = [{ ingredientId: 'ing-soy', isStaple: true }]
+      const pantry: PantryIngredient[] = [
+        { ingredientId: 'ing-soy', isStaple: true },
+        { ingredientId: 'ing-salmon', isStaple: false },
+      ]
 
       render(<MealCardBase meal={mockMeal} pantryIngredients={pantry} />)
 
       const soy = screen.getByText('Soy sauce').closest('li')
       expect(soy).toHaveClass('text-success')
+    })
+
+    it('does not color-code when the pantry holds only staples (HON-769 defaults)', () => {
+      const pantry: PantryIngredient[] = [{ ingredientId: 'ing-soy', isStaple: true }]
+
+      render(<MealCardBase meal={mockMeal} pantryIngredients={pantry} />)
+
+      for (const name of ['Salmon', 'Soy sauce', 'Avocado']) {
+        const li = screen.getByText(name).closest('li')
+        expect(li).not.toHaveClass('text-success')
+        expect(li).not.toHaveClass('text-warning')
+      }
     })
 
     it('colors all ingredients correctly with mixed availability', () => {
