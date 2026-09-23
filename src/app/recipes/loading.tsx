@@ -9,7 +9,7 @@ export default function RecipesLoading() {
       {/* Title (h-7, as /household) and description */}
       <div className="flex flex-col gap-1">
         <Skeleton className="h-7 w-32" />
-        <Skeleton className="h-6 w-64" />
+        <Skeleton className="h-5 w-64" />
       </div>
 
       {/* Search */}
@@ -17,7 +17,7 @@ export default function RecipesLoading() {
 
       {/* Recipe count and actions */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Skeleton className="h-6 w-24" />
+        <Skeleton className="h-5 w-24" />
         <div className="flex gap-2">
           <Skeleton className="h-touch w-32 md:h-10" />
           <Skeleton className="h-touch w-32 md:h-10" />
