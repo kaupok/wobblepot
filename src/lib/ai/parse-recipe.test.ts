@@ -26,7 +26,7 @@ vi.mock('./sampling', () => ({
 }))
 
 import { prisma } from '@/lib/prisma'
-import { generateObject } from 'ai'
+import { APICallError, generateObject, RetryError } from 'ai'
 import { parseRecipeText, parseAndMatchRecipe } from './parse-recipe'
 import type { RecipeExtraction } from './recipe-schema'
 import { RecipeParseError } from './recipe-errors'
@@ -155,12 +155,64 @@ describe('parseRecipeText', () => {
     ).rejects.toBe(err)
   })
 
-  it('still wraps other AI failures in RecipeParseError', async () => {
-    mockGenerateObject.mockRejectedValue(new Error('upstream exploded'))
+  describe('provider failures (HON-723)', () => {
+    const TEXT = 'A full recipe with chicken breast and vegetables for dinner'
 
-    await expect(
-      parseRecipeText('A full recipe with chicken breast and vegetables for dinner'),
-    ).rejects.toBeInstanceOf(RecipeParseError)
+    function apiCallError(statusCode?: number) {
+      return new APICallError({
+        message: statusCode ? 'Overloaded' : 'Cannot connect to API: fetch failed',
+        url: 'https://api.anthropic.com/v1/messages',
+        requestBodyValues: {},
+        statusCode,
+        isRetryable: true,
+      })
+    }
+
+    it('wraps an Anthropic 5xx as provider_unavailable, keeping the SDK error as cause', async () => {
+      const err = apiCallError(529)
+      mockGenerateObject.mockRejectedValue(err)
+
+      const thrown = await parseRecipeText(TEXT).catch((e: unknown) => e)
+
+      // Not `parse_failed`: that code answers 400 and skips `captureApiError`,
+      // so an outage read as "your recipe was bad" and reported nothing.
+      expect(thrown).toBeInstanceOf(RecipeParseError)
+      expect((thrown as RecipeParseError).code).toBe('provider_unavailable')
+      expect((thrown as RecipeParseError).cause).toBe(err)
+    })
+
+    it('wraps a connection failure (APICallError without a status) as provider_unavailable', async () => {
+      mockGenerateObject.mockRejectedValue(apiCallError())
+
+      await expect(parseRecipeText(TEXT)).rejects.toMatchObject({ code: 'provider_unavailable' })
+    })
+
+    it('wraps a RetryError (retries exhausted) as provider_unavailable', async () => {
+      const err = new RetryError({
+        message: 'Failed after 3 attempts',
+        reason: 'maxRetriesExceeded',
+        errors: [apiCallError(500), apiCallError(500), apiCallError(500)],
+      })
+      mockGenerateObject.mockRejectedValue(err)
+
+      await expect(parseRecipeText(TEXT)).rejects.toMatchObject({
+        code: 'provider_unavailable',
+        cause: err,
+      })
+    })
+
+    it('keeps parse_failed for a model answer that did not fit the schema', async () => {
+      mockGenerateObject.mockRejectedValue(noObjectGeneratedError())
+
+      await expect(parseRecipeText(TEXT)).rejects.toMatchObject({ code: 'parse_failed' })
+    })
+
+    it('rethrows any other error unwrapped, so the route reports it as a 500', async () => {
+      const err = new TypeError('Cannot read properties of undefined')
+      mockGenerateObject.mockRejectedValue(err)
+
+      await expect(parseRecipeText(TEXT)).rejects.toBe(err)
+    })
   })
 
   it('reports the SDK usage to onAiUsage via toAiUsageStats', async () => {
@@ -227,7 +279,7 @@ describe('parseRecipeText', () => {
         'en',
         onAiUsage,
       ),
-    ).rejects.toThrow(RecipeParseError)
+    ).rejects.toThrow('network down')
 
     expect(onAiUsage).not.toHaveBeenCalled()
   })
@@ -418,14 +470,6 @@ describe('parseRecipeText', () => {
     const result = await parseRecipeText('A casual food blog with some pasta tips for you')
     expect(result.confidence.tier).toBe('medium')
     expect(result.confidence.message).toBeDefined()
-  })
-
-  it('wraps non-RecipeParseError exceptions', async () => {
-    mockGenerateObject.mockRejectedValue(new Error('AI service unavailable'))
-
-    await expect(parseRecipeText('Some recipe text that is long enough')).rejects.toThrow(
-      'Failed to parse the recipe',
-    )
   })
 
   it('logs a parse-recipe AI sample with input preview and full extraction when locale is non-default', async () => {

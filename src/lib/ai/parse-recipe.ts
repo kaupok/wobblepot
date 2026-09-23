@@ -1,5 +1,5 @@
 import { createAnthropic } from '@ai-sdk/anthropic'
-import { generateObject } from 'ai'
+import { APICallError, generateObject, NoObjectGeneratedError, RetryError } from 'ai'
 import { serverEnv } from '@/lib/env'
 import { RECIPE_MODEL } from './models'
 import { toAiUsageStats, withUsageOnFailure, type AiUsageStats } from './usage'
@@ -127,11 +127,29 @@ export async function parseRecipeText(
     if (isAiBudgetTimeout(error)) {
       throw error
     }
-    // AI generation error
-    throw new RecipeParseError(
-      'Failed to parse the recipe. Please try again or use the manual form.',
-      'parse_failed',
-    )
+    // The provider could not be reached or refused the call: a 5xx, a 429,
+    // or a connection failure (`handleFetchError` in the SDK turns ECONNRESET,
+    // "fetch failed" and friends into an `APICallError`). `RetryError` is the
+    // same thing after `maxRetries` ran out. The user's input was fine, so this
+    // must not reach the route as a 400 — and it must reach Sentry (HON-723).
+    if (APICallError.isInstance(error) || RetryError.isInstance(error)) {
+      throw new RecipeParseError(
+        'The recipe service is temporarily unavailable. Please try again in a moment.',
+        'provider_unavailable',
+        { cause: error },
+      )
+    }
+    // The model answered, but not with anything the schema accepts: that is
+    // "we could not read this recipe", which is what `parse_failed` means.
+    if (NoObjectGeneratedError.isInstance(error)) {
+      throw new RecipeParseError(
+        'Failed to parse the recipe. Please try again or use the manual form.',
+        'parse_failed',
+      )
+    }
+    // Anything else is a bug on our side. Let it reach the route's generic 500,
+    // which reports it, instead of disguising it as a user-input 400.
+    throw error
   }
 }
 

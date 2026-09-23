@@ -78,6 +78,14 @@ const AI_BUDGET_MS = 45_000
 const AI_BUDGET_AFTER_URL_FETCH_MS = 30_000
 
 /**
+ * `Retry-After` for a `provider_unavailable` 503. The SDK has already retried
+ * with backoff inside the request, so an immediate retry would most likely
+ * fail the same way; half a minute is long enough for a transient overload to
+ * clear without leaving the household waiting on a hard outage.
+ */
+const PROVIDER_RETRY_AFTER_SECONDS = 30
+
+/**
  * Detect if the input starts with a URL and extract it along with optional user context.
  */
 export function extractUrlAndContext(text: string): { url: string; context: string } | null {
@@ -224,6 +232,23 @@ async function handlePOST(request: Request) {
     })
   } catch (error) {
     if (error instanceof RecipeParseError) {
+      // An unreachable or overloaded provider is ours to report and a retry may
+      // well succeed, so it answers 503 rather than the 400 that tells a client
+      // its input was bad. 503, not 502, for every provider failure: the client
+      // does the same thing either way, and the reported cause keeps the
+      // upstream status for diagnosis. Only this code is reported — ordinary
+      // validation failures below stay out of Sentry (HON-723).
+      if (error.code === 'provider_unavailable') {
+        captureApiError(error.cause ?? error, {
+          route: '/api/recipes/parse',
+          userId: session.user.id,
+          feature: 'recipe_parse',
+        })
+        return NextResponse.json(errorBody(error.message, error.code), {
+          status: 503,
+          headers: { 'Retry-After': String(PROVIDER_RETRY_AFTER_SECONDS) },
+        })
+      }
       // The code, not the prose, picks the status — the message is free text
       // that a copy edit could silently break (HON-700).
       const status = error.code === 'robots_disallowed' ? 403 : 400

@@ -47,6 +47,7 @@ export type RecipeImportErrorCode =
   | 'no_ingredients_found'
   | 'low_confidence'
   | 'parse_timeout'
+  | 'provider_unavailable'
   | 'parse_failed'
 
 /** Error codes returned by `POST /api/meal-plans/generate`. */
@@ -66,8 +67,8 @@ export type MealPlanGenerateErrorCode =
 
 /**
  * The subset of `RecipeImportErrorCode` a `RecipeParseError` can carry. The
- * route maps these to a status: `robots_disallowed` is a 403, the rest are
- * 400s.
+ * route maps these to a status: `robots_disallowed` is a 403,
+ * `provider_unavailable` a 503, the rest are 400s.
  */
 export type RecipeParseErrorCode = Extract<
   RecipeImportErrorCode,
@@ -80,6 +81,7 @@ export type RecipeParseErrorCode = Extract<
   | 'no_recipe_found'
   | 'no_ingredients_found'
   | 'low_confidence'
+  | 'provider_unavailable'
   | 'parse_failed'
 >
 
@@ -124,8 +126,10 @@ export const RECIPE_IMPORT_ERROR_KEYS = {
   no_ingredients_found: 'noIngredientsFound',
   low_confidence: 'lowConfidence',
   parse_timeout: 'parseTimeout',
-  // `parseGeneric`, not `parseFailed`: this covers the 500 and the
-  // AI-generation catch-all, whose prose explicitly told the user to retry.
+  provider_unavailable: 'providerUnavailable',
+  // `parseGeneric`, not `parseFailed`: this covers the 500 and a model answer
+  // that did not fit the schema, whose prose explicitly told the user to retry.
+  // An unreachable provider has its own code, `provider_unavailable` (HON-723).
   // It also matches the network-failure path in the same component, which
   // would otherwise give better guidance than the server does.
   parse_failed: 'parseGeneric',
