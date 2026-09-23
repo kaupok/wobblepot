@@ -197,6 +197,20 @@ describe('POST /api/meals/imagine/review', () => {
     expect(mockReview).not.toHaveBeenCalled()
   })
 
+  it('returns 400 when a name exceeds 200 characters (HON-722)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    const [first] = validBody.ingredients
+
+    const longIngredient = await POST(
+      createRequest({ ...validBody, ingredients: [{ ...first, name: 'x'.repeat(201) }] }),
+    )
+    const longMealName = await POST(createRequest({ ...validBody, mealName: 'x'.repeat(201) }))
+
+    expect(longIngredient.status).toBe(400)
+    expect(longMealName.status).toBe(400)
+    expect(mockReview).not.toHaveBeenCalled()
+  })
+
   it('accepts exactly 40 ingredients', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockReview.mockResolvedValue({ ingredients: [] })

@@ -102,11 +102,11 @@ describe('rate-limit', () => {
       })
     })
 
-    it('configures meal-quantity-review at 3x the meal-imagination ceiling (HON-722)', () => {
-      // Each imagination call offers three meals and each selected meal is
-      // reviewed once, so anything lower would throttle a real household.
+    it('configures meal-quantity-review at 150/h per household (HON-722)', () => {
+      // A 429 here degrades silently, so a lower ceiling would drop corrections
+      // for real users with nothing on screen to say so.
       expect(RATE_LIMIT_CONFIG['meal-quantity-review']).toEqual({
-        limit: RATE_LIMIT_CONFIG['meal-imagination'].limit * 3,
+        limit: 150,
         window: '1 h',
         dimension: 'household',
       })
