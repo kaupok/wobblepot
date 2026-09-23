@@ -11,6 +11,7 @@ import { mealTranslationsEt, type MealTranslationEt } from './seed-meal-translat
 import { ingredientTranslationsEt } from './seed-ingredient-translations-et'
 import { normalizeIngredientKey } from '../src/lib/i18n/ingredient-key'
 import { MEAL_IMAGE_CLEARED } from '../src/lib/meal-images/invalidation'
+import { seedDefaultStaples } from '../src/lib/meal-planning/default-staples'
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL!,
@@ -4056,6 +4057,8 @@ async function ensureSmokeHousehold(userId: string): Promise<string> {
       update: {},
       create: { householdId: membership.householdId },
     })
+    // Backfills a smoke household created before HON-769; a no-op once present.
+    await seedDefaultStaples(prisma, membership.householdId)
     return membership.householdId
   }
 
@@ -4069,6 +4072,8 @@ async function ensureSmokeHousehold(userId: string): Promise<string> {
       preferences: { create: {} },
     },
   })
+  // Same default staples `POST /api/households` gives every household (HON-769).
+  await seedDefaultStaples(prisma, household.id)
   console.log('  ✓ smoke household created')
   return household.id
 }

@@ -8,6 +8,7 @@ import {
 } from './shopping-list'
 import type { ShoppingListItem } from './shopping-list'
 import { IngredientCategory, Unit } from '@/generated/prisma/enums'
+import { seedDefaultStaples } from './default-staples'
 
 // Mock Prisma
 vi.mock('@/lib/prisma', () => ({
@@ -1117,6 +1118,65 @@ describe('computeRollingWindowShoppingList', () => {
 
     const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
     expect(result.groups).toEqual([])
+  })
+
+  it('keeps "to taste" default staples off a new household\'s list, but not a vague purchase (HON-769)', async () => {
+    const vague = (id: string, name: string, phrase: string, category: IngredientCategory) => ({
+      ingredientId: id,
+      quantityPerServing: 1,
+      isVague: true,
+      originalPhrase: phrase,
+      ingredient: { id, name, category, defaultUnit: 'g' as Unit, gramsPerPiece: null },
+    })
+
+    // The pantry a new household starts with: whatever `seedDefaultStaples` writes.
+    const created: { householdId: string; ingredientId: string; isStaple: boolean }[] = []
+    await seedDefaultStaples(
+      {
+        ingredient: {
+          findMany: vi
+            .fn()
+            .mockResolvedValue([{ id: 'ing-salt' }, { id: 'ing-pepper' }, { id: 'ing-water' }]),
+        },
+        pantryItem: {
+          findMany: vi.fn().mockResolvedValue([]),
+          createMany: vi.fn(async ({ data }: { data: typeof created }) => {
+            created.push(...data)
+            return { count: data.length }
+          }),
+        },
+      } as never,
+      'household-1',
+    )
+
+    mockFindManyEntries.mockResolvedValue([
+      rollingEntry({
+        mealId: 'meal-a',
+        date: new Date('2026-01-20'),
+        components: [
+          vague('ing-salt', 'salt', 'to taste', 'spice' as IngredientCategory),
+          vague('ing-pepper', 'black pepper', 'to taste', 'spice' as IngredientCategory),
+          vague('ing-parsley', 'parsley', 'a handful', 'vegetable' as IngredientCategory),
+        ],
+      }),
+    ] as never)
+    mockCountMembers.mockResolvedValue(2)
+    mockFindManyPantry.mockResolvedValue(
+      created.map((row, i) => ({
+        id: `pantry-${i}`,
+        quantity: null,
+        expiresAt: null,
+        updatedAt: new Date(),
+        ...row,
+      })),
+    )
+
+    const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
+    const items = result.groups.flatMap((g) => g.items)
+
+    expect(items.map((i) => i.ingredient.name)).toEqual(['parsley'])
+    expect(items[0]!.isVague).toBe(true)
+    expect(items[0]!.originalPhrase).toBe('a handful')
   })
 
   it('skips items when pantry quantity is null (have some)', async () => {
