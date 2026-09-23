@@ -17,7 +17,11 @@ import {
 import { KidFriendlyBadge } from '@/components/meal-plan/KidFriendlyBadge'
 import { IngredientRow, type IngredientRowData } from './IngredientRow'
 import type { IngredientResult } from './IngredientRow'
-import { buildFinalComponents, formatUnit } from '@/components/household/meal-form-types'
+import {
+  buildFinalComponents,
+  formatUnit,
+  mealComponentErrorMessage,
+} from '@/components/household/meal-form-types'
 import type { PrefilledIngredient } from '@/components/household/meal-form-types'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { formatInteger, formatQuantity } from '@/lib/i18n/format-number'
@@ -252,12 +256,13 @@ export function ImagineReviewDialog({
 
     // The rows are already flagged inline; the API would reject the payload,
     // and retrying the generic save error would resend it unchanged (HON-714).
-    const result: ReturnType<typeof buildFinalComponents> =
-      duplicateMap.size > 0
-        ? { error: tForm('errors.duplicateIngredients') }
-        : buildFinalComponents(true, ingredientRows, [])
+    if (duplicateMap.size > 0) {
+      setError(tForm('errors.duplicateIngredients'))
+      return
+    }
+    const result = buildFinalComponents(true, ingredientRows, [])
     if (result.error !== undefined) {
-      setError(result.error)
+      setError(mealComponentErrorMessage(result.error, tForm, locale))
       return
     }
 

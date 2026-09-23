@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import type { IngredientRowData } from '@/components/recipes/IngredientRow'
 import {
   type MealTypeValue,
@@ -10,6 +10,7 @@ import {
   type MealComponent,
   type MealFormData,
   buildFinalComponents,
+  mealComponentErrorMessage,
 } from './meal-form-types'
 import { prefersReducedMotion } from '@/lib/utils'
 import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
@@ -95,6 +96,7 @@ function initIngredientRows(meal?: MealFormData): IngredientRowData[] {
  */
 export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOptions) {
   const t = useTranslations('recipes.form')
+  const locale = useLocale()
   const isEditing = !!meal?.id
   const hasPrefilledIngredients = !!meal?.prefilledIngredients?.length
 
@@ -368,12 +370,16 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
     }
 
     // The rows are already flagged inline; the API would reject the payload too.
-    const result: ReturnType<typeof buildFinalComponents> =
+    const result =
       duplicateMap.size > 0
         ? { error: t('errors.duplicateIngredients') }
         : buildFinalComponents(isImportMode, ingredientRows, components)
     if (result.error !== undefined) {
-      setError(result.error)
+      setError(
+        typeof result.error === 'string'
+          ? result.error
+          : mealComponentErrorMessage(result.error, t, locale),
+      )
       if (isImportMode) {
         ingredientRowsRef.current?.scrollIntoView({
           behavior: prefersReducedMotion() ? 'auto' : 'smooth',

@@ -462,6 +462,10 @@
         "updateFailed": "Failed to update meal",
         "duplicateIngredients": "Each ingredient can only be used once. Remove or merge the repeated rows",
         "tooManyIngredients": "A meal can have at most {max} ingredients",
+        "noIngredients": "Add at least one ingredient",
+        "invalidQuantity": "Quantity must be greater than 0: {names}{more, plural, =0 {} other { +# more}}",
+        "unmatchedIngredients": "Resolve unmatched ingredients: {names}{more, plural, =0 {} other { +# more}}",
+        "unverifiedIngredients": "Verify matches before saving: {names}{more, plural, =0 {} other { +# more}}",
         "generic": "An error occurred"
       },
       "discardDialog": {

@@ -104,13 +104,38 @@ export function formatUnit(unit: Unit): string {
   return unit === 'g' ? 'g' : ''
 }
 
-function formatIngredientList(names: string[], maxDisplay: number = 3): string {
-  if (names.length <= maxDisplay) {
-    return names.join(', ')
-  }
-  const displayed = names.slice(0, maxDisplay)
-  const remaining = names.length - maxDisplay
-  return `${displayed.join(', ')} +${remaining} more`
+const MAX_LISTED_NAMES = 3
+
+export type MealComponentErrorCode =
+  'no_ingredients' | 'invalid_quantity' | 'unmatched' | 'unverified'
+
+/** A `buildFinalComponents` failure, translated by the caller (HON-773). */
+export interface MealComponentError {
+  code: MealComponentErrorCode
+  /** Ingredient names the error is about; empty for `no_ingredients`. */
+  names: string[]
+}
+
+const ERROR_KEYS: Record<MealComponentErrorCode, string> = {
+  no_ingredients: 'errors.noIngredients',
+  invalid_quantity: 'errors.invalidQuantity',
+  unmatched: 'errors.unmatchedIngredients',
+  unverified: 'errors.unverifiedIngredients',
+}
+
+/**
+ * Render a `buildFinalComponents` error in the user's locale. `t` must be a
+ * `recipes.form` translator. The first three names are joined with the
+ * locale's list separator and the rest are counted in the message's `{more}`.
+ */
+export function mealComponentErrorMessage(
+  error: MealComponentError,
+  t: (key: string, values?: Record<string, string | number>) => string,
+  locale: string,
+): string {
+  const listed = error.names.slice(0, MAX_LISTED_NAMES)
+  const names = new Intl.ListFormat(locale, { type: 'unit', style: 'short' }).format(listed)
+  return t(ERROR_KEYS[error.code], { names, more: error.names.length - listed.length })
 }
 
 export interface FinalComponent {
@@ -122,13 +147,16 @@ export interface FinalComponent {
 
 /**
  * Validate and build the final components array for submission.
- * Returns { components } on success, or { error } on validation failure.
+ * Returns { components } on success, or a machine-readable { error } on
+ * validation failure — render it with `mealComponentErrorMessage`.
  */
 export function buildFinalComponents(
   isImportMode: boolean,
   ingredientRows: IngredientRowData[],
   components: MealComponent[],
-): { components: FinalComponent[]; error?: never } | { error: string; components?: never } {
+):
+  | { components: FinalComponent[]; error?: never }
+  | { error: MealComponentError; components?: never } {
   let finalComponents: FinalComponent[]
 
   if (isImportMode) {
@@ -137,7 +165,7 @@ export function buildFinalComponents(
     )
     if (unresolved.length > 0) {
       const names = unresolved.map((r) => r.extractedName)
-      return { error: `Resolve unmatched ingredients: ${formatIngredientList(names)}` }
+      return { error: { code: 'unmatched', names } }
     }
 
     const lowConfidence = ingredientRows.filter(
@@ -146,7 +174,7 @@ export function buildFinalComponents(
     )
     if (lowConfidence.length > 0) {
       const names = lowConfidence.map((r) => r.extractedName)
-      return { error: `Verify matches before saving: ${formatIngredientList(names)}` }
+      return { error: { code: 'unverified', names } }
     }
 
     finalComponents = ingredientRows
@@ -167,7 +195,7 @@ export function buildFinalComponents(
   }
 
   if (finalComponents.length === 0) {
-    return { error: 'Add at least one ingredient' }
+    return { error: { code: 'no_ingredients', names: [] } }
   }
 
   if (isImportMode) {
@@ -177,13 +205,13 @@ export function buildFinalComponents(
     )
     if (invalidRows.length > 0) {
       const names = invalidRows.map((r) => r.ingredient.name)
-      return { error: `Quantity must be greater than 0: ${formatIngredientList(names)}` }
+      return { error: { code: 'invalid_quantity', names } }
     }
   } else {
     const invalidComps = components.filter((c) => !c.isVague && c.totalQuantity <= 0)
     if (invalidComps.length > 0) {
       const names = invalidComps.map((c) => c.ingredient.name)
-      return { error: `Quantity must be greater than 0: ${formatIngredientList(names)}` }
+      return { error: { code: 'invalid_quantity', names } }
     }
   }
 
