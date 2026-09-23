@@ -3,7 +3,9 @@ import type { Prisma } from '@/generated/prisma/client'
 /**
  * Global ingredients every household starts with as pantry staples (HON-769).
  * A staple is never put on the shopping list, so "salt to taste" stops showing
- * up as something to buy. The household can unmark any of them in the pantry.
+ * up as something to buy. A household that doesn't keep one removes it from the
+ * pantry; unmarking alone leaves a `quantity: null` ("have some") row, which the
+ * shopping list skips too.
  *
  * Deliberately just these three. Olive oil, sugar and flour are real purchases
  * for some households, so they stay opt-in.

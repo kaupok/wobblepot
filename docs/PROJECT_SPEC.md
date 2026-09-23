@@ -288,7 +288,7 @@ Key steps:
 
 **Rolling window:** Shopping list shows items needed for upcoming meals (not fixed to week boundaries).
 
-**Default staples.** Every household starts with salt, black pepper and water marked as staples; the household can unmark them. Decided 2026-09-24, HON-769. Vague quantities ('to taste', 'a handful') stay on the list: they are real purchases for most ingredients, and the staple flag is what keeps seasonings off it.
+**Default staples.** Every household starts with salt, black pepper and water marked as staples, with no quantity. Removing one from the pantry puts it back on the shopping list; unmarking it only turns it into an ordinary "have some" item, which the list also skips. Decided 2026-09-24, HON-769. Vague quantities ('to taste', 'a handful') stay on the list: they are real purchases for most ingredients, and the staple flag is what keeps seasonings off it.
 
 ### Household Invites
 
