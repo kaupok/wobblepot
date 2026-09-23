@@ -63,7 +63,7 @@ export const ALLOWLIST: AllowlistEntry[] = [
   },
   {
     path: 'src/components/inventory/InventoryPage.tsx',
-    why: 'The /shopping page shell: a two-column grid around PantrySection, ShoppingSection and ShoppingEmptyState, each of which has its own story. Scenarios/Shopping list (src/stories/scenarios/ShoppingList.stories.tsx) covers the composed screen, and InventoryPage.test.tsx covers the state it wires between the two halves.',
+    why: 'The /shopping and /pantry page shell: a two-column grid (one column per route on a phone, HON-776) around PantrySection, ShoppingSection and ShoppingEmptyState, each of which has its own story. Scenarios/Shopping list (src/stories/scenarios/ShoppingList.stories.tsx) covers the composed screen, and InventoryPage.test.tsx covers the state it wires between the two halves.',
   },
 ]
 

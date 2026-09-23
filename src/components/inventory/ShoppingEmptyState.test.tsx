@@ -11,6 +11,7 @@ const replace = vi.fn()
 // nothing here should call either verb on its own.
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, replace }),
+  usePathname: () => '/shopping',
 }))
 
 beforeEach(() => {

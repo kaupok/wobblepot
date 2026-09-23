@@ -1,12 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { PantrySection } from './PantrySection'
 import { ShoppingSection } from './ShoppingSection'
 import { ShoppingEmptyState, type ShoppingEmptyStateVariant } from './ShoppingEmptyState'
 import { useWindowReconcile } from './use-shopping-window'
+import { cn } from '@/lib/utils'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
 import type { CustomItemData } from '@/components/shopping/CustomItemInput'
@@ -25,8 +26,19 @@ interface ShoppingData {
   customItems?: CustomItemData[]
 }
 
+/** Which half a phone sees. From `md` up both render, whichever route it is. */
+export type InventoryView = 'shopping' | 'pantry'
+
 interface InventoryPageProps {
+  /**
+   * `/shopping` passes `'shopping'`, `/pantry` passes `'pantry'` (HON-776).
+   * Below `md` only that section renders visibly; the other is `hidden
+   * md:block`, so server and client render the same tree.
+   */
+  view: InventoryView
   pantryItems: PantryItemData[]
+  /** `/api/pantry` failed, so `pantryItems` is empty for lack of data, not stock. */
+  pantryLoadFailed?: boolean
   shoppingData: ShoppingData | null
   emptyStateVariant?: ShoppingEmptyStateVariant
   windowDays?: number
@@ -39,7 +51,9 @@ interface InventoryPageProps {
 }
 
 export function InventoryPage({
+  view,
   pantryItems: initialPantryItems,
+  pantryLoadFailed = false,
   shoppingData,
   emptyStateVariant,
   windowDays,
@@ -49,20 +63,12 @@ export function InventoryPage({
 
   // Applies a saved 7/14-day preference to the URL. Here rather than in
   // `ShoppingListHeader` because this component renders on every `/shopping`
-  // visit and exactly once, so the reconcile reaches the header-less states
-  // (`no-plan`, `error`) and can never fire twice.
+  // and `/pantry` visit and exactly once, so the reconcile reaches the
+  // header-less states (`no-plan`, `error`) and can never fire twice.
   useWindowReconcile(windowDays ?? 7, windowDaysFromUrl)
-  const [isMobile, setIsMobile] = useState(false)
   const [pantryItems, setPantryItems] = useState<PantryItemData[]>(initialPantryItems)
   const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(new Set())
   const [removedIngredientIds, setRemovedIngredientIds] = useState<Set<string>>(new Set())
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768)
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
 
   const handleItemPurchased = useCallback((newItem: PantryItemData) => {
     setPantryItems((prev) => {
@@ -111,20 +117,18 @@ export function InventoryPage({
   return (
     <div className="container mx-auto max-w-6xl p-4">
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Pantry section - on mobile it's collapsible and comes second, on desktop it's first */}
-        <div className="order-2 md:order-1">
+        {/* Pantry left, list right from `md`; a phone sees only `view`'s half. */}
+        <div className={cn(view !== 'pantry' && 'hidden md:block')} data-testid="pantry-column">
           <PantrySection
             items={pantryItems}
             onItemsChange={setPantryItems}
             newlyAddedIds={newlyAddedIds}
-            defaultOpen={!isMobile}
-            collapsible={isMobile}
+            loadFailed={pantryLoadFailed}
             onPantryItemRemoved={handlePantryItemRemoved}
           />
         </div>
 
-        {/* Shopping section - primary content, always first on mobile */}
-        <div className="order-1 md:order-2">
+        <div className={cn(view !== 'shopping' && 'hidden md:block')} data-testid="shopping-column">
           {emptyStateVariant ? (
             <ShoppingEmptyState variant={emptyStateVariant} windowDays={windowDays} />
           ) : shoppingData ? (

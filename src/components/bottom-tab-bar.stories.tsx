@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { expect, within } from 'storybook/test'
 import { createSession } from '@/stories/fixtures'
 import { BottomTabBar } from './bottom-tab-bar'
 
@@ -13,7 +14,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Fixed bottom tab bar for mobile. Hidden on `md:` and up. Active tab is derived from the current pathname — root path (`/`) matches exactly; other tabs also match their sub-routes (via the shared `isNavItemActive` helper) so nested routes (e.g. `/recipes/123`) still highlight the correct tab.',
+          'Fixed bottom tab bar for mobile: Today, Shopping, Pantry, Recipes. Hidden on `md:` and up. Active tab is derived from the current pathname — root path (`/`) matches exactly; other tabs also match their sub-routes (via the shared `isNavItemActive` helper) so nested routes (e.g. `/recipes/123`) still highlight the correct tab.',
       },
     },
   },
@@ -38,15 +39,33 @@ export const Shopping: Story = {
   },
 }
 
-export const Recipes: Story = {
+export const Pantry: Story = {
   parameters: {
-    nextjs: { navigation: { pathname: '/recipes' } },
+    nextjs: { navigation: { pathname: '/pantry' } },
+    docs: {
+      description: {
+        story:
+          'Pantry took the slot Household had (HON-776); Household is in the account sheet. `/pantry` lights only Pantry, never Shopping.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const links = within(canvasElement).getAllByRole('link')
+    await expect(links.map((link) => link.textContent)).toEqual([
+      'Today',
+      'Shopping',
+      'Pantry',
+      'Recipes',
+    ])
+    const current = links.filter((link) => link.getAttribute('aria-current') === 'page')
+    await expect(current).toHaveLength(1)
+    await expect(current[0]).toHaveAccessibleName('Pantry')
   },
 }
 
-export const Household: Story = {
+export const Recipes: Story = {
   parameters: {
-    nextjs: { navigation: { pathname: '/household' } },
+    nextjs: { navigation: { pathname: '/recipes' } },
   },
 }
 

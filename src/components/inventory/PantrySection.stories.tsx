@@ -57,7 +57,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The pantry half of `/shopping`. An `InlineAddItem` search, then rows split into "Staples" and "On hand", each with a star toggle and a confirm-gated remove. Toggles and removals update optimistically and roll back with a toast if the API call fails. On mobile `InventoryPage` renders it `collapsible`, behind a header that shows the item count.',
+          'The pantry half of `/shopping`. An `InlineAddItem` search, then rows split into "Staples" and "On hand", each with a star toggle and a confirm-gated remove. Toggles and removals update optimistically and roll back with a toast if the API call fails. On a phone it is the whole of `/pantry`; from `md` up it is the left column of both `/pantry` and `/shopping`.',
       },
     },
   },
@@ -133,35 +133,19 @@ export const Empty: Story = {
   },
 }
 
-export const Collapsible: Story = {
-  args: { collapsible: true },
+export const LoadFailed: Story = {
+  args: { items: [], loadFailed: true },
   parameters: {
     docs: {
       description: {
         story:
-          'The mobile layout: the header becomes a trigger showing the in-stock count, and collapses the list.',
+          '`/api/pantry` failed. On a phone `/pantry` is only this card, so the error replaces the list and the add search rather than reading as an empty pantry.',
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const trigger = canvas.getByRole('button', { name: /your pantry/i })
-    expect(trigger).toHaveAttribute('aria-expanded', 'true')
-    expect(canvas.getByText(/^Staples/)).toBeVisible()
-
-    await userEvent.click(trigger)
-    await waitFor(() => expect(trigger).toHaveAttribute('aria-expanded', 'false'))
-    await waitFor(() => expect(canvas.queryByText(/^Staples/)).not.toBeInTheDocument())
-  },
-}
-
-export const CollapsedByDefault: Story = {
-  args: { collapsible: true, defaultOpen: false },
-  parameters: {
-    docs: {
-      description: {
-        story: 'Collapsible and starting closed: only the header and item count show.',
-      },
-    },
+    await expect(canvas.getByRole('alert')).toHaveTextContent(/couldn't load your pantry/i)
+    await expect(canvas.queryByText(/your pantry is empty/i)).not.toBeInTheDocument()
   },
 }

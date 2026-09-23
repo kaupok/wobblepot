@@ -16,9 +16,18 @@ interface NavigationProps {
  * cue DESIGN.md asks for; `aria-current` carries the same signal to assistive
  * tech. Active-route matching is shared with `BottomTabBar`.
  */
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+function NavLink({
+  href,
+  alsoActiveOn = [],
+  children,
+}: {
+  href: string
+  /** Other destinations that render this same page at desktop width. */
+  alsoActiveOn?: string[]
+  children: React.ReactNode
+}) {
   const pathname = usePathname()
-  const isActive = isNavItemActive(href, pathname)
+  const isActive = [href, ...alsoActiveOn].some((path) => isNavItemActive(path, pathname))
 
   return (
     <Link
@@ -48,7 +57,11 @@ export function NavigationLeft({ isAuthenticated, hasHousehold }: NavigationProp
   return (
     <nav aria-label={t('ariaLabel')} className="hidden items-center gap-6 md:flex">
       <NavLink href="/">{t('today')}</NavLink>
-      <NavLink href="/shopping">{t('pantryAndShopping')}</NavLink>
+      {/* From `md` up `/pantry` is the same two-column page as `/shopping`;
+          they only differ on a phone, where each is its own tab (HON-776). */}
+      <NavLink href="/shopping" alsoActiveOn={['/pantry']}>
+        {t('pantryAndShopping')}
+      </NavLink>
     </nav>
   )
 }

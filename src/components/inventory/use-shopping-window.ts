@@ -1,12 +1,22 @@
 'use client'
 
 import { useCallback, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 
 /** The only definition. Stories and tests import it rather than re-declaring it. */
 export const WINDOW_STORAGE_KEY = 'shopping-list-window-days'
 
 export type WindowDays = 7 | 14
+
+/**
+ * The route the window applies to. `/shopping` and `/pantry` both render
+ * `InventoryPage` and both read `?days=` (HON-776), so a window change stays
+ * on whichever the user is on — a hardcoded `/shopping` would bounce a phone
+ * user off the Pantry tab. Falls back to `/shopping` outside the app router.
+ */
+function useWindowPath(): string {
+  return usePathname() ?? '/shopping'
+}
 
 /**
  * Coerce a picker value to a window. The `Select` can only emit `'7'` or
@@ -42,13 +52,14 @@ export function getStoredWindowDays(): WindowDays | null {
 /**
  * Applies the stored 7/14-day preference to the URL after mount.
  *
- * `/shopping` derives its window from `?days=` (`src/app/shopping/page.tsx`),
+ * `/shopping` and `/pantry` derive their window from `?days=`
+ * (`src/app/shopping/load-inventory.ts`),
  * which the server can read and `localStorage` is not. A stored preference
  * therefore only takes effect by navigating to the URL that encodes it, which
  * is what this does when a visit arrives without the param.
  *
  * **Call it from `InventoryPage` and nowhere else.** That is the one component
- * that renders on every `/shopping` visit and renders exactly once, so the
+ * that renders on every `/shopping` and `/pantry` visit and renders exactly once, so the
  * reconcile fires once per page and reaches every state — including `no-plan`
  * and `error`, which render no header and so no picker.
  *
@@ -64,6 +75,7 @@ export function getStoredWindowDays(): WindowDays | null {
  */
 export function useWindowReconcile(windowDays: number, windowDaysFromUrl: boolean) {
   const router = useRouter()
+  const path = useWindowPath()
 
   useEffect(() => {
     // An explicit `?days=` is the user's immediate intent and outranks a
@@ -74,14 +86,14 @@ export function useWindowReconcile(windowDays: number, windowDaysFromUrl: boolea
     if (stored === null || stored === windowDays) return
 
     // `replace`, not `push`. Every in-app entry to the list is a bare
-    // `/shopping` (`bottom-tab-bar.tsx`, `navigation.tsx`, `UrgentShopping.tsx`,
-    // and `/pantry`'s redirect), so a 14-day user is reconciled on every visit.
+    // `/shopping` or `/pantry` (`bottom-tab-bar.tsx`, `navigation.tsx`,
+    // `UrgentShopping.tsx`), so a 14-day user is reconciled on every visit.
     // With `push` the pre-reconcile URL stays in history, and going Back to it
     // changes `windowDays` — which re-runs this effect and pushes forward
     // again. Back would never get past `/shopping`, and each attempt would add
     // another entry.
-    router.replace(`/shopping?days=${stored}`)
-  }, [windowDays, windowDaysFromUrl, router])
+    router.replace(`${path}?days=${stored}`)
+  }, [windowDays, windowDaysFromUrl, router, path])
 }
 
 /**
@@ -93,6 +105,7 @@ export function useWindowReconcile(windowDays: number, windowDaysFromUrl: boolea
  */
 export function useSetWindowDays() {
   const router = useRouter()
+  const path = useWindowPath()
 
   return useCallback(
     (value: string | number) => {
@@ -100,8 +113,8 @@ export function useSetWindowDays() {
       // Written before navigating: the next render reads it back on mount, and
       // that is what makes the choice survive a later visit with no `?days=`.
       localStorage.setItem(WINDOW_STORAGE_KEY, String(days))
-      router.push(`/shopping?days=${days}`)
+      router.push(`${path}?days=${days}`)
     },
-    [router],
+    [router, path],
   )
 }

@@ -11,11 +11,15 @@ import {
 const push = vi.fn()
 const replace = vi.fn()
 
+let mockPathname = '/shopping'
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, replace }),
+  usePathname: () => mockPathname,
 }))
 
 beforeEach(() => {
+  mockPathname = '/shopping'
   push.mockClear()
   replace.mockClear()
   localStorage.clear()
@@ -66,6 +70,17 @@ describe('useWindowReconcile', () => {
       renderHook(() => useWindowReconcile(7, false))
 
       expect(replace).toHaveBeenCalledWith('/shopping?days=14')
+    })
+
+    // `/pantry` renders the same page and reads the same `?days=` (HON-776).
+    // Reconciling to `/shopping` would move a phone user off the Pantry tab.
+    it('stays on /pantry when it reconciles there', () => {
+      mockPathname = '/pantry'
+      localStorage.setItem(WINDOW_STORAGE_KEY, '14')
+
+      renderHook(() => useWindowReconcile(7, false))
+
+      expect(replace).toHaveBeenCalledWith('/pantry?days=14')
     })
 
     // `push` would leave the pre-reconcile URL in history; going Back to it
@@ -173,5 +188,14 @@ describe('useSetWindowDays', () => {
 
     expect(localStorage.getItem(WINDOW_STORAGE_KEY)).toBe('7')
     expect(push).toHaveBeenCalledWith('/shopping?days=7')
+  })
+
+  it('pushes to the route it is on, so the picker on /pantry stays there', () => {
+    mockPathname = '/pantry'
+    const { result } = renderHook(() => useSetWindowDays())
+
+    act(() => result.current('14'))
+
+    expect(push).toHaveBeenCalledWith('/pantry?days=14')
   })
 })

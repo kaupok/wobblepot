@@ -30,16 +30,43 @@ const mockSession: Session = {
 }
 
 describe('BottomTabBar', () => {
-  it('renders 4 tabs when authenticated with household', async () => {
+  it('renders Today, Shopping, Pantry, Recipes in that order', async () => {
     const { usePathname } = await import('next/navigation')
     vi.mocked(usePathname).mockReturnValue('/')
 
     render(<BottomTabBar session={mockSession} hasHousehold={true} />)
 
-    expect(screen.getByRole('link', { name: /today/i })).toHaveAttribute('href', '/')
-    expect(screen.getByRole('link', { name: /shopping/i })).toHaveAttribute('href', '/shopping')
-    expect(screen.getByRole('link', { name: /recipes/i })).toHaveAttribute('href', '/recipes')
-    expect(screen.getByRole('link', { name: /household/i })).toHaveAttribute('href', '/household')
+    const links = screen.getAllByRole('link')
+    expect(links.map((link) => link.textContent)).toEqual([
+      'Today',
+      'Shopping',
+      'Pantry',
+      'Recipes',
+    ])
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/',
+      '/shopping',
+      '/pantry',
+      '/recipes',
+    ])
+    // Household lives in the account sheet (HON-775), not the tab bar.
+    expect(screen.queryByRole('link', { name: /household/i })).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['/pantry', 'Pantry'],
+    ['/shopping', 'Shopping'],
+  ])('on %s lights only the %s tab', async (pathname, expected) => {
+    const { usePathname } = await import('next/navigation')
+    vi.mocked(usePathname).mockReturnValue(pathname)
+
+    render(<BottomTabBar session={mockSession} hasHousehold={true} />)
+
+    const current = screen
+      .getAllByRole('link')
+      .filter((link) => link.getAttribute('aria-current') === 'page')
+    expect(current).toHaveLength(1)
+    expect(current[0]).toHaveAccessibleName(expected)
   })
 
   it('renders nothing when no session', () => {

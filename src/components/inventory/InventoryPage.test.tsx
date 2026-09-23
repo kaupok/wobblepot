@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { InventoryPage } from './InventoryPage'
 import { WINDOW_STORAGE_KEY } from './use-shopping-window'
@@ -10,13 +11,17 @@ const routerRefresh = vi.fn()
 
 // A stable router object, not a fresh one per call: `useWindowReconcile` keys
 // its effect on the router identity.
+let mockPathname = '/shopping'
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: routerPush, replace: routerReplace, refresh: routerRefresh }),
+  usePathname: () => mockPathname,
 }))
 
 vi.stubGlobal('fetch', vi.fn())
 
 beforeEach(() => {
+  mockPathname = '/shopping'
   localStorage.clear()
   routerPush.mockClear()
   routerReplace.mockClear()
@@ -25,7 +30,10 @@ beforeEach(() => {
 
 function renderPage(overrides: Partial<Parameters<typeof InventoryPage>[0]> = {}) {
   const { wrapper } = createQueryWrapper()
-  return render(<InventoryPage pantryItems={[]} shoppingData={null} {...overrides} />, { wrapper })
+  return render(
+    <InventoryPage view="shopping" pantryItems={[]} shoppingData={null} {...overrides} />,
+    { wrapper },
+  )
 }
 
 /**
@@ -111,5 +119,108 @@ describe('InventoryPage window reconcile', () => {
     renderPage({ emptyStateVariant: 'nothing-needed', windowDays: 7, windowDaysFromUrl: true })
 
     expect(routerReplace).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * `/shopping` and `/pantry` render this same component (HON-776). Below `md`
+ * a phone sees only the half its route names; from `md` up both columns show.
+ * The split is breakpoint classes, not JS viewport detection, so it is pinned
+ * on the class rather than on layout jsdom cannot compute.
+ */
+describe('InventoryPage view', () => {
+  it.each([
+    ['shopping', 'pantry-column', 'shopping-column'],
+    ['pantry', 'shopping-column', 'pantry-column'],
+  ] as const)(
+    'view="%s" hides %s below md and leaves %s visible',
+    (view, hiddenTestId, shownTestId) => {
+      renderPage({ view, emptyStateVariant: 'nothing-needed', windowDays: 7 })
+
+      expect(screen.getByTestId(hiddenTestId)).toHaveClass('hidden', 'md:block')
+      expect(screen.getByTestId(shownTestId)).not.toHaveClass('hidden')
+    },
+  )
+
+  it('renders the pantry as a plain section, with no collapse trigger', () => {
+    renderPage({ view: 'pantry', emptyStateVariant: 'nothing-needed', windowDays: 7 })
+
+    expect(screen.getByRole('heading', { name: 'Your pantry' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /your pantry/i })).not.toBeInTheDocument()
+  })
+
+  it('shows a failed pantry load as an error, not as an empty pantry', () => {
+    renderPage({
+      view: 'pantry',
+      pantryLoadFailed: true,
+      emptyStateVariant: 'nothing-needed',
+      windowDays: 7,
+    })
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/couldn't load your pantry/i)
+    expect(screen.queryByText(/your pantry is empty/i)).not.toBeInTheDocument()
+  })
+
+  it('moves an item bought on the list into the pantry column without a reload', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          success: true,
+          results: [
+            {
+              pantryItem: {
+                id: 'pantry-garlic',
+                ingredient: {
+                  id: 'garlic',
+                  name: 'Garlic',
+                  category: 'vegetable',
+                  defaultUnit: 'piece',
+                },
+                quantity: null,
+                isStaple: false,
+                updatedAt: '2026-02-16T00:00:00.000Z',
+              },
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    )
+
+    renderPage({
+      view: 'shopping',
+      windowDays: 7,
+      shoppingData: {
+        windowDays: 7,
+        startDate: '2026-02-16',
+        endDate: '2026-02-23',
+        groups: [
+          {
+            category: 'vegetable',
+            items: [
+              {
+                ingredientId: 'garlic',
+                name: 'Garlic',
+                displayQuantity: '2',
+                purchased: false,
+                neededByDate: '2026-02-18',
+                neededByRelative: 'Wed',
+                neededByAbsolute: 'Feb 18',
+              },
+            ],
+          },
+        ],
+        initialPurchasedIds: new Set<string>(),
+      },
+    })
+
+    const pantryColumn = within(screen.getByTestId('pantry-column'))
+    expect(pantryColumn.queryByText('Garlic')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('checkbox', { name: 'Mark Garlic as purchased' }))
+
+    await waitFor(() => expect(pantryColumn.getByText('Garlic')).toBeInTheDocument())
+    expect(routerRefresh).not.toHaveBeenCalled()
   })
 })
