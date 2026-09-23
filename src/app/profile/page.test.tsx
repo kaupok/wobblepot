@@ -181,22 +181,19 @@ describe('ProfilePage', () => {
   })
 
   /**
-   * The card title sits at the Title level (`variant="h4"`, rendering `<h4>`);
-   * its two sections sit one level below it in both the type scale and the
-   * document outline. See HON-619.
+   * The page title sits on the page background as the document's `<h1>`, at
+   * the Title level of the type scale (`variant="h4"`); its two sections sit
+   * one level below it in the outline. See HON-619 and HON-767.
    *
    * The section level is derived from the title's tag rather than restated, so
    * moving the title moves what the loop demands — the same shape as
    * `MealForm.test.tsx` and `HouseholdSettingsForm.test.tsx`, deliberately, so
-   * the three do not diverge. The `level: 4` in the title query is the separate
-   * assertion that line 45 stays at the Title level, so changing the title
-   * still fails this test, just at that line rather than in the loop. It
-   * catches what axe's
+   * the three do not diverge. The `level: 1` in the title query is the separate
+   * assertion that the page keeps its `<h1>`. The loop catches what axe's
    * `heading-order` cannot: that rule only flags increases greater than one, so
-   * a `variant="section"` swap that forgets `as` (rendering the default `<h2>`,
-   * *above* the title) reads to axe as a legal decrease.
+   * a `variant="section"` swap that forgets `as` would pass axe unnoticed.
    */
-  it('renders each section one level below the card title', async () => {
+  it('renders each section one level below the page title', async () => {
     const { getSession } = await import('@/lib/session')
     const { getHouseholdMembership } = await import('@/lib/household')
     vi.mocked(getSession).mockResolvedValue(session as never)
@@ -204,12 +201,23 @@ describe('ProfilePage', () => {
 
     render(await ProfilePage())
 
-    const title = screen.getByRole('heading', { name: 'Profile', level: 4 })
+    const title = screen.getByRole('heading', { name: 'Profile', level: 1 })
     const titleLevel = Number(title.tagName.slice(1))
 
     for (const name of ['Your data', 'Danger zone']) {
       expect(screen.getByRole('heading', { name, level: titleLevel + 1 })).toBeInTheDocument()
     }
+  })
+
+  it('renders no page-level Card around the page (HON-767)', async () => {
+    const { getSession } = await import('@/lib/session')
+    const { getHouseholdMembership } = await import('@/lib/household')
+    vi.mocked(getSession).mockResolvedValue(session as never)
+    vi.mocked(getHouseholdMembership).mockResolvedValue(membershipWithMemberCount(2) as never)
+
+    const { container } = render(await ProfilePage())
+
+    expect(container.querySelector('[data-slot="card"]')).toBeNull()
   })
 
   it('redirects to sign-in when there is no session', async () => {
