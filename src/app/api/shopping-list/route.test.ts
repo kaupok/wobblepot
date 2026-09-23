@@ -397,9 +397,9 @@ describe('GET /api/shopping-list', () => {
                 defaultUnit: 'piece',
                 gramsPerPiece: 60,
               },
-              neededQuantity: 360,
+              neededQuantity: 6,
               pantryQuantity: null,
-              shoppingQuantity: 360,
+              shoppingQuantity: 6,
               mealCount: 1,
               earliestNeededDate: neededDate,
               isVague: false,
@@ -419,7 +419,7 @@ describe('GET /api/shopping-list', () => {
     const response = await GET(createMockRequest())
     const data = await response.json()
 
-    // 360g / 60g per piece = 6 eggs
+    // Piece quantities are already piece counts (HON-713): 6 eggs, not 6 / 60
     expect(data.groups[0].items[0].displayQuantity).toBe('6')
   })
 

@@ -236,6 +236,41 @@ describe('GET /api/households/me/meals/[id]', () => {
     expect(data.allergens).toEqual([])
     expect(data.components).toHaveLength(1)
   })
+
+  it('converts piece-unit quantities to grams for nutrition', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockMealFindFirst.mockResolvedValue({
+      ...mockMealResult,
+      components: [
+        {
+          ingredientId: 'ing-eggs',
+          quantityPerServing: 2,
+          isVague: false,
+          originalPhrase: null,
+          ingredient: {
+            id: 'ing-eggs',
+            name: 'Eggs',
+            category: 'protein',
+            defaultUnit: 'piece',
+            gramsPerPiece: 55,
+            calories: 155,
+            protein: 13,
+            carbs: 1.1,
+            fat: 11,
+            allergens: ['eggs'],
+          },
+        },
+      ],
+    } as never)
+
+    const request = new NextRequest('http://localhost/api/households/me/meals/meal-1')
+    const response = await GET(request, { params: paramsPromise('meal-1') })
+    const data = await response.json()
+
+    // 2 eggs x 55 g = 110 g per serving; 155 kcal/100g -> 170.5 -> 171 (HON-713)
+    expect(data.nutrition).toEqual({ calories: 171, protein: 14, carbs: 1, fat: 12 })
+  })
 })
 
 describe('PATCH /api/households/me/meals/[id]', () => {

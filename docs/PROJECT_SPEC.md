@@ -72,12 +72,16 @@ AI-powered meal planning that generates personalized weekly ingredient-based mea
 | **Entry**           | Instance: meal assigned to a date + mealType with status (planned/completed/skipped). |
 | **Slot**            | A date + mealType position in a plan.                                                 |
 | **SlotRequirement** | Slot with required protein type (dinner-only, for balance).                           |
-| **Component**       | Meal-to-ingredient link with `quantityPerServing`.                                    |
+| **Component**       | Meal-to-ingredient link with `quantityPerServing`, in the ingredient's `defaultUnit`. |
 | **Candidate**       | Meal that passed hard filters, eligible for AI selection.                             |
 | **Pool**            | Candidates filtered by protein type (fish, legume, any).                              |
 | **Staple**          | Pantry item always assumed in stock; never on shopping list.                          |
 | **Rolling window**  | Shopping aggregation: today through N days ahead.                                     |
 | **Urgency bucket**  | Shopping grouping: today / tomorrow / this-week / later.                              |
+
+### Quantity Units
+
+`MealComponent.quantityPerServing`, pantry stock, and shopping quantities all use the ingredient's `defaultUnit`: a piece count for a `piece` ingredient (eggs, lemons), grams for everything else. Nothing is stored in grams "under the hood" for piece ingredients. Nutrition values are per 100g, so nutrition is the one reader that converts: pieces × `gramsPerPiece` (falling back to 30g when that is null), via `componentGramsPerServing` in `src/lib/meal-planning/nutrition.ts` (HON-713).
 
 ### Pantry Quantity Semantics
 

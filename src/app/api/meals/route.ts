@@ -13,6 +13,7 @@ import {
 } from '@/lib/i18n/content'
 import { captureApiError } from '@/lib/errors'
 import { presentMealImage } from '@/lib/meal-images/present'
+import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 50
@@ -245,19 +246,7 @@ export async function GET(request: NextRequest) {
 
     // Compute nutrition per serving for each meal and format components
     const meals = sortedMeals.map((meal) => {
-      const nutrition = meal.components.reduce(
-        (acc, comp) => {
-          if (comp.isVague) return acc
-          const factor = comp.quantityPerServing / 100
-          return {
-            calories: acc.calories + comp.ingredient.calories * factor,
-            protein: acc.protein + comp.ingredient.protein * factor,
-            carbs: acc.carbs + comp.ingredient.carbs * factor,
-            fat: acc.fat + comp.ingredient.fat * factor,
-          }
-        },
-        { calories: 0, protein: 0, carbs: 0, fat: 0 },
-      )
+      const nutrition = computeMealNutrition(meal.components)
 
       const translatedMeal = translateMeal(meal, household.locale)
 

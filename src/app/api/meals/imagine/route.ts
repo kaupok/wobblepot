@@ -16,6 +16,7 @@ import {
 import { captureApiError } from '@/lib/errors'
 import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import { deriveProteinType } from '@/lib/meal-planning/protein'
+import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { withRequestId } from '@/lib/request-id'
 import type { ExtractedIngredient } from '@/lib/ai/recipe-schema'
 import { MAX_ATTACHED_IMAGES, validateImageAttachments } from '@/lib/image-attachments'
@@ -241,22 +242,12 @@ async function handlePOST(request: Request) {
 
         const nutritionMap = new Map(ingredientNutrition.map((ing) => [ing.id, ing]))
 
-        // Build components and compute nutrition
-        const nutrition = { calories: 0, protein: 0, carbs: 0, fat: 0 }
+        // Build components
         const components = matchResults
           .filter((r) => r.type === 'matched')
           .map((r) => {
             const matched = r as Extract<typeof r, { type: 'matched' }>
             const quantityPerServing = matched.convertedQuantity / meal.servings
-            const ingNutrition = nutritionMap.get(matched.ingredient.id)
-
-            if (ingNutrition) {
-              const factor = quantityPerServing / 100
-              nutrition.calories += ingNutrition.calories * factor
-              nutrition.protein += ingNutrition.protein * factor
-              nutrition.carbs += ingNutrition.carbs * factor
-              nutrition.fat += ingNutrition.fat * factor
-            }
 
             return {
               ingredientId: matched.ingredient.id,
@@ -274,6 +265,25 @@ async function handlePOST(request: Request) {
               },
             }
           })
+
+        // `convertedQuantity` is in the ingredient's defaultUnit, so the shared
+        // helper converts piece quantities to grams before applying per-100g values.
+        const nutrition = computeMealNutrition(
+          components.flatMap((comp) => {
+            const ingNutrition = nutritionMap.get(comp.ingredientId)
+            if (!ingNutrition) return []
+            return [
+              {
+                quantityPerServing: comp.quantityPerServing,
+                ingredient: {
+                  ...ingNutrition,
+                  defaultUnit: comp.ingredient.defaultUnit,
+                  gramsPerPiece: comp.ingredient.gramsPerPiece,
+                },
+              },
+            ]
+          }),
+        )
 
         // Derive protein type from matched components
         const componentDataForProtein = components.map((comp) => ({
