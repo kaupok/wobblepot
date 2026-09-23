@@ -158,9 +158,9 @@ export async function signIn(
 }
 
 /**
- * Signs out the current user via the header user-menu dropdown.
- * Desktop: opens the "User menu" button, clicks the "Sign out" menuitem.
- * Mobile: the mobile nav exposes a direct "Sign out" button inside the sheet.
+ * Signs out the current user via the header user menu. Both viewports open it
+ * from the "User menu" person icon (HON-775): desktop shows a dropdown with a
+ * "Sign out" menuitem, mobile a sheet (a dialog) with a "Sign out" button.
  */
 export async function signOut(page: Page): Promise<void> {
   // Use English-text role queries — auth.spec.ts targets the English chrome
@@ -182,7 +182,10 @@ export async function signOut(page: Page): Promise<void> {
       // the 60s test timeout instead of reporting through toPass. Both clicks
       // are bounded, and an already-signed-out page ends the retry loop.
       if (await page.getByRole('link', { name: 'Sign in' }).isVisible()) return
-      const signOutItem = page.getByRole('menuitem', { name: 'Sign out' })
+      // Scoped to the dialog so a page's own "Sign out" button cannot match.
+      const signOutItem = page
+        .getByRole('menuitem', { name: 'Sign out' })
+        .or(page.getByRole('dialog').getByRole('button', { name: 'Sign out' }))
       if (!(await signOutItem.isVisible())) {
         await userMenuTrigger.click({ timeout: 5_000 })
       }
