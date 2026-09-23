@@ -490,6 +490,23 @@ describe('generateMealImage on a 429 (HON-742)', () => {
     expect(mockGenerateImage).toHaveBeenCalledTimes(2)
   })
 
+  it('gives up at once on an exhausted quota, which no wait clears', async () => {
+    mockGenerateImage.mockRejectedValue(
+      new APICallError({
+        message: 'You exceeded your current quota',
+        url: 'https://api.openai.com/v1/images/generations',
+        requestBodyValues: {},
+        statusCode: 429,
+        responseBody: '{"error":{"code":"insufficient_quota"}}',
+      }),
+    )
+
+    await expect(generateMealImage(meal, { judge: 'off' })).rejects.toMatchObject({
+      statusCode: 429,
+    })
+    expect(mockGenerateImage).toHaveBeenCalledTimes(1)
+  })
+
   it('does not retry a non-retryable error', async () => {
     mockGenerateImage.mockRejectedValue(apiError(400))
 

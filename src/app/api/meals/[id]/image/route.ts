@@ -17,7 +17,12 @@ import { aiErrorStatusCode } from '@/lib/ai/error-status'
 import { captureApiError } from '@/lib/errors'
 import { withRequestId } from '@/lib/request-id'
 import { extractHue } from '@/lib/meal-images/colour'
-import { generateMealImage, MealImageUnavailableError } from '@/lib/meal-images/generate'
+import {
+  generateMealImage,
+  isQuotaExhausted,
+  isRateLimited,
+  MealImageUnavailableError,
+} from '@/lib/meal-images/generate'
 import { presentMealImage } from '@/lib/meal-images/present'
 import { MEAL_IMAGE_PROMPT_VERSION } from '@/lib/meal-images/prompt'
 import { discardMealImage, putMealImage } from '@/lib/meal-images/storage'
@@ -35,6 +40,7 @@ import { discardMealImage, putMealImage } from '@/lib/meal-images/storage'
  * - 200 `failed` — generation has failed `MAX_ATTEMPTS` times; never retried.
  * - 429 `none` — the image provider's rate limit outlasted one short wait;
  *   the claim is released without counting an attempt (HON-742).
+ * - 503 `failed` — no OpenAI key, or its quota is exhausted; not counted.
  * - A `ready` image at an older prompt version is treated as absent and
  *   redrawn, with its attempts reset (HON-753); the old blob is deleted once
  *   the new one is attached.
@@ -340,13 +346,17 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
     await discardMealImage(uploadedUrl, ROUTE)
 
     const statusCode = aiErrorStatusCode(error)
-    const rateLimited = statusCode === 429
-    // A 429 or a missing key says nothing about this meal, and retrying later
-    // succeeds — counting it would lock the meal out after three busy moments.
-    // Everything else counts: it was probably billed, or will fail again.
-    // A 429 goes further and releases the claim to `none`, so the next open
-    // simply asks again once the provider's per-minute window clears (HON-742).
-    const transient = rateLimited || error instanceof MealImageUnavailableError
+    const rateLimited = isRateLimited(error)
+    const unavailable = error instanceof MealImageUnavailableError || isQuotaExhausted(error)
+    // A 429, an exhausted quota or a missing key says nothing about this meal,
+    // and retrying later succeeds — counting it would lock the meal out after
+    // three busy moments. Everything else counts: it was probably billed, or
+    // will fail again.
+    // A rate limit goes further and releases the claim, so the next open
+    // simply asks again once the provider's per-minute window clears
+    // (HON-742): to `none`, or for a stale-version redraw (HON-753) back to
+    // the `ready` row it claimed, which still points at the old blob.
+    const transient = statusCode === 429 || unavailable
 
     try {
       await writeUnderClaim(
@@ -354,7 +364,7 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
         claimedAt,
         meal.updatedAt,
         rateLimited
-          ? { imageStatus: 'none', imageClaimedAt: null }
+          ? { imageStatus: redraw ? 'ready' : 'none', imageClaimedAt: null }
           : {
               imageStatus: 'failed',
               ...(transient ? {} : { imageAttempts: { increment: 1 } }),
@@ -370,7 +380,7 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
       return respond({ status: 'failed', error: 'Generating the image took too long.' }, 504)
     }
 
-    if (error instanceof MealImageUnavailableError) {
+    if (unavailable) {
       return respond({ status: 'failed', error: 'Meal images are not available' }, 503)
     }
 

@@ -520,13 +520,14 @@ describe('POST /api/meals/[id]/image', () => {
     expect(mockPut).not.toHaveBeenCalled()
   })
 
-  const rateLimited = (headers?: Record<string, string>) =>
+  const rateLimited = (headers?: Record<string, string>, responseBody?: string) =>
     new APICallError({
       message: 'Rate limit reached for gpt-image-2.5-flare',
       url: 'https://api.openai.com/v1/images/generations',
       requestBodyValues: {},
       statusCode: 429,
       responseHeaders: headers,
+      responseBody,
       isRetryable: true,
     })
 
@@ -576,6 +577,41 @@ describe('POST /api/meals/[id]/image', () => {
       expect(mockGenerateImage).toHaveBeenCalledTimes(1)
       expect(response.status).toBe(429)
       expect(row()).toMatchObject({ imageStatus: 'none', imageAttempts: 0 })
+    })
+
+    it('released on a stale-version redraw goes back to the ready row it claimed', async () => {
+      seedMeal({
+        imageStatus: 'ready',
+        imageUrl: OLD_BLOB_URL,
+        imageHue: 120,
+        imagePromptVersion: 'v3',
+      })
+      mockGenerateImage.mockRejectedValue(rateLimited({ 'retry-after': '40' }))
+
+      const response = await post()
+
+      expect(response.status).toBe(429)
+      // Still presented as `none` (stale version), and still owns the old blob.
+      expect(row()).toMatchObject({
+        imageStatus: 'ready',
+        imageUrl: OLD_BLOB_URL,
+        imagePromptVersion: 'v3',
+        imageClaimedAt: null,
+      })
+      expect(mockDel).not.toHaveBeenCalled()
+    })
+
+    it('for an exhausted quota answers 503 at once, and counts no attempt', async () => {
+      seedMeal({ imageStatus: 'failed', imageAttempts: 1 })
+      mockGenerateImage.mockRejectedValue(
+        rateLimited(undefined, '{"error":{"code":"insufficient_quota"}}'),
+      )
+
+      const response = await post()
+
+      expect(mockGenerateImage).toHaveBeenCalledTimes(1)
+      expect(response.status).toBe(503)
+      expect(row()).toMatchObject({ imageStatus: 'failed', imageAttempts: 1 })
     })
 
     it('still releases when the SDK wraps it in a RetryError', async () => {

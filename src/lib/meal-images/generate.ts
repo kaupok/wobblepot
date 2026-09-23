@@ -63,6 +63,19 @@ export function rateLimitDelayMs(error: unknown): number | undefined {
   return undefined
 }
 
+/**
+ * OpenAI answers an exhausted quota or billing limit with a 429 as well
+ * (`insufficient_quota`). No wait clears it, so it is not a rate limit.
+ */
+export function isQuotaExhausted(error: unknown): boolean {
+  const cause = RetryError.isInstance(error) ? error.lastError : error
+  return APICallError.isInstance(cause) && /insufficient_quota/.test(cause.responseBody ?? '')
+}
+
+/** A 429 that waiting clears: the per-minute rate limit (HON-742). */
+export const isRateLimited = (error: unknown): boolean =>
+  aiErrorStatusCode(error) === 429 && !isQuotaExhausted(error)
+
 const isRetryable = (error: unknown) => APICallError.isInstance(error) && error.isRetryable
 
 function sleep(ms: number, signal: AbortSignal | undefined): Promise<void> {
@@ -202,7 +215,7 @@ export async function generateMealImage(
         await report(imageUsageStats(result.usage))
         return { bytes: result.image.uint8Array, mediaType: result.image.mediaType }
       } catch (error) {
-        if (aiErrorStatusCode(error) === 429) {
+        if (isRateLimited(error)) {
           if (rateLimited >= allowedRateLimitRetries) throw error
           const wait =
             rateLimitDelayMs(error) ??
@@ -219,7 +232,7 @@ export async function generateMealImage(
           await sleep(wait, abortSignal)
           continue
         }
-        if (isRetryable(error) && transient === 0) {
+        if (isRetryable(error) && !isQuotaExhausted(error) && transient === 0) {
           transient += 1
           await sleep(TRANSIENT_RETRY_MS, abortSignal)
           continue
