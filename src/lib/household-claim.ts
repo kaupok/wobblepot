@@ -3,33 +3,30 @@ import { Prisma } from '@/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
 
 /**
- * One user belongs to at most one household. Nothing in the schema enforces
- * that: `HouseholdMember` has `@@unique([householdId, userId])`, which only
- * stops a duplicate row *within* one household, and `@@index([userId])` is not
- * unique. The invariant therefore lives in application code, in the two places
- * that create a membership — `POST /api/households` (onboarding) and
- * `POST /api/invites/[code]/join`.
+ * One user belongs to at most one household. The schema enforces that: a
+ * unique index on `household_member."userId"` (HON-696) — nullable, so
+ * PostgreSQL's NULLS DISTINCT still permits the many manual member rows with
+ * no user. Whatever the isolation level, and whichever code path writes the
+ * row, a second membership for the same user fails with `P2002`.
  *
- * Both check "does this user already have a membership?" and then write. That
- * is only safe under `Serializable`. At PostgreSQL's default `read committed`
- * the check is a `SELECT` matching zero rows, so it takes no lock, and two
- * concurrent requests write two *different* member rows — no conflict, both
- * commit, user in two households (HON-679). `repeatable read` does not help
- * either: PostgreSQL only detects conflicting updates to the *same* row there.
- * This is write skew, and SSI's predicate locks are what catch it.
+ * The two places that create a membership — `POST /api/households`
+ * (onboarding) and `POST /api/invites/[code]/join` — also check "does this user
+ * already have a membership?" before writing, and they catch the `P2002`
+ * ({@link isMembershipConflict}) so that the index firing produces the same
+ * `already_in_household` 400 the check does, not a 500.
  *
- * **Both sides must opt in.** PostgreSQL registers a serialization conflict
- * only when the writing transaction is itself serializable, so a serializable
- * join racing a `read committed` onboarding create still commits twice. That
- * is why this helper exists rather than an options object copied into one
- * route: the guarantee is a property of the *pair*, and a callsite that
- * forgets it silently reopens the hole at both ends.
- *
- * The durable fix is a unique index on `household_member.user_id` — nullable,
- * so PostgreSQL's NULLS DISTINCT still permits the many manual member rows
- * with no user. That is a migration against existing data, and needs an audit
- * for rows this race already created, so it is tracked as HON-696. Until it
- * lands, every membership-creating transaction must go through here.
+ * **Why this still runs at `Serializable` (HON-696 kept it deliberately).**
+ * Before the index existed, isolation *was* the enforcement (HON-679): at
+ * `read committed` the check is a `SELECT` matching zero rows, so it takes no
+ * lock, and two concurrent requests could each write a *different* member
+ * row. That write skew is what SSI's predicate locks catch. The index now
+ * makes it impossible regardless, so `Serializable` + retry is defence in
+ * depth: the concurrent loser usually aborts with `P2034`, retries, and takes
+ * the pre-check's branch instead of relying on the `P2002` mapping. Dropping
+ * it would be safe, but it would change behaviour on the onboarding path for
+ * no user-visible gain. A new membership-creating callsite should still go
+ * through here, but it no longer reopens the hole if it does not — it only
+ * has to map `P2002` itself.
  */
 const CLAIM_TRANSACTION_OPTIONS = {
   isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
@@ -108,6 +105,25 @@ function isSerializationFailure(error: unknown): boolean {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError && error.code === SERIALIZATION_FAILURE
   )
+}
+
+/** Prisma's code for a unique-constraint violation. */
+const UNIQUE_VIOLATION = 'P2002'
+
+/**
+ * True when a claim transaction was rejected by a unique index on
+ * `household_member` — in practice, `household_member_userId_key`: the user
+ * already has a membership. Callers map it to their `already_in_household` 400.
+ *
+ * Deliberately not narrowed to that one constraint. Both claim callbacks write
+ * only `household_member` rows under a unique constraint that can collide —
+ * every other row they create (household, preferences) is new, keyed by an id
+ * generated in the same transaction — and `@@unique([householdId, userId])` is
+ * the same diagnosis. Matching on `meta.target` would tie this to the shape
+ * `@prisma/adapter-pg` happens to report, which is not the stable part.
+ */
+export function isMembershipConflict(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === UNIQUE_VIOLATION
 }
 
 /**

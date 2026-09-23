@@ -112,13 +112,13 @@ enum AiFeature {
 // Run the generate command again if adding Better Auth plugins that require new tables
 
 model User {
-  id                   String            @id
+  id                   String           @id
   name                 String
   email                String
-  emailVerified        Boolean           @default(false)
+  emailVerified        Boolean          @default(false)
   image                String?
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @default(now()) @updatedAt
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @default(now()) @updatedAt
   // GDPR Art. 17 soft-delete (HON-481). `deletedAt` non-null means the user
   // requested deletion; sign-in is blocked while set. `purgeScheduledFor` is
   // when the daily cron hard-cascades the account — the first 03:00 UTC cron
@@ -133,9 +133,10 @@ model User {
   acceptedTermsVersion Int?
   sessions             Session[]
   accounts             Account[]
-  householdMemberships HouseholdMember[]
-  signupCodesCreated   SignupCode[]      @relation("SignupCodeCreatedBy")
-  signupCodeUsed       SignupCode?       @relation("SignupCodeUsedBy")
+  // Singular: `HouseholdMember.userId` is unique — one household per user (HON-696).
+  householdMembership  HouseholdMember?
+  signupCodesCreated   SignupCode[]     @relation("SignupCodeCreatedBy")
+  signupCodeUsed       SignupCode?      @relation("SignupCodeUsedBy")
 
   @@unique([email])
   @@index([purgeScheduledFor])
@@ -248,7 +249,10 @@ model Household {
 model HouseholdMember {
   id          String        @id @default(cuid())
   householdId String
-  userId      String?
+  // Unique: a user belongs to at most one household (HON-696). Nullable, and
+  // PostgreSQL's default NULLS DISTINCT lets any number of manual members
+  // (no linked user) coexist.
+  userId      String?       @unique
   name        String?
   role        HouseholdRole @default(member)
   joinedAt    DateTime      @default(now())
@@ -259,7 +263,6 @@ model HouseholdMember {
   invite      HouseholdInvite?
 
   @@unique([householdId, userId])
-  @@index([userId])
   @@map("household_member")
 }
 
