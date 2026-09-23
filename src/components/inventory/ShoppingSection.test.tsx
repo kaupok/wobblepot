@@ -24,6 +24,7 @@ const routerPush = vi.fn()
 const routerReplace = vi.fn()
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: routerPush, replace: routerReplace }),
+  usePathname: () => '/shopping',
 }))
 
 // Mock date utility used in urgency mode. `parseLocalDate` is kept real — the

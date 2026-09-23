@@ -104,7 +104,6 @@
   },
   "pantry": {
     "ingredientCount": "{count, plural, =0 {Tooteid pole} one {# toode} other {# toodet}}",
-    "ingredientCountInStock": "{count, plural, =0 {Tooteid pole laos} one {# toode laos} other {# toodet laos}}",
     "title": "Sinu sahver",
     "subtitle": "Halda leibkonna varusid",
     "empty": "Sahver on tühi. Lisa põhitooteid nagu oliiviõli, sool ja riis, et neid poenimekirjast välja jätta.",
@@ -594,8 +593,8 @@
       "ariaLabel": "Põhinavigatsioon",
       "today": "Täna",
       "shopping": "Pood",
-      "recipes": "Retseptid",
-      "household": "Leibkond"
+      "pantry": "Sahver",
+      "recipes": "Retseptid"
     },
     "actions": {
       "userMenu": "Kasutajamenüü",

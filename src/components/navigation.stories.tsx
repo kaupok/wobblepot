@@ -89,6 +89,8 @@ const activeStory = (pathname: string, label: string): Story => ({
 
 export const ActiveToday: Story = activeStory('/', 'Today')
 export const ActiveShopping: Story = activeStory('/shopping', 'Pantry & shopping')
+// `/pantry` is the same page at this width; it is only its own tab on a phone.
+export const ActivePantry: Story = activeStory('/pantry', 'Pantry & shopping')
 export const ActiveRecipesSubRoute: Story = activeStory('/recipes/imagine', 'My recipes')
 export const ActiveHousehold: Story = activeStory('/household', 'Household')
 

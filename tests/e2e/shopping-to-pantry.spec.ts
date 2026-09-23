@@ -172,8 +172,9 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
       expect(purchaseResponse.ok()).toBe(true)
 
       // User-visible half of the handoff: the item now appears in the pantry
-      // panel that shares the /shopping page (there is no separate /pantry —
-      // src/app/pantry/page.tsx redirects here). The per-row remove button
+      // column of the same page. At the suite's desktop width /shopping shows
+      // both columns; on a phone the pantry is its own /pantry tab (HON-776),
+      // which this spec does not exercise. The per-row remove button
       // (`pantry.ariaRemove`) is the pantry's own accessible-name anchor, so
       // it can't be satisfied by the shopping-list row of the same name.
       const pantryRow = page.getByRole('button', { name: `Remove ${itemName}` })

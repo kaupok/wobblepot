@@ -68,6 +68,9 @@ const meta = {
   tags: ['autodocs'],
   parameters: {
     layout: 'padded',
+    // The picker routes to the path it is on (`/shopping` or `/pantry`,
+    // HON-776), so the play functions need a real one rather than `/`.
+    nextjs: { navigation: { pathname: '/shopping' } },
     docs: {
       description: {
         component:

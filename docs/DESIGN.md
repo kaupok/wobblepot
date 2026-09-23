@@ -172,6 +172,7 @@ Each of these came from a review that found the opposite in production.
 - **Content starts at the top.** No `place-items-center` shells for in-app pages: the content column aligns to the top of the container, so a page's height can change (loading → loaded, empty → populated) without moving what is already on screen. The route's `loading.tsx` uses the same container and column width, with no bordered wrapper standing in for a card the page does not have (`HON-767`).
 - **Controls belong in menus, not headers.** Preference toggles (theme; language is a household setting on `/household`, not a per-user preference) live in the user menu, not in the header bar (`HON-382`, `HON-775`).
 - **The account menu is a person.** On every viewport the account entry point is the person icon; the bottom tab bar is the only main navigation on a phone (`HON-775`).
+- **Four tabs on a phone.** Today, Shopping, Pantry, Recipes. Household and Profile live in the account menu. A fifth tab is not an option; a new destination replaces one of these or lives inside one (`HON-776`).
 - **Mobile first, then widen.** Build the 390px layout, then add `md:` and `lg:` variants. Never the reverse (`HON-395`).
 
 ## Copy

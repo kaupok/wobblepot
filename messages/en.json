@@ -104,7 +104,6 @@
   },
   "pantry": {
     "ingredientCount": "{count, plural, =0 {No items} one {# item} other {# items}}",
-    "ingredientCountInStock": "{count, plural, =0 {No items in stock} one {# item in stock} other {# items in stock}}",
     "title": "Your pantry",
     "subtitle": "Manage your household inventory",
     "empty": "Your pantry is empty. Add staples like olive oil, salt, and rice to exclude them from shopping lists.",
@@ -594,8 +593,8 @@
       "ariaLabel": "Primary",
       "today": "Today",
       "shopping": "Shopping",
-      "recipes": "Recipes",
-      "household": "Household"
+      "pantry": "Pantry",
+      "recipes": "Recipes"
     },
     "actions": {
       "userMenu": "User menu",

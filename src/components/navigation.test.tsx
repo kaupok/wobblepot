@@ -20,6 +20,7 @@ describe('active page', () => {
   it.each([
     ['/', 'Today'],
     ['/shopping', 'Pantry & shopping'],
+    ['/pantry', 'Pantry & shopping'],
     ['/recipes', 'My recipes'],
     ['/recipes/imagine', 'My recipes'],
     ['/household', 'Household'],

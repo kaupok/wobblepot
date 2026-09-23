@@ -2,11 +2,10 @@
 
 import type { Dispatch, SetStateAction } from 'react'
 import { useState } from 'react'
-import { ChevronDown, Star, Trash2 } from 'lucide-react'
+import { Star, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Button } from '@/components/ui/button'
 import { Body, Heading } from '@/components/ui/typography'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -18,8 +17,6 @@ interface PantrySectionProps {
   items: PantryItemData[]
   onItemsChange: Dispatch<SetStateAction<PantryItemData[]>>
   newlyAddedIds?: Set<string>
-  defaultOpen?: boolean
-  collapsible?: boolean
   onPantryItemRemoved?: (ingredientId: string) => void
 }
 
@@ -27,11 +24,8 @@ export function PantrySection({
   items,
   onItemsChange,
   newlyAddedIds = new Set(),
-  defaultOpen = true,
-  collapsible = false,
   onPantryItemRemoved,
 }: PantrySectionProps) {
-  const [isOpen, setIsOpen] = useState(defaultOpen)
   const tPantry = useTranslations('pantry')
 
   const staples = items.filter((item) => item.isStaple)
@@ -160,36 +154,6 @@ export function PantrySection({
       )}
     </>
   )
-
-  if (collapsible) {
-    return (
-      <Card className="w-full">
-        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-          <CardHeader className="pb-3">
-            <CollapsibleTrigger asChild>
-              <button className="flex w-full items-center justify-between text-left">
-                <div className="flex flex-col gap-1">
-                  <Heading variant="h4">{tPantry('title')}</Heading>
-                  <Body variant="muted">
-                    {tPantry('ingredientCountInStock', { count: items.length })}
-                  </Body>
-                </div>
-                <ChevronDown
-                  className={cn(
-                    'text-muted-foreground h-5 w-5 shrink-0 transition-transform duration-200',
-                    isOpen && 'rotate-180',
-                  )}
-                />
-              </button>
-            </CollapsibleTrigger>
-          </CardHeader>
-          <CollapsibleContent>
-            <CardContent className="pt-0">{content}</CardContent>
-          </CollapsibleContent>
-        </Collapsible>
-      </Card>
-    )
-  }
 
   return (
     <Card className="w-full">
