@@ -689,6 +689,20 @@ cmd_new() {
   exec env -u ANTHROPIC_API_KEY claude
 }
 
+# The /auto-implement prompt, with the orchestrator's retry note appended when
+# this worker is a RETRY (HON-728). orchestrator.sh's spawn_worker sets
+# ORCHESTRATOR_RETRY_CONTEXT on every spawn — empty on a first attempt — so an
+# empty value means "no previous attempt", and the base prompt goes through
+# untouched.
+auto_prompt() {
+  local base="$1"
+  if [ -n "${ORCHESTRATOR_RETRY_CONTEXT:-}" ]; then
+    printf '%s\n\n%s' "$base" "$ORCHESTRATOR_RETRY_CONTEXT"
+  else
+    printf '%s' "$base"
+  fi
+}
+
 # Fully autonomous worktree - creates worktree and runs /auto-implement
 cmd_auto() {
   local arg=""
@@ -825,13 +839,22 @@ cmd_auto() {
   echo ""
   echo -e "${GREEN}Worktree ready!${NC}"
   echo ""
-  echo "Starting autonomous Claude Code with: $prompt"
+  # Echo the BASE prompt only. The retry note quotes the previous attempt's log,
+  # and this line opens the worker log the orchestrator scans for progress
+  # markers — never copy that note into it.
+  local retry_note=""
+  [ -n "${ORCHESTRATOR_RETRY_CONTEXT:-}" ] && retry_note=" (with retry context from the previous attempt)"
+  echo "Starting autonomous Claude Code with: $prompt$retry_note"
   echo "─────────────────────────────────────────"
   echo ""
 
   # Start Claude Code with permissions bypassed and auto-implement prompt
-  # Unset ANTHROPIC_API_KEY so Claude CLI uses Max subscription instead of API credits
-  exec env -u ANTHROPIC_API_KEY claude --dangerously-skip-permissions --model "${CLAUDE_AUTO_MODEL:-claude-opus-5-5}" "$prompt"
+  # Unset ANTHROPIC_API_KEY so Claude CLI uses Max subscription instead of API credits.
+  # Unset ORCHESTRATOR_RETRY_CONTEXT too: it is consumed into the prompt here,
+  # and the worker runs `pnpm test`, which sources these scripts — a leaked
+  # value would make every script under test see a retry (HON-728).
+  exec env -u ANTHROPIC_API_KEY -u ORCHESTRATOR_RETRY_CONTEXT claude --dangerously-skip-permissions \
+    --model "${CLAUDE_AUTO_MODEL:-claude-opus-5-5}" "$(auto_prompt "$prompt")"
 }
 
 # Resume existing worktree

@@ -78,6 +78,22 @@
 #     comment lands as a COMMENT line.
 #     Ends with CONSECUTIVE_FAILURES / PAUSED / the write_status_file JSON.
 #
+#   failure-spawn <triage> [log-flavour]                            (HON-728)
+#     The `failure` stubs, but with the REAL spawn_worker: SCRIPT_DIR points at
+#     a recording `worktree-claude.sh` stub, so what reaches `wt auto` — its
+#     arguments and ORCHESTRATOR_RETRY_CONTEXT — is under test, not the
+#     arguments handle_failure meant to pass. Runs a first-attempt spawn_worker
+#     for the issue, then one handle_failure at retried=0, and prints one
+#     WT_CALL:<n>:<args> and WT_CONTEXT:<n>:<context> line per `wt auto` call
+#     (context newlines flattened to spaces). REPO_ROOT points at a fixture
+#     `.env` whose value is also planted in the worker log, beside two sed
+#     backstop shapes and attempt-1 progress markers, so redaction and marker
+#     defanging are asserted on the forwarded note. `log-flavour` as `failure`.
+#
+#   auto-prompt <base-prompt>                                       (HON-728)
+#     Sources worktree-claude.sh and prints the REAL auto_prompt, which reads
+#     ORCHESTRATOR_RETRY_CONTEXT from the environment.
+#
 #   bash-timeout <bound-secs> <command-sleep-secs>                  (HON-578)
 #     Drives the REAL bash_timeout watchdog — the branch taken on a host with no
 #     coreutils `timeout`, which is every stock macOS, the orchestrator included.
@@ -416,8 +432,12 @@ case "$MODE" in
     ;;
 
   # ─── handle_failure circuit breaker (HON-572 finding 2) ────────────────────
-  failure | failure-seq)
-    if [ "$MODE" = "failure" ]; then
+  failure | failure-seq | failure-spawn)
+    FLAVOUR="${A5:-plain}"
+    if [ "$MODE" = "failure-spawn" ]; then
+      SEQUENCE="$A1:0:false"
+      FLAVOUR="${A2:-plain}"
+    elif [ "$MODE" = "failure" ]; then
       # One repeated call: "<triage>:<retried>:<shutting_down>" x REPEAT.
       REPEAT="${A4:-1}"
       SEQUENCE="$A1:$A2:$A3"
@@ -467,7 +487,7 @@ EOF
     # above; the `cap-*` ones drive worker_hit_neon_cap, whose whole job is to
     # tell a real branch-cap death apart from a log that merely mentions one.
     WORKER_LOG=$(mktemp "${TMPDIR:-/tmp}/orchestrator-harness-worklog.XXXXXXXX")
-    case "${A5:-plain}" in
+    case "$FLAVOUR" in
       cap)
         # A genuine cap failure: `wt auto` dies in worktree setup, so the log
         # ends before "Starting autonomous Claude Code" is ever printed.
@@ -523,9 +543,39 @@ EOF
         ;;
     esac
 
+    # failure-spawn (HON-728): a fixture .env whose value is planted in the
+    # worker log, plus attempt-1 progress markers, and a recording stub in place
+    # of worktree-claude.sh so the REAL spawn_worker can run. The stub records
+    # its arguments and the retry context it was handed, one file pair per call.
+    SPAWN_DIR=""
+    if [ "$MODE" = "failure-spawn" ]; then
+      SPAWN_DIR=$(mktemp -d "${TMPDIR:-/tmp}/orchestrator-harness-spawn.XXXXXXXX")
+      mkdir -p "$SPAWN_DIR/repo" "$SPAWN_DIR/scripts" "$SPAWN_DIR/logs" "$SPAWN_DIR/calls"
+      echo 'HARNESS_FAKE_TOKEN="hrn-fake+Tok3n/with.regex*chars"' > "$SPAWN_DIR/repo/.env"
+      {
+        echo "[plan-issue:complete]"
+        echo "[auto-implement] Phase 3/7 complete → Proceeding to Phase 4"
+        echo "[auto-implement] ✓ Autonomous implementation cycle complete"
+        echo "Authorization: token=hrn-fake+Tok3n/with.regex*chars"
+        echo "Error: pnpm test failed in src/lib/example.test.ts"
+      } >> "$WORKER_LOG"
+      REPO_ROOT="$SPAWN_DIR/repo"
+      SCRIPT_DIR="$SPAWN_DIR/scripts"
+      LOG_DIR="$SPAWN_DIR/logs"
+      cat > "$SCRIPT_DIR/worktree-claude.sh" <<EOF
+#!/bin/sh
+n=\$(ls "$SPAWN_DIR/calls" | grep -c '\.args\$')
+n=\$((n + 1))
+printf '%s' "\$*" > "$SPAWN_DIR/calls/\$n.ctx.tmp"
+printf '%s' "\$ORCHESTRATOR_RETRY_CONTEXT" > "$SPAWN_DIR/calls/\$n.ctx"
+mv "$SPAWN_DIR/calls/\$n.ctx.tmp" "$SPAWN_DIR/calls/\$n.args"
+EOF
+      chmod +x "$SCRIPT_DIR/worktree-claude.sh"
+    fi
+
     # Keep write_status_file off the real ~/.worktrees status file.
     STATUS_FILE=$(mktemp "${TMPDIR:-/tmp}/orchestrator-harness-status.XXXXXXXX")
-    trap 'cat "$MAIN_LOG"; rm -rf "$MAIN_LOG" "$SEEN_SKIPS_FILE" "$STATUS_FILE" "$STUB_BIN" "$WORKER_LOG"' EXIT
+    trap 'cat "$MAIN_LOG"; rm -rf "$MAIN_LOG" "$SEEN_SKIPS_FILE" "$STATUS_FILE" "$STUB_BIN" "$WORKER_LOG" "$SPAWN_DIR"' EXIT
 
     DRY_RUN=false
     ORCHESTRATOR_START_TIME="1970-01-01T00:00:00Z"
@@ -545,7 +595,9 @@ EOF
     try_add_label() { echo "LABEL:$2" >> "$MAIN_LOG"; }
     cleanup_worker_worktree() { echo "CLEANUP:${1}:${2:-false}" >> "$MAIN_LOG"; }
     move_to_backlog() { echo "MOVE_TO_BACKLOG:${2}:${4}" >> "$MAIN_LOG"; }
-    spawn_worker() { echo "SPAWN_WORKER:${2}:retry=${5:-0}" >> "$MAIN_LOG"; }
+    if [ "$MODE" != "failure-spawn" ]; then
+      spawn_worker() { echo "SPAWN_WORKER:${2}:retry=${5:-0}" >> "$MAIN_LOG"; }
+    fi
     # Stubbed for the same reason the `outcome` mode stubs it: it is a Linear
     # round trip. requeue_to_todo itself is NOT stubbed — its comment body and
     # its choice of this call over move_to_backlog are the things under test.
@@ -557,6 +609,16 @@ EOF
     # `${VAR-default}`, NOT `${VAR:-default}`: an explicitly EMPTY value is the
     # unreadable-state case under test, and the colon form would swallow it.
     issue_state_id() { echo "${HARNESS_ISSUE_STATE-$STATE_IN_PROGRESS}"; }
+
+    # The first attempt, through the same real spawn_worker the retry takes, so
+    # "a first attempt carries no retry context" is asserted on a real call.
+    # Its ids match step 1 below, which also gives handle_failure a start time.
+    if [ "$MODE" = "failure-spawn" ]; then
+      spawn_worker "uuid-991" "HON-991" "test-branch-1" "Fixture title" 2>/dev/null
+      # The stub numbers its calls by counting the ones already recorded, so the
+      # first must land before the retry's can start.
+      wait "${WORKER_PIDS[0]}" 2>/dev/null || true
+    fi
 
     STEP=0
     IFS=',' read -ra STEPS <<< "$SEQUENCE"
@@ -570,6 +632,17 @@ EOF
       handle_failure "HON-99$STEP" "uuid-99$STEP" "test-branch-$STEP" "$WORKER_LOG" \
         "$s_retried" failed "Fixture title" 2>/dev/null
     done
+
+    if [ "$MODE" = "failure-spawn" ]; then
+      # spawn_worker backgrounds `wt auto`; the stub must finish before reading.
+      for pid in "${WORKER_PIDS[@]}"; do wait "$pid" 2>/dev/null || true; done
+      n=1
+      while [ -f "$SPAWN_DIR/calls/$n.args" ]; do
+        echo "WT_CALL:$n:$(cat "$SPAWN_DIR/calls/$n.args")" >> "$MAIN_LOG"
+        echo "WT_CONTEXT:$n:$(tr '\n' ' ' < "$SPAWN_DIR/calls/$n.ctx")" >> "$MAIN_LOG"
+        n=$((n + 1))
+      done
+    fi
 
     # Flatten to one line: what the triage CLI actually received across all steps.
     echo "TRIAGE_INPUT:$(tr '\n' ' ' < "$TRIAGE_INPUT_FILE")" >> "$MAIN_LOG"
@@ -609,6 +682,15 @@ EOF
     # shellcheck source=./worktree-claude.sh
     source "$HARNESS_DIR/worktree-claude.sh"
     neon_gc_orphan_names "$BRANCHES_JSON" "$LIVE_WORKTREES"
+    exit 0
+    ;;
+
+  # ─── /auto-implement prompt with retry context (HON-728) ───────────────────
+  auto-prompt)
+    # Sourced, not executed — see neon-gc-select above for why that is safe.
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    auto_prompt "$A1"
     exit 0
     ;;
 

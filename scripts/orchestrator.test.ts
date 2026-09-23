@@ -30,6 +30,8 @@ function harnessEnv(overrides: Record<string, string> = {}): NodeJS.ProcessEnv {
     NEON_BRANCH_CAP: '',
     ORCHESTRATOR_MAX_WORKERS: '',
     ORCHESTRATOR_CAP_REQUEUE_COOLDOWN: '',
+    // A retry worker's own `pnpm test` must not see itself as a retry (HON-728).
+    ORCHESTRATOR_RETRY_CONTEXT: '',
     ...overrides,
   }
 }
@@ -584,6 +586,115 @@ describe('orchestrator.sh', () => {
       for (const line of reads) {
         expect(line, `unsanitized worker-log read: ${line.trim()}`).toContain('sanitize_log')
       }
+    })
+  })
+
+  // ─── HON-728: the RETRY worker is told why the last attempt failed ────────
+  // handle_failure used to respawn a RETRY with the same `wt auto` call as the
+  // first attempt, discarding the phase, failure type and log tail it had just
+  // triaged. The retry now carries a note, forwarded through the REAL
+  // spawn_worker as ORCHESTRATOR_RETRY_CONTEXT to a recording `wt auto` stub.
+  describe('retry context forwarded to the RETRY worker', () => {
+    type Call = { args: string; context: string }
+    type Run = { count: number; first: Call; retry: Call; out: string }
+
+    function spawnRun(triage: string, flavour = 'plain'): Run {
+      const out = stripTimestamps(runHarness('failure-spawn', triage, flavour))
+      const call = (n: number): Call => ({
+        args: out.match(new RegExp(`^WT_CALL:${n}:(.*)$`, 'm'))?.[1] ?? '',
+        context: (out.match(new RegExp(`^WT_CONTEXT:${n}:(.*)$`, 'm'))?.[1] ?? '').trim(),
+      })
+      return { count: out.match(/^WT_CALL:/gm)?.length ?? 0, first: call(1), retry: call(2), out }
+    }
+
+    const tailOf = (context: string) => context.match(/```(.*)```/)?.[1]?.trim() ?? ''
+
+    it('passes the failure phase, type and a non-empty log tail to the second wt auto call', () => {
+      const { count, retry } = spawnRun('RETRY')
+
+      expect(count).toBe(2)
+      expect(retry.args).toBe('auto HON-991')
+      expect(retry.context).toContain('failed in phase implementing (failed)')
+      expect(retry.context).toContain('0 commit(s)')
+      expect(tailOf(retry.context)).toContain('pnpm test failed in src/lib/example.test.ts')
+    })
+
+    it('gives the first attempt no retry context', () => {
+      const { first } = spawnRun('RETRY')
+
+      expect(first.args).toBe('auto HON-991')
+      expect(first.context).toBe('')
+    })
+
+    it('redacts secrets in the forwarded log tail', () => {
+      const { retry } = spawnRun('RETRY')
+      const tail = tailOf(retry.context)
+
+      expect(tail).toContain('[REDACTED]')
+      // Planted in the fixture .env AND the log, with regex metacharacters.
+      expect(tail).not.toContain('hrn-fake')
+      // The sed backstop shapes.
+      expect(tail).not.toContain('supersecretpw')
+      expect(tail).not.toContain('lin_api_SECRET')
+    })
+
+    // The note can reach the retry's own log, which detect_phase, the
+    // completion grep and worker_hit_neon_cap all scan. Attempt 1's markers
+    // must not read as attempt 2's progress.
+    it('defangs the progress markers the orchestrator greps worker logs for', () => {
+      const { retry } = spawnRun('RETRY')
+      const context = retry.context
+
+      expect(context).not.toMatch(/\[[A-Za-z-]+:complete\]/)
+      expect(context).not.toContain('[auto-implement]')
+      expect(context).not.toContain('Starting autonomous Claude Code')
+      expect(context).toContain('(plan-issue:complete)')
+    })
+
+    it('forwards the same note on the Neon-cap one-retry', () => {
+      const { count, retry } = spawnRun('RETRY', 'cap')
+
+      expect(count).toBe(2)
+      expect(retry.context).toContain('Neon branch cap')
+      expect(tailOf(retry.context)).toContain('cap still exceeded after orphan GC')
+    })
+
+    it('spawns nothing when triage does not retry', () => {
+      const { count, out } = spawnRun('BACKLOG')
+
+      expect(count).toBe(1)
+      expect(out).toContain('MOVE_TO_BACKLOG:HON-991:Failed')
+    })
+
+    describe('worktree-claude.sh auto_prompt', () => {
+      const prompt = (context: string) =>
+        execFileSync('bash', [harness, 'auto-prompt', '/auto-implement HON-991'], {
+          encoding: 'utf8',
+          timeout: 30_000,
+          env: harnessEnv({ ORCHESTRATOR_RETRY_CONTEXT: context }),
+        })
+
+      it('leaves a first attempt prompt untouched', () => {
+        expect(prompt('')).toBe('/auto-implement HON-991')
+      })
+
+      it('appends the retry note after the skill invocation', () => {
+        expect(prompt('Retry context: failed in phase reviewing')).toBe(
+          '/auto-implement HON-991\n\nRetry context: failed in phase reviewing',
+        )
+      })
+
+      it('never echoes the note into the worker log, and unsets it for claude', () => {
+        const body = shellFunctionBody(fs.readFileSync(worktreeClaude, 'utf8'), 'cmd_auto')
+        const echoes = body.split('\n').filter((l) => /^\s*echo /.test(l))
+
+        for (const line of echoes) {
+          expect(line).not.toContain('ORCHESTRATOR_RETRY_CONTEXT')
+          expect(line).not.toContain('auto_prompt')
+        }
+        expect(body).toMatch(/exec env [^\n]*-u ORCHESTRATOR_RETRY_CONTEXT claude/)
+        expect(body).toContain('"$(auto_prompt "$prompt")"')
+      })
     })
   })
 

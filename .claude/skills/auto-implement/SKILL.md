@@ -44,6 +44,25 @@ Check if an issue ID was provided as argument:
 - If argument matches `HON-XX` or just `XX` (numbers): Store issue ID, skip Phase 1
 - If no argument: Run Phase 1 to find next unblocked issue
 
+The issue ID is the **first token only**. On an orchestrator retry the arguments continue past it with a block that starts `Retry context:` — see [Retry context](#retry-context) below. Never read that block as part of the issue ID.
+
+### Retry context
+
+When `scripts/orchestrator.sh` triages a failed worker as `RETRY` (or hits the Neon-cap one-retry) it respawns `wt auto` with a note appended to this prompt: the phase and failure type the previous attempt died in, its duration and commit count, and the last 40 lines of its log (redacted by `sanitize_log`; progress markers rewritten from `[x:complete]` to `(x:complete)` so they are not read as this run's progress). It is present only on a retry (HON-728).
+
+**If it is present, read it before anything else** and treat it as the first finding of this run: the previous attempt already paid for that failure once. `wt auto` has checked out the kept branch as-is, so pushed work is on disk. Establish where the previous attempt got to, in this order:
+
+```bash
+git log --oneline origin/main..HEAD                       # commits it already made
+gh pr list --head "$(git branch --show-current)" --state open --json number,url
+```
+
+- **Open PR for this branch** → run Phase 0, then 2.1 (the `In Review` exception there applies), skip 2.2–5, and resume at **6.1**. `ROUND` counts the PR's existing `<!-- claude-review -->` markers, so earlier rounds still count toward the cap.
+- **Commits, no PR** → run Phases 0–2.1 as normal, then look for the plan comment the previous attempt posted in 2.8 (`list_comments`). If there is one, reuse it instead of re-planning and do not post a second; continue Phase 3 from the first step the commits do not cover.
+- **No commits** → run the full cycle.
+
+On every path, fix the failure the note describes before redoing work that already landed. A retry is only ever issued for a failure triage judged transient (or the Neon cap), so a note describing an infrastructure fault is not by itself a reason to stop — the fault may have cleared. Stop with an error naming it only if the same fault recurs in this run.
+
 ---
 
 ## Phase 0: Initialization
@@ -290,7 +309,7 @@ Never touch an assigned issue — `In Progress` + assignee me is an explicit cla
 
 **Gate on `statusType`, not on the state's display name.** `get_issue` returns `statusType` ∈ { `backlog`, `unstarted`, `started`, `completed`, `canceled`, `duplicate`, `triage` }; state names are workspace-configurable and `Triage` has no "closed" name to match. Keep the human-readable `status` in the stop message.
 
-1. **Status** — stop if `statusType` is `completed`, `canceled`, `duplicate`, or `triage` (a Triage issue is not refined yet — `/next-issue` and Phase 1.4 reject it too). `backlog` / `unstarted` (Backlog, Todo) pass outright. `started` covers both `In Progress` and `In Review`, so also read the state name. `In Progress` passes **only if** the assignee check below passes (unassigned = the orchestrator pre-claim; me = my own earlier claim). `In Review` always stops: a PR is already open, `claim_issue()` never writes that state so it is never a pre-claim, and this skill has no step that resumes an existing PR (a `RETRY` after Phase 5 would recreate the branch from `origin/main` and fail on push). Nothing to undo on either stop — neither case was pre-claimed by this cycle.
+1. **Status** — stop if `statusType` is `completed`, `canceled`, `duplicate`, or `triage` (a Triage issue is not refined yet — `/next-issue` and Phase 1.4 reject it too). `backlog` / `unstarted` (Backlog, Todo) pass outright. `started` covers both `In Progress` and `In Review`, so also read the state name. `In Progress` passes **only if** the assignee check below passes (unassigned = the orchestrator pre-claim; me = my own earlier claim). `In Review` stops, with one exception: a PR is already open, `claim_issue()` never writes that state so it is never a pre-claim, and a fresh run has no way to resume a PR it did not open. **The exception is an orchestrator retry** — retry context is present, and `gh pr list --head "$(git branch --show-current)" --state open` finds the open PR on this branch. `wt auto` checked the kept branch out as-is, so that PR is this cycle's own work: pass the gate (assignee check still applies), skip 2.2 so the state is left `In Review`, and resume at 6.1 per [Retry context](#retry-context). Nothing to undo on either stop — neither case was pre-claimed by this cycle.
 
    ```
    [auto-implement] ✗ Error: HON-XX is In Review — a PR is already open. Resume is not supported; finish or close that PR by hand, then move the issue back to Todo.
@@ -779,7 +798,7 @@ Extract PR URL from output.
 
 Phase 6 is the only loop in this skill: 6.3 reviews, 6.4 triages, 6.5 fixes, 6.6 pushes and comes back to 6.3 for the next round. It has to be bounded, because its natural exit — "the reviewer eventually runs out of findings" — only exists when there is an **oracle**: a failing test, a type error, a broken selector. On a prose or heuristic deliverable there is always another defensible finding, so the loop runs until something external kills the worker. HON-627 took **14 rounds over 2h45m** and ended `Stranded` with a green, mergeable PR (#707) that a human had to merge by hand — and its findings, each defensible on its own, grew the artifact until it was no longer usable. For contrast, the 12 PRs before it took 1 round (nine of them), 2 rounds (one), and 3 rounds (two): three rounds covers every PR that has ever converged here.
 
-**ROUND is the number of `<!-- claude-review -->` comments on the PR once 6.3 has posted the current one** — the count 6.3 already fetches to verify the review landed. Deriving it from GitHub rather than from a local counter means it survives process death and context summarization within a run, and that it counts rounds this run did not perform: a manual `/review-pr`, or an earlier worker on the same branch. (It is not a resume mechanism — Phase 2.1 stops outright on `In Review`, so a PR that is already open never re-enters Phase 6 through a fresh cycle.)
+**ROUND is the number of `<!-- claude-review -->` comments on the PR once 6.3 has posted the current one** — the count 6.3 already fetches to verify the review landed. Deriving it from GitHub rather than from a local counter means it survives process death and context summarization within a run, and that it counts rounds this run did not perform: a manual `/review-pr`, or an earlier worker on the same branch. (It is not a resume mechanism in its own right — Phase 2.1 stops on `In Review`, so an open PR re-enters Phase 6 only through an orchestrator retry, which resumes at 6.1 per [Retry context](#retry-context). Its earlier rounds are on the PR and still count.)
 
 A counter that can stall is not a cap, so 6.3 requires `ROUND` to be **strictly greater** than the count taken before the run and stops the cycle if it is not. That is what makes each iteration consume budget and the loop provably terminate; the stale-lock path that can otherwise freeze it is described there.
 

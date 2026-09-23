@@ -703,7 +703,7 @@ claim_issue() {
 
 spawn_worker() {
   local issue_uuid="$1" issue_id="$2" branch="$3" title="$4"
-  local is_retry="${5:-0}"
+  local is_retry="${5:-0}" retry_context="${6:-}"
   local ts
   ts=$(date '+%Y%m%d-%H%M%S')
   local log_file="$LOG_DIR/worker-${issue_id}-${ts}.log"
@@ -732,7 +732,13 @@ spawn_worker() {
   # only name a default that may not be in force (HON-616). NEON_BRANCH_CAP is
   # passed for the same reason; both are read straight from .env there when the
   # worker is started by hand rather than by this loop.
+  #
+  # ORCHESTRATOR_RETRY_CONTEXT carries why the previous attempt failed into the
+  # retry's prompt (HON-728). It is set on EVERY spawn, empty on a first
+  # attempt, so a value inherited from the operator's shell can never dress a
+  # first attempt up as a retry.
   ORCHESTRATOR_MAX_WORKERS="$MAX_WORKERS" NEON_BRANCH_CAP="$NEON_BRANCH_CAP" \
+    ORCHESTRATOR_RETRY_CONTEXT="$retry_context" \
     "$SCRIPT_DIR/worktree-claude.sh" auto "$wt_arg" > "$log_file" 2>&1 &
   local pid=$!
 
@@ -1712,6 +1718,43 @@ worker_hit_neon_cap() {
     <(sed "/Starting autonomous Claude Code/q" "$log_file" 2>/dev/null)
 }
 
+# ─── Retry context (HON-728) ─────────────────────────────────────────────────
+#
+# A retry that carries the reason the last attempt failed is a correction;
+# without it the second worker starts blind and pays for the same mistake
+# twice. build_retry_context turns what handle_failure already knows into a
+# short note that spawn_worker forwards to `wt auto`, which appends it to the
+# /auto-implement prompt.
+
+# Rewrite the progress markers the orchestrator greps worker logs for. The note
+# is forwarded into the RETRY worker's prompt, and anything in a prompt can
+# reach that worker's own log — where detect_phase, the completion grep and
+# worker_hit_neon_cap would read attempt 1's `[review-pr:complete]` or "cycle
+# complete" as attempt 2's progress. Brackets become parentheses: still
+# readable, no longer a marker.
+defang_log_markers() {
+  sed -E \
+    -e 's/\[([A-Za-z-]+:complete)\]/(\1)/g' \
+    -e 's/\[auto-implement\]/(auto-implement)/g' \
+    -e 's/Starting autonomous Claude Code/Starting autonomous Claude session/g'
+}
+
+# $5 must already be sanitized — handle_failure captures it through
+# sanitize_log, the only accessor of a raw worker log (HON-577).
+build_retry_context() {
+  local phase="$1" failure_type="$2" duration_str="$3" commits="$4" sanitized_tail="$5"
+  local tail_text
+  tail_text=$(printf '%s\n' "$sanitized_tail" | defang_log_markers)
+  [ -n "$tail_text" ] || tail_text="(no log)"
+  printf '%s\n' \
+    "Retry context: the previous attempt failed in phase $phase ($failure_type) after $duration_str with $commits commit(s)." \
+    "Address this failure before redoing completed work; resume from the pushed branch or open PR if one exists." \
+    "Last lines of the previous attempt's log (secrets redacted):" \
+    '```' \
+    "$tail_text" \
+    '```'
+}
+
 # ─── Handle failure ─────────────────────────────────────────────────────────
 
 handle_failure() {
@@ -1747,8 +1790,11 @@ handle_failure() {
   local log_tail="(no log)"
   local log_claude_output="(no log)"
   local timeout_context=""
+  local retry_tail="(no log)"
   if [ -f "$log_file" ]; then
     log_tail=$(sanitize_log "$(tail -200 "$log_file" 2>/dev/null || echo "(log not readable)")")
+    # What the RETRY worker is told about this attempt (HON-728).
+    retry_tail=$(sanitize_log "$(tail -40 "$log_file" 2>/dev/null || echo "(log not readable)")")
     # Extract only the Claude session output (after worktree setup completes)
     # Falls back to last 30 lines if marker not found
     log_claude_output=$(sanitize_log "$(extract_claude_output "$log_file")")
@@ -1856,7 +1902,8 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)"
         # Keep the branch so a respawn can resume an already-pushed branch / open PR.
         cleanup_worker_worktree "$branch" true
         # Preserve original title on retry (from WORKER_TITLES array)
-        spawn_worker "$issue_uuid" "$issue_id" "$branch" "$original_title" "1"
+        spawn_worker "$issue_uuid" "$issue_id" "$branch" "$original_title" "1" \
+          "$(build_retry_context "$phase" "$failure_type" "$duration_str" "$commits" "$retry_tail")"
       else
         if [ "$SHUTTING_DOWN" = true ]; then
           log WARN "$issue_id failed during shutdown, moving to Backlog"
@@ -1888,7 +1935,8 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)"
       if [ "$retried" = "0" ] && [ "$SHUTTING_DOWN" = false ]; then
         log INFO "Retrying $issue_id once — the Neon branch cap may have freed: $title"
         cleanup_worker_worktree "$branch" true
-        spawn_worker "$issue_uuid" "$issue_id" "$branch" "$original_title" "1"
+        spawn_worker "$issue_uuid" "$issue_id" "$branch" "$original_title" "1" \
+          "$(build_retry_context "$phase" "$failure_type, Neon branch cap" "$duration_str" "$commits" "$retry_tail")"
       else
         requeue_to_todo "$issue_uuid" "$issue_id" "$log_file"
         cleanup_worker_worktree "$branch"
