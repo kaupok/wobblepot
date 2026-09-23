@@ -15,12 +15,12 @@ export default function RecipesLoading() {
           {/* Recipe count and button */}
           <div className="flex items-center justify-between">
             <Skeleton className="h-5 w-24" />
-            <Skeleton className="h-touch w-32 rounded-md md:h-10" />
+            <Skeleton className="h-touch w-32 md:h-10" />
           </div>
 
           {/* Loading area */}
           <div className="flex items-center justify-center py-12">
-            <Skeleton className="h-6 w-6 rounded-full" />
+            <Skeleton shape="circle" className="h-6 w-6" />
           </div>
         </div>
       </div>

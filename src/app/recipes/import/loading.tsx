@@ -13,11 +13,11 @@ export default function RecipeImportLoading() {
           </div>
 
           {/* Textarea */}
-          <Skeleton className="mb-6 h-40 w-full rounded-md" />
+          <Skeleton className="mb-6 h-40 w-full" />
 
           {/* Footer with button */}
           <div className="flex justify-end">
-            <Skeleton className="h-touch w-28 rounded-md md:h-10" />
+            <Skeleton className="h-touch w-28 md:h-10" />
           </div>
         </div>
       </div>

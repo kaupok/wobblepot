@@ -175,10 +175,10 @@ export function NoteEditor({
   // Uncontrolled: show add button
   return (
     <Button
-      variant="ghost"
+      variant="quiet"
       size="sm"
       onClick={() => setIsEditing(true)}
-      className={cn('text-muted-foreground self-start', className)}
+      className={cn('self-start', className)}
     >
       <Plus aria-hidden="true" />
       {t('addNote')}

@@ -286,10 +286,9 @@ export function PantryItemRow({
         </div>
       </div>
       <Button
-        variant="ghost"
+        variant="quiet-destructive"
         size="icon-sm"
         onClick={() => setShowRemoveDialog(true)}
-        className="text-muted-foreground hover:text-destructive"
         aria-label={tPantry('ariaRemove', { name: item.ingredient.name })}
       >
         <Trash2 className="h-4 w-4" />

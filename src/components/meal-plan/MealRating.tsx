@@ -68,9 +68,9 @@ export function MealRatingPrompt({ planId, entryId, onRated, onDismiss }: MealRa
         </Button>
       </div>
       <Button
-        variant="ghost"
+        variant="quiet"
         size="icon-sm"
-        className="text-muted-foreground ml-auto"
+        className="ml-auto"
         onClick={onDismiss}
         disabled={isSubmitting}
         aria-label={t('dismiss')}
@@ -166,31 +166,30 @@ export function MealRatingInline({
     }
   }
 
+  // The thumbs are an aria-pressed toggle pair, not two buttons: round, and
+  // tinted with the rating's own meaning while pressed. `Button` has no pressed
+  // state and there is no `Toggle` primitive yet, so the pressed treatment lives
+  // here — the one deliberate `no-restyle` exception (HON-674).
+  /* eslint-disable shadcn/no-restyle -- pressed-state tint of a toggle pair; see above */
   return (
     <div className="flex items-center gap-1">
       <Button
-        variant="ghost"
+        variant={rating === 'up' ? 'ghost' : 'quiet'}
         size="icon-sm"
         onClick={() => handleRate('up')}
         disabled={isSubmitting}
-        className={cn(
-          'rounded-full',
-          rating === 'up' ? 'bg-success-muted text-success' : 'text-muted-foreground',
-        )}
+        className={cn('rounded-full', rating === 'up' && 'bg-success-muted text-success')}
         aria-label={t('thumbsUp')}
         aria-pressed={rating === 'up'}
       >
         <ThumbsUp className="size-4" />
       </Button>
       <Button
-        variant="ghost"
+        variant={rating === 'down' ? 'ghost' : 'quiet'}
         size="icon-sm"
         onClick={() => handleRate('down')}
         disabled={isSubmitting}
-        className={cn(
-          'rounded-full',
-          rating === 'down' ? 'bg-destructive/10 text-destructive' : 'text-muted-foreground',
-        )}
+        className={cn('rounded-full', rating === 'down' && 'bg-destructive/10 text-destructive')}
         aria-label={t('thumbsDown')}
         aria-pressed={rating === 'down'}
       >
@@ -198,4 +197,5 @@ export function MealRatingInline({
       </Button>
     </div>
   )
+  /* eslint-enable shadcn/no-restyle */
 }

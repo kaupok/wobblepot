@@ -3,6 +3,7 @@
 import { forwardRef, useState } from 'react'
 import { Input } from './input'
 import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
+import { cn } from '@/lib/utils'
 
 type InheritedInputProps = Omit<
   React.ComponentProps<'input'>,
@@ -16,6 +17,13 @@ export interface NumberInputProps extends InheritedInputProps {
   integer?: boolean
   /** Accepted for forward-compatibility with HON-499 locale threading; currently unused. */
   locale?: string
+  /**
+   * The field sits inside a bordered group (a quantity beside its unit label)
+   * that draws the border itself, so the input drops its own border and focus
+   * ring rather than drawing a box inside a box. The group must then draw the
+   * focus ring instead (`focus-within:ring-3 …`), or focus becomes invisible.
+   */
+  embedded?: boolean
 }
 
 function formatForDisplay(value: number | null | undefined): string {
@@ -50,7 +58,7 @@ interface SyncState {
  * state pattern (see react.dev: Storing information from previous renders).
  */
 export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(function NumberInput(
-  { value, onValueChange, integer = false, locale, onBlur, ...rest },
+  { value, onValueChange, integer = false, locale, embedded = false, onBlur, className, ...rest },
   ref,
 ) {
   const incoming = normalize(value)
@@ -100,6 +108,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(functi
       value={draft}
       onChange={handleChange}
       onBlur={handleBlur}
+      className={cn(embedded && 'border-0 focus-visible:ring-0', className)}
       {...rest}
     />
   )

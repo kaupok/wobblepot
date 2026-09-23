@@ -23,7 +23,7 @@ function MemberCardSkeleton() {
   return (
     <div className="rounded-lg border p-4">
       <div className="flex items-center gap-3">
-        <Skeleton className="h-10 w-10 rounded-full" />
+        <Skeleton shape="circle" className="h-10 w-10" />
         <div className="flex flex-col gap-1">
           <Skeleton className="h-5 w-32" />
           <Skeleton className="h-5 w-48" />

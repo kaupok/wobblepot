@@ -10,11 +10,20 @@ const meta = {
   argTypes: {
     variant: {
       control: 'select',
-      options: ['default', 'destructive', 'outline', 'secondary', 'ghost', 'link'],
+      options: [
+        'default',
+        'destructive',
+        'outline',
+        'secondary',
+        'ghost',
+        'quiet',
+        'quiet-destructive',
+        'link',
+      ],
     },
     size: {
       control: 'select',
-      options: ['default', 'sm', 'lg', 'icon', 'icon-sm', 'icon-lg'],
+      options: ['default', 'sm', 'lg', 'icon', 'icon-sm', 'icon-lg', 'inline'],
     },
     disabled: { control: 'boolean' },
   },
@@ -44,8 +53,39 @@ export const Ghost: Story = {
   args: { variant: 'ghost' },
 }
 
+export const Quiet: Story = {
+  args: { variant: 'quiet', size: 'sm', children: 'Copy list' },
+}
+
+export const QuietDestructive: Story = {
+  args: {
+    variant: 'quiet-destructive',
+    size: 'icon-sm',
+    'aria-label': 'Remove',
+    children: <Trash2 />,
+  },
+}
+
 export const Link: Story = {
   args: { variant: 'link' },
+}
+
+// `inline` drops the control box so a link sits on the line of the sentence
+// around it — the cookie-settings link in the footer.
+export const InlineLink: Story = {
+  render: () => (
+    <p className="text-muted-foreground text-sm">
+      We use essential cookies only.{' '}
+      <Button variant="link" size="inline">
+        Cookie settings
+      </Button>
+    </p>
+  ),
+  play: async ({ canvasElement }) => {
+    const button = within(canvasElement).getByRole('button', { name: 'Cookie settings' })
+    await expect(getComputedStyle(button).paddingLeft).toBe('0px')
+    await expect(button.getBoundingClientRect().height).toBeLessThan(32)
+  },
 }
 
 export const Small: Story = {
@@ -87,6 +127,8 @@ export const AllVariants: Story = {
       <Button variant="outline">Outline</Button>
       <Button variant="secondary">Secondary</Button>
       <Button variant="ghost">Ghost</Button>
+      <Button variant="quiet">Quiet</Button>
+      <Button variant="quiet-destructive">Quiet destructive</Button>
       <Button variant="link">Link</Button>
     </div>
   ),

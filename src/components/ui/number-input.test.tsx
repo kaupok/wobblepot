@@ -35,6 +35,25 @@ describe('NumberInput', () => {
     expect(input.value).toBe('1.5')
   })
 
+  it('keeps its own border unless embedded in a bordered group', () => {
+    render(
+      <>
+        <NumberInput aria-label="standalone" value={1} onValueChange={() => {}} />
+        <NumberInput
+          aria-label="embedded"
+          value={1}
+          embedded
+          className="w-20"
+          onValueChange={() => {}}
+        />
+      </>,
+    )
+    expect(screen.getByLabelText('standalone')).not.toHaveClass('border-0')
+    const embedded = screen.getByLabelText('embedded')
+    expect(embedded).toHaveClass('border-0', 'focus-visible:ring-0', 'w-20')
+    expect(embedded).not.toHaveAttribute('embedded')
+  })
+
   it('uses inputMode="numeric" when integer is true', () => {
     render(<NumberInput aria-label="servings" value={4} integer onValueChange={() => {}} />)
     const input = screen.getByLabelText('servings')

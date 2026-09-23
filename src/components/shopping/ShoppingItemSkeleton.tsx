@@ -23,7 +23,7 @@ export function ShoppingItemSkeleton() {
     <div className="min-h-touch flex items-center justify-between gap-3 rounded-lg border p-3">
       <div className="flex items-center gap-3">
         {/* The `Checkbox`, `size-5` by default. */}
-        <Skeleton aria-hidden className="size-5 shrink-0 rounded-sm" />
+        <Skeleton aria-hidden shape="checkbox" className="size-5 shrink-0" />
         {/* `h-7` is the `leading-7` line box the item name sits in — that box,
             plus `p-3` and the border, is where the row's height comes from. The
             bar inside is text-sized so the row still reads as a row. */}

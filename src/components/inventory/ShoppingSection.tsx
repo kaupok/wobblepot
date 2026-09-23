@@ -419,7 +419,7 @@ export function ShoppingSection({
         }
       >
         {hasItemsToCopy && (
-          <Button variant="ghost" size="sm" onClick={handleCopy} className="text-muted-foreground">
+          <Button variant="quiet" size="sm" onClick={handleCopy}>
             {copied ? (
               <Check className="mr-1 size-4" aria-hidden="true" />
             ) : (
@@ -429,12 +429,7 @@ export function ShoppingSection({
           </Button>
         )}
         {checkedCustomCount > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClearChecked}
-            className="text-muted-foreground"
-          >
+          <Button variant="quiet" size="sm" onClick={handleClearChecked}>
             <Trash2 className="mr-1 size-4" />
             {tShopping('clearChecked')}
           </Button>

@@ -28,7 +28,7 @@ export function PantryItemRowSkeleton() {
     <div className="flex items-center justify-between rounded-lg border p-3">
       <div className="flex items-center gap-3">
         {/* Staple star toggle — `Button size="icon-sm"`, so `size-8`. */}
-        <Skeleton aria-hidden className="size-8 shrink-0 rounded-md" />
+        <Skeleton aria-hidden className="size-8 shrink-0" />
         {/* The name's `leading-7` line box over the caption's `text-xs` one:
             28 + 20 = 48 (the HON-686 `text-xs` line height), which is what
             carries the row past its buttons. */}
@@ -42,7 +42,7 @@ export function PantryItemRowSkeleton() {
         </div>
       </div>
       {/* Remove button, same `icon-sm` size. */}
-      <Skeleton aria-hidden className="size-8 shrink-0 rounded-md" />
+      <Skeleton aria-hidden className="size-8 shrink-0" />
     </div>
   )
 }

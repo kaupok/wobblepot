@@ -119,7 +119,7 @@ export default function SubprocessorsPage() {
           <TableBody>
             {PROCESSORS.map((p) => (
               <TableRow key={p.name}>
-                <TableHead scope="row" className="align-top font-medium whitespace-normal">
+                <TableHead scope="row" className="align-top whitespace-normal">
                   {p.name}
                   {/* aria-labels keep the 10 links distinguishable in a
                       screen-reader links list (WCAG 2.4.4) while retaining the

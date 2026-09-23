@@ -33,7 +33,7 @@ export function AlternativeSkeleton({ withImage = false }: { withImage?: boolean
           <Skeleton className="ml-4 h-4 w-22" />
         </div>
       </CardContent>
-      {withImage ? <Skeleton className="aspect-3/2 w-full shrink-0 rounded-none" /> : null}
+      {withImage ? <Skeleton shape="flush" className="aspect-3/2 w-full shrink-0" /> : null}
       <div className="px-6">
         <Skeleton className="h-touch w-full md:h-10" />
       </div>

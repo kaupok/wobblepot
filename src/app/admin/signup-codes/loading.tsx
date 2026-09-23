@@ -22,9 +22,9 @@ export default function AdminSignupCodesLoading() {
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-touch w-full rounded-md md:h-10" />
+              <Skeleton className="h-touch w-full md:h-10" />
             </div>
-            <Skeleton className="h-touch w-32 rounded-md md:h-10" />
+            <Skeleton className="h-touch w-32 md:h-10" />
           </div>
         </div>
 
@@ -35,9 +35,9 @@ export default function AdminSignupCodesLoading() {
             <Skeleton className="h-6 w-72" />
           </div>
           <div className="flex flex-col gap-3">
-            <Skeleton className="h-12 w-full rounded-md" />
-            <Skeleton className="h-12 w-full rounded-md" />
-            <Skeleton className="h-12 w-full rounded-md" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
           </div>
         </div>
       </div>

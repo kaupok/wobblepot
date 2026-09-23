@@ -94,20 +94,12 @@ export function MemberCard({
             </div>
             <div className="flex items-center gap-2">
               <Body className="font-medium">{displayName}</Body>
-              {isOwner && (
-                <Badge variant="secondary" className="text-xs">
-                  {ownerLabel}
-                </Badge>
-              )}
+              {isOwner && <Badge variant="secondary">{ownerLabel}</Badge>}
               {isManual && !member.invite?.isActive && (
-                <Badge variant="outline" className="text-xs">
-                  {tMembers('manualBadge')}
-                </Badge>
+                <Badge variant="outline">{tMembers('manualBadge')}</Badge>
               )}
               {member.invite?.isActive && (
-                <Badge variant="secondary" className="text-xs">
-                  {tMembers('invitePendingBadge')}
-                </Badge>
+                <Badge variant="secondary">{tMembers('invitePendingBadge')}</Badge>
               )}
             </div>
           </div>
@@ -134,11 +126,10 @@ export function MemberCard({
             )}
             {canRemove && (
               <Button
-                variant="ghost"
+                variant="quiet-destructive"
                 size="icon"
                 onClick={() => setShowRemoveDialog(true)}
                 aria-label={tMembers('removeAria')}
-                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>

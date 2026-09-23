@@ -46,6 +46,23 @@ describe('Button component', () => {
       expect(button).toHaveClass('hover:bg-accent')
     })
 
+    it('applies quiet variant classes: muted at rest, full ink on hover', () => {
+      render(<Button variant="quiet">Quiet</Button>)
+      const button = screen.getByRole('button')
+      expect(button).toHaveClass(
+        'text-muted-foreground',
+        'hover:text-foreground',
+        'hover:bg-accent',
+      )
+    })
+
+    it('applies quiet-destructive variant classes: muted at rest, destructive on hover', () => {
+      render(<Button variant="quiet-destructive">Remove</Button>)
+      const button = screen.getByRole('button')
+      expect(button).toHaveClass('text-muted-foreground', 'hover:text-destructive')
+      expect(button).not.toHaveClass('text-destructive')
+    })
+
     it('applies link variant classes', () => {
       render(<Button variant="link">Link</Button>)
       const button = screen.getByRole('button')
@@ -121,6 +138,17 @@ describe('Button component', () => {
       render(<Button size="icon-lg" aria-label="Large icon button" />)
       const button = screen.getByRole('button')
       expect(button).toHaveClass('size-12', 'md:size-11')
+    })
+
+    it('drops the control box for the inline size', () => {
+      render(
+        <Button variant="link" size="inline">
+          Cookie settings
+        </Button>,
+      )
+      const button = screen.getByRole('button')
+      expect(button).toHaveClass('h-auto', 'p-0')
+      expect(button).not.toHaveClass('h-touch', 'px-4')
     })
 
     // The `sm` sizes are deliberately viewport-independent: they are for
