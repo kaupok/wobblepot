@@ -229,8 +229,10 @@ pnpm meal-images:global --meal="Irish Lamb Stew"   # one meal, by id or English 
 
 ```bash
 pnpm meal-images:global --confirm --limit=3
-pnpm meal-images:global --confirm [--judge] [--concurrency=4]
+pnpm meal-images:global --confirm [--judge]
 ```
+
+**Rate limit — plan on about an hour for the full catalogue.** The OpenAI organisation's tier allows **5 images per minute** for `gpt-image-2.5-flare`, so ~273 meals take at least ~55 minutes however the run is split; at one image in flight (~18 s each) expect nearer 80. `--concurrency` therefore defaults to 1: the first real run, at `--concurrency=4`, lost 4 of 16 images to 429s (HON-742). A rate-limited image is retried after the delay OpenAI names, or 15 s, 30 s and 60 s, before its meal is marked failed; a failed meal is simply selected again by the next `--confirm`. The run ends by printing its effective rate in images per minute — at or near 5, the tier is the bottleneck and more lanes would only add waiting. `pnpm meal-images:global --help` lists every flag.
 
 `--judge` adds the `REVIEW_MODEL` vision check in report-only mode: its findings show on each contact-sheet cell but never trigger a regeneration. Here the operator is the gate, so it is optional.
 

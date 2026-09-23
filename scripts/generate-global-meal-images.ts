@@ -25,9 +25,7 @@
  * image with `--judge`). Spend is printed, never ledgered: no household owns
  * it, so `recordAiUsage` is not called.
  *
- * Usage: pnpm meal-images:global [--confirm] [--judge] [--limit=N]
- *          [--meal=<id or name>] [--concurrency=N]
- *        pnpm meal-images:global --publish=<run dir> [--exclude=slug,slug] [--yes=<db host>]
+ * Usage: pnpm meal-images:global --help (flags, and why `--concurrency` defaults to 1)
  *
  * Procedure: docs/DEPLOYMENT.md § "Global meal illustrations".
  */
@@ -64,12 +62,43 @@ import {
 export const IMAGE_EST_USD = 0.0422
 /** HON-733's measured judge call (`REVIEW_MODEL` vision). */
 export const JUDGE_EST_USD = 0.0075
-const DEFAULT_CONCURRENCY = 4
+/**
+ * One image at a time. The OpenAI tier allows 5 images per minute, and one
+ * image takes ~18 s, so a single lane already runs close to the limit; four
+ * lanes lost 4 of 16 images to 429s on the first real run (HON-742).
+ */
+const DEFAULT_CONCURRENCY = 1
+/** The OpenAI organisation's image rate limit for `gpt-image-2.5-flare` (HON-742). */
+export const TIER_IMAGES_PER_MINUTE = 5
+
+export const USAGE = `Global meal illustrations — operator batch (HON-738)
+
+Usage:
+  pnpm meal-images:global [--confirm] [--judge] [--limit=N] [--meal=<id or name>] [--concurrency=N]
+  pnpm meal-images:global --publish=<run dir> [--exclude=slug,slug] [--yes=<db host>]
+
+Generate (without --confirm: a free dry run that prints the count and cost):
+  --confirm          Draw the images into .temp/global-meal-images/<timestamp>/. COSTS MONEY.
+  --judge            Add the report-only vision judge to each contact-sheet cell.
+  --limit=N          Draw at most N meals.
+  --meal=<id|name>   Draw one meal, by id or English name.
+  --concurrency=N    Images in flight at once. Default ${DEFAULT_CONCURRENCY}: the OpenAI tier allows
+                     ${TIER_IMAGES_PER_MINUTE} images per minute, and one lane already runs close to it.
+                     More lanes mostly add rate-limit waits (a 429 is retried after
+                     15 s, 30 s and 60 s, then the meal fails).
+
+Publish:
+  --publish=<dir>    Upload the reviewed images in <dir> and set the image columns.
+  --exclude=a,b      Leave the rejected slugs out; the next --confirm redraws them.
+  --yes=<db host>    Confirm the target database host without the prompt.
+
+Procedure: docs/DEPLOYMENT.md § "Global meal illustrations".`
 
 /** Same as the route's `CLAIM_STALE_MS`: a claim older than this belongs to a dead process. */
 export const CLAIM_STALE_MS = 3 * 60_000
 
 export interface ParsedArgs {
+  help: boolean
   confirm: boolean
   judge: boolean
   limit?: number
@@ -105,6 +134,7 @@ export function parseExclude(raw: string | undefined): string[] {
 }
 
 const KNOWN_FLAGS = [
+  '--help',
   '--confirm',
   '--judge',
   '--limit',
@@ -127,6 +157,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
   const publish = valueOf(argv, '--publish')
   const args: ParsedArgs = {
+    help: argv.includes('--help'),
     confirm: argv.includes('--confirm'),
     judge: argv.includes('--judge'),
     limit: positiveInt(valueOf(argv, '--limit'), '--limit'),
@@ -305,8 +336,12 @@ export type GenerateFn = (
   options: GenerateMealImageOptions,
 ) => Promise<GeneratedMealImage>
 
-/** Per-image ceiling: an image is ~18 s, a judge ~3.4 s. Generous, but a hung call must end. */
-const IMAGE_TIMEOUT_MS = 120_000
+/**
+ * Per-image ceiling: an image is ~18 s, a judge ~3.4 s, and a rate-limited
+ * image may wait up to 105 s between its four attempts (HON-742). Generous,
+ * but a hung call must end.
+ */
+const IMAGE_TIMEOUT_MS = 300_000
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
@@ -428,6 +463,9 @@ export async function runGenerate(
         judge: opts.judge ? 'report' : 'off',
         mealId: meal.id,
         abortSignal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
+        // Lets a 429 asking for longer than the image has left fail at once,
+        // instead of sleeping until the abort (HON-742).
+        budgetMs: IMAGE_TIMEOUT_MS,
       })
       const file = `${slug}.${extensionFor(image.mediaType)}`
       writeFileSync(join(opts.outDir, file), image.bytes)
@@ -460,6 +498,11 @@ export async function runGenerate(
   const spikeMeals = manifest.entries.map((e) => toSpikeMeal(e, inputs.get(e.slug)!))
   writeFileSync(join(opts.outDir, 'index.html'), renderSheet(manifest, spikeMeals))
   return manifest
+}
+
+/** Images drawn per minute of wall-clock time; 0 before any time has passed. */
+export function imagesPerMinute(count: number, elapsedMs: number): number {
+  return elapsedMs > 0 ? count / (elapsedMs / 60_000) : 0
 }
 
 export const totalUsdOf = (manifest: Manifest): number =>
@@ -741,6 +784,8 @@ export interface RunDeps extends GenerateDeps {
 export async function run(args: ParsedArgs, deps: RunDeps): Promise<void> {
   const { log } = deps
 
+  if (args.help) return log(USAGE)
+
   if (args.publish) {
     const runDir = resolve(args.publish)
     const manifest = readManifest(runDir)
@@ -814,14 +859,21 @@ export async function run(args: ParsedArgs, deps: RunDeps): Promise<void> {
 
   const startedAt = deps.now().toISOString()
   const outDir = join(deps.outRoot, startedAt.replace(/[:.]/g, '-'))
+  const t0 = performance.now()
   const manifest = await runGenerate(
     meals,
     { outDir, judge: args.judge, concurrency: args.concurrency, startedAt },
     deps,
   )
+  const elapsedMs = performance.now() - t0
   const failed = manifest.entries.filter((e) => e.error).length
+  const generated = manifest.entries.length - failed
   log(
-    `\nGenerated ${manifest.entries.length - failed}, failed ${failed}. Spent $${totalUsdOf(manifest).toFixed(2)} (not ledgered).`,
+    `\nGenerated ${generated}, failed ${failed}. Spent $${totalUsdOf(manifest).toFixed(2)} (not ledgered).`,
+  )
+  // At or near the tier's limit, more lanes would only add 429 waits (HON-742).
+  log(
+    `Rate: ${imagesPerMinute(generated, elapsedMs).toFixed(1)} images/min over ${(elapsedMs / 60_000).toFixed(1)} min (tier limit ${TIER_IMAGES_PER_MINUTE}/min, --concurrency=${args.concurrency}).`,
   )
   log(`Contact sheet: ${pathToFileURL(join(outDir, 'index.html')).href}`)
   log(`Review it, then: pnpm meal-images:global --publish=${outDir} [--exclude=slug,slug]`)
