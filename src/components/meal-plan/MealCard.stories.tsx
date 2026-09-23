@@ -14,6 +14,16 @@ import { MealCard } from './MealCard'
 
 const mealFixture = createMeal()
 
+/**
+ * Card widths. `phone` is a 390px screen less the page's `px-4`; `desktop` is
+ * the planner column at the 1152px page width, 1fr beside the 320px sidebar.
+ */
+const CARD_WIDTH = {
+  default: 'max-w-xs',
+  phone: 'w-[358px]',
+  desktop: 'w-[776px]',
+} as const
+
 const meta = {
   title: 'Meal plan/MealCard',
   component: MealCard,
@@ -28,8 +38,9 @@ const meta = {
     pantryItems: lemonGarlicChickenPantryItems,
   },
   decorators: [
-    (Story) => (
-      <div className="max-w-xs">
+    // `cardWidth` pins a planner column's real width for the geometry stories.
+    (Story, { parameters }) => (
+      <div className={CARD_WIDTH[(parameters.cardWidth as keyof typeof CARD_WIDTH) ?? 'default']}>
         <Story />
       </div>
     ),
@@ -66,6 +77,53 @@ export const PlannedWithImage: Story = {
     await expect(menu.getBoundingClientRect().left).toBeGreaterThanOrEqual(box.right)
     await expect(title.right).toBeLessThanOrEqual(box.left + box.width * 0.3)
   },
+}
+
+const PAST_NOTE = 'Swapped the rice for couscous — do that again.'
+
+/**
+ * A past day with everything below the title: the note, the status control and
+ * the rating prompt (opened from the rating badge). Every one of them starts
+ * at or below the image band's bottom edge, so none sits on the dish (HON-755).
+ */
+async function assertLowerRowsOnTint(canvasElement: HTMLElement) {
+  const canvas = within(canvasElement)
+  await canvas.findByRole('img', { name: mealFixture.name })
+  await userEvent.click(canvas.getByRole('button', { name: /^rating:/i }))
+  const rows = [
+    canvas.getByText(PAST_NOTE),
+    canvas.getByRole('combobox', { name: /meal status/i }),
+    await canvas.findByText('How was it?'),
+    canvas.getByRole('button', { name: /^thumbs up$/i }),
+    canvas.getByRole('button', { name: /^thumbs down$/i }),
+  ]
+  const box = canvas.getByTestId('meal-card-image').getBoundingClientRect()
+  await expect(box.height).toBeGreaterThan(0)
+  for (const row of rows) {
+    await expect(row.getBoundingClientRect().top).toBeGreaterThanOrEqual(box.bottom)
+  }
+  // The title still clears the opaque part, as in `PlannedWithImage`.
+  const title = canvas.getByRole('button', { name: mealFixture.name }).getBoundingClientRect()
+  await expect(title.right).toBeLessThanOrEqual(box.left + box.width * 0.3)
+}
+
+export const PastWithImagePhone: Story = {
+  name: 'Past with image, note and rating (phone)',
+  args: {
+    meal: { ...mealFixture, imageStatus: 'ready', imageUrl: mealIllustration.src, imageHue: 52 },
+    status: 'completed',
+    rating: 'up',
+    isPast: true,
+    note: PAST_NOTE,
+  },
+  parameters: { cardWidth: 'phone' },
+  play: async ({ canvasElement }) => assertLowerRowsOnTint(canvasElement),
+}
+
+export const PastWithImageDesktop: Story = {
+  ...PastWithImagePhone,
+  name: 'Past with image, note and rating (desktop)',
+  parameters: { cardWidth: 'desktop' },
 }
 
 export const PlannedWithImageDark: Story = {

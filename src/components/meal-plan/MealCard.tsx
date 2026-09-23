@@ -274,7 +274,9 @@ export function MealCard({
   const isClearing = clearMutation.isPending
 
   // Note and the menu sit at the right end of the title row; the image ends
-  // before them and the title wraps before it (HON-749).
+  // before them and the title wraps before it (HON-749). The rows below the
+  // title keep clear of it too: the image stays in the title row's band
+  // (`titleBand`, HON-755).
   const hasTrailingActions = !isReadOnly && !isPast
 
   if (!meal) {
@@ -336,6 +338,7 @@ export function MealCard({
       <MealImageCard
         meal={tintMeal ?? meal}
         trailingActions={hasTrailingActions}
+        titleBand
         className="gap-2 py-2"
       >
         <CardHeader className="px-3 pb-0">
@@ -343,7 +346,9 @@ export function MealCard({
             {/* A native button rather than `Button`: the name wraps, and every
                 `Button` size is a fixed height a second line would overflow.
                 `min-h-8` holds it to the same 32px floor as the actions beside
-                it (docs/DESIGN.md → Spacing, radius, elevation). */}
+                it (docs/DESIGN.md → Spacing, radius, elevation), and the
+                image's title band is sized from it (`IMAGE_HEIGHT` in
+                MealImageCard). */}
             <div className={cn('min-w-0', mealImageTitleWidth(hasTrailingActions))}>
               <Body variant="small" className="font-semibold">
                 <button
