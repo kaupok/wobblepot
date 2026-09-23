@@ -269,6 +269,36 @@ describe('ImagineReviewDialog duplicate ingredients', () => {
   })
 })
 
+// HON-773: the shared meal validator returned English prose that the dialog
+// rendered verbatim.
+describe('ImagineReviewDialog validation errors', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('says in Estonian that a meal needs an ingredient', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderInLocale(
+      <ImagineReviewDialog
+        open
+        meal={buildMeal({ prefilledIngredients: [] })}
+        onOpenChange={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+      'et',
+    )
+    fireEvent.click(screen.getByRole('button', { name: etMessages.recipes.review.save }))
+
+    expect(
+      await screen.findByText(etMessages.recipes.form.errors.noIngredients),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(enMessages.recipes.form.errors.noIngredients)).toBeNull()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
 describe('ImagineReviewDialog ingredient cap', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
