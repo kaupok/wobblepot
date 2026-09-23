@@ -242,6 +242,8 @@ Refined issues feed into the agentic workflow (`/plan-issue` → `/auto-implemen
 - **duplicateOf**: This issue is a duplicate of X (mark as Duplicate state)
 - **parentId**: This is a sub-issue of a larger epic
 
+**A blocked issue still goes to Todo when its blocker is expected to clear it.** The orchestrator queries Todo only (`scripts/orchestrator.sh` → `select_next_issue`), skips a candidate with open blockers (logged once as `[SKIP] HON-XX blocked by …`), and picks it up on the first poll after the blocker is Done. Backlog is invisible to it, so a blocked-but-ready issue parked in Backlog needs a human to promote it later, and that step gets forgotten (HON-747 sat in Backlog behind HON-767 on 2026-09-23). So when the spec is implementation-ready and the `blockedBy` relation names the one thing standing in its way — a rule that must land first, a component the issue reuses — set the relation and put the issue in Todo. Hold it in Backlog instead when the blocker's outcome is uncertain: it might change the issue's scope, it is a spike or a decision rather than a delivery, or it is a human task with no date. Todo says "runs unattended the moment X merges"; if that sentence is not true, the issue is not ready.
+
 ## Notes
 
 - Work through issues one at a time with user approval
