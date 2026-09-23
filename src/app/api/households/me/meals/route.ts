@@ -15,6 +15,7 @@ import {
 import { captureApiError } from '@/lib/errors'
 import { presentMealImage } from '@/lib/meal-images/present'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
+import { duplicateComponentIds, mealComponentsSchema } from '@/lib/meal-planning/components-schema'
 
 const createMealSchema = z.object({
   name: z.string().min(1).max(200),
@@ -30,24 +31,7 @@ const createMealSchema = z.object({
   kidFriendly: z.boolean().optional().default(false),
   suitableFor: z.array(z.enum(['breakfast', 'lunch', 'dinner'])).min(1),
   servings: z.number().int().positive().max(50),
-  components: z
-    .array(
-      z
-        .object({
-          ingredientId: z.string().min(1),
-          totalQuantity: z.number().nonnegative(),
-          isVague: z.boolean().optional().default(false),
-          originalPhrase: z.string().nullish(),
-        })
-        .refine((c) => c.isVague || c.totalQuantity > 0, {
-          message: 'Quantity must be greater than 0 for non-vague components',
-        })
-        .transform((c) => ({
-          ...c,
-          totalQuantity: c.isVague ? 0 : c.totalQuantity,
-        })),
-    )
-    .min(1),
+  components: mealComponentsSchema,
 })
 
 export async function GET(request: NextRequest) {
@@ -242,6 +226,14 @@ export async function POST(request: Request) {
     const parsed = createMealSchema.safeParse(body)
 
     if (!parsed.success) {
+      const duplicateIds = duplicateComponentIds(parsed.error)
+      if (duplicateIds) {
+        return NextResponse.json(
+          { error: 'Duplicate ingredients in components', duplicateIds },
+          { status: 400 },
+        )
+      }
+
       const errors = parsed.error.flatten().fieldErrors
       return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
     }

@@ -458,6 +458,7 @@
         "prepTimeRange": "Prep time must be between 1 and 480 minutes",
         "createFailed": "Failed to create meal",
         "updateFailed": "Failed to update meal",
+        "duplicateIngredients": "Each ingredient can only be used once. Remove or merge the repeated rows",
         "generic": "An error occurred"
       },
       "discardDialog": {

@@ -366,7 +366,11 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
       return
     }
 
-    const result = buildFinalComponents(isImportMode, ingredientRows, components)
+    // The rows are already flagged inline; the API would reject the payload too.
+    const result =
+      duplicateMap.size > 0
+        ? { error: t('errors.duplicateIngredients') }
+        : buildFinalComponents(isImportMode, ingredientRows, components)
     if (result.error) {
       setError(result.error)
       if (isImportMode) {

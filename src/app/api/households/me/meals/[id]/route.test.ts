@@ -679,10 +679,10 @@ describe('PATCH /api/households/me/meals/[id]', () => {
       })
     })
 
-    // The existence check below it cannot tell a repeated id from a missing
-    // one — `findMany` returns one row for two components — so it used to
-    // answer `400 { missingIds: [] }`, naming nothing. Newly reachable on this
-    // path, hence pinned here.
+    // The existence check cannot tell a repeated id from a missing one —
+    // `findMany` returns one row for two components — so it used to answer
+    // `400 { missingIds: [] }`, naming nothing. The shared schema rejects it
+    // first, in the same shape POST answers (HON-714).
     it('names the repeated ingredient when a component id appears twice', async () => {
       const { mealComponentCreateMany } = setupTransaction(mockMealResult, storedMeal)
 
@@ -695,7 +695,28 @@ describe('PATCH /api/households/me/meals/[id]', () => {
       const data = await response.json()
 
       expect(response.status).toBe(400)
-      expect(data.duplicateIds).toEqual(['ing-1'])
+      expect(data).toEqual({
+        error: 'Duplicate ingredients in components',
+        duplicateIds: ['ing-1'],
+      })
+      expect(mockIngredientFindMany).not.toHaveBeenCalled()
+      expect(mealComponentCreateMany).not.toHaveBeenCalled()
+    })
+
+    it('rejects more than 50 components', async () => {
+      const { mealComponentCreateMany } = setupTransaction(mockMealResult, storedMeal)
+
+      const response = await patchMeal({
+        components: Array.from({ length: 51 }, (_, i) => ({
+          ingredientId: `ing-${i}`,
+          totalQuantity: 10,
+        })),
+      })
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.error).toBe('Validation failed')
+      expect(data.details.components).toBeDefined()
       expect(mealComponentCreateMany).not.toHaveBeenCalled()
     })
 

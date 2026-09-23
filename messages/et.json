@@ -458,6 +458,7 @@
         "prepTimeRange": "Valmistusaeg peab olema 1 kuni 480 minutit",
         "createFailed": "Toidu loomine ebaõnnestus",
         "updateFailed": "Toidu uuendamine ebaõnnestus",
+        "duplicateIngredients": "Iga koostisosa saab kasutada ainult üks kord. Eemalda või ühenda korduvad read",
         "generic": "Tekkis viga"
       },
       "discardDialog": {
