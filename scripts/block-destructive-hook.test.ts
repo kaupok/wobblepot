@@ -49,6 +49,7 @@ describe('database commands', () => {
     './node_modules/.bin/prisma migrate reset',
     'DATABASE_URL=postgres://x pnpm prisma migrate reset',
     'cd /tmp && prisma migrate reset',
+    'pnpm prisma migrate \\\n  reset --force',
   ])('blocks migrate reset: %s', (command) => {
     expect(blocked(command)).toBe(true)
   })
@@ -65,6 +66,7 @@ describe('database commands', () => {
     'prisma db push --accept-data-loss',
     'pnpm db:push --force-reset',
     'pnpm run db:push -- --accept-data-loss',
+    'pnpm --filter web db:push --force-reset',
     'npx prisma db push --schema prisma/schema.prisma --accept-data-loss',
   ])('blocks data-losing db push: %s', (command) => {
     expect(blocked(command)).toBe(true)
@@ -110,6 +112,9 @@ describe('git push', () => {
     'git -C ../other push origin main',
     'git push --all',
     'git push --mirror origin',
+    'git push --repo origin main',
+    'git push --repo=origin HEAD:main',
+    'git \\\n  push origin main',
   ])('blocks pushes to main: %s', (command) => {
     expect(blocked(command)).toBe(true)
   })
@@ -202,6 +207,11 @@ describe('wrappers', () => {
     '(cd /tmp && git push origin main)',
     'true; { git push origin main; }',
     'if true; then prisma migrate reset; fi',
+    'timeout 60 pnpm prisma migrate reset',
+    'nice -n 10 pnpm prisma migrate reset',
+    'sudo -u postgres psql -c "DROP TABLE users"',
+    "bash <<'EOF'\nprisma migrate reset\nEOF",
+    'sh -s <<EOF\ngit push origin main\nEOF',
   ])('sees through: %s', (command) => {
     expect(blocked(command)).toBe(true)
   })

@@ -51,21 +51,29 @@ const MAX_DEPTH = 5
 
 // ─── Shell splitting ──────────────────────────────────────────────────────────
 
+/** One simple command, plus the bodies of any heredocs it feeds itself. */
+export interface Segment {
+  text: string
+  heredocs: string[]
+}
+
 /**
  * Splits a shell command into the simple commands it would run: on unquoted
  * `;`, `&`, `&&`, `|`, `||`, newlines, parentheses, backticks and `$(`. Quoted
- * text and heredoc bodies stay inside their segment (or are dropped), so text
- * that is only *data* never reaches the rules as a command.
+ * text stays inside its segment and heredoc bodies are set aside on the
+ * segment that reads them, so text that is only *data* never reaches the rules
+ * as a command.
  */
-export function splitSegments(command: string): string[] {
-  const segments: string[] = []
-  let current = ''
+export function splitCommand(command: string): Segment[] {
+  const segments: Segment[] = []
+  let current: Segment = { text: '', heredocs: [] }
   let quote: "'" | '"' | null = null
-  const pendingHeredocs: { delimiter: string; stripTabs: boolean }[] = []
+  const pendingHeredocs: { delimiter: string; stripTabs: boolean; owner: Segment }[] = []
 
   const flush = () => {
-    if (current.trim()) segments.push(current.trim())
-    current = ''
+    current.text = current.text.trim()
+    if (current.text) segments.push(current)
+    current = { text: '', heredocs: [] }
   }
 
   let i = 0
@@ -74,18 +82,18 @@ export function splitSegments(command: string): string[] {
     const next = command[i + 1]
 
     if (quote === "'") {
-      current += ch
+      current.text += ch
       if (ch === "'") quote = null
       i++
       continue
     }
     if (ch === '\\' && next !== undefined) {
-      current += ch + next
+      current.text += ch + next
       i += 2
       continue
     }
     if (quote === '"') {
-      current += ch
+      current.text += ch
       if (ch === '"') quote = null
       i++
       continue
@@ -93,13 +101,13 @@ export function splitSegments(command: string): string[] {
 
     if (ch === "'" || ch === '"') {
       quote = ch
-      current += ch
+      current.text += ch
       i++
       continue
     }
 
     // Comment: `#` at the start of a word runs to end of line.
-    if (ch === '#' && (current === '' || /\s$/.test(current))) {
+    if (ch === '#' && (current.text === '' || /\s$/.test(current.text))) {
       while (i < command.length && command[i] !== '\n') i++
       continue
     }
@@ -108,8 +116,8 @@ export function splitSegments(command: string): string[] {
     if (ch === '<' && next === '<' && command[i + 2] !== '<') {
       const match = /^<<(-?)\s*(['"]?)([A-Za-z0-9_.-]+)\2/.exec(command.slice(i))
       if (match) {
-        pendingHeredocs.push({ delimiter: match[3]!, stripTabs: match[1] === '-' })
-        current += match[0]
+        pendingHeredocs.push({ delimiter: match[3]!, stripTabs: match[1] === '-', owner: current })
+        current.text += match[0]
         i += match[0].length
         continue
       }
@@ -118,15 +126,18 @@ export function splitSegments(command: string): string[] {
     if (ch === '\n') {
       flush()
       i++
-      // Skip each pending heredoc body, line by line, up to its delimiter.
+      // Set each pending heredoc body aside, line by line, up to its delimiter.
       while (pendingHeredocs.length > 0) {
-        const { delimiter, stripTabs } = pendingHeredocs.shift()!
+        const { delimiter, stripTabs, owner } = pendingHeredocs.shift()!
+        const body: string[] = []
         while (i < command.length) {
           const end = command.indexOf('\n', i)
           const line = command.slice(i, end === -1 ? command.length : end)
           i = end === -1 ? command.length : end + 1
           if ((stripTabs ? line.replace(/^\t+/, '') : line) === delimiter) break
+          body.push(line)
         }
+        owner.heredocs.push(body.join('\n'))
       }
       continue
     }
@@ -137,8 +148,8 @@ export function splitSegments(command: string): string[] {
       continue
     }
     // `2>&1`, `>&2` and `&>file` are redirections, not background operators.
-    if (ch === '&' && (next === '>' || /[<>]$/.test(current))) {
-      current += ch
+    if (ch === '&' && (next === '>' || /[<>]$/.test(current.text))) {
+      current.text += ch
       i++
       continue
     }
@@ -148,12 +159,14 @@ export function splitSegments(command: string): string[] {
       continue
     }
 
-    current += ch
+    current.text += ch
     i++
   }
   flush()
   return segments
 }
+
+export const splitSegments = (command: string): string[] => splitCommand(command).map((s) => s.text)
 
 /** Splits one simple command into words, removing quotes and redirections. */
 export function tokenize(segment: string): string[] {
@@ -178,6 +191,11 @@ export function tokenize(segment: string): string[] {
     if (ch === "'" || ch === '"') {
       quote = ch
       inWord = true
+      continue
+    }
+    // `\<newline>` is a line continuation: bash removes it entirely.
+    if (ch === '\\' && segment[i + 1] === '\n') {
+      i++
       continue
     }
     if (ch === '\\' && i + 1 < segment.length) {
@@ -220,6 +238,9 @@ const TRANSPARENT = new Set([
   'command',
   'exec',
   'nice',
+  'ionice',
+  'timeout',
+  'stdbuf',
   'xargs',
   '{',
   '!',
@@ -233,6 +254,21 @@ const TRANSPARENT = new Set([
 ])
 const RUNNERS = new Set(['npx', 'pnpx', 'bunx'])
 const PACKAGE_MANAGERS = new Set(['pnpm', 'npm', 'yarn', 'bun'])
+/** Programs the rules act on, plus everything `unwrap` sees through. */
+const KNOWN_PROGRAMS = new Set([
+  ...TRANSPARENT,
+  ...RUNNERS,
+  ...PACKAGE_MANAGERS,
+  'prisma',
+  'psql',
+  'git',
+  'gh',
+  'bash',
+  'sh',
+  'zsh',
+  'eval',
+])
+const ASSIGNMENT = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/s
 
 /**
  * Strips what runs *in front of* the real program — inline env assignments,
@@ -246,13 +282,17 @@ export function unwrap(words: string[]): { argv: string[]; env: Record<string, s
   for (;;) {
     const head = argv[0]
     if (head === undefined) break
-    const assignment = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/s.exec(head)
+    const assignment = ASSIGNMENT.exec(head)
     if (assignment) {
       env[assignment[1]!] = assignment[2]!
       argv = argv.slice(1)
     } else if (TRANSPARENT.has(head) || RUNNERS.has(head)) {
       argv = argv.slice(1)
-      while (argv[0]?.startsWith('-')) argv = argv.slice(1)
+      // Prefix options can take values (`sudo -u postgres`, `nice -n 10`,
+      // `timeout 60`), so jump to the next program the rules know about.
+      const next = argv.findIndex((w) => ASSIGNMENT.test(w) || KNOWN_PROGRAMS.has(path.basename(w)))
+      if (next !== -1) argv = argv.slice(next)
+      else while (argv[0]?.startsWith('-')) argv = argv.slice(1)
     } else if (PACKAGE_MANAGERS.has(head) && (argv[1] === 'exec' || argv[1] === 'dlx')) {
       argv = argv.slice(2)
     } else {
@@ -341,8 +381,10 @@ function checkGit(args: string[], ctx: CheckContext): Verdict {
 
   const rest = args.slice(i + 1)
   const positionals: string[] = []
+  let remoteGiven = false
   for (let j = 0; j < rest.length; j++) {
     const arg = rest[j]!
+    if (arg === '--repo' || arg.startsWith('--repo=')) remoteGiven = true
     if (arg === '--force' || arg.startsWith('--force-with-lease') || arg === '--force-if-includes') {
       return block(`\`git push ${arg}\` rewrites remote history. Push a new commit instead.`)
     }
@@ -361,7 +403,8 @@ function checkGit(args: string[], ctx: CheckContext): Verdict {
   }
 
   const branch = () => (ctx.currentBranch ?? gitCurrentBranch)(dir)
-  const refspecs = positionals.slice(1)
+  // With `--repo <remote>`, every positional is a refspec.
+  const refspecs = remoteGiven ? positionals : positionals.slice(1)
   if (refspecs.length === 0) {
     return branch() === 'main'
       ? block('`git push` from `main` pushes `main`. Commit on a feature branch instead.')
@@ -400,6 +443,9 @@ function checkGh(args: string[], env: Record<string, string | undefined>): Verdi
   return PASS
 }
 
+/** Package-manager options that take a separate value (`pnpm --filter web …`). */
+const PM_WITH_VALUE = new Set(['--filter', '-F', '-C', '--dir', '--prefix', '--cwd', '-w', '--workspace'])
+
 function checkScript(
   manager: string,
   args: string[],
@@ -409,7 +455,7 @@ function checkScript(
   analysis: Analysis,
 ): Verdict {
   let first = 0
-  while (args[first]?.startsWith('-')) first++
+  while (args[first]?.startsWith('-')) first += PM_WITH_VALUE.has(args[first]!) ? 2 : 1
   const rest = args.slice(first)
   let name: string | undefined
   let extra: string[] = []
@@ -441,6 +487,7 @@ function checkArgv(
   inheritedEnv: Record<string, string>,
   depth: number,
   analysis: Analysis,
+  heredocs: string[] = [],
 ): Verdict {
   const { argv, env: inline } = unwrap(words)
   const env = { ...inheritedEnv, ...inline }
@@ -465,8 +512,13 @@ function checkArgv(
     case 'sh':
     case 'zsh': {
       const flag = args.findIndex((a) => /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a))
-      const script = flag === -1 ? undefined : args[flag + 1]
-      return script === undefined ? PASS : absorb(analysis, analyse(script, ctx, depth + 1, env))
+      // `bash -c '…'` runs its argument; `bash <<EOF` runs the heredoc body.
+      const scripts = flag === -1 ? heredocs : [args[flag + 1] ?? '']
+      for (const script of scripts) {
+        const verdict = absorb(analysis, analyse(script, ctx, depth + 1, env))
+        if (verdict.blocked) return verdict
+      }
+      return PASS
     }
     case 'eval':
       return absorb(analysis, analyse(args.join(' '), ctx, depth + 1, env))
@@ -489,8 +541,8 @@ function analyse(
 ): Analysis {
   const analysis: Analysis = { verdict: PASS, runsSql: false, sqlFiles: [] }
   if (depth > MAX_DEPTH) return analysis
-  for (const segment of splitSegments(command)) {
-    const verdict = checkArgv(tokenize(segment), ctx, env, depth, analysis)
+  for (const segment of splitCommand(command)) {
+    const verdict = checkArgv(tokenize(segment.text), ctx, env, depth, analysis, segment.heredocs)
     if (verdict.blocked) {
       analysis.verdict = verdict
       return analysis
