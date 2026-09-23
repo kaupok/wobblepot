@@ -20,6 +20,11 @@ import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { formatDateRange } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
 import { track } from '@/lib/analytics'
+import {
+  MEAL_PLAN_GENERATE_ERROR_KEYS,
+  mealPlanGenerateFallbackKey,
+  translateErrorCode,
+} from '@/lib/ai/error-codes'
 
 /**
  * How long the client waits before giving up on `/api/meal-plans/generate`.
@@ -83,15 +88,24 @@ export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
-        if (response.status === 429) {
-          setError(tErrors('rateLimit'))
-        } else if (response.status === 504) {
-          // The server gave up on the generation within its own budget. Show
-          // the localized timeout copy rather than the route's English message.
-          setError(tErrors('generationTimeout'))
-        } else {
-          setError(data.message || tErrors('generationFailed'))
-        }
+        // The route's `error` / `message` are English on every branch, so the
+        // `code` picks the copy and the prose is kept as a console breadcrumb
+        // only (HON-725). A body with no known `code` — a platform 504, a
+        // proxy error page — falls back on the status.
+        console.error('[fill-days] request failed', {
+          code: data.code,
+          error: data.error,
+          message: data.message,
+        })
+        setError(
+          tErrors(
+            translateErrorCode(
+              data.code,
+              MEAL_PLAN_GENERATE_ERROR_KEYS,
+              mealPlanGenerateFallbackKey(response.status),
+            ),
+          ),
+        )
         return
       }
 

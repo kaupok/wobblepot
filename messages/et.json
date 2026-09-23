@@ -173,7 +173,14 @@
       "rateLimit": "Päringute piirmäär on täis. Palun proovi hiljem uuesti.",
       "generationTimeout": "Plaani koostamine aegus. Palun proovi uuesti.",
       "generationFailed": "Toitude koostamine ebaõnnestus. Palun proovi uuesti.",
-      "generic": "Midagi läks valesti. Palun proovi uuesti."
+      "generic": "Midagi läks valesti. Palun proovi uuesti.",
+      "aiCapExceeded": "Selle kuu AI kasutuslimiit on täis. See lähtestub järgmise kuu alguses.",
+      "generationDisabled": "Söögiplaani koostamine on praegu välja lülitatud. Palun proovi hiljem uuesti.",
+      "insufficientCandidates": "Sinu leibkonna eelistustele vastavaid toite pole nende päevade täitmiseks piisavalt. Lisa toite juurde või muuda eelistusi.",
+      "noEmptySlots": "Kõigil valitud päevadel on toidud juba planeeritud.",
+      "planNotFound": "Seda söögiplaani enam ei ole. Värskenda lehte ja proovi uuesti.",
+      "unauthorized": "Sinu seanss on aegunud. Palun logi uuesti sisse.",
+      "noHousehold": "Söögiplaani koostamiseks pead kuuluma leibkonda."
     },
     "card": {
       "noMealPlanned": "Toitu pole planeeritud",
@@ -1005,7 +1012,9 @@
       "deleting": "Kustutan…",
       "errors": {
         "deleteFailed": "Konto kustutamine ebaõnnestus",
-        "unexpected": "Tekkis ootamatu viga"
+        "unexpected": "Tekkis ootamatu viga",
+        "soleOwner": "Kontot ei saa veel kustutada: oled leibkonna „{householdName}\" ainus omanik ja seal on {count, plural, one {# muu liige} other {# muud liiget}}. Palun anna omandiõigus üle või eemalda enne teised liikmed.",
+        "unauthorized": "Sinu seanss on aegunud. Palun logi uuesti sisse."
       }
     }
   },

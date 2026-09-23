@@ -173,7 +173,14 @@
       "rateLimit": "Rate limit exceeded. Please try again later.",
       "generationTimeout": "Generation timed out. Please try again.",
       "generationFailed": "Failed to generate meals. Please try again.",
-      "generic": "Something went wrong. Please try again."
+      "generic": "Something went wrong. Please try again.",
+      "aiCapExceeded": "This month's AI usage limit is used up. It resets at the start of next month.",
+      "generationDisabled": "Meal plan generation is turned off right now. Please try again later.",
+      "insufficientCandidates": "There aren't enough meals that fit your household's preferences to fill these days. Add more meals or adjust your preferences.",
+      "noEmptySlots": "Every day in this range already has meals planned.",
+      "planNotFound": "This meal plan no longer exists. Refresh the page and try again.",
+      "unauthorized": "Your session has expired. Please sign in again.",
+      "noHousehold": "You need a household before you can plan meals."
     },
     "card": {
       "noMealPlanned": "No meal planned",
@@ -1005,7 +1012,9 @@
       "deleting": "Deleting…",
       "errors": {
         "deleteFailed": "Failed to delete account",
-        "unexpected": "An unexpected error occurred"
+        "unexpected": "An unexpected error occurred",
+        "soleOwner": "You can't delete your account yet: you are the only owner of \"{householdName}\", which has {count, plural, one {# other member} other {# other members}}. Please transfer ownership or remove other members first.",
+        "unauthorized": "Your session has expired. Please sign in again."
       }
     }
   },

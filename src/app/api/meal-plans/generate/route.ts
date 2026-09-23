@@ -22,6 +22,7 @@ import { withRequestId } from '@/lib/request-id'
 import { getServerFlag } from '@/lib/feature-flags'
 import { captureApiError } from '@/lib/errors'
 import { isAiBudgetTimeout } from '@/lib/ai/timeout'
+import type { MealPlanGenerateErrorCode } from '@/lib/ai/error-codes'
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
 
@@ -64,6 +65,19 @@ const MAX_DAYS = 14
  */
 const AI_BUDGET_MS = 40_000
 
+/**
+ * Every error body carries a `code` from `MealPlanGenerateErrorCode` (HON-725).
+ * `FirstTimeSetup` and `FillDaysAction` render a translation keyed on it; the
+ * `error` / `message` prose is English and stays only for logs and breadcrumbs.
+ */
+function errorJson(
+  code: MealPlanGenerateErrorCode,
+  body: Record<string, unknown>,
+  init: ResponseInit,
+): NextResponse {
+  return NextResponse.json({ code, ...body }, init)
+}
+
 async function handlePOST(request: Request) {
   // Auth check
   const session = await auth.api.getSession({
@@ -71,21 +85,22 @@ async function handlePOST(request: Request) {
   })
 
   if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return errorJson('unauthorized', { error: 'Unauthorized' }, { status: 401 })
   }
 
   // Get household membership
   const membership = await getHouseholdMembership(session.user.id)
 
   if (!membership) {
-    return NextResponse.json({ error: 'No household found' }, { status: 404 })
+    return errorJson('no_household', { error: 'No household found' }, { status: 404 })
   }
 
   const { household } = membership
 
   const rateLimitResult = await checkRateLimit(household.id, 'plan-generation')
   if (!rateLimitResult.allowed) {
-    return NextResponse.json(
+    return errorJson(
+      'rate_limited',
       {
         error: 'Rate limit exceeded',
         message: `Maximum ${rateLimitResult.limit} meal plan generations per hour`,
@@ -103,7 +118,8 @@ async function handlePOST(request: Request) {
   // the route working through PostHog outages — see docs/FEATURE_FLAGS.md.
   const aiEnabled = await getServerFlag('ai_generation_enabled', session.user.id)
   if (!aiEnabled) {
-    return NextResponse.json(
+    return errorJson(
+      'generation_disabled',
       {
         error: 'AI generation is temporarily disabled',
         message: 'AI plan generation is currently turned off. Please try again later.',
@@ -129,13 +145,17 @@ async function handlePOST(request: Request) {
       body = JSON.parse(text)
     }
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return errorJson('invalid_request', { error: 'Invalid JSON' }, { status: 400 })
   }
 
   const parsed = generateRequestSchema.safeParse(body)
   if (!parsed.success) {
     const errors = parsed.error.flatten().fieldErrors
-    return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
+    return errorJson(
+      'invalid_request',
+      { error: 'Validation failed', details: errors },
+      { status: 400 },
+    )
   }
 
   const { mode = 'generate', planId } = parsed.data
@@ -146,12 +166,17 @@ async function handlePOST(request: Request) {
 
   // Validate date range
   if (endDate <= startDate) {
-    return NextResponse.json({ error: 'endDate must be after startDate' }, { status: 400 })
+    return errorJson(
+      'invalid_request',
+      { error: 'endDate must be after startDate' },
+      { status: 400 },
+    )
   }
 
   const dayCount = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
   if (dayCount > MAX_DAYS) {
-    return NextResponse.json(
+    return errorJson(
+      'invalid_request',
       { error: `Date range cannot exceed ${MAX_DAYS} days` },
       { status: 400 },
     )
@@ -169,7 +194,11 @@ async function handlePOST(request: Request) {
   // Handle fill-empty mode
   if (mode === 'fill-empty') {
     if (!planId) {
-      return NextResponse.json({ error: 'planId is required for fill-empty mode' }, { status: 400 })
+      return errorJson(
+        'invalid_request',
+        { error: 'planId is required for fill-empty mode' },
+        { status: 400 },
+      )
     }
 
     try {
@@ -193,7 +222,8 @@ async function handlePOST(request: Request) {
       return NextResponse.json(result, { status: 200 })
     } catch (error) {
       if (error instanceof NoEmptySlotsError) {
-        return NextResponse.json(
+        return errorJson(
+          'no_empty_slots',
           { error: 'No empty slots to fill', message: error.message },
           { status: 400 },
         )
@@ -206,21 +236,23 @@ async function handlePOST(request: Request) {
           feature: 'plan_fill_empty',
           householdId: household.id,
         })
-        return NextResponse.json(
+        return errorJson(
+          'invalid_plan',
           { error: 'AI generated an invalid meal plan', message: error.message },
           { status: 422 },
         )
       }
 
       if (error instanceof InsufficientCandidatesError) {
-        return NextResponse.json(
+        return errorJson(
+          'insufficient_candidates',
           { error: 'Insufficient meal options', message: error.message },
           { status: 422 },
         )
       }
 
       if (error instanceof Error && error.message === 'Plan not found') {
-        return NextResponse.json({ error: 'Plan not found' }, { status: 404 })
+        return errorJson('plan_not_found', { error: 'Plan not found' }, { status: 404 })
       }
 
       captureApiError(error, {
@@ -234,7 +266,8 @@ async function handlePOST(request: Request) {
       // timeout is user-facing but it also means the budget above is
       // mis-sized, which is exactly what should show up in Sentry.
       if (isAiBudgetTimeout(error)) {
-        return NextResponse.json(
+        return errorJson(
+          'generation_timeout',
           {
             error: 'Request timed out',
             message: 'Filling the empty days took too long. Please try again.',
@@ -243,7 +276,11 @@ async function handlePOST(request: Request) {
         )
       }
 
-      return NextResponse.json({ error: 'Failed to fill empty slots' }, { status: 500 })
+      return errorJson(
+        'generation_failed',
+        { error: 'Failed to fill empty slots' },
+        { status: 500 },
+      )
     }
   }
 
@@ -264,7 +301,11 @@ async function handlePOST(request: Request) {
         feature: 'plan_empty',
         householdId: household.id,
       })
-      return NextResponse.json({ error: 'Failed to create empty plan' }, { status: 500 })
+      return errorJson(
+        'generation_failed',
+        { error: 'Failed to create empty plan' },
+        { status: 500 },
+      )
     }
   }
 
@@ -296,7 +337,8 @@ async function handlePOST(request: Request) {
         feature: 'plan_generate',
         householdId: household.id,
       })
-      return NextResponse.json(
+      return errorJson(
+        'invalid_plan',
         { error: 'AI generated an invalid meal plan', message: error.message },
         { status: 422 },
       )
@@ -304,7 +346,8 @@ async function handlePOST(request: Request) {
 
     // Handle insufficient candidates for required protein slots
     if (error instanceof InsufficientCandidatesError) {
-      return NextResponse.json(
+      return errorJson(
+        'insufficient_candidates',
         { error: 'Insufficient meal options', message: error.message },
         { status: 422 },
       )
@@ -321,7 +364,8 @@ async function handlePOST(request: Request) {
     // is user-facing but it also means the budget above is mis-sized, which is
     // exactly what should show up in Sentry.
     if (isAiBudgetTimeout(error)) {
-      return NextResponse.json(
+      return errorJson(
+        'generation_timeout',
         {
           error: 'Request timed out',
           message: 'Generating the plan took too long. Please try again.',
@@ -330,7 +374,11 @@ async function handlePOST(request: Request) {
       )
     }
 
-    return NextResponse.json({ error: 'Failed to generate meal plan' }, { status: 500 })
+    return errorJson(
+      'generation_failed',
+      { error: 'Failed to generate meal plan' },
+      { status: 500 },
+    )
   }
 }
 

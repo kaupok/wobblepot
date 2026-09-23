@@ -1,6 +1,7 @@
 /**
- * Machine-readable error codes for the two AI surfaces whose failures reach a
- * user-facing string: `/api/meals/imagine` and `/api/recipes/parse`.
+ * Machine-readable error codes for the AI surfaces whose failures reach a
+ * user-facing string: `/api/meals/imagine`, `/api/recipes/parse` and
+ * `/api/meal-plans/generate` (HON-725).
  *
  * The routes send a `code` alongside the existing `error` prose; the clients
  * map the code to a message key and render the translation. `error` stays in
@@ -47,6 +48,21 @@ export type RecipeImportErrorCode =
   | 'low_confidence'
   | 'parse_timeout'
   | 'parse_failed'
+
+/** Error codes returned by `POST /api/meal-plans/generate`. */
+export type MealPlanGenerateErrorCode =
+  | 'unauthorized'
+  | 'no_household'
+  | 'rate_limited'
+  | 'generation_disabled'
+  | 'ai_cap_exceeded'
+  | 'invalid_request'
+  | 'no_empty_slots'
+  | 'invalid_plan'
+  | 'insufficient_candidates'
+  | 'plan_not_found'
+  | 'generation_timeout'
+  | 'generation_failed'
 
 /**
  * The subset of `RecipeImportErrorCode` a `RecipeParseError` can carry. The
@@ -114,6 +130,38 @@ export const RECIPE_IMPORT_ERROR_KEYS = {
   // would otherwise give better guidance than the server does.
   parse_failed: 'parseGeneric',
 } as const satisfies Record<RecipeImportErrorCode, string>
+
+/**
+ * `MealPlanGenerateErrorCode` → message key under `meal-plan.errors`, read by
+ * `FirstTimeSetup` and `FillDaysAction`.
+ */
+export const MEAL_PLAN_GENERATE_ERROR_KEYS = {
+  unauthorized: 'unauthorized',
+  no_household: 'noHousehold',
+  rate_limited: 'rateLimit',
+  generation_disabled: 'generationDisabled',
+  ai_cap_exceeded: 'aiCapExceeded',
+  invalid_request: 'generic',
+  no_empty_slots: 'noEmptySlots',
+  // The model returned a plan that failed validation — a retry usually
+  // produces a valid one, which is what `generationFailed` tells the user.
+  invalid_plan: 'generationFailed',
+  insufficient_candidates: 'insufficientCandidates',
+  plan_not_found: 'planNotFound',
+  generation_timeout: 'generationTimeout',
+  generation_failed: 'generationFailed',
+} as const satisfies Record<MealPlanGenerateErrorCode, string>
+
+/**
+ * Fallback key for a generate response with no usable `code`. A 504 or 429
+ * from the platform or a proxy carries no body we wrote, so the status is the
+ * only signal left — and it still picks better copy than the generic message.
+ */
+export function mealPlanGenerateFallbackKey(status: number): string {
+  if (status === 504) return 'generationTimeout'
+  if (status === 429) return 'rateLimit'
+  return 'generationFailed'
+}
 
 /**
  * Resolve the message key for a `code` off the wire, falling back when the

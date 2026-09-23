@@ -38,6 +38,10 @@ vi.mock('@/lib/meal-planning/dates', () => ({
   }),
 }))
 
+vi.mock('@/lib/feature-flags', () => ({
+  getServerFlag: vi.fn(),
+}))
+
 vi.mock('@/lib/ai/usage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/ai/usage')>()
   return {
@@ -57,7 +61,8 @@ import {
   InsufficientCandidatesError,
   NoEmptySlotsError,
 } from '@/lib/ai/types'
-import { assertUnderCap } from '@/lib/ai/usage'
+import { AiCostCapExceededError, assertUnderCap } from '@/lib/ai/usage'
+import { getServerFlag } from '@/lib/feature-flags'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -66,6 +71,7 @@ const mockGenerateMealPlan = vi.mocked(generateMealPlan)
 const mockCreateEmptyPlan = vi.mocked(createEmptyPlan)
 const mockFillEmptySlots = vi.mocked(fillEmptySlots)
 const mockAssertUnderCap = vi.mocked(assertUnderCap)
+const mockGetServerFlag = vi.mocked(getServerFlag)
 
 const mockHousehold = {
   id: 'household-123',
@@ -111,6 +117,7 @@ describe('POST /api/meal-plans/generate', () => {
       resetAt: new Date('2026-02-01T12:00:00.000Z'),
     })
     mockAssertUnderCap.mockResolvedValue(undefined)
+    mockGetServerFlag.mockResolvedValue(true)
   })
 
   it('returns 401 when not authenticated', async () => {
@@ -121,6 +128,7 @@ describe('POST /api/meal-plans/generate', () => {
 
     expect(response.status).toBe(401)
     expect(data.error).toBe('Unauthorized')
+    expect(data.code).toBe('unauthorized')
   })
 
   it('returns 404 when user has no household', async () => {
@@ -132,6 +140,7 @@ describe('POST /api/meal-plans/generate', () => {
 
     expect(response.status).toBe(404)
     expect(data.error).toBe('No household found')
+    expect(data.code).toBe('no_household')
   })
 
   it('returns 429 with Retry-After header when rate limited', async () => {
@@ -150,6 +159,7 @@ describe('POST /api/meal-plans/generate', () => {
     expect(response.status).toBe(429)
     expect(response.headers.get('Retry-After')).toBe('60')
     expect(data.error).toBe('Rate limit exceeded')
+    expect(data.code).toBe('rate_limited')
     expect(data.resetAt).toBe('2026-02-01T12:00:00.000Z')
   })
 
@@ -167,6 +177,7 @@ describe('POST /api/meal-plans/generate', () => {
 
     expect(response.status).toBe(400)
     expect(data.error).toBe('Invalid JSON')
+    expect(data.code).toBe('invalid_request')
   })
 
   it('returns 400 for missing startDate or endDate', async () => {
@@ -178,6 +189,7 @@ describe('POST /api/meal-plans/generate', () => {
 
     expect(response.status).toBe(400)
     expect(data.error).toBe('Validation failed')
+    expect(data.code).toBe('invalid_request')
     expect(data.details.endDate).toBeDefined()
   })
 
@@ -190,6 +202,7 @@ describe('POST /api/meal-plans/generate', () => {
 
     expect(response.status).toBe(400)
     expect(data.error).toBe('endDate must be after startDate')
+    expect(data.code).toBe('invalid_request')
   })
 
   it('returns 400 when date range exceeds 14 days', async () => {
@@ -201,6 +214,7 @@ describe('POST /api/meal-plans/generate', () => {
 
     expect(response.status).toBe(400)
     expect(data.error).toBe('Date range cannot exceed 14 days')
+    expect(data.code).toBe('invalid_request')
   })
 
   it('returns 200 with generated plan for valid date range', async () => {
@@ -271,6 +285,7 @@ describe('POST /api/meal-plans/generate', () => {
 
     expect(response.status).toBe(400)
     expect(data.error).toBe('planId is required for fill-empty mode')
+    expect(data.code).toBe('invalid_request')
   })
 
   it('returns 200 for fill-empty mode with planId and date range', async () => {
@@ -318,6 +333,7 @@ describe('POST /api/meal-plans/generate', () => {
 
     expect(response.status).toBe(422)
     expect(data.error).toBe('AI generated an invalid meal plan')
+    expect(data.code).toBe('invalid_plan')
   })
 
   it('returns 422 when insufficient candidates', async () => {
@@ -330,6 +346,7 @@ describe('POST /api/meal-plans/generate', () => {
 
     expect(response.status).toBe(422)
     expect(data.error).toBe('Insufficient meal options')
+    expect(data.code).toBe('insufficient_candidates')
   })
 
   it('returns 500 for unexpected errors', async () => {
@@ -342,6 +359,7 @@ describe('POST /api/meal-plans/generate', () => {
 
     expect(response.status).toBe(500)
     expect(data.error).toBe('Failed to generate meal plan')
+    expect(data.code).toBe('generation_failed')
   })
 
   it('returns 504 when the generation exceeds its budget', async () => {
@@ -356,6 +374,7 @@ describe('POST /api/meal-plans/generate', () => {
 
     expect(response.status).toBe(504)
     expect(data.message).toContain('too long')
+    expect(data.code).toBe('generation_timeout')
   })
 
   it('returns 504 when the budget fires during a retry sleep (AbortError)', async () => {
@@ -371,6 +390,7 @@ describe('POST /api/meal-plans/generate', () => {
 
     expect(response.status).toBe(504)
     expect(data.message).toContain('too long')
+    expect(data.code).toBe('generation_timeout')
   })
 
   it('returns 504 when fill-empty exceeds its budget', async () => {
@@ -392,5 +412,106 @@ describe('POST /api/meal-plans/generate', () => {
 
     expect(response.status).toBe(504)
     expect(data.message).toContain('too long')
+    expect(data.code).toBe('generation_timeout')
+  })
+  // HON-725: every error branch carries a stable `code` for the clients to
+  // translate. The branches above assert theirs inline; these had no test.
+  describe('error codes', () => {
+    const fillRequest = () =>
+      createRequest({
+        startDate: '2026-02-02',
+        endDate: '2026-02-09',
+        mode: 'fill-empty',
+        planId: 'plan-123',
+      })
+
+    beforeEach(() => {
+      mockGetSession.mockResolvedValue(mockSession as never)
+      mockGetMembership.mockResolvedValue(mockMembership as never)
+    })
+
+    it('returns generation_disabled when the kill-switch is off', async () => {
+      mockGetServerFlag.mockResolvedValue(false)
+
+      const response = await POST(createRequest({ startDate: '2026-02-02', endDate: '2026-02-09' }))
+      const data = await response.json()
+
+      expect(response.status).toBe(503)
+      expect(data.code).toBe('generation_disabled')
+    })
+
+    it('returns ai_cap_exceeded when the monthly cap is hit', async () => {
+      mockAssertUnderCap.mockRejectedValue(
+        new AiCostCapExceededError(new Date('2026-03-01T00:00:00Z'), 'Europe/Tallinn'),
+      )
+
+      const response = await POST(createRequest({ startDate: '2026-02-02', endDate: '2026-02-09' }))
+      const data = await response.json()
+
+      expect(response.status).toBe(429)
+      expect(data.code).toBe('ai_cap_exceeded')
+    })
+
+    it('returns no_empty_slots when fill-empty has nothing to fill', async () => {
+      mockFillEmptySlots.mockRejectedValue(new NoEmptySlotsError())
+
+      const response = await POST(fillRequest())
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.code).toBe('no_empty_slots')
+    })
+
+    it('returns plan_not_found when fill-empty targets a missing plan', async () => {
+      mockFillEmptySlots.mockRejectedValue(new Error('Plan not found'))
+
+      const response = await POST(fillRequest())
+      const data = await response.json()
+
+      expect(response.status).toBe(404)
+      expect(data.code).toBe('plan_not_found')
+    })
+
+    it('returns invalid_plan when fill-empty validation fails', async () => {
+      mockFillEmptySlots.mockRejectedValue(new MealPlanValidationError('Invalid AI response'))
+
+      const response = await POST(fillRequest())
+      const data = await response.json()
+
+      expect(response.status).toBe(422)
+      expect(data.code).toBe('invalid_plan')
+    })
+
+    it('returns insufficient_candidates when fill-empty lacks options', async () => {
+      mockFillEmptySlots.mockRejectedValue(new InsufficientCandidatesError('fish'))
+
+      const response = await POST(fillRequest())
+      const data = await response.json()
+
+      expect(response.status).toBe(422)
+      expect(data.code).toBe('insufficient_candidates')
+    })
+
+    it('returns generation_failed for an unexpected fill-empty error', async () => {
+      mockFillEmptySlots.mockRejectedValue(new Error('boom'))
+
+      const response = await POST(fillRequest())
+      const data = await response.json()
+
+      expect(response.status).toBe(500)
+      expect(data.code).toBe('generation_failed')
+    })
+
+    it('returns generation_failed when empty mode fails', async () => {
+      mockCreateEmptyPlan.mockRejectedValue(new Error('boom'))
+
+      const response = await POST(
+        createRequest({ startDate: '2026-02-02', endDate: '2026-02-09', mode: 'empty' }),
+      )
+      const data = await response.json()
+
+      expect(response.status).toBe(500)
+      expect(data.code).toBe('generation_failed')
+    })
   })
 })

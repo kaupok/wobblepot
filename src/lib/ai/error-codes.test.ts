@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import { IMAGINE_ERROR_KEYS, RECIPE_IMPORT_ERROR_KEYS, translateErrorCode } from './error-codes'
+import { ACCOUNT_DELETION_ERROR_KEYS } from '@/lib/account-deletion-error-codes'
+import {
+  IMAGINE_ERROR_KEYS,
+  MEAL_PLAN_GENERATE_ERROR_KEYS,
+  RECIPE_IMPORT_ERROR_KEYS,
+  mealPlanGenerateFallbackKey,
+  translateErrorCode,
+} from './error-codes'
 
 /**
  * The contract these maps exist to hold: a code the route can emit always
@@ -24,6 +31,22 @@ const surfaces = [
     en: enMessages.recipes.import.errors as Record<string, unknown>,
     et: etMessages.recipes.import.errors as Record<string, unknown>,
     fallback: 'parseGeneric',
+  },
+  {
+    name: 'meal-plan.errors',
+    keys: MEAL_PLAN_GENERATE_ERROR_KEYS,
+    en: enMessages['meal-plan'].errors as Record<string, unknown>,
+    et: etMessages['meal-plan'].errors as Record<string, unknown>,
+    fallback: 'generationFailed',
+  },
+  // Not an AI surface, but the same contract — kept here so one suite covers
+  // every code map `translateErrorCode` is handed (HON-725).
+  {
+    name: 'profile.delete.errors',
+    keys: ACCOUNT_DELETION_ERROR_KEYS,
+    en: enMessages.profile.delete.errors as Record<string, unknown>,
+    et: etMessages.profile.delete.errors as Record<string, unknown>,
+    fallback: 'deleteFailed',
   },
 ] as const
 
@@ -84,5 +107,24 @@ describe('translateErrorCode', () => {
     // `toString` into a truthy "key" and render something meaningless.
     expect(translateErrorCode('toString', IMAGINE_ERROR_KEYS, 'generic')).toBe('generic')
     expect(translateErrorCode('constructor', IMAGINE_ERROR_KEYS, 'generic')).toBe('generic')
+  })
+})
+
+describe('mealPlanGenerateFallbackKey', () => {
+  it('keeps the timeout and rate-limit copy for a body with no code', () => {
+    expect(mealPlanGenerateFallbackKey(504)).toBe('generationTimeout')
+    expect(mealPlanGenerateFallbackKey(429)).toBe('rateLimit')
+    expect(mealPlanGenerateFallbackKey(500)).toBe('generationFailed')
+    expect(mealPlanGenerateFallbackKey(400)).toBe('generationFailed')
+  })
+
+  it('returns keys present in both catalogs', () => {
+    for (const status of [504, 429, 500]) {
+      const key = mealPlanGenerateFallbackKey(
+        status,
+      ) as keyof (typeof enMessages)['meal-plan']['errors']
+      expect(typeof enMessages['meal-plan'].errors[key]).toBe('string')
+      expect(typeof etMessages['meal-plan'].errors[key]).toBe('string')
+    }
   })
 })
