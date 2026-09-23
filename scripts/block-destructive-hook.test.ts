@@ -93,6 +93,23 @@ describe('database commands', () => {
     expect(blocked('prisma db execute --file cleanup.sql', { readFile })).toBe(true)
   })
 
+  it('blocks destructive SQL redirected or piped in from a file', () => {
+    const readFile = (file: string) => (file.endsWith('drop.sql') ? 'DROP TABLE users;' : null)
+    expect(blocked('psql "$DATABASE_URL" < drop.sql', { readFile })).toBe(true)
+    expect(blocked('psql "$DATABASE_URL" <drop.sql', { readFile })).toBe(true)
+    expect(blocked('cat drop.sql | psql "$DATABASE_URL"', { readFile })).toBe(true)
+    expect(blocked('prisma db execute --stdin < drop.sql', { readFile })).toBe(true)
+    expect(blocked('psql "$DATABASE_URL" < select.sql', { readFile })).toBe(false)
+    expect(blocked('cat drop.sql | wc -l', { readFile })).toBe(false)
+  })
+
+  it('resolves SQL file paths against an earlier cd', () => {
+    const readFile = (file: string) =>
+      file === path.join(repoRoot, 'prisma/cleanup.sql') ? 'TRUNCATE meals;' : null
+    expect(blocked('cd prisma && psql -f cleanup.sql', { readFile })).toBe(true)
+    expect(blocked('psql -f cleanup.sql', { readFile })).toBe(false)
+  })
+
   it.each([
     'pnpm db:migrate',
     'pnpm db:push',
@@ -172,6 +189,8 @@ describe('gh pr merge', () => {
     'gh pr merge --squash --delete-branch',
     'gh pr merge 123 --squash',
     'gh -R kaupok/wobblepot pr merge 1',
+    'gh pr -R kaupok/wobblepot merge 1',
+    'gh pr --repo kaupok/wobblepot merge 1 --squash',
     'gh api -X PUT repos/kaupok/wobblepot/pulls/1/merge',
     'WOBBLEPOT_ALLOW_MERGE=0 gh pr merge --squash',
   ])('blocks a merge without the opt-in: %s', (command) => {

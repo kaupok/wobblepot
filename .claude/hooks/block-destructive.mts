@@ -168,8 +168,11 @@ export function splitCommand(command: string): Segment[] {
 
 export const splitSegments = (command: string): string[] => splitCommand(command).map((s) => s.text)
 
-/** Splits one simple command into words, removing quotes and redirections. */
-export function tokenize(segment: string): string[] {
+/**
+ * Splits one simple command into words, removing quotes and redirections.
+ * Files redirected into stdin (`< drop.sql`) are appended to `inputs`.
+ */
+export function tokenize(segment: string, inputs: string[] = []): string[] {
   const words: string[] = []
   let word = ''
   let inWord = false
@@ -219,9 +222,11 @@ export function tokenize(segment: string): string[] {
   for (let i = 0; i < words.length; i++) {
     const w = words[i]!
     if (/^(\d*|&)(>>?|<<?<?)$/.test(w)) {
+      if (/^0?<$/.test(w) && words[i + 1] !== undefined) inputs.push(words[i + 1]!)
       i++
       continue
     }
+    if (/^0?<[^<>&]/.test(w)) inputs.push(w.replace(/^0?</, ''))
     if (/^(\d*|&)(>>?|<)/.test(w)) continue
     result.push(w)
   }
@@ -340,7 +345,7 @@ function followedBy(args: string[], first: string, second: string): boolean {
   return next === second
 }
 
-function checkPrisma(args: string[], analysis: Analysis): Verdict {
+function checkPrisma(args: string[], ctx: CheckContext, analysis: Analysis): Verdict {
   if (followedBy(args, 'migrate', 'reset')) {
     return block('`prisma migrate reset` drops every table in the target database.')
   }
@@ -351,15 +356,15 @@ function checkPrisma(args: string[], analysis: Analysis): Verdict {
   if (followedBy(args, 'db', 'execute')) {
     analysis.runsSql = true
     const file = flagValue(args, ['--file'])
-    if (file) analysis.sqlFiles.push(file)
+    if (file) analysis.sqlFiles.push(path.resolve(ctx.cwd, file))
   }
   return PASS
 }
 
-function checkPsql(args: string[], analysis: Analysis): Verdict {
+function checkPsql(args: string[], ctx: CheckContext, analysis: Analysis): Verdict {
   analysis.runsSql = true
   const file = flagValue(args, ['-f', '--file'])
-  if (file) analysis.sqlFiles.push(file)
+  if (file) analysis.sqlFiles.push(path.resolve(ctx.cwd, file))
   return PASS
 }
 
@@ -429,7 +434,9 @@ function checkGit(args: string[], ctx: CheckContext): Verdict {
   return PASS
 }
 
-function checkGh(args: string[], env: Record<string, string | undefined>): Verdict {
+function checkGh(allArgs: string[], env: Record<string, string | undefined>): Verdict {
+  // Drop `-R/--repo <owner/repo>` so its value is not read as a subcommand.
+  const args = allArgs.filter((a, i) => a !== '-R' && a !== '--repo' && !['-R', '--repo'].includes(allArgs[i - 1] ?? ''))
   const positionals = args.filter((a) => !a.startsWith('-'))
   const isPrMerge = followedBy(args, 'pr', 'merge')
   const method = flagValue(args, ['-X', '--method'])
@@ -499,9 +506,9 @@ function checkArgv(
 
   switch (program) {
     case 'prisma':
-      return checkPrisma(args, analysis)
+      return checkPrisma(args, ctx, analysis)
     case 'psql':
-      return checkPsql(args, analysis)
+      return checkPsql(args, ctx, analysis)
     case 'git':
       return checkGit(args, ctx)
     case 'gh':
@@ -547,7 +554,13 @@ function analyse(
   // Earlier commands can change where a later bare `git push` runs from.
   let local = ctx
   for (const segment of splitCommand(command)) {
-    const words = tokenize(segment.text)
+    // Files that could be SQL on stdin: `psql < drop.sql`, `cat drop.sql | psql`.
+    // Only read when a segment turns out to run SQL (see `checkCommand`).
+    const inputs: string[] = []
+    const words = tokenize(segment.text, inputs)
+    const [program, ...args] = unwrap(words).argv
+    if (program === 'cat') inputs.push(...args.filter((a) => !a.startsWith('-')))
+    analysis.sqlFiles.push(...inputs.map((f) => path.resolve(local.cwd, f)))
     const verdict = checkArgv(words, local, env, depth, analysis, segment.heredocs)
     if (verdict.blocked) {
       analysis.verdict = verdict
@@ -580,9 +593,9 @@ export function checkCommand(command: string, ctx: CheckContext): Verdict {
   if (analysis.verdict.blocked || !analysis.runsSql) return analysis.verdict
 
   // SQL reaches psql / `prisma db execute` by -c, pipe, heredoc or file, so
-  // look at the whole command text plus any file it names.
+  // look at the whole command text plus any file it names or redirects in.
   const read = ctx.readFile ?? readFileOrNull
-  const sources = [command, ...analysis.sqlFiles.map((f) => read(path.resolve(ctx.cwd, f)) ?? '')]
+  const sources = [command, ...analysis.sqlFiles.map((f) => read(f) ?? '')]
   const hit = sources.map((s) => DESTRUCTIVE_SQL.exec(s)).find(Boolean)
   return hit
     ? block(`\`${hit[0]}\` destroys data. Write a migration that fixes forward instead.`)
@@ -612,8 +625,12 @@ function readScripts(dir: string): Record<string, string> {
   }
 }
 
+/** Files past this size are not SQL scripts worth scanning on every Bash call. */
+const MAX_SQL_FILE_BYTES = 1_000_000
+
 function readFileOrNull(file: string): string | null {
   try {
+    if (fs.statSync(file).size > MAX_SQL_FILE_BYTES) return null
     return fs.readFileSync(file, 'utf8')
   } catch {
     return null
