@@ -201,6 +201,7 @@ wt stop
 
 - On worker failure, a one-shot `claude -p` call analyzes the log
 - Returns: `RETRY` (respawn, max 1 retry), `BACKLOG` (needs refinement), or `NEEDS_HUMAN` (infra problem)
+- A `RETRY` (and the Neon-cap one-retry) respawns with a **retry note** — phase, failure type, duration, commit count and the last 40 log lines through `sanitize_log` — passed as `ORCHESTRATOR_RETRY_CONTEXT` to `wt auto`, which appends it to the `/auto-implement` prompt. The skill reads it first and resumes from the kept branch or open PR instead of starting over. Progress markers in the quoted tail are defanged (`[x:complete]` → `(x:complete)`) so attempt 1's markers can never be read as attempt 2's progress (HON-728)
 - Failed issues get a comment with log tail, a label (`failed`/`needs-attention`), and move to Backlog
 - The log tail is run through `sanitize_log` before it reaches Linear. Redaction is a **literal** match of every `.env` value ≥ 8 chars, plus a `sed` backstop for common secret shapes. It used to be an `awk gsub()`, which reads its pattern as a regex — so a base64 `BETTER_AUTH_SECRET`, a `NEON_API_KEY`, anything with `+ ? . * [ ] ( ) \ ^ $ |` in it, silently failed to match itself and was posted in the clear (HON-572)
 
