@@ -599,7 +599,6 @@
     },
     "actions": {
       "userMenu": "Kasutajamenüü",
-      "toggleMenu": "Ava menüü",
       "account": "Konto",
       "accountMenu": "Konto menüü",
       "profile": "Profiil",

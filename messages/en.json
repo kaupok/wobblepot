@@ -599,7 +599,6 @@
     },
     "actions": {
       "userMenu": "User menu",
-      "toggleMenu": "Toggle menu",
       "account": "Account",
       "accountMenu": "Account menu",
       "profile": "Profile",

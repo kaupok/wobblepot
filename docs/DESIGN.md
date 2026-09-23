@@ -170,7 +170,8 @@ Each of these came from a review that found the opposite in production.
 - **Titles sit on the page background.** A page whose content is one thing (`/recipes`, `/profile`, `/household`) opens with `Heading variant="h4" as="h1"` and an optional `Body variant="muted"` line directly on the background, above the content. A page that is a workspace of sections (Today, `/shopping`) titles its sections, not the page; the section title is the section card's `CardHeader` (`ShoppingListHeader`), rendered `as="h2"` (`HON-767`).
 - **Lists fill, forms stay narrow.** A page whose content is a list or a workspace (`/`, `/shopping`, `/household`, `/recipes`) fills the page width. A page whose content is a form or prose (`/profile`, legal pages) keeps a `max-w-2xl` column, left-aligned inside the container, not centred in the viewport (`HON-767`).
 - **Content starts at the top.** No `place-items-center` shells for in-app pages: the content column aligns to the top of the container, so a page's height can change (loading → loaded, empty → populated) without moving what is already on screen. The route's `loading.tsx` uses the same container and column width, with no bordered wrapper standing in for a card the page does not have (`HON-767`).
-- **Controls belong in menus, not headers.** Preference toggles (theme, language) live in the user menu, not in the header bar (`HON-382`).
+- **Controls belong in menus, not headers.** Preference toggles (theme; language is a household setting on `/household`, not a per-user preference) live in the user menu, not in the header bar (`HON-382`, `HON-775`).
+- **The account menu is a person.** On every viewport the account entry point is the person icon; the bottom tab bar is the only main navigation on a phone (`HON-775`).
 - **Mobile first, then widen.** Build the 390px layout, then add `md:` and `lg:` variants. Never the reverse (`HON-395`).
 
 ## Copy

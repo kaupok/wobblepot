@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useSyncExternalStore } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Moon, Sun, User } from 'lucide-react'
-import { useTheme } from 'next-themes'
 import { useTranslations } from 'next-intl'
 import { authClient } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
@@ -16,9 +15,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { useThemeToggle } from '@/hooks/use-theme-toggle'
 import type { Session } from '@/lib/auth'
-
-const emptySubscribe = () => () => {}
 
 interface HeaderActionsProps {
   session: Session | null
@@ -29,12 +27,7 @@ export function HeaderActions({ session, hasHousehold }: HeaderActionsProps) {
   const router = useRouter()
   const t = useTranslations('nav.actions')
   const [isLoading, setIsLoading] = useState(false)
-  const { resolvedTheme, setTheme } = useTheme()
-  const mounted = useSyncExternalStore(
-    emptySubscribe,
-    () => true,
-    () => false,
-  )
+  const theme = useThemeToggle()
 
   const handleSignOut = async () => {
     setIsLoading(true)
@@ -80,17 +73,9 @@ export function HeaderActions({ session, hasHousehold }: HeaderActionsProps) {
               {isLoading ? t('signingOut') : t('signOut')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}>
-              {mounted && resolvedTheme === 'dark' ? (
-                <Sun className="h-4 w-4" />
-              ) : (
-                <Moon className="h-4 w-4" />
-              )}
-              {mounted
-                ? resolvedTheme === 'dark'
-                  ? t('lightMode')
-                  : t('darkMode')
-                : t('toggleTheme')}
+            <DropdownMenuItem onClick={theme.toggle}>
+              {theme.isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {theme.label}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

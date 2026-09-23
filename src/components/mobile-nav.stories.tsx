@@ -1,4 +1,5 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import type { Decorator, Meta, StoryObj } from '@storybook/nextjs-vite'
+import { ThemeProvider } from 'next-themes'
 import { expect, userEvent, within } from 'storybook/test'
 import { http, HttpResponse } from 'msw'
 import {
@@ -16,6 +17,42 @@ const authedSession = createSession()
 // the handler keeps interactive exploration from erroring if someone clicks it.
 const signOutHandler = http.post('/api/auth/sign-out', () => HttpResponse.json({ ok: true }))
 
+// WHY: Without a `next-themes` provider `resolvedTheme` is undefined and the
+// theme row always reads "Dark mode". `forcedTheme` (as `theme-toggle.stories`
+// uses) does not reach `resolvedTheme` in next-themes 0.4, so seed the toolbar
+// theme as the default instead, remounting on change, with its own storage key
+// so a real app preference in localStorage cannot leak in.
+const withThemeProvider: Decorator = (Story, context) => {
+  const theme = (context.globals.theme as string | undefined) ?? 'light'
+  return (
+    <ThemeProvider
+      key={theme}
+      attribute="class"
+      defaultTheme={theme}
+      enableSystem={false}
+      storageKey={`storybook-mobile-nav-theme-${theme}`}
+    >
+      <Story />
+    </ThemeProvider>
+  )
+}
+
+// Names of the sheet's rows (links and buttons) in DOM order, so a play
+// function can assert the order HON-775 fixes, not just presence.
+function rowNames(nav: HTMLElement): string[] {
+  const scoped = within(nav)
+  return [...scoped.queryAllByRole('link'), ...scoped.queryAllByRole('button')]
+    .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))
+    .map((el) => el.textContent?.trim() ?? '')
+}
+
+async function openSheet(canvasElement: HTMLElement) {
+  await userEvent.click(within(canvasElement).getByRole('button', { name: 'User menu' }))
+  const body = within(document.body)
+  await body.findByRole('dialog')
+  return body.getByRole('navigation', { name: 'Account menu' })
+}
+
 const meta = {
   title: 'Feature/Navigation/MobileNav',
   component: MobileNav,
@@ -25,7 +62,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Hamburger menu + right-side `Sheet` — the mobile counterpart to `HeaderActions`. Hidden on `md:` and up. Houses Profile, Sign out, sign-in/up, and the theme toggle.',
+          'Person-icon trigger + right-side `Sheet` — the mobile counterpart to `HeaderActions`, with the same accessible name ("User menu"). Hidden on `md:` and up. Signed in, it lists Household, Profile, the labelled theme row and Sign out, in that order (HON-775); signed out, Sign in, Sign up and the theme row.',
       },
     },
     msw: { handlers: { extra: [signOutHandler] } },
@@ -35,6 +72,7 @@ const meta = {
     hasHousehold: false,
   },
   decorators: [
+    withThemeProvider,
     (Story) => (
       <div className="flex min-h-12 items-center justify-end">
         <Story />
@@ -58,7 +96,7 @@ export const ClosedOnboarding: Story = {
     docs: {
       description: {
         story:
-          'Authenticated but no household. The Profile link is suppressed (same rule as `HeaderActions`) — Sign out and theme toggle remain so the user can escape onboarding.',
+          'Authenticated but no household. The Household and Profile links are suppressed (same rule as `HeaderActions`) — the theme row and Sign out remain so the user can escape onboarding.',
       },
     },
   },
@@ -79,35 +117,52 @@ export const DesktopHidden: Story = {
   },
 }
 
-export const MenuOpens: Story = {
+export const SignedInWithHousehold: Story = {
+  globals: { theme: 'light' },
   args: { session: authedSession, hasHousehold: true },
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    const trigger = canvas.getByRole('button', { name: 'Toggle menu' })
-
-    await userEvent.click(trigger)
-
+    const nav = await openSheet(canvasElement)
     const body = within(document.body)
-    const dialog = await body.findByRole('dialog')
-    expect(dialog).toBeInTheDocument()
+
     expect(body.getByRole('heading', { name: 'Account' })).toBeInTheDocument()
-    expect(body.getByRole('link', { name: 'Profile' })).toBeInTheDocument()
-    expect(body.getByRole('button', { name: /sign out/i })).toBeInTheDocument()
+    expect(rowNames(nav)).toEqual(['Household', 'Profile', 'Dark mode', 'Sign out'])
+    expect(within(nav).getByRole('link', { name: 'Household' })).toHaveAttribute(
+      'href',
+      '/household',
+    )
+    await assertFocusInDialog()
   },
 }
 
-export const UnauthenticatedMenuOpens: Story = {
+export const SignedInWithoutHousehold: Story = {
+  globals: { theme: 'light' },
+  args: { session: authedSession, hasHousehold: false },
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    const trigger = canvas.getByRole('button', { name: 'Toggle menu' })
+    const nav = await openSheet(canvasElement)
 
-    await userEvent.click(trigger)
+    expect(rowNames(nav)).toEqual(['Dark mode', 'Sign out'])
+    expect(within(nav).queryByRole('link', { name: 'Household' })).not.toBeInTheDocument()
+  },
+}
 
-    const body = within(document.body)
-    await body.findByRole('dialog')
-    expect(body.getByRole('link', { name: 'Sign in' })).toBeInTheDocument()
-    expect(body.getByRole('link', { name: 'Sign up' })).toBeInTheDocument()
-    expect(body.queryByRole('button', { name: /sign out/i })).not.toBeInTheDocument()
+export const SignedOut: Story = {
+  globals: { theme: 'light' },
+  play: async ({ canvasElement }) => {
+    const nav = await openSheet(canvasElement)
+
+    expect(rowNames(nav)).toEqual(['Sign in', 'Sign up', 'Dark mode'])
+  },
+}
+
+// The label names the theme the row switches *to*, so a dark preview reads
+// "Light mode" — the same strings as the desktop menu (`useThemeToggle`).
+export const DarkThemeLabel: Story = {
+  args: { session: authedSession, hasHousehold: true },
+  globals: { theme: 'dark' },
+  play: async ({ canvasElement }) => {
+    const nav = await openSheet(canvasElement)
+
+    expect(rowNames(nav)).toEqual(['Household', 'Profile', 'Light mode', 'Sign out'])
   },
 }
 
@@ -115,7 +170,7 @@ export const EscapeClosesMenu: Story = {
   args: { session: authedSession, hasHousehold: true },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const trigger = canvas.getByRole('button', { name: 'Toggle menu' })
+    const trigger = canvas.getByRole('button', { name: 'User menu' })
 
     await userEvent.click(trigger)
     await assertFocusInDialog()
@@ -134,7 +189,7 @@ export const A11yInteractionPatterns: Story = {
   args: { session: authedSession, hasHousehold: true },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const trigger = canvas.getByRole('button', { name: 'Toggle menu' })
+    const trigger = canvas.getByRole('button', { name: 'User menu' })
 
     await userEvent.click(trigger)
     await assertFocusInDialog()
