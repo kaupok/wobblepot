@@ -214,3 +214,35 @@ describe('ImagineReviewDialog save failure', () => {
     expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument()
   })
 })
+
+// HON-714: the API rejects a repeated ingredient, and the generic save error
+// only invites a retry that resends the same rows. Refuse before the request.
+describe('ImagineReviewDialog duplicate ingredients', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('blocks saving and says why when two rows match the same ingredient', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const [matched] = buildMeal().prefilledIngredients as [PrefilledIngredient]
+    const onSaved = vi.fn()
+
+    renderInLocale(
+      <ImagineReviewDialog
+        open
+        meal={buildMeal({ prefilledIngredients: [matched, matched] })}
+        onOpenChange={vi.fn()}
+        onSaved={onSaved}
+      />,
+      'et',
+    )
+    fireEvent.click(screen.getByRole('button', { name: etMessages.recipes.review.save }))
+
+    expect(
+      await screen.findByText(etMessages.recipes.form.errors.duplicateIngredients),
+    ).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(onSaved).not.toHaveBeenCalled()
+  })
+})

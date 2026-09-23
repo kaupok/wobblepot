@@ -215,7 +215,12 @@ export function ImagineReviewDialog({
   const handleSave = async () => {
     setError(null)
 
-    const result = buildFinalComponents(true, ingredientRows, [])
+    // The rows are already flagged inline; the API would reject the payload,
+    // and retrying the generic save error would resend it unchanged (HON-714).
+    const result: ReturnType<typeof buildFinalComponents> =
+      duplicateMap.size > 0
+        ? { error: tForm('errors.duplicateIngredients') }
+        : buildFinalComponents(true, ingredientRows, [])
     if (result.error) {
       setError(result.error)
       return
