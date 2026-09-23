@@ -394,6 +394,45 @@ Record that in the Step 5 summary comment, on its own line directly above the `*
 NO_DESIGN_PROMPT
 fi
 
+# ─── Checklist items for CLAUDE.md rules that no CI check can enforce ────────
+#
+# Two "definition of done" rules in CLAUDE.md — E2E drift and shared-primitive
+# geometry — have no mechanical check, so they live here as reviewer checklist items
+# (HON-729). Each is appended only when the diff touches the paths the rule is about,
+# so a PR that cannot break the rule does not pay for the check. Both fail closed on
+# an unreadable or truncated file list, like the design gate above. Neither emits a
+# "not applicable" line: the item's own "nothing to do" clause covers a gate that
+# fired on a diff the rule turns out not to apply to.
+#
+# E2E drift: routes and dialogs live in .tsx under src/app and src/components, and
+# user-visible copy lives in the next-intl catalogs, which is what specs assert on.
+# src/proxy.ts owns the anonymous-redirect behaviour tests/e2e/auth-redirect.spec.ts
+# asserts on, so a proxy-only PR can drift a spec without touching a .tsx.
+# Stories and unit tests are excluded — no spec can drift from them.
+E2E_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/(app|components)/.*\.tsx|messages/[^/]*\.json|src/proxy\.ts)$' | grep -vE '\.(stories|test)\.tsx$' || true)
+# Geometry: the primitives themselves, and the stylesheet holding the @theme tokens.
+GEOMETRY_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/components/ui/[^/]*\.tsx|src/app/globals\.css)$' | grep -vE '\.(stories|test)\.tsx$' || true)
+
+if [ -n "$E2E_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
+  echo -e "${GREEN}Pages, components or copy changed — adding the E2E-drift check.${NC}"
+  cat >> "$PROMPT_FILE" <<'E2E_PROMPT'
+
+## Also check for E2E drift
+
+If this diff changes a route (a `src/app/**/page.tsx` added, moved or removed, or a `<Link>` / `router.push` target), user-visible heading, button, link or modal copy, or a dialog's structure, find the specs that assert on it — `grep -l "ROUTES.*<route>\|COMPONENTS.*<Component>" tests/e2e/*.spec.ts`, plus `grep -rn "<old copy>" tests/e2e/` for a copy change — and check they were updated in this PR. A spec still asserting on a removed route or the old copy is a finding (CLAUDE.md E2E rule, HON-518). If none of those changed, this check has nothing to do.
+E2E_PROMPT
+fi
+
+if [ -n "$GEOMETRY_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
+  echo -e "${GREEN}Primitives or theme tokens changed — adding the shared-geometry check.${NC}"
+  cat >> "$PROMPT_FILE" <<'GEOMETRY_PROMPT'
+
+## Also check shared-primitive geometry
+
+If this diff changes a size, height, padding or radius default on a primitive under `src/components/ui/`, or a `@theme` token in `src/app/globals.css`, run the greps in `.claude/skills/plan-issue/SKILL.md` step 7b against the **old** literal and check that every Mirror hit — a skeleton or sibling primitive sized to match — moved with it in this PR. An unmoved Mirror is a finding (HON-612 desynced 12 `loading.tsx` skeletons this way); Override and Deliberate hits are not. If no geometry default changed, this check has nothing to do.
+GEOMETRY_PROMPT
+fi
+
 REVIEW_PROMPT=$(cat "$PROMPT_FILE")
 
 # ─── Run the reviewer ─────────────────────────────────────────────────────────
