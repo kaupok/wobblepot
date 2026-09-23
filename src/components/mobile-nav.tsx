@@ -3,12 +3,12 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Menu } from 'lucide-react'
+import { Moon, Sun, User } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { authClient } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { ThemeToggle } from '@/components/theme-toggle'
+import { useThemeToggle } from '@/hooks/use-theme-toggle'
 import type { Session } from '@/lib/auth'
 
 interface MobileNavProps {
@@ -19,6 +19,8 @@ interface MobileNavProps {
 export function MobileNav({ session, hasHousehold }: MobileNavProps) {
   const router = useRouter()
   const t = useTranslations('nav.actions')
+  const tSettings = useTranslations('nav.settings')
+  const theme = useThemeToggle()
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -43,61 +45,66 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
     }
   }
 
+  const linkClass = 'hover:text-primary text-sm font-medium transition-colors'
+
+  const themeRow = (
+    <button
+      type="button"
+      className="hover:text-primary flex items-center gap-2 text-left text-sm font-medium transition-colors"
+      onClick={theme.toggle}
+    >
+      {theme.isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+      {theme.label}
+    </button>
+  )
+
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="sm" className="md:hidden">
-          <Menu className="h-5 w-5" />
-          <span className="sr-only">{t('toggleMenu')}</span>
+          <User className="h-5 w-5" />
+          <span className="sr-only">{t('userMenu')}</span>
         </Button>
       </SheetTrigger>
       <SheetContent side="right">
         <SheetHeader>
           <SheetTitle>{t('account')}</SheetTitle>
         </SheetHeader>
-        <nav aria-label={t('accountMenu')} className="mt-6 flex flex-col px-4">
+        {/* No top margin: SheetHeader's own padding is the gap (HON-775). */}
+        <nav aria-label={t('accountMenu')} className="flex flex-col gap-4 px-4">
           {session ? (
             <>
-              <div className="flex flex-col gap-4">
-                {hasHousehold && (
-                  <Link
-                    href="/profile"
-                    className="hover:text-primary text-sm font-medium transition-colors"
-                    onClick={() => setOpen(false)}
-                  >
+              {hasHousehold && (
+                <>
+                  <Link href="/household" className={linkClass} onClick={() => setOpen(false)}>
+                    {tSettings('household')}
+                  </Link>
+                  <Link href="/profile" className={linkClass} onClick={() => setOpen(false)}>
                     {t('profile')}
                   </Link>
-                )}
-                <button
-                  className="hover:text-primary text-left text-sm font-medium transition-colors"
-                  onClick={handleSignOut}
-                  disabled={isLoading}
-                >
-                  {isLoading ? t('signingOut') : t('signOut')}
-                </button>
-              </div>
+                </>
+              )}
+              {themeRow}
+              <button
+                type="button"
+                className="hover:text-primary text-left text-sm font-medium transition-colors"
+                onClick={handleSignOut}
+                disabled={isLoading}
+              >
+                {isLoading ? t('signingOut') : t('signOut')}
+              </button>
             </>
           ) : (
-            <div className="flex flex-col gap-4">
-              <Link
-                href="/sign-in"
-                className="hover:text-primary text-sm font-medium transition-colors"
-                onClick={() => setOpen(false)}
-              >
+            <>
+              <Link href="/sign-in" className={linkClass} onClick={() => setOpen(false)}>
                 {t('signIn')}
               </Link>
-              <Link
-                href="/sign-up"
-                className="hover:text-primary text-sm font-medium transition-colors"
-                onClick={() => setOpen(false)}
-              >
+              <Link href="/sign-up" className={linkClass} onClick={() => setOpen(false)}>
                 {t('signUp')}
               </Link>
-            </div>
+              {themeRow}
+            </>
           )}
-          <div className="pt-6">
-            <ThemeToggle />
-          </div>
         </nav>
       </SheetContent>
     </Sheet>
