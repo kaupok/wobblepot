@@ -2,9 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { createQueryWrapper } from '@/test/query-wrapper'
 
-vi.mock('@/lib/api', () => ({ apiFetch: vi.fn() }))
+vi.mock('@/lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api')>()),
+  apiFetch: vi.fn(),
+}))
 
-import { apiFetch } from '@/lib/api'
+import { ApiError, apiFetch } from '@/lib/api'
 import { useMealAlternatives, type UseMealAlternativesOptions } from './use-meal-alternatives'
 
 const mockApiFetch = vi.mocked(apiFetch)
@@ -66,6 +69,37 @@ describe('useMealAlternatives', () => {
       expect(result.current.displayedMeals.map((m) => m.id)).toEqual(['a'])
       expect(result.current.isSearchMode).toBe(false)
       expect(result.current.isMyRecipesBrowseMode).toBe(false)
+      expect(result.current.isRateLimited).toBe(false)
+    })
+
+    it.each(['swap', 'add'] as const)(
+      'flags a 429 in %s mode as rate limited and does not retry it',
+      async (mode) => {
+        mockApiFetch.mockRejectedValue(new ApiError('Rate limit exceeded', 429))
+
+        const { result } = render({ mode })
+
+        await waitFor(() => expect(result.current.isRateLimited).toBe(true))
+        expect(result.current.displayedMeals).toEqual([])
+        expect(mockApiFetch).toHaveBeenCalledTimes(1)
+      },
+    )
+
+    it('drops the rate-limited flag once a search takes over the list', async () => {
+      mockApiFetch.mockRejectedValueOnce(new ApiError('Rate limit exceeded', 429))
+      const { wrapper } = createQueryWrapper()
+      const { result, rerender } = renderHook(
+        (props: Partial<UseMealAlternativesOptions>) =>
+          useMealAlternatives({ ...baseOptions, ...props }),
+        { wrapper, initialProps: {} },
+      )
+      await waitFor(() => expect(result.current.isRateLimited).toBe(true))
+
+      mockApiFetch.mockResolvedValueOnce(page(['s1']))
+      rerender({ search: 'soup' })
+
+      await waitFor(() => expect(result.current.hasLoadedList).toBe(true))
+      expect(result.current.isRateLimited).toBe(false)
     })
 
     it('posts to the suggestions endpoint in add mode', async () => {

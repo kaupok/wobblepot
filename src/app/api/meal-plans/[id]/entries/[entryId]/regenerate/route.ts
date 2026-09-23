@@ -17,6 +17,7 @@ import {
   scoreCandidate,
   scoreJitter,
 } from '@/lib/meal-planning/candidate-score'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
@@ -67,6 +68,26 @@ async function handlePOST(
 
   // Extract params
   const { id: planId, entryId } = await params
+
+  // Shares the `meal-suggestions` bucket (60/h per household) with the sibling
+  // `/suggestions` route rather than getting its own: swapping a meal and filling
+  // an empty slot are one activity in the same modal, and the two routes do the
+  // same scoring pass, so they share one ceiling (HON-710). Runs before
+  // `assertUnderCap` so a rejected request does no DB work.
+  const rateLimitResult = await checkRateLimit(household.id, 'meal-suggestions')
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      {
+        error: 'Rate limit exceeded',
+        message: `Maximum ${rateLimitResult.limit} suggestion requests per hour`,
+        resetAt: rateLimitResult.resetAt.toISOString(),
+      },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(retryAfterSeconds(rateLimitResult)) },
+      },
+    )
+  }
 
   try {
     await assertUnderCap(household.id)

@@ -110,6 +110,7 @@ export function MealSelectorModal({
     hasLoadedList,
     isSearchMode,
     isMyRecipesBrowseMode,
+    isRateLimited,
   } = useMealAlternatives({
     open,
     planId,
@@ -238,7 +239,7 @@ export function MealSelectorModal({
   } else {
     emptyState = (
       <Body variant="muted" className="text-center">
-        {tSelector('noSuggestions')}
+        {isRateLimited ? tSelector('rateLimited') : tSelector('noSuggestions')}
       </Body>
     )
   }

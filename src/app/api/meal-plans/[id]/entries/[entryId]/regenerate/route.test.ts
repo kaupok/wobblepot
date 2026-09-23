@@ -67,6 +67,11 @@ vi.mock('@/lib/meal-planning/nutrition', () => ({
   })),
 }))
 
+vi.mock('@/lib/rate-limit', () => ({
+  checkRateLimit: vi.fn(),
+  retryAfterSeconds: vi.fn(() => 120),
+}))
+
 vi.mock('@/lib/ai/usage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/ai/usage')>()
   return {
@@ -80,6 +85,7 @@ import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { getCandidates } from '@/lib/meal-planning/candidates'
 import { assertUnderCap } from '@/lib/ai/usage'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -89,6 +95,7 @@ const mockFindManyFavorites = vi.mocked(prisma.favoriteMeal.findMany)
 const mockFindManyMeals = vi.mocked(prisma.meal.findMany)
 const mockGetCandidates = vi.mocked(getCandidates)
 const mockAssertUnderCap = vi.mocked(assertUnderCap)
+const mockCheckRateLimit = vi.mocked(checkRateLimit)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -131,7 +138,36 @@ const mockEntry = {
 describe('POST /api/meal-plans/[id]/entries/[entryId]/regenerate', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockCheckRateLimit.mockResolvedValue({
+      allowed: true,
+      remaining: 59,
+      limit: 60,
+      resetAt: new Date('2026-02-01T12:00:00.000Z'),
+    })
     mockAssertUnderCap.mockResolvedValue(undefined)
+  })
+
+  it('returns 429 with Retry-After from the shared suggestions bucket, before any DB work', async () => {
+    mockGetSession.mockResolvedValue(mockSession)
+    mockGetMembership.mockResolvedValue(mockMembership)
+    mockCheckRateLimit.mockResolvedValue({
+      allowed: false,
+      remaining: 0,
+      limit: 60,
+      resetAt: new Date('2026-02-01T12:00:00.000Z'),
+    })
+
+    const response = await POST(createRequest(), { params: createParams() })
+    const data = await response.json()
+
+    expect(response.status).toBe(429)
+    expect(response.headers.get('Retry-After')).toBe('120')
+    expect(data.error).toBe('Rate limit exceeded')
+    expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'meal-suggestions')
+    expect(mockAssertUnderCap).not.toHaveBeenCalled()
+    expect(mockFindFirstEntry).not.toHaveBeenCalled()
+    expect(mockFindManyEntries).not.toHaveBeenCalled()
+    expect(mockGetCandidates).not.toHaveBeenCalled()
   })
 
   it('returns 401 when not authenticated', async () => {

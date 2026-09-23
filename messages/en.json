@@ -240,6 +240,7 @@
       "loading": "Loading…",
       "imagineButton": "Imagine a meal",
       "noSuggestions": "No suggestions available. Try searching for a meal.",
+      "rateLimited": "Too many suggestion requests in the last hour. Try again later, or search for a meal.",
       "emptyMyRecipes": "No custom recipes yet. Try <link>importing a recipe</link> first.",
       "emptySearchCustom": "No custom recipes found matching \"{query}\"",
       "emptySearch": "No meals found matching \"{query}\"",
