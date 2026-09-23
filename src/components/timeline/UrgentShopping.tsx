@@ -91,41 +91,48 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
   }
   const summary = tToday('summaryNeed', { parts: summaryParts.join(', ') })
 
-  const header = (
-    <CardHeader>
-      <div className="flex items-center justify-between">
-        <CardTitle>{tToday('shoppingTitle')}</CardTitle>
-        <span className="text-warning flex items-center gap-1.5">
-          <ShoppingCart className="h-4 w-4" />
-          <span className="text-sm font-medium">{unpurchasedItems.length}</span>
-        </span>
-      </div>
-    </CardHeader>
+  const count = (
+    <span className="text-warning flex items-center gap-1.5">
+      <ShoppingCart className="h-4 w-4" />
+      <span className="text-sm font-medium">{unpurchasedItems.length}</span>
+    </span>
   )
 
-  const footer = (
-    <CardFooter>
-      <Button variant="ghost" size="sm" asChild>
-        <Link href="/shopping">{tToday('viewFullList')}</Link>
-      </Button>
-    </CardFooter>
+  const viewFullList = (
+    <Button variant="ghost" size="sm" asChild>
+      <Link href="/shopping">{tToday('viewFullList')}</Link>
+    </Button>
   )
 
+  // The phone form is one tight block, so its link sits on the title row
+  // (DESIGN.md → "Actions sit on the title row") rather than in a footer.
   if (compact) {
     return (
       <Card size="sm">
-        {header}
+        <CardHeader>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle>{tToday('shoppingTitle')}</CardTitle>
+            <div className="flex items-center gap-2">
+              {count}
+              {viewFullList}
+            </div>
+          </div>
+        </CardHeader>
         <CardContent>
           <Body variant="muted">{summary}</Body>
         </CardContent>
-        {footer}
       </Card>
     )
   }
 
   return (
     <Card>
-      {header}
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>{tToday('shoppingTitle')}</CardTitle>
+          {count}
+        </div>
+      </CardHeader>
       <CardContent>
         <div className="flex flex-col gap-3">
           <Body variant="muted">{summary}</Body>
@@ -183,7 +190,7 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
           )}
         </div>
       </CardContent>
-      {footer}
+      <CardFooter>{viewFullList}</CardFooter>
     </Card>
   )
 }
