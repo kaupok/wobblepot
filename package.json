@@ -35,6 +35,7 @@
     "meal-images:global": "npx tsx --require ./scripts/register-server-only.cjs scripts/generate-global-meal-images.ts",
     "env:audit": "npx tsx scripts/env-audit.ts",
     "lockfile:check": "npx tsx scripts/check-lockfile-pins.ts",
+    "stories:check": "npx tsx scripts/check-colocated-stories.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "test-storybook": "vitest --project=storybook",

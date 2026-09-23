@@ -259,6 +259,8 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **CRITICAL: When creating or modifying a component in `/src/components/**`, create or update a colocated `.stories.tsx`file covering all variants and states.** Stories live next to the component (e.g.`Button.tsx`+`button.stories.tsx`). This is part of the definition of done — Storybook is maintained by the agentic workflow so it stays current.
 
+`pnpm stories:check` enforces that the story file exists, in CI (HON-757); the rule above still covers keeping it current, which the check cannot see. Deliberate exceptions live in the allowlist in `scripts/check-colocated-stories.ts`, each with a reason.
+
 **What a story should cover:**
 
 - Every variant/size exposed by the component's props (e.g. all CVA variants)
