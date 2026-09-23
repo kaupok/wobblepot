@@ -22,6 +22,7 @@ import type { PrefilledIngredient } from '@/components/household/meal-form-types
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { formatInteger, formatQuantity } from '@/lib/i18n/format-number'
 import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
+import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import type { Locale } from '@/lib/i18n/locales'
 import type { MealType } from '@/generated/prisma/enums'
 
@@ -42,7 +43,6 @@ export interface ReviewMealData {
   mealTypes: MealType[]
   kidFriendly: boolean
   prefilledIngredients: PrefilledIngredient[]
-  nutrition: NutritionData
 }
 
 interface ImagineReviewDialogProps {
@@ -51,6 +51,40 @@ interface ImagineReviewDialogProps {
   meal: ReviewMealData
   onSaved: (mealId: string) => void
   onEditDetails?: (currentIngredients: PrefilledIngredient[]) => void
+}
+
+/**
+ * Per-serving nutrition for the rows as they currently stand in the dialog.
+ *
+ * Derived from the live rows rather than the imagine response's `nutrition`,
+ * which was computed before the AI quantity review and never sees a row edit or
+ * removal (HON-721). Mirrors `POST /api/households/me/meals`, which stores
+ * `totalQuantity / servings` and reduces it with the same `computeMealNutrition`,
+ * so the line shows what the saved meal will carry — piece units included.
+ *
+ * Returns `null` when there is nothing to sum, or when the total would be
+ * partial: a non-vague unmatched row (no ingredient yet), or a row whose
+ * ingredient lacks macros (one picked from the low-confidence alternatives
+ * carries none). A partial total reads as trustworthy and is wrong, so the
+ * caller hides the line instead. Vague rows add nothing, matched or not.
+ */
+export function computeReviewNutrition(
+  rows: IngredientRowData[],
+  servings: number,
+): NutritionData | null {
+  const components = []
+  for (const row of rows) {
+    if (row.isVague) continue
+    if (row.type === 'unmatched') return null
+    const { calories, protein, carbs, fat } = row.ingredient
+    if (calories == null || protein == null || carbs == null || fat == null) return null
+    components.push({
+      quantityPerServing: row.totalQuantity / servings,
+      ingredient: { ...row.ingredient, calories, protein, carbs, fat },
+    })
+  }
+  if (components.length === 0) return null
+  return computeMealNutrition(components)
 }
 
 function initIngredientRows(prefilledIngredients: PrefilledIngredient[]): IngredientRowData[] {
@@ -278,7 +312,10 @@ export function ImagineReviewDialog({
     }
   }
 
-  const { nutrition } = meal
+  const nutrition = useMemo(
+    () => computeReviewNutrition(ingredientRows, meal.servings),
+    [ingredientRows, meal.servings],
+  )
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -289,15 +326,17 @@ export function ImagineReviewDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
-          {/* Macros summary */}
-          <div className="text-muted-foreground text-xs">
-            {t('nutritionLine', {
-              calories: formatInteger(nutrition.calories, locale),
-              protein: formatInteger(nutrition.protein, locale),
-              carbs: formatInteger(nutrition.carbs, locale),
-              fat: formatInteger(nutrition.fat, locale),
-            })}
-          </div>
+          {/* Macros summary — hidden rather than zeroed when macros are missing */}
+          {nutrition && (
+            <div className="text-muted-foreground text-xs">
+              {t('nutritionLine', {
+                calories: formatInteger(nutrition.calories, locale),
+                protein: formatInteger(nutrition.protein, locale),
+                carbs: formatInteger(nutrition.carbs, locale),
+                fat: formatInteger(nutrition.fat, locale),
+              })}
+            </div>
+          )}
 
           {/* Meta badges */}
           <div className="flex flex-wrap items-center gap-2">

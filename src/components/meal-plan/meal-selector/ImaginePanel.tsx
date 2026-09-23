@@ -182,11 +182,7 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
     const finalMeal = await reviewImaginedMeal(meal)
 
     setReviewingMealId(null)
-    const prefilledData = convertToPrefilledData(finalMeal)
-    setReviewMeal({
-      ...prefilledData,
-      nutrition: finalMeal.nutrition,
-    })
+    setReviewMeal(convertToPrefilledData(finalMeal))
   }
 
   const handleSaved = async (mealId: string) => {

@@ -14,6 +14,7 @@ import {
   createMatchedPrefilledIngredient,
   createReviewMealData,
   createUnmatchedPrefilledIngredient,
+  reviewIngredient,
 } from '@/stories/fixtures'
 import { ImagineReviewDialog } from './ImagineReviewDialog'
 
@@ -60,7 +61,7 @@ export const WithUnmatchedIngredients: Story = {
     docs: {
       description: {
         story:
-          'One row the extractor could not match. The "Save meal" button is disabled until the user resolves it.',
+          'One row the extractor could not match. The "Save meal" button is disabled until the user resolves it, and the macro line stays hidden until then — without that row it would be a partial total.',
       },
     },
   },
@@ -119,16 +120,21 @@ export const WithoutEditDetails: Story = {
   },
 }
 
-// Locale-toggle story — macros use `formatInteger` (non-breaking-space grouping
-// in et, comma in en) and matched per-serving rows use `formatQuantity` (comma
-// vs period decimal). Defaults already produce a 4-figure calorie value for et
-// grouping to be visible.
+// Locale-toggle story — macros use `formatInteger` (comma grouping in en; CLDR
+// Estonian only groups from 5 digits) and matched per-serving rows use
+// `formatQuantity` (comma vs period decimal). One serving of 400g rice gives a
+// 4-figure calorie value; 1.5g of salmon makes the comma decimal visible.
 export const EstonianLocale: Story = {
   args: {
     meal: createReviewMealData({
-      nutrition: { calories: 1234, protein: 56, carbs: 78, fat: 12 },
-      servings: 400,
-      prefilledIngredients: [createMatchedPrefilledIngredient({ convertedQuantity: 600 })],
+      servings: 1,
+      prefilledIngredients: [
+        createMatchedPrefilledIngredient({ convertedQuantity: 1.5 }),
+        createMatchedPrefilledIngredient({
+          ingredient: reviewIngredient('short-grain-rice'),
+          convertedQuantity: 400,
+        }),
+      ],
     }),
   },
   globals: { locale: 'et' },
@@ -136,9 +142,73 @@ export const EstonianLocale: Story = {
     docs: {
       description: {
         story:
-          'Estonian locale — macros use a non-breaking-space thousands grouping (`1 234 kcal`) and the matched per-serving row uses a comma decimal (`1,5g`).',
+          'Estonian locale — a 4-figure calorie value renders ungrouped (`1435 kcal`, not the en `1,435`) and the matched per-serving row uses a comma decimal (`1,5g`).',
       },
     },
+  },
+}
+
+// Macro line — derived from the live rows, never from the imagine response
+// (HON-721). Salmon 600g + rice 280g + miso 30g over 4 servings at the fixture
+// macros: 312 + 250.6 + 14.85 = 577 kcal; dropping the miso leaves 563.
+export const MacrosFollowRowRemoval: Story = {
+  args: {
+    meal: createReviewMealData({
+      prefilledIngredients: [
+        createMatchedPrefilledIngredient({ convertedQuantity: 600 }),
+        createMatchedPrefilledIngredient({
+          ingredient: reviewIngredient('short-grain-rice'),
+          convertedQuantity: 280,
+        }),
+        createLowConfidencePrefilledIngredient(),
+      ],
+    }),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The macro line is summed from the rows as they stand, through the same reducer the save endpoint uses, so removing or editing a row updates it and it always matches the meal that gets stored.',
+      },
+    },
+  },
+  play: async () => {
+    const body = within(document.body)
+    await body.findByText(/^577 kcal/)
+    await userEvent.click(body.getByRole('button', { name: /^remove ingredient$/i }))
+    await body.findByText(/^563 kcal/)
+  },
+}
+
+export const MacrosHiddenWithoutMacroData: Story = {
+  args: {
+    meal: createReviewMealData({
+      prefilledIngredients: [
+        createMatchedPrefilledIngredient({ convertedQuantity: 600 }),
+        createMatchedPrefilledIngredient({
+          ingredient: {
+            id: 'white-miso-hikari',
+            name: 'White miso (Hikari)',
+            category: 'condiment',
+            defaultUnit: 'g',
+          },
+          convertedQuantity: 30,
+        }),
+      ],
+    }),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'One row has no macro data — as when the user picks a low-confidence alternative, which carries none. The line is hidden rather than showing a partial total or zeros.',
+      },
+    },
+  },
+  play: async () => {
+    const body = within(document.body)
+    await body.findByRole('dialog')
+    await expect(body.queryByText(/kcal/)).not.toBeInTheDocument()
   },
 }
 
