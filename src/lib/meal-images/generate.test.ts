@@ -25,12 +25,15 @@ vi.mock('@ai-sdk/anthropic', () => ({
   createAnthropic: vi.fn(() => (id: string) => ({ languageModelId: id })),
 }))
 
-import { generateImage, generateObject } from 'ai'
+import { APICallError, generateImage, generateObject, RetryError } from 'ai'
 import {
   generateMealImage,
   IMAGE_FALLBACK_USD,
   MealImageUnavailableError,
+  RATE_LIMIT_BACKOFF_MS,
+  rateLimitDelayMs,
   RETRY_MIN_REMAINING_MS,
+  TRANSIENT_RETRY_MS,
 } from './generate'
 
 const mockGenerateImage = vi.mocked(generateImage)
@@ -323,5 +326,190 @@ describe('generateMealImage', () => {
 
     await expect(generateMealImage(meal)).rejects.toBeInstanceOf(MealImageUnavailableError)
     expect(mockGenerateImage).not.toHaveBeenCalled()
+  })
+})
+
+const apiError = (
+  statusCode: number,
+  { headers, message = 'error' }: { headers?: Record<string, string>; message?: string } = {},
+) =>
+  new APICallError({
+    message,
+    url: 'https://api.openai.com/v1/images/generations',
+    requestBodyValues: {},
+    statusCode,
+    responseHeaders: headers,
+  })
+
+describe('rateLimitDelayMs', () => {
+  it('reads retry-after-ms, then retry-after in seconds', () => {
+    expect(rateLimitDelayMs(apiError(429, { headers: { 'retry-after-ms': '1500' } }))).toBe(1500)
+    expect(rateLimitDelayMs(apiError(429, { headers: { 'retry-after': '12' } }))).toBe(12_000)
+  })
+
+  it('reads retry-after as an HTTP date', () => {
+    vi.useFakeTimers({ now: new Date('2026-09-22T12:00:00Z') })
+    try {
+      const headers = { 'retry-after': 'Tue, 22 Sep 2026 12:00:20 GMT' }
+      expect(rateLimitDelayMs(apiError(429, { headers }))).toBe(20_000)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("falls back to OpenAI's 'try again in Ns' text", () => {
+    const message =
+      'Rate limit reached for gpt-image-2.5-flare on input-images per min: Limit 5, Used 5, Requested 1. Please try again in 12s.'
+    expect(rateLimitDelayMs(apiError(429, { message }))).toBe(12_000)
+    expect(rateLimitDelayMs(apiError(429, { message: 'Please try again in 850ms.' }))).toBe(850)
+  })
+
+  it('looks through a RetryError to its last error', () => {
+    const busy = apiError(429, { headers: { 'retry-after': '3' } })
+    const wrapped = new RetryError({ message: 'x', reason: 'maxRetriesExceeded', errors: [busy] })
+    expect(rateLimitDelayMs(wrapped)).toBe(3_000)
+  })
+
+  it('is undefined when nothing names a delay', () => {
+    expect(rateLimitDelayMs(apiError(429))).toBeUndefined()
+    expect(rateLimitDelayMs(new Error('try again in 5s'))).toBeUndefined()
+  })
+})
+
+describe('generateMealImage on a 429 (HON-742)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers()
+    env.OPENAI_API_KEY = 'sk-test'
+    vi.spyOn(console, 'info').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockGenerateObject.mockResolvedValue(judgeResult(clean))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('leaves retries to itself, not the SDK', async () => {
+    mockGenerateImage.mockResolvedValue(imageResult())
+
+    await generateMealImage(meal, { judge: 'off' })
+
+    expect(mockGenerateImage).toHaveBeenCalledWith(expect.objectContaining({ maxRetries: 0 }))
+  })
+
+  it('retries after the 12 s retry-after asks for, and succeeds on the second attempt', async () => {
+    mockGenerateImage
+      .mockRejectedValueOnce(apiError(429, { headers: { 'retry-after': '12' } }))
+      .mockResolvedValueOnce(imageResult([9]))
+
+    const pending = generateMealImage(meal, { judge: 'off' })
+    await vi.advanceTimersByTimeAsync(11_999)
+    expect(mockGenerateImage).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    const result = await pending
+
+    expect(mockGenerateImage).toHaveBeenCalledTimes(2)
+    expect(result.bytes).toEqual(new Uint8Array([9]))
+    // The rejected call was never billed.
+    expect(result.totalUsd).toBeCloseTo(IMAGE_USD)
+  })
+
+  it('backs off 15 s, 30 s, 60 s without a named delay, then gives up', async () => {
+    const busy = apiError(429)
+    mockGenerateImage.mockRejectedValue(busy)
+
+    const pending = generateMealImage(meal, { judge: 'off' })
+    const settled = pending.catch((error: unknown) => error)
+
+    let elapsed = 0
+    for (const [i, step] of RATE_LIMIT_BACKOFF_MS.entries()) {
+      await vi.advanceTimersByTimeAsync(step - 1)
+      expect(mockGenerateImage).toHaveBeenCalledTimes(i + 1)
+      await vi.advanceTimersByTimeAsync(1)
+      elapsed += step
+    }
+
+    expect(await settled).toBe(busy)
+    expect(mockGenerateImage).toHaveBeenCalledTimes(4)
+    expect(elapsed).toBe(105_000)
+  })
+
+  it('honours rateLimitRetries and maxRateLimitWaitMs', async () => {
+    mockGenerateImage.mockRejectedValue(apiError(429, { headers: { 'retry-after': '20' } }))
+
+    await expect(
+      generateMealImage(meal, { judge: 'off', maxRateLimitWaitMs: 15_000 }),
+    ).rejects.toMatchObject({ statusCode: 429 })
+    expect(mockGenerateImage).toHaveBeenCalledTimes(1)
+
+    mockGenerateImage.mockClear()
+    await expect(
+      generateMealImage(meal, { judge: 'off', rateLimitRetries: 0 }),
+    ).rejects.toMatchObject({ statusCode: 429 })
+    expect(mockGenerateImage).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not wait when the image after the wait would not fit the budget', async () => {
+    mockGenerateImage.mockRejectedValue(apiError(429))
+
+    await expect(
+      generateMealImage(meal, { judge: 'off', budgetMs: 15_000 + RETRY_MIN_REMAINING_MS - 1 }),
+    ).rejects.toMatchObject({ statusCode: 429 })
+    expect(mockGenerateImage).toHaveBeenCalledTimes(1)
+  })
+
+  it('stops waiting when the abort signal fires', async () => {
+    mockGenerateImage.mockRejectedValue(apiError(429))
+    const controller = new AbortController()
+
+    const pending = generateMealImage(meal, { judge: 'off', abortSignal: controller.signal })
+    const settled = pending.catch((error: unknown) => error)
+    await vi.advanceTimersByTimeAsync(1_000)
+    controller.abort(new DOMException('budget', 'TimeoutError'))
+
+    expect(await settled).toMatchObject({ name: 'TimeoutError' })
+    expect(mockGenerateImage).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries any other retryable error once, after a short wait', async () => {
+    const down = apiError(503)
+    mockGenerateImage.mockRejectedValueOnce(down).mockResolvedValueOnce(imageResult())
+
+    const pending = generateMealImage(meal, { judge: 'off' })
+    await vi.advanceTimersByTimeAsync(TRANSIENT_RETRY_MS)
+    await pending
+    expect(mockGenerateImage).toHaveBeenCalledTimes(2)
+
+    mockGenerateImage.mockClear()
+    mockGenerateImage.mockRejectedValue(down)
+    const failing = generateMealImage(meal, { judge: 'off' }).catch((error: unknown) => error)
+    await vi.advanceTimersByTimeAsync(TRANSIENT_RETRY_MS * 4)
+    expect(await failing).toBe(down)
+    expect(mockGenerateImage).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not retry a non-retryable error', async () => {
+    mockGenerateImage.mockRejectedValue(apiError(400))
+
+    await expect(generateMealImage(meal, { judge: 'off' })).rejects.toMatchObject({
+      statusCode: 400,
+    })
+    expect(mockGenerateImage).toHaveBeenCalledTimes(1)
+  })
+
+  it('never waits out a 429 on the regeneration, and keeps the first image', async () => {
+    mockGenerateImage
+      .mockResolvedValueOnce(imageResult([1]))
+      .mockRejectedValueOnce(apiError(429, { headers: { 'retry-after': '1' } }))
+    mockGenerateObject.mockResolvedValueOnce(
+      judgeResult({ ...clean, extraIngredients: ['olives'] }),
+    )
+
+    const result = await generateMealImage(meal)
+
+    expect(mockGenerateImage).toHaveBeenCalledTimes(2)
+    expect(result).toMatchObject({ attempts: 1, bytes: new Uint8Array([1]) })
   })
 })

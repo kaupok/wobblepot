@@ -1,7 +1,8 @@
 import 'server-only'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
-import { generateImage, generateObject, type ImageModelUsage } from 'ai'
+import { APICallError, generateImage, generateObject, RetryError, type ImageModelUsage } from 'ai'
+import { aiErrorStatusCode } from '@/lib/ai/error-status'
 import { MEAL_IMAGE_MODEL, REVIEW_MODEL } from '@/lib/ai/models'
 import { estimateCostUsd } from '@/lib/ai/pricing'
 import { toAiUsageStats, withUsageOnFailure, type AiUsageStats } from '@/lib/ai/usage'
@@ -24,6 +25,60 @@ export const IMAGE_FALLBACK_USD = 0.05
  * one that cannot finish would turn a usable first image into a timeout.
  */
 export const RETRY_MIN_REMAINING_MS = 25_000
+
+/**
+ * Waits before each retry of a rate-limited (429) image call whose response
+ * names no delay (HON-742). The tier allows 5 images per minute, so the
+ * window clears within a minute; the SDK's ~2 s retry never outlasted it.
+ */
+export const RATE_LIMIT_BACKOFF_MS = [15_000, 30_000, 60_000] as const
+
+/** The single short retry every other retryable error gets — the SDK's `maxRetries: 1`. */
+export const TRANSIENT_RETRY_MS = 2_000
+
+const TRY_AGAIN_IN = /try again in (\d+(?:\.\d+)?)\s*(ms|s)\b/i
+
+/**
+ * How long a 429 asks us to wait, in ms: the `retry-after-ms` or `retry-after`
+ * header, else OpenAI's "Please try again in 12s" in the message. `undefined`
+ * when neither says.
+ */
+export function rateLimitDelayMs(error: unknown): number | undefined {
+  const cause = RetryError.isInstance(error) ? error.lastError : error
+  if (!APICallError.isInstance(cause)) return undefined
+
+  const headers = cause.responseHeaders ?? {}
+  const ms = Number.parseFloat(headers['retry-after-ms'] ?? '')
+  if (Number.isFinite(ms) && ms >= 0) return ms
+  const retryAfter = headers['retry-after']
+  if (retryAfter) {
+    const seconds = Number.parseFloat(retryAfter)
+    if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000
+    const until = Date.parse(retryAfter) - Date.now()
+    if (Number.isFinite(until)) return Math.max(0, until)
+  }
+
+  const match = TRY_AGAIN_IN.exec(cause.message)
+  if (match) return Number.parseFloat(match[1]!) * (match[2]!.toLowerCase() === 'ms' ? 1 : 1000)
+  return undefined
+}
+
+const isRetryable = (error: unknown) => APICallError.isInstance(error) && error.isRetryable
+
+function sleep(ms: number, signal: AbortSignal | undefined): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(signal.reason)
+    const onAbort = () => {
+      clearTimeout(timer)
+      reject(signal!.reason)
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
+}
 
 export class MealImageUnavailableError extends Error {
   constructor() {
@@ -51,6 +106,13 @@ export interface GenerateMealImageOptions {
    * batch (HON-738), where a human reviews every image. `off`: no judge call.
    */
   judge?: 'gate' | 'report' | 'off'
+  /**
+   * Retries of a rate-limited (429) first image, each after the wait the
+   * response names or the next `RATE_LIMIT_BACKOFF_MS` step. Default 3.
+   */
+  rateLimitRetries?: number
+  /** A 429 asking for a longer wait than this is given up on at once. */
+  maxRateLimitWaitMs?: number
 }
 
 export interface GeneratedMealImage {
@@ -91,7 +153,14 @@ export async function generateMealImage(
   const apiKey = serverEnv.OPENAI_API_KEY
   if (!apiKey) throw new MealImageUnavailableError()
 
-  const { abortSignal, budgetMs, mealId, judge: judgeMode = 'gate' } = options
+  const {
+    abortSignal,
+    budgetMs,
+    mealId,
+    judge: judgeMode = 'gate',
+    rateLimitRetries = RATE_LIMIT_BACKOFF_MS.length,
+    maxRateLimitWaitMs = Infinity,
+  } = options
   const openai = createOpenAI({ apiKey })
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
   const prompt = buildMealImagePrompt(meal)
@@ -103,18 +172,61 @@ export async function generateMealImage(
     await options.onUsage?.(usage)
   }
 
-  const draw = async () => {
-    const result = await generateImage({
+  const remainingMs = () =>
+    budgetMs === undefined ? Infinity : budgetMs - (Date.now() - startedAt)
+
+  const callImage = () =>
+    generateImage({
       model: openai.image(MEAL_IMAGE_MODEL),
       prompt,
       size: '1536x1024',
       // `max` costs ~4× and a dialog hero won't show the difference (HON-717).
       providerOptions: { openai: { quality: 'high', outputFormat: 'png' } },
-      maxRetries: 1,
+      // Retries are ours, below: the SDK would retry a 429 on its own ~2 s
+      // schedule (or a `retry-after` under 60 s) outside the caller's budget.
+      maxRetries: 0,
       abortSignal,
     })
-    await report(imageUsageStats(result.usage))
-    return { bytes: result.image.uint8Array, mediaType: result.image.mediaType }
+
+  /**
+   * One image, retried here. A 429 waits for the window to clear, up to
+   * `allowedRateLimitRetries` times (HON-742); any other retryable error is
+   * retried once after `TRANSIENT_RETRY_MS`, as the SDK did before.
+   */
+  const draw = async (allowedRateLimitRetries: number) => {
+    let rateLimited = 0
+    let transient = 0
+    for (;;) {
+      try {
+        const result = await callImage()
+        await report(imageUsageStats(result.usage))
+        return { bytes: result.image.uint8Array, mediaType: result.image.mediaType }
+      } catch (error) {
+        if (aiErrorStatusCode(error) === 429) {
+          if (rateLimited >= allowedRateLimitRetries) throw error
+          const wait =
+            rateLimitDelayMs(error) ??
+            RATE_LIMIT_BACKOFF_MS[Math.min(rateLimited, RATE_LIMIT_BACKOFF_MS.length - 1)]!
+          // An image started after the wait must still fit the caller's budget.
+          if (wait > maxRateLimitWaitMs || remainingMs() - wait < RETRY_MIN_REMAINING_MS) {
+            throw error
+          }
+          rateLimited += 1
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[meal-image] rate-limited for meal ${mealId}; retry ${rateLimited}/${allowedRateLimitRetries} in ${Math.round(wait / 1000)} s`,
+          )
+          await sleep(wait, abortSignal)
+          continue
+        }
+        if (isRetryable(error) && transient === 0) {
+          transient += 1
+          await sleep(TRANSIENT_RETRY_MS, abortSignal)
+          continue
+        }
+        throw error
+      }
+    }
   }
 
   /** `null` when the judge call itself failed or timed out: that costs the verdict, not the image. */
@@ -167,7 +279,7 @@ export async function generateMealImage(
     }
   }
 
-  let image = await draw()
+  let image = await draw(rateLimitRetries)
   let attempts = 1
   if (judgeMode === 'off') return { ...image, attempts, totalUsd, verdict: null }
 
@@ -175,7 +287,7 @@ export async function generateMealImage(
   let verdict = first
 
   if (judgeMode === 'gate' && first && !first.pass) {
-    const remaining = budgetMs === undefined ? Infinity : budgetMs - (Date.now() - startedAt)
+    const remaining = remainingMs()
     if (remaining < RETRY_MIN_REMAINING_MS) {
       // eslint-disable-next-line no-console
       console.warn(
@@ -183,7 +295,8 @@ export async function generateMealImage(
       )
     } else {
       try {
-        const second = await draw()
+        // No waiting out a 429 here: the first image is paid for and kept.
+        const second = await draw(0)
         image = second
         attempts = 2
         verdict = await judge(second, attempts)

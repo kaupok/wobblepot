@@ -33,6 +33,8 @@ import { discardMealImage, putMealImage } from '@/lib/meal-images/storage'
  * - 200 `none` — the meal was edited while this request generated, so the
  *   image was thrown away; the next request draws the edited meal.
  * - 200 `failed` — generation has failed `MAX_ATTEMPTS` times; never retried.
+ * - 429 `none` — the image provider's rate limit outlasted one short wait;
+ *   the claim is released without counting an attempt (HON-742).
  * - A `ready` image at an older prompt version is treated as absent and
  *   redrawn, with its attempts reset (HON-753); the old blob is deleted once
  *   the new one is attached.
@@ -60,6 +62,14 @@ const CLAIM_STALE_MS = 3 * 60_000
  * after it, which is what keeps the 504 below reachable (HON-694, HON-699).
  */
 const AI_BUDGET_MS = 50_000
+
+/**
+ * A provider 429 is waited out at most once here, for at most 15 s: longer,
+ * and the image after it no longer fits `AI_BUDGET_MS` (HON-742). A 429 that
+ * outlasts it releases the claim instead of failing the meal.
+ */
+const RATE_LIMIT_RETRIES = 1
+const RATE_LIMIT_MAX_WAIT_MS = 15_000
 
 type ImageBody =
   | { status: 'ready'; imageUrl: string; imageHue: number | null }
@@ -285,6 +295,8 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
       {
         abortSignal: AbortSignal.timeout(AI_BUDGET_MS),
         budgetMs: AI_BUDGET_MS,
+        rateLimitRetries: RATE_LIMIT_RETRIES,
+        maxRateLimitWaitMs: RATE_LIMIT_MAX_WAIT_MS,
         mealId: meal.id,
         onUsage: (usage) =>
           recordAiUsage({ householdId: household.id, feature: 'meal_image', ...usage }),
@@ -328,16 +340,26 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
     await discardMealImage(uploadedUrl, ROUTE)
 
     const statusCode = aiErrorStatusCode(error)
+    const rateLimited = statusCode === 429
     // A 429 or a missing key says nothing about this meal, and retrying later
     // succeeds — counting it would lock the meal out after three busy moments.
     // Everything else counts: it was probably billed, or will fail again.
-    const transient = statusCode === 429 || error instanceof MealImageUnavailableError
+    // A 429 goes further and releases the claim to `none`, so the next open
+    // simply asks again once the provider's per-minute window clears (HON-742).
+    const transient = rateLimited || error instanceof MealImageUnavailableError
 
     try {
-      await writeUnderClaim(meal.id, claimedAt, meal.updatedAt, {
-        imageStatus: 'failed',
-        ...(transient ? {} : { imageAttempts: { increment: 1 } }),
-      })
+      await writeUnderClaim(
+        meal.id,
+        claimedAt,
+        meal.updatedAt,
+        rateLimited
+          ? { imageStatus: 'none', imageClaimedAt: null }
+          : {
+              imageStatus: 'failed',
+              ...(transient ? {} : { imageAttempts: { increment: 1 } }),
+            },
+      )
     } catch (writeError) {
       // The stale-claim takeover recovers the row; the original error is the one to map.
       captureApiError(writeError, { route: ROUTE, operation: 'meal-image-mark-failed' })
@@ -352,8 +374,8 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
       return respond({ status: 'failed', error: 'Meal images are not available' }, 503)
     }
 
-    if (statusCode === 429) {
-      return respond({ status: 'failed', error: 'Image service is busy.' }, 429)
+    if (rateLimited) {
+      return respond({ status: 'none', error: 'Image service is busy.' }, 429)
     }
     if (statusCode !== undefined && statusCode >= 500) {
       return respond({ status: 'failed', error: 'Image service unavailable.' }, 502)

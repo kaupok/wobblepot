@@ -520,24 +520,75 @@ describe('POST /api/meals/[id]/image', () => {
     expect(mockPut).not.toHaveBeenCalled()
   })
 
-  it('does not count a provider 429 against the meal, even after the SDK retried it', async () => {
-    seedMeal({ imageStatus: 'failed', imageAttempts: 2 })
-    const busy = new APICallError({
-      message: 'busy',
+  const rateLimited = (headers?: Record<string, string>) =>
+    new APICallError({
+      message: 'Rate limit reached for gpt-image-2.5-flare',
       url: 'https://api.openai.com/v1/images/generations',
       requestBodyValues: {},
       statusCode: 429,
+      responseHeaders: headers,
       isRetryable: true,
     })
-    // What `generateImage` with `maxRetries: 1` actually throws.
-    mockGenerateImage.mockRejectedValue(
-      new RetryError({ message: 'failed', reason: 'maxRetriesExceeded', errors: [busy, busy] }),
-    )
 
-    const response = await post()
+  describe('a provider 429', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
 
-    expect(response.status).toBe(429)
-    expect(row()).toMatchObject({ imageStatus: 'failed', imageAttempts: 2 })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('waits one 15 s backoff and succeeds on the retry', async () => {
+      mockGenerateImage.mockRejectedValueOnce(rateLimited()).mockResolvedValueOnce(imageResult)
+
+      const pending = post()
+      await vi.advanceTimersByTimeAsync(14_999)
+      expect(mockGenerateImage).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(1)
+      const response = await pending
+
+      expect(mockGenerateImage).toHaveBeenCalledTimes(2)
+      expect(response.status).toBe(200)
+      expect(row()).toMatchObject({ imageStatus: 'ready', imageAttempts: 0 })
+    })
+
+    it('that persists releases the claim to none and leaves imageAttempts unchanged', async () => {
+      seedMeal({ imageStatus: 'failed', imageAttempts: 2 })
+      mockGenerateImage.mockRejectedValue(rateLimited())
+
+      const pending = post()
+      await vi.advanceTimersByTimeAsync(15_000)
+      const response = await pending
+
+      // One retry, never a second: a second 15 s wait would not fit the budget.
+      expect(mockGenerateImage).toHaveBeenCalledTimes(2)
+      expect(response.status).toBe(429)
+      expect(await response.json()).toMatchObject({ status: 'none' })
+      expect(row()).toMatchObject({ imageStatus: 'none', imageAttempts: 2, imageClaimedAt: null })
+    })
+
+    it('asking for longer than 15 s is released at once, without waiting', async () => {
+      mockGenerateImage.mockRejectedValue(rateLimited({ 'retry-after': '40' }))
+
+      const response = await post()
+
+      expect(mockGenerateImage).toHaveBeenCalledTimes(1)
+      expect(response.status).toBe(429)
+      expect(row()).toMatchObject({ imageStatus: 'none', imageAttempts: 0 })
+    })
+
+    it('still releases when the SDK wraps it in a RetryError', async () => {
+      const busy = rateLimited({ 'retry-after': '40' })
+      mockGenerateImage.mockRejectedValue(
+        new RetryError({ message: 'failed', reason: 'maxRetriesExceeded', errors: [busy, busy] }),
+      )
+
+      const response = await post()
+
+      expect(response.status).toBe(429)
+      expect(row()).toMatchObject({ imageStatus: 'none', imageAttempts: 0 })
+    })
   })
 
   it('deletes the uploaded blob when the final write throws', async () => {

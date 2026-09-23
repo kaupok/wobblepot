@@ -11,6 +11,7 @@ import {
   confirmHost,
   databaseHost,
   estimateUsd,
+  imagesPerMinute,
   IMAGE_EST_USD,
   JUDGE_EST_USD,
   MEAL_SELECT,
@@ -134,7 +135,17 @@ function deps(overrides: Partial<RunDeps> & { db: Db }): RunDeps & { lines: stri
 
 describe('parseArgs', () => {
   it('defaults to a dry run', () => {
-    expect(parseArgs([])).toEqual({ confirm: false, judge: false, concurrency: 4, exclude: [] })
+    expect(parseArgs([])).toEqual({
+      help: false,
+      confirm: false,
+      judge: false,
+      concurrency: 1,
+      exclude: [],
+    })
+  })
+
+  it('reads --help', () => {
+    expect(parseArgs(['--help']).help).toBe(true)
   })
 
   it('reads the generate flags', () => {
@@ -170,6 +181,28 @@ describe('parseArgs', () => {
     [['--meal']],
   ])('rejects %j', (argv) => {
     expect(() => parseArgs(argv)).toThrow()
+  })
+})
+
+describe('--help', () => {
+  it('prints the usage, says why concurrency defaults to 1, and touches nothing', async () => {
+    const { db, findMany } = mockDb({ findMany: [] })
+    const d = deps({ db })
+
+    await run(parseArgs(['--help']), d)
+
+    const out = d.lines.join('\n')
+    expect(out).toContain('--concurrency=N')
+    expect(out).toContain('Default 1')
+    expect(out).toContain('5 images per minute')
+    expect(findMany).not.toHaveBeenCalled()
+  })
+})
+
+describe('imagesPerMinute', () => {
+  it('is images over elapsed minutes', () => {
+    expect(imagesPerMinute(10, 120_000)).toBe(5)
+    expect(imagesPerMinute(3, 0)).toBe(0)
   })
 })
 
@@ -305,6 +338,9 @@ describe('--confirm', () => {
     // The judge's finding is shown in the cell.
     expect(sheet).toContain('<li>olives</li>')
     expect(d.lines.join('\n')).toContain('Spent $0.15 (not ledgered)')
+    expect(d.lines.join('\n')).toMatch(
+      /Rate: [\d.]+ images\/min .*tier limit 5\/min, --concurrency=1/,
+    )
   })
 
   it('records the hue of each image in the manifest, and null for an unreadable one', async () => {
