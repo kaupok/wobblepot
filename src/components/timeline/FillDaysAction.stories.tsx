@@ -58,7 +58,7 @@ export const Error: Story = {
     const canvas = within(canvasElement)
     await userEvent.click(canvas.getByRole('button', { name: /^generate$/i }))
     await waitFor(() =>
-      expect(canvas.getByText(/generation failed\. please try again/i)).toBeVisible(),
+      expect(canvas.getByText(/failed to generate meals\. please try again/i)).toBeVisible(),
     )
   },
 }

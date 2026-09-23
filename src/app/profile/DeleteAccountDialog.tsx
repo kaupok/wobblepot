@@ -20,6 +20,8 @@ import {
 import { Body } from '@/components/ui/typography'
 import { formatLongDate } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
+import { translateErrorCode } from '@/lib/ai/error-codes'
+import { ACCOUNT_DELETION_ERROR_KEYS } from '@/lib/account-deletion-error-codes'
 
 interface DeleteAccountDialogProps {
   userEmail: string
@@ -51,8 +53,22 @@ export function DeleteAccountDialog({
       })
 
       if (!response.ok) {
-        const data = await response.json()
-        setError(data.message || t('errors.deleteFailed'))
+        const data = await response.json().catch(() => ({}))
+        // The route's `message` is English on every branch, so the `code`
+        // picks the copy; the prose is kept as a console breadcrumb only
+        // (HON-725).
+        console.error('[delete-account] request failed', {
+          code: data.code,
+          error: data.error,
+          message: data.message,
+        })
+        const key = translateErrorCode(data.code, ACCOUNT_DELETION_ERROR_KEYS, 'deleteFailed')
+        setError(
+          t(`errors.${key}`, {
+            householdName: typeof data.householdName === 'string' ? data.householdName : '',
+            count: typeof data.otherMemberCount === 'number' ? data.otherMemberCount : 0,
+          }),
+        )
         setIsDeleting(false)
         return
       }
@@ -134,7 +150,14 @@ export function DeleteAccountDialog({
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isDeleting}>{t('cancel')}</AlertDialogCancel>
           <AlertDialogAction
-            onClick={handleDelete}
+            onClick={(event) => {
+              // `AlertDialogAction` closes the dialog on click unless the event
+              // is cancelled. Keep it open so the pending label and any error
+              // below are actually seen; a successful delete redirects away
+              // (HON-725).
+              event.preventDefault()
+              void handleDelete()
+            }}
             disabled={isDeleting || hasOtherMembers}
             className={buttonVariants({ variant: 'destructive' })}
           >

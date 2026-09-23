@@ -8,6 +8,7 @@ import { resend, isEmailConfigured, EMAIL_SENDERS, envSubject } from '@/lib/rese
 import { generateAccountDeletionRequestedEmail } from '@/lib/emails/account-deletion-requested'
 import { resolveEmailLocale } from '@/lib/emails/locale'
 import { PRIVACY_EMAIL } from '@/lib/support'
+import type { AccountDeletionErrorCode } from '@/lib/account-deletion-error-codes'
 
 /** GDPR Art. 17 grace window: days between a deletion request and the hard purge. */
 const GRACE_WINDOW_DAYS = 30
@@ -98,6 +99,11 @@ async function sendDeletionConfirmationEmail(
  *
  * Returns 400 if the user is the sole owner of a household with other members
  * (they must transfer ownership first — unchanged behavior).
+ *
+ * Every error body carries a `code` from `AccountDeletionErrorCode` (HON-725);
+ * `DeleteAccountDialog` translates that, never the English `message`. The
+ * sole-owner branch also sends `otherMemberCount` so the client can interpolate
+ * it rather than parse it out of prose.
  */
 export async function DELETE() {
   const session = await auth.api.getSession({
@@ -105,7 +111,8 @@ export async function DELETE() {
   })
 
   if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const code: AccountDeletionErrorCode = 'unauthorized'
+    return NextResponse.json({ code, error: 'Unauthorized' }, { status: 401 })
   }
 
   const userId = session.user.id
@@ -116,12 +123,16 @@ export async function DELETE() {
     const ownershipCheck = await isUserSoleOwnerWithOtherMembers(userId)
 
     if (ownershipCheck.isSoleOwner) {
+      const code: AccountDeletionErrorCode = 'sole_owner'
+      const otherMemberCount = ownershipCheck.memberCount! - 1
       return NextResponse.json(
         {
+          code,
           error: 'Cannot delete account',
-          message: `You are the sole owner of "${ownershipCheck.householdName}" which has ${ownershipCheck.memberCount! - 1} other member(s). Please transfer ownership or remove other members first.`,
+          message: `You are the sole owner of "${ownershipCheck.householdName}" which has ${otherMemberCount} other member(s). Please transfer ownership or remove other members first.`,
           householdId: ownershipCheck.householdId,
           householdName: ownershipCheck.householdName,
+          otherMemberCount,
         },
         { status: 400 },
       )
@@ -149,6 +160,7 @@ export async function DELETE() {
     return NextResponse.json({ success: true, purgeScheduledFor })
   } catch (error) {
     captureApiError(error, { route: '/api/auth/user', userId: session.user.id })
-    return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 })
+    const code: AccountDeletionErrorCode = 'delete_failed'
+    return NextResponse.json({ code, error: 'Failed to delete account' }, { status: 500 })
   }
 }

@@ -525,11 +525,16 @@ export const submittingMealFormHandlers: HttpHandler[] = [
 
 /**
  * Return 500 for `POST /api/meal-plans/generate`. Use for `FillDaysAction` and
- * `FirstTimeSetup` error-state stories.
+ * `FirstTimeSetup` error-state stories. Same body shape as the route, `code`
+ * included, so the stories exercise the client's code-to-copy mapping rather
+ * than rendering the English prose (HON-725).
  */
 export const errorGenerateHandlers: HttpHandler[] = [
   http.post('/api/meal-plans/generate', () =>
-    HttpResponse.json({ message: 'Generation failed. Please try again.' }, { status: 500 }),
+    HttpResponse.json(
+      { code: 'generation_failed', error: 'Failed to generate meal plan' },
+      { status: 500 },
+    ),
   ),
 ]
 
@@ -539,7 +544,14 @@ export const errorGenerateHandlers: HttpHandler[] = [
  */
 export const rateLimitGenerateHandlers: HttpHandler[] = [
   http.post('/api/meal-plans/generate', () =>
-    HttpResponse.json({ message: 'Too many requests' }, { status: 429 }),
+    HttpResponse.json(
+      {
+        code: 'rate_limited',
+        error: 'Rate limit exceeded',
+        message: 'Maximum 10 meal plan generations per hour',
+      },
+      { status: 429 },
+    ),
   ),
 ]
 
@@ -552,7 +564,11 @@ export const rateLimitGenerateHandlers: HttpHandler[] = [
 export const timeoutGenerateHandlers: HttpHandler[] = [
   http.post('/api/meal-plans/generate', () =>
     HttpResponse.json(
-      { error: 'Request timed out', message: 'Generating the plan took too long.' },
+      {
+        code: 'generation_timeout',
+        error: 'Request timed out',
+        message: 'Generating the plan took too long.',
+      },
       { status: 504 },
     ),
   ),

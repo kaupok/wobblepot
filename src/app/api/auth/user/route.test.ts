@@ -113,6 +113,7 @@ describe('DELETE /api/auth/user', () => {
 
     expect(response.status).toBe(401)
     expect(data.error).toBe('Unauthorized')
+    expect(data.code).toBe('unauthorized')
   })
 
   it('returns 400 when user is sole owner with other members (unchanged)', async () => {
@@ -132,6 +133,10 @@ describe('DELETE /api/auth/user', () => {
     expect(data.message).toContain('sole owner')
     expect(data.message).toContain('2 other member(s)')
     expect(data.householdName).toBe('Doe Family')
+    // HON-725: the client translates `code` and interpolates these two
+    // fields; it never renders the English `message` above.
+    expect(data.code).toBe('sole_owner')
+    expect(data.otherMemberCount).toBe(2)
     // No soft-delete should have run
     expect(mockTransaction).not.toHaveBeenCalled()
   })
@@ -247,5 +252,6 @@ describe('DELETE /api/auth/user', () => {
 
     expect(response.status).toBe(500)
     expect(data.error).toBe('Failed to delete account')
+    expect(data.code).toBe('delete_failed')
   })
 })
