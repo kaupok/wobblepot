@@ -62,11 +62,11 @@ interface ImagineReviewDialogProps {
  * `totalQuantity / servings` and reduces it with the same `computeMealNutrition`,
  * so the line shows what the saved meal will carry — piece units included.
  *
- * Unmatched rows have no ingredient yet and cannot be saved, so they add
- * nothing. Returns `null` when there is nothing to sum, or when a counted row
- * lacks macros (an ingredient picked from the low-confidence alternatives
- * carries none): a partial total would read as trustworthy and be wrong, so the
- * caller hides the line instead of rendering it.
+ * Returns `null` when there is nothing to sum, or when the total would be
+ * partial: a non-vague unmatched row (no ingredient yet), or a row whose
+ * ingredient lacks macros (one picked from the low-confidence alternatives
+ * carries none). A partial total reads as trustworthy and is wrong, so the
+ * caller hides the line instead. Vague rows add nothing, matched or not.
  */
 export function computeReviewNutrition(
   rows: IngredientRowData[],
@@ -74,7 +74,8 @@ export function computeReviewNutrition(
 ): NutritionData | null {
   const components = []
   for (const row of rows) {
-    if (row.type === 'unmatched' || row.isVague) continue
+    if (row.isVague) continue
+    if (row.type === 'unmatched') return null
     const { calories, protein, carbs, fat } = row.ingredient
     if (calories == null || protein == null || carbs == null || fat == null) return null
     components.push({

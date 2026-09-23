@@ -363,20 +363,26 @@ describe('computeReviewNutrition', () => {
     )
   })
 
-  it('counts low-confidence rows and skips vague and unmatched ones', () => {
+  const unmatched: IngredientRowData = {
+    type: 'unmatched',
+    extractedName: 'yuzu',
+    originalText: '1 yuzu',
+    extractedQuantity: 1,
+    extractedUnit: '',
+  }
+
+  it('counts low-confidence rows and skips vague ones, matched or not', () => {
     const rows: IngredientRowData[] = [
       grams(),
       { ...grams(), type: 'low-confidence', extractedName: 'rice', alternatives: [] },
       grams({ isVague: true, originalPhrase: 'to taste' }),
-      {
-        type: 'unmatched',
-        extractedName: 'yuzu',
-        originalText: '1 yuzu',
-        extractedQuantity: 1,
-        extractedUnit: '',
-      },
+      { ...unmatched, extractedName: 'salt', isVague: true, originalPhrase: 'to taste' },
     ]
     expect(computeReviewNutrition(rows, 4)?.calories).toBe(700)
+  })
+
+  it('returns null rather than a partial total while a row is still unmatched', () => {
+    expect(computeReviewNutrition([grams(), unmatched], 4)).toBeNull()
   })
 
   it('returns null rather than a partial total when a counted row has no macros', () => {
@@ -473,6 +479,26 @@ describe('ImagineReviewDialog macro line', () => {
     expect(screen.getByText(/^315 kcal/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove ingredient' }))
+
+    expect(screen.getByText(/^300 kcal/)).toBeInTheDocument()
+  })
+
+  it('hides the line while a row is unmatched and shows it once the row is dropped', () => {
+    renderMeal([
+      chicken,
+      {
+        type: 'unmatched',
+        extractedName: 'yuzu',
+        originalText: '1 yuzu',
+        extractedQuantity: 1,
+        extractedUnit: '',
+        isVague: false,
+        originalPhrase: null,
+      },
+    ])
+    expect(screen.queryByText(/kcal/)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /^drop$/i }))
 
     expect(screen.getByText(/^300 kcal/)).toBeInTheDocument()
   })

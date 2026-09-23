@@ -61,7 +61,7 @@ export const WithUnmatchedIngredients: Story = {
     docs: {
       description: {
         story:
-          'One row the extractor could not match. The "Save meal" button is disabled until the user resolves it.',
+          'One row the extractor could not match. The "Save meal" button is disabled until the user resolves it, and the macro line stays hidden until then — without that row it would be a partial total.',
       },
     },
   },
