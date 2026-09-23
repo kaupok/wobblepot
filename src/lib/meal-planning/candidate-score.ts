@@ -108,8 +108,8 @@ export interface CandidateScoreContext {
 /**
  * Score a candidate under one of the weight profiles. Higher is better.
  *
- * Pure and jitter-free: the tie-break offset is {@link scoreJitter}, applied by the caller,
- * so a test can pin an exact ranking.
+ * Pure and jitter-free: the tie-break offset is {@link randomScoreJitter}, applied by the
+ * caller, so a test can pin an exact ranking.
  */
 export function scoreCandidate(
   candidate: ScorableCandidate,
@@ -183,25 +183,17 @@ function hashSeed(seed: string): number {
 }
 
 /**
- * Deterministic tie-break offset in `[0, SCORE_JITTER_RANGE)`.
+ * Deterministic tie-break offset in `[0, SCORE_JITTER_RANGE)` — the reproducible counterpart
+ * of {@link randomScoreJitter}, for tests that want to pin a ranking without stubbing a draw.
  *
- * The integer weights produce many exact ties, so without an offset a household would see the
- * candidate pool's own ordering every time. `Math.random()` gave that variety but made the
- * ranking impossible to assert on, which is why the weights had no regression coverage at all
- * (HON-706). Seeding on entry + current date + candidate keeps the variety *between* entries and
- * from one day to the next, while making any single ranking reproducible.
+ * Not what the routes ship. HON-706 made this the production jitter, which froze a slot's
+ * top 3 for the whole server day; for a household with no favourites, custom meals or pantry
+ * every candidate scores 0 or `kidFriendly`, so that top 3 was decided entirely by this offset
+ * and reopening the modal could never show anything else. HON-709 moved production to a
+ * per-request draw and kept this as the stand-in a test can substitute for it.
  *
- * Note the consequence: re-opening the swap modal for the same entry on the same day now returns
- * the same three meals, where `Math.random()` reshuffled ties on every request. That is the
- * intended trade (HON-706 specifies seeded jitter as the default), but be clear about who pays
- * for it: a household with no favourites, no custom meals and an empty pantry scores every
- * candidate at 0 or `kidFriendly`, so its top 3 is decided *entirely* by this offset and is
- * frozen for the day. "Change the pool by planning, favouriting, or stocking the pantry" is the
- * escape hatch, and it is exactly the one a brand-new household has not used yet.
- *
- * The daily rotation is also keyed on the *server's* calendar day: callers pass
- * `toDateString(new Date())`, which on a UTC host rolls over at 03:00 Estonian time rather than
- * at local midnight.
+ * Seeded on entry + date + candidate: the same seed always yields the same offset, and changing
+ * any one part changes it.
  */
 export function scoreJitter({ entryId, dateString, candidateId }: ScoreJitterSeed): number {
   // mulberry32, seeded by the hash — one step is enough for a well-distributed value.
@@ -213,3 +205,22 @@ export function scoreJitter({ entryId, dateString, candidateId }: ScoreJitterSee
   const unit = ((t ^ (t >>> 14)) >>> 0) / 4294967296
   return unit * SCORE_JITTER_RANGE
 }
+
+/** A tie-break offset source. Both {@link scoreJitter} and {@link randomScoreJitter} fit it. */
+export type ScoreJitterFn = (seed: ScoreJitterSeed) => number
+
+/**
+ * Per-request tie-break offset in `[0, SCORE_JITTER_RANGE)` — what both routes add to every score.
+ *
+ * The integer weights produce many exact ties, so without an offset a household would see the
+ * candidate pool's own ordering every time. A fresh draw on each request is what lets a
+ * household reopen the modal for the same slot and see a different top 3 — the only variety a
+ * brand-new household gets, since it has no favourites, custom meals or pantry to separate its
+ * candidates (HON-709).
+ *
+ * It ignores `seed`. The routes pass one anyway so that this is the single substitution point:
+ * a test replaces it with a stub (`vi.mock`) for an exact ranking, or with {@link scoreJitter}
+ * for a reproducible one, without the route changing. `Math.random()` lives here and not at the
+ * call site, so `scoreCandidate()` stays pure and the routes never draw randomness themselves.
+ */
+export const randomScoreJitter: ScoreJitterFn = () => Math.random() * SCORE_JITTER_RANGE

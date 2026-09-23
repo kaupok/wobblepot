@@ -67,6 +67,13 @@ vi.mock('@/lib/meal-planning/nutrition', () => ({
   })),
 }))
 
+// Only the jitter is replaced: the weights and scoreCandidate() stay real, so a test that
+// stubs the draw pins the ranking the route actually ships (HON-709).
+vi.mock('@/lib/meal-planning/candidate-score', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/meal-planning/candidate-score')>()
+  return { ...actual, randomScoreJitter: vi.fn(() => 0) }
+})
+
 vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: vi.fn(),
   retryAfterSeconds: vi.fn(() => 120),
@@ -86,8 +93,10 @@ import { prisma } from '@/lib/prisma'
 import { getCandidates } from '@/lib/meal-planning/candidates'
 import { assertUnderCap } from '@/lib/ai/usage'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { randomScoreJitter } from '@/lib/meal-planning/candidate-score'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
+const mockRandomJitter = vi.mocked(randomScoreJitter)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockFindFirstEntry = vi.mocked(prisma.mealPlanEntry.findFirst)
 const mockFindManyEntries = vi.mocked(prisma.mealPlanEntry.findMany)
@@ -145,6 +154,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/regenerate', () => {
       resetAt: new Date('2026-02-01T12:00:00.000Z'),
     })
     mockAssertUnderCap.mockResolvedValue(undefined)
+    mockRandomJitter.mockReturnValue(0)
   })
 
   it('returns 429 with Retry-After from the shared suggestions bucket, before any DB work', async () => {
@@ -314,6 +324,79 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/regenerate', () => {
       imageUrl: 'https://blob/salmon.png',
       imageStatus: 'ready',
       imageHue: 30,
+    })
+  })
+
+  describe('tie-break jitter', () => {
+    // A first-run household: no favourites, custom meals or pantry, so every candidate ties
+    // and the jitter alone decides the top 3.
+    const tiedPool = ['meal-a', 'meal-b', 'meal-c', 'meal-d', 'meal-e'].map((id) => ({
+      id,
+      name: id,
+      kidFriendly: false,
+      primaryProteinType: 'beef',
+      topIngredients: [],
+      isFavorite: false,
+      isCustom: false,
+    }))
+
+    function arrange() {
+      mockGetSession.mockResolvedValue(mockSession)
+      mockGetMembership.mockResolvedValue(mockMembership)
+      mockFindFirstEntry.mockResolvedValue(mockEntry as never)
+      mockFindManyEntries.mockResolvedValue([])
+      mockFindManyFavorites.mockResolvedValue([])
+      mockGetCandidates.mockResolvedValue(tiedPool as never)
+      mockFindManyMeals.mockImplementation((({ where }: { where: { id: { in: string[] } } }) =>
+        Promise.resolve(
+          where.id.in.map((id) => ({
+            id,
+            name: id,
+            description: null,
+            timeMinutes: 30,
+            kidFriendly: false,
+            primaryProteinType: 'beef',
+            suitableFor: ['dinner'],
+            components: [],
+          })),
+        )) as never)
+    }
+
+    function stubDraws(draws: Record<string, number>) {
+      mockRandomJitter.mockImplementation(({ candidateId }) => draws[candidateId] ?? 0)
+    }
+
+    async function topThree() {
+      const response = await POST(createRequest(), { params: createParams() })
+      const data = await response.json()
+      expect(response.status).toBe(200)
+      return data.alternatives.map((a: { id: string }) => a.id)
+    }
+
+    it('ranks a tied pool exactly by the stubbed jitter', async () => {
+      arrange()
+      stubDraws({ 'meal-a': 0.1, 'meal-b': 0.4, 'meal-c': 0.2, 'meal-d': 0.3, 'meal-e': 0 })
+
+      expect(await topThree()).toEqual(['meal-b', 'meal-d', 'meal-c'])
+      for (const { id } of tiedPool) {
+        expect(mockRandomJitter).toHaveBeenCalledWith({
+          entryId: 'entry-123',
+          dateString: expect.any(String),
+          candidateId: id,
+        })
+      }
+    })
+
+    it('can return a different top 3 when the same entry is opened again', async () => {
+      arrange()
+      stubDraws({ 'meal-a': 0.4, 'meal-b': 0.3, 'meal-c': 0.2, 'meal-d': 0.1, 'meal-e': 0 })
+      const first = await topThree()
+
+      stubDraws({ 'meal-a': 0, 'meal-b': 0.1, 'meal-c': 0.2, 'meal-d': 0.3, 'meal-e': 0.4 })
+      const second = await topThree()
+
+      expect(first).toEqual(['meal-a', 'meal-b', 'meal-c'])
+      expect(second).toEqual(['meal-e', 'meal-d', 'meal-c'])
     })
   })
 

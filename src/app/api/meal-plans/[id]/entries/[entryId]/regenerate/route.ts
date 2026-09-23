@@ -14,8 +14,8 @@ import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
 import {
   SIMILARITY_WEIGHTS,
+  randomScoreJitter,
   scoreCandidate,
-  scoreJitter,
 } from '@/lib/meal-planning/candidate-score'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
@@ -212,9 +212,9 @@ async function handlePOST(
     const timeMap = new Map(candidateMealDetails.map((m) => [m.id, m.timeMinutes]))
 
     // Score candidates by similarity, personalization, and pantry overlap.
-    // The jitter is a seeded tie-break, so the same entry ranks reproducibly today while
-    // different entries — and tomorrow — still vary. Seeded on the *current* date, not the
-    // entry's: an entry's date never changes, so it would add nothing. See candidate-score.ts.
+    // The jitter is a fresh per-request tie-break, so swapping the same entry again can return
+    // a different top 3 (HON-709). The seed goes unused in production; it is passed so a test
+    // can substitute the seeded `scoreJitter`. See candidate-score.ts.
     const jitterDate = toDateString(new Date())
     const scored: ScoredCandidate[] = filteredCandidates.map((candidate) => {
       const timeMinutes = timeMap.get(candidate.id) ?? null
@@ -226,7 +226,8 @@ async function handlePOST(
       })
       return {
         candidate,
-        score: score + scoreJitter({ entryId, dateString: jitterDate, candidateId: candidate.id }),
+        score:
+          score + randomScoreJitter({ entryId, dateString: jitterDate, candidateId: candidate.id }),
       }
     })
 
