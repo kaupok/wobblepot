@@ -165,7 +165,11 @@ Each of these came from a review that found the opposite in production.
 - **Actions sit on the title row.** A card's actions align right on the same line as its name, in one row, never as a footer strip or stacked buttons (`HON-378`, `HON-383`).
 - **Labels sit outside the card.** Context labels like the meal type ("Dinner") go above the card as a caption, not inside it (`HON-379`).
 - **Content is not sticky.** Action bars live inline at the end of the content they act on. The only fixed chrome is the header and the mobile tab bar (`HON-380`). They stay put when a Radix overlay locks page scroll only because `globals.css` sets `scrollbar-gutter: stable` on `html` and zeroes the lock's body margin — keep both (`HON-690`).
-- **One page width.** Content is centered and capped at 1152px. Tables and lists may fill it; prose stays narrower (`HON-376`).
+- **One page width.** Content is centered and capped at 1152px. Tables and lists may fill it; prose stays narrower (`HON-376`). What sits inside that width is set by the four page-shell rules below (`HON-767`).
+- **No page-level Card.** A `Card` groups one section of a page or is the item itself (a meal, a member); it never wraps a whole page. A page's outer structure is the page container (`container mx-auto px-4 py-8`, as `src/app/household/page.tsx` has it) and its headings. Exception: auth, onboarding and invite pages are a single form and keep their centred form card, because there the card is the form, not the page (`HON-767`).
+- **Titles sit on the page background.** A page whose content is one thing (`/recipes`, `/profile`, `/household`) opens with `Heading variant="h4" as="h1"` and an optional `Body variant="muted"` line directly on the background, above the content. A page that is a workspace of sections (Today, `/shopping`) titles its sections, not the page; the section title is the section card's `CardHeader` (`ShoppingListHeader`), rendered `as="h2"` (`HON-767`).
+- **Lists fill, forms stay narrow.** A page whose content is a list or a workspace (`/`, `/shopping`, `/household`, `/recipes`) fills the page width. A page whose content is a form or prose (`/profile`, legal pages) keeps a `max-w-2xl` column, left-aligned inside the container, not centred in the viewport (`HON-767`).
+- **Content starts at the top.** No `place-items-center` shells for in-app pages: the content column aligns to the top of the container, so a page's height can change (loading → loaded, empty → populated) without moving what is already on screen. The route's `loading.tsx` uses the same container and column width, with no bordered wrapper standing in for a card the page does not have (`HON-767`).
 - **Controls belong in menus, not headers.** Preference toggles (theme, language) live in the user menu, not in the header bar (`HON-382`).
 - **Mobile first, then widen.** Build the 390px layout, then add `md:` and `lg:` variants. Never the reverse (`HON-395`).
 
@@ -216,4 +220,4 @@ Add one here when a review finds code and rule disagreeing and the fix is not ob
 
 Decisions above that the code does not yet reflect. Each has a Linear issue; update this list when one ships.
 
-None at the moment.
+- `/recipes` still wraps the page in a centred `Card` and puts its title inside it, against the page-shell rules in [Composition rules](#composition-rules) (`HON-767`). Tracked in `HON-747`.
