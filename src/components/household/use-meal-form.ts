@@ -14,6 +14,7 @@ import {
 import { prefersReducedMotion } from '@/lib/utils'
 import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
 import { componentGramsPerServing } from '@/lib/meal-planning/nutrition'
+import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
 import type { Unit } from '@/generated/prisma/enums'
 
 const MAX_SERVINGS = 50
@@ -367,11 +368,11 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
     }
 
     // The rows are already flagged inline; the API would reject the payload too.
-    const result =
+    const result: ReturnType<typeof buildFinalComponents> =
       duplicateMap.size > 0
         ? { error: t('errors.duplicateIngredients') }
         : buildFinalComponents(isImportMode, ingredientRows, components)
-    if (result.error) {
+    if (result.error !== undefined) {
       setError(result.error)
       if (isImportMode) {
         ingredientRowsRef.current?.scrollIntoView({
@@ -379,6 +380,11 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
           block: 'start',
         })
       }
+      return
+    }
+
+    if (result.components.length > MAX_MEAL_COMPONENTS) {
+      setError(t('errors.tooManyIngredients', { max: MAX_MEAL_COMPONENTS }))
       return
     }
 

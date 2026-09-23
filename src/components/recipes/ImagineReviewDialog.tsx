@@ -21,6 +21,7 @@ import { buildFinalComponents, formatUnit } from '@/components/household/meal-fo
 import type { PrefilledIngredient } from '@/components/household/meal-form-types'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { formatInteger, formatQuantity } from '@/lib/i18n/format-number'
+import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
 import type { Locale } from '@/lib/i18n/locales'
 import type { MealType } from '@/generated/prisma/enums'
 
@@ -221,8 +222,13 @@ export function ImagineReviewDialog({
       duplicateMap.size > 0
         ? { error: tForm('errors.duplicateIngredients') }
         : buildFinalComponents(true, ingredientRows, [])
-    if (result.error) {
+    if (result.error !== undefined) {
       setError(result.error)
+      return
+    }
+
+    if (result.components.length > MAX_MEAL_COMPONENTS) {
+      setError(tForm('errors.tooManyIngredients', { max: MAX_MEAL_COMPONENTS }))
       return
     }
 

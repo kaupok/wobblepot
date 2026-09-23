@@ -246,3 +246,33 @@ describe('ImagineReviewDialog duplicate ingredients', () => {
     expect(onSaved).not.toHaveBeenCalled()
   })
 })
+
+describe('ImagineReviewDialog ingredient cap', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('blocks saving more than 50 ingredients and says why', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const [matched] = buildMeal().prefilledIngredients as [PrefilledIngredient]
+    const rows = Array.from({ length: 51 }, (_, i) => ({
+      ...matched,
+      ingredient: { ...matched.ingredient!, id: `ing-${i}`, name: `Ingredient ${i}` },
+    }))
+
+    renderInLocale(
+      <ImagineReviewDialog
+        open
+        meal={buildMeal({ prefilledIngredients: rows })}
+        onOpenChange={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+      'et',
+    )
+    fireEvent.click(screen.getByRole('button', { name: etMessages.recipes.review.save }))
+
+    expect(await screen.findByText('Toidul saab olla kuni 50 koostisosa')).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})

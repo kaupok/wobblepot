@@ -459,6 +459,7 @@
         "createFailed": "Failed to create meal",
         "updateFailed": "Failed to update meal",
         "duplicateIngredients": "Each ingredient can only be used once. Remove or merge the repeated rows",
+        "tooManyIngredients": "A meal can have at most {max} ingredients",
         "generic": "An error occurred"
       },
       "discardDialog": {

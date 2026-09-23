@@ -400,6 +400,36 @@ describe('MealForm - Duplicate Detection', () => {
     })
   })
 
+  // HON-714: the API caps a meal at 50 components; say so instead of
+  // surfacing the server's untranslated "Validation failed".
+  describe('Submit with too many ingredients', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('blocks saving an imported recipe with more than 50 ingredients', async () => {
+      const user = userEvent.setup()
+      const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      const mockMeal: MealFormData = {
+        name: 'Imported Recipe',
+        kidFriendly: false,
+        suitableFor: ['dinner' as MealType],
+        prefilledIngredients: Array.from({ length: 51 }, (_, i) => ({
+          type: 'matched' as const,
+          ingredient: createMockIngredient(`ing-${i}`, `Ingredient ${i}`),
+          convertedQuantity: 10,
+        })),
+      }
+
+      render(<MealForm meal={mockMeal} onSuccess={mockOnSuccess} onCancel={mockOnCancel} />)
+
+      await user.click(screen.getByRole('button', { name: /create meal/i }))
+
+      expect(await screen.findByText(/a meal can have at most 50 ingredients/i)).toBeInTheDocument()
+      expect(fetchSpy).not.toHaveBeenCalled()
+    })
+  })
+
   describe('Discard confirmation', () => {
     beforeEach(() => {
       vi.clearAllMocks()
