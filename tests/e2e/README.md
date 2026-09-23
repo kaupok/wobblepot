@@ -136,8 +136,9 @@ CI runs it on every push.
 
 `tests/e2e/forgot-password-et.spec.ts` (HON-704) is tier-1-only for the same
 account-creation reason: it signs up a fresh user with an Estonian household,
-which no seeded fixture has, to prove the reset flow holds when the email is
-sent in Estonian.
+which no seeded fixture has. On tier 1 no email is actually sent (no
+`RESEND_API_KEY`), so it covers the Estonian UI through the reset flow only;
+the localized-subject Resend path is covered by `utils/mail-helpers.test.ts`.
 
 ## Test-only routes
 

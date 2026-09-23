@@ -8,17 +8,19 @@ import { canReadEmail, resolveResetUrl } from './utils/mail-helpers'
 /**
  * Forgot password for a user whose household locale is `et` (HON-704).
  *
- * `forgot-password.spec.ts` drives a seeded fixture with no household, so its
- * reset email always resolves to English. This spec covers the other shape:
- * the household exists and is Estonian, so the reset email is sent with the
- * Estonian subject (HON-513) — the case that broke a helper which matched on
- * `Reset your … password`. `resolveResetUrl` now selects by the reset link, and
- * the Estonian-subject path through Resend is unit-tested in
- * `utils/mail-helpers.test.ts`.
+ * `forgot-password.spec.ts` drives a seeded fixture with no household. This
+ * spec covers the other shape — the household exists and is Estonian — through
+ * the Estonian UI from request to sign-in.
+ *
+ * What it does **not** cover is the localized email itself. It can only run on
+ * tier 1 (below), where there is no `RESEND_API_KEY`: `sendResetPassword`
+ * returns before rendering the email and the link comes from the
+ * `/api/e2e-support` back-channel, so it would pass against the old English
+ * subject match too. The Estonian-subject Resend path — the actual HON-704
+ * fix — is covered by `utils/mail-helpers.test.ts`.
  *
  * **NOT `@smoke`:** it signs up a throwaway account through `/api/e2e-seed`,
- * which 404s on preview and staging (`scripts/check-smoke-specs.sh`). On tier 1
- * the link comes from the `/api/e2e-support` back-channel.
+ * which 404s on preview and staging (`scripts/check-smoke-specs.sh`).
  *
  * Every selector is an id or a `data-testid`: the whole flow renders in
  * Estonian, so role-by-name queries on English copy would miss.
