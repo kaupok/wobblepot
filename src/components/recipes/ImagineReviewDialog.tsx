@@ -240,14 +240,28 @@ export function ImagineReviewDialog({
       })
 
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || t('errors.saveFailed'))
+        // `POST /api/households/me/meals` sets an English `error` on every
+        // failure branch (`Failed to create meal`, `Validation failed`, …), so
+        // preferring it meant the translated fallback never fired and an
+        // Estonian household read English on the step right after a localized
+        // imagine (HON-724). None of those branches needs distinct copy here —
+        // the user's only move is to retry — so the server string is logged,
+        // never rendered, as in `JoinHouseholdCard` (HON-697).
+        const data = await response.json().catch(() => ({}))
+        console.error('[imagine-review] save failed', {
+          status: response.status,
+          error: data.error,
+        })
+        setError(t('errors.saveFailed'))
+        return
       }
 
       const data = await response.json()
       onSaved(data.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('errors.generic'))
+      // A network failure's `message` is browser English too.
+      console.error('[imagine-review] save failed', { error: err })
+      setError(t('errors.saveFailed'))
     } finally {
       setIsSaving(false)
     }

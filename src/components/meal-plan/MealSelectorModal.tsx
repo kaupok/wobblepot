@@ -18,11 +18,26 @@ import { Body } from '@/components/ui/typography'
 import { AlternativesList } from './meal-selector/AlternativesList'
 import { ImaginePanel } from './meal-selector/ImaginePanel'
 import { useMealAlternatives } from './meal-selector/use-meal-alternatives'
-import { apiFetch } from '@/lib/api'
+import { ApiError, apiFetch } from '@/lib/api'
 import { track } from '@/lib/analytics'
 import { toast } from 'sonner'
 import type { PantryIngredient } from './types'
 import type { MealType } from '@/generated/prisma/enums'
+
+/**
+ * Breadcrumb for a failed plan-entry PATCH. The PATCH route sets an English
+ * `error` on every failure branch, and `apiFetch` copies it into
+ * `Error.message` verbatim — rendering that showed English to an Estonian
+ * household on the step right after a localized imagine (HON-724). None of
+ * the branches reachable from this modal needs distinct copy, so both callers
+ * render their own translated message and the server prose lives here only.
+ */
+function logAssignFailure(err: unknown) {
+  console.error('[meal-selector] plan entry update failed', {
+    status: err instanceof ApiError ? err.status : undefined,
+    error: err instanceof Error ? err.message : err,
+  })
+}
 
 interface MealSelectorModalProps {
   open: boolean
@@ -148,7 +163,10 @@ export function MealSelectorModal({
       onSwapComplete(mealId)
       handleOpenChange(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : tSelector('updateMealFailed'))
+      // `apiFetch` puts the route's English `error` in `message`, so it is
+      // logged, never rendered (HON-724) — see `logAssignFailure`.
+      logAssignFailure(err)
+      setError(tSelector('updateMealFailed'))
       setSelectingId(null)
     }
   }
@@ -171,7 +189,8 @@ export function MealSelectorModal({
       onSwapComplete(mealId)
       handleOpenChange(false)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : tSelector('imagine.assignFailed'))
+      logAssignFailure(err)
+      toast.error(tSelector('imagine.assignFailed'))
     }
   }
 

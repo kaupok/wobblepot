@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 vi.unmock('next-intl')
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
 import enMessages from '../../../messages/en.json'
@@ -158,5 +158,59 @@ describe('ImagineReviewDialog save-blocked reason', () => {
     expect(save).toBeEnabled()
     expect(save).not.toHaveAttribute('aria-describedby')
     expect(screen.queryByText(/to save$/)).not.toBeInTheDocument()
+  })
+})
+
+describe('ImagineReviewDialog save failure', () => {
+  /** Verbatim from `POST /api/households/me/meals`'s catch-all branch. */
+  const SERVER_PROSE = 'Failed to create meal'
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  function stubFetch(impl: () => Promise<unknown>) {
+    vi.stubGlobal('fetch', vi.fn(impl))
+  }
+
+  async function saveInEt() {
+    const onSaved = vi.fn()
+    renderInLocale(
+      <ImagineReviewDialog open meal={buildMeal()} onOpenChange={vi.fn()} onSaved={onSaved} />,
+      'et',
+    )
+    fireEvent.click(screen.getByRole('button', { name: etMessages.recipes.review.save }))
+    await screen.findByText(etMessages.recipes.review.errors.saveFailed)
+    return onSaved
+  }
+
+  it('renders Estonian, not the server prose, and logs the server error', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    stubFetch(() =>
+      Promise.resolve({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({ error: SERVER_PROSE }),
+      }),
+    )
+
+    const onSaved = await saveInEt()
+
+    expect(screen.queryByText(SERVER_PROSE)).not.toBeInTheDocument()
+    expect(onSaved).not.toHaveBeenCalled()
+    expect(consoleError).toHaveBeenCalledWith('[imagine-review] save failed', {
+      status: 500,
+      error: SERVER_PROSE,
+    })
+  })
+
+  it('renders Estonian, not the browser message, on a network failure', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    stubFetch(() => Promise.reject(new TypeError('Failed to fetch')))
+
+    await saveInEt()
+
+    expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument()
   })
 })

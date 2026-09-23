@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { http, HttpResponse } from 'msw'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import {
   assertFocusInDialog,
@@ -160,6 +161,32 @@ export const SaveInvokesCallback: Story = {
     await userEvent.click(saveButton)
     // handleSave awaits the POST before firing onSaved
     await waitFor(() => expect(args.onSaved).toHaveBeenCalledWith('new-meal-123'))
+  },
+}
+
+export const SaveFailedEstonian: Story = {
+  globals: { locale: 'et' },
+  parameters: {
+    msw: {
+      handlers: [
+        http.post('/api/households/me/meals', () =>
+          HttpResponse.json({ error: 'Failed to create meal' }, { status: 500 }),
+        ),
+      ],
+    },
+    docs: {
+      description: {
+        story:
+          "The save POST fails. The dialog renders its own translated error, never the route's English `error` prose (HON-724).",
+      },
+    },
+  },
+  play: async ({ args }) => {
+    const body = within(document.body)
+    await userEvent.click(await body.findByRole('button', { name: /^salvesta toit$/i }))
+    await body.findByText('Toidu salvestamine ebaõnnestus')
+    await expect(body.queryByText('Failed to create meal')).not.toBeInTheDocument()
+    await expect(args.onSaved).not.toHaveBeenCalled()
   },
 }
 

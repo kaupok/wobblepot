@@ -522,8 +522,7 @@
         "both": "Salvestamiseks sobita või eemalda {unmatched, plural, one {# koostisosa} other {# koostisosa}} ja kinnita {lowConfidence}"
       },
       "errors": {
-        "saveFailed": "Toidu salvestamine ebaõnnestus",
-        "generic": "Tekkis viga"
+        "saveFailed": "Toidu salvestamine ebaõnnestus"
       }
     },
     "list": {
