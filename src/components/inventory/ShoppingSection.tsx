@@ -80,7 +80,6 @@ export function ShoppingSection({
   const [purchasedIds, setPurchasedIds] = useState<Set<string>>(initialPurchasedIds)
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
   const [sortMode, setSortMode] = useState<SortMode>('category')
-  const [mounted, setMounted] = useState(false)
   const [copied, setCopied] = useState(false)
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const copyInFlightRef = useRef(false)
@@ -97,10 +96,11 @@ export function ShoppingSection({
     handleClearChecked,
   } = useCustomShoppingItems(initialCustomItems)
 
-  // Initialize sort mode from localStorage after mount (SSR-safe)
+  // Apply the stored sort mode after mount. The server and the first client
+  // render both use 'category', so the select renders in the server HTML with
+  // the default and switches to the stored mode a frame later (HON-771).
   useEffect(() => {
     setSortMode(getInitialSortMode())
-    setMounted(true)
   }, [])
 
   // Don't leave the "copied" checkmark timer running after unmount.
@@ -434,18 +434,17 @@ export function ShoppingSection({
             {tShopping('clearChecked')}
           </Button>
         )}
-        {mounted && (
-          <Select value={sortMode} onValueChange={handleSortModeChange}>
-            <SelectTrigger size="sm" className="w-37.5" aria-label={tShopping('ariaSort')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="category">{tSort('category')}</SelectItem>
-              <SelectItem value="urgency">{tSort('urgency')}</SelectItem>
-              <SelectItem value="alphabetical">{tSort('alphabetical')}</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
+        {/* Label passed explicitly so the server HTML is not an empty trigger — see ShoppingListHeader. */}
+        <Select value={sortMode} onValueChange={handleSortModeChange}>
+          <SelectTrigger size="sm" className="w-37.5" aria-label={tShopping('ariaSort')}>
+            <SelectValue>{tSort(sortMode)}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="category">{tSort('category')}</SelectItem>
+            <SelectItem value="urgency">{tSort('urgency')}</SelectItem>
+            <SelectItem value="alphabetical">{tSort('alphabetical')}</SelectItem>
+          </SelectContent>
+        </Select>
       </ShoppingListHeader>
       <CardContent>
         <div className="flex flex-col gap-6">

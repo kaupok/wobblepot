@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
@@ -38,12 +38,6 @@ interface ShoppingListHeaderProps {
 export function ShoppingListHeader({ windowDays, summary, children }: ShoppingListHeaderProps) {
   const tShopping = useTranslations('shopping')
   const setWindowDays = useSetWindowDays()
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR hydration pattern, same as ShoppingSection's sort select
-    setMounted(true)
-  }, [])
 
   return (
     <CardHeader>
@@ -70,17 +64,25 @@ export function ShoppingListHeader({ windowDays, summary, children }: ShoppingLi
         */}
         <div className="flex flex-wrap items-center justify-end gap-2">
           {children}
-          {mounted && (
-            <Select value={String(windowDays)} onValueChange={setWindowDays}>
-              <SelectTrigger size="sm" className="w-25" aria-label={tShopping('ariaTimeWindow')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7">{tShopping('windowOption7')}</SelectItem>
-                <SelectItem value="14">{tShopping('windowOption14')}</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
+          {/*
+            Not gated on mount: `windowDays` is a server prop, so the server and
+            the first client render agree, and the picker is in the server HTML
+            rather than popping in and re-wrapping the row after hydration (HON-771).
+            The label is passed explicitly because Radix only fills `SelectValue`
+            from the items on the client, so the server HTML would otherwise
+            carry an empty trigger.
+          */}
+          <Select value={String(windowDays)} onValueChange={setWindowDays}>
+            <SelectTrigger size="sm" className="w-25" aria-label={tShopping('ariaTimeWindow')}>
+              <SelectValue>
+                {windowDays === 14 ? tShopping('windowOption14') : tShopping('windowOption7')}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">{tShopping('windowOption7')}</SelectItem>
+              <SelectItem value="14">{tShopping('windowOption14')}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
     </CardHeader>

@@ -107,6 +107,13 @@ export const EmptyState: Story = {
       },
     },
   },
+  play: async ({ canvasElement }) => {
+    // `getByRole`, not `findByRole`: the picker is part of the first render
+    // rather than appearing after a mount effect, so it is in the server HTML
+    // and does not pop in and re-wrap the row after hydration (HON-771).
+    const picker = within(canvasElement).getByRole('combobox', { name: /time window/i })
+    await expect(picker).toHaveTextContent('7 days')
+  },
 }
 
 export const Populated: Story = {
