@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { Prisma } from '@/generated/prisma/client'
 import { POST } from './route'
 
 vi.mock('next/headers', () => ({
@@ -35,8 +36,10 @@ vi.mock('@/lib/errors', () => ({
 
 // Not mocked away: the route must be seen to delegate its transaction to the
 // helper, because that is what pins the isolation level. `household-claim`'s
-// own test owns the Serializable / retry assertions.
-vi.mock('@/lib/household-claim', () => ({
+// own test owns the Serializable / retry assertions. `isMembershipConflict`
+// stays real, so the P2002 test below exercises the actual classification.
+vi.mock('@/lib/household-claim', async (importActual) => ({
+  ...(await importActual<typeof import('@/lib/household-claim')>()),
   runHouseholdClaim: vi.fn(),
 }))
 
@@ -212,6 +215,32 @@ describe('POST /api/invites/[code]/join', () => {
     expect(data.error).toBe('invite_invalid')
     // A row that vanished must not be reported as a server fault, and the
     // invite must not be consumed on its way out.
+    expect(tx.householdInvite.deleteMany).not.toHaveBeenCalled()
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
+  })
+
+  it('maps a unique-index rejection of the claim to already_in_household, not a 500', async () => {
+    // A concurrent create or join committed a membership for this user after
+    // the in-transaction check ran, and `household_member_userId_key` rejected
+    // the claim (HON-696). `JoinHouseholdCard` branches on this exact string.
+    mockGetSession.mockResolvedValue(SESSION as never)
+    mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
+    tx.householdMember.updateMany.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed on the fields: (`userId`)',
+        {
+          code: 'P2002',
+          clientVersion: 'test',
+          meta: { modelName: 'HouseholdMember', target: ['userId'] },
+        },
+      ),
+    )
+
+    const response = await POST(createRequest(), { params: createParams('abc123') })
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('already_in_household')
     expect(tx.householdInvite.deleteMany).not.toHaveBeenCalled()
     expect(mockCaptureApiError).not.toHaveBeenCalled()
   })

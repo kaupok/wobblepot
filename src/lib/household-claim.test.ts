@@ -8,7 +8,12 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 import { prisma } from '@/lib/prisma'
-import { runHouseholdClaim, backoffDelayMs, MAX_CLAIM_ATTEMPTS } from './household-claim'
+import {
+  runHouseholdClaim,
+  backoffDelayMs,
+  isMembershipConflict,
+  MAX_CLAIM_ATTEMPTS,
+} from './household-claim'
 
 const mockTransaction = vi.mocked(prisma.$transaction)
 
@@ -172,6 +177,35 @@ describe('runHouseholdClaim', () => {
     mockTransaction.mockRejectedValue(notFound)
 
     await expect(runHouseholdClaim(claim)).rejects.toBe(notFound)
+    expect(mockTransaction).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('isMembershipConflict', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  const knownError = (code: string) =>
+    new Prisma.PrismaClientKnownRequestError('boom', { code, clientVersion: 'test' })
+
+  it('recognises a unique-constraint violation', () => {
+    expect(isMembershipConflict(knownError('P2002'))).toBe(true)
+  })
+
+  it('does not treat other errors as a membership conflict', () => {
+    // A serialization failure is retried, not mapped; anything else is a 500.
+    expect(isMembershipConflict(knownError('P2034'))).toBe(false)
+    expect(isMembershipConflict(knownError('P2025'))).toBe(false)
+    expect(isMembershipConflict(new Error('P2002'))).toBe(false)
+    expect(isMembershipConflict(undefined)).toBe(false)
+  })
+
+  it('is not retried by runHouseholdClaim', async () => {
+    const conflict = knownError('P2002')
+    mockTransaction.mockRejectedValue(conflict)
+
+    await expect(runHouseholdClaim(vi.fn())).rejects.toBe(conflict)
     expect(mockTransaction).toHaveBeenCalledTimes(1)
   })
 })

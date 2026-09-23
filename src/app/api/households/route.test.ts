@@ -132,6 +132,40 @@ describe('POST /api/households', () => {
     })
   })
 
+  it('maps a unique-index rejection of the owner row to already_in_household, not a 500', async () => {
+    // A concurrent create or invite join committed a membership for this user
+    // after the in-transaction check ran, and `household_member_userId_key`
+    // rejected the owner insert (HON-696). `P2002` is not retried, so this is
+    // the first attempt's error. `CreateHouseholdForm` branches on the string.
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockTransaction.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed on the fields: (`userId`)',
+        {
+          code: 'P2002',
+          clientVersion: 'test',
+          meta: { modelName: 'HouseholdMember', target: ['userId'] },
+        },
+      ),
+    )
+
+    const request = new Request('http://localhost/api/households', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'My Household' }),
+    })
+
+    const response = await POST(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('already_in_household')
+    expect(mockTransaction).toHaveBeenCalledTimes(1)
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
+  })
+
   it('answers a persistent serialization failure with a reported JSON 500', async () => {
     // This is the one test here that exhausts `runHouseholdClaim`'s retry
     // budget, so it is the one that would otherwise sit through both real

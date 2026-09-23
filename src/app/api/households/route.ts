@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { MealType } from '@/generated/prisma/enums'
 import { resolveLocale } from '@/lib/i18n/resolve-locale'
-import { runHouseholdClaim } from '@/lib/household-claim'
+import { isMembershipConflict, runHouseholdClaim } from '@/lib/household-claim'
 import { captureApiError } from '@/lib/errors'
 
 /**
@@ -82,10 +82,10 @@ export async function POST(request: Request) {
     // SSI's predicate locks catch the write skew, and retries the loser's
     // `P2034` so it resolves to the `already_in_household` 400 below (HON-679).
     //
-    // Both membership-creating routes must use it: PostgreSQL only registers
-    // the conflict when the *writing* transaction is also serializable, so a
-    // serializable invite join racing a read-committed create here would still
-    // commit twice.
+    // Since HON-696 a unique index on `household_member."userId"` enforces the
+    // invariant on its own; the isolation level is defence in depth, and a
+    // loser that the index rejects instead surfaces as `P2002` — mapped to the
+    // same 400 below.
     const household = await runHouseholdClaim(async (tx) => {
       const existingMembership = await tx.householdMember.findFirst({
         where: { userId: session.user.id },
@@ -158,7 +158,14 @@ export async function POST(request: Request) {
       { status: 201 },
     )
   } catch (error) {
-    if (error instanceof Error && error.message === 'already_in_household') {
+    // `isMembershipConflict`: the unique index on `household_member."userId"`
+    // rejected the owner row — a concurrent create or join committed a
+    // membership for this user first (HON-696). Same answer as the pre-check,
+    // because `CreateHouseholdForm` branches on this exact `error` string.
+    if (
+      (error instanceof Error && error.message === 'already_in_household') ||
+      isMembershipConflict(error)
+    ) {
       return NextResponse.json(
         {
           error: 'already_in_household',

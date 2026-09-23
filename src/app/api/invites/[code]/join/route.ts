@@ -3,16 +3,17 @@ import { headers } from 'next/headers'
 import { Prisma } from '@/generated/prisma/client'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { runHouseholdClaim } from '@/lib/household-claim'
+import { isMembershipConflict, runHouseholdClaim } from '@/lib/household-claim'
 import { captureApiError } from '@/lib/errors'
 
 /**
  * The user already belongs to a household, so this invite cannot claim a
- * second member row for them. `@@unique([householdId, userId])` only guards
- * against a duplicate row *within* one household, and there is no unique
- * index on `userId` alone, so this check is the only thing keeping one user
- * out of two households (HON-679). `runHouseholdClaim` is what makes it hold
- * under concurrency — see the isolation rationale there.
+ * second member row for them. The unique index on `household_member."userId"`
+ * is what actually keeps one user out of two households (HON-696); this
+ * check is what turns the common case into a clean 400 before any write, and
+ * a loser the index rejects instead (`P2002`) is mapped to the same 400 in the
+ * catch below. See `runHouseholdClaim` for why the check still runs at
+ * `Serializable`.
  *
  * Thrown rather than returned because the check runs inside the same
  * transaction that claims the member row — throwing is the only way to roll
@@ -132,7 +133,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
     // "already in a household" check runs on `tx`, and `runHouseholdClaim`
     // runs that transaction at `Serializable`, so two concurrent joins with
     // different valid codes cannot both observe "no membership" and both
-    // commit (HON-679).
+    // commit (HON-679). The unique index on `"userId"` backs that up
+    // unconditionally (HON-696).
     const claimMembership = async (tx: Prisma.TransactionClient) => {
       const existingMembership = await tx.householdMember.findFirst({
         where: { userId },
@@ -185,11 +187,14 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
       },
     })
   } catch (error) {
-    // Both sentinels are checked before `captureApiError`: they are expected
-    // client errors, not server faults, and reporting them would both noise up
-    // PostHog and fall through to a 500 that the client's error branches
-    // cannot read.
-    if (error instanceof AlreadyInHouseholdError) {
+    // Both sentinels, and the index's `P2002`, are checked before
+    // `captureApiError`: they are expected client errors, not server faults,
+    // and reporting them would both noise up PostHog and fall through to a 500
+    // that the client's error branches cannot read.
+    // `isMembershipConflict`: the claim's `updateMany` was rejected by the
+    // unique index on `household_member."userId"` — a concurrent join or
+    // create committed a membership for this user first (HON-696).
+    if (error instanceof AlreadyInHouseholdError || isMembershipConflict(error)) {
       return NextResponse.json(
         {
           error: 'already_in_household',
