@@ -350,7 +350,7 @@ export function MealCard({
                 image's title band is sized from it (`IMAGE_HEIGHT` in
                 MealImageCard). */}
             <div className={cn('min-w-0', mealImageTitleWidth(hasTrailingActions))}>
-              <Body variant="small" className="font-semibold">
+              <Body variant="small">
                 <button
                   type="button"
                   className="min-h-8 cursor-pointer text-left leading-snug underline-offset-2 hover:underline"

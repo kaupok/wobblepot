@@ -108,7 +108,7 @@ export function AlternativesList({
   return (
     <>
       {header && (
-        <Body variant="small" className="text-muted-foreground">
+        <Body variant="small" tone="muted">
           {header}
         </Body>
       )}

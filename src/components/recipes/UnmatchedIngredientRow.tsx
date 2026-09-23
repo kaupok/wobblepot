@@ -110,7 +110,7 @@ export function UnmatchedIngredientRow({
         <div className="flex items-start gap-3">
           <AlertTriangle className="text-warning mt-0.5 h-4 w-4 shrink-0" />
           <div className="flex flex-col gap-0.5">
-            <Body className="text-warning">{data.extractedName}</Body>
+            <Body tone="warning">{data.extractedName}</Body>
             <Body variant="muted">
               {data.isVague && data.originalPhrase ? (
                 <span className="italic">{data.originalPhrase}</span>

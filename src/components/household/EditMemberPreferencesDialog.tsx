@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import type { Member } from '@/types/member'
+import { FieldError } from '@/components/FieldError'
 
 const PORTION_PRESETS: Array<{ key: 'small' | 'regular' | 'large' | 'extraLarge'; value: number }> =
   [
@@ -170,9 +171,7 @@ export function EditMemberPreferencesDialog({
                 placeholder={t('displayNamePlaceholder')}
                 disabled={isLoading}
               />
-              <Body variant="muted" className="text-sm">
-                {t('displayNameHelper')}
-              </Body>
+              <Body variant="muted">{t('displayNameHelper')}</Body>
             </div>
 
             {/* Portion size */}
@@ -203,18 +202,10 @@ export function EditMemberPreferencesDialog({
                 />
                 <Body variant="muted">{tPortion('helper')}</Body>
               </div>
-              {portionError && (
-                <Body variant="small" className="text-destructive">
-                  {portionError}
-                </Body>
-              )}
+              {portionError && <FieldError>{portionError}</FieldError>}
             </div>
 
-            {error && (
-              <Body variant="small" className="text-destructive">
-                {error}
-              </Body>
-            )}
+            {error && <FieldError>{error}</FieldError>}
           </div>
 
           <DialogFooter>

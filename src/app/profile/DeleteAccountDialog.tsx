@@ -18,6 +18,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Body } from '@/components/ui/typography'
+import { FieldError } from '@/components/FieldError'
 import { formatLongDate } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
 import { translateErrorCode } from '@/lib/ai/error-codes'
@@ -131,7 +132,7 @@ export function DeleteAccountDialog({
               <Body variant="muted">{t('graceNote')}</Body>
 
               {hasOtherMembers && (
-                <Body variant="muted" className="text-destructive">
+                <Body variant="paragraph" tone="destructive">
                   {t('cannotDeleteOwner', {
                     householdName: householdName ?? '',
                     count: (memberCount ?? 1) - 1,
@@ -139,11 +140,9 @@ export function DeleteAccountDialog({
                 </Body>
               )}
 
-              <Body variant="small" className="text-muted-foreground">
-                {t('accountLine', { email: userEmail })}
-              </Body>
+              <Body variant="muted">{t('accountLine', { email: userEmail })}</Body>
 
-              {error && <Body className="text-destructive">{error}</Body>}
+              {error && <FieldError>{error}</FieldError>}
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>

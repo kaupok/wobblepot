@@ -93,7 +93,7 @@ export function MemberCard({
               )}
             </div>
             <div className="flex items-center gap-2">
-              <Body className="font-medium">{displayName}</Body>
+              <Body variant="small">{displayName}</Body>
               {isOwner && <Badge variant="secondary">{ownerLabel}</Badge>}
               {isManual && !member.invite?.isActive && (
                 <Badge variant="outline">{tMembers('manualBadge')}</Badge>
@@ -139,9 +139,7 @@ export function MemberCard({
 
         {/* Portion size */}
         <div className="pl-12">
-          <Body variant="muted" className="text-sm">
-            {portionLabel}
-          </Body>
+          <Body variant="muted">{portionLabel}</Body>
         </div>
       </div>
 

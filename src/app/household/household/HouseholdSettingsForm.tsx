@@ -23,6 +23,7 @@ import { TagInput, type TagInputRef } from '@/components/tag-input'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { PUBLIC_LOCALES, type Locale } from '@/lib/i18n/locales'
 import { MEAL_TYPE_VALUES } from '@/components/household/meal-form-types'
+import { FieldError } from '@/components/FieldError'
 
 // Types matching Prisma enums
 type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian'
@@ -460,11 +461,7 @@ export function HouseholdSettingsForm({
 
           {/* Submit */}
           <div className="flex flex-col gap-4 pt-2">
-            {error && (
-              <Body id="form-error" variant="small" className="text-destructive" role="alert">
-                {error}
-              </Body>
-            )}
+            {error && <FieldError id="form-error">{error}</FieldError>}
             {isOwner && (
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? tSettings('saving') : tSettings('saveButton')}

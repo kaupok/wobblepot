@@ -61,7 +61,7 @@ export function CategoryGroup({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <Body variant="small" className="text-muted-foreground font-medium">
+        <Body variant="small" tone="muted">
           {emoji} {categoryLabel} ({totalCount})
         </Body>
         {purchasedCount > 0 && (

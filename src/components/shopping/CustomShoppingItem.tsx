@@ -61,10 +61,8 @@ export function CustomShoppingItem({
         />
         <div className="flex items-baseline gap-2">
           <Body
-            className={cn(
-              'transition-colors',
-              item.checked && 'text-muted-foreground line-through',
-            )}
+            tone={item.checked ? 'muted' : 'default'}
+            className={cn('transition-colors', item.checked && 'line-through')}
           >
             {item.name}
           </Body>

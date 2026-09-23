@@ -11,6 +11,7 @@ import { AddMemberDialog } from './AddMemberDialog'
 import { EditMemberPreferencesDialog } from './EditMemberPreferencesDialog'
 import { MemberInviteDialog } from './MemberInviteDialog'
 import type { Member } from '@/types/member'
+import { FieldError } from '@/components/FieldError'
 
 const MEMBERS_QUERY_KEY = ['household-members']
 
@@ -89,9 +90,7 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
               <MemberCardSkeleton />
             </div>
           ) : error ? (
-            <Body variant="small" className="text-destructive">
-              {t('loadFailed')}
-            </Body>
+            <FieldError>{t('loadFailed')}</FieldError>
           ) : members.length === 0 ? (
             <div className="rounded-lg border border-dashed p-8 text-center">
               <Body variant="muted">{t('empty')}</Body>
@@ -114,11 +113,7 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
             </div>
           )}
 
-          {!isOwner && (
-            <Body variant="muted" className="text-sm">
-              {t('nonOwnerNotice')}
-            </Body>
-          )}
+          {!isOwner && <Body variant="muted">{t('nonOwnerNotice')}</Body>}
         </div>
       </div>
 

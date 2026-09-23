@@ -172,7 +172,7 @@ export function IngredientRow({
         {isDuplicate && (
           <div className="mt-1 flex items-center gap-1.5">
             <Info className="text-warning size-3.5 shrink-0" />
-            <Body variant="small" className="text-warning">
+            <Body variant="small" tone="warning">
               {t('duplicateRow', {
                 count: duplicateIndices.length,
                 rows: duplicateIndices.map((i) => i + 1).join(', '),

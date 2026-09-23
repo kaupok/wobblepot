@@ -186,7 +186,7 @@ function TrailingActionsCard({ meal, ...args }: React.ComponentProps<typeof Meal
       <CardHeader className="px-3 pb-0">
         <div className="flex items-start justify-between gap-1">
           <div className={cn('min-w-0', mealImageTitleWidth(true))}>
-            <Body variant="small" className="font-semibold">
+            <Body variant="small">
               <button type="button" className="min-h-8 text-left leading-snug">
                 {meal.name}
               </button>

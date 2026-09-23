@@ -7,7 +7,6 @@ import { Loader2, Sparkles, ArrowLeft } from 'lucide-react'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Body } from '@/components/ui/typography'
 import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
 import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
@@ -19,6 +18,7 @@ import {
 } from '@/lib/imagine-utils'
 import { MealCardBase } from '../MealCardBase'
 import { AlternativeSkeleton } from './AlternativesList'
+import { FieldError } from '@/components/FieldError'
 
 export interface ImaginePanelProps {
   /** Leaves imagine mode and returns to the library list. */
@@ -226,11 +226,7 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
           />
         </AttachImages>
 
-        {error && (
-          <Body variant="small" className="text-destructive">
-            {error}
-          </Body>
-        )}
+        {error && <FieldError>{error}</FieldError>}
 
         <div className="flex flex-col gap-2">
           <Button

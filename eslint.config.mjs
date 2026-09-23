@@ -173,17 +173,44 @@ const config = defineConfig([
                   'An Input is as tall as a default Button so a field and its button line up.',
               },
             },
-            // TEMPORARY — HON-675 deletes this contract. Typography and colour
-            // overrides on the type primitives wait on a design decision
-            // (docs/DESIGN.md → Open questions, item 1: `Body` has no wrapping
-            // small variant). `Label` and `Badge` carry the same kind of
-            // override; `NutritionDisclaimer` forwards `className` to `Body`.
-            // `gap-*` / `opacity-*` are `IngredientList`'s flex `Li` rows, and
-            // `transition-colors` animates the shopping rows' checked colour;
-            // HON-675 moves each along with the colour it belongs to.
+            // The type primitives own size, weight and colour: `Body` and `Li`
+            // through `variant` and `tone`, `Badge` through `variant` (HON-675).
+            // What stays a class is text *state*, not a level or a tone:
+            // `italic` / `line-through` mark a vague quantity or a purchased
+            // row; `uppercase` travels with `tracking-wide` because uppercase
+            // without tracking is a legibility problem; `transition-colors` has
+            // to sit on the element whose colour changes; `font-mono` is for
+            // codes shown to be copied, as on `Input`.
             {
-              pattern: '^(Body|Pre|Li|Heading|Label|Badge|NutritionDisclaimer)$',
-              allow: [...LAYOUT, 'typography', 'color', 'gap-*', 'opacity-*', 'transition-colors'],
+              pattern: '^Body$',
+              allow: [
+                ...LAYOUT,
+                'italic',
+                'line-through',
+                'uppercase',
+                'tracking-wide',
+                'transition-colors',
+                'font-mono',
+              ],
+            },
+            // An option label beside a `RadioGroupItem` or `Checkbox` is normal
+            // weight; a field label is medium. `Label` is a registry primitive,
+            // so a variant there would drift on the next `shadcn add`.
+            {
+              pattern: '^Label$',
+              allow: [...LAYOUT, 'font-normal'],
+            },
+            // `IngredientList` renders `Li` as a flex row: its `gap-*` is
+            // layout, and `opacity-*` is the row's in-flight toggle state.
+            {
+              pattern: '^Li$',
+              allow: [...LAYOUT, 'gap-*', 'opacity-*'],
+            },
+            // The "today" marker on `TimelineDayCard`. The callsite keeps a
+            // non-colour cue beside it (docs/DESIGN.md → Color).
+            {
+              pattern: '^Heading$',
+              allow: [...LAYOUT, 'text-primary'],
             },
           ],
         },

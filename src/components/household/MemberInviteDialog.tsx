@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import type { MemberInvite } from '@/types/member'
+import { FieldError } from '@/components/FieldError'
 
 interface MemberInviteDialogProps {
   open: boolean
@@ -149,11 +150,7 @@ export function MemberInviteDialog({
         ) : (
           <div className="flex flex-col gap-4">
             <Body>{t('body', { name: memberName })}</Body>
-            {error && (
-              <Body variant="small" className="text-destructive">
-                {error}
-              </Body>
-            )}
+            {error && <FieldError>{error}</FieldError>}
           </div>
         )}
 

@@ -29,6 +29,7 @@ import {
   loadImagineSession,
   saveImagineSession,
 } from './imagine-session'
+import { FieldError } from '@/components/FieldError'
 
 function SkeletonCard() {
   return (
@@ -260,11 +261,7 @@ export function ImagineClient() {
                   }}
                 />
               </AttachImages>
-              {error && (
-                <Body variant="small" className="text-destructive">
-                  {error}
-                </Body>
-              )}
+              {error && <FieldError>{error}</FieldError>}
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-3">

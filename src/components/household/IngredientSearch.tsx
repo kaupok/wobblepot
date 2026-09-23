@@ -151,9 +151,7 @@ export function IngredientSearch({
                 )}
               >
                 <div className="flex items-center gap-2">
-                  <Body className={isAdded ? 'text-muted-foreground' : undefined}>
-                    {ingredient.name}
-                  </Body>
+                  <Body tone={isAdded ? 'muted' : 'default'}>{ingredient.name}</Body>
                   <CategoryHint category={ingredient.category} />
                 </div>
                 {isAdded ? (
