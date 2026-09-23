@@ -429,6 +429,39 @@ describe('POST /api/meals/imagine', () => {
     expect(data.meals[0].primaryProteinType).toBe('eggs')
   })
 
+  it('leaves vague components out of protein derivation (HON-713)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockImagineMeals.mockResolvedValue([imaginedMeal() as never])
+    mockMatchIngredients.mockResolvedValue([
+      // 600g chicken for 4 servings = 150g per serving
+      matchedResult({ convertedQuantity: 600 }) as never,
+      // "some egg for brushing": a 10g-per-serving default, not 10 eggs
+      matchedResult({
+        ingredient: {
+          ...matchedResult().ingredient,
+          id: 'ing-eggs',
+          name: 'Eggs',
+          defaultUnit: 'piece',
+          gramsPerPiece: 50,
+          protein: 13,
+        },
+        convertedQuantity: 40,
+        isVague: true,
+      }) as never,
+    ])
+    mockIngredientFindMany.mockResolvedValue([
+      { id: 'ing-chicken', calories: 165, protein: 31, carbs: 0, fat: 3.6, proteinType: 'poultry' },
+      { id: 'ing-eggs', calories: 155, protein: 13, carbs: 1.1, fat: 11, proteinType: 'eggs' },
+    ] as never)
+
+    const response = await POST(jsonRequest({ prompt: 'chicken' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.meals[0].primaryProteinType).toBe('poultry')
+  })
+
   it('sets allMatched to false when at least one ingredient is unmatched', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)

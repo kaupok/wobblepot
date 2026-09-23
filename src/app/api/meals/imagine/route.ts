@@ -292,6 +292,7 @@ async function handlePOST(request: Request) {
         // Derive protein type from matched components
         const componentDataForProtein = components.map((comp) => ({
           quantityPerServing: comp.quantityPerServing,
+          isVague: comp.isVague,
           ingredient: {
             defaultUnit: comp.ingredient.defaultUnit,
             gramsPerPiece: comp.ingredient.gramsPerPiece,

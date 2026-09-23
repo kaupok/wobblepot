@@ -125,4 +125,20 @@ describe('deriveProteinType', () => {
     ]
     expect(deriveProteinType(components)).toBe('eggs')
   })
+
+  it('skips vague components, whose quantity is a gram default rather than a piece count', () => {
+    const components: ComponentForProtein[] = [
+      // "some egg for brushing": a 10g default that must not read as 10 eggs
+      {
+        quantityPerServing: 10,
+        isVague: true,
+        ingredient: { defaultUnit: 'piece', gramsPerPiece: 50, proteinType: 'eggs', protein: 13 },
+      },
+      {
+        quantityPerServing: 150,
+        ingredient: { defaultUnit: 'g', proteinType: 'poultry', protein: 31 },
+      },
+    ]
+    expect(deriveProteinType(components)).toBe('poultry')
+  })
 })

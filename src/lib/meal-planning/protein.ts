@@ -6,6 +6,8 @@ import { componentGramsPerServing } from './nutrition'
  */
 export interface ComponentForProtein {
   quantityPerServing: number
+  /** Vague components carry a gram default, not a real quantity, and are skipped. */
+  isVague?: boolean
   ingredient: {
     proteinType?: ProteinType | null
     protein: number
@@ -19,7 +21,7 @@ export interface ComponentForProtein {
  * Derive the primary protein type for a meal based on its ingredients.
  *
  * Logic:
- * 1. Find all components whose ingredients have a proteinType set
+ * 1. Find all non-vague components whose ingredients have a proteinType set
  * 2. Calculate total protein contribution (grams) for each: grams * protein/100,
  *    converting piece-unit quantities to grams first
  * 3. Return the proteinType of the ingredient with highest protein contribution
@@ -31,7 +33,7 @@ export function deriveProteinType(components: ComponentForProtein[]): ProteinTyp
 
   for (const comp of components) {
     const { proteinType } = comp.ingredient
-    if (!proteinType) continue
+    if (!proteinType || comp.isVague) continue
 
     // Protein values are per 100g, so piece quantities are converted to grams first
     const grams = componentGramsPerServing(comp.quantityPerServing, comp.ingredient)
