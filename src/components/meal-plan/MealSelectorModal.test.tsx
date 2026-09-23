@@ -18,6 +18,8 @@ vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
 
 // The list and the imagine panel have their own tests; here they only need to
 // hand the modal a meal id, which is what triggers the PATCH under test.
+const hookState = vi.hoisted(() => ({ isRateLimited: false }))
+
 vi.mock('./meal-selector/use-meal-alternatives', () => ({
   useMealAlternatives: () => ({
     displayedMeals: [],
@@ -30,19 +32,23 @@ vi.mock('./meal-selector/use-meal-alternatives', () => ({
     hasLoadedList: true,
     isSearchMode: false,
     isMyRecipesBrowseMode: false,
+    isRateLimited: hookState.isRateLimited,
   }),
 }))
 
 vi.mock('./meal-selector/AlternativesList', () => ({
   AlternativesList: ({
     error,
+    emptyState,
     onSelect,
   }: {
     error: string | null
+    emptyState: React.ReactNode
     onSelect: (mealId: string) => void
   }) => (
     <div>
       {error && <p role="alert">{error}</p>}
+      {emptyState}
       <button onClick={() => onSelect('meal-2')}>pick meal</button>
     </div>
   ),
@@ -128,5 +134,27 @@ describe('MealSelectorModal plan-assignment error localization', () => {
       '[meal-selector] plan entry update failed',
       expect.objectContaining({ status: 404, error: SERVER_PROSE }),
     )
+  })
+})
+
+describe('MealSelectorModal suggestions rate limit', () => {
+  afterEach(() => {
+    hookState.isRateLimited = false
+  })
+
+  it('explains a rate-limited suggestions request in Estonian instead of "no suggestions"', () => {
+    hookState.isRateLimited = true
+    renderModal()
+
+    expect(screen.getByText(etMessages['meal-plan'].selector.rateLimited)).toBeInTheDocument()
+    expect(
+      screen.queryByText(etMessages['meal-plan'].selector.noSuggestions),
+    ).not.toBeInTheDocument()
+  })
+
+  it('keeps the "no suggestions" copy when the request was not rate limited', () => {
+    renderModal()
+
+    expect(screen.getByText(etMessages['meal-plan'].selector.noSuggestions)).toBeInTheDocument()
   })
 })

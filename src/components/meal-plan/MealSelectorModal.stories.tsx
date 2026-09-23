@@ -13,6 +13,7 @@ import {
   emptyMealsHandlers,
   errorMealsHandlers,
   loadingMealsHandlers,
+  rateLimitedSuggestionsHandlers,
 } from '@/stories/msw-handlers'
 import { MealSelectorModal } from './MealSelectorModal'
 
@@ -101,6 +102,23 @@ export const ErrorState: Story = {
           'Suggestions endpoint returns a 500 — `useQuery` surfaces no data, so the empty-state copy renders deterministically.',
       },
     },
+  },
+}
+
+export const RateLimited: Story = {
+  args: { mode: 'swap' },
+  parameters: {
+    msw: { handlers: rateLimitedSuggestionsHandlers },
+    docs: {
+      description: {
+        story:
+          'The shared `meal-suggestions` bucket is exhausted — `/regenerate` answers 429, so the list explains the limit instead of claiming there are no suggestions.',
+      },
+    },
+  },
+  play: async () => {
+    const body = within(document.body)
+    await expect(await body.findByText(/too many suggestion requests/i)).toBeInTheDocument()
   },
 }
 

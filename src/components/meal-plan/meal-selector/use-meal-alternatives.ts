@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch } from '@/lib/api'
+import { ApiError, apiFetch } from '@/lib/api'
 import type { AlternativeMeal, MealComponent, NutritionData } from '../types'
 import type { MealImageFields } from '../MealImageCard'
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
@@ -27,6 +27,10 @@ interface MealsSearchResponse {
 }
 
 const PAGE_SIZE = 20
+
+function isRateLimitError(error: unknown) {
+  return error instanceof ApiError && error.status === 429
+}
 
 function toAlternativeMeal(meal: LibraryMeal): AlternativeMeal {
   return {
@@ -89,6 +93,12 @@ export interface UseMealAlternativesResult {
   hasLoadedList: boolean
   isSearchMode: boolean
   isMyRecipesBrowseMode: boolean
+  /**
+   * True when the suggestions request was refused by the shared
+   * `meal-suggestions` rate limit (429). Both `/regenerate` and `/suggestions`
+   * draw on it (HON-710); without this the refusal reads as an empty pool.
+   */
+  isRateLimited: boolean
 }
 
 /**
@@ -119,7 +129,11 @@ export function useMealAlternatives({
       ? `/api/meal-plans/${planId}/entries/${entryId}/regenerate`
       : `/api/meal-plans/${planId}/entries/${entryId}/suggestions`
 
-  const { data: suggestions = [], isLoading: isLoadingSuggestions } = useQuery({
+  const {
+    data: suggestions = [],
+    isLoading: isLoadingSuggestions,
+    error: suggestionsError,
+  } = useQuery({
     queryKey: ['meal-suggestions', planId, entryId, mode],
     queryFn: async () => {
       const data = await apiFetch<{
@@ -130,6 +144,8 @@ export function useMealAlternatives({
     },
     enabled: open && !isSearchMode && !isMyRecipesBrowseMode,
     staleTime: Infinity,
+    // Retrying a 429 only asks the limiter again for an answer it just gave.
+    retry: (failureCount, error) => !isRateLimitError(error) && failureCount < 2,
   })
 
   const searchQuery = useInfiniteQuery({
@@ -192,5 +208,6 @@ export function useMealAlternatives({
     hasLoadedList: !!pages,
     isSearchMode,
     isMyRecipesBrowseMode,
+    isRateLimited: !activeQuery && isRateLimitError(suggestionsError),
   }
 }

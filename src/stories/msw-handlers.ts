@@ -370,6 +370,25 @@ export const errorMealsHandlers: HttpHandler[] = [
 ]
 
 /**
+ * Refuse both meal-suggestion endpoints with the shared `meal-suggestions`
+ * rate limit (429). Use in stories that exercise the rate-limited copy.
+ */
+export const rateLimitedSuggestionsHandlers: HttpHandler[] = [
+  http.post('/api/meal-plans/:planId/entries/:entryId/suggestions', () =>
+    HttpResponse.json(
+      { error: 'Rate limit exceeded' },
+      { status: 429, headers: { 'Retry-After': '1800' } },
+    ),
+  ),
+  http.post('/api/meal-plans/:planId/entries/:entryId/regenerate', () =>
+    HttpResponse.json(
+      { error: 'Rate limit exceeded' },
+      { status: 429, headers: { 'Retry-After': '1800' } },
+    ),
+  ),
+]
+
+/**
  * Never resolve, keeping queries in their loading state indefinitely. Use in
  * stories that need to show the skeleton / spinner UI deterministically.
  */
