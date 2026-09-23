@@ -54,6 +54,10 @@ vi.mock('@/lib/ai/usage', async (importOriginal) => {
   }
 })
 
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -61,6 +65,7 @@ import { assertUnderCap } from '@/lib/ai/usage'
 import { parseAndMatchRecipe } from '@/lib/ai/parse-recipe'
 import { fetchRecipeFromUrl } from '@/lib/ai/recipe-fetch'
 import { RecipeParseError } from '@/lib/ai/recipe-errors'
+import { captureApiError } from '@/lib/errors'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -68,6 +73,7 @@ const mockCheckRateLimit = vi.mocked(checkRateLimit)
 const mockAssertUnderCap = vi.mocked(assertUnderCap)
 const mockFetchRecipeFromUrl = vi.mocked(fetchRecipeFromUrl)
 const mockParseAndMatchRecipe = vi.mocked(parseAndMatchRecipe)
+const mockCaptureApiError = vi.mocked(captureApiError)
 
 describe('extractUrlAndContext', () => {
   it('detects https:// URLs', () => {
@@ -246,6 +252,48 @@ describe('POST /api/recipes/parse RecipeParseError handling', () => {
 
     expect(response.status).toBe(400)
     expect(data.code).toBe('parse_failed')
+  })
+
+  it('answers 503 with Retry-After and reports the cause when the provider is unavailable (HON-723)', async () => {
+    const upstream = new Error('Anthropic 529 Overloaded')
+    mockParseAndMatchRecipe.mockRejectedValue(
+      new RecipeParseError(
+        'The recipe service is temporarily unavailable.',
+        'provider_unavailable',
+        {
+          cause: upstream,
+        },
+      ),
+    )
+
+    const response = await POST(jsonRequest({ text: 'Simple recipe: 400g chicken, 200g rice.' }))
+    const data = await response.json()
+
+    // Not a 4xx: the input was fine, and a retry may well succeed.
+    expect(response.status).toBe(503)
+    expect(response.headers.get('Retry-After')).toBe('30')
+    expect(data.success).toBe(false)
+    expect(data.code).toBe('provider_unavailable')
+    // The original SDK error, not the wrapper, so upstream status and stack
+    // survive into the report.
+    expect(mockCaptureApiError).toHaveBeenCalledTimes(1)
+    expect(mockCaptureApiError).toHaveBeenCalledWith(
+      upstream,
+      expect.objectContaining({ route: '/api/recipes/parse', feature: 'recipe_parse' }),
+    )
+  })
+
+  it('still answers 400 and reports nothing for text that is not a recipe (HON-723)', async () => {
+    mockParseAndMatchRecipe.mockRejectedValue(
+      new RecipeParseError("Couldn't extract a recipe from this text.", 'no_recipe_found'),
+    )
+
+    const response = await POST(jsonRequest({ text: 'Just some thoughts about the weather.' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.code).toBe('no_recipe_found')
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
   })
 })
 

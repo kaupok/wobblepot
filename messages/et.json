@@ -417,7 +417,8 @@
         "noRecipeFound": "Sellest tekstist ei leidnud retsepti. Veendu, et selles on nimi ja koostisosade loetelu.",
         "noIngredientsFound": "Koostisosi ei õnnestunud tuvastada. Palun kleebi retsept selge koostisosade loeteluga.",
         "lowConfidence": "See ei tundu olevat retsept. Proovi kleepida retsepti tekst otse.",
-        "parseTimeout": "Retsepti lugemine võttis liiga kaua aega. Palun proovi uuesti."
+        "parseTimeout": "Retsepti lugemine võttis liiga kaua aega. Palun proovi uuesti.",
+        "providerUnavailable": "Retseptiteenus pole ajutiselt saadaval. Palun proovi mõne hetke pärast uuesti."
       }
     },
     "edit": {

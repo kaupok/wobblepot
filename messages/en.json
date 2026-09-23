@@ -417,7 +417,8 @@
         "noRecipeFound": "We couldn't find a recipe in that text. Make sure it has a name and a list of ingredients.",
         "noIngredientsFound": "We couldn't identify the ingredients. Please paste a recipe with a clear ingredient list.",
         "lowConfidence": "That doesn't look like a recipe. Try pasting the recipe text directly.",
-        "parseTimeout": "Reading that recipe took too long. Please try again."
+        "parseTimeout": "Reading that recipe took too long. Please try again.",
+        "providerUnavailable": "The recipe service is temporarily unavailable. Please try again in a moment."
       }
     },
     "edit": {
