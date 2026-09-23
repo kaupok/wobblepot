@@ -434,9 +434,10 @@ export function ShoppingSection({
             {tShopping('clearChecked')}
           </Button>
         )}
+        {/* Label passed explicitly so the server HTML is not an empty trigger — see ShoppingListHeader. */}
         <Select value={sortMode} onValueChange={handleSortModeChange}>
           <SelectTrigger size="sm" className="w-37.5" aria-label={tShopping('ariaSort')}>
-            <SelectValue />
+            <SelectValue>{tSort(sortMode)}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="category">{tSort('category')}</SelectItem>

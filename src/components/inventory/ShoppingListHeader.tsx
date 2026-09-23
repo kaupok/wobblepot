@@ -68,10 +68,15 @@ export function ShoppingListHeader({ windowDays, summary, children }: ShoppingLi
             Not gated on mount: `windowDays` is a server prop, so the server and
             the first client render agree, and the picker is in the server HTML
             rather than popping in and re-wrapping the row after hydration (HON-771).
+            The label is passed explicitly because Radix only fills `SelectValue`
+            from the items on the client, so the server HTML would otherwise
+            carry an empty trigger.
           */}
           <Select value={String(windowDays)} onValueChange={setWindowDays}>
             <SelectTrigger size="sm" className="w-25" aria-label={tShopping('ariaTimeWindow')}>
-              <SelectValue />
+              <SelectValue>
+                {windowDays === 14 ? tShopping('windowOption14') : tShopping('windowOption7')}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="7">{tShopping('windowOption7')}</SelectItem>

@@ -493,8 +493,17 @@ describe('ShoppingSection server render', () => {
   it('renders the sort and time-window selects in the server HTML', () => {
     const html = renderToString(tree())
 
-    expect(html).toContain('aria-label="Sort items"')
-    expect(html).toContain('aria-label="Time window"')
+    // Parsed, not string-matched: the labels must be inside their triggers,
+    // not merely somewhere in the page (Radix fills an empty `SelectValue`
+    // only on the client, so an unlabelled trigger would pass a bare match).
+    const container = document.createElement('div')
+    container.innerHTML = html
+    expect(within(container).getByRole('combobox', { name: 'Sort items' })).toHaveTextContent(
+      'By category',
+    )
+    expect(within(container).getByRole('combobox', { name: 'Time window' })).toHaveTextContent(
+      '7 days',
+    )
   })
 
   it('hydrates without a mismatch and then applies a stored sort mode', async () => {
