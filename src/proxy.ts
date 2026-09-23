@@ -10,26 +10,15 @@ import { getSessionCookie } from 'better-auth/cookies'
  * missing from this list is not a security hole; it just keeps today's streamed
  * client-side redirect (HON-599).
  *
- * Deliberate exclusions — do not add these:
- *
- * - `/admin/**`: redirecting anonymous requests to sign-in would advertise that
- *   an admin route exists. Its intended response is a 404, served by
- *   `src/app/admin/layout.tsx` (HON-593). Leave it on the current path — neutral
- *   root skeleton + `noindex` + client-side 404.
- * - `/api/**`: API routes return their own 401 JSON. A 307 to an HTML page would
- *   break `apiFetch` callers.
- * - `/`, `/sign-in`, `/sign-up`, `/forgot-password`, `/reset-password`,
- *   `/privacy`, `/terms`, `/status`, `/bot`: public. `/` renders the landing
- *   page for anonymous visitors.
- * - `/meal-plan`: legacy path that already `redirect()`s unconditionally, before
- *   any Suspense boundary.
+ * Every top-level route under `src/app/` must be listed here or in
+ * `PUBLIC_ROUTES` below — `src/proxy.test.ts` fails on one that is in neither.
  *
  * Note that a path *under* a listed prefix cannot be excluded by this list —
  * the match is a prefix match. `/household/invites` is the live example: it is
  * another legacy unconditional redirect, but `/household` below matches it, so
  * anonymous hits take the 307 and the legacy redirect runs after sign-in. If a
  * public route ever needs to live under a protected prefix, it needs a real
- * exclusion check here, not an entry in this comment.
+ * exclusion check here — `PUBLIC_ROUTES` is not read at runtime.
  *
  * There is no `/recipes/[id]/page.tsx` — recipe detail renders client-side
  * inside `/recipes` — so every `/recipes/**` route is gated. If a public recipe
@@ -53,6 +42,40 @@ export const PROTECTED_PREFIXES = [
   '/onboarding',
   '/invite',
 ] as const
+
+/**
+ * Top-level routes the proxy deliberately does *not* redirect — do not move
+ * these into `PROTECTED_PREFIXES`. Not read at runtime: it exists so
+ * `src/proxy.test.ts` can require every top-level `src/app/` route to be
+ * classified one way or the other, with the reason recorded next to the entry.
+ * `/` is public by definition and has no entry.
+ */
+export const PUBLIC_ROUTES = [
+  {
+    path: '/admin',
+    reason:
+      'Must 404 for anonymous users, not advertise itself via a sign-in redirect — served by src/app/admin/layout.tsx (HON-593)',
+  },
+  {
+    path: '/api',
+    reason: 'API routes return their own 401 JSON; a 307 to an HTML page would break apiFetch',
+  },
+  { path: '/sign-in', reason: 'Auth flow — see the never-redirect note above (HON-299)' },
+  { path: '/sign-up', reason: 'Auth flow' },
+  { path: '/forgot-password', reason: 'Auth flow' },
+  { path: '/reset-password', reason: 'Auth flow' },
+  { path: '/privacy', reason: 'Legal page, served from the (legal) route group' },
+  { path: '/terms', reason: 'Legal page, served from the (legal) route group' },
+  { path: '/status', reason: 'Public status page' },
+  {
+    path: '/bot',
+    reason: 'Public explainer for the Wobblepot-Bot crawler user agent, linked from its UA string',
+  },
+  {
+    path: '/meal-plan',
+    reason: 'Legacy path that redirect()s unconditionally, before any Suspense boundary',
+  },
+] as const satisfies readonly { path: `/${string}`; reason: string }[]
 
 /**
  * Exact-or-segment-boundary match, so `/profilex` and a hypothetical

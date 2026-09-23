@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { readdirSync } from 'node:fs'
+import { join } from 'node:path'
 
 const nextMock = {
   responseHeaders: new Map<string, string>(),
@@ -329,5 +331,106 @@ describe('proxy — protected-route redirect (HON-599)', () => {
 
     expect(nextMock.redirect).toBeNull()
     expect(nextMock.responseHeaders.get('Content-Security-Policy')).toBeDefined()
+  })
+})
+
+/**
+ * Top-level URL segments under `dir`. Route groups (`(xyz)`) contribute their
+ * children instead of themselves, since they add no URL segment; private
+ * folders (`_xyz`), parallel-route slots (`@xyz`) and files are skipped.
+ */
+function topLevelSegments(dir: string): string[] {
+  const segments: string[] = []
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    const { name } = entry
+    if (name.startsWith('_') || name.startsWith('@')) continue
+    if (name.startsWith('(') && name.endsWith(')')) {
+      segments.push(...topLevelSegments(join(dir, name)))
+    } else {
+      segments.push(name)
+    }
+  }
+  return segments
+}
+
+// CLAUDE.md's "add every protected route to PROTECTED_PREFIXES" rule, made
+// mechanical (HON-756): a new top-level route must be classified one way or the
+// other, and a deleted one must not leave a stale entry behind.
+describe('proxy — top-level route classification (HON-756)', () => {
+  const APP_DIR = join(process.cwd(), 'src/app')
+
+  async function lists() {
+    const { PROTECTED_PREFIXES, PUBLIC_ROUTES } = await import('./proxy')
+    return {
+      protectedPaths: new Set<string>(PROTECTED_PREFIXES),
+      publicPaths: new Set<string>(PUBLIC_ROUTES.map((r) => r.path)),
+    }
+  }
+
+  it('classifies every top-level route in exactly one list', async () => {
+    const { protectedPaths, publicPaths } = await lists()
+
+    const problems = topLevelSegments(APP_DIR).flatMap((segment) => {
+      const path = `/${segment}`
+      const inProtected = protectedPaths.has(path)
+      const inPublic = publicPaths.has(path)
+      if (!inProtected && !inPublic) {
+        return [
+          `src/app/${segment} is not classified — add '${path}' to PROTECTED_PREFIXES or PUBLIC_ROUTES (with a reason) in src/proxy.ts`,
+        ]
+      }
+      if (inProtected && inPublic) {
+        return [
+          `'${path}' is in both PROTECTED_PREFIXES and PUBLIC_ROUTES in src/proxy.ts — keep exactly one`,
+        ]
+      }
+      return []
+    })
+
+    expect(problems).toEqual([])
+  })
+
+  it('has no stale entries for routes that no longer exist', async () => {
+    const { protectedPaths, publicPaths } = await lists()
+    const existing = new Set(topLevelSegments(APP_DIR).map((segment) => `/${segment}`))
+
+    const stale = [
+      ...[...protectedPaths]
+        .filter((p) => !existing.has(p))
+        .map((p) => `PROTECTED_PREFIXES: '${p}'`),
+      ...[...publicPaths].filter((p) => !existing.has(p)).map((p) => `PUBLIC_ROUTES: '${p}'`),
+    ].map(
+      (entry) => `${entry} has no matching directory under src/app — remove it from src/proxy.ts`,
+    )
+
+    expect(stale).toEqual([])
+  })
+
+  it('finds route-group children rather than the group itself', () => {
+    const segments = topLevelSegments(APP_DIR)
+
+    expect(segments).toEqual(expect.arrayContaining(['privacy', 'terms']))
+    expect(segments.some((s) => s.startsWith('('))).toBe(false)
+  })
+
+  it('gives every PUBLIC_ROUTES entry a reason', async () => {
+    const { PUBLIC_ROUTES } = await import('./proxy')
+
+    for (const { path, reason } of PUBLIC_ROUTES) {
+      expect(reason.trim(), `${path} needs a reason`).not.toBe('')
+    }
+  })
+
+  it('does not redirect any PUBLIC_ROUTES entry when anonymous', async () => {
+    const { PUBLIC_ROUTES, proxy } = await import('./proxy')
+    const { NextRequest } = await import('next/server')
+
+    for (const { path } of PUBLIC_ROUTES) {
+      nextMock.redirect = null
+      proxy(new NextRequest(`https://wobblepot.dev${path}`))
+
+      expect(nextMock.redirect, `${path} is public and must not redirect`).toBeNull()
+    }
   })
 })
