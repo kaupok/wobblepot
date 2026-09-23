@@ -158,13 +158,13 @@ describe('parseRecipeText', () => {
   describe('provider failures (HON-723)', () => {
     const TEXT = 'A full recipe with chicken breast and vegetables for dinner'
 
-    function apiCallError(statusCode?: number) {
+    function apiCallError(statusCode?: number, isRetryable = true) {
       return new APICallError({
         message: statusCode ? 'Overloaded' : 'Cannot connect to API: fetch failed',
         url: 'https://api.anthropic.com/v1/messages',
         requestBodyValues: {},
         statusCode,
-        isRetryable: true,
+        isRetryable,
       })
     }
 
@@ -199,6 +199,26 @@ describe('parseRecipeText', () => {
         code: 'provider_unavailable',
         cause: err,
       })
+    })
+
+    it('rethrows a non-retryable provider 4xx unwrapped, so it is a 500 and not a 503', async () => {
+      // "prompt is too long" or a revoked key fails identically on every retry,
+      // so a 503 + Retry-After would promise a recovery that never comes.
+      const err = apiCallError(400, false)
+      mockGenerateObject.mockRejectedValue(err)
+
+      await expect(parseRecipeText(TEXT)).rejects.toBe(err)
+    })
+
+    it('rethrows a RetryError that ended on a non-retryable error', async () => {
+      const err = new RetryError({
+        message: 'Failed after 2 attempts with non-retryable error',
+        reason: 'errorNotRetryable',
+        errors: [apiCallError(529), apiCallError(401, false)],
+      })
+      mockGenerateObject.mockRejectedValue(err)
+
+      await expect(parseRecipeText(TEXT)).rejects.toBe(err)
     })
 
     it('keeps parse_failed for a model answer that did not fit the schema', async () => {

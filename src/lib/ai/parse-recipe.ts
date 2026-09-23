@@ -127,12 +127,17 @@ export async function parseRecipeText(
     if (isAiBudgetTimeout(error)) {
       throw error
     }
-    // The provider could not be reached or refused the call: a 5xx, a 429,
-    // or a connection failure (`handleFetchError` in the SDK turns ECONNRESET,
+    // The provider could not be reached or is overloaded: a 5xx, a 429, or a
+    // connection failure (`handleFetchError` in the SDK turns ECONNRESET,
     // "fetch failed" and friends into an `APICallError`). `RetryError` is the
     // same thing after `maxRetries` ran out. The user's input was fine, so this
     // must not reach the route as a 400 — and it must reach Sentry (HON-723).
-    if (APICallError.isInstance(error) || RetryError.isInstance(error)) {
+    //
+    // Only the transient ones, which the SDK flags with `isRetryable`. A
+    // non-retryable 4xx — a prompt past the context window, a revoked API key
+    // — fails the same way on every retry, so a 503 + `Retry-After` would be a
+    // false promise; it falls through to the reported 500 below.
+    if (isTransientProviderError(error)) {
       throw new RecipeParseError(
         'The recipe service is temporarily unavailable. Please try again in a moment.',
         'provider_unavailable',
@@ -151,6 +156,17 @@ export async function parseRecipeText(
     // which reports it, instead of disguising it as a user-input 400.
     throw error
   }
+}
+
+/**
+ * A provider failure that a later retry may well get past. A `RetryError` with
+ * `errorNotRetryable` ended on a non-retryable error after a retryable one, so
+ * it is judged by that last error rather than by the retries before it.
+ */
+function isTransientProviderError(error: unknown): boolean {
+  if (APICallError.isInstance(error)) return error.isRetryable
+  if (RetryError.isInstance(error)) return error.reason !== 'errorNotRetryable'
+  return false
 }
 
 /**
