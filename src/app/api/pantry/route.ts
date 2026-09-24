@@ -182,7 +182,10 @@ export async function GET(request: NextRequest) {
                 neededInfo.originalPhrase,
               ),
               windowDays: days,
-              isVague: neededInfo.isVague,
+              // The formatter swaps in the phrase only when there is one, so a
+              // vague component stored without a phrase still shows its amount
+              // — and the row must keep it (HON-783).
+              isVague: neededInfo.isVague && !!neededInfo.originalPhrase,
             }
           : {}),
       }
