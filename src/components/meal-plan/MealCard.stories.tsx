@@ -77,6 +77,24 @@ export const PlannedWithImage: Story = {
   },
 }
 
+/** A planned card with a note keeps the title band: the note row runs the width, so it sits below the image, on the tint (HON-755). */
+export const PlannedWithImageAndNote: Story = {
+  args: {
+    meal: { ...mealFixture, imageStatus: 'ready', imageUrl: mealIllustration.src, imageHue: 52 },
+    status: 'planned',
+    note: 'Double the garlic — kids approved.',
+  },
+  parameters: { cardWidth: 'phone' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await canvas.findByRole('img', { name: mealFixture.name })
+    const box = canvas.getByTestId('meal-card-image').getBoundingClientRect()
+    const note = canvas.getByText('Double the garlic — kids approved.').getBoundingClientRect()
+    await expect(box.height).toBeGreaterThan(0)
+    await expect(note.top).toBeGreaterThanOrEqual(box.bottom)
+  },
+}
+
 const PAST_NOTE = 'Swapped the rice for couscous — do that again.'
 
 /**

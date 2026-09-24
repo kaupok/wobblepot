@@ -344,8 +344,9 @@ export function MealCard({
         // A planned card's only lower row is the short availability badge at
         // the left, so the plate runs the card's full height. A past card adds
         // the status control, the rating prompt and the note across the
-        // width, which stay on the plain tint below the band (HON-755).
-        titleBand={isPast}
+        // width, and a planned card with a note (or its editor open) adds the
+        // note row; those stay on the plain tint below the band (HON-755).
+        titleBand={isPast || note != null || isNoteEditing}
         size="sm"
       >
         <CardHeader className="px-4 pt-1 pb-1">
