@@ -26,9 +26,9 @@ describe('MemberList', () => {
 
   /**
    * `/household` supplies the `<h1>` (`src/app/household/page.tsx`) and this
-   * card's title is the `<h2>` directly under it — hence `variant="h4" as="h2"`
-   * at `MemberList.tsx:77`, where the variant sets the size and `as` sets the
-   * outline level. See HON-607 and HON-618.
+   * card's title is the `<h2>` directly under it — hence `variant="section" as="h2"`
+   * at `MemberList.tsx:78`, where the variant sets the size and `as` sets the
+   * outline level. See HON-607, HON-618 and HON-781.
    *
    * Asserting the tag matters because nothing else can: axe renders this
    * component standalone in Storybook, where its title is the *first* heading
@@ -40,6 +40,16 @@ describe('MemberList', () => {
     renderList()
 
     expect(await screen.findByRole('heading', { name: 'Members', level: 2 })).toBeInTheDocument()
+  })
+
+  // The page h1 is the one Title on `/household`; this column title sits a size
+  // below it at Section (HON-781).
+  it('renders its title at the Section size, not the Title size', async () => {
+    renderList()
+
+    const title = await screen.findByRole('heading', { name: 'Members', level: 2 })
+    expect(title).toHaveClass('text-base', 'font-semibold')
+    expect(title).not.toHaveClass('text-xl')
   })
 
   it('renders the empty state when the household has no members', async () => {

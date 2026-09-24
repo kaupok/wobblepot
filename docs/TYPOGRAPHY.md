@@ -12,13 +12,21 @@ Renders a heading with consistent styling. `variant` picks the visual level from
 <Heading variant="h3">Tertiary heading</Heading>
 <Heading variant="h4">Quaternary heading</Heading>
 <Heading variant="section">Section heading — day names, form sections</Heading>
+<Heading variant="caption">Caption heading — form-group headings under a section</Heading>
 ```
 
-**Available variants:** `h1` | `h2` | `h3` | `h4` | `section`
+**Available variants:** `h1` | `h2` | `h3` | `h4` | `section` | `caption`
 
 `section` is the Section level of the type scale (`text-base font-semibold`, 18px — `text-base`
 is re-based above stock Tailwind, see [DESIGN.md](./DESIGN.md) → Type scale) — day names on the
 timeline, form section labels. See [DESIGN.md](./DESIGN.md) → Type scale for when to reach for it.
+
+`caption` is the Caption level of the type scale rendered as a heading: `Body variant="caption"`'s
+classes (`text-xs font-medium text-muted-foreground`) plus `tracking-wide uppercase`, the way Today
+labels its meal types. Use it for a group heading that sits under a Section-level title and must
+keep a heading tag for the outline — the four groups of the `/household` settings form, under the
+column's Section `h2` (HON-781). It is the group heading itself, never an eyebrow line above another
+heading. Its natural tag is `h3`.
 
 ### The `as` prop — tag independent of size
 
@@ -37,7 +45,7 @@ type scale:
 **Available tags:** `h1` | `h2` | `h3` | `h4` | `h5` | `h6` | `p` | `span` | `div`
 
 Omit `as` and each variant renders its natural tag: `h1`–`h4` render the matching element, and
-`section` renders an `h2`. Only reach for `as` when the surrounding outline needs a different level
+`section` renders an `h2` and `caption` an `h3`. Only reach for `as` when the surrounding outline needs a different level
 than the type scale calls for.
 
 ## `Body` Component

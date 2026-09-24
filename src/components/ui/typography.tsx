@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import React from 'react'
 
 // Variant type exports for type reusability
-export type HeadingVariant = 'h1' | 'h2' | 'h3' | 'h4' | 'section'
+export type HeadingVariant = 'h1' | 'h2' | 'h3' | 'h4' | 'section' | 'caption'
 export type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'span' | 'div'
 export type BodyVariant = 'default' | 'lead' | 'large' | 'small' | 'paragraph' | 'muted' | 'caption'
 export type ListVariant = 'default' | 'plain'
@@ -33,6 +33,11 @@ const headingVariants = cva('scroll-m-20 tracking-tight', {
       h3: 'text-2xl font-semibold',
       h4: 'text-xl font-semibold',
       section: 'text-base font-semibold',
+      // Caption level as a heading: `Body variant="caption"` plus the tracked
+      // uppercase a Today meal-type label wears, for a group heading that must
+      // keep a heading tag (HON-781). `tracking-wide` overrides the base
+      // `tracking-tight` through tailwind-merge.
+      caption: 'text-xs font-medium text-muted-foreground tracking-wide uppercase',
     },
   },
   defaultVariants: {
@@ -58,6 +63,7 @@ const tagMap = {
   h3: 'h3',
   h4: 'h4',
   section: 'h2',
+  caption: 'h3',
 } as const satisfies Record<HeadingVariant, HeadingTag>
 
 export const Heading = React.forwardRef<HTMLElement, HeadingProps>(
