@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Body } from '@/components/ui/typography'
+import { Body, Heading } from '@/components/ui/typography'
 import { useRouter } from 'next/navigation'
 import { StatusSelect, type MealStatus } from './StatusSelect'
 import { MealSelectorModal } from './MealSelectorModal'
@@ -404,12 +404,16 @@ export function MealCard({
               </div>
             )}
           </div>
-          {/* A native button rather than `Button`: the name wraps, and every
-              `Button` size is a fixed height a second line would overflow.
-              `min-h-8` holds it to the same 32px floor as the menu above it
-              (docs/DESIGN.md → Spacing, radius, elevation). */}
-          <div className={cn('min-w-0', mealImageTitleWidth(hasTrailingActions))}>
-            <Body variant="small">
+          {/* The name at Section, as on the recipe library card, one level
+              under the day's `h5`. A native button rather than `Button`: the
+              name wraps, and every `Button` size is a fixed height a second
+              line would overflow. `min-h-8` holds it to the same 32px floor as
+              the menu above it (docs/DESIGN.md → Spacing, radius, elevation).
+              The description shares the name's column, so it too stays off
+              the plate; it is hidden below `md`, where that column is a third
+              of a phone card and prose in it would run a dozen lines. */}
+          <div className={cn('flex min-w-0 flex-col', mealImageTitleWidth(hasTrailingActions))}>
+            <Heading variant="section" as="h6">
               <button
                 type="button"
                 className="min-h-8 cursor-pointer text-left leading-snug underline-offset-2 hover:underline"
@@ -417,7 +421,12 @@ export function MealCard({
               >
                 {meal.name}
               </button>
-            </Body>
+            </Heading>
+            {meal.description && (
+              <div className="hidden md:line-clamp-2">
+                <Body variant="muted">{meal.description}</Body>
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-1">
             {!isPast && shouldShowAvailability && availability && (

@@ -4,7 +4,7 @@ import { MoreHorizontal } from 'lucide-react'
 import { MealType, ProteinType } from '@/generated/prisma/enums'
 import { Button } from '@/components/ui/button'
 import { CardContent, CardFooter, CardHeader } from '@/components/ui/card'
-import { Body } from '@/components/ui/typography'
+import { Body, Heading } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { createMealCardBaseData, lemonGarlicChickenPantry } from '@/stories/fixtures'
@@ -200,11 +200,11 @@ function TrailingActionsCard({ meal, ...args }: React.ComponentProps<typeof Meal
           </div>
         </div>
         <div className={cn('min-w-0', mealImageTitleWidth(true))}>
-          <Body variant="small">
+          <Heading variant="section" as="h6">
             <button type="button" className="min-h-8 text-left leading-snug">
               {meal.name}
             </button>
-          </Body>
+          </Heading>
         </div>
         <Body variant="caption">All ingredients in pantry</Body>
       </CardHeader>

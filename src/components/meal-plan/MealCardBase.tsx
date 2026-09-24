@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { Clock, ExternalLink } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { Badge } from '@/components/ui/badge'
 import { Body, Heading, type HeadingTag } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { getIngredientAvailabilitySets } from './AvailabilityIndicator'
@@ -63,7 +64,7 @@ interface MealCardBaseProps {
 
 /**
  * Shared meal card content used by both My Recipes and Add meal modal.
- * Renders: name, description, nutrition, prep time + badges, meal types + protein type, ingredient list.
+ * Renders: slot, protein and kid-friendly badges, name, description, nutrition, prep time, ingredient list.
  * Does NOT include Card wrapper or action buttons — consumers provide their own layout.
  */
 export function MealCardBase({
@@ -85,12 +86,14 @@ export function MealCardBase({
 
   return (
     <div className="flex flex-col gap-1.5">
-      {/* 0. Slot and protein badges — the card's first row, as on the planner
-          card, so a meal says when it fits and what it is before its name. */}
+      {/* 0. Slot, kid-friendly and protein badges — the card's first row, as
+          on the planner card, so a meal says when it fits and what it is
+          before its name. */}
       <div className="flex flex-wrap items-center gap-1.5">
         {meal.suitableFor?.map((type) => (
           <MealTypeBadge key={type} mealType={type} />
         ))}
+        {meal.kidFriendly && <KidFriendlyBadge compact />}
         <ProteinBadge proteinType={meal.primaryProteinType} />
       </div>
 
@@ -127,16 +130,16 @@ export function MealCardBase({
       {/* 3. Nutrition summary */}
       <NutritionSummary nutrition={meal.nutrition} components={meal.components} compact />
 
-      {/* 4. Prep time + badges */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        {meal.timeMinutes && (
-          <div className="text-muted-foreground flex items-center gap-1">
-            <Clock className="size-3.5" />
-            <Body variant="small">{tDetail('timeMinutes', { count: meal.timeMinutes })}</Body>
-          </div>
-        )}
-        {meal.kidFriendly && <KidFriendlyBadge />}
-      </div>
+      {/* 4. Prep time — a `surface` badge, the page background on the tint:
+          the time is a fact about cooking, not the meal's own colour. */}
+      {meal.timeMinutes && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant="surface">
+            <Clock aria-hidden="true" />
+            {tDetail('timeMinutes', { count: meal.timeMinutes })}
+          </Badge>
+        </div>
+      )}
 
       {/* 6. Ingredient list (names only, color-coded when pantry data available) */}
       <ul

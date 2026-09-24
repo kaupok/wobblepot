@@ -55,10 +55,18 @@ async function openMoreActions(canvasElement: HTMLElement) {
   await userEvent.click(within(canvasElement).getByRole('button', { name: /more actions/i }))
 }
 
+const DESCRIPTION = 'Sheet-pan chicken thighs with crisp skin and bright citrus.'
+
 /** A meal with an illustration takes its hue (HON-746); the controls stay where they were. */
 export const PlannedWithImage: Story = {
   args: {
-    meal: { ...mealFixture, imageStatus: 'ready', imageUrl: mealIllustration.src, imageHue: 52 },
+    meal: {
+      ...mealFixture,
+      description: DESCRIPTION,
+      imageStatus: 'ready',
+      imageUrl: mealIllustration.src,
+      imageHue: 52,
+    },
     status: 'planned',
   },
   play: async ({ canvasElement }) => {
@@ -68,12 +76,18 @@ export const PlannedWithImage: Story = {
     await expect(card.style.getPropertyValue('--meal-hue')).toBe('52')
     const menu = canvas.getByRole('button', { name: /more actions/i })
     await expect(menu).toBeVisible()
-    // The image ends before the menu, and the title wraps before the image's
-    // opaque part (HON-749).
+    // The image ends before the menu, and the title and the description wrap
+    // before the image's opaque part (HON-749).
     const box = canvas.getByTestId('meal-card-image').getBoundingClientRect()
-    const title = canvas.getByRole('button', { name: mealFixture.name }).getBoundingClientRect()
+    const title = canvas.getByRole('heading', { name: mealFixture.name }).getBoundingClientRect()
+    const description = canvas.getByText(DESCRIPTION).getBoundingClientRect()
     await expect(menu.getBoundingClientRect().left).toBeGreaterThanOrEqual(box.right)
     await expect(title.right).toBeLessThanOrEqual(box.left + box.width * 0.3)
+    await expect(description.right).toBeLessThanOrEqual(box.left + box.width * 0.3)
+    // The pantry's verdict is a surface badge: the page background, no ring.
+    const availability = canvas.getByText(/ingredients missing|have all/i)
+    await expect(availability).toHaveAttribute('data-variant', expect.stringMatching(/^surface-/))
+    await expect(getComputedStyle(availability).borderTopColor).toBe('rgba(0, 0, 0, 0)')
   },
 }
 
