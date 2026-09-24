@@ -255,7 +255,7 @@ export function HouseholdSettingsForm({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1.5">
-        <Heading variant="h4" as="h2">
+        <Heading variant="section" as="h2">
           {tSettings('heading')}
         </Heading>
         <Body variant="muted">{tSettings('description')}</Body>
@@ -265,7 +265,11 @@ export function HouseholdSettingsForm({
         <div className="flex flex-col gap-8">
           {/* Section 1: Basic Info */}
           <section className="flex flex-col gap-4">
-            <Heading variant="section" as="h3">
+            {/* Caption, not Section: this column's title is already the
+                Section-level h2, and the page's h1 is the one Title (HON-781).
+                Not the Reject list's eyebrow label — these labels are the group
+                headings themselves, not a second line above one. */}
+            <Heading variant="caption" as="h3">
               {tSettings('basicHeading')}
             </Heading>
             <div className="flex flex-col gap-2">
@@ -332,7 +336,7 @@ export function HouseholdSettingsForm({
 
           {/* Section 2: Dietary Preferences */}
           <section className="flex flex-col gap-4">
-            <Heading variant="section" as="h3">
+            <Heading variant="caption" as="h3">
               {tSettings('preferencesHeading')}
             </Heading>
             <div className="flex flex-col gap-2">
@@ -405,7 +409,7 @@ export function HouseholdSettingsForm({
 
           {/* Section 3: Excluded Ingredients */}
           <section className="flex flex-col gap-4">
-            <Heading variant="section" as="h3">
+            <Heading variant="caption" as="h3">
               {tSettings('excludedHeading')}
             </Heading>
             <div className="flex flex-col gap-2">
@@ -424,7 +428,7 @@ export function HouseholdSettingsForm({
 
           {/* Section 4: Meal Scheduling */}
           <section className="flex flex-col gap-4">
-            <Heading variant="section" as="h3">
+            <Heading variant="caption" as="h3">
               {tSettings('mealSchedulingHeading')}
             </Heading>
             <div className="flex flex-col gap-2">

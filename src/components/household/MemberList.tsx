@@ -75,7 +75,7 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
     <>
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-1.5">
-          <Heading variant="h4" as="h2">
+          <Heading variant="section" as="h2">
             {t('heading')}
           </Heading>
           <Body variant="muted">{t('description')}</Body>

@@ -61,6 +61,21 @@ describe('Typography Components', () => {
       expect(heading).not.toHaveClass('border-b')
     })
 
+    it('renders caption variant as an h3 by default at the Caption size', () => {
+      render(<Heading variant="caption">Group</Heading>)
+      const heading = screen.getByRole('heading', { level: 3 })
+      expect(heading).toHaveTextContent('Group')
+      expect(heading).toHaveClass(
+        'text-xs',
+        'font-medium',
+        'text-muted-foreground',
+        'tracking-wide',
+        'uppercase',
+      )
+      // The base `tracking-tight` must lose to `tracking-wide`, not sit beside it.
+      expect(heading).not.toHaveClass('tracking-tight')
+    })
+
     it('renders the tag given by as, keeping the variant styling', () => {
       render(
         <Heading variant="h4" as="h3">
