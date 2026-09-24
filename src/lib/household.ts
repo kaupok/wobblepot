@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { getServerBaseURL } from '@/lib/env'
 
 /**
  * Get household membership for a user.
@@ -24,6 +25,72 @@ export async function getHouseholdMembership(userId: string) {
         },
       },
     },
+  })
+}
+
+/**
+ * List a household's members in the shape `GET /api/households/me/members`
+ * returns. The route and the `/household` server prefetch both read through
+ * this, so the hydrated cache and a client refetch cannot drift (HON-780).
+ */
+export async function listHouseholdMembers(householdId: string) {
+  const members = await prisma.householdMember.findMany({
+    where: { householdId },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+        },
+      },
+      preferences: true,
+      invite: true,
+    },
+    orderBy: { joinedAt: 'asc' },
+  })
+
+  const baseUrl = getServerBaseURL()
+  const now = new Date()
+
+  return members.map((member) => {
+    // Compute invite status
+    let invite = null
+    if (member.invite) {
+      // Expiry alone: an invite that still has a row has not been used,
+      // because claiming one deletes it (HON-680).
+      const isExpired = member.invite.expiresAt < now
+      invite = {
+        url: `${baseUrl}/invite/${member.invite.code}`,
+        expiresAt: member.invite.expiresAt.toISOString(),
+        isActive: !isExpired,
+      }
+    }
+
+    return {
+      id: member.id,
+      userId: member.userId,
+      name: member.name,
+      role: member.role,
+      joinedAt: member.joinedAt,
+      user: member.user,
+      preferences: member.preferences
+        ? {
+            displayName: member.preferences.displayName,
+            portionMultiplier: member.preferences.portionMultiplier,
+            targetCalories: member.preferences.targetCalories,
+            targetProtein: member.preferences.targetProtein,
+            targetCarbs: member.preferences.targetCarbs,
+            targetFat: member.preferences.targetFat,
+            dietaryType: member.preferences.dietaryType,
+            allergens: member.preferences.allergens,
+            restrictions: member.preferences.restrictions,
+            excludedIngredients: member.preferences.excludedIngredients,
+          }
+        : null,
+      invite,
+    }
   })
 }
 
