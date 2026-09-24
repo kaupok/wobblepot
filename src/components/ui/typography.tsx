@@ -6,6 +6,7 @@ import React from 'react'
 export type HeadingVariant = 'h1' | 'h2' | 'h3' | 'h4' | 'section'
 export type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'span' | 'div'
 export type BodyVariant = 'default' | 'lead' | 'large' | 'small' | 'paragraph' | 'muted' | 'caption'
+export type ListVariant = 'default' | 'plain'
 export type BodyTone = 'default' | 'muted' | 'destructive' | 'success' | 'warning' | 'info'
 
 // Text colour, shared by `Body` and `Li` so the two cannot drift. The primitive
@@ -122,19 +123,75 @@ export const Blockquote = React.forwardRef<
 ))
 Blockquote.displayName = 'Blockquote'
 
+// Lists. `default` is the prose list: margin, indent, markers, and a top margin
+// on each item. `plain` is a list inside a layout: no margin, indent or markers,
+// and its items stacked by a gap the list owns rather than by margins on each
+// `Li` (docs/DESIGN.md -> Spacing, "One element owns each gap"). Space around
+// the list belongs to its parent. A page cannot strip the prose margins with a
+// class — margins on the type primitives fail `shadcn/no-restyle` (HON-778) —
+// so it picks `plain` instead.
+const listVariants = cva('', {
+  variants: {
+    variant: {
+      default: 'my-6 ml-6 [&>li]:mt-2',
+      plain: 'flex list-none flex-col gap-2',
+    },
+    // Internal: `Ul` and `Ol` differ only in the marker a prose list shows.
+    ordered: {
+      false: '',
+      true: '',
+    },
+  },
+  compoundVariants: [
+    { variant: 'default', ordered: false, class: 'list-disc' },
+    { variant: 'default', ordered: true, class: 'list-decimal' },
+  ],
+  defaultVariants: {
+    variant: 'default',
+    ordered: false,
+  },
+})
+
+type ListProps = VariantProps<typeof listVariants>
+
+// WHY: WebKit drops list semantics from a `list-style: none` list, so
+// VoiceOver stops announcing "list, N items". An explicit role restores it;
+// a caller's own `role` still wins through `props`.
+const plainListRole = (variant: ListVariant) => (variant === 'plain' ? 'list' : undefined)
+
 // List - Unordered list
-export const Ul = React.forwardRef<HTMLUListElement, React.HTMLAttributes<HTMLUListElement>>(
-  ({ className, ...props }, ref) => (
-    <ul ref={ref} className={cn('my-6 ml-6 list-disc [&>li]:mt-2', className)} {...props} />
-  ),
+interface UlProps extends React.HTMLAttributes<HTMLUListElement>, Omit<ListProps, 'ordered'> {}
+
+export const Ul = React.forwardRef<HTMLUListElement, UlProps>(
+  ({ className, variant, ...props }, ref) => {
+    const effectiveVariant = variant ?? 'default'
+    return (
+      <ul
+        ref={ref}
+        role={plainListRole(effectiveVariant)}
+        className={cn(listVariants({ variant: effectiveVariant, ordered: false }), className)}
+        {...props}
+      />
+    )
+  },
 )
 Ul.displayName = 'Ul'
 
 // List - Ordered list
-export const Ol = React.forwardRef<HTMLOListElement, React.HTMLAttributes<HTMLOListElement>>(
-  ({ className, ...props }, ref) => (
-    <ol ref={ref} className={cn('my-6 ml-6 list-decimal [&>li]:mt-2', className)} {...props} />
-  ),
+interface OlProps extends React.OlHTMLAttributes<HTMLOListElement>, Omit<ListProps, 'ordered'> {}
+
+export const Ol = React.forwardRef<HTMLOListElement, OlProps>(
+  ({ className, variant, ...props }, ref) => {
+    const effectiveVariant = variant ?? 'default'
+    return (
+      <ol
+        ref={ref}
+        role={plainListRole(effectiveVariant)}
+        className={cn(listVariants({ variant: effectiveVariant, ordered: true }), className)}
+        {...props}
+      />
+    )
+  },
 )
 Ol.displayName = 'Ol'
 

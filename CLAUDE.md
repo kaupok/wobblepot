@@ -186,7 +186,7 @@ Use **sentence case** for all UI text (buttons, headings, labels, links): "Sign 
 
 Variant-based components: `Heading` (h1-h4/section, plus an `as` prop that sets the HTML tag independently of the visual level), `Body` (default/lead/large/small/paragraph/muted/caption, plus a `tone` prop for colour), `Blockquote`, `Ul`/`Ol`/`Li` (`Li` takes `tone`), `Code`, `Pre`. Form errors render through `FieldError`.
 
-**Core rule:** Typography components own their text styling: size and weight come from `variant`, colour from `tone`. `shadcn/no-restyle` enforces this (HON-675) — a `text-*` or `font-*` override fails `pnpm lint`, and the few text-state classes still allowed (`italic`, `line-through`, …) are listed by name in `eslint.config.mjs`. Apply layout (margins, padding, positioning) via wrapper elements, not directly on the component.
+**Core rule:** Typography components own their text styling: size and weight come from `variant`, colour from `tone`. `shadcn/no-restyle` enforces this (HON-675) — a `text-*` or `font-*` override fails `pnpm lint`, and the few text-state classes still allowed (`italic`, `line-through`, …) are listed by name in `eslint.config.mjs`. Apply layout (margins, padding, positioning) via wrapper elements, not directly on the component. `shadcn/no-restyle` enforces the margin half of that too: every type primitive's contract denies `m*-*`, negatives included (HON-778). A list that must shed its prose margins takes `Ul`/`Ol` `variant="plain"`.
 
 **DO:** `<div className="mt-4"><Heading>Title</Heading></div>`
 

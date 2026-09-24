@@ -145,7 +145,7 @@ export function IngredientList({
         {headerElement ?? defaultHeader}
         {availability && <AvailabilityIndicator availability={availability} />}
       </div>
-      <Ul className="my-0 ml-0">
+      <Ul variant="plain">
         {regularComponents.map((comp) => {
           // Use optimistic override if available, otherwise fall back to server state
           const serverHasIt = availableIds ? availableIds.has(comp.ingredientId) : true

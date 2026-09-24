@@ -124,10 +124,18 @@ export const BlockquoteStory: Story = {
 
 export const Lists: Story = {
   render: () => (
-    <div className="flex flex-col gap-6">
+    <div className="grid gap-6 sm:grid-cols-2">
       <div>
         <Heading variant="h4">Unordered</Heading>
         <Ul>
+          <Li>Chicken thighs</Li>
+          <Li>Garlic</Li>
+          <Li>Olive oil</Li>
+        </Ul>
+      </div>
+      <div className="flex flex-col gap-3">
+        <Heading variant="h4">Unordered, plain</Heading>
+        <Ul variant="plain">
           <Li>Chicken thighs</Li>
           <Li>Garlic</Li>
           <Li>Olive oil</Li>
@@ -141,8 +149,24 @@ export const Lists: Story = {
           <Li>Roast for 35 minutes</Li>
         </Ol>
       </div>
+      <div className="flex flex-col gap-3">
+        <Heading variant="h4">Ordered, plain</Heading>
+        <Ol variant="plain">
+          <Li>Preheat the oven</Li>
+          <Li>Season the chicken</Li>
+          <Li>Roast for 35 minutes</Li>
+        </Ol>
+      </div>
     </div>
   ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          '`default` is a prose list with margins, indent and markers. `plain` is a list inside a layout: no margin, indent or markers, rows stacked by a gap. The parent places it with its own gap, as the plain columns do here.',
+      },
+    },
+  },
 }
 
 export const CodeAndPre: Story = {
