@@ -95,29 +95,37 @@ export function RecipesPageClient() {
     // page-level Card — the meal cards are the only cards (HON-767, HON-747).
     <div className="container mx-auto flex flex-col gap-6 px-4 py-8">
       <div className="flex flex-col gap-1">
-        <Heading variant="h4" as="h1">
-          {tLibrary('title')}
-        </Heading>
+        {/* The count sits on the title's baseline: it is a fact about the
+            list, not a row of its own. */}
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <Heading variant="h4" as="h1">
+            {tLibrary('title')}
+          </Heading>
+          <Body variant="muted">
+            {isLoading
+              ? tLibrary('loading')
+              : hasNextPage
+                ? tRecipes('mealCountMore', { count: meals.length })
+                : tRecipes('mealCount', { count: meals.length })}
+          </Body>
+        </div>
         <Body variant="muted">{tLibrary('description')}</Body>
       </div>
 
-      <Input
-        type="search"
-        placeholder={tLibrary('searchPlaceholder')}
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        aria-label={tLibrary('searchAria')}
-      />
-
+      {/* Search and the actions share a row from `sm`; the search takes the
+          room the actions leave, up to `max-w-md`. On a phone they stack and
+          the search runs the width. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Body variant="muted">
-          {isLoading
-            ? tLibrary('loading')
-            : hasNextPage
-              ? tRecipes('mealCountMore', { count: meals.length })
-              : tRecipes('mealCount', { count: meals.length })}
-        </Body>
-        <div className="flex gap-2">
+        <div className="sm:max-w-md sm:flex-1">
+          <Input
+            type="search"
+            placeholder={tLibrary('searchPlaceholder')}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label={tLibrary('searchAria')}
+          />
+        </div>
+        <div className="flex shrink-0 gap-2">
           <Button variant="outline" asChild>
             <Link href="/recipes/imagine">
               <Sparkles className="mr-2 h-4 w-4" />

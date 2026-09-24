@@ -321,6 +321,14 @@
        keeps the geometry of a bordered one and nothing beside it shifts. */
     border-color: transparent;
   }
+
+  /* A surface badge (`Badge` variant `surface*`) is the page background on
+     the tint: a white pill on the colour, so it needs no ring. On the neutral
+     card the same badge keeps the `--border` ring, which is what makes it a
+     pill there. */
+  :is([data-meal-surface], [data-surface='note']) [data-slot='badge'][data-variant^='surface'] {
+    border-color: transparent;
+  }
 }
 
 @layer base {

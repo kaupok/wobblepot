@@ -1,4 +1,5 @@
 import { useTranslations } from 'next-intl'
+import { Badge } from '@/components/ui/badge'
 import type { MealAvailability, MealData, PantryIngredient } from './types'
 
 interface AvailabilityIndicatorProps {
@@ -50,20 +51,20 @@ export function computeMealAvailability(
   }
 }
 
+/**
+ * The pantry's verdict on a meal, as a `surface` badge: the same pill as the
+ * slot and protein badges above it, on the page background rather than the
+ * meal's chip colour, because the pantry's status is not the meal's own
+ * (docs/DESIGN.md → Color). The text names the state; colour is not the only cue.
+ */
 export function AvailabilityIndicator({ availability }: AvailabilityIndicatorProps) {
   const t = useTranslations('meal-plan.availability')
 
   if (availability.isReady) {
-    return (
-      <span className="bg-success-muted text-success inline-flex shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-medium whitespace-nowrap">
-        {t('haveAll')}
-      </span>
-    )
+    return <Badge variant="surface-success">{t('haveAll')}</Badge>
   }
 
   return (
-    <span className="bg-warning-muted text-warning inline-flex shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-medium whitespace-nowrap">
-      {t('missing', { count: availability.missingCount })}
-    </span>
+    <Badge variant="surface-warning">{t('missing', { count: availability.missingCount })}</Badge>
   )
 }
