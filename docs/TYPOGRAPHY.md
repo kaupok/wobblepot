@@ -79,20 +79,17 @@ Renders paragraph text with different text sizes and styles:
 
 - Margins, padding, display, positioning
 - Apply layout classes to a wrapper `<div>` instead of directly on typography components
+- A margin class on a type primitive fails `pnpm lint`: `shadcn/no-restyle` denies `m-*`, `mx-*`, `my-*`, `mt-*` … (negatives included) on every one of them (HON-778)
 
 **Exceptions** - Built-in layout when essential:
 
 - `Blockquote`: includes `pl-6` (padding needed for the border design to work correctly)
-- `Ul`/`Ol`: include `my-6 ml-6` (vertical/horizontal spacing is intrinsic to list formatting; ml-6 for indentation, my-6 to match typographic rhythm of other block elements)
+- `Ul`/`Ol`: the default variant includes `my-6 ml-6` (vertical/horizontal spacing is intrinsic to list formatting; ml-6 for indentation, my-6 to match typographic rhythm of other block elements). A list inside a layout takes `variant="plain"` instead of overriding them
 - `Pre`: includes `p-4` (padding needed for code block presentation and readability)
 
 ### Practical Guidelines
 
-1. **When wrapping would create invalid HTML** (e.g., block elements in inline contexts):
-   - Apply minimal spacing directly to the typography component
-   - Example: `<Heading className="mb-4">Title</Heading>`
-
-2. **When grouping related typography elements:**
+1. **When grouping related typography elements:**
    - Use a flex container with `gap` when all elements need uniform spacing
    - Use nested containers with individual spacing when different relationships need different gaps
    - Example with uniform spacing:
@@ -146,6 +143,19 @@ Renders paragraph text with different text sizes and styles:
   <Li>Second step</Li>
   <Li>Third step</Li>
 </Ol>
+```
+
+`variant="plain"` is the list inside a layout: no margin, no indent, no markers, and its rows stacked with `gap-2` rather than a margin on each `Li`. The parent places it with its own gap. `IngredientList` is the example — its rows are flex `Li`s with a checkbox, so prose margins and bullets have no place there:
+
+```tsx
+<div className="flex flex-col gap-3">
+  <Heading variant="section" as="h3">
+    Ingredients
+  </Heading>
+  <Ul variant="plain">
+    <Li className="flex items-center gap-2">…</Li>
+  </Ul>
+</div>
 ```
 
 **`Code`** - Inline code with styling:

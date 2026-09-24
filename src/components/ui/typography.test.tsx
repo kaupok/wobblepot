@@ -209,7 +209,28 @@ describe('Typography Components', () => {
     it('applies list classes', () => {
       render(<Ul>List</Ul>)
       const list = screen.getByText('List')
-      expect(list).toHaveClass('list-disc')
+      expect(list).toHaveClass('list-disc', 'my-6', 'ml-6')
+    })
+
+    it('renders the plain variant with no prose margin, indent or markers', () => {
+      render(
+        <Ul variant="plain">
+          <Li>Item</Li>
+        </Ul>,
+      )
+      const list = screen.getByRole('list')
+      expect(list).toHaveClass('list-none', 'flex', 'flex-col', 'gap-2')
+      expect(list).not.toHaveClass('my-6', 'ml-6', 'list-disc', '[&>li]:mt-2')
+    })
+
+    it('keeps list semantics on the plain variant with an explicit role', () => {
+      render(<Ul variant="plain">List</Ul>)
+      expect(screen.getByText('List')).toHaveAttribute('role', 'list')
+    })
+
+    it('adds no role to the default variant', () => {
+      render(<Ul>List</Ul>)
+      expect(screen.getByText('List')).not.toHaveAttribute('role')
     })
   })
 
@@ -229,7 +250,19 @@ describe('Typography Components', () => {
     it('applies list classes', () => {
       render(<Ol>List</Ol>)
       const list = screen.getByText('List')
-      expect(list).toHaveClass('list-decimal')
+      expect(list).toHaveClass('list-decimal', 'my-6', 'ml-6')
+    })
+
+    it('renders the plain variant with no prose margin, indent or markers', () => {
+      render(
+        <Ol variant="plain">
+          <Li>Item</Li>
+        </Ol>,
+      )
+      const list = screen.getByRole('list')
+      expect(list).toHaveClass('list-none')
+      expect(list).not.toHaveClass('my-6', 'ml-6', 'list-decimal', '[&>li]:mt-2')
+      expect(list).toHaveAttribute('role', 'list')
     })
   })
 

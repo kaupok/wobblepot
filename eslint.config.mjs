@@ -26,6 +26,17 @@ const UNCLASSIFIED_LAYOUT = [
 ]
 const LAYOUT = ['layout', ...UNCLASSIFIED_LAYOUT]
 
+// Margins on the type primitives. CLAUDE.md -> Typography Components places a
+// `Heading`, `Body` or list with a wrapper element or a gap on the parent, never
+// a margin on the component (HON-778). tailwind-merge group ids rather than
+// globs, so negatives (`-mt-4`) are caught too; one shared list so the
+// primitives' contracts cannot drift. `deny` wins over `allow: LAYOUT`.
+const TYPE_MARGIN_DENY = ['m', 'mx', 'my', 'mt', 'mr', 'mb', 'ml', 'ms', 'me']
+const TYPE_MARGIN_MESSAGE = {
+  layout:
+    'Place a type primitive with a wrapper element or a gap on the parent, not a margin on the component. See docs/TYPOGRAPHY.md.',
+}
+
 const config = defineConfig([
   // Next.js + TypeScript base rules (native flat config)
   ...nextVitals,
@@ -192,6 +203,8 @@ const config = defineConfig([
                 'transition-colors',
                 'font-mono',
               ],
+              deny: TYPE_MARGIN_DENY,
+              message: TYPE_MARGIN_MESSAGE,
             },
             // An option label beside a `RadioGroupItem` or `Checkbox` is normal
             // weight; a field label is medium. `Label` is a registry primitive,
@@ -205,12 +218,25 @@ const config = defineConfig([
             {
               pattern: '^Li$',
               allow: [...LAYOUT, 'gap-*', 'opacity-*'],
+              deny: TYPE_MARGIN_DENY,
+              message: TYPE_MARGIN_MESSAGE,
             },
             // The "today" marker on `TimelineDayCard`. The callsite keeps a
             // non-colour cue beside it (docs/DESIGN.md → Color).
             {
               pattern: '^Heading$',
               allow: [...LAYOUT, 'text-primary'],
+              deny: TYPE_MARGIN_DENY,
+              message: TYPE_MARGIN_MESSAGE,
+            },
+            // The rest of the type primitives own their type the same way and
+            // had no contract, so the baseline let a margin through. A list
+            // that must shed its prose margins takes `variant="plain"`.
+            {
+              pattern: '^(Blockquote|Ul|Ol|Code|Pre)$',
+              allow: LAYOUT,
+              deny: TYPE_MARGIN_DENY,
+              message: TYPE_MARGIN_MESSAGE,
             },
           ],
         },

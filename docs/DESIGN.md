@@ -216,7 +216,7 @@ Agents produce these by default. Recognise them and do not ship them.
 Add one here when a review finds code and rule disagreeing and the fix is not obvious.
 
 1. ~~The Body level has no wrapping variant.~~ Resolved 2026-09-23 in HON-675: `Body variant="paragraph"` (`text-sm leading-normal`) is the wrapping foreground level, named after what it renders so a callsite never reads `<Body variant="body">`. `small` stays `leading-none` for single-line items.
-2. Margins on the type primitives. CLAUDE.md → Typography Components says layout goes on a wrapper element, not on `Heading` or `Body`, but `shadcn/no-restyle` runs with `allow: ['layout']`, so `<Heading className="mt-4">` passes lint. Enforcing the wrapper rule would need a `deny` on `m*-*` in the type primitives' contracts in `eslint.config.mjs`, and a burn-down of the callsites that place a primitive by its margin. Open.
+2. ~~Margins on the type primitives.~~ Resolved 2026-09-24 in HON-778: the type-primitive contracts in `eslint.config.mjs` deny every margin group (`m`, `mx`, `my`, `mt`, `mr`, `mb`, `ml`, `ms`, `me`, negatives included), so the CLAUDE.md wrapper rule fails `pnpm lint` when broken. The burn-down was one callsite, `IngredientList`, which wanted a list without prose spacing and now uses `Ul variant="plain"`.
 
 ## Pending code changes
 
