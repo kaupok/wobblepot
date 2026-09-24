@@ -287,7 +287,12 @@ export function ImagineClient() {
             )}
           </Button>
           {isGenerating && (
-            <Button variant="ghost" size="sm" onClick={handleCancel}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancel}
+              className="w-full md:w-auto md:self-start"
+            >
               {t('cancel')}
             </Button>
           )}
