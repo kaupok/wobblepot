@@ -49,7 +49,7 @@ describe('MealImageCard', () => {
 
     const wrapper = screen.getByTestId('meal-card-image')
     expect(wrapper).toHaveClass(
-      'right-36',
+      'right-12',
       'left-1/3',
       '@md/meal-image:left-3/8',
       'mask-r-from-80%',
@@ -71,11 +71,11 @@ describe('MealImageCard', () => {
     )
     const wrapper = screen.getByTestId('meal-card-image')
 
-    expect(wrapper).toHaveClass('absolute', 'top-0', 'h-12', 'mask-b-from-60%', '-z-10')
+    expect(wrapper).toHaveClass('absolute', 'top-0', 'h-20', 'mask-b-from-60%', '-z-10')
     expect(wrapper).not.toHaveClass('inset-y-0')
     // The band keeps the horizontal geometry and fades of the trailing box.
-    expect(wrapper).toHaveClass('right-36', 'left-1/3', 'mask-l-from-30%', 'mask-r-from-80%')
-    expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 341px, 40vw')
+    expect(wrapper).toHaveClass('right-12', 'left-1/3', 'mask-l-from-30%', 'mask-r-from-80%')
+    expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 437px, 55vw')
   })
 
   // HON-750: a tall card puts the image below the content instead of behind it.
@@ -123,7 +123,7 @@ describe('MealImageCard', () => {
 
     it('describes the planner side image, which ends before the action column', () => {
       renderCard(ready, undefined, true)
-      expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 341px, 40vw')
+      expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 437px, 55vw')
     })
 
     it('describes the add-meal dialog bottom image as one grid column', () => {
@@ -142,7 +142,7 @@ describe('MealImageCard', () => {
 
     expect(card.firstElementChild).toBe(wrapper)
     expect(wrapper).toHaveClass('absolute', 'inset-y-0', '-z-10')
-    expect(wrapper).not.toHaveClass('top-0', 'h-12', 'mask-b-from-60%')
+    expect(wrapper).not.toHaveClass('top-0', 'h-20', 'mask-b-from-60%')
     expect(card).toHaveClass('group/meal-image')
   })
 

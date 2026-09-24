@@ -33,7 +33,7 @@ import { FieldError } from '@/components/FieldError'
 
 function SkeletonCard() {
   return (
-    <Card className="flex h-full flex-col">
+    <Card size="sm" className="flex h-full flex-col">
       <CardContent className="flex-1 p-4 pb-2">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-6 w-3/4" />
@@ -304,7 +304,7 @@ export function ImagineClient() {
             {isGenerating
               ? Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)
               : meals?.map((meal) => (
-                  <Card key={meal.id} className="flex h-full flex-col">
+                  <Card key={meal.id} size="sm" className="flex h-full flex-col">
                     <CardContent className="flex-1 p-4 pb-2">
                       <MealCardBase meal={meal} nameHeadingTag="h2" />
                     </CardContent>

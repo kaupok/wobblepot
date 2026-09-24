@@ -8,6 +8,8 @@ import { cn } from '@/lib/utils'
 import { getIngredientAvailabilitySets } from './AvailabilityIndicator'
 import { KidFriendlyBadge } from './KidFriendlyBadge'
 import { mealImageTitleWidth, type MealImageFields } from './MealImageCard'
+import { MealTypeBadge } from './MealTypeBadge'
+import { ProteinBadge } from './ProteinBadge'
 import { NutritionSummary } from './NutritionSummary'
 import type { MealComponent, NutritionData, PantryIngredient } from './types'
 import type { MealType } from '@/generated/prisma/enums'
@@ -59,16 +61,6 @@ interface MealCardBaseProps {
   titleActions?: ReactNode
 }
 
-function MealTypeList({ types }: { types: MealType[] }) {
-  const t = useTranslations('enums.MealType')
-  return <>{types.map((value) => t(value)).join(', ')}</>
-}
-
-function ProteinTypeBody({ type }: { type: string }) {
-  const t = useTranslations('enums.ProteinType')
-  return <>{t(type)}</>
-}
-
 /**
  * Shared meal card content used by both My Recipes and Add meal modal.
  * Renders: name, description, nutrition, prep time + badges, meal types + protein type, ingredient list.
@@ -93,6 +85,15 @@ export function MealCardBase({
 
   return (
     <div className="flex flex-col gap-1.5">
+      {/* 0. Slot and protein badges — the card's first row, as on the planner
+          card, so a meal says when it fits and what it is before its name. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {meal.suitableFor?.map((type) => (
+          <MealTypeBadge key={type} mealType={type} />
+        ))}
+        <ProteinBadge proteinType={meal.primaryProteinType} />
+      </div>
+
       {/* 1. Meal name — Section, not Title: the page or dialog title above owns
           that size (HON-784). Wraps before the image on a tinted
           `MealImageCard`, full width anywhere else (HON-749) */}
@@ -135,19 +136,6 @@ export function MealCardBase({
           </div>
         )}
         {meal.kidFriendly && <KidFriendlyBadge />}
-      </div>
-
-      {/* 5. Meal types + protein type */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        {meal.suitableFor && meal.suitableFor.length > 0 && (
-          <Body variant="caption">
-            <MealTypeList types={meal.suitableFor} />
-          </Body>
-        )}
-        {meal.suitableFor && meal.suitableFor.length > 0 && <Body variant="caption">&middot;</Body>}
-        <Body variant="caption">
-          <ProteinTypeBody type={meal.primaryProteinType} />
-        </Body>
       </div>
 
       {/* 6. Ingredient list (names only, color-coded when pantry data available) */}

@@ -261,7 +261,7 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
             {isImagining
               ? Array.from({ length: 3 }).map((_, i) => <AlternativeSkeleton key={i} />)
               : imaginedMeals?.map((meal) => (
-                  <Card key={meal.id} className="flex h-full flex-col">
+                  <Card key={meal.id} size="sm" className="flex h-full flex-col">
                     <CardContent className="flex-1 p-4 pb-2">
                       <MealCardBase meal={meal} nameHeadingTag="h3" />
                     </CardContent>

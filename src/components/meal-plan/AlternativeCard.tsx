@@ -30,6 +30,8 @@ export function AlternativeCard({
     <MealImageCard
       meal={meal}
       layout="bottom"
+      // `sm`: the content's `p-4` is the card's padding, as in `MealList`.
+      size="sm"
       className="flex h-full flex-col"
       footer={
         <CardFooter className="p-4 pt-0">

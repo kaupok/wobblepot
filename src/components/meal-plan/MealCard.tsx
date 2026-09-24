@@ -24,6 +24,8 @@ import { AvailabilityIndicator, computeMealAvailability } from './AvailabilityIn
 import { NoteEditor } from './NoteEditor'
 import { MealImageCard, mealImageTitleWidth } from './MealImageCard'
 import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
+import { MealTypeBadge } from './MealTypeBadge'
+import { ProteinBadge } from './ProteinBadge'
 import type { EntryRating, MealData, PantryIngredient, PantryItemFull } from './types'
 import type { MealType } from '@/generated/prisma/enums'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
@@ -79,6 +81,8 @@ export function MealCard({
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
   const [isDeductionModalOpen, setIsDeductionModalOpen] = useState(false)
   const [isNoteEditing, setIsNoteEditing] = useState(false)
+  // Set when Note is chosen from the menu, read once as the menu closes.
+  const noteRequestedRef = useRef(false)
   // Set when a deduction confirmed on this card went through, so a revert and
   // re-complete before `router.refresh()` lands does not preview it again.
   const [chargedHere, setChargedHere] = useState(false)
@@ -273,10 +277,8 @@ export function MealCard({
   const isUpdating = statusMutation.isPending
   const isClearing = clearMutation.isPending
 
-  // Note and the menu sit at the right end of the title row; the image ends
-  // before them and the title wraps before it (HON-749). The rows below the
-  // title keep clear of it too: the image stays in the title row's band
-  // (`titleBand`, HON-755).
+  // The menu sits at the right end of the first row; the image ends before
+  // it and the title wraps before the image (HON-749).
   const hasTrailingActions = !isReadOnly && !isPast
 
   if (!meal) {
@@ -285,7 +287,8 @@ export function MealCard({
     return (
       <>
         <Card size="sm">
-          <CardContent className="flex flex-col gap-1.5 px-3 pb-1">
+          <CardContent className="flex flex-col gap-1.5 px-4 pt-1 pb-2">
+            <MealTypeBadge mealType={mealType} />
             {note ? (
               <Body variant="muted" className="italic">
                 {note}
@@ -304,7 +307,7 @@ export function MealCard({
             )}
           </CardContent>
           {canEdit && (
-            <CardFooter className="px-3 pt-0">
+            <CardFooter className="px-4 pt-0">
               <Button
                 variant="outline"
                 size="sm"
@@ -338,43 +341,54 @@ export function MealCard({
       <MealImageCard
         meal={tintMeal ?? meal}
         trailingActions={hasTrailingActions}
-        titleBand
+        // A planned card's only lower row is the short availability badge at
+        // the left, so the plate runs the card's full height. A past card adds
+        // the status control, the rating prompt and the note across the
+        // width, and a planned card with a note (or its editor open) adds the
+        // note row; those stay on the plain tint below the band (HON-755).
+        titleBand={isPast || note != null || isNoteEditing}
         size="sm"
       >
-        <CardHeader className="px-3 pb-0">
-          <div className="flex items-start justify-between gap-1">
-            {/* A native button rather than `Button`: the name wraps, and every
-                `Button` size is a fixed height a second line would overflow.
-                `min-h-8` holds it to the same 32px floor as the actions beside
-                it (docs/DESIGN.md → Spacing, radius, elevation), and the
-                image's title band is sized from it (`IMAGE_HEIGHT` in
-                MealImageCard). */}
-            <div className={cn('min-w-0', mealImageTitleWidth(hasTrailingActions))}>
-              <Body variant="small">
-                <button
-                  type="button"
-                  className="min-h-8 cursor-pointer text-left leading-snug underline-offset-2 hover:underline"
-                  onClick={() => setIsDetailModalOpen(true)}
-                >
-                  {meal.name}
-                </button>
-              </Body>
+        <CardHeader className="px-4 pt-1 pb-1">
+          {/* First row: the slot label, with the menu at the right end. The
+              name has the next row to itself, still capped before the image
+              (`mealImageTitleWidth`). */}
+          <div className="flex min-h-8 items-center justify-between gap-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <MealTypeBadge mealType={mealType} />
+              <ProteinBadge proteinType={meal.primaryProteinType} />
             </div>
             {hasTrailingActions && (
               <div className="flex shrink-0 items-center gap-1">
-                <Button variant="ghost" size="sm" onClick={() => setIsNoteEditing(true)}>
-                  <NotebookPen aria-hidden="true" />
-                  {tCard('note')}
-                </Button>
-                {/* Swap and Clear share one trigger: three labelled `sm` buttons
-                    leave a 390px card too little room for the meal name. */}
+                {/* Note, Swap and Clear share one trigger: the title row keeps
+                    its width for the meal name. */}
                 <DropdownMenu modal={false}>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon-sm" aria-label={tCard('moreActions')}>
                       <MoreHorizontal aria-hidden="true" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent
+                    align="end"
+                    // Radix returns focus to the trigger as the menu closes,
+                    // after `NoteEditor` has focused its textarea. When Note
+                    // was chosen, leave focus where the editor put it.
+                    onCloseAutoFocus={(event) => {
+                      if (noteRequestedRef.current) {
+                        event.preventDefault()
+                        noteRequestedRef.current = false
+                      }
+                    }}
+                  >
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        noteRequestedRef.current = true
+                        setIsNoteEditing(true)
+                      }}
+                    >
+                      <NotebookPen aria-hidden="true" />
+                      {tCard('note')}
+                    </DropdownMenuItem>
                     {canSwapMeal && (
                       <DropdownMenuItem onSelect={() => setIsRegenerateModalOpen(true)}>
                         <Repeat aria-hidden="true" />
@@ -389,6 +403,21 @@ export function MealCard({
                 </DropdownMenu>
               </div>
             )}
+          </div>
+          {/* A native button rather than `Button`: the name wraps, and every
+              `Button` size is a fixed height a second line would overflow.
+              `min-h-8` holds it to the same 32px floor as the menu above it
+              (docs/DESIGN.md → Spacing, radius, elevation). */}
+          <div className={cn('min-w-0', mealImageTitleWidth(hasTrailingActions))}>
+            <Body variant="small">
+              <button
+                type="button"
+                className="min-h-8 cursor-pointer text-left leading-snug underline-offset-2 hover:underline"
+                onClick={() => setIsDetailModalOpen(true)}
+              >
+                {meal.name}
+              </button>
+            </Body>
           </div>
           <div className="flex flex-wrap items-center gap-1">
             {!isPast && shouldShowAvailability && availability && (
@@ -421,12 +450,12 @@ export function MealCard({
           )}
         </CardHeader>
         {!isReadOnly && isPast && (
-          <CardContent className="px-3 pb-1">
+          <CardContent className="px-4 pb-2">
             <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
           </CardContent>
         )}
         {status === 'completed' && showRatingPrompt && (
-          <CardContent className="px-3 pb-1">
+          <CardContent className="px-4 pb-2">
             <MealRatingPrompt
               planId={planId}
               entryId={entryId}
@@ -439,7 +468,7 @@ export function MealCard({
           </CardContent>
         )}
         {status === 'completed' && !rating && !showRatingPrompt && !isReadOnly && (
-          <CardContent className="flex items-center gap-1.5 px-3 pb-1">
+          <CardContent className="flex items-center gap-1.5 px-4 pb-2">
             <Body variant="caption">{tCard('rate')}</Body>
             <MealRatingInline
               planId={planId}

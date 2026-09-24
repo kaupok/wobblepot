@@ -121,7 +121,15 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
           The actions stay on the title row (docs/DESIGN.md → Composition). */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {meals.map((meal) => (
-          <MealImageCard key={meal.id} meal={meal} layout="bottom" className="flex h-full flex-col">
+          <MealImageCard
+            key={meal.id}
+            meal={meal}
+            layout="bottom"
+            // `sm`: the content's own `p-4` is the card's padding; the default
+            // `py-6` on top of it doubled the space above the first row.
+            size="sm"
+            className="flex h-full flex-col"
+          >
             <CardContent className="flex-1 p-4">
               {/* h2: the page title is the h1 (HON-747). No ingredient list on a
                   phone: uncoloured names only, and it doubled the card (HON-784) */}

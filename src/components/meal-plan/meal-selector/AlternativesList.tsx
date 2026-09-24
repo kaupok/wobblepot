@@ -18,8 +18,9 @@ import type { AlternativeMeal, PantryIngredient } from '../types'
  */
 export function AlternativeSkeleton({ withImage = false }: { withImage?: boolean }) {
   return (
-    <Card className="flex h-full flex-col">
-      <CardContent className="flex flex-1 flex-col gap-3 pt-6">
+    <Card size="sm" className="flex h-full flex-col">
+      {/* Mirrors `AlternativeCard`: `sm` card, `p-4` content. */}
+      <CardContent className="flex flex-1 flex-col gap-3 p-4">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-5 w-32" />
           <Skeleton className="h-5 w-24" />

@@ -52,7 +52,7 @@ function getDayLabel(
   locale: Locale,
   todayLabel: string,
   tomorrowLabel: string,
-): { label: string; isToday: boolean; isTomorrow: boolean } {
+): { label: string; dateLabel?: string; isToday: boolean; isTomorrow: boolean } {
   if (dateStr === todayStr) {
     return { label: todayLabel, isToday: true, isTomorrow: false }
   }
@@ -60,8 +60,10 @@ function getDayLabel(
     return { label: tomorrowLabel, isToday: false, isTomorrow: true }
   }
   const date = parseLocalDate(dateStr)
+  // The weekday is the name; the date is a detail, so the card dims it.
   return {
-    label: `${formatDayLong(date, locale)} ${formatAbsoluteDate(date, locale)}`,
+    label: formatDayLong(date, locale),
+    dateLabel: formatAbsoluteDate(date, locale),
     isToday: false,
     isTomorrow: false,
   }
@@ -128,7 +130,7 @@ export function TimelineView({
     while (current <= endParsed) {
       const dateStr = toDateString(current)
       const isPast = dateStr < todayDate
-      const { label, isToday, isTomorrow } = getDayLabel(
+      const { label, dateLabel, isToday, isTomorrow } = getDayLabel(
         dateStr,
         todayDate,
         tomorrowDate,
@@ -158,6 +160,7 @@ export function TimelineView({
       allDays.push({
         date: dateStr,
         label,
+        dateLabel,
         isToday,
         isTomorrow,
         isPast,
@@ -214,8 +217,9 @@ export function TimelineView({
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="lg:grid-cols-timeline grid gap-6">
-        {/* Left column: Timeline */}
-        <div className="flex flex-col gap-6">
+        {/* Left column: Timeline. `gap-8` between days, wider than the `gap-2`
+            between one day's cards, so the days read as groups. */}
+        <div className="flex flex-col gap-8">
           {/* Below lg the right column falls under 14 days of cards, so the
               phone gets the summary here instead (HON-766). Both forms are in
               the server HTML and CSS picks one: no viewport state, and
