@@ -3,12 +3,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { MealForm, type MealFormData } from '@/components/household/MealForm'
 import { Body } from '@/components/ui/typography'
 import { ApiError, apiFetch } from '@/lib/api'
+import { MealFormSkeleton } from '@/app/recipes/create/MealFormSkeleton'
 
 const isClientError = (error: ApiError) => error.status >= 400 && error.status < 500
 
@@ -62,20 +62,17 @@ export function EditRecipeClient({ mealId }: EditRecipeClientProps) {
 
   // `isPending` rather than `isLoading`: a fetch paused by the browser being
   // offline is still pending but not fetching, and must not fall through to the
-  // error branch below.
+  // error branch below. The route's `loading.tsx` renders the same skeleton, so
+  // nothing moves between the two (HON-779).
   if (isPending) {
-    return (
-      <div className="min-h-screen-below-header grid place-items-center p-4">
-        <Loader2 className="h-6 w-6 animate-spin" />
-      </div>
-    )
+    return <MealFormSkeleton />
   }
 
   if (error || !meal) {
     const isNotFound = error instanceof ApiError && error.status === 404
     return (
-      <div className="min-h-screen-below-header grid place-items-center p-4">
-        <div className="flex flex-col items-center gap-4 text-center">
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex max-w-2xl flex-col items-start gap-4">
           <Body variant="muted">{isNotFound ? t('mealNotFound') : t('loadFailed')}</Body>
           <Button asChild variant="outline">
             <Link href="/recipes">{t('backToRecipes')}</Link>
@@ -86,8 +83,11 @@ export function EditRecipeClient({ mealId }: EditRecipeClientProps) {
   }
 
   return (
-    <div className="min-h-screen-below-header grid place-items-center p-4">
-      <MealForm meal={meal} onSuccess={handleSuccess} onCancel={handleCancel} />
+    <div className="container mx-auto px-4 py-8">
+      {/* A form page: a narrow column, top-aligned, no page-level Card (HON-779). */}
+      <div className="max-w-2xl">
+        <MealForm meal={meal} onSuccess={handleSuccess} onCancel={handleCancel} />
+      </div>
     </div>
   )
 }
