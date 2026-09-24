@@ -26,6 +26,11 @@ export interface PantryItemData {
   neededDisplayQuantity?: string
   /** Number of days in the shopping window (7 or 14) */
   windowDays?: number
+  /**
+   * `neededDisplayQuantity` is a phrase ("to taste"), not an amount, so the row
+   * drops it (HON-783). The API sets it only when the phrase replaced the number.
+   */
+  isVague?: boolean
 }
 
 interface PantryItemProps {

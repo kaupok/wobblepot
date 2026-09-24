@@ -27,7 +27,7 @@ describe('toPantryItemData', () => {
   // field added to `PantryItemData` and the API row flows through without
   // touching this test, and one silently dropped by the transform fails it.
   it('keeps every field the pantry item renders, and strips only the API-only fields', () => {
-    const { ingredientId: _ingredientId, isVague: _isVague, ...expected } = apiItem()
+    const { ingredientId: _ingredientId, ...expected } = apiItem()
 
     expect(toPantryItemData(apiItem())).toEqual(expected)
   })
@@ -45,10 +45,10 @@ describe('toPantryItemData', () => {
     expect(toPantryItemData(withoutWindow)).toEqual(expected)
   })
 
-  it('drops isVague and the duplicated ingredientId', () => {
+  it('keeps isVague, which the row reads, and drops the duplicated ingredientId', () => {
     const result = toPantryItemData(apiItem())
 
-    expect(result).not.toHaveProperty('isVague')
+    expect(result.isVague).toBe(true)
     expect(result).not.toHaveProperty('ingredientId')
   })
 

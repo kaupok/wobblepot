@@ -46,6 +46,21 @@ function rowNames(nav: HTMLElement): string[] {
     .map((el) => el.textContent?.trim() ?? '')
 }
 
+// Every row and the close control clear the 44px touch floor (HON-783) —
+// measured, since the class names alone cannot show the rows fill it.
+const TOUCH_FLOOR_PX = 44
+
+function assertTouchTargets(nav: HTMLElement) {
+  const scoped = within(nav)
+  const rows = [...scoped.queryAllByRole('link'), ...scoped.queryAllByRole('button')]
+  const close = within(document.body).getByRole('button', { name: 'Close' })
+  for (const el of [...rows, close]) {
+    const { height, width } = el.getBoundingClientRect()
+    expect(height, `${el.textContent?.trim()} height`).toBeGreaterThanOrEqual(TOUCH_FLOOR_PX)
+    if (el === close) expect(width, 'Close width').toBeGreaterThanOrEqual(TOUCH_FLOOR_PX)
+  }
+}
+
 async function openSheet(canvasElement: HTMLElement) {
   await userEvent.click(within(canvasElement).getByRole('button', { name: 'User menu' }))
   const body = within(document.body)
@@ -62,7 +77,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Person-icon trigger + right-side `Sheet` — the mobile counterpart to `HeaderActions`, with the same accessible name ("User menu"). Hidden on `md:` and up. Signed in, it lists Household, Profile, the labelled theme row and Sign out, in that order (HON-775); signed out, Sign in, Sign up and the theme row.',
+          'Person-icon trigger + right-side `Sheet` — the mobile counterpart to `HeaderActions`, with the same accessible name ("User menu"). Hidden on `md:` and up. Signed in, it lists Household, Profile, the labelled theme row and Sign out, in that order (HON-775); signed out, Sign in, Sign up and the theme row. Every row and the close control clear the 44px touch floor (HON-783).',
       },
     },
     msw: { handlers: { extra: [signOutHandler] } },
@@ -130,6 +145,7 @@ export const SignedInWithHousehold: Story = {
       'href',
       '/household',
     )
+    assertTouchTargets(nav)
     await assertFocusInDialog()
   },
 }
@@ -151,6 +167,7 @@ export const SignedOut: Story = {
     const nav = await openSheet(canvasElement)
 
     expect(rowNames(nav)).toEqual(['Sign in', 'Sign up', 'Dark mode'])
+    assertTouchTargets(nav)
   },
 }
 
