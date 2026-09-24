@@ -270,7 +270,7 @@ export function ImagineClient() {
               disabled={
                 isGenerating || reviewingMealId !== null || (!prompt.trim() && images.length === 0)
               }
-              className="w-full"
+              className="w-full md:w-auto md:self-start"
             >
               {isGenerating ? (
                 <>

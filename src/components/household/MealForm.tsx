@@ -306,17 +306,17 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
         <CardFooter className="pt-6">
           <div className="flex w-full flex-col gap-4">
             {error && <FieldError>{error}</FieldError>}
-            <div className="flex gap-2">
+            {/* Two-up on a phone, label-sized at the start of the column from md (HON-782) */}
+            <div className="grid grid-cols-2 gap-2 md:flex">
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleCancelClick}
                 disabled={isSubmitting}
-                className="flex-1"
               >
                 {t('cancel')}
               </Button>
-              <Button type="submit" disabled={isSubmitting} className="flex-1">
+              <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? t('saving') : isEditing ? t('update') : t('create')}
               </Button>
             </div>

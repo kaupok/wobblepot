@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { expect, within } from 'storybook/test'
 import {
   emptyMembersHandlers,
   errorMembersHandlers,
@@ -82,5 +83,23 @@ export const Error: Story = {
         story: 'Members request returns 500 — destructive-toned error message renders inline.',
       },
     },
+  },
+}
+
+export const Desktop: Story = {
+  globals: { viewport: { value: 'desktop', isRotated: false } },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Desktop width. The "Add member" trigger is as wide as its label and starts at the column edge; on a phone it fills the column (HON-782).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const button = await within(canvasElement).findByRole('button', { name: 'Add member' })
+    await expect(button.getBoundingClientRect().width).toBeLessThan(
+      button.parentElement!.getBoundingClientRect().width,
+    )
   },
 }

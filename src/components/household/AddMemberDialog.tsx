@@ -127,7 +127,8 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button>
+        {/* Full width on a phone, label-sized from md in any flex-column host (HON-782) */}
+        <Button className="w-full md:w-auto md:self-start">
           <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
           {t('trigger')}
         </Button>

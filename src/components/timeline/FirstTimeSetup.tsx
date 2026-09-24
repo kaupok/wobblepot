@@ -175,7 +175,12 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
 
             {error && <FieldError>{error}</FieldError>}
 
-            <Button onClick={handleGenerate} disabled={isGenerating} size="lg" className="w-full">
+            <Button
+              onClick={handleGenerate}
+              disabled={isGenerating}
+              size="lg"
+              className="w-full md:w-auto md:self-start"
+            >
               {isGenerating ? tFirst('submitting') : tFirst('submit')}
             </Button>
           </CardContent>
