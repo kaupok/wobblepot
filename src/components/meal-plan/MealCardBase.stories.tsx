@@ -36,7 +36,35 @@ export const NameAsH3: Story = {
     docs: {
       description: {
         story:
-          "`nameHeadingTag` moves the meal name in the document outline without changing its size — it stays at the `h4` title level (`text-xl`). Callers inside a Dialog pass `h3` so the tag follows the Dialog title (an `h2`) and axe's heading-order rule stays valid.",
+          "`nameHeadingTag` moves the meal name in the document outline without changing its size — it stays at the Section level (`text-base`), one step below the page or dialog title it sits under (HON-784). Callers inside a Dialog pass `h3` so the tag follows the Dialog title (an `h2`) and axe's heading-order rule stays valid.",
+      },
+    },
+  },
+}
+
+export const IngredientsAlways: Story = {
+  name: 'Ingredients: always (phone)',
+  args: { meal: mealFixture, ingredients: 'always' },
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The default. The alternatives grid and the imagine panel keep the ingredient list at every width, because there it is colour-coded against the pantry and is how a household picks between swaps.',
+      },
+    },
+  },
+}
+
+export const IngredientsMdUp: Story = {
+  name: 'Ingredients: md and up (phone)',
+  args: { meal: mealFixture, ingredients: 'md-up' },
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          '`ingredients="md-up"` hides the list below `md`. The recipe library passes it: there the list is uncoloured names only, and on a phone it made each card nearly two screens tall (HON-784). Widen the viewport past `md` to see the list return.',
       },
     },
   },

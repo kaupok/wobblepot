@@ -63,6 +63,41 @@ const mockMeal: MealCardBaseData = {
 }
 
 describe('MealCardBase', () => {
+  describe('meal name', () => {
+    it('renders at the Section size, never the Title size (HON-784)', () => {
+      render(<MealCardBase meal={mockMeal} />)
+
+      const name = screen.getByRole('heading', { name: 'Salmon Rice Bowl' })
+      expect(name).toHaveClass('text-base', 'font-semibold')
+      expect(name).not.toHaveClass('text-xl')
+    })
+
+    it('keeps the tag the caller passes', () => {
+      render(<MealCardBase meal={mockMeal} nameHeadingTag="h3" />)
+
+      expect(screen.getByRole('heading', { level: 3, name: 'Salmon Rice Bowl' })).toHaveClass(
+        'text-base',
+      )
+    })
+  })
+
+  describe('ingredient list visibility', () => {
+    it('shows the list at every width by default', () => {
+      render(<MealCardBase meal={mockMeal} />)
+
+      const list = screen.getByText('Salmon').closest('ul')
+      expect(list).not.toHaveClass('hidden')
+      expect(list).not.toHaveClass('md:block')
+    })
+
+    it("hides the list below md with ingredients='md-up' (HON-784)", () => {
+      render(<MealCardBase meal={mockMeal} ingredients="md-up" />)
+
+      const list = screen.getByText('Salmon').closest('ul')
+      expect(list).toHaveClass('hidden', 'md:block')
+    })
+  })
+
   describe('source URL rendering', () => {
     it('renders link for https URLs', () => {
       const meal = { ...mockMeal, sourceUrl: 'https://example.com/recipe' }
