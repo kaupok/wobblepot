@@ -288,7 +288,16 @@
     --meal-chip-c: 0;
   }
 
-  [data-meal-surface] {
+  /* A paper note — the shopping summary on Today (`UrgentShopping`). The same
+     lightness and chroma as a meal tint, at a fixed yellow hue, so every
+     text and chip pairing inside it is one src/lib/meal-tint.test.ts already
+     measures; it also takes the meal surface's transparent edge below. */
+  [data-surface='note'] {
+    --meal-hue: 95;
+  }
+
+  [data-meal-surface],
+  [data-surface='note'] {
     --meal-text: oklch(var(--meal-text-l) var(--meal-text-c) var(--meal-hue));
     --meal-chip: oklch(var(--meal-chip-l) var(--meal-chip-c) var(--meal-hue));
     --card: oklch(var(--meal-surface-l) var(--meal-surface-c) var(--meal-hue));
@@ -299,8 +308,18 @@
     --secondary-foreground: var(--meal-text);
     --accent: var(--meal-chip);
     --accent-foreground: var(--meal-text);
+    /* Lines inside the tint are the tint's too: an outline badge, a select
+       trigger, a separator. The neutral grey `--border` is calibrated for the
+       neutral background and reads as foreign chrome on a coloured surface
+       (docs/DESIGN.md → Reject list). */
+    --border: var(--meal-chip);
+    --input: var(--meal-chip);
     background-color: var(--card);
     color: var(--card-foreground);
+    /* The tint is the card's edge: a hairline on a coloured surface reads as a
+       second, unrelated outline. Transparent rather than removed, so the card
+       keeps the geometry of a bordered one and nothing beside it shifts. */
+    border-color: transparent;
   }
 }
 

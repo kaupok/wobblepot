@@ -68,12 +68,10 @@ export const PlannedWithImage: Story = {
     await expect(card.style.getPropertyValue('--meal-hue')).toBe('52')
     const menu = canvas.getByRole('button', { name: /more actions/i })
     await expect(menu).toBeVisible()
-    // The image ends before Note and the menu, and the title wraps before the
-    // image's opaque part (HON-749).
+    // The image ends before the menu, and the title wraps before the image's
+    // opaque part (HON-749).
     const box = canvas.getByTestId('meal-card-image').getBoundingClientRect()
-    const note = canvas.getByRole('button', { name: /^note$/i }).getBoundingClientRect()
     const title = canvas.getByRole('button', { name: mealFixture.name }).getBoundingClientRect()
-    await expect(note.left).toBeGreaterThanOrEqual(box.right)
     await expect(menu.getBoundingClientRect().left).toBeGreaterThanOrEqual(box.right)
     await expect(title.right).toBeLessThanOrEqual(box.left + box.width * 0.3)
   },
@@ -147,6 +145,12 @@ export const Planned: Story = {
     for (const button of canvas.getAllByRole('button')) {
       await expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(32)
     }
+
+    // The slot label is the card's first row (docs/DESIGN.md → Composition),
+    // above the meal name.
+    const badge = canvas.getByText('Dinner').getBoundingClientRect()
+    const name = canvas.getByRole('button', { name: mealFixture.name }).getBoundingClientRect()
+    await expect(badge.bottom).toBeLessThanOrEqual(name.top)
 
     // The counterpart to `CompletedThumbsUp` below: Swap is offered here, so
     // its absence there cannot pass on a card that failed to render at all.
@@ -544,6 +548,26 @@ export const PlannedWithNote: Story = {
   },
 }
 
+/** Note lives in the more-actions menu: choosing it opens the editor with the textarea focused, and the closing menu does not pull focus back to its trigger. */
+export const NoteFromMenu: Story = {
+  args: {
+    meal: mealFixture,
+    status: 'planned',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const body = within(document.body)
+    await expect(canvas.queryByRole('button', { name: /^note$/i })).not.toBeInTheDocument()
+    await openMoreActions(canvasElement)
+    await userEvent.click(await body.findByRole('menuitem', { name: /^note$/i }))
+    const textarea = await canvas.findByRole('textbox')
+    await waitFor(() => expect(textarea).toHaveFocus())
+    // The menu leaves after its exit animation, so it is still in the DOM
+    // when focus lands; wait it out rather than asserting on a single frame.
+    await waitFor(() => expect(body.queryByRole('menu')).not.toBeInTheDocument())
+  },
+}
+
 export const WithServingOverride: Story = {
   args: {
     meal: mealFixture,
@@ -582,14 +606,13 @@ export const CompletedThumbsUp: Story = {
     },
   },
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
     const body = within(document.body)
     await openMoreActions(canvasElement)
-    // Clear is in the same menu, so the missing Swap is not a menu that never
-    // opened. Note sits outside it and is unaffected.
-    await expect(await body.findByRole('menuitem', { name: /^clear$/i })).toBeInTheDocument()
+    // Note and Clear are in the same menu, so the missing Swap is not a menu
+    // that never opened.
+    await expect(await body.findByRole('menuitem', { name: /^note$/i })).toBeInTheDocument()
+    await expect(body.getByRole('menuitem', { name: /^clear$/i })).toBeInTheDocument()
     await expect(body.queryByRole('menuitem', { name: /^swap$/i })).not.toBeInTheDocument()
-    await expect(canvas.getByRole('button', { name: /^note$/i })).toBeInTheDocument()
   },
 }
 

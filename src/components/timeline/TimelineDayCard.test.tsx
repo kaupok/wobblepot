@@ -177,7 +177,10 @@ describe('TimelineDayCard', () => {
     expect(screen.getByTestId('meal-card-dinner')).toBeInTheDocument()
   })
 
-  it('renders meal type labels outside the cards', () => {
+  // The slot label is the card's own first row (`MealTypeBadge` inside
+  // `MealCard` and `TimelineEmptySlot`, both mocked here), so the day card
+  // renders none of its own and passes each slot's `mealType` down instead.
+  it('leaves the meal type label to the cards', () => {
     const dayWithEntry: TimelineDay = {
       ...baseDay,
       entries: [
@@ -204,8 +207,10 @@ describe('TimelineDayCard', () => {
 
     render(<TimelineDayCard day={dayWithEntry} {...defaultProps} />)
 
-    expect(screen.getByText('Dinner')).toBeInTheDocument()
-    expect(screen.getByText('Breakfast')).toBeInTheDocument()
+    expect(screen.queryByText('Dinner')).not.toBeInTheDocument()
+    expect(screen.queryByText('Breakfast')).not.toBeInTheDocument()
+    expect(screen.getByTestId('meal-card-dinner')).toBeInTheDocument()
+    expect(screen.getByTestId('empty-slot-breakfast')).toBeInTheDocument()
   })
 })
 

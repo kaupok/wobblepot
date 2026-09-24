@@ -28,9 +28,9 @@ export interface MealImageFields {
  *
  * The widest side card is a planner row at the 1152px page width: 1fr beside
  * the 320px sidebar, ~776px. Its image is 5/8 of that, 485px; with trailing
- * actions it ends `right-36` (144px) earlier, 341px. Below `md` the card is
+ * actions it ends `right-12` (48px) earlier, 437px. Below `md` the card is
  * `100vw - 2rem` at most, so 5/8 of it stays under 62vw and the trailing box
- * under 40vw.
+ * under 55vw.
  *
  * The bottom image spans the card. Two callsites: the alternatives grid (three
  * ~272px columns from `md` in the `max-w-4xl` add-meal dialog) and the recipe
@@ -44,7 +44,7 @@ export interface MealImageFields {
  */
 const SIZES = {
   default: '(min-width: 768px) 485px, 62vw',
-  trailingActions: '(min-width: 768px) 341px, 40vw',
+  trailingActions: '(min-width: 768px) 437px, 55vw',
   bottom: '(min-width: 768px) 364px, 100vw',
 } as const
 
@@ -55,12 +55,11 @@ const SIZES = {
  * With trailing actions the image ends before the action column instead of
  * fading under it (HON-749). A right-end fade was the alternative, but a phone
  * card has room for the title, the actions and ~100px between them, not for an
- * image underneath the actions as well: fading it under the ~120px column would
- * leave almost nothing of the dish. `right-36` (144px) is the column — Note
- * ("Märkus" in Estonian), the `icon-sm` menu, their gap — plus the card's
- * `px-3`. The inset box can be narrower than 3:2, so `object-cover` may crop the
- * plate at its right edge; the short right fade keeps that from reading as a
- * hard edge.
+ * image underneath the actions as well. `right-12` (48px) is the column — the
+ * `icon-sm` menu, which holds Note as well as Swap and Clear —
+ * plus the card's `px-4`. The inset box can be narrower than 3:2, so
+ * `object-cover` may crop the plate at its right edge; the short right fade
+ * keeps that from reading as a hard edge.
  *
  * The narrow/wide switch is a container query on the card (`@md`, 448px), not
  * a viewport breakpoint: the alternatives grid puts ~250px cards on a desktop
@@ -68,7 +67,7 @@ const SIZES = {
  */
 const IMAGE_BOX = {
   default: 'right-0 w-9/20 @md/meal-image:w-5/8',
-  trailingActions: 'right-36 left-1/3 @md/meal-image:left-3/8 mask-r-from-80%',
+  trailingActions: 'right-12 left-1/3 @md/meal-image:left-3/8 mask-r-from-80%',
 } as const
 
 /**
@@ -77,15 +76,19 @@ const IMAGE_BOX = {
  * below the title (the planner card's note, status and rating) sit on the
  * plain tint instead of the dish (HON-755).
  *
- * `h-12` is where the planner card's second row starts on a one-line title:
- * the card's `py-2`, the title row's `min-h-8`, and `CardHeader`'s `gap-2` —
- * change them together. A title that wraps only pushes the lower rows further
+ * `h-20` (80px) ends above the planner card's lower rows on a one-line title:
+ * the card's `py-2` and the header's `pt-1`, the `MealTypeBadge` row
+ * (`min-h-8`), the title row's `min-h-8`, and `CardHeader`'s `gap-2` between
+ * and after them put the first lower row at 92px — change them together. The
+ * planner passes `titleBand` only for a past card; a planned card's lower row
+ * is a short badge at the left, so its plate runs the full height. A title
+ * that wraps only pushes the lower rows further
  * down, and it wraps before the image anyway (`TITLE_WIDTH`). The bottom fade
  * keeps a band that ends mid-card from cutting the plate with a hard edge.
  */
 const IMAGE_HEIGHT = {
   card: 'inset-y-0',
-  titleRow: 'top-0 h-12 mask-b-from-60%',
+  titleRow: 'top-0 h-20 mask-b-from-60%',
 } as const
 
 /**
@@ -154,8 +157,9 @@ interface MealImageCardProps extends ComponentProps<typeof Card> {
   /** Where the image sits. Defaults to `side`. */
   layout?: MealImageLayout
   /**
-   * The card has an action column at the right end of its title row (the
-   * planner card's Note and menu). The image then ends before it. `side` only.
+   * The card has an action column at the right end of its first row (the
+   * planner card's menu, beside the slot badge). The image then ends before
+   * it. `side` only.
    */
   trailingActions?: boolean
   /**

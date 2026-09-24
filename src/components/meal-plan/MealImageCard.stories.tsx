@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, waitFor, within } from 'storybook/test'
-import { MoreHorizontal, NotebookPen } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
+import { MealType, ProteinType } from '@/generated/prisma/enums'
 import { Button } from '@/components/ui/button'
 import { CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
@@ -9,6 +10,8 @@ import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { createMealCardBaseData, lemonGarlicChickenPantry } from '@/stories/fixtures'
 import { MealCardBase, type MealCardBaseData } from './MealCardBase'
 import { MealImageCard, mealImageTitleWidth } from './MealImageCard'
+import { MealTypeBadge } from './MealTypeBadge'
+import { ProteinBadge } from './ProteinBadge'
 
 const withImage = (hue: number, overrides: Partial<MealCardBaseData> = {}) =>
   createMealCardBaseData({
@@ -176,31 +179,32 @@ export const AllVariantsDark: Story = {
 const LONG_TITLE = 'Baked Salmon with Asparagus'
 
 /**
- * The planner card's title row: a long name and the Note / menu action column
- * (HON-749). The image ends before the actions, and the title wraps before the
- * image, so both sit on the plain tint. Mirrors `MealCard`'s header markup.
+ * The planner card's header: the slot badge with the menu at the right end
+ * of its row, then a long name on its own row (HON-749). The image ends
+ * before the menu, and the title wraps before the image, so both sit on the
+ * plain tint. Mirrors `MealCard`'s header markup.
  */
 function TrailingActionsCard({ meal, ...args }: React.ComponentProps<typeof MealImageCard>) {
   return (
     <MealImageCard {...args} meal={meal} trailingActions size="sm">
-      <CardHeader className="px-3 pb-0">
-        <div className="flex items-start justify-between gap-1">
-          <div className={cn('min-w-0', mealImageTitleWidth(true))}>
-            <Body variant="small">
-              <button type="button" className="min-h-8 text-left leading-snug">
-                {meal.name}
-              </button>
-            </Body>
+      <CardHeader className="px-4 pt-1 pb-1">
+        <div className="flex min-h-8 items-center justify-between gap-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <MealTypeBadge mealType={MealType.dinner} />
+            <ProteinBadge proteinType={ProteinType.fish} />
           </div>
           <div data-testid="card-actions" className="flex shrink-0 items-center gap-1">
-            <Button variant="ghost" size="sm">
-              <NotebookPen aria-hidden="true" />
-              Note
-            </Button>
             <Button variant="ghost" size="icon-sm" aria-label="More actions">
               <MoreHorizontal aria-hidden="true" />
             </Button>
           </div>
+        </div>
+        <div className={cn('min-w-0', mealImageTitleWidth(true))}>
+          <Body variant="small">
+            <button type="button" className="min-h-8 text-left leading-snug">
+              {meal.name}
+            </button>
+          </Body>
         </div>
         <Body variant="caption">All ingredients in pantry</Body>
       </CardHeader>

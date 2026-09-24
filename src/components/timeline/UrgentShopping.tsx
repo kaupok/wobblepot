@@ -108,7 +108,7 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
   // (DESIGN.md → "Actions sit on the title row") rather than in a footer.
   if (compact) {
     return (
-      <Card size="sm">
+      <Card size="sm" data-surface="note">
         <CardHeader>
           <div className="flex items-center justify-between gap-2">
             <CardTitle>{tToday('shoppingTitle')}</CardTitle>
@@ -126,7 +126,9 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
   }
 
   return (
-    <Card>
+    // The note surface (globals.css → `[data-surface='note']`): the list is
+    // the note on the fridge door, a pale yellow sheet rather than a card.
+    <Card data-surface="note">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>{tToday('shoppingTitle')}</CardTitle>

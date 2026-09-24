@@ -127,8 +127,8 @@ export const DinnersPlannedBreakfastsEmpty: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const label = canvas.getByText(/^Fill Apr 19\s*–\s*25$/)
-    const saturday = canvas.getByText(/saturday.*18/i)
-    const sunday = canvas.getByText(/sunday.*19/i)
+    const saturday = canvas.getByRole('heading', { name: /saturday.*18/i })
+    const sunday = canvas.getByRole('heading', { name: /sunday.*19/i })
     await expect(
       saturday.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
@@ -165,26 +165,28 @@ export const ShowPastMeals: Story = {
     })
 
     // Collapsed: no past day is on the page.
-    await expect(canvas.queryByText(/tuesday.*14/i)).not.toBeInTheDocument()
+    await expect(canvas.queryByRole('heading', { name: /tuesday.*14/i })).not.toBeInTheDocument()
 
     // Escape closes the menu without revealing anything.
     await userEvent.click(trigger)
     await expect(await body.findByRole('menu')).toBeInTheDocument()
     await pressEscape()
     await waitFor(() => expect(body.queryByRole('menu')).not.toBeInTheDocument())
-    await expect(canvas.queryByText(/tuesday.*14/i)).not.toBeInTheDocument()
+    await expect(canvas.queryByRole('heading', { name: /tuesday.*14/i })).not.toBeInTheDocument()
 
     await userEvent.click(trigger)
     await userEvent.click(
       await body.findByRole('menuitem', { name: 'Show past meals · 1 to catch up' }),
     )
-    await expect(await canvas.findByText(/tuesday.*14/i)).toBeInTheDocument()
-    await expect(canvas.getByText(/monday.*13/i)).toBeInTheDocument()
+    await expect(await canvas.findByRole('heading', { name: /tuesday.*14/i })).toBeInTheDocument()
+    await expect(canvas.getByRole('heading', { name: /monday.*13/i })).toBeInTheDocument()
 
     // The item now reads "Hide", and hiding removes the past days again.
     await userEvent.click(trigger)
     await userEvent.click(await body.findByRole('menuitem', { name: /hide past meals/i }))
-    await waitFor(() => expect(canvas.queryByText(/tuesday.*14/i)).not.toBeInTheDocument())
+    await waitFor(() =>
+      expect(canvas.queryByRole('heading', { name: /tuesday.*14/i })).not.toBeInTheDocument(),
+    )
   },
 }
 

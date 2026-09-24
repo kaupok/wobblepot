@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
+import { MealTypeBadge } from '@/components/meal-plan/MealTypeBadge'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import type { MealType } from '@/generated/prisma/enums'
 import type { PantryIngredient } from '@/components/meal-plan/types'
@@ -85,8 +86,11 @@ export function TimelineEmptySlot({
 
   return (
     <>
-      <div className="flex items-center justify-between rounded-lg border border-dashed px-3 py-2">
-        <Body variant="caption">{tCard('noMealPlanned')}</Body>
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-dashed px-3 py-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <MealTypeBadge mealType={mealType} />
+          <Body variant="caption">{tCard('noMealPlanned')}</Body>
+        </div>
         <Button variant="outline" size="sm" onClick={handlePickMeal} disabled={isCreating}>
           {isCreating ? tCard('adding') : tCard('pickMeal')}
         </Button>

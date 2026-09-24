@@ -4,21 +4,10 @@ import type { ReactNode } from 'react'
 import { MealCard } from '@/components/meal-plan/MealCard'
 import { Body, Heading } from '@/components/ui/typography'
 import { TimelineEmptySlot } from './TimelineEmptySlot'
-import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { useTranslations } from 'next-intl'
 import type { TimelineDay, PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
-import type { MealType } from '@/generated/prisma/enums'
 
 const mealTypeOrder = { breakfast: 0, lunch: 1, dinner: 2 } as const
-
-function MealTypeLabel({ mealType }: { mealType: MealType }) {
-  const label = useEnumLabel('MealType', mealType)
-  return (
-    <Body variant="caption" className="tracking-wide uppercase">
-      {label}
-    </Body>
-  )
-}
 
 interface TimelineDayCardProps {
   day: TimelineDay
@@ -70,6 +59,15 @@ export function TimelineDayCard({
       <div className="flex items-center justify-between gap-2">
         <Heading variant="section" as="h5" className={day.isToday ? 'text-primary' : undefined}>
           {day.label}
+          {day.dateLabel && (
+            <>
+              {' '}
+              {/* The date is a detail beside the weekday: dimmed and at normal
+                  weight, in the same heading so the outline still reads
+                  "Saturday Sep 26". A plain space, not a formatter's (HON-777). */}
+              <span className="text-muted-foreground font-normal">{day.dateLabel}</span>
+            </>
+          )}
         </Heading>
         {headerAction && <div className="shrink-0">{headerAction}</div>}
       </div>
@@ -78,15 +76,12 @@ export function TimelineDayCard({
       ) : (
         <div className="flex flex-col gap-2">
           {slots.map((slot) => {
-            const mealType = slot.type === 'entry' ? slot.entry.mealType : slot.mealType
-
             if (slot.type === 'empty' && day.isPast) return null
 
+            // The slot's label (Dinner, Lunch) is the card's own first row:
+            // `MealCard` and `TimelineEmptySlot` render `MealTypeBadge`.
             return (
               <div key={slot.type === 'entry' ? slot.entry.id : `empty-${slot.mealType}`}>
-                <div className="mb-1">
-                  <MealTypeLabel mealType={mealType as MealType} />
-                </div>
                 {slot.type === 'entry' ? (
                   <MealCard
                     entryId={slot.entry.id}

@@ -29,6 +29,8 @@ export interface MealData {
   name: string
   description?: string | null
   kidFriendly: boolean
+  /** `ProteinType` value; the planner card shows it as a badge beside the slot label. */
+  primaryProteinType?: string
   timeMinutes?: number | null
   preparationNotes?: string | null
   components: MealComponent[]
@@ -167,7 +169,9 @@ export interface HouseholdPreferencesData {
 
 export interface TimelineDay {
   date: string // YYYY-MM-DD
-  label: string // "Today", "Tomorrow", "Wednesday Mar 28", etc.
+  label: string // "Today", "Tomorrow", "Wednesday", etc.
+  /** The date beside a named weekday ("Mar 28"), shown dimmed; absent on Today and Tomorrow. */
+  dateLabel?: string
   isToday: boolean
   isTomorrow: boolean
   isPast: boolean
