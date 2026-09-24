@@ -49,8 +49,8 @@ function seedImagineSession() {
 
 async function renderLoaded() {
   render(<CreateRecipeClient defaultServings={4} />)
-  // `prefilledData` starts as `undefined` and the component renders null until
-  // the load effect settles.
+  // `prefilledData` starts as `undefined` and the component renders the
+  // skeleton until the load effect settles.
   return screen.findByRole('button', { name: 'Cancel' })
 }
 
@@ -58,6 +58,17 @@ describe('CreateRecipeClient routing', () => {
   beforeEach(() => {
     sessionStorage.clear()
     push.mockClear()
+  })
+
+  it('renders the skeleton, not an empty page, until the stash has been read', async () => {
+    render(<CreateRecipeClient defaultServings={4} />)
+
+    // First paint, before the load effect settles: the route's skeleton.
+    expect(screen.getAllByRole('status', { name: 'Loading' }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
+
+    await screen.findByRole('button', { name: 'Cancel' })
+    expect(screen.queryByRole('status', { name: 'Loading' })).not.toBeInTheDocument()
   })
 
   it('cancels back to returnTo when the imagine flow set one', async () => {

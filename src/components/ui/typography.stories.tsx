@@ -25,13 +25,14 @@ export const Headings: Story = {
       <Heading variant="h3">Heading level 3</Heading>
       <Heading variant="h4">Heading level 4</Heading>
       <Heading variant="section">Section — day names, form sections</Heading>
+      <Heading variant="caption">Caption — form-group headings under a section</Heading>
     </div>
   ),
   parameters: {
     docs: {
       description: {
         story:
-          'Each variant rendered at its natural tag. `section` is the Section level of the type scale and defaults to an `h2`.',
+          'Each variant rendered at its natural tag. `section` is the Section level of the type scale and defaults to an `h2`; `caption` is the Caption level as a heading and defaults to an `h3`.',
       },
     },
   },

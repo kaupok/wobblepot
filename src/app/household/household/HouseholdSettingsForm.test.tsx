@@ -139,6 +139,30 @@ describe('HouseholdSettingsForm', () => {
       }
     })
 
+    /**
+     * `/household` has one Title, the page h1 (HON-781). This column's title
+     * sits one size down at Section, and its group headings one further at
+     * Caption, so parent and child never render at the same size.
+     */
+    it('renders the title at the Section size and its groups at the Caption size', () => {
+      renderForm()
+
+      const title = screen.getByRole('heading', { name: 'Household settings', level: 2 })
+      expect(title).toHaveClass('text-base', 'font-semibold')
+      expect(title).not.toHaveClass('text-xl')
+
+      for (const name of [
+        'Basic information',
+        'Dietary preferences',
+        'Excluded ingredients',
+        'Meal scheduling',
+      ]) {
+        const group = screen.getByRole('heading', { name, level: 3 })
+        expect(group).toHaveClass('text-xs', 'uppercase')
+        expect(group).not.toHaveClass('text-base')
+      }
+    })
+
     it('renders household name input with initial value', () => {
       renderForm()
 

@@ -29,7 +29,7 @@ export function MealFormBasicInfo({
 
   return (
     <section className="flex flex-col gap-4">
-      <Heading variant="section" as="h5">
+      <Heading variant="section" as="h2">
         {t('heading')}
       </Heading>
 

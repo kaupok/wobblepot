@@ -100,9 +100,18 @@ export const Edit: Story = {
     docs: {
       description: {
         story:
-          'Edit form prefilled with an existing meal — header reads "Edit meal", submit button reads "Update meal".',
+          'Edit form prefilled with an existing meal — the page title reads "Edit meal" (the page `h1`, on the page background since HON-779), submit button reads "Update meal".',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // One h1, the page title; every section one level below it (HON-779).
+    expect(canvas.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(canvas.getByRole('heading', { level: 1, name: 'Edit meal' })).toBeVisible()
+    for (const name of ['Basic information', 'Ingredients', 'Additional details']) {
+      expect(canvas.getByRole('heading', { level: 2, name })).toBeVisible()
+    }
   },
 }
 

@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { Loader2, ArrowLeft, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
+import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Heading, Body } from '@/components/ui/typography'
 import { MealCardBase } from '@/components/meal-plan/MealCardBase'
@@ -219,88 +219,89 @@ export function ImagineClient() {
   }
 
   return (
-    <div className="min-h-screen-below-header grid place-items-center p-4">
-      <div className="w-full max-w-4xl">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" asChild className="-ml-2">
-                <Link href="/recipes" aria-label={t('backAria')}>
-                  <ArrowLeft className="h-4 w-4" />
-                </Link>
-              </Button>
-              <Heading variant="h4">{t('title')}</Heading>
-            </div>
-            <Body variant="muted">{t('description')}</Body>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-4">
-              <AttachImages
-                images={images}
-                onSelect={handleFileSelect}
-                onRemove={removeImage}
-                disabled={isGenerating}
-                attachLabel={t('attachAria')}
-                removeImageLabel={(filename) => t('removeImageAria', { filename })}
-              >
-                <Textarea
-                  value={prompt}
-                  onChange={(e) => {
-                    setPrompt(e.target.value)
-                    setError('')
-                  }}
-                  placeholder={t('promptPlaceholder')}
-                  rows={3}
-                  className="min-w-0 flex-1 resize-none"
-                  disabled={isGenerating}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      handleGenerate()
-                    }
-                  }}
-                />
-              </AttachImages>
-              {error && <FieldError>{error}</FieldError>}
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col gap-3">
-            <Button
-              onClick={handleGenerate}
-              disabled={
-                isGenerating || reviewingMealId !== null || (!prompt.trim() && images.length === 0)
-              }
-              className="w-full md:w-auto md:self-start"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t('generating')}
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  {t('generate')}
-                </>
-              )}
+    <div className="container mx-auto px-4 py-8">
+      {/* Top-aligned, no page-level Card (HON-779). The column is `max-w-4xl`
+          rather than a form's `max-w-2xl` because the results grid needs the
+          width; the result cards stay cards, each is the item itself. */}
+      <div className="flex max-w-4xl flex-col gap-6">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" asChild className="-ml-2">
+              <Link href="/recipes" aria-label={t('backAria')}>
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
             </Button>
-            {isGenerating && (
-              <Button variant="ghost" size="sm" onClick={handleCancel}>
-                {t('cancel')}
-              </Button>
+            <Heading variant="h4" as="h1">
+              {t('title')}
+            </Heading>
+          </div>
+          <Body variant="muted">{t('description')}</Body>
+        </div>
+        <div className="flex flex-col gap-4">
+          <AttachImages
+            images={images}
+            onSelect={handleFileSelect}
+            onRemove={removeImage}
+            disabled={isGenerating}
+            attachLabel={t('attachAria')}
+            removeImageLabel={(filename) => t('removeImageAria', { filename })}
+          >
+            <Textarea
+              value={prompt}
+              onChange={(e) => {
+                setPrompt(e.target.value)
+                setError('')
+              }}
+              placeholder={t('promptPlaceholder')}
+              rows={3}
+              className="min-w-0 flex-1 resize-none"
+              disabled={isGenerating}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleGenerate()
+                }
+              }}
+            />
+          </AttachImages>
+          {error && <FieldError>{error}</FieldError>}
+        </div>
+        <div className="flex flex-col gap-3">
+          <Button
+            onClick={handleGenerate}
+            disabled={
+              isGenerating || reviewingMealId !== null || (!prompt.trim() && images.length === 0)
+            }
+            className="w-full md:w-auto md:self-start"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {t('generating')}
+              </>
+            ) : (
+              <>
+                <Sparkles className="mr-2 h-4 w-4" />
+                {t('generate')}
+              </>
             )}
-          </CardFooter>
-        </Card>
+          </Button>
+          {isGenerating && (
+            <Button variant="ghost" size="sm" onClick={handleCancel}>
+              {t('cancel')}
+            </Button>
+          )}
+        </div>
 
         {/* Results: skeleton cards while loading, real cards when done */}
         {(isGenerating || meals) && (
-          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-3">
             {isGenerating
               ? Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)
               : meals?.map((meal) => (
                   <Card key={meal.id} className="flex h-full flex-col">
                     <CardContent className="flex-1 p-4 pb-2">
-                      <MealCardBase meal={meal} />
+                      <MealCardBase meal={meal} nameHeadingTag="h2" />
                     </CardContent>
                     <CardFooter className="p-4 pt-0">
                       <Button

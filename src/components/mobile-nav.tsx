@@ -45,12 +45,15 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
     }
   }
 
-  const linkClass = 'hover:text-primary text-sm font-medium transition-colors'
+  // Every row clears the 44px touch floor (docs/DESIGN.md → Spacing, HON-783);
+  // the rows sit flush as a list, so the target is the whole row, not the text.
+  const linkClass =
+    'hover:text-primary flex min-h-touch items-center text-sm font-medium transition-colors'
 
   const themeRow = (
     <button
       type="button"
-      className="hover:text-primary flex items-center gap-2 text-left text-sm font-medium transition-colors"
+      className="hover:text-primary min-h-touch flex items-center gap-2 text-left text-sm font-medium transition-colors"
       onClick={theme.toggle}
     >
       {theme.isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
@@ -66,12 +69,20 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
           <span className="sr-only">{t('userMenu')}</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="right">
+      {/* The registry `SheetContent` renders its own close button as its last
+          child, with no `data-slot` and no prop to swap it out, and `sheet.tsx`
+          stays as `shadcn add` wrote it. Size it from here to the 44px touch
+          floor, moved up and in so the icon keeps its place beside the title
+          (HON-783). */}
+      <SheetContent
+        side="right"
+        className="[&>button:last-child]:size-touch [&>button:last-child]:top-2 [&>button:last-child]:right-2 [&>button:last-child]:flex [&>button:last-child]:items-center [&>button:last-child]:justify-center"
+      >
         <SheetHeader>
           <SheetTitle>{t('account')}</SheetTitle>
         </SheetHeader>
         {/* No top margin: SheetHeader's own padding is the gap (HON-775). */}
-        <nav aria-label={t('accountMenu')} className="flex flex-col gap-4 px-4">
+        <nav aria-label={t('accountMenu')} className="flex flex-col px-4">
           {session ? (
             <>
               {hasHousehold && (
@@ -87,7 +98,7 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
               {themeRow}
               <button
                 type="button"
-                className="hover:text-primary text-left text-sm font-medium transition-colors"
+                className="hover:text-primary min-h-touch flex items-center text-left text-sm font-medium transition-colors"
                 onClick={handleSignOut}
                 disabled={isLoading}
               >

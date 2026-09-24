@@ -53,11 +53,11 @@ describe('EditRecipeClient', () => {
 
     renderClient()
 
-    // The spinner itself is a decorative icon with no accessible name (the
-    // convention across the app), so the loading branch is identified by what
-    // it does *not* render.
+    // The loading branch renders the route's skeleton (HON-779), identified
+    // here by what it does *not* render.
     expect(screen.queryByTestId('meal-form')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Back to recipes' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('status', { name: 'Loading' }).length).toBeGreaterThan(0)
   })
 
   it('requests the meal by id and renders the form with the mapped data', async () => {
@@ -69,7 +69,7 @@ describe('EditRecipeClient', () => {
     expect(mockFetch).toHaveBeenCalledWith('/api/households/me/meals/meal-1', undefined)
   })
 
-  it('keeps the spinner up while the fetch is paused offline', () => {
+  it('keeps the skeleton up while the fetch is paused offline', () => {
     // An offline mount leaves the query pending but *not* fetching, which must
     // not be mistaken for "no meal here".
     onlineManager.setOnline(false)

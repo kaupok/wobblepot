@@ -399,6 +399,51 @@ describe('GET /api/pantry', () => {
     expect(data.items[0].neededDisplayQuantity).toBe('3')
   })
 
+  // `isVague` tells the row its display is a phrase, so it must be set only
+  // when the formatter actually swapped the phrase in (HON-783).
+  it.each([
+    { originalPhrase: 'to taste', display: 'to taste', isVague: true },
+    { originalPhrase: null, display: '400g', isVague: false },
+  ])(
+    'flags a vague need only when its phrase replaced the amount (phrase $originalPhrase)',
+    async ({ originalPhrase, display, isVague }) => {
+      mockGetSession.mockResolvedValue({
+        user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+        session: { id: 'session-123' },
+      } as never)
+      mockFindFirst.mockResolvedValue(mockMembership as never)
+      mockFindMany.mockResolvedValue([
+        {
+          id: 'pantry-1',
+          householdId: 'household-123',
+          ingredientId: 'ing-1',
+          quantity: null,
+          isStaple: true,
+          updatedAt: new Date('2024-01-01'),
+          ingredient: { id: 'ing-1', name: 'Butter', category: 'dairy', defaultUnit: 'g' },
+        },
+      ] as never)
+      mockFindManyEntries.mockResolvedValue([
+        {
+          id: 'entry-1',
+          date: new Date(),
+          status: 'planned',
+          meal: {
+            components: [
+              { ingredientId: 'ing-1', quantityPerServing: 200, isVague: true, originalPhrase },
+            ],
+          },
+        },
+      ] as never)
+
+      const response = await GET(createMockRequest('http://localhost/api/pantry?days=7'))
+      const data = await response.json()
+
+      expect(data.items[0].neededDisplayQuantity).toBe(display)
+      expect(data.items[0].isVague).toBe(isVague)
+    },
+  )
+
   it('formats kg needed quantities with a period decimal for en households', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John', email: 'john@example.com' },

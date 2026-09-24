@@ -528,3 +528,17 @@ describe('ShoppingSection server render', () => {
     container.remove()
   })
 })
+
+describe('ShoppingSection header summary', () => {
+  // A wrap at phone width must never start a line with "·": each separator is
+  // held on the line of the fragment after it (HON-783).
+  it('keeps each separator with the fragment that follows it', () => {
+    renderSection()
+
+    for (const tail of ['· 3 items', '· 0 purchased']) {
+      const fragment = screen.getByText(tail)
+      expect(fragment.tagName).toBe('SPAN')
+      expect(fragment).toHaveClass('whitespace-nowrap')
+    }
+  })
+})

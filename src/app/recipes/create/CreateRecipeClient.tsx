@@ -10,6 +10,7 @@ import {
 import type { MealType } from '@/generated/prisma/enums'
 import { track } from '@/lib/analytics'
 import { getValidReturnUrl } from '@/lib/utils'
+import { MealFormSkeleton } from './MealFormSkeleton'
 
 interface EnhancedPrefilledData {
   name: string
@@ -112,16 +113,22 @@ export function CreateRecipeClient({ defaultServings }: CreateRecipeClientProps)
     }
   }
 
-  if (prefilledData === undefined) return null
+  // The stash is read in an effect, after the route has resolved, so the
+  // route's `loading.tsx` no longer covers this gap: render the same skeleton
+  // rather than an empty page (HON-779).
+  if (prefilledData === undefined) return <MealFormSkeleton />
 
   return (
-    <div className="min-h-screen-below-header grid place-items-center p-4">
-      <MealForm
-        meal={getPrefilledMeal()}
-        defaultServings={defaultServings}
-        onSuccess={handleSuccess}
-        onCancel={handleCancel}
-      />
+    <div className="container mx-auto px-4 py-8">
+      {/* A form page: a narrow column, top-aligned, no page-level Card (HON-779). */}
+      <div className="max-w-2xl">
+        <MealForm
+          meal={getPrefilledMeal()}
+          defaultServings={defaultServings}
+          onSuccess={handleSuccess}
+          onCancel={handleCancel}
+        />
+      </div>
     </div>
   )
 }

@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { ChevronDown, ChevronRight, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -102,226 +101,221 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
   }
 
   return (
-    <Card className="w-full max-w-2xl">
-      <CardHeader>
-        <Heading variant="h4">{isEditing ? t('titleEdit') : t('titleCreate')}</Heading>
+    // Title on the page background, no bordered page wrapper (HON-779): the page
+    // client supplies the container and the `max-w-2xl` column.
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-1">
+        <Heading variant="h4" as="h1">
+          {isEditing ? t('titleEdit') : t('titleCreate')}
+        </Heading>
         <Body variant="muted">{isEditing ? t('descriptionEdit') : t('descriptionCreate')}</Body>
-      </CardHeader>
-      <form onSubmit={handleSubmit}>
-        <CardContent>
-          <div className="flex flex-col gap-6">
-            {/* Original Recipe Text Section (import mode only) */}
-            {originalRecipeText && (
-              <Collapsible open={isOriginalTextOpen} onOpenChange={setIsOriginalTextOpen}>
-                <CollapsibleTrigger asChild>
-                  <button
-                    type="button"
-                    className="bg-muted/50 hover:bg-muted flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left transition-colors"
-                  >
-                    {isOriginalTextOpen ? (
-                      <ChevronDown className="text-muted-foreground h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="text-muted-foreground h-4 w-4" />
-                    )}
-                    <Body variant="small">{t('originalTextLabel')}</Body>
-                  </button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="bg-muted/30 mt-2 max-h-64 overflow-y-auto rounded-md border p-3">
-                    <Body variant="small" className="whitespace-pre-wrap">
-                      {originalRecipeText}
-                    </Body>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            )}
-
-            <MealFormBasicInfo
-              name={name}
-              onNameChange={setName}
-              description={description}
-              onDescriptionChange={setDescription}
-              servings={servings}
-              onServingsChange={setServings}
-              disabled={isSubmitting}
-            />
-
-            {/* Ingredients Section */}
-            <section className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <Heading variant="section" as="h5">
-                  {t('ingredientsHeading')}
-                </Heading>
-                {isImportMode && (unresolvedCount > 0 || lowConfidenceCount > 0) && (
-                  <div className="flex gap-2">
-                    {lowConfidenceCount > 0 && (
-                      <Badge variant="info">
-                        {t('toVerifyBadge', { count: lowConfidenceCount })}
-                      </Badge>
-                    )}
-                    {unresolvedCount > 0 && (
-                      <Badge variant="warning">
-                        {t('unmatchedBadge', { count: unresolvedCount })}
-                      </Badge>
-                    )}
-                  </div>
+      </div>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        {/* Original Recipe Text Section (import mode only) */}
+        {originalRecipeText && (
+          <Collapsible open={isOriginalTextOpen} onOpenChange={setIsOriginalTextOpen}>
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="bg-muted/50 hover:bg-muted flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left transition-colors"
+              >
+                {isOriginalTextOpen ? (
+                  <ChevronDown className="text-muted-foreground h-4 w-4" />
+                ) : (
+                  <ChevronRight className="text-muted-foreground h-4 w-4" />
                 )}
+                <Body variant="small">{t('originalTextLabel')}</Body>
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="bg-muted/30 mt-2 max-h-64 overflow-y-auto rounded-md border p-3">
+                <Body variant="small" className="whitespace-pre-wrap">
+                  {originalRecipeText}
+                </Body>
               </div>
-              <Body variant="muted">{t('ingredientsHelper', { count: servingsNum })}</Body>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
 
-              {/* Import mode: show ingredient rows with match states */}
-              {isImportMode && ingredientRows.length > 0 && (
-                <div ref={ingredientRowsRef} className="flex flex-col gap-2">
-                  {ingredientRows.map((row, index) => {
-                    const duplicateIndices =
-                      row.type === 'matched' || row.type === 'low-confidence'
-                        ? duplicateMap.get(row.ingredient.id)?.filter((i) => i !== index)
-                        : undefined
+        <MealFormBasicInfo
+          name={name}
+          onNameChange={setName}
+          description={description}
+          onDescriptionChange={setDescription}
+          servings={servings}
+          onServingsChange={setServings}
+          disabled={isSubmitting}
+        />
 
-                    return (
-                      <IngredientRow
-                        key={index}
-                        data={row}
-                        servings={servingsNum}
-                        disabled={isSubmitting}
-                        duplicateIndices={duplicateIndices}
-                        onUpdate={(updatedData) => handleIngredientRowUpdate(index, updatedData)}
-                        onRemove={() => handleIngredientRowRemove(index)}
-                        onResolve={(ingredient, totalQuantity) =>
-                          handleIngredientRowResolve(index, ingredient, totalQuantity)
-                        }
-                      />
-                    )
-                  })}
-                </div>
-              )}
-
-              {/* Regular mode: show plain ingredient list */}
-              {!isImportMode && (
-                <ComponentList
-                  components={components}
-                  servings={servingsNum}
-                  disabled={isSubmitting}
-                  duplicateMap={duplicateMap}
-                  onRemove={removeComponent}
-                  onUpdateQuantity={updateComponentQuantity}
-                  onSetQuantity={setComponentQuantity}
-                  onMarkAsVague={markComponentAsVague}
-                />
-              )}
-
-              <IngredientSearch
-                disabled={isSubmitting}
-                existingIngredientIds={getAllIngredientIds()}
-                onAddIngredient={addIngredient}
-              />
-
-              {!hasIngredients && (
-                <div className="border-muted rounded-md border border-dashed p-6 text-center">
-                  <Body variant="muted">{t('noIngredients')}</Body>
-                </div>
-              )}
-
-              {/* Live nutrition summary */}
-              {nutritionSummary.matchedCount > 0 && (
-                <div className="bg-muted/50 rounded-md border px-3 py-2">
-                  <div className="mb-1">
-                    <Body variant="caption">{t('nutritionPerServing')}</Body>
-                  </div>
-                  <NutritionSummary
-                    nutrition={nutritionSummary.nutrition}
-                    compact
-                    components={nutritionSummary.hasVague ? [{ isVague: true }] : undefined}
-                  />
-                  {nutritionSummary.unmatchedCount > 0 && (
-                    <div className="mt-1">
-                      <Body variant="caption">
-                        {t('nutritionApproximate', {
-                          count: nutritionSummary.unmatchedCount,
-                        })}
-                      </Body>
-                    </div>
-                  )}
-                  <div className="mt-2">
-                    <NutritionDisclaimer />
-                  </div>
-                </div>
-              )}
-            </section>
-
-            <MealFormDetails
-              suitableFor={suitableFor}
-              onMealTypeToggle={handleMealTypeToggle}
-              timeMinutes={timeMinutes}
-              onTimeMinutesChange={setTimeMinutes}
-              kidFriendly={kidFriendly}
-              onKidFriendlyChange={setKidFriendly}
-              disabled={isSubmitting}
-            />
-
-            {/* Preparation Notes Section */}
-            <section className="flex flex-col gap-2">
-              <Label htmlFor="preparationNotes">{t('preparationNotesLabel')}</Label>
-              <Body variant="muted">{t('preparationNotesHelper')}</Body>
-              <Textarea
-                id="preparationNotes"
-                value={preparationNotes}
-                onChange={(e) => setPreparationNotes(e.target.value)}
-                placeholder={t('preparationNotesPlaceholder')}
-                rows={5}
-                maxLength={5000}
-                disabled={isSubmitting}
-                className="resize-y"
-              />
-            </section>
-
-            {/* Source URL Section */}
-            <section className="flex flex-col gap-2">
-              <Label htmlFor="sourceUrl">{t('sourceUrlLabel')}</Label>
+        {/* Ingredients Section */}
+        <section className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <Heading variant="section" as="h2">
+              {t('ingredientsHeading')}
+            </Heading>
+            {isImportMode && (unresolvedCount > 0 || lowConfidenceCount > 0) && (
               <div className="flex gap-2">
-                <Input
-                  id="sourceUrl"
-                  type="url"
-                  value={sourceUrl}
-                  onChange={(e) => setSourceUrl(e.target.value)}
-                  placeholder={t('sourceUrlPlaceholder')}
-                  disabled={isSubmitting}
-                />
-                {sourceUrl && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setSourceUrl('')}
-                    disabled={isSubmitting}
-                    aria-label={t('sourceUrlClearAria')}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                {lowConfidenceCount > 0 && (
+                  <Badge variant="info">{t('toVerifyBadge', { count: lowConfidenceCount })}</Badge>
+                )}
+                {unresolvedCount > 0 && (
+                  <Badge variant="warning">{t('unmatchedBadge', { count: unresolvedCount })}</Badge>
                 )}
               </div>
-            </section>
+            )}
           </div>
-        </CardContent>
-        <CardFooter className="pt-6">
-          <div className="flex w-full flex-col gap-4">
-            {error && <FieldError>{error}</FieldError>}
-            {/* Two-up on a phone, label-sized at the start of the column from md (HON-782) */}
-            <div className="grid grid-cols-2 gap-2 md:flex">
+          <Body variant="muted">{t('ingredientsHelper', { count: servingsNum })}</Body>
+
+          {/* Import mode: show ingredient rows with match states */}
+          {isImportMode && ingredientRows.length > 0 && (
+            <div ref={ingredientRowsRef} className="flex flex-col gap-2">
+              {ingredientRows.map((row, index) => {
+                const duplicateIndices =
+                  row.type === 'matched' || row.type === 'low-confidence'
+                    ? duplicateMap.get(row.ingredient.id)?.filter((i) => i !== index)
+                    : undefined
+
+                return (
+                  <IngredientRow
+                    key={index}
+                    data={row}
+                    servings={servingsNum}
+                    disabled={isSubmitting}
+                    duplicateIndices={duplicateIndices}
+                    onUpdate={(updatedData) => handleIngredientRowUpdate(index, updatedData)}
+                    onRemove={() => handleIngredientRowRemove(index)}
+                    onResolve={(ingredient, totalQuantity) =>
+                      handleIngredientRowResolve(index, ingredient, totalQuantity)
+                    }
+                  />
+                )
+              })}
+            </div>
+          )}
+
+          {/* Regular mode: show plain ingredient list */}
+          {!isImportMode && (
+            <ComponentList
+              components={components}
+              servings={servingsNum}
+              disabled={isSubmitting}
+              duplicateMap={duplicateMap}
+              onRemove={removeComponent}
+              onUpdateQuantity={updateComponentQuantity}
+              onSetQuantity={setComponentQuantity}
+              onMarkAsVague={markComponentAsVague}
+            />
+          )}
+
+          <IngredientSearch
+            disabled={isSubmitting}
+            existingIngredientIds={getAllIngredientIds()}
+            onAddIngredient={addIngredient}
+          />
+
+          {!hasIngredients && (
+            <div className="border-muted rounded-md border border-dashed p-6 text-center">
+              <Body variant="muted">{t('noIngredients')}</Body>
+            </div>
+          )}
+
+          {/* Live nutrition summary */}
+          {nutritionSummary.matchedCount > 0 && (
+            <div className="bg-muted/50 rounded-md border px-3 py-2">
+              <div className="mb-1">
+                <Body variant="caption">{t('nutritionPerServing')}</Body>
+              </div>
+              <NutritionSummary
+                nutrition={nutritionSummary.nutrition}
+                compact
+                components={nutritionSummary.hasVague ? [{ isVague: true }] : undefined}
+              />
+              {nutritionSummary.unmatchedCount > 0 && (
+                <div className="mt-1">
+                  <Body variant="caption">
+                    {t('nutritionApproximate', {
+                      count: nutritionSummary.unmatchedCount,
+                    })}
+                  </Body>
+                </div>
+              )}
+              <div className="mt-2">
+                <NutritionDisclaimer />
+              </div>
+            </div>
+          )}
+        </section>
+
+        <MealFormDetails
+          suitableFor={suitableFor}
+          onMealTypeToggle={handleMealTypeToggle}
+          timeMinutes={timeMinutes}
+          onTimeMinutesChange={setTimeMinutes}
+          kidFriendly={kidFriendly}
+          onKidFriendlyChange={setKidFriendly}
+          disabled={isSubmitting}
+        />
+
+        {/* Preparation Notes Section */}
+        <section className="flex flex-col gap-2">
+          <Label htmlFor="preparationNotes">{t('preparationNotesLabel')}</Label>
+          <Body variant="muted">{t('preparationNotesHelper')}</Body>
+          <Textarea
+            id="preparationNotes"
+            value={preparationNotes}
+            onChange={(e) => setPreparationNotes(e.target.value)}
+            placeholder={t('preparationNotesPlaceholder')}
+            rows={5}
+            maxLength={5000}
+            disabled={isSubmitting}
+            className="resize-y"
+          />
+        </section>
+
+        {/* Source URL Section */}
+        <section className="flex flex-col gap-2">
+          <Label htmlFor="sourceUrl">{t('sourceUrlLabel')}</Label>
+          <div className="flex gap-2">
+            <Input
+              id="sourceUrl"
+              type="url"
+              value={sourceUrl}
+              onChange={(e) => setSourceUrl(e.target.value)}
+              placeholder={t('sourceUrlPlaceholder')}
+              disabled={isSubmitting}
+            />
+            {sourceUrl && (
               <Button
                 type="button"
-                variant="outline"
-                onClick={handleCancelClick}
+                variant="ghost"
+                size="icon"
+                onClick={() => setSourceUrl('')}
                 disabled={isSubmitting}
+                aria-label={t('sourceUrlClearAria')}
               >
-                {t('cancel')}
+                <X className="h-4 w-4" />
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? t('saving') : isEditing ? t('update') : t('create')}
-              </Button>
-            </div>
+            )}
           </div>
-        </CardFooter>
+        </section>
+        {/* Inline at the end of the form, not sticky */}
+        <div className="flex flex-col gap-4">
+          {error && <FieldError>{error}</FieldError>}
+          {/* Two-up on a phone, label-sized at the start of the column from md (HON-782) */}
+          <div className="grid grid-cols-2 gap-2 md:flex">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancelClick}
+              disabled={isSubmitting}
+            >
+              {t('cancel')}
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? t('saving') : isEditing ? t('update') : t('create')}
+            </Button>
+          </div>
+        </div>
       </form>
 
       {/* Discard confirmation dialog */}
@@ -342,6 +336,6 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+    </div>
   )
 }

@@ -127,7 +127,9 @@ export async function GET(request: NextRequest) {
           // the "Today" label cannot disagree (HON-762). Overdue counts as today.
           dueToday:
             calendarDaysBetween(todayInTz, item.earliestNeededDate, household.timezone) <= 0,
-          isVague: item.isVague,
+          // Same condition as `formatShoppingQuantity`: true only when
+          // `displayQuantity` is the phrase, not a formatted amount (HON-783).
+          isVague: item.isVague && !!item.originalPhrase,
         }
       })
 
